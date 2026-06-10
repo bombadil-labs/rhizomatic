@@ -9,6 +9,7 @@ pub mod hview;
 pub mod json_profile;
 pub mod policy;
 pub mod pred;
+pub mod reactor;
 pub mod schema;
 pub mod schema_deltas;
 pub mod set;
@@ -24,6 +25,7 @@ pub use eval::{
 pub use hview::{hview_canonical_hex, HVEntry, HView};
 pub use policy::{resolve_view, view_canonical_hex, MergeFn, Order, Policy, PropPolicy, View};
 pub use pred::{compare_primitives, eval_pred, Pred};
+pub use reactor::{IngestResult, Reactor};
 pub use schema::{collect_refs, HyperSchema, SchemaRegistry};
 pub use schema_deltas::{load_schema, publish_schema_claims, schema_schema, VOCAB_PREFIX};
 pub use set::{federate, fork, make_delta, make_negation_claims, merge, DeltaSet};

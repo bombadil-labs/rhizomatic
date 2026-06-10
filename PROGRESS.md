@@ -71,9 +71,12 @@ M2 is the execution engine (SPEC-4): ingest deltas over time, keep registered ma
 incrementally equal to batch evaluation. The batch evaluator (M1) is the ORACLE: every
 incremental result must be byte-identical to from-scratch eval (SPEC-4 §1).
 
-- **M2.1 — reactor core + ingest pipeline.** ingest→validate→persist(in-memory log)→dispatch→
-  update→notify; idempotent by id; the four core indexes (id, target, negation, value);
-  convergence under permuted ingestion (property: any order ⇒ same materializations).
+- **M2.1 — reactor core + ingest pipeline.** ✅ **complete.** ingest→validate→persist→index with
+  accepted|duplicate|rejected outcomes (ERRATA-4 V3); the four core indexes — id (DeltaSet),
+  target, negation, value — with the value index keyed by (role, primitive) since primitives
+  carry no context in the pinned format (V1, flagged to SPEC-4/SPEC-2); signature gate on ingest;
+  order-convergence property-tested in both incl. negation-before-target; read-your-writes;
+  index-vs-full-scan agreement; value-index-vs-evaluation agreement. v0 log is in-memory (V2).
 - **M2.2 — materializations + incremental maintenance.** register (term, roots, pin-set);
   monotone insertion along support paths; non-monotone repair via the negation index
   (localized recomputation per SPEC-4 §4.3); incremental-equivalence property tests vs the
