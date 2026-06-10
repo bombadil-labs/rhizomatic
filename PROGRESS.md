@@ -20,8 +20,8 @@ window should be able to read this top-to-bottom and know exactly where things s
 | M1 | The evaluator (8 operators, schema bootstrap) | ✅ complete | ✅ complete |
 | M2 | The reactor | ✅ complete | ✅ complete |
 | M3 | Packs | ✅ complete | ✅ complete |
-| M4 | Federation | next | next |
-| M5 | Derivation | — | — |
+| M4 | Federation | ✅ complete | ✅ complete |
+| M5 | Derivation | next | next |
 
 ## Discovery: how M1 (the evaluator) decomposes into slices
 
@@ -103,6 +103,21 @@ divergent fields always representable, P2), loose deltas hydrated. Stored per-re
 rehydration self-verifying (SPEC-8 §4 free fsck — a corrupted pack FAILS, proven in both).
 Deterministic: same set ⇒ same bytes ⇒ same packId. Cross-impl vector (vectors/l0-pack/pack.json):
 Rust reproduces the TS pack bytes exactly. Index/dictionaries deferred (P3).
+
+## Discovery: M4 (federation) — done in one slice
+
+**M4 — federation.** ✅ **complete.** Peer = Reactor + keypair + offered lens (any DSet-sort
+term, F4) + admission Pred (§5). In-process transport (F1 — sneakernet-legal); v0 reconciliation
+is full sorted-id exchange (F2, sublinear digests deferred). The signature boundary (F3):
+signed deltas travel loose; signed manifests carry sig-less members as atomic BUNDLEs (Merkle
+coverage); unsigned uncovered deltas are WITHHELD. Conformance §8 witnessed in both: random
+fork pairs converge to union (property), sync idempotent, lens fidelity, admission filtering
+(rejection local + silent), partition/heal through a relay. ERRATA-6 F1-F4.
+
+**Remaining: M5 (derivation)** — pure/effectful derived authors, replay verification, loop
+budgets. The WASM host ABI is SPEC-7's biggest open surface; a v0 can implement native-function
+derived authors (host-language closures as non-portable authors) with the binding lifecycle,
+emission policies, and pure-replay verification, deferring WASM portability.
 
 ## Slice log
 

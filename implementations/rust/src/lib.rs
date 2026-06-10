@@ -9,6 +9,7 @@ pub mod hview;
 pub mod json_profile;
 pub mod materialize;
 pub mod pack;
+pub mod peer;
 pub mod policy;
 pub mod pred;
 pub mod reactor;
@@ -27,6 +28,7 @@ pub use eval::{
 pub use hview::{hview_canonical_hex, HVEntry, HView};
 pub use materialize::{is_root_anchored, MaterializationChange};
 pub use pack::{pack_id, pack_set, unpack_set};
+pub use peer::{sync_both, Peer, SyncReport};
 pub use policy::{resolve_view, view_canonical_hex, MergeFn, Order, Policy, PropPolicy, View};
 pub use pred::{compare_primitives, eval_pred, Pred};
 pub use reactor::{make_manifest_claims, manifest_member_ids, IngestResult, Reactor};
