@@ -7,6 +7,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { canonicalHex, computeId } from "../src/delta.js";
 import { parseClaims } from "../src/json-profile.js";
+import { DeltaSet, makeDelta } from "../src/set.js";
 import { authorForSeed, publicKeyFromSeed, signClaims } from "../src/sign.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -204,3 +205,14 @@ const signed = signedInputs.map(({ name, spec, keyId, mk }) => {
 
 writeFileSync(resolve(outDir, "deltas-signed.json"), `${JSON.stringify(signed, null, 2)}\n`);
 console.log(`wrote ${signed.length} signed delta vectors to vectors/l0-delta/deltas-signed.json`);
+
+// --- set digest of the deltas.json set (ERRATA D10, provisional helper) ---
+
+const dset = DeltaSet.from(inputs.map(({ claims }) => makeDelta(parseClaims(claims))));
+const setDigest = {
+  spec: "ERRATA D10 (provisional helper, not the SPEC-6 reconciliation digest)",
+  ids: dset.ids(),
+  digest: dset.digest(),
+};
+writeFileSync(resolve(outDir, "set-digest.json"), `${JSON.stringify(setDigest, null, 2)}\n`);
+console.log(`wrote set digest (${dset.size} ids) to vectors/l0-delta/set-digest.json`);

@@ -89,6 +89,15 @@ implementations and can be pinned in vectors. Verification of a delta checks, in
 recomputes from the claims (content addressing holds), then the signature verifies over the id
 bytes against the key named in `author` (D8).
 
+## D10 — Set digest (PROVISIONAL helper)
+
+`digest(S)` = `contentAddress( canonical CBOR array of S's id strings, sorted lexicographically )`.
+A cheap canonical fingerprint of set membership, used by the implementations to compare delta sets
+(CRDT property tests, parity checks). It is **NOT** the SPEC-6 §4 reconciliation digest — that
+Merkle/IBLT construction is still an open question there. Pinned by
+`vectors/l0-delta/set-digest.json` only so both implementations agree while it remains a helper;
+promotion to normative status is a SPEC-6 decision.
+
 ## JSON debug profile (for vectors)
 
 The canonical form is CBOR; the JSON profile is for authoring/inspection only (SPEC-1 §4.1). A pointer

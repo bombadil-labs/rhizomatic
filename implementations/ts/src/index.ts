@@ -17,3 +17,4 @@ export {
   verifyDelta,
   type Verification,
 } from "./sign.js";
+export { DeltaSet, federate, fork, makeDelta, makeNegationClaims, merge } from "./set.js";

@@ -16,28 +16,33 @@ window should be able to read this top-to-bottom and know exactly where things s
 
 | | Milestone | TS | Rust |
 |---|---|---|---|
-| M0 | The atom (canonical form, id, signatures, set-ops) | M0.1 ✅ | M0.1 ✅ |
-| M1 | The evaluator (8 operators, schema bootstrap) | — | — |
+| M0 | The atom (canonical form, id, signatures, set-ops) | ✅ complete | ✅ complete |
+| M1 | The evaluator (8 operators, schema bootstrap) | in progress | in progress |
 | M2 | The reactor | — | — |
 | M3 | Packs | — | — |
 | M4 | Federation | — | — |
 | M5 | Derivation | — | — |
 
-## Discovery: how M0 decomposes into slices
+## Discovery: how M1 (the evaluator) decomposes into slices
 
-The atom is the foundation everything stands on, so it is built smallest-first, each slice
-vector-backed and green in both implementations before the next:
+M1 is `eval(term, deltaSet)` as a pure function (SPEC-2), byte-exact against vectors, in both
+implementations. It is the oracle the reactor (M2) will later be property-tested against, so it must
+be correct and boring. Slices:
 
-- **M0.1 — canonical CBOR + content-addressed id.** Delta model; deterministic CBOR encoder (v0
-  profile, [spec/01-delta.ERRATA.md](spec/01-delta.ERRATA.md)); BLAKE3-256 multihash `id`. The highest-value
-  parity test in the project: two independent encoders must agree byte-for-byte. ← **current slice**
-- **M0.2 — float16 shortest-float.** Close the tracked RFC 8949 §4.2.1 deviation (ERRATA D1) with
-  dedicated Appendix-A vectors.
-- **M0.3 — signatures.** Ed25519 detached sig over `id`; sign/verify; signed-vs-unsigned vectors.
-- **M0.4 — delta-set ops + negation shape.** merge (union by id), fork (filter), federate; dedup;
-  the `negates` vocabulary delta shape; CRDT property tests (commutative/associative/idempotent).
-
-That completes M0 (conformance Level 0). M1 (the evaluator) follows.
+- **M1.1 — Pred grammar + select/union/mask.** The predicate evaluator (SPEC-2 §3: match /
+  hasPointer / and / or / not over delta fields; StrMatch exact|prefix|inSet; ValMatch vcmp|between|
+  inSet with the canonical type order), `select`, `union`, and `mask` with drop|annotate|trust and
+  well-founded negation chains (even-length reinstates, odd suppresses). Needs a JSON term profile
+  for vectors → new ERRATA for SPEC-2. ← **next slice**
+- **M1.2 — group/prune + HyperView canonical form.** GroupKey byTargetContext|byRole|const;
+  HView structure + its canonical CBOR serialization (content-addressable, SPEC-3 §4).
+- **M1.3 — expand/fix + schema registry.** SchemaRef (pinned hash | evolvable entity), the DAG
+  constraint + cycle rejection, expansion against the same DSet, data-cycle termination vectors
+  (Keanu ↔ BRZRKR).
+- **M1.4 — resolve + policy terms (SPEC-5).** pick/all/merge/conflicts/absentAs; Order chains
+  bottoming in lexById; the closed MergeFn set; edge semantics (§4) incl. mixed-type ordering.
+- **M1.5 — schemas-as-deltas + the `rdb.SchemaSchema` bootstrap.** Round-trip deltas → term →
+  canonical CBOR → hash; pin the bootstrap schema constant in vectors (SPEC-3 §5).
 
 ## Slice log
 
@@ -56,5 +61,26 @@ Result: **TS** 27 tests + `tsc --noEmit` clean; **Rust** 7 tests + clippy clean.
 `canonicalCborHex` and `id` byte-for-byte on the first run — two independent CBOR encoders agree.
 Both implementations reject non-finite numbers, empty pointer lists, and empty role/context.
 
-**Next: M0.2** — float16 shortest-float (close ERRATA D1's tracked deviation with RFC 8949 Appendix-A
-vectors). Then M0.3 (Ed25519 signatures), M0.4 (delta-set ops + negation shape + CRDT property tests).
+### M0.2 — full shortest-form floats  *(✅ complete)*
+
+f16/f32/f64 shortest-exact encoding per RFC 8949 §4.2.1, including f16 subnormals; ERRATA D1's
+tracked deviation closed. Vectors now include the Appendix A float cases + boundary probes.
+**Cross-impl finding:** serde_json's default float parsing is up to 1 ULP off and fractured parity
+(caught by the `float-f16-min-subnormal` vector); fixed via the `float_roundtrip` feature and
+recorded in the ERRATA — JSON-profile consumers MUST parse numbers correctly rounded.
+
+### M0.3 — Ed25519 signatures  *(✅ complete)*
+
+ERRATA D8 (author = `ed25519:<pubkey hex>` for signed deltas) and D9 (sig over raw multihash bytes
+of id; verify = content addressing holds + signature verifies). 3-way verification outcome
+(verified|unsigned|invalid). `vectors/keys/keys.json` + `deltas-signed.json` pin deterministic
+RFC 8032 signature bytes; ed25519-dalek reproduced @noble/curves' exact signatures.
+
+### M0.4 — delta-set algebra + negation shape  *(✅ complete — M0 done)*
+
+DeltaSet (dedup by id, content-address verified on insert), merge/fork/federate, makeNegationClaims
+(SPEC-1 §7 shape), set digest (ERRATA D10, provisional). CRDT laws property-tested in both:
+fast-check (TS) and proptest (Rust) — commutativity, associativity, idempotence, fork-partition,
+federate≡merge∘fork, dedup. Cross-impl digest pinned by `set-digest.json`.
+
+**M0 = conformance Level 0 complete in both implementations. Next: M1.1.**
