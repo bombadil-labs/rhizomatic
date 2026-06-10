@@ -13,7 +13,8 @@
     "format:check": "prettier --check .",
     "check": "npm run format:check && npm run lint && npm run typecheck && npm test",
     "gen-vectors": "tsx tools/gen-vectors.ts",
-    "demo": "tsx demo/demo.ts"
+    "demo": "tsx demo/demo.ts",
+    "playground:build": "esbuild demo/playground/playground.ts --bundle --format=iife --outfile=demo/playground/bundle.js"
   },
   "dependencies": {
     "@noble/curves": "^1.6.0",
@@ -22,9 +23,10 @@
   "devDependencies": {
     "@eslint/js": "^9.15.0",
     "@types/node": "^22.0.0",
-    "fast-check": "^3.22.0",
+    "esbuild": "^0.28.0",
     "eslint": "^9.15.0",
     "eslint-config-prettier": "^9.1.0",
+    "fast-check": "^3.22.0",
     "prettier": "^3.3.0",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",

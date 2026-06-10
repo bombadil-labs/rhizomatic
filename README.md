@@ -12,7 +12,8 @@ milestones (M0-M5, conformance Levels 0-4) are implemented in both. See
 
 **See it run:** `cd implementations/ts && npm install && npm run demo` — a seven-act story
 covering superposition, policy lenses, retraction + audit views, time travel, federation,
-derived authors, and packs.
+derived authors, and packs. For the clickable version: `npm run playground:build` then open
+`implementations/ts/demo/playground/index.html` — three sovereign peers in a browser tab.
 
 ---
 

@@ -3,6 +3,7 @@ node_modules/
 implementations/ts/node_modules/
 implementations/ts/dist/
 implementations/ts/coverage/
+implementations/ts/demo/playground/bundle.js
 *.tsbuildinfo
 .eslintcache
 

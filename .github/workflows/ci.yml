@@ -24,6 +24,8 @@ jobs:
       - run: npm ci
       - name: green-gate (format + lint + typecheck + tests)
         run: npm run check
+      - name: playground bundles
+        run: npm run playground:build
       - name: vectors are fresh (generator output == committed bytes)
         run: |
           npm run gen-vectors

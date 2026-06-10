@@ -3,3 +3,5 @@ node_modules
 package-lock.json
 # Markdown docs are hand-formatted; leave them to the author.
 *.md
+demo/playground/bundle.js
+demo/playground/index.html

@@ -1,0 +1,20 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "playground",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "esbuild",
+        "demo/playground/playground.ts",
+        "--bundle",
+        "--format=iife",
+        "--outfile=demo/playground/bundle.js",
+        "--servedir=demo/playground",
+        "--serve=127.0.0.1:4173"
+      ],
+      "cwd": "implementations/ts",
+      "port": 4173
+    }
+  ]
+}
