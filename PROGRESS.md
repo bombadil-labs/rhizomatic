@@ -19,8 +19,8 @@ window should be able to read this top-to-bottom and know exactly where things s
 | M0 | The atom (canonical form, id, signatures, set-ops) | ✅ complete | ✅ complete |
 | M1 | The evaluator (8 operators, schema bootstrap) | ✅ complete | ✅ complete |
 | M2 | The reactor | ✅ complete | ✅ complete |
-| M3 | Packs | next | next |
-| M4 | Federation | — | — |
+| M3 | Packs | ✅ complete | ✅ complete |
+| M4 | Federation | next | next |
 | M5 | Derivation | — | — |
 
 ## Discovery: how M1 (the evaluator) decomposes into slices
@@ -93,6 +93,16 @@ incremental result must be byte-identical to from-scratch eval (SPEC-4 §1).
   (member/prior/intent); ingestBundle validates everything first (atomic acceptance, no trace on
   reject, manifest-commitment check), makes all members visible to dispatch in ONE step (single
   change event per bundle); holdsAllMembers = the verifiable completeness hash check.
+
+## Discovery: M3 (packs) — done in one slice
+
+**M3 — the pack format.** ✅ **complete.** v0 pack = one canonical-CBOR item (ERRATA-8 P1):
+string-table interning, hydrated manifests as envelopes, members dehydrated against the
+lexicographically-first claiming manifest (author omitted when equal, dt omitted when 0 —
+divergent fields always representable, P2), loose deltas hydrated. Stored per-record ids make
+rehydration self-verifying (SPEC-8 §4 free fsck — a corrupted pack FAILS, proven in both).
+Deterministic: same set ⇒ same bytes ⇒ same packId. Cross-impl vector (vectors/l0-pack/pack.json):
+Rust reproduces the TS pack bytes exactly. Index/dictionaries deferred (P3).
 
 ## Slice log
 

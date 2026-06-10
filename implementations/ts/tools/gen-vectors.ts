@@ -6,6 +6,9 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { canonicalHex, computeId } from "../src/delta.js";
+import { bytesToHex } from "../src/hash.js";
+import { packId, packSet } from "../src/pack.js";
+import { makeManifestClaims } from "../src/reactor.js";
 import { evalTerm, resultCanonicalHex } from "../src/eval.js";
 import { claimsToJson, parseClaims } from "../src/json-profile.js";
 import { SCHEMA_SCHEMA, publishSchemaClaims } from "../src/schema-deltas.js";
@@ -1045,6 +1048,61 @@ console.log(
     schemaDeltasOut.bootstrap.termHash.slice(0, 14) +
     "...)",
 );
+
+// --- l0-pack: the pack round-trip vector (SPEC-8, ERRATA-8) ---
+
+const packMembers = [
+  ...Object.values(fx)
+    .slice(0, 4)
+    .map((f) => makeDelta(parseClaims(f.claims))),
+  signClaims(
+    parseClaims({
+      timestamp: 4900,
+      author: keys[0]!.author,
+      pointers: [{ role: "note", target: { value: "covered" } }],
+    }),
+    keys[0]!.seedHex,
+  ),
+];
+const packManifest = makeDelta(
+  makeManifestClaims(
+    "did:key:zBundler",
+    5000,
+    packMembers.map((m) => m.id),
+    { intent: "pack fixture" },
+  ),
+);
+const packManifest2 = makeDelta(
+  makeManifestClaims("did:key:zBundler", 5001, [packMembers[0]!.id], { prior: packManifest.id }),
+);
+const packLoose = Object.values(fx)
+  .slice(4, 8)
+  .map((f) => makeDelta(parseClaims(f.claims)));
+const packDeltas = [...packMembers, packManifest, packManifest2, ...packLoose];
+const packFixtureSet = DeltaSet.from(packDeltas);
+const packBytes = packSet(packFixtureSet);
+
+mkdirSync(resolve(evalDir, "../l0-pack"), { recursive: true });
+writeFileSync(
+  resolve(evalDir, "../l0-pack/pack.json"),
+  `${JSON.stringify(
+    {
+      note: "members incl. a divergent-author member, a signed member, a multiply-claimed member; manifests + loose deltas. Rust must reproduce packHex byte-for-byte.",
+      deltas: packDeltas.map((d) => ({
+        claims: claimsToJson(d.claims),
+        ...(d.sig === undefined ? {} : { sig: d.sig }),
+      })),
+      packHex: bytesToHex(packBytes),
+      packId: packId(packBytes),
+    },
+    null,
+    2,
+  )}\n`,
+);
+console.log(
+  `wrote pack vector (${packDeltas.length} deltas, packId ${packId(packBytes).slice(0, 14)}...)`,
+);
+
 // the fixture ids double as documentation: surface two for sanity
 console.log(
   `  d2=${idOf("d2-title-reloaded").slice(0, 12)}… d4=${idOf("d4-negates-d2").slice(0, 12)}…`,
