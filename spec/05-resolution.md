@@ -1,4 +1,4 @@
-# RhizomeDB Specification — SPEC-5: Resolution, Views & the ABI (L5)
+# Rhizomatic Specification — SPEC-5: Resolution, Views & the ABI (L5)
 
 **Status:** Draft
 **Layer:** L5 — output boundary / calling convention

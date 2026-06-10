@@ -1,4 +1,4 @@
-# RhizomeDB Specification — SPEC-2: The Operator Algebra (L2)
+# Rhizomatic Specification — SPEC-2: The Operator Algebra (L2)
 
 **Status:** Draft
 **Layer:** L2 — instruction set
@@ -171,7 +171,7 @@ Claim: the algebra expresses Codd's six primitive operations over relations enco
 | Difference − | `select(and(p, not(q)))` |
 | Rename ρ | vocabulary mapping at L5 (an ABI concern, not an algebra concern) |
 
-The honest open edge is ad-hoc product/join over entities not already linked by deltas. Position of this spec: RhizomeDB stores **materialized joins** (P-claim of the original design); ad-hoc joins are an L4 index/query-planner facility built *from* L2 terms, not a missing instruction. This is flagged for the formal proof to confirm or refute.
+The honest open edge is ad-hoc product/join over entities not already linked by deltas. Position of this spec: Rhizomatic stores **materialized joins** (P-claim of the original design); ad-hoc joins are an L4 index/query-planner facility built *from* L2 terms, not a missing instruction. This is flagged for the formal proof to confirm or refute.
 
 ## 7. Serialization of Terms
 

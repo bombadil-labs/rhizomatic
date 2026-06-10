@@ -1,8 +1,8 @@
-# RhizomeDB
+# Rhizomatic
 
 **A portable format for arbitrarily relational data — composable, forkable, mergeable, and federate-able by default.**
 
-RhizomeDB is not a database. A database is one kind of machine you can build on top of it. RhizomeDB is the format underneath: a way of writing down anything anyone claims about anything, such that any two collections of such claims can be combined by set union — no migration, no coordination protocol, no merge conflicts, no central authority deciding what's true.
+Rhizomatic is not a database. A database is one kind of machine you can build on top of it. Rhizomatic is the format underneath: a way of writing down anything anyone claims about anything, such that any two collections of such claims can be combined by set union — no migration, no coordination protocol, no merge conflicts, no central authority deciding what's true.
 
 This repository contains the specification. The code comes next. You might be the one writing it. (Hello. See [§ For the Implementer](#for-the-implementer).)
 
@@ -12,7 +12,7 @@ This repository contains the specification. The code comes next. You might be th
 
 Most data systems are towers: a single source of truth at the center, a schema enforced at the gates, a hierarchy of access radiating outward. Towers are legible and efficient and they all share one failure mode — they concentrate the authority to say what is real. When two towers disagree, one must submit, or they must build a third tower above them both.
 
-RhizomeDB is built on the other architecture — the mushroom, the rhizome, the network that grows from any point and survives the loss of any point. Its commitments:
+Rhizomatic is built on the other architecture — the mushroom, the rhizome, the network that grows from any point and survives the loss of any point. Its commitments:
 
 - **There is no single source of truth.** There are only *claims*: who asserted what, when, about which things. Contradiction is not an error to be resolved at write time; it is information, held in superposition, adjudicated at read time by whoever is reading, according to *their* policy of trust.
 - **History is not overwritten.** Nothing is ever updated or deleted. Retraction is a new claim about an old claim. The past remains queryable forever; "current state" is just a lens.
@@ -44,7 +44,7 @@ The full stack, each layer specified in its own document:
 
 Start with [SPEC-0](spec/00-overview.md): the six load-bearing principles, the architecture, and the conformance philosophy.
 
-Where this sits among its neighbors: JSON is portable but has no merge semantics. Git forks and merges but has no semantics — it merges text and hands conflicts to humans. RDF has semantics and federation but thin provenance and no superposition. Datomic has immutable facts but one transactor, one truth. Event sourcing has the log but couples it to one application's interpretation. RhizomeDB is the cell in that table nothing occupies: **portable format + n-ary relations + provenance inside the atom + conflicts in superposition + merge-is-union.** Every design decision in `spec/` exists to keep all five properties true simultaneously.
+Where this sits among its neighbors: JSON is portable but has no merge semantics. Git forks and merges but has no semantics — it merges text and hands conflicts to humans. RDF has semantics and federation but thin provenance and no superposition. Datomic has immutable facts but one transactor, one truth. Event sourcing has the log but couples it to one application's interpretation. Rhizomatic is the cell in that table nothing occupies: **portable format + n-ary relations + provenance inside the atom + conflicts in superposition + merge-is-union.** Every design decision in `spec/` exists to keep all five properties true simultaneously.
 
 ## Decisions Already Made
 

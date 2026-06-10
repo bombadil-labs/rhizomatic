@@ -1,4 +1,4 @@
-# RhizomeDB Specification — SPEC-3: Schemas & HyperViews (L3)
+# Rhizomatic Specification — SPEC-3: Schemas & HyperViews (L3)
 
 **Status:** Draft
 **Layer:** L3 — programs

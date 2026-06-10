@@ -1,4 +1,4 @@
-# RhizomeDB Specification — SPEC-0: Overview & Architecture
+# Rhizomatic Specification — SPEC-0: Overview & Architecture
 
 **Status:** Draft
 **Layer:** —
@@ -6,9 +6,9 @@
 
 ---
 
-## 1. What RhizomeDB Is
+## 1. What Rhizomatic Is
 
-RhizomeDB is not a database. It is a **portable interchange format for arbitrarily relational data, with a guaranteed algebra**: any two delta streams can be forked, merged, and federated by construction, with no coordination protocol, no migration step, and no single source of truth.
+Rhizomatic is not a database. It is a **portable interchange format for arbitrarily relational data, with a guaranteed algebra**: any two delta streams can be forked, merged, and federated by construction, with no coordination protocol, no migration step, and no single source of truth.
 
 A *database* is one kind of machine you can build on top of the format. The format is normative; machines are conformant citizens.
 
@@ -21,9 +21,9 @@ A *database* is one kind of machine you can build on top of the format. The form
 | RDF | ✓ | — (triples) | partial (reification) | — | partial |
 | Datomic | — (machine-coupled) | ✓ | ✓ | — (transactor decides) | — |
 | Event sourcing | — (app-coupled) | ✓ | ✓ | — | — |
-| **RhizomeDB** | ✓ | ✓ | ✓ | ✓ | ✓ |
+| **Rhizomatic** | ✓ | ✓ | ✓ | ✓ | ✓ |
 
-RhizomeDB occupies the cell in this table that nothing else occupies. Every design decision below exists to keep all five columns checked simultaneously.
+Rhizomatic occupies the cell in this table that nothing else occupies. Every design decision below exists to keep all five columns checked simultaneously.
 
 ## 2. Load-Bearing Principles
 
@@ -73,7 +73,7 @@ L1–L6 form a strict stratification. L7 is deliberately a **loop**, not a strat
 
 The von Neumann analogy is exact and intentional:
 
-| Computing | RhizomeDB |
+| Computing | Rhizomatic |
 |---|---|
 | Memory / wire format | Deltas (L1) |
 | Instruction set | Operator algebra (L2) |
@@ -105,7 +105,7 @@ Indexes are not a separate concept: an index is a **materialized prefix** of thi
 
 ## 5. Conformance Philosophy
 
-RhizomeDB ships a **conformance suite, not a reference implementation**. The normative artifacts are:
+Rhizomatic ships a **conformance suite, not a reference implementation**. The normative artifacts are:
 
 1. These specification documents.
 2. A directory of test vectors: `(input deltas, schema program, policy) → expected canonical output` for every normative behavior, including edge cases (negation chains, merge convergence, expansion termination).

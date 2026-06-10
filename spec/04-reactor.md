@@ -1,4 +1,4 @@
-# RhizomeDB Specification — SPEC-4: The Reactor (L4)
+# Rhizomatic Specification — SPEC-4: The Reactor (L4)
 
 **Status:** Draft
 **Layer:** L4 — execution engine

@@ -1,4 +1,4 @@
-# RhizomeDB Specification — SPEC-1: The Delta Layer (L1)
+# Rhizomatic Specification — SPEC-1: The Delta Layer (L1)
 
 **Status:** Draft
 **Layer:** L1 — memory / wire format

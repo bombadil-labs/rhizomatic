@@ -1,4 +1,4 @@
-# RhizomeDB Specification — SPEC-8: Storage Profile (L0)
+# Rhizomatic Specification — SPEC-8: Storage Profile (L0)
 
 **Status:** Draft
 **Layer:** L0 — physical representation

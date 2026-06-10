@@ -1,0 +1,14 @@
+# TypeScript / Node
+node_modules/
+implementations/ts/node_modules/
+implementations/ts/dist/
+implementations/ts/coverage/
+*.tsbuildinfo
+
+# Rust
+implementations/rust/target/
+**/*.rs.bk
+
+# Editor / OS
+.DS_Store
+*.log

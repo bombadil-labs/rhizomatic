@@ -1,4 +1,4 @@
-# RhizomeDB Specification — SPEC-6: Federation (L6)
+# Rhizomatic Specification — SPEC-6: Federation (L6)
 
 **Status:** Draft
 **Layer:** L6 — networking
