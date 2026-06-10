@@ -44,11 +44,20 @@ pub fn claims_to_cbor(claims: &Claims) -> CborValue {
     ])
 }
 
+fn check_nfc(s: &str, what: &str) -> Result<(), String> {
+    if unicode_normalization::is_nfc(s) {
+        Ok(())
+    } else {
+        Err(format!("{what} must be NFC-normalized (ERRATA D11): {s:?}"))
+    }
+}
+
 /// Reject malformed claims at the boundary; never repair (SPEC-4 §2).
 pub fn validate(claims: &Claims) -> Result<(), String> {
     if claims.author.is_empty() {
         return Err("author must be non-empty".into());
     }
+    check_nfc(&claims.author, "author")?;
     if !claims.timestamp.is_finite() {
         return Err("timestamp must be finite".into());
     }
@@ -59,10 +68,17 @@ pub fn validate(claims: &Claims) -> Result<(), String> {
         if p.role.is_empty() {
             return Err("role must be non-empty".into());
         }
-        if let Target::Primitive(Primitive::Num(n)) = &p.target {
-            if !n.is_finite() {
-                return Err("numeric primitive must be finite".into());
+        check_nfc(&p.role, "role")?;
+        match &p.target {
+            Target::Primitive(Primitive::Num(n)) => {
+                if !n.is_finite() {
+                    return Err("numeric primitive must be finite".into());
+                }
             }
+            Target::Primitive(Primitive::Str(s)) => check_nfc(s, "string primitive")?,
+            Target::Primitive(Primitive::Bool(_)) => {}
+            Target::Entity(e) => check_nfc(&e.id, "entity id")?,
+            Target::Delta(d) => check_nfc(&d.delta, "delta ref")?,
         }
         let ctx = match &p.target {
             Target::Entity(e) => e.context.as_ref(),
@@ -73,6 +89,7 @@ pub fn validate(claims: &Claims) -> Result<(), String> {
             if c.is_empty() {
                 return Err("context, when present, must be non-empty".into());
             }
+            check_nfc(c, "context")?;
         }
     }
     Ok(())

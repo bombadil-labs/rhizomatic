@@ -29,11 +29,12 @@ M1 is `eval(term, deltaSet)` as a pure function (SPEC-2), byte-exact against vec
 implementations. It is the oracle the reactor (M2) will later be property-tested against, so it must
 be correct and boring. Slices:
 
-- **M1.1 — Pred grammar + select/union/mask.** The predicate evaluator (SPEC-2 §3: match /
-  hasPointer / and / or / not over delta fields; StrMatch exact|prefix|inSet; ValMatch vcmp|between|
-  inSet with the canonical type order), `select`, `union`, and `mask` with drop|annotate|trust and
-  well-founded negation chains (even-length reinstates, odd suppresses). Needs a JSON term profile
-  for vectors → new ERRATA for SPEC-2. ← **next slice**
+- **M1.1 — Pred grammar + select/union/mask.** ✅ **complete.** Full predicate evaluator, the three
+  DSet operators, JSON term profile (ERRATA-2 E1), canonical result encoding (E2), canonical
+  primitive total order with NFC-UTF-8 string comparison (E3), trust-restricted negation (E4),
+  guarded negation recursion (E5), NFC-at-the-boundary validation (ERRATA-1 D11). 15 vectors over
+  an 8-delta fixture incl. negation chains + mixed-type ordering; 5 evaluator-law proptests
+  (select conjunction-composition, monotonicity, mask⊆operand, union≡or, select≡fork).
 - **M1.2 — group/prune + HyperView canonical form.** GroupKey byTargetContext|byRole|const;
   HView structure + its canonical CBOR serialization (content-addressable, SPEC-3 §4).
 - **M1.3 — expand/fix + schema registry.** SchemaRef (pinned hash | evolvable entity), the DAG

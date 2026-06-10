@@ -18,3 +18,20 @@ export {
   type Verification,
 } from "./sign.js";
 export { DeltaSet, federate, fork, makeDelta, makeNegationClaims, merge } from "./set.js";
+export {
+  comparePrimitives,
+  evalPred,
+  type Cmp,
+  type PPred,
+  type Pred,
+  type StrMatch,
+  type ValMatch,
+} from "./pred.js";
+export {
+  evalTerm,
+  resultCanonicalHex,
+  type EvalResult,
+  type MaskPolicy,
+  type Term,
+} from "./eval.js";
+export { parsePred, parseTerm } from "./term-json.js";

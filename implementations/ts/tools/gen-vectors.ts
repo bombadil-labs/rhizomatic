@@ -6,13 +6,16 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { canonicalHex, computeId } from "../src/delta.js";
+import { evalTerm, resultCanonicalHex } from "../src/eval.js";
 import { parseClaims } from "../src/json-profile.js";
 import { DeltaSet, makeDelta } from "../src/set.js";
 import { authorForSeed, publicKeyFromSeed, signClaims } from "../src/sign.js";
+import { parseTerm } from "../src/term-json.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const outDir = resolve(here, "../../../vectors/l0-delta");
 const keysDir = resolve(here, "../../../vectors/keys");
+const evalDir = resolve(here, "../../../vectors/l1-eval");
 
 interface Input {
   name: string;
@@ -216,3 +219,211 @@ const setDigest = {
 };
 writeFileSync(resolve(outDir, "set-digest.json"), `${JSON.stringify(setDigest, null, 2)}\n`);
 console.log(`wrote set digest (${dset.size} ids) to vectors/l0-delta/set-digest.json`);
+
+// --- l1-eval: select/union/mask over a movie fixture (ERRATA-2 E1-E5) ---
+
+// The fixture is built sequentially because negations pin earlier deltas by content address.
+const claim = (timestamp: number, author: string, pointers: unknown[]) => ({
+  timestamp,
+  author,
+  pointers,
+});
+const subj = (entity: string, context: string) => ({
+  target: { entityRef: { id: entity, context } },
+});
+
+const A = "did:key:zAlice";
+const B = "did:key:zBob";
+const C = "did:key:zCarol";
+
+const fx: Record<string, { claims: unknown; id: string }> = {};
+const addFx = (name: string, claims: unknown) => {
+  fx[name] = { claims, id: computeId(parseClaims(claims)) };
+};
+
+addFx(
+  "d1-title-matrix",
+  claim(100, A, [
+    { role: "subject", ...subj("movie:matrix", "title") },
+    { role: "value", target: { value: "The Matrix" } },
+  ]),
+);
+addFx(
+  "d2-title-reloaded",
+  claim(200, B, [
+    { role: "subject", ...subj("movie:matrix", "title") },
+    { role: "value", target: { value: "Matrix Reloaded" } },
+  ]),
+);
+addFx(
+  "d3-year",
+  claim(150, A, [
+    { role: "subject", ...subj("movie:matrix", "releaseYear") },
+    { role: "value", target: { value: 1999 } },
+  ]),
+);
+addFx(
+  "d4-negates-d2",
+  claim(300, B, [
+    { role: "negates", target: { deltaRef: { delta: fx["d2-title-reloaded"]!.id } } },
+    { role: "reason", target: { value: "typo" } },
+  ]),
+);
+addFx(
+  "d5-negates-d4",
+  claim(400, C, [{ role: "negates", target: { deltaRef: { delta: fx["d4-negates-d2"]!.id } } }]),
+);
+addFx(
+  "d6-rating",
+  claim(500, A, [
+    { role: "subject", ...subj("movie:matrix", "rating") },
+    { role: "value", target: { value: 8.7 } },
+  ]),
+);
+addFx(
+  "d7-tag",
+  claim(120, C, [
+    { role: "subject", ...subj("movie:matrix", "tag") },
+    { role: "value", target: { value: "scifi" } },
+  ]),
+);
+addFx(
+  "d8-other-movie",
+  claim(600, A, [
+    { role: "subject", ...subj("movie:johnwick", "title") },
+    { role: "value", target: { value: "John Wick" } },
+  ]),
+);
+
+const fixtureClaims = Object.values(fx).map((f) => f.claims);
+const fixtureSet = DeltaSet.from(fixtureClaims.map((c) => makeDelta(parseClaims(c))));
+const idOf = (name: string) => fx[name]!.id;
+
+const sel = (pred: unknown, of: unknown = "input") => ({ op: "select", pred, in: of });
+
+const evalCases: Array<{ name: string; spec: string; term: unknown; note?: string }> = [
+  {
+    name: "select-author-eq",
+    spec: "SPEC-2 §3 §4.1",
+    term: sel({ match: { field: "author", cmp: "eq", const: A } }),
+  },
+  {
+    name: "select-timestamp-lte",
+    spec: "SPEC-2 §3 (time-travel as a filter)",
+    term: sel({ match: { field: "timestamp", cmp: "lte", const: 200 } }),
+  },
+  {
+    name: "select-target-entity",
+    spec: "SPEC-2 §3 hasPointer",
+    term: sel({ hasPointer: { targetEntity: "movie:matrix" } }),
+  },
+  {
+    name: "select-context-exact",
+    spec: "SPEC-2 §3 hasPointer.context",
+    term: sel({ hasPointer: { context: { exact: "title" } } }),
+  },
+  {
+    name: "select-role-prefix",
+    spec: "SPEC-2 §3 StrMatch.prefix",
+    term: sel({ hasPointer: { role: { prefix: "neg" } } }),
+  },
+  {
+    name: "select-value-between",
+    spec: "SPEC-2 §3 ValMatch.between (value index contract)",
+    term: sel({ hasPointer: { targetValue: { between: [5, 2000] } } }),
+  },
+  {
+    name: "select-value-gt-mixed-types",
+    spec: "SPEC-2 §3 / ERRATA-2 E3 (bool < number < string)",
+    term: sel({ hasPointer: { targetValue: { vcmp: { cmp: "gt", value: 100 } } } }),
+    note: "strings rank above all numbers in the canonical order, so every string value matches",
+  },
+  {
+    name: "select-value-inset",
+    spec: "SPEC-2 §3 ValMatch.inSet",
+    term: sel({ hasPointer: { targetValue: { inSet: ["scifi", "typo"] } } }),
+  },
+  {
+    name: "select-and-not",
+    spec: "SPEC-2 §3 connectives",
+    term: sel({
+      and: [
+        { match: { field: "author", cmp: "eq", const: A } },
+        { not: { hasPointer: { context: { exact: "title" } } } },
+      ],
+    }),
+  },
+  {
+    name: "select-false-is-empty",
+    spec: "SPEC-2 §3",
+    term: sel("false"),
+  },
+  {
+    name: "union-two-selects",
+    spec: "SPEC-2 §4.2",
+    term: {
+      op: "union",
+      left: sel({ match: { field: "author", cmp: "eq", const: B } }),
+      right: sel({ match: { field: "author", cmp: "eq", const: C } }),
+    },
+  },
+  {
+    name: "mask-drop-chain",
+    spec: "SPEC-2 §4.3 (even-length chain reinstates)",
+    term: { op: "mask", policy: "drop", in: "input" },
+    note: "d4 negates d2, d5 negates d4 => d4 suppressed, d2 reinstated",
+  },
+  {
+    name: "mask-annotate",
+    spec: "SPEC-2 §4.3 / ERRATA-2 E2",
+    term: { op: "mask", policy: "annotate", in: "input" },
+  },
+  {
+    name: "mask-trust-restricts-candidates",
+    spec: "SPEC-2 §4.3 / ERRATA-2 E4",
+    term: {
+      op: "mask",
+      policy: { trust: { match: { field: "author", cmp: "eq", const: B } } },
+      in: "input",
+    },
+    note: "only B's negations count: d4 counts (d5 by C does not), so d2 is suppressed",
+  },
+  {
+    name: "select-then-mask-scopes-to-operand",
+    spec: "SPEC-2 §4.3 (negated(d, D) ranges over the operand set)",
+    term: { op: "mask", policy: "drop", in: sel({ hasPointer: { targetEntity: "movie:matrix" } }) },
+    note: "the negation d4 is excluded by the select, so nothing in the subset is suppressed",
+  },
+];
+
+const evalVectors = evalCases.map(({ name, spec, term, note }) => {
+  const parsed = parseTerm(term);
+  const result = evalTerm(parsed, fixtureSet);
+  const expected: { ids: string[]; negated?: string[] } = { ids: result.set.ids() };
+  if (result.annotated) expected.negated = [...result.negated].sort();
+  return {
+    name,
+    spec,
+    ...(note === undefined ? {} : { note }),
+    term,
+    expected,
+    expectedCanonicalHex: resultCanonicalHex(result),
+  };
+});
+
+mkdirSync(evalDir, { recursive: true });
+const evalOut = {
+  fixture: {
+    note: "deltas are listed with their fixture names; negations pin earlier deltas by id",
+    deltas: Object.entries(fx).map(([name, f]) => ({ name, id: f.id, claims: f.claims })),
+  },
+  cases: evalVectors,
+};
+writeFileSync(resolve(evalDir, "eval-basic.json"), `${JSON.stringify(evalOut, null, 2)}\n`);
+console.log(
+  `wrote ${evalVectors.length} eval vectors over ${fixtureSet.size} fixture deltas to vectors/l1-eval/eval-basic.json`,
+);
+// the fixture ids double as documentation: surface two for sanity
+console.log(
+  `  d2=${idOf("d2-title-reloaded").slice(0, 12)}… d4=${idOf("d4-negates-d2").slice(0, 12)}…`,
+);

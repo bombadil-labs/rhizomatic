@@ -98,6 +98,16 @@ Merkle/IBLT construction is still an open question there. Pinned by
 `vectors/l0-delta/set-digest.json` only so both implementations agree while it remains a helper;
 promotion to normative status is a SPEC-6 decision.
 
+## D11 — NFC is validated at the boundary, not repaired at encode time
+
+SPEC-1 §2.1 requires NFC for `role`/`context`; §4.1 normalizes all strings before encoding. If an
+implementation silently *normalized* at encode time, a non-NFC in-memory string would differ from
+the bytes its id commits to, and string comparisons (predicates, SPEC-2) would diverge from
+canonical-byte equality. Therefore: **every string in claims (author, roles, contexts, entity ids,
+delta refs, string primitives) MUST already be NFC; validation rejects non-NFC strings** ("reject,
+never repair", SPEC-4 §2). The encoder's normalize step remains as a safety net but is a no-op for
+valid claims. In-memory equality is thereby byte equality everywhere.
+
 ## JSON debug profile (for vectors)
 
 The canonical form is CBOR; the JSON profile is for authoring/inspection only (SPEC-1 §4.1). A pointer
