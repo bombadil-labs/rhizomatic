@@ -82,15 +82,15 @@ When implementation contradicts specification, **the contradiction is the delive
 
 | | Milestone | Status |
 |---|---|---|
-| **M0** | The atom: canonical CBOR, content addressing, signatures, delta-set ops | **in progress** |
-| **M1** | The evaluator: the eight operators as a pure function; `rdb.SchemaSchema` bootstrap | **in progress** |
-| M2 | The reactor: ingest, core indexes, incremental maintenance, incremental-equivalence | later |
-| M3 | Packs: the L0 round-trip | later |
-| M4 | Federation: convergence from arbitrary divergent states | later |
-| M5 | Derivation: derived authors, replay verification (depends on SPEC-7, in authoring) | later |
+| M0 | The atom: canonical CBOR, content addressing, signatures, delta-set ops | ✅ both witnesses |
+| M1 | The evaluator: the eight operators; `rdb.SchemaSchema` bootstrap | ✅ both witnesses |
+| M2 | The reactor: ingest, indexes, incremental-equivalence, events, bundles | ✅ both witnesses |
+| M3 | Packs: the L0 round-trip | ✅ both witnesses |
+| M4 | Federation: convergence from arbitrary divergent states | ✅ both witnesses |
+| M5 | Derivation: derived authors, replay verification, budgets | ✅ both witnesses |
 
-M0 and M1 are being built **together**: the batch evaluator (M1) is the oracle the reactor (M2) will
-later be tested against, so we want it correct and vector-backed from the start.
+The build order is complete; see [PROGRESS.md](PROGRESS.md) for the slice-by-slice log. Ongoing
+work: the reference demo (implementations/ts/demo), CI, and whatever PROGRESS.md lists as next.
 
 ## Naming
 
