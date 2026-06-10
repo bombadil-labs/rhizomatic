@@ -107,4 +107,5 @@ Filled in as each implementation is scaffolded.
 
 - TypeScript: `cd implementations/ts && npm test`
 - Rust: `cd implementations/rust && cargo test`
-- Parity (both against `vectors/`): _(top-level runner — TBD when both scaffolds exist)_
+- Parity (both witnesses, one command): `node tools/check-all.mjs` from the repo root
+- CI: `.github/workflows/ci.yml` runs both green-gates + a vector-freshness check on every push

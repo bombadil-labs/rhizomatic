@@ -1,0 +1,50 @@
+# The parity contract, enforced mechanically: both witnesses must pass their full green-gates,
+# and the committed vectors must be exactly what the generator produces (no stale vectors).
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  typescript:
+    name: TypeScript witness
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: implementations/ts
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: implementations/ts/package-lock.json
+      - run: npm ci
+      - name: green-gate (format + lint + typecheck + tests)
+        run: npm run check
+      - name: vectors are fresh (generator output == committed bytes)
+        run: |
+          npm run gen-vectors
+          git diff --exit-code ../../vectors
+
+  rust:
+    name: Rust witness
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: implementations/rust
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: implementations/rust
+      - name: green-gate (fmt + clippy + tests)
+        run: |
+          cargo fmt --check
+          cargo clippy --all-targets -- -D warnings
+          cargo test
