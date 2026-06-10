@@ -1,5 +1,6 @@
 //! expand/fix vectors + schema-registry tests. Mirrors ../ts/test/expand.test.ts.
 
+use rhizomatic::eval::SchemaRef;
 use rhizomatic::eval::{eval_term, result_canonical_hex, EvalResult};
 use rhizomatic::json_profile::parse_claims;
 use rhizomatic::schema::{collect_refs, HyperSchema, SchemaRegistry};
@@ -107,7 +108,10 @@ fn registry_guards() {
         "op": "expand", "role": { "exact": "x" }, "schema": "Child", "in": group_input
     }))
     .unwrap();
-    assert_eq!(collect_refs(&term), vec!["Child".to_string()]);
+    assert_eq!(
+        collect_refs(&term),
+        vec![SchemaRef::Name("Child".to_string())]
+    );
 
     // cycle rejection
     let a = HyperSchema {

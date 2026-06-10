@@ -8,7 +8,7 @@ export {
   computeId,
   assertValidClaims,
 } from "./delta.js";
-export { parseClaims } from "./json-profile.js";
+export { claimsToJson, parseClaims } from "./json-profile.js";
 export {
   AUTHOR_PREFIX,
   authorForSeed,
@@ -48,3 +48,14 @@ export {
   type View,
 } from "./policy.js";
 export { parsePolicy, parsePred, parseTerm } from "./term-json.js";
+export {
+  cborToJson,
+  jsonToCbor,
+  policyToJson,
+  predToJson,
+  termCanonicalHex,
+  termHash,
+  termToJson,
+} from "./term-io.js";
+export { SCHEMA_SCHEMA, VOCAB_PREFIX, loadSchema, publishSchemaClaims } from "./schema-deltas.js";
+export { decode } from "./cbor.js";

@@ -16,6 +16,10 @@ export type MaskPolicy =
   | { readonly kind: "annotate" }
   | { readonly kind: "trust"; readonly pred: Pred };
 
+export type SchemaRefT =
+  | { readonly kind: "name"; readonly name: string }
+  | { readonly kind: "pinned"; readonly hash: string };
+
 export type GroupKey =
   | { readonly kind: "byTargetContext" }
   | { readonly kind: "byRole" }
@@ -28,8 +32,13 @@ export type Term =
   | { readonly kind: "mask"; readonly policy: MaskPolicy; readonly of: Term }
   | { readonly kind: "group"; readonly key: GroupKey; readonly of: Term }
   | { readonly kind: "prune"; readonly keep: "all" | StrMatch; readonly of: Term }
-  | { readonly kind: "expand"; readonly role: StrMatch; readonly schema: string; readonly of: Term }
-  | { readonly kind: "fix"; readonly schema: string; readonly entity: string }
+  | {
+      readonly kind: "expand";
+      readonly role: StrMatch;
+      readonly schema: SchemaRefT;
+      readonly of: Term;
+    }
+  | { readonly kind: "fix"; readonly schema: SchemaRefT; readonly entity: string }
   | { readonly kind: "resolve"; readonly policy: Policy; readonly of: Term };
 
 interface DSetResult {
@@ -221,18 +230,19 @@ export function evalTerm(
 // Evaluate a named schema at a root over the SAME delta set the enclosing evaluation received
 // (SPEC-2 §4.5). Termination is the schema DAG's, enforced at registry build (SPEC-3 §3).
 function evalSchema(
-  name: string,
+  ref: SchemaRefT,
   input: DeltaSet,
   root: string,
   registry: SchemaRegistry | undefined,
 ): HView {
+  const label = ref.kind === "name" ? ref.name : `pinned:${ref.hash.slice(0, 12)}…`;
   if (registry === undefined)
-    throw new Error(`schema ${name} referenced but no registry supplied (E10)`);
-  const schema = registry.get(name);
-  if (schema === undefined) throw new Error(`unknown schema: ${name} (E10)`);
+    throw new Error(`schema ${label} referenced but no registry supplied (E10)`);
+  const schema = registry.resolve(ref);
+  if (schema === undefined) throw new Error(`unknown schema: ${label} (E10/E13)`);
   const result = evalTerm(schema.body, input, root, registry);
   if (result.sort !== "hview") {
-    throw new Error(`schema ${name} body must be an HView-sort term (E10)`);
+    throw new Error(`schema ${label} body must be an HView-sort term (E10)`);
   }
   return result.hview;
 }

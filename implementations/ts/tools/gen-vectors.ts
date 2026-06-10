@@ -7,8 +7,10 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { canonicalHex, computeId } from "../src/delta.js";
 import { evalTerm, resultCanonicalHex } from "../src/eval.js";
-import { parseClaims } from "../src/json-profile.js";
+import { claimsToJson, parseClaims } from "../src/json-profile.js";
+import { SCHEMA_SCHEMA, publishSchemaClaims } from "../src/schema-deltas.js";
 import { SchemaRegistry } from "../src/schema.js";
+import { termCanonicalHex, termHash, termToJson } from "../src/term-io.js";
 import { DeltaSet, makeDelta } from "../src/set.js";
 import { authorForSeed, publicKeyFromSeed, signClaims } from "../src/sign.js";
 import { parseTerm } from "../src/term-json.js";
@@ -449,7 +451,8 @@ const MATRIX = "movie:matrix";
 const canonicalIdiom = {
   op: "group",
   key: "byTargetContext",
-  in: { op: "mask", policy: "drop", in: sel({ hasPointer: { targetEntity: MATRIX } }) },
+  // mask BEFORE select (ERRATA-3 S5)
+  in: sel({ hasPointer: { targetEntity: MATRIX } }, { op: "mask", policy: "drop", in: "input" }),
 };
 
 const hviewCases: Array<{
@@ -635,7 +638,15 @@ const expandFixtureSet = DeltaSet.from(
 const canonicalBody = {
   op: "group",
   key: "byTargetContext",
-  in: { op: "mask", policy: "drop", in: sel({ hasPointer: { targetEntity: { var: "root" } } }) },
+  // mask BEFORE select (ERRATA-3 S5)
+  in: sel(
+    { hasPointer: { targetEntity: { var: "root" } } },
+    {
+      op: "mask",
+      policy: "drop",
+      in: "input",
+    },
+  ),
 };
 
 const schemas = [
@@ -985,6 +996,55 @@ console.log(
   `wrote ${resolveVectors.length} resolve vectors over ${resolveFixtureSet.size} fixture deltas to vectors/l1-eval/eval-resolve.json`,
 );
 
+// --- l1-eval: schemas-as-deltas + the bootstrap (ERRATA-2 E12-E13, ERRATA-3 S1-S3) ---
+
+const schemaHashes = schemas.map((s) => ({
+  name: s.name,
+  termJson: termToJson(parseTerm(s.body)),
+  canonicalCborHex: termCanonicalHex(parseTerm(s.body)),
+  termHash: termHash(parseTerm(s.body)),
+}));
+
+const movieWithCast = expandRegistry.get("MovieWithCast")!;
+const publishedClaims = publishSchemaClaims(movieWithCast, "schema:MovieWithCast", A, 1000);
+const publishedDelta = makeDelta(publishedClaims);
+
+// pinned-ref case: fix through the hash of MovieBasic must equal fix through its name
+const movieBasicHash = termHash(expandRegistry.get("MovieBasic")!.body);
+const pinnedTerm = { op: "fix", schema: { pinned: movieBasicHash }, entity: "movie:matrix" };
+const pinnedResult = evalTerm(parseTerm(pinnedTerm), expandFixtureSet, undefined, expandRegistry);
+
+const schemaDeltasOut = {
+  bootstrap: {
+    name: SCHEMA_SCHEMA.name,
+    alg: SCHEMA_SCHEMA.alg,
+    termJson: termToJson(SCHEMA_SCHEMA.body),
+    canonicalCborHex: termCanonicalHex(SCHEMA_SCHEMA.body),
+    termHash: termHash(SCHEMA_SCHEMA.body),
+  },
+  termHashes: schemaHashes,
+  published: {
+    note: "MovieWithCast published as a definition delta; loadSchema must round-trip it",
+    schemaEntity: "schema:MovieWithCast",
+    claims: claimsToJson(publishedClaims),
+    deltaId: publishedDelta.id,
+    expectedTermHash: termHash(movieWithCast.body),
+  },
+  pinnedRef: {
+    note: "fix through {pinned: hash} equals fix through the name",
+    term: pinnedTerm,
+    expectedCanonicalHex: resultCanonicalHex(pinnedResult),
+  },
+};
+writeFileSync(
+  resolve(evalDir, "schema-deltas.json"),
+  `${JSON.stringify(schemaDeltasOut, null, 2)}\n`,
+);
+console.log(
+  "wrote schema-deltas vectors (bootstrap " +
+    schemaDeltasOut.bootstrap.termHash.slice(0, 14) +
+    "...)",
+);
 // the fixture ids double as documentation: surface two for sanity
 console.log(
   `  d2=${idOf("d2-title-reloaded").slice(0, 12)}… d4=${idOf("d4-negates-d2").slice(0, 12)}…`,

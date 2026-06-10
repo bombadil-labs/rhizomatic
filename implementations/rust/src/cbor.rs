@@ -19,6 +19,129 @@ pub fn encode(value: &CborValue) -> Vec<u8> {
     out
 }
 
+// --- strict decoder for the Rhizomatic profile ----------------------------------------------------
+// Accepts exactly the items the profile emits: definite text strings, f16/f32/f64 floats, bools,
+// definite arrays, definite maps with text keys. Everything else is rejected. Canonicality is
+// checked by re-encoding where a caller needs it; this decoder checks structure only.
+
+struct Reader<'a> {
+    bytes: &'a [u8],
+    pos: usize,
+}
+
+impl<'a> Reader<'a> {
+    fn u8(&mut self) -> Result<u8, String> {
+        let b = *self
+            .bytes
+            .get(self.pos)
+            .ok_or("cbor: unexpected end of input")?;
+        self.pos += 1;
+        Ok(b)
+    }
+    fn take(&mut self, n: usize) -> Result<&'a [u8], String> {
+        if self.pos + n > self.bytes.len() {
+            return Err("cbor: unexpected end of input".to_string());
+        }
+        let out = &self.bytes[self.pos..self.pos + n];
+        self.pos += n;
+        Ok(out)
+    }
+}
+
+fn read_length(r: &mut Reader, info: u8) -> Result<usize, String> {
+    match info {
+        0..=23 => Ok(info as usize),
+        24 => Ok(r.u8()? as usize),
+        25 => Ok(u16::from_be_bytes(r.take(2)?.try_into().unwrap()) as usize),
+        26 => Ok(u32::from_be_bytes(r.take(4)?.try_into().unwrap()) as usize),
+        _ => Err(format!("cbor: unsupported length encoding (info {info})")),
+    }
+}
+
+fn f16_bits_to_f64(bits: u16) -> Result<f64, String> {
+    let sign = if bits & 0x8000 != 0 { -1.0 } else { 1.0 };
+    let exp = (bits >> 10) & 0x1f;
+    let mant = (bits & 0x3ff) as f64;
+    match exp {
+        0 => Ok(sign * mant * 2f64.powi(-24)),
+        31 => Err("cbor: non-finite f16 is not representable".to_string()),
+        e => Ok(sign * (1.0 + mant / 1024.0) * 2f64.powi(e as i32 - 15)),
+    }
+}
+
+fn decode_item(r: &mut Reader) -> Result<CborValue, String> {
+    let head = r.u8()?;
+    let major = head >> 5;
+    let info = head & 0x1f;
+    match major {
+        3 => {
+            let len = read_length(r, info)?;
+            let s =
+                std::str::from_utf8(r.take(len)?).map_err(|e| format!("cbor: bad utf-8: {e}"))?;
+            Ok(CborValue::Tstr(s.to_string()))
+        }
+        4 => {
+            let len = read_length(r, info)?;
+            let mut items = Vec::with_capacity(len);
+            for _ in 0..len {
+                items.push(decode_item(r)?);
+            }
+            Ok(CborValue::Array(items))
+        }
+        5 => {
+            let len = read_length(r, info)?;
+            let mut entries = Vec::with_capacity(len);
+            for _ in 0..len {
+                let key = decode_item(r)?;
+                let CborValue::Tstr(k) = key else {
+                    return Err("cbor: map keys must be text strings".to_string());
+                };
+                entries.push((k, decode_item(r)?));
+            }
+            Ok(CborValue::Map(entries))
+        }
+        7 => match info {
+            20 => Ok(CborValue::Bool(false)),
+            21 => Ok(CborValue::Bool(true)),
+            25 => {
+                let b = r.take(2)?;
+                Ok(CborValue::Float(f16_bits_to_f64(u16::from_be_bytes(
+                    b.try_into().unwrap(),
+                ))?))
+            }
+            26 => {
+                let b = r.take(4)?;
+                let n = f32::from_be_bytes(b.try_into().unwrap());
+                if !n.is_finite() {
+                    return Err("cbor: non-finite float is not representable".to_string());
+                }
+                Ok(CborValue::Float(n as f64))
+            }
+            27 => {
+                let b = r.take(8)?;
+                let n = f64::from_be_bytes(b.try_into().unwrap());
+                if !n.is_finite() {
+                    return Err("cbor: non-finite float is not representable".to_string());
+                }
+                Ok(CborValue::Float(n))
+            }
+            _ => Err(format!("cbor: unsupported simple/float (info {info})")),
+        },
+        m => Err(format!(
+            "cbor: major type {m} is outside the Rhizomatic profile"
+        )),
+    }
+}
+
+pub fn decode(bytes: &[u8]) -> Result<CborValue, String> {
+    let mut r = Reader { bytes, pos: 0 };
+    let v = decode_item(&mut r)?;
+    if r.pos != bytes.len() {
+        return Err("cbor: trailing bytes after item".to_string());
+    }
+    Ok(v)
+}
+
 /// CBOR head: major type (high 3 bits) plus unsigned argument, shortest form.
 fn write_head(out: &mut Vec<u8>, major: u8, arg: u64) {
     let mt = major << 5;

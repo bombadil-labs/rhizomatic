@@ -1,0 +1,220 @@
+{
+  "bootstrap": {
+    "name": "rdb.SchemaSchema",
+    "alg": 1,
+    "termJson": {
+      "op": "group",
+      "key": "byTargetContext",
+      "in": {
+        "op": "select",
+        "pred": {
+          "hasPointer": {
+            "targetEntity": {
+              "var": "root"
+            }
+          }
+        },
+        "in": {
+          "op": "mask",
+          "policy": "drop",
+          "in": "input"
+        }
+      }
+    },
+    "canonicalCborHex": "a362696ea362696ea362696e65696e707574626f70646d61736b66706f6c6963796464726f70626f706673656c6563746470726564a16a686173506f696e746572a16c746172676574456e74697479a16376617264726f6f74626f706567726f7570636b65796f6279546172676574436f6e74657874",
+    "termHash": "1e20b8c3b0b1d28a76edfc06506215f95ecde58869faae53afc75c3b7c1b5fe87360"
+  },
+  "termHashes": [
+    {
+      "name": "MovieBasic",
+      "termJson": {
+        "op": "group",
+        "key": "byTargetContext",
+        "in": {
+          "op": "select",
+          "pred": {
+            "hasPointer": {
+              "targetEntity": {
+                "var": "root"
+              }
+            }
+          },
+          "in": {
+            "op": "mask",
+            "policy": "drop",
+            "in": "input"
+          }
+        }
+      },
+      "canonicalCborHex": "a362696ea362696ea362696e65696e707574626f70646d61736b66706f6c6963796464726f70626f706673656c6563746470726564a16a686173506f696e746572a16c746172676574456e74697479a16376617264726f6f74626f706567726f7570636b65796f6279546172676574436f6e74657874",
+      "termHash": "1e20b8c3b0b1d28a76edfc06506215f95ecde58869faae53afc75c3b7c1b5fe87360"
+    },
+    {
+      "name": "ActorName",
+      "termJson": {
+        "op": "group",
+        "key": "byTargetContext",
+        "in": {
+          "op": "select",
+          "pred": {
+            "hasPointer": {
+              "targetEntity": {
+                "var": "root"
+              }
+            }
+          },
+          "in": {
+            "op": "mask",
+            "policy": "drop",
+            "in": "input"
+          }
+        }
+      },
+      "canonicalCborHex": "a362696ea362696ea362696e65696e707574626f70646d61736b66706f6c6963796464726f70626f706673656c6563746470726564a16a686173506f696e746572a16c746172676574456e74697479a16376617264726f6f74626f706567726f7570636b65796f6279546172676574436f6e74657874",
+      "termHash": "1e20b8c3b0b1d28a76edfc06506215f95ecde58869faae53afc75c3b7c1b5fe87360"
+    },
+    {
+      "name": "MovieWithCast",
+      "termJson": {
+        "op": "expand",
+        "role": {
+          "exact": "actor"
+        },
+        "schema": "ActorName",
+        "in": {
+          "op": "group",
+          "key": "byTargetContext",
+          "in": {
+            "op": "select",
+            "pred": {
+              "hasPointer": {
+                "targetEntity": {
+                  "var": "root"
+                }
+              }
+            },
+            "in": {
+              "op": "mask",
+              "policy": "drop",
+              "in": "input"
+            }
+          }
+        }
+      },
+      "canonicalCborHex": "a462696ea362696ea362696ea362696e65696e707574626f70646d61736b66706f6c6963796464726f70626f706673656c6563746470726564a16a686173506f696e746572a16c746172676574456e74697479a16376617264726f6f74626f706567726f7570636b65796f6279546172676574436f6e74657874626f7066657870616e6464726f6c65a1656578616374656163746f7266736368656d61694163746f724e616d65",
+      "termHash": "1e2092805e86d9b92800a33201bc9a959a2e099c3eb97f0d18fbce6033bab043e546"
+    },
+    {
+      "name": "ActorWithWorks",
+      "termJson": {
+        "op": "expand",
+        "role": {
+          "exact": "work"
+        },
+        "schema": "MovieBasic",
+        "in": {
+          "op": "group",
+          "key": "byTargetContext",
+          "in": {
+            "op": "select",
+            "pred": {
+              "hasPointer": {
+                "targetEntity": {
+                  "var": "root"
+                }
+              }
+            },
+            "in": {
+              "op": "mask",
+              "policy": "drop",
+              "in": "input"
+            }
+          }
+        }
+      },
+      "canonicalCborHex": "a462696ea362696ea362696ea362696e65696e707574626f70646d61736b66706f6c6963796464726f70626f706673656c6563746470726564a16a686173506f696e746572a16c746172676574456e74697479a16376617264726f6f74626f706567726f7570636b65796f6279546172676574436f6e74657874626f7066657870616e6464726f6c65a165657861637464776f726b66736368656d616a4d6f7669654261736963",
+      "termHash": "1e20b15dcaf7509f087a1e713e43d0ca030cbb2321ca0d25008b3231375f8c72319b"
+    },
+    {
+      "name": "MovieDeep",
+      "termJson": {
+        "op": "expand",
+        "role": {
+          "exact": "actor"
+        },
+        "schema": "ActorWithWorks",
+        "in": {
+          "op": "group",
+          "key": "byTargetContext",
+          "in": {
+            "op": "select",
+            "pred": {
+              "hasPointer": {
+                "targetEntity": {
+                  "var": "root"
+                }
+              }
+            },
+            "in": {
+              "op": "mask",
+              "policy": "drop",
+              "in": "input"
+            }
+          }
+        }
+      },
+      "canonicalCborHex": "a462696ea362696ea362696ea362696e65696e707574626f70646d61736b66706f6c6963796464726f70626f706673656c6563746470726564a16a686173506f696e746572a16c746172676574456e74697479a16376617264726f6f74626f706567726f7570636b65796f6279546172676574436f6e74657874626f7066657870616e6464726f6c65a1656578616374656163746f7266736368656d616e4163746f7257697468576f726b73",
+      "termHash": "1e203c3b0523bdce67843aae622846a383dd0065abf6a15534566f29c0d7fe856175"
+    }
+  ],
+  "published": {
+    "note": "MovieWithCast published as a definition delta; loadSchema must round-trip it",
+    "schemaEntity": "schema:MovieWithCast",
+    "claims": {
+      "timestamp": 1000,
+      "author": "did:key:zAlice",
+      "pointers": [
+        {
+          "role": "rdb.schema.defines",
+          "target": {
+            "entityRef": {
+              "id": "schema:MovieWithCast",
+              "context": "definition"
+            }
+          }
+        },
+        {
+          "role": "rdb.schema.name",
+          "target": {
+            "value": "MovieWithCast"
+          }
+        },
+        {
+          "role": "rdb.schema.alg",
+          "target": {
+            "value": 1
+          }
+        },
+        {
+          "role": "rdb.schema.term",
+          "target": {
+            "value": "a462696ea362696ea362696ea362696e65696e707574626f70646d61736b66706f6c6963796464726f70626f706673656c6563746470726564a16a686173506f696e746572a16c746172676574456e74697479a16376617264726f6f74626f706567726f7570636b65796f6279546172676574436f6e74657874626f7066657870616e6464726f6c65a1656578616374656163746f7266736368656d61694163746f724e616d65"
+          }
+        }
+      ]
+    },
+    "deltaId": "1e20503305fa18c4b1f7f16e5d6646093a694332af948a7017831254e5fcfd314c65",
+    "expectedTermHash": "1e2092805e86d9b92800a33201bc9a959a2e099c3eb97f0d18fbce6033bab043e546"
+  },
+  "pinnedRef": {
+    "note": "fix through {pinned: hash} equals fix through the name",
+    "term": {
+      "op": "fix",
+      "schema": {
+        "pinned": "1e20b8c3b0b1d28a76edfc06506215f95ecde58869faae53afc75c3b7c1b5fe87360"
+      },
+      "entity": "movie:matrix"
+    },
+    "expectedCanonicalHex": "a26269646c6d6f7669653a6d61747269786570726f7073a2646361737481a26269647844316532303765613231666666353031633632366364623865353932646234313632353139633839613834666561646662626635383531353737653565663263303464396466636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727383a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746463617374a264726f6c65656163746f7266746172676574a26269646b6163746f723a6b65616e7567636f6e746578746b66696c6d6f677261706879a264726f6c656963686172616374657266746172676574634e656f6974696d657374616d70f95810657469746c6581a26269647844316532303636363237616162393237346634343862626361633635633534383033386264303335653931313861336139613039613361396137663961353937323438336566636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656576616c7565667461726765746a546865204d61747269786974696d657374616d70f956e0"
+  }
+}

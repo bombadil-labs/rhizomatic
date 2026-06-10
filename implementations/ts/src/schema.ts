@@ -1,7 +1,8 @@
-// HyperSchemas and the schema registry (SPEC-3 §2-3, ERRATA-2 E10). The registry is an explicit
-// evaluation input in v0; pinned/evolvable references arrive with schemas-as-deltas (M1.5).
+// HyperSchemas and the schema registry (SPEC-3 §2-3 §6, ERRATA-2 E10/E13). The registry indexes
+// schemas by name AND by term hash; pinned refs resolve by hash and are immutable by construction.
 
-import type { Term } from "./eval.js";
+import type { SchemaRefT, Term } from "./eval.js";
+import { termHash } from "./term-io.js";
 
 export interface HyperSchema {
   readonly name: string;
@@ -9,9 +10,9 @@ export interface HyperSchema {
   readonly body: Term; // an HView-sort term, a function of the ambient root
 }
 
-// refs are derived from the body — every expand/fix schema name (E10).
-export function collectRefs(term: Term): string[] {
-  const out: string[] = [];
+// refs are derived from the body — every expand/fix schema reference (E10).
+export function collectRefs(term: Term): SchemaRefT[] {
+  const out: SchemaRefT[] = [];
   const walk = (t: Term): void => {
     switch (t.kind) {
       case "input":
@@ -41,25 +42,46 @@ export function collectRefs(term: Term): string[] {
 }
 
 export class SchemaRegistry {
-  private constructor(private readonly byName: ReadonlyMap<string, HyperSchema>) {}
+  private constructor(
+    private readonly byName: ReadonlyMap<string, HyperSchema>,
+    private readonly byHash: ReadonlyMap<string, HyperSchema>,
+  ) {}
 
   // Rejects duplicate names, unresolved refs, and reference cycles (SPEC-3 §3).
   // Data cycles remain legal — the DAG constraint is on programs, not data.
   static build(schemas: readonly HyperSchema[]): SchemaRegistry {
     const byName = new Map<string, HyperSchema>();
+    const byHash = new Map<string, HyperSchema>();
+    const hashOf = new Map<string, string>(); // name -> term hash
     for (const s of schemas) {
       if (byName.has(s.name)) throw new Error(`duplicate schema name: ${s.name}`);
       byName.set(s.name, s);
+      const h = termHash(s.body);
+      hashOf.set(s.name, h);
+      // Two names MAY share a body hash; first registration wins the hash index.
+      if (!byHash.has(h)) byHash.set(h, s);
     }
+    const resolveName = (ref: SchemaRefT, from: string): string => {
+      if (ref.kind === "name") {
+        const s = byName.get(ref.name);
+        if (s === undefined)
+          throw new Error(`schema ${from} references unknown schema ${ref.name}`);
+        return s.name;
+      }
+      const s = byHash.get(ref.hash);
+      if (s === undefined) {
+        throw new Error(`schema ${from} references unknown pinned schema ${ref.hash} (E13)`);
+      }
+      return s.name;
+    };
     const refs = new Map<string, string[]>();
     for (const s of schemas) {
-      const rs = collectRefs(s.body);
-      for (const r of rs) {
-        if (!byName.has(r)) throw new Error(`schema ${s.name} references unknown schema ${r}`);
-      }
-      refs.set(s.name, rs);
+      refs.set(
+        s.name,
+        collectRefs(s.body).map((r) => resolveName(r, s.name)),
+      );
     }
-    // DFS cycle detection over the derived reference graph.
+    // DFS cycle detection over the resolved reference graph.
     const state = new Map<string, "visiting" | "done">();
     const visit = (name: string, path: string[]): void => {
       const st = state.get(name);
@@ -72,10 +94,18 @@ export class SchemaRegistry {
       state.set(name, "done");
     };
     for (const s of schemas) visit(s.name, []);
-    return new SchemaRegistry(byName);
+    return new SchemaRegistry(byName, byHash);
   }
 
   get(name: string): HyperSchema | undefined {
     return this.byName.get(name);
+  }
+
+  getByHash(hash: string): HyperSchema | undefined {
+    return this.byHash.get(hash);
+  }
+
+  resolve(ref: SchemaRefT): HyperSchema | undefined {
+    return ref.kind === "name" ? this.byName.get(ref.name) : this.byHash.get(ref.hash);
   }
 }

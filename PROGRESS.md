@@ -17,8 +17,8 @@ window should be able to read this top-to-bottom and know exactly where things s
 | | Milestone | TS | Rust |
 |---|---|---|---|
 | M0 | The atom (canonical form, id, signatures, set-ops) | ✅ complete | ✅ complete |
-| M1 | The evaluator (8 operators, schema bootstrap) | in progress | in progress |
-| M2 | The reactor | — | — |
+| M1 | The evaluator (8 operators, schema bootstrap) | ✅ complete | ✅ complete |
+| M2 | The reactor | next | next |
 | M3 | Packs | — | — |
 | M4 | Federation | — | — |
 | M5 | Derivation | — | — |
@@ -55,8 +55,32 @@ be correct and boring. Slices:
   View shape (R4), annotate-candidates (R5), same-policy nested resolution (R6). 10 vectors incl.
   superposition pick, trust-ranked pick, mixed-type max, float-sum, conflicts, absentAs, nested
   expansion resolution; P5-pluralism witnessed in both impls (same HView, two policies, two truths).
-- **M1.5 — schemas-as-deltas + the `rdb.SchemaSchema` bootstrap.** Round-trip deltas → term →
-  canonical CBOR → hash; pin the bootstrap schema constant in vectors (SPEC-3 §5).
+- **M1.5 — schemas-as-deltas + the `rdb.SchemaSchema` bootstrap.** ✅ **complete — M1 done.**
+  Term canonical CBOR + content hashes (E12, via deterministic termToJson + a strict CBOR
+  decoder both impls now share); pinned SchemaRefs resolving by hash (E13); the S1 definition
+  vocabulary (one delta per schema, term as canonical hex blob); the bootstrap constant pinned
+  in vectors; publish→load round-trip, append-evolution, negation-deprecation all witnessed.
+  **SPEC CONTRADICTION FOUND & RESOLVED (ERRATA-3 S5): SPEC-3 §2's canonical body
+  (select-then-mask) excludes negations before mask can see them, contradicting §2.1's closure
+  promise — caught when a negated schema definition kept loading. Amended idiom: mask FIRST,
+  then select. All idiom-using vectors regenerated.**
+
+## Discovery: how M2 (the reactor) decomposes into slices
+
+M2 is the execution engine (SPEC-4): ingest deltas over time, keep registered materializations
+incrementally equal to batch evaluation. The batch evaluator (M1) is the ORACLE: every
+incremental result must be byte-identical to from-scratch eval (SPEC-4 §1).
+
+- **M2.1 — reactor core + ingest pipeline.** ingest→validate→persist(in-memory log)→dispatch→
+  update→notify; idempotent by id; the four core indexes (id, target, negation, value);
+  convergence under permuted ingestion (property: any order ⇒ same materializations).
+- **M2.2 — materializations + incremental maintenance.** register (term, roots, pin-set);
+  monotone insertion along support paths; non-monotone repair via the negation index
+  (localized recomputation per SPEC-4 §4.3); incremental-equivalence property tests vs the
+  M1 oracle under randomized orders incl. negations arriving before their targets.
+- **M2.3 — subscriptions + change events.** root entity, affected property paths, responsible
+  delta ids, new content hash (SPEC-4 §5); read-your-writes confirmation (§6).
+- **M2.4 — manifest-keyed atomic batch ingestion** (rdb.txn vocabulary, SPEC-1 §9 / SPEC-4 §6).
 
 ## Slice log
 

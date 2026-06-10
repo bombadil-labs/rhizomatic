@@ -149,17 +149,17 @@
         "op": "group",
         "key": "byTargetContext",
         "in": {
-          "op": "mask",
-          "policy": "drop",
-          "in": {
-            "op": "select",
-            "pred": {
-              "hasPointer": {
-                "targetEntity": {
-                  "var": "root"
-                }
+          "op": "select",
+          "pred": {
+            "hasPointer": {
+              "targetEntity": {
+                "var": "root"
               }
-            },
+            }
+          },
+          "in": {
+            "op": "mask",
+            "policy": "drop",
             "in": "input"
           }
         }
@@ -172,17 +172,17 @@
         "op": "group",
         "key": "byTargetContext",
         "in": {
-          "op": "mask",
-          "policy": "drop",
-          "in": {
-            "op": "select",
-            "pred": {
-              "hasPointer": {
-                "targetEntity": {
-                  "var": "root"
-                }
+          "op": "select",
+          "pred": {
+            "hasPointer": {
+              "targetEntity": {
+                "var": "root"
               }
-            },
+            }
+          },
+          "in": {
+            "op": "mask",
+            "policy": "drop",
             "in": "input"
           }
         }
@@ -201,17 +201,17 @@
           "op": "group",
           "key": "byTargetContext",
           "in": {
-            "op": "mask",
-            "policy": "drop",
-            "in": {
-              "op": "select",
-              "pred": {
-                "hasPointer": {
-                  "targetEntity": {
-                    "var": "root"
-                  }
+            "op": "select",
+            "pred": {
+              "hasPointer": {
+                "targetEntity": {
+                  "var": "root"
                 }
-              },
+              }
+            },
+            "in": {
+              "op": "mask",
+              "policy": "drop",
               "in": "input"
             }
           }
@@ -231,17 +231,17 @@
           "op": "group",
           "key": "byTargetContext",
           "in": {
-            "op": "mask",
-            "policy": "drop",
-            "in": {
-              "op": "select",
-              "pred": {
-                "hasPointer": {
-                  "targetEntity": {
-                    "var": "root"
-                  }
+            "op": "select",
+            "pred": {
+              "hasPointer": {
+                "targetEntity": {
+                  "var": "root"
                 }
-              },
+              }
+            },
+            "in": {
+              "op": "mask",
+              "policy": "drop",
               "in": "input"
             }
           }
@@ -261,17 +261,17 @@
           "op": "group",
           "key": "byTargetContext",
           "in": {
-            "op": "mask",
-            "policy": "drop",
-            "in": {
-              "op": "select",
-              "pred": {
-                "hasPointer": {
-                  "targetEntity": {
-                    "var": "root"
-                  }
+            "op": "select",
+            "pred": {
+              "hasPointer": {
+                "targetEntity": {
+                  "var": "root"
                 }
-              },
+              }
+            },
+            "in": {
+              "op": "mask",
+              "policy": "drop",
               "in": "input"
             }
           }

@@ -20,6 +20,12 @@ pub enum MaskPolicy {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub enum SchemaRef {
+    Name(String),
+    Pinned(String),
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum GroupKey {
     ByTargetContext,
     ByRole,
@@ -57,11 +63,11 @@ pub enum Term {
     },
     Expand {
         role: StrMatch,
-        schema: String,
+        schema: SchemaRef,
         of: Box<Term>,
     },
     Fix {
-        schema: String,
+        schema: SchemaRef,
         entity: String,
     },
     Resolve {
@@ -186,21 +192,25 @@ fn eval_group(key: &GroupKey, set: &DeltaSet, negated: &BTreeSet<String>, root: 
 /// Evaluate a named schema at a root over the SAME delta set the enclosing evaluation received
 /// (SPEC-2 §4.5). Termination is the schema DAG's, enforced at registry build (SPEC-3 §3).
 fn eval_schema(
-    name: &str,
+    schema_ref: &SchemaRef,
     input: &DeltaSet,
     root: &str,
     registry: Option<&SchemaRegistry>,
 ) -> Result<HView, String> {
+    let label = match schema_ref {
+        SchemaRef::Name(n) => n.clone(),
+        SchemaRef::Pinned(h) => format!("pinned:{}", &h[..h.len().min(16)]),
+    };
     let registry = registry.ok_or(format!(
-        "schema {name} referenced but no registry supplied (E10)"
+        "schema {label} referenced but no registry supplied (E10)"
     ))?;
     let schema = registry
-        .get(name)
-        .ok_or(format!("unknown schema: {name} (E10)"))?;
+        .resolve(schema_ref)
+        .ok_or(format!("unknown schema: {label} (E10/E13)"))?;
     match eval_term(&schema.body, input, Some(root), Some(registry))? {
         EvalResult::HView(h) => Ok(h),
         _ => Err(format!(
-            "schema {name} body must be an HView-sort term (E10)"
+            "schema {label} body must be an HView-sort term (E10)"
         )),
     }
 }

@@ -333,17 +333,17 @@
         "op": "group",
         "key": "byTargetContext",
         "in": {
-          "op": "mask",
-          "policy": "drop",
-          "in": {
-            "op": "select",
-            "pred": {
-              "hasPointer": {
-                "targetEntity": {
-                  "var": "root"
-                }
+          "op": "select",
+          "pred": {
+            "hasPointer": {
+              "targetEntity": {
+                "var": "root"
               }
-            },
+            }
+          },
+          "in": {
+            "op": "mask",
+            "policy": "drop",
             "in": "input"
           }
         }
@@ -356,17 +356,17 @@
         "op": "group",
         "key": "byTargetContext",
         "in": {
-          "op": "mask",
-          "policy": "drop",
-          "in": {
-            "op": "select",
-            "pred": {
-              "hasPointer": {
-                "targetEntity": {
-                  "var": "root"
-                }
+          "op": "select",
+          "pred": {
+            "hasPointer": {
+              "targetEntity": {
+                "var": "root"
               }
-            },
+            }
+          },
+          "in": {
+            "op": "mask",
+            "policy": "drop",
             "in": "input"
           }
         }
@@ -385,17 +385,17 @@
           "op": "group",
           "key": "byTargetContext",
           "in": {
-            "op": "mask",
-            "policy": "drop",
-            "in": {
-              "op": "select",
-              "pred": {
-                "hasPointer": {
-                  "targetEntity": {
-                    "var": "root"
-                  }
+            "op": "select",
+            "pred": {
+              "hasPointer": {
+                "targetEntity": {
+                  "var": "root"
                 }
-              },
+              }
+            },
+            "in": {
+              "op": "mask",
+              "policy": "drop",
               "in": "input"
             }
           }
@@ -460,7 +460,7 @@
         }
       },
       "expectedView": {
-        "title": "Matrix Reloaded",
+        "title": "The Matrix",
         "releaseYear": 1999,
         "rating": 9.1,
         "tag": "action",
@@ -470,7 +470,7 @@
           "character": "Neo"
         }
       },
-      "expectedCanonicalHex": "a66374616766616374696f6e6463617374a2656163746f726b6163746f723a6b65616e7569636861726163746572634e656f6473697a65f94200657469746c656f4d61747269782052656c6f6164656466726174696e67fb40223333333333336b72656c6561736559656172f967cf"
+      "expectedCanonicalHex": "a66374616766616374696f6e6463617374a2656163746f726b6163746f723a6b65616e7569636861726163746572634e656f6473697a65f94200657469746c656a546865204d617472697866726174696e67fb40223333333333336b72656c6561736559656172f967cf"
     },
     {
       "name": "pick-by-author-rank",
@@ -811,7 +811,7 @@
         }
       },
       "expectedView": {
-        "title": "Matrix Reloaded",
+        "title": "The Matrix",
         "releaseYear": 1999,
         "rating": 9.1,
         "tag": "action",
@@ -827,7 +827,7 @@
           "character": "Neo"
         }
       },
-      "expectedCanonicalHex": "a66374616766616374696f6e6463617374a2656163746f72a2646e616d656c4b65616e75205265657665736b66696c6d6f677261706879a2656d6f7669656c6d6f7669653a6d617472697869636861726163746572634e656f69636861726163746572634e656f6473697a65f94200657469746c656f4d61747269782052656c6f6164656466726174696e67fb40223333333333336b72656c6561736559656172f967cf"
+      "expectedCanonicalHex": "a66374616766616374696f6e6463617374a2656163746f72a2646e616d656c4b65616e75205265657665736b66696c6d6f677261706879a2656d6f7669656c6d6f7669653a6d617472697869636861726163746572634e656f69636861726163746572634e656f6473697a65f94200657469746c656a546865204d617472697866726174696e67fb40223333333333336b72656c6561736559656172f967cf"
     }
   ]
 }

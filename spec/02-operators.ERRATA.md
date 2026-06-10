@@ -135,6 +135,8 @@ with the schema registry (M1.3+) without changing any vector.
   `{"op": "fix", "schema": name, "entity": EntityId}`. `fix` sets the ambient root to `entity`
   explicitly (ignoring any enclosing root); `expand` sets it to each expanded target entity.
 
+
+
 ## E11 — Expanded HVEntry encoding (replacement form)
 
 `expand` replaces a matching pointer's `EntityRef` target with the HView evaluated at that entity
@@ -146,3 +148,22 @@ provenance stays intact: the in-memory entry keeps the original delta plus an ex
 by pointer index (authored pointer order is hash-significant and stable, SPEC-1 §4.1). Pointers
 whose target is a primitive or DeltaRef never expand; a role-matching EntityRef pointer expands;
 everything else passes through as written (SPEC-3 §7 graceful degradation).
+
+## E12 — Term canonical CBOR and term hashes (SPEC-2 §7)
+
+The canonical CBOR of a term is the canonical CBOR (ERRATA-1 profile) of its **normalized JSON
+profile structure**: serialize the term AST back to the E1/R3 JSON shape (a deterministic
+serializer — optional fields omitted, strings NFC), interpret that structure in the generic CBOR
+data model (object→map, array→array, string→tstr, number→float, bool→bool), and encode. A term's
+content address is `contentAddress(those bytes)` — same multihash as deltas. Parse∘serialize is
+identity on the AST, so semantically identical terms hash identically regardless of authored JSON
+spelling.
+
+## E13 — SchemaRef gains the pinned mode (SPEC-3 §6)
+
+`schema` in `expand`/`fix` is now `name | {"pinned": "<term hash>"}`. The registry indexes every
+schema by name AND by its term hash; pinned refs resolve by hash and are immutable by construction.
+Cycle checking runs over the resolved graph. The **evolvable** mode (`ref(entity)` resolved through
+`rdb.SchemaSchema` under the evaluator's policy) is implemented as an explicit eager function
+(load-schemas-from-deltas, ERRATA-3) rather than transparent reference resolution — transparent
+evolvable refs are deferred until the reactor exists to re-resolve them on definition change.

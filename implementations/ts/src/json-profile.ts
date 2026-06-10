@@ -49,6 +49,43 @@ function parsePointer(raw: unknown): Pointer {
   return { role: o["role"], target: parseTarget(o["target"]) };
 }
 
+// Serialize claims back to the JSON debug profile (the inverse of parseClaims).
+export function claimsToJson(claims: Claims): unknown {
+  return {
+    timestamp: claims.timestamp,
+    author: claims.author,
+    pointers: claims.pointers.map((p) => {
+      let target: unknown;
+      switch (p.target.kind) {
+        case "primitive":
+          target = { value: p.target.value };
+          break;
+        case "entity":
+          target = {
+            entityRef: {
+              id: p.target.entity.id,
+              ...(p.target.entity.context === undefined
+                ? {}
+                : { context: p.target.entity.context }),
+            },
+          };
+          break;
+        case "delta":
+          target = {
+            deltaRef: {
+              delta: p.target.deltaRef.delta,
+              ...(p.target.deltaRef.context === undefined
+                ? {}
+                : { context: p.target.deltaRef.context }),
+            },
+          };
+          break;
+      }
+      return { role: p.role, target };
+    }),
+  };
+}
+
 export function parseClaims(raw: unknown): Claims {
   const o = asObject(raw, "claims");
   if (typeof o["timestamp"] !== "number") throw new Error("claims.timestamp must be a number");

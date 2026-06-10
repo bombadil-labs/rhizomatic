@@ -258,15 +258,15 @@
         "op": "group",
         "key": "byTargetContext",
         "in": {
-          "op": "mask",
-          "policy": "drop",
+          "op": "select",
+          "pred": {
+            "hasPointer": {
+              "targetEntity": "movie:matrix"
+            }
+          },
           "in": {
-            "op": "select",
-            "pred": {
-              "hasPointer": {
-                "targetEntity": "movie:matrix"
-              }
-            },
+            "op": "mask",
+            "policy": "drop",
             "in": "input"
           }
         }
@@ -552,15 +552,15 @@
           "op": "group",
           "key": "byTargetContext",
           "in": {
-            "op": "mask",
-            "policy": "drop",
+            "op": "select",
+            "pred": {
+              "hasPointer": {
+                "targetEntity": "movie:matrix"
+              }
+            },
             "in": {
-              "op": "select",
-              "pred": {
-                "hasPointer": {
-                  "targetEntity": "movie:matrix"
-                }
-              },
+              "op": "mask",
+              "policy": "drop",
               "in": "input"
             }
           }
@@ -600,15 +600,15 @@
           "op": "group",
           "key": "byTargetContext",
           "in": {
-            "op": "mask",
-            "policy": "drop",
+            "op": "select",
+            "pred": {
+              "hasPointer": {
+                "targetEntity": "movie:matrix"
+              }
+            },
             "in": {
-              "op": "select",
-              "pred": {
-                "hasPointer": {
-                  "targetEntity": "movie:matrix"
-                }
-              },
+              "op": "mask",
+              "policy": "drop",
               "in": "input"
             }
           }
@@ -650,15 +650,15 @@
           "op": "group",
           "key": "byTargetContext",
           "in": {
-            "op": "mask",
-            "policy": "drop",
+            "op": "select",
+            "pred": {
+              "hasPointer": {
+                "targetEntity": "movie:matrix"
+              }
+            },
             "in": {
-              "op": "select",
-              "pred": {
-                "hasPointer": {
-                  "targetEntity": "movie:matrix"
-                }
-              },
+              "op": "mask",
+              "policy": "drop",
               "in": "input"
             }
           }
@@ -692,15 +692,15 @@
           "op": "group",
           "key": "byTargetContext",
           "in": {
-            "op": "mask",
-            "policy": "drop",
+            "op": "select",
+            "pred": {
+              "hasPointer": {
+                "targetEntity": "movie:matrix"
+              }
+            },
             "in": {
-              "op": "select",
-              "pred": {
-                "hasPointer": {
-                  "targetEntity": "movie:matrix"
-                }
-              },
+              "op": "mask",
+              "policy": "drop",
               "in": "input"
             }
           }

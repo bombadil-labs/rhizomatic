@@ -69,7 +69,7 @@ describe("schema registry (SPEC-3 §3 / E10)", () => {
       schema: "Child",
       in: groupInput,
     });
-    expect(collectRefs(term)).toEqual(["Child"]);
+    expect(collectRefs(term)).toEqual([{ kind: "name", name: "Child" }]);
   });
 
   it("rejects reference cycles", () => {

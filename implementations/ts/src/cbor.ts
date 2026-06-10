@@ -175,3 +175,106 @@ export function encode(val: CborValue): Uint8Array {
   encodeInto(sink, val);
   return sink.toUint8Array();
 }
+
+// --- strict decoder for the Rhizomatic profile ----------------------------------------------------
+// Accepts exactly the items the profile emits: definite text strings, f16/f32/f64 floats, bools,
+// definite arrays, definite maps with text keys. Everything else (ints, byte strings, tags,
+// indefinite lengths, null/undefined) is rejected. Canonicality is checked by re-encoding where a
+// caller needs it; this decoder checks structure only.
+
+const utf8Decoder = new TextDecoder("utf-8", { fatal: true });
+
+class ByteReader {
+  private pos = 0;
+  constructor(private readonly bytes: Uint8Array) {}
+  u8(): number {
+    if (this.pos >= this.bytes.length) throw new Error("cbor: unexpected end of input");
+    return this.bytes[this.pos++]!;
+  }
+  take(n: number): Uint8Array {
+    if (this.pos + n > this.bytes.length) throw new Error("cbor: unexpected end of input");
+    const out = this.bytes.subarray(this.pos, this.pos + n);
+    this.pos += n;
+    return out;
+  }
+  done(): boolean {
+    return this.pos === this.bytes.length;
+  }
+}
+
+function readLength(r: ByteReader, info: number): number {
+  if (info < 24) return info;
+  if (info === 24) return r.u8();
+  if (info === 25) return (r.u8() << 8) | r.u8();
+  if (info === 26) return ((r.u8() << 24) | (r.u8() << 16) | (r.u8() << 8) | r.u8()) >>> 0;
+  throw new Error(`cbor: unsupported length encoding (info ${info})`);
+}
+
+function f16BitsToNumber(bits: number): number {
+  const sign = bits & 0x8000 ? -1 : 1;
+  const exp = (bits >> 10) & 0x1f;
+  const mant = bits & 0x3ff;
+  if (exp === 0) return sign * mant * 2 ** -24;
+  if (exp === 31) throw new Error("cbor: non-finite f16 is not representable");
+  return sign * (1 + mant / 1024) * 2 ** (exp - 15);
+}
+
+function decodeItem(r: ByteReader): CborValue {
+  const head = r.u8();
+  const major = head >> 5;
+  const info = head & 0x1f;
+  switch (major) {
+    case 3: {
+      const len = readLength(r, info);
+      return tstr(utf8Decoder.decode(r.take(len)));
+    }
+    case 4: {
+      const len = readLength(r, info);
+      const items: CborValue[] = [];
+      for (let i = 0; i < len; i++) items.push(decodeItem(r));
+      return array(items);
+    }
+    case 5: {
+      const len = readLength(r, info);
+      const entries: Array<[string, CborValue]> = [];
+      for (let i = 0; i < len; i++) {
+        const key = decodeItem(r);
+        if (key.t !== "tstr") throw new Error("cbor: map keys must be text strings");
+        entries.push([key.v, decodeItem(r)]);
+      }
+      return map(entries);
+    }
+    case 7: {
+      if (info === 20) return bool(false);
+      if (info === 21) return bool(true);
+      if (info === 25) {
+        const b = r.take(2);
+        return float(f16BitsToNumber((b[0]! << 8) | b[1]!));
+      }
+      if (info === 26) {
+        const b = r.take(4);
+        const dv = new DataView(b.buffer, b.byteOffset, 4);
+        const n = dv.getFloat32(0);
+        if (!Number.isFinite(n)) throw new Error("cbor: non-finite float is not representable");
+        return float(n);
+      }
+      if (info === 27) {
+        const b = r.take(8);
+        const dv = new DataView(b.buffer, b.byteOffset, 8);
+        const n = dv.getFloat64(0);
+        if (!Number.isFinite(n)) throw new Error("cbor: non-finite float is not representable");
+        return float(n);
+      }
+      throw new Error(`cbor: unsupported simple/float (info ${info})`);
+    }
+    default:
+      throw new Error(`cbor: major type ${major} is outside the Rhizomatic profile`);
+  }
+}
+
+export function decode(bytes: Uint8Array): CborValue {
+  const r = new ByteReader(bytes);
+  const v = decodeItem(r);
+  if (!r.done()) throw new Error("cbor: trailing bytes after item");
+  return v;
+}

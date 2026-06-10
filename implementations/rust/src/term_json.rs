@@ -4,7 +4,7 @@
 use serde_json::Value;
 use unicode_normalization::UnicodeNormalization;
 
-use crate::eval::{GroupKey, MaskPolicy, PruneKeep, Term};
+use crate::eval::{GroupKey, MaskPolicy, PruneKeep, SchemaRef, Term};
 use crate::policy::{MergeFn, Order, Policy, PropPolicy};
 use crate::pred::{Cmp, EntityMatch, Field, MatchConst, PPred, Pred, StrMatch, ValMatch};
 use crate::types::Primitive;
@@ -342,6 +342,18 @@ fn parse_group_key(raw: &Value) -> Result<GroupKey, String> {
     Err("group key must be byTargetContext | byRole | {const: string}".to_string())
 }
 
+fn parse_schema_ref(raw: &Value) -> Result<SchemaRef, String> {
+    if let Some(s) = raw.as_str() {
+        return Ok(SchemaRef::Name(nfc(s)));
+    }
+    if let Some(o) = raw.as_object() {
+        if let Some(h) = o.get("pinned").and_then(Value::as_str) {
+            return Ok(SchemaRef::Pinned(h.to_string()));
+        }
+    }
+    Err("schema ref must be a name string or {pinned: hash} (E13)".to_string())
+}
+
 pub fn parse_term(raw: &Value) -> Result<Term, String> {
     if raw == "input" {
         return Ok(Term::Input);
@@ -364,28 +376,18 @@ pub fn parse_term(raw: &Value) -> Result<Term, String> {
             key: parse_group_key(o.get("key").unwrap_or(&Value::Null))?,
             of: Box::new(parse_term(o.get("in").unwrap_or(&Value::Null))?),
         }),
-        Some("expand") => {
-            let schema = o
-                .get("schema")
-                .and_then(Value::as_str)
-                .ok_or("expand.schema must be a string")?;
-            Ok(Term::Expand {
-                role: parse_str_match(o.get("role").unwrap_or(&Value::Null), "expand.role")?,
-                schema: nfc(schema),
-                of: Box::new(parse_term(o.get("in").unwrap_or(&Value::Null))?),
-            })
-        }
+        Some("expand") => Ok(Term::Expand {
+            role: parse_str_match(o.get("role").unwrap_or(&Value::Null), "expand.role")?,
+            schema: parse_schema_ref(o.get("schema").unwrap_or(&Value::Null))?,
+            of: Box::new(parse_term(o.get("in").unwrap_or(&Value::Null))?),
+        }),
         Some("fix") => {
-            let schema = o
-                .get("schema")
-                .and_then(Value::as_str)
-                .ok_or("fix.schema must be a string")?;
             let entity = o
                 .get("entity")
                 .and_then(Value::as_str)
                 .ok_or("fix.entity must be a string")?;
             Ok(Term::Fix {
-                schema: nfc(schema),
+                schema: parse_schema_ref(o.get("schema").unwrap_or(&Value::Null))?,
                 entity: nfc(entity),
             })
         }

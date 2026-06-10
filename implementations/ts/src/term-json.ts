@@ -1,7 +1,7 @@
 // Parse the JSON term profile (ERRATA-2 E1) into Term/Pred. Strings are NFC-normalized at parse
 // time so term-side comparisons are NFC-vs-NFC (data strings are NFC by validation, D11).
 
-import type { GroupKey, MaskPolicy, Term } from "./eval.js";
+import type { GroupKey, MaskPolicy, SchemaRefT, Term } from "./eval.js";
 import type { MergeFn, Order, Policy, PropPolicy } from "./policy.js";
 import type { Cmp, EntityMatch, PPred, Pred, StrMatch, ValMatch } from "./pred.js";
 import type { Primitive } from "./types.js";
@@ -239,6 +239,13 @@ function parseGroupKey(raw: unknown): GroupKey {
   throw new Error("group key must be byTargetContext | byRole | {const: string}");
 }
 
+function parseSchemaRef(raw: unknown): SchemaRefT {
+  if (typeof raw === "string") return { kind: "name", name: nfc(raw) };
+  const o = asObject(raw, "schemaRef");
+  if (typeof o["pinned"] === "string") return { kind: "pinned", hash: o["pinned"] };
+  throw new Error("schema ref must be a name string or {pinned: hash} (E13)");
+}
+
 export function parseTerm(raw: unknown): Term {
   if (raw === "input") return { kind: "input" };
   const o = asObject(raw, "term");
@@ -252,18 +259,16 @@ export function parseTerm(raw: unknown): Term {
     case "group":
       return { kind: "group", key: parseGroupKey(o["key"]), of: parseTerm(o["in"]) };
     case "expand": {
-      if (typeof o["schema"] !== "string") throw new Error("expand.schema must be a string");
       return {
         kind: "expand",
         role: parseStrMatch(o["role"], "expand.role"),
-        schema: nfc(o["schema"]),
+        schema: parseSchemaRef(o["schema"]),
         of: parseTerm(o["in"]),
       };
     }
     case "fix": {
-      if (typeof o["schema"] !== "string") throw new Error("fix.schema must be a string");
       if (typeof o["entity"] !== "string") throw new Error("fix.entity must be a string");
-      return { kind: "fix", schema: nfc(o["schema"]), entity: nfc(o["entity"]) };
+      return { kind: "fix", schema: parseSchemaRef(o["schema"]), entity: nfc(o["entity"]) };
     }
     case "resolve":
       return { kind: "resolve", policy: parsePolicy(o["policy"]), of: parseTerm(o["in"]) };
