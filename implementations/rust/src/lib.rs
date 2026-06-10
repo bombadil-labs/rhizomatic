@@ -7,6 +7,7 @@ pub mod eval;
 pub mod hash;
 pub mod hview;
 pub mod json_profile;
+pub mod materialize;
 pub mod policy;
 pub mod pred;
 pub mod reactor;
@@ -23,6 +24,7 @@ pub use eval::{
     eval_term, result_canonical_hex, EvalResult, GroupKey, MaskPolicy, PruneKeep, Term,
 };
 pub use hview::{hview_canonical_hex, HVEntry, HView};
+pub use materialize::{is_root_anchored, MaterializationChange};
 pub use policy::{resolve_view, view_canonical_hex, MergeFn, Order, Policy, PropPolicy, View};
 pub use pred::{compare_primitives, eval_pred, Pred};
 pub use reactor::{IngestResult, Reactor};

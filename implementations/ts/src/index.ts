@@ -59,4 +59,9 @@ export {
 } from "./term-io.js";
 export { SCHEMA_SCHEMA, VOCAB_PREFIX, loadSchema, publishSchemaClaims } from "./schema-deltas.js";
 export { decode } from "./cbor.js";
-export { Reactor, type IngestResult } from "./reactor.js";
+export {
+  Reactor,
+  isRootAnchored,
+  type IngestResult,
+  type MaterializationChange,
+} from "./reactor.js";

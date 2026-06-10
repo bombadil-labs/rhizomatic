@@ -77,10 +77,14 @@ incremental result must be byte-identical to from-scratch eval (SPEC-4 §1).
   carry no context in the pinned format (V1, flagged to SPEC-4/SPEC-2); signature gate on ingest;
   order-convergence property-tested in both incl. negation-before-target; read-your-writes;
   index-vs-full-scan agreement; value-index-vs-evaluation agreement. v0 log is in-memory (V2).
-- **M2.2 — materializations + incremental maintenance.** register (term, roots, pin-set);
-  monotone insertion along support paths; non-monotone repair via the negation index
-  (localized recomputation per SPEC-4 §4.3); incremental-equivalence property tests vs the
-  M1 oracle under randomized orders incl. negations arriving before their targets.
+- **M2.2 — materializations + incremental maintenance.** ✅ **complete.** Root-localized
+  recomputation with sound dispatch (ERRATA-4 V5): support entities from nested HView ids;
+  negation-chain walks checked against RELEVANCE (not presence) so reinstatement dispatches;
+  static root-anchoring analyzer across transitively referenced schema bodies, with broad
+  dispatch for non-anchored terms (group(const) etc). Incremental ≡ batch verified after EVERY
+  ingest under random permutations in both witnesses (fast-check / seeded proptest), incl. the
+  suppress→reinstate cycle and expanded-entity re-materialization; anchored dispatch provably
+  skips irrelevant deltas (eval-count assertion); change events fire only on content change.
 - **M2.3 — subscriptions + change events.** root entity, affected property paths, responsible
   delta ids, new content hash (SPEC-4 §5); read-your-writes confirmation (§6).
 - **M2.4 — manifest-keyed atomic batch ingestion** (rdb.txn vocabulary, SPEC-1 §9 / SPEC-4 §6).

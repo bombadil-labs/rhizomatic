@@ -4,6 +4,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::eval::{eval_term, EvalResult, Term};
+use crate::hview::HView;
+use crate::materialize::{Materialization, MaterializationChange};
 use crate::policy::{view_canonical_hex, View};
 use crate::pred::compare_primitives;
 use crate::schema::SchemaRegistry;
@@ -29,6 +31,12 @@ pub struct Reactor {
     negation_index: BTreeMap<String, BTreeSet<String>>,
     /// value index: role -> canonical primitive key -> (value, ids) (V1: keyed by role)
     value_index: BTreeMap<String, BTreeMap<String, (Primitive, BTreeSet<String>)>>,
+    materializations: BTreeMap<String, Materialization>,
+    last_changes: Vec<MaterializationChange>,
+}
+
+fn mat_affects(mat: &Materialization, delta: &Delta, root: &str, set: &DeltaSet) -> bool {
+    mat.affects(delta, root, set)
 }
 
 impl Reactor {
@@ -52,6 +60,7 @@ impl Reactor {
             Err(e) => return IngestResult::Rejected(e),
         }
         self.index(&delta);
+        self.last_changes = self.dispatch_and_update(&delta);
         self.log.push(delta);
         IngestResult::Accepted
     }
@@ -164,5 +173,81 @@ impl Reactor {
         registry: Option<&SchemaRegistry>,
     ) -> Result<EvalResult, String> {
         eval_term(term, &self.set, root, registry)
+    }
+
+    // --- materializations (SPEC-4 §4, ERRATA-4 V5) ---
+
+    /// Register a live materialization: an HView-sort term kept incrementally equal to batch
+    /// evaluation at each root (SPEC-4 §1).
+    pub fn register(
+        &mut self,
+        name: &str,
+        term: Term,
+        roots: &[String],
+        registry: Option<SchemaRegistry>,
+    ) -> Result<(), String> {
+        if self.materializations.contains_key(name) {
+            return Err(format!("duplicate materialization: {name}"));
+        }
+        let mut mat = Materialization::new(name, term, roots, registry);
+        for root in mat.roots.clone() {
+            mat.refresh(&self.set, &root)?;
+        }
+        self.materializations.insert(name.to_string(), mat);
+        Ok(())
+    }
+
+    pub fn materialized_hex(&self, name: &str, root: &str) -> Option<&str> {
+        self.materializations
+            .get(name)
+            .and_then(|m| m.hexes.get(root).map(String::as_str))
+    }
+
+    pub fn materialized_view(&self, name: &str, root: &str) -> Option<&HView> {
+        self.materializations
+            .get(name)
+            .and_then(|m| m.views.get(root))
+    }
+
+    pub fn eval_count_of(&self, name: &str) -> u64 {
+        self.materializations
+            .get(name)
+            .map(|m| m.eval_count)
+            .unwrap_or(0)
+    }
+
+    pub fn changes_from_last_ingest(&self) -> &[MaterializationChange] {
+        &self.last_changes
+    }
+
+    fn dispatch_and_update(&mut self, delta: &Delta) -> Vec<MaterializationChange> {
+        // Split borrows: materializations is mutated while the set is read.
+        let Self {
+            set,
+            materializations,
+            ..
+        } = self;
+        let mut changes = Vec::new();
+        for mat in materializations.values_mut() {
+            let affected: Vec<String> = mat
+                .roots
+                .iter()
+                .filter(|root| mat_affects(mat, delta, root, set))
+                .cloned()
+                .collect();
+            for root in affected {
+                if mat
+                    .refresh(set, &root)
+                    .expect("registered terms stay evaluable")
+                {
+                    changes.push(MaterializationChange {
+                        materialization: mat.name.clone(),
+                        root: root.clone(),
+                        new_hex: mat.hexes.get(&root).unwrap().clone(),
+                    });
+                }
+            }
+        }
+        changes
     }
 }
