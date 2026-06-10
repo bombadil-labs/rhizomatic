@@ -1,0 +1,186 @@
+[
+  {
+    "name": "single-primitive-string",
+    "spec": "SPEC-1 §2",
+    "claims": {
+      "timestamp": 0,
+      "author": "did:key:zAuthorA",
+      "pointers": [
+        {
+          "role": "title",
+          "target": {
+            "value": "The Matrix"
+          }
+        }
+      ]
+    },
+    "canonicalCborHex": "a366617574686f72706469643a6b65793a7a417574686f724168706f696e7465727381a264726f6c65657469746c65667461726765746a546865204d61747269786974696d657374616d70fa00000000",
+    "id": "1e208469cddbb5ee8f5f7d666c00b78b2e1fcb0cb077c7d1144a5822c0931917ce7f"
+  },
+  {
+    "name": "primitive-number",
+    "spec": "SPEC-1 §2 / ERRATA D1",
+    "claims": {
+      "timestamp": 1717977600000,
+      "author": "did:key:zAuthorA",
+      "pointers": [
+        {
+          "role": "releaseYear",
+          "target": {
+            "value": 1999
+          }
+        }
+      ]
+    },
+    "canonicalCborHex": "a366617574686f72706469643a6b65793a7a417574686f724168706f696e7465727381a264726f6c656b72656c656173655965617266746172676574fa44f9e0006974696d657374616d70fb4278fff71d000000",
+    "id": "1e205886af34383240542cc2382aae23d2f1f8be1b7f6c604622a4724a3a56d4d01b"
+  },
+  {
+    "name": "primitive-boolean",
+    "spec": "SPEC-1 §2",
+    "claims": {
+      "timestamp": 0,
+      "author": "did:key:zAuthorA",
+      "pointers": [
+        {
+          "role": "isCanonical",
+          "target": {
+            "value": true
+          }
+        }
+      ]
+    },
+    "canonicalCborHex": "a366617574686f72706469643a6b65793a7a417574686f724168706f696e7465727381a264726f6c656b697343616e6f6e6963616c66746172676574f56974696d657374616d70fa00000000",
+    "id": "1e20f75598e83df5a83afca643be941343a15ebb7d140e482f112335d6a0d927fd3e"
+  },
+  {
+    "name": "entity-ref-no-context",
+    "spec": "SPEC-1 §2 / ERRATA D5",
+    "claims": {
+      "timestamp": 0,
+      "author": "did:key:zAuthorA",
+      "pointers": [
+        {
+          "role": "subject",
+          "target": {
+            "entityRef": {
+              "id": "entity:the_matrix"
+            }
+          }
+        }
+      ]
+    },
+    "canonicalCborHex": "a366617574686f72706469643a6b65793a7a417574686f724168706f696e7465727381a264726f6c65677375626a65637466746172676574a162696471656e746974793a7468655f6d61747269786974696d657374616d70fa00000000",
+    "id": "1e201eb9f0dfaf497146ec2b4341ef67f8c8f3198aece8194b5599997308f0058c53"
+  },
+  {
+    "name": "entity-ref-with-context",
+    "spec": "SPEC-1 §2 / ERRATA D5",
+    "claims": {
+      "timestamp": 0,
+      "author": "did:key:zAuthorA",
+      "pointers": [
+        {
+          "role": "cast",
+          "target": {
+            "entityRef": {
+              "id": "entity:keanu",
+              "context": "actor"
+            }
+          }
+        }
+      ]
+    },
+    "canonicalCborHex": "a366617574686f72706469643a6b65793a7a417574686f724168706f696e7465727381a264726f6c65646361737466746172676574a26269646c656e746974793a6b65616e7567636f6e74657874656163746f726974696d657374616d70fa00000000",
+    "id": "1e20c706d5906cc9e5ad8dfa49b81d223038297424788fae139340d3995f2acb7fac"
+  },
+  {
+    "name": "negation-delta-ref",
+    "spec": "SPEC-1 §7 / ERRATA D5",
+    "claims": {
+      "timestamp": 1,
+      "author": "did:key:zAuthorB",
+      "pointers": [
+        {
+          "role": "negates",
+          "target": {
+            "deltaRef": {
+              "delta": "1e2000000000000000000000000000000000000000000000000000000000000000"
+            }
+          }
+        },
+        {
+          "role": "reason",
+          "target": {
+            "value": "superseded"
+          }
+        }
+      ]
+    },
+    "canonicalCborHex": "a366617574686f72706469643a6b65793a7a417574686f724268706f696e7465727382a264726f6c65676e65676174657366746172676574a16564656c74617842316532303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030a264726f6c6566726561736f6e667461726765746a737570657273656465646974696d657374616d70fa3f800000",
+    "id": "1e2055612e3f16b1c4884b04abe7c875fd38cd13247e2fe269c40749edcec88ce7f9"
+  },
+  {
+    "name": "multi-pointer-purchase",
+    "spec": "SPEC-1 §3",
+    "claims": {
+      "timestamp": 1717977600000,
+      "author": "did:key:zAuthorA",
+      "pointers": [
+        {
+          "role": "buyer",
+          "target": {
+            "entityRef": {
+              "id": "entity:alice",
+              "context": "purchases"
+            }
+          }
+        },
+        {
+          "role": "seller",
+          "target": {
+            "entityRef": {
+              "id": "entity:bob",
+              "context": "sales"
+            }
+          }
+        },
+        {
+          "role": "item",
+          "target": {
+            "entityRef": {
+              "id": "entity:widget",
+              "context": "soldVia"
+            }
+          }
+        },
+        {
+          "role": "price",
+          "target": {
+            "value": 19.99
+          }
+        }
+      ]
+    },
+    "canonicalCborHex": "a366617574686f72706469643a6b65793a7a417574686f724168706f696e7465727384a264726f6c6565627579657266746172676574a26269646c656e746974793a616c69636567636f6e7465787469707572636861736573a264726f6c656673656c6c657266746172676574a26269646a656e746974793a626f6267636f6e746578746573616c6573a264726f6c65646974656d66746172676574a26269646d656e746974793a77696467657467636f6e7465787467736f6c64566961a264726f6c6565707269636566746172676574fb4033fd70a3d70a3d6974696d657374616d70fb4278fff71d000000",
+    "id": "1e200561a1f0ed9b4f3619e1657ff6319fd6ca2812b8cd89ece6e46fb3608c219485"
+  },
+  {
+    "name": "unicode-nfc-author",
+    "spec": "SPEC-1 §4.1 / ERRATA D2",
+    "claims": {
+      "timestamp": 0,
+      "author": "did:key:café",
+      "pointers": [
+        {
+          "role": "note",
+          "target": {
+            "value": "ünïcödé"
+          }
+        }
+      ]
+    },
+    "canonicalCborHex": "a366617574686f726d6469643a6b65793a636166c3a968706f696e7465727381a264726f6c65646e6f7465667461726765746bc3bc6ec3af63c3b664c3a96974696d657374616d70fa00000000",
+    "id": "1e20fbf83eddddbe7d28531eabe9c06e546d2bed571e213798aaa5abef314b8719c3"
+  }
+]

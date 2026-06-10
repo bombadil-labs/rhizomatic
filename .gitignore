@@ -4,6 +4,11 @@ implementations/ts/node_modules/
 implementations/ts/dist/
 implementations/ts/coverage/
 *.tsbuildinfo
+.eslintcache
+
+# Lockfiles ARE committed for reproducible builds:
+#   implementations/ts/package-lock.json
+#   implementations/rust/Cargo.lock
 
 # Rust
 implementations/rust/target/

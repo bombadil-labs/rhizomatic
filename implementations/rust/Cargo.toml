@@ -1,0 +1,12 @@
+[package]
+name = "rhizomatic"
+version = "0.0.0"
+edition = "2021"
+description = "Rhizomatic reference implementation (Rust) — one of two parallel witnesses to the spec."
+publish = false
+
+[dependencies]
+blake3 = "1"
+hex = "0.4"
+serde_json = "1"
+unicode-normalization = "0.1"
