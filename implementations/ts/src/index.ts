@@ -62,6 +62,13 @@ export { decode } from "./cbor.js";
 export { packId, packSet, unpackSet } from "./pack.js";
 export { Peer, syncBoth, type SyncReport } from "./peer.js";
 export {
+  DerivationHost,
+  derivedClaims,
+  verifyPureDerivation,
+  type BindingSpec,
+  type DerivedFn,
+} from "./derivation.js";
+export {
   Reactor,
   isRootAnchored,
   makeManifestClaims,

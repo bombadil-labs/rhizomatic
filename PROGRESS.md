@@ -21,7 +21,7 @@ window should be able to read this top-to-bottom and know exactly where things s
 | M2 | The reactor | ✅ complete | ✅ complete |
 | M3 | Packs | ✅ complete | ✅ complete |
 | M4 | Federation | ✅ complete | ✅ complete |
-| M5 | Derivation | next | next |
+| M5 | Derivation | ✅ complete | ✅ complete |
 
 ## Discovery: how M1 (the evaluator) decomposes into slices
 
@@ -118,6 +118,22 @@ fork pairs converge to union (property), sync idempotent, lens fidelity, admissi
 budgets. The WASM host ABI is SPEC-7's biggest open surface; a v0 can implement native-function
 derived authors (host-language closures as non-portable authors) with the binding lifecycle,
 emission policies, and pure-replay verification, deferring WASM portability.
+
+## Discovery: M5 (derivation) — done in one slice; THE BUILD ORDER IS COMPLETE
+
+**M5 — derivation.** ✅ **complete.** Native-function derived authors (ERRATA-7 G1 — SPEC-7 §7
+itself concedes native fns are conformant-but-not-portable; the WASM ABI remains the spec's
+flagged open surface). The full lifecycle works: signed binds installation, the write-back loop
+(host wraps the reactor, drains triggers to quiescence), provenance emission (by/from/under,
+timestamp 0 for replayability — G3), supersede via self-authored negations, the non-reentrancy
+guard, budgets with signed rdb.derived.suspended annotations (divergence is observable, not a
+melted reactor), and pure-replay verification (re-run fn on the pinned input view → recompute
+id → must match; tampered functions fail). Tested identically in both witnesses.
+
+**All six milestones (M0-M5) are now implemented in both witnesses — conformance Levels 0-4
+all have two working citizens.** Next per the loop charter: the REFERENCE APP showcasing the
+capabilities (superposition, policies-as-lenses, time-travel, federation, derived authors),
+plus polish (README status update, top-level parity runner, CI).
 
 ## Slice log
 

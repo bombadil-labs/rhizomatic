@@ -3,6 +3,7 @@
 
 pub mod cbor;
 pub mod delta;
+pub mod derivation;
 pub mod eval;
 pub mod hash;
 pub mod hview;
@@ -22,6 +23,7 @@ pub mod term_json;
 pub mod types;
 
 pub use delta::{canonical_bytes, canonical_hex, compute_id};
+pub use derivation::{verify_pure_derivation, BindingSpec, DerivationHost};
 pub use eval::{
     eval_term, result_canonical_hex, EvalResult, GroupKey, MaskPolicy, PruneKeep, Term,
 };
