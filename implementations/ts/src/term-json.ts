@@ -2,7 +2,7 @@
 // time so term-side comparisons are NFC-vs-NFC (data strings are NFC by validation, D11).
 
 import type { GroupKey, MaskPolicy, Term } from "./eval.js";
-import type { Cmp, PPred, Pred, StrMatch, ValMatch } from "./pred.js";
+import type { Cmp, EntityMatch, PPred, Pred, StrMatch, ValMatch } from "./pred.js";
 import type { Primitive } from "./types.js";
 
 const CMPS: readonly Cmp[] = ["eq", "neq", "lt", "lte", "gt", "gte", "prefix", "inSet"];
@@ -82,7 +82,7 @@ function parsePPred(raw: unknown): PPred {
   const o = asObject(raw, "hasPointer");
   const out: {
     role?: StrMatch;
-    targetEntity?: string;
+    targetEntity?: EntityMatch;
     targetDelta?: string;
     context?: StrMatch;
     targetIsPrimitive?: boolean;
@@ -90,8 +90,14 @@ function parsePPred(raw: unknown): PPred {
   } = {};
   if (o["role"] !== undefined) out.role = parseStrMatch(o["role"], "hasPointer.role");
   if (o["targetEntity"] !== undefined) {
-    if (typeof o["targetEntity"] !== "string") throw new Error("targetEntity must be a string");
-    out.targetEntity = nfc(o["targetEntity"]);
+    const te = o["targetEntity"];
+    if (typeof te === "string") {
+      out.targetEntity = { kind: "const", id: nfc(te) };
+    } else {
+      const v = asObject(te, "targetEntity");
+      if (v["var"] !== "root") throw new Error('targetEntity must be a string or {var: "root"}');
+      out.targetEntity = { kind: "root" };
+    }
   }
   if (o["targetDelta"] !== undefined) {
     if (typeof o["targetDelta"] !== "string") throw new Error("targetDelta must be a string");
@@ -178,6 +184,20 @@ export function parseTerm(raw: unknown): Term {
       return { kind: "mask", policy: parseMaskPolicy(o["policy"]), of: parseTerm(o["in"]) };
     case "group":
       return { kind: "group", key: parseGroupKey(o["key"]), of: parseTerm(o["in"]) };
+    case "expand": {
+      if (typeof o["schema"] !== "string") throw new Error("expand.schema must be a string");
+      return {
+        kind: "expand",
+        role: parseStrMatch(o["role"], "expand.role"),
+        schema: nfc(o["schema"]),
+        of: parseTerm(o["in"]),
+      };
+    }
+    case "fix": {
+      if (typeof o["schema"] !== "string") throw new Error("fix.schema must be a string");
+      if (typeof o["entity"] !== "string") throw new Error("fix.entity must be a string");
+      return { kind: "fix", schema: nfc(o["schema"]), entity: nfc(o["entity"]) };
+    }
     case "prune": {
       const keep = o["keep"] === "all" ? "all" : parseStrMatch(o["keep"], "prune.keep");
       return { kind: "prune", keep, of: parseTerm(o["in"]) };

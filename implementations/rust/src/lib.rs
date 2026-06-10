@@ -8,6 +8,7 @@ pub mod hash;
 pub mod hview;
 pub mod json_profile;
 pub mod pred;
+pub mod schema;
 pub mod set;
 pub mod sign;
 pub mod term_json;
@@ -19,6 +20,7 @@ pub use eval::{
 };
 pub use hview::{hview_canonical_hex, HVEntry, HView};
 pub use pred::{compare_primitives, eval_pred, Pred};
+pub use schema::{collect_refs, HyperSchema, SchemaRegistry};
 pub use set::{federate, fork, make_delta, make_negation_claims, merge, DeltaSet};
 pub use sign::{sign_claims, verify_delta, Verification};
 pub use term_json::{parse_pred, parse_term};

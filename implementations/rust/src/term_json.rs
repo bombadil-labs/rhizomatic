@@ -5,7 +5,7 @@ use serde_json::Value;
 use unicode_normalization::UnicodeNormalization;
 
 use crate::eval::{GroupKey, MaskPolicy, PruneKeep, Term};
-use crate::pred::{Cmp, Field, MatchConst, PPred, Pred, StrMatch, ValMatch};
+use crate::pred::{Cmp, EntityMatch, Field, MatchConst, PPred, Pred, StrMatch, ValMatch};
 use crate::types::Primitive;
 
 fn nfc(s: &str) -> String {
@@ -121,7 +121,13 @@ fn parse_ppred(v: &Value) -> Result<PPred, String> {
         any = true;
     }
     if let Some(e) = o.get("targetEntity") {
-        out.target_entity = Some(nfc(e.as_str().ok_or("targetEntity must be a string")?));
+        out.target_entity = Some(if let Some(s) = e.as_str() {
+            EntityMatch::Const(nfc(s))
+        } else if e.get("var").and_then(Value::as_str) == Some("root") {
+            EntityMatch::Root
+        } else {
+            return Err("targetEntity must be a string or {var: \"root\"}".to_string());
+        });
         any = true;
     }
     if let Some(d) = o.get("targetDelta") {
@@ -266,6 +272,31 @@ pub fn parse_term(raw: &Value) -> Result<Term, String> {
             key: parse_group_key(o.get("key").unwrap_or(&Value::Null))?,
             of: Box::new(parse_term(o.get("in").unwrap_or(&Value::Null))?),
         }),
+        Some("expand") => {
+            let schema = o
+                .get("schema")
+                .and_then(Value::as_str)
+                .ok_or("expand.schema must be a string")?;
+            Ok(Term::Expand {
+                role: parse_str_match(o.get("role").unwrap_or(&Value::Null), "expand.role")?,
+                schema: nfc(schema),
+                of: Box::new(parse_term(o.get("in").unwrap_or(&Value::Null))?),
+            })
+        }
+        Some("fix") => {
+            let schema = o
+                .get("schema")
+                .and_then(Value::as_str)
+                .ok_or("fix.schema must be a string")?;
+            let entity = o
+                .get("entity")
+                .and_then(Value::as_str)
+                .ok_or("fix.entity must be a string")?;
+            Ok(Term::Fix {
+                schema: nfc(schema),
+                entity: nfc(entity),
+            })
+        }
         Some("prune") => {
             let keep_raw = o.get("keep").unwrap_or(&Value::Null);
             let keep = if keep_raw == "all" {

@@ -37,4 +37,5 @@ export {
   type Term,
 } from "./eval.js";
 export { hviewCanonicalHex, type HVEntry, type HView } from "./hview.js";
+export { SchemaRegistry, collectRefs, type HyperSchema } from "./schema.js";
 export { parsePred, parseTerm } from "./term-json.js";

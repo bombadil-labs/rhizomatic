@@ -31,10 +31,17 @@ pub enum ValMatch {
     InSet(Vec<Primitive>),
 }
 
+/// An entity to match: a literal id, or the ambient root variable (ERRATA-2 E10).
+#[derive(Debug, Clone, PartialEq)]
+pub enum EntityMatch {
+    Const(String),
+    Root,
+}
+
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct PPred {
     pub role: Option<StrMatch>,
-    pub target_entity: Option<String>,
+    pub target_entity: Option<EntityMatch>,
     pub target_delta: Option<String>,
     pub context: Option<StrMatch>,
     pub target_is_primitive: Option<bool>,
@@ -150,16 +157,23 @@ fn val_match(m: &ValMatch, v: &Primitive) -> bool {
     }
 }
 
-fn pointer_matches(p: &PPred, ptr: &Pointer) -> bool {
+fn pointer_matches(p: &PPred, ptr: &Pointer, root: Option<&str>) -> bool {
     if let Some(m) = &p.role {
         if !str_match(m, &ptr.role) {
             return false;
         }
     }
     if let Some(e) = &p.target_entity {
-        match &ptr.target {
-            Target::Entity(er) if &er.id == e => {}
-            _ => return false,
+        let Target::Entity(er) = &ptr.target else {
+            return false;
+        };
+        // The root variable matches nothing without an ambient root (E10).
+        let want = match e {
+            EntityMatch::Const(id) => Some(id.as_str()),
+            EntityMatch::Root => root,
+        };
+        if want != Some(er.id.as_str()) {
+            return false;
         }
     }
     if let Some(d) = &p.target_delta {
@@ -194,7 +208,8 @@ fn pointer_matches(p: &PPred, ptr: &Pointer) -> bool {
 }
 
 /// Total and terminating: O(|delta|) per evaluation, no data dereference (SPEC-2 §3).
-pub fn eval_pred(pred: &Pred, delta: &Delta) -> bool {
+/// root is the ambient root entity, consulted only by the root variable (E10).
+pub fn eval_pred(pred: &Pred, delta: &Delta, root: Option<&str>) -> bool {
     match pred {
         Pred::True => true,
         Pred::False => false,
@@ -214,9 +229,9 @@ pub fn eval_pred(pred: &Pred, delta: &Delta) -> bool {
             .claims
             .pointers
             .iter()
-            .any(|ptr| pointer_matches(pp, ptr)),
-        Pred::And(l, r) => eval_pred(l, delta) && eval_pred(r, delta),
-        Pred::Or(l, r) => eval_pred(l, delta) || eval_pred(r, delta),
-        Pred::Not(p) => !eval_pred(p, delta),
+            .any(|ptr| pointer_matches(pp, ptr, root)),
+        Pred::And(l, r) => eval_pred(l, delta, root) && eval_pred(r, delta, root),
+        Pred::Or(l, r) => eval_pred(l, delta, root) || eval_pred(r, delta, root),
+        Pred::Not(p) => !eval_pred(p, delta, root),
     }
 }

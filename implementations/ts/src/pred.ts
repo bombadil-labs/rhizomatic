@@ -15,9 +15,14 @@ export type ValMatch =
   | { readonly kind: "between"; readonly lo: Primitive; readonly hi: Primitive }
   | { readonly kind: "inSet"; readonly values: readonly Primitive[] };
 
+// An entity to match: a literal id, or the ambient root variable (ERRATA-2 E10).
+export type EntityMatch =
+  | { readonly kind: "const"; readonly id: string }
+  | { readonly kind: "root" };
+
 export interface PPred {
   readonly role?: StrMatch;
-  readonly targetEntity?: string;
+  readonly targetEntity?: EntityMatch;
   readonly targetDelta?: string;
   readonly context?: StrMatch;
   readonly targetIsPrimitive?: boolean;
@@ -128,10 +133,13 @@ function valMatch(m: ValMatch, v: Primitive): boolean {
   }
 }
 
-function pointerMatches(p: PPred, ptr: Pointer): boolean {
+function pointerMatches(p: PPred, ptr: Pointer, root: string | undefined): boolean {
   if (p.role !== undefined && !strMatch(p.role, ptr.role)) return false;
   if (p.targetEntity !== undefined) {
-    if (ptr.target.kind !== "entity" || ptr.target.entity.id !== p.targetEntity) return false;
+    if (ptr.target.kind !== "entity") return false;
+    // The root variable matches nothing without an ambient root (E10).
+    const want = p.targetEntity.kind === "const" ? p.targetEntity.id : root;
+    if (want === undefined || ptr.target.entity.id !== want) return false;
   }
   if (p.targetDelta !== undefined) {
     if (ptr.target.kind !== "delta" || ptr.target.deltaRef.delta !== p.targetDelta) return false;
@@ -155,7 +163,8 @@ function pointerMatches(p: PPred, ptr: Pointer): boolean {
 }
 
 // Total and terminating: O(|delta|) per evaluation, no data dereference (SPEC-2 §3).
-export function evalPred(pred: Pred, delta: Delta): boolean {
+// `root` is the ambient root entity, consulted only by the root variable (E10).
+export function evalPred(pred: Pred, delta: Delta, root?: string): boolean {
   switch (pred.kind) {
     case "true":
       return true;
@@ -171,12 +180,12 @@ export function evalPred(pred: Pred, delta: Delta): boolean {
       return compareWith(pred.cmp, subject, pred.constant);
     }
     case "hasPointer":
-      return delta.claims.pointers.some((ptr) => pointerMatches(pred.ppred, ptr));
+      return delta.claims.pointers.some((ptr) => pointerMatches(pred.ppred, ptr, root));
     case "and":
-      return evalPred(pred.left, delta) && evalPred(pred.right, delta);
+      return evalPred(pred.left, delta, root) && evalPred(pred.right, delta, root);
     case "or":
-      return evalPred(pred.left, delta) || evalPred(pred.right, delta);
+      return evalPred(pred.left, delta, root) || evalPred(pred.right, delta, root);
     case "not":
-      return !evalPred(pred.pred, delta);
+      return !evalPred(pred.pred, delta, root);
   }
 }

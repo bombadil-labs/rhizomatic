@@ -1,11 +1,13 @@
 //! Term evaluation: select/union/mask over DSet (SPEC-2 §4.1-4.3), group into HView (§4.4),
-//! prune over HView (§4.6). Mirrors ../ts/src/eval.ts. Sorts are checked at evaluation time (E9).
+//! expand (§4.5), prune (§4.6), fix (§4.8). Mirrors ../ts/src/eval.ts.
+//! Sorts are checked at evaluation time (E9); the schema registry is an explicit input (E10).
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use crate::cbor::{encode, CborValue};
 use crate::hview::{hview_canonical_hex, HVEntry, HView};
 use crate::pred::{eval_pred, str_match, Pred, StrMatch};
+use crate::schema::SchemaRegistry;
 use crate::set::{fork, merge, DeltaSet};
 use crate::types::{Delta, Target};
 
@@ -32,11 +34,35 @@ pub enum PruneKeep {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Term {
     Input,
-    Select { pred: Pred, of: Box<Term> },
-    Union { left: Box<Term>, right: Box<Term> },
-    Mask { policy: MaskPolicy, of: Box<Term> },
-    Group { key: GroupKey, of: Box<Term> },
-    Prune { keep: PruneKeep, of: Box<Term> },
+    Select {
+        pred: Pred,
+        of: Box<Term>,
+    },
+    Union {
+        left: Box<Term>,
+        right: Box<Term>,
+    },
+    Mask {
+        policy: MaskPolicy,
+        of: Box<Term>,
+    },
+    Group {
+        key: GroupKey,
+        of: Box<Term>,
+    },
+    Prune {
+        keep: PruneKeep,
+        of: Box<Term>,
+    },
+    Expand {
+        role: StrMatch,
+        schema: String,
+        of: Box<Term>,
+    },
+    Fix {
+        schema: String,
+        entity: String,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -76,11 +102,11 @@ fn is_negated(
 }
 
 /// negated(d, D) per SPEC-2 §4.3, over candidate negations restricted by `trusted` (E4).
-fn compute_negated(d: &DeltaSet, trusted: Option<&Pred>) -> BTreeSet<String> {
+fn compute_negated(d: &DeltaSet, trusted: Option<&Pred>, root: Option<&str>) -> BTreeSet<String> {
     let mut negators: HashMap<String, Vec<String>> = HashMap::new();
     for n in d.iter() {
         if let Some(p) = trusted {
-            if !eval_pred(p, n) {
+            if !eval_pred(p, n, root) {
                 continue;
             }
         }
@@ -113,6 +139,7 @@ fn eval_group(key: &GroupKey, set: &DeltaSet, negated: &BTreeSet<String>, root: 
             .or_insert_with(|| HVEntry {
                 delta: d.clone(),
                 negated: negated.contains(&d.id),
+                expanded: BTreeMap::new(),
             });
     };
     for d in set.iter() {
@@ -149,37 +176,68 @@ fn eval_group(key: &GroupKey, set: &DeltaSet, negated: &BTreeSet<String>, root: 
     }
 }
 
-pub fn eval_term(term: &Term, input: &DeltaSet, root: Option<&str>) -> Result<EvalResult, String> {
-    fn expect_dset(r: EvalResult, op: &str) -> Result<(DeltaSet, BTreeSet<String>, bool), String> {
+/// Evaluate a named schema at a root over the SAME delta set the enclosing evaluation received
+/// (SPEC-2 §4.5). Termination is the schema DAG's, enforced at registry build (SPEC-3 §3).
+fn eval_schema(
+    name: &str,
+    input: &DeltaSet,
+    root: &str,
+    registry: Option<&SchemaRegistry>,
+) -> Result<HView, String> {
+    let registry = registry.ok_or(format!(
+        "schema {name} referenced but no registry supplied (E10)"
+    ))?;
+    let schema = registry
+        .get(name)
+        .ok_or(format!("unknown schema: {name} (E10)"))?;
+    match eval_term(&schema.body, input, Some(root), Some(registry))? {
+        EvalResult::HView(h) => Ok(h),
+        EvalResult::DSet { .. } => Err(format!(
+            "schema {name} body must be an HView-sort term (E10)"
+        )),
+    }
+}
+
+pub fn eval_term(
+    term: &Term,
+    input: &DeltaSet,
+    root: Option<&str>,
+    registry: Option<&SchemaRegistry>,
+) -> Result<EvalResult, String> {
+    fn expect_dset(r: EvalResult, op: &str) -> Result<(DeltaSet, BTreeSet<String>), String> {
         match r {
-            EvalResult::DSet {
-                set,
-                negated,
-                annotated,
-            } => Ok((set, negated, annotated)),
+            EvalResult::DSet { set, negated, .. } => Ok((set, negated)),
             EvalResult::HView(_) => Err(format!("{op} requires a DSet operand (E9)")),
+        }
+    }
+    fn expect_hview(r: EvalResult, op: &str) -> Result<HView, String> {
+        match r {
+            EvalResult::HView(h) => Ok(h),
+            EvalResult::DSet { .. } => Err(format!("{op} requires an HView operand (E9)")),
         }
     }
     match term {
         Term::Input => Ok(dset_result(input.clone())),
         Term::Select { pred, of } => {
-            let (set, _, _) = expect_dset(eval_term(of, input, root)?, "select")?;
-            Ok(dset_result(fork(&set, |d: &Delta| eval_pred(pred, d))))
+            let (set, _) = expect_dset(eval_term(of, input, root, registry)?, "select")?;
+            Ok(dset_result(fork(&set, |d: &Delta| {
+                eval_pred(pred, d, root)
+            })))
         }
         Term::Union { left, right } => {
-            let (l, _, _) = expect_dset(eval_term(left, input, root)?, "union")?;
-            let (r, _, _) = expect_dset(eval_term(right, input, root)?, "union")?;
+            let (l, _) = expect_dset(eval_term(left, input, root, registry)?, "union")?;
+            let (r, _) = expect_dset(eval_term(right, input, root, registry)?, "union")?;
             Ok(dset_result(merge(&l, &r)))
         }
         Term::Mask { policy, of } => {
-            let (set, _, _) = expect_dset(eval_term(of, input, root)?, "mask")?;
+            let (set, _) = expect_dset(eval_term(of, input, root, registry)?, "mask")?;
             Ok(match policy {
                 MaskPolicy::Drop => {
-                    let negated = compute_negated(&set, None);
+                    let negated = compute_negated(&set, None, root);
                     dset_result(fork(&set, |d: &Delta| !negated.contains(&d.id)))
                 }
                 MaskPolicy::Annotate => {
-                    let negated = compute_negated(&set, None);
+                    let negated = compute_negated(&set, None, root);
                     EvalResult::DSet {
                         set,
                         negated,
@@ -187,21 +245,18 @@ pub fn eval_term(term: &Term, input: &DeltaSet, root: Option<&str>) -> Result<Ev
                     }
                 }
                 MaskPolicy::Trust(pred) => {
-                    let negated = compute_negated(&set, Some(pred));
+                    let negated = compute_negated(&set, Some(pred), root);
                     dset_result(fork(&set, |d: &Delta| !negated.contains(&d.id)))
                 }
             })
         }
         Term::Group { key, of } => {
             let root = root.ok_or("group requires an ambient root entity (E9)")?;
-            let (set, negated, _) = expect_dset(eval_term(of, input, Some(root))?, "group")?;
+            let (set, negated) = expect_dset(eval_term(of, input, Some(root), registry)?, "group")?;
             Ok(EvalResult::HView(eval_group(key, &set, &negated, root)))
         }
         Term::Prune { keep, of } => {
-            let r = eval_term(of, input, root)?;
-            let EvalResult::HView(h) = r else {
-                return Err("prune requires an HView operand (E9)".to_string());
-            };
+            let h = expect_hview(eval_term(of, input, root, registry)?, "prune")?;
             Ok(EvalResult::HView(match keep {
                 PruneKeep::All => h,
                 PruneKeep::Match(m) => HView {
@@ -213,6 +268,36 @@ pub fn eval_term(term: &Term, input: &DeltaSet, root: Option<&str>) -> Result<Ev
                         .collect(),
                 },
             }))
+        }
+        Term::Expand { role, schema, of } => {
+            let h = expect_hview(eval_term(of, input, root, registry)?, "expand")?;
+            let mut props: BTreeMap<String, Vec<HVEntry>> = BTreeMap::new();
+            for (prop, entries) in h.props {
+                let mut out = Vec::with_capacity(entries.len());
+                for mut e in entries {
+                    for (i, ptr) in e.delta.claims.pointers.iter().enumerate() {
+                        // Only role-matching EntityRef pointers expand; everything else passes
+                        // through as written (E11, SPEC-3 §7 graceful degradation).
+                        let Target::Entity(er) = &ptr.target else {
+                            continue;
+                        };
+                        if !str_match(role, &ptr.role) {
+                            continue;
+                        }
+                        let nested = eval_schema(schema, input, &er.id, registry)?;
+                        e.expanded.insert(i, nested);
+                    }
+                    out.push(e);
+                }
+                props.insert(prop, out);
+            }
+            Ok(EvalResult::HView(HView { id: h.id, props }))
+        }
+        Term::Fix { schema, entity } => {
+            // The invocation instruction: ambient root is set to the entity explicitly (E10).
+            Ok(EvalResult::HView(eval_schema(
+                schema, input, entity, registry,
+            )?))
         }
     }
 }

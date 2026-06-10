@@ -53,7 +53,7 @@ fn eval_vectors() {
     for c in doc["cases"].as_array().unwrap() {
         let name = c["name"].as_str().unwrap();
         let term = parse_term(&c["term"]).unwrap_or_else(|e| panic!("parse {name}: {e}"));
-        let result = eval_term(&term, &input, None).unwrap();
+        let result = eval_term(&term, &input, None, None).unwrap();
         let hex = result_canonical_hex(&result);
         let (set, negated) = as_dset(result);
         let expected_ids: Vec<&str> = c["expected"]["ids"]
@@ -145,7 +145,7 @@ fn select(p: Pred, of: Term) -> Term {
 }
 
 fn eval_dset(term: &Term, input: &DeltaSet) -> DeltaSet {
-    as_dset(eval_term(term, input, None).unwrap()).0
+    as_dset(eval_term(term, input, None, None).unwrap()).0
 }
 
 proptest! {
@@ -186,7 +186,7 @@ proptest! {
     #[test]
     fn select_agrees_with_fork(d in delta_set(), p in pred()) {
         let via_term = eval_dset(&select(p.clone(), Term::Input), &d);
-        let via_fork = fork(&d, |x: &Delta| eval_pred(&p, x));
+        let via_fork = fork(&d, |x: &Delta| eval_pred(&p, x, None));
         prop_assert_eq!(via_term.digest(), via_fork.digest());
     }
 }

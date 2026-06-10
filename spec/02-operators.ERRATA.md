@@ -116,3 +116,33 @@ Terms are dynamically sorted in v0: applying `select`/`union`/`mask` to an HView
 HView, or `prune` to a DSet is an evaluation error; `group` without an ambient root (supplied by
 the evaluation call, later by `fix`) is an evaluation error. Static term sort-checking can arrive
 with the schema registry (M1.3+) without changing any vector.
+
+## E10 — Schema registry, `$root`, and SchemaRef (v0)
+
+- A **HyperSchema** is `{name, alg, body}` where `body` is an HView-sort term (SPEC-3 §2). The
+  **registry** is an explicit evaluation input mapping names to schemas. v0 `SchemaRef` is a
+  registry name; the pinned-hash and evolvable-entity modes (SPEC-3 §6) arrive with
+  schemas-as-deltas (M1.5).
+- `refs` are **derived** from the body (every `expand`/`fix` schema name), not separately declared
+  — equally static and checkable. Registry construction rejects duplicate names, unresolved refs,
+  and reference cycles (SPEC-3 §3); data cycles remain legal and terminate because the schema
+  chain terminates.
+- Schema bodies are functions of their root: the term JSON gains a **root variable** —
+  `"targetEntity": {"var": "root"}` in a `hasPointer` predicate — resolved against the ambient
+  root at evaluation time. A root-variable predicate evaluated with no ambient root matches
+  nothing (registry validation may later reject such terms statically instead).
+- JSON profile: `{"op": "expand", "role": StrMatch, "schema": name, "in": Term}` and
+  `{"op": "fix", "schema": name, "entity": EntityId}`. `fix` sets the ambient root to `entity`
+  explicitly (ignoring any enclosing root); `expand` sets it to each expanded target entity.
+
+## E11 — Expanded HVEntry encoding (replacement form)
+
+`expand` replaces a matching pointer's `EntityRef` target with the HView evaluated at that entity
+(SPEC-2 §4.5), **against the same DSet the enclosing evaluation received**. In the canonical HVEntry
+encoding, the replaced pointer target is the nested HView map `{"id", "props"}` instead of the
+EntityRef map `{"id", "context"?}` — the discriminator is the presence of `"props"`. The delta's
+true id/claims are NOT re-hashed with replacements (expansion is view structure, not data);
+provenance stays intact: the in-memory entry keeps the original delta plus an expansion table keyed
+by pointer index (authored pointer order is hash-significant and stable, SPEC-1 §4.1). Pointers
+whose target is a primitive or DeltaRef never expand; a role-matching EntityRef pointer expands;
+everything else passes through as written (SPEC-3 §7 graceful degradation).

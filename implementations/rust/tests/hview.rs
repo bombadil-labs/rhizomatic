@@ -35,7 +35,7 @@ fn hview_vectors() {
         let name = c["name"].as_str().unwrap();
         let root = c["root"].as_str().unwrap();
         let term = parse_term(&c["term"]).unwrap_or_else(|e| panic!("parse {name}: {e}"));
-        let result = eval_term(&term, &input, Some(root)).unwrap();
+        let result = eval_term(&term, &input, Some(root), None).unwrap();
         let hex = result_canonical_hex(&result);
         let EvalResult::HView(h) = result else {
             panic!("{name}: expected an HView result");
@@ -90,7 +90,7 @@ fn sort_errors() {
     let input = fixture_set(&doc);
     // prune over a DSet operand
     let term = parse_term(&json!({ "op": "prune", "keep": "all", "in": "input" })).unwrap();
-    let err = eval_term(&term, &input, Some("movie:matrix")).unwrap_err();
+    let err = eval_term(&term, &input, Some("movie:matrix"), None).unwrap_err();
     assert!(err.contains("HView operand"), "got: {err}");
     // select over an HView operand
     let term = parse_term(&json!({
@@ -98,11 +98,11 @@ fn sort_errors() {
         "in": { "op": "group", "key": "byRole", "in": "input" }
     }))
     .unwrap();
-    let err = eval_term(&term, &input, Some("movie:matrix")).unwrap_err();
+    let err = eval_term(&term, &input, Some("movie:matrix"), None).unwrap_err();
     assert!(err.contains("DSet operand"), "got: {err}");
     // group without an ambient root
     let term = parse_term(&json!({ "op": "group", "key": "byRole", "in": "input" })).unwrap();
-    let err = eval_term(&term, &input, None).unwrap_err();
+    let err = eval_term(&term, &input, None, None).unwrap_err();
     assert!(err.contains("ambient root"), "got: {err}");
 }
 
@@ -111,7 +111,7 @@ fn group_filing_invariants() {
     let doc = load();
     let input = fixture_set(&doc);
     let term = parse_term(&json!({ "op": "group", "key": "byRole", "in": "input" })).unwrap();
-    let EvalResult::HView(h) = eval_term(&term, &input, Some("movie:matrix")).unwrap() else {
+    let EvalResult::HView(h) = eval_term(&term, &input, Some("movie:matrix"), None).unwrap() else {
         panic!("expected hview");
     };
     for entries in h.props.values() {

@@ -41,9 +41,13 @@ be correct and boring. Slices:
   annotate tags threaded into entries for audit views); prune at property granularity (E8 — the
   pointer-level reading is deferred, logged as an open question). 11 vectors incl. canonical schema
   idiom, prune-all identity, empty-root, contextless probes.
-- **M1.3 — expand/fix + schema registry.** SchemaRef (pinned hash | evolvable entity), the DAG
-  constraint + cycle rejection, expansion against the same DSet, data-cycle termination vectors
-  (Keanu ↔ BRZRKR).
+- **M1.3 — expand/fix + schema registry.** ✅ **complete.** HyperSchema + SchemaRegistry (derived
+  refs, duplicate/unresolved/cycle rejection — SPEC-3 §3); `$root` variable in predicates
+  ({"var":"root"}, E10) so schema bodies are functions of their root; expand replaces role-matching
+  EntityRef targets with nested HViews keyed by pointer index (E11), against the same DSet; fix
+  sets the ambient root explicitly. Vectors: keanu↔brzrkr DATA cycle terminating through a finite
+  schema DAG (MovieDeep→ActorWithWorks→MovieBasic, depth 3), graceful-degradation cases. v0
+  SchemaRef is a registry name; pinned-hash/evolvable modes arrive in M1.5.
 - **M1.4 — resolve + policy terms (SPEC-5).** pick/all/merge/conflicts/absentAs; Order chains
   bottoming in lexById; the closed MergeFn set; edge semantics (§4) incl. mixed-type ordering.
 - **M1.5 — schemas-as-deltas + the `rdb.SchemaSchema` bootstrap.** Round-trip deltas → term →

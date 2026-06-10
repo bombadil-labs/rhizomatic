@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import { canonicalHex, computeId } from "../src/delta.js";
 import { evalTerm, resultCanonicalHex } from "../src/eval.js";
 import { parseClaims } from "../src/json-profile.js";
+import { SchemaRegistry } from "../src/schema.js";
 import { DeltaSet, makeDelta } from "../src/set.js";
 import { authorForSeed, publicKeyFromSeed, signClaims } from "../src/sign.js";
 import { parseTerm } from "../src/term-json.js";
@@ -577,6 +578,165 @@ const hviewOut = {
 writeFileSync(resolve(evalDir, "eval-hview.json"), `${JSON.stringify(hviewOut, null, 2)}\n`);
 console.log(
   `wrote ${hviewVectors.length} hview vectors over ${hviewFixtureSet.size} fixture deltas to vectors/l1-eval/eval-hview.json`,
+);
+
+// --- l1-eval: expand/fix + schema registry (ERRATA-2 E10-E11) ---
+
+// A fresh fixture with a DATA cycle: keanu created brzrkr; brzrkr was created by keanu.
+// Expansion terminates because the SCHEMA chain terminates (SPEC-3 §3).
+const xfx: Record<string, { claims: unknown; id: string }> = {};
+const addXfx = (name: string, claims: unknown) => {
+  xfx[name] = { claims, id: computeId(parseClaims(claims)) };
+};
+
+addXfx(
+  "a1-keanu-name",
+  claim(100, A, [
+    { role: "subject", ...subj("actor:keanu", "name") },
+    { role: "value", target: { value: "Keanu Reeves" } },
+  ]),
+);
+addXfx(
+  "m1-matrix-title",
+  claim(110, A, [
+    { role: "subject", ...subj("movie:matrix", "title") },
+    { role: "value", target: { value: "The Matrix" } },
+  ]),
+);
+addXfx(
+  "m2-brzrkr-title",
+  claim(120, B, [
+    { role: "subject", ...subj("movie:brzrkr", "title") },
+    { role: "value", target: { value: "BRZRKR" } },
+  ]),
+);
+addXfx(
+  "c1-cast",
+  claim(130, A, [
+    { role: "movie", ...subj("movie:matrix", "cast") },
+    { role: "actor", ...subj("actor:keanu", "filmography") },
+    { role: "character", target: { value: "Neo" } },
+  ]),
+);
+addXfx(
+  "c2-created",
+  claim(140, C, [
+    { role: "creator", ...subj("actor:keanu", "createdWorks") },
+    { role: "work", ...subj("movie:brzrkr", "createdBy") },
+  ]),
+);
+
+const expandFixtureSet = DeltaSet.from(
+  Object.values(xfx).map((f) => makeDelta(parseClaims(f.claims))),
+);
+
+// The canonical schema body idiom (SPEC-3 §2): select everything pointing at the root, drop
+// negated, file by target-context.
+const canonicalBody = {
+  op: "group",
+  key: "byTargetContext",
+  in: { op: "mask", policy: "drop", in: sel({ hasPointer: { targetEntity: { var: "root" } } }) },
+};
+
+const schemas = [
+  { name: "MovieBasic", alg: 1, body: canonicalBody },
+  { name: "ActorName", alg: 1, body: canonicalBody },
+  {
+    name: "MovieWithCast",
+    alg: 1,
+    body: { op: "expand", role: { exact: "actor" }, schema: "ActorName", in: canonicalBody },
+  },
+  {
+    name: "ActorWithWorks",
+    alg: 1,
+    body: { op: "expand", role: { exact: "work" }, schema: "MovieBasic", in: canonicalBody },
+  },
+  {
+    name: "MovieDeep",
+    alg: 1,
+    body: { op: "expand", role: { exact: "actor" }, schema: "ActorWithWorks", in: canonicalBody },
+  },
+];
+
+const expandRegistry = SchemaRegistry.build(
+  schemas.map((s) => ({ name: s.name, alg: s.alg, body: parseTerm(s.body) })),
+);
+
+const expandCases: Array<{ name: string; spec: string; term: unknown; note?: string }> = [
+  {
+    name: "fix-terminal-schema",
+    spec: "SPEC-2 §4.8 / E10",
+    term: { op: "fix", schema: "MovieBasic", entity: "movie:matrix" },
+    note: "no expands: entity refs stay bare (terminal schema, SPEC-3 §3)",
+  },
+  {
+    name: "fix-expand-one-level",
+    spec: "SPEC-2 §4.5 §4.8 / E11",
+    term: { op: "fix", schema: "MovieWithCast", entity: "movie:matrix" },
+    note: "c1's actor pointer is replaced by the ActorName HView at actor:keanu",
+  },
+  {
+    name: "fix-data-cycle-terminates",
+    spec: "SPEC-3 §3 (DAG on programs, not data)",
+    term: { op: "fix", schema: "MovieDeep", entity: "movie:matrix" },
+    note: "keanu -> brzrkr -> keanu is a data cycle; the schema chain MovieDeep -> ActorWithWorks -> MovieBasic is finite, so expansion terminates with brzrkr's createdBy as a bare ref",
+  },
+  {
+    name: "fix-actor-perspective",
+    spec: "SPEC-2 §4.8",
+    term: { op: "fix", schema: "ActorWithWorks", entity: "actor:keanu" },
+  },
+  {
+    name: "expand-no-matching-role-is-identity",
+    spec: "SPEC-3 §7 (graceful degradation)",
+    term: {
+      op: "expand",
+      role: { exact: "nonexistent" },
+      schema: "ActorName",
+      in: { op: "fix", schema: "MovieBasic", entity: "movie:matrix" },
+    },
+  },
+  {
+    name: "expand-skips-primitive-targets",
+    spec: "E11 (only EntityRef targets expand)",
+    term: {
+      op: "expand",
+      role: { exact: "character" },
+      schema: "ActorName",
+      in: { op: "fix", schema: "MovieBasic", entity: "movie:matrix" },
+    },
+    note: 'c1.character targets the primitive "Neo"; role matches but the target kind does not',
+  },
+  {
+    name: "fix-unknown-entity-is-empty",
+    spec: "SPEC-3 §7",
+    term: { op: "fix", schema: "MovieDeep", entity: "movie:unknown" },
+  },
+];
+
+const expandVectors = expandCases.map(({ name, spec, term, note }) => {
+  const result = evalTerm(parseTerm(term), expandFixtureSet, undefined, expandRegistry);
+  if (result.sort !== "hview") throw new Error(`${name}: expected an HView result`);
+  return {
+    name,
+    spec,
+    ...(note === undefined ? {} : { note }),
+    term,
+    expectedCanonicalHex: resultCanonicalHex(result),
+  };
+});
+
+const expandOut = {
+  fixture: {
+    note: "actors/movies with a keanu<->brzrkr data cycle; schema DAG depth 3",
+    deltas: Object.entries(xfx).map(([name, f]) => ({ name, id: f.id, claims: f.claims })),
+  },
+  schemas,
+  cases: expandVectors,
+};
+writeFileSync(resolve(evalDir, "eval-expand.json"), `${JSON.stringify(expandOut, null, 2)}\n`);
+console.log(
+  `wrote ${expandVectors.length} expand vectors over ${expandFixtureSet.size} fixture deltas to vectors/l1-eval/eval-expand.json`,
 );
 
 // the fixture ids double as documentation: surface two for sanity
