@@ -15,6 +15,7 @@
     "gen-vectors": "tsx tools/gen-vectors.ts"
   },
   "dependencies": {
+    "@noble/curves": "^1.6.0",
     "@noble/hashes": "^1.5.0"
   },
   "devDependencies": {

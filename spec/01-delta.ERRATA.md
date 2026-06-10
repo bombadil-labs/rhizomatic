@@ -71,6 +71,24 @@ id     = multihash    = 0x1e ‖ 0x20 ‖ digest             // blake3 multicode
 At boundaries (vectors, refs, signatures) `id` is lowercase hex: `id = "1e20" + hex(digest)`. The `id`
 and `sig` fields are excluded from the hashed bytes (SPEC-1 §4).
 
+## D8 — Author encoding for signed deltas
+
+For a delta that carries (or will carry) a `sig`, `author` MUST be the string
+`"ed25519:" + lowercase hex of the 32-byte Ed25519 public key` of the signing key. Signing APIs
+MUST refuse to sign claims whose `author` does not match the signing key (a signature that
+contradicts its own author field is born broken). Unsigned deltas keep SPEC-1's freedom: any
+non-empty string is a legal (unverified) author claim.
+
+## D9 — Signature definition
+
+`sig` = lowercase hex of the 64-byte Ed25519 (RFC 8032) detached signature over the **raw multihash
+bytes** of the delta's `id` (i.e. the 34 bytes whose hex spelling is the id — NOT the hex string
+itself, NOT the claims bytes). Because the id commits to the canonical claims, signing the hash
+signs the delta (SPEC-1 §5). Ed25519 is deterministic, so signature bytes are reproducible across
+implementations and can be pinned in vectors. Verification of a delta checks, in order: the id
+recomputes from the claims (content addressing holds), then the signature verifies over the id
+bytes against the key named in `author` (D8).
+
 ## JSON debug profile (for vectors)
 
 The canonical form is CBOR; the JSON profile is for authoring/inspection only (SPEC-1 §4.1). A pointer

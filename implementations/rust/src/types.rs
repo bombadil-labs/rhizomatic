@@ -43,3 +43,12 @@ pub struct Claims {
     /// 1 or more (SPEC-1 §2.1)
     pub pointers: Vec<Pointer>,
 }
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Delta {
+    /// content-derived: "1e20" + hex(blake3-256(canonical_cbor(claims))) (SPEC-1 §4)
+    pub id: String,
+    pub claims: Claims,
+    /// detached signature over the raw id bytes (SPEC-1 §5, ERRATA D9)
+    pub sig: Option<String>,
+}

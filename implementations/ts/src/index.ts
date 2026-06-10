@@ -9,3 +9,11 @@ export {
   assertValidClaims,
 } from "./delta.js";
 export { parseClaims } from "./json-profile.js";
+export {
+  AUTHOR_PREFIX,
+  authorForSeed,
+  publicKeyFromSeed,
+  signClaims,
+  verifyDelta,
+  type Verification,
+} from "./sign.js";
