@@ -12,7 +12,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "check": "npm run format:check && npm run lint && npm run typecheck && npm test",
-    "gen-vectors": "tsx tools/gen-vectors.ts"
+    "gen-vectors": "tsx tools/gen-vectors.ts",
+    "demo": "tsx demo/demo.ts"
   },
   "dependencies": {
     "@noble/curves": "^1.6.0",

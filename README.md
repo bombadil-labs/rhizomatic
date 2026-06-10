@@ -4,7 +4,15 @@
 
 Rhizomatic is not a database. A database is one kind of machine you can build on top of it. Rhizomatic is the format underneath: a way of writing down anything anyone claims about anything, such that any two collections of such claims can be combined by set union — no migration, no coordination protocol, no merge conflicts, no central authority deciding what's true.
 
-This repository contains the specification. The code comes next. You might be the one writing it. (Hello. See [§ For the Implementer](#for-the-implementer).)
+This repository contains the specification AND two parallel implementations — TypeScript and
+Rust — built in lockstep against a shared conformance-vector suite ([vectors/](vectors)). All six
+milestones (M0-M5, conformance Levels 0-4) are implemented in both. See
+[PROGRESS.md](PROGRESS.md) for the full build log and
+[§ For the Implementer](#for-the-implementer) for the rules of engagement.
+
+**See it run:** `cd implementations/ts && npm install && npm run demo` — a seven-act story
+covering superposition, policy lenses, retraction + audit views, time travel, federation,
+derived authors, and packs.
 
 ---
 
@@ -79,6 +87,12 @@ You may be a person. You may be a Claude instance reading this at the top of a f
 
 ## Status
 
-Specification draft, pre-implementation. The dream is old; this articulation of it is new. The arc that produced it — assembly language for data → portable IR → format-with-a-guaranteed-algebra → closed kernel with a sovereign userland — is preserved in the spec documents' structure itself, and the documents are the durable residue of that thinking.
+Specification draft **with two working witnesses**: TypeScript (175+ tests) and Rust (78+ tests),
+parity-verified byte-for-byte against shared vectors at every layer — canonical CBOR, content
+addressing, Ed25519 signatures, the eight-operator algebra, resolution policies, the
+schemas-as-deltas bootstrap, the incremental reactor, packs, federation, and derivation. Gaps
+and contradictions found during implementation are recorded in per-spec ERRATA files
+(`spec/*.ERRATA.md`) — including two genuine spec bugs the conformance suite caught.
+The dream is old; this articulation of it is new. The arc that produced it — assembly language for data → portable IR → format-with-a-guaranteed-algebra → closed kernel with a sovereign userland — is preserved in the spec documents' structure itself, and the documents are the durable residue of that thinking.
 
 Mushrooms versus towers, all the way down. Now we find out if it compiles.
