@@ -150,9 +150,11 @@ plus polish (README status update, top-level parity runner, CI).
 
 ## Queued next (in value order)
 
-1. **WASM host ABI proposal** — SPEC-7 §10's flagged biggest open surface. Draft as a clearly
-   marked proposal doc (input HView delivery format, emission API, capability handles),
-   building on the working native-fn lifecycle (ERRATA-7). Spec text first, then a host.
+1. **WASM host ABI proposal** — ✅ drafted: spec/07-derivation-abi.PROPOSAL.md (status:
+   proposal, awaiting review). Key moves: fnHash = contentAddress(wasm bytes); input = canonical
+   HView CBOR (the same bytes as rdb.derived.from); output = the v0 DerivedFn shape; keys never
+   enter guest memory; PURITY = zero imports, statically checkable. Next step after adoption: a
+   host implementation + a compiled-module conformance vector.
 2. **HTTP/WS transport binding** for federation (SPEC-6 §9) over the existing Peer protocol.
 3. **`rdb.*` prefix decision** — the user's call; one-constant change + vector regen when made.
 4. Deeper conformance vectors (alias closure, parameterized terms/holes, keyed emission).

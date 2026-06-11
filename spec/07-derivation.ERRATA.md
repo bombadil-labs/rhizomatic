@@ -1,5 +1,8 @@
 # ERRATA & Decisions — SPEC-7 (Derivation)
 
+> The portability layer this file defers is now drafted:
+> [07-derivation-abi.PROPOSAL.md](07-derivation-abi.PROPOSAL.md) (status: proposal, not adopted).
+
 ## G1 — v0 derived authors are native functions
 
 SPEC-7 §7 already concedes that host-language-native functions are "conformant locally but not
