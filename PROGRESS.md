@@ -1,17 +1,22 @@
 # Progress
 
-> **RESUME HERE (session handoff, 2026-06-10).** The v0 charter is complete: M0-M5 in both
+> **RESUME HERE (loop session, 2026-06-10).** The v0 charter is complete: M0-M5 in both
 > witnesses (TS 179 / Rust 80 tests, byte-for-byte parity), conformance vectors, green CI,
 > the CLI demo, the browser playground, the WASM ABI proposal, the HTTP federation binding in
 > both languages, and a LIVE cross-impl interop proof (identical digests over real HTTP).
-> 29 escalating checkpoints, working tree clean, CI green at c031a19.
+> **NEW: the sprint goal is now the "holy shit" artifact** — documentation good enough to send
+> to a technical stranger. First slice shipped: docs/ holds an interactive guided tour
+> (docs/index.html) + the playground (docs/playground.html), GitHub Pages-ready, every widget
+> running the real bundled implementation. Found & recorded ERRATA-2 E14 en route (annotate
+> channel does not survive select). Working tree committed after this slice.
 >
 > **To resume:** read CLAUDE.md (working agreement) + this file. Verify green with
-> `node tools/check-all.mjs`. Open decisions awaiting the human: (1) the rdb.* vocabulary
-> prefix (one constant per impl + vector regen); (2) adopt/amend the WASM ABI proposal
-> (spec/07-derivation-abi.PROPOSAL.md); (3) review the 8 spec ERRATA for upstreaming into the
-> spec docs proper. Autonomous work available: deeper vectors (alias closure, parameterized
-> terms/holes, keyed emission), a WASM host implementing the proposal, perf passes.
+> `node tools/check-all.mjs`. Preview the tour: launch config `docs` (or `npx serve docs`).
+> Open decisions awaiting the human: (1) ENABLE GITHUB PAGES (repo settings → Pages → deploy
+> from main /docs — the API call was permission-blocked); (2) the rdb.* vocabulary prefix;
+> (3) adopt/amend the WASM ABI proposal (spec/07-derivation-abi.PROPOSAL.md); (4) review the
+> spec ERRATA for upstreaming. Queued tour polish: §1 "same bytes from Rust" inline evidence,
+> mobile pass, an animated federation diagram, possibly an embedded spec reader.
 
 Living status for the build loop. Updated at the end of every slice; newest first. A fresh context
 window should be able to read this top-to-bottom and know exactly where things stand and what's next.
@@ -160,6 +165,25 @@ plus polish (README status update, top-level parity runner, CI).
 - **CI** ✅ — .github/workflows/ci.yml: both green-gates + vector-freshness + playground build
   on every push; first runs green on ubuntu (canonical bytes reproduce cross-platform).
   Top-level parity runner: `node tools/check-all.mjs`.
+
+## Post-v0 sprint: the "holy shit" documentation
+
+- **The interactive tour** ✅ — docs/index.html + tour.bundle.js (`npm run docs:build`,
+  launch config `docs`): a six-section narrated walk where every widget runs the real
+  implementation — live canonical-CBOR + content-address builder (with fail-loud rejection),
+  superposition, four simultaneous policy lenses, retraction + audit + time travel (all three
+  lenses over ONE shared world, so §4 retractions visibly update §2/§3), two sovereign peers
+  converging by sync, shuffle-&-replay order-independence, and the cross-language interop
+  digest. docs/playground.html is the free-form companion. CI gates docs freshness
+  (bundle bytes must match committed). **Verified in-browser: rejection path, audit ✗ marks,
+  time travel, sync convergence, replay digest equality, zero console errors.**
+- **Finding en route (ERRATA-2 E14):** `mask(annotate)`'s annotation channel does not survive
+  `select`/`union` — group(select(mask(annotate,…))) silently loses ✗ marks. Pinned for v0
+  (both witnesses agree); supported audit idiom is group(mask(annotate,…)) directly, since
+  group's E6 filing already scopes to the root. Tour AND playground terms fixed accordingly;
+  open question filed for v1 (should channels thread through set-preserving operators?).
+- **GitHub Pages** — blocked on a permission: needs the human to enable Pages (main, /docs)
+  in repo settings; README already points at https://mbilokonsky.github.io/rhizomatic/.
 
 ## Queued next (in value order)
 

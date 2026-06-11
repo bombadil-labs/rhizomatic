@@ -167,3 +167,21 @@ Cycle checking runs over the resolved graph. The **evolvable** mode (`ref(entity
 `rdb.SchemaSchema` under the evaluator's policy) is implemented as an explicit eager function
 (load-schemas-from-deltas, ERRATA-3) rather than transparent reference resolution — transparent
 evolvable refs are deferred until the reactor exists to re-resolve them on definition change.
+
+## E14 — Annotation metadata does not survive `select`/`union` (v0 pinned; open question)
+
+`mask(annotate, D)` returns its operand set unchanged plus an annotation channel (the negated-id
+set) that `group` threads into HVEntries (E7). In v0, that channel is a property of the *immediate*
+operand only: `select` and `union` construct fresh DSet results with an empty channel, so
+`group(select(p, mask(annotate, D)))` files entries with no `negated` marks — the annotations are
+silently lost in transit. Both witnesses agree on this behavior today, so parity holds, but SPEC-2
+never says whether the channel should propagate. **Pinned for v0: it does not.** The supported
+audit idiom is therefore `group(key, mask(annotate, …))` with no intervening DSet operator —
+which loses nothing, because group's filing rules already restrict to pointers targeting the
+ambient root (E6), making a `select(hasPointer root)` stage redundant for grouping.
+
+Found while building the interactive tour: the tour's (and playground's) audit lens used
+select-between-mask-and-group and showed retracted claims unmarked. Open question for v1: should
+annotation channels thread through set-preserving operators (`select` keeps a subset, so the
+restriction of the channel is well-defined), or is the v0 rule — annotations are consumed by the
+next operator or dropped — the simpler invariant to keep?

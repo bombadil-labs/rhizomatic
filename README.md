@@ -10,10 +10,17 @@ milestones (M0-M5, conformance Levels 0-4) are implemented in both. See
 [PROGRESS.md](PROGRESS.md) for the full build log and
 [§ For the Implementer](#for-the-implementer) for the rules of engagement.
 
-**See it run:** `cd implementations/ts && npm install && npm run demo` — a seven-act story
-covering superposition, policy lenses, retraction + audit views, time travel, federation,
-derived authors, and packs. For the clickable version: `npm run playground:build` then open
-`implementations/ts/demo/playground/index.html` — three sovereign peers in a browser tab.
+**See it run — the interactive tour:** open [docs/index.html](docs/index.html) in a browser
+(`npx serve docs` from the repo root, or any static server) — a guided, narrated walk through
+the format where every widget runs the real implementation: live content addressing,
+superposition, policy lenses, retraction + audit, time travel, and two peers converging by
+union. Once GitHub Pages is enabled for `/docs`, it lives at
+**https://mbilokonsky.github.io/rhizomatic/**. The free-form version is
+[docs/playground.html](docs/playground.html) — three sovereign peers, no narration.
+
+For the terminal version: `cd implementations/ts && npm install && npm run demo` — a seven-act
+story covering superposition, policy lenses, retraction + audit views, time travel, federation,
+derived authors, and packs.
 
 ---
 

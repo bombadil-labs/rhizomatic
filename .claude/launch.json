@@ -15,6 +15,21 @@
       ],
       "cwd": "implementations/ts",
       "port": 4173
+    },
+    {
+      "name": "docs",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "esbuild",
+        "demo/tour/tour.ts",
+        "--bundle",
+        "--format=iife",
+        "--outfile=../../docs/tour.bundle.js",
+        "--servedir=../../docs",
+        "--serve=127.0.0.1:4174"
+      ],
+      "cwd": "implementations/ts",
+      "port": 4174
     }
   ]
 }

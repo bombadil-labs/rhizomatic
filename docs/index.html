@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Rhizomatic — an interactive tour</title>
+<meta name="description" content="A portable format for arbitrarily relational data — composable, forkable, mergeable, federate-able by default. Every widget on this page runs the real implementation." />
+<style>
+  :root {
+    --bg: #0f0f14;
+    --panel: #17171f;
+    --panel-2: #1c1c26;
+    --border: #2a2a38;
+    --text: #d8d8e0;
+    --dim: #8a8a9a;
+    --accent: #e8b04b;
+    --ok: #6fd08c;
+    --bad: #e06c75;
+    --mono: ui-monospace, "Cascadia Code", "JetBrains Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 17px/1.65 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  nav {
+    position: sticky; top: 0; z-index: 10;
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border);
+    padding: 0.55em 1em;
+    display: flex; gap: 1.2em; flex-wrap: wrap; align-items: baseline;
+    font-size: 0.85em;
+  }
+  nav .brand { font-weight: 700; color: var(--text); letter-spacing: 0.02em; }
+  nav a { color: var(--dim); }
+  nav a:hover { color: var(--accent); text-decoration: none; }
+  main { max-width: 760px; margin: 0 auto; padding: 0 1.2em 6em; }
+  header.hero { padding: 4.5em 0 1em; }
+  h1 { font-size: 2.6em; margin: 0 0 0.2em; letter-spacing: -0.02em; }
+  .tagline { font-size: 1.25em; color: var(--text); margin: 0 0 1em; }
+  .livebadge {
+    display: inline-block;
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    background: var(--panel);
+    padding: 0.6em 1em;
+    border-radius: 6px;
+    font-size: 0.9em;
+    color: var(--dim);
+  }
+  #live-stats { color: var(--accent); font-family: var(--mono); font-size: 0.92em; }
+  section { margin-top: 4.5em; }
+  h2 { font-size: 1.7em; letter-spacing: -0.01em; margin: 0 0 0.5em; }
+  h2 .no { color: var(--accent); font-family: var(--mono); font-size: 0.7em; vertical-align: 0.25em; margin-right: 0.5em; }
+  h3 { margin: 0 0 0.3em; }
+  p { margin: 0.8em 0; }
+  .aside { color: var(--dim); font-size: 0.92em; border-left: 2px solid var(--border); padding-left: 1em; margin: 1.2em 0; }
+  .widget {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.2em 1.3em;
+    margin: 1.6em 0;
+  }
+  .widget .panel-title {
+    font-size: 0.72em; text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--dim); margin: 1.2em 0 0.4em;
+  }
+  .widget .panel-title:first-child { margin-top: 0; }
+  .controls { display: flex; gap: 0.8em; flex-wrap: wrap; align-items: flex-end; margin: 0.6em 0; }
+  .field { display: flex; flex-direction: column; gap: 0.25em; font-size: 0.8em; color: var(--dim); }
+  .field.row { flex-direction: row; align-items: center; gap: 0.5em; }
+  .field.grow { flex: 1; min-width: 200px; }
+  input, select, button {
+    font: inherit; font-size: 0.95em;
+    background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 0.35em 0.6em;
+  }
+  input:focus, select:focus { outline: 1px solid var(--accent); }
+  input[type="range"] { padding: 0; accent-color: var(--accent); }
+  input[type="checkbox"] { accent-color: var(--accent); }
+  button { cursor: pointer; background: #262633; }
+  button:hover { border-color: var(--accent); }
+  button.small { font-size: 0.78em; padding: 0.15em 0.5em; }
+  button.big { font-size: 1em; padding: 0.5em 1.2em; border-color: var(--accent); color: var(--accent); }
+  pre.code {
+    background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px;
+    padding: 0.8em 1em; overflow-x: auto;
+    font-family: var(--mono); font-size: 0.78em; line-height: 1.5;
+    margin: 0.3em 0; white-space: pre-wrap; word-break: break-word;
+  }
+  .mono { font-family: var(--mono); }
+  .bytes {
+    background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px;
+    padding: 0.8em 1em; font-size: 0.75em; line-height: 1.7;
+    word-break: break-all; color: var(--accent);
+  }
+  .id {
+    background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px;
+    padding: 0.6em 1em; font-size: 0.8em; word-break: break-all;
+  }
+  .flash { animation: flash 0.6s ease-out; }
+  @keyframes flash { 0% { color: var(--accent); } 100% { color: inherit; } }
+  .meta { color: var(--dim); font-size: 0.82em; }
+  .dim { color: var(--dim); }
+  .val { color: var(--ok); }
+  .error { color: var(--bad); font-family: var(--mono); font-size: 0.82em; min-height: 1.2em; margin-top: 0.5em; }
+  .entry { padding: 0.25em 0; border-bottom: 1px dashed var(--border); }
+  .entry:last-of-type { border-bottom: none; }
+  .entry.retracted { opacity: 0.5; text-decoration: line-through; }
+  .entry.retracted .meta { text-decoration: none; }
+  #w-lens { display: grid; grid-template-columns: 1fr 1fr; gap: 1em; }
+  @media (max-width: 640px) { #w-lens { grid-template-columns: 1fr; } }
+  .lens-cell { min-width: 0; }
+  .fed-grid { display: grid; grid-template-columns: 1fr auto 1fr; gap: 1em; align-items: start; }
+  @media (max-width: 640px) { .fed-grid { grid-template-columns: 1fr; } }
+  .fed-card { background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 1em; min-width: 0; }
+  .fed-mid { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 0.5em; padding-top: 2em; }
+  .digest { color: var(--accent); font-size: 0.78em; margin-bottom: 0.6em; }
+  .claims { margin: 0.4em 0; font-size: 0.9em; }
+  .form { display: flex; gap: 0.4em; margin-top: 0.6em; flex-wrap: wrap; }
+  .form input { width: 8.5em; flex: 1; min-width: 6em; }
+  .ok { color: var(--ok); font-weight: 600; }
+  .proof {
+    background: var(--panel); border: 1px solid var(--border); border-left: 3px solid var(--ok);
+    border-radius: 10px; padding: 1.2em 1.3em; margin: 1.6em 0;
+  }
+  .proof .digest-big {
+    font-family: var(--mono); font-size: 0.8em; color: var(--ok);
+    word-break: break-all; background: var(--panel-2); border-radius: 6px; padding: 0.7em 1em; margin: 0.8em 0;
+  }
+  table.compare { border-collapse: collapse; width: 100%; font-size: 0.85em; margin: 1em 0; }
+  table.compare td, table.compare th { border: 1px solid var(--border); padding: 0.45em 0.7em; text-align: left; }
+  table.compare th { color: var(--dim); font-weight: 600; }
+  table.compare td.yes { color: var(--ok); }
+  table.compare td.no { color: var(--dim); }
+  footer { margin-top: 6em; padding-top: 1.5em; border-top: 1px solid var(--border); color: var(--dim); font-size: 0.9em; }
+  .footnav { display: flex; gap: 1.5em; flex-wrap: wrap; margin-bottom: 1em; }
+</style>
+</head>
+<body>
+
+<nav>
+  <span class="brand">Rhizomatic</span>
+  <a href="#atom">The atom</a>
+  <a href="#superposition">Superposition</a>
+  <a href="#lenses">Lenses</a>
+  <a href="#history">History</a>
+  <a href="#federation">Federation</a>
+  <a href="#proof">The proof</a>
+  <a href="https://github.com/mbilokonsky/rhizomatic">GitHub</a>
+</nav>
+
+<main>
+
+<header class="hero">
+  <h1>Rhizomatic</h1>
+  <p class="tagline">A portable format for arbitrarily relational data —
+  composable, forkable, mergeable, and federate-able <em>by default</em>.</p>
+  <p>Rhizomatic is not a database. A database is one kind of machine you can build on top of it.
+  Rhizomatic is the format underneath: a way of writing down anything anyone claims about
+  anything, such that any two collections of such claims can be combined by <strong>set
+  union</strong> — no migrations, no merge conflicts, no central authority deciding what's true.</p>
+  <p class="livebadge">This page is not a slideshow. Every widget below runs the
+  <strong>real implementation</strong> — the same code that passes the conformance suite,
+  bundled into your tab. No server, no mock data.<br/><span id="live-stats">loading…</span></p>
+</header>
+
+<section id="atom">
+  <h2><span class="no">§1</span>One structure, all the way down</h2>
+  <p>There is exactly one hardcoded structure in the entire system: the <strong>delta</strong> —
+  an immutable assertion connecting entities and values through role-labeled pointers. Schemas,
+  queries, retractions, trust lists, transactions, even the vocabulary for all of those: every
+  one of them is expressed <em>as deltas</em>. Semantics travel as payload.</p>
+  <p>A delta's identity is the BLAKE3 hash of its canonical CBOR bytes. Edit anything below and
+  watch the identity change — <strong>identity <em>is</em> content</strong>. There is no
+  autoincrement, no UUID, no instance minting names. Two machines that have never met, writing
+  the same claim, produce the same bytes and the same id.</p>
+
+  <div class="widget" id="w-atom"></div>
+
+  <p class="aside">Try clearing the property field: the format refuses the delta outright.
+  Invalid deltas are rejected, never repaired — and an independent Rust implementation
+  reproduces every byte of the valid ones. That's not a slogan; it's enforced by CI against a
+  shared vector suite.</p>
+</section>
+
+<section id="superposition">
+  <h2><span class="no">§2</span>Disagreement is data</h2>
+  <p>Alice says Ridley Scott directed <em>Blade Runner</em>. Bob says Denis Villeneuve.
+  (Bob is thinking of <em>2049</em>. Bob is confidently wrong. Bob is every distributed
+  system's favorite user.)</p>
+  <p>A conventional database makes you pick a winner at write time — usually by letting the
+  second write silently clobber the first. Rhizomatic stores <strong>both</strong>. Contradiction
+  is not an error to resolve at the gate; it is information, held in
+  <strong>superposition</strong>, with full provenance on every side of the dispute.</p>
+
+  <div class="widget" id="w-superposition"></div>
+</section>
+
+<section id="lenses">
+  <h2><span class="no">§3</span>Truth is a lens</h2>
+  <p>If the data holds contradictions, what does <em>reading</em> mean? It means choosing a
+  <strong>resolution policy</strong>: an explicit, inspectable declaration of whom you trust,
+  in what order, with what tie-breaks. Below, the <em>same</em> stored data resolves under four
+  different policies — simultaneously.</p>
+
+  <div class="widget" id="w-lens"></div>
+
+  <p>Same rhizome, four truths, each one deterministic: <code>resolve(policy, view)</code> is a
+  pure function. Two readers disagree only because they <em>chose</em> different policies —
+  never because the machine wobbled. Add a third opinion in §2 and watch all four panes react.</p>
+</section>
+
+<section id="history">
+  <h2><span class="no">§4</span>Nothing is ever deleted</h2>
+  <p>There is no <code>UPDATE</code> and no <code>DELETE</code>. Retraction is a <em>new claim
+  about an old claim</em> — signed, timestamped, and attributed like any other. Retract
+  something below, then flip on the audit lens: the retracted claim is still there, marked,
+  with the retraction itself fully accountable.</p>
+  <p>And since every claim carries its time, <q>current state</q> is just one point on a
+  slider.</p>
+
+  <div class="widget" id="w-history"></div>
+
+  <p class="aside">Now scroll back to §2 and §3 — they updated too. They are not copies; they
+  are different lenses over the same rhizome. The past stayed queryable, the present stayed
+  consistent, and nobody lost any data. This is what audit logs, soft deletes, and event
+  sourcing keep trying to bolt onto systems whose atoms can't support them.</p>
+</section>
+
+<section id="federation">
+  <h2><span class="no">§5</span>Merge is union</h2>
+  <p>Because deltas are immutable and content-addressed, a collection of them is a grow-only
+  set. Fork a dataset by taking a subset. Merge two datasets with set union. These are not
+  features somebody implemented — they are <strong>arithmetic facts</strong> about how the atom
+  is defined.</p>
+  <p>Below: two sovereign peers with divergent state. Neither is primary. Add claims to either
+  side, then sync — convergence is guaranteed, in any order, with no coordination and no
+  conflict-resolution code, because the conflicts simply <em>ride along</em> (§2).</p>
+
+  <div class="widget">
+    <div class="fed-grid">
+      <div class="fed-card" id="w-fed-Pat"></div>
+      <div class="fed-mid">
+        <button class="big" id="w-fed-sync">⇄ sync</button>
+        <span class="meta">anti-entropy,<br/>both directions</span>
+      </div>
+      <div class="fed-card" id="w-fed-Quinn"></div>
+    </div>
+    <div id="w-fed-verdict" style="margin-top:1em"></div>
+  </div>
+
+  <p>One more, because it's the property everything else stands on — <strong>order
+  independence</strong>. Take every delta one peer holds, shuffle them, and replay them into a
+  brand-new reactor:</p>
+
+  <div class="widget">
+    <button class="big" id="w-replay-btn">🎲 shuffle &amp; replay</button>
+    <pre class="code" id="w-replay-out" style="margin-top:0.8em">press the button. any order. every time.</pre>
+  </div>
+
+  <p class="aside">This is why federation here is arithmetic instead of engineering: peers
+  exchange filtered subsets of claims (through lenses they each choose to offer and admit),
+  and union does the rest. No vector clocks to manage, no operational transforms, no
+  central sequencer. Signed claims, sovereign peers, set union.</p>
+</section>
+
+<section id="proof">
+  <h2><span class="no">§6</span>Two languages, one digest</h2>
+  <p>Rhizomatic is a <strong>format with a conformance suite</strong>, not a reference
+  implementation. The repo contains the specification, a language-agnostic vector suite, and
+  <em>two</em> implementations — TypeScript and Rust — grown in lockstep as independent
+  witnesses. Neither is a port of the other. When they disagree, the spec was ambiguous, and
+  <em>that's the deliverable</em>: the suite caught real spec bugs, recorded in per-spec
+  errata.</p>
+  <p>The capstone: a Rust peer pulled from a live TypeScript server over HTTP — lens filtering,
+  signature verification, atomic bundles and all — and converged to the byte-identical
+  canonical digest:</p>
+
+  <div class="proof">
+    <div class="meta">Rust client ⇄ TypeScript server, POST /rhz/v0/sync, 5 deltas incl. one atomic bundle</div>
+    <div class="digest-big">1e20f71d4b7221330eac265aa3f4047c92be0392ec09a0327500f0ca7d7bcacfb6bb</div>
+    <div class="meta">…computed independently by both languages from the same logical set. The whole
+    stack is pinned this way: canonical CBOR, content addressing, Ed25519 signatures, the
+    eight-operator algebra, resolution policies, the incremental reactor, packs, federation,
+    and derived authors — 250+ tests across both witnesses, parity-checked in CI.</div>
+  </div>
+
+  <p>Where this sits among its neighbors:</p>
+  <table class="compare">
+    <tr><th></th><th>portable format</th><th>n-ary relations</th><th>provenance in the atom</th><th>conflicts in superposition</th><th>merge is union</th></tr>
+    <tr><th>JSON</th><td class="yes">✓</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td></tr>
+    <tr><th>Git</th><td class="yes">✓</td><td class="no">—</td><td class="yes">✓</td><td class="no">—</td><td class="no">conflicts halt</td></tr>
+    <tr><th>RDF</th><td class="yes">✓</td><td class="no">triples</td><td class="no">reified</td><td class="no">—</td><td class="no">partial</td></tr>
+    <tr><th>Datomic</th><td class="no">—</td><td class="no">—</td><td class="yes">✓</td><td class="no">—</td><td class="no">one transactor</td></tr>
+    <tr><th>CRDTs</th><td class="no">per-type</td><td class="no">—</td><td class="no">—</td><td class="no">resolved away</td><td class="yes">✓</td></tr>
+    <tr><th>Rhizomatic</th><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+  </table>
+
+  <p>Every design decision in the spec exists to keep all five columns true at once. Computation
+  joins the same way everything else does: arbitrary functions (reducers, ML models, LLM
+  adjudicators) are installed by consent as <strong>derived authors</strong> whose outputs
+  re-enter the system as ordinary signed claims — content-addressed, replay-verifiable,
+  budget-bounded. Everything that computes is an author. One rule, all the way up.</p>
+</section>
+
+<footer>
+  <div class="footnav">
+    <a href="https://github.com/mbilokonsky/rhizomatic">Repository</a>
+    <a href="https://github.com/mbilokonsky/rhizomatic/blob/main/spec/00-overview.md">The spec (start at SPEC-0)</a>
+    <a href="https://github.com/mbilokonsky/rhizomatic/tree/main/vectors">Conformance vectors</a>
+    <a href="https://github.com/mbilokonsky/rhizomatic/blob/main/PROGRESS.md">Build log</a>
+    <a href="playground.html">The playground (three peers, free-form)</a>
+  </div>
+  <p>Mushrooms versus towers, all the way down. <em>Now you've seen it compile.</em></p>
+</footer>
+
+</main>
+
+<script src="tour.bundle.js"></script>
+</body>
+</html>

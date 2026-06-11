@@ -26,6 +26,10 @@ jobs:
         run: npm run check
       - name: playground bundles
         run: npm run playground:build
+      - name: docs are fresh (tour + playground bundles == committed bytes)
+        run: |
+          npm run docs:build
+          git diff --exit-code ../../docs
       - name: vectors are fresh (generator output == committed bytes)
         run: |
           npm run gen-vectors

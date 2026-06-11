@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Rhizomatic — playground</title>
+<style>
+  :root { color-scheme: dark; }
+  body { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; background: #101418;
+         color: #d8e0e8; margin: 0; padding: 1.2rem; }
+  h1 { font-size: 1.1rem; letter-spacing: .12em; }
+  h1 small { color: #6f8a72; letter-spacing: 0; }
+  h1 a { color: #e8b04b; text-decoration: none; font-size: .8rem; letter-spacing: 0; float: right; }
+  h2 { font-size: .95rem; margin: 0 0 .3rem; color: #9fd4a8; }
+  .peers { display: grid; grid-template-columns: repeat(3, 1fr); gap: .8rem; }
+  .card { background: #161c22; border: 1px solid #243040; border-radius: 8px; padding: .8rem; }
+  .meta { color: #7b8a99; font-size: .75rem; margin-bottom: .5rem; }
+  .claims { margin: .4rem 0; max-height: 11rem; overflow-y: auto; }
+  .claim { font-size: .78rem; padding: .12rem 0; }
+  .claim.retracted { color: #5a646e; text-decoration: line-through; }
+  .form, .sync { display: flex; gap: .3rem; margin-top: .5rem; flex-wrap: wrap; align-items: center; }
+  .form input { width: 7.5rem; }
+  input, select, button { background: #0c1014; color: #d8e0e8; border: 1px solid #2c3a4a;
+                          border-radius: 4px; padding: .25rem .45rem; font: inherit; font-size: .78rem; }
+  button { cursor: pointer; background: #1b2a38; }
+  button:hover { background: #27405a; }
+  button.small { padding: .1rem .4rem; font-size: .7rem; }
+  .lens { margin-top: 1rem; display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; }
+  .controls { display: flex; gap: .6rem; flex-wrap: wrap; align-items: center; margin-bottom: .6rem;
+              font-size: .78rem; }
+  pre { background: #0c1014; border: 1px solid #243040; border-radius: 6px; padding: .7rem;
+        font-size: .8rem; white-space: pre-wrap; min-height: 8rem; margin: 0; }
+  label { color: #7b8a99; }
+  .tagline { color: #5a7a5e; font-size: .75rem; margin-top: 1rem; }
+  @media (max-width: 800px) { .peers, .lens { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<h1>RHIZOMATIC <small>— three sovereigns, zero central authority. Claims merge by union; truth is a lens you choose.</small>
+<a href="index.html">← the guided tour</a></h1>
+
+<div class="peers">
+  <div class="card" id="peer-Alice"></div>
+  <div class="card" id="peer-Bob"></div>
+  <div class="card" id="peer-Carol"></div>
+</div>
+
+<div class="lens">
+  <div class="card">
+    <h2>resolved view</h2>
+    <div class="controls">
+      <label>root <input id="root" value="movie:blade_runner" /></label>
+      <label>through <select id="viewer">
+        <option>Alice</option><option>Bob</option><option>Carol</option>
+      </select></label>
+      <label>policy <select id="policy">
+        <option value="latest">latest-wins</option>
+        <option value="trust-alice">trust Alice</option>
+        <option value="trust-bob">trust Bob</option>
+        <option value="conflicts">surface conflicts</option>
+        <option value="all">all claims</option>
+      </select></label>
+      <label>as of <input id="asof" type="range" min="0" max="10" value="10" style="width:7rem" />
+        <span id="asof-label">now</span></label>
+      <label><input id="audit" type="checkbox" /> audit (show retractions)</label>
+    </div>
+    <pre id="view-output"></pre>
+  </div>
+  <div class="card">
+    <h2>provenance — every value traces to signed deltas</h2>
+    <pre id="provenance"></pre>
+  </div>
+</div>
+
+<p class="tagline">Try it: have Bob claim a different director · sync Alice ⇄ Bob · flip the policy ·
+retract Bob's claim · check audit · drag the time slider back. Nothing is ever overwritten.</p>
+
+<script src="playground.bundle.js"></script>
+</body>
+</html>

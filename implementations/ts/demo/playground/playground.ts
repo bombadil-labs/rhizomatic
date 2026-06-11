@@ -47,14 +47,12 @@ function bodyTerm(asOf: number | undefined, audit: boolean) {
           pred: { match: { field: "timestamp", cmp: "lte", const: asOf } },
           in: "input",
         };
+  // No select stage between mask and group: group's filing rules already restrict to pointers
+  // targeting the ambient root (E6), and select would drop the annotate channel (ERRATA-2 E14).
   return parseTerm({
     op: "group",
     key: "byTargetContext",
-    in: {
-      op: "select",
-      pred: { hasPointer: { targetEntity: { var: "root" } } },
-      in: { op: "mask", policy: audit ? "annotate" : "drop", in: base },
-    },
+    in: { op: "mask", policy: audit ? "annotate" : "drop", in: base },
   });
 }
 
