@@ -1828,7 +1828,7 @@
   }
 
   // src/schema-deltas.ts
-  var VOCAB_PREFIX = "rdb";
+  var VOCAB_PREFIX = "rhizomatic";
   var ROLE_DEFINES = `${VOCAB_PREFIX}.schema.defines`;
   var ROLE_NAME = `${VOCAB_PREFIX}.schema.name`;
   var ROLE_ALG = `${VOCAB_PREFIX}.schema.alg`;

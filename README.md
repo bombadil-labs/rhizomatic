@@ -85,7 +85,7 @@ You may be a person. You may be a Claude instance reading this at the top of a f
 **Build order.** Each milestone maps to a conformance level ([SPEC-0 §5.1](spec/00-overview.md)) and is independently valuable:
 
 - **M0 — The atom.** Canonical CBOR serialization, content addressing, signatures, the delta-set operations. Smallest possible library, heaviest possible test vectors. Everything else stands on this; get it boring and bulletproof. *(Level 0)*
-- **M1 — The evaluator.** The eight operators as a pure function over in-memory delta sets. No persistence, no reactivity — just `eval(term, set)` matching vectors byte-for-byte. This is also where the `rdb.SchemaSchema` bootstrap ([SPEC-3 §5](spec/03-schema.md)) gets pinned. *(Level 1)*
+- **M1 — The evaluator.** The eight operators as a pure function over in-memory delta sets. No persistence, no reactivity — just `eval(term, set)` matching vectors byte-for-byte. This is also where the `rhizomatic.SchemaSchema` bootstrap ([SPEC-3 §5](spec/03-schema.md)) gets pinned. *(Level 1)*
 - **M2 — The reactor.** Ingest pipeline, the four core indexes, dispatch, incremental maintenance with the incremental-equivalence property tested against batch evaluation under randomized ingestion orders. *(Level 2)*
 - **M3 — Packs.** The L0 round-trip. Can be built any time after M0; pairs well with M2's checkpoints. *(Level 0 extension)*
 - **M4 — Federation.** Two reactors converging from arbitrary divergent states. Property-test it: random fork pairs MUST converge to union. *(Level 3)*

@@ -89,7 +89,7 @@ implementations and can be pinned in vectors. Verification of a delta checks, in
 recomputes from the claims (content addressing holds), then the signature verifies over the id
 bytes against the key named in `author` (D8).
 
-## D10 — Set digest (PROVISIONAL helper)
+## D10 — Set digest (PROVISIONAL helper — confirmed 2026-06-11: stays provisional until sublinear reconciliation exists)
 
 `digest(S)` = `contentAddress( canonical CBOR array of S's id strings, sorted lexicographically )`.
 A cheap canonical fingerprint of set membership, used by the implementations to compare delta sets

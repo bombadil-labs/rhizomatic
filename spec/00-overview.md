@@ -149,7 +149,7 @@ The key words MUST, MUST NOT, SHOULD, SHOULD NOT, and MAY are to be interpreted 
 - **View** — a resolved domain object: conflicts collapsed per policy, primitives extracted.
 - **Reactor** — an execution engine that evaluates terms and maintains materializations against a live stream.
 - **Derived author** — a content-addressed function with its own signing identity, installed by consent, that reads materializations/views and writes deltas (SPEC-7).
-- **Transaction manifest** — an ordinary delta (in the `rdb.txn` vocabulary) whose pointers commit, by content address, to a set of member deltas asserted in one act. Grouping is a claim, never a container (SPEC-1 §9).
+- **Transaction manifest** — an ordinary delta (in the `rhizomatic.txn` vocabulary) whose pointers commit, by content address, to a set of member deltas asserted in one act. Grouping is a claim, never a container (SPEC-1 §9).
 - **Pack** — a physical container in which a transaction's members are stored dehydrated against their manifest's envelope metadata; rehydration is byte-exact to canonical form (SPEC-8).
 - **Instance** — any holder of a delta set plus an evaluator. Instances are peers; none is canonical.
 

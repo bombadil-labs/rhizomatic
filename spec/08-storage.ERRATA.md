@@ -11,7 +11,7 @@ Pack = map {
   "version":   1,
   "strings":   [tstr...],          // sorted unique string table (roles, ids, authors, contexts,
                                    //  delta-ref hexes, string primitives, sig hexes)
-  "envelopes": [Record...],        // hydrated rdb.txn manifests, sorted by manifest id
+  "envelopes": [Record...],        // hydrated rhizomatic.txn manifests, sorted by manifest id
   "members":   [MemberRecord...],  // dehydrated members, sorted by member id
   "loose":     [Record...],        // hydrated deltas claimed by no stored manifest, sorted by id
 }

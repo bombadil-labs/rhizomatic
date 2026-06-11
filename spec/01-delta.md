@@ -166,16 +166,16 @@ There is **no conflict at L1**. Two contradictory claims are two deltas in super
 
 Streams (ordered delivery of deltas over time) are an L4 transport concern. L1 semantics depend only on set membership.
 
-## 9. Transaction Manifests (`rdb.txn`)
+## 9. Transaction Manifests (`rhizomatic.txn`)
 
-A **transaction** is the unit of authorship-as-act: one or more deltas asserted together, in one breath. It is expressed not as a container but as a **claim** — an ordinary delta in the normative `rdb.txn` vocabulary:
+A **transaction** is the unit of authorship-as-act: one or more deltas asserted together, in one breath. It is expressed not as a container but as a **claim** — an ordinary delta in the normative `rhizomatic.txn` vocabulary:
 
 ```
 ManifestDelta := a delta whose pointers include
-  { role: "rdb.txn.member", target: DeltaRef{ delta: <member hash> } }   // one per member
+  { role: "rhizomatic.txn.member", target: DeltaRef{ delta: <member hash> } }   // one per member
 and MAY include
-  { role: "rdb.txn.prior",  target: DeltaRef{ delta: <prior manifest hash> } }  // causality
-  { role: "rdb.txn.intent", target: <primitive> }                        // human-readable label
+  { role: "rhizomatic.txn.prior",  target: DeltaRef{ delta: <prior manifest hash> } }  // causality
+  { role: "rhizomatic.txn.intent", target: <primitive> }                        // human-readable label
 ```
 
 Normative semantics:
@@ -184,13 +184,13 @@ Normative semantics:
 - **No new primitive.** Manifests are deltas. P3 holds; the entire transaction concept is vocabulary plus layer behaviors: signature coverage (§5), atomic batch ingestion (SPEC-4 §6), bundle transfer (SPEC-6 §4), completeness policies (SPEC-5 §7), and physical packing (SPEC-8).
 - **Negating a manifest negates the grouping claim only** — never the members. Bulk retraction is tooling that emits individual member negations (which MAY themselves be bundled under a new manifest). `mask`'s well-foundedness (SPEC-2 §4.3) is untouched.
 - **Completeness is verifiable, not enforced.** "Do I hold every member of manifest M" is a hash check. Atomic acceptance is a protocol courtesy (L4/L6) and a checkable property — never a format invariant. Sovereigns may take part of a transaction; policies may demand the whole (SPEC-5 §7).
-- **`rdb.txn.prior` provides causality at the act level:** "asserted having seen X" — happened-before as claims, not clocks. This subsumes the HLC question of §10 for most purposes.
+- **`rhizomatic.txn.prior` provides causality at the act level:** "asserted having seen X" — happened-before as claims, not clocks. This subsumes the HLC question of §10 for most purposes.
 - A manifest whose envelope metadata (author, timestamp) disagrees with its members' is detectably lying; admission policies and lint MAY flag it. Member self-containment is deliberately redundant with the manifest — sovereignty costs bytes at L1 and recovers them at L0 (SPEC-8).
 
 ## 10. Open Questions (L1)
 
 - **Numeric extension:** arbitrary-precision integers/decimals as tagged CBOR? Needed before financial use cases.
 - **Binary primitives:** byte-string primitive (for embeddings, media hashes)? Leaning yes via CBOR byte strings; vectors needed.
-- **Causality annotation:** largely subsumed by `rdb.txn.prior` (§9); remaining question is whether a vector-clock vocabulary is needed beyond act-level happened-before.
+- **Causality annotation:** largely subsumed by `rhizomatic.txn.prior` (§9); remaining question is whether a vector-clock vocabulary is needed beyond act-level happened-before.
 - **Compression/compaction:** resolved in principle by the L0 pack format (SPEC-8); open details live there.
 - **Erasure:** content addressing makes true deletion even harder than before (hashes pin content). GDPR strategy likely requires payload-encryption-with-key-destruction or off-set "blob" indirection for personal data. Tracked in SPEC-6 §7; unresolved.

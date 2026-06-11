@@ -124,7 +124,10 @@ fn pure_derived_author_writes_back_with_provenance() {
         .unwrap();
     assert!(matches!(&value.target, Target::Primitive(Primitive::Num(n)) if *n == 8.5));
     for suffix in ["by", "from", "under"] {
-        let r = format!("rdb.derived.{suffix}");
+        let r = format!(
+            "{}.derived.{suffix}",
+            rhizomatic::schema_deltas::VOCAB_PREFIX
+        );
         assert!(emitted.claims.pointers.iter().any(|p| p.role == r), "{r}");
     }
 }
@@ -165,7 +168,7 @@ fn pure_replay_reproduces_the_emitted_id() {
         .pointers
         .iter()
         .find_map(|p| {
-            if p.role != "rdb.derived.from" {
+            if p.role != format!("{}.derived.from", rhizomatic::schema_deltas::VOCAB_PREFIX) {
                 return None;
             }
             match &p.target {
@@ -225,10 +228,13 @@ fn budget_suspends_observably_and_guard_prevents_self_trigger() {
     assert!(host.is_suspended("binding:tight"));
     // the suspension is an observable, signed annotation in the rhizome
     let suspended = host.reactor.snapshot().iter().any(|d| {
-        d.claims
-            .pointers
-            .iter()
-            .any(|p| p.role == "rdb.derived.suspended")
+        d.claims.pointers.iter().any(|p| {
+            p.role
+                == format!(
+                    "{}.derived.suspended",
+                    rhizomatic::schema_deltas::VOCAB_PREFIX
+                )
+        })
     });
     assert!(suspended);
     // and after suspension, no further emissions occur

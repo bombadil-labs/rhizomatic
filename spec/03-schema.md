@@ -79,25 +79,25 @@ A HyperView is simultaneously: a query result, an index entry (when materialized
 
 ## 5. Schemas as Deltas
 
-The at-rest, federated form of a schema is a set of deltas. Encoding convention (normative vocabulary, `rdb.schema.*` namespace):
+The at-rest, federated form of a schema is a set of deltas. Encoding convention (normative vocabulary, `rhizomatic.schema.*` namespace):
 
 ```
 // schema root
-{ pointers: [ { role: "rdb.schema.defines", target: EntityRef(schemaEntity, context: "definition") },
-              { role: "rdb.schema.alg",     target: 1 } ] }
+{ pointers: [ { role: "rhizomatic.schema.defines", target: EntityRef(schemaEntity, context: "definition") },
+              { role: "rhizomatic.schema.alg",     target: 1 } ] }
 
 // term nodes: one entity per operator node; one delta per edge
-{ pointers: [ { role: "rdb.term.op",      target: "select" },
-              { role: "rdb.term.of",      target: EntityRef(schemaEntity, context: "body") } ] }
-{ pointers: [ { role: "rdb.term.operand", target: EntityRef(childTermEntity, context: "parent") },
-              { role: "rdb.term.position",target: 0 } ] }
+{ pointers: [ { role: "rhizomatic.term.op",      target: "select" },
+              { role: "rhizomatic.term.of",      target: EntityRef(schemaEntity, context: "body") } ] }
+{ pointers: [ { role: "rhizomatic.term.operand", target: EntityRef(childTermEntity, context: "parent") },
+              { role: "rhizomatic.term.position",target: 0 } ] }
 // predicate leaves serialize their canonical CBOR as a primitive string (base64)
 ```
 
 *(The exact vocabulary above is illustrative draft; the conformance suite will pin it. What is already normative:)*
 
 - A schema MUST be losslessly round-trippable: deltas → term → canonical CBOR → hash, with the hash matching a directly-encoded term.
-- **Bootstrap:** there is exactly one hand-specified schema, `rdb.SchemaSchema` — the HyperSchema for reading HyperSchemas out of the rhizome. Its term is published as a constant (canonical CBOR + hash) in this spec's conformance vectors. Every other schema is read using it. This closes the loop of P3 with a single axiom, mirroring L1's single axiom.
+- **Bootstrap:** there is exactly one hand-specified schema, `rhizomatic.SchemaSchema` — the HyperSchema for reading HyperSchemas out of the rhizome. Its term is published as a constant (canonical CBOR + hash) in this spec's conformance vectors. Every other schema is read using it. This closes the loop of P3 with a single axiom, mirroring L1's single axiom.
 
 Because schemas are deltas, automatically:
 
@@ -112,7 +112,7 @@ Because schemas are deltas, automatically:
 `SchemaRef` has two modes (L2 §7), and their semantics interact with everything above:
 
 - **Pinned — `ref(hash)`:** immutable reference to an exact term. Evaluation is reproducible forever. REQUIRED for: conformance vectors, signed/audited views, federation payloads that claim reproducibility.
-- **Evolvable — `ref(entity)`:** names a schema entity; the current definition is obtained by evaluating `rdb.SchemaSchema` at that entity under the *evaluator's* delta set and resolution policy. Evaluation can change as definition deltas arrive — by design.
+- **Evolvable — `ref(entity)`:** names a schema entity; the current definition is obtained by evaluating `rhizomatic.SchemaSchema` at that entity under the *evaluator's* delta set and resolution policy. Evaluation can change as definition deltas arrive — by design.
 
 Normative consequences:
 
@@ -146,4 +146,4 @@ None of this is normative; all of it compiles to SPEC-2 terms or it doesn't exis
 - Bounded self-reference / depth-limited recursion (§3).
 - Schema *interfaces*: can a schema declare "any schema producing props ⊇ {name}" as an expansion target, enabling structural polymorphism without naming a concrete child? Powerful for federation; risks undecidability — needs a careful fragment.
 - Migration story: a convention for "schema B supersedes schema A" deltas, and whether evaluators should auto-chase supersession or treat it as policy.
-- Namespace governance for `rdb.*` vocabulary versus user vocabulary (relates to L5 ABI).
+- Namespace governance for `rhizomatic.*` vocabulary versus user vocabulary (relates to L5 ABI).

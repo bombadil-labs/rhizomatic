@@ -96,10 +96,10 @@ work: the reference demo (implementations/ts/demo), CI, and whatever PROGRESS.md
 
 - The project is **Rhizomatic**. Lowercase **rhizome** is the biological metaphor (the mushroom, the
   network) — never the product name; leave it in prose.
-- The reserved vocabulary namespace is currently **`rdb.*`** (`rdb.txn`, `rdb.schema.*`, `rdb.term.*`,
-  `rdb.alias`, `rdb.SchemaSchema`). This abbreviated "RhizomeDB" and is **under review** — it may become
-  `rhz.*`. Until decided, treat the prefix as a single configurable constant in each implementation, so a
-  later change is a one-line edit plus a vector regen, not a sweep.
+- The reserved vocabulary namespace is **`rhizomatic.*`** (`rhizomatic.txn`, `rhizomatic.schema.*`,
+  `rhizomatic.term.*`, `rhizomatic.alias`, `rhizomatic.SchemaSchema`) — decided 2026-06-11. It remains a
+  single configurable constant (`VOCAB_PREFIX`) in each implementation, so any future change stays a
+  one-line edit plus a vector regen.
 
 ## Commands
 

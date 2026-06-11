@@ -14,15 +14,18 @@ slice afterward.
   v1 surface it's waiting on exists. Folding these would harden scaffolding into law.
 - **DECIDE** — carries a genuine open question; needs your call before anything moves.
 
-## The five DECIDEs (the actual review queue)
+## The five DECIDEs — all RESOLVED 2026-06-11
 
-| # | Entry | The question |
+The deciding principle (reviewed with the maintainer): prefer the option whose later reversal
+costs one versioned amendment rather than a migration.
+
+| # | Entry | Decision |
 |---|---|---|
-| 1 | **S4** (rdb.* prefix) | `rdb.*` vs `rhz.*` — one constant per impl + vector regen, parked since the rename. |
-| 2 | **D10** (set digest) | Promote the provisional digest to the normative SPEC-6 reconciliation digest, or keep it a helper until sublinear reconciliation forces the question? |
-| 3 | **E14** (annotation channel) | Should mask(annotate)'s channel thread through set-preserving operators in v1, or stay consumed-or-dropped? v0 pin works; the idiom constraint (no select between mask and group) is documented. |
-| 4 | **E8** (prune granularity) | Property-level prune is pinned; the pointer-level reading was deferred. Promote the deferral to a v1 commitment or close it? |
-| 5 | **WASM ABI proposal** (spec/07-derivation-abi.PROPOSAL.md) | Not an erratum, but the same review: adopt, amend, or leave as proposal. G1's KEEP below assumes it eventually lands. |
+| 1 | **S4** (vocabulary prefix) | **`rhizomatic.*`** — the full product name; collision-proof and self-describing. Wire cost is negligible (packs intern strings). Executed: constants flipped, vectors regenerated, prose swept. The HTTP path `/rhz/v0/sync` stays — it names the transport binding (F5), not the vocabulary. |
+| 2 | **D10** (set digest) | **Stays provisional.** Promoting it would pin SPEC-6 to a full-set digest that v1 sublinear reconciliation would immediately obsolete. Revisit when reconciliation does. |
+| 3 | **E14** (annotation channel) | **Closed: consumed-or-dropped is the invariant.** The annotate channel is a property of the immediate operand; the audit idiom is `group(mask(annotate, …))` directly. Threading through set-preserving operators can return as an `alg: 1` capability if a real consumer needs it. |
+| 4 | **E8** (prune granularity) | **Closed: property-level is the `alg: 0` law.** Pointer-level pruning, if ever needed (e.g. federation payload minimization), enters as an `alg`-versioned capability — exactly when a consumer exists to vector it. |
+| 5 | **WASM ABI** | **Remains a PROPOSAL, adoption mechanically gated** on a working host implementation plus a compiled-module conformance vector — the same vectors-first rule everything else followed. Premature adoption is the only branch with real regret (ABI churn with an external audience). |
 
 ## SPEC-1 — Deltas (12 entries)
 
@@ -60,10 +63,10 @@ slice afterward.
 | Entry | Gist | Disposition | Lands in |
 |---|---|---|---|
 | S1 | Schema-as-deltas vocabulary (blob form, one delta per definition) | **FOLD** | SPEC-3 §5 |
-| S2 | The rdb.SchemaSchema bootstrap constant | **FOLD** | SPEC-3 §5 |
+| S2 | The rhizomatic.SchemaSchema bootstrap constant | **FOLD** | SPEC-3 §5 |
 | S5 | THE CONTRADICTION: canonical body must mask before select | **FOLD** (spec text carries the amended idiom; the catch story stays in errata/git) | SPEC-3 §2 |
 | S3 | Eager evolvable schema loading (latest-by-timestamp, lexById tiebreak) | **KEEP** (v0; transparent re-resolution arrives with reactive registries) | — |
-| S4 | rdb.* prefix is a configurable constant | **DECIDE** (#1) | — |
+| S4 | rhizomatic.* prefix is a configurable constant | **DECIDE** (#1) | — |
 
 ## SPEC-4 — Reactor (5 entries)
 

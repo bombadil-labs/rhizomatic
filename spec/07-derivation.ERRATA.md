@@ -19,13 +19,13 @@ event on a bound materialization triggers its binding; emissions re-enter throug
 ingest path and their change events join the queue. The loop terminates because (a) a binding
 whose trigger's responsible deltas are **all its own emissions** is skipped (the default
 non-reentrancy guard of §6), and (b) each binding carries a **budget** — a lifetime emission cap;
-exceeding it suspends the binding and emits a signed `rdb.derived.suspended` annotation, making
+exceeding it suspends the binding and emits a signed `rhizomatic.derived.suspended` annotation, making
 divergence an observable event, not a melted reactor.
 
 ## G3 — Provenance pointers and deterministic timestamps
 
-Every emission carries `rdb.derived.by` (fn entity), `rdb.derived.from` (the input HView's
-canonical hex as a primitive — the exact input snapshot), and `rdb.derived.under` (binding
+Every emission carries `rhizomatic.derived.by` (fn entity), `rhizomatic.derived.from` (the input HView's
+canonical hex as a primitive — the exact input snapshot), and `rhizomatic.derived.under` (binding
 entity), plus the substantive pointers, signed by the derived author's key. **All derived
 emissions (including supersede negations) use timestamp 0**: a pure function's output must be a
 function of (fn, input hash) only (§4), and a wall-clock timestamp would break replayability. The
@@ -49,7 +49,7 @@ mirrored tests in both witnesses.
 
 ## G5 — Pure-replay verification (conformance Level 4's seed)
 
-`verifyPureDerivation(emitted, fn, view, root)`: check the emission's `rdb.derived.from` equals
+`verifyPureDerivation(emitted, fn, view, root)`: check the emission's `rhizomatic.derived.from` equals
 the view's canonical hex, re-run the function, rebuild the full claims (same provenance recipe),
 recompute the id — it must equal the emitted delta's id, and the signature must verify. Replay
 across *implementations* is exactly what native functions cannot promise (G1); replay within a

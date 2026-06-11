@@ -1,6 +1,6 @@
 # PROPOSAL — The WASM Host ABI for Derived Authors (SPEC-7 §10)
 
-**Status:** Proposal — NOT adopted. Drafted from the working v0 native-function lifecycle
+**Status:** Proposal — NOT adopted. Drafted from the working v0 native-function lifecycle — adoption gated (decided 2026-06-11) on a working host implementation plus a compiled-module conformance vector passing in both witnesses.
 (ERRATA-7), which implements everything in SPEC-7 *except* portable function identity. This
 document proposes the portability layer. It changes no current vector; adopting it would add a
 new conformance surface (Level 4 portable).
@@ -24,7 +24,7 @@ The ABI's job is exactly three things:
 - The artifact is a **WebAssembly module** (binary format, core spec).
 - `fnHash = contentAddress(wasm bytes)` — the same multihash used everywhere else (ERRATA-1 D7).
 - The artifact federates as a blob referenced by deltas (SPEC-6 §6); receiving ≠ installing.
-- The v0 `fnId` entity remains as the *name*; an `rdb.derived.artifact` pointer on the binds
+- The v0 `fnId` entity remains as the *name*; an `rhizomatic.derived.artifact` pointer on the binds
   delta carries the fnHash, upgrading declared identity to checkable identity without breaking
   the existing vocabulary.
 
@@ -40,7 +40,7 @@ The guest module MUST export:
 | `rhz_derive` | `(ptr: i32, len: i32) -> i64` | the function itself |
 
 **Input.** The host writes the **canonical CBOR of the input HView** (ERRATA-2 E7/E11 — the same
-bytes whose hash becomes `rdb.derived.from`) into a buffer obtained from `rhz_alloc`, then calls
+bytes whose hash becomes `rhizomatic.derived.from`) into a buffer obtained from `rhz_alloc`, then calls
 `rhz_derive(ptr, len)`. One encoding for storage, transport, hashing, AND function input: the
 guest can verify what it was given against the from-hash by construction. The ambient root is
 prepended as a single CBOR text-string item before the HView (two items, concatenated — the
@@ -83,7 +83,7 @@ syntactic property of the artifact, verifiable by anyone holding the bytes.
 
 - **Budgets** (SPEC-7 §6) gain a second dimension: per-trigger **fuel** (instruction metering, as
   provided by major WASM runtimes) alongside the existing emission-count budget. Exhausting either
-  suspends the binding with the existing `rdb.derived.suspended` annotation.
+  suspends the binding with the existing `rhizomatic.derived.suspended` annotation.
 - **Replay** (Level 4): for a pure module, any party holding (wasm bytes, input HView bytes) MUST
   be able to reproduce the emitted claims byte-for-byte — this is the cross-*implementation*
   replay that native functions cannot offer (ERRATA-7 G5). Conformance vectors would ship: a tiny

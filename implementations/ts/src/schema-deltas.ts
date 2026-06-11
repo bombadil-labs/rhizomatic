@@ -12,7 +12,7 @@ import { parseTerm } from "./term-json.js";
 import type { Claims } from "./types.js";
 
 // The vocabulary prefix is one constant pending the naming decision tracked in CLAUDE.md (S4).
-export const VOCAB_PREFIX = "rdb";
+export const VOCAB_PREFIX = "rhizomatic";
 
 const ROLE_DEFINES = `${VOCAB_PREFIX}.schema.defines`;
 const ROLE_NAME = `${VOCAB_PREFIX}.schema.name`;

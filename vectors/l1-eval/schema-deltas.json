@@ -1,6 +1,6 @@
 {
   "bootstrap": {
-    "name": "rdb.SchemaSchema",
+    "name": "rhizomatic.SchemaSchema",
     "alg": 1,
     "termJson": {
       "op": "group",
@@ -175,27 +175,27 @@
       "author": "did:key:zAlice",
       "pointers": [
         {
-          "role": "rdb.schema.defines",
+          "role": "rhizomatic.schema.defines",
           "target": {
             "id": "schema:MovieWithCast",
             "context": "definition"
           }
         },
         {
-          "role": "rdb.schema.name",
+          "role": "rhizomatic.schema.name",
           "target": "MovieWithCast"
         },
         {
-          "role": "rdb.schema.alg",
+          "role": "rhizomatic.schema.alg",
           "target": 1
         },
         {
-          "role": "rdb.schema.term",
+          "role": "rhizomatic.schema.term",
           "target": "a462696ea362696ea362696ea362696e65696e707574626f70646d61736b66706f6c6963796464726f70626f706673656c6563746470726564a16a686173506f696e746572a16c746172676574456e74697479a16376617264726f6f74626f706567726f7570636b65796f6279546172676574436f6e74657874626f7066657870616e6464726f6c65a1656578616374656163746f7266736368656d61694163746f724e616d65"
         }
       ]
     },
-    "deltaId": "1e20503305fa18c4b1f7f16e5d6646093a694332af948a7017831254e5fcfd314c65",
+    "deltaId": "1e20c6e2a24a4096c419a67b645f353ce5b7f89054905dea4c0d7a729c7f931d0a58",
     "expectedTermHash": "1e2092805e86d9b92800a33201bc9a959a2e099c3eb97f0d18fbce6033bab043e546"
   },
   "pinnedRef": {

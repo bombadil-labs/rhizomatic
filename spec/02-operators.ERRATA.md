@@ -106,9 +106,10 @@ terminal (unexpanded) form.
 
 `prune(keep: StrMatch | all)` retains the HView properties whose **name** matches (`all` = keep
 everything, the identity). SPEC-2 §4.6's "drop pointers" reading — trimming pointer lists inside
-entries — is **deferred**: it tensions with SPEC-3 §4's provenance-completeness ("every HVEntry is
-a full delta") and no current consumer needs it. Filed as an open question; revisiting costs a
-vector regen.
+entries — is **closed as out of `alg: 0`** (decided 2026-06-11): it tensions with SPEC-3 §4's
+provenance-completeness ("every HVEntry is a full delta") and no consumer exists to vector it.
+Property-level granularity is the law for `alg: 0`; pointer-level pruning, if a consumer ever
+materializes (e.g. federation payload minimization), enters as an `alg`-versioned capability.
 
 ## E9 — Sorts are checked at evaluation time (v0)
 
@@ -164,11 +165,11 @@ spelling.
 `schema` in `expand`/`fix` is now `name | {"pinned": "<term hash>"}`. The registry indexes every
 schema by name AND by its term hash; pinned refs resolve by hash and are immutable by construction.
 Cycle checking runs over the resolved graph. The **evolvable** mode (`ref(entity)` resolved through
-`rdb.SchemaSchema` under the evaluator's policy) is implemented as an explicit eager function
+`rhizomatic.SchemaSchema` under the evaluator's policy) is implemented as an explicit eager function
 (load-schemas-from-deltas, ERRATA-3) rather than transparent reference resolution — transparent
 evolvable refs are deferred until the reactor exists to re-resolve them on definition change.
 
-## E14 — Annotation metadata does not survive `select`/`union` (v0 pinned; open question)
+## E14 — Annotation metadata does not survive `select`/`union`
 
 `mask(annotate, D)` returns its operand set unchanged plus an annotation channel (the negated-id
 set) that `group` threads into HVEntries (E7). In v0, that channel is a property of the *immediate*
@@ -181,10 +182,11 @@ which loses nothing, because group's filing rules already restrict to pointers t
 ambient root (E6), making a `select(hasPointer root)` stage redundant for grouping.
 
 Found while building the interactive tour: the tour's (and playground's) audit lens used
-select-between-mask-and-group and showed retracted claims unmarked. Open question for v1: should
-annotation channels thread through set-preserving operators (`select` keeps a subset, so the
-restriction of the channel is well-defined), or is the v0 rule — annotations are consumed by the
-next operator or dropped — the simpler invariant to keep?
+select-between-mask-and-group and showed retracted claims unmarked. **Decided 2026-06-11:
+consumed-or-dropped is the invariant** — the channel is a property of the immediate operand,
+and the supported audit idiom is `group(key, mask(annotate, …))` with no DSet operator between.
+Threading through set-preserving operators may return as an `alg: 1` capability if a consumer
+needs it; that would be a versioned addition, not an amendment to this rule.
 
 ## E15 — Parameterized terms: `hole(name)`, bound at `fix` time (SPEC-2 §6)
 

@@ -21,8 +21,8 @@ This dissolves the apparent loss of "arbitrarily complex resolver logic": the lo
 A derived author is the pair (function artifact, signing key):
 
 - **Function identity:** `fnHash` = content address of the function artifact (§7) plus its declared interface. Any change to the code is a *different function* and therefore a different author.
-- **Signing identity:** a keypair bound to `(fnHash, hostInstance)`. RECOMMENDED derivation: host signs a key-binding delta `{ rdb.derived.binds: fnHash → authorPubKey }`, making the binding itself queryable provenance. The same function installed on two instances yields two authors with a shared `fnHash` — comparable (§8) but distinct, which is correct: the host is part of the trust story.
-- **Versioning consequence:** upgrading a function strands nothing. Old claims remain attributed to the old author/brain; policies (`byAuthorRank`) choose whether to prefer the successor; an `rdb.derived.supersedes` delta links the lineage.
+- **Signing identity:** a keypair bound to `(fnHash, hostInstance)`. RECOMMENDED derivation: host signs a key-binding delta `{ rhizomatic.derived.binds: fnHash → authorPubKey }`, making the binding itself queryable provenance. The same function installed on two instances yields two authors with a shared `fnHash` — comparable (§8) but distinct, which is correct: the host is part of the trust story.
+- **Versioning consequence:** upgrading a function strands nothing. Old claims remain attributed to the old author/brain; policies (`byAuthorRank`) choose whether to prefer the successor; an `rhizomatic.derived.supersedes` delta links the lineage.
 
 ## 3. Registration (the Binding)
 
@@ -40,7 +40,7 @@ Binding {
 }
 ```
 
-Bindings are themselves expressed as deltas (`rdb.derived.*` vocabulary, §9) — installation is an assertion by the host's key, auditable and negatable like everything else (P3 does not stop at the kernel boundary).
+Bindings are themselves expressed as deltas (`rhizomatic.derived.*` vocabulary, §9) — installation is an assertion by the host's key, auditable and negatable like everything else (P3 does not stop at the kernel boundary).
 
 ## 4. Determinism Classes
 
@@ -54,9 +54,9 @@ Declared at registration; normative consequences differ:
 Every delta emitted by a derived author MUST carry derivation provenance pointers:
 
 ```
-{ role: "rdb.derived.by",    target: EntityRef(fnEntity) }        // fnHash-identified
-{ role: "rdb.derived.from",  target: <input HyperView content hash as primitive> }
-{ role: "rdb.derived.under", target: EntityRef(bindingEntity) }
+{ role: "rhizomatic.derived.by",    target: EntityRef(fnEntity) }        // fnHash-identified
+{ role: "rhizomatic.derived.from",  target: <input HyperView content hash as primitive> }
+{ role: "rhizomatic.derived.under", target: EntityRef(bindingEntity) }
 ```
 
 plus the substantive claim pointers. `explain` (SPEC-4 §7) therefore traces any derived value to: function → exact input snapshot → the underlying deltas in that snapshot → *their* authors. Judgment all the way down, with receipts.
@@ -74,7 +74,7 @@ plus the substantive claim pointers. `explain` (SPEC-4 §7) therefore traces any
 Derived authors write into the same memory they read — cycles are possible (A's outputs trigger B, B's trigger A) and sometimes desired (iterative refinement). Normative guards, host-enforced:
 
 - A binding's input term MUST NOT match the binding's own emissions unless explicitly flagged `reentrant`; the host enforces this by predicate analysis (`not(match(author, eq, self))` is injected by default — decidable, per SPEC-2 §3).
-- Reentrant and mutually-recursive bindings run under **budget** (§3): per-trigger and per-window output quotas. Exhausting a budget suspends the binding and emits an `rdb.derived.suspended` annotation — divergence becomes an observable event, not a melted reactor.
+- Reentrant and mutually-recursive bindings run under **budget** (§3): per-trigger and per-window output quotas. Exhausting a budget suspends the binding and emits an `rhizomatic.derived.suspended` annotation — divergence becomes an observable event, not a melted reactor.
 - The host SHOULD maintain the binding dependency graph (input terms vs. emission footprints, both inspectable) and surface cycles at registration time.
 
 There is no global termination guarantee in userland, and the spec does not pretend to one. Kernel determinism (P5) is unaffected: whatever deltas the loop has produced *so far* evaluate deterministically.
@@ -94,13 +94,13 @@ Mapping the original design's "lost" capabilities onto L7:
 | Arbitrary resolver logic (Strategy 1–4) | derived author + `byAuthorRank` policy (SPEC-5 §3) |
 | LLM conflict resolution | `effectful` adjudicator, `keyed` emission |
 | Computed values (averages, scores) | `pure` derivation; replayable |
-| Embedding-based fuzzy context matching | `effectful` author emitting `rdb.alias` deltas (SPEC-5 §6) |
+| Embedding-based fuzzy context matching | `effectful` author emitting `rhizomatic.alias` deltas (SPEC-5 §6) |
 | "Computed schemas" / cross-delta selection | derived author computes the cross-delta property, asserts it; kernel `select` then matches the assertion |
 | The latent-space squint | a population of semantic processes whose hunches are negatable data |
 
 The trade, stated once more for honesty: all of these are **eventually consistent** with their inputs — reactive, cached, versioned, auditable, but not synchronous with reads. That is the price of keeping the kernel deterministic, and it is the same price every materialized view in every database already pays silently.
 
-## 9. Vocabulary (`rdb.derived.*`, draft)
+## 9. Vocabulary (`rhizomatic.derived.*`, draft)
 
 `binds`, `by`, `from`, `under`, `supersedes`, `suspended`, `capability`, `budget` — to be pinned with the conformance vectors, same status as SPEC-3 §5's encoding.
 
@@ -108,7 +108,7 @@ The trade, stated once more for honesty: all of these are **eventually consisten
 
 - **WASM ABI:** exact host interface (input HyperView delivery format, emission API, capability handles). The biggest concrete design task on this layer.
 - **Key derivation:** deterministic per-(fnHash, host) keys vs. host-minted + binding delta (current lean: the latter; simpler, and the binding delta is good provenance anyway).
-- **Staleness predicate:** standard `Pred`-expressible freshness check over `rdb.derived.from` hashes, so policies can prefer fresh derivations mechanically.
+- **Staleness predicate:** standard `Pred`-expressible freshness check over `rhizomatic.derived.from` hashes, so policies can prefer fresh derivations mechanically.
 - **Human-in-the-loop binding:** is a review queue a degenerate `effectful` author (current lean: yes — the human is the model), or does consent/attribution need distinct vocabulary?
 - **Composition:** pipelines of derived authors (A feeds B feeds C) — bless a pipeline descriptor, or leave it emergent from bindings + the dependency graph?
 - **Economic/abuse bounds in federation:** budgets are local; do remote *claims* from runaway derived authors need rate-based admission defaults (SPEC-6 §5) tuned differently than human authors?

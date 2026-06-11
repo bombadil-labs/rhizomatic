@@ -2,7 +2,7 @@
 
 **Status:** Draft
 **Layer:** L0 — physical representation
-**Depends on:** SPEC-1 (canonical form, content addressing, `rdb.txn` manifests)
+**Depends on:** SPEC-1 (canonical form, content addressing, `rhizomatic.txn` manifests)
 
 ---
 
@@ -29,7 +29,7 @@ A pack is a content-addressed file:
 Pack {
   header:     { version, dictRef?: Hash }       // optional shared-dictionary reference
   strings:    StringTable                        // interned entity ids, roles, contexts
-  envelopes:  ManifestRecord[]                   // hydrated rdb.txn manifests (these ARE deltas)
+  envelopes:  ManifestRecord[]                   // hydrated rhizomatic.txn manifests (these ARE deltas)
   members:    MemberRecord[]                     // dehydrated member deltas
   loose:      DeltaRecord[]                      // hydrated deltas claimed by no stored manifest
   index:      { deltaId → (section, offset) }   // random access without full scan
@@ -87,7 +87,7 @@ Packs complicate the already-hard erasure problem (SPEC-6 §7) in one way and he
 
 ## 8. Open Questions (L0)
 
-- **Dictionary governance:** who trains shared dictionaries, how are they versioned, and is there a blessed bootstrap dictionary for the `rdb.*` vocabularies shipped with the conformance suite?
+- **Dictionary governance:** who trains shared dictionaries, how are they versioned, and is there a blessed bootstrap dictionary for the `rhizomatic.*` vocabularies shipped with the conformance suite?
 - **Pack sizing & partial reads:** target sizes, index granularity for ranged/HTTP reads, and whether the index supports per-entity bloom filters for scan-skipping.
 - **Succinct coverage proofs:** Merkle-path attachment for extracting one covered delta from a large transaction without shipping the whole manifest.
 - **Encryption at rest:** whole-pack encryption vs. per-section, and interaction with `dictRef` (dictionaries leak vocabulary statistics).

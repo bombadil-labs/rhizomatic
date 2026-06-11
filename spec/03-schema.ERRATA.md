@@ -11,17 +11,17 @@ consumer needs to query *inside* schema bodies.)
 
 ```
 SchemaDefinitionDelta := a delta whose pointers are
-  { role: "rdb.schema.defines", target: EntityRef(schemaEntity, context: "definition") }
-  { role: "rdb.schema.name",    target: <string: human name> }
-  { role: "rdb.schema.alg",     target: <number: L2 algebra version> }
-  { role: "rdb.schema.term",    target: <string: hex of the term's canonical CBOR> }
+  { role: "rhizomatic.schema.defines", target: EntityRef(schemaEntity, context: "definition") }
+  { role: "rhizomatic.schema.name",    target: <string: human name> }
+  { role: "rhizomatic.schema.alg",     target: <number: L2 algebra version> }
+  { role: "rhizomatic.schema.term",    target: <string: hex of the term's canonical CBOR> }
 ```
 
 Because schemas are deltas: definitions federate as payload, evolution is append (a newer
 definition delta for the same entity), deprecation is negation, and conflict is ordinary
 superposition resolved by policy.
 
-## S2 — The bootstrap schema `rdb.SchemaSchema`
+## S2 — The bootstrap schema `rhizomatic.SchemaSchema`
 
 The one hand-specified schema (SPEC-3 §5): the HyperSchema for reading schema definitions out of
 the rhizome. Its body is the (amended, see S5) canonical idiom —
@@ -52,16 +52,19 @@ supporting deltas — already implied by SPEC-4 §3's negation index.
 
 ## S3 — Loading schemas from deltas (eager evolvable resolution)
 
-`loadSchema(deltaSet, schemaEntity)`: evaluate `rdb.SchemaSchema` at the entity, take the
+`loadSchema(deltaSet, schemaEntity)`: evaluate `rhizomatic.SchemaSchema` at the entity, take the
 `definition` property's surviving entries, choose the **latest by claimed timestamp (lexById
 tiebreak)** — the v0 default-definition policy, explicitly a policy choice — then decode
-`rdb.schema.term` (hex → canonical CBOR → term; the decoder re-encodes and compares bytes, so
+`rhizomatic.schema.term` (hex → canonical CBOR → term; the decoder re-encodes and compares bytes, so
 non-canonical blobs are rejected). The round-trip `deltas → term → canonical CBOR → hash` MUST
 reproduce the hash of the directly-encoded term (SPEC-3 §5's normative core). The hash of every
 schema actually used is recordable for reproducibility (SPEC-3 §6's pin-recording requirement —
 full materialization metadata arrives with the reactor).
 
-## S4 — The `rdb.*` prefix remains a configurable constant
+## S4 — The `rhizomatic.*` prefix remains a configurable constant
 
-The vocabulary prefix is exposed as one constant in each implementation (`VOCAB_PREFIX`), pending
-the naming decision tracked in CLAUDE.md.
+The vocabulary prefix is **`rhizomatic.*`** (decided 2026-06-11) — the full product name,
+collision-proof and self-describing; wire cost is negligible since packs intern strings. It
+remains one constant per implementation (`VOCAB_PREFIX`), so any future change stays a one-line
+edit plus a vector regen. The HTTP path `/rhz/v0/sync` is the transport binding's name (ERRATA-6
+F5), not the vocabulary prefix, and is unchanged.

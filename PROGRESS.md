@@ -271,6 +271,19 @@ plus polish (README status update, top-level parity runner, CI).
   the CI docs-freshness gate caught exactly the drift it exists to catch; bundle rebuilt.
   Process note: rebuild docs:build after ANY ts/src change, and pin CI watches by sha.
 
+- **THE FIVE DECIDES — RESOLVED (with the human, 2026-06-11)** ✅ — deciding principle:
+  prefer the option whose reversal costs a versioned amendment, not a migration. (1) The
+  vocabulary prefix is **rhizomatic.*** — constants flipped in both witnesses, vectors
+  regenerated (bootstrap hash and all vocabulary ids moved, as designed), ~55 prose mentions
+  swept across spec/README/CLAUDE; /rhz/v0/sync stays (transport name, not vocabulary).
+  (2) D10 digest stays provisional until sublinear reconciliation. (3) E14 closed:
+  consumed-or-dropped is the invariant; threading would be alg:1. (4) E8 closed:
+  property-level prune is the alg:0 law; pointer-level would be alg-versioned. (5) WASM ABI
+  stays a proposal, adoption gated on a working host + compiled-module vector. All five
+  documented in ERRATA-REVIEW + the entries themselves. Both witnesses green (TS 190 /
+  Rust 19 suites); wasm + bundles rebuilt; tour verified live (rhizomatic.derived.* receipts,
+  130/130). Next: execute the 38 approved FOLDs, one spec doc per slice.
+
 ## Queued next (in value order)
 
 1. **WASM host ABI proposal** — ✅ drafted: spec/07-derivation-abi.PROPOSAL.md (status:
