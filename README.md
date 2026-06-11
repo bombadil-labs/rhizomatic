@@ -98,7 +98,7 @@ You may be a person. You may be a Claude instance reading this at the top of a f
 
 ## Status
 
-Specification draft **with two working witnesses**: TypeScript (175+ tests) and Rust (78+ tests),
+Specification draft **with two working witnesses**: TypeScript (190+ tests) and Rust (85+ tests),
 parity-verified byte-for-byte against shared vectors at every layer — canonical CBOR, content
 addressing, Ed25519 signatures, the eight-operator algebra, resolution policies, the
 schemas-as-deltas bootstrap, the incremental reactor, packs, federation, and derivation. Gaps
