@@ -85,7 +85,7 @@ fn primitive_of(claims: &Claims, want_role: &str) -> Option<Primitive> {
 /// take the latest surviving definition, decode the term, verify canonicality by re-encoding.
 pub fn load_schema(dset: &DeltaSet, schema_entity: &str) -> Result<HyperSchema, String> {
     let boot = schema_schema();
-    let result = eval_term(&boot.body, dset, Some(schema_entity), None)?;
+    let result = eval_term(&boot.body, dset, Some(schema_entity), None, None)?;
     let EvalResult::HView(h) = result else {
         return Err("bootstrap body must yield an HView".to_string());
     };

@@ -24,18 +24,38 @@ pub enum StrMatch {
     InSet(Vec<String>),
 }
 
+/// A parameter slot in Const position, bound through fix's bindings (SPEC-2 §6, ERRATA-2 E15).
+#[derive(Debug, Clone, PartialEq)]
+pub enum Param {
+    Lit(Primitive),
+    Hole(String),
+}
+
+pub type Bindings = std::collections::BTreeMap<String, Primitive>;
+
+fn resolve_param(p: &Param, bindings: Option<&Bindings>) -> Result<Primitive, String> {
+    match p {
+        Param::Lit(v) => Ok(v.clone()),
+        Param::Hole(name) => bindings
+            .and_then(|b| b.get(name))
+            .cloned()
+            .ok_or_else(|| format!("unbound hole \"{name}\" (E15)")),
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum ValMatch {
-    Vcmp { cmp: Cmp, value: Primitive },
+    Vcmp { cmp: Cmp, value: Param },
     Between { lo: Primitive, hi: Primitive },
     InSet(Vec<Primitive>),
 }
 
-/// An entity to match: a literal id, or the ambient root variable (ERRATA-2 E10).
+/// An entity to match: a literal id, the ambient root variable (E10), or a hole (E15).
 #[derive(Debug, Clone, PartialEq)]
 pub enum EntityMatch {
     Const(String),
     Root,
+    Hole(String),
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -59,6 +79,7 @@ pub enum Field {
 pub enum MatchConst {
     One(Primitive),
     Many(Vec<Primitive>),
+    Hole(String),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -109,7 +130,9 @@ fn compare_with(cmp: Cmp, subject: &Primitive, constant: &MatchConst) -> bool {
             MatchConst::Many(vs) => vs
                 .iter()
                 .any(|v| compare_primitives(subject, v) == Ordering::Equal),
-            MatchConst::One(_) => false, // rejected at parse time (E1)
+            // One is rejected at parse time (E1); holes are substituted away before
+            // evaluation (E15) — a stray one matches nothing.
+            _ => false,
         },
         Cmp::Prefix => match (subject, constant) {
             (Primitive::Str(s), MatchConst::One(Primitive::Str(p))) => s.starts_with(p.as_str()),
@@ -146,7 +169,12 @@ pub fn str_match(m: &StrMatch, s: &str) -> bool {
 fn val_match(m: &ValMatch, v: &Primitive) -> bool {
     match m {
         // cmp InSet is rejected at parse time (E1) — ValMatch has its own InSet arm.
-        ValMatch::Vcmp { cmp, value } => compare_with(*cmp, v, &MatchConst::One(value.clone())),
+        // Holes are substituted away before evaluation (E15); a stray one matches nothing.
+        ValMatch::Vcmp {
+            cmp,
+            value: Param::Lit(value),
+        } => compare_with(*cmp, v, &MatchConst::One(value.clone())),
+        ValMatch::Vcmp { .. } => false,
         ValMatch::Between { lo, hi } => {
             compare_primitives(v, lo) != Ordering::Less
                 && compare_primitives(v, hi) != Ordering::Greater
@@ -171,6 +199,8 @@ fn pointer_matches(p: &PPred, ptr: &Pointer, root: Option<&str>) -> bool {
         let want = match e {
             EntityMatch::Const(id) => Some(id.as_str()),
             EntityMatch::Root => root,
+            // Substituted away before evaluation (E15); a stray hole matches nothing.
+            EntityMatch::Hole(_) => None,
         };
         if want != Some(er.id.as_str()) {
             return false;
@@ -234,4 +264,58 @@ pub fn eval_pred(pred: &Pred, delta: &Delta, root: Option<&str>) -> bool {
         Pred::Or(l, r) => eval_pred(l, delta, root) || eval_pred(r, delta, root),
         Pred::Not(p) => !eval_pred(p, delta, root),
     }
+}
+
+/// Eagerly resolve every hole in a predicate against the ambient bindings (E15). Applied where
+/// a predicate meets data (select / mask-trust), so an unbound hole errors deterministically —
+/// regardless of how many deltas the operand happens to hold.
+pub fn substitute_holes(pred: &Pred, bindings: Option<&Bindings>) -> Result<Pred, String> {
+    Ok(match pred {
+        Pred::True | Pred::False => pred.clone(),
+        Pred::Match {
+            field,
+            cmp,
+            constant,
+        } => match constant {
+            MatchConst::Hole(name) => Pred::Match {
+                field: *field,
+                cmp: *cmp,
+                constant: MatchConst::One(resolve_param(&Param::Hole(name.clone()), bindings)?),
+            },
+            _ => pred.clone(),
+        },
+        Pred::HasPointer(pp) => {
+            let mut out = pp.clone();
+            if let Some(EntityMatch::Hole(name)) = &pp.target_entity {
+                match resolve_param(&Param::Hole(name.clone()), bindings)? {
+                    Primitive::Str(id) => out.target_entity = Some(EntityMatch::Const(id)),
+                    _ => {
+                        return Err(format!(
+                            "hole \"{name}\" bound to a non-string where an entity id is required (E15)"
+                        ))
+                    }
+                }
+            }
+            if let Some(ValMatch::Vcmp {
+                cmp,
+                value: value @ Param::Hole(_),
+            }) = &pp.target_value
+            {
+                out.target_value = Some(ValMatch::Vcmp {
+                    cmp: *cmp,
+                    value: Param::Lit(resolve_param(value, bindings)?),
+                });
+            }
+            Pred::HasPointer(out)
+        }
+        Pred::And(l, r) => Pred::And(
+            Box::new(substitute_holes(l, bindings)?),
+            Box::new(substitute_holes(r, bindings)?),
+        ),
+        Pred::Or(l, r) => Pred::Or(
+            Box::new(substitute_holes(l, bindings)?),
+            Box::new(substitute_holes(r, bindings)?),
+        ),
+        Pred::Not(p) => Pred::Not(Box::new(substitute_holes(p, bindings)?)),
+    })
 }

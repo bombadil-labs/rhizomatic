@@ -33,6 +33,7 @@ import evalBasicJson from "../../../../vectors/l1-eval/eval-basic.json" with { t
 import evalHviewJson from "../../../../vectors/l1-eval/eval-hview.json" with { type: "json" };
 import evalExpandJson from "../../../../vectors/l1-eval/eval-expand.json" with { type: "json" };
 import evalResolveJson from "../../../../vectors/l1-eval/eval-resolve.json" with { type: "json" };
+import evalHolesJson from "../../../../vectors/l1-eval/eval-holes.json" with { type: "json" };
 
 // --- DOM helpers --------------------------------------------------------------------------------
 
@@ -917,6 +918,11 @@ function runConformance(): Suite[] {
       "vectors/l1-eval/eval-resolve.json",
       evalResolveJson as unknown as EvalDoc,
     ),
+    evalSuite(
+      "evaluator: parameterized terms (holes)",
+      "vectors/l1-eval/eval-holes.json",
+      evalHolesJson as unknown as EvalDoc,
+    ),
   ];
 }
 
@@ -978,6 +984,7 @@ function runRustConformance(rust: RustWitness): Map<string, VecCase[]> {
   rustEval("evaluator: group / prune (HyperViews)", evalHviewJson as unknown as EvalDoc);
   rustEval("evaluator: expand / fix (schemas)", evalExpandJson as unknown as EvalDoc);
   rustEval("evaluator: resolve (policies → Views)", evalResolveJson as unknown as EvalDoc);
+  rustEval("evaluator: parameterized terms (holes)", evalHolesJson as unknown as EvalDoc);
   return out;
 }
 

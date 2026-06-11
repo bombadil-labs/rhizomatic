@@ -191,5 +191,5 @@ The algebra version is part of every serialized term (`alg: 1`). Adding an opera
 - **Aggregation:** count/sum/min/max as `resolve` policies (current position) or as algebra-level operators (needed if aggregates must feed back into selection)? Leaning policy-level until a counterexample forces otherwise.
 - **Ad-hoc join:** confirm derivability or admit a ninth operator (§6).
 - **Predicate subsumption algorithm:** specify the exact decidable fragment and its complexity; needed for reactor dispatch guarantees.
-- **Parameterized terms:** queries want runtime parameters ("movies with actor *X*"). Proposal: `hole(name)` leaf in `Const` position, bound at `fix` time; keeps terms first-order. Needs vectors.
+- **Parameterized terms:** queries want runtime parameters ("movies with actor *X*"). `hole(name)` leaves in Const position, bound by an optional `bindings` object on `fix`; terms stay first-order and a body with holes keeps a single hash however it is later bound. Semantics pinned in ERRATA-2 E15; vectors in `vectors/l1-eval/eval-holes.json`.
 - **Cost annotations:** should terms carry optional optimizer hints, or is that strictly an L4 concern?

@@ -7,7 +7,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 use crate::cbor::{encode, CborValue};
 use crate::hview::{hview_canonical_hex, HVEntry, HView};
 use crate::policy::{resolve_view, view_canonical_hex, Policy, View};
-use crate::pred::{eval_pred, str_match, Pred, StrMatch};
+use crate::pred::{eval_pred, str_match, substitute_holes, Bindings, Pred, StrMatch};
 use crate::schema::SchemaRegistry;
 use crate::set::{fork, merge, DeltaSet};
 use crate::types::{Delta, Target};
@@ -69,6 +69,7 @@ pub enum Term {
     Fix {
         schema: SchemaRef,
         entity: String,
+        bindings: Option<Bindings>,
     },
     Resolve {
         policy: Policy,
@@ -196,6 +197,7 @@ fn eval_schema(
     input: &DeltaSet,
     root: &str,
     registry: Option<&SchemaRegistry>,
+    bindings: Option<&Bindings>,
 ) -> Result<HView, String> {
     let label = match schema_ref {
         SchemaRef::Name(n) => n.clone(),
@@ -207,7 +209,7 @@ fn eval_schema(
     let schema = registry
         .resolve(schema_ref)
         .ok_or(format!("unknown schema: {label} (E10/E13)"))?;
-    match eval_term(&schema.body, input, Some(root), Some(registry))? {
+    match eval_term(&schema.body, input, Some(root), Some(registry), bindings)? {
         EvalResult::HView(h) => Ok(h),
         _ => Err(format!(
             "schema {label} body must be an HView-sort term (E10)"
@@ -220,6 +222,7 @@ pub fn eval_term(
     input: &DeltaSet,
     root: Option<&str>,
     registry: Option<&SchemaRegistry>,
+    bindings: Option<&Bindings>,
 ) -> Result<EvalResult, String> {
     fn expect_dset(r: EvalResult, op: &str) -> Result<(DeltaSet, BTreeSet<String>), String> {
         match r {
@@ -236,18 +239,19 @@ pub fn eval_term(
     match term {
         Term::Input => Ok(dset_result(input.clone())),
         Term::Select { pred, of } => {
-            let (set, _) = expect_dset(eval_term(of, input, root, registry)?, "select")?;
+            let (set, _) = expect_dset(eval_term(of, input, root, registry, bindings)?, "select")?;
+            let pred = substitute_holes(pred, bindings)?;
             Ok(dset_result(fork(&set, |d: &Delta| {
-                eval_pred(pred, d, root)
+                eval_pred(&pred, d, root)
             })))
         }
         Term::Union { left, right } => {
-            let (l, _) = expect_dset(eval_term(left, input, root, registry)?, "union")?;
-            let (r, _) = expect_dset(eval_term(right, input, root, registry)?, "union")?;
+            let (l, _) = expect_dset(eval_term(left, input, root, registry, bindings)?, "union")?;
+            let (r, _) = expect_dset(eval_term(right, input, root, registry, bindings)?, "union")?;
             Ok(dset_result(merge(&l, &r)))
         }
         Term::Mask { policy, of } => {
-            let (set, _) = expect_dset(eval_term(of, input, root, registry)?, "mask")?;
+            let (set, _) = expect_dset(eval_term(of, input, root, registry, bindings)?, "mask")?;
             Ok(match policy {
                 MaskPolicy::Drop => {
                     let negated = compute_negated(&set, None, root);
@@ -262,18 +266,22 @@ pub fn eval_term(
                     }
                 }
                 MaskPolicy::Trust(pred) => {
-                    let negated = compute_negated(&set, Some(pred), root);
+                    let pred = substitute_holes(pred, bindings)?;
+                    let negated = compute_negated(&set, Some(&pred), root);
                     dset_result(fork(&set, |d: &Delta| !negated.contains(&d.id)))
                 }
             })
         }
         Term::Group { key, of } => {
             let root = root.ok_or("group requires an ambient root entity (E9)")?;
-            let (set, negated) = expect_dset(eval_term(of, input, Some(root), registry)?, "group")?;
+            let (set, negated) = expect_dset(
+                eval_term(of, input, Some(root), registry, bindings)?,
+                "group",
+            )?;
             Ok(EvalResult::HView(eval_group(key, &set, &negated, root)))
         }
         Term::Prune { keep, of } => {
-            let h = expect_hview(eval_term(of, input, root, registry)?, "prune")?;
+            let h = expect_hview(eval_term(of, input, root, registry, bindings)?, "prune")?;
             Ok(EvalResult::HView(match keep {
                 PruneKeep::All => h,
                 PruneKeep::Match(m) => HView {
@@ -287,7 +295,7 @@ pub fn eval_term(
             }))
         }
         Term::Expand { role, schema, of } => {
-            let h = expect_hview(eval_term(of, input, root, registry)?, "expand")?;
+            let h = expect_hview(eval_term(of, input, root, registry, bindings)?, "expand")?;
             let mut props: BTreeMap<String, Vec<HVEntry>> = BTreeMap::new();
             for (prop, entries) in h.props {
                 let mut out = Vec::with_capacity(entries.len());
@@ -301,7 +309,7 @@ pub fn eval_term(
                         if !str_match(role, &ptr.role) {
                             continue;
                         }
-                        let nested = eval_schema(schema, input, &er.id, registry)?;
+                        let nested = eval_schema(schema, input, &er.id, registry, bindings)?;
                         e.expanded.insert(i, nested);
                     }
                     out.push(e);
@@ -310,14 +318,23 @@ pub fn eval_term(
             }
             Ok(EvalResult::HView(HView { id: h.id, props }))
         }
-        Term::Fix { schema, entity } => {
-            // The invocation instruction: ambient root is set to the entity explicitly (E10).
+        Term::Fix {
+            schema,
+            entity,
+            bindings: fix_bindings,
+        } => {
+            // The invocation instruction: ambient root is set explicitly (E10); bindings, when
+            // present, become the ambient hole environment for the invoked body (E15).
             Ok(EvalResult::HView(eval_schema(
-                schema, input, entity, registry,
+                schema,
+                input,
+                entity,
+                registry,
+                fix_bindings.as_ref().or(bindings),
             )?))
         }
         Term::Resolve { policy, of } => {
-            let h = expect_hview(eval_term(of, input, root, registry)?, "resolve")?;
+            let h = expect_hview(eval_term(of, input, root, registry, bindings)?, "resolve")?;
             Ok(EvalResult::View(resolve_view(policy, &h)))
         }
     }

@@ -1044,6 +1044,12 @@
   }
 
   // src/pred.ts
+  function resolveParam(p, bindings) {
+    if (typeof p !== "object") return p;
+    const bound = bindings?.get(p.name);
+    if (bound === void 0) throw new Error(`unbound hole "${p.name}" (E15)`);
+    return bound;
+  }
   var utf82 = new TextEncoder();
   function utf8Compare(a, b) {
     const ab = utf82.encode(a);
@@ -1105,21 +1111,30 @@
         return m.values.includes(s);
     }
   }
-  function valMatch(m, v) {
+  function valMatch(m, v, bindings) {
     switch (m.kind) {
       case "vcmp":
-        return compareWith(m.cmp, v, m.value);
+        return compareWith(m.cmp, v, resolveParam(m.value, bindings));
       case "between":
         return comparePrimitives(v, m.lo) >= 0 && comparePrimitives(v, m.hi) <= 0;
       case "inSet":
         return m.values.some((x) => comparePrimitives(v, x) === 0);
     }
   }
-  function pointerMatches(p, ptr, root) {
+  function entityWant(m, root, bindings) {
+    if (m.kind === "const") return m.id;
+    if (m.kind === "root") return root;
+    const bound = resolveParam(m, bindings);
+    if (typeof bound !== "string") {
+      throw new Error(`hole "${m.name}" bound to a non-string where an entity id is required (E15)`);
+    }
+    return bound;
+  }
+  function pointerMatches(p, ptr, root, bindings) {
     if (p.role !== void 0 && !strMatch(p.role, ptr.role)) return false;
     if (p.targetEntity !== void 0) {
       if (ptr.target.kind !== "entity") return false;
-      const want = p.targetEntity.kind === "const" ? p.targetEntity.id : root;
+      const want = entityWant(p.targetEntity, root, bindings);
       if (want === void 0 || ptr.target.entity.id !== want) return false;
     }
     if (p.targetDelta !== void 0) {
@@ -1133,11 +1148,67 @@
       if (ptr.target.kind === "primitive" !== p.targetIsPrimitive) return false;
     }
     if (p.targetValue !== void 0) {
-      if (ptr.target.kind !== "primitive" || !valMatch(p.targetValue, ptr.target.value)) return false;
+      if (ptr.target.kind !== "primitive" || !valMatch(p.targetValue, ptr.target.value, bindings)) {
+        return false;
+      }
     }
     return true;
   }
-  function evalPred(pred, delta, root) {
+  function substituteHoles(pred, bindings) {
+    switch (pred.kind) {
+      case "true":
+      case "false":
+        return pred;
+      case "match": {
+        const c = pred.constant;
+        if (typeof c === "object" && !Array.isArray(c)) {
+          return { ...pred, constant: resolveParam(c, bindings) };
+        }
+        return pred;
+      }
+      case "hasPointer": {
+        const p = pred.ppred;
+        let te = p.targetEntity;
+        if (te !== void 0 && te.kind === "hole") {
+          const bound = resolveParam(te, bindings);
+          if (typeof bound !== "string") {
+            throw new Error(
+              `hole "${te.name}" bound to a non-string where an entity id is required (E15)`
+            );
+          }
+          te = { kind: "const", id: bound };
+        }
+        let tv = p.targetValue;
+        if (tv !== void 0 && tv.kind === "vcmp" && typeof tv.value === "object") {
+          tv = { ...tv, value: resolveParam(tv.value, bindings) };
+        }
+        if (te === p.targetEntity && tv === p.targetValue) return pred;
+        return {
+          kind: "hasPointer",
+          ppred: {
+            ...p,
+            ...te === void 0 ? {} : { targetEntity: te },
+            ...tv === void 0 ? {} : { targetValue: tv }
+          }
+        };
+      }
+      case "and":
+        return {
+          kind: "and",
+          left: substituteHoles(pred.left, bindings),
+          right: substituteHoles(pred.right, bindings)
+        };
+      case "or":
+        return {
+          kind: "or",
+          left: substituteHoles(pred.left, bindings),
+          right: substituteHoles(pred.right, bindings)
+        };
+      case "not":
+        return { kind: "not", pred: substituteHoles(pred.pred, bindings) };
+    }
+  }
+  function evalPred(pred, delta, root, bindings) {
     switch (pred.kind) {
       case "true":
         return true;
@@ -1145,16 +1216,18 @@
         return false;
       case "match": {
         const subject = pred.field === "author" ? delta.claims.author : pred.field === "timestamp" ? delta.claims.timestamp : delta.id;
-        return compareWith(pred.cmp, subject, pred.constant);
+        const c = pred.constant;
+        const constant = typeof c === "object" && !Array.isArray(c) ? resolveParam(c, bindings) : c;
+        return compareWith(pred.cmp, subject, constant);
       }
       case "hasPointer":
-        return delta.claims.pointers.some((ptr) => pointerMatches(pred.ppred, ptr, root));
+        return delta.claims.pointers.some((ptr) => pointerMatches(pred.ppred, ptr, root, bindings));
       case "and":
-        return evalPred(pred.left, delta, root) && evalPred(pred.right, delta, root);
+        return evalPred(pred.left, delta, root, bindings) && evalPred(pred.right, delta, root, bindings);
       case "or":
-        return evalPred(pred.left, delta, root) || evalPred(pred.right, delta, root);
+        return evalPred(pred.left, delta, root, bindings) || evalPred(pred.right, delta, root, bindings);
       case "not":
-        return !evalPred(pred.pred, delta, root);
+        return !evalPred(pred.pred, delta, root, bindings);
     }
   }
 
@@ -1449,21 +1522,22 @@
     }
     return { id: root, props };
   }
-  function evalTerm(term, input, root, registry) {
+  function evalTerm(term, input, root, registry, bindings) {
     switch (term.kind) {
       case "input":
         return dsetResult(input);
       case "select": {
-        const of = expectDSet(evalTerm(term.of, input, root, registry), "select");
-        return dsetResult(fork(of.set, (d) => evalPred(term.pred, d, root)));
+        const of = expectDSet(evalTerm(term.of, input, root, registry, bindings), "select");
+        const pred = substituteHoles(term.pred, bindings);
+        return dsetResult(fork(of.set, (d) => evalPred(pred, d, root)));
       }
       case "union": {
-        const left = expectDSet(evalTerm(term.left, input, root, registry), "union");
-        const right = expectDSet(evalTerm(term.right, input, root, registry), "union");
+        const left = expectDSet(evalTerm(term.left, input, root, registry, bindings), "union");
+        const right = expectDSet(evalTerm(term.right, input, root, registry, bindings), "union");
         return dsetResult(merge(left.set, right.set));
       }
       case "mask": {
-        const of = expectDSet(evalTerm(term.of, input, root, registry), "mask");
+        const of = expectDSet(evalTerm(term.of, input, root, registry, bindings), "mask");
         switch (term.policy.kind) {
           case "drop": {
             const negated = computeNegated(of.set);
@@ -1474,7 +1548,7 @@
             return { sort: "dset", set: of.set, negated, annotated: true };
           }
           case "trust": {
-            const pred = term.policy.pred;
+            const pred = substituteHoles(term.policy.pred, bindings);
             const negated = computeNegated(of.set, (n) => evalPred(pred, n, root));
             return dsetResult(fork(of.set, (d) => !negated.has(d.id)));
           }
@@ -1483,11 +1557,11 @@
       }
       case "group": {
         if (root === void 0) throw new Error("group requires an ambient root entity (E9)");
-        const of = expectDSet(evalTerm(term.of, input, root, registry), "group");
+        const of = expectDSet(evalTerm(term.of, input, root, registry, bindings), "group");
         return { sort: "hview", hview: evalGroup(term.key, of, root) };
       }
       case "prune": {
-        const of = expectHView(evalTerm(term.of, input, root, registry), "prune");
+        const of = expectHView(evalTerm(term.of, input, root, registry, bindings), "prune");
         if (term.keep === "all") return of;
         const keep = term.keep;
         const props = /* @__PURE__ */ new Map();
@@ -1497,7 +1571,7 @@
         return { sort: "hview", hview: { id: of.hview.id, props } };
       }
       case "expand": {
-        const of = expectHView(evalTerm(term.of, input, root, registry), "expand");
+        const of = expectHView(evalTerm(term.of, input, root, registry, bindings), "expand");
         const props = /* @__PURE__ */ new Map();
         for (const [prop, entries] of of.hview.props) {
           props.set(
@@ -1506,7 +1580,13 @@
               let expanded;
               e.delta.claims.pointers.forEach((ptr, i) => {
                 if (ptr.target.kind !== "entity" || !strMatch(term.role, ptr.role)) return;
-                const nested = evalSchema(term.schema, input, ptr.target.entity.id, registry);
+                const nested = evalSchema(
+                  term.schema,
+                  input,
+                  ptr.target.entity.id,
+                  registry,
+                  bindings
+                );
                 expanded = expanded ?? new Map(e.expanded ?? []);
                 expanded.set(i, nested);
               });
@@ -1517,20 +1597,23 @@
         return { sort: "hview", hview: { id: of.hview.id, props } };
       }
       case "fix":
-        return { sort: "hview", hview: evalSchema(term.schema, input, term.entity, registry) };
+        return {
+          sort: "hview",
+          hview: evalSchema(term.schema, input, term.entity, registry, term.bindings ?? bindings)
+        };
       case "resolve": {
-        const of = expectHView(evalTerm(term.of, input, root, registry), "resolve");
+        const of = expectHView(evalTerm(term.of, input, root, registry, bindings), "resolve");
         return { sort: "view", view: resolveView(term.policy, of.hview) };
       }
     }
   }
-  function evalSchema(ref, input, root, registry) {
+  function evalSchema(ref, input, root, registry, bindings) {
     const label = ref.kind === "name" ? ref.name : `pinned:${ref.hash.slice(0, 12)}\u2026`;
     if (registry === void 0)
       throw new Error(`schema ${label} referenced but no registry supplied (E10)`);
     const schema = registry.resolve(ref);
     if (schema === void 0) throw new Error(`unknown schema: ${label} (E10/E13)`);
-    const result = evalTerm(schema.body, input, root, registry);
+    const result = evalTerm(schema.body, input, root, registry, bindings);
     if (result.sort !== "hview") {
       throw new Error(`schema ${label} body must be an HView-sort term (E10)`);
     }
@@ -1553,6 +1636,9 @@
   }
 
   // src/term-io.ts
+  function paramToJson(v) {
+    return typeof v === "object" ? { hole: v.name } : v;
+  }
   function strMatchToJson(m) {
     switch (m.kind) {
       case "exact":
@@ -1566,7 +1652,7 @@
   function valMatchToJson(m) {
     switch (m.kind) {
       case "vcmp":
-        return { vcmp: { cmp: m.cmp, value: m.value } };
+        return { vcmp: { cmp: m.cmp, value: paramToJson(m.value) } };
       case "between":
         return { between: [m.lo, m.hi] };
       case "inSet":
@@ -1577,7 +1663,7 @@
     const out = {};
     if (p.role !== void 0) out["role"] = strMatchToJson(p.role);
     if (p.targetEntity !== void 0) {
-      out["targetEntity"] = p.targetEntity.kind === "const" ? p.targetEntity.id : { var: "root" };
+      out["targetEntity"] = p.targetEntity.kind === "const" ? p.targetEntity.id : p.targetEntity.kind === "hole" ? { hole: p.targetEntity.name } : { var: "root" };
     }
     if (p.targetDelta !== void 0) out["targetDelta"] = p.targetDelta;
     if (p.context !== void 0) out["context"] = strMatchToJson(p.context);
@@ -1596,7 +1682,7 @@
           match: {
             field: pred.field,
             cmp: pred.cmp,
-            const: Array.isArray(pred.constant) ? [...pred.constant] : pred.constant
+            const: Array.isArray(pred.constant) ? [...pred.constant] : paramToJson(pred.constant)
           }
         };
       case "hasPointer":
@@ -1669,8 +1755,21 @@
           schema: schemaRefToJson(term.schema),
           in: termToJson(term.of)
         };
-      case "fix":
-        return { op: "fix", schema: schemaRefToJson(term.schema), entity: term.entity };
+      case "fix": {
+        const out = {
+          op: "fix",
+          schema: schemaRefToJson(term.schema),
+          entity: term.entity
+        };
+        if (term.bindings !== void 0 && term.bindings.size > 0) {
+          const bindings = {};
+          for (const key of [...term.bindings.keys()].sort()) {
+            bindings[key] = term.bindings.get(key);
+          }
+          out["bindings"] = bindings;
+        }
+        return out;
+      }
       case "resolve":
         return { op: "resolve", policy: policyToJson(term.policy), in: termToJson(term.of) };
     }
@@ -1720,6 +1819,14 @@
     }
     throw new Error(`${what}: constant must be string | number | boolean`);
   }
+  function parseHole(v) {
+    if (typeof v !== "object" || v === null || Array.isArray(v)) return void 0;
+    const h = v["hole"];
+    return typeof h === "string" ? { kind: "hole", name: nfc(h) } : void 0;
+  }
+  function parseParam(v, what) {
+    return parseHole(v) ?? parsePrimitive(v, what);
+  }
   function parseCmp(v, what) {
     if (typeof v !== "string" || !CMPS.includes(v)) {
       throw new Error(`${what}: unknown cmp ${String(v)}`);
@@ -1748,8 +1855,8 @@
       const cmp = parseCmp(v["cmp"], `${what}.vcmp`);
       if (cmp === "inSet")
         throw new Error(`${what}: vcmp cmp inSet is not allowed; use the inSet arm`);
-      const value = parsePrimitive(v["value"], `${what}.vcmp`);
-      if (cmp === "prefix" && typeof value !== "string") {
+      const value = parseParam(v["value"], `${what}.vcmp`);
+      if (cmp === "prefix" && typeof value !== "string" && typeof value !== "object") {
         throw new Error(`${what}: prefix requires a string constant`);
       }
       return { kind: "vcmp", cmp, value };
@@ -1776,9 +1883,16 @@
       if (typeof te === "string") {
         out.targetEntity = { kind: "const", id: nfc(te) };
       } else {
-        const v = asObject(te, "targetEntity");
-        if (v["var"] !== "root") throw new Error('targetEntity must be a string or {var: "root"}');
-        out.targetEntity = { kind: "root" };
+        const hole = parseHole(te);
+        if (hole !== void 0) {
+          out.targetEntity = hole;
+        } else {
+          const v = asObject(te, "targetEntity");
+          if (v["var"] !== "root") {
+            throw new Error('targetEntity must be a string, {var: "root"}, or {hole: "name"}');
+          }
+          out.targetEntity = { kind: "root" };
+        }
       }
     }
     if (o["targetDelta"] !== void 0) {
@@ -1813,8 +1927,8 @@
       const constant = cmp === "inSet" ? (() => {
         if (!Array.isArray(rawConst)) throw new Error("match: inSet requires an array const");
         return rawConst.map((v) => parsePrimitive(v, "match.const"));
-      })() : parsePrimitive(rawConst, "match.const");
-      if (cmp === "prefix" && typeof constant !== "string") {
+      })() : parseParam(rawConst, "match.const");
+      if (cmp === "prefix" && typeof constant !== "string" && typeof constant !== "object") {
         throw new Error("match: prefix requires a string const");
       }
       return { kind: "match", field, cmp, constant };
@@ -1937,7 +2051,18 @@
       }
       case "fix": {
         if (typeof o["entity"] !== "string") throw new Error("fix.entity must be a string");
-        return { kind: "fix", schema: parseSchemaRef(o["schema"]), entity: nfc(o["entity"]) };
+        const fix = {
+          kind: "fix",
+          schema: parseSchemaRef(o["schema"]),
+          entity: nfc(o["entity"])
+        };
+        if (o["bindings"] === void 0) return fix;
+        const bo = asObject(o["bindings"], "fix.bindings");
+        const bindings = /* @__PURE__ */ new Map();
+        for (const key of Object.keys(bo).sort()) {
+          bindings.set(nfc(key), parsePrimitive(bo[key], `fix.bindings.${key}`));
+        }
+        return { ...fix, bindings };
       }
       case "resolve":
         return { kind: "resolve", policy: parsePolicy(o["policy"]), of: parseTerm(o["in"]) };
@@ -7318,6 +7443,306 @@
     ]
   };
 
+  // ../../vectors/l1-eval/eval-holes.json
+  var eval_holes_default = {
+    fixture: {
+      note: "one movie with a title, two ratings, two cast edges; holes bind asOf/min/who",
+      deltas: [
+        {
+          name: "h1-title",
+          id: "1e20283257b1bb9a907a55812a07dd3b8dbdc4ab331c5edd4cec2fa59056d4897851",
+          claims: {
+            timestamp: 100,
+            author: "did:key:zAlice",
+            pointers: [
+              {
+                role: "movie",
+                target: {
+                  id: "movie:matrix",
+                  context: "title"
+                }
+              },
+              {
+                role: "title",
+                target: "The Matrix"
+              }
+            ]
+          }
+        },
+        {
+          name: "h2-rating-low",
+          id: "1e20bda18d31031ea14dcca962464bce5a145d379ca0b4d98591cbd57a5ee225f93a",
+          claims: {
+            timestamp: 150,
+            author: "did:key:zAlice",
+            pointers: [
+              {
+                role: "movie",
+                target: {
+                  id: "movie:matrix",
+                  context: "rating"
+                }
+              },
+              {
+                role: "rating",
+                target: 7.5
+              }
+            ]
+          }
+        },
+        {
+          name: "h3-rating-high",
+          id: "1e202739d82800731c0d9c8db6b6932c2fdacc0707c7224b5f248e4d40e21077cd62",
+          claims: {
+            timestamp: 200,
+            author: "did:key:zBob",
+            pointers: [
+              {
+                role: "movie",
+                target: {
+                  id: "movie:matrix",
+                  context: "rating"
+                }
+              },
+              {
+                role: "rating",
+                target: 9.2
+              }
+            ]
+          }
+        },
+        {
+          name: "h4-cast-keanu",
+          id: "1e209d227c3a6ec77643ecbcd63324c84958b20342d05aea815196b58066d6548f4a",
+          claims: {
+            timestamp: 250,
+            author: "did:key:zAlice",
+            pointers: [
+              {
+                role: "movie",
+                target: {
+                  id: "movie:matrix",
+                  context: "cast"
+                }
+              },
+              {
+                role: "actor",
+                target: {
+                  id: "entity:keanu",
+                  context: "filmography"
+                }
+              }
+            ]
+          }
+        },
+        {
+          name: "h5-cast-carrie",
+          id: "1e20e85aefd48ee2a234c0f235c1547e1893ca15bbe2b961d4f681edd0ead46c79b3",
+          claims: {
+            timestamp: 300,
+            author: "did:key:zAlice",
+            pointers: [
+              {
+                role: "movie",
+                target: {
+                  id: "movie:matrix",
+                  context: "cast"
+                }
+              },
+              {
+                role: "actor",
+                target: {
+                  id: "entity:carrie",
+                  context: "filmography"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    schemas: [
+      {
+        name: "ViewAsOf",
+        alg: 1,
+        body: {
+          op: "group",
+          key: "byTargetContext",
+          in: {
+            op: "mask",
+            policy: "drop",
+            in: {
+              op: "select",
+              pred: {
+                match: {
+                  field: "timestamp",
+                  cmp: "lte",
+                  const: {
+                    hole: "asOf"
+                  }
+                }
+              },
+              in: "input"
+            }
+          }
+        }
+      },
+      {
+        name: "RatedAtLeast",
+        alg: 1,
+        body: {
+          op: "group",
+          key: "byTargetContext",
+          in: {
+            op: "mask",
+            policy: "drop",
+            in: {
+              op: "select",
+              pred: {
+                or: [
+                  {
+                    not: {
+                      hasPointer: {
+                        context: {
+                          exact: "rating"
+                        }
+                      }
+                    }
+                  },
+                  {
+                    hasPointer: {
+                      targetValue: {
+                        vcmp: {
+                          cmp: "gte",
+                          value: {
+                            hole: "min"
+                          }
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              in: "input"
+            }
+          }
+        }
+      },
+      {
+        name: "LinkedTo",
+        alg: 1,
+        body: {
+          op: "group",
+          key: "byTargetContext",
+          in: {
+            op: "mask",
+            policy: "drop",
+            in: {
+              op: "select",
+              pred: {
+                hasPointer: {
+                  targetEntity: {
+                    hole: "who"
+                  }
+                }
+              },
+              in: "input"
+            }
+          }
+        }
+      }
+    ],
+    cases: [
+      {
+        name: "asof-150-sees-two",
+        spec: "E15 (hole in match const)",
+        note: "title + the t=150 rating; later deltas are outside the bound horizon",
+        term: {
+          op: "fix",
+          schema: "ViewAsOf",
+          entity: "movie:matrix",
+          bindings: {
+            asOf: 150
+          }
+        },
+        termHash: "1e2047b998eb6a28ff6c0e28b97ed0c6831cf8854dd2bfb30324cbede05aa561613f",
+        expectedCanonicalHex: "a26269646c6d6f7669653a6d61747269786570726f7073a2657469746c6581a26269647844316532303238333235376231626239613930376135353831326130376464336238646264633461623333316335656464346365633266613539303536643438393738353166636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c65657469746c65667461726765746a546865204d61747269786974696d657374616d70f9564066726174696e6781a26269647844316532306264613138643331303331656131346463636139363234363462636535613134356433373963613062346439383539316362643537613565653232356639336166636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e7465787466726174696e67a264726f6c6566726174696e6766746172676574f947806974696d657374616d70f958b0"
+      },
+      {
+        name: "asof-999-sees-all",
+        spec: "E15 (same body, different binding, different view)",
+        term: {
+          op: "fix",
+          schema: "ViewAsOf",
+          entity: "movie:matrix",
+          bindings: {
+            asOf: 999
+          }
+        },
+        termHash: "1e20986a04bc7bf70609d6c2ee19edf9c8f45aff0a536cad067767403537625b0090",
+        expectedCanonicalHex: "a26269646c6d6f7669653a6d61747269786570726f7073a3646361737482a26269647844316532303964323237633361366563373736343365636263643633333234633834393538623230333432643035616561383135313936623538303636643635343866346166636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746463617374a264726f6c65656163746f7266746172676574a26269646c656e746974793a6b65616e7567636f6e746578746b66696c6d6f6772617068796974696d657374616d70f95bd0a26269647844316532306538356165666434386565326132333463306632333563313534376531383933636131356262653262393631643466363831656464306561643436633739623366636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746463617374a264726f6c65656163746f7266746172676574a26269646d656e746974793a63617272696567636f6e746578746b66696c6d6f6772617068796974696d657374616d70f95cb0657469746c6581a26269647844316532303238333235376231626239613930376135353831326130376464336238646264633461623333316335656464346365633266613539303536643438393738353166636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c65657469746c65667461726765746a546865204d61747269786974696d657374616d70f9564066726174696e6782a26269647844316532303237333964383238303037333163306439633864623662363933326332666461636330373037633732323462356632343865346434306532313037376364363266636c61696d73a366617574686f726c6469643a6b65793a7a426f6268706f696e7465727382a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e7465787466726174696e67a264726f6c6566726174696e6766746172676574fb40226666666666666974696d657374616d70f95a40a26269647844316532306264613138643331303331656131346463636139363234363462636535613134356433373963613062346439383539316362643537613565653232356639336166636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e7465787466726174696e67a264726f6c6566726174696e6766746172676574f947806974696d657374616d70f958b0"
+      },
+      {
+        name: "rated-at-least-9",
+        spec: "E15 (hole in vcmp value)",
+        note: "the 7.5 rating drops; non-rating properties pass through",
+        term: {
+          op: "fix",
+          schema: "RatedAtLeast",
+          entity: "movie:matrix",
+          bindings: {
+            min: 9
+          }
+        },
+        termHash: "1e20cfedfebbf2eaf1f85ab80d9668bc7452349e4e07bc6861b675077dc9497ad12a",
+        expectedCanonicalHex: "a26269646c6d6f7669653a6d61747269786570726f7073a3646361737482a26269647844316532303964323237633361366563373736343365636263643633333234633834393538623230333432643035616561383135313936623538303636643635343866346166636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746463617374a264726f6c65656163746f7266746172676574a26269646c656e746974793a6b65616e7567636f6e746578746b66696c6d6f6772617068796974696d657374616d70f95bd0a26269647844316532306538356165666434386565326132333463306632333563313534376531383933636131356262653262393631643466363831656464306561643436633739623366636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746463617374a264726f6c65656163746f7266746172676574a26269646d656e746974793a63617272696567636f6e746578746b66696c6d6f6772617068796974696d657374616d70f95cb0657469746c6581a26269647844316532303238333235376231626239613930376135353831326130376464336238646264633461623333316335656464346365633266613539303536643438393738353166636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c65657469746c65667461726765746a546865204d61747269786974696d657374616d70f9564066726174696e6781a26269647844316532303237333964383238303037333163306439633864623662363933326332666461636330373037633732323462356632343865346434306532313037376364363266636c61696d73a366617574686f726c6469643a6b65793a7a426f6268706f696e7465727382a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e7465787466726174696e67a264726f6c6566726174696e6766746172676574fb40226666666666666974696d657374616d70f95a40"
+      },
+      {
+        name: "rated-at-least-5",
+        spec: "E15 (hole in vcmp value)",
+        term: {
+          op: "fix",
+          schema: "RatedAtLeast",
+          entity: "movie:matrix",
+          bindings: {
+            min: 5
+          }
+        },
+        termHash: "1e203100e4720cd552ca5329263ca7a576e00b4413deb8b556532c957aa36a36fca3",
+        expectedCanonicalHex: "a26269646c6d6f7669653a6d61747269786570726f7073a3646361737482a26269647844316532303964323237633361366563373736343365636263643633333234633834393538623230333432643035616561383135313936623538303636643635343866346166636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746463617374a264726f6c65656163746f7266746172676574a26269646c656e746974793a6b65616e7567636f6e746578746b66696c6d6f6772617068796974696d657374616d70f95bd0a26269647844316532306538356165666434386565326132333463306632333563313534376531383933636131356262653262393631643466363831656464306561643436633739623366636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746463617374a264726f6c65656163746f7266746172676574a26269646d656e746974793a63617272696567636f6e746578746b66696c6d6f6772617068796974696d657374616d70f95cb0657469746c6581a26269647844316532303238333235376231626239613930376135353831326130376464336238646264633461623333316335656464346365633266613539303536643438393738353166636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c65657469746c65667461726765746a546865204d61747269786974696d657374616d70f9564066726174696e6782a26269647844316532303237333964383238303037333163306439633864623662363933326332666461636330373037633732323462356632343865346434306532313037376364363266636c61696d73a366617574686f726c6469643a6b65793a7a426f6268706f696e7465727382a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e7465787466726174696e67a264726f6c6566726174696e6766746172676574fb40226666666666666974696d657374616d70f95a40a26269647844316532306264613138643331303331656131346463636139363234363462636535613134356433373963613062346439383539316362643537613565653232356639336166636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e7465787466726174696e67a264726f6c6566726174696e6766746172676574f947806974696d657374616d70f958b0"
+      },
+      {
+        name: "cast-member-keanu",
+        spec: "E15 (hole in targetEntity)",
+        note: "only the edge that also points at the bound entity files",
+        term: {
+          op: "fix",
+          schema: "LinkedTo",
+          entity: "movie:matrix",
+          bindings: {
+            who: "entity:keanu"
+          }
+        },
+        termHash: "1e2065b06265a2373dce68155b176f2128db953aa54ac980cd81233fc057e5465060",
+        expectedCanonicalHex: "a26269646c6d6f7669653a6d61747269786570726f7073a1646361737481a26269647844316532303964323237633361366563373736343365636263643633333234633834393538623230333432643035616561383135313936623538303636643635343866346166636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746463617374a264726f6c65656163746f7266746172676574a26269646c656e746974793a6b65616e7567636f6e746578746b66696c6d6f6772617068796974696d657374616d70f95bd0"
+      },
+      {
+        name: "cast-member-carrie",
+        spec: "E15 (hole in targetEntity)",
+        term: {
+          op: "fix",
+          schema: "LinkedTo",
+          entity: "movie:matrix",
+          bindings: {
+            who: "entity:carrie"
+          }
+        },
+        termHash: "1e204c6d3f98a8d6b97a1c41cbd8774b1741cccd181c26e9901e6f27cc5b27d2af8c",
+        expectedCanonicalHex: "a26269646c6d6f7669653a6d61747269786570726f7073a1646361737481a26269647844316532306538356165666434386565326132333463306632333563313534376531383933636131356262653262393631643466363831656464306561643436633739623366636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746463617374a264726f6c65656163746f7266746172676574a26269646d656e746974793a63617272696567636f6e746578746b66696c6d6f6772617068796974696d657374616d70f95cb0"
+      }
+    ]
+  };
+
   // demo/tour/tour.ts
   function el(tag, attrs = {}, ...children) {
     const node = document.createElement(tag);
@@ -8029,6 +8454,11 @@ replayed digest  ${replayed.slice(4, 36)}\u2026
         "evaluator: resolve (policies \u2192 Views)",
         "vectors/l1-eval/eval-resolve.json",
         eval_resolve_default
+      ),
+      evalSuite(
+        "evaluator: parameterized terms (holes)",
+        "vectors/l1-eval/eval-holes.json",
+        eval_holes_default
       )
     ];
   }
@@ -8085,6 +8515,7 @@ replayed digest  ${replayed.slice(4, 36)}\u2026
     rustEval("evaluator: group / prune (HyperViews)", eval_hview_default);
     rustEval("evaluator: expand / fix (schemas)", eval_expand_default);
     rustEval("evaluator: resolve (policies \u2192 Views)", eval_resolve_default);
+    rustEval("evaluator: parameterized terms (holes)", eval_holes_default);
     return out;
   }
   function widgetConformance() {

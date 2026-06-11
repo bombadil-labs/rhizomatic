@@ -56,7 +56,7 @@ impl Materialization {
 
     /// Re-evaluate one root with the batch evaluator; Some(changed property paths) on change.
     pub fn refresh(&mut self, set: &DeltaSet, root: &str) -> Result<Option<Vec<String>>, String> {
-        let result = eval_term(&self.term, set, Some(root), self.registry.as_ref())?;
+        let result = eval_term(&self.term, set, Some(root), self.registry.as_ref(), None)?;
         let EvalResult::HView(h) = result else {
             return Err("materialized terms must be HView-sort".to_string());
         };

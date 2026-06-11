@@ -57,7 +57,7 @@ fn world() -> (Vec<Delta>, SchemaRegistry, Term) {
 }
 
 fn batch_hex(term: &Term, set: &DeltaSet, root: &str, reg: &SchemaRegistry) -> String {
-    result_canonical_hex(&eval_term(term, set, Some(root), Some(reg)).unwrap())
+    result_canonical_hex(&eval_term(term, set, Some(root), Some(reg), None).unwrap())
 }
 
 proptest! {

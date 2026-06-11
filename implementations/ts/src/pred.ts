@@ -5,20 +5,37 @@ import type { Delta, Pointer, Primitive } from "./types.js";
 
 export type Cmp = "eq" | "neq" | "lt" | "lte" | "gt" | "gte" | "prefix" | "inSet";
 
+// A parameter slot in Const position, bound through fix's bindings (SPEC-2 §6, ERRATA-2 E15).
+export interface Hole {
+  readonly kind: "hole";
+  readonly name: string;
+}
+
+export type Bindings = ReadonlyMap<string, Primitive>;
+
+// Resolve a possibly-parameterized primitive. Unbound holes fail loudly (E15).
+export function resolveParam(p: Primitive | Hole, bindings: Bindings | undefined): Primitive {
+  if (typeof p !== "object") return p;
+  const bound = bindings?.get(p.name);
+  if (bound === undefined) throw new Error(`unbound hole "${p.name}" (E15)`);
+  return bound;
+}
+
 export type StrMatch =
   | { readonly kind: "exact"; readonly value: string }
   | { readonly kind: "prefix"; readonly value: string }
   | { readonly kind: "inSet"; readonly values: readonly string[] };
 
 export type ValMatch =
-  | { readonly kind: "vcmp"; readonly cmp: Cmp; readonly value: Primitive }
+  | { readonly kind: "vcmp"; readonly cmp: Cmp; readonly value: Primitive | Hole }
   | { readonly kind: "between"; readonly lo: Primitive; readonly hi: Primitive }
   | { readonly kind: "inSet"; readonly values: readonly Primitive[] };
 
-// An entity to match: a literal id, or the ambient root variable (ERRATA-2 E10).
+// An entity to match: a literal id, the ambient root variable (ERRATA-2 E10), or a hole (E15).
 export type EntityMatch =
   | { readonly kind: "const"; readonly id: string }
-  | { readonly kind: "root" };
+  | { readonly kind: "root" }
+  | Hole;
 
 export interface PPred {
   readonly role?: StrMatch;
@@ -36,7 +53,7 @@ export type Pred =
       readonly kind: "match";
       readonly field: "author" | "timestamp" | "id";
       readonly cmp: Cmp;
-      readonly constant: Primitive | readonly Primitive[];
+      readonly constant: Primitive | Hole | readonly Primitive[];
     }
   | { readonly kind: "hasPointer"; readonly ppred: PPred }
   | { readonly kind: "and"; readonly left: Pred; readonly right: Pred }
@@ -121,11 +138,11 @@ export function strMatch(m: StrMatch, s: string): boolean {
   }
 }
 
-function valMatch(m: ValMatch, v: Primitive): boolean {
+function valMatch(m: ValMatch, v: Primitive, bindings: Bindings | undefined): boolean {
   switch (m.kind) {
     case "vcmp":
       // cmp "inSet" is rejected at parse time (E1) — ValMatch has its own inSet arm.
-      return compareWith(m.cmp, v, m.value);
+      return compareWith(m.cmp, v, resolveParam(m.value, bindings));
     case "between":
       return comparePrimitives(v, m.lo) >= 0 && comparePrimitives(v, m.hi) <= 0;
     case "inSet":
@@ -133,12 +150,31 @@ function valMatch(m: ValMatch, v: Primitive): boolean {
   }
 }
 
-function pointerMatches(p: PPred, ptr: Pointer, root: string | undefined): boolean {
+function entityWant(
+  m: EntityMatch,
+  root: string | undefined,
+  bindings: Bindings | undefined,
+): string | undefined {
+  if (m.kind === "const") return m.id;
+  // The root variable matches nothing without an ambient root (E10).
+  if (m.kind === "root") return root;
+  const bound = resolveParam(m, bindings);
+  if (typeof bound !== "string") {
+    throw new Error(`hole "${m.name}" bound to a non-string where an entity id is required (E15)`);
+  }
+  return bound;
+}
+
+function pointerMatches(
+  p: PPred,
+  ptr: Pointer,
+  root: string | undefined,
+  bindings: Bindings | undefined,
+): boolean {
   if (p.role !== undefined && !strMatch(p.role, ptr.role)) return false;
   if (p.targetEntity !== undefined) {
     if (ptr.target.kind !== "entity") return false;
-    // The root variable matches nothing without an ambient root (E10).
-    const want = p.targetEntity.kind === "const" ? p.targetEntity.id : root;
+    const want = entityWant(p.targetEntity, root, bindings);
     if (want === undefined || ptr.target.entity.id !== want) return false;
   }
   if (p.targetDelta !== undefined) {
@@ -157,14 +193,75 @@ function pointerMatches(p: PPred, ptr: Pointer, root: string | undefined): boole
     if ((ptr.target.kind === "primitive") !== p.targetIsPrimitive) return false;
   }
   if (p.targetValue !== undefined) {
-    if (ptr.target.kind !== "primitive" || !valMatch(p.targetValue, ptr.target.value)) return false;
+    if (ptr.target.kind !== "primitive" || !valMatch(p.targetValue, ptr.target.value, bindings)) {
+      return false;
+    }
   }
   return true;
 }
 
+// Eagerly resolve every hole in a predicate against the ambient bindings (E15). Applied where
+// a predicate meets data (select / mask-trust), so an unbound hole errors deterministically —
+// regardless of how many deltas the operand happens to hold.
+export function substituteHoles(pred: Pred, bindings: Bindings | undefined): Pred {
+  switch (pred.kind) {
+    case "true":
+    case "false":
+      return pred;
+    case "match": {
+      const c = pred.constant;
+      if (typeof c === "object" && !Array.isArray(c)) {
+        return { ...pred, constant: resolveParam(c as Hole, bindings) };
+      }
+      return pred;
+    }
+    case "hasPointer": {
+      const p = pred.ppred;
+      let te = p.targetEntity;
+      if (te !== undefined && te.kind === "hole") {
+        const bound = resolveParam(te, bindings);
+        if (typeof bound !== "string") {
+          throw new Error(
+            `hole "${te.name}" bound to a non-string where an entity id is required (E15)`,
+          );
+        }
+        te = { kind: "const", id: bound };
+      }
+      let tv = p.targetValue;
+      if (tv !== undefined && tv.kind === "vcmp" && typeof tv.value === "object") {
+        tv = { ...tv, value: resolveParam(tv.value, bindings) };
+      }
+      if (te === p.targetEntity && tv === p.targetValue) return pred;
+      return {
+        kind: "hasPointer",
+        ppred: {
+          ...p,
+          ...(te === undefined ? {} : { targetEntity: te }),
+          ...(tv === undefined ? {} : { targetValue: tv }),
+        },
+      };
+    }
+    case "and":
+      return {
+        kind: "and",
+        left: substituteHoles(pred.left, bindings),
+        right: substituteHoles(pred.right, bindings),
+      };
+    case "or":
+      return {
+        kind: "or",
+        left: substituteHoles(pred.left, bindings),
+        right: substituteHoles(pred.right, bindings),
+      };
+    case "not":
+      return { kind: "not", pred: substituteHoles(pred.pred, bindings) };
+  }
+}
+
 // Total and terminating: O(|delta|) per evaluation, no data dereference (SPEC-2 §3).
-// `root` is the ambient root entity, consulted only by the root variable (E10).
-export function evalPred(pred: Pred, delta: Delta, root?: string): boolean {
+// `root` is the ambient root entity, consulted only by the root variable (E10). Holes are
+// substituted away before predicates meet data; a stray hole here means "unbound" (E15).
+export function evalPred(pred: Pred, delta: Delta, root?: string, bindings?: Bindings): boolean {
   switch (pred.kind) {
     case "true":
       return true;
@@ -177,15 +274,24 @@ export function evalPred(pred: Pred, delta: Delta, root?: string): boolean {
           : pred.field === "timestamp"
             ? delta.claims.timestamp
             : delta.id;
-      return compareWith(pred.cmp, subject, pred.constant);
+      const c = pred.constant;
+      const constant: Primitive | readonly Primitive[] =
+        typeof c === "object" && !Array.isArray(c)
+          ? resolveParam(c as Hole, bindings)
+          : (c as Primitive | readonly Primitive[]);
+      return compareWith(pred.cmp, subject, constant);
     }
     case "hasPointer":
-      return delta.claims.pointers.some((ptr) => pointerMatches(pred.ppred, ptr, root));
+      return delta.claims.pointers.some((ptr) => pointerMatches(pred.ppred, ptr, root, bindings));
     case "and":
-      return evalPred(pred.left, delta, root) && evalPred(pred.right, delta, root);
+      return (
+        evalPred(pred.left, delta, root, bindings) && evalPred(pred.right, delta, root, bindings)
+      );
     case "or":
-      return evalPred(pred.left, delta, root) || evalPred(pred.right, delta, root);
+      return (
+        evalPred(pred.left, delta, root, bindings) || evalPred(pred.right, delta, root, bindings)
+      );
     case "not":
-      return !evalPred(pred.pred, delta, root);
+      return !evalPred(pred.pred, delta, root, bindings);
   }
 }

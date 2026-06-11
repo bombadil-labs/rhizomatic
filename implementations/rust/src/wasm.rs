@@ -80,7 +80,7 @@ fn handle(req: &Value) -> Result<Value, String> {
                 }
                 _ => None,
             };
-            let result = eval_term(&term, &set, root, registry.as_ref())?;
+            let result = eval_term(&term, &set, root, registry.as_ref(), None)?;
             Ok(json!({ "hex": result_canonical_hex(&result) }))
         }
         other => Err(format!("unknown op: {other}")),

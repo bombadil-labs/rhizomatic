@@ -6,7 +6,14 @@ import { array, encode, map, tstr } from "./cbor.js";
 import { bytesToHex } from "./hash.js";
 import { hviewCanonicalHex, type HVEntry, type HView } from "./hview.js";
 import { resolveView, viewCanonicalHex, type Policy, type View } from "./policy.js";
-import { evalPred, strMatch, type Pred, type StrMatch } from "./pred.js";
+import {
+  evalPred,
+  strMatch,
+  substituteHoles,
+  type Bindings,
+  type Pred,
+  type StrMatch,
+} from "./pred.js";
 import { SchemaRegistry } from "./schema.js";
 import { DeltaSet, fork, merge } from "./set.js";
 import type { Delta } from "./types.js";
@@ -38,7 +45,12 @@ export type Term =
       readonly schema: SchemaRefT;
       readonly of: Term;
     }
-  | { readonly kind: "fix"; readonly schema: SchemaRefT; readonly entity: string }
+  | {
+      readonly kind: "fix";
+      readonly schema: SchemaRefT;
+      readonly entity: string;
+      readonly bindings?: Bindings;
+    }
   | { readonly kind: "resolve"; readonly policy: Policy; readonly of: Term };
 
 interface DSetResult {
@@ -148,21 +160,23 @@ export function evalTerm(
   input: DeltaSet,
   root?: string,
   registry?: SchemaRegistry,
+  bindings?: Bindings,
 ): EvalResult {
   switch (term.kind) {
     case "input":
       return dsetResult(input);
     case "select": {
-      const of = expectDSet(evalTerm(term.of, input, root, registry), "select");
-      return dsetResult(fork(of.set, (d) => evalPred(term.pred, d, root)));
+      const of = expectDSet(evalTerm(term.of, input, root, registry, bindings), "select");
+      const pred = substituteHoles(term.pred, bindings);
+      return dsetResult(fork(of.set, (d) => evalPred(pred, d, root)));
     }
     case "union": {
-      const left = expectDSet(evalTerm(term.left, input, root, registry), "union");
-      const right = expectDSet(evalTerm(term.right, input, root, registry), "union");
+      const left = expectDSet(evalTerm(term.left, input, root, registry, bindings), "union");
+      const right = expectDSet(evalTerm(term.right, input, root, registry, bindings), "union");
       return dsetResult(merge(left.set, right.set));
     }
     case "mask": {
-      const of = expectDSet(evalTerm(term.of, input, root, registry), "mask");
+      const of = expectDSet(evalTerm(term.of, input, root, registry, bindings), "mask");
       switch (term.policy.kind) {
         case "drop": {
           const negated = computeNegated(of.set);
@@ -173,7 +187,7 @@ export function evalTerm(
           return { sort: "dset", set: of.set, negated, annotated: true };
         }
         case "trust": {
-          const pred = term.policy.pred;
+          const pred = substituteHoles(term.policy.pred, bindings);
           const negated = computeNegated(of.set, (n) => evalPred(pred, n, root));
           return dsetResult(fork(of.set, (d) => !negated.has(d.id)));
         }
@@ -182,11 +196,11 @@ export function evalTerm(
     }
     case "group": {
       if (root === undefined) throw new Error("group requires an ambient root entity (E9)");
-      const of = expectDSet(evalTerm(term.of, input, root, registry), "group");
+      const of = expectDSet(evalTerm(term.of, input, root, registry, bindings), "group");
       return { sort: "hview", hview: evalGroup(term.key, of, root) };
     }
     case "prune": {
-      const of = expectHView(evalTerm(term.of, input, root, registry), "prune");
+      const of = expectHView(evalTerm(term.of, input, root, registry, bindings), "prune");
       if (term.keep === "all") return of;
       const keep = term.keep;
       const props = new Map<string, readonly HVEntry[]>();
@@ -196,7 +210,7 @@ export function evalTerm(
       return { sort: "hview", hview: { id: of.hview.id, props } };
     }
     case "expand": {
-      const of = expectHView(evalTerm(term.of, input, root, registry), "expand");
+      const of = expectHView(evalTerm(term.of, input, root, registry, bindings), "expand");
       const props = new Map<string, readonly HVEntry[]>();
       for (const [prop, entries] of of.hview.props) {
         props.set(
@@ -207,7 +221,13 @@ export function evalTerm(
               // Only role-matching EntityRef pointers expand; everything else passes through
               // as written (E11, SPEC-3 §7 graceful degradation).
               if (ptr.target.kind !== "entity" || !strMatch(term.role, ptr.role)) return;
-              const nested = evalSchema(term.schema, input, ptr.target.entity.id, registry);
+              const nested = evalSchema(
+                term.schema,
+                input,
+                ptr.target.entity.id,
+                registry,
+                bindings,
+              );
               expanded = expanded ?? new Map(e.expanded ?? []);
               expanded.set(i, nested);
             });
@@ -218,10 +238,14 @@ export function evalTerm(
       return { sort: "hview", hview: { id: of.hview.id, props } };
     }
     case "fix":
-      // The invocation instruction: ambient root is set to the entity explicitly (E10).
-      return { sort: "hview", hview: evalSchema(term.schema, input, term.entity, registry) };
+      // The invocation instruction: ambient root is set explicitly (E10); bindings, when
+      // present, become the ambient hole environment for the invoked body (E15).
+      return {
+        sort: "hview",
+        hview: evalSchema(term.schema, input, term.entity, registry, term.bindings ?? bindings),
+      };
     case "resolve": {
-      const of = expectHView(evalTerm(term.of, input, root, registry), "resolve");
+      const of = expectHView(evalTerm(term.of, input, root, registry, bindings), "resolve");
       return { sort: "view", view: resolveView(term.policy, of.hview) };
     }
   }
@@ -234,13 +258,14 @@ function evalSchema(
   input: DeltaSet,
   root: string,
   registry: SchemaRegistry | undefined,
+  bindings?: Bindings,
 ): HView {
   const label = ref.kind === "name" ? ref.name : `pinned:${ref.hash.slice(0, 12)}…`;
   if (registry === undefined)
     throw new Error(`schema ${label} referenced but no registry supplied (E10)`);
   const schema = registry.resolve(ref);
   if (schema === undefined) throw new Error(`unknown schema: ${label} (E10/E13)`);
-  const result = evalTerm(schema.body, input, root, registry);
+  const result = evalTerm(schema.body, input, root, registry, bindings);
   if (result.sort !== "hview") {
     throw new Error(`schema ${label} body must be an HView-sort term (E10)`);
   }

@@ -6,9 +6,15 @@ import { type CborValue, array, bool, encode, float, map, tstr } from "./cbor.js
 import type { Term } from "./eval.js";
 import { bytesToHex, contentAddress } from "./hash.js";
 import type { Order, Policy, PropPolicy } from "./policy.js";
-import type { Pred, PPred, StrMatch, ValMatch } from "./pred.js";
+import type { Hole, Pred, PPred, StrMatch, ValMatch } from "./pred.js";
+import type { Primitive } from "./types.js";
 
 // --- AST -> JSON profile ---------------------------------------------------------------------------
+
+// Holes serialize to their profile spelling (E15); primitives pass through.
+function paramToJson(v: Primitive | Hole): unknown {
+  return typeof v === "object" ? { hole: v.name } : v;
+}
 
 function strMatchToJson(m: StrMatch): unknown {
   switch (m.kind) {
@@ -24,7 +30,7 @@ function strMatchToJson(m: StrMatch): unknown {
 function valMatchToJson(m: ValMatch): unknown {
   switch (m.kind) {
     case "vcmp":
-      return { vcmp: { cmp: m.cmp, value: m.value } };
+      return { vcmp: { cmp: m.cmp, value: paramToJson(m.value) } };
     case "between":
       return { between: [m.lo, m.hi] };
     case "inSet":
@@ -36,7 +42,12 @@ function ppredToJson(p: PPred): unknown {
   const out: Record<string, unknown> = {};
   if (p.role !== undefined) out["role"] = strMatchToJson(p.role);
   if (p.targetEntity !== undefined) {
-    out["targetEntity"] = p.targetEntity.kind === "const" ? p.targetEntity.id : { var: "root" };
+    out["targetEntity"] =
+      p.targetEntity.kind === "const"
+        ? p.targetEntity.id
+        : p.targetEntity.kind === "hole"
+          ? { hole: p.targetEntity.name }
+          : { var: "root" };
   }
   if (p.targetDelta !== undefined) out["targetDelta"] = p.targetDelta;
   if (p.context !== undefined) out["context"] = strMatchToJson(p.context);
@@ -56,7 +67,9 @@ export function predToJson(pred: Pred): unknown {
         match: {
           field: pred.field,
           cmp: pred.cmp,
-          const: Array.isArray(pred.constant) ? [...pred.constant] : pred.constant,
+          const: Array.isArray(pred.constant)
+            ? [...pred.constant]
+            : paramToJson(pred.constant as Primitive | Hole),
         },
       };
     case "hasPointer":
@@ -134,8 +147,21 @@ export function termToJson(term: Term): unknown {
         schema: schemaRefToJson(term.schema),
         in: termToJson(term.of),
       };
-    case "fix":
-      return { op: "fix", schema: schemaRefToJson(term.schema), entity: term.entity };
+    case "fix": {
+      const out: Record<string, unknown> = {
+        op: "fix",
+        schema: schemaRefToJson(term.schema),
+        entity: term.entity,
+      };
+      if (term.bindings !== undefined && term.bindings.size > 0) {
+        const bindings: Record<string, Primitive> = {};
+        for (const key of [...term.bindings.keys()].sort()) {
+          bindings[key] = term.bindings.get(key)!;
+        }
+        out["bindings"] = bindings;
+      }
+      return out;
+    }
     case "resolve":
       return { op: "resolve", policy: policyToJson(term.policy), in: termToJson(term.of) };
   }

@@ -185,3 +185,23 @@ select-between-mask-and-group and showed retracted claims unmarked. Open questio
 annotation channels thread through set-preserving operators (`select` keeps a subset, so the
 restriction of the channel is well-defined), or is the v0 rule — annotations are consumed by the
 next operator or dropped — the simpler invariant to keep?
+
+## E15 — Parameterized terms: `hole(name)`, bound at `fix` time (SPEC-2 §6)
+
+SPEC-2 §6 proposed `hole(name)` leaves in Const position; this pins the v0 semantics:
+
+- **Positions (v0):** a hole may stand for the scalar constant of `match` (author/timestamp/id
+  compare), the primitive of `ValMatch.vcmp`, or the entity id of `hasPointer.targetEntity`.
+  JSON profile spelling: `{"hole": "<name>"}` wherever a literal primitive / entity id is legal
+  in those positions. Other Const positions (between/inSet, StrMatch) stay literal in v0.
+- **Binding:** `fix` gains an optional `bindings` object (`{"<name>": <primitive>}`). The
+  invoked schema body — and any schema bodies reached through `expand` beneath it — evaluates
+  with that environment ambient, exactly as the root is ambient (E10). Bindings are primitives
+  only; terms never bind to terms (first-order, as proposed).
+- **Unbound is an error.** Evaluating a term containing an unbound hole fails loudly at
+  evaluation time (same class as E9 sort errors) — never a silent non-match.
+- **Hashing:** a schema body with holes is one term with one hash, however it is later bound.
+  A `fix` carrying bindings hashes the bindings as part of the term (sorted keys, canonical
+  CBOR via the E12 pipeline) — distinct parameterizations are distinct invocation terms.
+- **Dispatch:** the root-anchoring analyzer treats holes as opaque constants; anchoring
+  derives from `{"var":"root"}` exactly as before.

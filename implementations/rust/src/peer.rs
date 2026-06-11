@@ -66,7 +66,8 @@ impl Peer {
     /// The offered set: eval(lens, log) — lens fidelity is a tested invariant (F4).
     pub fn offered_set(&self) -> Vec<Delta> {
         let lens = self.offered_lens.clone().unwrap_or(Term::Input);
-        match eval_term(&lens, &self.reactor.snapshot(), None, None).expect("lens evaluates") {
+        match eval_term(&lens, &self.reactor.snapshot(), None, None, None).expect("lens evaluates")
+        {
             EvalResult::DSet { set, .. } => set.iter().cloned().collect(),
             _ => panic!("a lens must be a DSet-sort term (F4)"),
         }

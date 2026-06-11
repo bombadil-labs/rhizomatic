@@ -1103,3 +1103,189 @@ console.log(
 console.log(
   `  d2=${idOf("d2-title-reloaded").slice(0, 12)}… d4=${idOf("d4-negates-d2").slice(0, 12)}…`,
 );
+
+// --- l1-eval: parameterized terms — hole(name) bound at fix (SPEC-2 §6, ERRATA-2 E15) ---
+
+const hfx: Record<string, { claims: unknown; id: string }> = {};
+const addHfx = (name: string, claims: unknown) => {
+  hfx[name] = { claims, id: computeId(parseClaims(claims)) };
+};
+
+addHfx(
+  "h1-title",
+  claim(100, A, [
+    { role: "movie", ...subj("movie:matrix", "title") },
+    { role: "title", target: "The Matrix" },
+  ]),
+);
+addHfx(
+  "h2-rating-low",
+  claim(150, A, [
+    { role: "movie", ...subj("movie:matrix", "rating") },
+    { role: "rating", target: 7.5 },
+  ]),
+);
+addHfx(
+  "h3-rating-high",
+  claim(200, B, [
+    { role: "movie", ...subj("movie:matrix", "rating") },
+    { role: "rating", target: 9.2 },
+  ]),
+);
+addHfx(
+  "h4-cast-keanu",
+  claim(250, A, [
+    { role: "movie", ...subj("movie:matrix", "cast") },
+    { role: "actor", target: { id: "entity:keanu", context: "filmography" } },
+  ]),
+);
+addHfx(
+  "h5-cast-carrie",
+  claim(300, A, [
+    { role: "movie", ...subj("movie:matrix", "cast") },
+    { role: "actor", target: { id: "entity:carrie", context: "filmography" } },
+  ]),
+);
+
+const holesFixtureSet = DeltaSet.from(
+  Object.values(hfx).map((f) => makeDelta(parseClaims(f.claims))),
+);
+
+// Each schema body parameterizes a different Const position (E15).
+const holeSchemas = [
+  {
+    name: "ViewAsOf",
+    alg: 1,
+    body: {
+      op: "group",
+      key: "byTargetContext",
+      in: {
+        op: "mask",
+        policy: "drop",
+        in: {
+          op: "select",
+          pred: { match: { field: "timestamp", cmp: "lte", const: { hole: "asOf" } } },
+          in: "input",
+        },
+      },
+    },
+  },
+  {
+    name: "RatedAtLeast",
+    alg: 1,
+    body: {
+      op: "group",
+      key: "byTargetContext",
+      in: {
+        op: "mask",
+        policy: "drop",
+        in: {
+          op: "select",
+          pred: {
+            or: [
+              { not: { hasPointer: { context: { exact: "rating" } } } },
+              { hasPointer: { targetValue: { vcmp: { cmp: "gte", value: { hole: "min" } } } } },
+            ],
+          },
+          in: "input",
+        },
+      },
+    },
+  },
+  {
+    name: "LinkedTo",
+    alg: 1,
+    body: {
+      op: "group",
+      key: "byTargetContext",
+      in: {
+        op: "mask",
+        policy: "drop",
+        in: {
+          op: "select",
+          pred: { hasPointer: { targetEntity: { hole: "who" } } },
+          in: "input",
+        },
+      },
+    },
+  },
+];
+
+const holesRegistry = SchemaRegistry.build(
+  holeSchemas.map((s) => ({ name: s.name, alg: s.alg, body: parseTerm(s.body) })),
+);
+
+const holeCases: Array<{ name: string; spec: string; term: unknown; note?: string }> = [
+  {
+    name: "asof-150-sees-two",
+    spec: "E15 (hole in match const)",
+    term: { op: "fix", schema: "ViewAsOf", entity: "movie:matrix", bindings: { asOf: 150 } },
+    note: "title + the t=150 rating; later deltas are outside the bound horizon",
+  },
+  {
+    name: "asof-999-sees-all",
+    spec: "E15 (same body, different binding, different view)",
+    term: { op: "fix", schema: "ViewAsOf", entity: "movie:matrix", bindings: { asOf: 999 } },
+  },
+  {
+    name: "rated-at-least-9",
+    spec: "E15 (hole in vcmp value)",
+    term: { op: "fix", schema: "RatedAtLeast", entity: "movie:matrix", bindings: { min: 9 } },
+    note: "the 7.5 rating drops; non-rating properties pass through",
+  },
+  {
+    name: "rated-at-least-5",
+    spec: "E15 (hole in vcmp value)",
+    term: { op: "fix", schema: "RatedAtLeast", entity: "movie:matrix", bindings: { min: 5 } },
+  },
+  {
+    name: "cast-member-keanu",
+    spec: "E15 (hole in targetEntity)",
+    term: {
+      op: "fix",
+      schema: "LinkedTo",
+      entity: "movie:matrix",
+      bindings: { who: "entity:keanu" },
+    },
+    note: "only the edge that also points at the bound entity files",
+  },
+  {
+    name: "cast-member-carrie",
+    spec: "E15 (hole in targetEntity)",
+    term: {
+      op: "fix",
+      schema: "LinkedTo",
+      entity: "movie:matrix",
+      bindings: { who: "entity:carrie" },
+    },
+  },
+];
+
+const holeVectors = holeCases.map(({ name, spec, term, note }) => {
+  const parsed = parseTerm(term);
+  const result = evalTerm(parsed, holesFixtureSet, undefined, holesRegistry);
+  if (result.sort !== "hview") throw new Error(`${name}: expected an HView result`);
+  return {
+    name,
+    spec,
+    ...(note === undefined ? {} : { note }),
+    term,
+    // The invocation term's content address: same body, different bindings => different hashes
+    // (the bodies themselves keep a single hash however they are bound — asserted in unit tests).
+    termHash: termHash(parsed),
+    expectedCanonicalHex: resultCanonicalHex(result),
+  };
+});
+
+const holesOut = {
+  fixture: {
+    note: "one movie with a title, two ratings, two cast edges; holes bind asOf/min/who",
+    deltas: Object.entries(hfx).map(([name, f]) => ({ name, id: f.id, claims: f.claims })),
+  },
+  schemas: holeSchemas,
+  cases: holeVectors,
+};
+writeFileSync(resolve(evalDir, "eval-holes.json"), `${JSON.stringify(holesOut, null, 2)}\n`);
+console.log(
+  `wrote ${holeVectors.length} hole vectors over ${holesFixtureSet.size} fixture deltas to vectors/l1-eval/eval-holes.json`,
+);

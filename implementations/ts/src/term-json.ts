@@ -3,7 +3,7 @@
 
 import type { GroupKey, MaskPolicy, SchemaRefT, Term } from "./eval.js";
 import type { MergeFn, Order, Policy, PropPolicy } from "./policy.js";
-import type { Cmp, EntityMatch, PPred, Pred, StrMatch, ValMatch } from "./pred.js";
+import type { Cmp, EntityMatch, Hole, PPred, Pred, StrMatch, ValMatch } from "./pred.js";
 import type { Primitive } from "./types.js";
 
 const CMPS: readonly Cmp[] = ["eq", "neq", "lt", "lte", "gt", "gte", "prefix", "inSet"];
@@ -27,6 +27,17 @@ function parsePrimitive(v: unknown, what: string): Primitive {
     return v;
   }
   throw new Error(`${what}: constant must be string | number | boolean`);
+}
+
+// A hole in Const position: {"hole": "name"} (E15).
+function parseHole(v: unknown): Hole | undefined {
+  if (typeof v !== "object" || v === null || Array.isArray(v)) return undefined;
+  const h = (v as Record<string, unknown>)["hole"];
+  return typeof h === "string" ? { kind: "hole", name: nfc(h) } : undefined;
+}
+
+function parseParam(v: unknown, what: string): Primitive | Hole {
+  return parseHole(v) ?? parsePrimitive(v, what);
 }
 
 function parseCmp(v: unknown, what: string): Cmp {
@@ -59,8 +70,8 @@ function parseValMatch(raw: unknown, what: string): ValMatch {
     const cmp = parseCmp(v["cmp"], `${what}.vcmp`);
     if (cmp === "inSet")
       throw new Error(`${what}: vcmp cmp inSet is not allowed; use the inSet arm`);
-    const value = parsePrimitive(v["value"], `${what}.vcmp`);
-    if (cmp === "prefix" && typeof value !== "string") {
+    const value = parseParam(v["value"], `${what}.vcmp`);
+    if (cmp === "prefix" && typeof value !== "string" && typeof value !== "object") {
       throw new Error(`${what}: prefix requires a string constant`);
     }
     return { kind: "vcmp", cmp, value };
@@ -95,9 +106,16 @@ function parsePPred(raw: unknown): PPred {
     if (typeof te === "string") {
       out.targetEntity = { kind: "const", id: nfc(te) };
     } else {
-      const v = asObject(te, "targetEntity");
-      if (v["var"] !== "root") throw new Error('targetEntity must be a string or {var: "root"}');
-      out.targetEntity = { kind: "root" };
+      const hole = parseHole(te);
+      if (hole !== undefined) {
+        out.targetEntity = hole;
+      } else {
+        const v = asObject(te, "targetEntity");
+        if (v["var"] !== "root") {
+          throw new Error('targetEntity must be a string, {var: "root"}, or {hole: "name"}');
+        }
+        out.targetEntity = { kind: "root" };
+      }
     }
   }
   if (o["targetDelta"] !== undefined) {
@@ -136,8 +154,8 @@ export function parsePred(raw: unknown): Pred {
             if (!Array.isArray(rawConst)) throw new Error("match: inSet requires an array const");
             return rawConst.map((v) => parsePrimitive(v, "match.const"));
           })()
-        : parsePrimitive(rawConst, "match.const");
-    if (cmp === "prefix" && typeof constant !== "string") {
+        : parseParam(rawConst, "match.const");
+    if (cmp === "prefix" && typeof constant !== "string" && typeof constant !== "object") {
       throw new Error("match: prefix requires a string const");
     }
     return { kind: "match", field, cmp, constant };
@@ -268,7 +286,18 @@ export function parseTerm(raw: unknown): Term {
     }
     case "fix": {
       if (typeof o["entity"] !== "string") throw new Error("fix.entity must be a string");
-      return { kind: "fix", schema: parseSchemaRef(o["schema"]), entity: nfc(o["entity"]) };
+      const fix = {
+        kind: "fix" as const,
+        schema: parseSchemaRef(o["schema"]),
+        entity: nfc(o["entity"]),
+      };
+      if (o["bindings"] === undefined) return fix;
+      const bo = asObject(o["bindings"], "fix.bindings");
+      const bindings = new Map<string, Primitive>();
+      for (const key of Object.keys(bo).sort()) {
+        bindings.set(nfc(key), parsePrimitive(bo[key], `fix.bindings.${key}`));
+      }
+      return { ...fix, bindings };
     }
     case "resolve":
       return { kind: "resolve", policy: parsePolicy(o["policy"]), of: parseTerm(o["in"]) };

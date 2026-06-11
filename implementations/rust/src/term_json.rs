@@ -6,8 +6,16 @@ use unicode_normalization::UnicodeNormalization;
 
 use crate::eval::{GroupKey, MaskPolicy, PruneKeep, SchemaRef, Term};
 use crate::policy::{MergeFn, Order, Policy, PropPolicy};
-use crate::pred::{Cmp, EntityMatch, Field, MatchConst, PPred, Pred, StrMatch, ValMatch};
+use crate::pred::{Cmp, EntityMatch, Field, MatchConst, PPred, Param, Pred, StrMatch, ValMatch};
 use crate::types::Primitive;
+
+/// A hole in Const position: {"hole": "name"} (E15).
+fn parse_hole(v: &Value) -> Option<String> {
+    v.as_object()
+        .and_then(|o| o.get("hole"))
+        .and_then(Value::as_str)
+        .map(nfc)
+}
 
 fn nfc(s: &str) -> String {
     s.nfc().collect()
@@ -85,11 +93,12 @@ fn parse_val_match(v: &Value, what: &str) -> Result<ValMatch, String> {
                 "{what}: vcmp cmp inSet is not allowed; use the inSet arm"
             ));
         }
-        let value = parse_primitive(
-            vo.get("value").unwrap_or(&Value::Null),
-            &format!("{what}.vcmp"),
-        )?;
-        if cmp == Cmp::Prefix && !matches!(value, Primitive::Str(_)) {
+        let raw = vo.get("value").unwrap_or(&Value::Null);
+        let value = match parse_hole(raw) {
+            Some(name) => Param::Hole(name),
+            None => Param::Lit(parse_primitive(raw, &format!("{what}.vcmp"))?),
+        };
+        if cmp == Cmp::Prefix && !matches!(value, Param::Lit(Primitive::Str(_)) | Param::Hole(_)) {
             return Err(format!("{what}: prefix requires a string constant"));
         }
         return Ok(ValMatch::Vcmp { cmp, value });
@@ -124,10 +133,14 @@ fn parse_ppred(v: &Value) -> Result<PPred, String> {
     if let Some(e) = o.get("targetEntity") {
         out.target_entity = Some(if let Some(s) = e.as_str() {
             EntityMatch::Const(nfc(s))
+        } else if let Some(name) = parse_hole(e) {
+            EntityMatch::Hole(name)
         } else if e.get("var").and_then(Value::as_str) == Some("root") {
             EntityMatch::Root
         } else {
-            return Err("targetEntity must be a string or {var: \"root\"}".to_string());
+            return Err(
+                "targetEntity must be a string, {var: \"root\"}, or {hole: \"name\"}".to_string(),
+            );
         });
         any = true;
     }
@@ -184,6 +197,8 @@ pub fn parse_pred(raw: &Value) -> Result<Pred, String> {
                     .map(|v| parse_primitive(v, "match.const"))
                     .collect::<Result<Vec<_>, _>>()?,
             )
+        } else if let Some(name) = parse_hole(raw_const) {
+            MatchConst::Hole(name)
         } else {
             let one = parse_primitive(raw_const, "match.const")?;
             if cmp == Cmp::Prefix && !matches!(one, Primitive::Str(_)) {
@@ -386,9 +401,21 @@ pub fn parse_term(raw: &Value) -> Result<Term, String> {
                 .get("entity")
                 .and_then(Value::as_str)
                 .ok_or("fix.entity must be a string")?;
+            let bindings = match o.get("bindings") {
+                None => None,
+                Some(b) => {
+                    let bo = b.as_object().ok_or("fix.bindings must be an object")?;
+                    let mut out = crate::pred::Bindings::new();
+                    for (k, v) in bo {
+                        out.insert(nfc(k), parse_primitive(v, &format!("fix.bindings.{k}"))?);
+                    }
+                    Some(out)
+                }
+            };
             Ok(Term::Fix {
                 schema: parse_schema_ref(o.get("schema").unwrap_or(&Value::Null))?,
                 entity: nfc(entity),
+                bindings,
             })
         }
         Some("resolve") => Ok(Term::Resolve {

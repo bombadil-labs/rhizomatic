@@ -172,7 +172,7 @@ impl Reactor {
         root: Option<&str>,
         registry: Option<&SchemaRegistry>,
     ) -> Result<EvalResult, String> {
-        eval_term(term, &self.set, root, registry)
+        eval_term(term, &self.set, root, registry, None)
     }
 
     // --- materializations (SPEC-4 §4, ERRATA-4 V5) ---

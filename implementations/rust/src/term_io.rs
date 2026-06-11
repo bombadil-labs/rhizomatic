@@ -7,7 +7,7 @@ use crate::cbor::{encode, CborValue};
 use crate::eval::{GroupKey, MaskPolicy, PruneKeep, SchemaRef, Term};
 use crate::hash::content_address;
 use crate::policy::{MergeFn, Order, Policy, PropPolicy};
-use crate::pred::{Cmp, EntityMatch, Field, MatchConst, PPred, Pred, StrMatch, ValMatch};
+use crate::pred::{Cmp, EntityMatch, Field, MatchConst, PPred, Param, Pred, StrMatch, ValMatch};
 use crate::types::Primitive;
 
 // --- AST -> JSON profile ---------------------------------------------------------------------------
@@ -41,10 +41,17 @@ fn str_match_to_json(m: &StrMatch) -> Value {
     }
 }
 
+fn param_to_json(p: &Param) -> Value {
+    match p {
+        Param::Lit(v) => prim_to_json(v),
+        Param::Hole(name) => json!({ "hole": name }),
+    }
+}
+
 fn val_match_to_json(m: &ValMatch) -> Value {
     match m {
         ValMatch::Vcmp { cmp, value } => {
-            json!({ "vcmp": { "cmp": cmp_str(*cmp), "value": prim_to_json(value) } })
+            json!({ "vcmp": { "cmp": cmp_str(*cmp), "value": param_to_json(value) } })
         }
         ValMatch::Between { lo, hi } => json!({ "between": [prim_to_json(lo), prim_to_json(hi)] }),
         ValMatch::InSet(vs) => json!({ "inSet": vs.iter().map(prim_to_json).collect::<Vec<_>>() }),
@@ -62,6 +69,7 @@ fn ppred_to_json(p: &PPred) -> Value {
             match e {
                 EntityMatch::Const(id) => json!(id),
                 EntityMatch::Root => json!({ "var": "root" }),
+                EntityMatch::Hole(name) => json!({ "hole": name }),
             },
         );
     }
@@ -97,6 +105,7 @@ pub fn pred_to_json(pred: &Pred) -> Value {
             let constant = match constant {
                 MatchConst::One(p) => prim_to_json(p),
                 MatchConst::Many(ps) => Value::Array(ps.iter().map(prim_to_json).collect()),
+                MatchConst::Hole(name) => json!({ "hole": name }),
             };
             json!({ "match": { "field": field, "cmp": cmp_str(*cmp), "const": constant } })
         }
@@ -195,8 +204,26 @@ pub fn term_to_json(term: &Term) -> Value {
             "schema": schema_ref_to_json(schema),
             "in": term_to_json(of),
         }),
-        Term::Fix { schema, entity } => {
-            json!({ "op": "fix", "schema": schema_ref_to_json(schema), "entity": entity })
+        Term::Fix {
+            schema,
+            entity,
+            bindings,
+        } => {
+            let mut out = serde_json::Map::new();
+            out.insert("op".into(), json!("fix"));
+            out.insert("schema".into(), schema_ref_to_json(schema));
+            out.insert("entity".into(), json!(entity));
+            if let Some(b) = bindings {
+                if !b.is_empty() {
+                    // BTreeMap iterates sorted, matching the TS serializer's sorted keys.
+                    let bo: serde_json::Map<String, Value> = b
+                        .iter()
+                        .map(|(k, v)| (k.clone(), prim_to_json(v)))
+                        .collect();
+                    out.insert("bindings".into(), Value::Object(bo));
+                }
+            }
+            Value::Object(out)
         }
         Term::Resolve { policy, of } => {
             json!({ "op": "resolve", "policy": policy_to_json(policy), "in": term_to_json(of) })

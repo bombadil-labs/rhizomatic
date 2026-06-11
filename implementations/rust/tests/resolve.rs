@@ -52,7 +52,7 @@ fn resolve_vectors() {
     for c in doc["cases"].as_array().unwrap() {
         let name = c["name"].as_str().unwrap();
         let term = parse_term(&c["term"]).unwrap_or_else(|e| panic!("parse {name}: {e}"));
-        let result = eval_term(&term, &input, None, Some(&reg)).unwrap();
+        let result = eval_term(&term, &input, None, Some(&reg), None).unwrap();
         assert!(
             matches!(result, EvalResult::View(_)),
             "{name}: expected a View result"
@@ -93,11 +93,11 @@ fn pluralism_is_parameterized() {
     }))
     .unwrap();
     assert_eq!(
-        title_of(eval_term(&latest, &input, None, Some(&reg)).unwrap()),
+        title_of(eval_term(&latest, &input, None, Some(&reg), None).unwrap()),
         "Matrix Reloaded"
     );
     assert_eq!(
-        title_of(eval_term(&trust_alice, &input, None, Some(&reg)).unwrap()),
+        title_of(eval_term(&trust_alice, &input, None, Some(&reg), None).unwrap()),
         "The Matrix"
     );
 }
@@ -112,6 +112,6 @@ fn resolve_demands_hview_operand() {
         "in": "input"
     }))
     .unwrap();
-    let err = eval_term(&term, &input, None, None).unwrap_err();
+    let err = eval_term(&term, &input, None, None, None).unwrap_err();
     assert!(err.contains("HView operand"), "got: {err}");
 }

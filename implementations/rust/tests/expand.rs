@@ -51,7 +51,7 @@ fn expand_vectors() {
     for c in doc["cases"].as_array().unwrap() {
         let name = c["name"].as_str().unwrap();
         let term = parse_term(&c["term"]).unwrap_or_else(|e| panic!("parse {name}: {e}"));
-        let result = eval_term(&term, &input, None, Some(&reg)).unwrap();
+        let result = eval_term(&term, &input, None, Some(&reg), None).unwrap();
         assert_eq!(
             result_canonical_hex(&result),
             c["expectedCanonicalHex"].as_str().unwrap(),
@@ -67,7 +67,7 @@ fn data_cycle_nests_three_levels_then_bottoms_out() {
     let reg = registry(&doc);
     let term = parse_term(&json!({ "op": "fix", "schema": "MovieDeep", "entity": "movie:matrix" }))
         .unwrap();
-    let EvalResult::HView(h) = eval_term(&term, &input, None, Some(&reg)).unwrap() else {
+    let EvalResult::HView(h) = eval_term(&term, &input, None, Some(&reg), None).unwrap() else {
         panic!("expected hview");
     };
     let cast = &h.props["cast"];
@@ -155,6 +155,6 @@ fn registry_guards() {
     let doc = load();
     let input = fixture_set(&doc);
     let term = parse_term(&json!({ "op": "fix", "schema": "A", "entity": "e" })).unwrap();
-    let err = eval_term(&term, &input, None, None).unwrap_err();
+    let err = eval_term(&term, &input, None, None, None).unwrap_err();
     assert!(err.contains("no registry"), "got: {err}");
 }

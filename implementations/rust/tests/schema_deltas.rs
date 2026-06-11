@@ -110,14 +110,21 @@ fn publish_load_round_trip() {
         doc["published"]["expectedTermHash"].as_str().unwrap()
     );
     // and the loaded schema evaluates identically to the registry's original
-    let via_loaded =
-        eval_term(&loaded.body, &expand_set, Some("movie:matrix"), Some(&reg)).unwrap();
+    let via_loaded = eval_term(
+        &loaded.body,
+        &expand_set,
+        Some("movie:matrix"),
+        Some(&reg),
+        None,
+    )
+    .unwrap();
     let original = reg.get("MovieWithCast").unwrap();
     let via_original = eval_term(
         &original.body,
         &expand_set,
         Some("movie:matrix"),
         Some(&reg),
+        None,
     )
     .unwrap();
     assert_eq!(
@@ -175,7 +182,7 @@ fn pinned_ref_resolves_by_hash() {
     let doc = read("schema-deltas.json");
     let (expand_set, reg) = expand_world();
     let term = parse_term(&doc["pinnedRef"]["term"]).unwrap();
-    let result = eval_term(&term, &expand_set, None, Some(&reg)).unwrap();
+    let result = eval_term(&term, &expand_set, None, Some(&reg), None).unwrap();
     assert_eq!(
         result_canonical_hex(&result),
         doc["pinnedRef"]["expectedCanonicalHex"].as_str().unwrap()
@@ -187,6 +194,6 @@ fn pinned_ref_resolves_by_hash() {
         "entity": "movie:matrix"
     }))
     .unwrap();
-    let err = eval_term(&bogus, &expand_set, None, Some(&reg)).unwrap_err();
+    let err = eval_term(&bogus, &expand_set, None, Some(&reg), None).unwrap_err();
     assert!(err.contains("unknown schema"), "got: {err}");
 }

@@ -815,6 +815,12 @@
   }
 
   // src/pred.ts
+  function resolveParam(p, bindings) {
+    if (typeof p !== "object") return p;
+    const bound = bindings?.get(p.name);
+    if (bound === void 0) throw new Error(`unbound hole "${p.name}" (E15)`);
+    return bound;
+  }
   var utf82 = new TextEncoder();
   function utf8Compare(a, b) {
     const ab = utf82.encode(a);
@@ -876,21 +882,30 @@
         return m.values.includes(s);
     }
   }
-  function valMatch(m, v) {
+  function valMatch(m, v, bindings) {
     switch (m.kind) {
       case "vcmp":
-        return compareWith(m.cmp, v, m.value);
+        return compareWith(m.cmp, v, resolveParam(m.value, bindings));
       case "between":
         return comparePrimitives(v, m.lo) >= 0 && comparePrimitives(v, m.hi) <= 0;
       case "inSet":
         return m.values.some((x) => comparePrimitives(v, x) === 0);
     }
   }
-  function pointerMatches(p, ptr, root) {
+  function entityWant(m, root, bindings) {
+    if (m.kind === "const") return m.id;
+    if (m.kind === "root") return root;
+    const bound = resolveParam(m, bindings);
+    if (typeof bound !== "string") {
+      throw new Error(`hole "${m.name}" bound to a non-string where an entity id is required (E15)`);
+    }
+    return bound;
+  }
+  function pointerMatches(p, ptr, root, bindings) {
     if (p.role !== void 0 && !strMatch(p.role, ptr.role)) return false;
     if (p.targetEntity !== void 0) {
       if (ptr.target.kind !== "entity") return false;
-      const want = p.targetEntity.kind === "const" ? p.targetEntity.id : root;
+      const want = entityWant(p.targetEntity, root, bindings);
       if (want === void 0 || ptr.target.entity.id !== want) return false;
     }
     if (p.targetDelta !== void 0) {
@@ -904,11 +919,67 @@
       if (ptr.target.kind === "primitive" !== p.targetIsPrimitive) return false;
     }
     if (p.targetValue !== void 0) {
-      if (ptr.target.kind !== "primitive" || !valMatch(p.targetValue, ptr.target.value)) return false;
+      if (ptr.target.kind !== "primitive" || !valMatch(p.targetValue, ptr.target.value, bindings)) {
+        return false;
+      }
     }
     return true;
   }
-  function evalPred(pred, delta, root) {
+  function substituteHoles(pred, bindings) {
+    switch (pred.kind) {
+      case "true":
+      case "false":
+        return pred;
+      case "match": {
+        const c = pred.constant;
+        if (typeof c === "object" && !Array.isArray(c)) {
+          return { ...pred, constant: resolveParam(c, bindings) };
+        }
+        return pred;
+      }
+      case "hasPointer": {
+        const p = pred.ppred;
+        let te = p.targetEntity;
+        if (te !== void 0 && te.kind === "hole") {
+          const bound = resolveParam(te, bindings);
+          if (typeof bound !== "string") {
+            throw new Error(
+              `hole "${te.name}" bound to a non-string where an entity id is required (E15)`
+            );
+          }
+          te = { kind: "const", id: bound };
+        }
+        let tv = p.targetValue;
+        if (tv !== void 0 && tv.kind === "vcmp" && typeof tv.value === "object") {
+          tv = { ...tv, value: resolveParam(tv.value, bindings) };
+        }
+        if (te === p.targetEntity && tv === p.targetValue) return pred;
+        return {
+          kind: "hasPointer",
+          ppred: {
+            ...p,
+            ...te === void 0 ? {} : { targetEntity: te },
+            ...tv === void 0 ? {} : { targetValue: tv }
+          }
+        };
+      }
+      case "and":
+        return {
+          kind: "and",
+          left: substituteHoles(pred.left, bindings),
+          right: substituteHoles(pred.right, bindings)
+        };
+      case "or":
+        return {
+          kind: "or",
+          left: substituteHoles(pred.left, bindings),
+          right: substituteHoles(pred.right, bindings)
+        };
+      case "not":
+        return { kind: "not", pred: substituteHoles(pred.pred, bindings) };
+    }
+  }
+  function evalPred(pred, delta, root, bindings) {
     switch (pred.kind) {
       case "true":
         return true;
@@ -916,16 +987,18 @@
         return false;
       case "match": {
         const subject = pred.field === "author" ? delta.claims.author : pred.field === "timestamp" ? delta.claims.timestamp : delta.id;
-        return compareWith(pred.cmp, subject, pred.constant);
+        const c = pred.constant;
+        const constant = typeof c === "object" && !Array.isArray(c) ? resolveParam(c, bindings) : c;
+        return compareWith(pred.cmp, subject, constant);
       }
       case "hasPointer":
-        return delta.claims.pointers.some((ptr) => pointerMatches(pred.ppred, ptr, root));
+        return delta.claims.pointers.some((ptr) => pointerMatches(pred.ppred, ptr, root, bindings));
       case "and":
-        return evalPred(pred.left, delta, root) && evalPred(pred.right, delta, root);
+        return evalPred(pred.left, delta, root, bindings) && evalPred(pred.right, delta, root, bindings);
       case "or":
-        return evalPred(pred.left, delta, root) || evalPred(pred.right, delta, root);
+        return evalPred(pred.left, delta, root, bindings) || evalPred(pred.right, delta, root, bindings);
       case "not":
-        return !evalPred(pred.pred, delta, root);
+        return !evalPred(pred.pred, delta, root, bindings);
     }
   }
 
@@ -1349,21 +1422,22 @@
     }
     return { id: root, props };
   }
-  function evalTerm(term, input, root, registry) {
+  function evalTerm(term, input, root, registry, bindings) {
     switch (term.kind) {
       case "input":
         return dsetResult(input);
       case "select": {
-        const of = expectDSet(evalTerm(term.of, input, root, registry), "select");
-        return dsetResult(fork(of.set, (d) => evalPred(term.pred, d, root)));
+        const of = expectDSet(evalTerm(term.of, input, root, registry, bindings), "select");
+        const pred = substituteHoles(term.pred, bindings);
+        return dsetResult(fork(of.set, (d) => evalPred(pred, d, root)));
       }
       case "union": {
-        const left = expectDSet(evalTerm(term.left, input, root, registry), "union");
-        const right = expectDSet(evalTerm(term.right, input, root, registry), "union");
+        const left = expectDSet(evalTerm(term.left, input, root, registry, bindings), "union");
+        const right = expectDSet(evalTerm(term.right, input, root, registry, bindings), "union");
         return dsetResult(merge(left.set, right.set));
       }
       case "mask": {
-        const of = expectDSet(evalTerm(term.of, input, root, registry), "mask");
+        const of = expectDSet(evalTerm(term.of, input, root, registry, bindings), "mask");
         switch (term.policy.kind) {
           case "drop": {
             const negated = computeNegated(of.set);
@@ -1374,7 +1448,7 @@
             return { sort: "dset", set: of.set, negated, annotated: true };
           }
           case "trust": {
-            const pred = term.policy.pred;
+            const pred = substituteHoles(term.policy.pred, bindings);
             const negated = computeNegated(of.set, (n) => evalPred(pred, n, root));
             return dsetResult(fork(of.set, (d) => !negated.has(d.id)));
           }
@@ -1383,11 +1457,11 @@
       }
       case "group": {
         if (root === void 0) throw new Error("group requires an ambient root entity (E9)");
-        const of = expectDSet(evalTerm(term.of, input, root, registry), "group");
+        const of = expectDSet(evalTerm(term.of, input, root, registry, bindings), "group");
         return { sort: "hview", hview: evalGroup(term.key, of, root) };
       }
       case "prune": {
-        const of = expectHView(evalTerm(term.of, input, root, registry), "prune");
+        const of = expectHView(evalTerm(term.of, input, root, registry, bindings), "prune");
         if (term.keep === "all") return of;
         const keep = term.keep;
         const props = /* @__PURE__ */ new Map();
@@ -1397,7 +1471,7 @@
         return { sort: "hview", hview: { id: of.hview.id, props } };
       }
       case "expand": {
-        const of = expectHView(evalTerm(term.of, input, root, registry), "expand");
+        const of = expectHView(evalTerm(term.of, input, root, registry, bindings), "expand");
         const props = /* @__PURE__ */ new Map();
         for (const [prop, entries] of of.hview.props) {
           props.set(
@@ -1406,7 +1480,13 @@
               let expanded;
               e.delta.claims.pointers.forEach((ptr, i) => {
                 if (ptr.target.kind !== "entity" || !strMatch(term.role, ptr.role)) return;
-                const nested = evalSchema(term.schema, input, ptr.target.entity.id, registry);
+                const nested = evalSchema(
+                  term.schema,
+                  input,
+                  ptr.target.entity.id,
+                  registry,
+                  bindings
+                );
                 expanded = expanded ?? new Map(e.expanded ?? []);
                 expanded.set(i, nested);
               });
@@ -1417,20 +1497,23 @@
         return { sort: "hview", hview: { id: of.hview.id, props } };
       }
       case "fix":
-        return { sort: "hview", hview: evalSchema(term.schema, input, term.entity, registry) };
+        return {
+          sort: "hview",
+          hview: evalSchema(term.schema, input, term.entity, registry, term.bindings ?? bindings)
+        };
       case "resolve": {
-        const of = expectHView(evalTerm(term.of, input, root, registry), "resolve");
+        const of = expectHView(evalTerm(term.of, input, root, registry, bindings), "resolve");
         return { sort: "view", view: resolveView(term.policy, of.hview) };
       }
     }
   }
-  function evalSchema(ref, input, root, registry) {
+  function evalSchema(ref, input, root, registry, bindings) {
     const label = ref.kind === "name" ? ref.name : `pinned:${ref.hash.slice(0, 12)}\u2026`;
     if (registry === void 0)
       throw new Error(`schema ${label} referenced but no registry supplied (E10)`);
     const schema = registry.resolve(ref);
     if (schema === void 0) throw new Error(`unknown schema: ${label} (E10/E13)`);
-    const result = evalTerm(schema.body, input, root, registry);
+    const result = evalTerm(schema.body, input, root, registry, bindings);
     if (result.sort !== "hview") {
       throw new Error(`schema ${label} body must be an HView-sort term (E10)`);
     }
@@ -1488,6 +1571,14 @@
     }
     throw new Error(`${what}: constant must be string | number | boolean`);
   }
+  function parseHole(v) {
+    if (typeof v !== "object" || v === null || Array.isArray(v)) return void 0;
+    const h = v["hole"];
+    return typeof h === "string" ? { kind: "hole", name: nfc(h) } : void 0;
+  }
+  function parseParam(v, what) {
+    return parseHole(v) ?? parsePrimitive(v, what);
+  }
   function parseCmp(v, what) {
     if (typeof v !== "string" || !CMPS.includes(v)) {
       throw new Error(`${what}: unknown cmp ${String(v)}`);
@@ -1516,8 +1607,8 @@
       const cmp = parseCmp(v["cmp"], `${what}.vcmp`);
       if (cmp === "inSet")
         throw new Error(`${what}: vcmp cmp inSet is not allowed; use the inSet arm`);
-      const value = parsePrimitive(v["value"], `${what}.vcmp`);
-      if (cmp === "prefix" && typeof value !== "string") {
+      const value = parseParam(v["value"], `${what}.vcmp`);
+      if (cmp === "prefix" && typeof value !== "string" && typeof value !== "object") {
         throw new Error(`${what}: prefix requires a string constant`);
       }
       return { kind: "vcmp", cmp, value };
@@ -1544,9 +1635,16 @@
       if (typeof te === "string") {
         out.targetEntity = { kind: "const", id: nfc(te) };
       } else {
-        const v = asObject(te, "targetEntity");
-        if (v["var"] !== "root") throw new Error('targetEntity must be a string or {var: "root"}');
-        out.targetEntity = { kind: "root" };
+        const hole = parseHole(te);
+        if (hole !== void 0) {
+          out.targetEntity = hole;
+        } else {
+          const v = asObject(te, "targetEntity");
+          if (v["var"] !== "root") {
+            throw new Error('targetEntity must be a string, {var: "root"}, or {hole: "name"}');
+          }
+          out.targetEntity = { kind: "root" };
+        }
       }
     }
     if (o["targetDelta"] !== void 0) {
@@ -1581,8 +1679,8 @@
       const constant = cmp === "inSet" ? (() => {
         if (!Array.isArray(rawConst)) throw new Error("match: inSet requires an array const");
         return rawConst.map((v) => parsePrimitive(v, "match.const"));
-      })() : parsePrimitive(rawConst, "match.const");
-      if (cmp === "prefix" && typeof constant !== "string") {
+      })() : parseParam(rawConst, "match.const");
+      if (cmp === "prefix" && typeof constant !== "string" && typeof constant !== "object") {
         throw new Error("match: prefix requires a string const");
       }
       return { kind: "match", field, cmp, constant };
@@ -1705,7 +1803,18 @@
       }
       case "fix": {
         if (typeof o["entity"] !== "string") throw new Error("fix.entity must be a string");
-        return { kind: "fix", schema: parseSchemaRef(o["schema"]), entity: nfc(o["entity"]) };
+        const fix = {
+          kind: "fix",
+          schema: parseSchemaRef(o["schema"]),
+          entity: nfc(o["entity"])
+        };
+        if (o["bindings"] === void 0) return fix;
+        const bo = asObject(o["bindings"], "fix.bindings");
+        const bindings = /* @__PURE__ */ new Map();
+        for (const key of Object.keys(bo).sort()) {
+          bindings.set(nfc(key), parsePrimitive(bo[key], `fix.bindings.${key}`));
+        }
+        return { ...fix, bindings };
       }
       case "resolve":
         return { kind: "resolve", policy: parsePolicy(o["policy"]), of: parseTerm(o["in"]) };

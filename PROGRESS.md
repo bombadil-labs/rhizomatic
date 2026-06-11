@@ -239,6 +239,18 @@ plus polish (README status update, top-level parity runner, CI).
   §6 gained the pack widget — pack Obi-Wan's world to canonical CBOR (one item, deterministic
   packId), unpack into a fresh set, digest IDENTICAL, self-verifying rehydration. Every layer
   of the architecture now executes on the page. Verified live; zero console errors.
+- **Parameterized terms: hole(name), bound at fix (SPEC-2 §6 → specified)** ✅ — the full
+  vectors-first loop in one slice. ERRATA-2 E15 pins: v0 hole positions (match scalar const,
+  vcmp value, hasPointer.targetEntity, profile spelling {"hole": "name"}); binding via fix's
+  optional bindings object, ambient through expand (nested fix may override); bindings are
+  primitives only (first-order); unbound = deterministic eval-time error via EAGER
+  SUBSTITUTION at select/mask-trust (chosen over lazy per-delta resolution so the
+  empty-operand case behaves identically in both witnesses); a body with holes keeps one
+  hash, a fix with bindings hashes them (sorted, E12). vectors/l1-eval/eval-holes.json:
+  6 cases over 3 schemas (asOf horizon, rating threshold, "cast member X") each pinning
+  termHash + result bytes. TS (+10 tests, 189) and Rust (+5 suites' worth, holes.rs) — Rust
+  reproduced every TS-generated term hash and canonical hex on the FIRST RUN. WASM witness
+  rebuilt; the tour's conformance run now reads 130/130 across both witnesses.
 - **GitHub Pages** — blocked on a permission: needs the human to enable Pages (main, /docs)
   in repo settings; README already points at https://mbilokonsky.github.io/rhizomatic/.
 
