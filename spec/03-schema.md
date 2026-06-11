@@ -30,14 +30,20 @@ The canonical body shape (not mandatory, but the idiom virtually all schemas fol
 ```
 body(root) =
   group(byTargetContext,
-    mask(drop,
-      select(hasPointer(ppred(targetEntity: root)), D)))
+    select(hasPointer(ppred(targetEntity: root)),
+      mask(drop, D)))
   |> expand(role₁, SchemaRef₁)
   |> expand(role₂, SchemaRef₂)
   |> prune(...)
 ```
 
-Read: *select every delta that points at the root; drop negated ones; file the survivors under properties by their target-context; expand chosen pointer roles through child schemas; trim.*
+Read: *drop negated deltas over the full operand set; then select what points at the root; file the survivors under properties by their target-context; expand chosen pointer roles through child schemas; trim.*
+
+The order is load-bearing: **mask runs before select.** A negation delta targets a *delta*
+(SPEC-1 §7), not the root entity — a select-first idiom would exclude every negation before mask
+could suppress anything, and §2.1's closure promise (negations participate via mask) would
+silently fail. Mask does its suppression over the full operand; the negation deltas themselves,
+having no root-targeting pointer, never appear in the grouped view, which is correct.
 
 ### 2.1 What a HyperSchema means
 
@@ -79,25 +85,24 @@ A HyperView is simultaneously: a query result, an index entry (when materialized
 
 ## 5. Schemas as Deltas
 
-The at-rest, federated form of a schema is a set of deltas. Encoding convention (normative vocabulary, `rhizomatic.schema.*` namespace):
+The at-rest, federated form of a schema is a set of deltas. The normative vocabulary
+(`rhizomatic.schema.*` namespace) is the **blob form**: one definition delta per schema,
+carrying the term as the hex of its canonical CBOR (SPEC-2 §7):
 
 ```
-// schema root
-{ pointers: [ { role: "rhizomatic.schema.defines", target: EntityRef(schemaEntity, context: "definition") },
-              { role: "rhizomatic.schema.alg",     target: 1 } ] }
-
-// term nodes: one entity per operator node; one delta per edge
-{ pointers: [ { role: "rhizomatic.term.op",      target: "select" },
-              { role: "rhizomatic.term.of",      target: EntityRef(schemaEntity, context: "body") } ] }
-{ pointers: [ { role: "rhizomatic.term.operand", target: EntityRef(childTermEntity, context: "parent") },
-              { role: "rhizomatic.term.position",target: 0 } ] }
-// predicate leaves serialize their canonical CBOR as a primitive string (base64)
+SchemaDefinitionDelta := a delta whose pointers are
+  { role: "rhizomatic.schema.defines", target: EntityRef(schemaEntity, context: "definition") }
+  { role: "rhizomatic.schema.name",    target: <string: human name> }
+  { role: "rhizomatic.schema.alg",     target: <number: L2 algebra version> }
+  { role: "rhizomatic.schema.term",    target: <string: hex of the term's canonical CBOR> }
 ```
 
-*(The exact vocabulary above is illustrative draft; the conformance suite will pin it. What is already normative:)*
+(A fully-exploded node-per-entity form — one entity per operator node, queryable term internals —
+remains an open extension; it buys introspection at significant vocabulary weight and enters when
+a consumer needs to query *inside* schema bodies.)
 
 - A schema MUST be losslessly round-trippable: deltas → term → canonical CBOR → hash, with the hash matching a directly-encoded term.
-- **Bootstrap:** there is exactly one hand-specified schema, `rhizomatic.SchemaSchema` — the HyperSchema for reading HyperSchemas out of the rhizome. Its term is published as a constant (canonical CBOR + hash) in this spec's conformance vectors. Every other schema is read using it. This closes the loop of P3 with a single axiom, mirroring L1's single axiom.
+- **Bootstrap:** there is exactly one hand-specified schema, `rhizomatic.SchemaSchema` — the HyperSchema for reading HyperSchemas out of the rhizome. Its body is the canonical idiom (§2), evaluated at a schema entity, yielding `props.definition = [definition deltas]`. Its term hash is published as a constant in the conformance vectors (`vectors/l1-eval/schema-deltas.json`); every other schema is read using it. This closes the loop of P3 with a single axiom, mirroring L1's single axiom.
 
 Because schemas are deltas, automatically:
 
