@@ -89,3 +89,29 @@ pub fn parse_claims(v: &Value) -> Result<Claims, String> {
         pointers,
     })
 }
+
+/// Serialize claims back to the JSON debug profile (the inverse of parse_claims).
+pub fn claims_to_json(claims: &Claims) -> Value {
+    use serde_json::json;
+    let pointers: Vec<Value> = claims
+        .pointers
+        .iter()
+        .map(|p| {
+            let target = match &p.target {
+                Target::Primitive(Primitive::Str(s)) => json!({ "value": s }),
+                Target::Primitive(Primitive::Num(n)) => json!({ "value": n }),
+                Target::Primitive(Primitive::Bool(b)) => json!({ "value": b }),
+                Target::Entity(e) => match &e.context {
+                    Some(c) => json!({ "entityRef": { "id": e.id, "context": c } }),
+                    None => json!({ "entityRef": { "id": e.id } }),
+                },
+                Target::Delta(d) => match &d.context {
+                    Some(c) => json!({ "deltaRef": { "delta": d.delta, "context": c } }),
+                    None => json!({ "deltaRef": { "delta": d.delta } }),
+                },
+            };
+            json!({ "role": p.role, "target": target })
+        })
+        .collect();
+    json!({ "timestamp": claims.timestamp, "author": claims.author, "pointers": pointers })
+}

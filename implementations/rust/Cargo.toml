@@ -9,6 +9,8 @@ publish = false
 blake3 = "1"
 ed25519-dalek = "2"
 hex = "0.4"
+tiny_http = "0.12"
+ureq = { version = "2", default-features = false }
 # float_roundtrip is REQUIRED: without it serde_json's fast float path can parse decimal
 # numbers up to 1 ULP off, which fractures canonical-bytes parity with JS (caught by the
 # float-f16-min-subnormal vector). See ERRATA "JSON debug profile".

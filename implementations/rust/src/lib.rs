@@ -6,6 +6,7 @@ pub mod delta;
 pub mod derivation;
 pub mod eval;
 pub mod hash;
+pub mod http;
 pub mod hview;
 pub mod json_profile;
 pub mod materialize;
@@ -27,6 +28,7 @@ pub use derivation::{verify_pure_derivation, BindingSpec, DerivationHost};
 pub use eval::{
     eval_term, result_canonical_hex, EvalResult, GroupKey, MaskPolicy, PruneKeep, Term,
 };
+pub use http::{offer_for, pull_from_url, serve_peer};
 pub use hview::{hview_canonical_hex, HVEntry, HView};
 pub use materialize::{is_root_anchored, MaterializationChange};
 pub use pack::{pack_id, pack_set, unpack_set};

@@ -55,6 +55,14 @@ impl Peer {
         }
     }
 
+    /// The admission judgment (SPEC-6 §5 step 3), exposed for transport bindings (F5).
+    pub fn admits(&self, d: &Delta) -> bool {
+        match &self.admission {
+            None => true,
+            Some(pred) => eval_pred(pred, d, None),
+        }
+    }
+
     /// The offered set: eval(lens, log) — lens fidelity is a tested invariant (F4).
     pub fn offered_set(&self) -> Vec<Delta> {
         let lens = self.offered_lens.clone().unwrap_or(Term::Input);

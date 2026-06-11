@@ -157,8 +157,11 @@ plus polish (README status update, top-level parity runner, CI).
    host implementation + a compiled-module conformance vector.
 2. **HTTP transport binding** — ✅ TS side shipped (ERRATA-6 F5: POST /rhz/v0/sync; ids never
    on the wire, recomputed on receipt; lens + signature boundary + admission unchanged; two
-   peers converge over real localhost HTTP in the suite). Follow-up: the Rust client/server
-   speaking the same wire shape = the cross-implementation interop proof.
+   peers converge over real localhost HTTP in the suite). **Rust side shipped too (src/http.rs:
+   serve_peer via tiny_http, pull_from_url via ureq) — and the CROSS-IMPLEMENTATION INTEROP IS
+   PROVEN: a Rust peer (cargo run --example http_sync) pulled from a live TypeScript server
+   (tools/serve-interop.ts), bundle included, and converged to the byte-identical canonical
+   digest: 1e20f71d4b7221330eac265aa3f4047c92be0392ec09a0327500f0ca7d7bcacfb6bb (count=5).**
 3. **`rdb.*` prefix decision** — the user's call; one-constant change + vector regen when made.
 4. Deeper conformance vectors (alias closure, parameterized terms/holes, keyed emission).
 
