@@ -25,6 +25,26 @@ The framing matters: assembly languages achieved interop not by restricting the 
 
 The same HyperView legitimately yields different Views under different policies, simultaneously, within one application: an admin surface resolving `surfaceAll`, a public API resolving `trustedAuthors`, a quality dashboard resolving `conflictsOnly`. This is the original "feature, not a bug," now with a normative shape.
 
+### 2.1 Candidate value extraction
+
+What part of an HVEntry's delta *is* the value a policy adjudicates? The rule is total and
+deterministic:
+
+- **Filing pointers** (EntityRef pointers targeting the HView's root) are excluded — they are the
+  edge's address, not its payload.
+- Render the remaining pointers' targets: a primitive renders as itself; an unexpanded EntityRef
+  renders as its entity-id string; a DeltaRef renders as its delta-id string; an **expanded**
+  target (SPEC-2 §4.5) renders as the nested HView resolved recursively **with the same policy
+  object** as the enclosing resolution (per-depth policies are a deferred extension; the
+  recursion is deterministic either way).
+- **Zero** non-filing pointers → the candidate is `true` (the bare fact of the edge).
+- **Exactly one** → its rendered target.
+- **Several** → an object `{ role: rendered }`; duplicate roles within one delta collect into an
+  array in authored pointer order.
+
+Entries that survived into the HView under `mask(annotate)` are candidates even when tagged
+negated — the schema chose an audit view; suppression is what `mask(drop)` is for.
+
 ## 3. Policy Terms
 
 Policies are terms in a closed grammar — serializable as deltas, federate-able, and pinnable, exactly like schemas (P4 applies above the algebra too):
@@ -53,18 +73,23 @@ Normative notes:
 - Every `Order` chain MUST bottom out in `lexById` (delta content hashes give a canonical total order), guaranteeing determinism even among byte-equal claims from distinct deltas.
 - `byAuthorRank` is the trust primitive. Trust *lists* are data (representable as deltas), so trust is queryable, forkable, and federated like everything else.
 - `MergeFn` is a closed set by the same argument as SPEC-2 §1: arbitrary reducers cannot ship inside policy terms. They are not second-class, however — they are **derived authors** (SPEC-7). *(Open: whether aggregation pressure forces algebra-level support — tracked at SPEC-2 §9.)*
+- `merge(fn)` folds over the property's candidates in **ascending delta-id order** (float addition is order-dependent; the fold order is pinned). Domains: `max`/`min` take all primitive candidates by the canonical total order (SPEC-2 §3); `sum` numeric candidates only; `and`/`or` boolean only; `count` counts all surviving entries regardless of type; `concatSorted` yields all primitive candidates sorted canonically. Non-primitive candidates (§2.1 objects/arrays) are skipped by every MergeFn except `count`. A MergeFn with no candidates in its domain resolves to **absent**.
+- The resolved View includes every property named in `policy.props` — so `absentAs` can fire for properties with no deltas at all — plus every HView property not named, resolved via `default`. Every order chain ends in an **implicit lexById tiebreak**, structurally: determinism does not depend on authors remembering to write it.
 - **Computed resolution is architecture, not workaround.** Any resolution requiring general computation or judgment — domain-specific reducers, statistical combiners, human review queues, LLM adjudication, semantic matching — is performed by a derived author: an identified function subscribed to the relevant materialization, emitting its verdicts as signed deltas (optionally negating losers). The application's policy then resolves with `byAuthorRank([thatAuthor, …])`. The judgment becomes reactive (recomputed when inputs change, not on every read), cached (a delta, evaluated once), versioned (new function hash = new author), and auditable (`explain` traces the value to the function and the exact input hashes it saw). `resolve` stays deterministic; intelligence enters the system as provenance-carrying data. The cost, stated plainly: computed resolutions are eventually consistent with their inputs (SPEC-7 §5).
 
 ## 4. Edge Semantics (Normative)
 
 - **Empty property:** `pick` over zero entries yields *absent* (key omitted from the View) unless wrapped in `absentAs`. Views never contain null (mirrors SPEC-1 §2.1).
 - **All entries negated** under the schema's `mask(drop)`: indistinguishable from empty — negation already happened upstream. Policies see only survivors.
-- **`mask(annotate)` schemas:** entries carry a negation tag; policies MAY use `byPred` over it (audit views that *show* retractions).
+- **`mask(annotate)` schemas:** tagged entries remain candidates (§2.1) — audit views resolve like any other. Ordering *by* the tag is deferred: the Pred grammar sees only the delta, and the tag is entry metadata (likely future: a `negated` pseudo-field on `match`).
 - **Type heterogeneity:** competing claims of different primitive types are legal (someone asserted `size: 3`, someone `size: "large"`). `pick` is type-blind; `merge(max)` over mixed types MUST resolve by canonical type order (bool < number < string) then value — defined, deterministic, and ugly, which is the correct incentive to fix it with vocabulary discipline (§6) or negation.
 
 ## 5. View Output Profiles
 
-A View is canonical CBOR/JSON. Profiles (informative): a GraphQL resolver maps each property's PropPolicy to a field resolver over the HyperView — the legacy README's resolver examples become *generated code from policy terms*. REST/JSON and language-native object mappings follow the same pattern. All profiles MUST preserve the determinism contract; presentation may reorder, never re-adjudicate.
+A View is `primitive | View[] | { string: View }`. The View of an HView is the object of its
+resolved properties — the root id is context the caller already holds, not a property. Canonical
+serialization is the canonical CBOR of that structure (the same profile as everything else,
+SPEC-1 §4.1); conformance vectors pin both a JSON rendering and the canonical hex. Profiles (informative): a GraphQL resolver maps each property's PropPolicy to a field resolver over the HyperView — the legacy README's resolver examples become *generated code from policy terms*. REST/JSON and language-native object mappings follow the same pattern. All profiles MUST preserve the determinism contract; presentation may reorder, never re-adjudicate.
 
 ## 6. Vocabulary: the Calling Convention
 
@@ -76,7 +101,24 @@ L1 accepts any `role`/`context` strings; composition across authors requires con
 - **Semantic/embedding-based matching:** MUST NOT participate in evaluation (determinism and convergence forbid fuzzy semantics below the View). It enters the system in two sanctioned forms: as an authoring-time suggestion tool (lint: "these contexts look synonymous — assert an alias?"), and as a **derived author** (SPEC-7) continuously emitting `rhizomatic.alias` deltas — fuzzy judgment running live, with its hunches recorded as negatable, provenance-carrying claims rather than as nondeterminism inside the evaluator.
 - **Enforcement point:** mutation helpers (SPEC-4 §6). The convention is enforced where deltas are *born*, audited by registry lint, and repaired by alias deltas — never by rejecting well-formed deltas at L1.
 
-## 7. Open Questions (L5)
+## 7. Appendix: Policy JSON Profile (Normative)
+
+The JSON spelling of policy terms, used by the conformance vectors and as the authoring surface:
+
+```
+Policy     ::= { "props": { propName: PropPolicy, ... }, "default": PropPolicy }
+PropPolicy ::= { "pick": { "order": Order } }
+             | { "all": { "order": Order } }
+             | { "merge": "max"|"min"|"sum"|"count"|"and"|"or"|"concatSorted" }
+             | { "conflicts": { "order": Order } }
+             | { "absentAs": { "const": Primitive, "then": PropPolicy } }
+Order      ::= { "byTimestamp": "desc"|"asc" }
+             | { "byAuthorRank": [author, ...] }     // first match ranks first; unlisted rank last
+             | { "byPred": { "pred": Pred, "then": Order } }   // matches first, then `then`
+             | "lexById"
+```
+
+## 8. Open Questions (L5)
 
 - `aliased` StrMatch: confirm static-expansion semantics and DAG-check interaction (alias chains must be acyclic).
 - Policy composition: can policies import/extend other policies (a trust list shared across an org)? Likely yes via evolvable refs (SPEC-3 §6 semantics apply); needs vectors for the pin-recording requirement.
