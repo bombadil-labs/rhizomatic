@@ -1,5 +1,18 @@
 # Progress
 
+> **RESUME HERE (session handoff, 2026-06-10).** The v0 charter is complete: M0-M5 in both
+> witnesses (TS 179 / Rust 80 tests, byte-for-byte parity), conformance vectors, green CI,
+> the CLI demo, the browser playground, the WASM ABI proposal, the HTTP federation binding in
+> both languages, and a LIVE cross-impl interop proof (identical digests over real HTTP).
+> 29 escalating checkpoints, working tree clean, CI green at c031a19.
+>
+> **To resume:** read CLAUDE.md (working agreement) + this file. Verify green with
+> `node tools/check-all.mjs`. Open decisions awaiting the human: (1) the rdb.* vocabulary
+> prefix (one constant per impl + vector regen); (2) adopt/amend the WASM ABI proposal
+> (spec/07-derivation-abi.PROPOSAL.md); (3) review the 8 spec ERRATA for upstreaming into the
+> spec docs proper. Autonomous work available: deeper vectors (alias closure, parameterized
+> terms/holes, keyed emission), a WASM host implementing the proposal, perf passes.
+
 Living status for the build loop. Updated at the end of every slice; newest first. A fresh context
 window should be able to read this top-to-bottom and know exactly where things stand and what's next.
 
