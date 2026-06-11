@@ -227,6 +227,12 @@ plus polish (README status update, top-level parity runner, CI).
   (+1) counter-demo failing the same replay. Proof section renumbered §8, its derived-author
   paragraph deduped. Verified in-browser: avg 8.5→9 on rate-10, ✓ genuine / ✗ tampered, zero
   console errors. The tour now walks all of L0→L7.
+- **User feedback pass on the live tour (2026-06-11)** ✅ — (1) §5's log now shows negations
+  as first-class APPENDED rows ("t=5 Bob negates t=3's …") instead of only striking the target:
+  retraction reads as append, never edit; slider before the negation makes the original claim
+  briefly true again, end of slider respects it. (2) §6's peers are now Obi-Wan and Vader with
+  divergent claims about person:anakin_skywalker ("a certain point of view" — the aside ties
+  the quote to policies-as-perspectives); replaces the opaque rover example. Verified live.
 - **GitHub Pages** — blocked on a permission: needs the human to enable Pages (main, /docs)
   in repo settings; README already points at https://mbilokonsky.github.io/rhizomatic/.
 

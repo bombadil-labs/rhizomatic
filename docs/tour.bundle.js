@@ -7368,9 +7368,31 @@
     if (slider.dataset["touched"] !== "yes") slider.value = slider.max;
     const asOf = Number(slider.value) >= A.clock() ? void 0 : Number(slider.value);
     $("w-history-asof-label").textContent = asOf === void 0 ? "now" : `as of t\u2264${asOf}`;
+    const describeTarget = (id) => {
+      const target = A.alice.reactor.get(id);
+      if (target === void 0) return "?";
+      const subject = target.claims.pointers.find((p) => p.target.kind === "entity");
+      const ctx = subject?.target.kind === "entity" ? subject.target.entity.context ?? "?" : "?";
+      return `t=${target.claims.timestamp}'s ${ctx} = ${valueOf(target.claims)}`;
+    };
     for (const d of A.alice.reactor.arrivalLog()) {
-      if (d.claims.pointers.some((p) => p.role === "negates")) continue;
-      const retracted = A.alice.reactor.negationsOf(d.id).length > 0;
+      const negPtr = d.claims.pointers.find((p) => p.role === "negates");
+      if (negPtr !== void 0) {
+        const targetId = negPtr.target.kind === "delta" ? negPtr.target.deltaRef.delta : "";
+        host.append(
+          el(
+            "div",
+            { class: "entry negation" },
+            el("span", { class: "mono" }, `t=${d.claims.timestamp} `),
+            `${A.whoIs(d.claims.author)} negates ${describeTarget(targetId)} `,
+            el("span", { class: "meta" }, "\u2014 a new claim about an old claim; nothing was edited")
+          )
+        );
+        continue;
+      }
+      const negIds = A.alice.reactor.negationsOf(d.id);
+      const negAt = negIds.map((id) => A.alice.reactor.get(id)?.claims.timestamp).filter((t) => t !== void 0).sort((x, y) => x - y)[0];
+      const retracted = negAt !== void 0;
       const subject = d.claims.pointers.find((p) => p.target.kind === "entity");
       const ctx = subject?.target.kind === "entity" ? subject.target.entity.context ?? "?" : "?";
       const row = el(
@@ -7392,7 +7414,7 @@
         };
         row.append(btn);
       } else {
-        row.append(el("span", { class: "meta" }, " [retracted \u2014 but still right here]"));
+        row.append(el("span", { class: "meta" }, ` [negated at t=${negAt} \u2014 still right here]`));
       }
       host.append(row);
     }
@@ -7455,31 +7477,32 @@
     renderHistory();
     renderStats();
   }
+  var ANAKIN = "person:anakin_skywalker";
   function makeWorldB() {
-    const pat = new Peer("d4".repeat(32));
-    const quinn = new Peer("e5".repeat(32));
+    const kenobi = new Peer("d4".repeat(32));
+    const vader = new Peer("e5".repeat(32));
     let clock = 100;
     const tick = () => ++clock;
-    const claim = (peer, entity, context, value) => {
+    const claim = (peer, context, value) => {
       peer.authorClaims({
         timestamp: tick(),
         pointers: [
-          { role: "rover", target: { kind: "entity", entity: { id: entity, context } } },
+          { role: "person", target: { kind: "entity", entity: { id: ANAKIN, context } } },
           { role: context, target: { kind: "primitive", value } }
         ]
       });
     };
-    claim(pat, "rover:spirit", "location", "Gusev Crater");
-    claim(pat, "rover:spirit", "status", "silent since sol 2210");
-    claim(quinn, "rover:spirit", "wheels", 6);
-    claim(quinn, "rover:spirit", "status", "beloved");
-    return { pat, quinn, tick };
+    claim(kenobi, "fate", "betrayed and murdered by Darth Vader");
+    claim(kenobi, "lightsaber", "kept for his son");
+    claim(vader, "fate", "became Darth Vader");
+    claim(vader, "father_of", "Luke Skywalker");
+    return { kenobi, vader, tick };
   }
   var B = makeWorldB();
   function renderFederation() {
     for (const [name, peer] of [
-      ["Pat", B.pat],
-      ["Quinn", B.quinn]
+      ["Obi-Wan", B.kenobi],
+      ["Vader", B.vader]
     ]) {
       const card = $(`w-fed-${name}`);
       card.replaceChildren();
@@ -7517,8 +7540,8 @@
           timestamp: B.tick(),
           pointers: [
             {
-              role: "rover",
-              target: { kind: "entity", entity: { id: "rover:spirit", context: prop.value } }
+              role: "person",
+              target: { kind: "entity", entity: { id: ANAKIN, context: prop.value } }
             },
             { role: prop.value, target: { kind: "primitive", value: parseValue(val.value) } }
           ]
@@ -7530,13 +7553,17 @@
       };
       card.append(el("div", { class: "form" }, prop, val, add2));
     }
-    const a = B.pat.reactor.digest();
-    const b = B.quinn.reactor.digest();
+    const a = B.kenobi.reactor.digest();
+    const b = B.vader.reactor.digest();
     const verdict = $("w-fed-verdict");
     verdict.replaceChildren();
     if (a === b) {
       verdict.append(
-        el("div", { class: "ok" }, "\u2713 digests identical \u2014 the peers converged. Merge was union.")
+        el(
+          "div",
+          { class: "ok" },
+          "\u2713 digests identical \u2014 the peers converged. Both points of view now travel together."
+        )
       );
     } else {
       verdict.append(
@@ -7547,7 +7574,7 @@
   function widgetFederation() {
     const sync = $("w-fed-sync");
     sync.onclick = () => {
-      syncBoth(B.pat, B.quinn);
+      syncBoth(B.kenobi, B.vader);
       renderFederation();
       renderStats();
     };
@@ -7557,7 +7584,7 @@
     const btn = $("w-replay-btn");
     const out = $("w-replay-out");
     btn.onclick = () => {
-      const log = [...B.pat.reactor.arrivalLog()];
+      const log = [...B.kenobi.reactor.arrivalLog()];
       const shuffled = [...log];
       for (let i = shuffled.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -7565,7 +7592,7 @@
       }
       const fresh = new Reactor();
       for (const d of shuffled) fresh.ingest(d);
-      const original = B.pat.reactor.digest();
+      const original = B.kenobi.reactor.digest();
       const replayed = fresh.digest();
       const order = shuffled.map((d) => log.indexOf(d) + 1).join(", ");
       const same = original === replayed;
@@ -7977,7 +8004,7 @@ replayed digest  ${replayed.slice(4, 36)}\u2026
     render();
   }
   function renderStats() {
-    const n = A.alice.reactor.size + A.bob.reactor.size + B.pat.reactor.size + B.quinn.reactor.size;
+    const n = A.alice.reactor.size + A.bob.reactor.size + B.kenobi.reactor.size + B.vader.reactor.size;
     $("live-stats").textContent = `${n} signed deltas currently live in this tab \u2014 authored, hashed, and verified by the real implementation.`;
   }
   widgetAtom();
