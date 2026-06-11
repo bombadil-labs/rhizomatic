@@ -265,8 +265,11 @@ plus polish (README status update, top-level parity runner, CI).
   top: rdb.* prefix, D10 digest promotion, E14 channel threading, E8 pointer-level prune,
   WASM ABI adoption. Folds are mechanical + vector-guarded once approved, one spec doc per
   slice.
-- **GitHub Pages** — blocked on a permission: needs the human to enable Pages (main, /docs)
-  in repo settings; README already points at https://mbilokonsky.github.io/rhizomatic/.
+- **GitHub Pages is LIVE** ✅ — the human enabled it; the tour + WASM witness serve at
+  https://mbilokonsky.github.io/rhizomatic/ (verified 200s). Also fixed: the keyed-emission
+  slice changed src/derivation.ts (bundled into the tour) without rebuilding docs bundles —
+  the CI docs-freshness gate caught exactly the drift it exists to catch; bundle rebuilt.
+  Process note: rebuild docs:build after ANY ts/src change, and pin CI watches by sha.
 
 ## Queued next (in value order)
 

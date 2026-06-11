@@ -16,9 +16,8 @@ the format where every widget runs the real implementation: live content address
 superposition, policy lenses, retraction + audit, time travel, and two peers converging by
 union. **Both witnesses are on the page**: the TypeScript implementation is bundled, the Rust
 implementation is loaded as WebAssembly, and the tour runs the committed conformance vectors
-through each — then has Rust reproduce, byte for byte, every delta you author live. Once
-GitHub Pages is enabled for `/docs`, it lives at
-**https://mbilokonsky.github.io/rhizomatic/**. The free-form version is
+through each — then has Rust reproduce, byte for byte, every delta you author live. It's live
+at **https://mbilokonsky.github.io/rhizomatic/**. The free-form version is
 [docs/playground.html](docs/playground.html) — three sovereign peers, no narration.
 
 For the terminal version: `cd implementations/ts && npm install && npm run demo` — a seven-act

@@ -3803,6 +3803,17 @@
   }
 
   // src/derivation.ts
+  function emissionKey(substantive, contexts) {
+    const pairs = [];
+    for (const p of substantive) {
+      if (p.target.kind !== "entity") continue;
+      const ctx = p.target.entity.context;
+      if (ctx !== void 0 && contexts.includes(ctx)) {
+        pairs.push(`${p.target.entity.id}${ctx}`);
+      }
+    }
+    return pairs.sort().join("");
+  }
   function provenancePointers(spec, inputHex) {
     return [
       {
@@ -3853,7 +3864,7 @@
         fn,
         seedHex,
         author,
-        liveEmissions: [],
+        liveEmissions: /* @__PURE__ */ new Map(),
         triggerCount: 0,
         suspended: false
       });
@@ -3916,17 +3927,27 @@
       if (view === void 0) return [];
       const out = [];
       if (b.spec.emit === "supersede") {
-        for (const prior of b.liveEmissions) {
+        for (const prior of [...b.liveEmissions.values()].flat()) {
           out.push(...this.emitSigned(b, makeNegationClaims(b.author, 0, prior)));
         }
-        b.liveEmissions = [];
+        b.liveEmissions.clear();
       }
+      const keyed = typeof b.spec.emit === "object" ? b.spec.emit.keyed : void 0;
       for (const substantive of b.fn(view, change.root)) {
         const claims = derivedClaims(b.spec, b.author, substantive, change.newHex);
         const signed = signClaims(claims, b.seedHex);
+        const key = keyed === void 0 ? "" : emissionKey(substantive, keyed);
+        if (keyed !== void 0 && key !== "") {
+          for (const prior of b.liveEmissions.get(key) ?? []) {
+            out.push(...this.emitSigned(b, makeNegationClaims(b.author, 0, prior)));
+          }
+          b.liveEmissions.set(key, []);
+        }
         const result = this.reactor.ingest(signed);
         if (result.status === "accepted") {
-          b.liveEmissions.push(signed.id);
+          const bucket = b.liveEmissions.get(key);
+          if (bucket === void 0) b.liveEmissions.set(key, [signed.id]);
+          else bucket.push(signed.id);
           out.push(...this.reactor.changesFromLastIngest());
         }
       }
