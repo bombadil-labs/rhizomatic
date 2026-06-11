@@ -259,6 +259,12 @@ plus polish (README status update, top-level parity runner, CI).
   → Emit enum (Append | Supersede | Keyed), aligning the two hosts' shapes. Test in both:
   per-movie verdict bot over two roots — rating B leaves A's verdict live; re-rating A
   supersedes only A's. TS 190 / Rust 19 suites green; wasm refreshed.
+- **ERRATA upstreaming review artifact** ✅ — spec/ERRATA-REVIEW.md: all 57 errata entries
+  across the 8 spec docs, each with a one-line gist and a proposed disposition (FOLD 38 /
+  KEEP 12 / DECIDE 5). The five DECIDEs — the actual human review queue — are tabled at the
+  top: rdb.* prefix, D10 digest promotion, E14 channel threading, E8 pointer-level prune,
+  WASM ABI adoption. Folds are mechanical + vector-guarded once approved, one spec doc per
+  slice.
 - **GitHub Pages** — blocked on a permission: needs the human to enable Pages (main, /docs)
   in repo settings; README already points at https://mbilokonsky.github.io/rhizomatic/.
 
