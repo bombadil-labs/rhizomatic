@@ -155,7 +155,10 @@ plus polish (README status update, top-level parity runner, CI).
    HView CBOR (the same bytes as rdb.derived.from); output = the v0 DerivedFn shape; keys never
    enter guest memory; PURITY = zero imports, statically checkable. Next step after adoption: a
    host implementation + a compiled-module conformance vector.
-2. **HTTP/WS transport binding** for federation (SPEC-6 §9) over the existing Peer protocol.
+2. **HTTP transport binding** — ✅ TS side shipped (ERRATA-6 F5: POST /rhz/v0/sync; ids never
+   on the wire, recomputed on receipt; lens + signature boundary + admission unchanged; two
+   peers converge over real localhost HTTP in the suite). Follow-up: the Rust client/server
+   speaking the same wire shape = the cross-implementation interop proof.
 3. **`rdb.*` prefix decision** — the user's call; one-constant change + vector regen when made.
 4. Deeper conformance vectors (alias closure, parameterized terms/holes, keyed emission).
 

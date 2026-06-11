@@ -40,6 +40,11 @@ export class Peer {
     return signed;
   }
 
+  // The admission judgment (SPEC-6 §5 step 3), exposed for transport bindings (F5).
+  admits(d: Delta): boolean {
+    return this.admission === undefined || evalPred(this.admission, d);
+  }
+
   // The offered set: eval(lens, log) — lens fidelity is a tested invariant (F4).
   offeredSet(): Delta[] {
     const result = evalTerm(this.offeredLens, this.reactor.snapshot());
@@ -77,8 +82,7 @@ export class Peer {
 
     let accepted = 0;
     let rejected = 0;
-    const admit = (d: Delta): boolean =>
-      this.admission === undefined || evalPred(this.admission, d);
+    const admit = (d: Delta): boolean => this.admits(d);
     const count = (r: IngestResult) => {
       if (r.status === "accepted") accepted += 1;
       else if (r.status === "rejected") rejected += 1;

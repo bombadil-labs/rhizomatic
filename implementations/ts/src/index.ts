@@ -61,6 +61,7 @@ export { SCHEMA_SCHEMA, VOCAB_PREFIX, loadSchema, publishSchemaClaims } from "./
 export { decode } from "./cbor.js";
 export { packId, packSet, unpackSet } from "./pack.js";
 export { Peer, syncBoth, type SyncReport } from "./peer.js";
+export { offerFor, pullFromUrl, servePeer } from "./http.js";
 export {
   DerivationHost,
   derivedClaims,

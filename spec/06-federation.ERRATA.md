@@ -29,3 +29,25 @@ A lens is any DSet-sort term evaluated over the responder's log; lens fidelity
 (`offered ≡ eval(lens, log)`) is a tested invariant. Schema-relevance-closure lenses (§6) are
 expressible today as entity-targeting selects; automatic dependency closure is deferred with
 evolvable refs.
+
+## F5 — The blessed HTTP binding (v0 wire shape)
+
+One endpoint, one verb (SPEC-6 §9: bless one, leave the rest wild):
+
+```
+POST /rhz/v0/sync
+  request  (JSON): { "have": [deltaId, ...] }              // the WANT message
+  response (JSON): {                                        // the OFFER + BUNDLEs
+    "bundles": [ { "manifest": WireDelta, "members": [WireDelta...] } ... ],
+    "loose":   [ WireDelta... ]
+  }
+WireDelta = { "claims": <JSON debug profile>, "sig"?: hex }   // ids recomputed on receipt
+```
+
+The responder computes `eval(offeredLens, log)` minus `have`, partitioned exactly per F3.
+Wire deltas carry NO id field — the receiver recomputes content addresses through the standard
+ingest path (never trust the wire; same rule as packs, ERRATA-8 P2). JSON numbers MUST be
+parsed correctly rounded (ERRATA-1, the serde_json float_roundtrip lesson). The full admission
+pipeline (verify → admission Pred → ingest) applies unchanged on receipt; pull twice in
+opposite directions for anti-entropy. A Rust client against a TS server (and vice versa) is the
+queued cross-implementation interop proof.
