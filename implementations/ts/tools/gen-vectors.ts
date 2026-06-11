@@ -36,7 +36,7 @@ const inputs: Input[] = [
     claims: {
       timestamp: 0,
       author: "did:key:zAuthorA",
-      pointers: [{ role: "title", target: { value: "The Matrix" } }],
+      pointers: [{ role: "title", target: "The Matrix" }],
     },
   },
   {
@@ -45,7 +45,7 @@ const inputs: Input[] = [
     claims: {
       timestamp: 1717977600000,
       author: "did:key:zAuthorA",
-      pointers: [{ role: "releaseYear", target: { value: 1999 } }],
+      pointers: [{ role: "releaseYear", target: 1999 }],
     },
   },
   {
@@ -54,7 +54,7 @@ const inputs: Input[] = [
     claims: {
       timestamp: 0,
       author: "did:key:zAuthorA",
-      pointers: [{ role: "isCanonical", target: { value: true } }],
+      pointers: [{ role: "isCanonical", target: true }],
     },
   },
   {
@@ -63,7 +63,7 @@ const inputs: Input[] = [
     claims: {
       timestamp: 0,
       author: "did:key:zAuthorA",
-      pointers: [{ role: "subject", target: { entityRef: { id: "entity:the_matrix" } } }],
+      pointers: [{ role: "subject", target: { id: "entity:the_matrix" } }],
     },
   },
   {
@@ -72,7 +72,7 @@ const inputs: Input[] = [
     claims: {
       timestamp: 0,
       author: "did:key:zAuthorA",
-      pointers: [{ role: "cast", target: { entityRef: { id: "entity:keanu", context: "actor" } } }],
+      pointers: [{ role: "cast", target: { id: "entity:keanu", context: "actor" } }],
     },
   },
   {
@@ -85,12 +85,10 @@ const inputs: Input[] = [
         {
           role: "negates",
           target: {
-            deltaRef: {
-              delta: "1e2000000000000000000000000000000000000000000000000000000000000000",
-            },
+            delta: "1e2000000000000000000000000000000000000000000000000000000000000000",
           },
         },
-        { role: "reason", target: { value: "superseded" } },
+        { role: "reason", target: "superseded" },
       ],
     },
   },
@@ -101,10 +99,10 @@ const inputs: Input[] = [
       timestamp: 1717977600000,
       author: "did:key:zAuthorA",
       pointers: [
-        { role: "buyer", target: { entityRef: { id: "entity:alice", context: "purchases" } } },
-        { role: "seller", target: { entityRef: { id: "entity:bob", context: "sales" } } },
-        { role: "item", target: { entityRef: { id: "entity:widget", context: "soldVia" } } },
-        { role: "price", target: { value: 19.99 } },
+        { role: "buyer", target: { id: "entity:alice", context: "purchases" } },
+        { role: "seller", target: { id: "entity:bob", context: "sales" } },
+        { role: "item", target: { id: "entity:widget", context: "soldVia" } },
+        { role: "price", target: 19.99 },
       ],
     },
   },
@@ -114,7 +112,7 @@ const inputs: Input[] = [
     claims: {
       timestamp: 0,
       author: "did:key:café",
-      pointers: [{ role: "note", target: { value: "ünïcödé" } }],
+      pointers: [{ role: "note", target: "ünïcödé" }],
     },
   },
 ];
@@ -162,7 +160,7 @@ const signedInputs: Array<{
     mk: (author) => ({
       timestamp: 1717977600000,
       author,
-      pointers: [{ role: "title", target: { value: "The Matrix" } }],
+      pointers: [{ role: "title", target: "The Matrix" }],
     }),
   },
   {
@@ -172,7 +170,7 @@ const signedInputs: Array<{
     mk: (author) => ({
       timestamp: 42,
       author,
-      pointers: [{ role: "cast", target: { entityRef: { id: "entity:keanu", context: "actor" } } }],
+      pointers: [{ role: "cast", target: { id: "entity:keanu", context: "actor" } }],
     }),
   },
   {
@@ -186,9 +184,7 @@ const signedInputs: Array<{
         {
           role: "negates",
           target: {
-            deltaRef: {
-              delta: "1e2000000000000000000000000000000000000000000000000000000000000000",
-            },
+            delta: "1e2000000000000000000000000000000000000000000000000000000000000000",
           },
         },
       ],
@@ -235,7 +231,7 @@ const claim = (timestamp: number, author: string, pointers: unknown[]) => ({
   pointers,
 });
 const subj = (entity: string, context: string) => ({
-  target: { entityRef: { id: entity, context } },
+  target: { id: entity, context },
 });
 
 const A = "did:key:zAlice";
@@ -251,53 +247,53 @@ addFx(
   "d1-title-matrix",
   claim(100, A, [
     { role: "subject", ...subj("movie:matrix", "title") },
-    { role: "value", target: { value: "The Matrix" } },
+    { role: "value", target: "The Matrix" },
   ]),
 );
 addFx(
   "d2-title-reloaded",
   claim(200, B, [
     { role: "subject", ...subj("movie:matrix", "title") },
-    { role: "value", target: { value: "Matrix Reloaded" } },
+    { role: "value", target: "Matrix Reloaded" },
   ]),
 );
 addFx(
   "d3-year",
   claim(150, A, [
     { role: "subject", ...subj("movie:matrix", "releaseYear") },
-    { role: "value", target: { value: 1999 } },
+    { role: "value", target: 1999 },
   ]),
 );
 addFx(
   "d4-negates-d2",
   claim(300, B, [
-    { role: "negates", target: { deltaRef: { delta: fx["d2-title-reloaded"]!.id } } },
-    { role: "reason", target: { value: "typo" } },
+    { role: "negates", target: { delta: fx["d2-title-reloaded"]!.id } },
+    { role: "reason", target: "typo" },
   ]),
 );
 addFx(
   "d5-negates-d4",
-  claim(400, C, [{ role: "negates", target: { deltaRef: { delta: fx["d4-negates-d2"]!.id } } }]),
+  claim(400, C, [{ role: "negates", target: { delta: fx["d4-negates-d2"]!.id } }]),
 );
 addFx(
   "d6-rating",
   claim(500, A, [
     { role: "subject", ...subj("movie:matrix", "rating") },
-    { role: "value", target: { value: 8.7 } },
+    { role: "value", target: 8.7 },
   ]),
 );
 addFx(
   "d7-tag",
   claim(120, C, [
     { role: "subject", ...subj("movie:matrix", "tag") },
-    { role: "value", target: { value: "scifi" } },
+    { role: "value", target: "scifi" },
   ]),
 );
 addFx(
   "d8-other-movie",
   claim(600, A, [
     { role: "subject", ...subj("movie:johnwick", "title") },
-    { role: "value", target: { value: "John Wick" } },
+    { role: "value", target: "John Wick" },
   ]),
 );
 
@@ -438,12 +434,12 @@ addFx(
   claim(700, C, [
     { role: "subject", ...subj("movie:matrix", "title") },
     { role: "variantOf", ...subj("movie:matrix", "related") },
-    { role: "value", target: { value: "The Matrix (1999)" } },
+    { role: "value", target: "The Matrix (1999)" },
   ]),
 );
 addFx(
   "d10-contextless-mention",
-  claim(800, B, [{ role: "mentions", target: { entityRef: { id: "movie:matrix" } } }]),
+  claim(800, B, [{ role: "mentions", target: { id: "movie:matrix" } }]),
 );
 
 const hviewFixtureSet = DeltaSet.from(
@@ -599,21 +595,21 @@ addXfx(
   "a1-keanu-name",
   claim(100, A, [
     { role: "subject", ...subj("actor:keanu", "name") },
-    { role: "value", target: { value: "Keanu Reeves" } },
+    { role: "value", target: "Keanu Reeves" },
   ]),
 );
 addXfx(
   "m1-matrix-title",
   claim(110, A, [
     { role: "subject", ...subj("movie:matrix", "title") },
-    { role: "value", target: { value: "The Matrix" } },
+    { role: "value", target: "The Matrix" },
   ]),
 );
 addXfx(
   "m2-brzrkr-title",
   claim(120, B, [
     { role: "subject", ...subj("movie:brzrkr", "title") },
-    { role: "value", target: { value: "BRZRKR" } },
+    { role: "value", target: "BRZRKR" },
   ]),
 );
 addXfx(
@@ -621,7 +617,7 @@ addXfx(
   claim(130, A, [
     { role: "movie", ...subj("movie:matrix", "cast") },
     { role: "actor", ...subj("actor:keanu", "filmography") },
-    { role: "character", target: { value: "Neo" } },
+    { role: "character", target: "Neo" },
   ]),
 );
 addXfx(
@@ -764,74 +760,74 @@ addRfx(
   "t1-title-a",
   claim(100, A, [
     { role: "subject", ...subj("movie:matrix", "title") },
-    { role: "value", target: { value: "The Matrix" } },
+    { role: "value", target: "The Matrix" },
   ]),
 );
 addRfx(
   "t2-title-b",
   claim(200, B, [
     { role: "subject", ...subj("movie:matrix", "title") },
-    { role: "value", target: { value: "Matrix Reloaded" } },
+    { role: "value", target: "Matrix Reloaded" },
   ]),
 );
 addRfx(
   "y1-year",
   claim(150, A, [
     { role: "subject", ...subj("movie:matrix", "releaseYear") },
-    { role: "value", target: { value: 1999 } },
+    { role: "value", target: 1999 },
   ]),
 );
 addRfx(
   "r1-rating-a",
   claim(500, A, [
     { role: "subject", ...subj("movie:matrix", "rating") },
-    { role: "value", target: { value: 8.7 } },
+    { role: "value", target: 8.7 },
   ]),
 );
 addRfx(
   "r2-rating-b",
   claim(600, B, [
     { role: "subject", ...subj("movie:matrix", "rating") },
-    { role: "value", target: { value: 9.1 } },
+    { role: "value", target: 9.1 },
   ]),
 );
 addRfx(
   "g1-tag-scifi",
   claim(120, C, [
     { role: "subject", ...subj("movie:matrix", "tag") },
-    { role: "value", target: { value: "scifi" } },
+    { role: "value", target: "scifi" },
   ]),
 );
 addRfx(
   "g2-tag-action",
   claim(610, B, [
     { role: "subject", ...subj("movie:matrix", "tag") },
-    { role: "value", target: { value: "action" } },
+    { role: "value", target: "action" },
   ]),
 );
 addRfx(
   "s1-size-str",
   claim(700, C, [
     { role: "subject", ...subj("movie:matrix", "size") },
-    { role: "value", target: { value: "large" } },
+    { role: "value", target: "large" },
   ]),
 );
 addRfx(
   "s2-size-num",
   claim(710, A, [
     { role: "subject", ...subj("movie:matrix", "size") },
-    { role: "value", target: { value: 3 } },
+    { role: "value", target: 3 },
   ]),
 );
 addRfx(
   "n1-negates-t2",
-  claim(300, B, [{ role: "negates", target: { deltaRef: { delta: rfx["t2-title-b"]!.id } } }]),
+  claim(300, B, [{ role: "negates", target: { delta: rfx["t2-title-b"]!.id } }]),
 );
 addRfx(
   "a1-keanu-name",
   claim(110, A, [
     { role: "subject", ...subj("actor:keanu", "name") },
-    { role: "value", target: { value: "Keanu Reeves" } },
+    { role: "value", target: "Keanu Reeves" },
   ]),
 );
 addRfx(
@@ -839,7 +835,7 @@ addRfx(
   claim(130, A, [
     { role: "movie", ...subj("movie:matrix", "cast") },
     { role: "actor", ...subj("actor:keanu", "filmography") },
-    { role: "character", target: { value: "Neo" } },
+    { role: "character", target: "Neo" },
   ]),
 );
 
@@ -1059,7 +1055,7 @@ const packMembers = [
     parseClaims({
       timestamp: 4900,
       author: keys[0]!.author,
-      pointers: [{ role: "note", target: { value: "covered" } }],
+      pointers: [{ role: "note", target: "covered" }],
     }),
     keys[0]!.seedHex,
   ),

@@ -89,7 +89,7 @@ fn refuses_author_mismatch() {
     let claims = parse_claims(&serde_json::json!({
         "timestamp": 0,
         "author": "ed25519:0000000000000000000000000000000000000000000000000000000000000000",
-        "pointers": [{ "role": "x", "target": { "value": "y" } }]
+        "pointers": [{ "role": "x", "target": "y" }]
     }))
     .unwrap();
     let err = sign_claims(&claims, keys[0]["seedHex"].as_str().unwrap()).unwrap_err();

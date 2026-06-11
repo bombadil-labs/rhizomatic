@@ -9,17 +9,13 @@
           {
             "role": "subject",
             "target": {
-              "entityRef": {
-                "id": "movie:matrix",
-                "context": "title"
-              }
+              "id": "movie:matrix",
+              "context": "title"
             }
           },
           {
             "role": "value",
-            "target": {
-              "value": "The Matrix"
-            }
+            "target": "The Matrix"
           }
         ]
       }
@@ -32,17 +28,13 @@
           {
             "role": "subject",
             "target": {
-              "entityRef": {
-                "id": "movie:matrix",
-                "context": "title"
-              }
+              "id": "movie:matrix",
+              "context": "title"
             }
           },
           {
             "role": "value",
-            "target": {
-              "value": "Matrix Reloaded"
-            }
+            "target": "Matrix Reloaded"
           }
         ]
       }
@@ -55,17 +47,13 @@
           {
             "role": "subject",
             "target": {
-              "entityRef": {
-                "id": "movie:matrix",
-                "context": "releaseYear"
-              }
+              "id": "movie:matrix",
+              "context": "releaseYear"
             }
           },
           {
             "role": "value",
-            "target": {
-              "value": 1999
-            }
+            "target": 1999
           }
         ]
       }
@@ -78,16 +66,12 @@
           {
             "role": "negates",
             "target": {
-              "deltaRef": {
-                "delta": "1e20b758d08491d624d45b41c48b8ccd7a84815d94f9ee227336075ac13d6a7bc744"
-              }
+              "delta": "1e20b758d08491d624d45b41c48b8ccd7a84815d94f9ee227336075ac13d6a7bc744"
             }
           },
           {
             "role": "reason",
-            "target": {
-              "value": "typo"
-            }
+            "target": "typo"
           }
         ]
       }
@@ -99,9 +83,7 @@
         "pointers": [
           {
             "role": "note",
-            "target": {
-              "value": "covered"
-            }
+            "target": "covered"
           }
         ]
       },
@@ -115,48 +97,36 @@
           {
             "role": "rdb.txn.member",
             "target": {
-              "deltaRef": {
-                "delta": "1e205eff49bb6d03d3b53b0929e8b7a965da260df95b24894aa6c381be584cf39392"
-              }
+              "delta": "1e205eff49bb6d03d3b53b0929e8b7a965da260df95b24894aa6c381be584cf39392"
             }
           },
           {
             "role": "rdb.txn.member",
             "target": {
-              "deltaRef": {
-                "delta": "1e20b758d08491d624d45b41c48b8ccd7a84815d94f9ee227336075ac13d6a7bc744"
-              }
+              "delta": "1e20b758d08491d624d45b41c48b8ccd7a84815d94f9ee227336075ac13d6a7bc744"
             }
           },
           {
             "role": "rdb.txn.member",
             "target": {
-              "deltaRef": {
-                "delta": "1e20128fcc903f2270c79a0fe4de67be24e85dd7c95dd11b4dc25e7a939f429979c1"
-              }
+              "delta": "1e20128fcc903f2270c79a0fe4de67be24e85dd7c95dd11b4dc25e7a939f429979c1"
             }
           },
           {
             "role": "rdb.txn.member",
             "target": {
-              "deltaRef": {
-                "delta": "1e20813a3c2552fbe7603d6fdacc369752f5b077c7e6c2e4b2fcd3b850d7c68cbb97"
-              }
+              "delta": "1e20813a3c2552fbe7603d6fdacc369752f5b077c7e6c2e4b2fcd3b850d7c68cbb97"
             }
           },
           {
             "role": "rdb.txn.member",
             "target": {
-              "deltaRef": {
-                "delta": "1e204da0731c31b26bd96f729403bfe581f3377c5f3c5db98204b5f5bc9073e2caa4"
-              }
+              "delta": "1e204da0731c31b26bd96f729403bfe581f3377c5f3c5db98204b5f5bc9073e2caa4"
             }
           },
           {
             "role": "rdb.txn.intent",
-            "target": {
-              "value": "pack fixture"
-            }
+            "target": "pack fixture"
           }
         ]
       }
@@ -169,17 +139,13 @@
           {
             "role": "rdb.txn.member",
             "target": {
-              "deltaRef": {
-                "delta": "1e205eff49bb6d03d3b53b0929e8b7a965da260df95b24894aa6c381be584cf39392"
-              }
+              "delta": "1e205eff49bb6d03d3b53b0929e8b7a965da260df95b24894aa6c381be584cf39392"
             }
           },
           {
             "role": "rdb.txn.prior",
             "target": {
-              "deltaRef": {
-                "delta": "1e20947492559b32604dd0a7b969f6b1c3a84dbdd493b62cc4ae914f2aac484f00e7"
-              }
+              "delta": "1e20947492559b32604dd0a7b969f6b1c3a84dbdd493b62cc4ae914f2aac484f00e7"
             }
           }
         ]
@@ -193,9 +159,7 @@
           {
             "role": "negates",
             "target": {
-              "deltaRef": {
-                "delta": "1e20813a3c2552fbe7603d6fdacc369752f5b077c7e6c2e4b2fcd3b850d7c68cbb97"
-              }
+              "delta": "1e20813a3c2552fbe7603d6fdacc369752f5b077c7e6c2e4b2fcd3b850d7c68cbb97"
             }
           }
         ]
@@ -209,17 +173,13 @@
           {
             "role": "subject",
             "target": {
-              "entityRef": {
-                "id": "movie:matrix",
-                "context": "rating"
-              }
+              "id": "movie:matrix",
+              "context": "rating"
             }
           },
           {
             "role": "value",
-            "target": {
-              "value": 8.7
-            }
+            "target": 8.7
           }
         ]
       }
@@ -232,17 +192,13 @@
           {
             "role": "subject",
             "target": {
-              "entityRef": {
-                "id": "movie:matrix",
-                "context": "tag"
-              }
+              "id": "movie:matrix",
+              "context": "tag"
             }
           },
           {
             "role": "value",
-            "target": {
-              "value": "scifi"
-            }
+            "target": "scifi"
           }
         ]
       }
@@ -255,17 +211,13 @@
           {
             "role": "subject",
             "target": {
-              "entityRef": {
-                "id": "movie:johnwick",
-                "context": "title"
-              }
+              "id": "movie:johnwick",
+              "context": "title"
             }
           },
           {
             "role": "value",
-            "target": {
-              "value": "John Wick"
-            }
+            "target": "John Wick"
           }
         ]
       }

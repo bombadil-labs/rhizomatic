@@ -29,7 +29,7 @@ function bundleWorld(): DeltaSet {
     parseClaims({
       timestamp: 4900,
       author: authorForSeed(keys[0]!.seedHex),
-      pointers: [{ role: "note", target: { value: "covered" } }],
+      pointers: [{ role: "note", target: "covered" }],
     }),
     keys[0]!.seedHex,
   );

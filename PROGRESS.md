@@ -208,6 +208,16 @@ plus polish (README status update, top-level parity runner, CI).
   views, clear a context and watch that vertex's backpointer vanish; all seed worlds
   de-cosplayed. Verified in-browser; 117/117 conformance unchanged. Playground de-cosplay
   queued next.
+- **JSON profile flattened to match the wire (user-approved, 2026-06-11)** ✅ — the debug
+  profile's value/entityRef/deltaRef tags carried nothing the structure doesn't: target is now
+  the bare primitive | {id, context?} | {delta, context?}, isomorphic to canonical CBOR
+  (ERRATA-1 amended). Both witnesses' parsers/serializers updated in lockstep; vectors
+  regenerated — PROVEN transport-only (zero changed lines touch canonicalCborHex / ids /
+  digests / sigs / pack bytes). WASM witness rebuilt (the tour ships flat JSON over the ABI).
+  Playground + CLI demo de-cosplayed in the same pass (movie/value-role idiom gone everywhere;
+  caught a real silent regression: the demo's R1 candidate lookup keyed on the old role).
+  Verified: 117/117 in-browser across both witnesses, demo prints avgRating=9, zero console
+  errors.
 - **GitHub Pages** — blocked on a permission: needs the human to enable Pages (main, /docs)
   in repo settings; README already points at https://mbilokonsky.github.io/rhizomatic/.
 

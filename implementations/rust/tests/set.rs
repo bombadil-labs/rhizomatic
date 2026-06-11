@@ -114,7 +114,7 @@ proptest! {
 fn rejects_forged_id() {
     let claims = parse_claims(&serde_json::json!({
         "timestamp": 0, "author": "a",
-        "pointers": [{ "role": "x", "target": { "value": 1 } }]
+        "pointers": [{ "role": "x", "target": 1 }]
     }))
     .unwrap();
     let mut forged = make_delta(claims, None).unwrap();

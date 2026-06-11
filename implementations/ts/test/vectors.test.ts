@@ -32,16 +32,16 @@ describe("l0-delta vectors (canonical bytes + content address)", () => {
       timestamp: 0,
       author: "did:key:zA",
       pointers: [
-        { role: "x", target: { value: "1" } },
-        { role: "y", target: { value: "2" } },
+        { role: "x", target: "1" },
+        { role: "y", target: "2" },
       ],
     });
     const b = parseClaims({
       timestamp: 0,
       author: "did:key:zA",
       pointers: [
-        { role: "y", target: { value: "2" } },
-        { role: "x", target: { value: "1" } },
+        { role: "y", target: "2" },
+        { role: "x", target: "1" },
       ],
     });
     expect(computeId(a)).not.toBe(computeId(b));

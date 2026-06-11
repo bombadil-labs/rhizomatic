@@ -58,7 +58,7 @@ describe("ingest pipeline (SPEC-4 §2, ERRATA-4 V3)", () => {
     const claims = parseClaims({
       timestamp: 5,
       author: authorForSeed(key.seedHex),
-      pointers: [{ role: "x", target: { value: "y" } }],
+      pointers: [{ role: "x", target: "y" }],
     });
     const signed = signClaims(claims, key.seedHex);
     const r = new Reactor();

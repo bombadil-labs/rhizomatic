@@ -55,7 +55,7 @@ fn signed_accept_and_tamper_reject() {
     let claims = parse_claims(&json!({
         "timestamp": 5,
         "author": author_for_seed(seed).unwrap(),
-        "pointers": [{ "role": "x", "target": { "value": "y" } }]
+        "pointers": [{ "role": "x", "target": "y" }]
     }))
     .unwrap();
     let signed = sign_claims(&claims, seed).unwrap();

@@ -30,8 +30,8 @@ function seedClaim(entity: string, context: string, value: string | number) {
   return {
     timestamp: tick(),
     pointers: [
-      { role: "subject", target: { kind: "entity" as const, entity: { id: entity, context } } },
-      { role: "value", target: { kind: "primitive" as const, value } },
+      { role: "movie", target: { kind: "entity" as const, entity: { id: entity, context } } },
+      { role: context, target: { kind: "primitive" as const, value } },
     ],
   };
 }
@@ -112,12 +112,13 @@ function whoIs(author: string): string {
 function valueOf(claims: {
   pointers: ReadonlyArray<{ role: string; target: { kind: string } }>;
 }): string {
-  const p = claims.pointers.find((x) => x.role === "value");
-  if (p !== undefined && p.target.kind === "primitive") {
+  const neg = claims.pointers.find((x) => x.role === "negates");
+  if (neg !== undefined) return "(retraction)";
+  const p = claims.pointers.find((x) => x.target.kind === "primitive");
+  if (p !== undefined) {
     return JSON.stringify((p.target as unknown as { value: unknown }).value);
   }
-  const neg = claims.pointers.find((x) => x.role === "negates");
-  return neg !== undefined ? "(retraction)" : "(edge)";
+  return "(edge)";
 }
 
 function renderPeers(): void {

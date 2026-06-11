@@ -19,38 +19,32 @@ fn parse_primitive(v: &Value) -> Result<Primitive, String> {
     }
 }
 
+// The profile mirrors the canonical CBOR exactly: a primitive target is the bare value; an
+// entity ref is {id, context?}; a delta ref is {delta, context?}. Discrimination is structural
+// (SPEC-1 §2.1) — primitives are never objects, and the id/delta key names the ref kind.
 fn parse_target(v: &Value) -> Result<Target, String> {
-    let o = v.as_object().ok_or("target must be an object")?;
-    if let Some(val) = o.get("value") {
-        return Ok(Target::Primitive(parse_primitive(val)?));
+    if matches!(v, Value::String(_) | Value::Number(_) | Value::Bool(_)) {
+        return Ok(Target::Primitive(parse_primitive(v)?));
     }
-    if let Some(e) = o.get("entityRef") {
-        let eo = e.as_object().ok_or("entityRef must be an object")?;
-        let id = eo
-            .get("id")
-            .and_then(Value::as_str)
-            .ok_or("entityRef.id must be a string")?
+    let o = v
+        .as_object()
+        .ok_or("target must be a primitive, {id, context?}, or {delta, context?}")?;
+    let context = o.get("context").and_then(Value::as_str).map(str::to_string);
+    if let Some(id) = o.get("id") {
+        let id = id
+            .as_str()
+            .ok_or("entity ref id must be a string")?
             .to_string();
-        let context = eo
-            .get("context")
-            .and_then(Value::as_str)
-            .map(str::to_string);
         return Ok(Target::Entity(EntityRef { id, context }));
     }
-    if let Some(d) = o.get("deltaRef") {
-        let dobj = d.as_object().ok_or("deltaRef must be an object")?;
-        let delta = dobj
-            .get("delta")
-            .and_then(Value::as_str)
-            .ok_or("deltaRef.delta must be a string")?
+    if let Some(delta) = o.get("delta") {
+        let delta = delta
+            .as_str()
+            .ok_or("delta ref delta must be a string")?
             .to_string();
-        let context = dobj
-            .get("context")
-            .and_then(Value::as_str)
-            .map(str::to_string);
         return Ok(Target::Delta(DeltaRef { delta, context }));
     }
-    Err("target must be one of value | entityRef | deltaRef".into())
+    Err("target must be a primitive, {id, context?}, or {delta, context?}".into())
 }
 
 fn parse_pointer(v: &Value) -> Result<Pointer, String> {
@@ -98,16 +92,16 @@ pub fn claims_to_json(claims: &Claims) -> Value {
         .iter()
         .map(|p| {
             let target = match &p.target {
-                Target::Primitive(Primitive::Str(s)) => json!({ "value": s }),
-                Target::Primitive(Primitive::Num(n)) => json!({ "value": n }),
-                Target::Primitive(Primitive::Bool(b)) => json!({ "value": b }),
+                Target::Primitive(Primitive::Str(s)) => json!(s),
+                Target::Primitive(Primitive::Num(n)) => json!(n),
+                Target::Primitive(Primitive::Bool(b)) => json!(b),
                 Target::Entity(e) => match &e.context {
-                    Some(c) => json!({ "entityRef": { "id": e.id, "context": c } }),
-                    None => json!({ "entityRef": { "id": e.id } }),
+                    Some(c) => json!({ "id": e.id, "context": c }),
+                    None => json!({ "id": e.id }),
                 },
                 Target::Delta(d) => match &d.context {
-                    Some(c) => json!({ "deltaRef": { "delta": d.delta, "context": c } }),
-                    None => json!({ "deltaRef": { "delta": d.delta } }),
+                    Some(c) => json!({ "delta": d.delta, "context": c }),
+                    None => json!({ "delta": d.delta }),
                 },
             };
             json!({ "role": p.role, "target": target })

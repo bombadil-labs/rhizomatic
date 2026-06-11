@@ -8,9 +8,7 @@
       "pointers": [
         {
           "role": "title",
-          "target": {
-            "value": "The Matrix"
-          }
+          "target": "The Matrix"
         }
       ]
     },
@@ -26,9 +24,7 @@
       "pointers": [
         {
           "role": "releaseYear",
-          "target": {
-            "value": 1999
-          }
+          "target": 1999
         }
       ]
     },
@@ -44,9 +40,7 @@
       "pointers": [
         {
           "role": "isCanonical",
-          "target": {
-            "value": true
-          }
+          "target": true
         }
       ]
     },
@@ -63,9 +57,7 @@
         {
           "role": "subject",
           "target": {
-            "entityRef": {
-              "id": "entity:the_matrix"
-            }
+            "id": "entity:the_matrix"
           }
         }
       ]
@@ -83,10 +75,8 @@
         {
           "role": "cast",
           "target": {
-            "entityRef": {
-              "id": "entity:keanu",
-              "context": "actor"
-            }
+            "id": "entity:keanu",
+            "context": "actor"
           }
         }
       ]
@@ -104,16 +94,12 @@
         {
           "role": "negates",
           "target": {
-            "deltaRef": {
-              "delta": "1e2000000000000000000000000000000000000000000000000000000000000000"
-            }
+            "delta": "1e2000000000000000000000000000000000000000000000000000000000000000"
           }
         },
         {
           "role": "reason",
-          "target": {
-            "value": "superseded"
-          }
+          "target": "superseded"
         }
       ]
     },
@@ -130,35 +116,27 @@
         {
           "role": "buyer",
           "target": {
-            "entityRef": {
-              "id": "entity:alice",
-              "context": "purchases"
-            }
+            "id": "entity:alice",
+            "context": "purchases"
           }
         },
         {
           "role": "seller",
           "target": {
-            "entityRef": {
-              "id": "entity:bob",
-              "context": "sales"
-            }
+            "id": "entity:bob",
+            "context": "sales"
           }
         },
         {
           "role": "item",
           "target": {
-            "entityRef": {
-              "id": "entity:widget",
-              "context": "soldVia"
-            }
+            "id": "entity:widget",
+            "context": "soldVia"
           }
         },
         {
           "role": "price",
-          "target": {
-            "value": 19.99
-          }
+          "target": 19.99
         }
       ]
     },
@@ -174,9 +152,7 @@
       "pointers": [
         {
           "role": "note",
-          "target": {
-            "value": "ünïcödé"
-          }
+          "target": "ünïcödé"
         }
       ]
     },

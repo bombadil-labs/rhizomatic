@@ -3904,8 +3904,8 @@
     return {
       timestamp: tick(),
       pointers: [
-        { role: "subject", target: { kind: "entity", entity: { id: entity, context } } },
-        { role: "value", target: { kind: "primitive", value } }
+        { role: "movie", target: { kind: "entity", entity: { id: entity, context } } },
+        { role: context, target: { kind: "primitive", value } }
       ]
     };
   }
@@ -3962,12 +3962,13 @@
     return `${author.slice(8, 16)}\u2026`;
   }
   function valueOf(claims) {
-    const p = claims.pointers.find((x) => x.role === "value");
-    if (p !== void 0 && p.target.kind === "primitive") {
+    const neg = claims.pointers.find((x) => x.role === "negates");
+    if (neg !== void 0) return "(retraction)";
+    const p = claims.pointers.find((x) => x.target.kind === "primitive");
+    if (p !== void 0) {
       return JSON.stringify(p.target.value);
     }
-    const neg = claims.pointers.find((x) => x.role === "negates");
-    return neg !== void 0 ? "(retraction)" : "(edge)";
+    return "(edge)";
   }
   function renderPeers() {
     for (const [name, peer] of Object.entries(peers)) {

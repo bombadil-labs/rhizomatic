@@ -9,9 +9,7 @@
       "pointers": [
         {
           "role": "title",
-          "target": {
-            "value": "The Matrix"
-          }
+          "target": "The Matrix"
         }
       ]
     },
@@ -30,10 +28,8 @@
         {
           "role": "cast",
           "target": {
-            "entityRef": {
-              "id": "entity:keanu",
-              "context": "actor"
-            }
+            "id": "entity:keanu",
+            "context": "actor"
           }
         }
       ]
@@ -53,9 +49,7 @@
         {
           "role": "negates",
           "target": {
-            "deltaRef": {
-              "delta": "1e2000000000000000000000000000000000000000000000000000000000000000"
-            }
+            "delta": "1e2000000000000000000000000000000000000000000000000000000000000000"
           }
         }
       ]

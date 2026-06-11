@@ -67,8 +67,8 @@ const claim = (
 ): Omit<Claims, "author"> => ({
   timestamp,
   pointers: [
-    { role: "subject", target: { kind: "entity", entity: { id: entity, context } } },
-    { role: "value", target: { kind: "primitive", value } },
+    { role: "movie", target: { kind: "entity", entity: { id: entity, context } } },
+    { role: context, target: { kind: "primitive", value } },
   ],
 });
 
@@ -183,18 +183,18 @@ export function main(): string {
   const avgFn: DerivedFn = (view: HView, root: string): Pointer[][] => {
     const nums = (view.props.get("rating") ?? [])
       .flatMap((e) => e.delta.claims.pointers)
-      .filter((p) => p.role === "value" && p.target.kind === "primitive")
+      .filter((p) => p.target.kind === "primitive")
       .map((p) => (p.target as { value: unknown }).value)
       .filter((v): v is number => typeof v === "number");
     if (nums.length === 0) return [];
     return [
       [
         {
-          role: "subject",
+          role: "movie",
           target: { kind: "entity", entity: { id: root, context: "avgRating" } },
         },
         {
-          role: "value",
+          role: "avgRating",
           target: { kind: "primitive", value: nums.reduce((a, b) => a + b, 0) / nums.length },
         },
       ],
@@ -221,7 +221,7 @@ export function main(): string {
   say(`materialization. A visitor rates 10; the bot recomputes the average, signs it,`);
   say(`and writes it back as an ordinary delta with provenance (by/from/under).`);
   say(
-    `  title=${show(withBot["title"]!)} director=${show(withBot["director"]!)} avgRating=${show(avgCandidate?.["value"] ?? "?")}`,
+    `  title=${show(withBot["title"]!)} director=${show(withBot["director"]!)} avgRating=${show(avgCandidate?.["avgRating"] ?? "?")}`,
   );
   const derived = alice.reactor.eval(movieBody, MOVIE) as { sort: "hview"; hview: HView };
   const derivedEntry = (derived.hview.props.get("avgRating") ?? [])[0];
@@ -252,7 +252,7 @@ export function main(): string {
 }
 
 function valueOf(claims: Claims): unknown {
-  const p = claims.pointers.find((x) => x.role === "value");
+  const p = claims.pointers.find((x) => x.target.kind === "primitive");
   return p?.target.kind === "primitive" ? p.target.value : undefined;
 }
 

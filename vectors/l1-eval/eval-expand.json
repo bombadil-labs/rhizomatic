@@ -12,17 +12,13 @@
             {
               "role": "subject",
               "target": {
-                "entityRef": {
-                  "id": "actor:keanu",
-                  "context": "name"
-                }
+                "id": "actor:keanu",
+                "context": "name"
               }
             },
             {
               "role": "value",
-              "target": {
-                "value": "Keanu Reeves"
-              }
+              "target": "Keanu Reeves"
             }
           ]
         }
@@ -37,17 +33,13 @@
             {
               "role": "subject",
               "target": {
-                "entityRef": {
-                  "id": "movie:matrix",
-                  "context": "title"
-                }
+                "id": "movie:matrix",
+                "context": "title"
               }
             },
             {
               "role": "value",
-              "target": {
-                "value": "The Matrix"
-              }
+              "target": "The Matrix"
             }
           ]
         }
@@ -62,17 +54,13 @@
             {
               "role": "subject",
               "target": {
-                "entityRef": {
-                  "id": "movie:brzrkr",
-                  "context": "title"
-                }
+                "id": "movie:brzrkr",
+                "context": "title"
               }
             },
             {
               "role": "value",
-              "target": {
-                "value": "BRZRKR"
-              }
+              "target": "BRZRKR"
             }
           ]
         }
@@ -87,26 +75,20 @@
             {
               "role": "movie",
               "target": {
-                "entityRef": {
-                  "id": "movie:matrix",
-                  "context": "cast"
-                }
+                "id": "movie:matrix",
+                "context": "cast"
               }
             },
             {
               "role": "actor",
               "target": {
-                "entityRef": {
-                  "id": "actor:keanu",
-                  "context": "filmography"
-                }
+                "id": "actor:keanu",
+                "context": "filmography"
               }
             },
             {
               "role": "character",
-              "target": {
-                "value": "Neo"
-              }
+              "target": "Neo"
             }
           ]
         }
@@ -121,19 +103,15 @@
             {
               "role": "creator",
               "target": {
-                "entityRef": {
-                  "id": "actor:keanu",
-                  "context": "createdWorks"
-                }
+                "id": "actor:keanu",
+                "context": "createdWorks"
               }
             },
             {
               "role": "work",
               "target": {
-                "entityRef": {
-                  "id": "movie:brzrkr",
-                  "context": "createdBy"
-                }
+                "id": "movie:brzrkr",
+                "context": "createdBy"
               }
             }
           ]

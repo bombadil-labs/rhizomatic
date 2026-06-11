@@ -19,28 +19,31 @@ function parsePrimitive(v: unknown): Primitive {
   throw new Error("primitive must be string | number | boolean");
 }
 
+// The profile mirrors the canonical CBOR exactly: a primitive target is the bare value; an
+// entity ref is {id, context?}; a delta ref is {delta, context?}. Discrimination is structural
+// (SPEC-1 §2.1) — primitives are never objects, and the id/delta key names the ref kind.
 function parseTarget(raw: unknown): Target {
+  if (typeof raw === "string" || typeof raw === "number" || typeof raw === "boolean") {
+    return { kind: "primitive", value: parsePrimitive(raw) };
+  }
   const o = asObject(raw, "target");
-  if ("value" in o) return { kind: "primitive", value: parsePrimitive(o["value"]) };
-  if ("entityRef" in o) {
-    const e = asObject(o["entityRef"], "entityRef");
-    const id = e["id"];
-    if (typeof id !== "string") throw new Error("entityRef.id must be a string");
-    const context = e["context"];
+  if ("id" in o) {
+    const id = o["id"];
+    if (typeof id !== "string") throw new Error("entity ref id must be a string");
+    const context = o["context"];
     return context === undefined
       ? { kind: "entity", entity: { id } }
       : { kind: "entity", entity: { id, context: String(context) } };
   }
-  if ("deltaRef" in o) {
-    const d = asObject(o["deltaRef"], "deltaRef");
-    const delta = d["delta"];
-    if (typeof delta !== "string") throw new Error("deltaRef.delta must be a string");
-    const context = d["context"];
+  if ("delta" in o) {
+    const delta = o["delta"];
+    if (typeof delta !== "string") throw new Error("delta ref delta must be a string");
+    const context = o["context"];
     return context === undefined
       ? { kind: "delta", deltaRef: { delta } }
       : { kind: "delta", deltaRef: { delta, context: String(context) } };
   }
-  throw new Error("target must be one of value | entityRef | deltaRef");
+  throw new Error("target must be a primitive, {id, context?}, or {delta, context?}");
 }
 
 function parsePointer(raw: unknown): Pointer {
@@ -58,26 +61,20 @@ export function claimsToJson(claims: Claims): unknown {
       let target: unknown;
       switch (p.target.kind) {
         case "primitive":
-          target = { value: p.target.value };
+          target = p.target.value;
           break;
         case "entity":
           target = {
-            entityRef: {
-              id: p.target.entity.id,
-              ...(p.target.entity.context === undefined
-                ? {}
-                : { context: p.target.entity.context }),
-            },
+            id: p.target.entity.id,
+            ...(p.target.entity.context === undefined ? {} : { context: p.target.entity.context }),
           };
           break;
         case "delta":
           target = {
-            deltaRef: {
-              delta: p.target.deltaRef.delta,
-              ...(p.target.deltaRef.context === undefined
-                ? {}
-                : { context: p.target.deltaRef.context }),
-            },
+            delta: p.target.deltaRef.delta,
+            ...(p.target.deltaRef.context === undefined
+              ? {}
+              : { context: p.target.deltaRef.context }),
           };
           break;
       }

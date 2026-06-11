@@ -91,8 +91,8 @@ describe("incremental equivalence (SPEC-4 §1 — the defining contract)", () =>
         timestamp: 9999,
         author: "did:key:zStranger",
         pointers: [
-          { role: "subject", target: { entityRef: { id: "movie:unrelated", context: "title" } } },
-          { role: "value", target: { value: "Speed" } },
+          { role: "subject", target: { id: "movie:unrelated", context: "title" } },
+          { role: "value", target: "Speed" },
         ],
       }),
     );
@@ -128,8 +128,8 @@ describe("incremental equivalence (SPEC-4 §1 — the defining contract)", () =>
         timestamp: 1500,
         author: "did:key:zCritic",
         pointers: [
-          { role: "subject", target: { entityRef: { id: "actor:keanu", context: "award" } } },
-          { role: "value", target: { value: "Best Stoic" } },
+          { role: "subject", target: { id: "actor:keanu", context: "award" } },
+          { role: "value", target: "Best Stoic" },
         ],
       }),
     );

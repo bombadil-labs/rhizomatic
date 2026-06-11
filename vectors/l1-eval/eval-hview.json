@@ -12,17 +12,13 @@
             {
               "role": "subject",
               "target": {
-                "entityRef": {
-                  "id": "movie:matrix",
-                  "context": "title"
-                }
+                "id": "movie:matrix",
+                "context": "title"
               }
             },
             {
               "role": "value",
-              "target": {
-                "value": "The Matrix"
-              }
+              "target": "The Matrix"
             }
           ]
         }
@@ -37,17 +33,13 @@
             {
               "role": "subject",
               "target": {
-                "entityRef": {
-                  "id": "movie:matrix",
-                  "context": "title"
-                }
+                "id": "movie:matrix",
+                "context": "title"
               }
             },
             {
               "role": "value",
-              "target": {
-                "value": "Matrix Reloaded"
-              }
+              "target": "Matrix Reloaded"
             }
           ]
         }
@@ -62,17 +54,13 @@
             {
               "role": "subject",
               "target": {
-                "entityRef": {
-                  "id": "movie:matrix",
-                  "context": "releaseYear"
-                }
+                "id": "movie:matrix",
+                "context": "releaseYear"
               }
             },
             {
               "role": "value",
-              "target": {
-                "value": 1999
-              }
+              "target": 1999
             }
           ]
         }
@@ -87,16 +75,12 @@
             {
               "role": "negates",
               "target": {
-                "deltaRef": {
-                  "delta": "1e20b758d08491d624d45b41c48b8ccd7a84815d94f9ee227336075ac13d6a7bc744"
-                }
+                "delta": "1e20b758d08491d624d45b41c48b8ccd7a84815d94f9ee227336075ac13d6a7bc744"
               }
             },
             {
               "role": "reason",
-              "target": {
-                "value": "typo"
-              }
+              "target": "typo"
             }
           ]
         }
@@ -111,9 +95,7 @@
             {
               "role": "negates",
               "target": {
-                "deltaRef": {
-                  "delta": "1e20813a3c2552fbe7603d6fdacc369752f5b077c7e6c2e4b2fcd3b850d7c68cbb97"
-                }
+                "delta": "1e20813a3c2552fbe7603d6fdacc369752f5b077c7e6c2e4b2fcd3b850d7c68cbb97"
               }
             }
           ]
@@ -129,17 +111,13 @@
             {
               "role": "subject",
               "target": {
-                "entityRef": {
-                  "id": "movie:matrix",
-                  "context": "rating"
-                }
+                "id": "movie:matrix",
+                "context": "rating"
               }
             },
             {
               "role": "value",
-              "target": {
-                "value": 8.7
-              }
+              "target": 8.7
             }
           ]
         }
@@ -154,17 +132,13 @@
             {
               "role": "subject",
               "target": {
-                "entityRef": {
-                  "id": "movie:matrix",
-                  "context": "tag"
-                }
+                "id": "movie:matrix",
+                "context": "tag"
               }
             },
             {
               "role": "value",
-              "target": {
-                "value": "scifi"
-              }
+              "target": "scifi"
             }
           ]
         }
@@ -179,17 +153,13 @@
             {
               "role": "subject",
               "target": {
-                "entityRef": {
-                  "id": "movie:johnwick",
-                  "context": "title"
-                }
+                "id": "movie:johnwick",
+                "context": "title"
               }
             },
             {
               "role": "value",
-              "target": {
-                "value": "John Wick"
-              }
+              "target": "John Wick"
             }
           ]
         }
@@ -204,26 +174,20 @@
             {
               "role": "subject",
               "target": {
-                "entityRef": {
-                  "id": "movie:matrix",
-                  "context": "title"
-                }
+                "id": "movie:matrix",
+                "context": "title"
               }
             },
             {
               "role": "variantOf",
               "target": {
-                "entityRef": {
-                  "id": "movie:matrix",
-                  "context": "related"
-                }
+                "id": "movie:matrix",
+                "context": "related"
               }
             },
             {
               "role": "value",
-              "target": {
-                "value": "The Matrix (1999)"
-              }
+              "target": "The Matrix (1999)"
             }
           ]
         }
@@ -238,9 +202,7 @@
             {
               "role": "mentions",
               "target": {
-                "entityRef": {
-                  "id": "movie:matrix"
-                }
+                "id": "movie:matrix"
               }
             }
           ]

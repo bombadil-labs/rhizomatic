@@ -110,16 +110,21 @@ valid claims. In-memory equality is thereby byte equality everywhere.
 
 ## JSON debug profile (for vectors)
 
-The canonical form is CBOR; the JSON profile is for authoring/inspection only (SPEC-1 §4.1). A pointer
-target in JSON is tagged to keep parsing unambiguous:
+The canonical form is CBOR; the JSON profile is for authoring/inspection only (SPEC-1 §4.1). The
+profile is **isomorphic to the canonical encoding**: a pointer target is the bare primitive, an
+entity ref object, or a delta ref object — discriminated structurally, exactly as in CBOR
+(primitives are never objects; the `id`/`delta` key names the ref kind, SPEC-1 §2.1):
 
 ```json
-{ "role": "title", "target": { "value": "The Matrix" } }
-{ "role": "cast",  "target": { "entityRef": { "id": "keanu", "context": "actor" } } }
-{ "role": "negates", "target": { "deltaRef": { "delta": "1e20…", "context": "audit" } } }
+{ "role": "title", "target": "The Matrix" }
+{ "role": "cast",  "target": { "id": "keanu", "context": "actor" } }
+{ "role": "negates", "target": { "delta": "1e20…", "context": "audit" } }
 ```
 
-`value` carries a string | number | boolean primitive; `entityRef`/`deltaRef` carry the ref objects.
+What the profile shows you IS the wire shape, key for key. *(Amended 2026-06-11: an earlier
+revision wrapped targets in `value`/`entityRef`/`deltaRef` tags; the tags carried no information
+the structure doesn't, and the profile now matches the canonical form one-to-one. Canonical bytes
+and ids are unaffected — the profile is transport, never hashed.)*
 
 **JSON number parsing MUST be correctly rounded.** A consumer of the JSON profile MUST parse decimal
 numbers to the nearest f64 (ties-to-even). This is not academic: serde_json's default fast path can

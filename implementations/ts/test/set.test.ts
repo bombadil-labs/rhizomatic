@@ -115,7 +115,7 @@ describe("delta-set algebra: grow-only set CRDT laws", () => {
 describe("delta-set guards", () => {
   it("rejects a delta whose id does not recompute (P6)", () => {
     const d = makeDelta(
-      parseClaims({ timestamp: 0, author: "a", pointers: [{ role: "x", target: { value: 1 } }] }),
+      parseClaims({ timestamp: 0, author: "a", pointers: [{ role: "x", target: 1 }] }),
     );
     const forged: Delta = { ...d, id: `1e20${"00".repeat(32)}` };
     expect(() => new DeltaSet().add(forged)).toThrow(/content addressing/);

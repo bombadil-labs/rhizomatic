@@ -80,7 +80,7 @@ describe("signed delta vectors (ERRATA D8-D9)", () => {
     const claims = parseClaims({
       timestamp: 0,
       author: "ed25519:0000000000000000000000000000000000000000000000000000000000000000",
-      pointers: [{ role: "x", target: { value: "y" } }],
+      pointers: [{ role: "x", target: "y" }],
     });
     expect(() => signClaims(claims, key.seedHex)).toThrow(/author must be/);
   });

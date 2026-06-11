@@ -35,16 +35,16 @@ fn pointer_order_is_significant() {
     let a = parse_claims(&serde_json::json!({
         "timestamp": 0, "author": "did:key:zA",
         "pointers": [
-            { "role": "x", "target": { "value": "1" } },
-            { "role": "y", "target": { "value": "2" } }
+            { "role": "x", "target": "1" },
+            { "role": "y", "target": "2" }
         ]
     }))
     .unwrap();
     let b = parse_claims(&serde_json::json!({
         "timestamp": 0, "author": "did:key:zA",
         "pointers": [
-            { "role": "y", "target": { "value": "2" } },
-            { "role": "x", "target": { "value": "1" } }
+            { "role": "y", "target": "2" },
+            { "role": "x", "target": "1" }
         ]
     }))
     .unwrap();

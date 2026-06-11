@@ -1475,23 +1475,23 @@
     throw new Error("primitive must be string | number | boolean");
   }
   function parseTarget(raw) {
+    if (typeof raw === "string" || typeof raw === "number" || typeof raw === "boolean") {
+      return { kind: "primitive", value: parsePrimitive(raw) };
+    }
     const o = asObject(raw, "target");
-    if ("value" in o) return { kind: "primitive", value: parsePrimitive(o["value"]) };
-    if ("entityRef" in o) {
-      const e = asObject(o["entityRef"], "entityRef");
-      const id = e["id"];
-      if (typeof id !== "string") throw new Error("entityRef.id must be a string");
-      const context = e["context"];
+    if ("id" in o) {
+      const id = o["id"];
+      if (typeof id !== "string") throw new Error("entity ref id must be a string");
+      const context = o["context"];
       return context === void 0 ? { kind: "entity", entity: { id } } : { kind: "entity", entity: { id, context: String(context) } };
     }
-    if ("deltaRef" in o) {
-      const d = asObject(o["deltaRef"], "deltaRef");
-      const delta = d["delta"];
-      if (typeof delta !== "string") throw new Error("deltaRef.delta must be a string");
-      const context = d["context"];
+    if ("delta" in o) {
+      const delta = o["delta"];
+      if (typeof delta !== "string") throw new Error("delta ref delta must be a string");
+      const context = o["context"];
       return context === void 0 ? { kind: "delta", deltaRef: { delta } } : { kind: "delta", deltaRef: { delta, context: String(context) } };
     }
-    throw new Error("target must be one of value | entityRef | deltaRef");
+    throw new Error("target must be a primitive, {id, context?}, or {delta, context?}");
   }
   function parsePointer(raw) {
     const o = asObject(raw, "pointer");
@@ -1506,22 +1506,18 @@
         let target;
         switch (p.target.kind) {
           case "primitive":
-            target = { value: p.target.value };
+            target = p.target.value;
             break;
           case "entity":
             target = {
-              entityRef: {
-                id: p.target.entity.id,
-                ...p.target.entity.context === void 0 ? {} : { context: p.target.entity.context }
-              }
+              id: p.target.entity.id,
+              ...p.target.entity.context === void 0 ? {} : { context: p.target.entity.context }
             };
             break;
           case "delta":
             target = {
-              deltaRef: {
-                delta: p.target.deltaRef.delta,
-                ...p.target.deltaRef.context === void 0 ? {} : { context: p.target.deltaRef.context }
-              }
+              delta: p.target.deltaRef.delta,
+              ...p.target.deltaRef.context === void 0 ? {} : { context: p.target.deltaRef.context }
             };
             break;
         }
@@ -4244,9 +4240,7 @@
         pointers: [
           {
             role: "title",
-            target: {
-              value: "The Matrix"
-            }
+            target: "The Matrix"
           }
         ]
       },
@@ -4262,9 +4256,7 @@
         pointers: [
           {
             role: "releaseYear",
-            target: {
-              value: 1999
-            }
+            target: 1999
           }
         ]
       },
@@ -4280,9 +4272,7 @@
         pointers: [
           {
             role: "isCanonical",
-            target: {
-              value: true
-            }
+            target: true
           }
         ]
       },
@@ -4299,9 +4289,7 @@
           {
             role: "subject",
             target: {
-              entityRef: {
-                id: "entity:the_matrix"
-              }
+              id: "entity:the_matrix"
             }
           }
         ]
@@ -4319,10 +4307,8 @@
           {
             role: "cast",
             target: {
-              entityRef: {
-                id: "entity:keanu",
-                context: "actor"
-              }
+              id: "entity:keanu",
+              context: "actor"
             }
           }
         ]
@@ -4340,16 +4326,12 @@
           {
             role: "negates",
             target: {
-              deltaRef: {
-                delta: "1e2000000000000000000000000000000000000000000000000000000000000000"
-              }
+              delta: "1e2000000000000000000000000000000000000000000000000000000000000000"
             }
           },
           {
             role: "reason",
-            target: {
-              value: "superseded"
-            }
+            target: "superseded"
           }
         ]
       },
@@ -4366,35 +4348,27 @@
           {
             role: "buyer",
             target: {
-              entityRef: {
-                id: "entity:alice",
-                context: "purchases"
-              }
+              id: "entity:alice",
+              context: "purchases"
             }
           },
           {
             role: "seller",
             target: {
-              entityRef: {
-                id: "entity:bob",
-                context: "sales"
-              }
+              id: "entity:bob",
+              context: "sales"
             }
           },
           {
             role: "item",
             target: {
-              entityRef: {
-                id: "entity:widget",
-                context: "soldVia"
-              }
+              id: "entity:widget",
+              context: "soldVia"
             }
           },
           {
             role: "price",
-            target: {
-              value: 19.99
-            }
+            target: 19.99
           }
         ]
       },
@@ -4410,9 +4384,7 @@
         pointers: [
           {
             role: "note",
-            target: {
-              value: "\xFCn\xEFc\xF6d\xE9"
-            }
+            target: "\xFCn\xEFc\xF6d\xE9"
           }
         ]
       },
@@ -4433,9 +4405,7 @@
         pointers: [
           {
             role: "title",
-            target: {
-              value: "The Matrix"
-            }
+            target: "The Matrix"
           }
         ]
       },
@@ -4454,10 +4424,8 @@
           {
             role: "cast",
             target: {
-              entityRef: {
-                id: "entity:keanu",
-                context: "actor"
-              }
+              id: "entity:keanu",
+              context: "actor"
             }
           }
         ]
@@ -4477,9 +4445,7 @@
           {
             role: "negates",
             target: {
-              deltaRef: {
-                delta: "1e2000000000000000000000000000000000000000000000000000000000000000"
-              }
+              delta: "1e2000000000000000000000000000000000000000000000000000000000000000"
             }
           }
         ]
@@ -4521,17 +4487,13 @@
               {
                 role: "subject",
                 target: {
-                  entityRef: {
-                    id: "movie:matrix",
-                    context: "title"
-                  }
+                  id: "movie:matrix",
+                  context: "title"
                 }
               },
               {
                 role: "value",
-                target: {
-                  value: "The Matrix"
-                }
+                target: "The Matrix"
               }
             ]
           }
@@ -4546,17 +4508,13 @@
               {
                 role: "subject",
                 target: {
-                  entityRef: {
-                    id: "movie:matrix",
-                    context: "title"
-                  }
+                  id: "movie:matrix",
+                  context: "title"
                 }
               },
               {
                 role: "value",
-                target: {
-                  value: "Matrix Reloaded"
-                }
+                target: "Matrix Reloaded"
               }
             ]
           }
@@ -4571,17 +4529,13 @@
               {
                 role: "subject",
                 target: {
-                  entityRef: {
-                    id: "movie:matrix",
-                    context: "releaseYear"
-                  }
+                  id: "movie:matrix",
+                  context: "releaseYear"
                 }
               },
               {
                 role: "value",
-                target: {
-                  value: 1999
-                }
+                target: 1999
               }
             ]
           }
@@ -4596,16 +4550,12 @@
               {
                 role: "negates",
                 target: {
-                  deltaRef: {
-                    delta: "1e20b758d08491d624d45b41c48b8ccd7a84815d94f9ee227336075ac13d6a7bc744"
-                  }
+                  delta: "1e20b758d08491d624d45b41c48b8ccd7a84815d94f9ee227336075ac13d6a7bc744"
                 }
               },
               {
                 role: "reason",
-                target: {
-                  value: "typo"
-                }
+                target: "typo"
               }
             ]
           }
@@ -4620,9 +4570,7 @@
               {
                 role: "negates",
                 target: {
-                  deltaRef: {
-                    delta: "1e20813a3c2552fbe7603d6fdacc369752f5b077c7e6c2e4b2fcd3b850d7c68cbb97"
-                  }
+                  delta: "1e20813a3c2552fbe7603d6fdacc369752f5b077c7e6c2e4b2fcd3b850d7c68cbb97"
                 }
               }
             ]
@@ -4638,17 +4586,13 @@
               {
                 role: "subject",
                 target: {
-                  entityRef: {
-                    id: "movie:matrix",
-                    context: "rating"
-                  }
+                  id: "movie:matrix",
+                  context: "rating"
                 }
               },
               {
                 role: "value",
-                target: {
-                  value: 8.7
-                }
+                target: 8.7
               }
             ]
           }
@@ -4663,17 +4607,13 @@
               {
                 role: "subject",
                 target: {
-                  entityRef: {
-                    id: "movie:matrix",
-                    context: "tag"
-                  }
+                  id: "movie:matrix",
+                  context: "tag"
                 }
               },
               {
                 role: "value",
-                target: {
-                  value: "scifi"
-                }
+                target: "scifi"
               }
             ]
           }
@@ -4688,17 +4628,13 @@
               {
                 role: "subject",
                 target: {
-                  entityRef: {
-                    id: "movie:johnwick",
-                    context: "title"
-                  }
+                  id: "movie:johnwick",
+                  context: "title"
                 }
               },
               {
                 role: "value",
-                target: {
-                  value: "John Wick"
-                }
+                target: "John Wick"
               }
             ]
           }
@@ -5111,17 +5047,13 @@
               {
                 role: "subject",
                 target: {
-                  entityRef: {
-                    id: "movie:matrix",
-                    context: "title"
-                  }
+                  id: "movie:matrix",
+                  context: "title"
                 }
               },
               {
                 role: "value",
-                target: {
-                  value: "The Matrix"
-                }
+                target: "The Matrix"
               }
             ]
           }
@@ -5136,17 +5068,13 @@
               {
                 role: "subject",
                 target: {
-                  entityRef: {
-                    id: "movie:matrix",
-                    context: "title"
-                  }
+                  id: "movie:matrix",
+                  context: "title"
                 }
               },
               {
                 role: "value",
-                target: {
-                  value: "Matrix Reloaded"
-                }
+                target: "Matrix Reloaded"
               }
             ]
           }
@@ -5161,17 +5089,13 @@
               {
                 role: "subject",
                 target: {
-                  entityRef: {
-                    id: "movie:matrix",
-                    context: "releaseYear"
-                  }
+                  id: "movie:matrix",
+                  context: "releaseYear"
                 }
               },
               {
                 role: "value",
-                target: {
-                  value: 1999
-                }
+                target: 1999
               }
             ]
           }
@@ -5186,16 +5110,12 @@
               {
                 role: "negates",
                 target: {
-                  deltaRef: {
-                    delta: "1e20b758d08491d624d45b41c48b8ccd7a84815d94f9ee227336075ac13d6a7bc744"
-                  }
+                  delta: "1e20b758d08491d624d45b41c48b8ccd7a84815d94f9ee227336075ac13d6a7bc744"
                 }
               },
               {
                 role: "reason",
-                target: {
-                  value: "typo"
-                }
+                target: "typo"
               }
             ]
           }
@@ -5210,9 +5130,7 @@
               {
                 role: "negates",
                 target: {
-                  deltaRef: {
-                    delta: "1e20813a3c2552fbe7603d6fdacc369752f5b077c7e6c2e4b2fcd3b850d7c68cbb97"
-                  }
+                  delta: "1e20813a3c2552fbe7603d6fdacc369752f5b077c7e6c2e4b2fcd3b850d7c68cbb97"
                 }
               }
             ]
@@ -5228,17 +5146,13 @@
               {
                 role: "subject",
                 target: {
-                  entityRef: {
-                    id: "movie:matrix",
-                    context: "rating"
-                  }
+                  id: "movie:matrix",
+                  context: "rating"
                 }
               },
               {
                 role: "value",
-                target: {
-                  value: 8.7
-                }
+                target: 8.7
               }
             ]
           }
@@ -5253,17 +5167,13 @@
               {
                 role: "subject",
                 target: {
-                  entityRef: {
-                    id: "movie:matrix",
-                    context: "tag"
-                  }
+                  id: "movie:matrix",
+                  context: "tag"
                 }
               },
               {
                 role: "value",
-                target: {
-                  value: "scifi"
-                }
+                target: "scifi"
               }
             ]
           }
@@ -5278,17 +5188,13 @@
               {
                 role: "subject",
                 target: {
-                  entityRef: {
-                    id: "movie:johnwick",
-                    context: "title"
-                  }
+                  id: "movie:johnwick",
+                  context: "title"
                 }
               },
               {
                 role: "value",
-                target: {
-                  value: "John Wick"
-                }
+                target: "John Wick"
               }
             ]
           }
@@ -5303,26 +5209,20 @@
               {
                 role: "subject",
                 target: {
-                  entityRef: {
-                    id: "movie:matrix",
-                    context: "title"
-                  }
+                  id: "movie:matrix",
+                  context: "title"
                 }
               },
               {
                 role: "variantOf",
                 target: {
-                  entityRef: {
-                    id: "movie:matrix",
-                    context: "related"
-                  }
+                  id: "movie:matrix",
+                  context: "related"
                 }
               },
               {
                 role: "value",
-                target: {
-                  value: "The Matrix (1999)"
-                }
+                target: "The Matrix (1999)"
               }
             ]
           }
@@ -5337,9 +5237,7 @@
               {
                 role: "mentions",
                 target: {
-                  entityRef: {
-                    id: "movie:matrix"
-                  }
+                  id: "movie:matrix"
                 }
               }
             ]
@@ -5861,17 +5759,13 @@
               {
                 role: "subject",
                 target: {
-                  entityRef: {
-                    id: "actor:keanu",
-                    context: "name"
-                  }
+                  id: "actor:keanu",
+                  context: "name"
                 }
               },
               {
                 role: "value",
-                target: {
-                  value: "Keanu Reeves"
-                }
+                target: "Keanu Reeves"
               }
             ]
           }
@@ -5886,17 +5780,13 @@
               {
                 role: "subject",
                 target: {
-                  entityRef: {
-                    id: "movie:matrix",
-                    context: "title"
-                  }
+                  id: "movie:matrix",
+                  context: "title"
                 }
               },
               {
                 role: "value",
-                target: {
-                  value: "The Matrix"
-                }
+                target: "The Matrix"
               }
             ]
           }
@@ -5911,17 +5801,13 @@
               {
                 role: "subject",
                 target: {
-                  entityRef: {
-                    id: "movie:brzrkr",
-                    context: "title"
-                  }
+                  id: "movie:brzrkr",
+                  context: "title"
                 }
               },
               {
                 role: "value",
-                target: {
-                  value: "BRZRKR"
-                }
+                target: "BRZRKR"
               }
             ]
           }
@@ -5936,26 +5822,20 @@
               {
                 role: "movie",
                 target: {
-                  entityRef: {
-                    id: "movie:matrix",
-                    context: "cast"
-                  }
+                  id: "movie:matrix",
+                  context: "cast"
                 }
               },
               {
                 role: "actor",
                 target: {
-                  entityRef: {
-                    id: "actor:keanu",
-                    context: "filmography"
-                  }
+                  id: "actor:keanu",
+                  context: "filmography"
                 }
               },
               {
                 role: "character",
-                target: {
-                  value: "Neo"
-                }
+                target: "Neo"
               }
             ]
           }
@@ -5970,19 +5850,15 @@
               {
                 role: "creator",
                 target: {
-                  entityRef: {
-                    id: "actor:keanu",
-                    context: "createdWorks"
-                  }
+                  id: "actor:keanu",
+                  context: "createdWorks"
                 }
               },
               {
                 role: "work",
                 target: {
-                  entityRef: {
-                    id: "movie:brzrkr",
-                    context: "createdBy"
-                  }
+                  id: "movie:brzrkr",
+                  context: "createdBy"
                 }
               }
             ]
@@ -6235,17 +6111,13 @@
               {
                 role: "subject",
                 target: {
-                  entityRef: {
-                    id: "movie:matrix",
-                    context: "title"
-                  }
+                  id: "movie:matrix",
+                  context: "title"
                 }
               },
               {
                 role: "value",
-                target: {
-                  value: "The Matrix"
-                }
+                target: "The Matrix"
               }
             ]
           }
@@ -6260,17 +6132,13 @@
               {
                 role: "subject",
                 target: {
-                  entityRef: {
-                    id: "movie:matrix",
-                    context: "title"
-                  }
+                  id: "movie:matrix",
+                  context: "title"
                 }
               },
               {
                 role: "value",
-                target: {
-                  value: "Matrix Reloaded"
-                }
+                target: "Matrix Reloaded"
               }
             ]
           }
@@ -6285,17 +6153,13 @@
               {
                 role: "subject",
                 target: {
-                  entityRef: {
-                    id: "movie:matrix",
-                    context: "releaseYear"
-                  }
+                  id: "movie:matrix",
+                  context: "releaseYear"
                 }
               },
               {
                 role: "value",
-                target: {
-                  value: 1999
-                }
+                target: 1999
               }
             ]
           }
@@ -6310,17 +6174,13 @@
               {
                 role: "subject",
                 target: {
-                  entityRef: {
-                    id: "movie:matrix",
-                    context: "rating"
-                  }
+                  id: "movie:matrix",
+                  context: "rating"
                 }
               },
               {
                 role: "value",
-                target: {
-                  value: 8.7
-                }
+                target: 8.7
               }
             ]
           }
@@ -6335,17 +6195,13 @@
               {
                 role: "subject",
                 target: {
-                  entityRef: {
-                    id: "movie:matrix",
-                    context: "rating"
-                  }
+                  id: "movie:matrix",
+                  context: "rating"
                 }
               },
               {
                 role: "value",
-                target: {
-                  value: 9.1
-                }
+                target: 9.1
               }
             ]
           }
@@ -6360,17 +6216,13 @@
               {
                 role: "subject",
                 target: {
-                  entityRef: {
-                    id: "movie:matrix",
-                    context: "tag"
-                  }
+                  id: "movie:matrix",
+                  context: "tag"
                 }
               },
               {
                 role: "value",
-                target: {
-                  value: "scifi"
-                }
+                target: "scifi"
               }
             ]
           }
@@ -6385,17 +6237,13 @@
               {
                 role: "subject",
                 target: {
-                  entityRef: {
-                    id: "movie:matrix",
-                    context: "tag"
-                  }
+                  id: "movie:matrix",
+                  context: "tag"
                 }
               },
               {
                 role: "value",
-                target: {
-                  value: "action"
-                }
+                target: "action"
               }
             ]
           }
@@ -6410,17 +6258,13 @@
               {
                 role: "subject",
                 target: {
-                  entityRef: {
-                    id: "movie:matrix",
-                    context: "size"
-                  }
+                  id: "movie:matrix",
+                  context: "size"
                 }
               },
               {
                 role: "value",
-                target: {
-                  value: "large"
-                }
+                target: "large"
               }
             ]
           }
@@ -6435,17 +6279,13 @@
               {
                 role: "subject",
                 target: {
-                  entityRef: {
-                    id: "movie:matrix",
-                    context: "size"
-                  }
+                  id: "movie:matrix",
+                  context: "size"
                 }
               },
               {
                 role: "value",
-                target: {
-                  value: 3
-                }
+                target: 3
               }
             ]
           }
@@ -6460,9 +6300,7 @@
               {
                 role: "negates",
                 target: {
-                  deltaRef: {
-                    delta: "1e20b758d08491d624d45b41c48b8ccd7a84815d94f9ee227336075ac13d6a7bc744"
-                  }
+                  delta: "1e20b758d08491d624d45b41c48b8ccd7a84815d94f9ee227336075ac13d6a7bc744"
                 }
               }
             ]
@@ -6478,17 +6316,13 @@
               {
                 role: "subject",
                 target: {
-                  entityRef: {
-                    id: "actor:keanu",
-                    context: "name"
-                  }
+                  id: "actor:keanu",
+                  context: "name"
                 }
               },
               {
                 role: "value",
-                target: {
-                  value: "Keanu Reeves"
-                }
+                target: "Keanu Reeves"
               }
             ]
           }
@@ -6503,26 +6337,20 @@
               {
                 role: "movie",
                 target: {
-                  entityRef: {
-                    id: "movie:matrix",
-                    context: "cast"
-                  }
+                  id: "movie:matrix",
+                  context: "cast"
                 }
               },
               {
                 role: "actor",
                 target: {
-                  entityRef: {
-                    id: "actor:keanu",
-                    context: "filmography"
-                  }
+                  id: "actor:keanu",
+                  context: "filmography"
                 }
               },
               {
                 role: "character",
-                target: {
-                  value: "Neo"
-                }
+                target: "Neo"
               }
             ]
           }
