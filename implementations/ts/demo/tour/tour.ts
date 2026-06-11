@@ -5,7 +5,7 @@
 import { canonicalHex, computeId } from "../../src/delta.js";
 import { evalTerm, resultCanonicalHex } from "../../src/eval.js";
 import type { HView } from "../../src/hview.js";
-import { parseClaims } from "../../src/json-profile.js";
+import { claimsToJson, parseClaims } from "../../src/json-profile.js";
 import { Peer, syncBoth } from "../../src/peer.js";
 import { resolveView, type Policy, type View } from "../../src/policy.js";
 import { Reactor } from "../../src/reactor.js";
@@ -84,6 +84,7 @@ function widgetAtom(): void {
   const bytesOut = el("div", { class: "bytes mono" });
   const bytesMeta = el("div", { class: "meta" });
   const idOut = el("div", { class: "id mono" });
+  const rustLine = el("div", { class: "meta", style: "margin-top:0.5em" });
   const err = el("div", { class: "error" });
 
   const render = (): void => {
@@ -103,13 +104,27 @@ function widgetAtom(): void {
       const hex = canonicalHex(claims);
       bytesOut.textContent = hex.replace(/(..)/g, "$1 ").trimEnd();
       bytesMeta.textContent = `${hex.length / 2} bytes of canonical CBOR — this IS the wire format`;
-      idOut.textContent = computeId(claims);
+      const id = computeId(claims);
+      idOut.textContent = id;
       err.textContent = "";
       flash(idOut);
+      if (RUST !== null) {
+        const r = RUST.call({ op: "canonical", claims: claimsToJson(claims) });
+        const agree = okStr(r, "hex") === hex && okStr(r, "id") === id;
+        rustLine.textContent = agree
+          ? `🦀 the Rust witness (compiled to WebAssembly, also on this page) just computed the same ${hex.length / 2} bytes and the same id — two languages, zero coordination`
+          : `🦀 RUST DISAGREES: ${r.err ?? "different bytes"} — this would be a P0 parity bug`;
+        rustLine.className = agree ? "meta" : "error";
+      } else {
+        rustLine.textContent = rustFailed
+          ? "(the Rust WASM witness couldn't load in this browser — CI still enforces byte parity)"
+          : "loading the Rust witness (WASM)…";
+      }
     } catch (e) {
       bytesOut.textContent = "—";
       bytesMeta.textContent = "";
       idOut.textContent = "—";
+      rustLine.textContent = "";
       err.textContent = `the format refuses this delta: ${(e as Error).message}`;
     }
   };
@@ -131,9 +146,11 @@ function widgetAtom(): void {
     bytesMeta,
     el("div", { class: "panel-title" }, "content-derived identity (blake3-256 multihash)"),
     idOut,
+    rustLine,
     err,
   );
   for (const i of [author, ts, entity, prop, val]) i.addEventListener("input", render);
+  rustReady.push(render);
   render();
 }
 
@@ -552,6 +569,64 @@ function widgetReplay(): void {
   };
 }
 
+// --- the second witness: the Rust implementation, compiled to WASM --------------------------------
+// Loaded over a hand-rolled (ptr, len) ABI — JSON request in, JSON response out. No wasm-bindgen,
+// no generated glue: the same spirit as the hand-rolled CBOR encoders.
+
+interface RustResponse {
+  readonly ok?: Record<string, unknown>;
+  readonly err?: string;
+}
+
+interface RustWitness {
+  call(req: unknown): RustResponse;
+}
+
+let RUST: RustWitness | null = null;
+let rustFailed = false;
+const rustReady: Array<() => void> = [];
+
+async function loadRustWitness(): Promise<RustWitness | null> {
+  try {
+    const res = await fetch("rust-witness.wasm");
+    if (!res.ok) return null;
+    const { instance } = await WebAssembly.instantiate(await res.arrayBuffer(), {});
+    const ex = instance.exports as unknown as {
+      memory: WebAssembly.Memory;
+      rhz_alloc(len: number): number;
+      rhz_dealloc(ptr: number, len: number): void;
+      rhz_call(ptr: number, len: number): bigint;
+    };
+    return {
+      call(req: unknown): RustResponse {
+        const bytes = new TextEncoder().encode(JSON.stringify(req));
+        const ptr = ex.rhz_alloc(bytes.length);
+        new Uint8Array(ex.memory.buffer).set(bytes, ptr);
+        const packed = ex.rhz_call(ptr, bytes.length);
+        ex.rhz_dealloc(ptr, bytes.length);
+        const outPtr = Number(packed >> 32n);
+        const outLen = Number(packed & 0xffffffffn);
+        const out = new TextDecoder().decode(
+          new Uint8Array(ex.memory.buffer.slice(outPtr, outPtr + outLen)),
+        );
+        ex.rhz_dealloc(outPtr, outLen);
+        return JSON.parse(out) as RustResponse;
+      },
+    };
+  } catch {
+    return null;
+  }
+}
+
+function okStr(r: RustResponse, key: string): string | undefined {
+  const v = r.ok?.[key];
+  return typeof v === "string" ? v : undefined;
+}
+
+function okBool(r: RustResponse, key: string): boolean {
+  return r.ok?.[key] === true;
+}
+
 // --- §6 run the conformance vectors in the browser ------------------------------------------------
 
 interface VecCase {
@@ -708,6 +783,67 @@ function runConformance(): Suite[] {
   ];
 }
 
+// The same suites, asked of the Rust witness over the WASM ABI. Labels match runConformance()
+// so the widget can render the two witnesses side by side.
+function runRustConformance(rust: RustWitness): Map<string, VecCase[]> {
+  const keys = keysJson as unknown as KeyVector[];
+  const deltas = deltasJson as unknown as DeltaVector[];
+  const signed = signedJson as unknown as SignedVector[];
+  const setDigest = setDigestJson as unknown as { ids: string[]; digest: string };
+  const out = new Map<string, VecCase[]>();
+  out.set(
+    "canonical CBOR bytes + content addresses",
+    deltas.map((v) =>
+      tryCase(v.name, () => {
+        const r = rust.call({ op: "canonical", claims: v.claims });
+        return okStr(r, "hex") === v.canonicalCborHex && okStr(r, "id") === v.id;
+      }),
+    ),
+  );
+  out.set(
+    "deterministic signatures, verification, tamper-rejection",
+    signed.map((v) =>
+      tryCase(v.name, () => {
+        const key = keys.find((k) => k.keyId === v.keyId);
+        if (key === undefined) return false;
+        const r = rust.call({ op: "sign", claims: v.claims, seedHex: key.seedHex });
+        return okStr(r, "sig") === v.sig && okBool(r, "verified") && okBool(r, "tamperRejected");
+      }),
+    ),
+  );
+  out.set("delta-set digest (order-independent)", [
+    tryCase("set of all deltas.json vectors", () => {
+      const r = rust.call({ op: "setDigest", deltas: deltas.map((v) => v.claims) });
+      return (
+        JSON.stringify(r.ok?.["ids"]) === JSON.stringify(setDigest.ids) &&
+        okStr(r, "digest") === setDigest.digest
+      );
+    }),
+  ]);
+  const rustEval = (label: string, doc: EvalDoc): void => {
+    out.set(
+      label,
+      doc.cases.map((c) =>
+        tryCase(c.name, () => {
+          const req: Record<string, unknown> = {
+            op: "eval",
+            fixture: doc.fixture.deltas.map((d) => d.claims),
+            term: c.term,
+          };
+          if (c.root !== undefined) req["root"] = c.root;
+          if (doc.schemas !== undefined) req["schemas"] = doc.schemas;
+          return okStr(rust.call(req), "hex") === c.expectedCanonicalHex;
+        }),
+      ),
+    );
+  };
+  rustEval("evaluator: select / union / mask", evalBasicJson as unknown as EvalDoc);
+  rustEval("evaluator: group / prune (HyperViews)", evalHviewJson as unknown as EvalDoc);
+  rustEval("evaluator: expand / fix (schemas)", evalExpandJson as unknown as EvalDoc);
+  rustEval("evaluator: resolve (policies → Views)", evalResolveJson as unknown as EvalDoc);
+  return out;
+}
+
 function widgetConformance(): void {
   const host = $("w-conformance");
   const btn = el("button", { class: "big" }, "▶ re-run the vectors");
@@ -715,6 +851,7 @@ function widgetConformance(): void {
   const run = (): void => {
     const t0 = performance.now();
     const suites = runConformance();
+    const rustSuites = RUST === null ? null : runRustConformance(RUST);
     const ms = Math.max(1, Math.round(performance.now() - t0));
     out.replaceChildren();
     let pass = 0;
@@ -723,30 +860,42 @@ function widgetConformance(): void {
       const ok = s.cases.filter((c) => c.pass).length;
       pass += ok;
       total += s.cases.length;
+      const rust = rustSuites?.get(s.label);
+      let rustNote = "";
+      if (rust !== undefined) {
+        const rustOk = rust.filter((c) => c.pass).length;
+        pass += rustOk;
+        total += rust.length;
+        rustNote = ` · Rust ${rustOk}/${rust.length}`;
+      }
+      const allGreen = ok === s.cases.length && (rust === undefined || rust.every((c) => c.pass));
       const row = el(
         "div",
         { class: "entry" },
-        el(
-          "span",
-          { class: ok === s.cases.length ? "val" : "error" },
-          ok === s.cases.length ? "✓ " : "✗ ",
-        ),
-        `${s.label} — ${ok}/${s.cases.length} `,
+        el("span", { class: allGreen ? "val" : "error" }, allGreen ? "✓ " : "✗ "),
+        `${s.label} — TS ${ok}/${s.cases.length}${rustNote} `,
         el("span", { class: "meta mono" }, s.file),
       );
-      if (ok !== s.cases.length) {
-        for (const c of s.cases.filter((x) => !x.pass)) {
-          row.append(el("div", { class: "error" }, `  ✗ ${c.name}`));
-        }
+      for (const c of s.cases.filter((x) => !x.pass)) {
+        row.append(el("div", { class: "error" }, `  ✗ TS: ${c.name}`));
+      }
+      for (const c of (rust ?? []).filter((x) => !x.pass)) {
+        row.append(el("div", { class: "error" }, `  ✗ Rust: ${c.name}`));
       }
       out.append(row);
     }
+    const witnesses =
+      rustSuites === null
+        ? rustFailed
+          ? " (TypeScript only — the Rust WASM witness couldn't load in this browser; CI still enforces parity)"
+          : " (TypeScript — the Rust WASM witness is still loading…)"
+        : " across BOTH witnesses — TypeScript, and Rust compiled to WebAssembly";
     out.append(
       el(
         "div",
         { class: pass === total ? "ok" : "error", style: "margin-top:0.8em" },
         pass === total
-          ? `✓ ${pass}/${total} green in ${ms} ms — your browser is now a conformance witness.`
+          ? `✓ ${pass}/${total} green in ${ms} ms${witnesses}. Your browser is now a conformance witness.`
           : `✗ ${pass}/${total} — a vector failed; this page is out of sync with the suite.`,
       ),
     );
@@ -754,6 +903,7 @@ function widgetConformance(): void {
   };
   btn.onclick = run;
   host.append(out, btn);
+  rustReady.push(run);
   run();
 }
 
@@ -774,3 +924,10 @@ widgetFederation();
 widgetReplay();
 widgetConformance();
 refreshWorldA();
+
+// The second witness arrives asynchronously; widgets re-render when it lands.
+void loadRustWitness().then((w) => {
+  RUST = w;
+  rustFailed = w === null;
+  for (const cb of rustReady) cb();
+});

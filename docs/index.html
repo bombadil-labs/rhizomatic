@@ -187,9 +187,10 @@
   <div class="widget" id="w-atom"></div>
 
   <p class="aside">Try clearing the property field: the format refuses the delta outright.
-  Invalid deltas are rejected, never repaired — and an independent Rust implementation
-  reproduces every byte of the valid ones. That's not a slogan; it's enforced by CI against a
-  shared vector suite.</p>
+  Invalid deltas are rejected, never repaired. And the line under the identity isn't
+  decoration — an independent Rust implementation, compiled to WebAssembly and loaded on this
+  page, recomputes the bytes for every edit you make. Two codebases, two languages, one
+  answer, live.</p>
 </section>
 
 <section id="superposition">
@@ -299,6 +300,10 @@
   browser just ran them: canonical bytes, content addresses, key derivation, deterministic
   signatures (including rejecting a tampered delta), the order-independent set digest, and the
   byte-exact output of all eight operators.</p>
+  <p>Then it goes further: <strong>the Rust witness itself is on this page</strong>, compiled
+  to WebAssembly, speaking a hand-rolled JSON-over-linear-memory ABI. The same vectors run
+  through both implementations, side by side, in your tab — and §1's live delta builder asks
+  the Rust witness to reproduce every edit you make, byte for byte.</p>
 
   <div class="widget" id="w-conformance"></div>
 

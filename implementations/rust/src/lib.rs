@@ -6,6 +6,8 @@ pub mod delta;
 pub mod derivation;
 pub mod eval;
 pub mod hash;
+// The HTTP binding is host-only (tiny_http/ureq do not build on wasm32).
+#[cfg(not(target_arch = "wasm32"))]
 pub mod http;
 pub mod hview;
 pub mod json_profile;
@@ -22,12 +24,15 @@ pub mod sign;
 pub mod term_io;
 pub mod term_json;
 pub mod types;
+#[cfg(target_arch = "wasm32")]
+pub mod wasm;
 
 pub use delta::{canonical_bytes, canonical_hex, compute_id};
 pub use derivation::{verify_pure_derivation, BindingSpec, DerivationHost};
 pub use eval::{
     eval_term, result_canonical_hex, EvalResult, GroupKey, MaskPolicy, PruneKeep, Term,
 };
+#[cfg(not(target_arch = "wasm32"))]
 pub use http::{offer_for, pull_from_url, serve_peer};
 pub use hview::{hview_canonical_hex, HVEntry, HView};
 pub use materialize::{is_root_anchored, MaterializationChange};

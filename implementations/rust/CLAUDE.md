@@ -33,10 +33,27 @@ The green-gate before committing a slice: `cargo fmt --check` + `cargo clippy --
 The gcc bin dir on PATH is required — the GNU toolchain links via `gcc`/`ld`, and scoop registered
 it as a PATH entry rather than a shim.
 
+### The WASM witness
+
+The crate also builds for `wasm32-unknown-unknown` (cdylib) so the interactive tour
+(`docs/`) can run the Rust witness in the browser next to the TypeScript one:
+
+```powershell
+rustup target add wasm32-unknown-unknown   # once
+cargo build --release --target wasm32-unknown-unknown
+Copy-Item target\wasm32-unknown-unknown\release\rhizomatic.wasm ..\..\docs\rust-witness.wasm
+```
+
+The ABI lives in `src/wasm.rs` (JSON request/response over a hand-rolled (ptr, len)
+interface — no wasm-bindgen). `src/http.rs` is host-only (`#[cfg]`-gated); CI builds and
+clippy-checks the wasm target on every push.
+
 ## Conventions
 
 - **Bytes are `Vec<u8>`/`&[u8]` internally; hex `String` only at boundaries** (vectors, ids, sigs).
 - **No `unsafe`. Pure functions, no I/O in the core** (L0–L2). Tests may read `../../vectors`.
+  The single exception: `src/wasm.rs` may use `unsafe` for raw-pointer marshaling at the WASM
+  boundary — and nowhere else.
 - Reject illegal input at construction (return `Result`, never panic on bad data): NaN/±Infinity,
   empty pointer lists, empty role/context (SPEC-4 §2: reject, never repair).
 - Boring over clever at L0–L2. This code should be re-readable by a TypeScript author — mirror the

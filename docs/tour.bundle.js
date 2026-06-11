@@ -1498,6 +1498,37 @@
     if (typeof o["role"] !== "string") throw new Error("pointer.role must be a string");
     return { role: o["role"], target: parseTarget(o["target"]) };
   }
+  function claimsToJson(claims) {
+    return {
+      timestamp: claims.timestamp,
+      author: claims.author,
+      pointers: claims.pointers.map((p) => {
+        let target;
+        switch (p.target.kind) {
+          case "primitive":
+            target = { value: p.target.value };
+            break;
+          case "entity":
+            target = {
+              entityRef: {
+                id: p.target.entity.id,
+                ...p.target.entity.context === void 0 ? {} : { context: p.target.entity.context }
+              }
+            };
+            break;
+          case "delta":
+            target = {
+              deltaRef: {
+                delta: p.target.deltaRef.delta,
+                ...p.target.deltaRef.context === void 0 ? {} : { context: p.target.deltaRef.context }
+              }
+            };
+            break;
+        }
+        return { role: p.role, target };
+      })
+    };
+  }
   function parseClaims(raw) {
     const o = asObject(raw, "claims");
     if (typeof o["timestamp"] !== "number") throw new Error("claims.timestamp must be a number");
@@ -7066,6 +7097,7 @@
     const bytesOut = el("div", { class: "bytes mono" });
     const bytesMeta = el("div", { class: "meta" });
     const idOut = el("div", { class: "id mono" });
+    const rustLine = el("div", { class: "meta", style: "margin-top:0.5em" });
     const err = el("div", { class: "error" });
     const render = () => {
       const claims = {
@@ -7084,13 +7116,23 @@
         const hex = canonicalHex(claims);
         bytesOut.textContent = hex.replace(/(..)/g, "$1 ").trimEnd();
         bytesMeta.textContent = `${hex.length / 2} bytes of canonical CBOR \u2014 this IS the wire format`;
-        idOut.textContent = computeId(claims);
+        const id = computeId(claims);
+        idOut.textContent = id;
         err.textContent = "";
         flash(idOut);
+        if (RUST !== null) {
+          const r = RUST.call({ op: "canonical", claims: claimsToJson(claims) });
+          const agree = okStr(r, "hex") === hex && okStr(r, "id") === id;
+          rustLine.textContent = agree ? `\u{1F980} the Rust witness (compiled to WebAssembly, also on this page) just computed the same ${hex.length / 2} bytes and the same id \u2014 two languages, zero coordination` : `\u{1F980} RUST DISAGREES: ${r.err ?? "different bytes"} \u2014 this would be a P0 parity bug`;
+          rustLine.className = agree ? "meta" : "error";
+        } else {
+          rustLine.textContent = rustFailed ? "(the Rust WASM witness couldn't load in this browser \u2014 CI still enforces byte parity)" : "loading the Rust witness (WASM)\u2026";
+        }
       } catch (e) {
         bytesOut.textContent = "\u2014";
         bytesMeta.textContent = "";
         idOut.textContent = "\u2014";
+        rustLine.textContent = "";
         err.textContent = `the format refuses this delta: ${e.message}`;
       }
     };
@@ -7111,9 +7153,11 @@
       bytesMeta,
       el("div", { class: "panel-title" }, "content-derived identity (blake3-256 multihash)"),
       idOut,
+      rustLine,
       err
     );
     for (const i of [author, ts, entity, prop, val]) i.addEventListener("input", render);
+    rustReady.push(render);
     render();
   }
   var ROOT = "movie:blade_runner";
@@ -7478,6 +7522,42 @@ replayed digest  ${replayed.slice(4, 36)}\u2026
       flash(out);
     };
   }
+  var RUST = null;
+  var rustFailed = false;
+  var rustReady = [];
+  async function loadRustWitness() {
+    try {
+      const res = await fetch("rust-witness.wasm");
+      if (!res.ok) return null;
+      const { instance } = await WebAssembly.instantiate(await res.arrayBuffer(), {});
+      const ex = instance.exports;
+      return {
+        call(req) {
+          const bytes = new TextEncoder().encode(JSON.stringify(req));
+          const ptr = ex.rhz_alloc(bytes.length);
+          new Uint8Array(ex.memory.buffer).set(bytes, ptr);
+          const packed = ex.rhz_call(ptr, bytes.length);
+          ex.rhz_dealloc(ptr, bytes.length);
+          const outPtr = Number(packed >> 32n);
+          const outLen = Number(packed & 0xffffffffn);
+          const out = new TextDecoder().decode(
+            new Uint8Array(ex.memory.buffer.slice(outPtr, outPtr + outLen))
+          );
+          ex.rhz_dealloc(outPtr, outLen);
+          return JSON.parse(out);
+        }
+      };
+    } catch {
+      return null;
+    }
+  }
+  function okStr(r, key) {
+    const v = r.ok?.[key];
+    return typeof v === "string" ? v : void 0;
+  }
+  function okBool(r, key) {
+    return r.ok?.[key] === true;
+  }
   var tryCase = (name, check) => {
     try {
       return { name, pass: check() };
@@ -7579,6 +7659,61 @@ replayed digest  ${replayed.slice(4, 36)}\u2026
       )
     ];
   }
+  function runRustConformance(rust) {
+    const keys = keys_default;
+    const deltas = deltas_default;
+    const signed = deltas_signed_default;
+    const setDigest = set_digest_default;
+    const out = /* @__PURE__ */ new Map();
+    out.set(
+      "canonical CBOR bytes + content addresses",
+      deltas.map(
+        (v) => tryCase(v.name, () => {
+          const r = rust.call({ op: "canonical", claims: v.claims });
+          return okStr(r, "hex") === v.canonicalCborHex && okStr(r, "id") === v.id;
+        })
+      )
+    );
+    out.set(
+      "deterministic signatures, verification, tamper-rejection",
+      signed.map(
+        (v) => tryCase(v.name, () => {
+          const key = keys.find((k) => k.keyId === v.keyId);
+          if (key === void 0) return false;
+          const r = rust.call({ op: "sign", claims: v.claims, seedHex: key.seedHex });
+          return okStr(r, "sig") === v.sig && okBool(r, "verified") && okBool(r, "tamperRejected");
+        })
+      )
+    );
+    out.set("delta-set digest (order-independent)", [
+      tryCase("set of all deltas.json vectors", () => {
+        const r = rust.call({ op: "setDigest", deltas: deltas.map((v) => v.claims) });
+        return JSON.stringify(r.ok?.["ids"]) === JSON.stringify(setDigest.ids) && okStr(r, "digest") === setDigest.digest;
+      })
+    ]);
+    const rustEval = (label, doc) => {
+      out.set(
+        label,
+        doc.cases.map(
+          (c) => tryCase(c.name, () => {
+            const req = {
+              op: "eval",
+              fixture: doc.fixture.deltas.map((d) => d.claims),
+              term: c.term
+            };
+            if (c.root !== void 0) req["root"] = c.root;
+            if (doc.schemas !== void 0) req["schemas"] = doc.schemas;
+            return okStr(rust.call(req), "hex") === c.expectedCanonicalHex;
+          })
+        )
+      );
+    };
+    rustEval("evaluator: select / union / mask", eval_basic_default);
+    rustEval("evaluator: group / prune (HyperViews)", eval_hview_default);
+    rustEval("evaluator: expand / fix (schemas)", eval_expand_default);
+    rustEval("evaluator: resolve (policies \u2192 Views)", eval_resolve_default);
+    return out;
+  }
   function widgetConformance() {
     const host = $("w-conformance");
     const btn = el("button", { class: "big" }, "\u25B6 re-run the vectors");
@@ -7586,6 +7721,7 @@ replayed digest  ${replayed.slice(4, 36)}\u2026
     const run = () => {
       const t0 = performance.now();
       const suites = runConformance();
+      const rustSuites = RUST === null ? null : runRustConformance(RUST);
       const ms = Math.max(1, Math.round(performance.now() - t0));
       out.replaceChildren();
       let pass = 0;
@@ -7594,35 +7730,43 @@ replayed digest  ${replayed.slice(4, 36)}\u2026
         const ok = s.cases.filter((c) => c.pass).length;
         pass += ok;
         total += s.cases.length;
+        const rust = rustSuites?.get(s.label);
+        let rustNote = "";
+        if (rust !== void 0) {
+          const rustOk = rust.filter((c) => c.pass).length;
+          pass += rustOk;
+          total += rust.length;
+          rustNote = ` \xB7 Rust ${rustOk}/${rust.length}`;
+        }
+        const allGreen = ok === s.cases.length && (rust === void 0 || rust.every((c) => c.pass));
         const row = el(
           "div",
           { class: "entry" },
-          el(
-            "span",
-            { class: ok === s.cases.length ? "val" : "error" },
-            ok === s.cases.length ? "\u2713 " : "\u2717 "
-          ),
-          `${s.label} \u2014 ${ok}/${s.cases.length} `,
+          el("span", { class: allGreen ? "val" : "error" }, allGreen ? "\u2713 " : "\u2717 "),
+          `${s.label} \u2014 TS ${ok}/${s.cases.length}${rustNote} `,
           el("span", { class: "meta mono" }, s.file)
         );
-        if (ok !== s.cases.length) {
-          for (const c of s.cases.filter((x) => !x.pass)) {
-            row.append(el("div", { class: "error" }, `  \u2717 ${c.name}`));
-          }
+        for (const c of s.cases.filter((x) => !x.pass)) {
+          row.append(el("div", { class: "error" }, `  \u2717 TS: ${c.name}`));
+        }
+        for (const c of (rust ?? []).filter((x) => !x.pass)) {
+          row.append(el("div", { class: "error" }, `  \u2717 Rust: ${c.name}`));
         }
         out.append(row);
       }
+      const witnesses = rustSuites === null ? rustFailed ? " (TypeScript only \u2014 the Rust WASM witness couldn't load in this browser; CI still enforces parity)" : " (TypeScript \u2014 the Rust WASM witness is still loading\u2026)" : " across BOTH witnesses \u2014 TypeScript, and Rust compiled to WebAssembly";
       out.append(
         el(
           "div",
           { class: pass === total ? "ok" : "error", style: "margin-top:0.8em" },
-          pass === total ? `\u2713 ${pass}/${total} green in ${ms} ms \u2014 your browser is now a conformance witness.` : `\u2717 ${pass}/${total} \u2014 a vector failed; this page is out of sync with the suite.`
+          pass === total ? `\u2713 ${pass}/${total} green in ${ms} ms${witnesses}. Your browser is now a conformance witness.` : `\u2717 ${pass}/${total} \u2014 a vector failed; this page is out of sync with the suite.`
         )
       );
       flash(out);
     };
     btn.onclick = run;
     host.append(out, btn);
+    rustReady.push(run);
     run();
   }
   function renderStats() {
@@ -7636,6 +7780,11 @@ replayed digest  ${replayed.slice(4, 36)}\u2026
   widgetReplay();
   widgetConformance();
   refreshWorldA();
+  void loadRustWitness().then((w) => {
+    RUST = w;
+    rustFailed = w === null;
+    for (const cb of rustReady) cb();
+  });
 })();
 /*! Bundled license information:
 

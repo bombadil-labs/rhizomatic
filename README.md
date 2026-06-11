@@ -14,7 +14,10 @@ milestones (M0-M5, conformance Levels 0-4) are implemented in both. See
 (`npx serve docs` from the repo root, or any static server) — a guided, narrated walk through
 the format where every widget runs the real implementation: live content addressing,
 superposition, policy lenses, retraction + audit, time travel, and two peers converging by
-union. Once GitHub Pages is enabled for `/docs`, it lives at
+union. **Both witnesses are on the page**: the TypeScript implementation is bundled, the Rust
+implementation is loaded as WebAssembly, and the tour runs the committed conformance vectors
+through each — then has Rust reproduce, byte for byte, every delta you author live. Once
+GitHub Pages is enabled for `/docs`, it lives at
 **https://mbilokonsky.github.io/rhizomatic/**. The free-form version is
 [docs/playground.html](docs/playground.html) — three sovereign peers, no narration.
 

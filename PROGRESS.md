@@ -188,6 +188,14 @@ plus polish (README status update, top-level parity runner, CI).
   check (flip a timestamp → signature verification must fail), and a re-run button. "Your
   browser is now a conformance witness." CI's docs-freshness gate means the page can never
   drift from the vectors. Mobile pass done (375px: no overflow, grids collapse).
+- **THE SECOND WITNESS IS ON THE PAGE** ✅ — the Rust implementation compiled to
+  wasm32-unknown-unknown (cdylib, src/wasm.rs: JSON-over-linear-memory ABI, no wasm-bindgen;
+  the one sanctioned `unsafe` boundary in the crate; http.rs cfg-gated host-only). The tour
+  loads docs/rust-witness.wasm (~730 KB) and (a) §1's delta builder asks Rust to reproduce
+  every live edit — byte agreement shown inline; (b) §6 runs the conformance vectors through
+  BOTH witnesses side by side: 117/117 green in ~90 ms in-browser. CI builds + clippy-checks
+  the wasm target on every push. Verified live: edits agree, suites green, zero console
+  errors, graceful degradation if the wasm fails to load.
 - **GitHub Pages** — blocked on a permission: needs the human to enable Pages (main, /docs)
   in repo settings; README already points at https://mbilokonsky.github.io/rhizomatic/.
 

@@ -5,17 +5,30 @@ edition = "2021"
 description = "Rhizomatic reference implementation (Rust) — one of two parallel witnesses to the spec."
 publish = false
 
+[lib]
+# cdylib is for the WASM build of the witness (src/wasm.rs, used by the docs/ tour);
+# rlib keeps normal tests/examples working.
+crate-type = ["rlib", "cdylib"]
+
 [dependencies]
 blake3 = "1"
 ed25519-dalek = "2"
 hex = "0.4"
-tiny_http = "0.12"
-ureq = { version = "2", default-features = false }
 # float_roundtrip is REQUIRED: without it serde_json's fast float path can parse decimal
 # numbers up to 1 ULP off, which fractures canonical-bytes parity with JS (caught by the
 # float-f16-min-subnormal vector). See ERRATA "JSON debug profile".
 serde_json = { version = "1", features = ["float_roundtrip"] }
 unicode-normalization = "0.1"
 
+# The HTTP binding is host-only: these crates do not build on wasm32-unknown-unknown.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+tiny_http = "0.12"
+ureq = { version = "2", default-features = false }
+
 [dev-dependencies]
 proptest = "1"
+
+[profile.release]
+# Keep the WASM witness small; the host build doesn't care.
+opt-level = "s"
+lto = true
