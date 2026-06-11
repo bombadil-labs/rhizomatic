@@ -36,8 +36,16 @@ by author (`byAuthorRank`) or input freshness, exactly as SPEC-5 §3 prescribes.
 
 `append` accumulates. `supersede` negates the binding's prior live emissions (negations authored
 and signed by the derived author, timestamp 0 — re-negating an already-negated prior dedupes to
-the same delta id, harmlessly) before emitting anew. `keyed` is deferred until a consumer needs
-per-subject supersession.
+the same delta id, harmlessly) before emitting anew.
+
+`keyed(contextSet)` supersedes per-subject: the **key** of an emission is the sorted set of
+`(entity id, context)` pairs from its substantive entity pointers whose context is in
+`contextSet`. As each new claim is emitted, the binding negates only its prior live emissions
+carrying the same key — claims about other subjects stay live. An emission whose key is empty
+(no pointer matches the contextSet) appends, with no supersession: the binding declared what
+"the same subject" means, and this claim has none. The key is host-internal state, never
+serialized; cross-implementation parity is behavioral (which priors get negated), pinned by
+mirrored tests in both witnesses.
 
 ## G5 — Pure-replay verification (conformance Level 4's seed)
 

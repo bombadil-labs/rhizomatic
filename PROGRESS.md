@@ -251,6 +251,14 @@ plus polish (README status update, top-level parity runner, CI).
   termHash + result bytes. TS (+10 tests, 189) and Rust (+5 suites' worth, holes.rs) — Rust
   reproduced every TS-generated term hash and canonical hex on the FIRST RUN. WASM witness
   rebuilt; the tour's conformance run now reads 130/130 across both witnesses.
+- **keyed(contextSet) emission (SPEC-7 §5 — the third policy, undeferred)** ✅ — G4 amended:
+  an emission's key is the sorted (entity id, context) pairs of its substantive entity pointers
+  whose context ∈ contextSet; each new claim negates only same-key priors; empty key appends.
+  Key is host-internal (never serialized); parity is behavioral, pinned by mirrored tests.
+  TS: emit gains {keyed: [...]}; liveEmissions becomes per-key buckets. Rust: supersede: bool
+  → Emit enum (Append | Supersede | Keyed), aligning the two hosts' shapes. Test in both:
+  per-movie verdict bot over two roots — rating B leaves A's verdict live; re-rating A
+  supersedes only A's. TS 190 / Rust 19 suites green; wasm refreshed.
 - **GitHub Pages** — blocked on a permission: needs the human to enable Pages (main, /docs)
   in repo settings; README already points at https://mbilokonsky.github.io/rhizomatic/.
 

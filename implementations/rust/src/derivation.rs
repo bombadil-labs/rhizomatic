@@ -15,6 +15,16 @@ use crate::types::{Claims, Delta, EntityRef, Pointer, Primitive, Target};
 /// A v0 derived function: substantive pointer lists, one per claim to emit (G1).
 pub type DerivedFn = Box<dyn Fn(&HView, &str) -> Vec<Vec<Pointer>>>;
 
+/// EmissionPolicy (SPEC-7 §5, ERRATA-7 G4).
+#[derive(Debug, Clone, PartialEq)]
+pub enum Emit {
+    Append,
+    Supersede,
+    /// Supersede per-subject: the key is the sorted (entity id, context) pairs of the
+    /// substantive entity pointers whose context is in the set; empty key appends (G4).
+    Keyed(Vec<String>),
+}
+
 #[derive(Debug, Clone)]
 pub struct BindingSpec {
     pub name: String,
@@ -22,7 +32,24 @@ pub struct BindingSpec {
     pub materialization: String,
     pub pure: bool,
     pub budget: u32,
-    pub supersede: bool,
+    pub emit: Emit,
+}
+
+// The subject key of an emission under Keyed(contexts); "" when nothing matches (G4).
+fn emission_key(substantive: &[Pointer], contexts: &[String]) -> String {
+    let mut pairs: Vec<String> = substantive
+        .iter()
+        .filter_map(|p| match &p.target {
+            Target::Entity(er) => er.context.as_ref().and_then(|ctx| {
+                contexts
+                    .contains(ctx)
+                    .then(|| format!("{}\u{0001}{}", er.id, ctx))
+            }),
+            _ => None,
+        })
+        .collect();
+    pairs.sort();
+    pairs.join("\u{0002}")
 }
 
 struct Installed {
@@ -30,7 +57,7 @@ struct Installed {
     fn_: DerivedFn,
     seed_hex: String,
     author: String,
-    live_emissions: Vec<String>,
+    live_emissions: std::collections::BTreeMap<String, Vec<String>>,
     trigger_count: u32,
     suspended: bool,
 }
@@ -130,7 +157,7 @@ impl DerivationHost {
                 fn_,
                 seed_hex: seed_hex.to_string(),
                 author: author.clone(),
-                live_emissions: Vec::new(),
+                live_emissions: std::collections::BTreeMap::new(),
                 trigger_count: 0,
                 suspended: false,
             },
@@ -193,14 +220,14 @@ impl DerivationHost {
         name: &str,
         change: &MaterializationChange,
     ) -> Vec<MaterializationChange> {
-        let (author, budget, trigger_count, suspended, supersede, spec) = {
+        let (author, budget, trigger_count, suspended, emit, spec) = {
             let b = &self.bindings[name];
             (
                 b.author.clone(),
                 b.spec.budget,
                 b.trigger_count,
                 b.suspended,
-                b.spec.supersede,
+                b.spec.emit.clone(),
                 b.spec.clone(),
             )
         };
@@ -240,9 +267,10 @@ impl DerivationHost {
             return Vec::new();
         };
         let mut out = Vec::new();
-        if supersede {
+        if emit == Emit::Supersede {
+            // Wholesale supersession: negate every live emission before emitting anew (G4).
             let priors = std::mem::take(&mut self.bindings.get_mut(name).unwrap().live_emissions);
-            for prior in priors {
+            for prior in priors.into_values().flatten() {
                 out.extend(
                     self.emit_signed(name, make_negation_claims(&author, 0.0, &prior, None)),
                 );
@@ -250,12 +278,37 @@ impl DerivationHost {
         }
         let emissions = (self.bindings[name].fn_)(&view, &change.root);
         for substantive in emissions {
+            let key = match &emit {
+                Emit::Keyed(contexts) => emission_key(&substantive, contexts),
+                _ => String::new(),
+            };
+            // Per-subject supersession: negate only same-key priors; an empty key appends (G4).
+            if matches!(emit, Emit::Keyed(_)) && !key.is_empty() {
+                let priors = self
+                    .bindings
+                    .get_mut(name)
+                    .unwrap()
+                    .live_emissions
+                    .insert(key.clone(), Vec::new())
+                    .unwrap_or_default();
+                for prior in priors {
+                    out.extend(
+                        self.emit_signed(name, make_negation_claims(&author, 0.0, &prior, None)),
+                    );
+                }
+            }
             let claims = derived_claims(&spec, &author, substantive, &change.new_hex);
             let seed = self.bindings[name].seed_hex.clone();
             let signed = sign_claims(&claims, &seed).expect("emission signs");
             let id = signed.id.clone();
             if self.reactor.ingest(signed) == IngestResult::Accepted {
-                self.bindings.get_mut(name).unwrap().live_emissions.push(id);
+                self.bindings
+                    .get_mut(name)
+                    .unwrap()
+                    .live_emissions
+                    .entry(key)
+                    .or_default()
+                    .push(id);
                 out.extend(self.reactor.changes_from_last_ingest().to_vec());
             }
         }

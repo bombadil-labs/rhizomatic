@@ -162,3 +162,81 @@ describe("derivation (SPEC-7, ERRATA-7)", () => {
     expect(host.reactor.size).toBe(before + 1); // only the base claim, no emission
   });
 });
+
+describe("keyed emission (G4): supersede per-subject", () => {
+  const A = "movie:matrix";
+  const B = "movie:speed";
+
+  const verdictFn: DerivedFn = (view: HView, root: string): Pointer[][] => {
+    const n = (view.props.get("rating") ?? []).length;
+    if (n === 0) return [];
+    return [
+      [
+        {
+          role: "movie",
+          target: { kind: "entity", entity: { id: root, context: "derived:verdict" } },
+        },
+        { role: "derived:verdict", target: { kind: "primitive", value: `rated:${n}` } },
+      ],
+    ];
+  };
+
+  const kspec: BindingSpec = {
+    name: "binding:verdict",
+    fnId: "fn:verdict",
+    materialization: "movie",
+    pure: true,
+    budget: 10,
+    emit: { keyed: ["derived:verdict"] },
+  };
+
+  it("negates only same-key priors; other subjects stay live", () => {
+    const reactor = new Reactor();
+    reactor.register("movie", movieBody, [A, B]);
+    const host = new DerivationHost(reactor);
+    const botAuthor = host.install(kspec, verdictFn, DERIVED_SEED);
+
+    const rate = (movie: string, ts: number, value: number) =>
+      host.ingest(
+        makeDelta({
+          timestamp: ts,
+          author: "did:key:zA",
+          pointers: [
+            {
+              role: "subject",
+              target: { kind: "entity", entity: { id: movie, context: "rating" } },
+            },
+            { role: "value", target: { kind: "primitive", value } },
+          ],
+        }),
+      );
+    const verdictsAbout = (movie: string) =>
+      reactor
+        .arrivalLog()
+        .filter(
+          (d) =>
+            d.claims.author === botAuthor &&
+            !d.claims.pointers.some((p) => p.role === "negates") &&
+            d.claims.pointers.some(
+              (p) => p.target.kind === "entity" && p.target.entity.id === movie,
+            ),
+        );
+
+    rate(A, 1, 8);
+    const [va1] = verdictsAbout(A);
+    expect(va1).toBeDefined();
+
+    rate(B, 2, 9);
+    const [vb1] = verdictsAbout(B);
+    expect(vb1).toBeDefined();
+    // B's arrival did not supersede A's verdict — different key.
+    expect(reactor.negationsOf(va1!.id)).toHaveLength(0);
+
+    rate(A, 3, 6);
+    // A's first verdict superseded; B's untouched; A's second verdict live.
+    expect(reactor.negationsOf(va1!.id)).toHaveLength(1);
+    expect(reactor.negationsOf(vb1!.id)).toHaveLength(0);
+    const va2 = verdictsAbout(A).find((d) => reactor.negationsOf(d.id).length === 0);
+    expect(va2).toBeDefined();
+  });
+});

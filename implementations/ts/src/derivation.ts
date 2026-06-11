@@ -18,7 +18,7 @@ export interface BindingSpec {
   readonly materialization: string;
   readonly pure: boolean;
   readonly budget: number; // lifetime emission-trigger cap (G2)
-  readonly emit: "append" | "supersede";
+  readonly emit: "append" | "supersede" | { readonly keyed: readonly string[] };
 }
 
 interface Installed {
@@ -26,9 +26,25 @@ interface Installed {
   readonly fn: DerivedFn;
   readonly seedHex: string;
   readonly author: string;
-  liveEmissions: string[];
+  // Live (un-superseded) emission ids, bucketed by subject key (G4). append/supersede use the
+  // single bucket ""; keyed buckets by emissionKey.
+  liveEmissions: Map<string, string[]>;
   triggerCount: number;
   suspended: boolean;
+}
+
+// The subject key of an emission under keyed(contextSet): sorted (entity id, context) pairs of
+// the substantive entity pointers whose context is in the set; "" when none match (G4).
+function emissionKey(substantive: readonly Pointer[], contexts: readonly string[]): string {
+  const pairs: string[] = [];
+  for (const p of substantive) {
+    if (p.target.kind !== "entity") continue;
+    const ctx = p.target.entity.context;
+    if (ctx !== undefined && contexts.includes(ctx)) {
+      pairs.push(`${p.target.entity.id}${ctx}`);
+    }
+  }
+  return pairs.sort().join("");
 }
 
 function provenancePointers(spec: BindingSpec, inputHex: string): Pointer[] {
@@ -89,7 +105,7 @@ export class DerivationHost {
       fn,
       seedHex,
       author,
-      liveEmissions: [],
+      liveEmissions: new Map(),
       triggerCount: 0,
       suspended: false,
     });
@@ -160,17 +176,29 @@ export class DerivationHost {
     if (view === undefined) return [];
     const out: MaterializationChange[] = [];
     if (b.spec.emit === "supersede") {
-      for (const prior of b.liveEmissions) {
+      // Wholesale supersession: negate every live emission before emitting anew (G4).
+      for (const prior of [...b.liveEmissions.values()].flat()) {
         out.push(...this.emitSigned(b, makeNegationClaims(b.author, 0, prior)));
       }
-      b.liveEmissions = [];
+      b.liveEmissions.clear();
     }
+    const keyed = typeof b.spec.emit === "object" ? b.spec.emit.keyed : undefined;
     for (const substantive of b.fn(view, change.root)) {
       const claims = derivedClaims(b.spec, b.author, substantive, change.newHex);
       const signed = signClaims(claims, b.seedHex);
+      const key = keyed === undefined ? "" : emissionKey(substantive, keyed);
+      // Per-subject supersession: negate only the same-key priors; an empty key appends (G4).
+      if (keyed !== undefined && key !== "") {
+        for (const prior of b.liveEmissions.get(key) ?? []) {
+          out.push(...this.emitSigned(b, makeNegationClaims(b.author, 0, prior)));
+        }
+        b.liveEmissions.set(key, []);
+      }
       const result = this.reactor.ingest(signed);
       if (result.status === "accepted") {
-        b.liveEmissions.push(signed.id);
+        const bucket = b.liveEmissions.get(key);
+        if (bucket === undefined) b.liveEmissions.set(key, [signed.id]);
+        else bucket.push(signed.id);
         out.push(...this.reactor.changesFromLastIngest());
       }
     }

@@ -1,6 +1,8 @@
 //! Derivation tests. Mirrors ../ts/test/derivation.test.ts.
 
-use rhizomatic::derivation::{verify_pure_derivation, BindingSpec, DerivationHost, DerivedFn};
+use rhizomatic::derivation::{
+    verify_pure_derivation, BindingSpec, DerivationHost, DerivedFn, Emit,
+};
 use rhizomatic::hview::HView;
 use rhizomatic::reactor::Reactor;
 use rhizomatic::set::make_delta;
@@ -66,7 +68,7 @@ fn spec(name: &str, budget: u32) -> BindingSpec {
         materialization: "movie".to_string(),
         pure: true,
         budget,
-        supersede: true,
+        emit: Emit::Supersede,
     }
 }
 
@@ -233,4 +235,100 @@ fn budget_suspends_observably_and_guard_prevents_self_trigger() {
     let before = host.reactor.len();
     host.ingest(make_delta(rating_claim(4.0, "did:key:zD", 6.0), None).unwrap());
     assert_eq!(host.reactor.len(), before + 1);
+}
+
+// --- keyed emission (G4): supersede per-subject ---------------------------------------------------
+
+#[test]
+fn keyed_negates_only_same_key_priors() {
+    const A: &str = "movie:matrix";
+    const B: &str = "movie:speed";
+
+    let verdict_fn: DerivedFn = Box::new(|view: &HView, root: &str| {
+        let n = view.props.get("rating").map(|e| e.len()).unwrap_or(0);
+        if n == 0 {
+            return Vec::new();
+        }
+        vec![vec![
+            Pointer {
+                role: "movie".to_string(),
+                target: Target::Entity(EntityRef {
+                    id: root.to_string(),
+                    context: Some("derived:verdict".to_string()),
+                }),
+            },
+            Pointer {
+                role: "derived:verdict".to_string(),
+                target: Target::Primitive(Primitive::Str(format!("rated:{n}"))),
+            },
+        ]]
+    });
+    let kspec = BindingSpec {
+        name: "binding:verdict".to_string(),
+        fn_id: "fn:verdict".to_string(),
+        materialization: "movie".to_string(),
+        pure: true,
+        budget: 10,
+        emit: Emit::Keyed(vec!["derived:verdict".to_string()]),
+    };
+
+    let mut reactor = Reactor::new();
+    reactor
+        .register("movie", movie_body(), &[A.to_string(), B.to_string()], None)
+        .unwrap();
+    let mut host = DerivationHost::new(reactor);
+    let bot = host.install(kspec, verdict_fn, DERIVED_SEED);
+
+    let rate = |host: &mut DerivationHost, movie: &str, ts: f64, value: f64| {
+        let claims = Claims {
+            timestamp: ts,
+            author: "did:key:zA".to_string(),
+            pointers: vec![
+                Pointer {
+                    role: "subject".to_string(),
+                    target: Target::Entity(EntityRef {
+                        id: movie.to_string(),
+                        context: Some("rating".to_string()),
+                    }),
+                },
+                Pointer {
+                    role: "value".to_string(),
+                    target: Target::Primitive(Primitive::Num(value)),
+                },
+            ],
+        };
+        host.ingest(make_delta(claims, None).unwrap());
+    };
+    let verdicts_about = |host: &DerivationHost, movie: &str, bot: &str| -> Vec<String> {
+        host.reactor
+            .arrival_log()
+            .iter()
+            .filter(|d| {
+                d.claims.author == bot
+                    && !d.claims.pointers.iter().any(|p| p.role == "negates")
+                    && d.claims.pointers.iter().any(|p| match &p.target {
+                        Target::Entity(er) => er.id == movie,
+                        _ => false,
+                    })
+            })
+            .map(|d| d.id.clone())
+            .collect()
+    };
+
+    rate(&mut host, A, 1.0, 8.0);
+    let va1 = verdicts_about(&host, A, &bot)[0].clone();
+
+    rate(&mut host, B, 2.0, 9.0);
+    let vb1 = verdicts_about(&host, B, &bot)[0].clone();
+    // B's arrival did not supersede A's verdict — different key.
+    assert!(host.reactor.negations_of(&va1).is_empty());
+
+    rate(&mut host, A, 3.0, 6.0);
+    // A's first verdict superseded; B's untouched; A's second verdict live.
+    assert_eq!(host.reactor.negations_of(&va1).len(), 1);
+    assert!(host.reactor.negations_of(&vb1).is_empty());
+    let va_live = verdicts_about(&host, A, &bot)
+        .into_iter()
+        .find(|id| host.reactor.negations_of(id).is_empty());
+    assert!(va_live.is_some());
 }
