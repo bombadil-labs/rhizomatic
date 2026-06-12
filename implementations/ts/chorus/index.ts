@@ -24,6 +24,16 @@ export {
 } from "./decisions.js";
 export { declareConcept, slotId } from "./concepts.js";
 export {
+  deriveSeed,
+  identityIndex,
+  identityPointers,
+  sessionEntity,
+  sessionSeed,
+  userSeed,
+  type AuthorIdentity,
+  type SessionIdentity,
+} from "./identity.js";
+export {
   Librarian,
   MockEmbeddingModel,
   VOCABULARY_ROOT,

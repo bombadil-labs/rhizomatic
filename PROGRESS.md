@@ -340,6 +340,28 @@ what was known. docs/agents.html is the user-facing brief; this section is the b
   move — plus a console UI (tour tech): provenance dashboard, belief timelines, trust editor,
   time scrubber. Docs page gains live widgets as pieces land.
 
+### The MX arc (Chorus with teeth) — in progress
+
+**Goal (user invitation, 2026-06-12):** make Chorus the real memory layer for the user's
+Claude sessions. Each session's model = a distinct author; "user" = one persistent author;
+every claim session-scoped and auditable; discovery (topics, search, canonical-id strategy =
+sameAs judgments + registrar-as-trusted-author, NOT central DNS); MX (model experience) parity
+with Claude's native memory, then past it (receipts, contradiction surfacing, session-level
+distrust). Slices, each usable + committed: A identity ✅ · B shared store · C discovery ·
+D briefing/MX · E real-client handshake · F beyond-parity affordances.
+chorus/README.md is the product doc and grows with each slice.
+
+- **Slice A — identity & session scoping.** ✅ — chorus/identity.ts: derived keys
+  (blake3(master + "/session/" + id) — master holder can re-derive/audit, nobody can forge),
+  persistent user author, `chorus.identity.*` claims binding session author → (model,
+  sessionId, startedAt, purpose), identityIndex with latest-introduction-wins.
+  ChorusAgent gains assertAs/recordAs/retractAs (one store, many local voices, each write
+  signed by ITS author). MCP: one process = one session; begin-session + whoami tools;
+  `speaker: "user"` on remember/retract; explain receipts now carry {speaker, model,
+  sessionId, thisSession}; writes before begin-session bind a visibly-"unknown" identity.
+  Tests: distinct session authors, persistent user, session-level audit + wholesale distrust
+  of a session's author. TS 240 green.
+
 ### Chorus build log (newest first)
 
 - **Phase 4 — distribution. THE ARC'S DEFINITION OF DONE HOLDS.** ✅ — (1) `npm run

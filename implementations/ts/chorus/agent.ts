@@ -10,6 +10,7 @@ import {
   DeltaSet,
   DerivationHost,
   Peer,
+  authorForSeed,
   evalTerm,
   makeNegationClaims,
   parsePolicy,
@@ -109,7 +110,11 @@ export class ChorusAgent {
   // Sign as this agent and ingest through the write-back loop when a host is attached, so
   // derived authors react to our own writes (SPEC-7 §6).
   private ingestOwn(claims: Claims): Delta {
-    const signed = signClaims(claims, this.seedHex);
+    return this.ingestSignedBy(this.seedHex, claims);
+  }
+
+  private ingestSignedBy(seedHex: string, claims: Claims): Delta {
+    const signed = signClaims(claims, seedHex);
     const result =
       this.host === undefined ? this.peer.reactor.ingest(signed) : this.host.ingest(signed);
     if (result.status === "rejected") throw new Error(`own claim rejected: ${result.reason}`);
@@ -130,40 +135,44 @@ export class ChorusAgent {
     });
   }
 
+  // --- writing as OTHER local authors ------------------------------------------------------------
+  // One store can hold many voices: a persistent user keypair, a keypair per model session
+  // (chorus/identity.ts). Each write is signed by ITS author; provenance stays exact.
+
+  recordAs(
+    seedHex: string,
+    input: { readonly timestamp: number; readonly pointers: readonly Pointer[] },
+  ): Delta {
+    return this.ingestSignedBy(seedHex, {
+      timestamp: input.timestamp,
+      author: authorForSeed(seedHex),
+      pointers: [...input.pointers],
+    });
+  }
+
+  assertAs(seedHex: string, b: BeliefInput): Delta {
+    return this.ingestSignedBy(seedHex, {
+      timestamp: b.timestamp ?? this.clock(),
+      author: authorForSeed(seedHex),
+      pointers: beliefPointers(b),
+    });
+  }
+
+  retractAs(seedHex: string, deltaId: string, reason?: string, timestamp?: number): Delta {
+    return this.ingestSignedBy(
+      seedHex,
+      makeNegationClaims(authorForSeed(seedHex), timestamp ?? this.clock(), deltaId, reason),
+    );
+  }
+
   // --- writing -----------------------------------------------------------------------------------
 
   // Assert a belief: one signed delta, ingested read-your-writes.
   assert(b: BeliefInput): Delta {
-    const pointers: Pointer[] = [
-      {
-        role: ROLE_ABOUT,
-        target: { kind: "entity", entity: { id: b.about, context: b.attribute } },
-      },
-      {
-        role: ROLE_VALUE,
-        target:
-          typeof b.value === "object"
-            ? {
-                kind: "entity",
-                entity:
-                  b.value.context === undefined
-                    ? { id: b.value.entity }
-                    : { id: b.value.entity, context: b.value.context },
-              }
-            : { kind: "primitive", value: b.value },
-      },
-      { role: ROLE_KIND, target: { kind: "primitive", value: b.kind ?? "observation" } },
-    ];
-    if (b.confidence !== undefined) {
-      pointers.push({ role: ROLE_CONFIDENCE, target: { kind: "primitive", value: b.confidence } });
-    }
-    if (b.source !== undefined) {
-      pointers.push({ role: ROLE_SOURCE, target: { kind: "primitive", value: b.source } });
-    }
     return this.ingestOwn({
       timestamp: b.timestamp ?? this.clock(),
       author: this.author,
-      pointers,
+      pointers: beliefPointers(b),
     });
   }
 
@@ -324,6 +333,37 @@ export class ChorusAgent {
 }
 
 const ALL_POLICY = { default: { all: { order: { byTimestamp: "asc" } } } };
+
+// The belief shape (chorus/vocab.ts), one delta: about + value + kind (+ confidence, source).
+function beliefPointers(b: BeliefInput): Pointer[] {
+  const pointers: Pointer[] = [
+    {
+      role: ROLE_ABOUT,
+      target: { kind: "entity", entity: { id: b.about, context: b.attribute } },
+    },
+    {
+      role: ROLE_VALUE,
+      target:
+        typeof b.value === "object"
+          ? {
+              kind: "entity",
+              entity:
+                b.value.context === undefined
+                  ? { id: b.value.entity }
+                  : { id: b.value.entity, context: b.value.context },
+            }
+          : { kind: "primitive", value: b.value },
+    },
+    { role: ROLE_KIND, target: { kind: "primitive", value: b.kind ?? "observation" } },
+  ];
+  if (b.confidence !== undefined) {
+    pointers.push({ role: ROLE_CONFIDENCE, target: { kind: "primitive", value: b.confidence } });
+  }
+  if (b.source !== undefined) {
+    pointers.push({ role: ROLE_SOURCE, target: { kind: "primitive", value: b.source } });
+  }
+  return pointers;
+}
 
 // The Chorus presentation profile. A belief delta carries value + kind (+ confidence, source)
 // pointers, so SPEC-5 §2.1 renders its candidate as a { role: rendered } object. Presentation
