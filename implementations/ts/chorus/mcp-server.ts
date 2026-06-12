@@ -22,6 +22,7 @@ import {
   userSeed,
   type AuthorIdentity,
 } from "./identity.js";
+import { SharedStore } from "./shared-store.js";
 import { loadPack, savePack } from "./store.js";
 
 interface RpcRequest {
@@ -299,10 +300,15 @@ export function callTool(
   }
 }
 
+export interface StoreHooks {
+  readonly persist?: () => void; // after every accepted write
+  readonly refresh?: () => void; // before every tool call: pull in other sessions' appends
+}
+
 export function handleRequest(
   ctx: SessionContext,
   req: RpcRequest,
-  persist?: () => void,
+  hooks: StoreHooks = {},
 ): Record<string, unknown> | undefined {
   const reply = (result: unknown): Record<string, unknown> => ({
     jsonrpc: "2.0",
@@ -324,7 +330,8 @@ export function handleRequest(
       const name = str(req.params?.["name"]) ?? "";
       const args = (req.params?.["arguments"] as Record<string, unknown> | undefined) ?? {};
       try {
-        const result = callTool(ctx, name, args, persist);
+        hooks.refresh?.();
+        const result = callTool(ctx, name, args, hooks.persist);
         return reply({ content: [{ type: "text", text: JSON.stringify(result) }] });
       } catch (e) {
         return reply({
@@ -347,7 +354,7 @@ export function serve(
   ctx: SessionContext,
   input: Readable,
   output: Writable,
-  persist?: () => void,
+  hooks?: StoreHooks,
 ): void {
   const rl = createInterface({ input });
   rl.on("line", (line) => {
@@ -362,7 +369,7 @@ export function serve(
       );
       return;
     }
-    const resp = handleRequest(ctx, req, persist);
+    const resp = handleRequest(ctx, req, hooks);
     if (resp !== undefined) output.write(`${JSON.stringify(resp)}\n`);
   });
 }
@@ -372,12 +379,23 @@ if (
   process.argv[1] !== undefined &&
   process.argv[1].replace(/\\/g, "/").endsWith("chorus/mcp-server.ts")
 ) {
-  const packPath = process.env["CHORUS_PACK"] ?? "chorus-memory.pack";
   const masterSeedHex =
     process.env["CHORUS_MASTER_SEED"] ?? process.env["CHORUS_SEED_HEX"] ?? "0f".repeat(32);
   const sessionId =
     process.env["CHORUS_SESSION_ID"] ?? `${Date.now()}-${randomBytes(4).toString("hex")}`;
   const ctx = createSession({ masterSeedHex, sessionId });
-  if (existsSync(packPath)) ctx.agent.importSet(loadPack(packPath));
-  serve(ctx, process.stdin, process.stdout, () => savePack(ctx.agent, packPath));
+  const packPath = process.env["CHORUS_PACK"];
+  if (packPath !== undefined) {
+    // Legacy single-process pack mode (portable snapshot per write).
+    if (existsSync(packPath)) ctx.agent.importSet(loadPack(packPath));
+    serve(ctx, process.stdin, process.stdout, { persist: () => savePack(ctx.agent, packPath) });
+  } else {
+    // Default: the shared JSONL log — many concurrent sessions, one world.
+    const store = new SharedStore(process.env["CHORUS_STORE"] ?? "chorus-memory.jsonl");
+    store.refresh(ctx.agent);
+    serve(ctx, process.stdin, process.stdout, {
+      persist: () => store.persist(ctx.agent),
+      refresh: () => store.refresh(ctx.agent),
+    });
+  }
 }

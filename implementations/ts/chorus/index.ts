@@ -42,6 +42,7 @@ export {
   type LibrarianOptions,
 } from "./librarian.js";
 export { latest, trustFirst, everything, disagreements } from "./policies.js";
+export { SharedStore } from "./shared-store.js";
 export { loadPack, restore, savePack } from "./store.js";
 export {
   BELIEF_KINDS,

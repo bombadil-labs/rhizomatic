@@ -351,6 +351,17 @@ distrust). Slices, each usable + committed: A identity ✅ · B shared store · 
 D briefing/MX · E real-client handshake · F beyond-parity affordances.
 chorus/README.md is the product doc and grows with each slice.
 
+- **Slice B — the shared store.** ✅ — chorus/shared-store.ts: many concurrent server
+  processes, one world, no daemon. Append-only JSONL (one delta per line, sig preserved) + a
+  lock DIRECTORY (mkdir-atomic, stale-steal at 10s); correctness rides the CRDT — the lock
+  only prevents torn appends, never arbitrates truth. The onDisk id-set is the watermark
+  (order-free, so derived emissions triggered mid-refresh are never skipped); refresh stops at
+  unparsed boundaries and skips torn crash-lines; persist seals a torn tail before appending.
+  MCP default is now the shared log (CHORUS_STORE, default chorus-memory.jsonl; CHORUS_PACK
+  selects legacy single-process snapshot mode); reads refresh first, writes persist after.
+  5 tests: two-session convergence with cross-session attribution, no duplicate lines,
+  torn-line recovery, fresh-boot from log alone. TS 245 green.
+
 - **Slice A — identity & session scoping.** ✅ — chorus/identity.ts: derived keys
   (blake3(master + "/session/" + id) — master holder can re-derive/audit, nobody can forge),
   persistent user author, `chorus.identity.*` claims binding session author → (model,
