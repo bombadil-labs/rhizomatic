@@ -4,7 +4,8 @@ import { main } from "../chorus/demo.js";
 describe("the chorus demo", () => {
   it("walks the whole thesis end-to-end, deterministically", () => {
     const transcript = main();
-    expect(transcript).toContain("ACT 6");
+    expect(transcript).toContain("ACT 7");
+    expect(transcript).toContain("the next session starts where the last one stopped");
     expect(transcript).toContain('superposition at hub: {"healthy":[true,false]}');
     expect(transcript).toContain("replay-verified: true");
     expect(transcript).toContain("basis verified byte-for-byte: true");

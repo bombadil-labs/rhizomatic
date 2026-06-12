@@ -354,6 +354,12 @@ distrust). Slices, each usable + committed: A identity ✅ · B shared store · 
 D briefing/MX · E real-client handshake · F beyond-parity affordances.
 chorus/README.md is the product doc and grows with each slice.
 
+- **Slice H — polish.** ✅ — chorus:demo gains ACT 7 (two sessions, one user-signed
+  preference, the briefing carrying Monday's summary into Tuesday — the MX story inside the
+  deterministic transcript); docs/agents.html's Distribution paragraph now tells the session
+  -identity + console story; tools/check-console-page.ts parse-checks the console's SERVED
+  inline script (the template-literal escape level the source can't check). Suite green (261).
+
 - **Slice G — the console.** ✅ — chorus/console.ts (`npm run chorus:console`): a
   zero-dependency local web UI over the SAME shared log the sessions write — the human's seat
   at the table. Live briefing panel (preferences/tasks/CONTESTED/sessions/distrusted), topic

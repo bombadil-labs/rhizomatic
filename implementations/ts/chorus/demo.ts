@@ -15,6 +15,7 @@ import {
   trustFirst,
   type Candidate,
 } from "./index.js";
+import { callTool, createSession } from "./mcp-server.js";
 
 const out: string[] = [];
 function say(line = ""): void {
@@ -190,6 +191,53 @@ export function main(): string {
   say(
     "  recall crossed the dialect; the answer kept bob's own vocabulary. No migration, no meeting.",
   );
+
+  // ── ACT 7 · Sessions and the briefing ────────────────────────────────────────────────────
+  say();
+  say("ACT 7 · Memory across sessions (every session a voice, the user a constant)");
+  const monday = createSession({
+    masterSeedHex: "0a".repeat(32),
+    sessionId: "monday",
+    clock: clockFrom(9000),
+  });
+  callTool(monday, "begin-session", { model: "claude-fable-5", purpose: "plan the launch" });
+  callTool(monday, "remember", {
+    about: "user:mike",
+    attribute: "tone",
+    value: "direct, no fluff",
+    kind: "preference",
+    speaker: "user",
+  });
+  callTool(monday, "remember", {
+    about: "proj:launch",
+    attribute: "blocker",
+    value: "pricing page unreviewed",
+    kind: "task",
+  });
+  callTool(monday, "end-session", { summary: "Launch planned; pricing page still open." });
+  say(`  monday's session author  ${short(monday.agent.author)} (claude-fable-5)`);
+
+  const tuesday = createSession({
+    masterSeedHex: "0a".repeat(32),
+    sessionId: "tuesday",
+    clock: clockFrom(9900),
+  });
+  tuesday.agent.importSet(monday.agent.snapshot());
+  callTool(tuesday, "begin-session", { model: "claude-fable-5", purpose: "continue the launch" });
+  say(`  tuesday's session author ${short(tuesday.agent.author)} (same model, NEW voice)`);
+  say(`  the user's author        ${short(tuesday.userAuthor)} (constant across both)`);
+  const b = callTool(tuesday, "briefing", {}) as {
+    preferences: Array<{ value: unknown }>;
+    openTasks: Array<{ value: unknown }>;
+    recentSessions: Array<{ sessionId: string; summary?: string }>;
+  };
+  say(`  tuesday's briefing:`);
+  say(`    preference (user-signed): ${JSON.stringify(b.preferences[0]?.value)}`);
+  say(`    open task:                ${JSON.stringify(b.openTasks[0]?.value)}`);
+  say(
+    `    monday said:              "${b.recentSessions.find((s) => s.sessionId === "monday")?.summary}"`,
+  );
+  say("  the next session starts where the last one stopped — with receipts.");
 
   say();
   say("════════════════════════════════════════════════");

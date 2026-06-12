@@ -407,10 +407,15 @@ each mapping: a signed claim — by embedding-model-X-v3, confidence 0.91,
   live verdict per subject, decision replay (pinned instant + pinned policy + verified basis)
   and retroactive distrust as first-class operations. · <strong>The librarian</strong> — the
   embedding author and live semantic convergence: ask in one dialect, find another's data, the
-  answer in the target's own vocabulary. · <strong>Distribution</strong> — an MCP server
-  (<span class="mono">remember / recall / retract / explain / trust / as-of</span>) exposing
-  all of it as drop-in memory for any agent framework. The console for the humans — provenance
-  dashboards, trust editing, a time scrubber — is the next stretch.</p>
+  answer in the target's own vocabulary. · <strong>Distribution</strong> — an MCP server with
+  sixteen tools exposing all of it as drop-in memory for any agent framework: <em>every
+  session is a distinct author</em> (a keypair derived per conversation, bound to its model
+  name by a signed identity claim), the human is one persistent author, concurrent sessions
+  share one append-only store, and a <span class="mono">briefing</span> tool hands each new
+  session what came before — including the facts the record <em>disagrees about</em>. ·
+  <strong>The console</strong> — the human's seat at the table: a local web UI over the same
+  store with live receipts ("which model, in which session"), an as-of time scrubber, and a
+  distrust button whose one signed edit re-resolves every future session's world.</p>
   <div class="demo">
     <p><span class="name">See it run.</span> The whole thesis — superposition, adjudication,
     decision replay, retroactive distrust, the librarian — executes as one deterministic,
