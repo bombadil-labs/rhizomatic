@@ -196,6 +196,8 @@ describe("chorus MCP: the protocol loop", () => {
       "retract",
       "revise",
       "end-session",
+      "decide",
+      "replay",
       "explain",
       "trust",
       "as-of",

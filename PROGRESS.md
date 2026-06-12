@@ -354,6 +354,15 @@ distrust). Slices, each usable + committed: A identity ✅ · B shared store · 
 D briefing/MX · E real-client handshake · F beyond-parity affordances.
 chorus/README.md is the product doc and grows with each slice.
 
+- **Slice F — power tools.** ✅ — (1) `decide`/`replay` over MCP: a session records what it
+  acted on (instant + policy + view basis + arrival prefix) and any later session replays it
+  verified, receipts carrying identity. (2) `trust` gains **distrustModel** (demotes every
+  session of a model in one call, resolved through identity claims) and **distrustSession**
+  (one session by id); unknown selectors fail loudly. (3) SharedStore.compact(): atomic
+  tmp-then-rename rewrite under the lock — duplicates and torn crash-lines vanish, fresh boot
+  reproduces the identical digest; `wasteful()` heuristic auto-compacts at server boot.
+  16 MCP tools; suite green (259).
+
 - **Slice E — the real-client handshake.** ✅ — `ping` answered with an empty result (Claude
   Code keepalives), notifications/cancelled tolerated; test/chorus-client.test.ts SPAWNS the
   actual server process (the same command `claude mcp add` runs) and drives the exact opening

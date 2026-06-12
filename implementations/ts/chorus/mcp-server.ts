@@ -17,6 +17,7 @@ import { createInterface } from "node:readline";
 import type { Readable, Writable } from "node:stream";
 import { ChorusAgent, beliefPointers } from "./agent.js";
 import { briefing } from "./briefing.js";
+import { decide, replayDecision } from "./decisions.js";
 import { recallUnified, sameAsClass, sameAsPointers, search, topics } from "./discovery.js";
 import {
   identityIndex,
@@ -173,6 +174,30 @@ const TOOLS = [
     },
   },
   {
+    name: "decide",
+    description:
+      "Record that you are about to ACT on what you currently believe: resolves the entity now and pins (instant, policy, view hash, arrival prefix) into one signed decision record. Returns the decisionId — keep it in your summary if the action matters.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        about: { type: "string" },
+        intent: { type: "string", description: "what you are about to do, in your own words" },
+        attribute: { type: "string" },
+      },
+      required: ["about", "intent"],
+    },
+  },
+  {
+    name: "replay",
+    description:
+      "Replay a recorded decision: the exact belief set and policy it resolved, re-verified byte-for-byte, with claims retracted SINCE the decision marked. Incident review as a query.",
+    inputSchema: {
+      type: "object",
+      properties: { decisionId: { type: "string" } },
+      required: ["decisionId"],
+    },
+  },
+  {
     name: "explain",
     description:
       "Why does recall say what it says? Every candidate belief with its receipt: author, delta id, timestamp, signature, negated flag, value, kind, confidence, source.",
@@ -185,11 +210,16 @@ const TOOLS = [
   {
     name: "trust",
     description:
-      "Demote an author (retroactive distrust): one signed edit re-resolves every belief downstream of their testimony; their history stays queryable.",
+      "Retroactive distrust: one signed edit re-resolves every belief downstream of the demoted testimony; history stays queryable. Demote a specific author key (distrust), every session of a model (distrustModel), or one session by id (distrustSession).",
     inputSchema: {
       type: "object",
-      properties: { distrust: { type: "string" }, reason: { type: "string" }, ...SPEAKER },
-      required: ["distrust"],
+      properties: {
+        distrust: { type: "string", description: "an author key, e.g. ed25519:…" },
+        distrustModel: { type: "string", description: "demote ALL sessions of this model id" },
+        distrustSession: { type: "string", description: "demote one session by its session id" },
+        reason: { type: "string" },
+        ...SPEAKER,
+      },
     },
   },
   {
@@ -448,9 +478,50 @@ export function callTool(
     }
     case "trust": {
       const reason = str(args["reason"]);
-      const edit = agent.distrust(str(args["distrust"]) ?? "", reason);
+      // Resolve model/session selectors to author keys through the identity claims.
+      const targets = new Set<string>();
+      const direct = str(args["distrust"]);
+      if (direct !== undefined) targets.add(direct);
+      const byModel = str(args["distrustModel"]);
+      const bySession = str(args["distrustSession"]);
+      if (byModel !== undefined || bySession !== undefined) {
+        for (const id of identityIndex(agent.snapshot(), ctx.userAuthor).values()) {
+          if (id.kind !== "session") continue;
+          if (byModel !== undefined && id.model === byModel) targets.add(id.author);
+          if (bySession !== undefined && id.sessionId === bySession) targets.add(id.author);
+        }
+        if (byModel !== undefined && targets.size === 0) {
+          throw new Error(`trust: no sessions of model "${byModel}" found in identity claims`);
+        }
+        if (bySession !== undefined && targets.size === 0) {
+          throw new Error(`trust: no session "${bySession}" found in identity claims`);
+        }
+      }
+      if (targets.size === 0) {
+        throw new Error("trust: give one of distrust | distrustModel | distrustSession");
+      }
+      const editIds = [...targets].sort().map((a) => agent.distrust(a, reason).id);
       persist?.();
-      return { distrusted: str(args["distrust"]), editId: edit.id };
+      return { distrusted: [...targets].sort(), editIds };
+    }
+    case "decide": {
+      if (!ctx.introduced && !asUser) introduce(ctx, ctx.model);
+      const attribute = str(args["attribute"]);
+      const d = decide(agent, {
+        about: str(args["about"]) ?? "",
+        intent: str(args["intent"]) ?? "",
+        ...(attribute === undefined ? {} : { attribute }),
+      });
+      persist?.();
+      return { decisionId: d.delta.id, view: d.view, basis: d.basis, asOf: d.asOf };
+    }
+    case "replay": {
+      const r = replayDecision(agent, str(args["decisionId"]) ?? "");
+      const identities = identityIndex(agent.snapshot(), ctx.userAuthor);
+      return {
+        ...r,
+        receipts: r.receipts.map((x) => ({ ...x, ...speakerOf(ctx, identities, x.author) })),
+      };
     }
     case "as-of": {
       const attribute = str(args["attribute"]);
@@ -560,6 +631,7 @@ if (
     // Default: the shared JSONL log — many concurrent sessions, one world.
     const store = new SharedStore(process.env["CHORUS_STORE"] ?? "chorus-memory.jsonl");
     store.refresh(ctx.agent);
+    if (store.wasteful(ctx.agent)) store.compact(ctx.agent);
     serve(ctx, process.stdin, process.stdout, {
       persist: () => store.persist(ctx.agent),
       refresh: () => store.refresh(ctx.agent),

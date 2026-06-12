@@ -3,7 +3,17 @@
 // content-addressed and merge is union, so any interleaving of "read the new lines, append
 // mine" converges — the lock only keeps appends from tearing, never arbitrates truth.
 
-import { appendFileSync, existsSync, mkdirSync, readFileSync, rmdirSync, statSync } from "node:fs";
+import {
+  appendFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  rmdirSync,
+  statSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { dirname } from "node:path";
 import { DeltaSet, claimsToJson, makeDelta, parseClaims } from "../src/index.js";
 import type { ChorusAgent } from "./agent.js";
@@ -50,6 +60,7 @@ function withLock<T>(path: string, fn: () => T): T {
 
 export class SharedStore {
   private offset = 0; // bytes of the file already parsed
+  private linesSeen = 0; // parsed lines (incl. duplicates and torn skips)
   // Ids known to be on disk (read from it, or appended by us). Set semantics make this the
   // watermark: order-free, so derived emissions triggered mid-refresh are never skipped.
   private readonly onDisk = new Set<string>();
@@ -75,6 +86,7 @@ export class SharedStore {
       const line = chunk.slice(consumed, nl).trim();
       consumed = nl + 1;
       if (line === "") continue;
+      this.linesSeen += 1;
       try {
         const parsed = JSON.parse(line) as { claims: unknown; sig?: string };
         const delta = makeDelta(parseClaims(parsed.claims), parsed.sig);
@@ -110,8 +122,43 @@ export class SharedStore {
         .join("\n")}\n`;
       appendFileSync(this.filePath, lines);
       this.offset = size + Buffer.byteLength(lines, "utf8");
+      this.linesSeen += mine.length;
       for (const d of mine) this.onDisk.add(d.id);
       return mine.length;
+    });
+  }
+
+  // The log accumulates duplicates only through crash-garbage and racing writers; once the
+  // parsed-line count meaningfully exceeds the distinct-delta count, a rewrite pays.
+  wasteful(agent: ChorusAgent, slack = 64): boolean {
+    return this.linesSeen - agent.peer.reactor.arrivalLog().length > slack;
+  }
+
+  // Rewrite the log from the agent's full world: duplicates and torn lines vanish; bytes and
+  // truth both shrink to one line per delta. Atomic via tmp-then-rename, under the lock.
+  compact(agent: ChorusAgent): number {
+    return withLock(this.filePath, () => {
+      this.refresh(agent);
+      const deltas = agent.peer.reactor.arrivalLog();
+      const body = deltas
+        .map((d) =>
+          JSON.stringify(
+            d.sig === undefined
+              ? { claims: claimsToJson(d.claims) }
+              : { claims: claimsToJson(d.claims), sig: d.sig },
+          ),
+        )
+        .join("\n");
+      const content = body === "" ? "" : `${body}\n`;
+      const tmp = `${this.filePath}.compact.tmp`;
+      writeFileSync(tmp, content);
+      if (existsSync(this.filePath)) unlinkSync(this.filePath);
+      renameSync(tmp, this.filePath);
+      this.offset = Buffer.byteLength(content, "utf8");
+      this.linesSeen = deltas.length;
+      this.onDisk.clear();
+      for (const d of deltas) this.onDisk.add(d.id);
+      return deltas.length;
     });
   }
 }
