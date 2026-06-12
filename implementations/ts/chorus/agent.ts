@@ -261,6 +261,13 @@ export class ChorusAgent {
     return this.distrusted.has(author);
   }
 
+  // Apply a distrust edit WITHOUT writing a claim — used to rehydrate the lens from trust
+  // claims already in the store (a fresh session honors the fleet's standing edits).
+  applyDistrust(author: string): void {
+    this.distrusted.add(author);
+    this.policy = this.distrustPolicy();
+  }
+
   // Claims from anyone NOT distrusted rank first; a distrusted author's claims survive (they
   // are history, not garbage) but win only when nothing else speaks (SPEC-5 §3 byPred).
   private distrustPolicy(): unknown {
@@ -335,7 +342,7 @@ export class ChorusAgent {
 const ALL_POLICY = { default: { all: { order: { byTimestamp: "asc" } } } };
 
 // The belief shape (chorus/vocab.ts), one delta: about + value + kind (+ confidence, source).
-function beliefPointers(b: BeliefInput): Pointer[] {
+export function beliefPointers(b: BeliefInput): Pointer[] {
   const pointers: Pointer[] = [
     {
       role: ROLE_ABOUT,

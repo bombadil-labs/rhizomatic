@@ -351,6 +351,19 @@ distrust). Slices, each usable + committed: A identity ✅ · B shared store · 
 D briefing/MX · E real-client handshake · F beyond-parity affordances.
 chorus/README.md is the product doc and grows with each slice.
 
+- **Slice D — MX (the model experience).** ✅ — chorus/briefing.ts + three tools. `briefing`
+  is the MEMORY.md analog with teeth: the user's preferences (latest per slot, user-authored),
+  open tasks, recent sessions joined with their summaries, top topics, **contested facts**
+  (attributes where the surviving record disagrees with itself — surfaced, never
+  last-write-wins), and standing distrust edits, which **rehydrate into the fresh session's
+  lens** (agent.applyDistrust, non-writing) so a Tuesday distrust still binds on Wednesday.
+  `revise` retracts + re-asserts in one move with a chorus.belief.revises DeltaRef back to
+  the original. `end-session` writes summary + endedAt beliefs at the session entity, so the
+  next briefing starts where the last session stopped. README: claude-mcp-add wiring, the
+  CLAUDE.md protocol snippet (begin-session → briefing → work → end-session), and the
+  parity-and-past-it MX comparison. Lifecycle test: Monday session works and summarizes;
+  Tuesday's briefing carries it all. TS 258 green.
+
 - **Slice C — discovery.** ✅ — chorus/discovery.ts + three MCP tools. `topics`: every entity
   the store holds beliefs about (attributes, claim counts, distinct authors, recency-sorted;
   internal session:/concept: entities and chorus./rhizomatic. contexts excluded). `search`:

@@ -14,11 +14,13 @@ import { existsSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { createInterface } from "node:readline";
 import type { Readable, Writable } from "node:stream";
-import { ChorusAgent } from "./agent.js";
+import { ChorusAgent, beliefPointers } from "./agent.js";
+import { briefing } from "./briefing.js";
 import { recallUnified, sameAsClass, sameAsPointers, search, topics } from "./discovery.js";
 import {
   identityIndex,
   identityPointers,
+  sessionEntity,
   sessionSeed,
   userSeed,
   type AuthorIdentity,
@@ -59,6 +61,12 @@ const TOOLS = [
     name: "whoami",
     description:
       "The identity card: this session's author, the persistent user author, session id, and declared model.",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "briefing",
+    description:
+      "What to have top-of-mind, computed fresh: the user's preferences, open tasks, recent sessions (with their summaries), top topics, CONTESTED facts (where the record disagrees with itself), and standing distrust edits. Call right after begin-session.",
     inputSchema: { type: "object", properties: {} },
   },
   {
@@ -136,6 +144,31 @@ const TOOLS = [
       type: "object",
       properties: { deltaId: { type: "string" }, reason: { type: "string" }, ...SPEAKER },
       required: ["deltaId"],
+    },
+  },
+  {
+    name: "revise",
+    description:
+      "Replace a belief in one move: retract the old delta and assert the new value for the same entity/attribute, linked by a revises pointer. Use when a fact CHANGED (not when it was wrong from the start — that's retract + remember).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        deltaId: { type: "string" },
+        value: { type: ["string", "number", "boolean"] },
+        reason: { type: "string" },
+        ...SPEAKER,
+      },
+      required: ["deltaId", "value"],
+    },
+  },
+  {
+    name: "end-session",
+    description:
+      "Close out: write this session's one-paragraph summary (and what's left open) so the next session's briefing starts where you stopped. Call before finishing a conversation.",
+    inputSchema: {
+      type: "object",
+      properties: { summary: { type: "string" } },
+      required: ["summary"],
     },
   },
   {
@@ -308,6 +341,74 @@ export function callTool(
         return recallUnified(agent, str(args["entity"]) ?? "", opts);
       }
       return agent.recall(str(args["entity"]) ?? "", opts);
+    }
+    case "briefing":
+      return briefing(agent, ctx.userAuthor);
+    case "revise": {
+      const old = agent.peer.reactor.get(str(args["deltaId"]) ?? "");
+      if (old === undefined) throw new Error(`revise: unknown delta ${String(args["deltaId"])}`);
+      const aboutPtr = old.claims.pointers.find(
+        (p) => p.role === "chorus.belief.about" && p.target.kind === "entity",
+      );
+      if (aboutPtr?.target.kind !== "entity" || aboutPtr.target.entity.context === undefined) {
+        throw new Error("revise: target is not a chorus belief");
+      }
+      const kindPtr = old.claims.pointers.find(
+        (p) => p.role === "chorus.belief.kind" && p.target.kind === "primitive",
+      );
+      const value = args["value"];
+      if (typeof value !== "string" && typeof value !== "number" && typeof value !== "boolean") {
+        throw new Error("revise: value must be string | number | boolean");
+      }
+      if (!ctx.introduced && !asUser) introduce(ctx, ctx.model);
+      const reason = str(args["reason"]) ?? "revised";
+      const negation = asUser
+        ? agent.retractAs(ctx.userSeedHex, old.id, reason)
+        : agent.retract(old.id, reason);
+      const pointers = [
+        ...beliefPointers({
+          about: aboutPtr.target.entity.id,
+          attribute: aboutPtr.target.entity.context,
+          value,
+          ...(kindPtr?.target.kind === "primitive"
+            ? {
+                kind: String(kindPtr.target.value) as
+                  | "observation"
+                  | "fact"
+                  | "preference"
+                  | "task",
+              }
+            : {}),
+        }),
+        {
+          role: "chorus.belief.revises",
+          target: { kind: "delta" as const, deltaRef: { delta: old.id } },
+        },
+      ];
+      const input = { timestamp: ctx.clock(), pointers };
+      const delta = asUser ? agent.recordAs(ctx.userSeedHex, input) : agent.record(input);
+      persist?.();
+      return { deltaId: delta.id, revised: old.id, negationId: negation.id };
+    }
+    case "end-session": {
+      if (!ctx.introduced) introduce(ctx, ctx.model);
+      const t = ctx.clock();
+      agent.assert({
+        about: sessionEntity(ctx.sessionId),
+        attribute: "summary",
+        value: str(args["summary"]) ?? "",
+        kind: "observation",
+        timestamp: t,
+      });
+      agent.assert({
+        about: sessionEntity(ctx.sessionId),
+        attribute: "endedAt",
+        value: t,
+        kind: "observation",
+        timestamp: t,
+      });
+      persist?.();
+      return { sessionId: ctx.sessionId, endedAt: t };
     }
     case "topics": {
       const prefix = str(args["prefix"]);
