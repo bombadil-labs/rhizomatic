@@ -11,13 +11,16 @@
 > remember/recall/retract/explain/trust/as-of, protocol loop smoke-tested in-process).
 > docs/agents.html says "What we built" and links the runnable demo.
 >
-> **To resume:** read CLAUDE.md + this file + docs/agents.html. Verify green:
-> `node tools/check-all.mjs`. Run the story: `cd implementations/ts && npm run chorus:demo`.
-> Open work, in value order: the Chorus console UI (the arc's stretch goal — tour tech:
-> provenance dashboard, belief timelines, trust editor, time scrubber); Rust-side chorus
-> (parity for the product layer, if/when wanted — the substrate is already two-witness);
-> the WASM host ABI proposal (spec/07-derivation-abi.PROPOSAL.md, awaiting adoption);
-> deeper alias vectors (slot-to-slot equivalence, holes-in-aliased — SPEC-9 §8).
+> **To resume:** read CLAUDE.md + this file + implementations/ts/chorus/README.md (the
+> product doc). Verify green: `node tools/check-all.mjs`. Run the story: `cd
+> implementations/ts && npm run chorus:demo`. **The MX arc (slices A–E) shipped Chorus as
+> installable session memory** — per-session model authors, persistent user author, shared
+> multi-process JSONL store, discovery (topics/search/sameAs), the briefing protocol, and a
+> spawned-server real-client handshake test; `claude mcp add chorus …` per the README is the
+> tested path. Open work, in value order: the MX backlog under Slice E (decide/replay over
+> MCP, model-level trust policies, real embedding model, log compaction); the Chorus console
+> UI; Rust-side chorus if product-layer parity is wanted; the WASM host ABI proposal; deeper
+> alias vectors (SPEC-9 §8).
 > The working agreement holds: vectors first, two witnesses in lockstep for anything
 > normative, checkpoint commits on main, artifacts read as designed-from-the-start.
 
