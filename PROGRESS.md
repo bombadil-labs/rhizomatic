@@ -10,8 +10,10 @@
 >
 > **To resume:** read CLAUDE.md + this file + docs/agents.html + the "Chorus arc" section
 > below. Verify green: `node tools/check-all.mjs`. Preview: launch config `docs`.
-> **Phase 0 is done** (SPEC-9 proposal + eval-aliased vectors + both witnesses + the tour's
-> in-browser run, 149/149) — see the Chorus build log below. Next: **Phase 1, chorus-core.**
+> **Phases 0–1 are done** (SPEC-9 + eval-aliased vectors in both witnesses, 149/149 in-browser;
+> chorus-core with the full memory API) — see the Chorus build log below. Next: **Phase 2,
+> trust dynamics** (adjudicator via keyed emission; decision replay + retroactive distrust as
+> first-class operations).
 > The working agreement holds: vectors first, two witnesses in lockstep for anything
 > normative, checkpoint commits on main, artifacts read as designed-from-the-start.
 
@@ -335,6 +337,21 @@ what was known. docs/agents.html is the user-facing brief; this section is the b
   time scrubber. Docs page gains live widgets as pieces land.
 
 ### Chorus build log (newest first)
+
+- **Phase 1 — chorus-core.** ✅ — implementations/ts/chorus/ (vocab, policies, agent, store):
+  `ChorusAgent` = keypair + reactor + policy + offered lens/admission (wraps the SPEC-6 Peer);
+  memory API **assert / retract / recall / recallAll / explain / asOf** (asOf is a recall
+  option: filtering the operand scopes mask too, so a later negation never reaches back);
+  belief vocabulary `chorus.belief.{about,value,kind,confidence,source}` (kind ∈ observation |
+  fact | preference | task; the about-pointer's context IS the attribute, so beliefs file at
+  the value entity too); standard policies latest/trustFirst/everything/disagreements; the
+  Chorus presentation profile (unwrap candidate → value, else about — presentation never
+  re-adjudicates, SPEC-5 §5); pack-to-disk persistence (savePack/loadPack/restore,
+  self-verifying). explain uses the E14-legal audit idiom group(mask(annotate)); recall uses
+  mask-before-select (S5). 10 scripted multi-agent tests, deterministic via injected clocks:
+  one substrate two truths, retraction-with-receipts, as-of replay precursor, entity-valued
+  beliefs, pack round-trip (same packId from a restored world), trust-edit re-resolution.
+  TS 221 tests green. Chorus is product layer, not substrate — TS only, no vectors needed.
 
 - **Phase 0 — the alias layer.** ✅ — spec/09-alias.PROPOSAL.md (SPEC-9): concepts with
   oriented slots (`rhizomatic.alias.slot`/`.concept` declarations), mapping claims
