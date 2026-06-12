@@ -26,6 +26,9 @@ export const ROLE_DECISION_ABOUT = `${CHORUS_PREFIX}.decision.about`;
 export const ROLE_DECISION_INTENT = `${CHORUS_PREFIX}.decision.intent`;
 export const ROLE_DECISION_ASOF = `${CHORUS_PREFIX}.decision.asOf`;
 export const ROLE_DECISION_BASIS = `${CHORUS_PREFIX}.decision.basis`;
+// The arrival-prefix length at decide time: derived claims carry timestamp 0 by design
+// (SPEC-7 §5), so claimed time alone cannot reconstruct "what had arrived"; the prefix can.
+export const ROLE_DECISION_ARRIVAL = `${CHORUS_PREFIX}.decision.arrival`;
 export const ROLE_DECISION_POLICY = `${CHORUS_PREFIX}.decision.policy`;
 
 // Trust edits are claims too: demoting an author is auditable data, never a quiet config flip.

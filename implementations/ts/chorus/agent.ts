@@ -54,6 +54,7 @@ export interface RecallOptions {
   readonly aliasedVia?: string;
   readonly asOf?: number; // resolve over claims (and negations!) at or before this instant
   readonly policy?: unknown; // policy-term JSON (SPEC-5 §7); defaults to the agent's own
+  readonly over?: DeltaSet; // evaluate over this set instead of the current snapshot
 }
 
 // One candidate belief with its full receipt — what `explain` returns.
@@ -178,7 +179,7 @@ export class ChorusAgent {
   // The resolved view of an entity under a policy: one truth, per THIS reader (SPEC-5).
   recall(entity: string, opts: RecallOptions = {}): View {
     const term = this.recallTerm(entity, opts, this.policy);
-    const result = evalTerm(parseTerm(term), this.snapshot(), entity);
+    const result = evalTerm(parseTerm(term), opts.over ?? this.snapshot(), entity);
     if (result.sort !== "view") throw new Error("recall must resolve to a View");
     return unwrapBeliefs(result.view);
   }
@@ -190,7 +191,11 @@ export class ChorusAgent {
 
   // Why does the view say what it says? Every candidate (retracted ones tagged, never hidden),
   // with author, id, timestamp, signature — the receipts (SPEC-4 §7's explain, Chorus-shaped).
-  explain(entity: string, attribute?: string, opts: { asOf?: number } = {}): BeliefReceipt[] {
+  explain(
+    entity: string,
+    attribute?: string,
+    opts: { asOf?: number; over?: DeltaSet } = {},
+  ): BeliefReceipt[] {
     // Audit idiom: group(mask(annotate, …)) directly — group's filing scopes to the root (E6),
     // and no DSet operator may sit between mask(annotate) and group (E14).
     const base = asOfBase(opts.asOf);
@@ -201,7 +206,7 @@ export class ChorusAgent {
     };
     const term =
       attribute === undefined ? grouped : { op: "prune", keep: { exact: attribute }, in: grouped };
-    const result = evalTerm(parseTerm(term), this.snapshot(), entity);
+    const result = evalTerm(parseTerm(term), opts.over ?? this.snapshot(), entity);
     if (result.sort !== "hview") throw new Error("explain must produce an HView");
     const receipts: BeliefReceipt[] = [];
     for (const [, entries] of [...result.hview.props.entries()].sort(([a], [b]) =>

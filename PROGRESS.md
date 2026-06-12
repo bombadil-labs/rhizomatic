@@ -1,20 +1,23 @@
 # Progress
 
-> **RESUME HERE (2026-06-11). THE NEXT ARC IS CHORUS — agent memory as the killer app.**
-> The substrate is finished and folded: M0-M5 in both witnesses (TS 190 / Rust 19 suites,
-> byte parity, CI green), vocabulary = rhizomatic.*, parameterized terms (holes) + keyed
-> emission shipped, ALL errata upstreamed into the spec docs (spec/ERRATA-REVIEW.md records
-> dispositions; five DECIDEs resolved). Docs are live on Pages: docs/index.html (landing) →
-> tour.html (the interactive tour, both witnesses in-browser) + agents.html (the agent-memory
-> case — read it first, it IS the product brief).
+> **RESUME HERE (2026-06-12). THE CHORUS ARC IS COMPLETE — its Definition of Done holds.**
+> The substrate (M0-M5, both witnesses, byte parity) AND the product are shipped: SPEC-9
+> (aliases/concepts/slots) vectored in both witnesses (tour runs 149/149 in-browser);
+> chorus-core (agent = keypair + reactor + policy; assert/retract/recall/asOf/explain; packs);
+> trust dynamics (adjudicator via keyed emission, decision replay with verified basis,
+> retroactive distrust); the librarian (effectful derived author, mock embeddings in CI,
+> alias-closure recall live); distribution (`npm run chorus:demo` — the whole thesis,
+> deterministic, receipts everywhere — and `npm run chorus:mcp`, a hand-rolled MCP server:
+> remember/recall/retract/explain/trust/as-of, protocol loop smoke-tested in-process).
+> docs/agents.html says "What we built" and links the runnable demo.
 >
-> **To resume:** read CLAUDE.md + this file + docs/agents.html + the "Chorus arc" section
-> below. Verify green: `node tools/check-all.mjs`. Preview: launch config `docs`.
-> **Phases 0–3 are done** (SPEC-9 + eval-aliased vectors in both witnesses, 149/149 in-browser;
-> chorus-core; adjudicator + decision replay + retroactive distrust; the librarian with live
-> alias-closure recall) — see the Chorus build log below. Next: **Phase 4, distribution**
-> (MCP server: remember/recall/retract/explain/trust/as-of + smoke tests; `npm run
-> chorus:demo` end-to-end; docs/agents.html honesty pass; then the Definition of Done check).
+> **To resume:** read CLAUDE.md + this file + docs/agents.html. Verify green:
+> `node tools/check-all.mjs`. Run the story: `cd implementations/ts && npm run chorus:demo`.
+> Open work, in value order: the Chorus console UI (the arc's stretch goal — tour tech:
+> provenance dashboard, belief timelines, trust editor, time scrubber); Rust-side chorus
+> (parity for the product layer, if/when wanted — the substrate is already two-witness);
+> the WASM host ABI proposal (spec/07-derivation-abi.PROPOSAL.md, awaiting adoption);
+> deeper alias vectors (slot-to-slot equivalence, holes-in-aliased — SPEC-9 §8).
 > The working agreement holds: vectors first, two witnesses in lockstep for anything
 > normative, checkpoint commits on main, artifacts read as designed-from-the-start.
 
@@ -338,6 +341,27 @@ what was known. docs/agents.html is the user-facing brief; this section is the b
   time scrubber. Docs page gains live widgets as pieces land.
 
 ### Chorus build log (newest first)
+
+- **Phase 4 — distribution. THE ARC'S DEFINITION OF DONE HOLDS.** ✅ — (1) `npm run
+  chorus:demo` (chorus/demo.ts): the whole thesis in six deterministic acts — superposition →
+  adjudicator verdict with by/from/under receipts + live replay-verification → a decision
+  pinning (instant, policy, basis, ARRIVAL PREFIX) → replay reproducing the basis
+  byte-for-byte with the later retraction visible-now-absent-then → retroactive distrust →
+  the librarian converging two dialects, alias-closure recall answering in the target's own
+  vocabulary; transcript pinned identical across runs by the smoke test. **Finding en route:
+  claimed-time as-of cannot reconstruct decisions over derived claims (they carry timestamp 0
+  by design, SPEC-7 §5) — decisions now pin the arrival-prefix length and replay
+  reconstructs the SET from the prefix (M5's own probe recipe), making basis verification
+  structural.** (2) The MCP server (chorus/mcp-server.ts, `npm run chorus:mcp`): hand-rolled
+  JSON-RPC over stdio (initialize / tools/list / tools/call), six tools — remember / recall
+  (incl. aliasedVia) / retract / explain / trust / as-of — against a pack-persisted agent;
+  every tool smoke-tested through the dispatcher plus the full protocol loop driven
+  in-process over a stream pair. (3) docs/agents.html honesty pass: librarian row "built ·
+  SPEC-9 + chorus", "What we're building" → "What we built" with the runnable-demo recipe
+  ("See it run") and a link to the chorus source; verified rendering live. DoD checklist:
+  check-all green (both witnesses, alias vectors, all chorus suites — TS 238) ✓ demo
+  end-to-end ✓ MCP serves all six tools with smoke tests ✓ agents.html accurate ✓. Console
+  UI remains the stretch goal, queued.
 
 - **Phase 3 — the librarian.** ✅ — chorus/librarian.ts + chorus/concepts.ts: an EFFECTFUL
   derived author (pure: false, SPEC-7 §7) wrapping an EmbeddingModel interface

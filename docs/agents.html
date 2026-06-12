@@ -140,7 +140,7 @@
     <tr><td>Fleets sync; offline agents converge later</td><td class="prim">federation = set union; lenses; admission</td><td class="built">built · SPEC-6</td></tr>
     <tr><td>Durable, portable snapshots</td><td class="prim">packs — deterministic, self-verifying</td><td class="built">built · SPEC-8</td></tr>
     <tr><td>Parameterized recall ("about entity X, since T")</td><td class="prim">holes — terms bound at invocation</td><td class="built">built · SPEC-2 §6</td></tr>
-    <tr><td>Semantic search that's accountable</td><td class="prim">the librarian — see below</td><td class="built">designed · §next</td></tr>
+    <tr><td>Semantic search that's accountable</td><td class="prim">the librarian — see below</td><td class="built">built · SPEC-9 + chorus</td></tr>
   </table>
 
   <p>An agent, in this system, is nothing exotic: <strong>a keypair, a reactor, and a
@@ -390,21 +390,38 @@ each mapping: a signed claim — by embedding-model-X-v3, confidence 0.91,
 </section>
 
 <section id="building">
-  <h2>What we're building</h2>
-  <p>The substrate is done: specified across eight documents, implemented twice (TypeScript and
+  <h2>What we built</h2>
+  <p>The substrate is done: specified across nine documents, implemented twice (TypeScript and
   Rust), parity-verified byte-for-byte against a shared conformance suite, running live in the
   <a href="tour.html">tour</a>. The memory system on top of it is <strong>Chorus</strong> — a
-  distinct system with Rhizomatic as its substrate: many voices, one piece. It builds outward
-  in this order:</p>
-  <p><strong>The alias proposal</strong> — the concept/slot vocabulary and closure semantics,
-  spec'd and vectored with the same two-witness discipline as everything else. ·
+  distinct system with Rhizomatic as its substrate: many voices, one piece. All of it ships in
+  the repo today:</p>
+  <p><strong>The alias layer</strong> —
+  <a href="https://github.com/mbilokonsky/rhizomatic/blob/main/spec/09-alias.PROPOSAL.md">SPEC-9</a>:
+  the concept/slot vocabulary and the <span class="mono">aliased</span> closure, spec'd and
+  vectored with the same two-witness discipline as everything else (the tour's conformance
+  widget runs the vectors in your browser, through both witnesses). ·
   <strong>The core library</strong> — agent handles (keypair + reactor + policy), a memory API
   (<span class="mono">assert / retract / recall / asOf / explain</span>), pack-based
-  persistence. · <strong>Trust dynamics</strong> — the adjudicator as a derived author, decision
-  replay and retroactive distrust as first-class operations. · <strong>The librarian</strong> —
-  the embedding author and live semantic convergence. · <strong>Distribution</strong> — an MCP
-  server exposing all of it as drop-in memory for any agent framework, plus a console for the
-  humans: provenance dashboards, trust editing, a time scrubber over the fleet's shared world.</p>
+  persistence. · <strong>Trust dynamics</strong> — the adjudicator as a derived author with one
+  live verdict per subject, decision replay (pinned instant + pinned policy + verified basis)
+  and retroactive distrust as first-class operations. · <strong>The librarian</strong> — the
+  embedding author and live semantic convergence: ask in one dialect, find another's data, the
+  answer in the target's own vocabulary. · <strong>Distribution</strong> — an MCP server
+  (<span class="mono">remember / recall / retract / explain / trust / as-of</span>) exposing
+  all of it as drop-in memory for any agent framework. The console for the humans — provenance
+  dashboards, trust editing, a time scrubber — is the next stretch.</p>
+  <div class="demo">
+    <p><span class="name">See it run.</span> The whole thesis — superposition, adjudication,
+    decision replay, retroactive distrust, the librarian — executes as one deterministic,
+    receipt-printing story:</p>
+    <pre class="code">git clone https://github.com/mbilokonsky/rhizomatic
+cd rhizomatic/implementations/ts
+npm install &amp;&amp; npm run chorus:demo</pre>
+    <p>The source is
+    <a href="https://github.com/mbilokonsky/rhizomatic/tree/main/implementations/ts/chorus">implementations/ts/chorus</a>;
+    the MCP server starts with <span class="mono">npm run chorus:mcp</span>.</p>
+  </div>
   <p>Progress is tracked in the open in
   <a href="https://github.com/mbilokonsky/rhizomatic/blob/main/PROGRESS.md">PROGRESS.md</a>.</p>
 </section>

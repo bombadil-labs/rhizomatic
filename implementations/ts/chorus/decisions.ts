@@ -4,6 +4,7 @@
 // claims that were retracted afterwards, because retraction appends — and verifies the basis.
 
 import {
+  DeltaSet,
   contentAddress,
   decode,
   encode,
@@ -16,6 +17,7 @@ import {
 import type { BeliefReceipt, ChorusAgent } from "./agent.js";
 import {
   ROLE_DECISION_ABOUT,
+  ROLE_DECISION_ARRIVAL,
   ROLE_DECISION_ASOF,
   ROLE_DECISION_BASIS,
   ROLE_DECISION_INTENT,
@@ -64,6 +66,13 @@ export function decide(agent: ChorusAgent, input: DecisionInput): Decision {
     { role: ROLE_DECISION_ASOF, target: { kind: "primitive", value: asOf } },
     { role: ROLE_DECISION_BASIS, target: { kind: "primitive", value: basis } },
     { role: ROLE_DECISION_POLICY, target: { kind: "primitive", value: policyHex } },
+    // Derived claims carry timestamp 0 by design (SPEC-7 §5), so claimed time alone cannot
+    // reconstruct what had ARRIVED when the agent acted; the arrival-prefix length can —
+    // the same recipe replay verification uses (SPEC-7 §4).
+    {
+      role: ROLE_DECISION_ARRIVAL,
+      target: { kind: "primitive", value: agent.peer.reactor.arrivalLog().length },
+    },
   ];
   if (input.attribute !== undefined) {
     pointers.push({
@@ -98,6 +107,7 @@ export function replayDecision(agent: ChorusAgent, decisionDeltaId: string): Rep
   let basis: string | undefined;
   let policyHex: string | undefined;
   let attribute: string | undefined;
+  let arrival: number | undefined;
   for (const ptr of d.claims.pointers) {
     if (ptr.role === ROLE_DECISION_ABOUT && ptr.target.kind === "entity") {
       about = ptr.target.entity.id;
@@ -109,6 +119,8 @@ export function replayDecision(agent: ChorusAgent, decisionDeltaId: string): Rep
       basis = String(ptr.target.value);
     } else if (ptr.role === ROLE_DECISION_POLICY && ptr.target.kind === "primitive") {
       policyHex = String(ptr.target.value);
+    } else if (ptr.role === ROLE_DECISION_ARRIVAL && ptr.target.kind === "primitive") {
+      if (typeof ptr.target.value === "number") arrival = ptr.target.value;
     } else if (ptr.role === `${ROLE_DECISION_ABOUT}.attribute` && ptr.target.kind === "primitive") {
       attribute = String(ptr.target.value);
     }
@@ -123,12 +135,20 @@ export function replayDecision(agent: ChorusAgent, decisionDeltaId: string): Rep
     throw new Error(`delta ${decisionDeltaId} is not a well-formed chorus decision`);
   }
   const policy = cborToJson(decode(fromHex(policyHex)));
+  // What had ARRIVED when the agent acted: the pinned prefix of the append-only log. Claims
+  // (and negations, and timestamp-0 derived verdicts) that arrived later are absent THEN by
+  // construction; evaluation over the prefix set itself stays order-blind.
+  const prefix =
+    arrival === undefined
+      ? agent.snapshot()
+      : DeltaSet.from(agent.peer.reactor.arrivalLog().slice(0, arrival));
   const view = agent.recall(about, {
     asOf,
     policy,
+    over: prefix,
     ...(attribute === undefined ? {} : { attribute }),
   });
-  const receiptsThen = agent.explain(about, attribute, { asOf });
+  const receiptsThen = agent.explain(about, attribute, { asOf, over: prefix });
   const receiptsNow = agent.explain(about, attribute);
   const negatedNow = new Set(receiptsNow.filter((r) => r.negated).map((r) => r.deltaId));
   const receipts = receiptsThen.map((r) =>
