@@ -24,6 +24,15 @@ export {
 } from "./decisions.js";
 export { declareConcept, slotId } from "./concepts.js";
 export {
+  recallUnified,
+  sameAsClass,
+  sameAsPointers,
+  search,
+  topics,
+  type SearchHit,
+  type Topic,
+} from "./discovery.js";
+export {
   deriveSeed,
   identityIndex,
   identityPointers,

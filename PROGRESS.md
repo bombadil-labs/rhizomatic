@@ -351,6 +351,17 @@ distrust). Slices, each usable + committed: A identity ✅ · B shared store · 
 D briefing/MX · E real-client handshake · F beyond-parity affordances.
 chorus/README.md is the product doc and grows with each slice.
 
+- **Slice C — discovery.** ✅ — chorus/discovery.ts + three MCP tools. `topics`: every entity
+  the store holds beliefs about (attributes, claim counts, distinct authors, recency-sorted;
+  internal session:/concept: entities and chorus./rhizomatic. contexts excluded). `search`:
+  case-insensitive substring over values/attributes/entity ids — SURVIVORS only (retracted
+  claims are dead to discovery, alive to explain). `same`: canonical identity as JUDGMENT —
+  a signed chorus.same.entity claim linking two ids; sameAsClass = union-find over surviving
+  claims (transitive); recall {unified: true} merges the equivalence class's views with
+  conflicts surfacing as arrays, never hidden; a wrong sameAs dies by one negation. The
+  naming position (README): ids are cheap and local; convergence is asserted, not assigned;
+  a registrar/"DNS" is just an author whose naming claims you rank highly. TS 250 green.
+
 - **Slice B — the shared store.** ✅ — chorus/shared-store.ts: many concurrent server
   processes, one world, no daemon. Append-only JSONL (one delta per line, sig preserved) + a
   lock DIRECTORY (mkdir-atomic, stale-steal at 10s); correctness rides the CRDT — the lock

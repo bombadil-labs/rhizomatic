@@ -15,6 +15,7 @@ import { randomBytes } from "node:crypto";
 import { createInterface } from "node:readline";
 import type { Readable, Writable } from "node:stream";
 import { ChorusAgent } from "./agent.js";
+import { recallUnified, sameAsClass, sameAsPointers, search, topics } from "./discovery.js";
 import {
   identityIndex,
   identityPointers,
@@ -81,15 +82,50 @@ const TOOLS = [
   {
     name: "recall",
     description:
-      "Resolve an entity's beliefs to one view under the agent's trust policy. Optional attribute narrows to one property; aliasedVia (a concept id) crosses vocabulary dialects through the alias closure.",
+      "Resolve an entity's beliefs to one view under the agent's trust policy. Optional attribute narrows to one property; aliasedVia (a concept id) crosses vocabulary dialects through the alias closure; unified: true reads through sameAs equivalences (co-referring ids merge; conflicts surface as arrays).",
     inputSchema: {
       type: "object",
       properties: {
         entity: { type: "string" },
         attribute: { type: "string" },
         aliasedVia: { type: "string" },
+        unified: { type: "boolean" },
       },
       required: ["entity"],
+    },
+  },
+  {
+    name: "topics",
+    description:
+      "What does this store know about? Entities with beliefs, most recently touched first: attributes, claim counts, distinct authors. Use prefix to narrow (e.g. 'person:').",
+    inputSchema: {
+      type: "object",
+      properties: { prefix: { type: "string" }, limit: { type: "number" } },
+    },
+  },
+  {
+    name: "search",
+    description:
+      "Case-insensitive substring search over belief values, attribute names, and entity ids. Returns hits with delta ids and authors.",
+    inputSchema: {
+      type: "object",
+      properties: { query: { type: "string" }, limit: { type: "number" } },
+      required: ["query"],
+    },
+  },
+  {
+    name: "same",
+    description:
+      "Assert that two entity ids name the same thing (a signed, negatable identity judgment). recall {unified: true} then reads through the equivalence.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        a: { type: "string" },
+        b: { type: "string" },
+        reason: { type: "string" },
+        ...SPEAKER,
+      },
+      required: ["a", "b"],
     },
   },
   {
@@ -264,10 +300,36 @@ export function callTool(
     case "recall": {
       const attribute = str(args["attribute"]);
       const aliasedVia = str(args["aliasedVia"]);
-      return agent.recall(str(args["entity"]) ?? "", {
+      const opts = {
         ...(attribute === undefined ? {} : { attribute }),
         ...(aliasedVia === undefined ? {} : { aliasedVia }),
+      };
+      if (args["unified"] === true) {
+        return recallUnified(agent, str(args["entity"]) ?? "", opts);
+      }
+      return agent.recall(str(args["entity"]) ?? "", opts);
+    }
+    case "topics": {
+      const prefix = str(args["prefix"]);
+      const limit = num(args["limit"]);
+      return topics(agent, {
+        ...(prefix === undefined ? {} : { prefix }),
+        ...(limit === undefined ? {} : { limit }),
       });
+    }
+    case "search":
+      return search(agent, str(args["query"]) ?? "", num(args["limit"]) ?? 25);
+    case "same": {
+      if (!ctx.introduced && !asUser) introduce(ctx, ctx.model);
+      const pointers = sameAsPointers(
+        str(args["a"]) ?? "",
+        str(args["b"]) ?? "",
+        str(args["reason"]),
+      );
+      const input = { timestamp: ctx.clock(), pointers };
+      const delta = asUser ? agent.recordAs(ctx.userSeedHex, input) : agent.record(input);
+      persist?.();
+      return { deltaId: delta.id, class: sameAsClass(agent, str(args["a"]) ?? "") };
     }
     case "retract": {
       const reason = str(args["reason"]);
