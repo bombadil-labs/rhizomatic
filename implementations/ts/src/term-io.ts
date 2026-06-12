@@ -24,6 +24,13 @@ function strMatchToJson(m: StrMatch): unknown {
       return { prefix: m.value };
     case "inSet":
       return { inSet: [...m.values] };
+    case "aliased": {
+      // Optional fields omitted when absent (SPEC-2 §7); the closure never enters the hash.
+      const a: Record<string, unknown> = { name: m.name };
+      if (m.via !== undefined) a["via"] = m.via;
+      if (m.trust !== undefined) a["trust"] = predToJson(m.trust);
+      return { aliased: a };
+    }
   }
 }
 

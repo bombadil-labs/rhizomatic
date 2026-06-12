@@ -9,8 +9,9 @@ use crate::hview::{hview_canonical_hex, HVEntry, HView};
 use crate::policy::{resolve_view, view_canonical_hex, Policy, View};
 use crate::pred::{eval_pred, str_match, substitute_holes, Bindings, Pred, StrMatch};
 use crate::schema::SchemaRegistry;
+use crate::schema_deltas::VOCAB_PREFIX;
 use crate::set::{fork, merge, DeltaSet};
-use crate::types::{Delta, Target};
+use crate::types::{Delta, Primitive, Target};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum MaskPolicy {
@@ -142,6 +143,136 @@ fn compute_negated(d: &DeltaSet, trusted: Option<&Pred>, root: Option<&str>) -> 
         .collect()
 }
 
+/// closure(A, D) per SPEC-9 §4.1: name → slots → fragments, one hop, computed against the
+/// AMBIENT evaluation input. The trust predicate restricts every participant — mappings, slot
+/// declarations, and the negations of both — and negation chains are walked within the trusted
+/// set only (mask(trust) semantics). The returned closure is sorted by the canonical string
+/// order; the name is always a member, so an aliased with no surviving mappings degrades to
+/// exact(name).
+pub fn alias_closure(
+    input: &DeltaSet,
+    name: &str,
+    via: Option<&str>,
+    trust: Option<&Pred>,
+    root: Option<&str>,
+) -> Vec<String> {
+    let negated = compute_negated(input, trust, root);
+    let fragment_role = format!("{VOCAB_PREFIX}.alias.fragment");
+    let slot_role = format!("{VOCAB_PREFIX}.alias.slot");
+    let concept_role = format!("{VOCAB_PREFIX}.alias.concept");
+    let mut mappings: Vec<(String, String)> = Vec::new();
+    let mut slot_concepts: HashMap<String, BTreeSet<String>> = HashMap::new();
+    for d in input.iter() {
+        if let Some(p) = trust {
+            if !eval_pred(p, d, root) {
+                continue;
+            }
+        }
+        if negated.contains(&d.id) {
+            continue;
+        }
+        let mut fragments: Vec<&str> = Vec::new();
+        let mut slots: Vec<&str> = Vec::new();
+        let mut concepts: Vec<&str> = Vec::new();
+        for ptr in &d.claims.pointers {
+            if ptr.role == fragment_role {
+                if let Target::Primitive(Primitive::Str(s)) = &ptr.target {
+                    fragments.push(s);
+                }
+            } else if ptr.role == slot_role {
+                if let Target::Entity(er) = &ptr.target {
+                    slots.push(&er.id);
+                }
+            } else if ptr.role == concept_role {
+                if let Target::Entity(er) = &ptr.target {
+                    concepts.push(&er.id);
+                }
+            }
+        }
+        // Mapping claim: ≥1 fragment × ≥1 slot, cross product (SPEC-9 §3). Anything else with
+        // the alias roles is not a mapping and is ignored here (graceful degradation).
+        for f in &fragments {
+            for s in &slots {
+                mappings.push((f.to_string(), s.to_string()));
+            }
+        }
+        // Slot declaration: ≥1 slot × ≥1 concept (SPEC-9 §2).
+        for s in &slots {
+            for c in &concepts {
+                slot_concepts
+                    .entry(s.to_string())
+                    .or_default()
+                    .insert(c.to_string());
+            }
+        }
+    }
+    let eligible: Vec<&(String, String)> = mappings
+        .iter()
+        .filter(|(_, slot)| match via {
+            None => true,
+            Some(concept) => slot_concepts
+                .get(slot)
+                .is_some_and(|set| set.contains(concept)),
+        })
+        .collect();
+    let slots_of_name: BTreeSet<&String> = eligible
+        .iter()
+        .filter(|(fragment, _)| fragment == name)
+        .map(|(_, slot)| slot)
+        .collect();
+    let mut closure: BTreeSet<String> = BTreeSet::new();
+    closure.insert(name.to_string());
+    for (fragment, slot) in &eligible {
+        if slots_of_name.contains(slot) {
+            closure.insert(fragment.clone());
+        }
+    }
+    // BTreeSet iteration is bytewise UTF-8 order — the canonical string order (E3).
+    closure.into_iter().collect()
+}
+
+/// Expand an aliased StrMatch to its InSet form against the ambient input; other forms pass.
+fn expand_str_match(m: &StrMatch, input: &DeltaSet, root: Option<&str>) -> StrMatch {
+    match m {
+        StrMatch::Aliased(a) => StrMatch::InSet(alias_closure(
+            input,
+            &a.name,
+            a.via.as_deref(),
+            a.trust.as_ref(),
+            root,
+        )),
+        _ => m.clone(),
+    }
+}
+
+/// Expand every aliased StrMatch in a predicate (ppred role/context) against the ambient input.
+/// Applied where predicates meet data (select / mask-trust), after hole substitution (SPEC-9
+/// §4.1).
+pub fn expand_aliased(pred: &Pred, input: &DeltaSet, root: Option<&str>) -> Pred {
+    match pred {
+        Pred::True | Pred::False | Pred::Match { .. } => pred.clone(),
+        Pred::HasPointer(pp) => {
+            let mut out = pp.clone();
+            if let Some(m) = &pp.role {
+                out.role = Some(expand_str_match(m, input, root));
+            }
+            if let Some(m) = &pp.context {
+                out.context = Some(expand_str_match(m, input, root));
+            }
+            Pred::HasPointer(out)
+        }
+        Pred::And(l, r) => Pred::And(
+            Box::new(expand_aliased(l, input, root)),
+            Box::new(expand_aliased(r, input, root)),
+        ),
+        Pred::Or(l, r) => Pred::Or(
+            Box::new(expand_aliased(l, input, root)),
+            Box::new(expand_aliased(r, input, root)),
+        ),
+        Pred::Not(p) => Pred::Not(Box::new(expand_aliased(p, input, root))),
+    }
+}
+
 /// group(key, D) @ root — filing rules per ERRATA-2 E6; annotate tags thread into entries (E7).
 fn eval_group(key: &GroupKey, set: &DeltaSet, negated: &BTreeSet<String>, root: &str) -> HView {
     let mut buckets: BTreeMap<String, BTreeMap<String, HVEntry>> = BTreeMap::new();
@@ -240,7 +371,7 @@ pub fn eval_term(
         Term::Input => Ok(dset_result(input.clone())),
         Term::Select { pred, of } => {
             let (set, _) = expect_dset(eval_term(of, input, root, registry, bindings)?, "select")?;
-            let pred = substitute_holes(pred, bindings)?;
+            let pred = expand_aliased(&substitute_holes(pred, bindings)?, input, root);
             Ok(dset_result(fork(&set, |d: &Delta| {
                 eval_pred(&pred, d, root)
             })))
@@ -266,7 +397,7 @@ pub fn eval_term(
                     }
                 }
                 MaskPolicy::Trust(pred) => {
-                    let pred = substitute_holes(pred, bindings)?;
+                    let pred = expand_aliased(&substitute_holes(pred, bindings)?, input, root);
                     let negated = compute_negated(&set, Some(&pred), root);
                     dset_result(fork(&set, |d: &Delta| !negated.contains(&d.id)))
                 }
@@ -284,18 +415,22 @@ pub fn eval_term(
             let h = expect_hview(eval_term(of, input, root, registry, bindings)?, "prune")?;
             Ok(EvalResult::HView(match keep {
                 PruneKeep::All => h,
-                PruneKeep::Match(m) => HView {
-                    id: h.id,
-                    props: h
-                        .props
-                        .into_iter()
-                        .filter(|(prop, _)| str_match(m, prop))
-                        .collect(),
-                },
+                PruneKeep::Match(m) => {
+                    let m = expand_str_match(m, input, root);
+                    HView {
+                        id: h.id,
+                        props: h
+                            .props
+                            .into_iter()
+                            .filter(|(prop, _)| str_match(&m, prop))
+                            .collect(),
+                    }
+                }
             }))
         }
         Term::Expand { role, schema, of } => {
             let h = expect_hview(eval_term(of, input, root, registry, bindings)?, "expand")?;
+            let role = expand_str_match(role, input, root);
             let mut props: BTreeMap<String, Vec<HVEntry>> = BTreeMap::new();
             for (prop, entries) in h.props {
                 let mut out = Vec::with_capacity(entries.len());
@@ -306,7 +441,7 @@ pub fn eval_term(
                         let Target::Entity(er) = &ptr.target else {
                             continue;
                         };
-                        if !str_match(role, &ptr.role) {
+                        if !str_match(&role, &ptr.role) {
                             continue;
                         }
                         let nested = eval_schema(schema, input, &er.id, registry, bindings)?;

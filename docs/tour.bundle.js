@@ -1109,6 +1109,8 @@
         return s.startsWith(m.value);
       case "inSet":
         return m.values.includes(s);
+      case "aliased":
+        throw new Error(`aliased("${m.name}") must be expanded before matching (SPEC-9)`);
     }
   }
   function valMatch(m, v, bindings) {
@@ -1384,6 +1386,9 @@
     return obj;
   }
 
+  // src/vocab.ts
+  var VOCAB_PREFIX = "rhizomatic";
+
   // src/set.ts
   function makeDelta(claims, sig) {
     const id = computeId(claims);
@@ -1488,6 +1493,88 @@
     for (const delta of d) if (isNegated(delta.id)) out.add(delta.id);
     return out;
   }
+  var ALIAS_FRAGMENT = `${VOCAB_PREFIX}.alias.fragment`;
+  var ALIAS_SLOT = `${VOCAB_PREFIX}.alias.slot`;
+  var ALIAS_CONCEPT = `${VOCAB_PREFIX}.alias.concept`;
+  function aliasClosure(input, spec, root) {
+    const trustPred = spec.trust;
+    const trusted = trustPred === void 0 ? void 0 : (n) => evalPred(trustPred, n, root);
+    const negated = computeNegated(input, trusted);
+    const mappings = [];
+    const slotConcepts = /* @__PURE__ */ new Map();
+    for (const d of input) {
+      if (trusted !== void 0 && !trusted(d)) continue;
+      if (negated.has(d.id)) continue;
+      const fragments = [];
+      const slots = [];
+      const concepts = [];
+      for (const ptr of d.claims.pointers) {
+        if (ptr.role === ALIAS_FRAGMENT && ptr.target.kind === "primitive") {
+          if (typeof ptr.target.value === "string") fragments.push(ptr.target.value);
+        } else if (ptr.role === ALIAS_SLOT && ptr.target.kind === "entity") {
+          slots.push(ptr.target.entity.id);
+        } else if (ptr.role === ALIAS_CONCEPT && ptr.target.kind === "entity") {
+          concepts.push(ptr.target.entity.id);
+        }
+      }
+      for (const fragment of fragments) for (const slot of slots) mappings.push({ fragment, slot });
+      for (const slot of slots) {
+        for (const concept of concepts) {
+          let set = slotConcepts.get(slot);
+          if (set === void 0) {
+            set = /* @__PURE__ */ new Set();
+            slotConcepts.set(slot, set);
+          }
+          set.add(concept);
+        }
+      }
+    }
+    const eligible = spec.via === void 0 ? mappings : mappings.filter((m) => slotConcepts.get(m.slot)?.has(spec.via) ?? false);
+    const slotsOfName = new Set(eligible.filter((m) => m.fragment === spec.name).map((m) => m.slot));
+    const closure = /* @__PURE__ */ new Set([spec.name]);
+    for (const m of eligible) if (slotsOfName.has(m.slot)) closure.add(m.fragment);
+    return [...closure].sort(comparePrimitives);
+  }
+  function expandStrMatch(m, input, root) {
+    if (m.kind !== "aliased") return m;
+    return { kind: "inSet", values: aliasClosure(input, m, root) };
+  }
+  function expandAliased(pred, input, root) {
+    switch (pred.kind) {
+      case "true":
+      case "false":
+      case "match":
+        return pred;
+      case "hasPointer": {
+        const p = pred.ppred;
+        const role = p.role === void 0 ? void 0 : expandStrMatch(p.role, input, root);
+        const context = p.context === void 0 ? void 0 : expandStrMatch(p.context, input, root);
+        if (role === p.role && context === p.context) return pred;
+        return {
+          kind: "hasPointer",
+          ppred: {
+            ...p,
+            ...role === void 0 ? {} : { role },
+            ...context === void 0 ? {} : { context }
+          }
+        };
+      }
+      case "and":
+        return {
+          kind: "and",
+          left: expandAliased(pred.left, input, root),
+          right: expandAliased(pred.right, input, root)
+        };
+      case "or":
+        return {
+          kind: "or",
+          left: expandAliased(pred.left, input, root),
+          right: expandAliased(pred.right, input, root)
+        };
+      case "not":
+        return { kind: "not", pred: expandAliased(pred.pred, input, root) };
+    }
+  }
   function evalGroup(key, operand, root) {
     const buckets = /* @__PURE__ */ new Map();
     const file = (prop, d) => {
@@ -1528,7 +1615,7 @@
         return dsetResult(input);
       case "select": {
         const of = expectDSet(evalTerm(term.of, input, root, registry, bindings), "select");
-        const pred = substituteHoles(term.pred, bindings);
+        const pred = expandAliased(substituteHoles(term.pred, bindings), input, root);
         return dsetResult(fork(of.set, (d) => evalPred(pred, d, root)));
       }
       case "union": {
@@ -1548,7 +1635,7 @@
             return { sort: "dset", set: of.set, negated, annotated: true };
           }
           case "trust": {
-            const pred = substituteHoles(term.policy.pred, bindings);
+            const pred = expandAliased(substituteHoles(term.policy.pred, bindings), input, root);
             const negated = computeNegated(of.set, (n) => evalPred(pred, n, root));
             return dsetResult(fork(of.set, (d) => !negated.has(d.id)));
           }
@@ -1563,7 +1650,7 @@
       case "prune": {
         const of = expectHView(evalTerm(term.of, input, root, registry, bindings), "prune");
         if (term.keep === "all") return of;
-        const keep = term.keep;
+        const keep = expandStrMatch(term.keep, input, root);
         const props = /* @__PURE__ */ new Map();
         for (const [prop, entries] of of.hview.props) {
           if (strMatch(keep, prop)) props.set(prop, entries);
@@ -1572,6 +1659,7 @@
       }
       case "expand": {
         const of = expectHView(evalTerm(term.of, input, root, registry, bindings), "expand");
+        const role = expandStrMatch(term.role, input, root);
         const props = /* @__PURE__ */ new Map();
         for (const [prop, entries] of of.hview.props) {
           props.set(
@@ -1579,7 +1667,7 @@
             entries.map((e) => {
               let expanded;
               e.delta.claims.pointers.forEach((ptr, i) => {
-                if (ptr.target.kind !== "entity" || !strMatch(term.role, ptr.role)) return;
+                if (ptr.target.kind !== "entity" || !strMatch(role, ptr.role)) return;
                 const nested = evalSchema(
                   term.schema,
                   input,
@@ -1647,6 +1735,12 @@
         return { prefix: m.value };
       case "inSet":
         return { inSet: [...m.values] };
+      case "aliased": {
+        const a = { name: m.name };
+        if (m.via !== void 0) a["via"] = m.via;
+        if (m.trust !== void 0) a["trust"] = predToJson(m.trust);
+        return { aliased: a };
+      }
     }
   }
   function valMatchToJson(m) {
@@ -1846,7 +1940,53 @@
         })
       };
     }
-    throw new Error(`${what}: StrMatch must be exact | prefix | inSet`);
+    if (o["aliased"] !== void 0) {
+      const a = asObject(o["aliased"], `${what}.aliased`);
+      if (typeof a["name"] !== "string") throw new Error(`${what}: aliased.name must be a string`);
+      const out = { name: nfc(a["name"]) };
+      if (a["via"] !== void 0) {
+        if (typeof a["via"] !== "string")
+          throw new Error(`${what}: aliased.via must be an entity id`);
+        out.via = nfc(a["via"]);
+      }
+      if (a["trust"] !== void 0) {
+        const trust = parsePred(a["trust"]);
+        assertClosedTrustPred(trust, `${what}.aliased.trust`);
+        out.trust = trust;
+      }
+      return { kind: "aliased", ...out };
+    }
+    throw new Error(`${what}: StrMatch must be exact | prefix | inSet | aliased`);
+  }
+  function assertClosedTrustPred(p, what) {
+    switch (p.kind) {
+      case "true":
+      case "false":
+        return;
+      case "match":
+        if (typeof p.constant === "object" && !Array.isArray(p.constant)) {
+          throw new Error(`${what}: holes are not allowed inside an aliased trust predicate`);
+        }
+        return;
+      case "hasPointer": {
+        const pp = p.ppred;
+        if (pp.targetEntity?.kind === "hole" || pp.targetValue?.kind === "vcmp" && typeof pp.targetValue.value === "object") {
+          throw new Error(`${what}: holes are not allowed inside an aliased trust predicate`);
+        }
+        if (pp.role?.kind === "aliased" || pp.context?.kind === "aliased") {
+          throw new Error(`${what}: nested aliased is not allowed inside an aliased trust predicate`);
+        }
+        return;
+      }
+      case "and":
+      case "or":
+        assertClosedTrustPred(p.left, what);
+        assertClosedTrustPred(p.right, what);
+        return;
+      case "not":
+        assertClosedTrustPred(p.pred, what);
+        return;
+    }
   }
   function parseValMatch(raw, what) {
     const o = asObject(raw, what);
@@ -2076,7 +2216,6 @@
   }
 
   // src/schema-deltas.ts
-  var VOCAB_PREFIX = "rhizomatic";
   var ROLE_DEFINES = `${VOCAB_PREFIX}.schema.defines`;
   var ROLE_NAME = `${VOCAB_PREFIX}.schema.name`;
   var ROLE_ALG = `${VOCAB_PREFIX}.schema.alg`;
@@ -7764,6 +7903,842 @@
     ]
   };
 
+  // ../../vectors/l1-eval/eval-aliased.json
+  var eval_aliased_default = {
+    fixture: {
+      note: "two employment dialects, a decoy residence concept, mappings (one negated, one sloppy cross-concept stray, one two-fragment cross product), slot declarations",
+      deltas: [
+        {
+          name: "a1-employment-ada",
+          id: "1e204ca3e79caaa86e53cba0b39f3009d92ff1087becd4dbcada2ababeb1bcb548b2",
+          claims: {
+            timestamp: 100,
+            author: "did:key:zAppA",
+            pointers: [
+              {
+                role: "worker",
+                target: {
+                  id: "person:ada",
+                  context: "employer"
+                }
+              },
+              {
+                role: "organization",
+                target: {
+                  id: "company:acme",
+                  context: "employees"
+                }
+              }
+            ]
+          }
+        },
+        {
+          name: "b1-employment-bob",
+          id: "1e20b1f5de6d4806c9af854e314991b6f38d5058868e133bd669334775332ea94742",
+          claims: {
+            timestamp: 200,
+            author: "did:key:zAppB",
+            pointers: [
+              {
+                role: "worker",
+                target: {
+                  id: "person:bob",
+                  context: "job"
+                }
+              },
+              {
+                role: "org",
+                target: {
+                  id: "company:initech",
+                  context: "staff"
+                }
+              }
+            ]
+          }
+        },
+        {
+          name: "b2-address-bob",
+          id: "1e203cd579d9725d4daff72f1dd6029e05bad1bb543738c84764568dadc4592dd034",
+          claims: {
+            timestamp: 210,
+            author: "did:key:zAppB",
+            pointers: [
+              {
+                role: "resident",
+                target: {
+                  id: "person:bob",
+                  context: "address"
+                }
+              },
+              {
+                role: "place",
+                target: "42 Elm St"
+              }
+            ]
+          }
+        },
+        {
+          name: "w1-manager-eve",
+          id: "1e20dc7764de920ac1b2af54384090a9323c244584f4427a9f97b54641fcef4db0b0",
+          claims: {
+            timestamp: 220,
+            author: "did:key:zAppA",
+            pointers: [
+              {
+                role: "worker",
+                target: {
+                  id: "person:eve",
+                  context: "manager"
+                }
+              },
+              {
+                role: "org",
+                target: {
+                  id: "company:acme"
+                }
+              }
+            ]
+          }
+        },
+        {
+          name: "p1-note",
+          id: "1e209a329c90a28044ba17f8c376cfc2e1ec28fe8d0ab464cc8d23b7ee54a6285ec2",
+          claims: {
+            timestamp: 230,
+            author: "did:key:zAppB",
+            pointers: [
+              {
+                role: "note",
+                target: "reorg pending"
+              }
+            ]
+          }
+        },
+        {
+          name: "s1-slot-worker",
+          id: "1e20a2a876dd5ec17974257df3d02d2f59afb6d613ce93b91e39e77f68bf08a85acb",
+          claims: {
+            timestamp: 300,
+            author: "did:key:zHuman",
+            pointers: [
+              {
+                role: "rhizomatic.alias.slot",
+                target: {
+                  id: "concept:employment#worker",
+                  context: "rhizomatic.alias.concept"
+                }
+              },
+              {
+                role: "rhizomatic.alias.concept",
+                target: {
+                  id: "concept:employment",
+                  context: "rhizomatic.alias.slots"
+                }
+              }
+            ]
+          }
+        },
+        {
+          name: "s2-slot-organization",
+          id: "1e2046a556436898e55f7c79cea39b8b1fb6e8c8fd15033ced8cdc7f7e892e8bb596",
+          claims: {
+            timestamp: 310,
+            author: "did:key:zHuman",
+            pointers: [
+              {
+                role: "rhizomatic.alias.slot",
+                target: {
+                  id: "concept:employment#organization",
+                  context: "rhizomatic.alias.concept"
+                }
+              },
+              {
+                role: "rhizomatic.alias.concept",
+                target: {
+                  id: "concept:employment",
+                  context: "rhizomatic.alias.slots"
+                }
+              }
+            ]
+          }
+        },
+        {
+          name: "s3-slot-location",
+          id: "1e207c9048661a0fdb18c4a1f3ad886e9b8d53e98b46319dc357976377733d3ca9d2",
+          claims: {
+            timestamp: 320,
+            author: "did:key:zHuman",
+            pointers: [
+              {
+                role: "rhizomatic.alias.slot",
+                target: {
+                  id: "concept:residence#location",
+                  context: "rhizomatic.alias.concept"
+                }
+              },
+              {
+                role: "rhizomatic.alias.concept",
+                target: {
+                  id: "concept:residence",
+                  context: "rhizomatic.alias.slots"
+                }
+              }
+            ]
+          }
+        },
+        {
+          name: "m1-employer",
+          id: "1e20f94c061c3bbb6e726ab73f22fea4de901b9144eda1835450cb5ef760c8af270d",
+          claims: {
+            timestamp: 400,
+            author: "did:key:zLibrarian",
+            pointers: [
+              {
+                role: "rhizomatic.alias.fragment",
+                target: "employer"
+              },
+              {
+                role: "rhizomatic.alias.slot",
+                target: {
+                  id: "concept:employment#organization",
+                  context: "rhizomatic.alias.mappings"
+                }
+              },
+              {
+                role: "rhizomatic.alias.confidence",
+                target: 0.97
+              }
+            ]
+          }
+        },
+        {
+          name: "m2-job",
+          id: "1e2073c00404f88385ea752b0e59dce0ed47c0cef1fdba561125a75ad43da0691abe",
+          claims: {
+            timestamp: 410,
+            author: "did:key:zLibrarian",
+            pointers: [
+              {
+                role: "rhizomatic.alias.fragment",
+                target: "job"
+              },
+              {
+                role: "rhizomatic.alias.slot",
+                target: {
+                  id: "concept:employment#organization",
+                  context: "rhizomatic.alias.mappings"
+                }
+              },
+              {
+                role: "rhizomatic.alias.confidence",
+                target: 0.91
+              }
+            ]
+          }
+        },
+        {
+          name: "m3-organization",
+          id: "1e20231a7abab5a0bbb3339453aab8eab66a79bf8745ac8a2e779a64c15b5f22e023",
+          claims: {
+            timestamp: 420,
+            author: "did:key:zLibrarian",
+            pointers: [
+              {
+                role: "rhizomatic.alias.fragment",
+                target: "organization"
+              },
+              {
+                role: "rhizomatic.alias.slot",
+                target: {
+                  id: "concept:employment#organization",
+                  context: "rhizomatic.alias.mappings"
+                }
+              },
+              {
+                role: "rhizomatic.alias.confidence",
+                target: 0.93
+              }
+            ]
+          }
+        },
+        {
+          name: "m4-org",
+          id: "1e208ef2c59bb7f97a692a304d19d9f9f520ca397bb73dd3ab8e4bdd5116f6715fd1",
+          claims: {
+            timestamp: 430,
+            author: "did:key:zLibrarian",
+            pointers: [
+              {
+                role: "rhizomatic.alias.fragment",
+                target: "org"
+              },
+              {
+                role: "rhizomatic.alias.slot",
+                target: {
+                  id: "concept:employment#organization",
+                  context: "rhizomatic.alias.mappings"
+                }
+              },
+              {
+                role: "rhizomatic.alias.confidence",
+                target: 0.9
+              }
+            ]
+          }
+        },
+        {
+          name: "m5-employees",
+          id: "1e208d432cdd295daadde582a967dc849a6a4c461024217ab7c87171030151c4ba4f",
+          claims: {
+            timestamp: 440,
+            author: "did:key:zLibrarian",
+            pointers: [
+              {
+                role: "rhizomatic.alias.fragment",
+                target: "employees"
+              },
+              {
+                role: "rhizomatic.alias.slot",
+                target: {
+                  id: "concept:employment#worker",
+                  context: "rhizomatic.alias.mappings"
+                }
+              },
+              {
+                role: "rhizomatic.alias.confidence",
+                target: 0.95
+              }
+            ]
+          }
+        },
+        {
+          name: "m6-staff",
+          id: "1e20cee6d7a8a040f2662eb26585d7cb2096415f22f6d46ee0fc423612c1a4d6ab7b",
+          claims: {
+            timestamp: 450,
+            author: "did:key:zLibrarian",
+            pointers: [
+              {
+                role: "rhizomatic.alias.fragment",
+                target: "staff"
+              },
+              {
+                role: "rhizomatic.alias.slot",
+                target: {
+                  id: "concept:employment#worker",
+                  context: "rhizomatic.alias.mappings"
+                }
+              },
+              {
+                role: "rhizomatic.alias.confidence",
+                target: 0.88
+              }
+            ]
+          }
+        },
+        {
+          name: "m7-manager",
+          id: "1e20f0fba16da63cc9805c63987ff60f979e48946c6b3c5187840c2aaae098a5ae42",
+          claims: {
+            timestamp: 460,
+            author: "did:key:zLibrarian",
+            pointers: [
+              {
+                role: "rhizomatic.alias.fragment",
+                target: "manager"
+              },
+              {
+                role: "rhizomatic.alias.slot",
+                target: {
+                  id: "concept:employment#worker",
+                  context: "rhizomatic.alias.mappings"
+                }
+              },
+              {
+                role: "rhizomatic.alias.confidence",
+                target: 0.55
+              }
+            ]
+          }
+        },
+        {
+          name: "m8-address",
+          id: "1e202d45d39693dd3a07cae33c46b1c063215b9d78faa42a9d53340b1003596eaa72",
+          claims: {
+            timestamp: 470,
+            author: "did:key:zLibrarian",
+            pointers: [
+              {
+                role: "rhizomatic.alias.fragment",
+                target: "address"
+              },
+              {
+                role: "rhizomatic.alias.slot",
+                target: {
+                  id: "concept:residence#location",
+                  context: "rhizomatic.alias.mappings"
+                }
+              },
+              {
+                role: "rhizomatic.alias.confidence",
+                target: 0.92
+              }
+            ]
+          }
+        },
+        {
+          name: "m9-employer-location",
+          id: "1e205e277940a4640b5a6a82be7bc60cd2654b5c4f027c568fb37fc06e069c0457ba",
+          claims: {
+            timestamp: 480,
+            author: "did:key:zSloppy",
+            pointers: [
+              {
+                role: "rhizomatic.alias.fragment",
+                target: "employer"
+              },
+              {
+                role: "rhizomatic.alias.slot",
+                target: {
+                  id: "concept:residence#location",
+                  context: "rhizomatic.alias.mappings"
+                }
+              },
+              {
+                role: "rhizomatic.alias.confidence",
+                target: 0.3
+              }
+            ]
+          }
+        },
+        {
+          name: "m10-personnel-workforce",
+          id: "1e2056eb2eca31851d68ddb64f246179bf216ec7f63b1a0ee06cfa3731a40264527d",
+          claims: {
+            timestamp: 490,
+            author: "did:key:zLibrarian",
+            pointers: [
+              {
+                role: "rhizomatic.alias.fragment",
+                target: "personnel"
+              },
+              {
+                role: "rhizomatic.alias.fragment",
+                target: "workforce"
+              },
+              {
+                role: "rhizomatic.alias.slot",
+                target: {
+                  id: "concept:employment#worker",
+                  context: "rhizomatic.alias.mappings"
+                }
+              },
+              {
+                role: "rhizomatic.alias.confidence",
+                target: 0.85
+              }
+            ]
+          }
+        },
+        {
+          name: "n1-negates-m7",
+          id: "1e202aa972bef5e6c5c925233bfbb418f08de6a573ff809035517418c2c6cb869420",
+          claims: {
+            timestamp: 500,
+            author: "did:key:zHuman",
+            pointers: [
+              {
+                role: "negates",
+                target: {
+                  delta: "1e20f0fba16da63cc9805c63987ff60f979e48946c6b3c5187840c2aaae098a5ae42"
+                }
+              },
+              {
+                role: "reason",
+                target: "manager names a different relation"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    schemas: [
+      {
+        name: "RecallWork",
+        alg: 1,
+        body: {
+          op: "group",
+          key: "byTargetContext",
+          in: {
+            op: "mask",
+            policy: "drop",
+            in: {
+              op: "select",
+              pred: {
+                and: [
+                  {
+                    hasPointer: {
+                      targetEntity: {
+                        var: "root"
+                      }
+                    }
+                  },
+                  {
+                    hasPointer: {
+                      context: {
+                        aliased: {
+                          name: "employer",
+                          via: "concept:employment"
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              in: "input"
+            }
+          }
+        }
+      }
+    ],
+    cases: [
+      {
+        name: "closure-via-restricted",
+        spec: "SPEC-9 \xA74.1 (via restricts slots to the named concept)",
+        note: "employer/job converge through employment#organization; the residence stray is excluded by via",
+        term: {
+          op: "select",
+          pred: {
+            hasPointer: {
+              context: {
+                aliased: {
+                  name: "employer",
+                  via: "concept:employment"
+                }
+              }
+            }
+          },
+          in: "input"
+        },
+        termHash: "1e20e62623cb0cd4de857dc656c67bb31bc416e6ce85864cdf4be27bd072d9718246",
+        expectedClosure: [
+          "employer",
+          "job",
+          "org",
+          "organization"
+        ],
+        expected: {
+          ids: [
+            "1e204ca3e79caaa86e53cba0b39f3009d92ff1087becd4dbcada2ababeb1bcb548b2",
+            "1e20b1f5de6d4806c9af854e314991b6f38d5058868e133bd669334775332ea94742"
+          ]
+        },
+        expectedCanonicalHex: "827844316532303463613365373963616161383665353363626130623339663330303964393266663130383762656364346462636164613261626162656231626362353438623278443165323062316635646536643438303663396166383534653331343939316236663338643530353838363865313333626436363933333437373533333265613934373432"
+      },
+      {
+        name: "closure-unrestricted-crosses-concepts",
+        spec: "SPEC-9 \xA74.1 (no via: every slot the name maps to participates)",
+        note: "the sloppy employer->location mapping pulls in address \u2014 why via exists",
+        term: {
+          op: "select",
+          pred: {
+            hasPointer: {
+              context: {
+                aliased: {
+                  name: "employer"
+                }
+              }
+            }
+          },
+          in: "input"
+        },
+        termHash: "1e20b589886528e998c251f32a1070fcd0c4ec66c9c03c809a0a742206a7cd1effbc",
+        expectedClosure: [
+          "address",
+          "employer",
+          "job",
+          "org",
+          "organization"
+        ],
+        expected: {
+          ids: [
+            "1e203cd579d9725d4daff72f1dd6029e05bad1bb543738c84764568dadc4592dd034",
+            "1e204ca3e79caaa86e53cba0b39f3009d92ff1087becd4dbcada2ababeb1bcb548b2",
+            "1e20b1f5de6d4806c9af854e314991b6f38d5058868e133bd669334775332ea94742"
+          ]
+        },
+        expectedCanonicalHex: "83784431653230336364353739643937323564346461666637326631646436303239653035626164316262353433373338633834373634353638646164633435393264643033347844316532303463613365373963616161383665353363626130623339663330303964393266663130383762656364346462636164613261626162656231626362353438623278443165323062316635646536643438303663396166383534653331343939316236663338643530353838363865313333626436363933333437373533333265613934373432"
+      },
+      {
+        name: "closure-trust-confidence-gate",
+        spec: "SPEC-9 \xA74.1 (trust restricts every participant)",
+        note: "confidence >= 0.8 excludes the 0.3 stray without via; same closure as via-restricted, different mechanism",
+        term: {
+          op: "select",
+          pred: {
+            hasPointer: {
+              context: {
+                aliased: {
+                  name: "employer",
+                  trust: {
+                    hasPointer: {
+                      role: {
+                        exact: "rhizomatic.alias.confidence"
+                      },
+                      targetValue: {
+                        vcmp: {
+                          cmp: "gte",
+                          value: 0.8
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          in: "input"
+        },
+        termHash: "1e20dc081d70707f8f94d3645e80741a82e682d9c0f191dcbb2e7020a97cec8bc8aa",
+        expectedClosure: [
+          "employer",
+          "job",
+          "org",
+          "organization"
+        ],
+        expected: {
+          ids: [
+            "1e204ca3e79caaa86e53cba0b39f3009d92ff1087becd4dbcada2ababeb1bcb548b2",
+            "1e20b1f5de6d4806c9af854e314991b6f38d5058868e133bd669334775332ea94742"
+          ]
+        },
+        expectedCanonicalHex: "827844316532303463613365373963616161383665353363626130623339663330303964393266663130383762656364346462636164613261626162656231626362353438623278443165323062316635646536643438303663396166383534653331343939316236663338643530353838363865313333626436363933333437373533333265613934373432"
+      },
+      {
+        name: "closure-negated-mapping-dead",
+        spec: "SPEC-9 \xA73 \xA74.1 (a wrong mapping dies by one signed negation)",
+        note: "manager->worker is negated by human review, so the misfiled manager edge stays out; the cross-product fragments enter",
+        term: {
+          op: "select",
+          pred: {
+            hasPointer: {
+              context: {
+                aliased: {
+                  name: "employees",
+                  via: "concept:employment"
+                }
+              }
+            }
+          },
+          in: "input"
+        },
+        termHash: "1e20a6294b67e0918872b740045d97d90d8c514c481b626ad6b445623983ecef65a6",
+        expectedClosure: [
+          "employees",
+          "personnel",
+          "staff",
+          "workforce"
+        ],
+        expected: {
+          ids: [
+            "1e204ca3e79caaa86e53cba0b39f3009d92ff1087becd4dbcada2ababeb1bcb548b2",
+            "1e20b1f5de6d4806c9af854e314991b6f38d5058868e133bd669334775332ea94742"
+          ]
+        },
+        expectedCanonicalHex: "827844316532303463613365373963616161383665353363626130623339663330303964393266663130383762656364346462636164613261626162656231626362353438623278443165323062316635646536643438303663396166383534653331343939316236663338643530353838363865313333626436363933333437373533333265613934373432"
+      },
+      {
+        name: "closure-trust-excludes-the-negation",
+        spec: "SPEC-9 \xA74.1 (negation chains are walked within the trusted set only \u2014 mask(trust) parity)",
+        note: "trusting only the librarian excludes the human's negation, so manager revives and the misfiled edge matches",
+        term: {
+          op: "select",
+          pred: {
+            hasPointer: {
+              context: {
+                aliased: {
+                  name: "employees",
+                  trust: {
+                    match: {
+                      field: "author",
+                      cmp: "eq",
+                      const: "did:key:zLibrarian"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          in: "input"
+        },
+        termHash: "1e2054052c4836792cc7ac62fd75239364b8f0bbb5efc2c0836845703232c1dc1bd5",
+        expectedClosure: [
+          "employees",
+          "manager",
+          "personnel",
+          "staff",
+          "workforce"
+        ],
+        expected: {
+          ids: [
+            "1e204ca3e79caaa86e53cba0b39f3009d92ff1087becd4dbcada2ababeb1bcb548b2",
+            "1e20b1f5de6d4806c9af854e314991b6f38d5058868e133bd669334775332ea94742",
+            "1e20dc7764de920ac1b2af54384090a9323c244584f4427a9f97b54641fcef4db0b0"
+          ]
+        },
+        expectedCanonicalHex: "83784431653230346361336537396361616138366535336362613062333966333030396439326666313038376265636434646263616461326162616265623162636235343862327844316532306231663564653664343830366339616638353465333134393931623666333864353035383836386531333362643636393333343737353333326561393437343278443165323064633737363464653932306163316232616635343338343039306139333233633234343538346634343237613966393762353436343166636566346462306230"
+      },
+      {
+        name: "closure-identity",
+        spec: "SPEC-9 \xA74.1 (the name is always in its own closure)",
+        note: "no mappings: degrades to exact(name); nothing in the fixture uses it",
+        term: {
+          op: "select",
+          pred: {
+            hasPointer: {
+              context: {
+                aliased: {
+                  name: "quarterly-review"
+                }
+              }
+            }
+          },
+          in: "input"
+        },
+        termHash: "1e20e4f96bf3908a3e12d9065cae5eb754f868e3f3d21086f7ff6795c0172dcb86c0",
+        expectedClosure: [
+          "quarterly-review"
+        ],
+        expected: {
+          ids: []
+        },
+        expectedCanonicalHex: "80"
+      },
+      {
+        name: "closure-role-position",
+        spec: "SPEC-9 \xA73 \xA74 (fragments are position-blind; the StrMatch position decides what is matched)",
+        note: "organization/org are role fragments of the same slot; matched in role position here",
+        term: {
+          op: "select",
+          pred: {
+            hasPointer: {
+              role: {
+                aliased: {
+                  name: "organization",
+                  via: "concept:employment"
+                }
+              }
+            }
+          },
+          in: "input"
+        },
+        termHash: "1e2036eaf79faa4ba0c57dac6dda7ce26242d011a1f9090e44d247acf587a46d1300",
+        expectedClosure: [
+          "employer",
+          "job",
+          "org",
+          "organization"
+        ],
+        expected: {
+          ids: [
+            "1e204ca3e79caaa86e53cba0b39f3009d92ff1087becd4dbcada2ababeb1bcb548b2",
+            "1e20b1f5de6d4806c9af854e314991b6f38d5058868e133bd669334775332ea94742",
+            "1e20dc7764de920ac1b2af54384090a9323c244584f4427a9f97b54641fcef4db0b0"
+          ]
+        },
+        expectedCanonicalHex: "83784431653230346361336537396361616138366535336362613062333966333030396439326666313038376265636434646263616461326162616265623162636235343862327844316532306231663564653664343830366339616638353465333134393931623666333864353035383836386531333362643636393333343737353333326561393437343278443165323064633737363464653932306163316232616635343338343039306139333233633234343538346634343237613966393762353436343166636566346462306230"
+      },
+      {
+        name: "recall-bob-keeps-bobs-vocabulary",
+        spec: "SPEC-9 \xA74.1 (matching, never renaming) + \xA77",
+        note: "bob's employment files under HIS dialect's name: job",
+        term: {
+          op: "fix",
+          schema: "RecallWork",
+          entity: "person:bob"
+        },
+        termHash: "1e200de26866ef62cd0daee6c29897f1ab2e0d2f1b166cb929765542351e850f466b",
+        expected: {
+          id: "person:bob",
+          props: {
+            job: [
+              "1e20b1f5de6d4806c9af854e314991b6f38d5058868e133bd669334775332ea94742"
+            ]
+          }
+        },
+        expectedCanonicalHex: "a26269646a706572736f6e3a626f626570726f7073a1636a6f6281a26269647844316532306231663564653664343830366339616638353465333134393931623666333864353035383836386531333362643636393333343737353333326561393437343266636c61696d73a366617574686f726d6469643a6b65793a7a4170704268706f696e7465727382a264726f6c6566776f726b657266746172676574a26269646a706572736f6e3a626f6267636f6e74657874636a6f62a264726f6c65636f726766746172676574a26269646f636f6d70616e793a696e697465636867636f6e746578746573746166666974696d657374616d70f95a40"
+      },
+      {
+        name: "recall-ada-keeps-adas-vocabulary",
+        spec: "SPEC-9 \xA74.1 (matching, never renaming) + \xA77",
+        note: "ada's employment files under employer",
+        term: {
+          op: "fix",
+          schema: "RecallWork",
+          entity: "person:ada"
+        },
+        termHash: "1e20c519114c8182b3de52b05aa19ee3aac332f36278d3ae7aa61b9a9038b78c388a",
+        expected: {
+          id: "person:ada",
+          props: {
+            employer: [
+              "1e204ca3e79caaa86e53cba0b39f3009d92ff1087becd4dbcada2ababeb1bcb548b2"
+            ]
+          }
+        },
+        expectedCanonicalHex: "a26269646a706572736f6e3a6164616570726f7073a168656d706c6f79657281a26269647844316532303463613365373963616161383665353363626130623339663330303964393266663130383762656364346462636164613261626162656231626362353438623266636c61696d73a366617574686f726d6469643a6b65793a7a4170704168706f696e7465727382a264726f6c6566776f726b657266746172676574a26269646a706572736f6e3a61646167636f6e7465787468656d706c6f796572a264726f6c656c6f7267616e697a6174696f6e66746172676574a26269646c636f6d70616e793a61636d6567636f6e7465787469656d706c6f796565736974696d657374616d70f95640"
+      }
+    ],
+    signatures: [
+      {
+        name: "sig-two-contexted-pairs",
+        delta: "a1-employment-ada",
+        signature: [
+          [
+            "worker",
+            "employer"
+          ],
+          [
+            "organization",
+            "employees"
+          ]
+        ],
+        canonicalHex: "828266776f726b657268656d706c6f796572826c6f7267616e697a6174696f6e69656d706c6f79656573"
+      },
+      {
+        name: "sig-contextless-pointer",
+        delta: "w1-manager-eve",
+        signature: [
+          [
+            "org"
+          ],
+          [
+            "worker",
+            "manager"
+          ]
+        ],
+        canonicalHex: "8281636f72678266776f726b6572676d616e61676572"
+      },
+      {
+        name: "sig-mapping-delta",
+        delta: "m1-employer",
+        signature: [
+          [
+            "rhizomatic.alias.slot",
+            "rhizomatic.alias.mappings"
+          ]
+        ],
+        canonicalHex: "8182757268697a6f6d617469632e616c6961732e736c6f7478197268697a6f6d617469632e616c6961732e6d617070696e6773"
+      },
+      {
+        name: "sig-no-entity-pointers",
+        delta: "p1-note",
+        signature: [],
+        canonicalHex: "80"
+      }
+    ]
+  };
+
   // demo/tour/tour.ts
   function el(tag, attrs = {}, ...children) {
     const node = document.createElement(tag);
@@ -8480,6 +9455,11 @@ replayed digest  ${replayed.slice(4, 36)}\u2026
         "evaluator: parameterized terms (holes)",
         "vectors/l1-eval/eval-holes.json",
         eval_holes_default
+      ),
+      evalSuite(
+        "evaluator: the aliased closure (SPEC-9)",
+        "vectors/l1-eval/eval-aliased.json",
+        eval_aliased_default
       )
     ];
   }
@@ -8537,6 +9517,7 @@ replayed digest  ${replayed.slice(4, 36)}\u2026
     rustEval("evaluator: expand / fix (schemas)", eval_expand_default);
     rustEval("evaluator: resolve (policies \u2192 Views)", eval_resolve_default);
     rustEval("evaluator: parameterized terms (holes)", eval_holes_default);
+    rustEval("evaluator: the aliased closure (SPEC-9)", eval_aliased_default);
     return out;
   }
   function widgetConformance() {

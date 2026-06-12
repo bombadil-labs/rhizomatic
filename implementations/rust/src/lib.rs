@@ -1,6 +1,7 @@
 //! Rhizomatic reference implementation (Rust) — one of two parallel witnesses to the spec.
 //! Module names mirror `../ts/src` to aid cross-reading. See the root CLAUDE.md.
 
+pub mod alias;
 pub mod cbor;
 pub mod delta;
 pub mod derivation;
@@ -27,10 +28,12 @@ pub mod types;
 #[cfg(target_arch = "wasm32")]
 pub mod wasm;
 
+pub use alias::{relation_signature, relation_signature_canonical_hex};
 pub use delta::{canonical_bytes, canonical_hex, compute_id};
 pub use derivation::{verify_pure_derivation, BindingSpec, DerivationHost};
 pub use eval::{
-    eval_term, result_canonical_hex, EvalResult, GroupKey, MaskPolicy, PruneKeep, Term,
+    alias_closure, eval_term, expand_aliased, result_canonical_hex, EvalResult, GroupKey,
+    MaskPolicy, PruneKeep, Term,
 };
 #[cfg(not(target_arch = "wasm32"))]
 pub use http::{offer_for, pull_from_url, serve_peer};

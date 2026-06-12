@@ -10,9 +10,9 @@ import { DeltaSet } from "./set.js";
 import { cborToJson, termCanonicalHex } from "./term-io.js";
 import { parseTerm } from "./term-json.js";
 import type { Claims } from "./types.js";
+import { VOCAB_PREFIX } from "./vocab.js";
 
-// The vocabulary prefix is one constant pending the naming decision tracked in CLAUDE.md (S4).
-export const VOCAB_PREFIX = "rhizomatic";
+export { VOCAB_PREFIX } from "./vocab.js";
 
 const ROLE_DEFINES = `${VOCAB_PREFIX}.schema.defines`;
 const ROLE_NAME = `${VOCAB_PREFIX}.schema.name`;

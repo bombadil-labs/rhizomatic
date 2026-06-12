@@ -9,10 +9,11 @@
 > case — read it first, it IS the product brief).
 >
 > **To resume:** read CLAUDE.md + this file + docs/agents.html + the "Chorus arc" section
-> below. Verify green: `node tools/check-all.mjs`. Preview: launch config `docs`. Then start
-> Phase 0 (spec/09-alias.PROPOSAL.md). The working agreement holds: vectors first, two
-> witnesses in lockstep for anything normative (the aliased closure is L2!), checkpoint
-> commits on main, artifacts read as designed-from-the-start.
+> below. Verify green: `node tools/check-all.mjs`. Preview: launch config `docs`.
+> **Phase 0 is done** (SPEC-9 proposal + eval-aliased vectors + both witnesses + the tour's
+> in-browser run, 149/149) — see the Chorus build log below. Next: **Phase 1, chorus-core.**
+> The working agreement holds: vectors first, two witnesses in lockstep for anything
+> normative, checkpoint commits on main, artifacts read as designed-from-the-start.
 
 
 Living status for the build loop. Updated at the end of every slice; newest first. A fresh context
@@ -332,6 +333,25 @@ what was known. docs/agents.html is the user-facing brief; this section is the b
   framework (tools: remember / recall / retract / explain / trust / as-of) — the adoption
   move — plus a console UI (tour tech): provenance dashboard, belief timelines, trust editor,
   time scrubber. Docs page gains live widgets as pieces land.
+
+### Chorus build log (newest first)
+
+- **Phase 0 — the alias layer.** ✅ — spec/09-alias.PROPOSAL.md (SPEC-9): concepts with
+  oriented slots (`rhizomatic.alias.slot`/`.concept` declarations), mapping claims
+  (`.fragment`/`.slot`/`.confidence`, cross-product per delta), and the **`aliased` StrMatch**
+  — a fourth StrMatch form, legal in every position, expanding to the one-hop
+  name→slots→fragments closure against the AMBIENT evaluation input (composition law
+  preserved; mask(trust)-style negation walking; `via` restricts to a concept's declared
+  slots; `trust` Pred gates every participant; closure never enters the term hash; no
+  holes/nested-aliased inside, rejected at parse). Relation signatures (§5) pinned: sorted
+  canonical-CBOR `[role, context?]` pairs of EntityRef pointers. vectors/l1-eval/
+  eval-aliased.json: 19-delta fixture (two employment dialects, decoy concept, negated
+  mapping, sloppy cross-concept stray, two-fragment cross product), 9 term cases (each
+  pinning termHash + sorted closure + result bytes, incl. trust-excludes-the-negation and
+  matching-never-renaming recall) + 4 signature cases. TS 211 tests / Rust 8 suites' worth
+  green; **Rust reproduced every TS-generated hash, closure, and canonical byte on the first
+  run.** Tour §6 now runs the suite in both witnesses: 149/149 in-browser, zero console
+  errors; wasm + bundles rebuilt.
 
 Trio note: the earlier three-example concept (Bindery / Chorus / Commons) collapsed into this
 single product thesis on review — the shrinkwrap idea survives inside Chorus as the typed

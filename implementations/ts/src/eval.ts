@@ -7,6 +7,7 @@ import { bytesToHex } from "./hash.js";
 import { hviewCanonicalHex, type HVEntry, type HView } from "./hview.js";
 import { resolveView, viewCanonicalHex, type Policy, type View } from "./policy.js";
 import {
+  comparePrimitives,
   evalPred,
   strMatch,
   substituteHoles,
@@ -14,6 +15,7 @@ import {
   type Pred,
   type StrMatch,
 } from "./pred.js";
+import { VOCAB_PREFIX } from "./vocab.js";
 import { SchemaRegistry } from "./schema.js";
 import { DeltaSet, fork, merge } from "./set.js";
 import type { Delta } from "./types.js";
@@ -119,6 +121,114 @@ function computeNegated(d: DeltaSet, trusted?: (n: Delta) => boolean): Set<strin
   return out;
 }
 
+// --- the aliased closure (SPEC-9 §4.1) -----------------------------------------------------------
+
+const ALIAS_FRAGMENT = `${VOCAB_PREFIX}.alias.fragment`;
+const ALIAS_SLOT = `${VOCAB_PREFIX}.alias.slot`;
+const ALIAS_CONCEPT = `${VOCAB_PREFIX}.alias.concept`;
+
+export interface AliasedSpec {
+  readonly name: string;
+  readonly via?: string;
+  readonly trust?: Pred;
+}
+
+// closure(A, D): name → slots → fragments, one hop, computed against the AMBIENT evaluation
+// input. The trust predicate restricts every participant — mappings, slot declarations, and the
+// negations of both — and negation chains are walked within the trusted set only (mask(trust)
+// semantics). Returns the closure sorted by the canonical string order; the name is always a
+// member, so an aliased with no surviving mappings degrades to exact(name).
+export function aliasClosure(input: DeltaSet, spec: AliasedSpec, root?: string): string[] {
+  const trustPred = spec.trust;
+  const trusted = trustPred === undefined ? undefined : (n: Delta) => evalPred(trustPred, n, root);
+  const negated = computeNegated(input, trusted);
+  const mappings: { fragment: string; slot: string }[] = [];
+  const slotConcepts = new Map<string, Set<string>>();
+  for (const d of input) {
+    if (trusted !== undefined && !trusted(d)) continue;
+    if (negated.has(d.id)) continue;
+    const fragments: string[] = [];
+    const slots: string[] = [];
+    const concepts: string[] = [];
+    for (const ptr of d.claims.pointers) {
+      if (ptr.role === ALIAS_FRAGMENT && ptr.target.kind === "primitive") {
+        if (typeof ptr.target.value === "string") fragments.push(ptr.target.value);
+      } else if (ptr.role === ALIAS_SLOT && ptr.target.kind === "entity") {
+        slots.push(ptr.target.entity.id);
+      } else if (ptr.role === ALIAS_CONCEPT && ptr.target.kind === "entity") {
+        concepts.push(ptr.target.entity.id);
+      }
+    }
+    // Mapping claim: ≥1 fragment × ≥1 slot, cross product (SPEC-9 §3). Anything else with the
+    // alias roles is not a mapping and is ignored here (graceful degradation).
+    for (const fragment of fragments) for (const slot of slots) mappings.push({ fragment, slot });
+    // Slot declaration: ≥1 slot × ≥1 concept (SPEC-9 §2).
+    for (const slot of slots) {
+      for (const concept of concepts) {
+        let set = slotConcepts.get(slot);
+        if (set === undefined) {
+          set = new Set();
+          slotConcepts.set(slot, set);
+        }
+        set.add(concept);
+      }
+    }
+  }
+  const eligible =
+    spec.via === undefined
+      ? mappings
+      : mappings.filter((m) => slotConcepts.get(m.slot)?.has(spec.via!) ?? false);
+  const slotsOfName = new Set(eligible.filter((m) => m.fragment === spec.name).map((m) => m.slot));
+  const closure = new Set<string>([spec.name]);
+  for (const m of eligible) if (slotsOfName.has(m.slot)) closure.add(m.fragment);
+  return [...closure].sort(comparePrimitives);
+}
+
+// Expand an aliased StrMatch to its inSet form against the ambient input; other forms pass.
+function expandStrMatch(m: StrMatch, input: DeltaSet, root: string | undefined): StrMatch {
+  if (m.kind !== "aliased") return m;
+  return { kind: "inSet", values: aliasClosure(input, m, root) };
+}
+
+// Expand every aliased StrMatch in a predicate (ppred role/context) against the ambient input.
+// Applied where predicates meet data (select / mask-trust), after hole substitution (SPEC-9 §4.1).
+export function expandAliased(pred: Pred, input: DeltaSet, root: string | undefined): Pred {
+  switch (pred.kind) {
+    case "true":
+    case "false":
+    case "match":
+      return pred;
+    case "hasPointer": {
+      const p = pred.ppred;
+      const role = p.role === undefined ? undefined : expandStrMatch(p.role, input, root);
+      const context = p.context === undefined ? undefined : expandStrMatch(p.context, input, root);
+      if (role === p.role && context === p.context) return pred;
+      return {
+        kind: "hasPointer",
+        ppred: {
+          ...p,
+          ...(role === undefined ? {} : { role }),
+          ...(context === undefined ? {} : { context }),
+        },
+      };
+    }
+    case "and":
+      return {
+        kind: "and",
+        left: expandAliased(pred.left, input, root),
+        right: expandAliased(pred.right, input, root),
+      };
+    case "or":
+      return {
+        kind: "or",
+        left: expandAliased(pred.left, input, root),
+        right: expandAliased(pred.right, input, root),
+      };
+    case "not":
+      return { kind: "not", pred: expandAliased(pred.pred, input, root) };
+  }
+}
+
 // group(key, D) @ root — filing rules per ERRATA-2 E6; annotate tags thread into entries (E7).
 function evalGroup(key: GroupKey, operand: DSetResult, root: string): HView {
   const buckets = new Map<string, Map<string, HVEntry>>(); // prop -> deltaId -> entry
@@ -167,7 +277,7 @@ export function evalTerm(
       return dsetResult(input);
     case "select": {
       const of = expectDSet(evalTerm(term.of, input, root, registry, bindings), "select");
-      const pred = substituteHoles(term.pred, bindings);
+      const pred = expandAliased(substituteHoles(term.pred, bindings), input, root);
       return dsetResult(fork(of.set, (d) => evalPred(pred, d, root)));
     }
     case "union": {
@@ -187,7 +297,7 @@ export function evalTerm(
           return { sort: "dset", set: of.set, negated, annotated: true };
         }
         case "trust": {
-          const pred = substituteHoles(term.policy.pred, bindings);
+          const pred = expandAliased(substituteHoles(term.policy.pred, bindings), input, root);
           const negated = computeNegated(of.set, (n) => evalPred(pred, n, root));
           return dsetResult(fork(of.set, (d) => !negated.has(d.id)));
         }
@@ -202,7 +312,7 @@ export function evalTerm(
     case "prune": {
       const of = expectHView(evalTerm(term.of, input, root, registry, bindings), "prune");
       if (term.keep === "all") return of;
-      const keep = term.keep;
+      const keep = expandStrMatch(term.keep, input, root);
       const props = new Map<string, readonly HVEntry[]>();
       for (const [prop, entries] of of.hview.props) {
         if (strMatch(keep, prop)) props.set(prop, entries);
@@ -211,6 +321,7 @@ export function evalTerm(
     }
     case "expand": {
       const of = expectHView(evalTerm(term.of, input, root, registry, bindings), "expand");
+      const role = expandStrMatch(term.role, input, root);
       const props = new Map<string, readonly HVEntry[]>();
       for (const [prop, entries] of of.hview.props) {
         props.set(
@@ -220,7 +331,7 @@ export function evalTerm(
             e.delta.claims.pointers.forEach((ptr, i) => {
               // Only role-matching EntityRef pointers expand; everything else passes through
               // as written (E11, SPEC-3 §7 graceful degradation).
-              if (ptr.target.kind !== "entity" || !strMatch(term.role, ptr.role)) return;
+              if (ptr.target.kind !== "entity" || !strMatch(role, ptr.role)) return;
               const nested = evalSchema(
                 term.schema,
                 input,

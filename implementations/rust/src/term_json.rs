@@ -6,7 +6,9 @@ use unicode_normalization::UnicodeNormalization;
 
 use crate::eval::{GroupKey, MaskPolicy, PruneKeep, SchemaRef, Term};
 use crate::policy::{MergeFn, Order, Policy, PropPolicy};
-use crate::pred::{Cmp, EntityMatch, Field, MatchConst, PPred, Param, Pred, StrMatch, ValMatch};
+use crate::pred::{
+    AliasedMatch, Cmp, EntityMatch, Field, MatchConst, PPred, Param, Pred, StrMatch, ValMatch,
+};
 use crate::types::Primitive;
 
 /// A hole in Const position: {"hole": "name"} (E15).
@@ -73,7 +75,83 @@ fn parse_str_match(v: &Value, what: &str) -> Result<StrMatch, String> {
             .collect::<Result<Vec<_>, _>>()?;
         return Ok(StrMatch::InSet(values));
     }
-    Err(format!("{what}: StrMatch must be exact | prefix | inSet"))
+    if let Some(a) = o.get("aliased") {
+        let ao = a
+            .as_object()
+            .ok_or_else(|| format!("{what}.aliased: expected object"))?;
+        let name = ao
+            .get("name")
+            .and_then(Value::as_str)
+            .map(nfc)
+            .ok_or_else(|| format!("{what}: aliased.name must be a string"))?;
+        let via = match ao.get("via") {
+            None => None,
+            Some(v) => Some(
+                v.as_str()
+                    .map(nfc)
+                    .ok_or_else(|| format!("{what}: aliased.via must be an entity id"))?,
+            ),
+        };
+        let trust = match ao.get("trust") {
+            None => None,
+            Some(t) => {
+                let pred = parse_pred(t)?;
+                assert_closed_trust_pred(&pred, &format!("{what}.aliased.trust"))?;
+                Some(pred)
+            }
+        };
+        return Ok(StrMatch::Aliased(Box::new(AliasedMatch {
+            name,
+            via,
+            trust,
+        })));
+    }
+    Err(format!(
+        "{what}: StrMatch must be exact | prefix | inSet | aliased"
+    ))
+}
+
+/// An aliased trust predicate admits no holes and no nested aliased (SPEC-9 §4.1): it is
+/// evaluated against alias-vocabulary deltas during closure computation, outside the hole
+/// environment and outside any further expansion.
+fn assert_closed_trust_pred(p: &Pred, what: &str) -> Result<(), String> {
+    match p {
+        Pred::True | Pred::False => Ok(()),
+        Pred::Match { constant, .. } => match constant {
+            MatchConst::Hole(_) => Err(format!(
+                "{what}: holes are not allowed inside an aliased trust predicate"
+            )),
+            _ => Ok(()),
+        },
+        Pred::HasPointer(pp) => {
+            if matches!(pp.target_entity, Some(EntityMatch::Hole(_)))
+                || matches!(
+                    pp.target_value,
+                    Some(ValMatch::Vcmp {
+                        value: Param::Hole(_),
+                        ..
+                    })
+                )
+            {
+                return Err(format!(
+                    "{what}: holes are not allowed inside an aliased trust predicate"
+                ));
+            }
+            if matches!(pp.role, Some(StrMatch::Aliased(_)))
+                || matches!(pp.context, Some(StrMatch::Aliased(_)))
+            {
+                return Err(format!(
+                    "{what}: nested aliased is not allowed inside an aliased trust predicate"
+                ));
+            }
+            Ok(())
+        }
+        Pred::And(l, r) | Pred::Or(l, r) => {
+            assert_closed_trust_pred(l, what)?;
+            assert_closed_trust_pred(r, what)
+        }
+        Pred::Not(p) => assert_closed_trust_pred(p, what),
+    }
 }
 
 fn parse_val_match(v: &Value, what: &str) -> Result<ValMatch, String> {

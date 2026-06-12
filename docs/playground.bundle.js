@@ -880,6 +880,8 @@
         return s.startsWith(m.value);
       case "inSet":
         return m.values.includes(s);
+      case "aliased":
+        throw new Error(`aliased("${m.name}") must be expanded before matching (SPEC-9)`);
     }
   }
   function valMatch(m, v, bindings) {
@@ -1217,6 +1219,9 @@
     return bytesToHex(encode(hviewToCbor(h)));
   }
 
+  // src/vocab.ts
+  var VOCAB_PREFIX = "rhizomatic";
+
   // src/delta.ts
   function targetToCbor(t) {
     switch (t.kind) {
@@ -1388,6 +1393,88 @@
     for (const delta of d) if (isNegated(delta.id)) out.add(delta.id);
     return out;
   }
+  var ALIAS_FRAGMENT = `${VOCAB_PREFIX}.alias.fragment`;
+  var ALIAS_SLOT = `${VOCAB_PREFIX}.alias.slot`;
+  var ALIAS_CONCEPT = `${VOCAB_PREFIX}.alias.concept`;
+  function aliasClosure(input, spec, root) {
+    const trustPred = spec.trust;
+    const trusted = trustPred === void 0 ? void 0 : (n) => evalPred(trustPred, n, root);
+    const negated = computeNegated(input, trusted);
+    const mappings = [];
+    const slotConcepts = /* @__PURE__ */ new Map();
+    for (const d of input) {
+      if (trusted !== void 0 && !trusted(d)) continue;
+      if (negated.has(d.id)) continue;
+      const fragments = [];
+      const slots = [];
+      const concepts = [];
+      for (const ptr of d.claims.pointers) {
+        if (ptr.role === ALIAS_FRAGMENT && ptr.target.kind === "primitive") {
+          if (typeof ptr.target.value === "string") fragments.push(ptr.target.value);
+        } else if (ptr.role === ALIAS_SLOT && ptr.target.kind === "entity") {
+          slots.push(ptr.target.entity.id);
+        } else if (ptr.role === ALIAS_CONCEPT && ptr.target.kind === "entity") {
+          concepts.push(ptr.target.entity.id);
+        }
+      }
+      for (const fragment of fragments) for (const slot of slots) mappings.push({ fragment, slot });
+      for (const slot of slots) {
+        for (const concept of concepts) {
+          let set = slotConcepts.get(slot);
+          if (set === void 0) {
+            set = /* @__PURE__ */ new Set();
+            slotConcepts.set(slot, set);
+          }
+          set.add(concept);
+        }
+      }
+    }
+    const eligible = spec.via === void 0 ? mappings : mappings.filter((m) => slotConcepts.get(m.slot)?.has(spec.via) ?? false);
+    const slotsOfName = new Set(eligible.filter((m) => m.fragment === spec.name).map((m) => m.slot));
+    const closure = /* @__PURE__ */ new Set([spec.name]);
+    for (const m of eligible) if (slotsOfName.has(m.slot)) closure.add(m.fragment);
+    return [...closure].sort(comparePrimitives);
+  }
+  function expandStrMatch(m, input, root) {
+    if (m.kind !== "aliased") return m;
+    return { kind: "inSet", values: aliasClosure(input, m, root) };
+  }
+  function expandAliased(pred, input, root) {
+    switch (pred.kind) {
+      case "true":
+      case "false":
+      case "match":
+        return pred;
+      case "hasPointer": {
+        const p = pred.ppred;
+        const role = p.role === void 0 ? void 0 : expandStrMatch(p.role, input, root);
+        const context = p.context === void 0 ? void 0 : expandStrMatch(p.context, input, root);
+        if (role === p.role && context === p.context) return pred;
+        return {
+          kind: "hasPointer",
+          ppred: {
+            ...p,
+            ...role === void 0 ? {} : { role },
+            ...context === void 0 ? {} : { context }
+          }
+        };
+      }
+      case "and":
+        return {
+          kind: "and",
+          left: expandAliased(pred.left, input, root),
+          right: expandAliased(pred.right, input, root)
+        };
+      case "or":
+        return {
+          kind: "or",
+          left: expandAliased(pred.left, input, root),
+          right: expandAliased(pred.right, input, root)
+        };
+      case "not":
+        return { kind: "not", pred: expandAliased(pred.pred, input, root) };
+    }
+  }
   function evalGroup(key, operand, root) {
     const buckets = /* @__PURE__ */ new Map();
     const file = (prop, d) => {
@@ -1428,7 +1515,7 @@
         return dsetResult(input);
       case "select": {
         const of = expectDSet(evalTerm(term.of, input, root, registry, bindings), "select");
-        const pred = substituteHoles(term.pred, bindings);
+        const pred = expandAliased(substituteHoles(term.pred, bindings), input, root);
         return dsetResult(fork(of.set, (d) => evalPred(pred, d, root)));
       }
       case "union": {
@@ -1448,7 +1535,7 @@
             return { sort: "dset", set: of.set, negated, annotated: true };
           }
           case "trust": {
-            const pred = substituteHoles(term.policy.pred, bindings);
+            const pred = expandAliased(substituteHoles(term.policy.pred, bindings), input, root);
             const negated = computeNegated(of.set, (n) => evalPred(pred, n, root));
             return dsetResult(fork(of.set, (d) => !negated.has(d.id)));
           }
@@ -1463,7 +1550,7 @@
       case "prune": {
         const of = expectHView(evalTerm(term.of, input, root, registry, bindings), "prune");
         if (term.keep === "all") return of;
-        const keep = term.keep;
+        const keep = expandStrMatch(term.keep, input, root);
         const props = /* @__PURE__ */ new Map();
         for (const [prop, entries] of of.hview.props) {
           if (strMatch(keep, prop)) props.set(prop, entries);
@@ -1472,6 +1559,7 @@
       }
       case "expand": {
         const of = expectHView(evalTerm(term.of, input, root, registry, bindings), "expand");
+        const role = expandStrMatch(term.role, input, root);
         const props = /* @__PURE__ */ new Map();
         for (const [prop, entries] of of.hview.props) {
           props.set(
@@ -1479,7 +1567,7 @@
             entries.map((e) => {
               let expanded;
               e.delta.claims.pointers.forEach((ptr, i) => {
-                if (ptr.target.kind !== "entity" || !strMatch(term.role, ptr.role)) return;
+                if (ptr.target.kind !== "entity" || !strMatch(role, ptr.role)) return;
                 const nested = evalSchema(
                   term.schema,
                   input,
@@ -1598,7 +1686,53 @@
         })
       };
     }
-    throw new Error(`${what}: StrMatch must be exact | prefix | inSet`);
+    if (o["aliased"] !== void 0) {
+      const a = asObject(o["aliased"], `${what}.aliased`);
+      if (typeof a["name"] !== "string") throw new Error(`${what}: aliased.name must be a string`);
+      const out = { name: nfc(a["name"]) };
+      if (a["via"] !== void 0) {
+        if (typeof a["via"] !== "string")
+          throw new Error(`${what}: aliased.via must be an entity id`);
+        out.via = nfc(a["via"]);
+      }
+      if (a["trust"] !== void 0) {
+        const trust = parsePred(a["trust"]);
+        assertClosedTrustPred(trust, `${what}.aliased.trust`);
+        out.trust = trust;
+      }
+      return { kind: "aliased", ...out };
+    }
+    throw new Error(`${what}: StrMatch must be exact | prefix | inSet | aliased`);
+  }
+  function assertClosedTrustPred(p, what) {
+    switch (p.kind) {
+      case "true":
+      case "false":
+        return;
+      case "match":
+        if (typeof p.constant === "object" && !Array.isArray(p.constant)) {
+          throw new Error(`${what}: holes are not allowed inside an aliased trust predicate`);
+        }
+        return;
+      case "hasPointer": {
+        const pp = p.ppred;
+        if (pp.targetEntity?.kind === "hole" || pp.targetValue?.kind === "vcmp" && typeof pp.targetValue.value === "object") {
+          throw new Error(`${what}: holes are not allowed inside an aliased trust predicate`);
+        }
+        if (pp.role?.kind === "aliased" || pp.context?.kind === "aliased") {
+          throw new Error(`${what}: nested aliased is not allowed inside an aliased trust predicate`);
+        }
+        return;
+      }
+      case "and":
+      case "or":
+        assertClosedTrustPred(p.left, what);
+        assertClosedTrustPred(p.right, what);
+        return;
+      case "not":
+        assertClosedTrustPred(p.pred, what);
+        return;
+    }
   }
   function parseValMatch(raw, what) {
     const o = asObject(raw, what);
@@ -1828,7 +1962,6 @@
   }
 
   // src/schema-deltas.ts
-  var VOCAB_PREFIX = "rhizomatic";
   var ROLE_DEFINES = `${VOCAB_PREFIX}.schema.defines`;
   var ROLE_NAME = `${VOCAB_PREFIX}.schema.name`;
   var ROLE_ALG = `${VOCAB_PREFIX}.schema.alg`;

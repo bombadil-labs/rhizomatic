@@ -24,7 +24,14 @@ export function resolveParam(p: Primitive | Hole, bindings: Bindings | undefined
 export type StrMatch =
   | { readonly kind: "exact"; readonly value: string }
   | { readonly kind: "prefix"; readonly value: string }
-  | { readonly kind: "inSet"; readonly values: readonly string[] };
+  | { readonly kind: "inSet"; readonly values: readonly string[] }
+  // The aliased closure (SPEC-9 §4): expanded to inSet against the ambient input before matching.
+  | {
+      readonly kind: "aliased";
+      readonly name: string;
+      readonly via?: string;
+      readonly trust?: Pred;
+    };
 
 export type ValMatch =
   | { readonly kind: "vcmp"; readonly cmp: Cmp; readonly value: Primitive | Hole }
@@ -135,6 +142,9 @@ export function strMatch(m: StrMatch, s: string): boolean {
       return s.startsWith(m.value);
     case "inSet":
       return m.values.includes(s);
+    case "aliased":
+      // Every consumer expands aliased against the ambient input first (SPEC-9 §4.1).
+      throw new Error(`aliased("${m.name}") must be expanded before matching (SPEC-9)`);
   }
 }
 

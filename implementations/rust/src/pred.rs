@@ -17,11 +17,21 @@ pub enum Cmp {
     InSet,
 }
 
+/// The aliased closure spec (SPEC-9 §4): expanded to InSet against the ambient input before
+/// matching. Boxed inside StrMatch to keep the enum small.
+#[derive(Debug, Clone, PartialEq)]
+pub struct AliasedMatch {
+    pub name: String,
+    pub via: Option<String>,
+    pub trust: Option<Pred>,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum StrMatch {
     Exact(String),
     Prefix(String),
     InSet(Vec<String>),
+    Aliased(Box<AliasedMatch>),
 }
 
 /// A parameter slot in Const position, bound through fix's bindings (SPEC-2 §6, ERRATA-2 E15).
@@ -163,6 +173,14 @@ pub fn str_match(m: &StrMatch, s: &str) -> bool {
         StrMatch::Exact(v) => s == v,
         StrMatch::Prefix(v) => s.starts_with(v.as_str()),
         StrMatch::InSet(vs) => vs.iter().any(|v| v == s),
+        // Every consumer expands aliased against the ambient input first (SPEC-9 §4.1); reaching
+        // here is an evaluator bug, not bad data.
+        StrMatch::Aliased(a) => {
+            unreachable!(
+                "aliased(\"{}\") must be expanded before matching (SPEC-9)",
+                a.name
+            )
+        }
     }
 }
 

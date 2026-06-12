@@ -38,6 +38,18 @@ fn str_match_to_json(m: &StrMatch) -> Value {
         StrMatch::Exact(s) => json!({ "exact": s }),
         StrMatch::Prefix(s) => json!({ "prefix": s }),
         StrMatch::InSet(vs) => json!({ "inSet": vs }),
+        StrMatch::Aliased(al) => {
+            // Optional fields omitted when absent (SPEC-2 §7); the closure never enters the hash.
+            let mut a = Map::new();
+            a.insert("name".to_string(), json!(al.name));
+            if let Some(v) = &al.via {
+                a.insert("via".to_string(), json!(v));
+            }
+            if let Some(t) = &al.trust {
+                a.insert("trust".to_string(), pred_to_json(t));
+            }
+            json!({ "aliased": a })
+        }
     }
 }
 

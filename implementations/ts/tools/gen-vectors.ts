@@ -9,14 +9,16 @@ import { canonicalHex, computeId } from "../src/delta.js";
 import { bytesToHex } from "../src/hash.js";
 import { packId, packSet } from "../src/pack.js";
 import { makeManifestClaims } from "../src/reactor.js";
-import { evalTerm, resultCanonicalHex } from "../src/eval.js";
+import { aliasClosure, evalTerm, resultCanonicalHex, type AliasedSpec } from "../src/eval.js";
+import { relationSignature, relationSignatureCanonicalHex } from "../src/alias.js";
+import { VOCAB_PREFIX } from "../src/vocab.js";
 import { claimsToJson, parseClaims } from "../src/json-profile.js";
 import { SCHEMA_SCHEMA, publishSchemaClaims } from "../src/schema-deltas.js";
 import { SchemaRegistry } from "../src/schema.js";
 import { termCanonicalHex, termHash, termToJson } from "../src/term-io.js";
 import { DeltaSet, makeDelta } from "../src/set.js";
 import { authorForSeed, publicKeyFromSeed, signClaims } from "../src/sign.js";
-import { parseTerm } from "../src/term-json.js";
+import { parsePred, parseTerm } from "../src/term-json.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const outDir = resolve(here, "../../../vectors/l0-delta");
@@ -1288,4 +1290,299 @@ const holesOut = {
 writeFileSync(resolve(evalDir, "eval-holes.json"), `${JSON.stringify(holesOut, null, 2)}\n`);
 console.log(
   `wrote ${holeVectors.length} hole vectors over ${holesFixtureSet.size} fixture deltas to vectors/l1-eval/eval-holes.json`,
+);
+
+// --- l1-eval: the aliased closure + relation signatures (SPEC-9) ---
+
+const AF = `${VOCAB_PREFIX}.alias.fragment`;
+const AS = `${VOCAB_PREFIX}.alias.slot`;
+const AC = `${VOCAB_PREFIX}.alias.concept`;
+const ACONF = `${VOCAB_PREFIX}.alias.confidence`;
+
+const LIB = "did:key:zLibrarian";
+const HUM = "did:key:zHuman";
+const SLOPPY = "did:key:zSloppy";
+const APP_A = "did:key:zAppA";
+const APP_B = "did:key:zAppB";
+
+const EMPLOYMENT = "concept:employment";
+const WORKER = "concept:employment#worker";
+const ORG = "concept:employment#organization";
+const RESIDENCE = "concept:residence";
+const LOCATION = "concept:residence#location";
+
+const afx: Record<string, { claims: unknown; id: string }> = {};
+const addAfx = (name: string, claims: unknown) => {
+  afx[name] = { claims, id: computeId(parseClaims(claims)) };
+};
+
+// Two employment dialects (SPEC-9 §1's motivating drift), a decoy concept, and a stray edge.
+addAfx(
+  "a1-employment-ada",
+  claim(100, APP_A, [
+    { role: "worker", target: { id: "person:ada", context: "employer" } },
+    { role: "organization", target: { id: "company:acme", context: "employees" } },
+  ]),
+);
+addAfx(
+  "b1-employment-bob",
+  claim(200, APP_B, [
+    { role: "worker", target: { id: "person:bob", context: "job" } },
+    { role: "org", target: { id: "company:initech", context: "staff" } },
+  ]),
+);
+addAfx(
+  "b2-address-bob",
+  claim(210, APP_B, [
+    { role: "resident", target: { id: "person:bob", context: "address" } },
+    { role: "place", target: "42 Elm St" },
+  ]),
+);
+addAfx(
+  "w1-manager-eve",
+  claim(220, APP_A, [
+    { role: "worker", target: { id: "person:eve", context: "manager" } },
+    { role: "org", target: { id: "company:acme" } },
+  ]),
+);
+addAfx("p1-note", claim(230, APP_B, [{ role: "note", target: "reorg pending" }]));
+
+// Slot declarations (SPEC-9 §2): slots belong to concepts by claim, not by id convention.
+const slotDecl = (slot: string, concept: string) => [
+  { role: AS, target: { id: slot, context: AC } },
+  { role: AC, target: { id: concept, context: `${VOCAB_PREFIX}.alias.slots` } },
+];
+addAfx("s1-slot-worker", claim(300, HUM, slotDecl(WORKER, EMPLOYMENT)));
+addAfx("s2-slot-organization", claim(310, HUM, slotDecl(ORG, EMPLOYMENT)));
+addAfx("s3-slot-location", claim(320, HUM, slotDecl(LOCATION, RESIDENCE)));
+
+// Mapping claims (SPEC-9 §3): fragment -> slot, with confidence and provenance.
+const mapping = (fragment: string, slot: string, confidence: number) => [
+  { role: AF, target: fragment },
+  { role: AS, target: { id: slot, context: `${VOCAB_PREFIX}.alias.mappings` } },
+  { role: ACONF, target: confidence },
+];
+addAfx("m1-employer", claim(400, LIB, mapping("employer", ORG, 0.97)));
+addAfx("m2-job", claim(410, LIB, mapping("job", ORG, 0.91)));
+addAfx("m3-organization", claim(420, LIB, mapping("organization", ORG, 0.93)));
+addAfx("m4-org", claim(430, LIB, mapping("org", ORG, 0.9)));
+addAfx("m5-employees", claim(440, LIB, mapping("employees", WORKER, 0.95)));
+addAfx("m6-staff", claim(450, LIB, mapping("staff", WORKER, 0.88)));
+addAfx("m7-manager", claim(460, LIB, mapping("manager", WORKER, 0.55)));
+addAfx("m8-address", claim(470, LIB, mapping("address", LOCATION, 0.92)));
+// The cross-concept stray: a sloppy author gluing "employer" onto a residence slot.
+addAfx("m9-employer-location", claim(480, SLOPPY, mapping("employer", LOCATION, 0.3)));
+// One delta, two fragments: the cross-product rule (SPEC-9 §3).
+addAfx(
+  "m10-personnel-workforce",
+  claim(490, LIB, [
+    { role: AF, target: "personnel" },
+    { role: AF, target: "workforce" },
+    { role: AS, target: { id: WORKER, context: `${VOCAB_PREFIX}.alias.mappings` } },
+    { role: ACONF, target: 0.85 },
+  ]),
+);
+// A wrong mapping dies by one signed negation (SPEC-9 §3).
+addAfx(
+  "n1-negates-m7",
+  claim(500, HUM, [
+    { role: "negates", target: { delta: afx["m7-manager"]!.id } },
+    { role: "reason", target: "manager names a different relation" },
+  ]),
+);
+
+const aliasFixtureSet = DeltaSet.from(
+  Object.values(afx).map((f) => makeDelta(parseClaims(f.claims))),
+);
+
+const confTrust = {
+  hasPointer: { role: { exact: ACONF }, targetValue: { vcmp: { cmp: "gte", value: 0.8 } } },
+};
+const librarianTrust = { match: { field: "author", cmp: "eq", const: LIB } };
+
+const aliasSchemas = [
+  {
+    name: "RecallWork",
+    alg: 1,
+    body: {
+      op: "group",
+      key: "byTargetContext",
+      in: {
+        op: "mask",
+        policy: "drop",
+        in: sel({
+          and: [
+            { hasPointer: { targetEntity: { var: "root" } } },
+            { hasPointer: { context: { aliased: { name: "employer", via: EMPLOYMENT } } } },
+          ],
+        }),
+      },
+    },
+  },
+];
+const aliasRegistry = SchemaRegistry.build(
+  aliasSchemas.map((s) => ({ name: s.name, alg: s.alg, body: parseTerm(s.body) })),
+);
+
+interface AliasCase {
+  name: string;
+  spec: string;
+  term: unknown;
+  aliased?: { json: unknown; spec: AliasedSpec };
+  note?: string;
+}
+
+const mkAliased = (name: string, via?: string, trustJson?: unknown) => {
+  const json: Record<string, unknown> = { name };
+  if (via !== undefined) json["via"] = via;
+  if (trustJson !== undefined) json["trust"] = trustJson;
+  const spec: AliasedSpec = {
+    name,
+    ...(via === undefined ? {} : { via }),
+    ...(trustJson === undefined ? {} : { trust: parsePred(trustJson) }),
+  };
+  return { json: { aliased: json }, spec };
+};
+
+const alEmployerVia = mkAliased("employer", EMPLOYMENT);
+const alEmployerBare = mkAliased("employer");
+const alEmployerConf = mkAliased("employer", undefined, confTrust);
+const alEmployeesVia = mkAliased("employees", EMPLOYMENT);
+const alEmployeesLib = mkAliased("employees", undefined, librarianTrust);
+const alIdentity = mkAliased("quarterly-review");
+const alOrgRole = mkAliased("organization", EMPLOYMENT);
+
+const aliasCases: AliasCase[] = [
+  {
+    name: "closure-via-restricted",
+    spec: "SPEC-9 §4.1 (via restricts slots to the named concept)",
+    term: sel({ hasPointer: { context: alEmployerVia.json } }),
+    aliased: alEmployerVia,
+    note: "employer/job converge through employment#organization; the residence stray is excluded by via",
+  },
+  {
+    name: "closure-unrestricted-crosses-concepts",
+    spec: "SPEC-9 §4.1 (no via: every slot the name maps to participates)",
+    term: sel({ hasPointer: { context: alEmployerBare.json } }),
+    aliased: alEmployerBare,
+    note: "the sloppy employer->location mapping pulls in address — why via exists",
+  },
+  {
+    name: "closure-trust-confidence-gate",
+    spec: "SPEC-9 §4.1 (trust restricts every participant)",
+    term: sel({ hasPointer: { context: alEmployerConf.json } }),
+    aliased: alEmployerConf,
+    note: "confidence >= 0.8 excludes the 0.3 stray without via; same closure as via-restricted, different mechanism",
+  },
+  {
+    name: "closure-negated-mapping-dead",
+    spec: "SPEC-9 §3 §4.1 (a wrong mapping dies by one signed negation)",
+    term: sel({ hasPointer: { context: alEmployeesVia.json } }),
+    aliased: alEmployeesVia,
+    note: "manager->worker is negated by human review, so the misfiled manager edge stays out; the cross-product fragments enter",
+  },
+  {
+    name: "closure-trust-excludes-the-negation",
+    spec: "SPEC-9 §4.1 (negation chains are walked within the trusted set only — mask(trust) parity)",
+    term: sel({ hasPointer: { context: alEmployeesLib.json } }),
+    aliased: alEmployeesLib,
+    note: "trusting only the librarian excludes the human's negation, so manager revives and the misfiled edge matches",
+  },
+  {
+    name: "closure-identity",
+    spec: "SPEC-9 §4.1 (the name is always in its own closure)",
+    term: sel({ hasPointer: { context: alIdentity.json } }),
+    aliased: alIdentity,
+    note: "no mappings: degrades to exact(name); nothing in the fixture uses it",
+  },
+  {
+    name: "closure-role-position",
+    spec: "SPEC-9 §3 §4 (fragments are position-blind; the StrMatch position decides what is matched)",
+    term: sel({ hasPointer: { role: alOrgRole.json } }),
+    aliased: alOrgRole,
+    note: "organization/org are role fragments of the same slot; matched in role position here",
+  },
+];
+
+const aliasVectors = aliasCases.map(({ name, spec, term, aliased, note }) => {
+  const parsed = parseTerm(term);
+  const result = evalTerm(parsed, aliasFixtureSet);
+  if (result.sort !== "dset") throw new Error(`${name}: expected a DSet result`);
+  return {
+    name,
+    spec,
+    ...(note === undefined ? {} : { note }),
+    term,
+    termHash: termHash(parsed),
+    ...(aliased === undefined
+      ? {}
+      : { expectedClosure: aliasClosure(aliasFixtureSet, aliased.spec) }),
+    expected: { ids: result.set.ids() },
+    expectedCanonicalHex: resultCanonicalHex(result),
+  };
+});
+
+// Root-anchored recall: the closure matches across dialects; output keeps the target's own
+// vocabulary (matching, never renaming — SPEC-9 §4.1).
+const recallCases = [
+  {
+    name: "recall-bob-keeps-bobs-vocabulary",
+    root: "person:bob",
+    note: "bob's employment files under HIS dialect's name: job",
+  },
+  {
+    name: "recall-ada-keeps-adas-vocabulary",
+    root: "person:ada",
+    note: "ada's employment files under employer",
+  },
+].map(({ name, root, note }) => {
+  const term = { op: "fix", schema: "RecallWork", entity: root };
+  const parsed = parseTerm(term);
+  const result = evalTerm(parsed, aliasFixtureSet, undefined, aliasRegistry);
+  if (result.sort !== "hview") throw new Error(`${name}: expected an HView result`);
+  const props: Record<string, string[]> = {};
+  for (const [prop, entries] of [...result.hview.props.entries()].sort(([a], [b]) =>
+    a < b ? -1 : 1,
+  )) {
+    props[prop] = entries.map((e) => e.delta.id);
+  }
+  return {
+    name,
+    spec: "SPEC-9 §4.1 (matching, never renaming) + §7",
+    note,
+    term,
+    termHash: termHash(parsed),
+    expected: { id: result.hview.id, props },
+    expectedCanonicalHex: resultCanonicalHex(result),
+  };
+});
+
+// Relation signatures (SPEC-9 §5).
+const signatureCases = [
+  { name: "sig-two-contexted-pairs", delta: "a1-employment-ada" },
+  { name: "sig-contextless-pointer", delta: "w1-manager-eve" },
+  { name: "sig-mapping-delta", delta: "m1-employer" },
+  { name: "sig-no-entity-pointers", delta: "p1-note" },
+].map(({ name, delta }) => {
+  const d = makeDelta(parseClaims(afx[delta]!.claims));
+  return {
+    name,
+    delta,
+    signature: relationSignature(d),
+    canonicalHex: relationSignatureCanonicalHex(d),
+  };
+});
+
+const aliasOut = {
+  fixture: {
+    note: "two employment dialects, a decoy residence concept, mappings (one negated, one sloppy cross-concept stray, one two-fragment cross product), slot declarations",
+    deltas: Object.entries(afx).map(([name, f]) => ({ name, id: f.id, claims: f.claims })),
+  },
+  schemas: aliasSchemas,
+  cases: [...aliasVectors, ...recallCases],
+  signatures: signatureCases,
+};
+writeFileSync(resolve(evalDir, "eval-aliased.json"), `${JSON.stringify(aliasOut, null, 2)}\n`);
+console.log(
+  `wrote ${aliasOut.cases.length} aliased vectors + ${signatureCases.length} signatures over ${aliasFixtureSet.size} fixture deltas to vectors/l1-eval/eval-aliased.json`,
 );

@@ -60,7 +60,60 @@ function parseStrMatch(raw: unknown, what: string): StrMatch {
       }),
     };
   }
-  throw new Error(`${what}: StrMatch must be exact | prefix | inSet`);
+  if (o["aliased"] !== undefined) {
+    const a = asObject(o["aliased"], `${what}.aliased`);
+    if (typeof a["name"] !== "string") throw new Error(`${what}: aliased.name must be a string`);
+    const out: { name: string; via?: string; trust?: Pred } = { name: nfc(a["name"]) };
+    if (a["via"] !== undefined) {
+      if (typeof a["via"] !== "string")
+        throw new Error(`${what}: aliased.via must be an entity id`);
+      out.via = nfc(a["via"]);
+    }
+    if (a["trust"] !== undefined) {
+      const trust = parsePred(a["trust"]);
+      assertClosedTrustPred(trust, `${what}.aliased.trust`);
+      out.trust = trust;
+    }
+    return { kind: "aliased", ...out };
+  }
+  throw new Error(`${what}: StrMatch must be exact | prefix | inSet | aliased`);
+}
+
+// An aliased trust predicate admits no holes and no nested aliased (SPEC-9 §4.1): it is
+// evaluated against alias-vocabulary deltas during closure computation, outside the hole
+// environment and outside any further expansion.
+function assertClosedTrustPred(p: Pred, what: string): void {
+  switch (p.kind) {
+    case "true":
+    case "false":
+      return;
+    case "match":
+      if (typeof p.constant === "object" && !Array.isArray(p.constant)) {
+        throw new Error(`${what}: holes are not allowed inside an aliased trust predicate`);
+      }
+      return;
+    case "hasPointer": {
+      const pp = p.ppred;
+      if (
+        pp.targetEntity?.kind === "hole" ||
+        (pp.targetValue?.kind === "vcmp" && typeof pp.targetValue.value === "object")
+      ) {
+        throw new Error(`${what}: holes are not allowed inside an aliased trust predicate`);
+      }
+      if (pp.role?.kind === "aliased" || pp.context?.kind === "aliased") {
+        throw new Error(`${what}: nested aliased is not allowed inside an aliased trust predicate`);
+      }
+      return;
+    }
+    case "and":
+    case "or":
+      assertClosedTrustPred(p.left, what);
+      assertClosedTrustPred(p.right, what);
+      return;
+    case "not":
+      assertClosedTrustPred(p.pred, what);
+      return;
+  }
 }
 
 function parseValMatch(raw: unknown, what: string): ValMatch {

@@ -29,13 +29,17 @@ export {
   type ValMatch,
 } from "./pred.js";
 export {
+  aliasClosure,
   evalTerm,
+  expandAliased,
   resultCanonicalHex,
+  type AliasedSpec,
   type EvalResult,
   type GroupKey,
   type MaskPolicy,
   type Term,
 } from "./eval.js";
+export { relationSignature, relationSignatureCanonicalHex } from "./alias.js";
 export { hviewCanonicalHex, type HVEntry, type HView } from "./hview.js";
 export { SchemaRegistry, collectRefs, type HyperSchema } from "./schema.js";
 export {
