@@ -2,13 +2,14 @@
 // JSON-RPC 2.0 (same spirit as the hand-rolled CBOR: own the bytes you must be exact about);
 // the protocol surface is initialize / tools/list / tools/call.
 //
-// Tools: begin-session · whoami · remember · recall · retract · explain · trust · as-of.
+// Tools: begin-session · whoami · briefing · remember · recall · topics · search · same ·
+// retract · revise · end-session · explain · trust · as-of.
 //
 // Identity model (chorus/identity.ts): one server process = one SESSION = one derived keypair
 // — every model session is a distinct author with its own track record. The human is one
 // persistent author (speaker: "user"). All keys derive from CHORUS_MASTER_SEED; only public
-// keys touch the substrate. Persistence: a self-verifying pack file after every write
-// (CHORUS_PACK, default ./chorus-memory.pack).
+// keys touch the substrate. Persistence: the shared JSONL log (CHORUS_STORE; concurrent
+// sessions converge by union) or a legacy pack snapshot (CHORUS_PACK).
 
 import { existsSync } from "node:fs";
 import { randomBytes } from "node:crypto";
@@ -486,7 +487,10 @@ export function handleRequest(
         serverInfo: { name: "chorus", version: "0.1.0" },
       });
     case "notifications/initialized":
-      return undefined; // notification: no response
+    case "notifications/cancelled":
+      return undefined; // notifications: no response
+    case "ping":
+      return reply({}); // keepalive — real clients send this and expect an empty result
     case "tools/list":
       return reply({ tools: TOOLS });
     case "tools/call": {

@@ -351,6 +351,18 @@ distrust). Slices, each usable + committed: A identity ✅ · B shared store · 
 D briefing/MX · E real-client handshake · F beyond-parity affordances.
 chorus/README.md is the product doc and grows with each slice.
 
+- **Slice E — the real-client handshake.** ✅ — `ping` answered with an empty result (Claude
+  Code keepalives), notifications/cancelled tolerated; test/chorus-client.test.ts SPAWNS the
+  actual server process (the same command `claude mcp add` runs) and drives the exact opening
+  sequence a real client performs — initialize {protocolVersion, clientInfo} → initialized →
+  ping → tools/list (14 tools) → begin-session → remember(speaker:user) → end-session →
+  recall — then a SECOND process on the same store picks up the world (briefing carries the
+  first session's preference and summary). The README's `claude mcp add chorus` recipe is the
+  tested path. TS 259 green.
+  **MX backlog (next sessions):** decide/replay over MCP; trust ranking beyond distrust
+  (model-level policies from identity claims); pluggable real embedding model for the
+  librarian (interface ready); log compaction (pack snapshot + truncate); the console UI.
+
 - **Slice D — MX (the model experience).** ✅ — chorus/briefing.ts + three tools. `briefing`
   is the MEMORY.md analog with teeth: the user's preferences (latest per slot, user-authored),
   open tasks, recent sessions joined with their summaries, top topics, **contested facts**
