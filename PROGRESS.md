@@ -298,7 +298,9 @@ plus polish (README status update, top-level parity runner, CI).
 
 ## The Chorus arc (agent memory) — the next build
 
-Working name **Chorus** (provisional). One product thesis: a memory substrate for LLM agents
+**Chorus** (name confirmed 2026-06-11 — a distinct product brand with Rhizomatic as its
+substrate; when branding work starts, tie the two visually: "Chorus — memory built on
+Rhizomatic"). One product thesis: a memory substrate for LLM agents
 where every belief is a signed claim — sovereign perspectives over shared knowledge,
 disagreement in superposition, trust as editable policy, decisions replayable against exactly
 what was known. docs/agents.html is the user-facing brief; this section is the build order.
@@ -335,6 +337,28 @@ Trio note: the earlier three-example concept (Bindery / Chorus / Commons) collap
 single product thesis on review — the shrinkwrap idea survives inside Chorus as the typed
 write surface an agent gets (mutation helpers, SPEC-4 §6), and the Commons survives as the
 console + federation story. One argument, not three demos.
+
+**Definition of done for the arc** (the loop runs until ALL of these hold):
+
+1. Fresh clone, both green-gates pass (`node tools/check-all.mjs`), including the new alias
+   vectors in BOTH witnesses and all chorus suites.
+2. `npm run chorus:demo` (from the chorus package) walks the whole thesis end-to-end,
+   scripted and deterministic: multiple agents assert + contradict → adjudicator verdicts
+   land via keyed emission → DECISION REPLAY resolves a pinned instant (the later negation
+   visibly absent) → RETROACTIVE DISTRUST demotes an author and the world re-resolves with
+   history intact → the librarian (mock embeddings in CI; pluggable real model) converges two
+   vocabularies through concept slots — printing the receipts (authors, ids, input hashes) at
+   every step.
+3. The MCP server starts and serves remember / recall / retract / explain / trust / as-of
+   against a chorus store, with at least a smoke test driving each tool.
+4. docs/agents.html links to the runnable demo ("see it run") and stays accurate to what
+   shipped. (Stretch, not gating: the console UI.)
+
+**Kickoff — paste this into a fresh session:**
+
+```
+/loop Build the Chorus arc per PROGRESS.md (read RESUME HERE + "The Chorus arc" + docs/agents.html first). Start at Phase 0 (spec/09-alias.PROPOSAL.md) and proceed phase by phase — vectors first, both witnesses for anything normative (the aliased closure is L2), checkpoint commits on main, green gates before every commit — until the Definition of Done holds and the demo runs end-to-end. Keep docs/agents.html honest as pieces land.
+```
 
 ## Queued next (in value order)
 
