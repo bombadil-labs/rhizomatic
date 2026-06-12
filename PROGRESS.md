@@ -354,6 +354,16 @@ distrust). Slices, each usable + committed: A identity ✅ · B shared store · 
 D briefing/MX · E real-client handshake · F beyond-parity affordances.
 chorus/README.md is the product doc and grows with each slice.
 
+- **Slice G — the console.** ✅ — chorus/console.ts (`npm run chorus:console`): a
+  zero-dependency local web UI over the SAME shared log the sessions write — the human's seat
+  at the table. Live briefing panel (preferences/tasks/CONTESTED/sessions/distrusted), topic
+  browser + search, per-entity inspector: every receipt resolved to "which model, which
+  session", retracted claims struck-through-but-present, an **as-of time scrubber**
+  (re-resolves the entity at any past instant via /api/entity?at=), sameAs class badges with
+  unified views, and a **distrust button** whose edit is signed by the USER's persistent key —
+  later sessions rehydrate it through their briefings (proven in the smoke test). Memory
+  stores gitignored (never commit a memory). Suite green (261).
+
 - **Slice F — power tools.** ✅ — (1) `decide`/`replay` over MCP: a session records what it
   acted on (instant + policy + view basis + arrival prefix) and any later session replays it
   verified, receipts carrying identity. (2) `trust` gains **distrustModel** (demotes every

@@ -18,3 +18,8 @@ implementations/rust/target/
 # Editor / OS
 .DS_Store
 *.log
+
+# Chorus local memory stores (never commit a memory)
+chorus-memory.jsonl
+chorus-memory.pack
+*.jsonl.lock/

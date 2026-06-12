@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Rhizomatic reference implementation (TypeScript) â€” one of two parallel witnesses to the spec.",
+  "description": "Rhizomatic reference implementation (TypeScript) Ã¢â‚¬â€ one of two parallel witnesses to the spec.",
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
@@ -16,6 +16,7 @@
     "demo": "tsx demo/demo.ts",
     "chorus:demo": "tsx chorus/demo.ts",
     "chorus:mcp": "tsx chorus/mcp-server.ts",
+    "chorus:console": "tsx chorus/console.ts",
     "playground:build": "esbuild demo/playground/playground.ts --bundle --format=iife --outfile=demo/playground/bundle.js",
     "docs:build": "esbuild demo/tour/tour.ts --bundle --format=iife --outfile=../../docs/tour.bundle.js && esbuild demo/playground/playground.ts --bundle --format=iife --outfile=../../docs/playground.bundle.js"
   },

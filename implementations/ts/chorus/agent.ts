@@ -60,6 +60,7 @@ export interface RecallOptions {
 
 // One candidate belief with its full receipt — what `explain` returns.
 export interface BeliefReceipt {
+  readonly attribute?: string; // the property this candidate filed under
   readonly deltaId: string;
   readonly author: string;
   readonly timestamp: number;
@@ -218,11 +219,11 @@ export class ChorusAgent {
     const result = evalTerm(parseTerm(term), opts.over ?? this.snapshot(), entity);
     if (result.sort !== "hview") throw new Error("explain must produce an HView");
     const receipts: BeliefReceipt[] = [];
-    for (const [, entries] of [...result.hview.props.entries()].sort(([a], [b]) =>
+    for (const [prop, entries] of [...result.hview.props.entries()].sort(([a], [b]) =>
       a < b ? -1 : 1,
     )) {
       for (const e of entries) {
-        receipts.push(receiptOf(e.delta, e.negated === true));
+        receipts.push({ attribute: prop, ...receiptOf(e.delta, e.negated === true) });
       }
     }
     return receipts;

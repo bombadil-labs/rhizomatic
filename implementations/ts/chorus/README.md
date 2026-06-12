@@ -7,7 +7,18 @@ handle, trust dynamics, the librarian, the demo, and the MCP server.
 ```
 npm run chorus:demo     # the whole thesis, one deterministic receipt-printing story
 npm run chorus:mcp      # the MCP server over stdio
+npm run chorus:console  # the human's web console over the same store (default :4820)
 ```
+
+## The console
+
+`chorus:console` serves a zero-dependency local UI over `CHORUS_STORE`: the live briefing
+(preferences, open tasks, **contested facts**, recent session summaries), a topic browser and
+search, and a per-entity inspector — every receipt with its author resolved to *which model,
+which session*, retracted claims struck through but present, an **as-of time scrubber** that
+re-resolves the entity at any past instant, and a **distrust button** whose edit is signed by
+*your* persistent key and rehydrates into every future session's lens. The console is the
+human seat at the table: it reads the same log the sessions write, live.
 
 ## The identity model
 
