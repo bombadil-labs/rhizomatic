@@ -10,10 +10,11 @@
 >
 > **To resume:** read CLAUDE.md + this file + docs/agents.html + the "Chorus arc" section
 > below. Verify green: `node tools/check-all.mjs`. Preview: launch config `docs`.
-> **Phases 0–2 are done** (SPEC-9 + eval-aliased vectors in both witnesses, 149/149 in-browser;
-> chorus-core with the full memory API; adjudicator + decision replay + retroactive distrust)
-> — see the Chorus build log below. Next: **Phase 3, the librarian** (effectful derived author
-> emitting SPEC-9 slot-mapping claims; alias-closure recall live; mock embeddings in CI).
+> **Phases 0–3 are done** (SPEC-9 + eval-aliased vectors in both witnesses, 149/149 in-browser;
+> chorus-core; adjudicator + decision replay + retroactive distrust; the librarian with live
+> alias-closure recall) — see the Chorus build log below. Next: **Phase 4, distribution**
+> (MCP server: remember/recall/retract/explain/trust/as-of + smoke tests; `npm run
+> chorus:demo` end-to-end; docs/agents.html honesty pass; then the Definition of Done check).
 > The working agreement holds: vectors first, two witnesses in lockstep for anything
 > normative, checkpoint commits on main, artifacts read as designed-from-the-start.
 
@@ -337,6 +338,22 @@ what was known. docs/agents.html is the user-facing brief; this section is the b
   time scrubber. Docs page gains live widgets as pieces land.
 
 ### Chorus build log (newest first)
+
+- **Phase 3 — the librarian.** ✅ — chorus/librarian.ts + chorus/concepts.ts: an EFFECTFUL
+  derived author (pure: false, SPEC-7 §7) wrapping an EmbeddingModel interface
+  (MockEmbeddingModel pins a dictionary for CI; a real model plugs into the same interface).
+  It rides a const-bag vocabulary materialization — group(const, mask(annotate, input)),
+  non-root-anchored so EVERY ingest is a librarian cycle via broad dispatch — reads declared
+  slots and already-judged pairs out of the view (negated mappings count as judged: a human
+  veto is never re-litigated), surfaces new fragments (entity-pointer contexts, internal
+  namespaces excluded), and emits SPEC-9 §3 mapping claims (append emission; fragment + slot +
+  confidence = rounded cosine) signed by ITS OWN keypair — one model version, one author, one
+  track record; vectors never serialize. declareConcept() writes SPEC-9 §2 slot declarations.
+  **Alias-closure recall is live in Chorus:** recall(entity, {attribute, aliasedVia: concept})
+  prunes through the SPEC-9 closure — ask in dialect A, find dialect B's data, each answer in
+  the target's own vocabulary. 4 scripted tests incl. the employer/staff convergence, the
+  boss-mapping human veto (closure updates instantly, no re-emission), and the
+  no-vectors-in-substrate check. TS 230 green.
 
 - **Phase 2 — trust dynamics.** ✅ — (1) **ChorusAdjudicator**: a derived author (own keypair,
   own track record) over a per-agent DerivationHost; agent writes/imports route through the

@@ -22,6 +22,15 @@ export {
   type DecisionInput,
   type Replay,
 } from "./decisions.js";
+export { declareConcept, slotId } from "./concepts.js";
+export {
+  Librarian,
+  MockEmbeddingModel,
+  VOCABULARY_ROOT,
+  cosine,
+  type EmbeddingModel,
+  type LibrarianOptions,
+} from "./librarian.js";
 export { latest, trustFirst, everything, disagreements } from "./policies.js";
 export { loadPack, restore, savePack } from "./store.js";
 export {

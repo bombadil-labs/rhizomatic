@@ -49,6 +49,9 @@ export interface BeliefInput {
 
 export interface RecallOptions {
   readonly attribute?: string; // narrow to one property
+  // Expand the attribute through the SPEC-9 alias closure, restricted to this concept's
+  // declared slots — recall crosses dialects, output keeps the target's own vocabulary.
+  readonly aliasedVia?: string;
   readonly asOf?: number; // resolve over claims (and negations!) at or before this instant
   readonly policy?: unknown; // policy-term JSON (SPEC-5 §7); defaults to the agent's own
 }
@@ -304,10 +307,13 @@ export class ChorusAgent {
       in: masked,
     };
     const grouped = { op: "group", key: "byTargetContext", in: selected };
-    const shaped =
+    const keep =
       opts.attribute === undefined
-        ? grouped
-        : { op: "prune", keep: { exact: opts.attribute }, in: grouped };
+        ? undefined
+        : opts.aliasedVia === undefined
+          ? { exact: opts.attribute }
+          : { aliased: { name: opts.attribute, via: opts.aliasedVia } };
+    const shaped = keep === undefined ? grouped : { op: "prune", keep, in: grouped };
     return { op: "resolve", policy: opts.policy ?? fallbackPolicy, in: shaped };
   }
 }
