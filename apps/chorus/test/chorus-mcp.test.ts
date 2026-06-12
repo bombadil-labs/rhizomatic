@@ -66,6 +66,37 @@ describe("chorus MCP: identity (who said this, exactly)", () => {
     expect(fromUser.author).toBe(ctx.userAuthor);
   });
 
+  it("a mid-session model failover rebinds from that instant; earlier claims keep their model", () => {
+    // The live case: Fable 5 safety refusals roll a chat over to Opus 4.8 mid-conversation.
+    // Same process, same keypair — but the model that speaks has changed. Introductions read
+    // as intervals: each claim attributes to the model in effect at its timestamp.
+    const ctx = mkCtx("failover", 1000);
+    callTool(ctx, "begin-session", { model: "claude-fable-5", purpose: "tracking" });
+    callTool(ctx, "remember", { about: "t:1", attribute: "x", value: "said by fable" });
+    callTool(ctx, "begin-session", {
+      model: "claude-opus-4-8",
+      purpose: "fable refused; conversation rolled over",
+    });
+    callTool(ctx, "remember", { about: "t:1", attribute: "y", value: "said by opus" });
+
+    const receipts = callTool(ctx, "explain", { entity: "t:1" }) as Array<{
+      attribute?: string;
+      model?: string;
+      sessionId?: string;
+    }>;
+    expect(receipts.find((r) => r.attribute === "x")!.model).toBe("claude-fable-5");
+    expect(receipts.find((r) => r.attribute === "y")!.model).toBe("claude-opus-4-8");
+    // Same author, same session — the keypair is the identity; the model is an interval.
+    expect(new Set(receipts.map((r) => r.sessionId))).toEqual(new Set(["failover"]));
+    expect((callTool(ctx, "whoami", {}) as { model: string }).model).toBe("claude-opus-4-8");
+    // distrustModel is conservative: the author EVER introduced as fable, so it is demoted.
+    const t = callTool(ctx, "trust", {
+      distrustModel: "claude-fable-5",
+      reason: "audit",
+    }) as { distrusted: string[] };
+    expect(t.distrusted).toContain(ctx.agent.author);
+  });
+
   it("a write before begin-session still binds an identity — visibly 'unknown'", () => {
     const ctx = mkCtx("lazy");
     callTool(ctx, "remember", { about: "t:1", attribute: "x", value: 1 });
@@ -136,6 +167,44 @@ describe("chorus MCP: the six original tools still hold", () => {
 
   it("unknown tools fail loudly", () => {
     expect(() => callTool(mkCtx(), "forget", {})).toThrow(/unknown tool/);
+  });
+
+  it("reference, don't transcribe: {entity} values travel as typed edges", () => {
+    const ctx = mkCtx();
+    callTool(ctx, "remember", { about: "event:a", attribute: "what", value: "first event" });
+    const r = callTool(ctx, "remember", {
+      about: "sync:x",
+      attribute: "composed-of",
+      value: { entity: "event:a", context: "constituent-of" },
+    }) as { deltaId: string };
+    // recall renders the reference as the referent's id (R1)…
+    expect(callTool(ctx, "recall", { entity: "sync:x", attribute: "composed-of" })).toEqual({
+      "composed-of": "event:a",
+    });
+    // …the edge is bidirectional: the belief files at the referent too, under its context…
+    expect(callTool(ctx, "recall", { entity: "event:a", attribute: "constituent-of" })).toEqual({
+      "constituent-of": "sync:x",
+    });
+    // …and explain distinguishes a reference from a string that happens to look like an id.
+    const receipts = callTool(ctx, "explain", {
+      entity: "sync:x",
+      attribute: "composed-of",
+    }) as Array<{ value?: unknown; reference?: boolean }>;
+    expect(receipts[0]!.value).toBe("event:a");
+    expect(receipts[0]!.reference).toBe(true);
+    // revise keeps the edge typed.
+    callTool(ctx, "revise", {
+      deltaId: r.deltaId,
+      value: { entity: "event:b" },
+      reason: "recomposed",
+    });
+    expect(callTool(ctx, "recall", { entity: "sync:x", attribute: "composed-of" })).toEqual({
+      "composed-of": "event:b",
+    });
+    // Junk objects fail loudly.
+    expect(() =>
+      callTool(ctx, "remember", { about: "sync:x", attribute: "composed-of", value: { foo: 1 } }),
+    ).toThrow(/value must be/);
   });
 });
 

@@ -67,6 +67,8 @@ export interface BeliefReceipt {
   readonly signed: boolean;
   readonly negated: boolean; // true = retracted, kept visible (audit view)
   readonly value?: Primitive | string; // entity values render as their id
+  readonly reference?: boolean; // true = the value is an entity REFERENCE (denotes a thing
+  // the store can hold beliefs about), not a string that happens to look like an id
   readonly kind?: string;
   readonly confidence?: number;
   readonly source?: string;
@@ -409,6 +411,7 @@ function asOfBase(asOf: number | undefined): unknown {
 
 function receiptOf(delta: Delta, negated: boolean): BeliefReceipt {
   let value: Primitive | string | undefined;
+  let reference = false;
   let kind: string | undefined;
   let confidence: number | undefined;
   let source: string | undefined;
@@ -420,6 +423,7 @@ function receiptOf(delta: Delta, negated: boolean): BeliefReceipt {
           : ptr.target.kind === "entity"
             ? ptr.target.entity.id
             : ptr.target.deltaRef.delta;
+      reference = ptr.target.kind !== "primitive";
     } else if (ptr.role === ROLE_KIND && ptr.target.kind === "primitive") {
       kind = String(ptr.target.value);
     } else if (ptr.role === ROLE_CONFIDENCE && ptr.target.kind === "primitive") {
@@ -435,6 +439,7 @@ function receiptOf(delta: Delta, negated: boolean): BeliefReceipt {
     signed: delta.sig !== undefined,
     negated,
     ...(value === undefined ? {} : { value }),
+    ...(reference ? { reference } : {}),
     ...(kind === undefined ? {} : { kind }),
     ...(confidence === undefined ? {} : { confidence }),
     ...(source === undefined ? {} : { source }),

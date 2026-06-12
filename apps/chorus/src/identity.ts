@@ -66,20 +66,25 @@ export interface AuthorIdentity {
   readonly purpose?: string;
 }
 
-// Resolve every author's identity from the identity claims in a set of deltas. An author with
-// no identity claim is "unknown" — visible as such in receipts, never silently trusted.
-export function identityIndex(
-  deltas: Iterable<{
-    readonly id: string;
-    readonly claims: {
-      readonly author: string;
-      readonly pointers: readonly Pointer[];
-    };
-  }>,
+type DeltaLike = {
+  readonly id: string;
+  readonly claims: {
+    readonly author: string;
+    readonly pointers: readonly Pointer[];
+  };
+};
+
+// Every introduction, per author, sorted by startedAt ascending. An author may introduce
+// itself MORE THAN ONCE: the serving model can change mid-session (a safety-refusal
+// failover, an upgrade), and the honest reading of a re-introduction is an INTERVAL —
+// each introduction binds from its startedAt until the next one. The model name was
+// always testimony about a span of time, never a property of the keypair.
+export function identityIntroductions(
+  deltas: Iterable<DeltaLike>,
   userAuthor?: string,
-): Map<string, AuthorIdentity> {
-  const index = new Map<string, AuthorIdentity>();
-  if (userAuthor !== undefined) index.set(userAuthor, { author: userAuthor, kind: "user" });
+): Map<string, AuthorIdentity[]> {
+  const intros = new Map<string, AuthorIdentity[]>();
+  if (userAuthor !== undefined) intros.set(userAuthor, [{ author: userAuthor, kind: "user" }]);
   for (const d of deltas) {
     let sessionId: string | undefined;
     let model: string | undefined;
@@ -98,12 +103,8 @@ export function identityIndex(
       }
     }
     if (sessionId === undefined || model === undefined) continue;
-    // Re-introductions refine: the claim with the latest startedAt wins (tie: higher delta id).
-    const prior = index.get(d.claims.author);
-    if (prior?.kind === "session" && (prior.startedAt ?? 0) > (startedAt ?? 0)) {
-      continue;
-    }
-    index.set(d.claims.author, {
+    const list = intros.get(d.claims.author) ?? [];
+    list.push({
       author: d.claims.author,
       kind: "session",
       model,
@@ -111,6 +112,44 @@ export function identityIndex(
       ...(startedAt === undefined ? {} : { startedAt }),
       ...(purpose === undefined ? {} : { purpose }),
     });
+    intros.set(d.claims.author, list);
+  }
+  for (const list of intros.values()) {
+    list.sort((a, b) => (a.startedAt ?? 0) - (b.startedAt ?? 0));
+  }
+  return intros;
+}
+
+// The introduction in effect at an instant: the latest startedAt at or before t. A claim
+// earlier than the author's first introduction reads as the first — a session's opening
+// binding covers its own lazy pre-introduction writes.
+export function identityAt(
+  intros: Map<string, AuthorIdentity[]>,
+  author: string,
+  t: number,
+): AuthorIdentity | undefined {
+  const list = intros.get(author);
+  if (list === undefined || list.length === 0) return undefined;
+  let current = list[0]!;
+  for (const intro of list) {
+    if ((intro.startedAt ?? 0) <= t) current = intro;
+    else break;
+  }
+  return current;
+}
+
+// Resolve every author's CURRENT identity (the latest introduction). An author with no
+// identity claim is "unknown" — visible as such in receipts, never silently trusted.
+// For per-claim attribution use identityIntroductions + identityAt: a claim's model is
+// the introduction in effect at ITS timestamp, never the latest label.
+export function identityIndex(
+  deltas: Iterable<DeltaLike>,
+  userAuthor?: string,
+): Map<string, AuthorIdentity> {
+  const index = new Map<string, AuthorIdentity>();
+  for (const [author, list] of identityIntroductions(deltas, userAuthor)) {
+    const last = list[list.length - 1];
+    if (last !== undefined) index.set(author, last);
   }
   return index;
 }

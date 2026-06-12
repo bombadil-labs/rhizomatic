@@ -20,7 +20,8 @@ import { briefing } from "./briefing.js";
 import { decide, replayDecision } from "./decisions.js";
 import { recallUnified, sameAsClass, sameAsPointers, search, topics } from "./discovery.js";
 import {
-  identityIndex,
+  identityAt,
+  identityIntroductions,
   identityPointers,
   sessionEntity,
   sessionSeed,
@@ -45,11 +46,34 @@ const SPEAKER = {
   },
 } as const;
 
+// Reference, don't transcribe: a belief's value is an entity REFERENCE whenever it names
+// something the store could hold beliefs about. "event:eclipse" as a string is a spelling;
+// {entity: "event:eclipse"} is the thing spelled. Relations are composed of their relata,
+// not of the words for them — recall and explain can follow a reference, never a substring.
+const VALUE = {
+  value: {
+    description:
+      "Primitive (string|number|boolean) for genuine content — text, quantities, flags. " +
+      "{entity: <id>} for a typed reference. Reference, don't transcribe: if the value NAMES " +
+      "something the store could hold beliefs about (an event, a person, a work), pass " +
+      "{entity} — a relation is composed of the things it relates, not of their names.",
+    anyOf: [
+      { type: ["string", "number", "boolean"] },
+      {
+        type: "object",
+        properties: { entity: { type: "string" }, context: { type: "string" } },
+        required: ["entity"],
+        additionalProperties: false,
+      },
+    ],
+  },
+} as const;
+
 const TOOLS = [
   {
     name: "begin-session",
     description:
-      "Introduce this session: bind its author keypair to your model name and purpose. Call once at the start of a conversation so every claim you make is attributable to THIS session.",
+      "Introduce this session: bind its author keypair to your model name and purpose. Call at the start of a conversation so every claim you make is attributable to THIS session — and call it AGAIN if your serving model changes mid-conversation (e.g. a refusal failover): introductions read as intervals, so each claim attributes to the model in effect at its timestamp, never relabeled wholesale.",
     inputSchema: {
       type: "object",
       properties: {
@@ -74,13 +98,13 @@ const TOOLS = [
   {
     name: "remember",
     description:
-      "Assert a belief as a signed claim: about (entity id), attribute (property name), value (string|number|boolean), optional kind (observation|fact|preference|task), confidence (0..1), source, speaker.",
+      "Assert a belief as a signed claim: about (entity id), attribute (property name), value (primitive, or {entity} for a typed reference — see the value description), optional kind (observation|fact|preference|task), confidence (0..1), source, speaker.",
     inputSchema: {
       type: "object",
       properties: {
         about: { type: "string" },
         attribute: { type: "string" },
-        value: { type: ["string", "number", "boolean"] },
+        ...VALUE,
         kind: { enum: ["observation", "fact", "preference", "task"] },
         confidence: { type: "number" },
         source: { type: "string" },
@@ -156,7 +180,7 @@ const TOOLS = [
       type: "object",
       properties: {
         deltaId: { type: "string" },
-        value: { type: ["string", "number", "boolean"] },
+        ...VALUE,
         reason: { type: "string" },
         ...SPEAKER,
       },
@@ -241,6 +265,22 @@ const TOOLS = [
 const str = (v: unknown): string | undefined => (typeof v === "string" ? v : undefined);
 const num = (v: unknown): number | undefined => (typeof v === "number" ? v : undefined);
 
+// A belief value off the wire: a primitive, or {entity, context?} for a typed reference.
+function beliefValue(
+  v: unknown,
+  tool: string,
+): string | number | boolean | { entity: string; context?: string } {
+  if (typeof v === "string" || typeof v === "number" || typeof v === "boolean") return v;
+  if (typeof v === "object" && v !== null) {
+    const entity = str((v as Record<string, unknown>)["entity"]);
+    const context = str((v as Record<string, unknown>)["context"]);
+    if (entity !== undefined) {
+      return context === undefined ? { entity } : { entity, context };
+    }
+  }
+  throw new Error(`${tool}: value must be string | number | boolean | { entity, context? }`);
+}
+
 // One server process = one session. The agent's own keypair IS the session author; the user
 // is a second, persistent derived author writing into the same store.
 export interface SessionContext {
@@ -293,8 +333,15 @@ function introduce(ctx: SessionContext, model: string, purpose?: string): void {
   });
 }
 
-function speakerOf(ctx: SessionContext, identities: Map<string, AuthorIdentity>, author: string) {
-  const id = identities.get(author);
+// Who spoke — resolved AT THE CLAIM'S TIMESTAMP: a session whose serving model changed
+// mid-flight (re-introduction) attributes each claim to the model in effect when it was made.
+function speakerOf(
+  ctx: SessionContext,
+  intros: Map<string, AuthorIdentity[]>,
+  author: string,
+  timestamp: number,
+) {
+  const id = identityAt(intros, author, timestamp);
   if (id === undefined) return { author, speaker: "unknown" };
   if (id.kind === "user") return { author, speaker: "user" };
   return {
@@ -336,10 +383,7 @@ export function callTool(
         introduced: ctx.introduced,
       };
     case "remember": {
-      const value = args["value"];
-      if (typeof value !== "string" && typeof value !== "number" && typeof value !== "boolean") {
-        throw new Error("remember: value must be string | number | boolean");
-      }
+      const value = beliefValue(args["value"], "remember");
       if (!ctx.introduced && !asUser) introduce(ctx, ctx.model); // lazily bind, visibly "unknown"
       const kind = str(args["kind"]);
       const belief = {
@@ -387,10 +431,7 @@ export function callTool(
       const kindPtr = old.claims.pointers.find(
         (p) => p.role === "chorus.belief.kind" && p.target.kind === "primitive",
       );
-      const value = args["value"];
-      if (typeof value !== "string" && typeof value !== "number" && typeof value !== "boolean") {
-        throw new Error("revise: value must be string | number | boolean");
-      }
+      const value = beliefValue(args["value"], "revise");
       if (!ctx.introduced && !asUser) introduce(ctx, ctx.model);
       const reason = str(args["reason"]) ?? "revised";
       const negation = asUser
@@ -473,8 +514,8 @@ export function callTool(
     }
     case "explain": {
       const receipts = agent.explain(str(args["entity"]) ?? "", str(args["attribute"]));
-      const identities = identityIndex(agent.snapshot(), ctx.userAuthor);
-      return receipts.map((r) => ({ ...r, ...speakerOf(ctx, identities, r.author) }));
+      const intros = identityIntroductions(agent.snapshot(), ctx.userAuthor);
+      return receipts.map((r) => ({ ...r, ...speakerOf(ctx, intros, r.author, r.timestamp) }));
     }
     case "trust": {
       const reason = str(args["reason"]);
@@ -485,10 +526,14 @@ export function callTool(
       const byModel = str(args["distrustModel"]);
       const bySession = str(args["distrustSession"]);
       if (byModel !== undefined || bySession !== undefined) {
-        for (const id of identityIndex(agent.snapshot(), ctx.userAuthor).values()) {
-          if (id.kind !== "session") continue;
-          if (byModel !== undefined && id.model === byModel) targets.add(id.author);
-          if (bySession !== undefined && id.sessionId === bySession) targets.add(id.author);
+        // Conservative on purpose: an author that EVER introduced as the model is demoted —
+        // a session that failed over mid-flight carries the demoted model's testimony too.
+        for (const list of identityIntroductions(agent.snapshot(), ctx.userAuthor).values()) {
+          for (const id of list) {
+            if (id.kind !== "session") continue;
+            if (byModel !== undefined && id.model === byModel) targets.add(id.author);
+            if (bySession !== undefined && id.sessionId === bySession) targets.add(id.author);
+          }
         }
         if (byModel !== undefined && targets.size === 0) {
           throw new Error(`trust: no sessions of model "${byModel}" found in identity claims`);
@@ -517,10 +562,13 @@ export function callTool(
     }
     case "replay": {
       const r = replayDecision(agent, str(args["decisionId"]) ?? "");
-      const identities = identityIndex(agent.snapshot(), ctx.userAuthor);
+      const intros = identityIntroductions(agent.snapshot(), ctx.userAuthor);
       return {
         ...r,
-        receipts: r.receipts.map((x) => ({ ...x, ...speakerOf(ctx, identities, x.author) })),
+        receipts: r.receipts.map((x) => ({
+          ...x,
+          ...speakerOf(ctx, intros, x.author, x.timestamp),
+        })),
       };
     }
     case "as-of": {

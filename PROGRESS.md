@@ -13,14 +13,17 @@
 >
 > **To resume:** read CLAUDE.md + this file + apps/chorus/README.md (the
 > product doc). Verify green: `node tools/check-all.mjs`. Run the story: `cd
-> apps/chorus && npm run chorus:demo`. **The MX arc (slices A–E) shipped Chorus as
-> installable session memory** — per-session model authors, persistent user author, shared
-> multi-process JSONL store, discovery (topics/search/sameAs), the briefing protocol, and a
-> spawned-server real-client handshake test; `claude mcp add chorus …` per the README is the
-> tested path. Open work, in value order: the MX backlog under Slice E (decide/replay over
-> MCP, model-level trust policies, real embedding model, log compaction); the Chorus console
-> UI; Rust-side chorus if product-layer parity is wanted; the WASM host ABI proposal; deeper
-> alias vectors (SPEC-9 §8).
+> apps/chorus && npm run chorus:demo`. **The MX arc (slices A–J) shipped Chorus as
+> installable session memory and took it through first contact** — per-session model authors
+> with INTERVAL introductions (mid-session model failover attributes claims to the model in
+> effect at their timestamp), persistent user author, shared multi-process JSONL store,
+> discovery (topics/search/sameAs), the briefing protocol (contested scan unbounded),
+> entity-REFERENCE values over MCP ("reference, don't transcribe"), decide/replay, the
+> console; `claude mcp add chorus …` per the README is the tested path, installed live, and
+> dogfooded on real data. Open work, in value order: scoped briefings (per-topic lenses +
+> curator-author digests — the user's standing design direction); real embedding model for
+> the librarian; log compaction at scale; Rust-side chorus if product-layer parity is wanted;
+> the WASM host ABI proposal; deeper alias vectors (SPEC-9 §8).
 > The working agreement holds: vectors first, two witnesses in lockstep for anything
 > normative, checkpoint commits on main, artifacts read as designed-from-the-start.
 
@@ -353,6 +356,26 @@ with Claude's native memory, then past it (receipts, contradiction surfacing, se
 distrust). Slices, each usable + committed: A identity ✅ · B shared store · C discovery ·
 D briefing/MX · E real-client handshake · F beyond-parity affordances.
 chorus/README.md is the product doc and grows with each slice.
+
+- **Slice J — first-contact learnings operationalized.** ✅ — the inaugural dogfood session
+  (91 deltas, live store) plus its retrospective produced three findings, all shipped:
+  (1) **Contested scan unbounded** — briefing's contested computation examined only the
+  top-10 recency topics, so the store's one genuinely contested attribute was silently
+  invisible; now scans every entity (disagreement does not expire by recency), with a
+  regression test burying a contest below the display window. (2) **Reference, don't
+  transcribe** — the substrate always supported entity-valued beliefs, but the MCP surface
+  flattened values to primitives, forcing stringly-typed edges ("composed-of: event:a") that
+  recall can't follow. `remember`/`revise` now accept `{entity, context?}` values (typed,
+  bidirectional edges — the belief files at the referent too); `explain` receipts mark
+  `reference: true`; the principle is named in the README and the protocol snippet: a value
+  that names something the store could hold beliefs about is an entity reference; relations
+  are composed of their relata, not the words for them. (3) **Introductions read as
+  intervals** — live Fable-5→Opus-4.8 safety failovers showed the model binding is testimony
+  about a SPAN, not the keypair: `begin-session` is now re-callable mid-session; each claim
+  attributes to the introduction in effect at its timestamp (identityIntroductions +
+  identityAt; explain/replay/console all resolve per-claim); `distrustModel` is conservative
+  (ever-introduced-as). Provenance of the dogfood data itself repaired in-store with a
+  user-signed model-attribution caveat. Suite 264 (54 chorus tests).
 
 - **Slice I — Chorus extracted to apps/chorus; README refresh.** ✅ — Chorus is now its own
   package (`chorus`, private) at apps/chorus — src/ + test/ + tools/ + README — depending on

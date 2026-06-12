@@ -32,6 +32,15 @@ author → `{model, sessionId, startedAt, purpose}`. The binding is data — exa
 trustworthy as the claims it scopes, auditable like everything else. An author with no
 identity claim shows up as `"unknown"` in receipts: visible, never silently trusted.
 
+**Introductions read as intervals.** The model name is testimony about a span of time, never
+a property of the keypair — a serving model can change mid-conversation (a safety-refusal
+failover, an upgrade) while the process and its keypair continue. Call `begin-session` again
+when that happens: each introduction binds from its `startedAt` until the next one, and every
+claim attributes to the model in effect _at its own timestamp_. Nothing is relabeled
+wholesale, in either direction. `distrustModel` is conservative on purpose: it demotes any
+session author that _ever_ introduced as that model, because a failed-over session carries
+that model's testimony too.
+
 What this buys, concretely:
 
 - **`explain` answers "who said this, exactly"** — not just a key, but _which model, in which
@@ -53,7 +62,7 @@ Environment: `CHORUS_MASTER_SEED` (all keys derive from it), `CHORUS_PACK` (stor
 | `begin-session` | Introduce this session: bind its author to your model + purpose. Call first.                                                                                          |
 | `whoami`        | This session's author, the user author, session id, declared model.                                                                                                   |
 | `briefing`      | Top-of-mind, computed fresh: preferences, open tasks, recent session summaries, top topics, **contested facts**, standing distrust edits. Call after `begin-session`. |
-| `remember`      | Assert a belief (`speaker: "user"` to relay the human's own words under their key).                                                                                   |
+| `remember`      | Assert a belief (`speaker: "user"` to relay the human's own words under their key). Values may be `{entity}` references — see "Reference, don't transcribe".          |
 | `recall`        | Resolve an entity to one view under the current trust policy. `aliasedVia` crosses vocabulary dialects; `unified` reads through sameAs equivalences.                  |
 | `topics`        | What the store knows about — entities, attributes, claim counts, recency.                                                                                             |
 | `search`        | Substring search over surviving beliefs (values, attributes, entity ids).                                                                                             |
@@ -64,6 +73,26 @@ Environment: `CHORUS_MASTER_SEED` (all keys derive from it), `CHORUS_PACK` (stor
 | `explain`       | Every candidate with receipts: author, session, model, timestamp, negated flag.                                                                                       |
 | `trust`         | Retroactive distrust of an author (a person, a session, a model's bot).                                                                                               |
 | `as-of`         | The world as it stood at an instant — claims retracted later are visible again.                                                                                       |
+
+## Reference, don't transcribe
+
+A belief's value should be an **entity reference** whenever it names something the store
+could hold beliefs about. The string `"event:eclipse"` is a spelling; `{entity:
+"event:eclipse"}` is the thing spelled. Relations are composed of their relata, not of the
+words for them — a synchronicity is composed of its events, a project of its tasks, a team of
+its people. Pass the reference and the edge is typed and bidirectional: the belief files at
+the referent too, `explain` marks it (`reference: true`), and `recall` can follow it. Pass
+the string and you have transcribed a name into a place where nothing can dereference it.
+
+The test is one question: _could you ever want to `recall` the value itself?_ If yes, it is
+an entity — reference it. Strings, numbers, and booleans are for terminal content: prose,
+quantities, flags, things with no further inside.
+
+The same instinct scales up to **atomic modeling**: a rich record is small entities related
+by references — observation entities carrying their own provenance, relation entities holding
+`composed-of` references plus interpretive attributes — never one fat claim with everything
+packed into its value. Fat claims cannot disagree at the attribute level, so they silence the
+`contested` machinery; atomic claims light it up.
 
 ## Wiring it into Claude Code
 
@@ -86,10 +115,17 @@ Then teach the model the protocol — drop this in your `CLAUDE.md`:
 - At conversation start: call chorus `begin-session` {model: <your model id>, purpose: <one line>},
   then `briefing`. Treat preferences as standing instructions; treat openTasks and the last
   session's summary as your starting context. If `contested` is non-empty, flag disagreements
-  to the user rather than picking silently.
+  to the user rather than picking silently. If your serving model changes mid-conversation
+  (e.g. a refusal failover), call `begin-session` again with the new model — claims attribute
+  to the model in effect at their timestamp.
 - As durable facts/preferences/tasks emerge, `remember` them (kind matters). Use
   speaker:"user" when relaying something the user themselves said. Use `revise` when a fact
   changed; `retract` when it was wrong.
+- Reference, don't transcribe: when a value names a thing (an event, a person, a work — any
+  id), pass {entity: "<id>"} so the edge is typed and followable; strings are for terminal
+  content only. Model rich records atomically — small entities (with their own provenance)
+  related by references, never one fat claim. Fat claims can't disagree, so they starve
+  `contested`.
 - When unsure what something is called, try `topics`/`search` before minting a new entity id;
   if you find a duplicate id for the same thing, assert `same`.
 - Before ending: `end-session` {summary: what happened + what's still open}.
@@ -129,6 +165,9 @@ Chorus's position, inherited from the substrate:
 
 ## Status
 
-Tracked in [PROGRESS.md](../../PROGRESS.md) ("MX arc"). Landed: identity & session scoping.
-Next: shared multi-process store, discovery (topics/search/sameAs), the briefing (MX parity
-with native memory, then past it), real-client verification.
+Tracked in [PROGRESS.md](../../PROGRESS.md) ("MX arc"). The full MX arc is landed — identity
+(interval introductions), the shared store, discovery, the briefing, decide/replay, the
+console — and the system has survived first contact with live dogfooding (which produced the
+reference-over-string surface, the unbounded contested scan, and mid-session model
+rebinding). Open: scoped briefings (per-topic lenses + curator digests), a real embedding
+model behind the librarian, log compaction at scale.

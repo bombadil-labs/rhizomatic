@@ -36,7 +36,9 @@ export {
 } from "./discovery.js";
 export {
   deriveSeed,
+  identityAt,
   identityIndex,
+  identityIntroductions,
   identityPointers,
   sessionEntity,
   sessionSeed,

@@ -9,7 +9,7 @@ import { authorForSeed } from "@rhizomatic/core";
 import { ChorusAgent } from "./agent.js";
 import { briefing } from "./briefing.js";
 import { recallUnified, sameAsClass, search, topics } from "./discovery.js";
-import { identityIndex, userSeed, type AuthorIdentity } from "./identity.js";
+import { identityAt, identityIntroductions, userSeed, type AuthorIdentity } from "./identity.js";
 import { SharedStore } from "./shared-store.js";
 import { ROLE_TRUST_AUTHOR, ROLE_TRUST_REASON, ROLE_TRUST_VERDICT } from "./vocab.js";
 
@@ -67,10 +67,15 @@ export function startConsole(opts: ConsoleOptions): Promise<ConsoleHandle> {
         const id = url.searchParams.get("id") ?? "";
         const at = url.searchParams.get("at");
         const asOf = at === null ? undefined : Number(at);
-        const identities = identityIndex(agent.snapshot(), userAuthor);
+        const intros = identityIntroductions(agent.snapshot(), userAuthor);
         const receipts = agent
           .explain(id, undefined, asOf === undefined ? {} : { asOf })
-          .map((r) => ({ ...r, who: describeAuthor(identities.get(r.author), r.author) }));
+          .map((r) => ({
+            ...r,
+            // Resolved at the claim's timestamp: a mid-session model rebinding shows the
+            // model that actually spoke, not the session's latest label.
+            who: describeAuthor(identityAt(intros, r.author, r.timestamp), r.author),
+          }));
         const unified = recallUnified(agent, id, asOf === undefined ? {} : { asOf });
         json(res, {
           id,

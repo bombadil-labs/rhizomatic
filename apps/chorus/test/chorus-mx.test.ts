@@ -73,6 +73,25 @@ describe("chorus MX: the session lifecycle", () => {
     expect(dispute.values).toEqual(["team-a", "team-b"]);
   });
 
+  it("contested facts surface even when the entity has fallen out of the recent topics", () => {
+    // Regression: the first field session's one real contest sat at recency position 17 and
+    // the briefing read "no contests". Disagreement does not expire by recency.
+    const s1 = mk("a", 1000);
+    callTool(s1, "remember", { about: "svc:api", attribute: "owner", value: "team-a" });
+    const s2 = mk("b", 2000);
+    s2.agent.importSet(s1.agent.snapshot());
+    callTool(s2, "remember", { about: "svc:api", attribute: "owner", value: "team-b" });
+    // Bury the contested entity under more recent, uncontested topics than the display window.
+    for (let i = 0; i < 15; i++) {
+      callTool(s2, "remember", { about: `note:${i}`, attribute: "text", value: `note ${i}` });
+    }
+
+    const b = callTool(s2, "briefing", {}) as Briefing;
+    expect(b.topics.map((t) => t.entity)).not.toContain("svc:api");
+    const dispute = b.contested.find((c) => c.entity === "svc:api" && c.attribute === "owner")!;
+    expect(dispute.values).toEqual(["team-a", "team-b"]);
+  });
+
   it("standing distrust edits rehydrate into a fresh session's lens", () => {
     const file = join(dir, "trust.jsonl");
     const s1 = mk("burned", 1000);
