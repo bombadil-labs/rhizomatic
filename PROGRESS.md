@@ -360,6 +360,24 @@ distrust). Slices, each usable + committed: A identity ✅ · B shared store · 
 D briefing/MX · E real-client handshake · F beyond-parity affordances.
 chorus/README.md is the product doc and grows with each slice.
 
+- **Slice M — messages: ephemeral salience, permanent record.** ✅ — dogfooding surfaced
+  cross-session correspondence immediately (chat leaves a question, code ships a ruling
+  back), riding the knowledge graph as task beliefs on proj:chorus — addressing in prose, no
+  structural inbox, mail accreting where knowledge lives. Now first-class:
+  `chorus.message.*` vocabulary — `post {body, to, about?, re?}` where addressing targets
+  DECLARED IDENTITY (slice K composes: a session id, every session of a model, every session
+  on a surface, any session scoped to a topic — prefix families honored both ways — or the
+  USER, whose inbox is the console, ack button included); `inbox` (self-sent excluded, my
+  acks hidden, sender receipts resolved at the message's timestamp through identity
+  intervals); `ack` = per-recipient signed claim (handled-ness has provenance; a broadcast
+  acked by one stays visible to the rest; sender's retract withdraws globally); threads via
+  a `re` DeltaRef; `about` = contextless references (concerns without filing). Messages
+  carry no chorus.belief.about, so every knowledge surface is structurally blind to them —
+  no topics, no search, no recall, no contested. The briefing carries the inbox: mail is
+  salient because it names you; knowledge is salient because of scope. Append-only stays
+  load-bearing — "ephemeral" honestly means ephemeral SALIENCE (bytes stay; attention cost
+  goes to zero). 20 tools. Suite 275 (64 chorus).
+
 - **Slice L — recast: re-encoded, not re-decided.** ✅ — the chat side hit a third
   correction category while planning the stringly-edge migration: revise means "the fact
   changed" (it didn't), retract+remember means "it was wrong" (it wasn't — just coarsely

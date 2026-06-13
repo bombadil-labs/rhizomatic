@@ -70,6 +70,9 @@ Environment: `CHORUS_MASTER_SEED` (all keys derive from it), `CHORUS_PACK` (stor
 | `retract`       | Append a signed negation. History is never edited.                                                                                                                                                                        |
 | `revise`        | Retract + re-assert in one move, linked by a `revises` pointer (for facts that _changed_).                                                                                                                                |
 | `recast`        | Re-encode without re-deciding: same meaning, better representation (string → `{entity}` reference; one fat claim → N). Lineage via a `recasts` pointer.                                                                   |
+| `post`          | Send a message to other sessions or the human: correspondence, not knowledge. Address a session, a model, a surface, a topic's sessions, or the user.                                                                     |
+| `inbox`         | Messages addressed to this session, sender receipts resolved, acked mail hidden.                                                                                                                                          |
+| `ack`           | "Seen and handled" — a signed per-recipient claim; the message leaves your inbox only.                                                                                                                                    |
 | `end-session`   | Write this session's summary so the next session's briefing starts there.                                                                                                                                                 |
 | `explain`       | Every candidate with receipts: author, session, model, timestamp, negated flag.                                                                                                                                           |
 | `trust`         | Retroactive distrust of an author (a person, a session, a model's bot).                                                                                                                                                   |
@@ -120,6 +123,28 @@ No declared topics = the global view, so small stores and fresh users lose nothi
 (Next in this direction, per the standing design note in the store: salience as an _author_ —
 curator digests as rankable, distrustable claims rather than a hardcoded computation.)
 
+## Messages (ephemeral salience, permanent record)
+
+Dogfooding surfaced it immediately: sessions correspond. A chat session leaves a question
+for a code session; the code session ships a ruling back. Before `post`, that mail rode the
+knowledge graph as task-kind beliefs on a project entity — addressing in prose, no structural
+"what's addressed to me", correspondence accreting where knowledge lives.
+
+A message is a signed delta like everything else — attributable, negatable, auditable — but
+it is **correspondence, not knowledge**, so it never enters the knowledge surfaces: no
+`topics`, no `search`, no `recall`, no `contested`. It exists in exactly one place — the
+inbox of whoever it addresses — and leaves that inbox the moment they `ack` it (a signed
+per-recipient claim: handled-ness has provenance; a broadcast acked by one recipient stays
+visible to the rest; the sender's `retract` withdraws globally). Addressing targets
+**declared identity**: a session id, every session of a model, every session on a surface,
+any session scoped to a topic, or the human — whose inbox is the console, ack button
+included. Threads ride a `re` pointer; `about` references concerned entities without filing
+at them.
+
+The substrate is append-only and that is load-bearing, so "ephemeral" means what it can
+honestly mean: **ephemeral salience over a permanent record**. The bytes stay; the attention
+cost goes to zero.
+
 ## Wiring it into Claude Code
 
 ```bash
@@ -160,6 +185,11 @@ Then teach the model the protocol — drop this in your `CLAUDE.md`:
   `contested`.
 - When unsure what something is called, try `topics`/`search` before minting a new entity id;
   if you find a duplicate id for the same thing, assert `same`.
+- Your briefing carries an `inbox`: messages other sessions addressed to you. `ack` what you
+  handle (with a note saying what you did). To hand off work, ask a question, or leave a
+  ruling for another session, `post` it — addressed to a surface, model, topic, or the user —
+  instead of writing task beliefs on a project entity. Correspondence is mail; knowledge is
+  `remember`.
 - Before ending: `end-session` {summary: what happened + what's still open}.
 ```
 

@@ -10,6 +10,7 @@ import { ChorusAgent } from "./agent.js";
 import { briefing } from "./briefing.js";
 import { recallUnified, sameAsClass, search, topics } from "./discovery.js";
 import { identityAt, identityIntroductions, userSeed, type AuthorIdentity } from "./identity.js";
+import { ackPointers, inbox } from "./messages.js";
 import { SharedStore } from "./shared-store.js";
 import { ROLE_TRUST_AUTHOR, ROLE_TRUST_REASON, ROLE_TRUST_VERDICT } from "./vocab.js";
 
@@ -61,6 +62,8 @@ export function startConsole(opts: ConsoleOptions): Promise<ConsoleHandle> {
           deltas: agent.peer.reactor.arrivalLog().length,
           userAuthor,
           briefing: b,
+          // The human's mail: messages addressed to the user land HERE, nowhere else.
+          inbox: inbox(agent, { author: userAuthor, user: true, userAuthor }),
           topics: topics(agent, { limit: 100 }),
         });
       } else if (url.pathname === "/api/entity") {
@@ -90,6 +93,17 @@ export function startConsole(opts: ConsoleOptions): Promise<ConsoleHandle> {
         });
       } else if (url.pathname === "/api/search") {
         json(res, search(agent, url.searchParams.get("q") ?? "", 25));
+      } else if (url.pathname === "/api/ack" && req.method === "POST") {
+        let body = "";
+        req.on("data", (c: Buffer) => (body += c.toString()));
+        req.on("end", () => {
+          const { id, note } = JSON.parse(body) as { id: string; note?: string };
+          // The ack is the human's: signed by YOUR key.
+          agent.recordAs(uSeed, { timestamp: Date.now(), pointers: ackPointers(id, note) });
+          store.persist(agent);
+          json(res, { acked: id });
+        });
+        return;
       } else if (url.pathname === "/api/distrust" && req.method === "POST") {
         let body = "";
         req.on("data", (c: Buffer) => (body += c.toString()));
@@ -192,6 +206,7 @@ async function load(){
   $('topics').innerHTML=state.topics.map(t=>'<div class="topic" onclick="openEntity(\\''+esc(t.entity)+'\\')"><span>'+esc(t.entity)+'</span><span class="n">'+t.claims+'</span></div>').join('')||'<div class="empty">nothing yet</div>';
   const b=state.briefing;
   $('briefing').innerHTML='<h2>Briefing</h2>'
+    +section('Messages',state.inbox.map(m=>'<div class="row"><span class="kv"><b>'+esc(m.from.model||m.from.speaker)+'</b> · '+new Date(m.timestamp).toLocaleString()+'</span> '+esc(m.body)+(m.about.length?'<br/><span class="scrub">re: '+m.about.map(esc).join(', ')+'</span>':'')+' <button onclick="ackMsg(\\''+esc(m.id)+'\\')">ack</button></div>'),true)
     +section('Preferences',b.preferences.map(p=>kv(p.entity+' · '+p.attribute,p.value)))
     +section('Open tasks',b.openTasks.map(p=>kv(p.entity+' · '+p.attribute,p.value)))
     +section('Contested',b.contested.map(c=>'<div class="row contested">'+esc(c.entity)+' · '+esc(c.attribute)+' → '+esc(JSON.stringify(c.values))+'</div>'),true)
@@ -199,6 +214,7 @@ async function load(){
     +section('Distrusted',b.distrusted.map(d=>'<div class="row kv">'+esc(d.author.slice(0,24))+'… '+(d.reason?'<span class="scrub">('+esc(d.reason)+')</span>':'')+'</div>'));
 }
 const section=(t,items,warn)=>'<h2 style="margin-top:.8em'+(warn&&items.length?';color:var(--bad)':'')+'">'+t+(items.length?' ('+items.length+')':'')+'</h2>'+(items.join('')||'<div class="empty">none</div>');
+async function ackMsg(id){await fetch('/api/ack',{method:'POST',body:JSON.stringify({id})});await load()}
 const kv=(k,v)=>'<div class="row kv">'+esc(k)+' = <b>'+esc(JSON.stringify(v))+'</b></div>';
 async function openEntity(id,at){
   current=id;

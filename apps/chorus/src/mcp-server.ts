@@ -28,6 +28,7 @@ import {
   userSeed,
   type AuthorIdentity,
 } from "./identity.js";
+import { ackPointers, inbox, messagePointers, type MessageAddress } from "./messages.js";
 import { SharedStore } from "./shared-store.js";
 import { loadPack, savePack } from "./store.js";
 
@@ -242,6 +243,63 @@ const TOOLS = [
       type: "object",
       properties: { summary: { type: "string" } },
       required: ["summary"],
+    },
+  },
+  {
+    name: "post",
+    description:
+      "Send a message to other sessions (or the human): correspondence, not knowledge — it appears ONLY in the addressed inboxes and never pollutes topics/search/recall. Addressing targets declared identity: one session, every session of a model, every session on a surface, any session scoped to a topic, or the user (their inbox is the console). No 'to' = broadcast. Use for handoffs, questions, and rulings between sessions; use remember for durable facts.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        body: { type: "string" },
+        to: {
+          type: "object",
+          properties: {
+            session: { type: "string", description: "one session, by id" },
+            model: { type: "string", description: "every session of this model" },
+            surface: { type: "string", description: "every session on this surface" },
+            topics: {
+              type: "array",
+              items: { type: "string" },
+              description: "any session scoped to one of these (':' suffix = prefix family)",
+            },
+            user: { type: "boolean", description: "the human — delivered to the console" },
+          },
+          additionalProperties: false,
+        },
+        about: {
+          type: "array",
+          items: { type: "string" },
+          description: "entity ids this message concerns (references, not filing)",
+        },
+        re: { type: "string", description: "a prior message's id — threads a reply" },
+        ...SPEAKER,
+      },
+      required: ["body"],
+    },
+  },
+  {
+    name: "inbox",
+    description:
+      "Messages addressed to THIS session (by id, model, surface, declared topic, or broadcast), unacked first-class: each with sender receipts (which model, which session), thread pointer, and concerned entities. Ack what you handle. includeAcked: true shows handled mail too.",
+    inputSchema: {
+      type: "object",
+      properties: { includeAcked: { type: "boolean" } },
+    },
+  },
+  {
+    name: "ack",
+    description:
+      "Acknowledge a message: it leaves YOUR inbox (other recipients of a broadcast still see it). The ack is a signed claim — handled-ness has provenance. To withdraw a message globally, retract it.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        messageId: { type: "string" },
+        note: { type: "string", description: "optional: what you did about it" },
+        ...SPEAKER,
+      },
+      required: ["messageId"],
     },
   },
   {
@@ -503,11 +561,22 @@ export function callTool(
         ? args["topics"].filter((t): t is string => typeof t === "string")
         : undefined;
       const scopeTopics = override ?? ctx.topics;
-      return briefing(
+      const b = briefing(
         agent,
         ctx.userAuthor,
         scopeTopics.length === 0 ? undefined : { topics: scopeTopics },
       );
+      // Mail addressed to this session arrives WITH the briefing — correspondence is
+      // salient by construction (it names you); knowledge is salient by scope.
+      const mail = inbox(agent, {
+        author: agent.author,
+        sessionId: ctx.sessionId,
+        model: ctx.model,
+        ...(ctx.surface === undefined ? {} : { surface: ctx.surface }),
+        topics: ctx.topics,
+        userAuthor: ctx.userAuthor,
+      });
+      return { ...b, inbox: mail.slice(0, 10) };
     }
     case "revise": {
       const old = agent.peer.reactor.get(str(args["deltaId"]) ?? "");
@@ -696,6 +765,61 @@ export function callTool(
       const editIds = [...targets].sort().map((a) => agent.distrust(a, reason).id);
       persist?.();
       return { distrusted: [...targets].sort(), editIds };
+    }
+    case "post": {
+      const body = str(args["body"]);
+      if (body === undefined || body === "") throw new Error("post: body is required");
+      const rawTo = args["to"] as Record<string, unknown> | undefined;
+      const topics = Array.isArray(rawTo?.["topics"])
+        ? rawTo["topics"].filter((t): t is string => typeof t === "string")
+        : undefined;
+      const to: MessageAddress = {
+        ...(str(rawTo?.["session"]) === undefined ? {} : { session: str(rawTo!["session"])! }),
+        ...(str(rawTo?.["model"]) === undefined ? {} : { model: str(rawTo!["model"])! }),
+        ...(str(rawTo?.["surface"]) === undefined ? {} : { surface: str(rawTo!["surface"])! }),
+        ...(topics === undefined ? {} : { topics }),
+        ...(rawTo?.["user"] === true ? { user: true } : {}),
+      };
+      const about = Array.isArray(args["about"])
+        ? args["about"].filter((a): a is string => typeof a === "string")
+        : undefined;
+      if (!ctx.introduced && !asUser) introduce(ctx, ctx.model);
+      const pointers = messagePointers({
+        body,
+        to,
+        ...(about === undefined ? {} : { about }),
+        ...(str(args["re"]) === undefined ? {} : { re: str(args["re"])! }),
+      });
+      const input = { timestamp: ctx.clock(), pointers };
+      const delta = asUser ? agent.recordAs(ctx.userSeedHex, input) : agent.record(input);
+      persist?.();
+      return { messageId: delta.id, from: delta.claims.author, to };
+    }
+    case "inbox": {
+      return inbox(
+        agent,
+        {
+          author: agent.author,
+          sessionId: ctx.sessionId,
+          model: ctx.model,
+          ...(ctx.surface === undefined ? {} : { surface: ctx.surface }),
+          topics: ctx.topics,
+          userAuthor: ctx.userAuthor,
+        },
+        { includeAcked: args["includeAcked"] === true },
+      );
+    }
+    case "ack": {
+      const messageId = str(args["messageId"]);
+      if (messageId === undefined) throw new Error("ack: messageId is required");
+      if (agent.peer.reactor.get(messageId) === undefined) {
+        throw new Error(`ack: unknown message ${messageId}`);
+      }
+      const pointers = ackPointers(messageId, str(args["note"]));
+      const input = { timestamp: ctx.clock(), pointers };
+      const delta = asUser ? agent.recordAs(ctx.userSeedHex, input) : agent.record(input);
+      persist?.();
+      return { ackId: delta.id, acked: messageId };
     }
     case "decide": {
       if (!ctx.introduced && !asUser) introduce(ctx, ctx.model);

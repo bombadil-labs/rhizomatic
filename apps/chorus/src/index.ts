@@ -60,6 +60,15 @@ export {
   type EmbeddingModel,
   type LibrarianOptions,
 } from "./librarian.js";
+export {
+  ackPointers,
+  inbox,
+  messagePointers,
+  type MessageAddress,
+  type MessageView,
+  type PostInput,
+  type Recipient,
+} from "./messages.js";
 export { latest, trustFirst, everything, disagreements } from "./policies.js";
 export { SharedStore } from "./shared-store.js";
 export { loadPack, restore, savePack } from "./store.js";
