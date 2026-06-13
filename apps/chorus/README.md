@@ -63,12 +63,13 @@ Environment: `CHORUS_MASTER_SEED` (all keys derive from it), `CHORUS_PACK` (stor
 | `whoami`        | This session's author, the user author, session id, declared model.                                                                                                                                                       |
 | `briefing`      | Top-of-mind, computed fresh **through your declared scope**: preferences (always global), in-scope tasks/topics/**contested facts** (the rest as a count), recent sessions (shared-topic first), standing distrust edits. |
 | `remember`      | Assert a belief (`speaker: "user"` to relay the human's own words under their key). Values may be `{entity}` references — see "Reference, don't transcribe".                                                              |
-| `recall`        | Resolve an entity to one view under the current trust policy. `aliasedVia` crosses vocabulary dialects; `unified` reads through sameAs equivalences.                                                                      |
+| `recall`        | Resolve an entity to one view under the current trust policy. `aliasedVia` crosses dialects; `unified` reads through sameAs; `all` returns every surviving candidate (the read for set-valued attributes).                |
 | `topics`        | What the store knows about — entities, attributes, claim counts, recency.                                                                                                                                                 |
 | `search`        | Substring search over surviving beliefs (values, attributes, entity ids).                                                                                                                                                 |
 | `same`          | Assert two ids name the same thing — identity as a negatable judgment.                                                                                                                                                    |
 | `retract`       | Append a signed negation. History is never edited.                                                                                                                                                                        |
 | `revise`        | Retract + re-assert in one move, linked by a `revises` pointer (for facts that _changed_).                                                                                                                                |
+| `recast`        | Re-encode without re-deciding: same meaning, better representation (string → `{entity}` reference; one fat claim → N). Lineage via a `recasts` pointer.                                                                   |
 | `end-session`   | Write this session's summary so the next session's briefing starts there.                                                                                                                                                 |
 | `explain`       | Every candidate with receipts: author, session, model, timestamp, negated flag.                                                                                                                                           |
 | `trust`         | Retroactive distrust of an author (a person, a session, a model's bot).                                                                                                                                                   |
@@ -148,8 +149,10 @@ Then teach the model the protocol — drop this in your `CLAUDE.md`:
   refusal failover, a pivot), call `begin-session` again — claims attribute to the
   introduction in effect at their timestamp.
 - As durable facts/preferences/tasks emerge, `remember` them (kind matters). Use
-  speaker:"user" when relaying something the user themselves said. Use `revise` when a fact
-  changed; `retract` when it was wrong.
+  speaker:"user" when relaying something the user themselves said. Three corrections, three
+  verbs: `revise` when the fact CHANGED, `retract` (+ remember) when it was WRONG, `recast`
+  when only the ENCODING improves (the audit trail must never read a re-encoding as a
+  changed mind). Read set-valued attributes (like composed-of) with recall {all: true}.
 - Reference, don't transcribe: when a value names a thing (an event, a person, a work — any
   id), pass {entity: "<id>"} so the edge is typed and followable; strings are for terminal
   content only. Model rich records atomically — small entities (with their own provenance)

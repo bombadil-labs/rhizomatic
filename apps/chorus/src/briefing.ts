@@ -227,21 +227,52 @@ export function briefing(agent: ChorusAgent, userAuthor?: string, scope?: Briefi
     .sort((a, b) => sharesScope(b) - sharesScope(a) || (b.startedAt ?? 0) - (a.startedAt ?? 0))
     .slice(0, 5);
 
-  // Contested: every entity whose attributes carry >1 surviving value — disagreement,
-  // surfaced. The SCAN is unbounded on purpose (disagreement does not expire by recency);
-  // the BROADCAST is scoped: in-scope contests in full, the rest as an honest count.
+  // Contested: an attribute where surviving claims disagree ACROSS AUTHORS. Two values from
+  // one author are a set (composed-of has many relata) or a superseded self — not a dispute;
+  // a contest needs two voices. The SCAN is unbounded on purpose (disagreement does not
+  // expire by recency); the BROADCAST is scoped: in-scope contests in full, the rest a count.
+  const slots = new Map<
+    string,
+    {
+      entity: string;
+      attribute: string;
+      values: unknown[];
+      seen: Set<string>;
+      authors: Set<string>;
+    }
+  >();
+  for (const { row } of rows) {
+    if (row.entity.startsWith("session:") || row.entity.startsWith("concept:")) continue;
+    const key = `${row.entity}\u0000${row.attribute}`;
+    let slot = slots.get(key);
+    if (slot === undefined) {
+      slot = {
+        entity: row.entity,
+        attribute: row.attribute,
+        values: [],
+        seen: new Set(),
+        authors: new Set(),
+      };
+      slots.set(key, slot);
+    }
+    const rendered = JSON.stringify(row.value);
+    if (!slot.seen.has(rendered)) {
+      slot.seen.add(rendered);
+      if (slot.values.length < 4) slot.values.push(row.value);
+    }
+    slot.authors.add(row.author);
+  }
   const contested: { entity: string; attribute: string; values: unknown[] }[] = [];
   let contestedElsewhere = 0;
-  for (const t of allTopics) {
-    const all = agent.recallAll(t.entity);
-    if (typeof all !== "object" || Array.isArray(all)) continue;
-    for (const [attribute, value] of Object.entries(all)) {
-      if (Array.isArray(value) && new Set(value.map((v) => JSON.stringify(v))).size > 1) {
-        if (within(t.entity))
-          contested.push({ entity: t.entity, attribute, values: value.slice(0, 4) });
-        else contestedElsewhere += 1;
-      }
-    }
+  for (const slot of [...slots.values()].sort(
+    (a, b) =>
+      (a.entity < b.entity ? -1 : a.entity > b.entity ? 1 : 0) ||
+      (a.attribute < b.attribute ? -1 : 1),
+  )) {
+    if (slot.seen.size < 2 || slot.authors.size < 2) continue;
+    if (within(slot.entity)) {
+      contested.push({ entity: slot.entity, attribute: slot.attribute, values: slot.values });
+    } else contestedElsewhere += 1;
   }
 
   const notInternal = (r: BeliefRow) => !r.entity.startsWith("session:");

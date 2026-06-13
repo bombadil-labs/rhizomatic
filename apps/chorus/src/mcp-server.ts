@@ -141,7 +141,7 @@ const TOOLS = [
   {
     name: "recall",
     description:
-      "Resolve an entity's beliefs to one view under the agent's trust policy. Optional attribute narrows to one property; aliasedVia (a concept id) crosses vocabulary dialects through the alias closure; unified: true reads through sameAs equivalences (co-referring ids merge; conflicts surface as arrays).",
+      "Resolve an entity's beliefs to one view under the agent's trust policy. Optional attribute narrows to one property; aliasedVia (a concept id) crosses vocabulary dialects through the alias closure; unified: true reads through sameAs equivalences (co-referring ids merge; conflicts surface as arrays); all: true returns EVERY surviving candidate instead of the policy's pick (multiple values surface as arrays) — the right read for set-valued attributes like composed-of.",
     inputSchema: {
       type: "object",
       properties: {
@@ -149,6 +149,7 @@ const TOOLS = [
         attribute: { type: "string" },
         aliasedVia: { type: "string" },
         unified: { type: "boolean" },
+        all: { type: "boolean" },
       },
       required: ["entity"],
     },
@@ -210,6 +211,27 @@ const TOOLS = [
         ...SPEAKER,
       },
       required: ["deltaId", "value"],
+    },
+  },
+  {
+    name: "recast",
+    description:
+      "Re-encode a belief WITHOUT re-deciding it: the value's meaning stays identical, only its representation upgrades (e.g. a string that names an entity becomes a typed {entity} reference; one comma-packed string becomes N separate claims). Appends one negation of the original plus the replacement claim(s), each linked by a recasts pointer — the audit trail reads 're-encoded', never 'changed its mind'. Use revise when the fact CHANGED; retract+remember when it was WRONG; recast when only the encoding improves.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        deltaId: { type: "string" },
+        values: {
+          type: "array",
+          minItems: 1,
+          items: VALUE.value,
+          description:
+            "The replacement value(s), meaning-identical to the original. Multiple values unpack a fat claim into separate claims (one per relatum).",
+        },
+        reason: { type: "string" },
+        ...SPEAKER,
+      },
+      required: ["deltaId", "values"],
     },
   },
   {
@@ -471,6 +493,9 @@ export function callTool(
       if (args["unified"] === true) {
         return recallUnified(agent, str(args["entity"]) ?? "", opts);
       }
+      if (args["all"] === true) {
+        return agent.recallAll(str(args["entity"]) ?? "", opts);
+      }
       return agent.recall(str(args["entity"]) ?? "", opts);
     }
     case "briefing": {
@@ -526,6 +551,64 @@ export function callTool(
       const delta = asUser ? agent.recordAs(ctx.userSeedHex, input) : agent.record(input);
       persist?.();
       return { deltaId: delta.id, revised: old.id, negationId: negation.id };
+    }
+    case "recast": {
+      // Re-encoded, not re-decided: same proposition, better representation. The recaster
+      // signs (you cannot speak in another author's voice); the original author's testimony
+      // stays one hop down the recasts pointer, negated but never hidden.
+      const old = agent.peer.reactor.get(str(args["deltaId"]) ?? "");
+      if (old === undefined) throw new Error(`recast: unknown delta ${String(args["deltaId"])}`);
+      const aboutPtr = old.claims.pointers.find(
+        (p) => p.role === "chorus.belief.about" && p.target.kind === "entity",
+      );
+      if (aboutPtr?.target.kind !== "entity" || aboutPtr.target.entity.context === undefined) {
+        throw new Error("recast: target is not a chorus belief");
+      }
+      const about = aboutPtr.target.entity.id;
+      const attribute = aboutPtr.target.entity.context;
+      // The proposition's epistemic state is unchanged, so kind/confidence/source carry over.
+      let kind: string | undefined;
+      let confidence: number | undefined;
+      let source: string | undefined;
+      for (const p of old.claims.pointers) {
+        if (p.target.kind !== "primitive") continue;
+        if (p.role === "chorus.belief.kind") kind = String(p.target.value);
+        else if (p.role === "chorus.belief.confidence" && typeof p.target.value === "number") {
+          confidence = p.target.value;
+        } else if (p.role === "chorus.belief.source") source = String(p.target.value);
+      }
+      const rawValues = args["values"];
+      if (!Array.isArray(rawValues) || rawValues.length === 0) {
+        throw new Error("recast: values must be a non-empty array");
+      }
+      const values = rawValues.map((v) => beliefValue(v, "recast"));
+      if (!ctx.introduced && !asUser) introduce(ctx, ctx.model);
+      const reason = str(args["reason"]) ?? "recast: representation upgraded, meaning unchanged";
+      const negation = asUser
+        ? agent.retractAs(ctx.userSeedHex, old.id, reason)
+        : agent.retract(old.id, reason);
+      const deltaIds = values.map((value) => {
+        const pointers = [
+          ...beliefPointers({
+            about,
+            attribute,
+            value,
+            ...(kind === undefined
+              ? {}
+              : { kind: kind as "observation" | "fact" | "preference" | "task" }),
+            ...(confidence === undefined ? {} : { confidence }),
+            ...(source === undefined ? {} : { source }),
+          }),
+          {
+            role: "chorus.belief.recasts",
+            target: { kind: "delta" as const, deltaRef: { delta: old.id } },
+          },
+        ];
+        const input = { timestamp: ctx.clock(), pointers };
+        return (asUser ? agent.recordAs(ctx.userSeedHex, input) : agent.record(input)).id;
+      });
+      persist?.();
+      return { recast: old.id, deltaIds, negationId: negation.id };
     }
     case "end-session": {
       if (!ctx.introduced) introduce(ctx, ctx.model);

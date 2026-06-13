@@ -112,7 +112,7 @@ describe("chorus MCP: the spawned server, driven like a real client", () => {
       const names = (list["result"] as { tools: Array<{ name: string }> }).tools.map((t) => t.name);
       expect(names).toContain("begin-session");
       expect(names).toContain("briefing");
-      expect(names).toHaveLength(16);
+      expect(names).toHaveLength(17);
 
       await c1.call("begin-session", { model: "claude-fable-5", purpose: "client smoke" });
       await c1.call("remember", {

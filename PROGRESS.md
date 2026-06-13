@@ -360,6 +360,23 @@ distrust). Slices, each usable + committed: A identity ✅ · B shared store · 
 D briefing/MX · E real-client handshake · F beyond-parity affordances.
 chorus/README.md is the product doc and grows with each slice.
 
+- **Slice L — recast: re-encoded, not re-decided.** ✅ — the chat side hit a third
+  correction category while planning the stringly-edge migration: revise means "the fact
+  changed" (it didn't), retract+remember means "it was wrong" (it wasn't — just coarsely
+  encoded). Ruling: a DISTINCT verb, because the distinction is load-bearing for track
+  records — an adjudicator reading "how often does this author revise" must not count
+  representation migrations as mind-changes — and it must be structural (a
+  `chorus.belief.recasts` pointer role, queryable by select), not a string flag. `recast
+  {deltaId, values[]}` appends one negation + N replacement claims (1→N unpacks comma-packed
+  fat strings), each carrying the recasts lineage and INHERITING kind/confidence/source (the
+  epistemic state is unchanged); the recaster signs (no impersonation — the original author
+  lives one hop down the pointer). Shipped with two enablers the migration needs: contested
+  now requires ≥2 DISTINCT AUTHORS (a set is not a contest — without this, splitting
+  composed-of into N reference claims would false-positive the headline feature; computed
+  from belief rows, dropping the per-entity recallAll scan), and recall gains `all: true`
+  (the superposition read over MCP — the right read for set-valued attributes). 17 tools.
+  Suite 271 (60 chorus).
+
 - **Slice K — the briefing is a lens (structured session intent).** ✅ — the user's design
   verdict ("never a global perpetual summary"), operationalized: a general briefing is a
   global lens, the one artifact the architecture forbids. `begin-session` now takes

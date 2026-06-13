@@ -61,6 +61,34 @@ describe("chorus MX: the session lifecycle", () => {
     expect(b.preferences[0]!.author).toBe(s2.userAuthor);
   });
 
+  it("a set is not a contest: many values from one author never trip contested", () => {
+    const ctx = mk("setter", 1000);
+    callTool(ctx, "remember", {
+      about: "sync:m",
+      attribute: "composed-of",
+      value: { entity: "event:a" },
+    });
+    callTool(ctx, "remember", {
+      about: "sync:m",
+      attribute: "composed-of",
+      value: { entity: "event:b" },
+    });
+    const solo = callTool(ctx, "briefing", {}) as Briefing;
+    expect(solo.contested).toEqual([]); // two relata, one voice — a set, not a dispute
+
+    // A second AUTHOR diverging on the same attribute IS a contest (v0 heuristic; a
+    // curator author can adjudicate collaborative set-building later).
+    const rival = mk("rival", 5000);
+    rival.agent.importSet(ctx.agent.snapshot());
+    callTool(rival, "remember", {
+      about: "sync:m",
+      attribute: "composed-of",
+      value: { entity: "event:z" },
+    });
+    const contested = callTool(rival, "briefing", {}) as Briefing;
+    expect(contested.contested.map((c) => c.attribute)).toContain("composed-of");
+  });
+
   it("contested facts surface in the briefing instead of last-write-wins", () => {
     const s1 = mk("a", 1000);
     callTool(s1, "remember", { about: "svc:api", attribute: "owner", value: "team-a" });

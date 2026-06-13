@@ -206,6 +206,52 @@ describe("chorus MCP: the six original tools still hold", () => {
       callTool(ctx, "remember", { about: "sync:x", attribute: "composed-of", value: { foo: 1 } }),
     ).toThrow(/value must be/);
   });
+
+  it("recast re-encodes without re-deciding: 1→N typed references with lineage", () => {
+    const ctx = mkCtx();
+    const orig = callTool(ctx, "remember", {
+      about: "sync:m",
+      attribute: "composed-of",
+      value: "event:a, event:b",
+      kind: "fact",
+      confidence: 0.9,
+      source: "first sitting",
+    }) as { deltaId: string };
+    const r = callTool(ctx, "recast", {
+      deltaId: orig.deltaId,
+      values: [{ entity: "event:a" }, { entity: "event:b" }],
+    }) as { recast: string; deltaIds: string[]; negationId: string };
+    expect(r.recast).toBe(orig.deltaId);
+    expect(r.deltaIds).toHaveLength(2);
+    // The superposition read shows both relata — composed-of is set-valued.
+    expect(
+      callTool(ctx, "recall", { entity: "sync:m", attribute: "composed-of", all: true }),
+    ).toEqual({ "composed-of": ["event:a", "event:b"] });
+    // Receipts: the original is negated but present; the replacements are typed references
+    // that INHERIT the original's epistemic state — re-encoded, not re-decided.
+    const receipts = callTool(ctx, "explain", {
+      entity: "sync:m",
+      attribute: "composed-of",
+    }) as Array<{
+      deltaId: string;
+      negated: boolean;
+      reference?: boolean;
+      confidence?: number;
+      source?: string;
+    }>;
+    expect(receipts.find((x) => x.deltaId === orig.deltaId)!.negated).toBe(true);
+    const live = receipts.filter((x) => !x.negated);
+    expect(live).toHaveLength(2);
+    for (const l of live) {
+      expect(l.reference).toBe(true);
+      expect(l.confidence).toBe(0.9);
+      expect(l.source).toBe("first sitting");
+    }
+    // Each replacement carries a recasts pointer back to the original.
+    const replacement = ctx.agent.peer.reactor.get(r.deltaIds[0]!)!;
+    const link = replacement.claims.pointers.find((p) => p.role === "chorus.belief.recasts");
+    expect(link?.target.kind === "delta" && link.target.deltaRef.delta === orig.deltaId).toBe(true);
+  });
 });
 
 describe("chorus MCP: the protocol loop", () => {
@@ -264,6 +310,7 @@ describe("chorus MCP: the protocol loop", () => {
       "same",
       "retract",
       "revise",
+      "recast",
       "end-session",
       "decide",
       "replay",
