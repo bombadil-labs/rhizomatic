@@ -33,6 +33,15 @@ export { startConsole, type ConsoleHandle, type ConsoleOptions } from "./console
 export { startHttpServer, type HttpServerHandle, type HttpServerOptions } from "./mcp-http.js";
 export { declareConcept, slotId } from "./concepts.js";
 export {
+  GqlRegistry,
+  prepareGql,
+  queryGql,
+  queryGqlSync,
+  type GqlResult,
+  type PreparedGql,
+  type PrepareGqlOptions,
+} from "./gql.js";
+export {
   recallUnified,
   sameAsClass,
   sameAsPointers,

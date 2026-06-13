@@ -58,26 +58,46 @@ Environment: `CHORUS_MASTER_SEED` (all keys derive from it), `CHORUS_PACK` (stor
 
 ## MCP tools
 
-| Tool            | What it does                                                                                                                                                                                                              |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `begin-session` | Introduce this session: bind its author to your model + declared intent (purpose, topics, surface, mode). Call first; call again on any mid-session change.                                                               |
-| `whoami`        | This session's author, the user author, session id, declared model.                                                                                                                                                       |
-| `briefing`      | Top-of-mind, computed fresh **through your declared scope**: preferences (always global), in-scope tasks/topics/**contested facts** (the rest as a count), recent sessions (shared-topic first), standing distrust edits. |
-| `remember`      | Assert a belief (`speaker: "user"` to relay the human's own words under their key). Values may be `{entity}` references — see "Reference, don't transcribe".                                                              |
-| `recall`        | Resolve an entity to one view under the current trust policy. `aliasedVia` crosses dialects; `unified` reads through sameAs; `all` returns every surviving candidate (the read for set-valued attributes).                |
-| `topics`        | What the store knows about — entities, attributes, claim counts, recency.                                                                                                                                                 |
-| `search`        | Substring search over surviving beliefs (values, attributes, entity ids).                                                                                                                                                 |
-| `same`          | Assert two ids name the same thing — identity as a negatable judgment.                                                                                                                                                    |
-| `retract`       | Append a signed negation. History is never edited.                                                                                                                                                                        |
-| `revise`        | Retract + re-assert in one move, linked by a `revises` pointer (for facts that _changed_).                                                                                                                                |
-| `recast`        | Re-encode without re-deciding: same meaning, better representation (string → `{entity}` reference; one fat claim → N). Lineage via a `recasts` pointer.                                                                   |
-| `post`          | Send a message to other sessions or the human: correspondence, not knowledge. Address a session, a model, a surface, a topic's sessions, or the user.                                                                     |
-| `inbox`         | Messages addressed to this session, sender receipts resolved, acked mail hidden.                                                                                                                                          |
-| `ack`           | "Seen and handled" — a signed per-recipient claim; the message leaves your inbox only.                                                                                                                                    |
-| `end-session`   | Write this session's summary so the next session's briefing starts there.                                                                                                                                                 |
-| `explain`       | Every candidate with receipts: author, session, model, timestamp, negated flag.                                                                                                                                           |
-| `trust`         | Retroactive distrust of an author (a person, a session, a model's bot).                                                                                                                                                   |
-| `as-of`         | The world as it stood at an instant — claims retracted later are visible again.                                                                                                                                           |
+| Tool            | What it does                                                                                                                                                                                                                 |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `begin-session` | Introduce this session: bind its author to your model + declared intent (purpose, topics, surface, mode). Call first; call again on any mid-session change.                                                                  |
+| `whoami`        | This session's author, the user author, session id, declared model.                                                                                                                                                          |
+| `briefing`      | Top-of-mind, computed fresh **through your declared scope**: preferences (always global), in-scope tasks/topics/**contested facts** (the rest as a count), recent sessions (shared-topic first), standing distrust edits.    |
+| `remember`      | Assert a belief (`speaker: "user"` to relay the human's own words under their key). Values may be `{entity}` references — see "Reference, don't transcribe".                                                                 |
+| `recall`        | Resolve an entity to one view under the current trust policy. `aliasedVia` crosses dialects; `unified` reads through sameAs; `all` returns every surviving candidate (the read for set-valued attributes).                   |
+| `topics`        | What the store knows about — entities, attributes, claim counts, recency.                                                                                                                                                    |
+| `search`        | Substring search over surviving beliefs (values, attributes, entity ids).                                                                                                                                                    |
+| `same`          | Assert two ids name the same thing — identity as a negatable judgment.                                                                                                                                                       |
+| `retract`       | Append a signed negation. History is never edited.                                                                                                                                                                           |
+| `revise`        | Retract + re-assert in one move, linked by a `revises` pointer (for facts that _changed_).                                                                                                                                   |
+| `recast`        | Re-encode without re-deciding: same meaning, better representation (string → `{entity}` reference; one fat claim → N). Lineage via a `recasts` pointer.                                                                      |
+| `post`          | Send a message to other sessions or the human: correspondence, not knowledge. Address a session, a model, a surface, a topic's sessions, or the user.                                                                        |
+| `inbox`         | Messages addressed to this session, sender receipts resolved, acked mail hidden.                                                                                                                                             |
+| `ack`           | "Seen and handled" — a signed per-recipient claim; the message leaves your inbox only.                                                                                                                                       |
+| `end-session`   | Write this session's summary so the next session's briefing starts there.                                                                                                                                                    |
+| `explain`       | Every candidate with receipts: author, session, model, timestamp, negated flag.                                                                                                                                              |
+| `trust`         | Retroactive distrust of an author (a person, a session, a model's bot).                                                                                                                                                      |
+| `as-of`         | The world as it stood at an instant — claims retracted later are visible again.                                                                                                                                              |
+| `gql-prepare`   | Pin the current world and **synthesize a GraphQL schema for it on demand** — types from id-prefixes, reference edges typed by target, set-valued attributes as list fields. The schema is ephemeral; the snapshot frozen.    |
+| `gql-query`     | Query a prepared snapshot. Forward traversal follows reference fields; `backlinks(target, …)` walks **backward** (who points at an entity), role-discriminated, no substring scan. Per-type roots: `<type>(id)` / `<type>s`. |
+| `gql-schema`    | Re-fetch a prepared snapshot's SDL + stats without regenerating it.                                                                                                                                                          |
+| `gql-release`   | Retire a prepared snapshot; `gql-list` shows the ones still live.                                                                                                                                                            |
+
+## GraphQL on demand
+
+Point-resolution (`recall`), receipts (`explain`), and substring `search` answer most reads,
+but some questions are graph walks — _"what characters was I thinking about the last time I
+watched a movie about individuation?"_ `gql-prepare` answers them without a maintained schema:
+it **pins a snapshot** of the store and reflects over its surviving deltas to **synthesize a
+GraphQL schema** for that frozen world — a pure function of `(snapshot, policy)`, so nothing
+static is ever stored. Reflection reads the value pointer's _kind_, so references become typed
+edges you traverse (never substrings you match), and `plurality:set` declarations become list
+fields. You then run any number of queries against that frozen `(snapshot, policy, schema)`
+triple until you `gql-release` or regenerate — so a long retrospective walk reads one
+consistent world even as the live store moves on. Reverse adjacency (`backlinks`) is
+first-class on every node and at the root: the inbound index the store already maintains,
+surfaced. The "staticness" of a schema doesn't disappear — it moves down to the pin, where a
+retrospective query wanted a frozen world anyway.
 
 ## Reference, don't transcribe
 

@@ -320,6 +320,11 @@ describe("chorus MCP: the protocol loop", () => {
       "explain",
       "trust",
       "as-of",
+      "gql-prepare",
+      "gql-query",
+      "gql-schema",
+      "gql-release",
+      "gql-list",
     ]);
     const recall = responses[4]!["result"] as { content: Array<{ text: string }> };
     expect(JSON.parse(recall.content[0]!.text)).toEqual({ theme: "dark" });

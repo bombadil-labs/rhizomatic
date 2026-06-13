@@ -19,7 +19,8 @@
     "check": "npm run format:check && npm run lint && npm run typecheck && npm test"
   },
   "dependencies": {
-    "@rhizomatic/core": "file:../../implementations/ts"
+    "@rhizomatic/core": "file:../../implementations/ts",
+    "graphql": "^16.14.2"
   },
   "devDependencies": {
     "@eslint/js": "^9.15.0",

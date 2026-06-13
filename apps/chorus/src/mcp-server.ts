@@ -3,7 +3,8 @@
 // the protocol surface is initialize / tools/list / tools/call.
 //
 // Tools: begin-session · whoami · briefing · remember · recall · topics · search · same ·
-// retract · revise · end-session · explain · trust · as-of.
+// retract · revise · recast · end-session · post · inbox · ack · decide · replay · explain ·
+// trust · as-of · gql-prepare · gql-query · gql-schema · gql-release · gql-list.
 //
 // Identity model (chorus/identity.ts): one server process = one SESSION = one derived keypair
 // — every model session is a distinct author with its own track record. The human is one
@@ -19,6 +20,7 @@ import { ChorusAgent, beliefPointers } from "./agent.js";
 import { briefing } from "./briefing.js";
 import { decide, replayDecision } from "./decisions.js";
 import { recallUnified, sameAsClass, sameAsPointers, search, topics } from "./discovery.js";
+import { GqlRegistry } from "./gql.js";
 import {
   identityAt,
   identityIntroductions,
@@ -375,6 +377,64 @@ const TOOLS = [
       required: ["entity", "at"],
     },
   },
+  {
+    name: "gql-prepare",
+    description:
+      "Pin the store's current world and SYNTHESIZE a GraphQL schema for it on demand. Reflection reads which entity-types exist (by id prefix), which attributes each carries, which are REFERENCES (typed edges, followed not substring-matched) vs primitives, and which are set-valued (declared plurality:set → list fields). Returns a prepId and the schema SDL. The schema is ephemeral — a pure function of (snapshot, policy) — and the snapshot is FROZEN: query it with gql-query until you gql-release or regenerate, and a long retrospective walk reads one consistent world even as the live store moves on. Optional asOf (ms epoch) pins a past world; prefix restricts to one entity family (e.g. 'concept:').",
+    inputSchema: {
+      type: "object",
+      properties: {
+        asOf: {
+          type: "number",
+          description: "pin the world as it stood at this instant (ms epoch)",
+        },
+        prefix: {
+          type: "string",
+          description: "restrict the schema to one entity-id family, e.g. 'idea:'",
+        },
+      },
+    },
+  },
+  {
+    name: "gql-query",
+    description:
+      "Run a GraphQL query against a prepared snapshot (from gql-prepare). Forward traversal follows reference fields hop by hop; backlinks(target, attribute?, role?) walks BACKWARD (who points at an entity) with no substring scan and no false positives. Per-type root fields: <type>(id) and <type>s(limit). Returns { data, errors }.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        prepId: { type: "string", description: "the id returned by gql-prepare" },
+        query: { type: "string", description: "a GraphQL query string" },
+        variables: { type: "object", description: "optional GraphQL variables" },
+      },
+      required: ["prepId", "query"],
+    },
+  },
+  {
+    name: "gql-schema",
+    description:
+      "Fetch the SDL of a prepared snapshot again without re-preparing, plus its stats (type/field/delta counts, when it was pinned).",
+    inputSchema: {
+      type: "object",
+      properties: { prepId: { type: "string" } },
+      required: ["prepId"],
+    },
+  },
+  {
+    name: "gql-release",
+    description:
+      "Retire a prepared snapshot (frees its frozen world). gql-list shows the ones still live.",
+    inputSchema: {
+      type: "object",
+      properties: { prepId: { type: "string" } },
+      required: ["prepId"],
+    },
+  },
+  {
+    name: "gql-list",
+    description:
+      "The prepared snapshots still live in this session: id, stats, and when each was pinned.",
+    inputSchema: { type: "object", properties: {} },
+  },
 ] as const;
 
 const str = (v: unknown): string | undefined => (typeof v === "string" ? v : undefined);
@@ -409,6 +469,7 @@ export interface SessionContext {
   mode?: string; // interaction type: work | conversation | research | retrospective…
   introduced: boolean;
   readonly clock: () => number;
+  readonly gql: GqlRegistry; // prepared-snapshot query sessions (gql.ts) — per-process working set
 }
 
 export interface SessionOptions {
@@ -433,6 +494,7 @@ export function createSession(opts: SessionOptions): SessionContext {
     topics: [],
     introduced: false,
     clock: opts.clock ?? (() => Date.now()),
+    gql: new GqlRegistry(),
   };
 }
 
@@ -871,6 +933,54 @@ export function callTool(
         ...(attribute === undefined ? {} : { attribute }),
       });
     }
+    case "gql-prepare": {
+      const asOf = num(args["asOf"]);
+      const prefix = str(args["prefix"]);
+      const p = ctx.gql.prepare(agent, {
+        ...(asOf === undefined ? {} : { asOf }),
+        ...(prefix === undefined ? {} : { prefix }),
+      });
+      return {
+        prepId: p.id,
+        sdl: p.sdl,
+        typeCount: p.typeCount,
+        fieldCount: p.fieldCount,
+        deltaCount: p.deltaCount,
+        createdAt: p.createdAt,
+      };
+    }
+    case "gql-query": {
+      const prepId = str(args["prepId"]);
+      const query = str(args["query"]);
+      if (prepId === undefined) throw new Error("gql-query: prepId is required");
+      if (query === undefined) throw new Error("gql-query: query is required");
+      const variables =
+        typeof args["variables"] === "object" && args["variables"] !== null
+          ? (args["variables"] as Record<string, unknown>)
+          : undefined;
+      return ctx.gql.querySync(agent, prepId, query, variables);
+    }
+    case "gql-schema": {
+      const prepId = str(args["prepId"]);
+      if (prepId === undefined) throw new Error("gql-schema: prepId is required");
+      const p = ctx.gql.get(prepId);
+      if (p === undefined) throw new Error(`gql-schema: unknown prepared snapshot ${prepId}`);
+      return {
+        prepId: p.id,
+        sdl: p.sdl,
+        typeCount: p.typeCount,
+        fieldCount: p.fieldCount,
+        deltaCount: p.deltaCount,
+        createdAt: p.createdAt,
+      };
+    }
+    case "gql-release": {
+      const prepId = str(args["prepId"]);
+      if (prepId === undefined) throw new Error("gql-release: prepId is required");
+      return { released: ctx.gql.release(prepId) };
+    }
+    case "gql-list":
+      return ctx.gql.list();
     default:
       throw new Error(`unknown tool: ${name}`);
   }
