@@ -227,10 +227,22 @@ export function briefing(agent: ChorusAgent, userAuthor?: string, scope?: Briefi
     .sort((a, b) => sharesScope(b) - sharesScope(a) || (b.startedAt ?? 0) - (a.startedAt ?? 0))
     .slice(0, 5);
 
+  // Plurality declarations: a surviving belief about attr:<name> with attribute "plurality"
+  // and value "set" declares that attribute SET-VALUED — multi-author divergence there is
+  // union (accretion), never contest. The declaration is an ordinary claim: signed,
+  // negatable, and itself contestable (a dispute about set-ness surfaces right here).
+  const plural = new Set<string>();
+  for (const { row } of rows) {
+    if (row.entity.startsWith("attr:") && row.attribute === "plurality" && row.value === "set") {
+      plural.add(row.entity.slice("attr:".length));
+    }
+  }
+
   // Contested: an attribute where surviving claims disagree ACROSS AUTHORS. Two values from
   // one author are a set (composed-of has many relata) or a superseded self — not a dispute;
-  // a contest needs two voices. The SCAN is unbounded on purpose (disagreement does not
-  // expire by recency); the BROADCAST is scoped: in-scope contests in full, the rest a count.
+  // a contest needs two voices, and a declared-set attribute never contests on multiplicity.
+  // The SCAN is unbounded on purpose (disagreement does not expire by recency); the
+  // BROADCAST is scoped: in-scope contests in full, the rest a count.
   const slots = new Map<
     string,
     {
@@ -270,6 +282,7 @@ export function briefing(agent: ChorusAgent, userAuthor?: string, scope?: Briefi
       (a.attribute < b.attribute ? -1 : 1),
   )) {
     if (slot.seen.size < 2 || slot.authors.size < 2) continue;
+    if (plural.has(slot.attribute)) continue; // declared set: divergence means union
     if (within(slot.entity)) {
       contested.push({ entity: slot.entity, attribute: slot.attribute, values: slot.values });
     } else contestedElsewhere += 1;

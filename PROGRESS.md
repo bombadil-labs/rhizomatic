@@ -360,6 +360,23 @@ distrust). Slices, each usable + committed: A identity ✅ · B shared store · 
 D briefing/MX · E real-client handshake · F beyond-parity affordances.
 chorus/README.md is the product doc and grows with each slice.
 
+- **Slice O — plurality declarations: divergence-as-union.** ✅ — the second sitting's field
+  finding, delivered by the human (its channel post was lost to a hang — see the open bug
+  below): the contested detector read multi-author accretion on composed-of as conflict, but
+  for a SET-VALUED attribute multiple authors adding members is JOINT BUILDING. The fix is
+  architecture-shaped: the store learns an attribute is a set the way it learns anything —
+  by a CLAIM. `remember {about: "attr:<name>", attribute: "plurality", value: "set"}` is an
+  ordinary belief (signed, negatable, trust-gated); the contested scan reads surviving
+  declarations and exempts declared sets from multiplicity contests. A dispute about
+  set-ness itself surfaces through the same machinery (attr:* entities are ordinary topics).
+  Test arc: solo set fine → cross-author divergence contests while undeclared → one
+  declaration dissolves it → recall {all: true} reads the union. Seeded live for
+  attr:composed-of + attr:involves. OPEN BUG (proj:chorus field-bug:post-hang): a `post`
+  from the desktop session hung ~4 min and its delta never reached the log; no stale lock
+  left behind, all other writes landed; needs repro — suspects: lock contention during a
+  concurrent server restart, or compact-at-boot rename racing an open reader on Windows.
+  Suite 277 (66 chorus; the set-vs-contest test became the full declaration arc).
+
 - **Slice N — author mail + disposition artifacts.** ✅ — the two resolved refinements from
   the messaging design review, nothing more. (1) `to: {authorOf: <deltaId>}`: the canonical
   coordination gesture — one process notices something another process WROTE — is anchored

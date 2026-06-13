@@ -61,7 +61,7 @@ describe("chorus MX: the session lifecycle", () => {
     expect(b.preferences[0]!.author).toBe(s2.userAuthor);
   });
 
-  it("a set is not a contest: many values from one author never trip contested", () => {
+  it("a set is not a contest: plurality declarations make divergence read as union", () => {
     const ctx = mk("setter", 1000);
     callTool(ctx, "remember", {
       about: "sync:m",
@@ -76,8 +76,7 @@ describe("chorus MX: the session lifecycle", () => {
     const solo = callTool(ctx, "briefing", {}) as Briefing;
     expect(solo.contested).toEqual([]); // two relata, one voice — a set, not a dispute
 
-    // A second AUTHOR diverging on the same attribute IS a contest (v0 heuristic; a
-    // curator author can adjudicate collaborative set-building later).
+    // A second AUTHOR diverging on an UNDECLARED attribute reads as a contest…
     const rival = mk("rival", 5000);
     rival.agent.importSet(ctx.agent.snapshot());
     callTool(rival, "remember", {
@@ -85,8 +84,24 @@ describe("chorus MX: the session lifecycle", () => {
       attribute: "composed-of",
       value: { entity: "event:z" },
     });
-    const contested = callTool(rival, "briefing", {}) as Briefing;
-    expect(contested.contested.map((c) => c.attribute)).toContain("composed-of");
+    const undeclared = callTool(rival, "briefing", {}) as Briefing;
+    expect(undeclared.contested.map((c) => c.attribute)).toContain("composed-of");
+
+    // …until someone DECLARES the attribute set-valued — an ordinary, negatable claim —
+    // and multi-author divergence dissolves into accretion (the field finding, live data:
+    // second sitting added event:alice-vision, third added recast members; joint building).
+    callTool(rival, "remember", {
+      about: "attr:composed-of",
+      attribute: "plurality",
+      value: "set",
+      kind: "fact",
+    });
+    const declared = callTool(rival, "briefing", {}) as Briefing;
+    expect(declared.contested).toEqual([]);
+    // The union itself stays readable: every member, both authors.
+    expect(
+      callTool(rival, "recall", { entity: "sync:m", attribute: "composed-of", all: true }),
+    ).toEqual({ "composed-of": ["event:a", "event:b", "event:z"] });
   });
 
   it("contested facts surface in the briefing instead of last-write-wins", () => {

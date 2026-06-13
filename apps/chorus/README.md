@@ -186,6 +186,10 @@ Then teach the model the protocol — drop this in your `CLAUDE.md`:
   content only. Model rich records atomically — small entities (with their own provenance)
   related by references, never one fat claim. Fat claims can't disagree, so they starve
   `contested`.
+- Set-valued attributes (composed-of, involves, …): declare once with remember
+  {about: "attr:<name>", attribute: "plurality", value: "set", kind: "fact"} — multi-author
+  divergence on a declared set reads as union (joint building), never contest. Read sets
+  with recall {all: true}.
 - When unsure what something is called, try `topics`/`search` before minting a new entity id;
   if you find a duplicate id for the same thing, assert `same`.
 - Your briefing carries an `inbox`: messages other sessions addressed to you. `ack` what you
