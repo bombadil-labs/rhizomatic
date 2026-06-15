@@ -1,7 +1,12 @@
-// The shared store: many concurrent sessions, one world, no daemon. An append-only JSONL log
+// The JSONL backend: many concurrent sessions, one world, no daemon. An append-only JSONL log
 // (one delta per line) plus a lock directory. Correctness rides the CRDT: deltas are
 // content-addressed and merge is union, so any interleaving of "read the new lines, append
 // mine" converges — the lock only keeps appends from tearing, never arbitrates truth.
+//
+// This is the legible dev/audit/inspection tier: git-diffable, zero-dependency, one delta per
+// line. It is the first witness to the `Store` interface (store-tier.ts); the SQLite backend
+// (sqlite-store.ts) is the second, solving the concurrency + indexed-read problems a flat file
+// cannot. Keep this one legible — it is a first-class tier, not a legacy path.
 
 import {
   appendFileSync,
@@ -15,8 +20,18 @@ import {
   writeFileSync,
 } from "node:fs";
 import { dirname } from "node:path";
-import { DeltaSet, claimsToJson, makeDelta, parseClaims } from "@rhizomatic/core";
+import { DeltaSet, claimsToJson, makeDelta, parseClaims, type Delta } from "@rhizomatic/core";
 import type { ChorusAgent } from "./agent.js";
+import type { Store } from "./store-tier.js";
+
+// One JSONL line for a delta: the canonical claims JSON plus the signature, when present.
+function serialize(d: Delta): string {
+  return JSON.stringify(
+    d.sig === undefined
+      ? { claims: claimsToJson(d.claims) }
+      : { claims: claimsToJson(d.claims), sig: d.sig },
+  );
+}
 
 const LOCK_STALE_MS = 10_000;
 const LOCK_RETRY_MS = 25;
@@ -69,7 +84,7 @@ function withLock<T>(path: string, fn: () => T): T {
   }
 }
 
-export class SharedStore {
+export class JsonlStore implements Store {
   private offset = 0; // bytes of the file already parsed
   private linesSeen = 0; // parsed lines (incl. duplicates and torn skips)
   // Ids known to be on disk (read from it, or appended by us). Set semantics make this the
@@ -80,17 +95,17 @@ export class SharedStore {
     mkdirSync(dirname(filePath), { recursive: true });
   }
 
-  // Read lines appended since we last looked and ingest them through the agent (host-aware,
-  // so derived authors react to other sessions' writes too). A trailing partial line (a
-  // concurrent append caught mid-flush) is left for the next refresh — the offset never
-  // crosses an unparsed boundary.
-  refresh(agent: ChorusAgent): number {
-    if (!existsSync(this.filePath)) return 0;
+  // Read lines appended since we last looked, advancing the byte offset + onDisk watermark. A
+  // trailing partial line (a concurrent append caught mid-flush) is left for the next read —
+  // the offset never crosses an unparsed boundary. No agent: this is the durable-read half that
+  // both refresh (ingest into an agent) and appendDeltas (union before writing) share.
+  private readNew(): Delta[] {
+    if (!existsSync(this.filePath)) return [];
     const buf = readFileSync(this.filePath);
-    if (buf.length <= this.offset) return 0;
+    if (buf.length <= this.offset) return [];
     const chunk = buf.subarray(this.offset).toString("utf8");
     let consumed = 0;
-    const arrived = [];
+    const arrived: Delta[] = [];
     for (;;) {
       const nl = chunk.indexOf("\n", consumed);
       if (nl === -1) break;
@@ -108,6 +123,28 @@ export class SharedStore {
       }
     }
     this.offset += Buffer.byteLength(chunk.slice(0, consumed), "utf8");
+    return arrived;
+  }
+
+  // Append the given deltas under the lock, sealing a torn tail first; advance the watermarks.
+  // Caller has already filtered out anything on disk. Returns the count written.
+  private writeLines(mine: readonly Delta[]): number {
+    if (mine.length === 0) return 0;
+    // If a crashed writer left an unterminated tail, seal it so our first line stays whole.
+    const size = existsSync(this.filePath) ? statSync(this.filePath).size : 0;
+    const lead = size > this.offset ? "\n" : "";
+    const lines = `${lead}${mine.map(serialize).join("\n")}\n`;
+    appendFileSync(this.filePath, lines);
+    this.offset = size + Buffer.byteLength(lines, "utf8");
+    this.linesSeen += mine.length;
+    for (const d of mine) this.onDisk.add(d.id);
+    return mine.length;
+  }
+
+  // Read lines appended since we last looked and ingest them through the agent (host-aware,
+  // so derived authors react to other sessions' writes too).
+  refresh(agent: ChorusAgent): number {
+    const arrived = this.readNew();
     if (arrived.length === 0) return 0;
     return agent.importSet(DeltaSet.from(arrived)).accepted;
   }
@@ -118,25 +155,49 @@ export class SharedStore {
     return withLock(this.filePath, () => {
       this.refresh(agent);
       const mine = agent.peer.reactor.arrivalLog().filter((d) => !this.onDisk.has(d.id));
-      if (mine.length === 0) return 0;
-      // If a crashed writer left an unterminated tail, seal it so our first line stays whole.
-      const size = existsSync(this.filePath) ? statSync(this.filePath).size : 0;
-      const lead = size > this.offset ? "\n" : "";
-      const lines = `${lead}${mine
-        .map((d) =>
-          JSON.stringify(
-            d.sig === undefined
-              ? { claims: claimsToJson(d.claims) }
-              : { claims: claimsToJson(d.claims), sig: d.sig },
-          ),
-        )
-        .join("\n")}\n`;
-      appendFileSync(this.filePath, lines);
-      this.offset = size + Buffer.byteLength(lines, "utf8");
-      this.linesSeen += mine.length;
-      for (const d of mine) this.onDisk.add(d.id);
-      return mine.length;
+      return this.writeLines(mine);
     });
+  }
+
+  // --- the delta-level primitive (store-tier.ts) -------------------------------------------------
+
+  // Durably append every supplied delta not already on disk. Under the lock: union concurrent
+  // appends first (the onDisk watermark), then write the difference. Idempotent by id.
+  appendDeltas(deltas: Iterable<Delta>): number {
+    return withLock(this.filePath, () => {
+      this.readNew(); // union concurrent writers into the watermark before diffing
+      const mine: Delta[] = [];
+      const seen = new Set<string>();
+      for (const d of deltas) {
+        if (this.onDisk.has(d.id) || seen.has(d.id)) continue;
+        seen.add(d.id);
+        mine.push(d);
+      }
+      return this.writeLines(mine);
+    });
+  }
+
+  // Every durably-stored delta whose id is not yet known to the caller. A full, independent
+  // parse of the log (deduped by id) — the watermark read, decoupled from refresh's offset.
+  deltasSince(knownIds: ReadonlySet<string>): Delta[] {
+    if (!existsSync(this.filePath)) return [];
+    const text = readFileSync(this.filePath, "utf8");
+    const out: Delta[] = [];
+    const emitted = new Set<string>();
+    for (const raw of text.split("\n")) {
+      const line = raw.trim();
+      if (line === "") continue;
+      try {
+        const parsed = JSON.parse(line) as { claims: unknown; sig?: string };
+        const delta = makeDelta(parseClaims(parsed.claims), parsed.sig);
+        if (knownIds.has(delta.id) || emitted.has(delta.id)) continue;
+        emitted.add(delta.id);
+        out.push(delta);
+      } catch {
+        // torn / partial line from a crashed writer — skip it, keep the rest.
+      }
+    }
+    return out;
   }
 
   // The log accumulates duplicates only through crash-garbage and racing writers; once the
@@ -151,15 +212,7 @@ export class SharedStore {
     return withLock(this.filePath, () => {
       this.refresh(agent);
       const deltas = agent.peer.reactor.arrivalLog();
-      const body = deltas
-        .map((d) =>
-          JSON.stringify(
-            d.sig === undefined
-              ? { claims: claimsToJson(d.claims) }
-              : { claims: claimsToJson(d.claims), sig: d.sig },
-          ),
-        )
-        .join("\n");
+      const body = deltas.map(serialize).join("\n");
       const content = body === "" ? "" : `${body}\n`;
       const tmp = `${this.filePath}.compact.tmp`;
       writeFileSync(tmp, content);
@@ -173,3 +226,7 @@ export class SharedStore {
     });
   }
 }
+
+// The JSONL backend was the original `SharedStore`; the name survives as an alias so existing
+// callers and tests read unchanged. New code constructs via `createStore` (store-tier.ts).
+export { JsonlStore as SharedStore };

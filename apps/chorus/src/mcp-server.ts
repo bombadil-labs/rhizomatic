@@ -31,7 +31,7 @@ import {
   type AuthorIdentity,
 } from "./identity.js";
 import { ackPointers, inbox, messagePointers, type MessageAddress } from "./messages.js";
-import { SharedStore } from "./shared-store.js";
+import { createStore } from "./store-tier.js";
 import { loadPack, savePack } from "./store.js";
 
 interface RpcRequest {
@@ -1081,10 +1081,11 @@ if (
     if (existsSync(packPath)) ctx.agent.importSet(loadPack(packPath));
     serve(ctx, process.stdin, process.stdout, { persist: () => savePack(ctx.agent, packPath) });
   } else {
-    // Default: the shared JSONL log — many concurrent sessions, one world.
-    const store = new SharedStore(process.env["CHORUS_STORE"] ?? "chorus-memory.jsonl");
+    // Default: the shared durable store — many concurrent sessions, one world. The backend is
+    // pluggable (CHORUS_STORE_BACKEND); the path is CHORUS_STORE.
+    const store = createStore(process.env["CHORUS_STORE"] ?? "chorus-memory.jsonl");
     store.refresh(ctx.agent);
-    if (store.wasteful(ctx.agent)) store.compact(ctx.agent);
+    if (store.wasteful?.(ctx.agent)) store.compact?.(ctx.agent);
     serve(ctx, process.stdin, process.stdout, {
       persist: () => store.persist(ctx.agent),
       refresh: () => store.refresh(ctx.agent),
