@@ -1,9 +1,18 @@
 # Work order — the pluggable persistence tier
 
-**Status:** ready to build. **Layer:** app (Chorus) — TS-only, no vectors, no two-witness
-requirement (per the root [CLAUDE.md](../../CLAUDE.md): nothing in `apps/` is normative).
-**Audience:** a fresh `/loop` session. This document is self-contained — you do not have the
-conversation that produced it. Read it top to bottom, then build.
+**Status: ✅ SHIPPED** (2026-06-15, branch `feature/persistence-tier`). The `Store` interface
+([src/store-tier.ts](src/store-tier.ts)) is the seam; JSONL ([src/shared-store.ts](src/shared-store.ts))
+and SQLite ([src/sqlite-store.ts](src/sqlite-store.ts)) are the two witnesses to it, both passing
+one shared conformance harness ([test/chorus-store-conformance.test.ts](test/chorus-store-conformance.test.ts)).
+Backend is env-selectable (`CHORUS_STORE_BACKEND`, default `jsonl`); migration is
+[src/migrate.ts](src/migrate.ts) (`npm run chorus:migrate`); the indexed reverse-adjacency read is
+[src/store-reads.ts](src/store-reads.ts). All five Definition-of-done points (§6) hold; the prose
+below is the original work order, kept as the rationale of record.
+
+**Layer:** app (Chorus) — TS-only, no vectors, no two-witness requirement (per the root
+[CLAUDE.md](../../CLAUDE.md): nothing in `apps/` is normative). **Audience:** a fresh `/loop`
+session. This document is self-contained — you do not have the conversation that produced it. Read
+it top to bottom, then build.
 
 ---
 
