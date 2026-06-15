@@ -10,6 +10,7 @@
     "chorus:mcp": "tsx src/mcp-server.ts",
     "chorus:http": "tsx src/mcp-http.ts",
     "chorus:console": "tsx src/console.ts",
+    "chorus:migrate": "tsx src/migrate.ts",
     "demo": "npm run chorus:demo",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",

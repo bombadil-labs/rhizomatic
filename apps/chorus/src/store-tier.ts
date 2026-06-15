@@ -13,6 +13,7 @@
 import type { Delta } from "@rhizomatic/core";
 import type { ChorusAgent } from "./agent.js";
 import { JsonlStore } from "./shared-store.js";
+import { SqliteStore } from "./sqlite-store.js";
 
 export interface Store {
   // --- the delta-level primitive: durable append + read-since-watermark ---------------------
@@ -57,15 +58,18 @@ export interface Store {
 
 // --- backend selection ------------------------------------------------------------------------
 
-// JSONL is the default tier — legible, zero-dependency, the one every collaborator can read.
-// SQLite is opt-in via CHORUS_STORE_BACKEND for concurrency + indexed reads (added in a later
-// slice; the factory learns the second backend then).
-export type StoreBackend = "jsonl";
+// JSONL is the default tier — legible, git-diffable, the one every collaborator can read.
+// SQLite is opt-in via CHORUS_STORE_BACKEND for concurrency + indexed reads.
+export type StoreBackend = "jsonl" | "sqlite";
+
+const BACKENDS: readonly StoreBackend[] = ["jsonl", "sqlite"];
 
 export function backendFromEnv(env: NodeJS.ProcessEnv = process.env): StoreBackend {
   const raw = (env["CHORUS_STORE_BACKEND"] ?? "jsonl").toLowerCase();
-  if (raw === "jsonl") return "jsonl";
-  throw new Error(`CHORUS_STORE_BACKEND="${raw}" is not a known backend (expected: jsonl)`);
+  if ((BACKENDS as readonly string[]).includes(raw)) return raw as StoreBackend;
+  throw new Error(
+    `CHORUS_STORE_BACKEND="${raw}" is not a known backend (expected: ${BACKENDS.join(" | ")})`,
+  );
 }
 
 // Construct the durable store for a path. Callers depend on the `Store` interface, never on a
@@ -74,5 +78,7 @@ export function createStore(path: string, backend: StoreBackend = backendFromEnv
   switch (backend) {
     case "jsonl":
       return new JsonlStore(path);
+    case "sqlite":
+      return new SqliteStore(path);
   }
 }
