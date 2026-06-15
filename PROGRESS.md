@@ -1,5 +1,31 @@
 # Progress
 
+> **RESUME HERE (2026-06-15, later). THE PLUGGABLE PERSISTENCE TIER SHIPPED
+> (branch `feature/persistence-tier`); the next unit is FEDERATION v1.**
+> Chorus persistence is now a seam, not a flat file. A `Store` interface
+> ([apps/chorus/src/store-tier.ts](apps/chorus/src/store-tier.ts)) shaped around the
+> federation-sync primitive (`appendDeltas` + `deltasSince`, with `refresh`/`persist` as thin
+> agent-aware layers) has **two witnesses to one contract**, exactly as the format itself does:
+> the legible **JSONL** tier (the original `SharedStore`, renamed `JsonlStore`, kept forever as
+> the dev/audit tier) and a **SQLite** tier (`better-sqlite3`, real transactional writes — the
+> `field-bug:post-hang` lock-directory failure mode is gone — WAL + a by-target/by-value index).
+> Both pass one shared conformance harness. Backend is env-selectable
+> (`CHORUS_STORE_BACKEND=jsonl|sqlite`, default `jsonl`); a lossless `npm run chorus:migrate`
+> imports a JSONL log into SQLite and proves it by byte-identical canonical digest; an indexed
+> `backlinks` read reproduces the full-store scan exactly and beats it on a seeded large store.
+> 97 chorus tests. Work order + Definition of done (all five hold):
+> [apps/chorus/PERSISTENCE.md](apps/chorus/PERSISTENCE.md).
+>
+> **The next unit is FEDERATION v1** — one published query, one subscribing peer over the HTTP
+> transport already shipped, two trust lenses, and the closure-as-privacy audit view. The model
+> is in [spec/11-federation-as-query.NOTE.md](spec/11-federation-as-query.NOTE.md): federation as
+> publish/subscribe over arbitrary queries, privacy as the default-deny property of what you
+> publish. The persistence `Store` seam is, deliberately, the federation-sync interface; the one
+> forward concession made for it — shaping `deltasSince`/`deltasByTarget` so a closure-scoped
+> `since(watermark, closure)` is an additive change — is already in place.
+>
+> ---
+>
 > **RESUME HERE (2026-06-15). GraphQL-on-demand SHIPPED (Slice Q, merged to main via PR #1);
 > the next unit is the PLUGGABLE PERSISTENCE TIER.**
 > Since the Chorus arc closed: Chorus now exposes **GraphQL on demand** — `gql-prepare` pins a
@@ -731,10 +757,16 @@ console + federation story. One argument, not three demos.
 /loop Build the Chorus arc per PROGRESS.md (read RESUME HERE + "The Chorus arc" + docs/agents.html first). Start at Phase 0 (spec/09-alias.PROPOSAL.md) and proceed phase by phase — vectors first, both witnesses for anything normative (the aliased closure is L2), checkpoint commits on main, green gates before every commit — until the Definition of Done holds and the demo runs end-to-end. Keep docs/agents.html honest as pieces land.
 ```
 
-## Next unit — pluggable persistence tier (READY TO `/loop`)
+## Pluggable persistence tier — ✅ SHIPPED (branch `feature/persistence-tier`)
 
 **The work order with full intentions, plan, and Definition of Done is
-[apps/chorus/PERSISTENCE.md](apps/chorus/PERSISTENCE.md).** Read that first.
+[apps/chorus/PERSISTENCE.md](apps/chorus/PERSISTENCE.md).** All five DoD points hold: the `Store`
+interface is extracted (JSONL implements it, callers depend on it, the shared-store tests pass
+unchanged); a SQLite backend passes the same conformance harness; the backend is env-selectable
+with a lossless, digest-verified migration; the SQLite tier serves an indexed `backlinks` read
+proven identical-to-scan and faster on a seeded large store; `npm run check` is green (97 tests)
+and the MCP server boots + round-trips `remember → recall` on either backend. The original
+"ready to build" brief is preserved below as the rationale of record.
 
 **Why now.** The single JSONL-file store (`apps/chorus/src/shared-store.ts`) is the v0
 persistence tier — and it's the weak point: the [`field-bug:post-hang`] forensics (lock

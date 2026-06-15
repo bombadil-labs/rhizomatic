@@ -10,6 +10,7 @@
     "chorus:mcp": "tsx src/mcp-server.ts",
     "chorus:http": "tsx src/mcp-http.ts",
     "chorus:console": "tsx src/console.ts",
+    "chorus:migrate": "tsx src/migrate.ts",
     "demo": "npm run chorus:demo",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
@@ -20,10 +21,12 @@
   },
   "dependencies": {
     "@rhizomatic/core": "file:../../implementations/ts",
+    "better-sqlite3": "^11.10.0",
     "graphql": "^16.14.2"
   },
   "devDependencies": {
     "@eslint/js": "^9.15.0",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.0.0",
     "eslint": "^9.15.0",
     "eslint-config-prettier": "^9.1.0",
