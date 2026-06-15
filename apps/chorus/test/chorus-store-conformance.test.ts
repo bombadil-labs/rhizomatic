@@ -12,6 +12,7 @@ import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import type { Delta } from "@rhizomatic/core";
 import { JsonlStore } from "../src/shared-store.js";
+import { SqliteStore } from "../src/sqlite-store.js";
 import type { Store } from "../src/store-tier.js";
 import { callTool, createSession, type SessionContext } from "../src/mcp-server.js";
 
@@ -30,14 +31,25 @@ export interface Backend {
 
 export function runStoreConformance(backend: Backend): void {
   const dir = mkdtempSync(join(tmpdir(), `chorus-conf-${backend.label}-`));
-  afterAll(() => rmSync(dir, { recursive: true, force: true }));
+  // Track every opened store so we can close their handles before unlinking — Windows refuses
+  // to remove a file (and the WAL sidecars) while a backend still holds it open.
+  const opened: Store[] = [];
+  const open = (path: string): Store => {
+    const s = backend.make(path);
+    opened.push(s);
+    return s;
+  };
+  afterAll(() => {
+    for (const s of opened) s.close?.();
+    rmSync(dir, { recursive: true, force: true });
+  });
   let counter = 0;
   const freshPath = (): string => join(dir, `world-${(counter += 1)}.store`);
 
   // A "process": one session author + one Store instance over a shared path.
   const proc = (path: string, id: string, clockStart: number) => ({
     session: createSession({ masterSeedHex: MASTER, sessionId: id, clock: clockFrom(clockStart) }),
-    store: backend.make(path),
+    store: open(path),
   });
   const deltasOf = (s: SessionContext): readonly Delta[] => s.agent.peer.reactor.arrivalLog();
 
@@ -77,7 +89,7 @@ export function runStoreConformance(backend: Backend): void {
       expect(a.store.appendDeltas(all)).toBe(all.length); // first store: all new
       expect(a.store.appendDeltas(all)).toBe(0); // re-store: nothing new
       // Even a brand-new instance over the same path sees no new work to do.
-      expect(backend.make(path).appendDeltas(all)).toBe(0);
+      expect(open(path).appendDeltas(all)).toBe(0);
     });
 
     it("deltasSince(knownIds) returns exactly the unknown stored deltas", () => {
@@ -88,7 +100,7 @@ export function runStoreConformance(backend: Backend): void {
       a.store.persist(a.session.agent);
       const ids = deltasOf(a.session).map((d) => d.id);
 
-      const reader = backend.make(path);
+      const reader = open(path);
       // Nothing known yet → every stored delta comes back, deduped.
       const since0 = reader.deltasSince(new Set());
       expect(new Set(since0.map((d) => d.id))).toEqual(new Set(ids));
@@ -118,7 +130,7 @@ export function runStoreConformance(backend: Backend): void {
         sessionId: "proc-later",
         clock: clockFrom(9000),
       });
-      backend.make(path).refresh(fresh.agent);
+      open(path).refresh(fresh.agent);
       expect(fresh.agent.digest()).toBe(a.session.agent.digest());
       // The retraction survived: the stale belief is gone, the owner remains.
       expect(callTool(fresh, "recall", { entity: "svc:api" })).toEqual({ owner: "team-a" });
@@ -137,7 +149,7 @@ export function runStoreConformance(backend: Backend): void {
 
       expect(a.session.agent.digest()).toBe(b.session.agent.digest());
       // A fresh reader sees each distinct delta exactly once, signatures intact.
-      const stored = backend.make(path).deltasSince(new Set());
+      const stored = open(path).deltasSince(new Set());
       expect(new Set(stored.map((d) => d.id)).size).toBe(stored.length);
       expect(stored.every((d) => typeof d.sig === "string")).toBe(true);
       expect(stored.length).toBe(deltasOf(a.session).length);
@@ -146,3 +158,4 @@ export function runStoreConformance(backend: Backend): void {
 }
 
 runStoreConformance({ label: "jsonl", make: (path) => new JsonlStore(path) });
+runStoreConformance({ label: "sqlite", make: (path) => new SqliteStore(path) });
