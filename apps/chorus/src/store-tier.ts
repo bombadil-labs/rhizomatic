@@ -11,7 +11,7 @@
 // additively later, never a rewrite.
 //
 // Naming (spec/12 §3): this interface is the persistence BACKEND. The product-level unit a user
-// calls a "store" — a named, keyed, federating instance — is `Store` (store.ts), which wraps a
+// calls a "store" — a named, keyed, federating instance — is `Store` (stores.ts), which wraps a
 // `StoreBackend`. Interface renamed from `Store` → `StoreBackend` so the domain word is free.
 
 import type { Delta } from "@rhizomatic/core";
