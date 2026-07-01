@@ -12,7 +12,7 @@
 
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { authorForSeed } from "@rhizomatic/core";
+import { DeltaSet, authorForSeed } from "@rhizomatic/core";
 import { deriveSeed } from "./identity.js";
 import {
   backendFromEnv,
@@ -36,6 +36,12 @@ export interface StoreManifest {
   readonly tier: StoreTier;
   readonly backend: BackendKind;
   readonly createdAt: number;
+}
+
+export interface AdoptResult {
+  readonly store: Store;
+  readonly deltas: number; // distinct deltas newly copied into the store
+  readonly digest: string; // canonical digest, identical in source and adopted store
 }
 
 const MANIFEST = "store.json";
@@ -129,5 +135,35 @@ export class StoreRegistry {
 
     const backend = createBackend(join(dir, BACKEND_FILE[manifest.backend]), manifest.backend);
     return new Store({ manifest, seedHex, backend });
+  }
+
+  // Adopt an existing store's deltas into a named registry store, NON-DESTRUCTIVELY and LOSSLESSLY.
+  // The source backend is only READ; nothing about it changes. Because every delta is
+  // content-addressed, "lossless" is an exact claim, not a hope: the adopted store's canonical
+  // digest MUST equal the source's, or adoption refuses (it will not claim a success it can't
+  // prove). Idempotent by delta id, so re-adopting the same source is a no-op union. This is how
+  // the pre-registry ~/.chorus/memory.sqlite becomes the store named "personal" — not one delta
+  // rewritten, no id changed (spec/12 §2 + CONSTELLATION.md §7).
+  adopt(
+    name: string,
+    source: StoreBackend,
+    opts: { tier?: StoreTier; backend?: BackendKind } = {},
+  ): AdoptResult {
+    const store = this.open(name, opts);
+
+    // Read the source's FULL set (deltasSince(∅) is cursor-independent, so an already-used source
+    // handle is fine) and fingerprint it before copying.
+    const all = source.deltasSince(new Set());
+    const before = DeltaSet.from(all).digest();
+    const added = store.backend.appendDeltas(all);
+
+    // Verify losslessly: the store's full set must fingerprint identically. DeltaSet.digest is a
+    // pure function of the (content-addressed) ids, so this is the exact "no delta lost, none
+    // altered" claim — not an approximation.
+    const after = DeltaSet.from(store.backend.deltasSince(new Set())).digest();
+    if (after !== before) {
+      throw new Error(`adopting "${name}" changed the delta set: ${before} -> ${after}`);
+    }
+    return { store, deltas: added, digest: after };
   }
 }

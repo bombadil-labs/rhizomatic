@@ -1,9 +1,11 @@
 # Work order — the constellation (multi-store, private-by-key, federating)
 
-**Status: 📋 PROPOSED** (2026-07-01). This is the plan to carry Chorus from _one shared store_ to a
-**constellation of named, keyed stores** that specialize, aggregate, federate, and — where you want
-it — stay private and leak-proof. It supersedes the standalone "federation v1" line item in
-PROGRESS.md by situating federation inside the larger shape the user asked for. The substrate model
+**Status: 🚧 IN PROGRESS** (2026-07-01, branch `feature/constellation-store-identity`). **Phase A is
+landing** (identity + registry + the rename + non-destructive adoption — all green). This is the plan
+to carry Chorus from _one shared store_ to a **constellation of named, keyed stores** that specialize,
+aggregate, federate, and — where you want it — stay private and leak-proof. It supersedes the
+standalone "federation v1" line item in PROGRESS.md by situating federation inside the larger shape
+the user asked for. The substrate model
 is [spec/12-instances-provenance-privacy.NOTE.md](../../spec/12-instances-provenance-privacy.NOTE.md)
 (read it first) and its companion [spec/11-federation-as-query.NOTE.md](../../spec/11-federation-as-query.NOTE.md).
 
@@ -103,13 +105,17 @@ interface Origin {
 
 ## 5. Phases (each a shippable `/loop` unit — value-ordered, reorderable by the user)
 
-**Phase A — Store identity + registry + the rename.** Give a store a keypair (`StoreId`) and a name;
-add `StoreRegistry` over `~/.chorus/stores/<name>/`; rename `Store` interface → `StoreBackend` (§3).
-Record delta origin as a backend column (which store first held each id) — _local provenance, no
-delta touched_. The existing single store is adopted as one named store (`personal`) by the
-migration (§7). Callers (`mcp-server.ts`, `mcp-http.ts`, `console.ts`) go through the registry. No
-behavior change for the existing single-store path. **Unlocks:** everything below has a "store" to
-refer to.
+**Phase A — Store identity + registry + the rename.** ✅ **Landing** (this PR). Give a store a keypair
+(`StoreId`) and a name; add `StoreRegistry` over `~/.chorus/stores/<name>/`
+([src/stores.ts](src/stores.ts)); rename `Store` interface → `StoreBackend` (§3). The existing single
+store is adopted as one named store (`personal`) by `StoreRegistry.adopt` — non-destructive
+(source read-only) and digest-verified, so **no delta id changes** (§7). No behavior change for the
+existing single-store path (callers untouched this slice). **Refined during implementation:** two
+pieces the original bullet listed here move to **Phase C**, where they actually pay off — (a)
+**delta origin** (which store a delta came from) is only meaningful once an aggregator pulls from
+siblings, so it lands as relay-provenance on pull, not a Phase-A column; (b) **rewiring the node /
+console through the registry** couples to the multi-store node, so it ships with the aggregator.
+**Unlocks:** everything below has a "store" to refer to.
 
 **Phase B — The private, leak-safe store (Tier 0).** An `EncryptedSqliteStore` backend: the on-disk
 file is ciphertext (AEAD, e.g. XChaCha20-Poly1305), key = `HKDF(masterSeed, "store/<id>/at-rest")`.
@@ -124,8 +130,11 @@ path; note it, don't block on it.)
 **Phase C — Local multi-store + the aggregator + gql/MCP over the union.** Spin up ≥2 specialized
 stores (`media`, `synchronicities`) and an `aggregator`. The aggregator's `refresh` pulls each
 sibling's offered lens (`Peer.pullFrom`, in-process for localhost). `gql-prepare` over the aggregator
-serves the union; origin (Phase A) lets a result say which store it came from. The MCP node exposes
-per-store endpoints (`/mcp/<token>` already keys by token; a store selector rides alongside).
+serves the union; **delta origin lands here** — the aggregator stamps relay provenance (which store a
+delta came from, SPEC-6 §3) as it pulls, so a result can say where it originated. Also here: rewire
+the node / `console.ts` to boot from the registry (opt-in env first, keeping the legacy single-file
+`CHORUS_STORE` default intact so the live node never breaks). The MCP node exposes per-store endpoints
+(`/mcp/<token>` already keys by token; a store selector rides alongside).
 **Unlocks:** "a store that ingests from both and exposes all of it via GQL through an MCP" — the
 concrete §1.2 picture, on one machine.
 
@@ -157,9 +166,11 @@ need and a vocabulary. **Unlocks:** collision-safe global names and the honest e
 
 ## 6. Definition of done (per phase — the `/loop` runs until its phase's points hold)
 
-- **A:** `StoreRegistry` opens named stores; a store has a `StoreId` keypair; origin is recorded as
-  backend metadata (a test asserts origin round-trips and **no delta id changed** vs. the old store);
-  the rename is complete; `npm run check` green; existing single-store behavior unchanged.
+- **A** ✅: `StoreRegistry` opens named stores; a store has a `StoreId` keypair (derived, verified on
+  re-open); the rename is complete; `StoreRegistry.adopt` imports an existing store losslessly (a test
+  asserts a **byte-identical canonical digest** and thus **no delta id changed**, plus idempotent
+  re-adoption and an untouched source); `npm run check` green (104 tests); existing single-store
+  behavior unchanged. (Origin + registry-boot rewiring deferred to Phase C, per §5.)
 - **B:** `EncryptedSqliteStore` passes the **same** store-conformance harness as JSONL/SQLite; the
   leak-safety test holds (raw file has no plaintext; wrong key fails); a `private` store federates
   nothing (a test tries to pull from it and gets the empty offered set).

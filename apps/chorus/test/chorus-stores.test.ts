@@ -8,6 +8,7 @@ import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { authorForSeed } from "@rhizomatic/core";
 import { Store, StoreRegistry, storeSeed, type StoreManifest } from "../src/stores.js";
+import { JsonlStore } from "../src/shared-store.js";
 import { callTool, createSession } from "../src/mcp-server.js";
 
 const MASTER = "0f".repeat(32);
@@ -102,6 +103,46 @@ describe("chorus stores: identity + registry", () => {
     store2.backend.refresh(s2.agent);
     expect(s2.agent.digest()).toBe(before);
     expect(callTool(s2, "recall", { entity: "user:myk" })).toEqual({ editor: "emacs" });
+  });
+
+  it("adopts an existing store losslessly (digest-identical), idempotently, non-destructively", () => {
+    // Build a pre-registry world in a standalone JSONL file, the way the live store exists today.
+    const legacyPath = join(dir, "legacy-memory.jsonl");
+    const legacy = new JsonlStore(legacyPath);
+    const w = createSession({ masterSeedHex: MASTER, sessionId: "w", clock: clockFrom(1000) });
+    callTool(w, "begin-session", { model: "claude-fable-5" });
+    callTool(w, "remember", { about: "work:dune-part-two", attribute: "year", value: "2024" });
+    callTool(w, "remember", {
+      about: "tracker:synchronicity",
+      attribute: "entries",
+      value: "many",
+    });
+    legacy.persist(w.agent);
+    const legacyDigest = w.agent.digest();
+
+    // Adopt it as the store named "personal" in a fresh registry root.
+    const root = join(dir, "adopt");
+    const result = registry(root).adopt("personal", legacy, { tier: "private" });
+    track(result.store);
+    expect(result.deltas).toBeGreaterThan(0);
+    expect(result.digest).toBe(legacyDigest); // lossless: byte-identical canonical digest
+    expect(result.store.tier).toBe("private");
+
+    // The adopted store recalls the world through a fresh registry handle…
+    const reader = createSession({ masterSeedHex: MASTER, sessionId: "r", clock: clockFrom(9000) });
+    const reopened = track(registry(root).open("personal"));
+    reopened.backend.refresh(reader.agent);
+    expect(reader.agent.digest()).toBe(legacyDigest);
+    expect(callTool(reader, "recall", { entity: "work:dune-part-two" })).toEqual({ year: "2024" });
+
+    // …the source file is untouched (adoption only reads it)…
+    expect(new JsonlStore(legacyPath).deltasSince(new Set()).length).toBe(result.deltas);
+
+    // …and re-adopting is a no-op union (idempotent by delta id): nothing new, same digest.
+    const again = registry(root).adopt("personal", legacy);
+    track(again.store);
+    expect(again.deltas).toBe(0);
+    expect(again.digest).toBe(legacyDigest);
   });
 
   it("a manifest is written once and reused (createdAt is stable across opens)", () => {
