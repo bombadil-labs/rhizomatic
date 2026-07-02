@@ -23,3 +23,6 @@ implementations/rust/target/
 chorus-memory.jsonl
 chorus-memory.pack
 *.jsonl.lock/
+
+# Private working docs — candid strategy, never publish (repo is public via Pages)
+*.private.md

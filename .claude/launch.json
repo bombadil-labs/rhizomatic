@@ -30,6 +30,16 @@
       ],
       "cwd": "implementations/ts",
       "port": 4174
+    },
+    {
+      "name": "skills",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "-e",
+        "const http=require('http'),fs=require('fs'),path=require('path');http.createServer((q,s)=>{let u=decodeURIComponent(q.url.split('?')[0]);if(u==='/')u='/index.html';const f=path.join(process.cwd(),u);fs.readFile(f,(e,d)=>{if(e){s.statusCode=404;return s.end('not found')}const x=path.extname(f);s.setHeader('content-type',x==='.html'?'text/html':x==='.js'?'text/javascript':x==='.css'?'text/css':'application/octet-stream');s.end(d)})}).listen(5599,()=>console.log('skills static on http://127.0.0.1:5599'))"
+      ],
+      "cwd": "skills",
+      "port": 5599
     }
   ]
 }
