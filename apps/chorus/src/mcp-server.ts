@@ -31,7 +31,7 @@ import {
   type AuthorIdentity,
 } from "./identity.js";
 import { ackPointers, inbox, messagePointers, type MessageAddress } from "./messages.js";
-import { createStore } from "./store-tier.js";
+import { createBackend } from "./store-tier.js";
 import { loadPack, savePack } from "./store.js";
 
 interface RpcRequest {
@@ -1083,7 +1083,7 @@ if (
   } else {
     // Default: the shared durable store — many concurrent sessions, one world. The backend is
     // pluggable (CHORUS_STORE_BACKEND); the path is CHORUS_STORE.
-    const store = createStore(process.env["CHORUS_STORE"] ?? "chorus-memory.jsonl");
+    const store = createBackend(process.env["CHORUS_STORE"] ?? "chorus-memory.jsonl");
     store.refresh(ctx.agent);
     if (store.wasteful?.(ctx.agent)) store.compact?.(ctx.agent);
     serve(ctx, process.stdin, process.stdout, {

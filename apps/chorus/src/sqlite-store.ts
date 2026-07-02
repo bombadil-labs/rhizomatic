@@ -1,4 +1,4 @@
-// The SQLite backend: the second witness to the `Store` interface (store-tier.ts). Where the
+// The SQLite backend: the second witness to the `StoreBackend` interface (store-tier.ts). Where the
 // JSONL tier is the legible flat file, this is the concurrency + indexed-read tier — real
 // transactional writes (no lock-directory dance, the `field-bug:post-hang` failure mode gone)
 // and B-tree indexes over pointer targets and values, so `recall`/`backlinks`/`gql-prepare`
@@ -23,7 +23,7 @@ import {
   type Primitive,
 } from "@rhizomatic/core";
 import type { ChorusAgent } from "./agent.js";
-import type { Store } from "./store-tier.js";
+import type { StoreBackend } from "./store-tier.js";
 
 interface DeltaRow {
   readonly seq: number;
@@ -32,7 +32,7 @@ interface DeltaRow {
   readonly sig: string | null;
 }
 
-export class SqliteStore implements Store {
+export class SqliteStore implements StoreBackend {
   private readonly db: Database.Database;
   // refresh's cursor: every row with seq <= lastSeq has been read into this instance's agent.
   // SQLite serializes writers, so AUTOINCREMENT seq commits in order — no out-of-order gap can

@@ -9,13 +9,17 @@
 // (idempotent by id) and "give me the deltas since a watermark." The one forward concession to
 // closure-scoped federation reads is that `deltasSince` is shaped to grow a closure argument
 // additively later, never a rewrite.
+//
+// Naming (spec/12 §3): this interface is the persistence BACKEND. The product-level unit a user
+// calls a "store" — a named, keyed, federating instance — is `Store` (stores.ts), which wraps a
+// `StoreBackend`. Interface renamed from `Store` → `StoreBackend` so the domain word is free.
 
 import type { Delta } from "@rhizomatic/core";
 import type { ChorusAgent } from "./agent.js";
 import { JsonlStore } from "./shared-store.js";
 import { SqliteStore } from "./sqlite-store.js";
 
-export interface Store {
+export interface StoreBackend {
   // --- the delta-level primitive: durable append + read-since-watermark ---------------------
   // Both halves are idempotent / order-free, exactly like the CRDT they persist. This pair is
   // the LOCAL persistence primitive and the REMOTE sync primitive at once; `refresh`/`persist`
@@ -60,22 +64,22 @@ export interface Store {
 
 // JSONL is the default tier — legible, git-diffable, the one every collaborator can read.
 // SQLite is opt-in via CHORUS_STORE_BACKEND for concurrency + indexed reads.
-export type StoreBackend = "jsonl" | "sqlite";
+export type BackendKind = "jsonl" | "sqlite";
 
-const BACKENDS: readonly StoreBackend[] = ["jsonl", "sqlite"];
+const BACKENDS: readonly BackendKind[] = ["jsonl", "sqlite"];
 
-export function backendFromEnv(env: NodeJS.ProcessEnv = process.env): StoreBackend {
+export function backendFromEnv(env: NodeJS.ProcessEnv = process.env): BackendKind {
   const raw = (env["CHORUS_STORE_BACKEND"] ?? "jsonl").toLowerCase();
-  if ((BACKENDS as readonly string[]).includes(raw)) return raw as StoreBackend;
+  if ((BACKENDS as readonly string[]).includes(raw)) return raw as BackendKind;
   throw new Error(
     `CHORUS_STORE_BACKEND="${raw}" is not a known backend (expected: ${BACKENDS.join(" | ")})`,
   );
 }
 
-// Construct the durable store for a path. Callers depend on the `Store` interface, never on a
-// concrete backend — the seam the whole tier exists to provide.
-export function createStore(path: string, backend: StoreBackend = backendFromEnv()): Store {
-  switch (backend) {
+// Construct the durable persistence backend for a path. Callers depend on the `StoreBackend`
+// interface, never on a concrete backend — the seam the whole tier exists to provide.
+export function createBackend(path: string, kind: BackendKind = backendFromEnv()): StoreBackend {
+  switch (kind) {
     case "jsonl":
       return new JsonlStore(path);
     case "sqlite":

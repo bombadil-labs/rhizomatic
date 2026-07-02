@@ -4,7 +4,7 @@
 // mine" converges — the lock only keeps appends from tearing, never arbitrates truth.
 //
 // This is the legible dev/audit/inspection tier: git-diffable, zero-dependency, one delta per
-// line. It is the first witness to the `Store` interface (store-tier.ts); the SQLite backend
+// line. It is the first witness to the `StoreBackend` interface (store-tier.ts); the SQLite backend
 // (sqlite-store.ts) is the second, solving the concurrency + indexed-read problems a flat file
 // cannot. Keep this one legible — it is a first-class tier, not a legacy path.
 
@@ -22,7 +22,7 @@ import {
 import { dirname } from "node:path";
 import { DeltaSet, claimsToJson, makeDelta, parseClaims, type Delta } from "@rhizomatic/core";
 import type { ChorusAgent } from "./agent.js";
-import type { Store } from "./store-tier.js";
+import type { StoreBackend } from "./store-tier.js";
 
 // One JSONL line for a delta: the canonical claims JSON plus the signature, when present.
 function serialize(d: Delta): string {
@@ -84,7 +84,7 @@ function withLock<T>(path: string, fn: () => T): T {
   }
 }
 
-export class JsonlStore implements Store {
+export class JsonlStore implements StoreBackend {
   private offset = 0; // bytes of the file already parsed
   private linesSeen = 0; // parsed lines (incl. duplicates and torn skips)
   // Ids known to be on disk (read from it, or appended by us). Set semantics make this the
@@ -228,5 +228,5 @@ export class JsonlStore implements Store {
 }
 
 // The JSONL backend was the original `SharedStore`; the name survives as an alias so existing
-// callers and tests read unchanged. New code constructs via `createStore` (store-tier.ts).
+// callers and tests read unchanged. New code constructs via `createBackend` (store-tier.ts).
 export { JsonlStore as SharedStore };

@@ -4,13 +4,13 @@
 // exists to remove, and it is the SAME read a closure-scoped federation pull will issue
 // (spec/11-federation-as-query.NOTE.md §4): the by-target index does double duty.
 //
-// `backlinks` is written once over the `Store` seam: if the backend offers `deltasByTarget` it
+// `backlinks` is written once over the `StoreBackend` seam: if the backend offers `deltasByTarget` it
 // asks the index; otherwise it scans the full stored set. Both branches run the identical
 // per-delta extractor, so the index only ever NARROWS the candidate set — the results are
 // byte-for-byte the same, which is exactly what the conformance/perf test pins.
 
 import type { Delta } from "@rhizomatic/core";
-import type { Store } from "./store-tier.js";
+import type { StoreBackend } from "./store-tier.js";
 import { ROLE_ABOUT, ROLE_VALUE } from "./vocab.js";
 
 // One reverse edge: a belief whose VALUE references `target`, surfaced from the target's side.
@@ -26,7 +26,7 @@ export interface Backlink {
 
 // Every belief whose value points at `target`, newest first. Uses the by-target index when the
 // backend has one; falls back to a full-store scan otherwise (the JSONL tier's behavior today).
-export function backlinks(store: Store, target: string): Backlink[] {
+export function backlinks(store: StoreBackend, target: string): Backlink[] {
   const candidates =
     store.deltasByTarget !== undefined
       ? store.deltasByTarget(target)

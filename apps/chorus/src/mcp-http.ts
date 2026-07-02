@@ -18,15 +18,15 @@
 
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { randomBytes } from "node:crypto";
-import { createStore, type Store } from "./store-tier.js";
+import { createBackend, type StoreBackend } from "./store-tier.js";
 import { createSession, handleRequest, type SessionContext } from "./mcp-server.js";
 
 interface HttpSession {
   readonly ctx: SessionContext;
-  // One Store per session, not per server: the store's watermark assumes one agent per instance
-  // (the stdio server is one process = one agent = one store). Sharing an instance across agents
-  // makes refresh skip deltas persisted for a sibling.
-  readonly store: Store;
+  // One StoreBackend per session, not per server: the backend's watermark assumes one agent per
+  // instance (the stdio server is one process = one agent = one backend). Sharing an instance
+  // across agents makes refresh skip deltas persisted for a sibling.
+  readonly store: StoreBackend;
   lastSeen: number;
 }
 
@@ -127,7 +127,7 @@ export function startHttpServer(opts: HttpServerOptions): Promise<HttpServerHand
         masterSeedHex: opts.masterSeedHex,
         sessionId: `${now()}-http-${mintedId.slice(0, 8)}`,
       });
-      const store = createStore(opts.storePath);
+      const store = createBackend(opts.storePath);
       store.refresh(ctx.agent);
       session = { ctx, store, lastSeen: now() };
       sessions.set(mintedId, session);

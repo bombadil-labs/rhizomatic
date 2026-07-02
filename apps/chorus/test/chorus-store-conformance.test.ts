@@ -1,4 +1,4 @@
-// The backend-agnostic contract every `Store` must honor. One harness, driven against each
+// The backend-agnostic contract every `StoreBackend` must honor. One harness, driven against each
 // backend — the same posture the repo takes toward the format: a contract with multiple
 // witnesses. The CRDT is the safety net (content-addressed, order-free, idempotent), so a
 // correct backend is one that preserves "a set of deltas, deduped by id" across append, read,
@@ -13,7 +13,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import type { Delta } from "@rhizomatic/core";
 import { JsonlStore } from "../src/shared-store.js";
 import { SqliteStore } from "../src/sqlite-store.js";
-import type { Store } from "../src/store-tier.js";
+import type { StoreBackend } from "../src/store-tier.js";
 import { callTool, createSession, type SessionContext } from "../src/mcp-server.js";
 
 const MASTER = "0f".repeat(32);
@@ -22,19 +22,19 @@ const clockFrom = (start: number) => {
   return () => (t += 10);
 };
 
-// A backend under test: a name and a factory that opens a fresh Store over a given path. The
-// harness owns path allocation so the same physical store can be reopened across "processes".
+// A backend under test: a name and a factory that opens a fresh StoreBackend over a given path.
+// The harness owns path allocation so the same physical store can be reopened across "processes".
 export interface Backend {
   readonly label: string;
-  make(path: string): Store;
+  make(path: string): StoreBackend;
 }
 
 export function runStoreConformance(backend: Backend): void {
   const dir = mkdtempSync(join(tmpdir(), `chorus-conf-${backend.label}-`));
   // Track every opened store so we can close their handles before unlinking — Windows refuses
   // to remove a file (and the WAL sidecars) while a backend still holds it open.
-  const opened: Store[] = [];
-  const open = (path: string): Store => {
+  const opened: StoreBackend[] = [];
+  const open = (path: string): StoreBackend => {
     const s = backend.make(path);
     opened.push(s);
     return s;

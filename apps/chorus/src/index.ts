@@ -82,7 +82,20 @@ export {
 export { latest, trustFirst, everything, disagreements } from "./policies.js";
 export { SharedStore, JsonlStore } from "./shared-store.js";
 export { SqliteStore } from "./sqlite-store.js";
-export { createStore, backendFromEnv, type Store, type StoreBackend } from "./store-tier.js";
+export {
+  createBackend,
+  backendFromEnv,
+  type StoreBackend,
+  type BackendKind,
+} from "./store-tier.js";
+export {
+  Store,
+  StoreRegistry,
+  storeSeed,
+  type StoreManifest,
+  type StoreTier,
+  type AdoptResult,
+} from "./stores.js";
 export { migrateJsonlToSqlite, type MigrationResult } from "./migrate.js";
 export { backlinks, type Backlink } from "./store-reads.js";
 export { loadPack, restore, savePack } from "./store.js";

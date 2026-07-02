@@ -7,7 +7,12 @@ import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { JsonlStore } from "../src/shared-store.js";
 import { SqliteStore } from "../src/sqlite-store.js";
-import { backendFromEnv, createStore, type Store, type StoreBackend } from "../src/store-tier.js";
+import {
+  backendFromEnv,
+  createBackend,
+  type StoreBackend,
+  type BackendKind,
+} from "../src/store-tier.js";
 import { migrateJsonlToSqlite } from "../src/migrate.js";
 import { callTool, createSession } from "../src/mcp-server.js";
 
@@ -18,8 +23,8 @@ const clockFrom = (start: number) => {
 };
 
 const dir = mkdtempSync(join(tmpdir(), "chorus-tier-"));
-const opened: Store[] = [];
-const track = <S extends Store>(s: S): S => (opened.push(s), s);
+const opened: StoreBackend[] = [];
+const track = <S extends StoreBackend>(s: S): S => (opened.push(s), s);
 afterAll(() => {
   for (const s of opened) s.close?.();
   rmSync(dir, { recursive: true, force: true });
@@ -37,8 +42,8 @@ describe("chorus persistence tier: selection + migration", () => {
   });
 
   it("the factory builds the backend the selection names", () => {
-    expect(track(createStore(join(dir, "f.jsonl"), "jsonl"))).toBeInstanceOf(JsonlStore);
-    expect(track(createStore(join(dir, "f.sqlite"), "sqlite"))).toBeInstanceOf(SqliteStore);
+    expect(track(createBackend(join(dir, "f.jsonl"), "jsonl"))).toBeInstanceOf(JsonlStore);
+    expect(track(createBackend(join(dir, "f.sqlite"), "sqlite"))).toBeInstanceOf(SqliteStore);
   });
 
   it("migrates a JSONL log into SQLite losslessly: identical digest, beliefs intact", () => {
@@ -79,11 +84,11 @@ describe("chorus persistence tier: selection + migration", () => {
 
   // DoD #5: the server path boots on either backend; remember in one process, recall in a fresh
   // one over the same durable store — the resume every real client depends on.
-  for (const backend of ["jsonl", "sqlite"] as StoreBackend[]) {
+  for (const backend of ["jsonl", "sqlite"] as BackendKind[]) {
     it(`MCP boot smoke — remember → (fresh boot) → recall on ${backend}`, () => {
       const path = join(dir, `boot.${backend}`);
       const s1 = createSession({ masterSeedHex: MASTER, sessionId: "p1", clock: clockFrom(1000) });
-      const store1 = track(createStore(path, backend));
+      const store1 = track(createBackend(path, backend));
       callTool(s1, "begin-session", { model: "claude-fable-5" });
       callTool(s1, "remember", { about: "user:mike", attribute: "editor", value: "vim" }, () =>
         store1.persist(s1.agent),
@@ -91,7 +96,7 @@ describe("chorus persistence tier: selection + migration", () => {
 
       // A second process boots cold from the same store and recalls.
       const s2 = createSession({ masterSeedHex: MASTER, sessionId: "p2", clock: clockFrom(9000) });
-      track(createStore(path, backend)).refresh(s2.agent);
+      track(createBackend(path, backend)).refresh(s2.agent);
       expect(callTool(s2, "recall", { entity: "user:mike" })).toEqual({ editor: "vim" });
     });
   }
