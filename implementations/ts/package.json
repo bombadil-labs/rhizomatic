@@ -1,5 +1,5 @@
 {
-  "name": "@rhizomatic/core",
+  "name": "@rhizomes/core",
   "version": "0.1.0",
   "type": "module",
   "description": "Rhizomatic (TypeScript) — a portable format for arbitrarily-relational data: signed, content-addressed deltas; union merge (grow-only CRDT); truth resolved per-reader. One of two parallel witnesses to the spec.",
@@ -45,6 +45,12 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "prepare": "npm run build",
+    "preversion": "npm run check",
+    "version": "npm run build",
+    "postversion": "git push --follow-tags",
+    "release:patch": "npm version patch && npm publish",
+    "release:minor": "npm version minor && npm publish",
+    "release:major": "npm version major && npm publish",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",

@@ -9,18 +9,19 @@ data: composable, forkable, mergeable, and federatable by default.
   time-travel are intrinsic.
 
 This is **one of two parallel witnesses** to the [specification](https://github.com/mbilokonsky/rhizomatic/tree/main/spec)
-(the other is the npm package [`@rhizomatic/core`](https://www.npmjs.com/package/@rhizomatic/core)).
+(the other is the npm package [`@rhizomes/core`](https://www.npmjs.com/package/@rhizomes/core)).
 Both pass the same [conformance vectors](https://github.com/mbilokonsky/rhizomatic/tree/main/vectors)
 byte-for-byte — the canonical CBOR encoder, content addresses, and signatures reproduce across both,
 exactly. The crate also builds to `wasm32-unknown-unknown`, which is how the
 [interactive tour](https://mbilokonsky.github.io/rhizomatic/) runs the Rust witness in your browser
 next to the TypeScript one.
 
-## Install
+## Status
 
-```sh
-cargo add rhizomatic
-```
+This crate is an **in-repo conformance witness**, not a published crate. It is built, tested, and
+clippy-checked in this repository (and compiled to WebAssembly for the tour), but it is **not
+published to crates.io** — nothing depends on it yet. Build it from `implementations/rust` with
+`cargo build` / `cargo test` (see [CLAUDE.md](CLAUDE.md) for the toolchain notes).
 
 ## API
 

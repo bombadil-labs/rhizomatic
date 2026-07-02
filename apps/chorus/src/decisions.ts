@@ -13,7 +13,7 @@ import {
   type Delta,
   type Pointer,
   type View,
-} from "@rhizomatic/core";
+} from "@rhizomes/core";
 import type { BeliefReceipt, ChorusAgent } from "./agent.js";
 import {
   ROLE_DECISION_ABOUT,

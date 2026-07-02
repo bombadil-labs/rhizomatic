@@ -2,12 +2,15 @@
 name = "rhizomatic"
 version = "0.1.0"
 edition = "2021"
+# In-repo conformance witness: independent validation of the TypeScript implementation, plus the
+# WASM witness for the docs tour. Deliberately NOT published to crates.io — nothing depends on it and
+# there are no plans to. The metadata below is kept accurate anyway; flip `publish` if that changes.
+publish = false
 description = "Rhizomatic (Rust) — a portable format for arbitrarily-relational data: signed, content-addressed deltas; union merge (grow-only CRDT); truth resolved per-reader. One of two parallel witnesses to the spec."
 authors = ["Mykola Bilokonsky"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/mbilokonsky/rhizomatic"
 homepage = "https://mbilokonsky.github.io/rhizomatic/"
-documentation = "https://docs.rs/rhizomatic"
 readme = "README.md"
 keywords = ["crdt", "content-addressed", "provenance", "cbor", "federation"]
 categories = ["data-structures", "encoding", "cryptography"]

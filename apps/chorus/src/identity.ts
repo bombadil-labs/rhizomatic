@@ -5,7 +5,7 @@
 // name, session id, and start time — signed by the session key itself, so the binding is
 // exactly as trustworthy as the claims it scopes.
 
-import { contentAddress, type Pointer } from "@rhizomatic/core";
+import { contentAddress, type Pointer } from "@rhizomes/core";
 import { CHORUS_PREFIX } from "./vocab.js";
 
 export const ROLE_ID_SESSION = `${CHORUS_PREFIX}.identity.session`;

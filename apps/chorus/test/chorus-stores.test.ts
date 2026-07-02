@@ -6,7 +6,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { authorForSeed } from "@rhizomatic/core";
+import { authorForSeed } from "@rhizomes/core";
 import { Store, StoreRegistry, storeSeed, type StoreManifest } from "../src/stores.js";
 import { JsonlStore } from "../src/shared-store.js";
 import { callTool, createSession } from "../src/mcp-server.js";
