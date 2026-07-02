@@ -2,7 +2,7 @@
 // DECISION REPLAY, and RETROACTIVE DISTRUST — the three set pieces, scripted and deterministic.
 
 import { describe, expect, it } from "vitest";
-import { VOCAB_PREFIX } from "@rhizomes/core";
+import { VOCAB_PREFIX } from "@rhizomes/rhizomatic";
 import {
   ChorusAdjudicator,
   ChorusAgent,

@@ -144,5 +144,5 @@ Dual-licensed under either of [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE)
 Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the
 work by you shall be dual-licensed as above, without any additional terms or conditions.
 
-Published: [`@rhizomes/core`](implementations/ts) on npm. The [`rhizomatic`](implementations/rust) Rust
+Published: [`@rhizomes/rhizomatic`](implementations/ts) on npm. The [`rhizomatic`](implementations/rust) Rust
 crate is an in-repo conformance witness (independent validation + the WASM tour), not published to crates.io.

@@ -1,4 +1,4 @@
-# @rhizomes/core
+# @rhizomes/rhizomatic
 
 The TypeScript reference implementation of **Rhizomatic** — a portable format for arbitrarily
 relational data: composable, forkable, mergeable, and federatable by default.
@@ -17,13 +17,13 @@ determinism is the contract. See it run in the [interactive tour](https://mbilok
 ## Install
 
 ```sh
-npm install @rhizomes/core
+npm install @rhizomes/rhizomatic
 ```
 
 ## Quick taste
 
 ```ts
-import { authorForSeed, signClaims, verifyDelta, DeltaSet } from "@rhizomes/core";
+import { authorForSeed, signClaims, verifyDelta, DeltaSet } from "@rhizomes/rhizomatic";
 
 const seed = "00".repeat(32); // 32-byte hex seed — use real randomness in practice
 const author = authorForSeed(seed);

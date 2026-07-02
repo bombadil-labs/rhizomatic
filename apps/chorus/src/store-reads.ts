@@ -9,7 +9,7 @@
 // per-delta extractor, so the index only ever NARROWS the candidate set — the results are
 // byte-for-byte the same, which is exactly what the conformance/perf test pins.
 
-import type { Delta } from "@rhizomes/core";
+import type { Delta } from "@rhizomes/rhizomatic";
 import type { StoreBackend } from "./store-tier.js";
 import { ROLE_ABOUT, ROLE_VALUE } from "./vocab.js";
 

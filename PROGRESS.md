@@ -550,14 +550,14 @@ chorus/README.md is the product doc and grows with each slice.
 
 - **Slice I — Chorus extracted to apps/chorus; README refresh.** ✅ — Chorus is now its own
   package (`chorus`, private) at apps/chorus — src/ + test/ + tools/ + README — depending on
-  the witness as an ordinary npm dependency (`@rhizomes/core: file:../../implementations/ts`;
+  the witness as an ordinary npm dependency (`@rhizomes/rhizomatic: file:../../implementations/ts`;
   the core package gained `exports` pointing at its TS source). The dependency points the
   right way: apps consume the witness, never the reverse; nothing in apps/ is normative
   (CLAUDE.md records the rule). Core suite back to its substrate-only 211; Chorus 49 standalone;
   check-all.mjs and CI both gained the Chorus gate. docs/agents.html + READMEs repathed. Root
   README rewritten to current truth: apps/ in the layout, SPEC-9/Note-10 in the spec list, the
   Chorus section, status with real counts ("It compiles."). Eventual destiny (own repo + real
-  npm dep) needs only publishing @rhizomes/core — the seam is already cut.
+  npm dep) needs only publishing @rhizomes/rhizomatic — the seam is already cut.
 
 - **Slice H — polish.** ✅ — chorus:demo gains ACT 7 (two sessions, one user-signed
   preference, the briefing carrying Monday's summary into Tuesday — the MX story inside the

@@ -1,7 +1,7 @@
 // Concept declaration helpers (SPEC-9 §2): concepts with oriented slots, declared as ordinary
 // signed claims. A slot's identity is its entity id; `<concept>#<name>` is convention only.
 
-import { VOCAB_PREFIX, type Delta, type Pointer } from "@rhizomes/core";
+import { VOCAB_PREFIX, type Delta, type Pointer } from "@rhizomes/rhizomatic";
 import type { ChorusAgent } from "./agent.js";
 
 const ROLE_SLOT = `${VOCAB_PREFIX}.alias.slot`;

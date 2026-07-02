@@ -16,11 +16,11 @@ reference implementation: any codebase that passes the vectors is a first-class 
 spec/                  Normative specification — the source of truth for BEHAVIOR.
 vectors/               Language-agnostic conformance vectors — the source of truth for CORRECTNESS.
 implementations/
-  ts/                  TypeScript implementation (@rhizomes/core).
+  ts/                  TypeScript implementation (@rhizomes/rhizomatic).
   rust/                Rust implementation.
 apps/
   chorus/              Chorus — agent memory built ON the format (its own package; depends on
-                       @rhizomes/core; product layer, not substrate; destined for its own repo).
+                       @rhizomes/rhizomatic; product layer, not substrate; destined for its own repo).
 ERRATA.md              (created per spec doc, on demand) recorded spec/impl contradictions.
 ```
 
