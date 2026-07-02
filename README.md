@@ -137,3 +137,12 @@ resolved erratum has been folded back into the spec documents themselves.
 The dream is old; this articulation of it is new. The arc that produced it — assembly language for data → portable IR → format-with-a-guaranteed-algebra → closed kernel with a sovereign userland — is preserved in the spec documents' structure itself, and the documents are the durable residue of that thinking.
 
 Mushrooms versus towers, all the way down. It compiles.
+
+## License
+
+Dual-licensed under either of [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE), at your option.
+Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the
+work by you shall be dual-licensed as above, without any additional terms or conditions.
+
+Published: [`@rhizomes/core`](implementations/ts) on npm. The [`rhizomatic`](implementations/rust) Rust
+crate is an in-repo conformance witness (independent validation + the WASM tour), not published to crates.io.

@@ -5,7 +5,7 @@
 //   npm run chorus:console     (CHORUS_STORE, CHORUS_MASTER_SEED, CHORUS_CONSOLE_PORT)
 
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
-import { authorForSeed } from "@rhizomatic/core";
+import { authorForSeed } from "@rhizomes/core";
 import { ChorusAgent } from "./agent.js";
 import { briefing } from "./briefing.js";
 import { recallUnified, sameAsClass, search, topics } from "./discovery.js";

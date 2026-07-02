@@ -14,7 +14,7 @@
 // calls a "store" — a named, keyed, federating instance — is `Store` (stores.ts), which wraps a
 // `StoreBackend`. Interface renamed from `Store` → `StoreBackend` so the domain word is free.
 
-import type { Delta } from "@rhizomatic/core";
+import type { Delta } from "@rhizomes/core";
 import type { ChorusAgent } from "./agent.js";
 import { JsonlStore } from "./shared-store.js";
 import { SqliteStore } from "./sqlite-store.js";

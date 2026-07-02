@@ -24,7 +24,7 @@ import {
   type Primitive,
   type Term,
   type View,
-} from "@rhizomatic/core";
+} from "@rhizomes/core";
 import { latest } from "./policies.js";
 import {
   ROLE_ABOUT,
