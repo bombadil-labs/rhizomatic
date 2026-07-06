@@ -18,7 +18,7 @@
 // index built once over that same set. Reflection identifies REFERENCES honestly (it reads the
 // value pointer's kind, not a substring), so traversal follows the graph, never the spelling.
 
-import { evalTerm, parseTerm, type Delta, type DeltaSet } from "@rhizomes/rhizomatic";
+import { evalTerm, parseTerm, type Delta, type DeltaSet } from "@bombadil/rhizomatic";
 import {
   GraphQLBoolean,
   GraphQLFloat,

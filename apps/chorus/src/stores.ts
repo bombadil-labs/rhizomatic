@@ -12,7 +12,7 @@
 
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { DeltaSet, authorForSeed } from "@rhizomes/rhizomatic";
+import { DeltaSet, authorForSeed } from "@bombadil/rhizomatic";
 import { deriveSeed } from "./identity.js";
 import {
   backendFromEnv,

@@ -48,7 +48,7 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: apps/chorus/package-lock.json
-      # Chorus typechecks THROUGH @rhizomes/rhizomatic's TypeScript sources (the file: dep resolves
+      # Chorus typechecks THROUGH @bombadil/rhizomatic's TypeScript sources (the file: dep resolves
       # to implementations/ts/src), so the core's own deps (@noble/*) must be installed too —
       # otherwise tsc can't resolve them. This mirrors a local checkout where both are installed.
       - name: install core deps (chorus typechecks through the core's TS sources)

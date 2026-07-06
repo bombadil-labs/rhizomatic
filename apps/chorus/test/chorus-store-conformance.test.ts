@@ -10,7 +10,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import type { Delta } from "@rhizomes/rhizomatic";
+import type { Delta } from "@bombadil/rhizomatic";
 import { JsonlStore } from "../src/shared-store.js";
 import { SqliteStore } from "../src/sqlite-store.js";
 import type { StoreBackend } from "../src/store-tier.js";

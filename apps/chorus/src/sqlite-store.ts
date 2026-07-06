@@ -21,7 +21,7 @@ import {
   viewCanonicalHex,
   type Delta,
   type Primitive,
-} from "@rhizomes/rhizomatic";
+} from "@bombadil/rhizomatic";
 import type { ChorusAgent } from "./agent.js";
 import type { StoreBackend } from "./store-tier.js";
 

@@ -20,7 +20,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { dirname } from "node:path";
-import { DeltaSet, claimsToJson, makeDelta, parseClaims, type Delta } from "@rhizomes/rhizomatic";
+import { DeltaSet, claimsToJson, makeDelta, parseClaims, type Delta } from "@bombadil/rhizomatic";
 import type { ChorusAgent } from "./agent.js";
 import type { StoreBackend } from "./store-tier.js";
 
