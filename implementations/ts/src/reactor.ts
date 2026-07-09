@@ -2,7 +2,7 @@
 // the truth; the four core indexes are derived and reconstructible. Materializations arrive in
 // M2.2; this layer guarantees idempotence and order-convergence.
 
-import { evalTerm, type EvalResult, type Term } from "./eval.js";
+import { evalTerm, termContainsInView, type EvalResult, type Term } from "./eval.js";
 import { array, encode } from "./cbor.js";
 import { bytesToHex } from "./hash.js";
 import { hvEntryToCbor, hviewCanonicalHex, type HView } from "./hview.js";
@@ -469,8 +469,10 @@ function termAnchored(t: Term): boolean {
 }
 
 // Root anchoring across the term and every transitively referenced schema body (V5).
+// A reflective term (SPEC-2 §3.1) is never root-anchored: its reflected set may change with any
+// ingest, so it takes the broad-dispatch path (SPEC-4 §4.1, correctness first).
 export function isRootAnchored(term: Term, registry: SchemaRegistry | undefined): boolean {
-  if (!termAnchored(term)) return false;
+  if (!termAnchored(term) || termContainsInView(term)) return false;
   const seen = new Set<string>();
   const queue = [...collectRefs(term)];
   while (queue.length > 0) {
@@ -480,7 +482,7 @@ export function isRootAnchored(term: Term, registry: SchemaRegistry | undefined)
     seen.add(key);
     const schema = registry?.resolve(ref);
     if (schema === undefined) return false; // unresolvable: be conservative, dispatch broadly
-    if (!termAnchored(schema.body)) return false;
+    if (!termAnchored(schema.body) || termContainsInView(schema.body)) return false;
     queue.push(...collectRefs(schema.body));
   }
   return true;

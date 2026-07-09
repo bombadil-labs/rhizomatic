@@ -1,8 +1,10 @@
 //! The predicate grammar and its evaluator (SPEC-2 §3). Mirrors ../ts/src/pred.ts.
-//! Predicates are total, terminating, single-delta.
+//! Predicates are total, terminating, single-delta — the one stratified exception, inView
+//! (SPEC-2 §3.1), is lowered to InSet before predicates meet data.
 
 use std::cmp::Ordering;
 
+use crate::eval::Term;
 use crate::types::{Delta, Pointer, Primitive, Target};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -92,6 +94,14 @@ pub enum MatchConst {
     Hole(String),
 }
 
+/// The facet of a delta an inView extracts from its sub-view, forming the accepted set.
+#[derive(Debug, Clone, PartialEq)]
+pub enum InViewExtract {
+    Author,
+    Id,
+    Role(String),
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Pred {
     True,
@@ -105,6 +115,24 @@ pub enum Pred {
     And(Box<Pred>, Box<Pred>),
     Or(Box<Pred>, Box<Pred>),
     Not(Box<Pred>),
+    /// Reflective (SPEC-2 §3.1): candidate's field ∈ extract(sub-view over the ambient input).
+    /// Stratified depth-1; DSet-sort sub-term only; `field` is Author | Id; all parse-enforced.
+    InView {
+        term: Box<Term>,
+        field: Field,
+        extract: InViewExtract,
+    },
+}
+
+/// Does the predicate contain a reflective node anywhere? (SPEC-2 §3.1 stratification and the
+/// reactor's conservative-dispatch rule both hang off this walk.)
+pub fn pred_contains_in_view(pred: &Pred) -> bool {
+    match pred {
+        Pred::InView { .. } => true,
+        Pred::And(l, r) | Pred::Or(l, r) => pred_contains_in_view(l) || pred_contains_in_view(r),
+        Pred::Not(p) => pred_contains_in_view(p),
+        _ => false,
+    }
 }
 
 // --- the canonical total order over primitives (ERRATA-2 E3) -------------------------------------
@@ -281,6 +309,11 @@ pub fn eval_pred(pred: &Pred, delta: &Delta, root: Option<&str>) -> bool {
         Pred::And(l, r) => eval_pred(l, delta, root) && eval_pred(r, delta, root),
         Pred::Or(l, r) => eval_pred(l, delta, root) || eval_pred(r, delta, root),
         Pred::Not(p) => !eval_pred(p, delta, root),
+        // Every consumer lowers inView against the ambient input first (SPEC-2 §3.1); reaching
+        // here is an evaluator bug, not bad data.
+        Pred::InView { .. } => {
+            unreachable!("inView must be resolved before matching (SPEC-2 §3.1)")
+        }
     }
 }
 
@@ -335,5 +368,7 @@ pub fn substitute_holes(pred: &Pred, bindings: Option<&Bindings>) -> Result<Pred
             Box::new(substitute_holes(r, bindings)?),
         ),
         Pred::Not(p) => Pred::Not(Box::new(substitute_holes(p, bindings)?)),
+        // Holes inside the sub-term resolve from the same ambient bindings when it is evaluated.
+        Pred::InView { .. } => pred.clone(),
     })
 }

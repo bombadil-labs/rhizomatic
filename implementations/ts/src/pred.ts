@@ -1,6 +1,8 @@
 // The predicate grammar and its evaluator (SPEC-2 §3). Predicates are total, terminating,
-// single-delta: they see one delta at a time, never the rest of the set.
+// single-delta: they see one delta at a time, never the rest of the set — the one stratified
+// exception, inView (SPEC-2 §3.1), is lowered to inSet before predicates meet data.
 
+import type { Term } from "./eval.js";
 import type { Delta, Pointer, Primitive } from "./types.js";
 
 export type Cmp = "eq" | "neq" | "lt" | "lte" | "gt" | "gte" | "prefix" | "inSet";
@@ -53,6 +55,11 @@ export interface PPred {
   readonly targetValue?: ValMatch;
 }
 
+// The facet of a delta an inView extracts from its sub-view, forming the accepted set.
+export type InViewExtract =
+  | { readonly kind: "field"; readonly field: "author" | "id" }
+  | { readonly kind: "role"; readonly role: string };
+
 export type Pred =
   | { readonly kind: "true" }
   | { readonly kind: "false" }
@@ -65,7 +72,31 @@ export type Pred =
   | { readonly kind: "hasPointer"; readonly ppred: PPred }
   | { readonly kind: "and"; readonly left: Pred; readonly right: Pred }
   | { readonly kind: "or"; readonly left: Pred; readonly right: Pred }
-  | { readonly kind: "not"; readonly pred: Pred };
+  | { readonly kind: "not"; readonly pred: Pred }
+  // Reflective (SPEC-2 §3.1): candidate's field ∈ extract(sub-view over the ambient input).
+  // Stratified depth-1; DSet-sort sub-term only; both enforced at parse time.
+  | {
+      readonly kind: "inView";
+      readonly term: Term;
+      readonly field: "author" | "id";
+      readonly extract: InViewExtract;
+    };
+
+// Does the predicate contain a reflective node anywhere? (SPEC-2 §3.1 stratification and the
+// reactor's conservative-dispatch rule both hang off this walk.)
+export function predContainsInView(pred: Pred): boolean {
+  switch (pred.kind) {
+    case "inView":
+      return true;
+    case "and":
+    case "or":
+      return predContainsInView(pred.left) || predContainsInView(pred.right);
+    case "not":
+      return predContainsInView(pred.pred);
+    default:
+      return false;
+  }
+}
 
 // --- the canonical total order over primitives (ERRATA-2 E3) ------------------------------------
 
@@ -265,6 +296,9 @@ export function substituteHoles(pred: Pred, bindings: Bindings | undefined): Pre
       };
     case "not":
       return { kind: "not", pred: substituteHoles(pred.pred, bindings) };
+    case "inView":
+      // Holes inside the sub-term resolve from the same ambient bindings when it is evaluated.
+      return pred;
   }
 }
 
@@ -303,5 +337,8 @@ export function evalPred(pred: Pred, delta: Delta, root?: string, bindings?: Bin
       );
     case "not":
       return !evalPred(pred.pred, delta, root, bindings);
+    case "inView":
+      // Every consumer lowers inView against the ambient input first (SPEC-2 §3.1).
+      throw new Error("inView must be resolved before matching (SPEC-2 §3.1)");
   }
 }

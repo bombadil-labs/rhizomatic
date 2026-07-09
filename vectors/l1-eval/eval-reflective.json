@@ -1,0 +1,428 @@
+{
+  "fixture": {
+    "note": "operator-rooted grants (one revoked), color claims, negations by granted/revoked/never-granted authors, endorsement edges",
+    "deltas": [
+      {
+        "name": "g1-grant-bob",
+        "id": "1e2006fde082bac6ff1ae13dcc2bc6c06955a018da0d9a2c632e9fabf6a7702e965c",
+        "claims": {
+          "timestamp": 100,
+          "author": "did:key:zAlice",
+          "pointers": [
+            {
+              "role": "grant",
+              "target": {
+                "id": "acl:village",
+                "context": "grants"
+              }
+            },
+            {
+              "role": "grantee",
+              "target": "did:key:zBob"
+            }
+          ]
+        }
+      },
+      {
+        "name": "g2-grant-carol",
+        "id": "1e20b21f1b37054c10aab9f157d7c32b668731cfb9bcb43e27beb46ccb1a08f26f54",
+        "claims": {
+          "timestamp": 110,
+          "author": "did:key:zAlice",
+          "pointers": [
+            {
+              "role": "grant",
+              "target": {
+                "id": "acl:village",
+                "context": "grants"
+              }
+            },
+            {
+              "role": "grantee",
+              "target": "did:key:zCarol"
+            }
+          ]
+        }
+      },
+      {
+        "name": "rv1-revoke-carol",
+        "id": "1e2074b7e7b49f8234d53acefdc961d8adb89609142d8563669d2b2c4231b1f59418",
+        "claims": {
+          "timestamp": 200,
+          "author": "did:key:zAlice",
+          "pointers": [
+            {
+              "role": "negates",
+              "target": {
+                "delta": "1e20b21f1b37054c10aab9f157d7c32b668731cfb9bcb43e27beb46ccb1a08f26f54"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "name": "c1-color-blue",
+        "id": "1e20d0334f2fff1d69329931316998764df0b7777bd1acf5c55c106c3734336265e8",
+        "claims": {
+          "timestamp": 300,
+          "author": "did:key:zAlice",
+          "pointers": [
+            {
+              "role": "subject",
+              "target": {
+                "id": "topic:sky",
+                "context": "color"
+              }
+            },
+            {
+              "role": "value",
+              "target": "blue"
+            }
+          ]
+        }
+      },
+      {
+        "name": "c2-color-green",
+        "id": "1e20a4a1bbe6cdd2d2d06a06e2e9191ccb983fc91871fb454f72ee617b8dc88d1293",
+        "claims": {
+          "timestamp": 310,
+          "author": "did:key:zDave",
+          "pointers": [
+            {
+              "role": "subject",
+              "target": {
+                "id": "topic:sky",
+                "context": "color"
+              }
+            },
+            {
+              "role": "value",
+              "target": "green"
+            }
+          ]
+        }
+      },
+      {
+        "name": "n1-bob-negates-c1",
+        "id": "1e20aea1bef103d3b5d4fd246473f0d2265abd02922829faf0f543aaa1292a0cf5d2",
+        "claims": {
+          "timestamp": 400,
+          "author": "did:key:zBob",
+          "pointers": [
+            {
+              "role": "negates",
+              "target": {
+                "delta": "1e20d0334f2fff1d69329931316998764df0b7777bd1acf5c55c106c3734336265e8"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "name": "n2-carol-negates-c2",
+        "id": "1e20580bcd8a344042d6f0d6b92ecceb46e921724c2325713d06d4aba84971f170ce",
+        "claims": {
+          "timestamp": 410,
+          "author": "did:key:zCarol",
+          "pointers": [
+            {
+              "role": "negates",
+              "target": {
+                "delta": "1e20a4a1bbe6cdd2d2d06a06e2e9191ccb983fc91871fb454f72ee617b8dc88d1293"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "name": "n3-dave-negates-c2",
+        "id": "1e20715e7d37da01287d10d4f34304243a925451dfd5242e321c9cf4a01eeaaf3d43",
+        "claims": {
+          "timestamp": 420,
+          "author": "did:key:zDave",
+          "pointers": [
+            {
+              "role": "negates",
+              "target": {
+                "delta": "1e20a4a1bbe6cdd2d2d06a06e2e9191ccb983fc91871fb454f72ee617b8dc88d1293"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "name": "e1-endorse-bob",
+        "id": "1e2043a05140c6f26388ca1f462ee10a220d6f80144e82a9f62db97f17d96fd4e34f",
+        "claims": {
+          "timestamp": 500,
+          "author": "did:key:zBob",
+          "pointers": [
+            {
+              "role": "member",
+              "target": {
+                "id": "club:endorsed",
+                "context": "members"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "name": "e2-endorse-dave",
+        "id": "1e204047fa3e83de01116ed961970e8c2341e0120b1cb1115a62595e9e6f36ea915f",
+        "claims": {
+          "timestamp": 510,
+          "author": "did:key:zDave",
+          "pointers": [
+            {
+              "role": "member",
+              "target": {
+                "id": "club:endorsed",
+                "context": "members"
+              }
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "cases": [
+    {
+      "name": "reflective-roster-select",
+      "spec": "SPEC-2 §3.1 (aggregator admission as a view)",
+      "note": "admits deltas authored by CURRENT grantees: Bob's only — Carol is revoked, Dave was never granted",
+      "term": {
+        "op": "select",
+        "pred": {
+          "inView": {
+            "term": {
+              "op": "select",
+              "pred": {
+                "hasPointer": {
+                  "role": {
+                    "exact": "grant"
+                  },
+                  "targetEntity": "acl:village"
+                }
+              },
+              "in": {
+                "op": "mask",
+                "policy": "drop",
+                "in": {
+                  "op": "select",
+                  "pred": {
+                    "match": {
+                      "field": "author",
+                      "cmp": "eq",
+                      "const": "did:key:zAlice"
+                    }
+                  },
+                  "in": "input"
+                }
+              }
+            },
+            "field": "author",
+            "extract": {
+              "role": "grantee"
+            }
+          }
+        },
+        "in": "input"
+      },
+      "expected": {
+        "ids": [
+          "1e2043a05140c6f26388ca1f462ee10a220d6f80144e82a9f62db97f17d96fd4e34f",
+          "1e20aea1bef103d3b5d4fd246473f0d2265abd02922829faf0f543aaa1292a0cf5d2"
+        ]
+      },
+      "expectedCanonicalHex": "827844316532303433613035313430633666323633383863613166343632656531306132323064366638303134346538326139663632646239376631376439366664346533346678443165323061656131626566313033643362356434666432343634373366306432323635616264303239323238323966616630663534336161613132393261306366356432"
+    },
+    {
+      "name": "reflective-trust-mask",
+      "spec": "SPEC-2 §3.1 + §4.3 (the heckler's veto, closed)",
+      "note": "Bob's negation suppresses c1; Carol's (revoked) and Dave's (never granted) do not — c2 survives; rv1 is Alice's own and Alice is no grantee, so g2 survives the OUTER mask while the sub-view already dropped it",
+      "term": {
+        "op": "mask",
+        "policy": {
+          "trust": {
+            "inView": {
+              "term": {
+                "op": "select",
+                "pred": {
+                  "hasPointer": {
+                    "role": {
+                      "exact": "grant"
+                    },
+                    "targetEntity": "acl:village"
+                  }
+                },
+                "in": {
+                  "op": "mask",
+                  "policy": "drop",
+                  "in": {
+                    "op": "select",
+                    "pred": {
+                      "match": {
+                        "field": "author",
+                        "cmp": "eq",
+                        "const": "did:key:zAlice"
+                      }
+                    },
+                    "in": "input"
+                  }
+                }
+              },
+              "field": "author",
+              "extract": {
+                "role": "grantee"
+              }
+            }
+          }
+        },
+        "in": "input"
+      },
+      "expected": {
+        "ids": [
+          "1e2006fde082bac6ff1ae13dcc2bc6c06955a018da0d9a2c632e9fabf6a7702e965c",
+          "1e204047fa3e83de01116ed961970e8c2341e0120b1cb1115a62595e9e6f36ea915f",
+          "1e2043a05140c6f26388ca1f462ee10a220d6f80144e82a9f62db97f17d96fd4e34f",
+          "1e20580bcd8a344042d6f0d6b92ecceb46e921724c2325713d06d4aba84971f170ce",
+          "1e20715e7d37da01287d10d4f34304243a925451dfd5242e321c9cf4a01eeaaf3d43",
+          "1e2074b7e7b49f8234d53acefdc961d8adb89609142d8563669d2b2c4231b1f59418",
+          "1e20a4a1bbe6cdd2d2d06a06e2e9191ccb983fc91871fb454f72ee617b8dc88d1293",
+          "1e20aea1bef103d3b5d4fd246473f0d2265abd02922829faf0f543aaa1292a0cf5d2",
+          "1e20b21f1b37054c10aab9f157d7c32b668731cfb9bcb43e27beb46ccb1a08f26f54"
+        ]
+      },
+      "expectedCanonicalHex": "89784431653230303666646530383262616336666631616531336463633262633663303639353561303138646130643961326336333265396661626636613737303265393635637844316532303430343766613365383364653031313136656439363139373065386332333431653031323062316362313131356136323539356539653666333665613931356678443165323034336130353134306336663236333838636131663436326565313061323230643666383031343465383261396636326462393766313764393666643465333466784431653230353830626364386133343430343264366630643662393265636365623436653932313732346332333235373133643036643461626138343937316631373063657844316532303731356537643337646130313238376431306434663334333034323433613932353435316466643532343265333231633963663461303165656161663364343378443165323037346237653762343966383233346435336163656664633936316438616462383936303931343264383536333636396432623263343233316231663539343138784431653230613461316262653663646432643264303661303665326539313931636362393833666339313837316662343534663732656536313762386463383864313239337844316532306165613162656631303364336235643466643234363437336630643232363561626430323932323832396661663066353433616161313239326130636635643278443165323062323166316233373035346331306161623966313537643763333262363638373331636662396263623433653237626562343663636231613038663236663534"
+    },
+    {
+      "name": "reflective-as-of-before-revocation",
+      "spec": "SPEC-2 §3.1 (the roster time-travels with the store)",
+      "note": "the sub-view is time-filtered to before the revocation, so Carol still holds standing: her negation counts and c2 is suppressed too",
+      "term": {
+        "op": "mask",
+        "policy": {
+          "trust": {
+            "inView": {
+              "term": {
+                "op": "select",
+                "pred": {
+                  "hasPointer": {
+                    "role": {
+                      "exact": "grant"
+                    },
+                    "targetEntity": "acl:village"
+                  }
+                },
+                "in": {
+                  "op": "mask",
+                  "policy": "drop",
+                  "in": {
+                    "op": "select",
+                    "pred": {
+                      "match": {
+                        "field": "timestamp",
+                        "cmp": "lte",
+                        "const": 150
+                      }
+                    },
+                    "in": "input"
+                  }
+                }
+              },
+              "field": "author",
+              "extract": {
+                "role": "grantee"
+              }
+            }
+          }
+        },
+        "in": "input"
+      },
+      "expected": {
+        "ids": [
+          "1e2006fde082bac6ff1ae13dcc2bc6c06955a018da0d9a2c632e9fabf6a7702e965c",
+          "1e204047fa3e83de01116ed961970e8c2341e0120b1cb1115a62595e9e6f36ea915f",
+          "1e2043a05140c6f26388ca1f462ee10a220d6f80144e82a9f62db97f17d96fd4e34f",
+          "1e20580bcd8a344042d6f0d6b92ecceb46e921724c2325713d06d4aba84971f170ce",
+          "1e20715e7d37da01287d10d4f34304243a925451dfd5242e321c9cf4a01eeaaf3d43",
+          "1e2074b7e7b49f8234d53acefdc961d8adb89609142d8563669d2b2c4231b1f59418",
+          "1e20aea1bef103d3b5d4fd246473f0d2265abd02922829faf0f543aaa1292a0cf5d2",
+          "1e20b21f1b37054c10aab9f157d7c32b668731cfb9bcb43e27beb46ccb1a08f26f54"
+        ]
+      },
+      "expectedCanonicalHex": "887844316532303036666465303832626163366666316165313364636332626336633036393535613031386461306439613263363332653966616266366137373032653936356378443165323034303437666133653833646530313131366564393631393730653863323334316530313230623163623131313561363235393565396536663336656139313566784431653230343361303531343063366632363338386361316634363265653130613232306436663830313434653832613966363264623937663137643936666434653334667844316532303538306263643861333434303432643666306436623932656363656234366539323137323463323332353731336430366434616261383439373166313730636578443165323037313565376433376461303132383764313064346633343330343234336139323534353164666435323432653332316339636634613031656561616633643433784431653230373462376537623439663832333464353361636566646339363164386164623839363039313432643835363336363964326232633432333162316635393431387844316532306165613162656631303364336235643466643234363437336630643232363561626430323932323832396661663066353433616161313239326130636635643278443165323062323166316233373035346331306161623966313537643763333262363638373331636662396263623433653237626562343663636231613038663236663534"
+    },
+    {
+      "name": "reflective-extract-author",
+      "spec": "SPEC-2 §3.1 (extract by delta facet)",
+      "note": "anyone who endorsed may speak: Bob's and Dave's deltas are admitted",
+      "term": {
+        "op": "select",
+        "pred": {
+          "inView": {
+            "term": {
+              "op": "select",
+              "pred": {
+                "hasPointer": {
+                  "targetEntity": "club:endorsed"
+                }
+              },
+              "in": "input"
+            },
+            "field": "author",
+            "extract": {
+              "field": "author"
+            }
+          }
+        },
+        "in": "input"
+      },
+      "expected": {
+        "ids": [
+          "1e204047fa3e83de01116ed961970e8c2341e0120b1cb1115a62595e9e6f36ea915f",
+          "1e2043a05140c6f26388ca1f462ee10a220d6f80144e82a9f62db97f17d96fd4e34f",
+          "1e20715e7d37da01287d10d4f34304243a925451dfd5242e321c9cf4a01eeaaf3d43",
+          "1e20a4a1bbe6cdd2d2d06a06e2e9191ccb983fc91871fb454f72ee617b8dc88d1293",
+          "1e20aea1bef103d3b5d4fd246473f0d2265abd02922829faf0f543aaa1292a0cf5d2"
+        ]
+      },
+      "expectedCanonicalHex": "857844316532303430343766613365383364653031313136656439363139373065386332333431653031323062316362313131356136323539356539653666333665613931356678443165323034336130353134306336663236333838636131663436326565313061323230643666383031343465383261396636326462393766313764393666643465333466784431653230373135653764333764613031323837643130643466333433303432343361393235343531646664353234326533323163396366346130316565616166336434337844316532306134613162626536636464326432643036613036653265393139316363623938336663393138373166623435346637326565363137623864633838643132393378443165323061656131626566313033643362356434666432343634373366306432323635616264303239323238323966616630663534336161613132393261306366356432"
+    },
+    {
+      "name": "reflective-id-membership-equals-mask",
+      "spec": "SPEC-2 §3.1 (id-extract membership reproduces the sub-view exactly)",
+      "note": "select-by-membership-in-a-view is the view: identical ids to mask(drop, input)",
+      "term": {
+        "op": "select",
+        "pred": {
+          "inView": {
+            "term": {
+              "op": "mask",
+              "policy": "drop",
+              "in": "input"
+            },
+            "field": "id",
+            "extract": {
+              "field": "id"
+            }
+          }
+        },
+        "in": "input"
+      },
+      "expected": {
+        "ids": [
+          "1e2006fde082bac6ff1ae13dcc2bc6c06955a018da0d9a2c632e9fabf6a7702e965c",
+          "1e204047fa3e83de01116ed961970e8c2341e0120b1cb1115a62595e9e6f36ea915f",
+          "1e2043a05140c6f26388ca1f462ee10a220d6f80144e82a9f62db97f17d96fd4e34f",
+          "1e20580bcd8a344042d6f0d6b92ecceb46e921724c2325713d06d4aba84971f170ce",
+          "1e20715e7d37da01287d10d4f34304243a925451dfd5242e321c9cf4a01eeaaf3d43",
+          "1e2074b7e7b49f8234d53acefdc961d8adb89609142d8563669d2b2c4231b1f59418",
+          "1e20aea1bef103d3b5d4fd246473f0d2265abd02922829faf0f543aaa1292a0cf5d2"
+        ]
+      },
+      "expectedCanonicalHex": "8778443165323030366664653038326261633666663161653133646363326263366330363935356130313864613064396132633633326539666162663661373730326539363563784431653230343034376661336538336465303131313665643936313937306538633233343165303132306231636231313135613632353935653965366633366561393135667844316532303433613035313430633666323633383863613166343632656531306132323064366638303134346538326139663632646239376631376439366664346533346678443165323035383062636438613334343034326436663064366239326563636562343665393231373234633233323537313364303664346162613834393731663137306365784431653230373135653764333764613031323837643130643466333433303432343361393235343531646664353234326533323163396366346130316565616166336434337844316532303734623765376234396638323334643533616365666463393631643861646238393630393134326438353633363639643262326334323331623166353934313878443165323061656131626566313033643362356434666432343634373366306432323635616264303239323238323966616630663534336161613132393261306366356432"
+    }
+  ]
+}

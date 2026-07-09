@@ -1,9 +1,25 @@
 // Parse the JSON term profile (ERRATA-2 E1) into Term/Pred. Strings are NFC-normalized at parse
 // time so term-side comparisons are NFC-vs-NFC (data strings are NFC by validation, D11).
 
-import type { GroupKey, MaskPolicy, SchemaRefT, Term } from "./eval.js";
+import {
+  termContainsInView,
+  type GroupKey,
+  type MaskPolicy,
+  type SchemaRefT,
+  type Term,
+} from "./eval.js";
 import type { MergeFn, Order, Policy, PropPolicy } from "./policy.js";
-import type { Cmp, EntityMatch, Hole, PPred, Pred, StrMatch, ValMatch } from "./pred.js";
+import {
+  predContainsInView,
+  type Cmp,
+  type EntityMatch,
+  type Hole,
+  type InViewExtract,
+  type PPred,
+  type Pred,
+  type StrMatch,
+  type ValMatch,
+} from "./pred.js";
 import type { Primitive } from "./types.js";
 
 const CMPS: readonly Cmp[] = ["eq", "neq", "lt", "lte", "gt", "gte", "prefix", "inSet"];
@@ -113,6 +129,8 @@ function assertClosedTrustPred(p: Pred, what: string): void {
     case "not":
       assertClosedTrustPred(p.pred, what);
       return;
+    case "inView":
+      throw new Error(`${what}: inView is not allowed inside an aliased trust predicate`);
   }
 }
 
@@ -225,7 +243,37 @@ export function parsePred(raw: unknown): Pred {
     return key === "and" ? { kind: "and", left, right } : { kind: "or", left, right };
   }
   if (o["not"] !== undefined) return { kind: "not", pred: parsePred(o["not"]) };
-  throw new Error("pred must be true | false | match | hasPointer | and | or | not");
+  if (o["inView"] !== undefined) {
+    const v = asObject(o["inView"], "inView");
+    const term = parseTerm(v["term"]);
+    if (
+      term.kind !== "input" &&
+      term.kind !== "select" &&
+      term.kind !== "union" &&
+      term.kind !== "mask"
+    ) {
+      throw new Error("inView.term must be a DSet-sort term (input | select | union | mask)");
+    }
+    if (termContainsInView(term)) {
+      throw new Error("inView is stratified: no inView inside inView.term (SPEC-2 §3.1)");
+    }
+    const field = v["field"];
+    if (field !== "author" && field !== "id") throw new Error("inView.field must be author | id");
+    return { kind: "inView", term, field, extract: parseExtract(v["extract"]) };
+  }
+  throw new Error("pred must be true | false | match | hasPointer | and | or | not | inView");
+}
+
+function parseExtract(raw: unknown): InViewExtract {
+  const o = asObject(raw, "inView.extract");
+  if (o["field"] !== undefined) {
+    if (o["field"] !== "author" && o["field"] !== "id") {
+      throw new Error("inView.extract.field must be author | id");
+    }
+    return { kind: "field", field: o["field"] };
+  }
+  if (typeof o["role"] === "string") return { kind: "role", role: nfc(o["role"]) };
+  throw new Error("inView.extract must be {field: author|id} | {role: string}");
 }
 
 function parseMaskPolicy(raw: unknown): MaskPolicy {
@@ -258,7 +306,13 @@ function parseOrder(raw: unknown): Order {
   }
   if (o["byPred"] !== undefined) {
     const p = asObject(o["byPred"], "byPred");
-    return { kind: "byPred", pred: parsePred(p["pred"]), then: parseOrder(p["then"]) };
+    const pred = parsePred(p["pred"]);
+    // Policy predicates are closed: they run inside resolve, after the mask already decided
+    // standing — a reflective order would be a second, unlowered trust surface (SPEC-2 §3.1).
+    if (predContainsInView(pred)) {
+      throw new Error("inView is not allowed inside a policy byPred predicate (SPEC-2 §3.1)");
+    }
+    return { kind: "byPred", pred, then: parseOrder(p["then"]) };
   }
   if (Array.isArray(o["chain"])) {
     if (o["chain"].length === 0) throw new Error("chain must name at least one order");

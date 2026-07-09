@@ -4,10 +4,11 @@
 use serde_json::Value;
 use unicode_normalization::UnicodeNormalization;
 
-use crate::eval::{GroupKey, MaskPolicy, PruneKeep, SchemaRef, Term};
+use crate::eval::{term_contains_in_view, GroupKey, MaskPolicy, PruneKeep, SchemaRef, Term};
 use crate::policy::{MergeFn, Order, Policy, PropPolicy};
 use crate::pred::{
-    AliasedMatch, Cmp, EntityMatch, Field, MatchConst, PPred, Param, Pred, StrMatch, ValMatch,
+    pred_contains_in_view, AliasedMatch, Cmp, EntityMatch, Field, InViewExtract, MatchConst, PPred,
+    Param, Pred, StrMatch, ValMatch,
 };
 use crate::types::Primitive;
 
@@ -151,6 +152,9 @@ fn assert_closed_trust_pred(p: &Pred, what: &str) -> Result<(), String> {
             assert_closed_trust_pred(r, what)
         }
         Pred::Not(p) => assert_closed_trust_pred(p, what),
+        Pred::InView { .. } => Err(format!(
+            "{what}: inView is not allowed inside an aliased trust predicate"
+        )),
     }
 }
 
@@ -311,7 +315,49 @@ pub fn parse_pred(raw: &Value) -> Result<Pred, String> {
     if let Some(n) = o.get("not") {
         return Ok(Pred::Not(Box::new(parse_pred(n)?)));
     }
-    Err("pred must be true | false | match | hasPointer | and | or | not".to_string())
+    if let Some(v) = o.get("inView") {
+        let iv = v.as_object().ok_or("inView: expected object")?;
+        let term = parse_term(iv.get("term").unwrap_or(&Value::Null))?;
+        if !matches!(
+            term,
+            Term::Input | Term::Select { .. } | Term::Union { .. } | Term::Mask { .. }
+        ) {
+            return Err(
+                "inView.term must be a DSet-sort term (input | select | union | mask)".to_string(),
+            );
+        }
+        if term_contains_in_view(&term) {
+            return Err(
+                "inView is stratified: no inView inside inView.term (SPEC-2 §3.1)".to_string(),
+            );
+        }
+        let field = match iv.get("field").and_then(Value::as_str) {
+            Some("author") => Field::Author,
+            Some("id") => Field::Id,
+            _ => return Err("inView.field must be author | id".to_string()),
+        };
+        return Ok(Pred::InView {
+            term: Box::new(term),
+            field,
+            extract: parse_extract(iv.get("extract").unwrap_or(&Value::Null))?,
+        });
+    }
+    Err("pred must be true | false | match | hasPointer | and | or | not | inView".to_string())
+}
+
+fn parse_extract(raw: &Value) -> Result<InViewExtract, String> {
+    let o = raw.as_object().ok_or("inView.extract: expected object")?;
+    if let Some(f) = o.get("field") {
+        return match f.as_str() {
+            Some("author") => Ok(InViewExtract::Author),
+            Some("id") => Ok(InViewExtract::Id),
+            _ => Err("inView.extract.field must be author | id".to_string()),
+        };
+    }
+    if let Some(r) = o.get("role").and_then(Value::as_str) {
+        return Ok(InViewExtract::Role(nfc(r)));
+    }
+    Err("inView.extract must be {field: author|id} | {role: string}".to_string())
 }
 
 fn parse_mask_policy(raw: &Value) -> Result<MaskPolicy, String> {
@@ -354,8 +400,16 @@ fn parse_order(raw: &Value) -> Result<Order, String> {
     }
     if let Some(bp) = o.get("byPred") {
         let po = bp.as_object().ok_or("byPred: expected object")?;
+        let pred = parse_pred(po.get("pred").unwrap_or(&Value::Null))?;
+        // Policy predicates are closed: they run inside resolve, after the mask already decided
+        // standing — a reflective order would be a second, unlowered trust surface (SPEC-2 §3.1).
+        if pred_contains_in_view(&pred) {
+            return Err(
+                "inView is not allowed inside a policy byPred predicate (SPEC-2 §3.1)".to_string(),
+            );
+        }
         return Ok(Order::ByPred {
-            pred: parse_pred(po.get("pred").unwrap_or(&Value::Null))?,
+            pred,
             then: Box::new(parse_order(po.get("then").unwrap_or(&Value::Null))?),
         });
     }

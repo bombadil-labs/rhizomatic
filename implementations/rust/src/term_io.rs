@@ -7,7 +7,9 @@ use crate::cbor::{encode, CborValue};
 use crate::eval::{GroupKey, MaskPolicy, PruneKeep, SchemaRef, Term};
 use crate::hash::content_address;
 use crate::policy::{MergeFn, Order, Policy, PropPolicy};
-use crate::pred::{Cmp, EntityMatch, Field, MatchConst, PPred, Param, Pred, StrMatch, ValMatch};
+use crate::pred::{
+    Cmp, EntityMatch, Field, InViewExtract, MatchConst, PPred, Param, Pred, StrMatch, ValMatch,
+};
 use crate::types::Primitive;
 
 // --- AST -> JSON profile ---------------------------------------------------------------------------
@@ -125,6 +127,23 @@ pub fn pred_to_json(pred: &Pred) -> Value {
         Pred::And(l, r) => json!({ "and": [pred_to_json(l), pred_to_json(r)] }),
         Pred::Or(l, r) => json!({ "or": [pred_to_json(l), pred_to_json(r)] }),
         Pred::Not(p) => json!({ "not": pred_to_json(p) }),
+        Pred::InView {
+            term,
+            field,
+            extract,
+        } => {
+            let field = match field {
+                Field::Author => "author",
+                Field::Id => "id",
+                Field::Timestamp => unreachable!("rejected at parse time (SPEC-2 §3.1)"),
+            };
+            let extract = match extract {
+                InViewExtract::Author => json!({ "field": "author" }),
+                InViewExtract::Id => json!({ "field": "id" }),
+                InViewExtract::Role(r) => json!({ "role": r }),
+            };
+            json!({ "inView": { "term": term_to_json(term), "field": field, "extract": extract } })
+        }
     }
 }
 

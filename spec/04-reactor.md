@@ -64,7 +64,11 @@ On ingesting delta `d`, the reactor must decide which materializations to touch.
 
 - Each registered term contributes its `select` predicates and the predicates implied by its `expand` chain to a global **dispatch structure** (predicate → materialization set).
 - Conservative approximation is permitted: dispatch MAY over-match (touching a materialization that turns out unaffected) but MUST NOT under-match. Predicate subsumption (SPEC-2 §3) is the optimization lever — e.g., merging dispatch entries when one predicate subsumes another.
-- The required asymptotic: dispatch cost per delta MUST be independent of |D| (log size) — a function of registered-term count and structure only.
+- **Reflective terms dispatch broadly.** A term containing `inView` (SPEC-2 §3.1) depends on
+  deltas outside its operand's scope — a grant landing anywhere may flip a negation's standing —
+  so every ingest MUST touch its materializations until an implementation can prove the reflected
+  set unchanged. Correctness first; narrowing is tracked at SPEC-2 §10.
+- The required asymptotic: dispatch cost per delta MUST be independent of |D| (log size) — a function of registered-term count and structure only. Reflective terms are the sanctioned exception: their re-evaluation cost is the price of a dynamic trust set, paid only by schemas that use one.
 
 ### 4.2 Membership tracking
 

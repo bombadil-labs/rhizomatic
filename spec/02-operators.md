@@ -45,7 +45,10 @@ Predicates are first-order, quantifier-free formulas over **delta fields only**:
 Pred  ::= match(Field, Cmp, Const)
         | hasPointer(PPred)
         | and(Pred, Pred) | or(Pred, Pred) | not(Pred)
+        | inView(Term, Field, Extract)       // reflective, stratified — §3.1
         | true | false
+
+Extract ::= field(author | id) | role(string)
 
 PPred ::= ppred(role?: StrMatch,
                 targetEntity?: EntityId,
@@ -67,12 +70,54 @@ StrMatch ::= exact(string) | prefix(string) | inSet(Set<string>)
 
 Normative properties:
 
-- **Total and terminating:** evaluating any `Pred` against any delta is O(|delta|). No recursion, no fixpoints, no data dereference — a predicate sees one delta at a time, never the rest of the set (this preserves context-freeness at the instruction level). Anything requiring cross-delta logic (e.g., "select only corroborated claims") is not expressible here by design; it belongs at L7 (SPEC-7), where a derived author can compute corroboration and assert it as a delta that *then* becomes selectable.
+- **Total and terminating:** evaluating any `Pred` against any delta is O(|delta|). No recursion, no fixpoints, no data dereference — a predicate sees one delta at a time, never the rest of the set (this preserves context-freeness at the instruction level), with the single stratified exception of `inView` (§3.1), which is resolved to a constant set *before* per-delta evaluation. Anything requiring general cross-delta logic (e.g., "select only corroborated claims") remains inexpressible here by design; it belongs at L7 (SPEC-7), where a derived author can compute corroboration and assert it as a delta that *then* becomes selectable. `inView` carves out exactly one cross-delta question — *membership in a view over the same set* — because trust rosters and grant lists are views, and freezing them into predicate constants forfeits the always-current property that makes them data (P3).
 - **Value predicates are single-delta:** `targetValue` compares the primitive sitting on a pointer of *this* delta; comparison across primitives of different deltas is cross-delta logic and excluded. Mixed-type comparisons resolve by the canonical type order of SPEC-5 §4.
 - **Value predicates are indexable:** `ValMatch` over `(role, value)` pairs is the contract behind the reactor's value index (SPEC-4 §3), making range queries (`releaseYear between 1990–1999`) sublinear. (Primitive targets carry no context — SPEC-1 §2 — so the pointer's role is what names a primitive payload.)
 - **One total order everywhere:** comparisons (`ValMatch`, `match` ordering, and SPEC-5 §4 mixed-type resolution) use a single canonical order — **type rank first (bool < number < string), then value**. Booleans: false < true. Numbers: IEEE-754 order (finite only, by L1 validation). Strings: **bytewise order of the NFC UTF-8 encoding** — not UTF-16 code-unit order, which diverges for astral-plane characters. This matches CBOR map-key ordering; implementations whose native string comparison is UTF-16 must compare encoded bytes. Cross-type `eq` is always false; cross-type ordering follows type rank.
 - **Decidable subsumption (goal):** for the reactor's dispatch optimization, implementations SHOULD be able to test `Pred₁ ⊑ Pred₂` (every delta matching 1 matches 2). The grammar is kept within a decidable fragment for this reason; extensions MUST preserve it.
 - `timestamp` comparisons enable time-travel as a filter (`match(timestamp, lte, T)`); per SPEC-1 §6 these range over *claimed* time.
+
+### 3.1 Reflective predicates (`inView`)
+
+`inView(t, f, x)` tests a facet of the candidate delta against a set computed from the **same
+delta set** the enclosing evaluation received. It is the trust-set-as-view primitive: "honor
+negations from authors currently holding a surviving, operator-rooted grant" is a view over the
+grant deltas, and this predicate lets masks and selects reference that view without freezing it
+into static policy data.
+
+```
+inView(t, f, x)(d) over ambient input I  =  f(d) ∈ extract(x, eval(t, I))
+```
+
+Normative semantics:
+
+- **The sub-term `t`** MUST be DSet-sort (`input` | `select` | `union` | `mask`); any other root
+  operator is rejected at parse time. It is evaluated against the **ambient input** — the full
+  delta set the enclosing evaluation received, *not* the enclosing operator's operand — with the
+  same ambient root and hole bindings. (A grant landing anywhere in the set may flip a negation's
+  standing, even when the enclosing mask's operand is a narrow selection.) A `mask(annotate)`
+  sub-result contributes its member set; the tag channel is dropped, consistent with §4.3.
+- **`extract`** produces a set of strings from the sub-result's deltas. `field(author)` /
+  `field(id)` take that facet of each delta. `role(r)` takes, for every pointer with role `r`:
+  an EntityRef's entity id, a DeltaRef's delta id, a primitive string as itself; primitive
+  non-strings contribute nothing.
+- **The candidate test** compares the candidate delta's `Field` (`author` | `id`) for membership
+  in the extracted set, under the canonical string equality of §3.
+- **Stratified, depth 1:** `inView` MUST NOT appear anywhere within `t` — rejected at parse time.
+  The sub-evaluation is therefore one nested pass of the reflection-free algebra: total,
+  terminating, and inside the §5 complexity envelope.
+- **Sites:** `inView` is legal only where predicates meet the data — `select`'s predicate and
+  `mask(trust)`'s predicate. It MUST be rejected at parse time inside SPEC-5 policy predicates
+  (`byPred`) and inside `aliased` trust predicates (SPEC-9), which are required to be closed.
+- **Resolution timing:** the reflected set is computed **once per operator application**, before
+  per-delta evaluation. Implementations SHOULD lower `inView` to the equivalent `inSet` form at
+  that point (mirroring hole substitution and alias expansion); the lowered predicate is inside
+  the §3 fragment, so per-delta evaluation and subsumption reasoning are unchanged. Evaluation
+  stays a pure function of `(term, I)`: same deltas ⇒ same reflected set ⇒ same result, on every
+  machine — content-addressed convergence is untouched.
+- **Reactor impact:** a term containing `inView` depends on deltas outside its operand's scope;
+  dispatch MUST treat it conservatively (SPEC-4 §4.2). Narrowing that is future work, not license
+  to under-match.
 
 ## 4. The Instruction Set
 
@@ -179,7 +224,7 @@ eval : Term × DSet → (DSet | HView | View)
 
 - **Deterministic (P5):** same term, same set ⇒ identical canonical output. Conformance vectors test this byte-for-byte.
 - **Order-blind:** no operator may observe delta-set ordering or pointer ordering (SPEC-1 §4.1).
-- **Monotone where claimed:** `select`, `union`, `group`, `expand` are monotone in `D` (more deltas in ⇒ superset of deltas out). `mask` and `resolve` are **not** monotone (a new negation can remove; a new claim can change a resolved value). This split is normative: it tells the reactor exactly which operators need retraction logic (SPEC-4 §4.3).
+- **Monotone where claimed:** `select`, `union`, `group`, `expand` are monotone in `D` (more deltas in ⇒ superset of deltas out). `mask` and `resolve` are **not** monotone (a new negation can remove; a new claim can change a resolved value). This split is normative: it tells the reactor exactly which operators need retraction logic (SPEC-4 §4.3). A `select` whose predicate contains `inView` (§3.1) forfeits monotonicity: a delta landing anywhere can shrink the reflected set (a revocation negating a grant), removing previously selected deltas. Reflection-free `select` remains monotone.
 - **Complexity envelope:** for a term `t` and set `D`, evaluation MUST be achievable in O(|D| · |t|) without indexes; the entire point of L4 is to do far better incrementally.
 
 Canonical result encodings (what the conformance vectors compare, byte for byte):
@@ -224,6 +269,13 @@ A term's content address is the hash of its canonical CBOR; `SchemaRef` MAY pin 
 
 The algebra version is part of every serialized term (`alg: 1`). Adding an operator is a major version; implementations MUST reject terms whose algebra version they do not implement, and MUST NOT partially evaluate them. (Silent degradation on an instruction set is corruption.)
 
+Grammar extensions within an operator's closed sub-grammars (a new predicate form, a new order,
+a new mask policy) are **parse-visible**: the profiles in §9 and SPEC-5 §7 are closed, so a
+conformant implementation that predates the extension rejects the unknown form at parse time —
+loudly, before any evaluation. That satisfies the rejection mandate without an `alg` bump; the
+version number gates changes that are *not* parse-visible (altered semantics of existing forms).
+`inView` (§3.1) and `chain` (SPEC-5 §3) enter under this rule.
+
 ## 9. Appendix: Term JSON Profile (Normative)
 
 The JSON spelling of terms and predicates — the authoring surface, and the form the conformance
@@ -248,6 +300,9 @@ Pred ::= "true" | "false"
        | { "match": { "field": "author"|"timestamp"|"id", "cmp": Cmp, "const": Const } }
        | { "hasPointer": PPred }
        | { "and": [Pred, Pred] } | { "or": [Pred, Pred] } | { "not": Pred }
+       | { "inView": { "term": Term, "field": "author"|"id", "extract": Extract } }   // §3.1
+
+Extract ::= { "field": "author"|"id" } | { "role": string }
 
 PPred ::= { "role"?: StrMatch, "targetEntity"?: string | {"var":"root"} | Hole,
             "targetDelta"?: string, "context"?: StrMatch,
@@ -265,6 +320,9 @@ Const ::= Primitive | Hole | [Primitive...]               // array form only wit
 
 Parse-time validation: `prefix` requires string (or hole) operands; `match` with `cmp: inSet`
 requires an array const; `and`/`or` take exactly two operands; an empty `PPred` is rejected.
+`inView.term` must parse as a DSet-sort term (`"input"` | `select` | `union` | `mask`) and must
+not itself contain `inView` (§3.1 stratification); `inView` is rejected inside SPEC-5 policy
+predicates and inside `aliased` trust predicates.
 All strings in terms are NFC-normalized at parse time, so term-side comparisons are NFC-vs-NFC
 with NFC-validated data. `resolve`'s operand must be HView-sort; its View result is terminal —
 no operator consumes a View.
@@ -276,3 +334,5 @@ no operator consumes a View.
 - **Predicate subsumption algorithm:** specify the exact decidable fragment and its complexity; needed for reactor dispatch guarantees.
 - **Parameterized terms:** queries want runtime parameters ("movies with actor *X*"). `hole(name)` leaves in Const position, bound by an optional `bindings` object on `fix`; terms stay first-order and a body with holes keeps a single hash however it is later bound. Semantics pinned in ERRATA-2 E15; vectors in `vectors/l1-eval/eval-holes.json`.
 - **Cost annotations:** should terms carry optional optimizer hints, or is that strictly an L4 concern?
+- **Reflective dispatch:** terms containing `inView` (§3.1) currently dispatch conservatively (every ingest may change the reflected set — SPEC-4 §4.2). Narrowing this — e.g., indexing the sub-term's own select predicates so only deltas relevant to the *reflected view* re-trigger — is an optimization awaiting a workload that needs it.
+- **Reflective depth:** stratification is pinned at depth 1. A grant-view whose own mask wants a reflective trust predicate ("grants honored per the *grants of grants*") would need depth 2 or an explicit budget; no consumer exists yet, and depth 1 keeps the termination argument trivial.

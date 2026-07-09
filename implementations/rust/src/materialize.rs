@@ -5,7 +5,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::cbor::{encode, CborValue};
-use crate::eval::{eval_term, EvalResult, SchemaRef, Term};
+use crate::eval::{eval_term, term_contains_in_view, EvalResult, SchemaRef, Term};
 use crate::hview::{hv_entry_to_cbor, hview_canonical_hex, HView};
 use crate::pred::Pred;
 use crate::schema::{collect_refs, SchemaRegistry};
@@ -184,8 +184,10 @@ fn term_anchored(t: &Term) -> bool {
 }
 
 /// Root anchoring across the term and every transitively referenced schema body (V5).
+/// A reflective term (SPEC-2 §3.1) is never root-anchored: its reflected set may change with any
+/// ingest, so it takes the broad-dispatch path (SPEC-4 §4.1, correctness first).
 pub fn is_root_anchored(term: &Term, registry: Option<&SchemaRegistry>) -> bool {
-    if !term_anchored(term) {
+    if !term_anchored(term) || term_contains_in_view(term) {
         return false;
     }
     let mut seen: BTreeSet<String> = BTreeSet::new();
@@ -201,7 +203,7 @@ pub fn is_root_anchored(term: &Term, registry: Option<&SchemaRegistry>) -> bool 
         let Some(schema) = registry.and_then(|reg| reg.resolve(&r)) else {
             return false; // unresolvable: be conservative, dispatch broadly
         };
-        if !term_anchored(&schema.body) {
+        if !term_anchored(&schema.body) || term_contains_in_view(&schema.body) {
             return false;
         }
         queue.extend(collect_refs(&schema.body));

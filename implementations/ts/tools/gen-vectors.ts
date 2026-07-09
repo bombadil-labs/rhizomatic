@@ -1699,3 +1699,169 @@ writeFileSync(resolve(evalDir, "eval-aliased.json"), `${JSON.stringify(aliasOut,
 console.log(
   `wrote ${aliasOut.cases.length} aliased vectors + ${signatureCases.length} signatures over ${aliasFixtureSet.size} fixture deltas to vectors/l1-eval/eval-aliased.json`,
 );
+
+// --- l1-eval: reflective predicates (SPEC-2 §3.1, ERRATA-2 E16) ---
+
+// The village ACL: Alice operates; grants make Bob and Carol negation-worthy; Carol's grant is
+// revoked; Dave was never granted. The trusted set is a VIEW over these deltas, always current.
+const D = "did:key:zDave";
+const vfx: Record<string, { claims: unknown; id: string }> = {};
+const addVfx = (name: string, claims: unknown) => {
+  vfx[name] = { claims, id: computeId(parseClaims(claims)) };
+};
+
+addVfx(
+  "g1-grant-bob",
+  claim(100, A, [
+    { role: "grant", ...subj("acl:village", "grants") },
+    { role: "grantee", target: B },
+  ]),
+);
+addVfx(
+  "g2-grant-carol",
+  claim(110, A, [
+    { role: "grant", ...subj("acl:village", "grants") },
+    { role: "grantee", target: C },
+  ]),
+);
+addVfx(
+  "rv1-revoke-carol",
+  claim(200, A, [{ role: "negates", target: { delta: vfx["g2-grant-carol"]!.id } }]),
+);
+addVfx(
+  "c1-color-blue",
+  claim(300, A, [
+    { role: "subject", ...subj("topic:sky", "color") },
+    { role: "value", target: "blue" },
+  ]),
+);
+addVfx(
+  "c2-color-green",
+  claim(310, D, [
+    { role: "subject", ...subj("topic:sky", "color") },
+    { role: "value", target: "green" },
+  ]),
+);
+addVfx(
+  "n1-bob-negates-c1",
+  claim(400, B, [{ role: "negates", target: { delta: vfx["c1-color-blue"]!.id } }]),
+);
+addVfx(
+  "n2-carol-negates-c2",
+  claim(410, C, [{ role: "negates", target: { delta: vfx["c2-color-green"]!.id } }]),
+);
+addVfx(
+  "n3-dave-negates-c2",
+  claim(420, D, [{ role: "negates", target: { delta: vfx["c2-color-green"]!.id } }]),
+);
+addVfx("e1-endorse-bob", claim(500, B, [{ role: "member", ...subj("club:endorsed", "members") }]));
+addVfx("e2-endorse-dave", claim(510, D, [{ role: "member", ...subj("club:endorsed", "members") }]));
+
+const reflectiveFixtureSet = DeltaSet.from(
+  Object.values(vfx).map((f) => makeDelta(parseClaims(f.claims))),
+);
+
+// Surviving, operator-rooted grants: Alice's deltas, negation chains walked among them (rv1
+// revokes g2), then the grant edges — the sub-view every trust surface below shares.
+const grantView = {
+  op: "select",
+  pred: { hasPointer: { role: { exact: "grant" }, targetEntity: "acl:village" } },
+  in: { op: "mask", policy: "drop", in: sel({ match: { field: "author", cmp: "eq", const: A } }) },
+};
+const trustedGrantees = {
+  inView: { term: grantView, field: "author", extract: { role: "grantee" } },
+};
+
+const reflectiveCases: Array<{ name: string; spec: string; term: unknown; note?: string }> = [
+  {
+    name: "reflective-roster-select",
+    spec: "SPEC-2 §3.1 (aggregator admission as a view)",
+    term: sel(trustedGrantees),
+    note: "admits deltas authored by CURRENT grantees: Bob's only — Carol is revoked, Dave was never granted",
+  },
+  {
+    name: "reflective-trust-mask",
+    spec: "SPEC-2 §3.1 + §4.3 (the heckler's veto, closed)",
+    term: { op: "mask", policy: { trust: trustedGrantees }, in: "input" },
+    note: "Bob's negation suppresses c1; Carol's (revoked) and Dave's (never granted) do not — c2 survives; rv1 is Alice's own and Alice is no grantee, so g2 survives the OUTER mask while the sub-view already dropped it",
+  },
+  {
+    name: "reflective-as-of-before-revocation",
+    spec: "SPEC-2 §3.1 (the roster time-travels with the store)",
+    term: {
+      op: "mask",
+      policy: {
+        trust: {
+          inView: {
+            term: {
+              op: "select",
+              pred: { hasPointer: { role: { exact: "grant" }, targetEntity: "acl:village" } },
+              in: {
+                op: "mask",
+                policy: "drop",
+                in: sel({ match: { field: "timestamp", cmp: "lte", const: 150 } }),
+              },
+            },
+            field: "author",
+            extract: { role: "grantee" },
+          },
+        },
+      },
+      in: "input",
+    },
+    note: "the sub-view is time-filtered to before the revocation, so Carol still holds standing: her negation counts and c2 is suppressed too",
+  },
+  {
+    name: "reflective-extract-author",
+    spec: "SPEC-2 §3.1 (extract by delta facet)",
+    term: sel({
+      inView: {
+        term: sel({ hasPointer: { targetEntity: "club:endorsed" } }),
+        field: "author",
+        extract: { field: "author" },
+      },
+    }),
+    note: "anyone who endorsed may speak: Bob's and Dave's deltas are admitted",
+  },
+  {
+    name: "reflective-id-membership-equals-mask",
+    spec: "SPEC-2 §3.1 (id-extract membership reproduces the sub-view exactly)",
+    term: sel({
+      inView: {
+        term: { op: "mask", policy: "drop", in: "input" },
+        field: "id",
+        extract: { field: "id" },
+      },
+    }),
+    note: "select-by-membership-in-a-view is the view: identical ids to mask(drop, input)",
+  },
+];
+
+const reflectiveVectors = reflectiveCases.map(({ name, spec, term, note }) => {
+  const parsed = parseTerm(term);
+  const result = evalTerm(parsed, reflectiveFixtureSet);
+  if (result.sort !== "dset") throw new Error(`${name}: expected a DSet result`);
+  return {
+    name,
+    spec,
+    ...(note === undefined ? {} : { note }),
+    term,
+    expected: { ids: result.set.ids() },
+    expectedCanonicalHex: resultCanonicalHex(result),
+  };
+});
+
+const reflectiveOut = {
+  fixture: {
+    note: "operator-rooted grants (one revoked), color claims, negations by granted/revoked/never-granted authors, endorsement edges",
+    deltas: Object.entries(vfx).map(([name, f]) => ({ name, id: f.id, claims: f.claims })),
+  },
+  cases: reflectiveVectors,
+};
+writeFileSync(
+  resolve(evalDir, "eval-reflective.json"),
+  `${JSON.stringify(reflectiveOut, null, 2)}\n`,
+);
+console.log(
+  `wrote ${reflectiveVectors.length} reflective vectors over ${reflectiveFixtureSet.size} fixture deltas to vectors/l1-eval/eval-reflective.json`,
+);

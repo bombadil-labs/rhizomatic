@@ -9,9 +9,11 @@ import { resolveView, viewCanonicalHex, type Policy, type View } from "./policy.
 import {
   comparePrimitives,
   evalPred,
+  predContainsInView,
   strMatch,
   substituteHoles,
   type Bindings,
+  type InViewExtract,
   type Pred,
   type StrMatch,
 } from "./pred.js";
@@ -226,6 +228,95 @@ export function expandAliased(pred: Pred, input: DeltaSet, root: string | undefi
       };
     case "not":
       return { kind: "not", pred: expandAliased(pred.pred, input, root) };
+    case "inView":
+      // Aliased matches inside the sub-term expand during its own evaluation.
+      return pred;
+  }
+}
+
+// --- reflective predicates (SPEC-2 §3.1) ----------------------------------------------------------
+
+// The reflected string set: extract a facet from every delta of the sub-view.
+function extractReflected(extract: InViewExtract, set: DeltaSet): string[] {
+  const out = new Set<string>();
+  for (const d of set) {
+    if (extract.kind === "field") {
+      out.add(extract.field === "author" ? d.claims.author : d.id);
+      continue;
+    }
+    for (const ptr of d.claims.pointers) {
+      if (ptr.role !== extract.role) continue;
+      const t = ptr.target;
+      if (t.kind === "entity") out.add(t.entity.id);
+      else if (t.kind === "delta") out.add(t.deltaRef.delta);
+      else if (typeof t.value === "string") out.add(t.value);
+    }
+  }
+  return [...out].sort(comparePrimitives);
+}
+
+// Lower every inView to its inSet form: evaluate the sub-term against the AMBIENT input (not the
+// enclosing operator's operand — a grant landing anywhere may flip a negation's standing), once
+// per operator application. Applied where predicates meet data (select / mask-trust), beside hole
+// substitution and alias expansion. The lowered predicate is inside the SPEC-2 §3 fragment.
+function resolveReflective(
+  pred: Pred,
+  input: DeltaSet,
+  root: string | undefined,
+  registry: SchemaRegistry | undefined,
+  bindings: Bindings | undefined,
+): Pred {
+  switch (pred.kind) {
+    case "inView": {
+      const sub = evalTerm(pred.term, input, root, registry, bindings);
+      if (sub.sort !== "dset") throw new Error("inView.term must evaluate to a DSet (E9)");
+      return {
+        kind: "match",
+        field: pred.field,
+        cmp: "inSet",
+        constant: extractReflected(pred.extract, sub.set),
+      };
+    }
+    case "and":
+      return {
+        kind: "and",
+        left: resolveReflective(pred.left, input, root, registry, bindings),
+        right: resolveReflective(pred.right, input, root, registry, bindings),
+      };
+    case "or":
+      return {
+        kind: "or",
+        left: resolveReflective(pred.left, input, root, registry, bindings),
+        right: resolveReflective(pred.right, input, root, registry, bindings),
+      };
+    case "not":
+      return { kind: "not", pred: resolveReflective(pred.pred, input, root, registry, bindings) };
+    default:
+      return pred;
+  }
+}
+
+// Any inView anywhere in the term? Parse-time stratification and the reactor's conservative
+// dispatch (SPEC-4 §4.1) both hang off this walk. Schema bodies referenced by expand/fix are the
+// caller's concern (the reactor walks its registry; the parser rejects per-body).
+export function termContainsInView(t: Term): boolean {
+  switch (t.kind) {
+    case "input":
+    case "fix":
+      return false;
+    case "select":
+      return predContainsInView(t.pred) || termContainsInView(t.of);
+    case "union":
+      return termContainsInView(t.left) || termContainsInView(t.right);
+    case "mask":
+      return (
+        (t.policy.kind === "trust" && predContainsInView(t.policy.pred)) || termContainsInView(t.of)
+      );
+    case "group":
+    case "prune":
+    case "expand":
+    case "resolve":
+      return termContainsInView(t.of);
   }
 }
 
@@ -277,7 +368,13 @@ export function evalTerm(
       return dsetResult(input);
     case "select": {
       const of = expectDSet(evalTerm(term.of, input, root, registry, bindings), "select");
-      const pred = expandAliased(substituteHoles(term.pred, bindings), input, root);
+      const pred = resolveReflective(
+        expandAliased(substituteHoles(term.pred, bindings), input, root),
+        input,
+        root,
+        registry,
+        bindings,
+      );
       return dsetResult(fork(of.set, (d) => evalPred(pred, d, root)));
     }
     case "union": {
@@ -297,7 +394,13 @@ export function evalTerm(
           return { sort: "dset", set: of.set, negated, annotated: true };
         }
         case "trust": {
-          const pred = expandAliased(substituteHoles(term.policy.pred, bindings), input, root);
+          const pred = resolveReflective(
+            expandAliased(substituteHoles(term.policy.pred, bindings), input, root),
+            input,
+            root,
+            registry,
+            bindings,
+          );
           const negated = computeNegated(of.set, (n) => evalPred(pred, n, root));
           return dsetResult(fork(of.set, (d) => !negated.has(d.id)));
         }

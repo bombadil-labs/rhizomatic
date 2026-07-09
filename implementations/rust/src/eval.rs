@@ -7,7 +7,10 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 use crate::cbor::{encode, CborValue};
 use crate::hview::{hview_canonical_hex, HVEntry, HView};
 use crate::policy::{resolve_view, view_canonical_hex, Policy, View};
-use crate::pred::{eval_pred, str_match, substitute_holes, Bindings, Pred, StrMatch};
+use crate::pred::{
+    eval_pred, pred_contains_in_view, str_match, substitute_holes, Bindings, Cmp, InViewExtract,
+    MatchConst, Pred, StrMatch,
+};
 use crate::schema::SchemaRegistry;
 use crate::schema_deltas::VOCAB_PREFIX;
 use crate::set::{fork, merge, DeltaSet};
@@ -270,6 +273,110 @@ pub fn expand_aliased(pred: &Pred, input: &DeltaSet, root: Option<&str>) -> Pred
             Box::new(expand_aliased(r, input, root)),
         ),
         Pred::Not(p) => Pred::Not(Box::new(expand_aliased(p, input, root))),
+        // Aliased matches inside the sub-term expand during its own evaluation.
+        Pred::InView { .. } => pred.clone(),
+    }
+}
+
+// --- reflective predicates (SPEC-2 §3.1) ----------------------------------------------------------
+
+/// The reflected string set: extract a facet from every delta of the sub-view.
+fn extract_reflected(extract: &InViewExtract, set: &DeltaSet) -> Vec<Primitive> {
+    let mut out: BTreeSet<String> = BTreeSet::new();
+    for d in set.iter() {
+        match extract {
+            InViewExtract::Author => {
+                out.insert(d.claims.author.clone());
+            }
+            InViewExtract::Id => {
+                out.insert(d.id.clone());
+            }
+            InViewExtract::Role(role) => {
+                for ptr in &d.claims.pointers {
+                    if &ptr.role != role {
+                        continue;
+                    }
+                    match &ptr.target {
+                        Target::Entity(er) => {
+                            out.insert(er.id.clone());
+                        }
+                        Target::Delta(dr) => {
+                            out.insert(dr.delta.clone());
+                        }
+                        Target::Primitive(Primitive::Str(s)) => {
+                            out.insert(s.clone());
+                        }
+                        Target::Primitive(_) => {}
+                    }
+                }
+            }
+        }
+    }
+    // BTreeSet<String> iterates in bytewise UTF-8 order — the canonical string order (E3).
+    out.into_iter().map(Primitive::Str).collect()
+}
+
+/// Lower every inView to its InSet form: evaluate the sub-term against the AMBIENT input (not the
+/// enclosing operator's operand — a grant landing anywhere may flip a negation's standing), once
+/// per operator application. Applied where predicates meet data (select / mask-trust), beside hole
+/// substitution and alias expansion. The lowered predicate is inside the SPEC-2 §3 fragment.
+fn resolve_reflective(
+    pred: &Pred,
+    input: &DeltaSet,
+    root: Option<&str>,
+    registry: Option<&SchemaRegistry>,
+    bindings: Option<&Bindings>,
+) -> Result<Pred, String> {
+    Ok(match pred {
+        Pred::InView {
+            term,
+            field,
+            extract,
+        } => {
+            let set = match eval_term(term, input, root, registry, bindings)? {
+                EvalResult::DSet { set, .. } => set,
+                _ => return Err("inView.term must evaluate to a DSet (E9)".to_string()),
+            };
+            Pred::Match {
+                field: *field,
+                cmp: Cmp::InSet,
+                constant: MatchConst::Many(extract_reflected(extract, &set)),
+            }
+        }
+        Pred::And(l, r) => Pred::And(
+            Box::new(resolve_reflective(l, input, root, registry, bindings)?),
+            Box::new(resolve_reflective(r, input, root, registry, bindings)?),
+        ),
+        Pred::Or(l, r) => Pred::Or(
+            Box::new(resolve_reflective(l, input, root, registry, bindings)?),
+            Box::new(resolve_reflective(r, input, root, registry, bindings)?),
+        ),
+        Pred::Not(p) => Pred::Not(Box::new(resolve_reflective(
+            p, input, root, registry, bindings,
+        )?)),
+        _ => pred.clone(),
+    })
+}
+
+/// Any inView anywhere in the term? Parse-time stratification and the reactor's conservative
+/// dispatch (SPEC-4 §4.1) both hang off this walk. Schema bodies referenced by expand/fix are
+/// the caller's concern (the reactor walks its registry; the parser rejects per-body).
+pub fn term_contains_in_view(t: &Term) -> bool {
+    match t {
+        Term::Input | Term::Fix { .. } => false,
+        Term::Select { pred, of } => pred_contains_in_view(pred) || term_contains_in_view(of),
+        Term::Union { left, right } => term_contains_in_view(left) || term_contains_in_view(right),
+        Term::Mask { policy, of } => {
+            let trust_reflective = match policy {
+                MaskPolicy::Trust(p) => pred_contains_in_view(p),
+                _ => false,
+            };
+            trust_reflective || term_contains_in_view(of)
+        }
+        Term::Group { of, .. }
+        | Term::Prune { of, .. }
+        | Term::Expand { of, .. }
+        | Term::Resolve { of, .. } => term_contains_in_view(of),
     }
 }
 
@@ -371,7 +478,13 @@ pub fn eval_term(
         Term::Input => Ok(dset_result(input.clone())),
         Term::Select { pred, of } => {
             let (set, _) = expect_dset(eval_term(of, input, root, registry, bindings)?, "select")?;
-            let pred = expand_aliased(&substitute_holes(pred, bindings)?, input, root);
+            let pred = resolve_reflective(
+                &expand_aliased(&substitute_holes(pred, bindings)?, input, root),
+                input,
+                root,
+                registry,
+                bindings,
+            )?;
             Ok(dset_result(fork(&set, |d: &Delta| {
                 eval_pred(&pred, d, root)
             })))
@@ -397,7 +510,13 @@ pub fn eval_term(
                     }
                 }
                 MaskPolicy::Trust(pred) => {
-                    let pred = expand_aliased(&substitute_holes(pred, bindings)?, input, root);
+                    let pred = resolve_reflective(
+                        &expand_aliased(&substitute_holes(pred, bindings)?, input, root),
+                        input,
+                        root,
+                        registry,
+                        bindings,
+                    )?;
                     let negated = compute_negated(&set, Some(&pred), root);
                     dset_result(fork(&set, |d: &Delta| !negated.contains(&d.id)))
                 }

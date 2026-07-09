@@ -87,6 +87,17 @@ export function predToJson(pred: Pred): unknown {
       return { or: [predToJson(pred.left), predToJson(pred.right)] };
     case "not":
       return { not: predToJson(pred.pred) };
+    case "inView":
+      return {
+        inView: {
+          term: termToJson(pred.term),
+          field: pred.field,
+          extract:
+            pred.extract.kind === "field"
+              ? { field: pred.extract.field }
+              : { role: pred.extract.role },
+        },
+      };
   }
 }
 

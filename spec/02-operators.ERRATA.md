@@ -83,3 +83,14 @@ Folded into SPEC-2 §4.3 (decided 2026-06-11: consumed-or-dropped is the invaria
 
 Folded into SPEC-2 §4.8 + §9 (appendix) (2026-06-11); history in git.
 
+
+## E16 — Reflective predicates: `inView`, stratified at depth 1
+
+Folded into SPEC-2 §3.1 + §9 (appendix) + SPEC-4 §4.1 (decided 2026-07-09). Dynamic trust sets
+(negation masks honoring only currently-granted authors; aggregator admission rosters) are views
+over the same delta-set, referenced from `select`/`mask(trust)` predicates via `inView(term,
+field, extract)`. Pinned: DSet-sort sub-term over the ambient input; depth-1 stratification
+rejected at parse time; resolution once per operator application (lowering to `inSet`, mirroring
+E15 holes and SPEC-9 alias expansion); reflective terms dispatch conservatively in the reactor.
+Vectors: `vectors/l1-eval/eval-reflective.json`.
+
