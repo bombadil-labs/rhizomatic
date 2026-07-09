@@ -1050,6 +1050,19 @@
     if (bound === void 0) throw new Error(`unbound hole "${p.name}" (E15)`);
     return bound;
   }
+  function predContainsInView(pred) {
+    switch (pred.kind) {
+      case "inView":
+        return true;
+      case "and":
+      case "or":
+        return predContainsInView(pred.left) || predContainsInView(pred.right);
+      case "not":
+        return predContainsInView(pred.pred);
+      default:
+        return false;
+    }
+  }
   var utf82 = new TextEncoder();
   function utf8Compare(a, b) {
     const ab = utf82.encode(a);
@@ -1208,6 +1221,8 @@
         };
       case "not":
         return { kind: "not", pred: substituteHoles(pred.pred, bindings) };
+      case "inView":
+        return pred;
     }
   }
   function evalPred(pred, delta, root, bindings) {
@@ -1230,6 +1245,8 @@
         return evalPred(pred.left, delta, root, bindings) || evalPred(pred.right, delta, root, bindings);
       case "not":
         return !evalPred(pred.pred, delta, root, bindings);
+      case "inView":
+        throw new Error("inView must be resolved before matching (SPEC-2 \xA73.1)");
     }
   }
 
@@ -1253,6 +1270,13 @@
         const bm = evalPred(order.pred, b.delta) ? 0 : 1;
         if (am !== bm) return am - bm;
         return cmpByOrder(order.then, a, b);
+      }
+      case "chain": {
+        for (const o of order.orders) {
+          const c = cmpByOrder(o, a, b);
+          if (c !== 0) return c;
+        }
+        return 0;
       }
       case "lexById":
         return a.delta.id < b.delta.id ? -1 : a.delta.id > b.delta.id ? 1 : 0;
@@ -1573,6 +1597,73 @@
         };
       case "not":
         return { kind: "not", pred: expandAliased(pred.pred, input, root) };
+      case "inView":
+        return pred;
+    }
+  }
+  function extractReflected(extract, set) {
+    const out = /* @__PURE__ */ new Set();
+    for (const d of set) {
+      if (extract.kind === "field") {
+        out.add(extract.field === "author" ? d.claims.author : d.id);
+        continue;
+      }
+      for (const ptr of d.claims.pointers) {
+        if (ptr.role !== extract.role) continue;
+        const t = ptr.target;
+        if (t.kind === "entity") out.add(t.entity.id);
+        else if (t.kind === "delta") out.add(t.deltaRef.delta);
+        else if (typeof t.value === "string") out.add(t.value);
+      }
+    }
+    return [...out].sort(comparePrimitives);
+  }
+  function resolveReflective(pred, input, root, registry, bindings) {
+    switch (pred.kind) {
+      case "inView": {
+        const sub = evalTerm(pred.term, input, root, registry, bindings);
+        if (sub.sort !== "dset") throw new Error("inView.term must evaluate to a DSet (E9)");
+        return {
+          kind: "match",
+          field: pred.field,
+          cmp: "inSet",
+          constant: extractReflected(pred.extract, sub.set)
+        };
+      }
+      case "and":
+        return {
+          kind: "and",
+          left: resolveReflective(pred.left, input, root, registry, bindings),
+          right: resolveReflective(pred.right, input, root, registry, bindings)
+        };
+      case "or":
+        return {
+          kind: "or",
+          left: resolveReflective(pred.left, input, root, registry, bindings),
+          right: resolveReflective(pred.right, input, root, registry, bindings)
+        };
+      case "not":
+        return { kind: "not", pred: resolveReflective(pred.pred, input, root, registry, bindings) };
+      default:
+        return pred;
+    }
+  }
+  function termContainsInView(t) {
+    switch (t.kind) {
+      case "input":
+      case "fix":
+        return false;
+      case "select":
+        return predContainsInView(t.pred) || termContainsInView(t.of);
+      case "union":
+        return termContainsInView(t.left) || termContainsInView(t.right);
+      case "mask":
+        return t.policy.kind === "trust" && predContainsInView(t.policy.pred) || termContainsInView(t.of);
+      case "group":
+      case "prune":
+      case "expand":
+      case "resolve":
+        return termContainsInView(t.of);
     }
   }
   function evalGroup(key, operand, root) {
@@ -1615,7 +1706,13 @@
         return dsetResult(input);
       case "select": {
         const of = expectDSet(evalTerm(term.of, input, root, registry, bindings), "select");
-        const pred = expandAliased(substituteHoles(term.pred, bindings), input, root);
+        const pred = resolveReflective(
+          expandAliased(substituteHoles(term.pred, bindings), input, root),
+          input,
+          root,
+          registry,
+          bindings
+        );
         return dsetResult(fork(of.set, (d) => evalPred(pred, d, root)));
       }
       case "union": {
@@ -1635,7 +1732,13 @@
             return { sort: "dset", set: of.set, negated, annotated: true };
           }
           case "trust": {
-            const pred = expandAliased(substituteHoles(term.policy.pred, bindings), input, root);
+            const pred = resolveReflective(
+              expandAliased(substituteHoles(term.policy.pred, bindings), input, root),
+              input,
+              root,
+              registry,
+              bindings
+            );
             const negated = computeNegated(of.set, (n) => evalPred(pred, n, root));
             return dsetResult(fork(of.set, (d) => !negated.has(d.id)));
           }
@@ -1787,6 +1890,14 @@
         return { or: [predToJson(pred.left), predToJson(pred.right)] };
       case "not":
         return { not: predToJson(pred.pred) };
+      case "inView":
+        return {
+          inView: {
+            term: termToJson(pred.term),
+            field: pred.field,
+            extract: pred.extract.kind === "field" ? { field: pred.extract.field } : { role: pred.extract.role }
+          }
+        };
     }
   }
   function orderToJson(o) {
@@ -1797,6 +1908,8 @@
         return { byAuthorRank: [...o.authors] };
       case "byPred":
         return { byPred: { pred: predToJson(o.pred), then: orderToJson(o.then) } };
+      case "chain":
+        return { chain: o.orders.map(orderToJson) };
       case "lexById":
         return "lexById";
     }
@@ -1986,6 +2099,8 @@
       case "not":
         assertClosedTrustPred(p.pred, what);
         return;
+      case "inView":
+        throw new Error(`${what}: inView is not allowed inside an aliased trust predicate`);
     }
   }
   function parseValMatch(raw, what) {
@@ -2085,7 +2200,31 @@
       return key === "and" ? { kind: "and", left, right } : { kind: "or", left, right };
     }
     if (o["not"] !== void 0) return { kind: "not", pred: parsePred(o["not"]) };
-    throw new Error("pred must be true | false | match | hasPointer | and | or | not");
+    if (o["inView"] !== void 0) {
+      const v = asObject(o["inView"], "inView");
+      const term = parseTerm(v["term"]);
+      if (term.kind !== "input" && term.kind !== "select" && term.kind !== "union" && term.kind !== "mask") {
+        throw new Error("inView.term must be a DSet-sort term (input | select | union | mask)");
+      }
+      if (termContainsInView(term)) {
+        throw new Error("inView is stratified: no inView inside inView.term (SPEC-2 \xA73.1)");
+      }
+      const field = v["field"];
+      if (field !== "author" && field !== "id") throw new Error("inView.field must be author | id");
+      return { kind: "inView", term, field, extract: parseExtract(v["extract"]) };
+    }
+    throw new Error("pred must be true | false | match | hasPointer | and | or | not | inView");
+  }
+  function parseExtract(raw) {
+    const o = asObject(raw, "inView.extract");
+    if (o["field"] !== void 0) {
+      if (o["field"] !== "author" && o["field"] !== "id") {
+        throw new Error("inView.extract.field must be author | id");
+      }
+      return { kind: "field", field: o["field"] };
+    }
+    if (typeof o["role"] === "string") return { kind: "role", role: nfc(o["role"]) };
+    throw new Error("inView.extract must be {field: author|id} | {role: string}");
   }
   function parseMaskPolicy(raw) {
     if (raw === "drop") return { kind: "drop" };
@@ -2115,9 +2254,17 @@
     }
     if (o["byPred"] !== void 0) {
       const p = asObject(o["byPred"], "byPred");
-      return { kind: "byPred", pred: parsePred(p["pred"]), then: parseOrder(p["then"]) };
+      const pred = parsePred(p["pred"]);
+      if (predContainsInView(pred)) {
+        throw new Error("inView is not allowed inside a policy byPred predicate (SPEC-2 \xA73.1)");
+      }
+      return { kind: "byPred", pred, then: parseOrder(p["then"]) };
     }
-    throw new Error("order must be lexById | byTimestamp | byAuthorRank | byPred");
+    if (Array.isArray(o["chain"])) {
+      if (o["chain"].length === 0) throw new Error("chain must name at least one order");
+      return { kind: "chain", orders: o["chain"].map(parseOrder) };
+    }
+    throw new Error("order must be lexById | byTimestamp | byAuthorRank | byPred | chain");
   }
   function parsePropPolicy(raw) {
     const o = asObject(raw, "propPolicy");
@@ -4622,7 +4769,7 @@
     }
   }
   function isRootAnchored(term, registry) {
-    if (!termAnchored(term)) return false;
+    if (!termAnchored(term) || termContainsInView(term)) return false;
     const seen = /* @__PURE__ */ new Set();
     const queue = [...collectRefs(term)];
     while (queue.length > 0) {
@@ -4632,7 +4779,7 @@
       seen.add(key);
       const schema = registry?.resolve(ref);
       if (schema === void 0) return false;
-      if (!termAnchored(schema.body)) return false;
+      if (!termAnchored(schema.body) || termContainsInView(schema.body)) return false;
       queue.push(...collectRefs(schema.body));
     }
     return true;
@@ -7074,12 +7221,136 @@
               }
             ]
           }
+        },
+        {
+          name: "w1-bio-old",
+          id: "1e201dcf76c37cc1e509557f84a5c9602e3b93f4adcc64b2a2fff1adf007191d79d0",
+          claims: {
+            timestamp: 100,
+            author: "did:key:zAlice",
+            pointers: [
+              {
+                role: "subject",
+                target: {
+                  id: "person:wren",
+                  context: "bio"
+                }
+              },
+              {
+                role: "value",
+                target: "Founder of the village archive"
+              }
+            ]
+          }
+        },
+        {
+          name: "w2-bio-new",
+          id: "1e20fbc7c918d328eb930d126b52c67e106f121d97faa00643390670f162aa277025",
+          claims: {
+            timestamp: 500,
+            author: "did:key:zAlice",
+            pointers: [
+              {
+                role: "subject",
+                target: {
+                  id: "person:wren",
+                  context: "bio"
+                }
+              },
+              {
+                role: "value",
+                target: "Archivist and cartographer"
+              }
+            ]
+          }
+        },
+        {
+          name: "f1-bio-unranked",
+          id: "1e204ba8cfdda0237d8a1a3eb1e63c6712d78555528129d56f2f47288b8c28c168e8",
+          claims: {
+            timestamp: 900,
+            author: "did:key:zCarol",
+            pointers: [
+              {
+                role: "subject",
+                target: {
+                  id: "person:wren",
+                  context: "bio"
+                }
+              },
+              {
+                role: "value",
+                target: "Retired from public life"
+              }
+            ]
+          }
+        },
+        {
+          name: "m1-motto-a",
+          id: "1e207a4a17d0653ce00ba5d45aacbc2a294a0c583d2193ec09a79b7ecabe8aca3ddb",
+          claims: {
+            timestamp: 400,
+            author: "did:key:zAlice",
+            pointers: [
+              {
+                role: "subject",
+                target: {
+                  id: "person:wren",
+                  context: "motto"
+                }
+              },
+              {
+                role: "value",
+                target: "measure twice"
+              }
+            ]
+          }
+        },
+        {
+          name: "m2-motto-b",
+          id: "1e20abd7e2d841c82eb797b2b113fbae203637fb158b5664ae8d7b8fd9d4dbb0bfeb",
+          claims: {
+            timestamp: 400,
+            author: "did:key:zBob",
+            pointers: [
+              {
+                role: "subject",
+                target: {
+                  id: "person:wren",
+                  context: "motto"
+                }
+              },
+              {
+                role: "value",
+                target: "cut once"
+              }
+            ]
+          }
         }
       ]
     },
     schemas: [
       {
         name: "MovieRaw",
+        alg: 1,
+        body: {
+          op: "group",
+          key: "byTargetContext",
+          in: {
+            op: "select",
+            pred: {
+              hasPointer: {
+                targetEntity: {
+                  var: "root"
+                }
+              }
+            },
+            in: "input"
+          }
+        }
+      },
+      {
+        name: "PersonRaw",
         alg: 1,
         body: {
           op: "group",
@@ -7599,6 +7870,232 @@
           }
         },
         expectedCanonicalHex: "a66374616766616374696f6e6463617374a2656163746f72a2646e616d656c4b65616e75205265657665736b66696c6d6f677261706879a2656d6f7669656c6d6f7669653a6d617472697869636861726163746572634e656f69636861726163746572634e656f6473697a65f94200657469746c656a546865204d617472697866726174696e67fb40223333333333336b72656c6561736559656172f967cf"
+      },
+      {
+        name: "author-rank-terminal-ties-lexById",
+        spec: "SPEC-5 \xA73 byAuthorRank (tie-permissive: ties fall to the structural lexById)",
+        note: "rank alone cannot see recency: Alice's two bios tie, whichever id sorts first wins",
+        term: {
+          op: "resolve",
+          policy: {
+            props: {
+              bio: {
+                pick: {
+                  order: {
+                    byAuthorRank: [
+                      "did:key:zAlice"
+                    ]
+                  }
+                }
+              }
+            },
+            default: {
+              pick: {
+                order: {
+                  byTimestamp: "desc"
+                }
+              }
+            }
+          },
+          in: {
+            op: "fix",
+            schema: "PersonRaw",
+            entity: "person:wren"
+          }
+        },
+        expectedView: {
+          bio: "Founder of the village archive",
+          motto: "measure twice"
+        },
+        expectedCanonicalHex: "a26362696f781e466f756e646572206f66207468652076696c6c6167652061726368697665656d6f74746f6d6d656173757265207477696365"
+      },
+      {
+        name: "chain-trusted-then-latest",
+        spec: "SPEC-5 \xA73 chain (trusted, then latest)",
+        note: "unranked Carol's newest bio loses to Alice; among Alice's own, recency decides: Archivist and cartographer",
+        term: {
+          op: "resolve",
+          policy: {
+            props: {
+              bio: {
+                pick: {
+                  order: {
+                    chain: [
+                      {
+                        byAuthorRank: [
+                          "did:key:zAlice"
+                        ]
+                      },
+                      {
+                        byTimestamp: "desc"
+                      }
+                    ]
+                  }
+                }
+              }
+            },
+            default: {
+              pick: {
+                order: {
+                  byTimestamp: "desc"
+                }
+              }
+            }
+          },
+          in: {
+            op: "fix",
+            schema: "PersonRaw",
+            entity: "person:wren"
+          }
+        },
+        expectedView: {
+          bio: "Archivist and cartographer",
+          motto: "measure twice"
+        },
+        expectedCanonicalHex: "a26362696f781a41726368697669737420616e6420636172746f67726170686572656d6f74746f6d6d656173757265207477696365"
+      },
+      {
+        name: "chain-latest-then-rank",
+        spec: "SPEC-5 \xA73 chain (latest, rank as tiebreak)",
+        note: "mottoes tie at ts 400; rank breaks the tie: Alice's first",
+        term: {
+          op: "resolve",
+          policy: {
+            props: {
+              motto: {
+                all: {
+                  order: {
+                    chain: [
+                      {
+                        byTimestamp: "desc"
+                      },
+                      {
+                        byAuthorRank: [
+                          "did:key:zAlice",
+                          "did:key:zBob",
+                          "did:key:zCarol"
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
+            },
+            default: {
+              pick: {
+                order: {
+                  byTimestamp: "desc"
+                }
+              }
+            }
+          },
+          in: {
+            op: "fix",
+            schema: "PersonRaw",
+            entity: "person:wren"
+          }
+        },
+        expectedView: {
+          motto: [
+            "measure twice",
+            "cut once"
+          ],
+          bio: "Retired from public life"
+        },
+        expectedCanonicalHex: "a26362696f7818526574697265642066726f6d207075626c6963206c696665656d6f74746f826d6d65617375726520747769636568637574206f6e6365"
+      },
+      {
+        name: "chain-indecisive-falls-to-lexById",
+        spec: "SPEC-5 \xA73 chain / R3 (a fully tied chain ends at the implicit lexById)",
+        note: "a one-link chain is its link: same View as author-rank-terminal-ties-lexById",
+        term: {
+          op: "resolve",
+          policy: {
+            props: {
+              bio: {
+                pick: {
+                  order: {
+                    chain: [
+                      {
+                        byAuthorRank: [
+                          "did:key:zAlice"
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
+            },
+            default: {
+              pick: {
+                order: {
+                  byTimestamp: "desc"
+                }
+              }
+            }
+          },
+          in: {
+            op: "fix",
+            schema: "PersonRaw",
+            entity: "person:wren"
+          }
+        },
+        expectedView: {
+          bio: "Founder of the village archive",
+          motto: "measure twice"
+        },
+        expectedCanonicalHex: "a26362696f781e466f756e646572206f66207468652076696c6c6167652061726368697665656d6f74746f6d6d656173757265207477696365"
+      },
+      {
+        name: "chain-under-byPred",
+        spec: "SPEC-5 \xA73 byPred + chain compose",
+        note: "Alice's claims first, then her oldest: Founder of the village archive",
+        term: {
+          op: "resolve",
+          policy: {
+            props: {
+              bio: {
+                pick: {
+                  order: {
+                    byPred: {
+                      pred: {
+                        match: {
+                          field: "author",
+                          cmp: "eq",
+                          const: "did:key:zAlice"
+                        }
+                      },
+                      then: {
+                        chain: [
+                          {
+                            byTimestamp: "asc"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            default: {
+              pick: {
+                order: {
+                  byTimestamp: "desc"
+                }
+              }
+            }
+          },
+          in: {
+            op: "fix",
+            schema: "PersonRaw",
+            entity: "person:wren"
+          }
+        },
+        expectedView: {
+          bio: "Founder of the village archive",
+          motto: "measure twice"
+        },
+        expectedCanonicalHex: "a26362696f781e466f756e646572206f66207468652076696c6c6167652061726368697665656d6f74746f6d6d656173757265207477696365"
       }
     ]
   };

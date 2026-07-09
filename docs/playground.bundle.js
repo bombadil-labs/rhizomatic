@@ -821,6 +821,19 @@
     if (bound === void 0) throw new Error(`unbound hole "${p.name}" (E15)`);
     return bound;
   }
+  function predContainsInView(pred) {
+    switch (pred.kind) {
+      case "inView":
+        return true;
+      case "and":
+      case "or":
+        return predContainsInView(pred.left) || predContainsInView(pred.right);
+      case "not":
+        return predContainsInView(pred.pred);
+      default:
+        return false;
+    }
+  }
   var utf82 = new TextEncoder();
   function utf8Compare(a, b) {
     const ab = utf82.encode(a);
@@ -979,6 +992,8 @@
         };
       case "not":
         return { kind: "not", pred: substituteHoles(pred.pred, bindings) };
+      case "inView":
+        return pred;
     }
   }
   function evalPred(pred, delta, root, bindings) {
@@ -1001,6 +1016,8 @@
         return evalPred(pred.left, delta, root, bindings) || evalPred(pred.right, delta, root, bindings);
       case "not":
         return !evalPred(pred.pred, delta, root, bindings);
+      case "inView":
+        throw new Error("inView must be resolved before matching (SPEC-2 \xA73.1)");
     }
   }
 
@@ -1024,6 +1041,13 @@
         const bm = evalPred(order.pred, b.delta) ? 0 : 1;
         if (am !== bm) return am - bm;
         return cmpByOrder(order.then, a, b);
+      }
+      case "chain": {
+        for (const o of order.orders) {
+          const c = cmpByOrder(o, a, b);
+          if (c !== 0) return c;
+        }
+        return 0;
       }
       case "lexById":
         return a.delta.id < b.delta.id ? -1 : a.delta.id > b.delta.id ? 1 : 0;
@@ -1473,6 +1497,73 @@
         };
       case "not":
         return { kind: "not", pred: expandAliased(pred.pred, input, root) };
+      case "inView":
+        return pred;
+    }
+  }
+  function extractReflected(extract, set) {
+    const out = /* @__PURE__ */ new Set();
+    for (const d of set) {
+      if (extract.kind === "field") {
+        out.add(extract.field === "author" ? d.claims.author : d.id);
+        continue;
+      }
+      for (const ptr of d.claims.pointers) {
+        if (ptr.role !== extract.role) continue;
+        const t = ptr.target;
+        if (t.kind === "entity") out.add(t.entity.id);
+        else if (t.kind === "delta") out.add(t.deltaRef.delta);
+        else if (typeof t.value === "string") out.add(t.value);
+      }
+    }
+    return [...out].sort(comparePrimitives);
+  }
+  function resolveReflective(pred, input, root, registry, bindings) {
+    switch (pred.kind) {
+      case "inView": {
+        const sub = evalTerm(pred.term, input, root, registry, bindings);
+        if (sub.sort !== "dset") throw new Error("inView.term must evaluate to a DSet (E9)");
+        return {
+          kind: "match",
+          field: pred.field,
+          cmp: "inSet",
+          constant: extractReflected(pred.extract, sub.set)
+        };
+      }
+      case "and":
+        return {
+          kind: "and",
+          left: resolveReflective(pred.left, input, root, registry, bindings),
+          right: resolveReflective(pred.right, input, root, registry, bindings)
+        };
+      case "or":
+        return {
+          kind: "or",
+          left: resolveReflective(pred.left, input, root, registry, bindings),
+          right: resolveReflective(pred.right, input, root, registry, bindings)
+        };
+      case "not":
+        return { kind: "not", pred: resolveReflective(pred.pred, input, root, registry, bindings) };
+      default:
+        return pred;
+    }
+  }
+  function termContainsInView(t) {
+    switch (t.kind) {
+      case "input":
+      case "fix":
+        return false;
+      case "select":
+        return predContainsInView(t.pred) || termContainsInView(t.of);
+      case "union":
+        return termContainsInView(t.left) || termContainsInView(t.right);
+      case "mask":
+        return t.policy.kind === "trust" && predContainsInView(t.policy.pred) || termContainsInView(t.of);
+      case "group":
+      case "prune":
+      case "expand":
+      case "resolve":
+        return termContainsInView(t.of);
     }
   }
   function evalGroup(key, operand, root) {
@@ -1515,7 +1606,13 @@
         return dsetResult(input);
       case "select": {
         const of = expectDSet(evalTerm(term.of, input, root, registry, bindings), "select");
-        const pred = expandAliased(substituteHoles(term.pred, bindings), input, root);
+        const pred = resolveReflective(
+          expandAliased(substituteHoles(term.pred, bindings), input, root),
+          input,
+          root,
+          registry,
+          bindings
+        );
         return dsetResult(fork(of.set, (d) => evalPred(pred, d, root)));
       }
       case "union": {
@@ -1535,7 +1632,13 @@
             return { sort: "dset", set: of.set, negated, annotated: true };
           }
           case "trust": {
-            const pred = expandAliased(substituteHoles(term.policy.pred, bindings), input, root);
+            const pred = resolveReflective(
+              expandAliased(substituteHoles(term.policy.pred, bindings), input, root),
+              input,
+              root,
+              registry,
+              bindings
+            );
             const negated = computeNegated(of.set, (n) => evalPred(pred, n, root));
             return dsetResult(fork(of.set, (d) => !negated.has(d.id)));
           }
@@ -1732,6 +1835,8 @@
       case "not":
         assertClosedTrustPred(p.pred, what);
         return;
+      case "inView":
+        throw new Error(`${what}: inView is not allowed inside an aliased trust predicate`);
     }
   }
   function parseValMatch(raw, what) {
@@ -1831,7 +1936,31 @@
       return key === "and" ? { kind: "and", left, right } : { kind: "or", left, right };
     }
     if (o["not"] !== void 0) return { kind: "not", pred: parsePred(o["not"]) };
-    throw new Error("pred must be true | false | match | hasPointer | and | or | not");
+    if (o["inView"] !== void 0) {
+      const v = asObject(o["inView"], "inView");
+      const term = parseTerm(v["term"]);
+      if (term.kind !== "input" && term.kind !== "select" && term.kind !== "union" && term.kind !== "mask") {
+        throw new Error("inView.term must be a DSet-sort term (input | select | union | mask)");
+      }
+      if (termContainsInView(term)) {
+        throw new Error("inView is stratified: no inView inside inView.term (SPEC-2 \xA73.1)");
+      }
+      const field = v["field"];
+      if (field !== "author" && field !== "id") throw new Error("inView.field must be author | id");
+      return { kind: "inView", term, field, extract: parseExtract(v["extract"]) };
+    }
+    throw new Error("pred must be true | false | match | hasPointer | and | or | not | inView");
+  }
+  function parseExtract(raw) {
+    const o = asObject(raw, "inView.extract");
+    if (o["field"] !== void 0) {
+      if (o["field"] !== "author" && o["field"] !== "id") {
+        throw new Error("inView.extract.field must be author | id");
+      }
+      return { kind: "field", field: o["field"] };
+    }
+    if (typeof o["role"] === "string") return { kind: "role", role: nfc(o["role"]) };
+    throw new Error("inView.extract must be {field: author|id} | {role: string}");
   }
   function parseMaskPolicy(raw) {
     if (raw === "drop") return { kind: "drop" };
@@ -1861,9 +1990,17 @@
     }
     if (o["byPred"] !== void 0) {
       const p = asObject(o["byPred"], "byPred");
-      return { kind: "byPred", pred: parsePred(p["pred"]), then: parseOrder(p["then"]) };
+      const pred = parsePred(p["pred"]);
+      if (predContainsInView(pred)) {
+        throw new Error("inView is not allowed inside a policy byPred predicate (SPEC-2 \xA73.1)");
+      }
+      return { kind: "byPred", pred, then: parseOrder(p["then"]) };
     }
-    throw new Error("order must be lexById | byTimestamp | byAuthorRank | byPred");
+    if (Array.isArray(o["chain"])) {
+      if (o["chain"].length === 0) throw new Error("chain must name at least one order");
+      return { kind: "chain", orders: o["chain"].map(parseOrder) };
+    }
+    throw new Error("order must be lexById | byTimestamp | byAuthorRank | byPred | chain");
   }
   function parsePropPolicy(raw) {
     const o = asObject(raw, "propPolicy");
@@ -4031,7 +4168,7 @@
     }
   }
   function isRootAnchored(term, registry) {
-    if (!termAnchored(term)) return false;
+    if (!termAnchored(term) || termContainsInView(term)) return false;
     const seen = /* @__PURE__ */ new Set();
     const queue = [...collectRefs(term)];
     while (queue.length > 0) {
@@ -4041,7 +4178,7 @@
       seen.add(key);
       const schema = registry?.resolve(ref);
       if (schema === void 0) return false;
-      if (!termAnchored(schema.body)) return false;
+      if (!termAnchored(schema.body) || termContainsInView(schema.body)) return false;
       queue.push(...collectRefs(schema.body));
     }
     return true;
