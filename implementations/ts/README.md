@@ -57,5 +57,7 @@ or [Apache-2.0](https://github.com/bombadil-labs/rhizomatic/blob/main/LICENSE-AP
 
 Publishing is cutting a tag: `npm run release:patch|minor|major` bumps the version, commits, tags
 `rhizomatic-vX.Y.Z`, and pushes; the [release workflow](../../.github/workflows/release.yml) then
-runs the full green-gate and publishes to npm with provenance (auth = the repo's `NPM_TOKEN`
-secret — no npm login or OTP on any workstation).
+runs the full green-gate and publishes to npm via **trusted publishing** (OIDC — the workflow
+identity is the credential; no tokens anywhere, provenance automatic). The registry-side half is
+the package's npmjs.com *Trusted Publisher* setting: GitHub Actions, `bombadil-labs/rhizomatic`,
+workflow `release.yml`.

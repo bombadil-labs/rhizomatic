@@ -1,6 +1,8 @@
 # Publishing is cutting a tag: push `rhizomatic-vX.Y.Z` and this workflow runs the TS witness's
 # full green-gate, verifies the tag matches package.json, and publishes @bombadil/rhizomatic to
-# npm with provenance. Auth = the NPM_TOKEN repo secret (a granular token scoped to @bombadil).
+# npm via TRUSTED PUBLISHING (OIDC) — no token, no secret, nothing to rotate. The registry-side
+# half lives in the package's npmjs.com settings: Trusted Publisher = GitHub Actions,
+# bombadil-labs/rhizomatic, workflow release.yml. Provenance is automatic under OIDC.
 # workflow_dispatch exists for re-running a tag whose push predated this workflow.
 name: release
 
@@ -15,7 +17,7 @@ on:
 
 permissions:
   contents: read
-  id-token: write # npm provenance
+  id-token: write # the OIDC token IS the publish credential
 
 jobs:
   publish:
@@ -33,7 +35,8 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: implementations/ts/package-lock.json
-          registry-url: https://registry.npmjs.org
+      - name: npm >= 11.5.1 (trusted publishing needs it; node 22 bundles npm 10)
+        run: npm install -g npm@11
       - run: npm ci
       - name: tag matches package.json (a mistagged release must fail loudly)
         run: |
@@ -44,7 +47,5 @@ jobs:
           fi
       - name: green-gate (format + lint + typecheck + tests)
         run: npm run check
-      - name: publish
-        run: npm publish --provenance
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: publish (OIDC trusted publishing; provenance automatic)
+        run: npm publish
