@@ -135,6 +135,9 @@ fn order_to_json(o: &Order) -> Value {
         Order::ByPred { pred, then } => {
             json!({ "byPred": { "pred": pred_to_json(pred), "then": order_to_json(then) } })
         }
+        Order::Chain(orders) => {
+            json!({ "chain": orders.iter().map(order_to_json).collect::<Vec<_>>() })
+        }
         Order::LexById => json!("lexById"),
     }
 }

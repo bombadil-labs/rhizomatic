@@ -31,6 +31,7 @@ pub enum Order {
     ByTimestamp { desc: bool },
     ByAuthorRank(Vec<String>),
     ByPred { pred: Pred, then: Box<Order> },
+    Chain(Vec<Order>),
     LexById,
 }
 
@@ -86,6 +87,11 @@ fn cmp_by_order(order: &Order, a: &HVEntry, b: &HVEntry) -> Ordering {
                 o => o, // matches (false < true after negation) first
             }
         }
+        Order::Chain(orders) => orders
+            .iter()
+            .map(|o| cmp_by_order(o, a, b))
+            .find(|c| *c != Ordering::Equal)
+            .unwrap_or(Ordering::Equal),
         Order::LexById => a.delta.id.cmp(&b.delta.id),
     }
 }

@@ -359,7 +359,14 @@ fn parse_order(raw: &Value) -> Result<Order, String> {
             then: Box::new(parse_order(po.get("then").unwrap_or(&Value::Null))?),
         });
     }
-    Err("order must be lexById | byTimestamp | byAuthorRank | byPred".to_string())
+    if let Some(arr) = o.get("chain").and_then(Value::as_array) {
+        if arr.is_empty() {
+            return Err("chain must name at least one order".to_string());
+        }
+        let orders = arr.iter().map(parse_order).collect::<Result<Vec<_>, _>>()?;
+        return Ok(Order::Chain(orders));
+    }
+    Err("order must be lexById | byTimestamp | byAuthorRank | byPred | chain".to_string())
 }
 
 fn parse_prop_policy(raw: &Value) -> Result<PropPolicy, String> {

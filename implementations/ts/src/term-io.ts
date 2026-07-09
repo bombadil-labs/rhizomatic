@@ -98,6 +98,8 @@ function orderToJson(o: Order): unknown {
       return { byAuthorRank: [...o.authors] };
     case "byPred":
       return { byPred: { pred: predToJson(o.pred), then: orderToJson(o.then) } };
+    case "chain":
+      return { chain: o.orders.map(orderToJson) };
     case "lexById":
       return "lexById";
   }

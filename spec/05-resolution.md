@@ -61,6 +61,7 @@ PropPolicy  ::= pick(Order, Tiebreak)        // collapse to one value
 Order       ::= byTimestamp(desc|asc)
               | byAuthorRank(AuthorId[])     // explicit trust list, first match wins
               | byPred(Pred, then: Order)    // partition by predicate, prefer matches
+              | chain(Order[])               // compare by each in turn; first decisive wins
               | lexById                      // deterministic last resort
 
 Tiebreak    ::= lexById                      // MUST terminate in a total order
@@ -71,7 +72,14 @@ MergeFn     ::= max | min | sum | count | and | or | concatSorted
 Normative notes:
 
 - Every `Order` chain MUST bottom out in `lexById` (delta content hashes give a canonical total order), guaranteeing determinism even among byte-equal claims from distinct deltas.
-- `byAuthorRank` is the trust primitive. Trust *lists* are data (representable as deltas), so trust is queryable, forkable, and federated like everything else.
+- `chain` is the composition form: compare by each member in turn, taking the first decisive
+  comparison; a chain whose every member ties falls through to the structural `lexById` like any
+  other order. A `chain` MUST be non-empty (an empty chain is a rejected term, not an identity).
+  `chain([byAuthorRank([...]), byTimestamp(desc)])` is the canonical spelling of *trusted, then
+  latest*; `chain([byTimestamp(desc), byAuthorRank([...])])` of *latest, rank as tiebreak*.
+  Encoding a rank as nested single-author `byPred`s is legal but discouraged — it duplicates what
+  `byAuthorRank` + `chain` say directly.
+- `byAuthorRank` is the trust primitive. Trust *lists* are data (representable as deltas), so trust is queryable, forkable, and federated like everything else. `byAuthorRank` and `byTimestamp` are deliberately tie-*permissive* — composition is `chain`'s job, not a per-order `then`.
 - `MergeFn` is a closed set by the same argument as SPEC-2 §1: arbitrary reducers cannot ship inside policy terms. They are not second-class, however — they are **derived authors** (SPEC-7). *(Open: whether aggregation pressure forces algebra-level support — tracked at SPEC-2 §9.)*
 - `merge(fn)` folds over the property's candidates in **ascending delta-id order** (float addition is order-dependent; the fold order is pinned). Domains: `max`/`min` take all primitive candidates by the canonical total order (SPEC-2 §3); `sum` numeric candidates only; `and`/`or` boolean only; `count` counts all surviving entries regardless of type; `concatSorted` yields all primitive candidates sorted canonically. Non-primitive candidates (§2.1 objects/arrays) are skipped by every MergeFn except `count`. A MergeFn with no candidates in its domain resolves to **absent**.
 - The resolved View includes every property named in `policy.props` — so `absentAs` can fire for properties with no deltas at all — plus every HView property not named, resolved via `default`. Every order chain ends in an **implicit lexById tiebreak**, structurally: determinism does not depend on authors remembering to write it.
@@ -115,6 +123,7 @@ PropPolicy ::= { "pick": { "order": Order } }
 Order      ::= { "byTimestamp": "desc"|"asc" }
              | { "byAuthorRank": [author, ...] }     // first match ranks first; unlisted rank last
              | { "byPred": { "pred": Pred, "then": Order } }   // matches first, then `then`
+             | { "chain": [Order, ...] }             // non-empty; first decisive comparison wins
              | "lexById"
 ```
 

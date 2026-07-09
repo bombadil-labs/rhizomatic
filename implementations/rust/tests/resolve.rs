@@ -115,3 +115,17 @@ fn resolve_demands_hview_operand() {
     let err = eval_term(&term, &input, None, None, None).unwrap_err();
     assert!(err.contains("HView operand"), "got: {err}");
 }
+
+#[test]
+fn empty_chain_is_a_rejected_term() {
+    let err = parse_term(&json!({
+        "op": "resolve",
+        "policy": { "default": { "pick": { "order": { "chain": [] } } } },
+        "in": { "op": "fix", "schema": "MovieRaw", "entity": "movie:matrix" }
+    }))
+    .unwrap_err();
+    assert!(
+        err.contains("chain must name at least one order"),
+        "got: {err}"
+    );
+}

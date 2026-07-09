@@ -255,12 +255,136 @@
             }
           ]
         }
+      },
+      {
+        "name": "w1-bio-old",
+        "id": "1e201dcf76c37cc1e509557f84a5c9602e3b93f4adcc64b2a2fff1adf007191d79d0",
+        "claims": {
+          "timestamp": 100,
+          "author": "did:key:zAlice",
+          "pointers": [
+            {
+              "role": "subject",
+              "target": {
+                "id": "person:wren",
+                "context": "bio"
+              }
+            },
+            {
+              "role": "value",
+              "target": "Founder of the village archive"
+            }
+          ]
+        }
+      },
+      {
+        "name": "w2-bio-new",
+        "id": "1e20fbc7c918d328eb930d126b52c67e106f121d97faa00643390670f162aa277025",
+        "claims": {
+          "timestamp": 500,
+          "author": "did:key:zAlice",
+          "pointers": [
+            {
+              "role": "subject",
+              "target": {
+                "id": "person:wren",
+                "context": "bio"
+              }
+            },
+            {
+              "role": "value",
+              "target": "Archivist and cartographer"
+            }
+          ]
+        }
+      },
+      {
+        "name": "f1-bio-unranked",
+        "id": "1e204ba8cfdda0237d8a1a3eb1e63c6712d78555528129d56f2f47288b8c28c168e8",
+        "claims": {
+          "timestamp": 900,
+          "author": "did:key:zCarol",
+          "pointers": [
+            {
+              "role": "subject",
+              "target": {
+                "id": "person:wren",
+                "context": "bio"
+              }
+            },
+            {
+              "role": "value",
+              "target": "Retired from public life"
+            }
+          ]
+        }
+      },
+      {
+        "name": "m1-motto-a",
+        "id": "1e207a4a17d0653ce00ba5d45aacbc2a294a0c583d2193ec09a79b7ecabe8aca3ddb",
+        "claims": {
+          "timestamp": 400,
+          "author": "did:key:zAlice",
+          "pointers": [
+            {
+              "role": "subject",
+              "target": {
+                "id": "person:wren",
+                "context": "motto"
+              }
+            },
+            {
+              "role": "value",
+              "target": "measure twice"
+            }
+          ]
+        }
+      },
+      {
+        "name": "m2-motto-b",
+        "id": "1e20abd7e2d841c82eb797b2b113fbae203637fb158b5664ae8d7b8fd9d4dbb0bfeb",
+        "claims": {
+          "timestamp": 400,
+          "author": "did:key:zBob",
+          "pointers": [
+            {
+              "role": "subject",
+              "target": {
+                "id": "person:wren",
+                "context": "motto"
+              }
+            },
+            {
+              "role": "value",
+              "target": "cut once"
+            }
+          ]
+        }
       }
     ]
   },
   "schemas": [
     {
       "name": "MovieRaw",
+      "alg": 1,
+      "body": {
+        "op": "group",
+        "key": "byTargetContext",
+        "in": {
+          "op": "select",
+          "pred": {
+            "hasPointer": {
+              "targetEntity": {
+                "var": "root"
+              }
+            }
+          },
+          "in": "input"
+        }
+      }
+    },
+    {
+      "name": "PersonRaw",
       "alg": 1,
       "body": {
         "op": "group",
@@ -780,6 +904,232 @@
         }
       },
       "expectedCanonicalHex": "a66374616766616374696f6e6463617374a2656163746f72a2646e616d656c4b65616e75205265657665736b66696c6d6f677261706879a2656d6f7669656c6d6f7669653a6d617472697869636861726163746572634e656f69636861726163746572634e656f6473697a65f94200657469746c656a546865204d617472697866726174696e67fb40223333333333336b72656c6561736559656172f967cf"
+    },
+    {
+      "name": "author-rank-terminal-ties-lexById",
+      "spec": "SPEC-5 §3 byAuthorRank (tie-permissive: ties fall to the structural lexById)",
+      "note": "rank alone cannot see recency: Alice's two bios tie, whichever id sorts first wins",
+      "term": {
+        "op": "resolve",
+        "policy": {
+          "props": {
+            "bio": {
+              "pick": {
+                "order": {
+                  "byAuthorRank": [
+                    "did:key:zAlice"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "pick": {
+              "order": {
+                "byTimestamp": "desc"
+              }
+            }
+          }
+        },
+        "in": {
+          "op": "fix",
+          "schema": "PersonRaw",
+          "entity": "person:wren"
+        }
+      },
+      "expectedView": {
+        "bio": "Founder of the village archive",
+        "motto": "measure twice"
+      },
+      "expectedCanonicalHex": "a26362696f781e466f756e646572206f66207468652076696c6c6167652061726368697665656d6f74746f6d6d656173757265207477696365"
+    },
+    {
+      "name": "chain-trusted-then-latest",
+      "spec": "SPEC-5 §3 chain (trusted, then latest)",
+      "note": "unranked Carol's newest bio loses to Alice; among Alice's own, recency decides: Archivist and cartographer",
+      "term": {
+        "op": "resolve",
+        "policy": {
+          "props": {
+            "bio": {
+              "pick": {
+                "order": {
+                  "chain": [
+                    {
+                      "byAuthorRank": [
+                        "did:key:zAlice"
+                      ]
+                    },
+                    {
+                      "byTimestamp": "desc"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "pick": {
+              "order": {
+                "byTimestamp": "desc"
+              }
+            }
+          }
+        },
+        "in": {
+          "op": "fix",
+          "schema": "PersonRaw",
+          "entity": "person:wren"
+        }
+      },
+      "expectedView": {
+        "bio": "Archivist and cartographer",
+        "motto": "measure twice"
+      },
+      "expectedCanonicalHex": "a26362696f781a41726368697669737420616e6420636172746f67726170686572656d6f74746f6d6d656173757265207477696365"
+    },
+    {
+      "name": "chain-latest-then-rank",
+      "spec": "SPEC-5 §3 chain (latest, rank as tiebreak)",
+      "note": "mottoes tie at ts 400; rank breaks the tie: Alice's first",
+      "term": {
+        "op": "resolve",
+        "policy": {
+          "props": {
+            "motto": {
+              "all": {
+                "order": {
+                  "chain": [
+                    {
+                      "byTimestamp": "desc"
+                    },
+                    {
+                      "byAuthorRank": [
+                        "did:key:zAlice",
+                        "did:key:zBob",
+                        "did:key:zCarol"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "pick": {
+              "order": {
+                "byTimestamp": "desc"
+              }
+            }
+          }
+        },
+        "in": {
+          "op": "fix",
+          "schema": "PersonRaw",
+          "entity": "person:wren"
+        }
+      },
+      "expectedView": {
+        "motto": [
+          "measure twice",
+          "cut once"
+        ],
+        "bio": "Retired from public life"
+      },
+      "expectedCanonicalHex": "a26362696f7818526574697265642066726f6d207075626c6963206c696665656d6f74746f826d6d65617375726520747769636568637574206f6e6365"
+    },
+    {
+      "name": "chain-indecisive-falls-to-lexById",
+      "spec": "SPEC-5 §3 chain / R3 (a fully tied chain ends at the implicit lexById)",
+      "note": "a one-link chain is its link: same View as author-rank-terminal-ties-lexById",
+      "term": {
+        "op": "resolve",
+        "policy": {
+          "props": {
+            "bio": {
+              "pick": {
+                "order": {
+                  "chain": [
+                    {
+                      "byAuthorRank": [
+                        "did:key:zAlice"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "pick": {
+              "order": {
+                "byTimestamp": "desc"
+              }
+            }
+          }
+        },
+        "in": {
+          "op": "fix",
+          "schema": "PersonRaw",
+          "entity": "person:wren"
+        }
+      },
+      "expectedView": {
+        "bio": "Founder of the village archive",
+        "motto": "measure twice"
+      },
+      "expectedCanonicalHex": "a26362696f781e466f756e646572206f66207468652076696c6c6167652061726368697665656d6f74746f6d6d656173757265207477696365"
+    },
+    {
+      "name": "chain-under-byPred",
+      "spec": "SPEC-5 §3 byPred + chain compose",
+      "note": "Alice's claims first, then her oldest: Founder of the village archive",
+      "term": {
+        "op": "resolve",
+        "policy": {
+          "props": {
+            "bio": {
+              "pick": {
+                "order": {
+                  "byPred": {
+                    "pred": {
+                      "match": {
+                        "field": "author",
+                        "cmp": "eq",
+                        "const": "did:key:zAlice"
+                      }
+                    },
+                    "then": {
+                      "chain": [
+                        {
+                          "byTimestamp": "asc"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "pick": {
+              "order": {
+                "byTimestamp": "desc"
+              }
+            }
+          }
+        },
+        "in": {
+          "op": "fix",
+          "schema": "PersonRaw",
+          "entity": "person:wren"
+        }
+      },
+      "expectedView": {
+        "bio": "Founder of the village archive",
+        "motto": "measure twice"
+      },
+      "expectedCanonicalHex": "a26362696f781e466f756e646572206f66207468652076696c6c6167652061726368697665656d6f74746f6d6d656173757265207477696365"
     }
   ]
 }

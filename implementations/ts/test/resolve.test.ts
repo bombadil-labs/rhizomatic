@@ -78,6 +78,16 @@ describe("l1-eval resolve vectors (SPEC-5)", () => {
     ).toThrow(/HView operand/);
   });
 
+  it("an empty chain is a rejected term, not an identity (SPEC-5 §3)", () => {
+    expect(() =>
+      parseTerm({
+        op: "resolve",
+        policy: { default: { pick: { order: { chain: [] } } } },
+        in: { op: "fix", schema: "MovieRaw", entity: "movie:matrix" },
+      }),
+    ).toThrow(/chain must name at least one order/);
+  });
+
   it("determinism: same policy + hview => byte-identical view", () => {
     const term = parseTerm({
       op: "resolve",

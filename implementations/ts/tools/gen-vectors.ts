@@ -841,6 +841,44 @@ addRfx(
   ]),
 );
 
+// A second root for the chain-composition cases (SPEC-5 §3 chain), so the movie pins above stay
+// byte-stable: Alice holds two bio claims at different times; unranked Carol's is newest of all.
+addRfx(
+  "w1-bio-old",
+  claim(100, A, [
+    { role: "subject", ...subj("person:wren", "bio") },
+    { role: "value", target: "Founder of the village archive" },
+  ]),
+);
+addRfx(
+  "w2-bio-new",
+  claim(500, A, [
+    { role: "subject", ...subj("person:wren", "bio") },
+    { role: "value", target: "Archivist and cartographer" },
+  ]),
+);
+addRfx(
+  "f1-bio-unranked",
+  claim(900, C, [
+    { role: "subject", ...subj("person:wren", "bio") },
+    { role: "value", target: "Retired from public life" },
+  ]),
+);
+addRfx(
+  "m1-motto-a",
+  claim(400, A, [
+    { role: "subject", ...subj("person:wren", "motto") },
+    { role: "value", target: "measure twice" },
+  ]),
+);
+addRfx(
+  "m2-motto-b",
+  claim(400, B, [
+    { role: "subject", ...subj("person:wren", "motto") },
+    { role: "value", target: "cut once" },
+  ]),
+);
+
 const resolveFixtureSet = DeltaSet.from(
   Object.values(rfx).map((f) => makeDelta(parseClaims(f.claims))),
 );
@@ -852,6 +890,7 @@ const rawBody = {
 };
 const resolveSchemas = [
   { name: "MovieRaw", alg: 1, body: rawBody },
+  { name: "PersonRaw", alg: 1, body: rawBody },
   { name: "MovieView", alg: 1, body: canonicalBody },
   { name: "ActorNameV", alg: 1, body: canonicalBody },
   {
@@ -866,6 +905,7 @@ const resolveRegistry = SchemaRegistry.build(
 
 const latest = { pick: { order: { byTimestamp: "desc" } } };
 const fixMovie = (schema: string) => ({ op: "fix", schema, entity: "movie:matrix" });
+const fixWren = { op: "fix", schema: "PersonRaw", entity: "person:wren" };
 const res = (policy: unknown, of: unknown) => ({ op: "resolve", policy, in: of });
 
 const resolveCases: Array<{ name: string; spec: string; term: unknown; note?: string }> = [
@@ -968,6 +1008,79 @@ const resolveCases: Array<{ name: string; spec: string; term: unknown; note?: st
     spec: "ERRATA-5 R1/R6 (multi-pointer candidate; nested View with same policy)",
     term: res({ default: latest }, fixMovie("MovieCast")),
     note: "cast candidate is {actor: {name: Keanu Reeves}, character: Neo}",
+  },
+  {
+    name: "author-rank-terminal-ties-lexById",
+    spec: "SPEC-5 §3 byAuthorRank (tie-permissive: ties fall to the structural lexById)",
+    term: res(
+      { props: { bio: { pick: { order: { byAuthorRank: [A] } } } }, default: latest },
+      fixWren,
+    ),
+    note: "rank alone cannot see recency: Alice's two bios tie, whichever id sorts first wins",
+  },
+  {
+    name: "chain-trusted-then-latest",
+    spec: "SPEC-5 §3 chain (trusted, then latest)",
+    term: res(
+      {
+        props: {
+          bio: {
+            pick: { order: { chain: [{ byAuthorRank: [A] }, { byTimestamp: "desc" }] } },
+          },
+        },
+        default: latest,
+      },
+      fixWren,
+    ),
+    note: "unranked Carol's newest bio loses to Alice; among Alice's own, recency decides: Archivist and cartographer",
+  },
+  {
+    name: "chain-latest-then-rank",
+    spec: "SPEC-5 §3 chain (latest, rank as tiebreak)",
+    term: res(
+      {
+        props: {
+          motto: {
+            all: { order: { chain: [{ byTimestamp: "desc" }, { byAuthorRank: [A, B, C] }] } },
+          },
+        },
+        default: latest,
+      },
+      fixWren,
+    ),
+    note: "mottoes tie at ts 400; rank breaks the tie: Alice's first",
+  },
+  {
+    name: "chain-indecisive-falls-to-lexById",
+    spec: "SPEC-5 §3 chain / R3 (a fully tied chain ends at the implicit lexById)",
+    term: res(
+      { props: { bio: { pick: { order: { chain: [{ byAuthorRank: [A] }] } } } }, default: latest },
+      fixWren,
+    ),
+    note: "a one-link chain is its link: same View as author-rank-terminal-ties-lexById",
+  },
+  {
+    name: "chain-under-byPred",
+    spec: "SPEC-5 §3 byPred + chain compose",
+    term: res(
+      {
+        props: {
+          bio: {
+            pick: {
+              order: {
+                byPred: {
+                  pred: { match: { field: "author", cmp: "eq", const: A } },
+                  then: { chain: [{ byTimestamp: "asc" }] },
+                },
+              },
+            },
+          },
+        },
+        default: latest,
+      },
+      fixWren,
+    ),
+    note: "Alice's claims first, then her oldest: Founder of the village archive",
   },
 ];
 

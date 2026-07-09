@@ -260,7 +260,11 @@ function parseOrder(raw: unknown): Order {
     const p = asObject(o["byPred"], "byPred");
     return { kind: "byPred", pred: parsePred(p["pred"]), then: parseOrder(p["then"]) };
   }
-  throw new Error("order must be lexById | byTimestamp | byAuthorRank | byPred");
+  if (Array.isArray(o["chain"])) {
+    if (o["chain"].length === 0) throw new Error("chain must name at least one order");
+    return { kind: "chain", orders: o["chain"].map(parseOrder) };
+  }
+  throw new Error("order must be lexById | byTimestamp | byAuthorRank | byPred | chain");
 }
 
 function parsePropPolicy(raw: unknown): PropPolicy {

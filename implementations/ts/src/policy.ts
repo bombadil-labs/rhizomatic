@@ -15,6 +15,7 @@ export type Order =
   | { readonly kind: "byTimestamp"; readonly dir: "desc" | "asc" }
   | { readonly kind: "byAuthorRank"; readonly authors: readonly string[] }
   | { readonly kind: "byPred"; readonly pred: Pred; readonly then: Order }
+  | { readonly kind: "chain"; readonly orders: readonly Order[] }
   | { readonly kind: "lexById" };
 
 export type PropPolicy =
@@ -50,6 +51,13 @@ function cmpByOrder(order: Order, a: HVEntry, b: HVEntry): number {
       const bm = evalPred(order.pred, b.delta) ? 0 : 1;
       if (am !== bm) return am - bm; // matches first
       return cmpByOrder(order.then, a, b);
+    }
+    case "chain": {
+      for (const o of order.orders) {
+        const c = cmpByOrder(o, a, b);
+        if (c !== 0) return c;
+      }
+      return 0;
     }
     case "lexById":
       return a.delta.id < b.delta.id ? -1 : a.delta.id > b.delta.id ? 1 : 0;
