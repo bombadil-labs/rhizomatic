@@ -1,5 +1,26 @@
 # Progress
 
+> **RESUME HERE (2026-07-09). TWO ALGEBRA EXTENSIONS SHIPPED from the repo's first
+> outside-user feedback (Loam's federation field test — issues #1 and #2 on
+> bombadil-labs/rhizomatic, both closed):**
+>
+> - **`chain([Order, ...])`** (SPEC-5 §3/§7) — Order composition. *Trusted, then latest* —
+>   `chain([byAuthorRank([...]), byTimestamp(desc)])` — is directly expressible; terminal orders
+>   stay tie-permissive by design. Five new resolve vectors over a second fixture root (the
+>   original ten pins stayed byte-stable).
+> - **`inView(term, field, extract)`** (SPEC-2 §3.1, ERRATA-2 E16) — reflective predicates:
+>   dynamic trust sets as views over the same delta-set. Negation masks can honor only authors
+>   holding a surviving, operator-rooted grant; the same roster serves select-side admission.
+>   Depth-1 stratified (parse-rejected deeper); lowered to `inSet` beside hole substitution and
+>   alias expansion, so evaluation stays in the closed fragment; reflective terms are never
+>   root-anchored (broad dispatch, SPEC-4 §4.1). New `eval-reflective.json` vectors + reactor
+>   property tests (incremental ≡ batch with grants landing outside the root's support).
+>
+> Both witnesses green, canonical bytes match, `node tools/check-all.mjs` clean. Open follow-ups
+> recorded at SPEC-2 §10: reflective dispatch narrowing, reflective depth >1.
+>
+> ---
+>
 > **RESUME HERE (2026-06-15, later). THE PLUGGABLE PERSISTENCE TIER SHIPPED
 > (branch `feature/persistence-tier`); the next unit is FEDERATION v1.**
 > Chorus persistence is now a seam, not a flat file. A `Store` interface
