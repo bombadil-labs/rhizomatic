@@ -1,0 +1,50 @@
+# Publishing is cutting a tag: push `rhizomatic-vX.Y.Z` and this workflow runs the TS witness's
+# full green-gate, verifies the tag matches package.json, and publishes @bombadil/rhizomatic to
+# npm with provenance. Auth = the NPM_TOKEN repo secret (a granular token scoped to @bombadil).
+# workflow_dispatch exists for re-running a tag whose push predated this workflow.
+name: release
+
+on:
+  push:
+    tags: ["rhizomatic-v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing rhizomatic-vX.Y.Z tag to publish"
+        required: true
+
+permissions:
+  contents: read
+  id-token: write # npm provenance
+
+jobs:
+  publish:
+    name: Publish @bombadil/rhizomatic
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: implementations/ts
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: implementations/ts/package-lock.json
+          registry-url: https://registry.npmjs.org
+      - run: npm ci
+      - name: tag matches package.json (a mistagged release must fail loudly)
+        run: |
+          TAG="${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"
+          PKG="rhizomatic-v$(node -p "require('./package.json').version")"
+          if [ "$TAG" != "$PKG" ]; then
+            echo "tag $TAG != package version $PKG"; exit 1
+          fi
+      - name: green-gate (format + lint + typecheck + tests)
+        run: npm run check
+      - name: publish
+        run: npm publish --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

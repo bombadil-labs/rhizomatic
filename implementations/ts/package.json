@@ -5,14 +5,14 @@
   "description": "Rhizomatic (TypeScript) — a portable format for arbitrarily-relational data: signed, content-addressed deltas; union merge (grow-only CRDT); truth resolved per-reader. One of two parallel witnesses to the spec.",
   "license": "MIT OR Apache-2.0",
   "author": "Mykola Bilokonsky",
-  "homepage": "https://github.com/mbilokonsky/rhizomatic#readme",
+  "homepage": "https://github.com/bombadil-labs/rhizomatic#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/mbilokonsky/rhizomatic.git",
+    "url": "git+https://github.com/bombadil-labs/rhizomatic.git",
     "directory": "implementations/ts"
   },
   "bugs": {
-    "url": "https://github.com/mbilokonsky/rhizomatic/issues"
+    "url": "https://github.com/bombadil-labs/rhizomatic/issues"
   },
   "keywords": [
     "crdt",
@@ -47,10 +47,9 @@
     "prepare": "npm run build",
     "preversion": "npm run check",
     "version": "npm run build",
-    "postversion": "git push --follow-tags",
-    "release:patch": "npm version patch && npm publish",
-    "release:minor": "npm version minor && npm publish",
-    "release:major": "npm version major && npm publish",
+    "release:patch": "tsx tools/release.ts patch",
+    "release:minor": "tsx tools/release.ts minor",
+    "release:major": "tsx tools/release.ts major",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
