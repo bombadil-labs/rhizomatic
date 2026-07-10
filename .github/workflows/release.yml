@@ -30,15 +30,15 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+      # Node 24 bundles npm >= 11.5.1, the floor for trusted publishing. Do NOT "upgrade" npm
+      # in-place instead (npm i -g npm@latest overwrites the tree npm is running from and can
+      # leave it half-replaced — we hit a missing-sigstore crash exactly that way).
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
           cache-dependency-path: implementations/ts/package-lock.json
-      - name: npm >= 11.5.1 (trusted publishing needs it; node 22 bundles npm 10)
-        run: |
-          npm install -g npm@latest
-          npm -v
+      - run: npm -v
       - run: npm ci
       - name: tag matches package.json (a mistagged release must fail loudly)
         run: |
