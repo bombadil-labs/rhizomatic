@@ -117,4 +117,33 @@ Filled in as each implementation is scaffolded.
 - Chorus (app layer): `cd apps/chorus && npm test` · demo `npm run chorus:demo` ·
   MCP server `npm run chorus:mcp` · console `npm run chorus:console`
 - Parity (both witnesses + the app layer, one command): `node tools/check-all.mjs` from the repo root
-- CI: `.github/workflows/ci.yml` runs both green-gates + a vector-freshness check on every push
+- CI: `.github/workflows/ci.yml` runs both green-gates + docs- and vector-freshness checks on
+  every push. Any TS source change also requires `npm run docs:build` (the tour + playground
+  bundles under `docs/` are committed bytes and CI diffs them) — regenerate and commit alongside.
+
+## Releasing (`@bombadil/rhizomatic` to npm)
+
+Publishing is cutting a tag; CI does the rest. When asked to cut a release:
+
+1. Preconditions: main is green (CI passed on the head commit), tree clean, work already merged —
+   the release commit should contain nothing but the version bump.
+2. Pick the bump: `patch` for fixes, `minor` for backward-compatible spec/grammar additions (new
+   operators, orders, predicate forms), `major` for anything changing the meaning of existing terms.
+3. From `implementations/ts`: `npm run release:patch|minor|major`. That runs the green-gate, bumps,
+   commits, tags `rhizomatic-vX.Y.Z`, and pushes. Do NOT use bare `npm version` — its git
+   integration silently no-ops in a monorepo subdirectory.
+4. The tag triggers `.github/workflows/release.yml`: green-gate → tag==package.json check →
+   `npm publish --provenance` via **OIDC trusted publishing**. No npm tokens, secrets, or OTPs
+   exist anywhere — the registry trusts this repo's `release.yml` per the package's npmjs.com
+   Trusted Publisher setting. Never reintroduce token auth.
+5. Verify: watch the run (`gh run watch`), then `npm view @bombadil/rhizomatic versions` must show
+   the new version as `latest`.
+
+Failure lore (2026-07-10): `ENEEDAUTH` in the workflow is almost never about logging in — a 404 on
+the `…/oidc/token/exchange/…` request means the npmjs.com Trusted Publisher fields don't match
+(filename `release.yml`, org `bombadil-labs`, repo `rhizomatic`, environment blank). Never
+`npm install -g npm` inside CI — it half-replaces the running npm tree (missing-sigstore crashes,
+silent auth failures); the workflow pins Node 24 for its bundled npm ≥ 11.5.1. A tag that predates
+a workflow fix can be re-run with `gh workflow run release.yml -f tag=rhizomatic-vX.Y.Z`, and
+re-running an already-published tag is the standard harmless probe: it must fail on the version
+conflict only, *after* a 201 token exchange.
