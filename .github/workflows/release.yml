@@ -50,6 +50,6 @@ jobs:
       - name: green-gate (format + lint + typecheck + tests)
         run: npm run check
       - name: publish (OIDC trusted publishing)
-        # --provenance is spelled out despite docs claiming it's automatic (field reports differ);
-        # http loglevel surfaces whether the OIDC exchange is attempted at all.
-        run: npm publish --provenance --loglevel=http
+        # --provenance is spelled out despite docs claiming it's automatic (field reports differ).
+        # Verified 2026-07-10: token exchange 201 against the package's Trusted Publisher config.
+        run: npm publish --provenance
