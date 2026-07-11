@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { decode, encode } from "../src/cbor.js";
 import { evalTerm, resultCanonicalHex } from "../src/eval.js";
 import { parseClaims } from "../src/json-profile.js";
-import { SCHEMA_SCHEMA, loadSchema, publishSchemaClaims } from "../src/schema-deltas.js";
+import { HYPER_SCHEMA_SCHEMA, loadSchema, publishSchemaClaims } from "../src/schema-deltas.js";
 import { SchemaRegistry } from "../src/schema.js";
 import { DeltaSet, makeDelta, merge } from "../src/set.js";
 import { termCanonicalHex, termHash, termToJson } from "../src/term-io.js";
@@ -41,10 +41,10 @@ const expandRegistry = SchemaRegistry.build(
 
 describe("term canonical CBOR + hashes (E12)", () => {
   it("the bootstrap constant reproduces", () => {
-    expect(SCHEMA_SCHEMA.name).toBe(doc.bootstrap.name);
-    expect(termToJson(SCHEMA_SCHEMA.body)).toEqual(doc.bootstrap.termJson);
-    expect(termCanonicalHex(SCHEMA_SCHEMA.body)).toBe(doc.bootstrap.canonicalCborHex);
-    expect(termHash(SCHEMA_SCHEMA.body)).toBe(doc.bootstrap.termHash);
+    expect(HYPER_SCHEMA_SCHEMA.name).toBe(doc.bootstrap.name);
+    expect(termToJson(HYPER_SCHEMA_SCHEMA.body)).toEqual(doc.bootstrap.termJson);
+    expect(termCanonicalHex(HYPER_SCHEMA_SCHEMA.body)).toBe(doc.bootstrap.canonicalCborHex);
+    expect(termHash(HYPER_SCHEMA_SCHEMA.body)).toBe(doc.bootstrap.termHash);
   });
 
   for (const h of doc.termHashes) {

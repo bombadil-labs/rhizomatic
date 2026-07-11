@@ -1,5 +1,6 @@
-// Schemas as deltas (SPEC-3 §5, ERRATA-3 S1-S3): the at-rest, federated form of a schema, and the
-// rdb.SchemaSchema bootstrap — the one hand-specified schema, through which all others are read.
+// HyperSchemas as deltas (SPEC-3 §5, ERRATA-3 S1-S3): the at-rest, federated form of a
+// hyperschema, and the rhizomatic.HyperSchemaSchema bootstrap — the one hand-specified
+// hyperschema, through which all others are read.
 
 import { decode } from "./cbor.js";
 import type { Term } from "./eval.js";
@@ -14,14 +15,14 @@ import { VOCAB_PREFIX } from "./vocab.js";
 
 export { VOCAB_PREFIX } from "./vocab.js";
 
-const ROLE_DEFINES = `${VOCAB_PREFIX}.schema.defines`;
-const ROLE_NAME = `${VOCAB_PREFIX}.schema.name`;
-const ROLE_ALG = `${VOCAB_PREFIX}.schema.alg`;
-const ROLE_TERM = `${VOCAB_PREFIX}.schema.term`;
+const ROLE_DEFINES = `${VOCAB_PREFIX}.hyperschema.defines`;
+const ROLE_NAME = `${VOCAB_PREFIX}.hyperschema.name`;
+const ROLE_ALG = `${VOCAB_PREFIX}.hyperschema.alg`;
+const ROLE_TERM = `${VOCAB_PREFIX}.hyperschema.term`;
 
 // The bootstrap (S2): the canonical idiom, hand-specified. Everything else is read using it.
-export const SCHEMA_SCHEMA: HyperSchema = {
-  name: `${VOCAB_PREFIX}.SchemaSchema`,
+export const HYPER_SCHEMA_SCHEMA: HyperSchema = {
+  name: `${VOCAB_PREFIX}.HyperSchemaSchema`,
   alg: 1,
   body: parseTerm({
     op: "group",
@@ -71,7 +72,7 @@ function primitiveOf(claims: Claims, role: string): string | number | undefined 
 // take the latest surviving definition (claimed timestamp, lexById tiebreak — a policy choice),
 // decode the term, and verify canonicality by re-encoding.
 export function loadSchema(dset: DeltaSet, schemaEntity: string): HyperSchema {
-  const result = evalTerm(SCHEMA_SCHEMA.body, dset, schemaEntity);
+  const result = evalTerm(HYPER_SCHEMA_SCHEMA.body, dset, schemaEntity);
   if (result.sort !== "hview") throw new Error("bootstrap body must yield an HView");
   const defs = result.hview.props.get("definition") ?? [];
   if (defs.length === 0) throw new Error(`no surviving schema definition for ${schemaEntity}`);

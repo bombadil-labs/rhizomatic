@@ -3,11 +3,11 @@
 // to different truths under different policies, at any point in claimed time.
 // All semantics come from the tested library; this file is DOM glue only.
 
-import { resolveView, type Policy, type View } from "../../src/policy.js";
+import { resolveView, type Schema, type View } from "../../src/resolution.js";
 import { type HView } from "../../src/hview.js";
 import { Peer } from "../../src/peer.js";
 import { makeNegationClaims } from "../../src/set.js";
-import { parsePolicy, parseTerm } from "../../src/term-json.js";
+import { parseSchema, parseTerm } from "../../src/term-json.js";
 
 // --- world state ------------------------------------------------------------------------------
 
@@ -56,25 +56,25 @@ function bodyTerm(asOf: number | undefined, audit: boolean) {
   });
 }
 
-function policyFor(kind: string): Policy {
+function schemaFor(kind: string): Schema {
   switch (kind) {
     case "trust-alice":
-      return parsePolicy({
+      return parseSchema({
         default: { pick: { order: { byAuthorRank: [peers["Alice"]!.author] } } },
       });
     case "trust-bob":
-      return parsePolicy({
+      return parseSchema({
         default: { pick: { order: { byAuthorRank: [peers["Bob"]!.author] } } },
       });
     case "conflicts":
-      return parsePolicy({
+      return parseSchema({
         props: { director: { conflicts: { order: { byTimestamp: "desc" } } } },
         default: { pick: { order: { byTimestamp: "desc" } } },
       });
     case "all":
-      return parsePolicy({ default: { all: { order: { byTimestamp: "asc" } } } });
+      return parseSchema({ default: { all: { order: { byTimestamp: "asc" } } } });
     default:
-      return parsePolicy({ default: { pick: { order: { byTimestamp: "desc" } } } });
+      return parseSchema({ default: { pick: { order: { byTimestamp: "desc" } } } });
   }
 }
 
@@ -193,7 +193,7 @@ function renderPeers(): void {
 function renderView(): void {
   const root = ($("root") as HTMLInputElement).value;
   const viewer = ($("viewer") as HTMLSelectElement).value;
-  const policyKind = ($("policy") as HTMLSelectElement).value;
+  const schemaKind = ($("schema") as HTMLSelectElement).value;
   const audit = ($("audit") as HTMLInputElement).checked;
   const asOfRaw = ($("asof") as HTMLInputElement).value;
   const asOf = Number(asOfRaw) >= clock ? undefined : Number(asOfRaw);
@@ -214,7 +214,7 @@ function renderView(): void {
     }
     $("view-output").textContent = lines.join("\n") || "(nothing here yet)";
   } else {
-    const resolved: View = resolveView(policyFor(policyKind), hview);
+    const resolved: View = resolveView(schemaFor(schemaKind), hview);
     $("view-output").textContent = JSON.stringify(resolved, null, 2);
   }
 
@@ -238,7 +238,7 @@ function refresh(): void {
 
 // --- wire up ----------------------------------------------------------------------------------
 
-for (const id of ["root", "viewer", "policy", "audit", "asof"]) {
+for (const id of ["root", "viewer", "schema", "audit", "asof"]) {
   $(id).addEventListener("input", renderView);
 }
 refresh();

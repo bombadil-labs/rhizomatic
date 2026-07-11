@@ -8,7 +8,7 @@ import {
   type SchemaRefT,
   type Term,
 } from "./eval.js";
-import type { MergeFn, Order, Policy, PropPolicy } from "./policy.js";
+import type { MergeFn, Order, Schema, Policy } from "./resolution.js";
 import {
   predContainsInView,
   type Cmp,
@@ -307,7 +307,7 @@ function parseOrder(raw: unknown): Order {
   if (o["byPred"] !== undefined) {
     const p = asObject(o["byPred"], "byPred");
     const pred = parsePred(p["pred"]);
-    // Policy predicates are closed: they run inside resolve, after the mask already decided
+    // Schema predicates are closed: they run inside resolve, after the mask already decided
     // standing — a reflective order would be a second, unlowered trust surface (SPEC-2 §3.1).
     if (predContainsInView(pred)) {
       throw new Error("inView is not allowed inside a policy byPred predicate (SPEC-2 §3.1)");
@@ -321,7 +321,7 @@ function parseOrder(raw: unknown): Order {
   throw new Error("order must be lexById | byTimestamp | byAuthorRank | byPred | chain");
 }
 
-function parsePropPolicy(raw: unknown): PropPolicy {
+function parsePolicy(raw: unknown): Policy {
   const o = asObject(raw, "propPolicy");
   if (o["pick"] !== undefined) {
     return { kind: "pick", order: parseOrder(asObject(o["pick"], "pick")["order"]) };
@@ -343,21 +343,21 @@ function parsePropPolicy(raw: unknown): PropPolicy {
     return {
       kind: "absentAs",
       constant: parsePrimitive(a["const"], "absentAs.const"),
-      then: parsePropPolicy(a["then"]),
+      then: parsePolicy(a["then"]),
     };
   }
   throw new Error("propPolicy must be pick | all | merge | conflicts | absentAs");
 }
 
-export function parsePolicy(raw: unknown): Policy {
-  const o = asObject(raw, "policy");
-  const props = new Map<string, PropPolicy>();
+export function parseSchema(raw: unknown): Schema {
+  const o = asObject(raw, "schema");
+  const props = new Map<string, Policy>();
   if (o["props"] !== undefined) {
     for (const [k, v] of Object.entries(asObject(o["props"], "policy.props"))) {
-      props.set(nfc(k), parsePropPolicy(v));
+      props.set(nfc(k), parsePolicy(v));
     }
   }
-  return { props, default: parsePropPolicy(o["default"]) };
+  return { props, default: parsePolicy(o["default"]) };
 }
 
 function parseGroupKey(raw: unknown): GroupKey {
@@ -411,7 +411,7 @@ export function parseTerm(raw: unknown): Term {
       return { ...fix, bindings };
     }
     case "resolve":
-      return { kind: "resolve", policy: parsePolicy(o["policy"]), of: parseTerm(o["in"]) };
+      return { kind: "resolve", schema: parseSchema(o["schema"]), of: parseTerm(o["in"]) };
     case "prune": {
       const keep = o["keep"] === "all" ? "all" : parseStrMatch(o["keep"], "prune.keep");
       return { kind: "prune", keep, of: parseTerm(o["in"]) };

@@ -90,7 +90,7 @@ When implementation contradicts specification, **the contradiction is the delive
 | | Milestone | Status |
 |---|---|---|
 | M0 | The atom: canonical CBOR, content addressing, signatures, delta-set ops | ✅ both witnesses |
-| M1 | The evaluator: the eight operators; `rdb.SchemaSchema` bootstrap | ✅ both witnesses |
+| M1 | The evaluator: the eight operators; `rhizomatic.HyperSchemaSchema` bootstrap | ✅ both witnesses |
 | M2 | The reactor: ingest, indexes, incremental-equivalence, events, bundles | ✅ both witnesses |
 | M3 | Packs: the L0 round-trip | ✅ both witnesses |
 | M4 | Federation: convergence from arbitrary divergent states | ✅ both witnesses |
@@ -103,8 +103,8 @@ work: the reference demo (implementations/ts/demo), CI, and whatever PROGRESS.md
 
 - The project is **Rhizomatic**. Lowercase **rhizome** is the biological metaphor (the mushroom, the
   network) — never the product name; leave it in prose.
-- The reserved vocabulary namespace is **`rhizomatic.*`** (`rhizomatic.txn`, `rhizomatic.schema.*`,
-  `rhizomatic.term.*`, `rhizomatic.alias`, `rhizomatic.SchemaSchema`) — decided 2026-06-11. It remains a
+- The reserved vocabulary namespace is **`rhizomatic.*`** (`rhizomatic.txn`, `rhizomatic.hyperschema.*`,
+  `rhizomatic.term.*`, `rhizomatic.alias`, `rhizomatic.HyperSchemaSchema`) — decided 2026-06-11. It remains a
   single configurable constant (`VOCAB_PREFIX`) in each implementation, so any future change stays a
   one-line edit plus a vector regen.
 

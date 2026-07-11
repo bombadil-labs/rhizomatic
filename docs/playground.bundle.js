@@ -1021,7 +1021,7 @@
     }
   }
 
-  // src/policy.ts
+  // src/resolution.ts
   function cmpByOrder(order, a, b) {
     switch (order.kind) {
       case "byTimestamp": {
@@ -1060,8 +1060,8 @@
       return a.delta.id < b.delta.id ? -1 : a.delta.id > b.delta.id ? 1 : 0;
     });
   }
-  function renderTarget(t, expansion, policy) {
-    if (expansion !== void 0) return resolveView(policy, expansion);
+  function renderTarget(t, expansion, schema) {
+    if (expansion !== void 0) return resolveView(schema, expansion);
     switch (t.kind) {
       case "primitive":
         return t.value;
@@ -1071,12 +1071,12 @@
         return t.deltaRef.delta;
     }
   }
-  function candidateValue(e, root, policy) {
+  function candidateValue(e, root, schema) {
     const nonFiling = [];
     e.delta.claims.pointers.forEach((p, i) => {
       const filing = p.target.kind === "entity" && p.target.entity.id === root;
       if (filing) return;
-      nonFiling.push([p.role, renderTarget(p.target, e.expanded?.get(i), policy)]);
+      nonFiling.push([p.role, renderTarget(p.target, e.expanded?.get(i), schema)]);
     });
     if (nonFiling.length === 0) return true;
     if (nonFiling.length === 1) return nonFiling[0][1];
@@ -1106,10 +1106,10 @@
   function isPrimitive(v) {
     return typeof v === "string" || typeof v === "number" || typeof v === "boolean";
   }
-  function applyMerge(fn, entries, root, policy) {
+  function applyMerge(fn, entries, root, schema) {
     const sorted = sortEntries({ kind: "lexById" }, entries);
     if (fn === "count") return sorted.length === 0 ? ABSENT : sorted.length;
-    const prims = sorted.map((e) => candidateValue(e, root, policy)).filter((v) => isPrimitive(v));
+    const prims = sorted.map((e) => candidateValue(e, root, schema)).filter((v) => isPrimitive(v));
     switch (fn) {
       case "max":
       case "min": {
@@ -1136,25 +1136,25 @@
       }
     }
   }
-  function applyPropPolicy(pp, entries, root, policy) {
-    switch (pp.kind) {
+  function applyPolicy(policy, entries, root, schema) {
+    switch (policy.kind) {
       case "pick": {
         if (entries.length === 0) return ABSENT;
-        const sorted = sortEntries(pp.order, entries);
-        return candidateValue(sorted[0], root, policy);
+        const sorted = sortEntries(policy.order, entries);
+        return candidateValue(sorted[0], root, schema);
       }
       case "all": {
         if (entries.length === 0) return ABSENT;
-        return sortEntries(pp.order, entries).map((e) => candidateValue(e, root, policy));
+        return sortEntries(policy.order, entries).map((e) => candidateValue(e, root, schema));
       }
       case "merge":
-        return applyMerge(pp.fn, entries, root, policy);
+        return applyMerge(policy.fn, entries, root, schema);
       case "conflicts": {
-        const sorted = sortEntries(pp.order, entries);
+        const sorted = sortEntries(policy.order, entries);
         const seen = /* @__PURE__ */ new Set();
         const distinct = [];
         for (const e of sorted) {
-          const v = candidateValue(e, root, policy);
+          const v = candidateValue(e, root, schema);
           const key = viewCanonicalHex(v);
           if (!seen.has(key)) {
             seen.add(key);
@@ -1164,18 +1164,18 @@
         return distinct.length >= 2 ? distinct : ABSENT;
       }
       case "absentAs": {
-        const inner = applyPropPolicy(pp.then, entries, root, policy);
-        return inner === ABSENT ? pp.constant : inner;
+        const inner = applyPolicy(policy.then, entries, root, schema);
+        return inner === ABSENT ? policy.constant : inner;
       }
     }
   }
-  function resolveView(policy, hview) {
-    const keys = /* @__PURE__ */ new Set([...policy.props.keys(), ...hview.props.keys()]);
+  function resolveView(schema, hview) {
+    const keys = /* @__PURE__ */ new Set([...schema.props.keys(), ...hview.props.keys()]);
     const obj = {};
     for (const key of keys) {
       const entries = hview.props.get(key) ?? [];
-      const pp = policy.props.get(key) ?? policy.default;
-      const v = applyPropPolicy(pp, entries, hview.id, policy);
+      const policy = schema.props.get(key) ?? schema.default;
+      const v = applyPolicy(policy, entries, hview.id, schema);
       if (v !== ABSENT) obj[key] = v;
     }
     return obj;
@@ -1703,7 +1703,7 @@
         };
       case "resolve": {
         const of = expectHView(evalTerm(term.of, input, root, registry, bindings), "resolve");
-        return { sort: "view", view: resolveView(term.policy, of.hview) };
+        return { sort: "view", view: resolveView(term.schema, of.hview) };
       }
     }
   }
@@ -2011,7 +2011,7 @@
     }
     throw new Error("order must be lexById | byTimestamp | byAuthorRank | byPred | chain");
   }
-  function parsePropPolicy(raw) {
+  function parsePolicy(raw) {
     const o = asObject(raw, "propPolicy");
     if (o["pick"] !== void 0) {
       return { kind: "pick", order: parseOrder(asObject(o["pick"], "pick")["order"]) };
@@ -2033,20 +2033,20 @@
       return {
         kind: "absentAs",
         constant: parsePrimitive(a["const"], "absentAs.const"),
-        then: parsePropPolicy(a["then"])
+        then: parsePolicy(a["then"])
       };
     }
     throw new Error("propPolicy must be pick | all | merge | conflicts | absentAs");
   }
-  function parsePolicy(raw) {
-    const o = asObject(raw, "policy");
+  function parseSchema(raw) {
+    const o = asObject(raw, "schema");
     const props = /* @__PURE__ */ new Map();
     if (o["props"] !== void 0) {
       for (const [k, v] of Object.entries(asObject(o["props"], "policy.props"))) {
-        props.set(nfc(k), parsePropPolicy(v));
+        props.set(nfc(k), parsePolicy(v));
       }
     }
-    return { props, default: parsePropPolicy(o["default"]) };
+    return { props, default: parsePolicy(o["default"]) };
   }
   function parseGroupKey(raw) {
     if (raw === "byTargetContext") return { kind: "byTargetContext" };
@@ -2097,7 +2097,7 @@
         return { ...fix, bindings };
       }
       case "resolve":
-        return { kind: "resolve", policy: parsePolicy(o["policy"]), of: parseTerm(o["in"]) };
+        return { kind: "resolve", schema: parseSchema(o["schema"]), of: parseTerm(o["in"]) };
       case "prune": {
         const keep = o["keep"] === "all" ? "all" : parseStrMatch(o["keep"], "prune.keep");
         return { kind: "prune", keep, of: parseTerm(o["in"]) };
@@ -2108,12 +2108,12 @@
   }
 
   // src/schema-deltas.ts
-  var ROLE_DEFINES = `${VOCAB_PREFIX}.schema.defines`;
-  var ROLE_NAME = `${VOCAB_PREFIX}.schema.name`;
-  var ROLE_ALG = `${VOCAB_PREFIX}.schema.alg`;
-  var ROLE_TERM = `${VOCAB_PREFIX}.schema.term`;
-  var SCHEMA_SCHEMA = {
-    name: `${VOCAB_PREFIX}.SchemaSchema`,
+  var ROLE_DEFINES = `${VOCAB_PREFIX}.hyperschema.defines`;
+  var ROLE_NAME = `${VOCAB_PREFIX}.hyperschema.name`;
+  var ROLE_ALG = `${VOCAB_PREFIX}.hyperschema.alg`;
+  var ROLE_TERM = `${VOCAB_PREFIX}.hyperschema.term`;
+  var HYPER_SCHEMA_SCHEMA = {
+    name: `${VOCAB_PREFIX}.HyperSchemaSchema`,
     alg: 1,
     body: parseTerm({
       op: "group",
@@ -4309,25 +4309,25 @@
       in: { op: "mask", policy: audit ? "annotate" : "drop", in: base }
     });
   }
-  function policyFor(kind) {
+  function schemaFor(kind) {
     switch (kind) {
       case "trust-alice":
-        return parsePolicy({
+        return parseSchema({
           default: { pick: { order: { byAuthorRank: [peers["Alice"].author] } } }
         });
       case "trust-bob":
-        return parsePolicy({
+        return parseSchema({
           default: { pick: { order: { byAuthorRank: [peers["Bob"].author] } } }
         });
       case "conflicts":
-        return parsePolicy({
+        return parseSchema({
           props: { director: { conflicts: { order: { byTimestamp: "desc" } } } },
           default: { pick: { order: { byTimestamp: "desc" } } }
         });
       case "all":
-        return parsePolicy({ default: { all: { order: { byTimestamp: "asc" } } } });
+        return parseSchema({ default: { all: { order: { byTimestamp: "asc" } } } });
       default:
-        return parsePolicy({ default: { pick: { order: { byTimestamp: "desc" } } } });
+        return parseSchema({ default: { pick: { order: { byTimestamp: "desc" } } } });
     }
   }
   function hviewAt(peer, root, asOf, audit) {
@@ -4425,7 +4425,7 @@
   function renderView() {
     const root = $("root").value;
     const viewer = $("viewer").value;
-    const policyKind = $("policy").value;
+    const schemaKind = $("schema").value;
     const audit = $("audit").checked;
     const asOfRaw = $("asof").value;
     const asOf = Number(asOfRaw) >= clock ? void 0 : Number(asOfRaw);
@@ -4444,7 +4444,7 @@
       }
       $("view-output").textContent = lines.join("\n") || "(nothing here yet)";
     } else {
-      const resolved = resolveView(policyFor(policyKind), hview);
+      const resolved = resolveView(schemaFor(schemaKind), hview);
       $("view-output").textContent = JSON.stringify(resolved, null, 2);
     }
     const plainView = hviewAt(peer, root, asOf, true);
@@ -4462,7 +4462,7 @@
     renderPeers();
     renderView();
   }
-  for (const id of ["root", "viewer", "policy", "audit", "asof"]) {
+  for (const id of ["root", "viewer", "schema", "audit", "asof"]) {
     $(id).addEventListener("input", renderView);
   }
   refresh();

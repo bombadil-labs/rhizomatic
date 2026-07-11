@@ -64,7 +64,7 @@ costs one versioned amendment rather than a migration.
 | Entry | Gist | Disposition | Lands in |
 |---|---|---|---|
 | S1 | Schema-as-deltas vocabulary (blob form, one delta per definition) | **FOLD** | SPEC-3 §5 |
-| S2 | The rhizomatic.SchemaSchema bootstrap constant | **FOLD** | SPEC-3 §5 |
+| S2 | The rhizomatic.HyperSchemaSchema bootstrap constant | **FOLD** | SPEC-3 §5 |
 | S5 | THE CONTRADICTION: canonical body must mask before select | **FOLD** (spec text carries the amended idiom; the catch story stays in errata/git) | SPEC-3 §2 |
 | S3 | Eager evolvable schema loading (latest-by-timestamp, lexById tiebreak) | **KEEP** (v0; transparent re-resolution arrives with reactive registries) | — |
 | S4 | rhizomatic.* prefix is a configurable constant | **DECIDE** (#1) | — |
@@ -85,7 +85,7 @@ costs one versioned amendment rather than a migration.
 |---|---|---|---|
 | R1 | Candidate value extraction (filing pointers excluded; 0→true, 1→value, n→{role: value}) | **FOLD** (the spec literally lacked this definition) | SPEC-5 §3 |
 | R2 | MergeFn domains + id-order folds | **FOLD** | SPEC-5 §4 |
-| R3 | Policy JSON profile | **FOLD** | SPEC-5 appendix |
+| R3 | Schema JSON profile (formerly "Policy") | **FOLD** | SPEC-5 appendix |
 | R4 | View shape + canonical form | **FOLD** | SPEC-5 §5 |
 | R5 | Annotate-tagged entries are candidates (audit views resolve too) | **FOLD** | SPEC-5 §3 |
 | R6 | Nested resolution uses the same policy | **FOLD** | SPEC-5 §3 |

@@ -4,7 +4,7 @@
 
 Folded into SPEC-3 §5 (2026-06-11); history in git.
 
-## S2 — The bootstrap schema `rhizomatic.SchemaSchema`
+## S2 — The bootstrap schema `rhizomatic.HyperSchemaSchema`
 
 Folded into SPEC-3 §5 (2026-06-11); history in git.
 
@@ -14,10 +14,10 @@ Folded into SPEC-3 §2 (2026-06-11) — the spec now carries the amended idiom a
 
 ## S3 — Loading schemas from deltas (eager evolvable resolution)
 
-`loadSchema(deltaSet, schemaEntity)`: evaluate `rhizomatic.SchemaSchema` at the entity, take the
+`loadSchema(deltaSet, schemaEntity)`: evaluate `rhizomatic.HyperSchemaSchema` at the entity, take the
 `definition` property's surviving entries, choose the **latest by claimed timestamp (lexById
 tiebreak)** — the v0 default-definition policy, explicitly a policy choice — then decode
-`rhizomatic.schema.term` (hex → canonical CBOR → term; the decoder re-encodes and compares bytes, so
+`rhizomatic.hyperschema.term` (hex → canonical CBOR → term; the decoder re-encodes and compares bytes, so
 non-canonical blobs are rejected). The round-trip `deltas → term → canonical CBOR → hash` MUST
 reproduce the hash of the directly-encoded term (SPEC-3 §5's normative core). The hash of every
 schema actually used is recordable for reproducibility (SPEC-3 §6's pin-recording requirement —

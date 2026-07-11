@@ -1,4 +1,5 @@
-//! Resolution policies and Views (SPEC-5, ERRATA-5). Mirrors ../ts/src/policy.ts.
+//! Resolution (SPEC-5, ERRATA-5): a Schema — per-property Policies + a default — resolves a
+//! HyperView into a View. Mirrors ../ts/src/resolution.ts.
 
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, BTreeSet};
@@ -36,21 +37,21 @@ pub enum Order {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum PropPolicy {
+pub enum Policy {
     Pick(Order),
     All(Order),
     Merge(MergeFn),
     Conflicts(Order),
     AbsentAs {
         constant: Primitive,
-        then: Box<PropPolicy>,
+        then: Box<Policy>,
     },
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Policy {
-    pub props: BTreeMap<String, PropPolicy>,
-    pub default: PropPolicy,
+pub struct Schema {
+    pub props: BTreeMap<String, Policy>,
+    pub default: Policy,
 }
 
 // --- ordering (R3: every chain ends in an implicit lexById tiebreak) ------------------------------
@@ -104,9 +105,9 @@ fn sort_entries<'a>(order: &Order, entries: &'a [HVEntry]) -> Vec<&'a HVEntry> {
 
 // --- candidate value extraction (R1) ---------------------------------------------------------------
 
-fn render_target(t: &Target, expansion: Option<&HView>, policy: &Policy) -> View {
+fn render_target(t: &Target, expansion: Option<&HView>, schema: &Schema) -> View {
     if let Some(h) = expansion {
-        return resolve_view(policy, h);
+        return resolve_view(schema, h);
     }
     match t {
         Target::Primitive(p) => View::Prim(p.clone()),
@@ -115,7 +116,7 @@ fn render_target(t: &Target, expansion: Option<&HView>, policy: &Policy) -> View
     }
 }
 
-fn candidate_value(e: &HVEntry, root: &str, policy: &Policy) -> View {
+fn candidate_value(e: &HVEntry, root: &str, schema: &Schema) -> View {
     let mut non_filing: Vec<(String, View)> = Vec::new();
     for (i, p) in e.delta.claims.pointers.iter().enumerate() {
         let filing = matches!(&p.target, Target::Entity(er) if er.id == root);
@@ -124,7 +125,7 @@ fn candidate_value(e: &HVEntry, root: &str, policy: &Policy) -> View {
         }
         non_filing.push((
             p.role.clone(),
-            render_target(&p.target, e.expanded.get(&i), policy),
+            render_target(&p.target, e.expanded.get(&i), schema),
         ));
     }
     if non_filing.is_empty() {
@@ -180,7 +181,7 @@ fn is_primitive(v: &View) -> Option<&Primitive> {
     }
 }
 
-fn apply_merge(fn_: MergeFn, entries: &[HVEntry], root: &str, policy: &Policy) -> Option<View> {
+fn apply_merge(fn_: MergeFn, entries: &[HVEntry], root: &str, schema: &Schema) -> Option<View> {
     // Fold in ascending delta-id order — float addition is order-dependent (R2).
     let sorted = sort_entries(&Order::LexById, entries);
     if fn_ == MergeFn::Count {
@@ -192,7 +193,7 @@ fn apply_merge(fn_: MergeFn, entries: &[HVEntry], root: &str, policy: &Policy) -
     }
     let prims: Vec<Primitive> = sorted
         .iter()
-        .map(|e| candidate_value(e, root, policy))
+        .map(|e| candidate_value(e, root, schema))
         .filter_map(|v| is_primitive(&v).cloned())
         .collect();
     match fn_ {
@@ -259,38 +260,33 @@ fn apply_merge(fn_: MergeFn, entries: &[HVEntry], root: &str, policy: &Policy) -
     }
 }
 
-fn apply_prop_policy(
-    pp: &PropPolicy,
-    entries: &[HVEntry],
-    root: &str,
-    policy: &Policy,
-) -> Option<View> {
-    match pp {
-        PropPolicy::Pick(order) => {
+fn apply_policy(policy: &Policy, entries: &[HVEntry], root: &str, schema: &Schema) -> Option<View> {
+    match policy {
+        Policy::Pick(order) => {
             if entries.is_empty() {
                 return None;
             }
             let sorted = sort_entries(order, entries);
-            Some(candidate_value(sorted[0], root, policy))
+            Some(candidate_value(sorted[0], root, schema))
         }
-        PropPolicy::All(order) => {
+        Policy::All(order) => {
             if entries.is_empty() {
                 return None;
             }
             Some(View::Arr(
                 sort_entries(order, entries)
                     .iter()
-                    .map(|e| candidate_value(e, root, policy))
+                    .map(|e| candidate_value(e, root, schema))
                     .collect(),
             ))
         }
-        PropPolicy::Merge(fn_) => apply_merge(*fn_, entries, root, policy),
-        PropPolicy::Conflicts(order) => {
+        Policy::Merge(fn_) => apply_merge(*fn_, entries, root, schema),
+        Policy::Conflicts(order) => {
             let sorted = sort_entries(order, entries);
             let mut seen: BTreeSet<String> = BTreeSet::new();
             let mut distinct: Vec<View> = Vec::new();
             for e in sorted {
-                let v = candidate_value(e, root, policy);
+                let v = candidate_value(e, root, schema);
                 if seen.insert(view_canonical_hex(&v)) {
                     distinct.push(v);
                 }
@@ -301,22 +297,23 @@ fn apply_prop_policy(
                 None
             }
         }
-        PropPolicy::AbsentAs { constant, then } => apply_prop_policy(then, entries, root, policy)
-            .or_else(|| Some(View::Prim(constant.clone()))),
+        Policy::AbsentAs { constant, then } => {
+            apply_policy(then, entries, root, schema).or_else(|| Some(View::Prim(constant.clone())))
+        }
     }
 }
 
-/// resolve(policy, HView) -> View. Deterministic; total; provenance-optional (SPEC-5 §2).
-/// The View covers every property named in the policy plus every HView property (R3).
-pub fn resolve_view(policy: &Policy, hview: &HView) -> View {
-    let mut keys: BTreeSet<&String> = policy.props.keys().collect();
+/// resolve(schema, HView) -> View. Deterministic; total; provenance-optional (SPEC-5 §2).
+/// The View covers every property named in the schema plus every HView property (R3).
+pub fn resolve_view(schema: &Schema, hview: &HView) -> View {
+    let mut keys: BTreeSet<&String> = schema.props.keys().collect();
     keys.extend(hview.props.keys());
     let empty: Vec<HVEntry> = Vec::new();
     let mut obj: BTreeMap<String, View> = BTreeMap::new();
     for key in keys {
         let entries = hview.props.get(key).unwrap_or(&empty);
-        let pp = policy.props.get(key).unwrap_or(&policy.default);
-        if let Some(v) = apply_prop_policy(pp, entries, &hview.id, policy) {
+        let policy = schema.props.get(key).unwrap_or(&schema.default);
+        if let Some(v) = apply_policy(policy, entries, &hview.id, schema) {
             obj.insert(key.clone(), v);
         }
     }

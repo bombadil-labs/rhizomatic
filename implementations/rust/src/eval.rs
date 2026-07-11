@@ -6,11 +6,11 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use crate::cbor::{encode, CborValue};
 use crate::hview::{hview_canonical_hex, HVEntry, HView};
-use crate::policy::{resolve_view, view_canonical_hex, Policy, View};
 use crate::pred::{
     eval_pred, pred_contains_in_view, str_match, substitute_holes, Bindings, Cmp, InViewExtract,
     MatchConst, Pred, StrMatch,
 };
+use crate::resolution::{resolve_view, view_canonical_hex, Schema, View};
 use crate::schema::SchemaRegistry;
 use crate::schema_deltas::VOCAB_PREFIX;
 use crate::set::{fork, merge, DeltaSet};
@@ -76,7 +76,7 @@ pub enum Term {
         bindings: Option<Bindings>,
     },
     Resolve {
-        policy: Policy,
+        schema: Schema,
         of: Box<Term>,
     },
 }
@@ -587,9 +587,9 @@ pub fn eval_term(
                 fix_bindings.as_ref().or(bindings),
             )?))
         }
-        Term::Resolve { policy, of } => {
+        Term::Resolve { schema, of } => {
             let h = expect_hview(eval_term(of, input, root, registry, bindings)?, "resolve")?;
-            Ok(EvalResult::View(resolve_view(policy, &h)))
+            Ok(EvalResult::View(resolve_view(schema, &h)))
         }
     }
 }

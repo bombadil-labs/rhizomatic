@@ -1,5 +1,6 @@
-// Resolution policies and Views (SPEC-5, ERRATA-5). resolve : Policy -> HView -> View is the
-// only exit from the algebra into application space; all pluralism is policy choice (P5).
+// Resolution (SPEC-5, ERRATA-5): a Schema — per-property Policies + a default — resolves a
+// HyperView into a View. resolve : Schema -> HView -> View is the only exit from the algebra
+// into application space; all pluralism is schema choice (P5).
 
 import { type CborValue, array, bool, encode, float, map, tstr } from "./cbor.js";
 import { bytesToHex } from "./hash.js";
@@ -18,16 +19,16 @@ export type Order =
   | { readonly kind: "chain"; readonly orders: readonly Order[] }
   | { readonly kind: "lexById" };
 
-export type PropPolicy =
+export type Policy =
   | { readonly kind: "pick"; readonly order: Order }
   | { readonly kind: "all"; readonly order: Order }
   | { readonly kind: "merge"; readonly fn: MergeFn }
   | { readonly kind: "conflicts"; readonly order: Order }
-  | { readonly kind: "absentAs"; readonly constant: Primitive; readonly then: PropPolicy };
+  | { readonly kind: "absentAs"; readonly constant: Primitive; readonly then: Policy };
 
-export interface Policy {
-  readonly props: ReadonlyMap<string, PropPolicy>;
-  readonly default: PropPolicy;
+export interface Schema {
+  readonly props: ReadonlyMap<string, Policy>;
+  readonly default: Policy;
 }
 
 // --- ordering (R3: every chain ends in an implicit lexById tiebreak) ------------------------------
@@ -74,8 +75,8 @@ function sortEntries(order: Order, entries: readonly HVEntry[]): HVEntry[] {
 
 // --- candidate value extraction (R1) ---------------------------------------------------------------
 
-function renderTarget(t: Target, expansion: HView | undefined, policy: Policy): View {
-  if (expansion !== undefined) return resolveView(policy, expansion);
+function renderTarget(t: Target, expansion: HView | undefined, schema: Schema): View {
+  if (expansion !== undefined) return resolveView(schema, expansion);
   switch (t.kind) {
     case "primitive":
       return t.value;
@@ -86,12 +87,12 @@ function renderTarget(t: Target, expansion: HView | undefined, policy: Policy): 
   }
 }
 
-function candidateValue(e: HVEntry, root: string, policy: Policy): View {
+function candidateValue(e: HVEntry, root: string, schema: Schema): View {
   const nonFiling: Array<[string, View]> = [];
   e.delta.claims.pointers.forEach((p, i) => {
     const filing = p.target.kind === "entity" && p.target.entity.id === root;
     if (filing) return;
-    nonFiling.push([p.role, renderTarget(p.target, e.expanded?.get(i), policy)]);
+    nonFiling.push([p.role, renderTarget(p.target, e.expanded?.get(i), schema)]);
   });
   if (nonFiling.length === 0) return true; // the bare fact of the edge
   if (nonFiling.length === 1) return nonFiling[0]![1];
@@ -135,13 +136,13 @@ function applyMerge(
   fn: MergeFn,
   entries: readonly HVEntry[],
   root: string,
-  policy: Policy,
+  schema: Schema,
 ): Resolved {
   // Fold in ascending delta-id order — float addition is order-dependent (R2).
   const sorted = sortEntries({ kind: "lexById" }, entries);
   if (fn === "count") return sorted.length === 0 ? ABSENT : sorted.length;
   const prims = sorted
-    .map((e) => candidateValue(e, root, policy))
+    .map((e) => candidateValue(e, root, schema))
     .filter((v): v is Primitive => isPrimitive(v));
   switch (fn) {
     case "max":
@@ -170,30 +171,30 @@ function applyMerge(
   }
 }
 
-function applyPropPolicy(
-  pp: PropPolicy,
+function applyPolicy(
+  policy: Policy,
   entries: readonly HVEntry[],
   root: string,
-  policy: Policy,
+  schema: Schema,
 ): Resolved {
-  switch (pp.kind) {
+  switch (policy.kind) {
     case "pick": {
       if (entries.length === 0) return ABSENT;
-      const sorted = sortEntries(pp.order, entries);
-      return candidateValue(sorted[0]!, root, policy);
+      const sorted = sortEntries(policy.order, entries);
+      return candidateValue(sorted[0]!, root, schema);
     }
     case "all": {
       if (entries.length === 0) return ABSENT;
-      return sortEntries(pp.order, entries).map((e) => candidateValue(e, root, policy));
+      return sortEntries(policy.order, entries).map((e) => candidateValue(e, root, schema));
     }
     case "merge":
-      return applyMerge(pp.fn, entries, root, policy);
+      return applyMerge(policy.fn, entries, root, schema);
     case "conflicts": {
-      const sorted = sortEntries(pp.order, entries);
+      const sorted = sortEntries(policy.order, entries);
       const seen = new Set<string>();
       const distinct: View[] = [];
       for (const e of sorted) {
-        const v = candidateValue(e, root, policy);
+        const v = candidateValue(e, root, schema);
         const key = viewCanonicalHex(v);
         if (!seen.has(key)) {
           seen.add(key);
@@ -203,21 +204,21 @@ function applyPropPolicy(
       return distinct.length >= 2 ? distinct : ABSENT;
     }
     case "absentAs": {
-      const inner = applyPropPolicy(pp.then, entries, root, policy);
-      return inner === ABSENT ? pp.constant : inner;
+      const inner = applyPolicy(policy.then, entries, root, schema);
+      return inner === ABSENT ? policy.constant : inner;
     }
   }
 }
 
-// resolve(policy, HView) -> View. Deterministic; total; provenance-optional (SPEC-5 §2).
-// The View covers every property named in the policy plus every HView property (R3).
-export function resolveView(policy: Policy, hview: HView): View {
-  const keys = new Set<string>([...policy.props.keys(), ...hview.props.keys()]);
+// resolve(schema, HView) -> View. Deterministic; total; provenance-optional (SPEC-5 §2).
+// The View covers every property named in the schema plus every HView property (R3).
+export function resolveView(schema: Schema, hview: HView): View {
+  const keys = new Set<string>([...schema.props.keys(), ...hview.props.keys()]);
   const obj: Record<string, View> = {};
   for (const key of keys) {
     const entries = hview.props.get(key) ?? [];
-    const pp = policy.props.get(key) ?? policy.default;
-    const v = applyPropPolicy(pp, entries, hview.id, policy);
+    const policy = schema.props.get(key) ?? schema.default;
+    const v = applyPolicy(policy, entries, hview.id, schema);
     if (v !== ABSENT) obj[key] = v;
   }
   return obj;

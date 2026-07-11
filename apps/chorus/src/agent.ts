@@ -13,7 +13,7 @@ import {
   authorForSeed,
   evalTerm,
   makeNegationClaims,
-  parsePolicy,
+  parseSchema,
   parseTerm,
   signClaims,
   syncBoth,
@@ -235,7 +235,7 @@ export class ChorusAgent {
 
   // Trust is a lens: editing it re-resolves the world without touching history (SPEC-5 §3).
   setPolicy(policy: unknown): void {
-    parsePolicy(policy); // validate now, fail loud
+    parseSchema(policy); // validate now, fail loud
     this.policy = policy;
   }
 
@@ -338,7 +338,7 @@ export class ChorusAgent {
           ? { exact: opts.attribute }
           : { aliased: { name: opts.attribute, via: opts.aliasedVia } };
     const shaped = keep === undefined ? grouped : { op: "prune", keep, in: grouped };
-    return { op: "resolve", policy: opts.policy ?? fallbackPolicy, in: shaped };
+    return { op: "resolve", schema: opts.policy ?? fallbackPolicy, in: shaped };
   }
 }
 

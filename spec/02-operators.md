@@ -30,7 +30,7 @@ HView   — a hyperview: { id: EntityId,
 HVEntry — a delta whose pointers may have been
           recursively expanded into nested HViews
 Pred    — a predicate term (restricted grammar, §3)
-Policy  — a resolution policy term (defined in SPEC-5,
+Schema  — a resolution schema term (defined in SPEC-5,
           referenced here for `resolve`)
 View    — a plain resolved value/object (SPEC-5)
 ```
@@ -198,9 +198,9 @@ Replacement form: `expand` replaces a matching pointer's `EntityRef` target with
 
 Drop pointers (or whole property entries) not matching. Projection's other half: `group` shapes, `prune` narrows. Guarantees that schemas can produce *minimal* hyperviews, which matters for federation payloads and index footprints.
 
-### 4.7 `resolve : Policy → HView → View`
+### 4.7 `resolve : Schema → HView → View`
 
-The boundary instruction — the only way out of the algebra into application space. Collapses each property's delta superposition into a value (or values) according to a `Policy` term (SPEC-5). Deterministic given (HView, Policy).
+The boundary instruction — the only way out of the algebra into application space. Collapses each property's delta superposition into a value (or values) according to a `Schema` term (SPEC-5). Deterministic given (HView, Schema).
 
 `resolve` is *in* the instruction set so that views, too, are specifiable as data and reproducible across instances; but its output sort `View` is terminal — no operator consumes a `View`.
 
@@ -291,7 +291,7 @@ Term ::= "input"                                          // the delta set under
        | { "op": "expand",  "role": StrMatch, "schema": SchemaRef, "in": Term }
        | { "op": "fix",     "schema": SchemaRef, "entity": EntityId,
            "bindings"?: { name: Primitive, ... } }        // the hole environment (§6)
-       | { "op": "resolve", "policy": Policy, "in": Term }   // Policy: SPEC-5 §7
+       | { "op": "resolve", "schema": Schema, "in": Term }   // Schema: SPEC-5 §7
 
 MaskPolicy ::= "drop" | "annotate" | { "trust": Pred }
 SchemaRef  ::= name | { "pinned": "<term hash>" }            // SPEC-3 §6

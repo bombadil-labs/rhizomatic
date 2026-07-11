@@ -3,7 +3,7 @@
 
 use rhizomatic::eval::{eval_term, result_canonical_hex, EvalResult};
 use rhizomatic::json_profile::parse_claims;
-use rhizomatic::policy::View;
+use rhizomatic::resolution::View;
 use rhizomatic::schema::{HyperSchema, SchemaRegistry};
 use rhizomatic::set::{make_delta, DeltaSet};
 use rhizomatic::term_json::parse_term;
@@ -82,13 +82,13 @@ fn pluralism_is_parameterized() {
     let reg = registry(&doc);
     let latest = parse_term(&json!({
         "op": "resolve",
-        "policy": { "default": { "pick": { "order": { "byTimestamp": "desc" } } } },
+        "schema": { "default": { "pick": { "order": { "byTimestamp": "desc" } } } },
         "in": { "op": "fix", "schema": "MovieRaw", "entity": "movie:matrix" }
     }))
     .unwrap();
     let trust_alice = parse_term(&json!({
         "op": "resolve",
-        "policy": { "default": { "pick": { "order": { "byAuthorRank": ["did:key:zAlice"] } } } },
+        "schema": { "default": { "pick": { "order": { "byAuthorRank": ["did:key:zAlice"] } } } },
         "in": { "op": "fix", "schema": "MovieRaw", "entity": "movie:matrix" }
     }))
     .unwrap();
@@ -108,7 +108,7 @@ fn resolve_demands_hview_operand() {
     let input = fixture_set(&doc);
     let term = parse_term(&json!({
         "op": "resolve",
-        "policy": { "default": { "pick": { "order": "lexById" } } },
+        "schema": { "default": { "pick": { "order": "lexById" } } },
         "in": "input"
     }))
     .unwrap();
@@ -120,7 +120,7 @@ fn resolve_demands_hview_operand() {
 fn empty_chain_is_a_rejected_term() {
     let err = parse_term(&json!({
         "op": "resolve",
-        "policy": { "default": { "pick": { "order": { "chain": [] } } } },
+        "schema": { "default": { "pick": { "order": { "chain": [] } } } },
         "in": { "op": "fix", "schema": "MovieRaw", "entity": "movie:matrix" }
     }))
     .unwrap_err();

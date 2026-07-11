@@ -8,7 +8,7 @@ import { bytesToHex } from "./hash.js";
 import { hvEntryToCbor, hviewCanonicalHex, type HView } from "./hview.js";
 import { collectRefs } from "./schema.js";
 import { comparePrimitives, type Pred, type ValMatch } from "./pred.js";
-import { viewCanonicalHex } from "./policy.js";
+import { viewCanonicalHex } from "./resolution.js";
 import type { SchemaRegistry } from "./schema.js";
 import { DeltaSet } from "./set.js";
 import { VOCAB_PREFIX } from "./schema-deltas.js";

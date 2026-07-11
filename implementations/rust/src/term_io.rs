@@ -6,10 +6,10 @@ use serde_json::{json, Map, Value};
 use crate::cbor::{encode, CborValue};
 use crate::eval::{GroupKey, MaskPolicy, PruneKeep, SchemaRef, Term};
 use crate::hash::content_address;
-use crate::policy::{MergeFn, Order, Policy, PropPolicy};
 use crate::pred::{
     Cmp, EntityMatch, Field, InViewExtract, MatchConst, PPred, Param, Pred, StrMatch, ValMatch,
 };
+use crate::resolution::{MergeFn, Order, Policy, Schema};
 use crate::types::Primitive;
 
 // --- AST -> JSON profile ---------------------------------------------------------------------------
@@ -173,24 +173,24 @@ fn merge_fn_str(f: MergeFn) -> &'static str {
     }
 }
 
-fn prop_policy_to_json(pp: &PropPolicy) -> Value {
+fn policy_to_json(pp: &Policy) -> Value {
     match pp {
-        PropPolicy::Pick(o) => json!({ "pick": { "order": order_to_json(o) } }),
-        PropPolicy::All(o) => json!({ "all": { "order": order_to_json(o) } }),
-        PropPolicy::Merge(f) => json!({ "merge": merge_fn_str(*f) }),
-        PropPolicy::Conflicts(o) => json!({ "conflicts": { "order": order_to_json(o) } }),
-        PropPolicy::AbsentAs { constant, then } => {
-            json!({ "absentAs": { "const": prim_to_json(constant), "then": prop_policy_to_json(then) } })
+        Policy::Pick(o) => json!({ "pick": { "order": order_to_json(o) } }),
+        Policy::All(o) => json!({ "all": { "order": order_to_json(o) } }),
+        Policy::Merge(f) => json!({ "merge": merge_fn_str(*f) }),
+        Policy::Conflicts(o) => json!({ "conflicts": { "order": order_to_json(o) } }),
+        Policy::AbsentAs { constant, then } => {
+            json!({ "absentAs": { "const": prim_to_json(constant), "then": policy_to_json(then) } })
         }
     }
 }
 
-pub fn policy_to_json(p: &Policy) -> Value {
+pub fn schema_to_json(p: &Schema) -> Value {
     let mut props = Map::new();
     for (k, v) in &p.props {
-        props.insert(k.clone(), prop_policy_to_json(v));
+        props.insert(k.clone(), policy_to_json(v));
     }
-    json!({ "props": props, "default": prop_policy_to_json(&p.default) })
+    json!({ "props": props, "default": policy_to_json(&p.default) })
 }
 
 fn schema_ref_to_json(r: &SchemaRef) -> Value {
@@ -259,8 +259,8 @@ pub fn term_to_json(term: &Term) -> Value {
             }
             Value::Object(out)
         }
-        Term::Resolve { policy, of } => {
-            json!({ "op": "resolve", "policy": policy_to_json(policy), "in": term_to_json(of) })
+        Term::Resolve { schema, of } => {
+            json!({ "op": "resolve", "schema": schema_to_json(schema), "in": term_to_json(of) })
         }
     }
 }

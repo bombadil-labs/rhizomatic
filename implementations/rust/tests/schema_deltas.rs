@@ -6,7 +6,7 @@ use rhizomatic::cbor::{decode, encode};
 use rhizomatic::eval::{eval_term, result_canonical_hex};
 use rhizomatic::json_profile::parse_claims;
 use rhizomatic::schema::{HyperSchema, SchemaRegistry};
-use rhizomatic::schema_deltas::{load_schema, publish_schema_claims, schema_schema};
+use rhizomatic::schema_deltas::{hyper_schema_schema, load_schema, publish_schema_claims};
 use rhizomatic::set::{make_delta, merge, DeltaSet};
 use rhizomatic::term_io::{term_canonical_hex, term_hash, term_to_json};
 use rhizomatic::term_json::parse_term;
@@ -46,7 +46,7 @@ fn expand_world() -> (DeltaSet, SchemaRegistry) {
 #[test]
 fn bootstrap_constant_reproduces() {
     let doc = read("schema-deltas.json");
-    let boot = schema_schema();
+    let boot = hyper_schema_schema();
     assert_eq!(boot.name, doc["bootstrap"]["name"].as_str().unwrap());
     assert_eq!(term_to_json(&boot.body), doc["bootstrap"]["termJson"]);
     assert_eq!(
