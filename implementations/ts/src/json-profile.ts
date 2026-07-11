@@ -22,6 +22,14 @@ function parsePrimitive(v: unknown): Primitive {
 // The profile mirrors the canonical CBOR exactly: a primitive target is the bare value; an
 // entity ref is {id, context?}; a delta ref is {delta, context?}. Discrimination is structural
 // (SPEC-1 §2.1) — primitives are never objects, and the id/delta key names the ref kind.
+function parseContext(o: Record<string, unknown>): string | undefined {
+  const context = o["context"];
+  if (context === undefined) return undefined;
+  // An explicit null (or any non-string) is present-but-malformed: reject, never coerce.
+  if (typeof context !== "string") throw new Error("context, when present, must be a string");
+  return context;
+}
+
 function parseTarget(raw: unknown): Target {
   if (typeof raw === "string" || typeof raw === "number" || typeof raw === "boolean") {
     return { kind: "primitive", value: parsePrimitive(raw) };
@@ -30,18 +38,18 @@ function parseTarget(raw: unknown): Target {
   if ("id" in o) {
     const id = o["id"];
     if (typeof id !== "string") throw new Error("entity ref id must be a string");
-    const context = o["context"];
+    const context = parseContext(o);
     return context === undefined
       ? { kind: "entity", entity: { id } }
-      : { kind: "entity", entity: { id, context: String(context) } };
+      : { kind: "entity", entity: { id, context } };
   }
   if ("delta" in o) {
     const delta = o["delta"];
     if (typeof delta !== "string") throw new Error("delta ref delta must be a string");
-    const context = o["context"];
+    const context = parseContext(o);
     return context === undefined
       ? { kind: "delta", deltaRef: { delta } }
-      : { kind: "delta", deltaRef: { delta, context: String(context) } };
+      : { kind: "delta", deltaRef: { delta, context } };
   }
   throw new Error("target must be a primitive, {id, context?}, or {delta, context?}");
 }

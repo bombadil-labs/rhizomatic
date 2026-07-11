@@ -22,6 +22,15 @@ fn parse_primitive(v: &Value) -> Result<Primitive, String> {
 // The profile mirrors the canonical CBOR exactly: a primitive target is the bare value; an
 // entity ref is {id, context?}; a delta ref is {delta, context?}. Discrimination is structural
 // (SPEC-1 §2.1) — primitives are never objects, and the id/delta key names the ref kind.
+fn parse_context(o: &serde_json::Map<String, Value>) -> Result<Option<String>, String> {
+    match o.get("context") {
+        None => Ok(None),
+        // An explicit null (or any non-string) is present-but-malformed: reject, never drop.
+        Some(Value::String(s)) => Ok(Some(s.clone())),
+        Some(_) => Err("context, when present, must be a string".into()),
+    }
+}
+
 fn parse_target(v: &Value) -> Result<Target, String> {
     if matches!(v, Value::String(_) | Value::Number(_) | Value::Bool(_)) {
         return Ok(Target::Primitive(parse_primitive(v)?));
@@ -29,7 +38,7 @@ fn parse_target(v: &Value) -> Result<Target, String> {
     let o = v
         .as_object()
         .ok_or("target must be a primitive, {id, context?}, or {delta, context?}")?;
-    let context = o.get("context").and_then(Value::as_str).map(str::to_string);
+    let context = parse_context(o)?;
     if let Some(id) = o.get("id") {
         let id = id
             .as_str()

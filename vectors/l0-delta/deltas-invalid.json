@@ -1,0 +1,171 @@
+[
+  {
+    "name": "author-not-a-string",
+    "spec": "SPEC-4 §2",
+    "reason": "author must be a string",
+    "claims": {
+      "timestamp": 0,
+      "author": 42,
+      "pointers": [{ "role": "title", "target": "x" }]
+    }
+  },
+  {
+    "name": "author-null",
+    "spec": "SPEC-4 §2",
+    "reason": "author must be a string",
+    "claims": {
+      "timestamp": 0,
+      "author": null,
+      "pointers": [{ "role": "title", "target": "x" }]
+    }
+  },
+  {
+    "name": "author-empty",
+    "spec": "SPEC-1 §2",
+    "reason": "author must be non-empty",
+    "claims": {
+      "timestamp": 0,
+      "author": "",
+      "pointers": [{ "role": "title", "target": "x" }]
+    }
+  },
+  {
+    "name": "author-not-nfc",
+    "spec": "ERRATA D11",
+    "reason": "author must be NFC-normalized (e + combining acute, not é)",
+    "claims": {
+      "timestamp": 0,
+      "author": "did:key:zAuthoré",
+      "pointers": [{ "role": "title", "target": "x" }]
+    }
+  },
+  {
+    "name": "timestamp-not-a-number",
+    "spec": "SPEC-1 §2",
+    "reason": "timestamp must be a number",
+    "claims": {
+      "timestamp": "0",
+      "author": "did:key:zAuthorA",
+      "pointers": [{ "role": "title", "target": "x" }]
+    }
+  },
+  {
+    "name": "pointers-missing",
+    "spec": "SPEC-1 §2",
+    "reason": "pointers must be an array",
+    "claims": {
+      "timestamp": 0,
+      "author": "did:key:zAuthorA"
+    }
+  },
+  {
+    "name": "pointers-empty",
+    "spec": "SPEC-1 §2",
+    "reason": "a delta MUST contain at least one pointer",
+    "claims": {
+      "timestamp": 0,
+      "author": "did:key:zAuthorA",
+      "pointers": []
+    }
+  },
+  {
+    "name": "role-empty",
+    "spec": "SPEC-1 §2",
+    "reason": "role must be non-empty",
+    "claims": {
+      "timestamp": 0,
+      "author": "did:key:zAuthorA",
+      "pointers": [{ "role": "", "target": "x" }]
+    }
+  },
+  {
+    "name": "role-not-a-string",
+    "spec": "SPEC-1 §2",
+    "reason": "role must be a string",
+    "claims": {
+      "timestamp": 0,
+      "author": "did:key:zAuthorA",
+      "pointers": [{ "role": 5, "target": "x" }]
+    }
+  },
+  {
+    "name": "primitive-null",
+    "spec": "SPEC-1 §2.1 / SPEC-4 §2",
+    "reason": "null is not a primitive; must be string | number | boolean",
+    "claims": {
+      "timestamp": 0,
+      "author": "did:key:zAuthorA",
+      "pointers": [{ "role": "title", "target": null }]
+    }
+  },
+  {
+    "name": "primitive-array",
+    "spec": "SPEC-1 §2.1 / SPEC-4 §2",
+    "reason": "an array is not a primitive nor a ref",
+    "claims": {
+      "timestamp": 0,
+      "author": "did:key:zAuthorA",
+      "pointers": [{ "role": "title", "target": [1, 2] }]
+    }
+  },
+  {
+    "name": "target-object-neither-ref-kind",
+    "spec": "SPEC-1 §2.1",
+    "reason": "an object target must be {id, context?} or {delta, context?}",
+    "claims": {
+      "timestamp": 0,
+      "author": "did:key:zAuthorA",
+      "pointers": [{ "role": "title", "target": { "foo": "bar" } }]
+    }
+  },
+  {
+    "name": "entity-id-not-a-string",
+    "spec": "SPEC-1 §2.1",
+    "reason": "entity ref id must be a string",
+    "claims": {
+      "timestamp": 0,
+      "author": "did:key:zAuthorA",
+      "pointers": [{ "role": "subject", "target": { "id": 7 } }]
+    }
+  },
+  {
+    "name": "delta-ref-not-a-string",
+    "spec": "SPEC-1 §2.1",
+    "reason": "delta ref delta must be a string",
+    "claims": {
+      "timestamp": 0,
+      "author": "did:key:zAuthorA",
+      "pointers": [{ "role": "negates", "target": { "delta": 7 } }]
+    }
+  },
+  {
+    "name": "context-not-a-string",
+    "spec": "SPEC-1 §2.1 / SPEC-4 §2",
+    "reason": "context, when present, must be a string — reject, never coerce or drop",
+    "claims": {
+      "timestamp": 0,
+      "author": "did:key:zAuthorA",
+      "pointers": [{ "role": "subject", "target": { "id": "entity:x", "context": 123 } }]
+    }
+  },
+  {
+    "name": "context-null",
+    "spec": "SPEC-1 §2.1 / SPEC-4 §2",
+    "reason": "an explicit null context is present-but-malformed, not absent",
+    "claims": {
+      "timestamp": 0,
+      "author": "did:key:zAuthorA",
+      "pointers": [{ "role": "subject", "target": { "id": "entity:x", "context": null } }]
+    }
+  },
+  {
+    "name": "context-empty",
+    "spec": "SPEC-1 §2.1",
+    "reason": "context, when present, must be non-empty",
+    "claims": {
+      "timestamp": 0,
+      "author": "did:key:zAuthorA",
+      "pointers": [{ "role": "subject", "target": { "id": "entity:x", "context": "" } }]
+    }
+  }
+]

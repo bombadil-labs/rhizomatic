@@ -31,6 +31,27 @@ fn l0_delta_vectors() {
 }
 
 #[test]
+fn l0_delta_invalid_vectors_reject() {
+    // Boundary rejection (SPEC-4 §2): every invalid vector MUST fail before canonical
+    // bytes exist. Whether the parser or the validator rejects is implementation detail.
+    let path = format!(
+        "{}/../../vectors/l0-delta/deltas-invalid.json",
+        env!("CARGO_MANIFEST_DIR")
+    );
+    let raw = std::fs::read_to_string(path).expect("read deltas-invalid.json");
+    let arr: Vec<Value> = serde_json::from_str(&raw).unwrap();
+    assert!(!arr.is_empty(), "deltas-invalid.json must not be empty");
+    for v in arr {
+        let name = v["name"].as_str().unwrap();
+        let result = parse_claims(&v["claims"]).and_then(|c| canonical_hex(&c));
+        assert!(
+            result.is_err(),
+            "invalid vector {name} must be rejected, but produced {result:?}"
+        );
+    }
+}
+
+#[test]
 fn pointer_order_is_significant() {
     let a = parse_claims(&serde_json::json!({
         "timestamp": 0, "author": "did:key:zA",
