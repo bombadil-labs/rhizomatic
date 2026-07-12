@@ -56,7 +56,7 @@ Primitive = string | number | boolean
 - `null`/`undefined` are not representable. Absence of a fact is absence of deltas.
 - Arrays are not primitives. Multiplicity is expressed by multiple pointers or multiple deltas.
 - `role` and `context` MUST be non-empty UTF-8 strings, NFC-normalized, case-sensitive. (Vocabulary conventions live at L5; L1 imposes no vocabulary.)
-- Numbers MUST be IEEE-754 doubles serializable without loss; implementations MUST reject NaN and ±Infinity at ingestion. *(Open: integer/decimal extension — see §9.)*
+- Numbers MUST be IEEE-754 doubles serializable without loss; implementations MUST reject NaN and ±Infinity at ingestion. *(Open: integer/decimal extension — see §10.)*
 - `DeltaRef` vs `EntityRef` are structurally distinct. Targeting a delta (e.g., negation, annotation) is explicit, never inferred from the shape of an id.
 
 ### 2.2 The `system` field is removed
@@ -251,8 +251,24 @@ Normative semantics:
 
 ## 10. Open Questions (L1)
 
-- **Numeric extension:** arbitrary-precision integers/decimals as tagged CBOR? Needed before financial use cases.
-- **Binary primitives:** byte-string primitive (for embeddings, media hashes)? Leaning yes via CBOR byte strings; vectors needed.
+**Admission test for new target kinds.** A new native kind is warranted only when a value cannot
+ride an existing kind without a *representation hazard entering the content address* (precision
+loss, a transport encoding inside the hash). Typing and interpretation are vocabulary problems
+(roles, contexts, `mime`, schemas); only representation is a substrate problem. Everything below
+is read through this test. Corollaries: no `null` (§2.1 — absence of a fact is absence of deltas;
+known-absence is an explicit claim; retraction is negation); no array/set literals (§2.1 —
+multiplicity is pointers and deltas; set semantics already live at the delta-set CRDT and would
+conflict frozen inside a signed literal; ordered compounds are duplicate-role pointers, SPEC-5
+§2.1); no date kind (RFC 3339 UTC strings are lossless and sort lexicographically — a vocabulary
+convention, SPEC-5 §6).
+
+- **Numeric extension:** arbitrary-precision integers/decimals as tagged CBOR? Needed before
+  financial use cases. The one remaining candidate that *passes* the admission test (IEEE doubles
+  corrupt past 2^53 and cannot represent decimal fractions exactly; no string convention restores
+  ordering or summation) — deferred until a use case forces the L2/L5 semantics (`cmp`, orders,
+  `merge(sum)`) that make it genuinely harder than `bytes` was.
+- **Binary primitives:** ✅ resolved by the `bytes` target kind (issue #7, 0.4, ERRATA D12) —
+  raw bytes + required `mime`, identity over raw bytes, base64url only as JSON transport.
 - **Causality annotation:** largely subsumed by `rhizomatic.txn.prior` (§9); remaining question is whether a vector-clock vocabulary is needed beyond act-level happened-before.
 - **Compression/compaction:** resolved in principle by the L0 pack format (SPEC-8); open details live there.
 - **Erasure:** content addressing makes true deletion even harder than before (hashes pin content). GDPR strategy likely requires payload-encryption-with-key-destruction or off-set "blob" indirection for personal data. Tracked in SPEC-6 §7; unresolved.

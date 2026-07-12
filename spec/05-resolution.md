@@ -109,6 +109,10 @@ L1 accepts any `role`/`context` strings; composition across authors requires con
 - **Vocabularies as data:** a vocabulary is an entity; its terms, documentation, and deprecations are deltas. Publishing a vocabulary is publishing deltas (P3, again).
 - **Aliases as deltas:** cross-vocabulary mapping (`parent` ≡ `container`) is asserted by *alias deltas* in a normative `rhizomatic.alias` vocabulary. Schemas opt in: `StrMatch` gains `aliased(string, via: VocabRef)` *(proposed; needs L2 vectors)*, expanding to the alias closure at term-validation time — so aliasing is static and inspectable, never a runtime fuzzy match.
 - **Semantic/embedding-based matching:** MUST NOT participate in evaluation (determinism and convergence forbid fuzzy semantics below the View). It enters the system in two sanctioned forms: as an authoring-time suggestion tool (lint: "these contexts look synonymous — assert an alias?"), and as a **derived author** (SPEC-7) continuously emitting `rhizomatic.alias` deltas — fuzzy judgment running live, with its hunches recorded as negatable, provenance-carrying claims rather than as nondeterminism inside the evaluator.
+- **Instants (informative):** domain dates/times SHOULD travel as RFC 3339 UTC strings with the
+  `Z` suffix and fixed precision within a vocabulary (e.g. `2026-07-12T00:00:00Z`) — lossless in a
+  string primitive, and lexicographic order coincides with temporal order, so existing orders and
+  `cmp` work unchanged. There is deliberately no date kind (SPEC-1 §10 admission test).
 - **Enforcement point:** mutation helpers (SPEC-4 §6). The convention is enforced where deltas are *born*, audited by registry lint, and repaired by alias deltas — never by rejecting well-formed deltas at L1.
 
 ## 7. Appendix: Schema JSON Profile (Normative)
