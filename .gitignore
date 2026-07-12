@@ -26,3 +26,7 @@ chorus-memory.pack
 
 # Private working docs — candid strategy, never publish (repo is public via Pages)
 *.private.md
+.adlc/*
+!.adlc/tickets.json
+!.adlc/specs/
+.claude/settings.local.json
