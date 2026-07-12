@@ -1286,15 +1286,23 @@
     }
   }
   function assertValidClaims(claims) {
+    if (typeof claims.author !== "string") throw new Error("author must be a string");
     if (claims.author.length === 0) throw new Error("author must be non-empty");
     assertNfc(claims.author, "author");
     if (!Number.isFinite(claims.timestamp)) throw new Error("timestamp must be finite");
     if (claims.pointers.length < 1) throw new Error("a delta MUST contain at least one pointer");
     for (const p of claims.pointers) {
+      if (typeof p.role !== "string") throw new Error("role must be a string");
       if (p.role.length === 0) throw new Error("role must be non-empty");
       assertNfc(p.role, "role");
       if (p.target.kind === "primitive") {
         const v = p.target.value;
+        const t = typeof v;
+        if (t !== "string" && t !== "number" && t !== "boolean") {
+          throw new Error(
+            `primitive value must be string, number, or boolean; got ${v === null ? "null" : t}`
+          );
+        }
         if (typeof v === "number" && !Number.isFinite(v)) {
           throw new Error("numeric primitive must be finite");
         }
@@ -1304,6 +1312,7 @@
       if (p.target.kind === "delta") assertNfc(p.target.deltaRef.delta, "delta ref");
       const ctx = p.target.kind === "entity" ? p.target.entity.context : p.target.kind === "delta" ? p.target.deltaRef.context : void 0;
       if (ctx !== void 0) {
+        if (typeof ctx !== "string") throw new Error("context, when present, must be a string");
         if (ctx.length === 0) throw new Error("context, when present, must be non-empty");
         assertNfc(ctx, "context");
       }

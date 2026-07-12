@@ -44,17 +44,27 @@ function assertNfc(s: string, what: string): void {
   }
 }
 
-// Reject malformed claims at the boundary; never repair (SPEC-4 §2).
+// Reject malformed claims at the boundary; never repair (SPEC-4 §2). Untyped callers
+// (plain JS, `as` casts) bypass the static types, so runtime guards here are the real boundary.
 export function assertValidClaims(claims: Claims): void {
+  if (typeof claims.author !== "string") throw new Error("author must be a string");
   if (claims.author.length === 0) throw new Error("author must be non-empty");
   assertNfc(claims.author, "author");
   if (!Number.isFinite(claims.timestamp)) throw new Error("timestamp must be finite");
   if (claims.pointers.length < 1) throw new Error("a delta MUST contain at least one pointer");
   for (const p of claims.pointers) {
+    if (typeof p.role !== "string") throw new Error("role must be a string");
     if (p.role.length === 0) throw new Error("role must be non-empty");
     assertNfc(p.role, "role");
     if (p.target.kind === "primitive") {
       const v = p.target.value;
+      const t = typeof v;
+      if (t !== "string" && t !== "number" && t !== "boolean") {
+        // Without this, targetToCbor's float() fallback crashes opaquely on null/objects.
+        throw new Error(
+          `primitive value must be string, number, or boolean; got ${v === null ? "null" : t}`,
+        );
+      }
       if (typeof v === "number" && !Number.isFinite(v)) {
         throw new Error("numeric primitive must be finite");
       }
@@ -69,6 +79,7 @@ export function assertValidClaims(claims: Claims): void {
           ? p.target.deltaRef.context
           : undefined;
     if (ctx !== undefined) {
+      if (typeof ctx !== "string") throw new Error("context, when present, must be a string");
       if (ctx.length === 0) throw new Error("context, when present, must be non-empty");
       assertNfc(ctx, "context");
     }
