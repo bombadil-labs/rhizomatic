@@ -1,6 +1,6 @@
 {
   "name": "@bombadil/rhizomatic",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "type": "module",
   "description": "Rhizomatic (TypeScript) — a portable format for arbitrarily-relational data: signed, content-addressed deltas; union merge (grow-only CRDT); truth resolved per-reader. One of two parallel witnesses to the spec.",
   "license": "MIT OR Apache-2.0",
