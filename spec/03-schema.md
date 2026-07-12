@@ -1,4 +1,4 @@
-# Rhizomatic Specification — SPEC-3: Schemas & HyperViews (L3)
+# Rhizomatic Specification — SPEC-3: HyperSchemas & HyperViews (L3)
 
 **Status:** Draft
 **Layer:** L3 — programs
@@ -8,7 +8,7 @@
 
 ## 1. Purpose
 
-L3 defines **HyperSchemas**: named, reusable, DAG-structured programs in the L2 algebra, and **HyperViews**, their outputs. If L2 is the instruction set, L3 is the compiled program format — including how programs are stored in the same memory as data (schemas as deltas, §5), which is the system's stored-program property (P3).
+L3 defines **HyperSchemas**: named, reusable, DAG-structured programs in the L2 algebra, and **HyperViews**, their outputs. If L2 is the instruction set, L3 is the compiled program format — including how programs are stored in the same memory as data (hyperschemas as deltas, §5), which is the system's stored-program property (P3).
 
 Almost no one should write raw deltas or raw operator terms by hand, for the same reason no one writes assembly: L3 (and DSLs compiled to it) is the intended authoring surface.
 
@@ -83,18 +83,18 @@ HView {
 
 A HyperView is simultaneously: a query result, an index entry (when materialized, SPEC-4), a federation payload (a self-contained provenance bundle, SPEC-6), and a view template (input to `resolve`, SPEC-5). One abstraction, four duties — this is intentional and normative.
 
-## 5. Schemas as Deltas
+## 5. HyperSchemas as Deltas
 
 The at-rest, federated form of a schema is a set of deltas. The normative vocabulary
-(`rhizomatic.schema.*` namespace) is the **blob form**: one definition delta per schema,
+(`rhizomatic.hyperschema.*` namespace) is the **blob form**: one definition delta per schema,
 carrying the term as the hex of its canonical CBOR (SPEC-2 §7):
 
 ```
 SchemaDefinitionDelta := a delta whose pointers are
-  { role: "rhizomatic.schema.defines", target: EntityRef(schemaEntity, context: "definition") }
-  { role: "rhizomatic.schema.name",    target: <string: human name> }
-  { role: "rhizomatic.schema.alg",     target: <number: L2 algebra version> }
-  { role: "rhizomatic.schema.term",    target: <string: hex of the term's canonical CBOR> }
+  { role: "rhizomatic.hyperschema.defines", target: EntityRef(schemaEntity, context: "definition") }
+  { role: "rhizomatic.hyperschema.name",    target: <string: human name> }
+  { role: "rhizomatic.hyperschema.alg",     target: <number: L2 algebra version> }
+  { role: "rhizomatic.hyperschema.term",    target: <string: hex of the term's canonical CBOR> }
 ```
 
 (A fully-exploded node-per-entity form — one entity per operator node, queryable term internals —
@@ -102,7 +102,7 @@ remains an open extension; it buys introspection at significant vocabulary weigh
 a consumer needs to query *inside* schema bodies.)
 
 - A schema MUST be losslessly round-trippable: deltas → term → canonical CBOR → hash, with the hash matching a directly-encoded term.
-- **Bootstrap:** there is exactly one hand-specified schema, `rhizomatic.SchemaSchema` — the HyperSchema for reading HyperSchemas out of the rhizome. Its body is the canonical idiom (§2), evaluated at a schema entity, yielding `props.definition = [definition deltas]`. Its term hash is published as a constant in the conformance vectors (`vectors/l1-eval/schema-deltas.json`); every other schema is read using it. This closes the loop of P3 with a single axiom, mirroring L1's single axiom.
+- **Bootstrap:** there is exactly one hand-specified schema, `rhizomatic.HyperSchemaSchema` — the HyperSchema for reading HyperSchemas out of the rhizome. Its body is the canonical idiom (§2), evaluated at a schema entity, yielding `props.definition = [definition deltas]`. Its term hash is published as a constant in the conformance vectors (`vectors/l1-eval/schema-deltas.json`); every other schema is read using it. This closes the loop of P3 with a single axiom, mirroring L1's single axiom.
 
 Because schemas are deltas, automatically:
 
@@ -117,7 +117,7 @@ Because schemas are deltas, automatically:
 `SchemaRef` has two modes (L2 §7), and their semantics interact with everything above:
 
 - **Pinned — `ref(hash)`:** immutable reference to an exact term. Evaluation is reproducible forever. REQUIRED for: conformance vectors, signed/audited views, federation payloads that claim reproducibility.
-- **Evolvable — `ref(entity)`:** names a schema entity; the current definition is obtained by evaluating `rhizomatic.SchemaSchema` at that entity under the *evaluator's* delta set and resolution policy. Evaluation can change as definition deltas arrive — by design.
+- **Evolvable — `ref(entity)`:** names a schema entity; the current definition is obtained by evaluating `rhizomatic.HyperSchemaSchema` at that entity under the *evaluator's* delta set and resolution schema. Evaluation can change as definition deltas arrive — by design.
 
 Normative consequences:
 
@@ -128,7 +128,7 @@ Normative consequences:
 The pinned mode is spelled `{"pinned": "<term hash>"}` wherever a SchemaRef appears; registries
 index every schema by name AND by its term hash (SPEC-2 §7), so pinned refs resolve by hash and
 are immutable by construction. Cycle checking runs over the resolved graph. The **evolvable**
-mode (a ref resolved through `rhizomatic.SchemaSchema` under the evaluator's policy) is
+mode (a ref resolved through `rhizomatic.HyperSchemaSchema` under the evaluator's schema) is
 implemented as an explicit eager load today; transparent re-resolution on definition change
 arrives with reactive registries.
 

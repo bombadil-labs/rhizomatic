@@ -14,13 +14,13 @@ import type { HView } from "../../src/hview.js";
 import { claimsToJson, parseClaims } from "../../src/json-profile.js";
 import { packId, packSet, unpackSet } from "../../src/pack.js";
 import { Peer, syncBoth } from "../../src/peer.js";
-import { resolveView, type Policy, type View } from "../../src/policy.js";
+import { resolveView, type Schema, type View } from "../../src/resolution.js";
 import { Reactor } from "../../src/reactor.js";
 import { SchemaRegistry } from "../../src/schema.js";
 import { VOCAB_PREFIX } from "../../src/schema-deltas.js";
 import { DeltaSet, makeDelta, makeNegationClaims } from "../../src/set.js";
 import { publicKeyFromSeed, signClaims, verifyDelta } from "../../src/sign.js";
-import { parsePolicy, parseTerm } from "../../src/term-json.js";
+import { parseSchema, parseTerm } from "../../src/term-json.js";
 import type { Claims, Delta, Pointer } from "../../src/types.js";
 
 // The committed conformance vectors, bundled in at build time. CI's docs-freshness gate
@@ -192,7 +192,7 @@ function widgetPerspectives(): void {
     key: "byTargetContext",
     in: { op: "mask", policy: "drop", in: "input" },
   });
-  const LATEST = parsePolicy({ default: { pick: { order: { byTimestamp: "desc" } } } });
+  const LATEST = parseSchema({ default: { pick: { order: { byTimestamp: "desc" } } } });
 
   const paneFor = (set: DeltaSet, root: string): string => {
     const result = evalTerm(VIEW_TERM, set, root);
@@ -391,27 +391,27 @@ function widgetSuperposition(): void {
 
 // --- §3 lenses ------------------------------------------------------------------------------------
 
-const POLICIES: ReadonlyArray<{ label: string; note: string; make: () => Policy }> = [
+const SCHEMAS: ReadonlyArray<{ label: string; note: string; make: () => Schema }> = [
   {
     label: "latest wins",
     note: "pick by timestamp, newest first",
-    make: () => parsePolicy({ default: { pick: { order: { byTimestamp: "desc" } } } }),
+    make: () => parseSchema({ default: { pick: { order: { byTimestamp: "desc" } } } }),
   },
   {
     label: "trust Alice",
     note: "pick by author rank: Alice first",
-    make: () => parsePolicy({ default: { pick: { order: { byAuthorRank: [A.alice.author] } } } }),
+    make: () => parseSchema({ default: { pick: { order: { byAuthorRank: [A.alice.author] } } } }),
   },
   {
     label: "trust Bob",
     note: "pick by author rank: Bob first",
-    make: () => parsePolicy({ default: { pick: { order: { byAuthorRank: [A.bob.author] } } } }),
+    make: () => parseSchema({ default: { pick: { order: { byAuthorRank: [A.bob.author] } } } }),
   },
   {
     label: "surface conflicts",
     note: "directors disagree? say so, loudly",
     make: () =>
-      parsePolicy({
+      parseSchema({
         props: { director: { conflicts: { order: { byTimestamp: "desc" } } } },
         default: { pick: { order: { byTimestamp: "desc" } } },
       }),
@@ -422,7 +422,7 @@ function renderLenses(): void {
   const host = $("w-lens");
   host.replaceChildren();
   const hview = hviewAt(A.alice, undefined, false);
-  for (const p of POLICIES) {
+  for (const p of SCHEMAS) {
     const view: View = resolveView(p.make(), hview);
     host.append(
       el(
@@ -518,7 +518,7 @@ function renderHistory(): void {
     }
     out.textContent = lines.join("\n") || "(nothing here yet)";
   } else {
-    const view = resolveView(POLICIES[0]!.make(), hview);
+    const view = resolveView(SCHEMAS[0]!.make(), hview);
     out.textContent = JSON.stringify(view, null, 2);
   }
 }
@@ -915,7 +915,7 @@ function runConformance(): Suite[] {
       evalExpandJson as unknown as EvalDoc,
     ),
     evalSuite(
-      "evaluator: resolve (policies → Views)",
+      "evaluator: resolve (schemas → Views)",
       "vectors/l1-eval/eval-resolve.json",
       evalResolveJson as unknown as EvalDoc,
     ),
@@ -989,7 +989,7 @@ function runRustConformance(rust: RustWitness): Map<string, VecCase[]> {
   rustEval("evaluator: select / union / mask", evalBasicJson as unknown as EvalDoc);
   rustEval("evaluator: group / prune (HyperViews)", evalHviewJson as unknown as EvalDoc);
   rustEval("evaluator: expand / fix (schemas)", evalExpandJson as unknown as EvalDoc);
-  rustEval("evaluator: resolve (policies → Views)", evalResolveJson as unknown as EvalDoc);
+  rustEval("evaluator: resolve (schemas → Views)", evalResolveJson as unknown as EvalDoc);
   rustEval("evaluator: parameterized terms (holes)", evalHolesJson as unknown as EvalDoc);
   rustEval("evaluator: the aliased closure (SPEC-9)", evalAliasedJson as unknown as EvalDoc);
   return out;

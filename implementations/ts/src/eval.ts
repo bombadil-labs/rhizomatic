@@ -5,7 +5,7 @@
 import { array, encode, map, tstr } from "./cbor.js";
 import { bytesToHex } from "./hash.js";
 import { hviewCanonicalHex, type HVEntry, type HView } from "./hview.js";
-import { resolveView, viewCanonicalHex, type Policy, type View } from "./policy.js";
+import { resolveView, viewCanonicalHex, type Schema, type View } from "./resolution.js";
 import {
   comparePrimitives,
   evalPred,
@@ -55,7 +55,7 @@ export type Term =
       readonly entity: string;
       readonly bindings?: Bindings;
     }
-  | { readonly kind: "resolve"; readonly policy: Policy; readonly of: Term };
+  | { readonly kind: "resolve"; readonly schema: Schema; readonly of: Term };
 
 interface DSetResult {
   readonly sort: "dset";
@@ -460,7 +460,7 @@ export function evalTerm(
       };
     case "resolve": {
       const of = expectHView(evalTerm(term.of, input, root, registry, bindings), "resolve");
-      return { sort: "view", view: resolveView(term.policy, of.hview) };
+      return { sort: "view", view: resolveView(term.schema, of.hview) };
     }
   }
 }

@@ -1,5 +1,29 @@
 # Progress
 
+> **RESUME HERE (2026-07-11). THE L5 VOCABULARY REALIGNMENT SHIPPED (issue #3, Option B —
+> branch `rename/3-schema-vocabulary`; releases as 0.3.0):**
+>
+> - **Types:** `Policy` → `Schema` (the resolution program), `PropPolicy` → `Policy` (the
+>   per-property rule). The layer grid is now uniform — `Schema : View :: HyperSchema :
+>   HyperView`, with `Hyper-` marking the superposed layer for programs and data alike
+>   (normative note added at SPEC-5 §2). `MaskPolicy` and the mask term's on-wire `"policy"`
+>   field are untouched (different concept, content-addressed).
+> - **Wire realignment:** `rhizomatic.schema.*` roles → `rhizomatic.hyperschema.*`;
+>   `rhizomatic.SchemaSchema` → `rhizomatic.HyperSchemaSchema`; the resolve term's program
+>   field `"policy"` → `"schema"` (it rides in canonical term bytes). Freed `rhizomatic.schema.*`
+>   is reserved for L5 schemas-as-deltas (SPEC-5 §3's promise). Vector regen was surgical:
+>   `schema-deltas.json` (roles + definition-delta addresses) and `eval-resolve.json` (term JSON
+>   keys only — every expectedCanonicalHex byte-stable). All other vectors byte-identical,
+>   proving zero unintended wire drift.
+> - **API:** `parsePolicy` → `parseSchema`, `policyToJson` → `schemaToJson`, `policy.ts` →
+>   `resolution.ts` (Rust mirrored); breaking, hence 0.3.0. Loam overhauls against it.
+>   Decision record: issue #3 thread (bare `Schema` over ViewSchema/ObjectSchema — the grid
+>   generates the name; consumers qualify at their own boundary).
+>
+> Both witnesses green, tour/playground verified live (WASM witness rebuilt), `check-all` clean.
+>
+> ---
+
 > **RESUME HERE (2026-07-09). TWO ALGEBRA EXTENSIONS SHIPPED from the repo's first
 > outside-user feedback (Loam's federation field test — issues #1 and #2 on
 > bombadil-labs/rhizomatic, both closed):**

@@ -92,7 +92,7 @@ describe("stratification and closure (parse-time rejection)", () => {
     expect(() =>
       parseTerm({
         op: "resolve",
-        policy: {
+        schema: {
           default: { pick: { order: { byPred: { pred: innerInView, then: "lexById" } } } },
         },
         in: "input",

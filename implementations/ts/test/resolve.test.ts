@@ -41,7 +41,7 @@ describe("l1-eval resolve vectors (SPEC-5)", () => {
     const latest = evalTerm(
       parseTerm({
         op: "resolve",
-        policy: { default: { pick: { order: { byTimestamp: "desc" } } } },
+        schema: { default: { pick: { order: { byTimestamp: "desc" } } } },
         in: { op: "fix", schema: "MovieRaw", entity: "movie:matrix" },
       }),
       fixtureSet,
@@ -51,7 +51,7 @@ describe("l1-eval resolve vectors (SPEC-5)", () => {
     const trustAlice = evalTerm(
       parseTerm({
         op: "resolve",
-        policy: { default: { pick: { order: { byAuthorRank: ["did:key:zAlice"] } } } },
+        schema: { default: { pick: { order: { byAuthorRank: ["did:key:zAlice"] } } } },
         in: { op: "fix", schema: "MovieRaw", entity: "movie:matrix" },
       }),
       fixtureSet,
@@ -70,7 +70,7 @@ describe("l1-eval resolve vectors (SPEC-5)", () => {
       evalTerm(
         parseTerm({
           op: "resolve",
-          policy: { default: { pick: { order: "lexById" } } },
+          schema: { default: { pick: { order: "lexById" } } },
           in: "input",
         }),
         fixtureSet,
@@ -82,7 +82,7 @@ describe("l1-eval resolve vectors (SPEC-5)", () => {
     expect(() =>
       parseTerm({
         op: "resolve",
-        policy: { default: { pick: { order: { chain: [] } } } },
+        schema: { default: { pick: { order: { chain: [] } } } },
         in: { op: "fix", schema: "MovieRaw", entity: "movie:matrix" },
       }),
     ).toThrow(/chain must name at least one order/);
@@ -91,7 +91,7 @@ describe("l1-eval resolve vectors (SPEC-5)", () => {
   it("determinism: same policy + hview => byte-identical view", () => {
     const term = parseTerm({
       op: "resolve",
-      policy: { default: { all: { order: "lexById" } } },
+      schema: { default: { all: { order: "lexById" } } },
       in: { op: "fix", schema: "MovieRaw", entity: "movie:matrix" },
     });
     const a = resultCanonicalHex(evalTerm(term, fixtureSet, undefined, registry));

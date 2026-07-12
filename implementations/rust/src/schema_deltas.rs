@@ -1,4 +1,4 @@
-//! Schemas as deltas + the bootstrap (SPEC-3 §5, ERRATA-3 S1-S3). Mirrors ../ts/src/schema-deltas.ts.
+//! HyperSchemas as deltas + the bootstrap (SPEC-3 §5, ERRATA-3 S1-S3). Mirrors ../ts/src/schema-deltas.ts.
 
 use serde_json::json;
 
@@ -14,13 +14,13 @@ use crate::types::{Claims, Pointer, Primitive, Target};
 pub const VOCAB_PREFIX: &str = "rhizomatic";
 
 fn role(suffix: &str) -> String {
-    format!("{VOCAB_PREFIX}.schema.{suffix}")
+    format!("{VOCAB_PREFIX}.hyperschema.{suffix}")
 }
 
 /// The bootstrap (S2): the (amended, S5) canonical idiom — mask BEFORE select — hand-specified.
-pub fn schema_schema() -> HyperSchema {
+pub fn hyper_schema_schema() -> HyperSchema {
     HyperSchema {
-        name: format!("{VOCAB_PREFIX}.SchemaSchema"),
+        name: format!("{VOCAB_PREFIX}.HyperSchemaSchema"),
         alg: 1,
         body: parse_term(&json!({
             "op": "group",
@@ -84,7 +84,7 @@ fn primitive_of(claims: &Claims, want_role: &str) -> Option<Primitive> {
 /// Load a schema definition from the rhizome (S3): evaluate the bootstrap at the schema entity,
 /// take the latest surviving definition, decode the term, verify canonicality by re-encoding.
 pub fn load_schema(dset: &DeltaSet, schema_entity: &str) -> Result<HyperSchema, String> {
-    let boot = schema_schema();
+    let boot = hyper_schema_schema();
     let result = eval_term(&boot.body, dset, Some(schema_entity), None, None)?;
     let EvalResult::HView(h) = result else {
         return Err("bootstrap body must yield an HView".to_string());

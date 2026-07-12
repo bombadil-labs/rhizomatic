@@ -37,7 +37,7 @@ These are the axioms. A change to any of these is a different project.
 
 **P4 — Closed operator algebra; computation as authorship.** All query, schema, and index behavior compiles to a small, closed, serializable set of operators (SPEC-2). No layer above the delta may require arbitrary computation to be shipped between instances with implicit trust: instances exchange *terms*, never *code*. Arbitrary computation is not excluded from the system — it lives at L7 as **derived authors** (SPEC-7): identified, signed, consent-installed processes whose outputs are ordinary provenance-carrying deltas. Terms run automatically (safe by construction); functions run by explicit consent (a trust gradient, not a trust cliff).
 
-**P5 — Determinism is layered; pluralism is parameterized.** Given (delta set, schema program, resolution policy), output is fully deterministic. Divergent views between users arise only from divergent inputs to that function — different delta subsets, different policies — never from nondeterminism in the machine. The system has no opinion about truth; it has rigorous opinions about *evaluation*.
+**P5 — Determinism is layered; pluralism is parameterized.** Given (delta set, hyperschema, schema), output is fully deterministic. Divergent views between users arise only from divergent inputs to that function — different delta subsets, different schemas — never from nondeterminism in the machine. The system has no opinion about truth; it has rigorous opinions about *evaluation*.
 
 **P6 — Identity is content-derived.** A delta's identity is computable by anyone from the delta itself (content addressing). No instance mints identity; identity is a property of the format, not of a machine.
 
@@ -53,7 +53,7 @@ These are the axioms. A change to any of these is a different project.
 ├───────────────────────────────────────┼─────┤
 │  L4  Reactor + Indexes (engine)       │     │   SPEC-4
 ├───────────────────────────────────────┼─────┤
-│  L3  Schemas / HyperViews (programs)  │     │   SPEC-3
+│  L3  HyperSchemas / HyperViews      │     │   SPEC-3
 ├───────────────────────────────────────┼─────┤
 │  L2  Operator Algebra  (instructions) │     │   SPEC-2
 ├───────────────────────────────────────┼─────┤
@@ -79,7 +79,7 @@ The von Neumann analogy is exact and intentional:
 | Instruction set | Operator algebra (L2) |
 | Compiled programs | HyperSchemas (L3) |
 | CPU | Reactor (L4) |
-| Calling convention / ABI | Resolution policies & vocabularies (L5) |
+| Calling convention / ABI | Resolution schemas & vocabularies (L5) |
 | Networking | Federation (L6) |
 | Userland programs / coprocessors | Derived authors (L7) |
 | Stored-program property | Schemas stored as deltas (P3) |
@@ -93,13 +93,13 @@ The entire system is one referentially transparent function, staged:
 
 ```
 HyperView = eval(schemaProgram, deltaSet)        // L2–L3: deterministic
-View      = resolve(policy, HyperView)           // L5:    deterministic given policy
+View      = resolve(schema, HyperView)           // L5:    deterministic given schema
 ```
 
 - `deltaSet` is an unordered set (P1 makes order irrelevant to meaning; timestamps are claims *inside* deltas, not stream positions).
 - `schemaProgram` is a term in the operator algebra, itself representable as deltas.
-- `policy` is a resolution strategy (last-claim-wins, trusted-authors, surface-all, etc.), also representable as deltas.
-- Two instances holding the same `deltaSet` and evaluating the same program under the same policy MUST produce identical results, byte-for-byte under canonical serialization.
+- `schema` is a resolution program (last-claim-wins, trusted-authors, surface-all, etc. — a map of per-property policies), also representable as deltas.
+- Two instances holding the same `deltaSet` and evaluating the same program under the same schema MUST produce identical results, byte-for-byte under canonical serialization.
 
 Indexes are not a separate concept: an index is a **materialized prefix** of this pipeline, incrementally maintained by the reactor (SPEC-4).
 
@@ -108,7 +108,7 @@ Indexes are not a separate concept: an index is a **materialized prefix** of thi
 Rhizomatic ships a **conformance suite, not a reference implementation**. The normative artifacts are:
 
 1. These specification documents.
-2. A directory of test vectors: `(input deltas, schema program, policy) → expected canonical output` for every normative behavior, including edge cases (negation chains, merge convergence, expansion termination).
+2. A directory of test vectors: `(input deltas, hyperschema, schema) → expected canonical output` for every normative behavior, including edge cases (negation chains, merge convergence, expansion termination).
 
 An implementation is conformant if it passes the vectors. The TypeScript implementation is one conformant citizen; it has no special authority. Implementations in Elixir, Rust, the browser, or an embedded sensor are equally first-class — this is what "trivial to implement in unexpected places" means operationally.
 
@@ -129,9 +129,9 @@ Higher levels imply lower ones.
 | SPEC-0 | — | This document: principles, stack, conformance |
 | SPEC-1 | L1 | Delta wire format, canonical serialization, content addressing, signatures, negation structure |
 | SPEC-2 | L2 | The operator algebra: instruction set, closure, decidability, relational completeness |
-| SPEC-3 | L3 | HyperSchemas as operator programs; HyperViews; DAG constraint; schemas-as-deltas encoding |
+| SPEC-3 | L3 | HyperSchemas as operator programs; HyperViews; DAG constraint; hyperschemas-as-deltas encoding |
 | SPEC-4 | L4 | The reactor: streams, subscriptions, incremental index maintenance, determinism guarantees |
-| SPEC-5 | L5 | Resolution policies, views, conflict strategies, vocabulary conventions (the ABI) |
+| SPEC-5 | L5 | Resolution schemas, views, conflict strategies, vocabulary conventions (the ABI) |
 | SPEC-6 | L6 | Federation: sync-as-union, trust boundaries, signed identity, vocabulary mapping |
 | SPEC-7 | L7 | Derivation: computation as authorship, derived authors, write-back loop, function portability & consent |
 | SPEC-8 | L0 | Storage profile: pack format, dehydration/rehydration contract, repacking, archives & bundles |
@@ -146,7 +146,8 @@ The key words MUST, MUST NOT, SHOULD, SHOULD NOT, and MAY are to be interpreted 
 - **Operator term** — an expression in the closed algebra of SPEC-2.
 - **HyperSchema** — a named, DAG-structured operator program (SPEC-3).
 - **HyperView** — the deterministic result of evaluating a HyperSchema against a delta set: relevant deltas, organized by property, with provenance intact.
-- **View** — a resolved domain object: conflicts collapsed per policy, primitives extracted.
+- **Schema** — a resolution program: per-property Policies plus a default (SPEC-5). `Schema : View :: HyperSchema : HyperView`.
+- **View** — a resolved domain object: conflicts collapsed per schema, primitives extracted.
 - **Reactor** — an execution engine that evaluates terms and maintains materializations against a live stream.
 - **Derived author** — a content-addressed function with its own signing identity, installed by consent, that reads materializations/views and writes deltas (SPEC-7).
 - **Transaction manifest** — an ordinary delta (in the `rhizomatic.txn` vocabulary) whose pointers commit, by content address, to a set of member deltas asserted in one act. Grouping is a claim, never a container (SPEC-1 §9).

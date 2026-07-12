@@ -112,7 +112,7 @@ fn rejects_non_dset_sub_term() {
 fn rejects_in_view_inside_policy_by_pred() {
     let err = parse_term(&json!({
         "op": "resolve",
-        "policy": {
+        "schema": {
             "default": { "pick": { "order": { "byPred": { "pred": inner_in_view(), "then": "lexById" } } } }
         },
         "in": "input"

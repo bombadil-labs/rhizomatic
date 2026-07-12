@@ -11,7 +11,7 @@ import {
   makeNegationClaims,
   packId,
   packSet,
-  parsePolicy,
+  parseSchema,
   parseTerm,
   resolveView,
   syncBoth,
@@ -21,7 +21,7 @@ import {
   type DerivedFn,
   type HView,
   type Pointer,
-  type Policy,
+  type Schema,
   type View,
 } from "../src/index.js";
 
@@ -76,10 +76,10 @@ function show(view: View): string {
   return JSON.stringify(view);
 }
 
-function resolveAt(reactor: Reactor, policy: Policy, root: string): View {
+function resolveAt(reactor: Reactor, schema: Schema, root: string): View {
   const result = reactor.eval(movieBody, root);
   if (result.sort !== "hview") throw new Error("expected hview");
-  return resolveView(policy, result.hview);
+  return resolveView(schema, result.hview);
 }
 
 export function main(): string {
@@ -103,12 +103,12 @@ export function main(): string {
   say(`both claims coexist in superposition until a READER chooses how to collapse them.`);
 
   // === ACT 2 =================================================================================
-  act(2, "Policies are lenses: same data, different truths", "P5: pluralism is parameterized");
-  const latest = parsePolicy({ default: { pick: { order: { byTimestamp: "desc" } } } });
-  const trustAlice = parsePolicy({
+  act(2, "Schemas are lenses: same data, different truths", "P5: pluralism is parameterized");
+  const latest = parseSchema({ default: { pick: { order: { byTimestamp: "desc" } } } });
+  const trustAlice = parseSchema({
     default: { pick: { order: { byAuthorRank: [alice.author, bob.author] } } },
   });
-  const conflicts = parsePolicy({
+  const conflicts = parseSchema({
     props: { director: { conflicts: { order: { byTimestamp: "desc" } } } },
     default: { pick: { order: { byTimestamp: "desc" } } },
   });
@@ -116,7 +116,7 @@ export function main(): string {
   say(`trust-Alice   -> ${show(resolveAt(alice.reactor, trustAlice, MOVIE))}`);
   say(`conflicts-only-> ${show(resolveAt(alice.reactor, conflicts, MOVIE))}`);
   say(`Same HyperView, three deterministic truths. The machine never wobbles;`);
-  say(`only the declared policy differs.`);
+  say(`only the declared schema differs.`);
 
   // === ACT 3 =================================================================================
   act(3, "Retraction is a claim about a claim", "P2: negation suppresses, never erases");
@@ -211,7 +211,7 @@ export function main(): string {
   const botAuthor = host.install(spec, avgFn, "d4".repeat(32));
   // a new rating arrives; the bot reacts, computes, signs, writes back
   host.ingest(makeDelta({ ...claim(500, MOVIE, "rating", 10), author: "did:key:zVisitor" }));
-  const trustBot = parsePolicy({
+  const trustBot = parseSchema({
     props: { avgRating: { pick: { order: { byAuthorRank: [botAuthor] } } } },
     default: { pick: { order: { byTimestamp: "desc" } } },
   });

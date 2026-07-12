@@ -486,7 +486,7 @@
       "note": "no mask: both titles superposed; last-claim-wins picks Matrix Reloaded; size picks 3 (ts 710)",
       "term": {
         "op": "resolve",
-        "policy": {
+        "schema": {
           "default": {
             "pick": {
               "order": {
@@ -520,7 +520,7 @@
       "note": "t2 negated by n1: title resolves to The Matrix",
       "term": {
         "op": "resolve",
-        "policy": {
+        "schema": {
           "default": {
             "pick": {
               "order": {
@@ -553,7 +553,7 @@
       "spec": "SPEC-5 §3 byAuthorRank (the trust primitive)",
       "term": {
         "op": "resolve",
-        "policy": {
+        "schema": {
           "default": {
             "pick": {
               "order": {
@@ -591,7 +591,7 @@
       "note": "tag prefers scifi (Carol's), size prefers large (Carol's)",
       "term": {
         "op": "resolve",
-        "policy": {
+        "schema": {
           "default": {
             "pick": {
               "order": {
@@ -635,7 +635,7 @@
       "spec": "SPEC-5 §3 all",
       "term": {
         "op": "resolve",
-        "policy": {
+        "schema": {
           "props": {
             "tag": {
               "all": {
@@ -681,7 +681,7 @@
       "note": "sum folds in id order (8.7+9.1); size max is the STRING large by canonical type order",
       "term": {
         "op": "resolve",
-        "policy": {
+        "schema": {
           "props": {
             "rating": {
               "merge": "sum"
@@ -728,7 +728,7 @@
       "spec": "SPEC-5 §3 MergeFn",
       "term": {
         "op": "resolve",
-        "policy": {
+        "schema": {
           "props": {
             "tag": {
               "merge": "concatSorted"
@@ -770,7 +770,7 @@
       "note": "title has 2 distinct claims -> surfaced; releaseYear has 1 -> absent",
       "term": {
         "op": "resolve",
-        "policy": {
+        "schema": {
           "props": {
             "title": {
               "conflicts": {
@@ -819,10 +819,10 @@
     {
       "name": "absent-as-default",
       "spec": "SPEC-5 §3 absentAs / §4 empty property",
-      "note": "no director deltas exist; the policy names the property so absentAs fires",
+      "note": "no director deltas exist; the schema names the property so absentAs fires",
       "term": {
         "op": "resolve",
-        "policy": {
+        "schema": {
           "props": {
             "director": {
               "absentAs": {
@@ -867,11 +867,11 @@
     },
     {
       "name": "resolve-nested-expansion",
-      "spec": "ERRATA-5 R1/R6 (multi-pointer candidate; nested View with same policy)",
+      "spec": "ERRATA-5 R1/R6 (multi-pointer candidate; nested View with same schema)",
       "note": "cast candidate is {actor: {name: Keanu Reeves}, character: Neo}",
       "term": {
         "op": "resolve",
-        "policy": {
+        "schema": {
           "default": {
             "pick": {
               "order": {
@@ -911,7 +911,7 @@
       "note": "rank alone cannot see recency: Alice's two bios tie, whichever id sorts first wins",
       "term": {
         "op": "resolve",
-        "policy": {
+        "schema": {
           "props": {
             "bio": {
               "pick": {
@@ -949,7 +949,7 @@
       "note": "unranked Carol's newest bio loses to Alice; among Alice's own, recency decides: Archivist and cartographer",
       "term": {
         "op": "resolve",
-        "policy": {
+        "schema": {
           "props": {
             "bio": {
               "pick": {
@@ -994,7 +994,7 @@
       "note": "mottoes tie at ts 400; rank breaks the tie: Alice's first",
       "term": {
         "op": "resolve",
-        "policy": {
+        "schema": {
           "props": {
             "motto": {
               "all": {
@@ -1044,7 +1044,7 @@
       "note": "a one-link chain is its link: same View as author-rank-terminal-ties-lexById",
       "term": {
         "op": "resolve",
-        "policy": {
+        "schema": {
           "props": {
             "bio": {
               "pick": {
@@ -1086,7 +1086,7 @@
       "note": "Alice's claims first, then her oldest: Founder of the village archive",
       "term": {
         "op": "resolve",
-        "policy": {
+        "schema": {
           "props": {
             "bio": {
               "pick": {

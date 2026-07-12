@@ -13,7 +13,7 @@ import { aliasClosure, evalTerm, resultCanonicalHex, type AliasedSpec } from "..
 import { relationSignature, relationSignatureCanonicalHex } from "../src/alias.js";
 import { VOCAB_PREFIX } from "../src/vocab.js";
 import { claimsToJson, parseClaims } from "../src/json-profile.js";
-import { SCHEMA_SCHEMA, publishSchemaClaims } from "../src/schema-deltas.js";
+import { HYPER_SCHEMA_SCHEMA, publishSchemaClaims } from "../src/schema-deltas.js";
 import { SchemaRegistry } from "../src/schema.js";
 import { termCanonicalHex, termHash, termToJson } from "../src/term-io.js";
 import { DeltaSet, makeDelta } from "../src/set.js";
@@ -751,7 +751,7 @@ console.log(
   `wrote ${expandVectors.length} expand vectors over ${expandFixtureSet.size} fixture deltas to vectors/l1-eval/eval-expand.json`,
 );
 
-// --- l1-eval: resolve + policy terms (SPEC-5, ERRATA-5 R1-R7) ---
+// --- l1-eval: resolve + schema terms (SPEC-5, ERRATA-5 R1-R7) ---
 
 const rfx: Record<string, { claims: unknown; id: string }> = {};
 const addRfx = (name: string, claims: unknown) => {
@@ -906,7 +906,7 @@ const resolveRegistry = SchemaRegistry.build(
 const latest = { pick: { order: { byTimestamp: "desc" } } };
 const fixMovie = (schema: string) => ({ op: "fix", schema, entity: "movie:matrix" });
 const fixWren = { op: "fix", schema: "PersonRaw", entity: "person:wren" };
-const res = (policy: unknown, of: unknown) => ({ op: "resolve", policy, in: of });
+const res = (schema: unknown, of: unknown) => ({ op: "resolve", schema, in: of });
 
 const resolveCases: Array<{ name: string; spec: string; term: unknown; note?: string }> = [
   {
@@ -1001,11 +1001,11 @@ const resolveCases: Array<{ name: string; spec: string; term: unknown; note?: st
       },
       fixMovie("MovieRaw"),
     ),
-    note: "no director deltas exist; the policy names the property so absentAs fires",
+    note: "no director deltas exist; the schema names the property so absentAs fires",
   },
   {
     name: "resolve-nested-expansion",
-    spec: "ERRATA-5 R1/R6 (multi-pointer candidate; nested View with same policy)",
+    spec: "ERRATA-5 R1/R6 (multi-pointer candidate; nested View with same schema)",
     term: res({ default: latest }, fixMovie("MovieCast")),
     note: "cast candidate is {actor: {name: Keanu Reeves}, character: Neo}",
   },
@@ -1130,11 +1130,11 @@ const pinnedResult = evalTerm(parseTerm(pinnedTerm), expandFixtureSet, undefined
 
 const schemaDeltasOut = {
   bootstrap: {
-    name: SCHEMA_SCHEMA.name,
-    alg: SCHEMA_SCHEMA.alg,
-    termJson: termToJson(SCHEMA_SCHEMA.body),
-    canonicalCborHex: termCanonicalHex(SCHEMA_SCHEMA.body),
-    termHash: termHash(SCHEMA_SCHEMA.body),
+    name: HYPER_SCHEMA_SCHEMA.name,
+    alg: HYPER_SCHEMA_SCHEMA.alg,
+    termJson: termToJson(HYPER_SCHEMA_SCHEMA.body),
+    canonicalCborHex: termCanonicalHex(HYPER_SCHEMA_SCHEMA.body),
+    termHash: termHash(HYPER_SCHEMA_SCHEMA.body),
   },
   termHashes: schemaHashes,
   published: {

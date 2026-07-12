@@ -5,7 +5,7 @@
 import { type CborValue, array, bool, encode, float, map, tstr } from "./cbor.js";
 import type { Term } from "./eval.js";
 import { bytesToHex, contentAddress } from "./hash.js";
-import type { Order, Policy, PropPolicy } from "./policy.js";
+import type { Order, Schema, Policy } from "./resolution.js";
 import type { Hole, Pred, PPred, StrMatch, ValMatch } from "./pred.js";
 import type { Primitive } from "./types.js";
 
@@ -116,7 +116,7 @@ function orderToJson(o: Order): unknown {
   }
 }
 
-function propPolicyToJson(pp: PropPolicy): unknown {
+function policyToJson(pp: Policy): unknown {
   switch (pp.kind) {
     case "pick":
       return { pick: { order: orderToJson(pp.order) } };
@@ -127,14 +127,14 @@ function propPolicyToJson(pp: PropPolicy): unknown {
     case "conflicts":
       return { conflicts: { order: orderToJson(pp.order) } };
     case "absentAs":
-      return { absentAs: { const: pp.constant, then: propPolicyToJson(pp.then) } };
+      return { absentAs: { const: pp.constant, then: policyToJson(pp.then) } };
   }
 }
 
-export function policyToJson(p: Policy): unknown {
+export function schemaToJson(p: Schema): unknown {
   const props: Record<string, unknown> = {};
-  for (const [k, v] of p.props) props[k] = propPolicyToJson(v);
-  return { props, default: propPolicyToJson(p.default) };
+  for (const [k, v] of p.props) props[k] = policyToJson(v);
+  return { props, default: policyToJson(p.default) };
 }
 
 export function termToJson(term: Term): unknown {
@@ -183,7 +183,7 @@ export function termToJson(term: Term): unknown {
       return out;
     }
     case "resolve":
-      return { op: "resolve", policy: policyToJson(term.policy), in: termToJson(term.of) };
+      return { op: "resolve", schema: schemaToJson(term.schema), in: termToJson(term.of) };
   }
 }
 

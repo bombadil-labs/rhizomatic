@@ -5,11 +5,11 @@ use serde_json::Value;
 use unicode_normalization::UnicodeNormalization;
 
 use crate::eval::{term_contains_in_view, GroupKey, MaskPolicy, PruneKeep, SchemaRef, Term};
-use crate::policy::{MergeFn, Order, Policy, PropPolicy};
 use crate::pred::{
     pred_contains_in_view, AliasedMatch, Cmp, EntityMatch, Field, InViewExtract, MatchConst, PPred,
     Param, Pred, StrMatch, ValMatch,
 };
+use crate::resolution::{MergeFn, Order, Policy, Schema};
 use crate::types::Primitive;
 
 /// A hole in Const position: {"hole": "name"} (E15).
@@ -401,7 +401,7 @@ fn parse_order(raw: &Value) -> Result<Order, String> {
     if let Some(bp) = o.get("byPred") {
         let po = bp.as_object().ok_or("byPred: expected object")?;
         let pred = parse_pred(po.get("pred").unwrap_or(&Value::Null))?;
-        // Policy predicates are closed: they run inside resolve, after the mask already decided
+        // Schema predicates are closed: they run inside resolve, after the mask already decided
         // standing — a reflective order would be a second, unlowered trust surface (SPEC-2 §3.1).
         if pred_contains_in_view(&pred) {
             return Err(
@@ -423,17 +423,17 @@ fn parse_order(raw: &Value) -> Result<Order, String> {
     Err("order must be lexById | byTimestamp | byAuthorRank | byPred | chain".to_string())
 }
 
-fn parse_prop_policy(raw: &Value) -> Result<PropPolicy, String> {
+fn parse_policy(raw: &Value) -> Result<Policy, String> {
     let o = raw.as_object().ok_or("propPolicy: expected object")?;
     if let Some(p) = o.get("pick") {
         let po = p.as_object().ok_or("pick: expected object")?;
-        return Ok(PropPolicy::Pick(parse_order(
+        return Ok(Policy::Pick(parse_order(
             po.get("order").unwrap_or(&Value::Null),
         )?));
     }
     if let Some(p) = o.get("all") {
         let po = p.as_object().ok_or("all: expected object")?;
-        return Ok(PropPolicy::All(parse_order(
+        return Ok(Policy::All(parse_order(
             po.get("order").unwrap_or(&Value::Null),
         )?));
     }
@@ -448,36 +448,36 @@ fn parse_prop_policy(raw: &Value) -> Result<PropPolicy, String> {
             Some("concatSorted") => MergeFn::ConcatSorted,
             other => return Err(format!("unknown merge fn {other:?}")),
         };
-        return Ok(PropPolicy::Merge(fn_));
+        return Ok(Policy::Merge(fn_));
     }
     if let Some(c) = o.get("conflicts") {
         let co = c.as_object().ok_or("conflicts: expected object")?;
-        return Ok(PropPolicy::Conflicts(parse_order(
+        return Ok(Policy::Conflicts(parse_order(
             co.get("order").unwrap_or(&Value::Null),
         )?));
     }
     if let Some(a) = o.get("absentAs") {
         let ao = a.as_object().ok_or("absentAs: expected object")?;
-        return Ok(PropPolicy::AbsentAs {
+        return Ok(Policy::AbsentAs {
             constant: parse_primitive(ao.get("const").unwrap_or(&Value::Null), "absentAs.const")?,
-            then: Box::new(parse_prop_policy(ao.get("then").unwrap_or(&Value::Null))?),
+            then: Box::new(parse_policy(ao.get("then").unwrap_or(&Value::Null))?),
         });
     }
     Err("propPolicy must be pick | all | merge | conflicts | absentAs".to_string())
 }
 
-pub fn parse_policy(raw: &Value) -> Result<Policy, String> {
+pub fn parse_schema(raw: &Value) -> Result<Schema, String> {
     let o = raw.as_object().ok_or("policy: expected object")?;
     let mut props = std::collections::BTreeMap::new();
     if let Some(ps) = o.get("props") {
         let po = ps.as_object().ok_or("policy.props: expected object")?;
         for (k, v) in po {
-            props.insert(nfc(k), parse_prop_policy(v)?);
+            props.insert(nfc(k), parse_policy(v)?);
         }
     }
-    Ok(Policy {
+    Ok(Schema {
         props,
-        default: parse_prop_policy(o.get("default").unwrap_or(&Value::Null))?,
+        default: parse_policy(o.get("default").unwrap_or(&Value::Null))?,
     })
 }
 
@@ -558,7 +558,7 @@ pub fn parse_term(raw: &Value) -> Result<Term, String> {
             })
         }
         Some("resolve") => Ok(Term::Resolve {
-            policy: parse_policy(o.get("policy").unwrap_or(&Value::Null))?,
+            schema: parse_schema(o.get("schema").unwrap_or(&Value::Null))?,
             of: Box::new(parse_term(o.get("in").unwrap_or(&Value::Null))?),
         }),
         Some("prune") => {

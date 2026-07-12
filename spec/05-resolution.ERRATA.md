@@ -10,7 +10,7 @@ Folded into SPEC-5 §2.1 (2026-06-11); history in git.
 
 Folded into SPEC-5 §3 (2026-06-11); history in git.
 
-## R3 — Policy JSON profile
+## R3 — Schema JSON profile (formerly "Policy")
 
 Folded into SPEC-5 §7 (appendix) (2026-06-11); history in git.
 

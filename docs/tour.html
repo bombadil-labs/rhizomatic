@@ -206,7 +206,7 @@
     </div>
     <div class="row">
       <span class="lno">L5</span>
-      <a class="lmain" href="#lenses"><span class="lname">Resolution</span> <span class="lblurb">— superposition → one truth, per declared policy</span></a>
+      <a class="lmain" href="#lenses"><span class="lname">Resolution</span> <span class="lblurb">— superposition → one truth, per declared schema</span></a>
       <a class="ldemo" href="#lenses">§4</a>
       <a class="lspec" href="https://github.com/mbilokonsky/rhizomatic/blob/main/spec/05-resolution.md">SPEC-5</a>
     </div>
@@ -218,7 +218,7 @@
     </div>
     <div class="row">
       <span class="lno">L3</span>
-      <a class="lmain" href="#superposition"><span class="lname">Schemas &amp; HyperViews</span> <span class="lblurb">— lenses over the rhizome; contradiction held, not resolved</span></a>
+      <a class="lmain" href="#superposition"><span class="lname">HyperSchemas &amp; HyperViews</span> <span class="lblurb">— lenses over the rhizome; contradiction held, not resolved</span></a>
       <a class="ldemo" href="#superposition">§3</a>
       <a class="lspec" href="https://github.com/mbilokonsky/rhizomatic/blob/main/spec/03-schema.md">SPEC-3</a>
     </div>
@@ -303,13 +303,13 @@
 <section id="lenses">
   <h2><span class="no">§4</span>Truth is a lens</h2>
   <p>If the data holds contradictions, what does <em>reading</em> mean? It means choosing a
-  <strong>resolution policy</strong>: an explicit, inspectable declaration of whom you trust,
+  <strong>resolution schema</strong>: an explicit, inspectable declaration of whom you trust,
   in what order, with what tie-breaks. Below, the <em>same</em> stored data resolves under four
   different policies — simultaneously.</p>
 
   <div class="widget" id="w-lens"></div>
 
-  <p>Same rhizome, four truths, each one deterministic: <code>resolve(policy, view)</code> is a
+  <p>Same rhizome, four truths, each one deterministic: <code>resolve(schema, hview)</code> is a
   pure function. Two readers disagree only because they <em>chose</em> different policies —
   never because the machine wobbled. Add a third opinion in §3 and watch all four panes react.</p>
 </section>
@@ -360,7 +360,7 @@
   <p class="aside">After the sync, anyone who pulls from either peer — Luke, say — holds both
   accounts of his father's fate, each signed by its author. <q>What I told you was true… from
   a certain point of view.</q> Here that line isn't a dodge; it's the type signature of
-  reading. A resolution policy (§4) is a point of view you can write down, share, and apply
+  reading. A resolution schema (§4) is a point of view you can write down, share, and apply
   deterministically.</p>
 
   <p>One more, because it's the property everything else stands on — <strong>order
@@ -429,7 +429,7 @@
     <div class="digest-big">1e20f71d4b7221330eac265aa3f4047c92be0392ec09a0327500f0ca7d7bcacfb6bb</div>
     <div class="meta">…computed independently by both languages from the same logical set. The whole
     stack is pinned this way: canonical CBOR, content addressing, Ed25519 signatures, the
-    eight-operator algebra, resolution policies, the incremental reactor, packs, federation,
+    eight-operator algebra, resolution schemas, the incremental reactor, packs, federation,
     and derived authors — 250+ tests across both witnesses, parity-checked in CI.</div>
   </div>
 

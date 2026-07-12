@@ -47,21 +47,26 @@ export {
   viewCanonicalHex,
   type MergeFn,
   type Order,
+  type Schema,
   type Policy,
-  type PropPolicy,
   type View,
-} from "./policy.js";
-export { parsePolicy, parsePred, parseTerm } from "./term-json.js";
+} from "./resolution.js";
+export { parseSchema, parsePred, parseTerm } from "./term-json.js";
 export {
   cborToJson,
   jsonToCbor,
-  policyToJson,
+  schemaToJson,
   predToJson,
   termCanonicalHex,
   termHash,
   termToJson,
 } from "./term-io.js";
-export { SCHEMA_SCHEMA, VOCAB_PREFIX, loadSchema, publishSchemaClaims } from "./schema-deltas.js";
+export {
+  HYPER_SCHEMA_SCHEMA,
+  VOCAB_PREFIX,
+  loadSchema,
+  publishSchemaClaims,
+} from "./schema-deltas.js";
 export { decode } from "./cbor.js";
 export { packId, packSet, unpackSet } from "./pack.js";
 export { Peer, syncBoth, type SyncReport } from "./peer.js";
