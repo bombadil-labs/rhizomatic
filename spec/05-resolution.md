@@ -34,8 +34,9 @@ deterministic:
 
 - **Filing pointers** (EntityRef pointers targeting the HView's root) are excluded — they are the
   edge's address, not its payload.
-- Render the remaining pointers' targets: a primitive renders as itself; an unexpanded EntityRef
-  renders as its entity-id string; a DeltaRef renders as its delta-id string; an **expanded**
+- Render the remaining pointers' targets: a primitive renders as itself; a **bytes** target
+  renders as the bytes View leaf `{ mime, value }` (SPEC-1 §2; the leaf, §5); an unexpanded
+  EntityRef renders as its entity-id string; a DeltaRef renders as its delta-id string; an **expanded**
   target (SPEC-2 §4.5) renders as the nested HView resolved recursively **with the same schema
   object** as the enclosing resolution (per-depth schemas are a deferred extension; the
   recursion is deterministic either way).
@@ -83,7 +84,7 @@ Normative notes:
   `byAuthorRank` + `chain` say directly.
 - `byAuthorRank` is the trust primitive. Trust *lists* are data (representable as deltas), so trust is queryable, forkable, and federated like everything else. `byAuthorRank` and `byTimestamp` are deliberately tie-*permissive* — composition is `chain`'s job, not a per-order `then`.
 - `MergeFn` is a closed set by the same argument as SPEC-2 §1: arbitrary reducers cannot ship inside schema terms. They are not second-class, however — they are **derived authors** (SPEC-7). *(Open: whether aggregation pressure forces algebra-level support — tracked at SPEC-2 §9.)*
-- `merge(fn)` folds over the property's candidates in **ascending delta-id order** (float addition is order-dependent; the fold order is pinned). Domains: `max`/`min` take all primitive candidates by the canonical total order (SPEC-2 §3); `sum` numeric candidates only; `and`/`or` boolean only; `count` counts all surviving entries regardless of type; `concatSorted` yields all primitive candidates sorted canonically. Non-primitive candidates (§2.1 objects/arrays) are skipped by every MergeFn except `count`. A MergeFn with no candidates in its domain resolves to **absent**.
+- `merge(fn)` folds over the property's candidates in **ascending delta-id order** (float addition is order-dependent; the fold order is pinned). Domains: `max`/`min` take all primitive candidates by the canonical total order (SPEC-2 §3); `sum` numeric candidates only; `and`/`or` boolean only; `count` counts all surviving entries regardless of type; `concatSorted` yields all primitive candidates sorted canonically. Non-primitive candidates (§2.1 objects/arrays, and **bytes leaves**) are skipped by every MergeFn except `count`. A MergeFn with no candidates in its domain resolves to **absent**. Bytes are *transparent to merge folds* but full participants in `pick`/`all`/`conflicts`: those order by entry metadata (never by comparing byte values), and `conflicts` dedups by the View's canonical hex — so two authors asserting identical `(mime, bytes)` raise no conflict, while same bytes under a different `mime` do.
 - The resolved View includes every property named in `schema.props` — so `absentAs` can fire for properties with no deltas at all — plus every HView property not named, resolved via `default`. Every order chain ends in an **implicit lexById tiebreak**, structurally: determinism does not depend on authors remembering to write it.
 - **Computed resolution is architecture, not workaround.** Any resolution requiring general computation or judgment — domain-specific reducers, statistical combiners, human review queues, LLM adjudication, semantic matching — is performed by a derived author: an identified function subscribed to the relevant materialization, emitting its verdicts as signed deltas (optionally negating losers). The application's schema then resolves with `byAuthorRank([thatAuthor, …])`. The judgment becomes reactive (recomputed when inputs change, not on every read), cached (a delta, evaluated once), versioned (new function hash = new author), and auditable (`explain` traces the value to the function and the exact input hashes it saw). `resolve` stays deterministic; intelligence enters the system as provenance-carrying data. The cost, stated plainly: computed resolutions are eventually consistent with their inputs (SPEC-7 §5).
 
@@ -96,10 +97,17 @@ Normative notes:
 
 ## 5. View Output Profiles
 
-A View is `primitive | View[] | { string: View }`. The View of an HView is the object of its
-resolved properties — the root id is context the caller already holds, not a property. Canonical
-serialization is the canonical CBOR of that structure (the same profile as everything else,
-SPEC-1 §4.1); conformance vectors pin both a JSON rendering and the canonical hex. Profiles (informative): a GraphQL resolver maps each property's Policy to a field resolver over the HyperView — the legacy README's resolver examples become *generated code from schema terms*. REST/JSON and language-native object mappings follow the same pattern. All profiles MUST preserve the determinism contract; presentation may reorder, never re-adjudicate.
+A View is `primitive | Bytes | View[] | { string: View }`, where the **bytes leaf** is shaped
+identically to the target — `{ mime: string, value: bytes }`. The View of an HView is the object
+of its resolved properties — the root id is context the caller already holds, not a property.
+Canonical serialization is the canonical CBOR of that structure (the same profile as everything
+else, SPEC-1 §4.1); the bytes leaf's canonical CBOR is exactly the target's
+(`map { "mime": tstr, "value": bstr }`), defined once and reused — so `viewCanonicalHex`,
+`conflicts` dedup, and result hashing inherit it for free. In the JSON rendering the leaf is
+`{ "mime": …, "value": "<base64url>" }`; a two-pointer candidate with roles `mime`/`value` could
+*look* identical in JSON, but in canonical CBOR it cannot (a string primitive's `value` is `tstr`,
+the leaf's is `bstr`), and **CBOR is normative, JSON is for inspection** (SPEC-1 §4.2) — that rule
+resolves the ambiguity. Conformance vectors pin both a JSON rendering and the canonical hex. Profiles (informative): a GraphQL resolver maps each property's Policy to a field resolver over the HyperView — the legacy README's resolver examples become *generated code from schema terms*. REST/JSON and language-native object mappings follow the same pattern. All profiles MUST preserve the determinism contract; presentation may reorder, never re-adjudicate.
 
 ## 6. Vocabulary: the Calling Convention
 

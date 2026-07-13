@@ -44,12 +44,20 @@ MemberRecord = map { "m": envelopeIdx, "p": [Ptr...],
                      "a"?: authorIdx,   // only when it differs from the manifest's (invariant 2)
                      "dt"?: number,     // timestamp minus manifest timestamp; omitted when 0
                      "s"?: sigIdx }     // stored whenever present (sigs are kept verbatim)
-Ptr = map { "r": roleIdx, "e"|"d"|"s": idx | "n": number | "b": bool, "c"?: ctxIdx }
-      // e=EntityRef id, d=DeltaRef hex, s=string primitive, n=number, b=bool; c=context
+Ptr = map { "r": roleIdx, "e"|"d"|"s": idx | "n": number | "b": bool | ("m": mimeIdx, "y": bstr), "c"?: ctxIdx }
+      // e=EntityRef id, d=DeltaRef hex, s=string primitive, n=number, b=bool;
+      // m=mime string-table idx + y=raw bytes payload (a bytes target); c=context
 ```
 
 All indices are positions in `strings` (numbers in the profile's float encoding — small ints are
 f16, so the cost is modest). Determinism is total: same delta set ⇒ same pack bytes ⇒ same packId.
+
+A `Ptr` is a **bytes target** iff it carries `y` (with `m` required alongside it). The `mime`
+interns into `strings` like every other string (mimes repeat and pack well); the payload `y`
+rides as a raw `bstr`, **not** interned — payloads rarely repeat across pointers, and identical
+payloads already dedup at the delta level. A bytes pointer carries no `c` (a literal is not a
+vertex). The §4 rehydrate-and-verify fsck covers the new kind automatically: a record that does
+not rebuild to its canonical delta bytes fails the content-address check.
 
 ### 3.1 Dehydration rules (MemberRecord)
 
