@@ -1,8 +1,12 @@
 //! Parse the JSON debug profile used by the vectors into the logical model (ERRATA "JSON debug
 //! profile"). Mirrors ../ts/src/json-profile.ts. The CBOR form is normative; this is for vectors.
 
+use crate::b64u;
 use crate::types::{Claims, DeltaRef, EntityRef, Pointer, Primitive, Target};
 use serde_json::Value;
+
+const TARGET_SHAPES: &str =
+    "target must be a primitive, {id, context?}, {delta, context?}, or {mime, value}";
 
 fn parse_primitive(v: &Value) -> Result<Primitive, String> {
     match v {
@@ -35,25 +39,47 @@ fn parse_target(v: &Value) -> Result<Target, String> {
     if matches!(v, Value::String(_) | Value::Number(_) | Value::Bool(_)) {
         return Ok(Target::Primitive(parse_primitive(v)?));
     }
-    let o = v
-        .as_object()
-        .ok_or("target must be a primitive, {id, context?}, or {delta, context?}")?;
-    let context = parse_context(o)?;
+    let o = v.as_object().ok_or(TARGET_SHAPES)?;
+    // Structural discrimination, first match wins (SPEC-1 §4.2): id → EntityRef, delta → DeltaRef,
+    // else mime → Bytes, else reject. A bytes literal has no context slot; extra keys are ignored
+    // on it exactly as on refs (the lenient-extra-keys behavior).
     if let Some(id) = o.get("id") {
         let id = id
             .as_str()
             .ok_or("entity ref id must be a string")?
             .to_string();
-        return Ok(Target::Entity(EntityRef { id, context }));
+        return Ok(Target::Entity(EntityRef {
+            id,
+            context: parse_context(o)?,
+        }));
     }
     if let Some(delta) = o.get("delta") {
         let delta = delta
             .as_str()
             .ok_or("delta ref delta must be a string")?
             .to_string();
-        return Ok(Target::Delta(DeltaRef { delta, context }));
+        return Ok(Target::Delta(DeltaRef {
+            delta,
+            context: parse_context(o)?,
+        }));
     }
-    Err("target must be a primitive, {id, context?}, or {delta, context?}".into())
+    if let Some(mime) = o.get("mime") {
+        let mime = mime
+            .as_str()
+            .ok_or("bytes target mime must be a string")?
+            .to_string();
+        let value_s = o
+            .get("value")
+            .ok_or("bytes target requires a value")?
+            .as_str()
+            .ok_or("bytes target value must be a base64url string")?;
+        // canonical unpadded base64url; malformed encodings are rejected, never repaired (D12).
+        return Ok(Target::Bytes {
+            mime,
+            value: b64u::decode(value_s)?,
+        });
+    }
+    Err(TARGET_SHAPES.into())
 }
 
 fn parse_pointer(v: &Value) -> Result<Pointer, String> {
@@ -112,6 +138,9 @@ pub fn claims_to_json(claims: &Claims) -> Value {
                     Some(c) => json!({ "delta": d.delta, "context": c }),
                     None => json!({ "delta": d.delta }),
                 },
+                Target::Bytes { mime, value } => {
+                    json!({ "mime": mime, "value": b64u::encode(value) })
+                }
             };
             json!({ "role": p.role, "target": target })
         })

@@ -307,6 +307,9 @@ fn extract_reflected(extract: &InViewExtract, set: &DeltaSet) -> Vec<Primitive> 
                             out.insert(s.clone());
                         }
                         Target::Primitive(_) => {}
+                        // a bytes payload is not a trust-set string (id/author/role) — contributes
+                        // nothing to an inView roster; bytes are invisible to predicates (SPEC-2 §3).
+                        Target::Bytes { .. } => {}
                     }
                 }
             }

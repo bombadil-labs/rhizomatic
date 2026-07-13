@@ -20,12 +20,16 @@ pub struct DeltaRef {
     pub context: Option<String>,
 }
 
-/// A pointer's target is exactly one of these, kept structurally distinct (ERRATA D5).
+/// A pointer's target is exactly one of these, kept structurally distinct (ERRATA D5, D12).
 #[derive(Debug, Clone, PartialEq)]
 pub enum Target {
     Primitive(Primitive),
     Entity(EntityRef),
     Delta(DeltaRef),
+    /// Raw byte payload carrying a required, in-kind media type (SPEC-1 §2, ERRATA D12).
+    /// Identity is the hash of `value`; `mime` is non-empty, NFC, case-sensitive (validated
+    /// at construction). Encoded as `map { "mime": tstr, "value": bstr }`.
+    Bytes { mime: String, value: Vec<u8> },
 }
 
 #[derive(Debug, Clone, PartialEq)]

@@ -6,6 +6,8 @@ use unicode_normalization::UnicodeNormalization;
 #[derive(Debug, Clone, PartialEq)]
 pub enum CborValue {
     Tstr(String),
+    /// definite-length byte string (major type 2) — a bytes target's raw payload (ERRATA D12)
+    Bstr(Vec<u8>),
     Float(f64),
     Bool(bool),
     Array(Vec<CborValue>),
@@ -74,6 +76,10 @@ fn decode_item(r: &mut Reader) -> Result<CborValue, String> {
     let major = head >> 5;
     let info = head & 0x1f;
     match major {
+        2 => {
+            let len = read_length(r, info)?;
+            Ok(CborValue::Bstr(r.take(len)?.to_vec()))
+        }
         3 => {
             let len = read_length(r, info)?;
             let s =
@@ -221,6 +227,10 @@ fn encode_into(out: &mut Vec<u8>, value: &CborValue) {
             let bytes = normalized.as_bytes();
             write_head(out, 3, bytes.len() as u64);
             out.extend_from_slice(bytes);
+        }
+        CborValue::Bstr(b) => {
+            write_head(out, 2, b.len() as u64);
+            out.extend_from_slice(b);
         }
         CborValue::Bool(b) => out.push(if *b { 0xf5 } else { 0xf4 }),
         CborValue::Float(n) => write_float(out, *n),

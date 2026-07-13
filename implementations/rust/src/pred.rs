@@ -262,7 +262,8 @@ fn pointer_matches(p: &PPred, ptr: &Pointer, root: Option<&str>) -> bool {
         let ctx = match &ptr.target {
             Target::Entity(er) => er.context.as_deref(),
             Target::Delta(dr) => dr.context.as_deref(),
-            Target::Primitive(_) => None,
+            // primitives and bytes are literals — no context slot (SPEC-1 §2.3)
+            Target::Primitive(_) | Target::Bytes { .. } => None,
         };
         match ctx {
             Some(c) if str_match(m, c) => {}

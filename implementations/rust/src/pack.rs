@@ -35,6 +35,10 @@ fn strings_of(delta: &Delta, out: &mut BTreeSet<String>) {
                 out.insert(s.clone());
             }
             Target::Primitive(_) => {}
+            // the mime interns like any other string; the raw payload rides uninterned (SPEC-8).
+            Target::Bytes { mime, .. } => {
+                out.insert(mime.clone());
+            }
         }
     }
 }
@@ -61,6 +65,11 @@ fn ptr_to_cbor(p: &Pointer, idx: &BTreeMap<String, usize>) -> CborValue {
         }
         Target::Primitive(Primitive::Bool(b)) => {
             entries.push(("b".to_string(), CborValue::Bool(*b)))
+        }
+        // bytes: m = mime string-table index, y = raw payload (not interned). No context.
+        Target::Bytes { mime, value } => {
+            entries.push(("m".to_string(), fidx(idx, mime)));
+            entries.push(("y".to_string(), CborValue::Bstr(value.clone())));
         }
     }
     if let Some(c) = context {
@@ -253,6 +262,14 @@ fn ptr_from_cbor(v: &CborValue, strings: &[String]) -> Result<Pointer, String> {
             Some(CborValue::Bool(b)) => Target::Primitive(Primitive::Bool(*b)),
             _ => return Err("pack: expected bool for b".to_string()),
         }
+    } else if o.contains_key("m") {
+        // a bytes pointer: mime interned under "m", raw payload verbatim under "y".
+        let mime = s("m")?;
+        let value = match o.get("y") {
+            Some(CborValue::Bstr(b)) => b.clone(),
+            _ => return Err("pack: bytes pointer requires a bstr y".to_string()),
+        };
+        Target::Bytes { mime, value }
     } else {
         return Err("pack: pointer record has no target".to_string());
     };

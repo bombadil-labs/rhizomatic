@@ -38,6 +38,10 @@ fn target_to_cbor_with_expansion(t: &Target, expansion: Option<&HView>) -> CborV
             }
             CborValue::Map(m)
         }
+        Target::Bytes { mime, value } => CborValue::Map(vec![
+            ("mime".to_string(), CborValue::Tstr(mime.clone())),
+            ("value".to_string(), CborValue::Bstr(value.clone())),
+        ]),
         Target::Delta(d) => {
             let mut m = vec![("delta".to_string(), CborValue::Tstr(d.delta.clone()))];
             if let Some(c) = &d.context {

@@ -12,6 +12,9 @@ use crate::types::{Primitive, Target};
 #[derive(Debug, Clone, PartialEq)]
 pub enum View {
     Prim(Primitive),
+    /// a bytes leaf, shaped identically to the target (SPEC-5 §5, SPEC-1 §2). Non-primitive:
+    /// transparent to merge folds, a full participant in pick/all/conflicts.
+    Bytes { mime: String, value: Vec<u8> },
     Arr(Vec<View>),
     Obj(BTreeMap<String, View>),
 }
@@ -113,6 +116,10 @@ fn render_target(t: &Target, expansion: Option<&HView>, schema: &Schema) -> View
         Target::Primitive(p) => View::Prim(p.clone()),
         Target::Entity(e) => View::Prim(Primitive::Str(e.id.clone())),
         Target::Delta(d) => View::Prim(Primitive::Str(d.delta.clone())),
+        Target::Bytes { mime, value } => View::Bytes {
+            mime: mime.clone(),
+            value: value.clone(),
+        },
     }
 }
 
@@ -159,6 +166,11 @@ pub fn view_to_cbor(v: &View) -> CborValue {
         View::Prim(Primitive::Str(s)) => CborValue::Tstr(s.clone()),
         View::Prim(Primitive::Num(n)) => CborValue::Float(*n),
         View::Prim(Primitive::Bool(b)) => CborValue::Bool(*b),
+        // the bytes leaf's canonical CBOR IS the target's — defined once, reused (SPEC-5 §5).
+        View::Bytes { mime, value } => CborValue::Map(vec![
+            ("mime".to_string(), CborValue::Tstr(mime.clone())),
+            ("value".to_string(), CborValue::Bstr(value.clone())),
+        ]),
         View::Arr(xs) => CborValue::Array(xs.iter().map(view_to_cbor).collect()),
         View::Obj(m) => CborValue::Map(
             m.iter()
