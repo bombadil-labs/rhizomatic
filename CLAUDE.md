@@ -108,6 +108,47 @@ work: the reference demo (implementations/ts/demo), CI, and whatever PROGRESS.md
   single configurable constant (`VOCAB_PREFIX`) in each implementation, so any future change stays a
   one-line edit plus a vector regen.
 
+## ADLC — issues become tickets
+
+This repo runs the **Agentic Development Lifecycle**. A GitHub issue is a proposal; the
+executable contract is a **ticket** in `.adlc/tickets.json`, two-way synced with its issue.
+We are migrating from the bespoke workflow above to ADLC — when a convention here conflicts
+with an ADLC convention, defer to ADLC.
+
+- **Committed vs runtime.** Per ADLC's own `init` convention, only `.adlc/tickets.json` and
+  `.adlc/specs/` are committed contracts. Everything else in `.adlc/` — including
+  `config.json` and the `ticket-sync.state.json` sidecar — is a **gitignored runtime
+  artifact** (the `.gitignore` already encodes this: `.adlc/*` + `!.adlc/tickets.json` +
+  `!.adlc/specs/`). Recreate `config.json` via `/adlc:adlc-init` or by hand
+  (provider/repo/label-selector; no secrets — network auth is `gh`).
+- **Convert an existing issue → ticket** (the native, issue-first path):
+  1. Label the issue `adlc` — the `config.json` selector matches that label.
+  2. `adlc-ticket-sync pull --write` — imports it as ticket `gh:<owner>/<repo>#<n>`; the
+     issue prose becomes the ticket `body` and stays **remote-authoritative** (never
+     enrich `body` locally — the next pull overwrites it).
+  3. Add the execution fields to that ticket in `tickets.json` — `scope`, `rails`,
+     `edges`, `duration`, `category`, `budget`. These become the ADLC "block."
+  4. `adlc-ticket-sync push --write` — writes the block into the issue body (between
+     `<!-- adlc:begin -->` sentinels; prose preserved verbatim) and renders one
+     marker-anchored `<!-- adlc:status -->` comment. Routine syncs leave `tickets.json`
+     byte-identical (bookkeeping is in the gitignored sidecar), so they never trip rails-guard.
+  5. `adlc coldstart '<ticket-id>' --prompt-only` — the executability gate. In Claude Code
+     you ARE the model: answer the printed rubric and flag only gaps a fresh agent could
+     **not** derive from the repo (the repo-wide definition of done in this file counts as
+     derivable). Empty gaps = executable.
+- **Never `push` a local-only `T<n>` ticket at an issue that already exists** — push
+  *creates* a fresh issue for local tickets and would duplicate it. Always `pull` the
+  existing issue first; its id becomes `gh:...#<n>`.
+- **Don't hand-edit `tickets.json` formatting** — it is machine-written (2-space
+  `JSON.stringify`); reformatting reds CI once any ticket declares `rails`.
+
+Tooling lore (2026-07-12, setting this up the first time): `@adlc/ticket-sync@1.3.0` on npm
+ships broken — its `files` whitelist omits `scripts/`, so the CLI dies at load with
+`ERR_MODULE_NOT_FOUND` for `scripts/gen-schema.mjs`. Fix: copy that one file from the plugin
+source (`…/.claude/plugins/marketplaces/adlc/packages/ticket-sync/scripts/gen-schema.mjs`)
+into the global install's `scripts/`. Separately, the Windows `adlc-ticket-sync` shim drops
+its args — invoke the bin directly: `node <global>/@adlc/ticket-sync/bin/ticket-sync.mjs <sub>`.
+
 ## Commands
 
 Filled in as each implementation is scaffolded.
@@ -117,6 +158,9 @@ Filled in as each implementation is scaffolded.
 - Chorus (app layer): `cd apps/chorus && npm test` · demo `npm run chorus:demo` ·
   MCP server `npm run chorus:mcp` · console `npm run chorus:console`
 - Parity (both witnesses + the app layer, one command): `node tools/check-all.mjs` from the repo root
+- ADLC: tickets live in `.adlc/tickets.json` (synced to GitHub issues). Sync with
+  `adlc-ticket-sync pull|push --write`, health-check with `adlc-ticket-sync doctor`, and gate
+  executability with `adlc coldstart '<id>' --prompt-only`. See the **ADLC** section above.
 - CI: `.github/workflows/ci.yml` runs both green-gates + docs- and vector-freshness checks on
   every push. Any TS source change also requires `npm run docs:build` (the tour + playground
   bundles under `docs/` are committed bytes and CI diffs them) — regenerate and commit alongside.

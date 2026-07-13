@@ -1,3 +1,21 @@
 {
-  "tickets": []
+  "tickets": [
+    {
+      "id": "gh:bombadil-labs/rhizomatic#7",
+      "title": "Primitive byte arrays with a MIME type: a bytes Target kind (0.4, additive)",
+      "body": "## Proposal\n\nAdd an **additive** `Target` kind for raw binary payloads with an attached MIME type:\n\n```ts\n{ kind: \"bytes\", mime: string, value: Uint8Array }\n```\n\n- **Identity is the hash of the raw bytes.** Encoding is transport, never identity: base64url in JSON wire contexts, a native byte string in CBOR. This removes base64's canonicalization hazards (variant alphabets, padding) from the content address entirely.\n- **MIME rides in-kind**, RDF-datatype style — attested interpretation-testimony that travels with the bytes, not a detachable sibling pointer. Two claims asserting the same bytes under different MIME types are different claims, which is honest.\n\n## Motivation\n\nLoam is converging on a doctrine of *code and documents shipped as deltas*: a delta asserts the content-addressed bytes of a coherent, versioned unit, and the signature attests exactly the bytes that run (Loam TODO, \"The snapshot doctrine\"). Text (ESM source) works today as a string primitive. But the renderer work coming in Loam §23 — UI components pushed as deltas, mounted by a stock host — wants **basic binary assets right in the hypergraph**: icons, small images, fonts, wasm. Today those mean base64-in-a-string: ~4/3 bloat, no typing, and an encoding sitting inside the content address.\n\nA `bytes` primitive also gives every downstream surface what it needs: a REST door can answer with a correct `Content-Type`, an inspector can render \"a 43 KB `image/png`\" instead of a base64 wall, and sandbox/quarantine machinery gets a signal about what kind of thing it is holding.\n\n## Compatibility\n\nAdditive, so the story is clean:\n\n- **No migration.** Existing deltas do not change; old stores simply never contain the new kind. The new shape is unambiguously distinct from all prior versions by construction (a new `kind`), so shape-detection can never misfire.\n- **Federation forward-compat**: a pre-0.4 peer pulling from a store holding `bytes` deltas refuses the unknown kind. That is version discipline, not breakage — and admission shape-requirements can express it explicitly.\n\n## Non-goals / cautions\n\n- **This is not a blob store.** A 10 MB image in a delta stresses every path — hyperview copies, federation offers, a browser peer's ~5 MB origin quota. The primitive is the *inline* rung of a storage ladder (inline bytes → content-addressed ref → chunked tree); large assets still climb the ladder, and doors may cap sizes as deployment config. The primitive's job is to make the inline rung honest and the reference rungs typed.\n- The delta grammar stays small; this adds one kind, not a media subsystem.\n\n## Open questions for the design\n\n1. Exact canonical form: where the raw bytes enter the hash preimage, and the pinned JSON-wire encoding (base64url, unpadded?).\n2. Conformance vectors: hash-stability vectors for the new kind across the TS and Rust implementations.\n3. Any size guidance the substrate itself should state (likely none — a caps-are-deployment-config note may be enough).\n4. Whether `mime` is required or defaults to `application/octet-stream`.\n\nProposed as rhizomatic 0.4, timed alongside Loam's §23 (renderers) design stage; nothing in Loam §21/§22 blocks on it.\n\n🤖 Drafted with [Claude Code](https://claude.com/claude-code) at Myk's request.",
+      "scope": [
+        "spec/**",
+        "vectors/**",
+        "implementations/ts/**",
+        "implementations/rust/**",
+        "tools/**"
+      ],
+      "rails": [],
+      "edges": [],
+      "duration": 3,
+      "category": "feature",
+      "budget": "frontier"
+    }
+  ]
 }
