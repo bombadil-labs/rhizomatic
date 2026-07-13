@@ -422,8 +422,11 @@ function receiptOf(delta: Delta, negated: boolean): BeliefReceipt {
           ? ptr.target.value
           : ptr.target.kind === "entity"
             ? ptr.target.entity.id
-            : ptr.target.deltaRef.delta;
-      reference = ptr.target.kind !== "primitive";
+            : ptr.target.kind === "delta"
+              ? ptr.target.deltaRef.delta
+              : ptr.target.mime; // bytes: no string payload — surface the media type
+      // entity/delta point elsewhere; primitive and bytes are inline literals.
+      reference = ptr.target.kind === "entity" || ptr.target.kind === "delta";
     } else if (ptr.role === ROLE_KIND && ptr.target.kind === "primitive") {
       kind = String(ptr.target.value);
     } else if (ptr.role === ROLE_CONFIDENCE && ptr.target.kind === "primitive") {

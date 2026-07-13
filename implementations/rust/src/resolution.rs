@@ -14,7 +14,10 @@ pub enum View {
     Prim(Primitive),
     /// a bytes leaf, shaped identically to the target (SPEC-5 §5, SPEC-1 §2). Non-primitive:
     /// transparent to merge folds, a full participant in pick/all/conflicts.
-    Bytes { mime: String, value: Vec<u8> },
+    Bytes {
+        mime: String,
+        value: Vec<u8>,
+    },
     Arr(Vec<View>),
     Obj(BTreeMap<String, View>),
 }

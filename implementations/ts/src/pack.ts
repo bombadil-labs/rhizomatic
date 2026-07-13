@@ -2,7 +2,7 @@
 // is invariant. Never hash the dehydrated form; rehydration is byte-exact by construction because
 // unpacking rebuilds claims through the standard makeDelta path.
 
-import { array, bool, decode, encode, float, map, tstr, type CborValue } from "./cbor.js";
+import { array, bool, bstr, decode, encode, float, map, tstr, type CborValue } from "./cbor.js";
 import { contentAddress } from "./hash.js";
 import { manifestMemberIds } from "./reactor.js";
 import { DeltaSet, makeDelta } from "./set.js";
@@ -30,6 +30,9 @@ function stringsOf(delta: Delta, out: Set<string>): void {
       case "primitive":
         if (typeof p.target.value === "string") out.add(p.target.value);
         break;
+      case "bytes":
+        out.add(p.target.mime); // mime interns; the raw payload rides uninterned (SPEC-8)
+        break;
     }
   }
 }
@@ -55,6 +58,11 @@ function ptrToCbor(p: Pointer, idx: (s: string) => number): CborValue {
       else entries.push(["b", bool(v)]);
       break;
     }
+    // bytes: m = mime string-table index, y = raw payload (not interned). No context.
+    case "bytes":
+      entries.push(["m", float(idx(p.target.mime))]);
+      entries.push(["y", bstr(p.target.value)]);
+      break;
   }
   if (context !== undefined) entries.push(["c", float(idx(context))]);
   return map(entries);
@@ -180,6 +188,11 @@ function ptrFromCbor(v: CborValue, strings: readonly string[]): Pointer {
     const b = o.get("b")!;
     if (b.t !== "bool") throw new Error("pack: expected bool for b");
     target = { kind: "primitive", value: b.v };
+  } else if (o.has("m")) {
+    // a bytes pointer: mime interned under "m", raw payload verbatim under "y".
+    const y = o.get("y");
+    if (y === undefined || y.t !== "bstr") throw new Error("pack: bytes pointer requires a bstr y");
+    target = { kind: "bytes", mime: str("m"), value: y.v };
   } else {
     throw new Error("pack: pointer record has no target");
   }

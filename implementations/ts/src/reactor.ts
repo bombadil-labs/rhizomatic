@@ -117,6 +117,8 @@ export class Reactor {
           entry.ids.add(delta.id);
           break;
         }
+        case "bytes":
+          break; // bytes are invisible to value predicates (SPEC-2 §3) — not value-indexed
       }
     }
   }

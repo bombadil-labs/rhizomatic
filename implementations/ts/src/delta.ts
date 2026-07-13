@@ -1,4 +1,4 @@
-import { type CborValue, array, bool, encode, float, map, tstr } from "./cbor.js";
+import { type CborValue, array, bool, bstr, encode, float, map, tstr } from "./cbor.js";
 import { bytesToHex, contentAddress } from "./hash.js";
 import type { Claims, Pointer, Target } from "./types.js";
 
@@ -20,6 +20,13 @@ function targetToCbor(t: Target): CborValue {
       if (t.deltaRef.context !== undefined) entries.push(["context", tstr(t.deltaRef.context)]);
       return map(entries);
     }
+    // Bytes: map { "mime": tstr, "value": bstr } — the raw payload is the bstr and identity is its
+    // hash (SPEC-1 §4.1, ERRATA D12); keys are sorted at encode time (D4).
+    case "bytes":
+      return map([
+        ["mime", tstr(t.mime)],
+        ["value", bstr(t.value)],
+      ]);
   }
 }
 
@@ -72,6 +79,18 @@ export function assertValidClaims(claims: Claims): void {
     }
     if (p.target.kind === "entity") assertNfc(p.target.entity.id, "entity id");
     if (p.target.kind === "delta") assertNfc(p.target.deltaRef.delta, "delta ref");
+    if (p.target.kind === "bytes") {
+      // mime REQUIRED, non-empty, NFC, case-sensitive-opaque (SPEC-1 §2.1, D12); value is raw
+      // bytes — zero-length is legal, no NFC. Runtime guards catch untyped/`as`-cast callers.
+      if (typeof p.target.mime !== "string") throw new Error("bytes target mime must be a string");
+      if (p.target.mime.length === 0) {
+        throw new Error("bytes target mime must be non-empty (SPEC-1 §2.1)");
+      }
+      assertNfc(p.target.mime, "bytes mime");
+      if (!(p.target.value instanceof Uint8Array)) {
+        throw new Error("bytes target value must be a Uint8Array");
+      }
+    }
     const ctx =
       p.target.kind === "entity"
         ? p.target.entity.context

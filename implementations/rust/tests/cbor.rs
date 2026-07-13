@@ -22,6 +22,8 @@ fn cbor_primitive_ground_truth() {
         let expected = c["hex"].as_str().unwrap();
         let val = match kind {
             "tstr" => CborValue::Tstr(c["value"].as_str().unwrap().to_string()),
+            // bstr ground-truth value is the raw payload as a hex string (vectors/README convention)
+            "bstr" => CborValue::Bstr(hex::decode(c["value"].as_str().unwrap()).unwrap()),
             "float" => CborValue::Float(c["value"].as_f64().unwrap()),
             "bool" => CborValue::Bool(c["value"].as_bool().unwrap()),
             other => panic!("unknown kind {other}"),

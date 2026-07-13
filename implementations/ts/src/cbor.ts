@@ -7,12 +7,15 @@
 
 export type CborValue =
   | { readonly t: "tstr"; readonly v: string }
+  | { readonly t: "bstr"; readonly v: Uint8Array }
   | { readonly t: "float"; readonly v: number }
   | { readonly t: "bool"; readonly v: boolean }
   | { readonly t: "array"; readonly v: readonly CborValue[] }
   | { readonly t: "map"; readonly v: ReadonlyArray<readonly [string, CborValue]> };
 
 export const tstr = (v: string): CborValue => ({ t: "tstr", v });
+// A definite-length byte string (major type 2) — a bytes target's raw payload (ERRATA D12).
+export const bstr = (v: Uint8Array): CborValue => ({ t: "bstr", v });
 export const float = (v: number): CborValue => ({ t: "float", v });
 export const bool = (v: boolean): CborValue => ({ t: "bool", v });
 export const array = (v: readonly CborValue[]): CborValue => ({ t: "array", v });
@@ -137,6 +140,10 @@ function encodeInto(sink: ByteSink, val: CborValue): void {
       sink.pushBytes(bytes);
       return;
     }
+    case "bstr":
+      writeHead(sink, 2, val.v.length);
+      sink.pushBytes(val.v);
+      return;
     case "bool":
       sink.push(val.v ? 0xf5 : 0xf4);
       return;
@@ -177,10 +184,10 @@ export function encode(val: CborValue): Uint8Array {
 }
 
 // --- strict decoder for the Rhizomatic profile ----------------------------------------------------
-// Accepts exactly the items the profile emits: definite text strings, f16/f32/f64 floats, bools,
-// definite arrays, definite maps with text keys. Everything else (ints, byte strings, tags,
-// indefinite lengths, null/undefined) is rejected. Canonicality is checked by re-encoding where a
-// caller needs it; this decoder checks structure only.
+// Accepts exactly the items the profile emits: definite text strings, definite byte strings
+// (bytes targets, ERRATA D12), f16/f32/f64 floats, bools, definite arrays, definite maps with text
+// keys. Everything else (ints, tags, indefinite lengths, null/undefined) is rejected. Canonicality
+// is checked by re-encoding where a caller needs it; this decoder checks structure only.
 
 const utf8Decoder = new TextDecoder("utf-8", { fatal: true });
 
@@ -224,6 +231,10 @@ function decodeItem(r: ByteReader): CborValue {
   const major = head >> 5;
   const info = head & 0x1f;
   switch (major) {
+    case 2: {
+      const len = readLength(r, info);
+      return bstr(r.take(len).slice()); // copy out of the reader's backing buffer
+    }
     case 3: {
       const len = readLength(r, info);
       return tstr(utf8Decoder.decode(r.take(len)));

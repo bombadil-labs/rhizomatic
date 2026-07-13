@@ -3,10 +3,11 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { canonicalHex, computeId } from "../src/delta.js";
-import { parseClaims } from "../src/json-profile.js";
+import { claimsToJson, parseClaims } from "../src/json-profile.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const deltasPath = resolve(here, "../../../vectors/l0-delta/deltas.json");
+const bytesPath = resolve(here, "../../../vectors/l0-delta/deltas-bytes.json");
 const invalidPath = resolve(here, "../../../vectors/l0-delta/deltas-invalid.json");
 
 interface DeltaVector {
@@ -27,6 +28,24 @@ describe("l0-delta vectors (canonical bytes + content address)", () => {
       expect(computeId(claims)).toBe(v.id);
     });
   }
+
+  const bytesVectors = JSON.parse(readFileSync(bytesPath, "utf8")) as DeltaVector[];
+  describe("bytes target kind (issue #7, ERRATA D12)", () => {
+    for (const v of bytesVectors) {
+      it(v.name, () => {
+        const claims = parseClaims(v.claims);
+        expect(canonicalHex(claims)).toBe(v.canonicalCborHex);
+        expect(computeId(claims)).toBe(v.id);
+      });
+    }
+    it("the JSON profile round-trips base64url losslessly", () => {
+      for (const v of bytesVectors) {
+        const once = parseClaims(v.claims);
+        const twice = parseClaims(claimsToJson(once));
+        expect(canonicalHex(twice)).toBe(v.canonicalCborHex);
+      }
+    });
+  });
 
   it("pointer order is significant for the id", () => {
     const a = parseClaims({

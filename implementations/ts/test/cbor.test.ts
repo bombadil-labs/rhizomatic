@@ -1,16 +1,16 @@
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { bytesToHex } from "@noble/hashes/utils";
+import { bytesToHex, hexToBytes } from "@noble/hashes/utils";
 import { describe, expect, it } from "vitest";
-import { array, bool, type CborValue, encode, float, map, tstr } from "../src/cbor.js";
+import { array, bool, bstr, type CborValue, encode, float, map, tstr } from "../src/cbor.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const primsPath = resolve(here, "../../../vectors/l0-delta/cbor-primitives.json");
 
 interface Prim {
   name: string;
-  kind: "tstr" | "float" | "bool";
+  kind: "tstr" | "bstr" | "float" | "bool";
   value: string | number | boolean;
   hex: string;
 }
@@ -19,6 +19,9 @@ function build(p: Prim): CborValue {
   switch (p.kind) {
     case "tstr":
       return tstr(p.value as string);
+    case "bstr":
+      // bstr ground-truth value is the raw payload as a hex string (vectors/README convention)
+      return bstr(hexToBytes(p.value as string));
     case "float":
       return float(p.value as number);
     case "bool":

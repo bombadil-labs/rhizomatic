@@ -1,5 +1,6 @@
 export type { Primitive, EntityRef, DeltaRef, Target, Pointer, Claims, Delta } from "./types.js";
-export { encode, type CborValue, tstr, float, bool, array, map } from "./cbor.js";
+export { encode, type CborValue, tstr, bstr, float, bool, array, map } from "./cbor.js";
+export { b64uEncode, b64uDecode } from "./b64u.js";
 export { contentAddress } from "./hash.js";
 export {
   claimsToCbor,
@@ -45,6 +46,7 @@ export { SchemaRegistry, collectRefs, type HyperSchema } from "./schema.js";
 export {
   resolveView,
   viewCanonicalHex,
+  type BytesView,
   type MergeFn,
   type Order,
   type Schema,

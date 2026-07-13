@@ -29,7 +29,10 @@ pub enum Target {
     /// Raw byte payload carrying a required, in-kind media type (SPEC-1 §2, ERRATA D12).
     /// Identity is the hash of `value`; `mime` is non-empty, NFC, case-sensitive (validated
     /// at construction). Encoded as `map { "mime": tstr, "value": bstr }`.
-    Bytes { mime: String, value: Vec<u8> },
+    Bytes {
+        mime: String,
+        value: Vec<u8>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
