@@ -2,6 +2,7 @@
 (() => {
   // src/cbor.ts
   var tstr = (v) => ({ t: "tstr", v });
+  var bstr = (v) => ({ t: "bstr", v });
   var float = (v) => ({ t: "float", v });
   var bool = (v) => ({ t: "bool", v });
   var array = (v) => ({ t: "array", v });
@@ -110,6 +111,10 @@
         sink.pushBytes(bytes);
         return;
       }
+      case "bstr":
+        writeHead(sink, 2, val.v.length);
+        sink.pushBytes(val.v);
+        return;
       case "bool":
         sink.push(val.v ? 245 : 244);
         return;
@@ -187,6 +192,10 @@
     const major = head >> 5;
     const info = head & 31;
     switch (major) {
+      case 2: {
+        const len = readLength(r, info);
+        return bstr(r.take(len).slice());
+      }
       case 3: {
         const len = readLength(r, info);
         return tstr(utf8Decoder.decode(r.take(len)));
@@ -926,6 +935,13 @@
         if (t.deltaRef.context !== void 0) entries.push(["context", tstr(t.deltaRef.context)]);
         return map(entries);
       }
+      // Bytes: map { "mime": tstr, "value": bstr } — the raw payload is the bstr and identity is its
+      // hash (SPEC-1 §4.1, ERRATA D12); keys are sorted at encode time (D4).
+      case "bytes":
+        return map([
+          ["mime", tstr(t.mime)],
+          ["value", bstr(t.value)]
+        ]);
     }
   }
   function pointerToCbor(p) {
@@ -971,6 +987,16 @@
       }
       if (p.target.kind === "entity") assertNfc(p.target.entity.id, "entity id");
       if (p.target.kind === "delta") assertNfc(p.target.deltaRef.delta, "delta ref");
+      if (p.target.kind === "bytes") {
+        if (typeof p.target.mime !== "string") throw new Error("bytes target mime must be a string");
+        if (p.target.mime.length === 0) {
+          throw new Error("bytes target mime must be non-empty (SPEC-1 \xA72.1)");
+        }
+        assertNfc(p.target.mime, "bytes mime");
+        if (!(p.target.value instanceof Uint8Array)) {
+          throw new Error("bytes target value must be a Uint8Array");
+        }
+      }
       const ctx = p.target.kind === "entity" ? p.target.entity.context : p.target.kind === "delta" ? p.target.deltaRef.context : void 0;
       if (ctx !== void 0) {
         if (typeof ctx !== "string") throw new Error("context, when present, must be a string");
@@ -1010,6 +1036,11 @@
         if (t.deltaRef.context !== void 0) entries.push(["context", tstr(t.deltaRef.context)]);
         return map(entries);
       }
+      case "bytes":
+        return map([
+          ["mime", tstr(t.mime)],
+          ["value", bstr(t.value)]
+        ]);
     }
   }
   function claimsToCborWithExpansions(claims, expanded) {
@@ -1260,6 +1291,9 @@
   }
 
   // src/resolution.ts
+  function isBytesView(v) {
+    return typeof v === "object" && v !== null && !Array.isArray(v) && v.value instanceof Uint8Array;
+  }
   function cmpByOrder(order, a, b) {
     switch (order.kind) {
       case "byTimestamp": {
@@ -1307,6 +1341,8 @@
         return t.entity.id;
       case "delta":
         return t.deltaRef.delta;
+      case "bytes":
+        return { mime: t.mime, value: t.value };
     }
   }
   function candidateValue(e, root, schema) {
@@ -1332,6 +1368,12 @@
     if (typeof v === "number") return float(v);
     if (typeof v === "boolean") return bool(v);
     if (Array.isArray(v)) return array(v.map(viewToCbor));
+    if (isBytesView(v)) {
+      return map([
+        ["mime", tstr(v.mime)],
+        ["value", bstr(v.value)]
+      ]);
+    }
     const entries = Object.entries(v).map(
       ([k, x]) => [k, viewToCbor(x)]
     );
@@ -1833,6 +1875,52 @@
         ])
       )
     );
+  }
+
+  // src/b64u.ts
+  var ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+  function b64uEncode(bytes) {
+    let out = "";
+    for (let i = 0; i < bytes.length; i += 3) {
+      const b0 = bytes[i];
+      const b1 = i + 1 < bytes.length ? bytes[i + 1] : 0;
+      const b2 = i + 2 < bytes.length ? bytes[i + 2] : 0;
+      const n = b0 << 16 | b1 << 8 | b2;
+      out += ALPHABET[n >> 18 & 63] + ALPHABET[n >> 12 & 63];
+      if (i + 1 < bytes.length) out += ALPHABET[n >> 6 & 63];
+      if (i + 2 < bytes.length) out += ALPHABET[n & 63];
+    }
+    return out;
+  }
+  function sextet(c) {
+    const code = c.charCodeAt(0);
+    if (code >= 65 && code <= 90) return code - 65;
+    if (code >= 97 && code <= 122) return code - 97 + 26;
+    if (code >= 48 && code <= 57) return code - 48 + 52;
+    if (c === "-") return 62;
+    if (c === "_") return 63;
+    throw new Error(`base64url: invalid character ${JSON.stringify(c)}`);
+  }
+  function b64uDecode(s) {
+    if (s.length % 4 === 1) throw new Error("base64url: invalid length (\u2261 1 mod 4)");
+    const out = [];
+    for (let i = 0; i < s.length; i += 4) {
+      const end = Math.min(i + 4, s.length);
+      const len = end - i;
+      let acc = 0;
+      for (let j = i; j < end; j++) acc = acc << 6 | sextet(s[j]);
+      if (len === 4) {
+        out.push(acc >> 16 & 255, acc >> 8 & 255, acc & 255);
+      } else if (len === 3) {
+        if ((acc & 3) !== 0) throw new Error("base64url: non-canonical trailing bits");
+        const a = acc >> 2;
+        out.push(a >> 8 & 255, a & 255);
+      } else {
+        if ((acc & 15) !== 0) throw new Error("base64url: non-canonical trailing bits");
+        out.push(acc >> 4 & 255);
+      }
+    }
+    return Uint8Array.from(out);
   }
 
   // src/term-io.ts
@@ -4262,6 +4350,7 @@
   }
 
   // src/json-profile.ts
+  var TARGET_SHAPES = "target must be a primitive, {id, context?}, {delta, context?}, or {mime, value}";
   function asObject2(x, what) {
     if (typeof x !== "object" || x === null || Array.isArray(x)) {
       throw new Error(`expected object for ${what}`);
@@ -4299,7 +4388,14 @@
       const context = parseContext(o);
       return context === void 0 ? { kind: "delta", deltaRef: { delta } } : { kind: "delta", deltaRef: { delta, context } };
     }
-    throw new Error("target must be a primitive, {id, context?}, or {delta, context?}");
+    if ("mime" in o) {
+      const mime = o["mime"];
+      if (typeof mime !== "string") throw new Error("bytes target mime must be a string");
+      const value = o["value"];
+      if (typeof value !== "string") throw new Error("bytes target value must be a base64url string");
+      return { kind: "bytes", mime, value: b64uDecode(value) };
+    }
+    throw new Error(TARGET_SHAPES);
   }
   function parsePointer(raw) {
     const o = asObject2(raw, "pointer");
@@ -4327,6 +4423,9 @@
               delta: p.target.deltaRef.delta,
               ...p.target.deltaRef.context === void 0 ? {} : { context: p.target.deltaRef.context }
             };
+            break;
+          case "bytes":
+            target = { mime: p.target.mime, value: b64uEncode(p.target.value) };
             break;
         }
         return { role: p.role, target };
@@ -4509,6 +4608,8 @@
             entry.ids.add(delta.id);
             break;
           }
+          case "bytes":
+            break;
         }
       }
     }
@@ -4820,6 +4921,9 @@
         case "primitive":
           if (typeof p.target.value === "string") out.add(p.target.value);
           break;
+        case "bytes":
+          out.add(p.target.mime);
+          break;
       }
     }
   }
@@ -4842,6 +4946,11 @@
         else entries.push(["b", bool(v)]);
         break;
       }
+      // bytes: m = mime string-table index, y = raw payload (not interned). No context.
+      case "bytes":
+        entries.push(["m", float(idx(p.target.mime))]);
+        entries.push(["y", bstr(p.target.value)]);
+        break;
     }
     if (context !== void 0) entries.push(["c", float(idx(context))]);
     return map(entries);
@@ -4945,6 +5054,10 @@
       const b = o.get("b");
       if (b.t !== "bool") throw new Error("pack: expected bool for b");
       target = { kind: "primitive", value: b.v };
+    } else if (o.has("m")) {
+      const y = o.get("y");
+      if (y === void 0 || y.t !== "bstr") throw new Error("pack: bytes pointer requires a bstr y");
+      target = { kind: "bytes", mime: str("m"), value: y.v };
     } else {
       throw new Error("pack: pointer record has no target");
     }
@@ -5335,6 +5448,27 @@
       canonicalCborHex: "a366617574686f727848656432353531393a6666353735373564633761663862666334643038333763633163653230313762363836613838313435646335353739613935386533343632666539613930386568706f696e7465727381a264726f6c65676e65676174657366746172676574a16564656c746178423165323030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030306974696d657374616d70f95160",
       id: "1e20de9cd104bc3d76e4062ec748ae98fb10f18fd7a99b9a80d1f1beaee38e48ef8e",
       sig: "c13d762c618a5432d90dd0658570f92023be3b21de3cd25b1c4eb36e922e1be57bc7f57a5f49b11f2776af1f004ef45df8d087c583a4433ec229a5501ec7e309"
+    },
+    {
+      name: "signed-bytes-icon",
+      spec: "SPEC-1 \xA75 / ERRATA D12 (signing is indifferent to the bytes kind)",
+      keyId: "test-key-1",
+      claims: {
+        timestamp: 4242,
+        author: "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+        pointers: [
+          {
+            role: "icon",
+            target: {
+              mime: "image/png",
+              value: "iVBORw"
+            }
+          }
+        ]
+      },
+      canonicalCborHex: "a366617574686f727848656432353531393a3861383865336464373430396631393566643532646232643363626135643732636136373039626631643934313231626633373438383031623430663666356368706f696e7465727381a264726f6c656469636f6e66746172676574a2646d696d6569696d6167652f706e676576616c75654489504e476974696d657374616d70fa45849000",
+      id: "1e20f608b22806b6c22b7ab05f0688bb0c4c405523a8572d15ca026cee53a5156a03",
+      sig: "0c81aaaecfb9edafc242b1f4adfcbc3c691cea7f114b6d6ebf1344a0db9bae0e0141cebd4727cb40d623fdccd81e7034d4d378cf9155f6694afe53e5e1d25e00"
     }
   ];
 

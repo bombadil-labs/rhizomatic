@@ -2,6 +2,7 @@
 (() => {
   // src/cbor.ts
   var tstr = (v) => ({ t: "tstr", v });
+  var bstr = (v) => ({ t: "bstr", v });
   var float = (v) => ({ t: "float", v });
   var bool = (v) => ({ t: "bool", v });
   var array = (v) => ({ t: "array", v });
@@ -110,6 +111,10 @@
         sink.pushBytes(bytes);
         return;
       }
+      case "bstr":
+        writeHead(sink, 2, val.v.length);
+        sink.pushBytes(val.v);
+        return;
       case "bool":
         sink.push(val.v ? 245 : 244);
         return;
@@ -1022,6 +1027,9 @@
   }
 
   // src/resolution.ts
+  function isBytesView(v) {
+    return typeof v === "object" && v !== null && !Array.isArray(v) && v.value instanceof Uint8Array;
+  }
   function cmpByOrder(order, a, b) {
     switch (order.kind) {
       case "byTimestamp": {
@@ -1069,6 +1077,8 @@
         return t.entity.id;
       case "delta":
         return t.deltaRef.delta;
+      case "bytes":
+        return { mime: t.mime, value: t.value };
     }
   }
   function candidateValue(e, root, schema) {
@@ -1094,6 +1104,12 @@
     if (typeof v === "number") return float(v);
     if (typeof v === "boolean") return bool(v);
     if (Array.isArray(v)) return array(v.map(viewToCbor));
+    if (isBytesView(v)) {
+      return map([
+        ["mime", tstr(v.mime)],
+        ["value", bstr(v.value)]
+      ]);
+    }
     const entries = Object.entries(v).map(
       ([k, x]) => [k, viewToCbor(x)]
     );
@@ -1201,6 +1217,11 @@
         if (t.deltaRef.context !== void 0) entries.push(["context", tstr(t.deltaRef.context)]);
         return map(entries);
       }
+      case "bytes":
+        return map([
+          ["mime", tstr(t.mime)],
+          ["value", bstr(t.value)]
+        ]);
     }
   }
   function claimsToCborWithExpansions(claims, expanded) {
@@ -1265,6 +1286,13 @@
         if (t.deltaRef.context !== void 0) entries.push(["context", tstr(t.deltaRef.context)]);
         return map(entries);
       }
+      // Bytes: map { "mime": tstr, "value": bstr } — the raw payload is the bstr and identity is its
+      // hash (SPEC-1 §4.1, ERRATA D12); keys are sorted at encode time (D4).
+      case "bytes":
+        return map([
+          ["mime", tstr(t.mime)],
+          ["value", bstr(t.value)]
+        ]);
     }
   }
   function pointerToCbor(p) {
@@ -1310,6 +1338,16 @@
       }
       if (p.target.kind === "entity") assertNfc(p.target.entity.id, "entity id");
       if (p.target.kind === "delta") assertNfc(p.target.deltaRef.delta, "delta ref");
+      if (p.target.kind === "bytes") {
+        if (typeof p.target.mime !== "string") throw new Error("bytes target mime must be a string");
+        if (p.target.mime.length === 0) {
+          throw new Error("bytes target mime must be non-empty (SPEC-1 \xA72.1)");
+        }
+        assertNfc(p.target.mime, "bytes mime");
+        if (!(p.target.value instanceof Uint8Array)) {
+          throw new Error("bytes target value must be a Uint8Array");
+        }
+      }
       const ctx = p.target.kind === "entity" ? p.target.entity.context : p.target.kind === "delta" ? p.target.deltaRef.context : void 0;
       if (ctx !== void 0) {
         if (typeof ctx !== "string") throw new Error("context, when present, must be a string");
@@ -3902,6 +3940,8 @@
             entry.ids.add(delta.id);
             break;
           }
+          case "bytes":
+            break;
         }
       }
     }
