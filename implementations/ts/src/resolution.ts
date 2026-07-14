@@ -45,6 +45,10 @@ export type Policy =
 export interface Schema {
   readonly props: ReadonlyMap<string, Policy>;
   readonly default: Policy;
+  // Optional identity for a named/self-hosting Schema (SPEC-3 ERRATA S6); absent on inline
+  // resolve-term schemas. A named Schema carries name + alg (the L5 algebra version).
+  readonly name?: string;
+  readonly alg?: number;
 }
 
 // --- ordering (R3: every chain ends in an implicit lexById tiebreak) ------------------------------

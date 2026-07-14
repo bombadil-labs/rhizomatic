@@ -14,12 +14,18 @@ import { relationSignature, relationSignatureCanonicalHex } from "../src/alias.j
 import { VOCAB_PREFIX } from "../src/vocab.js";
 import { b64uEncode } from "../src/b64u.js";
 import { claimsToJson, parseClaims } from "../src/json-profile.js";
-import { HYPER_SCHEMA_SCHEMA, publishSchemaClaims } from "../src/schema-deltas.js";
+import {
+  HYPER_SCHEMA_SCHEMA,
+  SCHEMA_SCHEMA,
+  loadSchema,
+  publishHyperSchemaClaims,
+  publishSchemaClaims,
+} from "../src/schema-deltas.js";
 import { SchemaRegistry } from "../src/schema.js";
-import { termCanonicalHex, termHash, termToJson } from "../src/term-io.js";
+import { schemaCanonicalHex, termCanonicalHex, termHash, termToJson } from "../src/term-io.js";
 import { DeltaSet, makeDelta } from "../src/set.js";
 import { authorForSeed, publicKeyFromSeed, signClaims } from "../src/sign.js";
-import { parsePred, parseTerm } from "../src/term-json.js";
+import { parsePred, parseSchema, parseTerm } from "../src/term-json.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const outDir = resolve(here, "../../../vectors/l0-delta");
@@ -1234,13 +1240,31 @@ const schemaHashes = schemas.map((s) => ({
 }));
 
 const movieWithCast = expandRegistry.get("MovieWithCast")!;
-const publishedClaims = publishSchemaClaims(movieWithCast, "schema:MovieWithCast", A, 1000);
+const publishedClaims = publishHyperSchemaClaims(movieWithCast, "schema:MovieWithCast", A, 1000);
 const publishedDelta = makeDelta(publishedClaims);
 
 // pinned-ref case: fix through the hash of MovieBasic must equal fix through its name
 const movieBasicHash = termHash(expandRegistry.get("MovieBasic")!.body);
 const pinnedTerm = { op: "fix", schema: { pinned: movieBasicHash }, entity: "movie:matrix" };
 const pinnedResult = evalTerm(parseTerm(pinnedTerm), expandFixtureSet, undefined, expandRegistry);
+
+// S6 (issue #11): a resolution Schema published + loaded back through SCHEMA_SCHEMA.
+const publishedSchemaInput = {
+  name: "MovieView",
+  alg: 1,
+  props: {
+    title: { pick: { order: { byTimestamp: "desc" } } },
+    rating: { merge: "max" },
+  },
+  default: { pick: { order: "lexById" } },
+};
+const publishedSchemaObj = parseSchema(publishedSchemaInput);
+const schemaClaims = publishSchemaClaims(publishedSchemaObj, "schema:MovieView", A, 2000);
+const schemaDelta = makeDelta(schemaClaims);
+const loadedSchema = loadSchema(DeltaSet.from([schemaDelta]), "schema:MovieView");
+if (schemaCanonicalHex(loadedSchema) !== schemaCanonicalHex(publishedSchemaObj)) {
+  throw new Error("SCHEMA_SCHEMA round-trip failed in gen-vectors");
+}
 
 const schemaDeltasOut = {
   bootstrap: {
@@ -1250,9 +1274,23 @@ const schemaDeltasOut = {
     canonicalCborHex: termCanonicalHex(HYPER_SCHEMA_SCHEMA.body),
     termHash: termHash(HYPER_SCHEMA_SCHEMA.body),
   },
+  schemaSchema: {
+    note: "SCHEMA_SCHEMA (rhizomatic.SchemaSchema): reuses the generic gather idiom (S6)",
+    name: SCHEMA_SCHEMA.name,
+    alg: SCHEMA_SCHEMA.alg,
+    termHash: termHash(SCHEMA_SCHEMA.body),
+  },
+  publishedSchema: {
+    note: "a resolution Schema published as a definition delta; loadSchema must round-trip it (S6)",
+    schemaEntity: "schema:MovieView",
+    schemaJson: publishedSchemaInput,
+    claims: claimsToJson(schemaClaims),
+    deltaId: schemaDelta.id,
+    expectedSchemaHex: schemaCanonicalHex(publishedSchemaObj),
+  },
   termHashes: schemaHashes,
   published: {
-    note: "MovieWithCast published as a definition delta; loadSchema must round-trip it",
+    note: "MovieWithCast published as a definition delta; loadHyperSchema must round-trip it",
     schemaEntity: "schema:MovieWithCast",
     claims: claimsToJson(publishedClaims),
     deltaId: publishedDelta.id,

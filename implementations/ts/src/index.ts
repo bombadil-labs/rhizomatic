@@ -58,6 +58,7 @@ export {
   cborToJson,
   jsonToCbor,
   schemaToJson,
+  schemaCanonicalHex,
   predToJson,
   termCanonicalHex,
   termHash,
@@ -65,7 +66,10 @@ export {
 } from "./term-io.js";
 export {
   HYPER_SCHEMA_SCHEMA,
+  SCHEMA_SCHEMA,
   VOCAB_PREFIX,
+  loadHyperSchema,
+  publishHyperSchemaClaims,
   loadSchema,
   publishSchemaClaims,
 } from "./schema-deltas.js";

@@ -6,10 +6,13 @@ use rhizomatic::cbor::{decode, encode};
 use rhizomatic::eval::{eval_term, result_canonical_hex};
 use rhizomatic::json_profile::parse_claims;
 use rhizomatic::schema::{HyperSchema, SchemaRegistry};
-use rhizomatic::schema_deltas::{hyper_schema_schema, load_schema, publish_schema_claims};
+use rhizomatic::schema_deltas::{
+    hyper_schema_schema, load_hyper_schema, load_schema, publish_hyper_schema_claims,
+    publish_schema_claims, schema_schema,
+};
 use rhizomatic::set::{make_delta, merge, DeltaSet};
-use rhizomatic::term_io::{term_canonical_hex, term_hash, term_to_json};
-use rhizomatic::term_json::parse_term;
+use rhizomatic::term_io::{schema_canonical_hex, term_canonical_hex, term_hash, term_to_json};
+use rhizomatic::term_json::{parse_schema, parse_term};
 use serde_json::{json, Value};
 
 fn read(rel: &str) -> Value {
@@ -103,7 +106,7 @@ fn publish_load_round_trip() {
     assert_eq!(delta.id, doc["published"]["deltaId"].as_str().unwrap());
     let dset = merge(&expand_set, &DeltaSet::from_deltas([delta]).unwrap());
     let entity = doc["published"]["schemaEntity"].as_str().unwrap();
-    let loaded = load_schema(&dset, entity).unwrap();
+    let loaded = load_hyper_schema(&dset, entity).unwrap();
     assert_eq!(loaded.name, "MovieWithCast");
     assert_eq!(
         term_hash(&loaded.body).unwrap(),
@@ -137,7 +140,7 @@ fn publish_load_round_trip() {
 fn evolution_is_append_and_deprecation_is_negation() {
     let (_, reg) = expand_world();
     let v1 = make_delta(
-        publish_schema_claims(
+        publish_hyper_schema_claims(
             reg.get("MovieBasic").unwrap(),
             "schema:Evolving",
             "a",
@@ -148,7 +151,7 @@ fn evolution_is_append_and_deprecation_is_negation() {
     )
     .unwrap();
     let v2 = make_delta(
-        publish_schema_claims(
+        publish_hyper_schema_claims(
             &HyperSchema {
                 name: "MovieBasicV2".to_string(),
                 alg: 1,
@@ -163,7 +166,7 @@ fn evolution_is_append_and_deprecation_is_negation() {
     )
     .unwrap();
     let dset = DeltaSet::from_deltas([v1.clone(), v2]).unwrap();
-    let loaded = load_schema(&dset, "schema:Evolving").unwrap();
+    let loaded = load_hyper_schema(&dset, "schema:Evolving").unwrap();
     assert_eq!(loaded.name, "MovieBasicV2");
 
     // deprecation: negate the only definition -> nothing survives the bootstrap's mask
@@ -173,8 +176,51 @@ fn evolution_is_append_and_deprecation_is_negation() {
     )
     .unwrap();
     let dead = DeltaSet::from_deltas([v1, negation]).unwrap();
-    let err = load_schema(&dead, "schema:Evolving").unwrap_err();
+    let err = load_hyper_schema(&dead, "schema:Evolving").unwrap_err();
     assert!(err.contains("no surviving schema definition"), "got: {err}");
+}
+
+#[test]
+fn schema_schema_self_hosting() {
+    let doc = read("schema-deltas.json");
+    let ss = schema_schema();
+    assert_eq!(ss.name, doc["schemaSchema"]["name"].as_str().unwrap());
+    assert_eq!(ss.name, "rhizomatic.SchemaSchema");
+    assert_eq!(
+        term_hash(&ss.body).unwrap(),
+        doc["schemaSchema"]["termHash"].as_str().unwrap()
+    );
+
+    // publish -> load round-trips a named Schema to one content hash
+    let claims = parse_claims(&doc["publishedSchema"]["claims"]).unwrap();
+    let delta = make_delta(claims, None).unwrap();
+    assert_eq!(
+        delta.id,
+        doc["publishedSchema"]["deltaId"].as_str().unwrap()
+    );
+    let entity = doc["publishedSchema"]["schemaEntity"].as_str().unwrap();
+    let dset = DeltaSet::from_deltas([delta]).unwrap();
+    let loaded = load_schema(&dset, entity).unwrap();
+    assert_eq!(loaded.name.as_deref(), Some("MovieView"));
+    assert_eq!(loaded.alg, Some(1.0));
+    assert_eq!(
+        schema_canonical_hex(&loaded).unwrap(),
+        doc["publishedSchema"]["expectedSchemaHex"]
+            .as_str()
+            .unwrap()
+    );
+    // equals the directly-parsed input (props/default recovered exactly)
+    assert_eq!(
+        schema_canonical_hex(&loaded).unwrap(),
+        schema_canonical_hex(&parse_schema(&doc["publishedSchema"]["schemaJson"]).unwrap())
+            .unwrap()
+    );
+
+    // a published Schema must be named
+    let anon = parse_schema(&json!({ "props": {}, "default": { "pick": { "order": "lexById" } } }))
+        .unwrap();
+    let err = publish_schema_claims(&anon, "schema:x", "a", 1.0).unwrap_err();
+    assert!(err.contains("must carry a name"), "got: {err}");
 }
 
 #[test]

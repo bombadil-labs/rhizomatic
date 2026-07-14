@@ -24,6 +24,64 @@
     "canonicalCborHex": "a362696ea362696ea362696e65696e707574626f70646d61736b66706f6c6963796464726f70626f706673656c6563746470726564a16a686173506f696e746572a16c746172676574456e74697479a16376617264726f6f74626f706567726f7570636b65796f6279546172676574436f6e74657874",
     "termHash": "1e20b8c3b0b1d28a76edfc06506215f95ecde58869faae53afc75c3b7c1b5fe87360"
   },
+  "schemaSchema": {
+    "note": "SCHEMA_SCHEMA (rhizomatic.SchemaSchema): reuses the generic gather idiom (S6)",
+    "name": "rhizomatic.SchemaSchema",
+    "alg": 1,
+    "termHash": "1e20b8c3b0b1d28a76edfc06506215f95ecde58869faae53afc75c3b7c1b5fe87360"
+  },
+  "publishedSchema": {
+    "note": "a resolution Schema published as a definition delta; loadSchema must round-trip it (S6)",
+    "schemaEntity": "schema:MovieView",
+    "schemaJson": {
+      "name": "MovieView",
+      "alg": 1,
+      "props": {
+        "title": {
+          "pick": {
+            "order": {
+              "byTimestamp": "desc"
+            }
+          }
+        },
+        "rating": {
+          "merge": "max"
+        }
+      },
+      "default": {
+        "pick": {
+          "order": "lexById"
+        }
+      }
+    },
+    "claims": {
+      "timestamp": 2000,
+      "author": "did:key:zAlice",
+      "pointers": [
+        {
+          "role": "rhizomatic.schema.defines",
+          "target": {
+            "id": "schema:MovieView",
+            "context": "definition"
+          }
+        },
+        {
+          "role": "rhizomatic.schema.name",
+          "target": "MovieView"
+        },
+        {
+          "role": "rhizomatic.schema.alg",
+          "target": 1
+        },
+        {
+          "role": "rhizomatic.schema.term",
+          "target": "a26570726f7073a2657469746c65a1647069636ba1656f72646572a16b627954696d657374616d70646465736366726174696e67a1656d65726765636d61786764656661756c74a1647069636ba1656f72646572676c657842794964"
+        }
+      ]
+    },
+    "deltaId": "1e209fcabe52ebb70333672bc23e2c3757aa50f06f321f7d83c1a27af309ace7270c",
+    "expectedSchemaHex": "a26570726f7073a2657469746c65a1647069636ba1656f72646572a16b627954696d657374616d70646465736366726174696e67a1656d65726765636d61786764656661756c74a1647069636ba1656f72646572676c657842794964"
+  },
   "termHashes": [
     {
       "name": "MovieBasic",
@@ -168,7 +226,7 @@
     }
   ],
   "published": {
-    "note": "MovieWithCast published as a definition delta; loadSchema must round-trip it",
+    "note": "MovieWithCast published as a definition delta; loadHyperSchema must round-trip it",
     "schemaEntity": "schema:MovieWithCast",
     "claims": {
       "timestamp": 1000,

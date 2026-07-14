@@ -46,9 +46,14 @@ pub use pred::{compare_primitives, eval_pred, Pred};
 pub use reactor::{make_manifest_claims, manifest_member_ids, IngestResult, Reactor};
 pub use resolution::{resolve_view, view_canonical_hex, MergeFn, Order, Policy, Schema, View};
 pub use schema::{collect_refs, HyperSchema, SchemaRegistry};
-pub use schema_deltas::{hyper_schema_schema, load_schema, publish_schema_claims, VOCAB_PREFIX};
+pub use schema_deltas::{
+    hyper_schema_schema, load_hyper_schema, load_schema, publish_hyper_schema_claims,
+    publish_schema_claims, schema_schema, VOCAB_PREFIX,
+};
 pub use set::{federate, fork, make_delta, make_negation_claims, merge, DeltaSet};
 pub use sign::{sign_claims, verify_delta, Verification};
-pub use term_io::{cbor_to_json, json_to_cbor, term_canonical_hex, term_hash, term_to_json};
+pub use term_io::{
+    cbor_to_json, json_to_cbor, schema_canonical_hex, term_canonical_hex, term_hash, term_to_json,
+};
 pub use term_json::{parse_pred, parse_term};
 pub use types::{Claims, Delta, DeltaRef, EntityRef, Pointer, Primitive, Target};

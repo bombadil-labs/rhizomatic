@@ -478,6 +478,10 @@ pub fn parse_schema(raw: &Value) -> Result<Schema, String> {
     Ok(Schema {
         props,
         default: parse_policy(o.get("default").unwrap_or(&Value::Null))?,
+        // Optional identity for a named/self-hosting Schema (SPEC-3 ERRATA S6); absent on inline
+        // resolve-term schemas.
+        name: o.get("name").and_then(|v| v.as_str()).map(nfc),
+        alg: o.get("alg").and_then(|v| v.as_f64()),
     })
 }
 

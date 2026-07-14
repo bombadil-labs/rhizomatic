@@ -190,7 +190,17 @@ pub fn schema_to_json(p: &Schema) -> Value {
     for (k, v) in &p.props {
         props.insert(k.clone(), policy_to_json(v));
     }
-    json!({ "props": props, "default": policy_to_json(&p.default) })
+    let mut out = Map::new();
+    out.insert("props".to_string(), Value::Object(props));
+    out.insert("default".to_string(), policy_to_json(&p.default));
+    // name/alg emitted only when present (SPEC-3 ERRATA S6); canonical CBOR sorts keys (D4).
+    if let Some(name) = &p.name {
+        out.insert("name".to_string(), json!(name));
+    }
+    if let Some(alg) = p.alg {
+        out.insert("alg".to_string(), json!(alg));
+    }
+    Value::Object(out)
 }
 
 fn schema_ref_to_json(r: &SchemaRef) -> Value {
@@ -317,6 +327,19 @@ pub fn term_canonical_bytes(term: &Term) -> Result<Vec<u8>, String> {
 
 pub fn term_canonical_hex(term: &Term) -> Result<String, String> {
     Ok(hex::encode(term_canonical_bytes(term)?))
+}
+
+/// A resolution Schema's content hash (SPEC-3 ERRATA S6): over props+default only — name/alg are
+/// identity metadata carried as roles, excluded from the hash (mirrors term_canonical_hex over a
+/// HyperSchema's body).
+pub fn schema_canonical_hex(schema: &Schema) -> Result<String, String> {
+    let body = Schema {
+        props: schema.props.clone(),
+        default: schema.default.clone(),
+        name: None,
+        alg: None,
+    };
+    Ok(hex::encode(encode(&json_to_cbor(&schema_to_json(&body))?)))
 }
 
 /// A term's content address: same multihash as deltas (E12).

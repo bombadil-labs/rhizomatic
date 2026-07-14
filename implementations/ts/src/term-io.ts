@@ -135,7 +135,11 @@ function policyToJson(pp: Policy): unknown {
 export function schemaToJson(p: Schema): unknown {
   const props: Record<string, unknown> = {};
   for (const [k, v] of p.props) props[k] = policyToJson(v);
-  return { props, default: policyToJson(p.default) };
+  const out: Record<string, unknown> = { props, default: policyToJson(p.default) };
+  // name/alg emitted only when present (SPEC-3 ERRATA S6); canonical CBOR sorts keys (D4).
+  if (p.name !== undefined) out.name = p.name;
+  if (p.alg !== undefined) out.alg = p.alg;
+  return out;
 }
 
 export function termToJson(term: Term): unknown {
@@ -238,6 +242,14 @@ export function termCanonicalBytes(term: Term): Uint8Array {
 
 export function termCanonicalHex(term: Term): string {
   return bytesToHex(termCanonicalBytes(term));
+}
+
+// A resolution Schema's content hash (SPEC-3 ERRATA S6): over props+default only — name/alg are
+// identity metadata carried as roles, excluded from the hash exactly as a HyperSchema's term
+// hashes its body, not its name.
+export function schemaCanonicalHex(schema: Schema): string {
+  const body = schemaToJson({ props: schema.props, default: schema.default });
+  return bytesToHex(encode(jsonToCbor(body)));
 }
 
 // A term's content address: same multihash as deltas (E12).

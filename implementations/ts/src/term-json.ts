@@ -357,7 +357,15 @@ export function parseSchema(raw: unknown): Schema {
       props.set(nfc(k), parsePolicy(v));
     }
   }
-  return { props, default: parsePolicy(o["default"]) };
+  // name/alg optional (SPEC-3 ERRATA S6): present on a named/self-hosting Schema, absent inline.
+  const name = typeof o["name"] === "string" ? nfc(o["name"]) : undefined;
+  const alg = typeof o["alg"] === "number" ? o["alg"] : undefined;
+  return {
+    props,
+    default: parsePolicy(o["default"]),
+    ...(name !== undefined ? { name } : {}),
+    ...(alg !== undefined ? { alg } : {}),
+  };
 }
 
 function parseGroupKey(raw: unknown): GroupKey {
