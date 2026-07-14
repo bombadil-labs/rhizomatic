@@ -180,7 +180,10 @@ Filled in as each implementation is scaffolded.
 Publishing is cutting a tag; CI does the rest. When asked to cut a release:
 
 1. Preconditions: main is green (CI passed on the head commit), tree clean, work already merged —
-   the release commit should contain nothing but the version bump.
+   the release commit should contain nothing but the version bump. **[CHANGELOG.md](CHANGELOG.md)
+   must already carry an entry for the new version** — add it *with the work* (in the feature PR),
+   never in the version-bump commit. Call out any breaking change under a `⚠️ Breaking` heading with
+   concrete migration steps; consumers (e.g. Loam) read this to know what a jump requires.
 2. Pick the bump: `patch` for fixes, `minor` for backward-compatible spec/grammar additions (new
    operators, orders, predicate forms), `major` for anything changing the meaning of existing terms.
 3. From `implementations/ts`: `npm run release:patch|minor|major`. That runs the green-gate, bumps,
