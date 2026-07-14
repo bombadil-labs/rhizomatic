@@ -244,6 +244,14 @@ export function termCanonicalHex(term: Term): string {
   return bytesToHex(termCanonicalBytes(term));
 }
 
+// A resolution Schema's content hash (SPEC-3 ERRATA S6): over props+default only — name/alg are
+// identity metadata carried as roles, excluded from the hash exactly as a HyperSchema's term
+// hashes its body, not its name.
+export function schemaCanonicalHex(schema: Schema): string {
+  const body = schemaToJson({ props: schema.props, default: schema.default });
+  return bytesToHex(encode(jsonToCbor(body)));
+}
+
 // A term's content address: same multihash as deltas (E12).
 export function termHash(term: Term): string {
   return contentAddress(termCanonicalBytes(term));

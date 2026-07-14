@@ -6,10 +6,11 @@ import { decode } from "./cbor.js";
 import type { Term } from "./eval.js";
 import { evalTerm } from "./eval.js";
 import { hexToBytes } from "@noble/hashes/utils";
+import type { Schema } from "./resolution.js";
 import type { HyperSchema } from "./schema.js";
 import { DeltaSet } from "./set.js";
-import { cborToJson, termCanonicalHex } from "./term-io.js";
-import { parseTerm } from "./term-json.js";
+import { cborToJson, schemaCanonicalHex, termCanonicalHex } from "./term-io.js";
+import { parseSchema, parseTerm } from "./term-json.js";
 import type { Claims } from "./types.js";
 import { VOCAB_PREFIX } from "./vocab.js";
 
@@ -98,4 +99,73 @@ export function loadHyperSchema(dset: DeltaSet, schemaEntity: string): HyperSche
 
 export function definitionRoles(): { defines: string; name: string; alg: string; term: string } {
   return { defines: ROLE_DEFINES, name: ROLE_NAME, alg: ROLE_ALG, term: ROLE_TERM };
+}
+
+// --- resolution Schema self-hosting (SPEC-3 ERRATA S6, issue #11) ----------------------------------
+
+const SCHEMA_DEFINES = `${VOCAB_PREFIX}.schema.defines`;
+const SCHEMA_NAME = `${VOCAB_PREFIX}.schema.name`;
+const SCHEMA_ALG = `${VOCAB_PREFIX}.schema.alg`;
+const SCHEMA_TERM = `${VOCAB_PREFIX}.schema.term`;
+
+// SCHEMA_SCHEMA (rhizomatic.SchemaSchema): the bootstrap through which resolution Schemas are read.
+// Mechanical parity — it reuses HYPER_SCHEMA_SCHEMA's generic gather idiom; only the extracted roles
+// (schema.* vs hyperschema.*) and the decoded blob (a Schema, not a Term) differ.
+export const SCHEMA_SCHEMA: HyperSchema = {
+  name: `${VOCAB_PREFIX}.SchemaSchema`,
+  alg: 1,
+  body: HYPER_SCHEMA_SCHEMA.body,
+};
+
+// Publish a resolution Schema as claims (parallel to publishHyperSchemaClaims). A published Schema
+// MUST be named (name + alg); the term blob is its content hash over props+default.
+export function publishSchemaClaims(
+  schema: Schema,
+  schemaEntity: string,
+  author: string,
+  timestamp: number,
+): Claims {
+  if (schema.name === undefined || schema.alg === undefined) {
+    throw new Error("a published Schema must carry a name and alg (SPEC-3 ERRATA S6)");
+  }
+  return {
+    timestamp,
+    author,
+    pointers: [
+      {
+        role: SCHEMA_DEFINES,
+        target: { kind: "entity", entity: { id: schemaEntity, context: "definition" } },
+      },
+      { role: SCHEMA_NAME, target: { kind: "primitive", value: schema.name } },
+      { role: SCHEMA_ALG, target: { kind: "primitive", value: schema.alg } },
+      { role: SCHEMA_TERM, target: { kind: "primitive", value: schemaCanonicalHex(schema) } },
+    ],
+  };
+}
+
+// Load a resolution Schema from the rhizome (parallel to loadHyperSchema): gather via SCHEMA_SCHEMA,
+// take the latest surviving definition, decode props+default, reject non-canonical blobs, and
+// reattach name/alg from the roles.
+export function loadSchema(dset: DeltaSet, schemaEntity: string): Schema {
+  const result = evalTerm(SCHEMA_SCHEMA.body, dset, schemaEntity);
+  if (result.sort !== "hview") throw new Error("bootstrap body must yield an HView");
+  const defs = result.hview.props.get("definition") ?? [];
+  if (defs.length === 0) throw new Error(`no surviving schema definition for ${schemaEntity}`);
+  const latest = [...defs].sort((a, b) => {
+    const dt = b.delta.claims.timestamp - a.delta.claims.timestamp;
+    if (dt !== 0) return dt;
+    return a.delta.id < b.delta.id ? -1 : 1;
+  })[0]!;
+  const name = primitiveOf(latest.delta.claims, SCHEMA_NAME);
+  const alg = primitiveOf(latest.delta.claims, SCHEMA_ALG);
+  const termHex = primitiveOf(latest.delta.claims, SCHEMA_TERM);
+  if (typeof name !== "string" || typeof alg !== "number" || typeof termHex !== "string") {
+    throw new Error(`malformed schema definition delta ${latest.delta.id}`);
+  }
+  const body = parseSchema(cborToJson(decode(hexToBytes(termHex))));
+  // Reject non-canonical blobs: props+default must re-encode to exactly the published bytes (S3).
+  if (schemaCanonicalHex(body) !== termHex) {
+    throw new Error(`schema definition ${latest.delta.id} carries a non-canonical schema blob`);
+  }
+  return { ...body, name, alg };
 }

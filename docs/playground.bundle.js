@@ -2084,7 +2084,14 @@
         props.set(nfc(k), parsePolicy(v));
       }
     }
-    return { props, default: parsePolicy(o["default"]) };
+    const name = typeof o["name"] === "string" ? nfc(o["name"]) : void 0;
+    const alg = typeof o["alg"] === "number" ? o["alg"] : void 0;
+    return {
+      props,
+      default: parsePolicy(o["default"]),
+      ...name !== void 0 ? { name } : {},
+      ...alg !== void 0 ? { alg } : {}
+    };
   }
   function parseGroupKey(raw) {
     if (raw === "byTargetContext") return { kind: "byTargetContext" };
@@ -2164,6 +2171,15 @@
         in: { op: "mask", policy: "drop", in: "input" }
       }
     })
+  };
+  var SCHEMA_DEFINES = `${VOCAB_PREFIX}.schema.defines`;
+  var SCHEMA_NAME = `${VOCAB_PREFIX}.schema.name`;
+  var SCHEMA_ALG = `${VOCAB_PREFIX}.schema.alg`;
+  var SCHEMA_TERM = `${VOCAB_PREFIX}.schema.term`;
+  var SCHEMA_SCHEMA = {
+    name: `${VOCAB_PREFIX}.SchemaSchema`,
+    alg: 1,
+    body: HYPER_SCHEMA_SCHEMA.body
   };
 
   // node_modules/@noble/hashes/esm/sha2.js

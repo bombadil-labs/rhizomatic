@@ -329,6 +329,19 @@ pub fn term_canonical_hex(term: &Term) -> Result<String, String> {
     Ok(hex::encode(term_canonical_bytes(term)?))
 }
 
+/// A resolution Schema's content hash (SPEC-3 ERRATA S6): over props+default only — name/alg are
+/// identity metadata carried as roles, excluded from the hash (mirrors term_canonical_hex over a
+/// HyperSchema's body).
+pub fn schema_canonical_hex(schema: &Schema) -> Result<String, String> {
+    let body = Schema {
+        props: schema.props.clone(),
+        default: schema.default.clone(),
+        name: None,
+        alg: None,
+    };
+    Ok(hex::encode(encode(&json_to_cbor(&schema_to_json(&body))?)))
+}
+
 /// A term's content address: same multihash as deltas (E12).
 pub fn term_hash(term: &Term) -> Result<String, String> {
     Ok(content_address(&term_canonical_bytes(term)?))
