@@ -135,6 +135,19 @@ with an ADLC convention, defer to ADLC.
      you ARE the model: answer the printed rubric and flag only gaps a fresh agent could
      **not** derive from the repo (the repo-wide definition of done in this file counts as
      derivable). Empty gaps = executable.
+- **Keep the issue a live mirror of the work — the ticket → issue lifecycle.** Beyond the
+  gate-driven `<!-- adlc:status -->` comment, post these four human-readable milestones on the
+  issue as the work moves, so the tracker always shows exactly where it is:
+  1. **Ingested / started** — when you begin building a ticket, comment that it is in progress:
+     `gh issue comment <n> -b "🔨 In progress — building this ticket."`
+  2. **PR opened** — comment the PR link: `gh issue comment <n> -b "PR: <pr-url>"`.
+  3. **Merged** — comment that it is done **pending a release** (merged ≠ shipped):
+     `gh issue comment <n> -b "Merged to main; ships in the next release."`
+  4. **Released** — **close** the issue with the release link:
+     `gh issue close <n> -c "Shipped in @bombadil/rhizomatic@<x.y.z> — <tag/release url>."`
+  **Do NOT put `Closes #<n>` (or `Fixes`/`Resolves`) in the PR body** — GitHub would auto-close
+  the issue at *merge*, collapsing stages 3 and 4. Reference the issue plainly (`Addresses #<n>`
+  / `gh:...#<n>`) so merge and release stay distinct states, and close explicitly at step 4.
 - **Never `push` a local-only `T<n>` ticket at an issue that already exists** — push
   *creates* a fresh issue for local tickets and would duplicate it. Always `pull` the
   existing issue first; its id becomes `gh:...#<n>`.
