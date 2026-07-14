@@ -14,8 +14,42 @@
       "rails": [],
       "edges": [],
       "duration": 3,
-      "category": "feature",
-      "budget": "frontier"
+      "category": "feature"
+    },
+    {
+      "id": "gh:bombadil-labs/rhizomatic#11",
+      "title": "Add a Schema Schema (`SCHEMA_SCHEMA`) — self-hosting parity for the resolution Schema",
+      "body": "rhizomatic ships `HYPER_SCHEMA_SCHEMA` — the self-hosting definition of a **HyperSchema** — plus `publishSchemaClaims`/`loadSchema` to publish and load one as deltas. There is **no equivalent for the resolution `Schema`** (`{ props: Map<field, Policy>, default: Policy }`): no `SCHEMA_SCHEMA`, no at-rest delta vocabulary for a Schema, and the `Schema` type carries no name. A Schema today exists only inline (canonical JSON quoted inside a consumer's registration), never as a first-class, resolvable domain node.\n\n**Why this is needed.** Loam's §21 (schema identity & versioning) makes a Schema a first-class entity — its own id, its own deltas, resolved from the ground exactly as a HyperSchema is — with registration demoted to a binding, so that many named lenses can live over one HyperSchema and each can be snapshotted into a pinnable `name@hash` version. That requires publishing/loading a Schema *as deltas, resolved by a Schema Schema*. The whole system rests on the symmetry `HyperSchema : HyperView :: Schema : View`; if one side of it has a self-hosting schema-schema and publish/load, the other side deserves the parallel for the identical reasons — self-description, portability, resolvability. Doing it in Loam instead would fork the substrate's self-hosting story at the application layer (a parallel `loam.schema.*`), exactly the near-synonym duplication the vocabulary discipline avoids.\n\n**Proposed.** Add `SCHEMA_SCHEMA` (the self-hosting definition of a resolution Schema) and publish/load parity — either `publishSchemaClaims`/`loadSchema` equivalents for Schemas, or a generalization of the existing pair — with an at-rest delta vocabulary (`rhizomatic.schema.*`, parallel to `rhizomatic.hyperschema.*`).\n\n**Coordination.** This blocks Loam §21, which already ships an on-wire migration (its `schema:`→`hyperschema:` entity rename). Ideally this lands in the **same release** as the naming reconciliation in #10, so Loam pulls one new rhizomatic and folds everything into §21's single migration wave rather than cutting a second one.\n\n**A deeper question, noted not blocked (Myk).** Whether the query/resolution apparatus (schema-schemas, Policies, `resolveView`) is fundamentally substrate, or a separable layer above the truly-portable data format (deltas, content-addressing, signatures, negation), is a real long-horizon architectural question — one could imagine the format being the substrate and the query layer living above it. But the HyperSchema Schema already lives in rhizomatic, so for consistency the Schema Schema joining it is the smaller, parity-preserving move; the separability question can be its own discussion.\n\nReferenced by Loam §21 (schema identity); related to #10 (the `loadSchema`/`publishSchemaClaims` naming lag).",
+      "scope": [
+        "spec/**",
+        "vectors/**",
+        "implementations/ts/**",
+        "implementations/rust/**"
+      ],
+      "rails": [],
+      "edges": [],
+      "duration": 3,
+      "category": "feature"
+    },
+    {
+      "id": "gh:bombadil-labs/rhizomatic#10",
+      "title": "Vocabulary: `loadSchema` / `publishSchemaClaims` operate on HyperSchemas, not Schemas",
+      "body": "Since the 0.3.0 L5 realignment, the at-rest schema-definition vocabulary is `rhizomatic.hyperschema.*`, and the conceptual split is **HyperSchema** (the gather program) vs **Schema** (the resolution program: `{ props: Map<field, Policy>, default: Policy }`). But the public API `loadSchema` and `publishSchemaClaims` load and publish **HyperSchemas** — the names predate the realignment and now lag their meaning.\n\nThis surfaced while designing Loam's §21 (schema identity & versioning), which makes a Loam-level Schema a first-class entity distinct from the HyperSchema. Loam is renaming its own `schema:` entity prefix to remove the blur on its side, but the substrate API names remain a source of confusion: a reader of `loadSchema` reasonably expects it to load a Schema (a resolution program), when it in fact loads a HyperSchema (a gather program).\n\nrhizomatic is frozen/normative, so this is filed for discussion, not as a Loam workaround. Options:\n- **(a)** rename to `loadHyperSchema` / `publishHyperSchemaClaims` — breaking API change (conformance vectors + version bump + migration guidance);\n- **(b)** add the accurate names as aliases and deprecate the old ones;\n- **(c)** document the lag and keep the names as stable API even though the vocabulary moved under them.\n\nNo urgency — Loam routes around it in prose today (§21 records the seam). Raising per Myk's request to resolve the last naming detail.\n\n_Filed from the Loam §21 design review._",
+      "scope": [
+        "spec/**",
+        "vectors/**",
+        "implementations/ts/**",
+        "implementations/rust/**"
+      ],
+      "rails": [],
+      "edges": [
+        {
+          "to": "gh:bombadil-labs/rhizomatic#11",
+          "contract": "the settled loadSchema/publishSchemaClaims API naming that #11 designs its Schema publish/load parity against"
+        }
+      ],
+      "duration": 2,
+      "category": "refactor"
     }
   ]
 }
