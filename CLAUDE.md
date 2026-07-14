@@ -18,15 +18,14 @@ vectors/               Language-agnostic conformance vectors — the source of t
 implementations/
   ts/                  TypeScript implementation (@bombadil/rhizomatic).
   rust/                Rust implementation.
-apps/
-  chorus/              Chorus — agent memory built ON the format (its own package; depends on
-                       @bombadil/rhizomatic; product layer, not substrate; destined for its own repo).
 ERRATA.md              (created per spec doc, on demand) recorded spec/impl contradictions.
 ```
 
-Apps consume the witness as a dependency — never the reverse. Normative behavior lives only in
-spec/ + vectors/ + implementations/; anything in apps/ is free to move fast (no vectors, no
-two-witness requirement, TS-only is fine).
+This repo is the **substrate**: normative behavior lives only in spec/ + vectors/ + implementations/.
+Product/application layers consume the witness as a published dependency (`@bombadil/rhizomatic`)
+and live in their own repos — they never live here, and the substrate never depends on them. Chorus
+(agent memory built on the format) was extracted from `apps/chorus` and is being reborn as a **loam
+app** (2026-07); its git history remains in this repo before the extraction commit.
 
 Two implementations grow up **in parallel and in lockstep**. They are not a primary and a port —
 they are two independent witnesses to the same spec. When they disagree, the spec or the vectors
@@ -155,9 +154,7 @@ Filled in as each implementation is scaffolded.
 
 - TypeScript: `cd implementations/ts && npm test`
 - Rust: `cd implementations/rust && cargo test`
-- Chorus (app layer): `cd apps/chorus && npm test` · demo `npm run chorus:demo` ·
-  MCP server `npm run chorus:mcp` · console `npm run chorus:console`
-- Parity (both witnesses + the app layer, one command): `node tools/check-all.mjs` from the repo root
+- Parity (both witnesses, one command): `node tools/check-all.mjs` from the repo root
 - ADLC: tickets live in `.adlc/tickets.json` (synced to GitHub issues). Sync with
   `adlc-ticket-sync pull|push --write`, health-check with `adlc-ticket-sync doctor`, and gate
   executability with `adlc coldstart '<id>' --prompt-only`. See the **ADLC** section above.
