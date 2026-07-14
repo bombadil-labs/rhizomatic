@@ -35,29 +35,6 @@ jobs:
           npm run gen-vectors
           git diff --exit-code ../../vectors
 
-  chorus:
-    name: Chorus (app layer)
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/chorus
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: apps/chorus/package-lock.json
-      # Chorus typechecks THROUGH @bombadil/rhizomatic's TypeScript sources (the file: dep resolves
-      # to implementations/ts/src), so the core's own deps (@noble/*) must be installed too —
-      # otherwise tsc can't resolve them. This mirrors a local checkout where both are installed.
-      - name: install core deps (chorus typechecks through the core's TS sources)
-        working-directory: implementations/ts
-        run: npm ci
-      - run: npm ci
-      - name: green-gate (format + lint + typecheck + tests)
-        run: npm run check
-
   rust:
     name: Rust witness
     runs-on: ubuntu-latest

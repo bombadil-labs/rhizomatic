@@ -56,7 +56,7 @@ recordings, used together:
 Note the distinction the single-store world blurred: a delta's **author** identifies the *signer*
 (a session keypair, the user keypair); the delta's **origin** identifies the *venue* (which
 instance). In Chorus these often share a root — a store's authors are children of its master seed
-([identity.ts](../apps/chorus/src/identity.ts): `deriveSeed(master, "session/…")`) — but seed
+(`deriveSeed(master, "session/…")`) — but seed
 derivation is one-way, so an aggregator *cannot infer* author→instance cryptographically. An
 instance that wants its authorship attributable across a boundary must **declare its authors** (an
 ordinary identity claim: "these public keys are mine"), or the receiver records relay provenance on
@@ -73,8 +73,8 @@ real, but it is **collision on federation**, not fragility at home: `person:myk`
 additive moves address it without a registry:
 
 - **(a) Type as a declared belief, not only an id-prefix.** Today "entity type" is the `person:` /
-  `proj:` / `concept:` prefix convention, which the gql layer reflects over
-  ([gql.ts](../apps/chorus/src/gql.ts)) — and an inbox note from a dogfooding session already
+  `proj:` / `concept:` prefix convention, which the Chorus gql layer reflects over — and an inbox
+  note from a dogfooding session already
   flagged that this is inference, not assertion. Make type an ordinary claim (a `rhizomatic.type`
   convention, or app-level `chorus`), so an entity's kind is stated and contestable; keep the prefix
   as a human shorthand. This also sharpens reflection: the schema reads the claim, not a substring.
@@ -86,8 +86,8 @@ additive moves address it without a registry:
   the same entity (convenient, unchanged). **Across a federation boundary, string equality does NOT
   imply co-reference** — a `person:myk` received from a peer stays a distinct node until a signed
   `sameAs` says otherwise. Silence diverges safely; merging is a deliberate, revocable judgment.
-  This is the `sameAs` machinery Chorus already has ([discovery.ts](../apps/chorus/src/discovery.ts):
-  union-find over surviving claims), applied at the boundary rather than assumed away.
+  This is the `sameAs` machinery Chorus already has (`discovery.ts`: union-find over surviving
+  claims), applied at the boundary rather than assumed away.
 
 The net: names stay local and coordination-free; cross-instance identity is a first-class,
 auditable, reversible claim; accidental collision cannot silently merge two people.
@@ -124,7 +124,7 @@ With §2–§4 in place, the user's whole picture is one primitive at two scales
 
 - **On one machine:** specialized instances (a media log, a synchronicity log) each publish a broad
   lens to a **local aggregator** instance, which subscribes, holds the union, and serves it via
-  gql-on-demand over MCP ([gql.ts](../apps/chorus/src/gql.ts) is already that read surface). "Spin up
+  gql-on-demand over MCP (Chorus's `gql.ts` is already that read surface). "Spin up
   different stores that federate and specialize" = localhost peers syncing over the transport that
   already exists ([http.ts](../implementations/ts/src/http.ts), or in-process `Peer.pullFrom`).
 - **Across machines:** friends clone the repo, run their own instances, and federate by publishing
@@ -158,8 +158,8 @@ With §2–§4 in place, the user's whole picture is one primitive at two scales
   reads the claim, with the id-prefix kept as shorthand.
 - **[Note 11](11-federation-as-query.NOTE.md)** — the closure audit view as the publish-time privacy
   surface, and the irrevocability statement, are shared with this note; build them once, together.
-- **apps/chorus** — the proving ground, ahead of any normative vectors, per the working agreement:
-  the phased work order is [apps/chorus/CONSTELLATION.md](../apps/chorus/CONSTELLATION.md).
+- **Chorus** (now a separate loam app) — the proving ground, ahead of any normative vectors, per
+  the working agreement.
 
 A vectorable conformance statement (what an instance MUST expose about its identity and origin, how
 cross-instance `sameAs` composes, and what "leak-safe at rest" must guarantee) waits until the

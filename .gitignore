@@ -19,11 +19,6 @@ implementations/rust/target/
 .DS_Store
 *.log
 
-# Chorus local memory stores (never commit a memory)
-chorus-memory.jsonl
-chorus-memory.pack
-*.jsonl.lock/
-
 # Private working docs — candid strategy, never publish (repo is public via Pages)
 *.private.md
 .adlc/*

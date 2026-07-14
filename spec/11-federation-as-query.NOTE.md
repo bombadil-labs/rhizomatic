@@ -3,9 +3,8 @@
 **Status:** Note — records a direction and unifies threads already present across SPEC-3, SPEC-4,
 and SPEC-6. Nothing here is normative yet; §6 names the landing sites. The motivating context: an
 external party's agent built its own Chorus adapter (the first outside implementer), making
-federation a near-term, real-demand surface; and Chorus shipped GraphQL-on-demand
-([apps/chorus/src/gql.ts](../apps/chorus/src/gql.ts)), which turns out to be the same machinery a
-federation boundary needs.
+federation a near-term, real-demand surface; and Chorus shipped GraphQL-on-demand (`gql.ts`, now
+in the separate loam repo), which turns out to be the same machinery a federation boundary needs.
 
 ---
 
@@ -75,9 +74,8 @@ Two consequences, one of them a hazard:
 ## 4. Persistence is the same shape (why the two land together)
 
 A grow-only signed log makes durable persistence and remote sync the same primitive: append
-(idempotent by id), snapshot, and **deltas since a watermark**. The Chorus `Store` interface being
-built ([apps/chorus/PERSISTENCE.md](../apps/chorus/PERSISTENCE.md)) is, deliberately, the
-federation-sync interface. The one forward concession asked of it: shape the read seam so a later
+(idempotent by id), snapshot, and **deltas since a watermark**. The Chorus `Store` interface (now
+in the separate loam repo) is, deliberately, the federation-sync interface. The one forward concession asked of it: shape the read seam so a later
 **closure-scoped** `since(watermark, closure)` is additive. SPEC-8 §8 already anticipates this —
 read-optimized pack layouts "by schema relevance closure." The SQLite indexes (by target entity,
 by role/value) that make local reads fast are the same indexes that make closure-scoped federation
@@ -103,8 +101,8 @@ reads fast. One build, two payoffs.
 - **SPEC-4 §5** (change events) — note the subscription/federation consumer of the change stream.
 - **SPEC-8 §8** (read-optimized layouts) — connect "repack by relevance closure" to closure-scoped
   federation reads.
-- **apps/chorus** — the concrete proving ground: the `Store` interface + SQLite tier first
-  (PERSISTENCE.md), then federation v1 (one published query, one subscribing peer over the HTTP
+- **Chorus** (now a separate loam app) — the concrete proving ground: the `Store` interface +
+  SQLite tier first, then federation v1 (one published query, one subscribing peer over the HTTP
   transport already shipped, two trust lenses, the closure-audit view) — app-layer, ahead of any
   normative vectors, exactly as the working agreement allows.
 

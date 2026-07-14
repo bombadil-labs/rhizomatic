@@ -21,9 +21,6 @@ function run(label, command, cwd, env = {}) {
 const tsDir = join(root, "implementations", "ts");
 run("TypeScript: green-gate", "npm run check", tsDir);
 
-// --- Chorus (app layer; consumes the TS witness as a dependency) ---
-run("Chorus: green-gate", "npm run check", join(root, "apps", "chorus"));
-
 // --- Rust witness ---
 const rustDir = join(root, "implementations", "rust");
 const env = {};
@@ -40,4 +37,4 @@ run("Rust: fmt", "cargo fmt --check", rustDir, env);
 run("Rust: clippy", "cargo clippy --all-targets --quiet -- -D warnings", rustDir, env);
 run("Rust: tests", "cargo test --quiet", rustDir, env);
 
-process.stdout.write("\nBoth witnesses green; the app layer green. The parity contract holds.\n");
+process.stdout.write("\nBoth witnesses green. The parity contract holds.\n");

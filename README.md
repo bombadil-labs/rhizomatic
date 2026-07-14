@@ -4,15 +4,19 @@
 
 Rhizomatic is not a database. A database is one kind of machine you can build on top of it. Rhizomatic is the format underneath: a way of writing down anything anyone claims about anything, such that any two collections of such claims can be combined by set union — no migration, no coordination protocol, no merge conflicts, no central authority deciding what's true.
 
-This repository contains the specification, two parallel implementations — TypeScript and
-Rust — built in lockstep against a shared conformance-vector suite ([vectors/](vectors)), and
-the first real application built on top: **[Chorus](apps/chorus)**, memory for LLM agents
-where every belief is a signed claim. All six substrate milestones (M0-M5, conformance Levels
-0-4) are implemented in both witnesses. See [PROGRESS.md](PROGRESS.md) for the full build log
-and [§ For the Implementer](#for-the-implementer) for the rules of engagement.
+This repository contains the specification and two parallel implementations — TypeScript and
+Rust — built in lockstep against a shared conformance-vector suite ([vectors/](vectors)). All
+six substrate milestones (M0-M5, conformance Levels 0-4) are implemented in both witnesses. See
+[PROGRESS.md](PROGRESS.md) for the full build log and [§ For the Implementer](#for-the-implementer)
+for the rules of engagement.
+
+> **Applications live in their own repos.** The substrate is published as
+> [`@bombadil/rhizomatic`](https://www.npmjs.com/package/@bombadil/rhizomatic); products consume it
+> as a dependency. Chorus (agent memory built on the format) was extracted from this repo and is
+> being reborn as a **loam app**.
 
 **See it run:** the docs site is live at **https://mbilokonsky.github.io/rhizomatic/** —
-a landing page leading to the interactive tour and the agent-memory case. Locally: open
+a landing page leading to the interactive tour and the playground. Locally: open
 [docs/index.html](docs/index.html) in a browser
 (`npx serve docs` from the repo root, or any static server) — a guided, narrated walk through
 the format where every widget runs the real implementation: live content addressing,
@@ -24,9 +28,7 @@ through each — then has Rust reproduce, byte for byte, every delta you author 
 
 For the terminal version: `cd implementations/ts && npm install && npm run demo` — a seven-act
 story covering superposition, policy lenses, retraction + audit views, time travel, federation,
-derived authors, and packs. Then `cd apps/chorus && npm install && npm run chorus:demo` for the
-application built on top of it all: agent memory with per-session authors, adjudication, decision
-replay, retroactive distrust, and semantic convergence — every step printing its receipts.
+derived authors, and packs.
 
 ---
 
@@ -104,30 +106,13 @@ You may be a person. You may be a Claude instance reading this at the top of a f
 
 **Style of the thing.** Prefer boring code at L0–L2 — these layers aspire to be the kind of software that gets rewritten in five languages by strangers. Save the cleverness for the reactor's dispatch structures and the pack formats, where it pays. And when you hit a fork in the road the spec doesn't cover, you have the design tradition to steer by: *when in doubt, push authority toward the edges, keep the kernel inspectable, and make the judgment a signed claim rather than a hidden mechanism.*
 
-## The First Application: Chorus
-
-[apps/chorus](apps/chorus) is agent memory built on the substrate — and the proof that the
-"consequences, not features" wager pays. An agent is a keypair, a reactor, and a policy. Every
-Claude session is a distinct author bound to its model by a signed identity claim; the human is
-one persistent author; concurrent sessions share an append-only store and converge by union. On
-top of those mechanics: a briefing that surfaces what the record *disagrees about* instead of
-silently keeping the last write, decisions replayable byte-for-byte against exactly what was
-known, retroactive distrust of an author / a session / an entire model in one signed edit, a
-librarian that converges vocabularies through negatable judgment claims, an MCP server
-(twenty-five tools — drop-in memory for any agent framework, including **GraphQL on demand**:
-a schema synthesized from a pinned snapshot, so the memory graph is queryable and traversable
-without a maintained schema), and a local web console with live receipts and an as-of time
-scrubber. See the [Chorus README](apps/chorus/README.md) for the `claude mcp add` wiring and
-the model-side protocol.
-
 ## Status
 
-Specification draft **with two working witnesses and one working application**: TypeScript
-(211 tests) and Rust (50+ tests across 20 suites) parity-verified byte-for-byte against shared
-vectors at every layer — canonical CBOR, content addressing, Ed25519 signatures, the
-eight-operator algebra (including parameterized terms and the SPEC-9 alias closure), resolution
-policies, the schemas-as-deltas bootstrap, the incremental reactor, packs, federation, and
-derivation — plus Chorus (78 tests) consuming the TypeScript witness as an ordinary dependency.
+Specification draft **with two working witnesses**: TypeScript and Rust parity-verified
+byte-for-byte against shared vectors at every layer — canonical CBOR, content addressing (now
+including the `bytes` Target kind, 0.4), Ed25519 signatures, the eight-operator algebra
+(including parameterized terms and the SPEC-9 alias closure), resolution policies, the
+schemas-as-deltas bootstrap, the incremental reactor, packs, federation, and derivation.
 The interactive tour at the docs site runs the committed vectors through BOTH witnesses in your
 browser (the Rust one as WebAssembly): 149/149. Cross-implementation HTTP federation is proven
 (a Rust peer converging with a live TypeScript server to identical canonical digests). Gaps and
