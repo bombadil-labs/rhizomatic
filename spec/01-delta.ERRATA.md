@@ -68,6 +68,36 @@ promotion to normative status is a SPEC-6 decision.
 Folded into SPEC-1 §4.1 (2026-06-11); history in git.
 
 
+## D12 — The `bytes` target kind (2026-07, issue #7, 0.4)
+
+Resolves SPEC-1 §10's binary-primitives open question. A **fourth `Target` kind** for raw byte
+payloads with a required, in-kind `mime` — **not** a fourth `Primitive`. Normative text folded
+into SPEC-1 §2 / §2.1 / §4.1 / §4.2; recorded here for the decisions and their rationale, pinned
+by `vectors/l0-delta/deltas-bytes.json` (+ appended `cbor-primitives.json` / `deltas-invalid.json`,
+and downstream `l0-pack/pack-bytes.json`, `l1-eval/eval-bytes.json`). Strictly additive: no
+existing vector entry changes, no content address moves.
+
+- **Bytes, not a primitive.** `Primitive = string | number | boolean` is untouched on purpose:
+  bytes enter no order, predicate, merge-fold, term constant, or hole binding (SPEC-2 §3,
+  SPEC-5 §3), so keeping them out of `Primitive` means L2 grammar grows by zero. A bytes target
+  is a literal — no `context`.
+- **`mime` REQUIRED, no default.** A default (`application/octet-stream`) would invite silently
+  untyped blobs; an author who doesn't know the type says so out loud and signs it. Non-empty,
+  NFC (D11), case-sensitive and otherwise opaque — never lowercased, because lowercasing is repair
+  and `image/PNG` ≠ `image/png` is the same honesty as two MIME types being two claims. Informative
+  SHOULD: the lowercase IANA form.
+- **Identity = hash of the raw bytes.** The payload enters the preimage only as a definite-length
+  CBOR byte string (major type 2, shortest head) inside `{ "mime": tstr, "value": bstr }` (keys
+  sorted per D4). No payload-level content address at L1 — that is the next rung of the storage
+  ladder (§10). Zero-length is legal (`0x40`). The codecs' prior "major type 2 is outside the
+  profile" rejection now becomes an accepted case — the very branch that makes pre-0.4 peers fail
+  closed on bytes (SPEC-6).
+- **JSON transport = canonical base64url** (RFC 4648 §5, unpadded): no `=`, alphabet
+  `A–Z a–z 0–9 - _`, length ≢ 1 (mod 4), trailing unused bits zero. Reject-never-repair on every
+  violation (SPEC-4 §2), even though identity is over the raw bytes — laxity is how witnesses
+  drift. Encoding is canonical by construction; decoding validates it.
+
+
 ## JSON debug profile (for vectors)
 
 Folded into SPEC-1 §4.2 (2026-06-11); history in git.

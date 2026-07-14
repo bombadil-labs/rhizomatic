@@ -92,6 +92,8 @@ impl Reactor {
                         .1
                         .insert(delta.id.clone());
                 }
+                // bytes are invisible to value predicates (SPEC-2 §3) — not value-indexed.
+                Target::Bytes { .. } => {}
             }
         }
     }

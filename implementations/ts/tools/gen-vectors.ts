@@ -12,6 +12,7 @@ import { makeManifestClaims } from "../src/reactor.js";
 import { aliasClosure, evalTerm, resultCanonicalHex, type AliasedSpec } from "../src/eval.js";
 import { relationSignature, relationSignatureCanonicalHex } from "../src/alias.js";
 import { VOCAB_PREFIX } from "../src/vocab.js";
+import { b64uEncode } from "../src/b64u.js";
 import { claimsToJson, parseClaims } from "../src/json-profile.js";
 import { HYPER_SCHEMA_SCHEMA, publishSchemaClaims } from "../src/schema-deltas.js";
 import { SchemaRegistry } from "../src/schema.js";
@@ -30,6 +31,12 @@ interface Input {
   spec: string;
   claims: unknown;
 }
+
+// bytes-target fixtures (issue #7, 0.4, ERRATA D12). Raw payloads → the JSON profile carries them
+// as canonical base64url; Rust must reproduce every canonicalCborHex and id byte-for-byte.
+const PNG4 = new Uint8Array([0x89, 0x50, 0x4e, 0x47]); // 4 bytes: the PNG magic prefix
+const BLOB30 = new Uint8Array(Array.from({ length: 30 }, (_, i) => i)); // 0x58 one-byte length head
+const bytesTarget = (mime: string, bytes: Uint8Array) => ({ mime, value: b64uEncode(bytes) });
 
 const inputs: Input[] = [
   {
@@ -192,6 +199,16 @@ const signedInputs: Array<{
       ],
     }),
   },
+  {
+    name: "signed-bytes-icon",
+    spec: "SPEC-1 §5 / ERRATA D12 (signing is indifferent to the bytes kind)",
+    keyId: "test-key-1",
+    mk: (author) => ({
+      timestamp: 4242,
+      author,
+      pointers: [{ role: "icon", target: bytesTarget("image/png", PNG4) }],
+    }),
+  },
 ];
 
 const signed = signedInputs.map(({ name, spec, keyId, mk }) => {
@@ -212,6 +229,103 @@ const signed = signedInputs.map(({ name, spec, keyId, mk }) => {
 
 writeFileSync(resolve(outDir, "deltas-signed.json"), `${JSON.stringify(signed, null, 2)}\n`);
 console.log(`wrote ${signed.length} signed delta vectors to vectors/l0-delta/deltas-signed.json`);
+
+// --- bytes target kind (issue #7, 0.4, ERRATA D12) — all additive ---
+
+const bytesInputs: Input[] = [
+  {
+    name: "bytes-empty-octet-stream",
+    spec: "SPEC-1 §2.1 §4.1 / D12 (zero-length payload is legal; encodes 0x40)",
+    claims: {
+      timestamp: 0,
+      author: "did:key:zAuthorA",
+      pointers: [
+        { role: "blob", target: bytesTarget("application/octet-stream", new Uint8Array()) },
+      ],
+    },
+  },
+  {
+    name: "bytes-png-4byte",
+    spec: "SPEC-1 §4.1 / D12",
+    claims: {
+      timestamp: 0,
+      author: "did:key:zAuthorA",
+      pointers: [{ role: "icon", target: bytesTarget("image/png", PNG4) }],
+    },
+  },
+  {
+    name: "bytes-mime-case-sensitive",
+    spec: "D12 (image/PNG ≠ image/png — same bytes, different id)",
+    claims: {
+      timestamp: 0,
+      author: "did:key:zAuthorA",
+      pointers: [{ role: "icon", target: bytesTarget("image/PNG", PNG4) }],
+    },
+  },
+  {
+    name: "bytes-different-mime-different-claim",
+    spec: "D12 (same bytes under application/wasm — a different claim, different id)",
+    claims: {
+      timestamp: 0,
+      author: "did:key:zAuthorA",
+      pointers: [{ role: "icon", target: bytesTarget("application/wasm", PNG4) }],
+    },
+  },
+  {
+    name: "bytes-mixed-pointer-delta",
+    spec: "D12 (bytes payload co-traveling with a filing EntityRef and a string primitive)",
+    claims: {
+      timestamp: 7,
+      author: "did:key:zAuthorA",
+      pointers: [
+        { role: "subject", target: { id: "entity:logo", context: "asset" } },
+        { role: "data", target: bytesTarget("image/png", PNG4) },
+        { role: "alt", target: "the logo" },
+      ],
+    },
+  },
+  {
+    name: "bytes-30byte-head",
+    spec: "SPEC-1 §4.1 (0x58 one-byte length head path)",
+    claims: {
+      timestamp: 0,
+      author: "did:key:zAuthorA",
+      pointers: [{ role: "blob", target: bytesTarget("application/octet-stream", BLOB30) }],
+    },
+  },
+  {
+    name: "bytes-1byte-tail",
+    spec: 'D12 (base64url 2-char tail: 0x66 → "Zg")',
+    claims: {
+      timestamp: 0,
+      author: "did:key:zAuthorA",
+      pointers: [
+        { role: "blob", target: bytesTarget("application/octet-stream", new Uint8Array([0x66])) },
+      ],
+    },
+  },
+  {
+    name: "bytes-2byte-tail",
+    spec: "D12 (base64url 3-char tail)",
+    claims: {
+      timestamp: 0,
+      author: "did:key:zAuthorA",
+      pointers: [
+        {
+          role: "blob",
+          target: bytesTarget("application/octet-stream", new Uint8Array([0x66, 0x6f])),
+        },
+      ],
+    },
+  },
+];
+
+const bytesOut = bytesInputs.map(({ name, spec, claims }) => {
+  const parsed = parseClaims(claims);
+  return { name, spec, claims, canonicalCborHex: canonicalHex(parsed), id: computeId(parsed) };
+});
+writeFileSync(resolve(outDir, "deltas-bytes.json"), `${JSON.stringify(bytesOut, null, 2)}\n`);
+console.log(`wrote ${bytesOut.length} bytes-target vectors to vectors/l0-delta/deltas-bytes.json`);
 
 // --- set digest of the deltas.json set (ERRATA D10, provisional helper) ---
 

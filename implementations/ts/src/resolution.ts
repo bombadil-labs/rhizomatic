@@ -2,13 +2,29 @@
 // HyperView into a View. resolve : Schema -> HView -> View is the only exit from the algebra
 // into application space; all pluralism is schema choice (P5).
 
-import { type CborValue, array, bool, encode, float, map, tstr } from "./cbor.js";
+import { type CborValue, array, bool, bstr, encode, float, map, tstr } from "./cbor.js";
 import { bytesToHex } from "./hash.js";
 import type { HVEntry, HView } from "./hview.js";
 import { comparePrimitives, evalPred, type Pred } from "./pred.js";
 import type { Primitive, Target } from "./types.js";
 
-export type View = Primitive | readonly View[] | { readonly [key: string]: View };
+// A bytes View leaf, shaped identically to the target (SPEC-5 §5). Distinguished from a plain
+// object View by its Uint8Array `value` — which is never itself a View, so the two never collide.
+export interface BytesView {
+  readonly mime: string;
+  readonly value: Uint8Array;
+}
+
+export type View = Primitive | BytesView | readonly View[] | { readonly [key: string]: View };
+
+function isBytesView(v: View): v is BytesView {
+  return (
+    typeof v === "object" &&
+    v !== null &&
+    !Array.isArray(v) &&
+    (v as { value?: unknown }).value instanceof Uint8Array
+  );
+}
 
 export type MergeFn = "max" | "min" | "sum" | "count" | "and" | "or" | "concatSorted";
 
@@ -84,6 +100,8 @@ function renderTarget(t: Target, expansion: HView | undefined, schema: Schema): 
       return t.entity.id;
     case "delta":
       return t.deltaRef.delta;
+    case "bytes":
+      return { mime: t.mime, value: t.value };
   }
 }
 
@@ -113,6 +131,13 @@ export function viewToCbor(v: View): CborValue {
   if (typeof v === "number") return float(v);
   if (typeof v === "boolean") return bool(v);
   if (Array.isArray(v)) return array(v.map(viewToCbor));
+  // the bytes leaf's canonical CBOR IS the target's — defined once, reused (SPEC-5 §5)
+  if (isBytesView(v)) {
+    return map([
+      ["mime", tstr(v.mime)],
+      ["value", bstr(v.value)],
+    ]);
+  }
   const entries = Object.entries(v as { [key: string]: View }).map(
     ([k, x]): readonly [string, CborValue] => [k, viewToCbor(x)],
   );

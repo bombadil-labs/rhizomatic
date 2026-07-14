@@ -167,5 +167,95 @@
       "author": "did:key:zAuthorA",
       "pointers": [{ "role": "subject", "target": { "id": "entity:x", "context": "" } }]
     }
+  },
+  {
+    "name": "bytes-mime-missing",
+    "spec": "SPEC-1 §2.1 / ERRATA D12",
+    "reason": "a target object with value but no mime is neither a ref nor a bytes target",
+    "claims": {
+      "timestamp": 0,
+      "author": "did:key:zAuthorA",
+      "pointers": [{ "role": "icon", "target": { "value": "AAEC" } }]
+    }
+  },
+  {
+    "name": "bytes-value-missing",
+    "spec": "SPEC-1 §2.1 / ERRATA D12",
+    "reason": "a bytes target requires a value",
+    "claims": {
+      "timestamp": 0,
+      "author": "did:key:zAuthorA",
+      "pointers": [{ "role": "icon", "target": { "mime": "image/png" } }]
+    }
+  },
+  {
+    "name": "bytes-mime-empty",
+    "spec": "SPEC-1 §2.1 / ERRATA D12",
+    "reason": "bytes mime must be non-empty",
+    "claims": {
+      "timestamp": 0,
+      "author": "did:key:zAuthorA",
+      "pointers": [{ "role": "icon", "target": { "mime": "", "value": "AAEC" } }]
+    }
+  },
+  {
+    "name": "bytes-mime-not-a-string",
+    "spec": "SPEC-1 §2.1 / ERRATA D12",
+    "reason": "bytes mime must be a string",
+    "claims": {
+      "timestamp": 0,
+      "author": "did:key:zAuthorA",
+      "pointers": [{ "role": "icon", "target": { "mime": 123, "value": "AAEC" } }]
+    }
+  },
+  {
+    "name": "bytes-value-not-a-string",
+    "spec": "SPEC-1 §4.2 / ERRATA D12",
+    "reason": "bytes value must be a base64url string",
+    "claims": {
+      "timestamp": 0,
+      "author": "did:key:zAuthorA",
+      "pointers": [{ "role": "icon", "target": { "mime": "image/png", "value": 123 } }]
+    }
+  },
+  {
+    "name": "bytes-b64u-padded",
+    "spec": "SPEC-1 §4.2 / ERRATA D12",
+    "reason": "base64url is unpadded; '=' is rejected, never stripped",
+    "claims": {
+      "timestamp": 0,
+      "author": "did:key:zAuthorA",
+      "pointers": [{ "role": "icon", "target": { "mime": "image/png", "value": "AAECAw==" } }]
+    }
+  },
+  {
+    "name": "bytes-b64u-bad-alphabet",
+    "spec": "SPEC-1 §4.2 / ERRATA D12",
+    "reason": "'+' is standard-base64, not base64url — rejected",
+    "claims": {
+      "timestamp": 0,
+      "author": "did:key:zAuthorA",
+      "pointers": [{ "role": "icon", "target": { "mime": "image/png", "value": "AAA+" } }]
+    }
+  },
+  {
+    "name": "bytes-b64u-bad-length",
+    "spec": "SPEC-1 §4.2 / ERRATA D12",
+    "reason": "a base64url length ≡ 1 (mod 4) is impossible",
+    "claims": {
+      "timestamp": 0,
+      "author": "did:key:zAuthorA",
+      "pointers": [{ "role": "icon", "target": { "mime": "image/png", "value": "AAAAA" } }]
+    }
+  },
+  {
+    "name": "bytes-b64u-noncanonical-tail",
+    "spec": "SPEC-1 §4.2 / ERRATA D12",
+    "reason": "'Zh' has nonzero spilled bits; only 'Zg' canonically encodes 0x66",
+    "claims": {
+      "timestamp": 0,
+      "author": "did:key:zAuthorA",
+      "pointers": [{ "role": "icon", "target": { "mime": "image/png", "value": "Zh" } }]
+    }
   }
 ]

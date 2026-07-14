@@ -2,7 +2,7 @@
 // Provenance-complete: every entry carries the full delta; expansion is view structure keyed by
 // pointer index, never a mutation of the delta.
 
-import { type CborValue, array, bool, encode, float, map, tstr } from "./cbor.js";
+import { type CborValue, array, bool, bstr, encode, float, map, tstr } from "./cbor.js";
 import { bytesToHex } from "./hash.js";
 import type { Claims, Delta, Target } from "./types.js";
 
@@ -38,6 +38,11 @@ function targetToCborWithExpansion(t: Target, expansion: HView | undefined): Cbo
       if (t.deltaRef.context !== undefined) entries.push(["context", tstr(t.deltaRef.context)]);
       return map(entries);
     }
+    case "bytes":
+      return map([
+        ["mime", tstr(t.mime)],
+        ["value", bstr(t.value)],
+      ]);
   }
 }
 

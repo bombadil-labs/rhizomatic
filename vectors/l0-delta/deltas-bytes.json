@@ -1,0 +1,165 @@
+[
+  {
+    "name": "bytes-empty-octet-stream",
+    "spec": "SPEC-1 §2.1 §4.1 / D12 (zero-length payload is legal; encodes 0x40)",
+    "claims": {
+      "timestamp": 0,
+      "author": "did:key:zAuthorA",
+      "pointers": [
+        {
+          "role": "blob",
+          "target": {
+            "mime": "application/octet-stream",
+            "value": ""
+          }
+        }
+      ]
+    },
+    "canonicalCborHex": "a366617574686f72706469643a6b65793a7a417574686f724168706f696e7465727381a264726f6c6564626c6f6266746172676574a2646d696d6578186170706c69636174696f6e2f6f637465742d73747265616d6576616c7565406974696d657374616d70f90000",
+    "id": "1e20a1712f6e1b2c1dd1e05061515e1fa4b158b87de291835a58dfc2394db2e20723"
+  },
+  {
+    "name": "bytes-png-4byte",
+    "spec": "SPEC-1 §4.1 / D12",
+    "claims": {
+      "timestamp": 0,
+      "author": "did:key:zAuthorA",
+      "pointers": [
+        {
+          "role": "icon",
+          "target": {
+            "mime": "image/png",
+            "value": "iVBORw"
+          }
+        }
+      ]
+    },
+    "canonicalCborHex": "a366617574686f72706469643a6b65793a7a417574686f724168706f696e7465727381a264726f6c656469636f6e66746172676574a2646d696d6569696d6167652f706e676576616c75654489504e476974696d657374616d70f90000",
+    "id": "1e201614b55eea4a15bbd6ce321bc10861d87bf3003096a1107ea4de1a13e8a71b1f"
+  },
+  {
+    "name": "bytes-mime-case-sensitive",
+    "spec": "D12 (image/PNG ≠ image/png — same bytes, different id)",
+    "claims": {
+      "timestamp": 0,
+      "author": "did:key:zAuthorA",
+      "pointers": [
+        {
+          "role": "icon",
+          "target": {
+            "mime": "image/PNG",
+            "value": "iVBORw"
+          }
+        }
+      ]
+    },
+    "canonicalCborHex": "a366617574686f72706469643a6b65793a7a417574686f724168706f696e7465727381a264726f6c656469636f6e66746172676574a2646d696d6569696d6167652f504e476576616c75654489504e476974696d657374616d70f90000",
+    "id": "1e20176fa7a14d881dee9a9e01de9d902abdc0545c2eabfa062a4e47a369de61864d"
+  },
+  {
+    "name": "bytes-different-mime-different-claim",
+    "spec": "D12 (same bytes under application/wasm — a different claim, different id)",
+    "claims": {
+      "timestamp": 0,
+      "author": "did:key:zAuthorA",
+      "pointers": [
+        {
+          "role": "icon",
+          "target": {
+            "mime": "application/wasm",
+            "value": "iVBORw"
+          }
+        }
+      ]
+    },
+    "canonicalCborHex": "a366617574686f72706469643a6b65793a7a417574686f724168706f696e7465727381a264726f6c656469636f6e66746172676574a2646d696d65706170706c69636174696f6e2f7761736d6576616c75654489504e476974696d657374616d70f90000",
+    "id": "1e20145c201f4f1ba2645eef017c493a04c82d7c5b5f4ac753cc2db21d0929a4c0d4"
+  },
+  {
+    "name": "bytes-mixed-pointer-delta",
+    "spec": "D12 (bytes payload co-traveling with a filing EntityRef and a string primitive)",
+    "claims": {
+      "timestamp": 7,
+      "author": "did:key:zAuthorA",
+      "pointers": [
+        {
+          "role": "subject",
+          "target": {
+            "id": "entity:logo",
+            "context": "asset"
+          }
+        },
+        {
+          "role": "data",
+          "target": {
+            "mime": "image/png",
+            "value": "iVBORw"
+          }
+        },
+        {
+          "role": "alt",
+          "target": "the logo"
+        }
+      ]
+    },
+    "canonicalCborHex": "a366617574686f72706469643a6b65793a7a417574686f724168706f696e7465727383a264726f6c65677375626a65637466746172676574a26269646b656e746974793a6c6f676f67636f6e74657874656173736574a264726f6c65646461746166746172676574a2646d696d6569696d6167652f706e676576616c75654489504e47a264726f6c6563616c746674617267657468746865206c6f676f6974696d657374616d70f94700",
+    "id": "1e205c870dea59c22d6fc93467f520c4be4ff21a23a95be662e6b66a9d4ba5a877cd"
+  },
+  {
+    "name": "bytes-30byte-head",
+    "spec": "SPEC-1 §4.1 (0x58 one-byte length head path)",
+    "claims": {
+      "timestamp": 0,
+      "author": "did:key:zAuthorA",
+      "pointers": [
+        {
+          "role": "blob",
+          "target": {
+            "mime": "application/octet-stream",
+            "value": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwd"
+          }
+        }
+      ]
+    },
+    "canonicalCborHex": "a366617574686f72706469643a6b65793a7a417574686f724168706f696e7465727381a264726f6c6564626c6f6266746172676574a2646d696d6578186170706c69636174696f6e2f6f637465742d73747265616d6576616c7565581e000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d6974696d657374616d70f90000",
+    "id": "1e200a5383c04eec26e4ddbcf4278c2c1b2dea952710b8644175d24cbfcfd19a060a"
+  },
+  {
+    "name": "bytes-1byte-tail",
+    "spec": "D12 (base64url 2-char tail: 0x66 → \"Zg\")",
+    "claims": {
+      "timestamp": 0,
+      "author": "did:key:zAuthorA",
+      "pointers": [
+        {
+          "role": "blob",
+          "target": {
+            "mime": "application/octet-stream",
+            "value": "Zg"
+          }
+        }
+      ]
+    },
+    "canonicalCborHex": "a366617574686f72706469643a6b65793a7a417574686f724168706f696e7465727381a264726f6c6564626c6f6266746172676574a2646d696d6578186170706c69636174696f6e2f6f637465742d73747265616d6576616c756541666974696d657374616d70f90000",
+    "id": "1e20b6d65d3dbd6d760c8d563b27db24d32d9d83fbdd0019faf4e32de56bdf98da33"
+  },
+  {
+    "name": "bytes-2byte-tail",
+    "spec": "D12 (base64url 3-char tail)",
+    "claims": {
+      "timestamp": 0,
+      "author": "did:key:zAuthorA",
+      "pointers": [
+        {
+          "role": "blob",
+          "target": {
+            "mime": "application/octet-stream",
+            "value": "Zm8"
+          }
+        }
+      ]
+    },
+    "canonicalCborHex": "a366617574686f72706469643a6b65793a7a417574686f724168706f696e7465727381a264726f6c6564626c6f6266746172676574a2646d696d6578186170706c69636174696f6e2f6f637465742d73747265616d6576616c756542666f6974696d657374616d70f90000",
+    "id": "1e20e2e33be66d9a6a97a372e99ff59c9071649d73594364bcddfd44b25682e88eb8"
+  }
+]

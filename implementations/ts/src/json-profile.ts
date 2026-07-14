@@ -1,7 +1,11 @@
 // Parse the JSON debug profile used by the vectors (SPEC-1 §4.1, ERRATA "JSON debug profile")
 // into the logical delta model. The CBOR form is normative; this is for authoring/inspection.
 
+import { b64uDecode, b64uEncode } from "./b64u.js";
 import type { Claims, Pointer, Primitive, Target } from "./types.js";
+
+const TARGET_SHAPES =
+  "target must be a primitive, {id, context?}, {delta, context?}, or {mime, value}";
 
 function asObject(x: unknown, what: string): Record<string, unknown> {
   if (typeof x !== "object" || x === null || Array.isArray(x)) {
@@ -51,7 +55,17 @@ function parseTarget(raw: unknown): Target {
       ? { kind: "delta", deltaRef: { delta } }
       : { kind: "delta", deltaRef: { delta, context } };
   }
-  throw new Error("target must be a primitive, {id, context?}, or {delta, context?}");
+  // else mime → Bytes (SPEC-1 §4.2, first match wins). A bytes literal has no context; extra keys
+  // are ignored, exactly as on refs. value is canonical base64url — malformed encodings are
+  // rejected, never repaired (D12).
+  if ("mime" in o) {
+    const mime = o["mime"];
+    if (typeof mime !== "string") throw new Error("bytes target mime must be a string");
+    const value = o["value"];
+    if (typeof value !== "string") throw new Error("bytes target value must be a base64url string");
+    return { kind: "bytes", mime, value: b64uDecode(value) };
+  }
+  throw new Error(TARGET_SHAPES);
 }
 
 function parsePointer(raw: unknown): Pointer {
@@ -84,6 +98,9 @@ export function claimsToJson(claims: Claims): unknown {
               ? {}
               : { context: p.target.deltaRef.context }),
           };
+          break;
+        case "bytes":
+          target = { mime: p.target.mime, value: b64uEncode(p.target.value) };
           break;
       }
       return { role: p.role, target };

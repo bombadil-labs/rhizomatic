@@ -62,6 +62,8 @@ Acceptance of an OFFERed delta is a local pipeline, normative in order:
 
 Rejected deltas are simply not unioned. Rejection MAY be recorded (annotation deltas) for operator visibility; it is never communicated as authority to other peers — each sovereign judges alone.
 
+**Version discipline is forward-compatible by construction.** A pre-0.4 peer that receives a delta carrying a target kind it does not know — e.g. the `bytes` kind (SPEC-1 §4.1, ERRATA D12) — rejects it at the parse boundary with the same reject-never-repair machinery as any malformed target (its decoder's "outside the profile" branch fires on CBOR major type 2). That is **version discipline, not breakage**: the older peer simply never holds the newer kind, and because the set is grow-only nothing retroactive occurs. Admission shape-requirements MAY state this explicitly (e.g. "no `bytes` targets") when an instance wants to refuse a kind it *could* parse. New target kinds are always additive under the SPEC-1 §10 admission test, so this is the general rule, not a `bytes` special case.
+
 ## 6. Federating Semantics (Schemas, Policies, Vocabularies)
 
 No special machinery — they are deltas (P3) — but two normative behaviors:

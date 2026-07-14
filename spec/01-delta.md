@@ -33,7 +33,7 @@ Delta {
 
 Pointer {
   role:    string                          // this delta's name for what the target IS
-  target:  EntityRef | DeltaRef | Primitive
+  target:  EntityRef | DeltaRef | Primitive | Bytes
 }
 
 EntityRef {
@@ -48,6 +48,12 @@ DeltaRef {
 }
 
 Primitive = string | number | boolean
+
+Bytes {
+  mime:     string         // IANA media type; REQUIRED, non-empty, NFC, case-sensitive-opaque (§2.1)
+  value:    bytes          // the raw payload; identity is the hash of these bytes (§4.1)
+                           // a literal, like Primitive: no context slot
+}
 ```
 
 ### 2.1 Normative constraints
@@ -58,6 +64,7 @@ Primitive = string | number | boolean
 - `role` and `context` MUST be non-empty UTF-8 strings, NFC-normalized, case-sensitive. (Vocabulary conventions live at L5; L1 imposes no vocabulary.)
 - Numbers MUST be IEEE-754 doubles serializable without loss; implementations MUST reject NaN and ±Infinity at ingestion. *(Open: integer/decimal extension — see §10.)*
 - `DeltaRef` vs `EntityRef` are structurally distinct. Targeting a delta (e.g., negation, annotation) is explicit, never inferred from the shape of an id.
+- A `Bytes` target's `mime` MUST be a non-empty, NFC-normalized string; it is case-sensitive and otherwise opaque — implementations MUST NOT lowercase or otherwise repair it (`image/PNG` and `image/png` are different claims). Its `value` is a raw byte payload; a zero-length payload is legal. A bytes target carries no `context` — a literal is not a vertex (§2.3). All four target kinds are structurally distinct (§4.1): `Bytes` is discriminated by its `mime` key, never inferred. *(Informative: authors SHOULD use the lowercase IANA form; payload-size caps are deployment configuration — doors, admission requirements — not substrate law, §10.)*
 
 ### 2.2 The `system` field is removed
 
@@ -133,6 +140,13 @@ non-NFC in-memory string would differ from the bytes its id commits to, and stri
 at L2 would diverge from canonical-byte equality. In-memory equality is thereby byte equality
 everywhere.) **Booleans** encode as the CBOR simple values (`0xf5`/`0xf4`).
 
+**Byte strings** (a `Bytes` target's `value`) encode as definite-length CBOR byte strings (major
+type 2) with the same shortest-form length head the profile applies to every other type
+(indefinite lengths are forbidden). The raw payload bytes enter the hash preimage *only* here, as
+the `bstr` inside the target map — there is no payload-level content address at L1 (that is the
+next rung of the storage ladder, §10). A delta's id therefore attests `(mime, bytes)` jointly:
+the `mime` rides in-kind with the bytes it types. A zero-length payload encodes as `0x40`.
+
 **Map keys** sort by the bytewise lexicographic order of their encoded keys. All Rhizomatic map
 keys are text strings; for `claims` the encoded order is therefore `author, pointers, timestamp`.
 
@@ -144,10 +158,13 @@ Targets are discriminated structurally:
 | **Primitive** | a CBOR scalar: tstr, float, or bool | major type is not a map |
 | **EntityRef** | map `{ "id": tstr, "context"?: tstr }` | contains key `id` |
 | **DeltaRef**  | map `{ "delta": tstr, "context"?: tstr }` | contains key `delta` |
+| **Bytes**     | map `{ "mime": tstr, "value": bstr }` | contains key `mime` |
 
 This satisfies §2.1's "structurally distinct, never inferred from the shape of an id": the
-discriminating key (`id` vs `delta`) is explicit, and primitive-vs-ref is a CBOR-major-type
-distinction. `context` is omitted entirely when absent — there is no null.
+discriminating key (`id` vs `delta` vs `mime`) is explicit, and primitive-vs-map is a
+CBOR-major-type distinction. The `Bytes` map has no `context` key (a literal is not a vertex);
+its keys sort `mime` before `value` under the D4 rule. `context` is omitted entirely when absent
+— there is no null.
 
 **Claims layout.** `claims` encodes as the map
 `{ "author": tstr, "pointers": [Pointer...], "timestamp": float }`. The `pointers` array is
@@ -169,14 +186,25 @@ At boundaries (vectors, refs, signatures) `id` is lowercase hex: `"1e20" + hex(d
 
 A JSON profile is offered for authoring and inspection (the conformance vectors use it); the
 CBOR bytes remain normative for hashing. The profile is **isomorphic to the canonical
-encoding**: a pointer target is the bare primitive, an entity ref object, or a delta ref
-object — discriminated structurally, exactly as in CBOR:
+encoding**: a pointer target is the bare primitive, an entity ref object, a delta ref object, or
+a bytes object — discriminated structurally, exactly as in CBOR (`id` → EntityRef, `delta` →
+DeltaRef, else `mime` → Bytes, else a bare scalar; first match wins):
 
 ```json
 { "role": "title", "target": "The Matrix" }
 { "role": "cast",  "target": { "id": "keanu", "context": "actor" } }
 { "role": "negates", "target": { "delta": "1e20…", "context": "audit" } }
+{ "role": "icon",  "target": { "mime": "image/png", "value": "iVBORw0KGgo" } }
 ```
+
+**Byte payloads in the JSON profile are base64url (RFC 4648 §5), unpadded, and canonical.**
+Canonical means: no `=` padding; the alphabet is strictly `A–Z a–z 0–9 - _`; the length is never
+≡ 1 (mod 4); and the final character's unused low bits MUST be zero (e.g. `"Zg"` is the only
+acceptable encoding of `0x66` — `"Zh"` decodes to the same byte with nonzero spilled bits and
+MUST be rejected). Because identity is computed from the raw bytes, a lax decoder could not
+corrupt an id — but laxity is still *repair*, and repaired inputs are how two witnesses drift, so
+padded / non-alphabet / bad-length / non-canonical-trailing-bits inputs are all boundary
+rejections (§2.1, SPEC-4 §2). Encoding is canonical by construction; decoding validates it.
 
 What the profile shows IS the wire shape, key for key. **JSON number parsing MUST be correctly
 rounded** (nearest f64, ties-to-even). This is not academic: a fast float path that is 1 ULP off

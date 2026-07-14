@@ -293,6 +293,9 @@ pub fn json_to_cbor(v: &Value) -> Result<CborValue, String> {
 pub fn cbor_to_json(v: &CborValue) -> Value {
     match v {
         CborValue::Tstr(s) => json!(s),
+        // a bstr renders as its canonical base64url string (the bytes JSON profile, SPEC-1 §4.2);
+        // terms never carry bstr, but a bytes View leaf serialized through here does.
+        CborValue::Bstr(b) => json!(crate::b64u::encode(b)),
         CborValue::Float(n) => json!(n),
         CborValue::Bool(b) => json!(b),
         CborValue::Array(xs) => Value::Array(xs.iter().map(cbor_to_json).collect()),

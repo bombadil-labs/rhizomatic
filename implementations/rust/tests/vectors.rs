@@ -31,6 +31,33 @@ fn l0_delta_vectors() {
 }
 
 #[test]
+fn l0_delta_bytes_vectors() {
+    // The bytes target kind (issue #7, ERRATA D12): Rust must reproduce every TS-generated
+    // canonicalCborHex and id byte-for-byte, base64url payloads decoded losslessly.
+    let path = format!(
+        "{}/../../vectors/l0-delta/deltas-bytes.json",
+        env!("CARGO_MANIFEST_DIR")
+    );
+    let raw = std::fs::read_to_string(path).expect("read deltas-bytes.json");
+    let arr: Vec<Value> = serde_json::from_str(&raw).unwrap();
+    assert!(!arr.is_empty(), "deltas-bytes.json must not be empty");
+    for v in arr {
+        let name = v["name"].as_str().unwrap();
+        let claims = parse_claims(&v["claims"]).unwrap_or_else(|e| panic!("parse {name}: {e}"));
+        assert_eq!(
+            canonical_hex(&claims).unwrap(),
+            v["canonicalCborHex"].as_str().unwrap(),
+            "canonical bytes mismatch for {name}"
+        );
+        assert_eq!(
+            compute_id(&claims).unwrap(),
+            v["id"].as_str().unwrap(),
+            "id mismatch for {name}"
+        );
+    }
+}
+
+#[test]
 fn l0_delta_invalid_vectors_reject() {
     // Boundary rejection (SPEC-4 §2): every invalid vector MUST fail before canonical
     // bytes exist. Whether the parser or the validator rejects is implementation detail.

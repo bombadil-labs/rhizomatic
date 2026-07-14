@@ -2,6 +2,7 @@
 // (ERRATA-2 E12). parse(termToJson(t)) is identity on the AST, so semantically identical terms
 // hash identically regardless of authored spelling.
 
+import { b64uEncode } from "./b64u.js";
 import { type CborValue, array, bool, encode, float, map, tstr } from "./cbor.js";
 import type { Term } from "./eval.js";
 import { bytesToHex, contentAddress } from "./hash.js";
@@ -215,6 +216,10 @@ export function cborToJson(v: CborValue): unknown {
     case "float":
     case "bool":
       return v.v;
+    // a bstr renders as its canonical base64url string (the bytes JSON profile, SPEC-1 §4.2);
+    // terms never carry bstr, but a bytes View leaf serialized through here does.
+    case "bstr":
+      return b64uEncode(v.v);
     case "array":
       return v.v.map(cborToJson);
     case "map": {

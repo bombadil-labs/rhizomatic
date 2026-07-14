@@ -23,6 +23,12 @@ fn target_to_cbor(t: &Target) -> CborValue {
             }
             CborValue::Map(m)
         }
+        // Bytes target: map { "mime": tstr, "value": bstr } — the raw payload is the bstr, and
+        // identity is its hash (SPEC-1 §4.1, ERRATA D12). Keys are sorted at encode time (D4).
+        Target::Bytes { mime, value } => CborValue::Map(vec![
+            ("mime".to_string(), CborValue::Tstr(mime.clone())),
+            ("value".to_string(), CborValue::Bstr(value.clone())),
+        ]),
     }
 }
 
@@ -79,11 +85,20 @@ pub fn validate(claims: &Claims) -> Result<(), String> {
             Target::Primitive(Primitive::Bool(_)) => {}
             Target::Entity(e) => check_nfc(&e.id, "entity id")?,
             Target::Delta(d) => check_nfc(&d.delta, "delta ref")?,
+            // mime is REQUIRED, non-empty, NFC, case-sensitive-opaque (SPEC-1 §2.1, D12);
+            // value is raw bytes — zero-length is legal and no NFC applies to it.
+            Target::Bytes { mime, .. } => {
+                if mime.is_empty() {
+                    return Err("bytes target mime must be non-empty (SPEC-1 §2.1)".into());
+                }
+                check_nfc(mime, "bytes mime")?;
+            }
         }
         let ctx = match &p.target {
             Target::Entity(e) => e.context.as_ref(),
             Target::Delta(d) => d.context.as_ref(),
-            Target::Primitive(_) => None,
+            // a bytes literal is not a vertex — no context slot (SPEC-1 §2.3)
+            Target::Primitive(_) | Target::Bytes { .. } => None,
         };
         if let Some(c) = ctx {
             if c.is_empty() {

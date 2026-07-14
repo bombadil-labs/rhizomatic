@@ -13,12 +13,14 @@ export interface DeltaRef {
   readonly context?: string;
 }
 
-// A pointer's target is exactly one of: a primitive value, an entity reference, or a delta
-// reference. The three are kept structurally distinct (SPEC-1 §2.1, ERRATA D5).
+// A pointer's target is exactly one of: a primitive value, an entity reference, a delta
+// reference, or a raw byte payload with a required media type. Kept structurally distinct
+// (SPEC-1 §2.1, ERRATA D5/D12). A bytes target is a literal — no context slot.
 export type Target =
   | { readonly kind: "primitive"; readonly value: Primitive }
   | { readonly kind: "entity"; readonly entity: EntityRef }
-  | { readonly kind: "delta"; readonly deltaRef: DeltaRef };
+  | { readonly kind: "delta"; readonly deltaRef: DeltaRef }
+  | { readonly kind: "bytes"; readonly mime: string; readonly value: Uint8Array };
 
 export interface Pointer {
   readonly role: string;
