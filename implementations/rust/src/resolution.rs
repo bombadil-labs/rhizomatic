@@ -58,6 +58,10 @@ pub enum Policy {
 pub struct Schema {
     pub props: BTreeMap<String, Policy>,
     pub default: Policy,
+    /// Optional identity for a published/self-hosting Schema (SPEC-3 ERRATA S6). An inline Schema
+    /// in a `resolve` term stays anonymous (both None); a named Schema carries name + alg version.
+    pub name: Option<String>,
+    pub alg: Option<f64>,
 }
 
 // --- ordering (R3: every chain ends in an implicit lexById tiebreak) ------------------------------

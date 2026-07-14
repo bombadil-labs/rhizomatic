@@ -190,7 +190,17 @@ pub fn schema_to_json(p: &Schema) -> Value {
     for (k, v) in &p.props {
         props.insert(k.clone(), policy_to_json(v));
     }
-    json!({ "props": props, "default": policy_to_json(&p.default) })
+    let mut out = Map::new();
+    out.insert("props".to_string(), Value::Object(props));
+    out.insert("default".to_string(), policy_to_json(&p.default));
+    // name/alg emitted only when present (SPEC-3 ERRATA S6); canonical CBOR sorts keys (D4).
+    if let Some(name) = &p.name {
+        out.insert("name".to_string(), json!(name));
+    }
+    if let Some(alg) = p.alg {
+        out.insert("alg".to_string(), json!(alg));
+    }
+    Value::Object(out)
 }
 
 fn schema_ref_to_json(r: &SchemaRef) -> Value {

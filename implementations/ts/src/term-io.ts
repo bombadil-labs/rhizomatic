@@ -135,7 +135,11 @@ function policyToJson(pp: Policy): unknown {
 export function schemaToJson(p: Schema): unknown {
   const props: Record<string, unknown> = {};
   for (const [k, v] of p.props) props[k] = policyToJson(v);
-  return { props, default: policyToJson(p.default) };
+  const out: Record<string, unknown> = { props, default: policyToJson(p.default) };
+  // name/alg emitted only when present (SPEC-3 ERRATA S6); canonical CBOR sorts keys (D4).
+  if (p.name !== undefined) out.name = p.name;
+  if (p.alg !== undefined) out.alg = p.alg;
+  return out;
 }
 
 export function termToJson(term: Term): unknown {
