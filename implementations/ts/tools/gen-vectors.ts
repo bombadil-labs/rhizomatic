@@ -14,7 +14,7 @@ import { relationSignature, relationSignatureCanonicalHex } from "../src/alias.j
 import { VOCAB_PREFIX } from "../src/vocab.js";
 import { b64uEncode } from "../src/b64u.js";
 import { claimsToJson, parseClaims } from "../src/json-profile.js";
-import { HYPER_SCHEMA_SCHEMA, publishSchemaClaims } from "../src/schema-deltas.js";
+import { HYPER_SCHEMA_SCHEMA, publishHyperSchemaClaims } from "../src/schema-deltas.js";
 import { SchemaRegistry } from "../src/schema.js";
 import { termCanonicalHex, termHash, termToJson } from "../src/term-io.js";
 import { DeltaSet, makeDelta } from "../src/set.js";
@@ -1234,7 +1234,7 @@ const schemaHashes = schemas.map((s) => ({
 }));
 
 const movieWithCast = expandRegistry.get("MovieWithCast")!;
-const publishedClaims = publishSchemaClaims(movieWithCast, "schema:MovieWithCast", A, 1000);
+const publishedClaims = publishHyperSchemaClaims(movieWithCast, "schema:MovieWithCast", A, 1000);
 const publishedDelta = makeDelta(publishedClaims);
 
 // pinned-ref case: fix through the hash of MovieBasic must equal fix through its name
@@ -1252,7 +1252,7 @@ const schemaDeltasOut = {
   },
   termHashes: schemaHashes,
   published: {
-    note: "MovieWithCast published as a definition delta; loadSchema must round-trip it",
+    note: "MovieWithCast published as a definition delta; loadHyperSchema must round-trip it",
     schemaEntity: "schema:MovieWithCast",
     claims: claimsToJson(publishedClaims),
     deltaId: publishedDelta.id,

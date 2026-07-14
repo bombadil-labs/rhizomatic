@@ -14,7 +14,7 @@ Folded into SPEC-3 §2 (2026-06-11) — the spec now carries the amended idiom a
 
 ## S3 — Loading schemas from deltas (eager evolvable resolution)
 
-`loadSchema(deltaSet, schemaEntity)`: evaluate `rhizomatic.HyperSchemaSchema` at the entity, take the
+`loadHyperSchema(deltaSet, schemaEntity)`: evaluate `rhizomatic.HyperSchemaSchema` at the entity, take the
 `definition` property's surviving entries, choose the **latest by claimed timestamp (lexById
 tiebreak)** — the v0 default-definition policy, explicitly a policy choice — then decode
 `rhizomatic.hyperschema.term` (hex → canonical CBOR → term; the decoder re-encodes and compares bytes, so

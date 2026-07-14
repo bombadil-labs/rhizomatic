@@ -6,7 +6,9 @@ use rhizomatic::cbor::{decode, encode};
 use rhizomatic::eval::{eval_term, result_canonical_hex};
 use rhizomatic::json_profile::parse_claims;
 use rhizomatic::schema::{HyperSchema, SchemaRegistry};
-use rhizomatic::schema_deltas::{hyper_schema_schema, load_schema, publish_schema_claims};
+use rhizomatic::schema_deltas::{
+    hyper_schema_schema, load_hyper_schema, publish_hyper_schema_claims,
+};
 use rhizomatic::set::{make_delta, merge, DeltaSet};
 use rhizomatic::term_io::{term_canonical_hex, term_hash, term_to_json};
 use rhizomatic::term_json::parse_term;
@@ -103,7 +105,7 @@ fn publish_load_round_trip() {
     assert_eq!(delta.id, doc["published"]["deltaId"].as_str().unwrap());
     let dset = merge(&expand_set, &DeltaSet::from_deltas([delta]).unwrap());
     let entity = doc["published"]["schemaEntity"].as_str().unwrap();
-    let loaded = load_schema(&dset, entity).unwrap();
+    let loaded = load_hyper_schema(&dset, entity).unwrap();
     assert_eq!(loaded.name, "MovieWithCast");
     assert_eq!(
         term_hash(&loaded.body).unwrap(),
@@ -137,7 +139,7 @@ fn publish_load_round_trip() {
 fn evolution_is_append_and_deprecation_is_negation() {
     let (_, reg) = expand_world();
     let v1 = make_delta(
-        publish_schema_claims(
+        publish_hyper_schema_claims(
             reg.get("MovieBasic").unwrap(),
             "schema:Evolving",
             "a",
@@ -148,7 +150,7 @@ fn evolution_is_append_and_deprecation_is_negation() {
     )
     .unwrap();
     let v2 = make_delta(
-        publish_schema_claims(
+        publish_hyper_schema_claims(
             &HyperSchema {
                 name: "MovieBasicV2".to_string(),
                 alg: 1,
@@ -163,7 +165,7 @@ fn evolution_is_append_and_deprecation_is_negation() {
     )
     .unwrap();
     let dset = DeltaSet::from_deltas([v1.clone(), v2]).unwrap();
-    let loaded = load_schema(&dset, "schema:Evolving").unwrap();
+    let loaded = load_hyper_schema(&dset, "schema:Evolving").unwrap();
     assert_eq!(loaded.name, "MovieBasicV2");
 
     // deprecation: negate the only definition -> nothing survives the bootstrap's mask
@@ -173,7 +175,7 @@ fn evolution_is_append_and_deprecation_is_negation() {
     )
     .unwrap();
     let dead = DeltaSet::from_deltas([v1, negation]).unwrap();
-    let err = load_schema(&dead, "schema:Evolving").unwrap_err();
+    let err = load_hyper_schema(&dead, "schema:Evolving").unwrap_err();
     assert!(err.contains("no surviving schema definition"), "got: {err}");
 }
 

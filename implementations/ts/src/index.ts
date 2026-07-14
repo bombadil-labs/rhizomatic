@@ -66,8 +66,8 @@ export {
 export {
   HYPER_SCHEMA_SCHEMA,
   VOCAB_PREFIX,
-  loadSchema,
-  publishSchemaClaims,
+  loadHyperSchema,
+  publishHyperSchemaClaims,
 } from "./schema-deltas.js";
 export { decode } from "./cbor.js";
 export { packId, packSet, unpackSet } from "./pack.js";

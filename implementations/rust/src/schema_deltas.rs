@@ -36,7 +36,7 @@ pub fn hyper_schema_schema() -> HyperSchema {
 }
 
 /// Publish a schema definition as claims (S1).
-pub fn publish_schema_claims(
+pub fn publish_hyper_schema_claims(
     schema: &HyperSchema,
     schema_entity: &str,
     author: &str,
@@ -83,7 +83,7 @@ fn primitive_of(claims: &Claims, want_role: &str) -> Option<Primitive> {
 
 /// Load a schema definition from the rhizome (S3): evaluate the bootstrap at the schema entity,
 /// take the latest surviving definition, decode the term, verify canonicality by re-encoding.
-pub fn load_schema(dset: &DeltaSet, schema_entity: &str) -> Result<HyperSchema, String> {
+pub fn load_hyper_schema(dset: &DeltaSet, schema_entity: &str) -> Result<HyperSchema, String> {
     let boot = hyper_schema_schema();
     let result = eval_term(&boot.body, dset, Some(schema_entity), None, None)?;
     let EvalResult::HView(h) = result else {

@@ -6,7 +6,11 @@ import { describe, expect, it } from "vitest";
 import { decode, encode } from "../src/cbor.js";
 import { evalTerm, resultCanonicalHex } from "../src/eval.js";
 import { parseClaims } from "../src/json-profile.js";
-import { HYPER_SCHEMA_SCHEMA, loadSchema, publishSchemaClaims } from "../src/schema-deltas.js";
+import {
+  HYPER_SCHEMA_SCHEMA,
+  loadHyperSchema,
+  publishHyperSchemaClaims,
+} from "../src/schema-deltas.js";
 import { SchemaRegistry } from "../src/schema.js";
 import { DeltaSet, makeDelta, merge } from "../src/set.js";
 import { termCanonicalHex, termHash, termToJson } from "../src/term-io.js";
@@ -75,7 +79,7 @@ describe("schemas as deltas + the bootstrap (S1-S3)", () => {
     const delta = makeDelta(claims);
     expect(delta.id).toBe(doc.published.deltaId);
     const dset = merge(expandSet, DeltaSet.from([delta]));
-    const loaded = loadSchema(dset, doc.published.schemaEntity);
+    const loaded = loadHyperSchema(dset, doc.published.schemaEntity);
     expect(loaded.name).toBe("MovieWithCast");
     expect(termHash(loaded.body)).toBe(doc.published.expectedTermHash);
     // and the loaded schema evaluates identically to the registry's original
@@ -90,27 +94,32 @@ describe("schemas as deltas + the bootstrap (S1-S3)", () => {
   });
 
   it("evolution is append: a newer definition supersedes", () => {
-    const v1 = publishSchemaClaims(
+    const v1 = publishHyperSchemaClaims(
       expandRegistry.get("MovieBasic")!,
       "schema:Evolving",
       "did:key:zAlice",
       1000,
     );
-    const v2 = publishSchemaClaims(
+    const v2 = publishHyperSchemaClaims(
       { name: "MovieBasicV2", alg: 1, body: expandRegistry.get("MovieWithCast")!.body },
       "schema:Evolving",
       "did:key:zAlice",
       2000,
     );
     const dset = DeltaSet.from([makeDelta(v1), makeDelta(v2)]);
-    const loaded = loadSchema(dset, "schema:Evolving");
+    const loaded = loadHyperSchema(dset, "schema:Evolving");
     expect(loaded.name).toBe("MovieBasicV2");
     expect(termHash(loaded.body)).toBe(termHash(expandRegistry.get("MovieWithCast")!.body));
   });
 
   it("deprecation is negation: a negated definition does not load", () => {
     const v1 = makeDelta(
-      publishSchemaClaims(expandRegistry.get("MovieBasic")!, "schema:Dead", "did:key:zAlice", 1000),
+      publishHyperSchemaClaims(
+        expandRegistry.get("MovieBasic")!,
+        "schema:Dead",
+        "did:key:zAlice",
+        1000,
+      ),
     );
     const negation = makeDelta({
       timestamp: 1100,
@@ -118,7 +127,7 @@ describe("schemas as deltas + the bootstrap (S1-S3)", () => {
       pointers: [{ role: "negates", target: { kind: "delta", deltaRef: { delta: v1.id } } }],
     });
     const dset = DeltaSet.from([v1, negation]);
-    expect(() => loadSchema(dset, "schema:Dead")).toThrow(/no surviving schema definition/);
+    expect(() => loadHyperSchema(dset, "schema:Dead")).toThrow(/no surviving schema definition/);
   });
 });
 

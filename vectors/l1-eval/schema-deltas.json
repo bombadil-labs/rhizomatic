@@ -168,7 +168,7 @@
     }
   ],
   "published": {
-    "note": "MovieWithCast published as a definition delta; loadSchema must round-trip it",
+    "note": "MovieWithCast published as a definition delta; loadHyperSchema must round-trip it",
     "schemaEntity": "schema:MovieWithCast",
     "claims": {
       "timestamp": 1000,

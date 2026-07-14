@@ -38,7 +38,7 @@ export const HYPER_SCHEMA_SCHEMA: HyperSchema = {
 };
 
 // Publish a schema definition as claims (S1). The caller signs/timestamps as any other authorship.
-export function publishSchemaClaims(
+export function publishHyperSchemaClaims(
   schema: HyperSchema,
   schemaEntity: string,
   author: string,
@@ -71,7 +71,7 @@ function primitiveOf(claims: Claims, role: string): string | number | undefined 
 // Load a schema definition from the rhizome (S3): evaluate the bootstrap at the schema entity,
 // take the latest surviving definition (claimed timestamp, lexById tiebreak — a policy choice),
 // decode the term, and verify canonicality by re-encoding.
-export function loadSchema(dset: DeltaSet, schemaEntity: string): HyperSchema {
+export function loadHyperSchema(dset: DeltaSet, schemaEntity: string): HyperSchema {
   const result = evalTerm(HYPER_SCHEMA_SCHEMA.body, dset, schemaEntity);
   if (result.sort !== "hview") throw new Error("bootstrap body must yield an HView");
   const defs = result.hview.props.get("definition") ?? [];
