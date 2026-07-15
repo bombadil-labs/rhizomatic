@@ -391,6 +391,10 @@ export function parseTerm(raw: unknown): Term {
       return { kind: "select", pred: parsePred(o["pred"]), of: parseTerm(o["in"]) };
     case "union":
       return { kind: "union", left: parseTerm(o["left"]), right: parseTerm(o["right"]) };
+    case "intersect":
+      return { kind: "intersect", left: parseTerm(o["left"]), right: parseTerm(o["right"]) };
+    case "difference":
+      return { kind: "difference", of: parseTerm(o["of"]), without: parseTerm(o["without"]) };
     case "mask":
       return { kind: "mask", policy: parseMaskPolicy(o["policy"]), of: parseTerm(o["in"]) };
     case "group":

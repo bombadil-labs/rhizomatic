@@ -1,0 +1,530 @@
+{
+  "note": "Set algebra over delta-sets: first-class `difference` and `intersect` term ops (SPEC-2 §4.9, ERRATA-2 E17), symmetric with `union` (§4.2). Fixture is the eval-basic fixture (same 8 content-addressed deltas). `cases` are positive oracles; `rejects` are the §8 fail-closed parity guards (unknown-op / unknown-tag / wrong-sort MUST be rejected, verified at generation time).",
+  "fixture": {
+    "note": "identical to eval-basic.json — the same 8 content-addressed deltas",
+    "deltas": [
+      {
+        "name": "d1-title-matrix",
+        "id": "1e205eff49bb6d03d3b53b0929e8b7a965da260df95b24894aa6c381be584cf39392",
+        "claims": {
+          "timestamp": 100,
+          "author": "did:key:zAlice",
+          "pointers": [
+            {
+              "role": "subject",
+              "target": {
+                "id": "movie:matrix",
+                "context": "title"
+              }
+            },
+            {
+              "role": "value",
+              "target": "The Matrix"
+            }
+          ]
+        }
+      },
+      {
+        "name": "d2-title-reloaded",
+        "id": "1e20b758d08491d624d45b41c48b8ccd7a84815d94f9ee227336075ac13d6a7bc744",
+        "claims": {
+          "timestamp": 200,
+          "author": "did:key:zBob",
+          "pointers": [
+            {
+              "role": "subject",
+              "target": {
+                "id": "movie:matrix",
+                "context": "title"
+              }
+            },
+            {
+              "role": "value",
+              "target": "Matrix Reloaded"
+            }
+          ]
+        }
+      },
+      {
+        "name": "d3-year",
+        "id": "1e20128fcc903f2270c79a0fe4de67be24e85dd7c95dd11b4dc25e7a939f429979c1",
+        "claims": {
+          "timestamp": 150,
+          "author": "did:key:zAlice",
+          "pointers": [
+            {
+              "role": "subject",
+              "target": {
+                "id": "movie:matrix",
+                "context": "releaseYear"
+              }
+            },
+            {
+              "role": "value",
+              "target": 1999
+            }
+          ]
+        }
+      },
+      {
+        "name": "d4-negates-d2",
+        "id": "1e20813a3c2552fbe7603d6fdacc369752f5b077c7e6c2e4b2fcd3b850d7c68cbb97",
+        "claims": {
+          "timestamp": 300,
+          "author": "did:key:zBob",
+          "pointers": [
+            {
+              "role": "negates",
+              "target": {
+                "delta": "1e20b758d08491d624d45b41c48b8ccd7a84815d94f9ee227336075ac13d6a7bc744"
+              }
+            },
+            {
+              "role": "reason",
+              "target": "typo"
+            }
+          ]
+        }
+      },
+      {
+        "name": "d5-negates-d4",
+        "id": "1e20d52bc0da7ffc13ae23d2504ab0a2a06bbd943ff1d473c4915c4f3256f2dc059a",
+        "claims": {
+          "timestamp": 400,
+          "author": "did:key:zCarol",
+          "pointers": [
+            {
+              "role": "negates",
+              "target": {
+                "delta": "1e20813a3c2552fbe7603d6fdacc369752f5b077c7e6c2e4b2fcd3b850d7c68cbb97"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "name": "d6-rating",
+        "id": "1e206bc56e096e5855732a2fb8c379238db9cc28b61323ae4cf05436116e73fa8f1f",
+        "claims": {
+          "timestamp": 500,
+          "author": "did:key:zAlice",
+          "pointers": [
+            {
+              "role": "subject",
+              "target": {
+                "id": "movie:matrix",
+                "context": "rating"
+              }
+            },
+            {
+              "role": "value",
+              "target": 8.7
+            }
+          ]
+        }
+      },
+      {
+        "name": "d7-tag",
+        "id": "1e20c6909bffb9e1b198e3421911e9b2f4482c6a042c099545e7bf4d261db0d878b8",
+        "claims": {
+          "timestamp": 120,
+          "author": "did:key:zCarol",
+          "pointers": [
+            {
+              "role": "subject",
+              "target": {
+                "id": "movie:matrix",
+                "context": "tag"
+              }
+            },
+            {
+              "role": "value",
+              "target": "scifi"
+            }
+          ]
+        }
+      },
+      {
+        "name": "d8-other-movie",
+        "id": "1e20db70d6f537e65ce2a14d3b32a0abf3d48435be6dbc06aedba2f40ea1a3a5f709",
+        "claims": {
+          "timestamp": 600,
+          "author": "did:key:zAlice",
+          "pointers": [
+            {
+              "role": "subject",
+              "target": {
+                "id": "movie:johnwick",
+                "context": "title"
+              }
+            },
+            {
+              "role": "value",
+              "target": "John Wick"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "cases": [
+    {
+      "name": "difference-basic",
+      "spec": "SPEC-2 §4.9 (difference: of ∖ without, keyed by id)",
+      "note": "matrix-touching {d1,d2,d3,d6,d7} minus Bob {d2,d4} = {d1,d3,d6,d7}",
+      "term": {
+        "op": "difference",
+        "of": {
+          "op": "select",
+          "pred": {
+            "hasPointer": {
+              "targetEntity": "movie:matrix"
+            }
+          },
+          "in": "input"
+        },
+        "without": {
+          "op": "select",
+          "pred": {
+            "match": {
+              "field": "author",
+              "cmp": "eq",
+              "const": "did:key:zBob"
+            }
+          },
+          "in": "input"
+        }
+      },
+      "expected": {
+        "ids": [
+          "1e20128fcc903f2270c79a0fe4de67be24e85dd7c95dd11b4dc25e7a939f429979c1",
+          "1e205eff49bb6d03d3b53b0929e8b7a965da260df95b24894aa6c381be584cf39392",
+          "1e206bc56e096e5855732a2fb8c379238db9cc28b61323ae4cf05436116e73fa8f1f",
+          "1e20c6909bffb9e1b198e3421911e9b2f4482c6a042c099545e7bf4d261db0d878b8"
+        ]
+      },
+      "expectedCanonicalHex": "8478443165323031323866636339303366323237306337396130666534646536376265323465383564643763393564643131623464633235653761393339663432393937396331784431653230356566663439626236643033643362353362303932396538623761393635646132363064663935623234383934616136633338316265353834636633393339327844316532303662633536653039366535383535373332613266623863333739323338646239636332386236313332336165346366303534333631313665373366613866316678443165323063363930396266666239653162313938653334323139313165396232663434383263366130343263303939353435653762663464323631646230643837386238"
+    },
+    {
+      "name": "intersect-basic",
+      "spec": "SPEC-2 §4.9 (intersect: left ∩ right, keyed by id)",
+      "note": "matrix-touching {d1,d2,d3,d6,d7} ∩ Alice {d1,d3,d6,d8} = {d1,d3,d6}",
+      "term": {
+        "op": "intersect",
+        "left": {
+          "op": "select",
+          "pred": {
+            "hasPointer": {
+              "targetEntity": "movie:matrix"
+            }
+          },
+          "in": "input"
+        },
+        "right": {
+          "op": "select",
+          "pred": {
+            "match": {
+              "field": "author",
+              "cmp": "eq",
+              "const": "did:key:zAlice"
+            }
+          },
+          "in": "input"
+        }
+      },
+      "expected": {
+        "ids": [
+          "1e20128fcc903f2270c79a0fe4de67be24e85dd7c95dd11b4dc25e7a939f429979c1",
+          "1e205eff49bb6d03d3b53b0929e8b7a965da260df95b24894aa6c381be584cf39392",
+          "1e206bc56e096e5855732a2fb8c379238db9cc28b61323ae4cf05436116e73fa8f1f"
+        ]
+      },
+      "expectedCanonicalHex": "83784431653230313238666363393033663232373063373961306665346465363762653234653835646437633935646431316234646332356537613933396634323939373963317844316532303565666634396262366430336433623533623039323965386237613936356461323630646639356232343839346161366333383162653538346366333933393278443165323036626335366530393665353835353733326132666238633337393233386462396363323862363133323361653463663035343336313136653733666138663166"
+    },
+    {
+      "name": "difference-self-is-empty",
+      "spec": "SPEC-2 §4.9 (X ∖ X = ∅)",
+      "term": {
+        "op": "difference",
+        "of": {
+          "op": "select",
+          "pred": {
+            "match": {
+              "field": "author",
+              "cmp": "eq",
+              "const": "did:key:zAlice"
+            }
+          },
+          "in": "input"
+        },
+        "without": {
+          "op": "select",
+          "pred": {
+            "match": {
+              "field": "author",
+              "cmp": "eq",
+              "const": "did:key:zAlice"
+            }
+          },
+          "in": "input"
+        }
+      },
+      "expected": {
+        "ids": []
+      },
+      "expectedCanonicalHex": "80"
+    },
+    {
+      "name": "intersect-disjoint-is-empty",
+      "spec": "SPEC-2 §4.9 (disjoint operands ∩ = ∅)",
+      "note": "Bob {d2,d4} ∩ Carol {d5,d7} = ∅",
+      "term": {
+        "op": "intersect",
+        "left": {
+          "op": "select",
+          "pred": {
+            "match": {
+              "field": "author",
+              "cmp": "eq",
+              "const": "did:key:zBob"
+            }
+          },
+          "in": "input"
+        },
+        "right": {
+          "op": "select",
+          "pred": {
+            "match": {
+              "field": "author",
+              "cmp": "eq",
+              "const": "did:key:zCarol"
+            }
+          },
+          "in": "input"
+        }
+      },
+      "expected": {
+        "ids": []
+      },
+      "expectedCanonicalHex": "80"
+    },
+    {
+      "name": "nested-difference-of-difference",
+      "spec": "SPEC-2 §4.9 + E17 (difference against a term that is itself a difference — impossible under inView depth-1 stratification, the blocker this op removes)",
+      "note": "inner = matrix ∖ Bob = {d1,d3,d6,d7}; outer = matrix ∖ inner = {d2}",
+      "term": {
+        "op": "difference",
+        "of": {
+          "op": "select",
+          "pred": {
+            "hasPointer": {
+              "targetEntity": "movie:matrix"
+            }
+          },
+          "in": "input"
+        },
+        "without": {
+          "op": "difference",
+          "of": {
+            "op": "select",
+            "pred": {
+              "hasPointer": {
+                "targetEntity": "movie:matrix"
+              }
+            },
+            "in": "input"
+          },
+          "without": {
+            "op": "select",
+            "pred": {
+              "match": {
+                "field": "author",
+                "cmp": "eq",
+                "const": "did:key:zBob"
+              }
+            },
+            "in": "input"
+          }
+        }
+      },
+      "expected": {
+        "ids": [
+          "1e20b758d08491d624d45b41c48b8ccd7a84815d94f9ee227336075ac13d6a7bc744"
+        ]
+      },
+      "expectedCanonicalHex": "8178443165323062373538643038343931643632346434356234316334386238636364376138343831356439346639656532323733333630373561633133643661376263373434"
+    },
+    {
+      "name": "difference-then-union",
+      "spec": "SPEC-2 §4.9 (composes with union — set algebra closes)",
+      "note": "(matrix ∖ Alice = {d2,d7}) ∪ Carol {d5,d7} = {d2,d5,d7}",
+      "term": {
+        "op": "union",
+        "left": {
+          "op": "difference",
+          "of": {
+            "op": "select",
+            "pred": {
+              "hasPointer": {
+                "targetEntity": "movie:matrix"
+              }
+            },
+            "in": "input"
+          },
+          "without": {
+            "op": "select",
+            "pred": {
+              "match": {
+                "field": "author",
+                "cmp": "eq",
+                "const": "did:key:zAlice"
+              }
+            },
+            "in": "input"
+          }
+        },
+        "right": {
+          "op": "select",
+          "pred": {
+            "match": {
+              "field": "author",
+              "cmp": "eq",
+              "const": "did:key:zCarol"
+            }
+          },
+          "in": "input"
+        }
+      },
+      "expected": {
+        "ids": [
+          "1e20b758d08491d624d45b41c48b8ccd7a84815d94f9ee227336075ac13d6a7bc744",
+          "1e20c6909bffb9e1b198e3421911e9b2f4482c6a042c099545e7bf4d261db0d878b8",
+          "1e20d52bc0da7ffc13ae23d2504ab0a2a06bbd943ff1d473c4915c4f3256f2dc059a"
+        ]
+      },
+      "expectedCanonicalHex": "83784431653230623735386430383439316436323464343562343163343862386363643761383438313564393466396565323237333336303735616331336436613762633734347844316532306336393039626666623965316231393865333432313931316539623266343438326336613034326330393935343565376266346432363164623064383738623878443165323064353262633064613766666331336165323364323530346162306132613036626264393433666631643437336334393135633466333235366632646330353961"
+    },
+    {
+      "name": "intersect-over-union-operand",
+      "spec": "SPEC-2 §4.9 (whole-delta dedup by id through a union operand)",
+      "note": "(Alice ∪ Bob = {d1,d2,d3,d4,d6,d8}) ∩ matrix {d1,d2,d3,d6,d7} = {d1,d2,d3,d6}",
+      "term": {
+        "op": "intersect",
+        "left": {
+          "op": "union",
+          "left": {
+            "op": "select",
+            "pred": {
+              "match": {
+                "field": "author",
+                "cmp": "eq",
+                "const": "did:key:zAlice"
+              }
+            },
+            "in": "input"
+          },
+          "right": {
+            "op": "select",
+            "pred": {
+              "match": {
+                "field": "author",
+                "cmp": "eq",
+                "const": "did:key:zBob"
+              }
+            },
+            "in": "input"
+          }
+        },
+        "right": {
+          "op": "select",
+          "pred": {
+            "hasPointer": {
+              "targetEntity": "movie:matrix"
+            }
+          },
+          "in": "input"
+        }
+      },
+      "expected": {
+        "ids": [
+          "1e20128fcc903f2270c79a0fe4de67be24e85dd7c95dd11b4dc25e7a939f429979c1",
+          "1e205eff49bb6d03d3b53b0929e8b7a965da260df95b24894aa6c381be584cf39392",
+          "1e206bc56e096e5855732a2fb8c379238db9cc28b61323ae4cf05436116e73fa8f1f",
+          "1e20b758d08491d624d45b41c48b8ccd7a84815d94f9ee227336075ac13d6a7bc744"
+        ]
+      },
+      "expectedCanonicalHex": "8478443165323031323866636339303366323237306337396130666534646536376265323465383564643763393564643131623464633235653761393339663432393937396331784431653230356566663439626236643033643362353362303932396538623761393635646132363064663935623234383934616136633338316265353834636633393339327844316532303662633536653039366535383535373332613266623863333739323338646239636332386236313332336165346366303534333631313665373366613866316678443165323062373538643038343931643632346434356234316334386238636364376138343831356439346639656532323733333630373561633133643661376263373434"
+    },
+    {
+      "name": "difference-drops-annotate-channel",
+      "spec": "SPEC-2 §4.9 + §4.3/E14/E17 Q4 (the mask(annotate) tag channel does not survive a DSet op — result is a plain id array, no `negated` key)",
+      "note": "of = mask(annotate, input) tags d4 negated but the channel is dropped; {d1..d8} ∖ Bob {d2,d4} = {d1,d3,d5,d6,d7,d8}",
+      "term": {
+        "op": "difference",
+        "of": {
+          "op": "mask",
+          "policy": "annotate",
+          "in": "input"
+        },
+        "without": {
+          "op": "select",
+          "pred": {
+            "match": {
+              "field": "author",
+              "cmp": "eq",
+              "const": "did:key:zBob"
+            }
+          },
+          "in": "input"
+        }
+      },
+      "expected": {
+        "ids": [
+          "1e20128fcc903f2270c79a0fe4de67be24e85dd7c95dd11b4dc25e7a939f429979c1",
+          "1e205eff49bb6d03d3b53b0929e8b7a965da260df95b24894aa6c381be584cf39392",
+          "1e206bc56e096e5855732a2fb8c379238db9cc28b61323ae4cf05436116e73fa8f1f",
+          "1e20c6909bffb9e1b198e3421911e9b2f4482c6a042c099545e7bf4d261db0d878b8",
+          "1e20d52bc0da7ffc13ae23d2504ab0a2a06bbd943ff1d473c4915c4f3256f2dc059a",
+          "1e20db70d6f537e65ce2a14d3b32a0abf3d48435be6dbc06aedba2f40ea1a3a5f709"
+        ]
+      },
+      "expectedCanonicalHex": "86784431653230313238666363393033663232373063373961306665346465363762653234653835646437633935646431316234646332356537613933396634323939373963317844316532303565666634396262366430336433623533623039323965386237613936356461323630646639356232343839346161366333383162653538346366333933393278443165323036626335366530393665353835353733326132666238633337393233386462396363323862363133323361653463663035343336313136653733666138663166784431653230633639303962666662396531623139386533343231393131653962326634343832633661303432633039393534356537626634643236316462306438373862387844316532306435326263306461376666633133616532336432353034616230613261303662626439343366663164343733633439313563346633323536663264633035396178443165323064623730643666353337653635636532613134643362333261306162663364343834333562653664626330366165646261326634306561316133613566373039"
+    }
+  ],
+  "rejects": [
+    {
+      "name": "unknown-op-rejected",
+      "spec": "SPEC-2 §8 (fail-closed: parsers MUST reject an unrecognized `op`, loudly, before evaluation — the parity guard that lets additive operators enter without an `alg` bump)",
+      "reason": "unknown operator `symmetricDifference` is not in the closed §9 Term profile; a conformant parser rejects rather than partially evaluating",
+      "term": {
+        "op": "symmetricDifference",
+        "left": "input",
+        "right": "input"
+      }
+    },
+    {
+      "name": "difference-wrong-operand-keys-rejected",
+      "spec": "SPEC-2 §9 (difference uses `of`/`without`; `left`/`right` is union's shape)",
+      "reason": "difference requires `of` and `without` operands; supplying union's `left`/`right` is a malformed term",
+      "term": {
+        "op": "difference",
+        "left": "input",
+        "right": "input"
+      }
+    },
+    {
+      "name": "difference-hview-operand-rejected",
+      "spec": "SPEC-2 §4.9 + E9 (operands are DSet-sort; a group result is HView-sort)",
+      "reason": "difference operands must be DSet-sort; `group` yields an HView (evaluation-time sort error, per E9 dynamic sorting)",
+      "term": {
+        "op": "difference",
+        "of": "input",
+        "without": {
+          "op": "group",
+          "key": "byTargetContext",
+          "in": "input"
+        }
+      }
+    }
+  ]
+}

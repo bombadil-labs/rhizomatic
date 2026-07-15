@@ -1707,7 +1707,10 @@
       case "select":
         return predContainsInView(t.pred) || termContainsInView(t.of);
       case "union":
+      case "intersect":
         return termContainsInView(t.left) || termContainsInView(t.right);
+      case "difference":
+        return termContainsInView(t.of) || termContainsInView(t.without);
       case "mask":
         return t.policy.kind === "trust" && predContainsInView(t.policy.pred) || termContainsInView(t.of);
       case "group":
@@ -1770,6 +1773,19 @@
         const left = expectDSet(evalTerm(term.left, input, root, registry, bindings), "union");
         const right = expectDSet(evalTerm(term.right, input, root, registry, bindings), "union");
         return dsetResult(merge(left.set, right.set));
+      }
+      case "intersect": {
+        const left = expectDSet(evalTerm(term.left, input, root, registry, bindings), "intersect");
+        const right = expectDSet(evalTerm(term.right, input, root, registry, bindings), "intersect");
+        return dsetResult(fork(left.set, (d) => right.set.has(d.id)));
+      }
+      case "difference": {
+        const of = expectDSet(evalTerm(term.of, input, root, registry, bindings), "difference");
+        const without = expectDSet(
+          evalTerm(term.without, input, root, registry, bindings),
+          "difference"
+        );
+        return dsetResult(fork(of.set, (d) => !without.set.has(d.id)));
       }
       case "mask": {
         const of = expectDSet(evalTerm(term.of, input, root, registry, bindings), "mask");
@@ -2041,6 +2057,10 @@
         return { op: "select", pred: predToJson(term.pred), in: termToJson(term.of) };
       case "union":
         return { op: "union", left: termToJson(term.left), right: termToJson(term.right) };
+      case "intersect":
+        return { op: "intersect", left: termToJson(term.left), right: termToJson(term.right) };
+      case "difference":
+        return { op: "difference", of: termToJson(term.of), without: termToJson(term.without) };
       case "mask": {
         const policy = term.policy.kind === "trust" ? { trust: predToJson(term.policy.pred) } : term.policy.kind;
         return { op: "mask", policy, in: termToJson(term.of) };
@@ -2431,6 +2451,10 @@
         return { kind: "select", pred: parsePred(o["pred"]), of: parseTerm(o["in"]) };
       case "union":
         return { kind: "union", left: parseTerm(o["left"]), right: parseTerm(o["right"]) };
+      case "intersect":
+        return { kind: "intersect", left: parseTerm(o["left"]), right: parseTerm(o["right"]) };
+      case "difference":
+        return { kind: "difference", of: parseTerm(o["of"]), without: parseTerm(o["without"]) };
       case "mask":
         return { kind: "mask", policy: parseMaskPolicy(o["policy"]), of: parseTerm(o["in"]) };
       case "group":
@@ -4478,8 +4502,13 @@
           walk(t.of);
           return;
         case "union":
+        case "intersect":
           walk(t.left);
           walk(t.right);
+          return;
+        case "difference":
+          walk(t.of);
+          walk(t.without);
           return;
         case "expand":
           out.push(t.schema);

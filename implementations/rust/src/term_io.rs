@@ -219,6 +219,12 @@ pub fn term_to_json(term: &Term) -> Value {
         Term::Union { left, right } => {
             json!({ "op": "union", "left": term_to_json(left), "right": term_to_json(right) })
         }
+        Term::Intersect { left, right } => {
+            json!({ "op": "intersect", "left": term_to_json(left), "right": term_to_json(right) })
+        }
+        Term::Difference { of, without } => {
+            json!({ "op": "difference", "of": term_to_json(of), "without": term_to_json(without) })
+        }
         Term::Mask { policy, of } => {
             let policy = match policy {
                 MaskPolicy::Drop => json!("drop"),

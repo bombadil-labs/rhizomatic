@@ -24,8 +24,8 @@ costs one versioned amendment rather than a migration.
 |---|---|---|
 | 1 | **S4** (vocabulary prefix) | **`rhizomatic.*`** — the full product name; collision-proof and self-describing. Wire cost is negligible (packs intern strings). Executed: constants flipped, vectors regenerated, prose swept. The HTTP path `/rhz/v0/sync` stays — it names the transport binding (F5), not the vocabulary. |
 | 2 | **D10** (set digest) | **Stays provisional.** Promoting it would pin SPEC-6 to a full-set digest that v1 sublinear reconciliation would immediately obsolete. Revisit when reconciliation does. |
-| 3 | **E14** (annotation channel) | **Closed: consumed-or-dropped is the invariant.** The annotate channel is a property of the immediate operand; the audit idiom is `group(mask(annotate, …))` directly. Threading through set-preserving operators can return as an `alg: 1` capability if a real consumer needs it. |
-| 4 | **E8** (prune granularity) | **Closed: property-level is the `alg: 0` law.** Pointer-level pruning, if ever needed (e.g. federation payload minimization), enters as an `alg`-versioned capability — exactly when a consumer exists to vector it. |
+| 3 | **E14** (annotation channel) | **Closed: consumed-or-dropped is the invariant.** The annotate channel is a property of the immediate operand; the audit idiom is `group(mask(annotate, …))` directly. Threading through set-preserving operators can return as an `alg: 2` capability if a real consumer needs it (the base version is `alg: 1`). |
+| 4 | **E8** (prune granularity) | **Closed: property-level is the `alg: 1` law.** Pointer-level pruning, if ever needed (e.g. federation payload minimization), enters as an `alg`-versioned capability — exactly when a consumer exists to vector it. |
 | 5 | **WASM ABI** | **Remains a PROPOSAL, adoption mechanically gated** on a working host implementation plus a compiled-module conformance vector — the same vectors-first rule everything else followed. Premature adoption is the only branch with real regret (ABI churn with an external audience). |
 
 ## SPEC-1 — Deltas (12 entries)

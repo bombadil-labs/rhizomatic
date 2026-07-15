@@ -51,6 +51,51 @@ describe("l1-eval vectors (select/union/mask)", () => {
   }
 });
 
+// Set algebra over delta-sets: difference/intersect (SPEC-2 §4.9, ERRATA-2 E17). `rejects` pins the
+// §8 fail-closed guards — parse-time (unknown op, wrong operand keys) and eval-time (HView operand,
+// E9), so the guard drives parse ∘ eval and asserts a throw either way.
+const evalSetAlgebra = JSON.parse(
+  readFileSync(resolve(here, "../../../vectors/l1-eval/eval-setalgebra.json"), "utf8"),
+) as {
+  fixture: { deltas: Array<{ name: string; id: string; claims: unknown }> };
+  cases: Array<{
+    name: string;
+    term: unknown;
+    expected: { ids: string[]; negated?: string[] };
+    expectedCanonicalHex: string;
+  }>;
+  rejects: Array<{ name: string; term: unknown }>;
+};
+
+const setAlgebraSet = DeltaSet.from(
+  evalSetAlgebra.fixture.deltas.map((d) => makeDelta(parseClaims(d.claims))),
+);
+
+describe("l1-eval set algebra vectors (difference/intersect)", () => {
+  it("fixture ids match the pinned ids", () => {
+    for (const d of evalSetAlgebra.fixture.deltas) {
+      expect(makeDelta(parseClaims(d.claims)).id).toBe(d.id);
+    }
+  });
+
+  for (const c of evalSetAlgebra.cases) {
+    it(c.name, () => {
+      const result = asDSet(evalTerm(parseTerm(c.term), setAlgebraSet));
+      expect(result.set.ids()).toEqual(c.expected.ids);
+      if (c.expected.negated !== undefined) {
+        expect([...result.negated].sort()).toEqual(c.expected.negated);
+      }
+      expect(resultCanonicalHex(result)).toBe(c.expectedCanonicalHex);
+    });
+  }
+
+  for (const r of evalSetAlgebra.rejects) {
+    it(`rejects: ${r.name}`, () => {
+      expect(() => evalTerm(parseTerm(r.term), setAlgebraSet)).toThrow();
+    });
+  }
+});
+
 // --- property tests -----------------------------------------------------------------------------
 
 const pointerArb: fc.Arbitrary<Pointer> = fc.record({
