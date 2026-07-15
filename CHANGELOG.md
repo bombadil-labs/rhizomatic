@@ -4,7 +4,7 @@ All notable changes to **`@bombadil/rhizomatic`**. This project is pre-1.0, so b
 land in **minor** bumps (see [CLAUDE.md → Releasing](CLAUDE.md#releasing-bombadilrhizomatic-to-npm)).
 Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 
-## 0.6.0 — Unreleased
+## 0.6.0 — 2026-07-15
 
 First-class **set algebra over delta-sets**: the operator algebra had `union` but no difference or
 intersection ([#16](https://github.com/bombadil-labs/rhizomatic/issues/16), SPEC-2 §4.9, ERRATA-2
