@@ -53,6 +53,14 @@ pub enum Term {
         left: Box<Term>,
         right: Box<Term>,
     },
+    Intersect {
+        left: Box<Term>,
+        right: Box<Term>,
+    },
+    Difference {
+        of: Box<Term>,
+        without: Box<Term>,
+    },
     Mask {
         policy: MaskPolicy,
         of: Box<Term>,
@@ -368,7 +376,12 @@ pub fn term_contains_in_view(t: &Term) -> bool {
     match t {
         Term::Input | Term::Fix { .. } => false,
         Term::Select { pred, of } => pred_contains_in_view(pred) || term_contains_in_view(of),
-        Term::Union { left, right } => term_contains_in_view(left) || term_contains_in_view(right),
+        Term::Union { left, right } | Term::Intersect { left, right } => {
+            term_contains_in_view(left) || term_contains_in_view(right)
+        }
+        Term::Difference { of, without } => {
+            term_contains_in_view(of) || term_contains_in_view(without)
+        }
         Term::Mask { policy, of } => {
             let trust_reflective = match policy {
                 MaskPolicy::Trust(p) => pred_contains_in_view(p),
@@ -496,6 +509,31 @@ pub fn eval_term(
             let (l, _) = expect_dset(eval_term(left, input, root, registry, bindings)?, "union")?;
             let (r, _) = expect_dset(eval_term(right, input, root, registry, bindings)?, "union")?;
             Ok(dset_result(merge(&l, &r)))
+        }
+        Term::Intersect { left, right } => {
+            // left ∩ right, keyed by content-addressed id (SPEC-2 §4.9). Plain DSet result: any
+            // mask(annotate) tag channel on an operand is dropped, like select/union (E14).
+            let (l, _) = expect_dset(
+                eval_term(left, input, root, registry, bindings)?,
+                "intersect",
+            )?;
+            let (r, _) = expect_dset(
+                eval_term(right, input, root, registry, bindings)?,
+                "intersect",
+            )?;
+            Ok(dset_result(fork(&l, |d: &Delta| r.contains(&d.id))))
+        }
+        Term::Difference { of, without } => {
+            // of ∖ without, keyed by id (SPEC-2 §4.9). Asymmetric operands `of`/`without`.
+            let (o, _) = expect_dset(
+                eval_term(of, input, root, registry, bindings)?,
+                "difference",
+            )?;
+            let (w, _) = expect_dset(
+                eval_term(without, input, root, registry, bindings)?,
+                "difference",
+            )?;
+            Ok(dset_result(fork(&o, |d: &Delta| !w.contains(&d.id))))
         }
         Term::Mask { policy, of } => {
             let (set, _) = expect_dset(eval_term(of, input, root, registry, bindings)?, "mask")?;

@@ -526,6 +526,14 @@ pub fn parse_term(raw: &Value) -> Result<Term, String> {
             left: Box::new(parse_term(o.get("left").unwrap_or(&Value::Null))?),
             right: Box::new(parse_term(o.get("right").unwrap_or(&Value::Null))?),
         }),
+        Some("intersect") => Ok(Term::Intersect {
+            left: Box::new(parse_term(o.get("left").unwrap_or(&Value::Null))?),
+            right: Box::new(parse_term(o.get("right").unwrap_or(&Value::Null))?),
+        }),
+        Some("difference") => Ok(Term::Difference {
+            of: Box::new(parse_term(o.get("of").unwrap_or(&Value::Null))?),
+            without: Box::new(parse_term(o.get("without").unwrap_or(&Value::Null))?),
+        }),
         Some("mask") => Ok(Term::Mask {
             policy: parse_mask_policy(o.get("policy").unwrap_or(&Value::Null))?,
             of: Box::new(parse_term(o.get("in").unwrap_or(&Value::Null))?),

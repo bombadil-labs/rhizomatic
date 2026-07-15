@@ -383,8 +383,8 @@ plus polish (README status update, top-level parity runner, CI).
   regenerated (bootstrap hash and all vocabulary ids moved, as designed), ~55 prose mentions
   swept across spec/README/CLAUDE; /rhz/v0/sync stays (transport name, not vocabulary).
   (2) D10 digest stays provisional until sublinear reconciliation. (3) E14 closed:
-  consumed-or-dropped is the invariant; threading would be alg:1. (4) E8 closed:
-  property-level prune is the alg:0 law; pointer-level would be alg-versioned. (5) WASM ABI
+  consumed-or-dropped is the invariant; threading would be alg:2 (base is alg:1). (4) E8 closed:
+  property-level prune is the alg:1 law; pointer-level would be alg-versioned. (5) WASM ABI
   stays a proposal, adoption gated on a working host + compiled-module vector. All five
   documented in ERRATA-REVIEW + the entries themselves. Both witnesses green (TS 190 /
   Rust 19 suites); wasm + bundles rebuilt; tour verified live (rhizomatic.derived.* receipts,

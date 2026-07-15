@@ -4,6 +4,37 @@ All notable changes to **`@bombadil/rhizomatic`**. This project is pre-1.0, so b
 land in **minor** bumps (see [CLAUDE.md → Releasing](CLAUDE.md#releasing-bombadilrhizomatic-to-npm)).
 Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 
+## 0.6.0 — Unreleased
+
+First-class **set algebra over delta-sets**: the operator algebra had `union` but no difference or
+intersection ([#16](https://github.com/bombadil-labs/rhizomatic/issues/16), SPEC-2 §4.9, ERRATA-2
+E17). This is what Loam's container work (membership = a delta-query; excluded/"sandbox" containers)
+needs: read scope = *the union of active containers **minus** the excluded ones*.
+
+### Added
+
+- **`difference` and `intersect` term operators** (SPEC-2 §4.9). Two new `dset`-sort ops, symmetric
+  with `union`, whole-delta and keyed by content-addressed id, nestable to any depth:
+  `{ "op": "difference", "of": Term, "without": Term }` (asymmetric — `of ∖ without`) and
+  `{ "op": "intersect", "left": Term, "right": Term }`. Unlike the old `select(not(inView(…)))`
+  workaround, a `difference` may difference against another `difference` (the reflective route is
+  stratified at depth 1), so containers defined relative to other containers compose. The
+  `mask(annotate)` tag channel does not survive either op, exactly as through `select`/`union`.
+
+### Changed
+
+- **No `alg` bump — the instruction set stays `alg: 1`.** Adding an operator to the **closed** §9
+  Term profile is *parse-visible*: an implementation that predates it meets an unknown `op` and
+  rejects at parse time, loudly, before evaluation — which is the safety an `alg` bump would have
+  provided. SPEC-2 §8 is reconciled to say a bump is required **iff** a change is *not* parse-visible
+  (altered semantics of an existing form), and to make the fail-closed parse rule normative (a
+  conformant parser MUST reject any unrecognized `op`/`policy`/`cmp`/… tag). `difference`/`intersect`
+  enter under this rule, exactly as `inView` and `chain` did.
+  - **For consumers:** no migration, no data changes. A term using these ops is rejected — never
+    silently mis-evaluated — by any older witness, and the rejection now SHOULD name the tag and
+    point at version skew. Loam, the sole current consumer, is built in lockstep, so there is no
+    older witness in the wild regardless.
+
 ## 0.5.0 — 2026-07-14
 
 Schema/HyperSchema vocabulary reconciliation + self-hosting parity, landed as **one migration wave**

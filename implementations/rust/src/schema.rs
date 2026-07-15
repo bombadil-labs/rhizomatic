@@ -26,9 +26,13 @@ pub fn collect_refs(term: &Term) -> Vec<SchemaRef> {
             | Term::Group { of, .. }
             | Term::Prune { of, .. }
             | Term::Resolve { of, .. } => walk(of, out),
-            Term::Union { left, right } => {
+            Term::Union { left, right } | Term::Intersect { left, right } => {
                 walk(left, out);
                 walk(right, out);
+            }
+            Term::Difference { of, without } => {
+                walk(of, out);
+                walk(without, out);
             }
             Term::Expand { schema, of, .. } => {
                 out.push(schema.clone());

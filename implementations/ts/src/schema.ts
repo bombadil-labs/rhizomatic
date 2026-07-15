@@ -25,8 +25,13 @@ export function collectRefs(term: Term): SchemaRefT[] {
         walk(t.of);
         return;
       case "union":
+      case "intersect":
         walk(t.left);
         walk(t.right);
+        return;
+      case "difference":
+        walk(t.of);
+        walk(t.without);
         return;
       case "expand":
         out.push(t.schema);

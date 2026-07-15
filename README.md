@@ -49,7 +49,7 @@ The wager underneath all of it: if you get the *atom* right — small enough to 
 
 One hardcoded structure: the **delta** — an immutable, content-addressed, signed assertion connecting any number of entities and values through role-labeled pointers ([SPEC-1](spec/01-delta.md)). Everything else in the system — schemas, queries, indexes, negations, trust lists, transactions, even the vocabulary for all of the above — is expressed *as deltas*. Semantics travel as payload. The system cannot ossify around an external authority because there is nowhere external for authority to stand.
 
-Above the atom sits a deliberately tiny, closed **operator algebra** ([SPEC-2](spec/02-operators.md)) — the instruction set everything compiles to. Eight operators, decidable predicates, no Turing-complete escape hatch. The exclusions are the design: because terms are inspectable rather than executable-and-opaque, schemas serialize as data, indexes maintain themselves incrementally, and federated peers can accept each other's queries with structural safety instead of trust.
+Above the atom sits a deliberately tiny, closed **operator algebra** ([SPEC-2](spec/02-operators.md)) — the instruction set everything compiles to. Ten operators, decidable predicates, no Turing-complete escape hatch. The exclusions are the design: because terms are inspectable rather than executable-and-opaque, schemas serialize as data, indexes maintain themselves incrementally, and federated peers can accept each other's queries with structural safety instead of trust.
 
 Arbitrary computation is not banished — it is *given an identity*. The **derivation layer** ([SPEC-7](spec/07-derivation.md)) hosts unrestricted functions (reducers, ML models, LLM adjudicators, humans-in-the-loop) as **derived authors**: content-addressed, consent-installed processes whose outputs re-enter the system as ordinary signed claims. Everything that computes is an author. One rule, all the way up.
 
@@ -91,7 +91,7 @@ So that no implementer re-litigates them by accident (re-litigating them *on pur
 
 You may be a person. You may be a Claude instance reading this at the top of a fresh context window with instructions to make this real. Either way — welcome. Here is what you need to know that the spec's confident tone won't tell you:
 
-**The spec is ahead of the evidence, on purpose.** There are zero implementations and zero proofs behind these documents. Every MUST in SPEC-2 through SPEC-8 is *provisional until a conformance vector exists for it*. The operator set is version `alg: 0` until the relational-completeness proof ([SPEC-2 §6](spec/02-operators.md)) and at least one real workload have weighed in. The conformance suite is the mechanism by which guesses graduate into law. **Therefore: build the suite alongside the thing, not after it.**
+**The spec is ahead of the evidence, on purpose.** There are zero implementations and zero proofs behind these documents. Every MUST in SPEC-2 through SPEC-8 is *provisional until a conformance vector exists for it*. The operator set is version `alg: 1` until the relational-completeness proof ([SPEC-2 §6](spec/02-operators.md)) and at least one real workload have weighed in. The conformance suite is the mechanism by which guesses graduate into law. **Therefore: build the suite alongside the thing, not after it.**
 
 **Build order.** Each milestone maps to a conformance level ([SPEC-0 §5.1](spec/00-overview.md)) and is independently valuable:
 
@@ -110,7 +110,7 @@ You may be a person. You may be a Claude instance reading this at the top of a f
 
 Specification draft **with two working witnesses**: TypeScript and Rust parity-verified
 byte-for-byte against shared vectors at every layer — canonical CBOR, content addressing (now
-including the `bytes` Target kind, 0.4), Ed25519 signatures, the eight-operator algebra
+including the `bytes` Target kind, 0.4), Ed25519 signatures, the operator algebra
 (including parameterized terms and the SPEC-9 alias closure), resolution policies, the
 schemas-as-deltas bootstrap, the incremental reactor, packs, federation, and derivation.
 The interactive tour at the docs site runs the committed vectors through BOTH witnesses in your

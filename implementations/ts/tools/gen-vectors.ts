@@ -548,6 +548,146 @@ writeFileSync(resolve(evalDir, "eval-basic.json"), `${JSON.stringify(evalOut, nu
 console.log(
   `wrote ${evalVectors.length} eval vectors over ${fixtureSet.size} fixture deltas to vectors/l1-eval/eval-basic.json`,
 );
+
+// --- l1-eval: set algebra over delta-sets — difference/intersect (SPEC-2 §4.9, ERRATA-2 E17) ---
+// Reuses the eval-basic fixture (fx / fixtureSet) so ids are the same already-verified hashes.
+const matrixSel = sel({ hasPointer: { targetEntity: "movie:matrix" } });
+const authorSel = (a: string) => sel({ match: { field: "author", cmp: "eq", const: a } });
+const maskAnnotate = { op: "mask", policy: "annotate", in: "input" };
+
+const setAlgCases: Array<{ name: string; spec: string; term: unknown; note?: string }> = [
+  {
+    name: "difference-basic",
+    spec: "SPEC-2 §4.9 (difference: of ∖ without, keyed by id)",
+    note: "matrix-touching {d1,d2,d3,d6,d7} minus Bob {d2,d4} = {d1,d3,d6,d7}",
+    term: { op: "difference", of: matrixSel, without: authorSel(B) },
+  },
+  {
+    name: "intersect-basic",
+    spec: "SPEC-2 §4.9 (intersect: left ∩ right, keyed by id)",
+    note: "matrix-touching {d1,d2,d3,d6,d7} ∩ Alice {d1,d3,d6,d8} = {d1,d3,d6}",
+    term: { op: "intersect", left: matrixSel, right: authorSel(A) },
+  },
+  {
+    name: "difference-self-is-empty",
+    spec: "SPEC-2 §4.9 (X ∖ X = ∅)",
+    term: { op: "difference", of: authorSel(A), without: authorSel(A) },
+  },
+  {
+    name: "intersect-disjoint-is-empty",
+    spec: "SPEC-2 §4.9 (disjoint operands ∩ = ∅)",
+    note: "Bob {d2,d4} ∩ Carol {d5,d7} = ∅",
+    term: { op: "intersect", left: authorSel(B), right: authorSel(C) },
+  },
+  {
+    name: "nested-difference-of-difference",
+    spec: "SPEC-2 §4.9 + E17 (difference against a term that is itself a difference — impossible under inView depth-1 stratification, the blocker this op removes)",
+    note: "inner = matrix ∖ Bob = {d1,d3,d6,d7}; outer = matrix ∖ inner = {d2}",
+    term: {
+      op: "difference",
+      of: matrixSel,
+      without: { op: "difference", of: matrixSel, without: authorSel(B) },
+    },
+  },
+  {
+    name: "difference-then-union",
+    spec: "SPEC-2 §4.9 (composes with union — set algebra closes)",
+    note: "(matrix ∖ Alice = {d2,d7}) ∪ Carol {d5,d7} = {d2,d5,d7}",
+    term: {
+      op: "union",
+      left: { op: "difference", of: matrixSel, without: authorSel(A) },
+      right: authorSel(C),
+    },
+  },
+  {
+    name: "intersect-over-union-operand",
+    spec: "SPEC-2 §4.9 (whole-delta dedup by id through a union operand)",
+    note: "(Alice ∪ Bob = {d1,d2,d3,d4,d6,d8}) ∩ matrix {d1,d2,d3,d6,d7} = {d1,d2,d3,d6}",
+    term: {
+      op: "intersect",
+      left: { op: "union", left: authorSel(A), right: authorSel(B) },
+      right: matrixSel,
+    },
+  },
+  {
+    name: "difference-drops-annotate-channel",
+    spec: "SPEC-2 §4.9 + §4.3/E14/E17 Q4 (the mask(annotate) tag channel does not survive a DSet op — result is a plain id array, no `negated` key)",
+    note: "of = mask(annotate, input) tags d4 negated but the channel is dropped; {d1..d8} ∖ Bob {d2,d4} = {d1,d3,d5,d6,d7,d8}",
+    term: { op: "difference", of: maskAnnotate, without: authorSel(B) },
+  },
+];
+
+const setAlgVectors = setAlgCases.map(({ name, spec, term, note }) => {
+  const result = evalTerm(parseTerm(term), fixtureSet);
+  if (result.sort !== "dset") throw new Error(`${name}: expected a DSet result`);
+  const expected: { ids: string[]; negated?: string[] } = { ids: result.set.ids() };
+  if (result.annotated) expected.negated = [...result.negated].sort();
+  return {
+    name,
+    spec,
+    ...(note === undefined ? {} : { note }),
+    term,
+    expected,
+    expectedCanonicalHex: resultCanonicalHex(result),
+  };
+});
+
+// The §8 fail-closed guards — each MUST be rejected (parse-time: unknown op / wrong operand keys;
+// eval-time: HView operand, E9), never partially evaluated. Verified at generation time so a
+// regenerated vector can never silently ship a "reject" term that actually evaluates.
+const setAlgRejects: Array<{ name: string; spec: string; reason: string; term: unknown }> = [
+  {
+    name: "unknown-op-rejected",
+    spec: "SPEC-2 §8 (fail-closed: parsers MUST reject an unrecognized `op`, loudly, before evaluation — the parity guard that lets additive operators enter without an `alg` bump)",
+    reason:
+      "unknown operator `symmetricDifference` is not in the closed §9 Term profile; a conformant parser rejects rather than partially evaluating",
+    term: { op: "symmetricDifference", left: "input", right: "input" },
+  },
+  {
+    name: "difference-wrong-operand-keys-rejected",
+    spec: "SPEC-2 §9 (difference uses `of`/`without`; `left`/`right` is union's shape)",
+    reason:
+      "difference requires `of` and `without` operands; supplying union's `left`/`right` is a malformed term",
+    term: { op: "difference", left: "input", right: "input" },
+  },
+  {
+    name: "difference-hview-operand-rejected",
+    spec: "SPEC-2 §4.9 + E9 (operands are DSet-sort; a group result is HView-sort)",
+    reason:
+      "difference operands must be DSet-sort; `group` yields an HView (evaluation-time sort error, per E9 dynamic sorting)",
+    term: {
+      op: "difference",
+      of: "input",
+      without: { op: "group", key: "byTargetContext", in: "input" },
+    },
+  },
+];
+for (const r of setAlgRejects) {
+  let rejected = false;
+  try {
+    evalTerm(parseTerm(r.term), fixtureSet);
+  } catch {
+    rejected = true;
+  }
+  if (!rejected) {
+    throw new Error(`set-algebra reject "${r.name}" was accepted; §8 fail-closed is violated`);
+  }
+}
+
+const setAlgOut = {
+  note: "Set algebra over delta-sets: first-class `difference` and `intersect` term ops (SPEC-2 §4.9, ERRATA-2 E17), symmetric with `union` (§4.2). Fixture is the eval-basic fixture (same 8 content-addressed deltas). `cases` are positive oracles; `rejects` are the §8 fail-closed parity guards (unknown-op / unknown-tag / wrong-sort MUST be rejected, verified at generation time).",
+  fixture: {
+    note: "identical to eval-basic.json — the same 8 content-addressed deltas",
+    deltas: Object.entries(fx).map(([name, f]) => ({ name, id: f.id, claims: f.claims })),
+  },
+  cases: setAlgVectors,
+  rejects: setAlgRejects,
+};
+writeFileSync(resolve(evalDir, "eval-setalgebra.json"), `${JSON.stringify(setAlgOut, null, 2)}\n`);
+console.log(
+  `wrote ${setAlgVectors.length} set-algebra vectors + ${setAlgRejects.length} rejects to vectors/l1-eval/eval-setalgebra.json`,
+);
+
 // --- l1-eval: group/prune into HyperViews (ERRATA-2 E6-E9) ---
 
 // Extend the movie fixture with multi-context and contextless filing probes.

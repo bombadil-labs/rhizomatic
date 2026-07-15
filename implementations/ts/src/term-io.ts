@@ -150,6 +150,10 @@ export function termToJson(term: Term): unknown {
       return { op: "select", pred: predToJson(term.pred), in: termToJson(term.of) };
     case "union":
       return { op: "union", left: termToJson(term.left), right: termToJson(term.right) };
+    case "intersect":
+      return { op: "intersect", left: termToJson(term.left), right: termToJson(term.right) };
+    case "difference":
+      return { op: "difference", of: termToJson(term.of), without: termToJson(term.without) };
     case "mask": {
       const policy =
         term.policy.kind === "trust" ? { trust: predToJson(term.policy.pred) } : term.policy.kind;

@@ -50,6 +50,23 @@
       ],
       "duration": 2,
       "category": "refactor"
+    },
+    {
+      "id": "gh:bombadil-labs/rhizomatic#16",
+      "title": "Composable set-difference (and intersection) term operators over delta-sets",
+      "body": "## Summary\n\nComplete the first-class **set algebra over delta-sets**: `Term` has `union` but no `difference` (minus) or `intersect`. Add composable `difference` and `intersect` term operators over `dset`-sort terms, symmetric with `union`.\n\n## Motivation (from Loam's container work, SPEC §24/§27)\n\nLoam is building **containers**: a container's *membership* is a delta-query — a `Term` that evaluates to a `dset` (exactly the shape `offeredLens` already uses). Organizing a store into containers, some **excluded** (the \"sandbox\" property), needs the read scope to be *\"the union of the active containers **minus** the excluded ones\"* — i.e. **set algebra over delta-sets**: `∪`, `∩`, `∖`.\n\nToday the `Term` algebra (`src/eval.ts` `Term` union) has **`union` as a first-class op, but not difference or intersection**. That asymmetry is the gap: you can compose containers by union but not by exclusion or overlap, which are exactly what \"some containers are sandboxed/excluded\" and \"what's shared between two containers\" require.\n\n## Current state (what I verified)\n\nThe one way to express exclusion today is the reflective `inView` predicate + `not`:\n\n```\nselect{\n  pred: not( inView{ term: T, field: \"id\", extract: { kind: \"field\", field: \"id\" } } ),\n  of: input\n}\n```\n\n= `input ∖ T` (by delta id). This works for the simple single-level case, but three constraints stop it from being the general set-difference the container model needs:\n\n1. **Depth-1 stratification** (`inView.term` may not itself contain `inView` — enforced at parse). So you **cannot difference against a term that is itself a difference** — i.e. containers defined *relative to other containers* (A = base ∖ B, where B = base ∖ C) don't compose. This is the blocker for composable/nested containers.\n2. **`dset`-sort only** for the referenced term.\n3. **Keyed only on `id`/`author`** (the two `inView.field` options), not a general set operation over the whole delta.\n\n`union` has none of these limits — it's a plain, nestable, whole-delta term op. Difference/intersection should match it.\n\n## Requested\n\nTwo new `Term` ops, symmetric with `union`, over `dset`-sort operands, composable/nestable to any depth (whole-delta, deduped by content-addressed id):\n\n```ts\n| { readonly kind: \"difference\"; readonly of: Term; readonly without: Term }   // of.set ∖ without.set\n| { readonly kind: \"intersect\";  readonly left: Term; readonly right: Term }   // left.set ∩ right.set\n```\n\n`difference` is the concretely-blocking one (exclusion / the sandbox property). `intersect` completes the boolean set algebra (you have `∪`; `∖` and `∩` finish it) and covers overlapping containers (\"what's in both A and B\").\n\n## Scope / non-goals\n\nDeliberately narrow. This is **not** asking for regex/substring string matching, bytes-target (mime/payload) predicates, a delta-intrinsic context/role, or `between` on the timestamp field — the existing `match` (author/timestamp/id with the `Cmp` vocabulary), `hasPointer`, and `and`/`or`/`not` already cover container-membership selection (authored-by, time-range, explicit-id-set, touching-entity, in-context, boolean combos all verified expressible). The single gap is composable **set difference** (and its natural companion, intersection).\n\n## Context\n\nDesign-stage request for discussion, tied to Loam's §24 quarantine / §27 containers work (membership = a delta-query; sandbox = a container property; the scope is set algebra over containers). Happy to iterate on the shape — the essential need is *composable, nestable set-difference over dsets*, first-class like `union`.",
+      "scope": [
+        "spec/**",
+        "vectors/**",
+        "implementations/ts/**",
+        "implementations/rust/**",
+        "tools/**",
+        "docs/**"
+      ],
+      "rails": [],
+      "edges": [],
+      "duration": 3,
+      "category": "feature"
     }
   ]
 }

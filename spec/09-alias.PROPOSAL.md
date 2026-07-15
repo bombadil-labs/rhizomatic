@@ -159,10 +159,12 @@ Normative properties:
 
 ### 4.2 Versioning
 
-This is a grammar extension to alg 1 **while SPEC-2 is pre-release draft**: implementations
-that do not know the form already reject unknown StrMatch keys at parse time, which is the
-required failure mode (SPEC-2 §8 — no partial evaluation). If adopted after a released
-algebra version, `aliased` would be an alg-versioned addition.
+`aliased` adds a new `StrMatch` form — an **additive, parse-visible** extension, so under the
+reconciled SPEC-2 §8 (ERRATA-2 E17) it rides the current `alg: 1` with **no bump**, before or
+after release: an implementation that does not know the form rejects the unknown `StrMatch` key at
+parse time (fail-closed — no partial evaluation), which is exactly the safety a bump would provide.
+An `alg` bump is reserved for *non-parse-visible* changes (altered semantics of an existing form),
+which this is not.
 
 ## 5. Relation Signatures
 

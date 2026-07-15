@@ -92,8 +92,12 @@ inView(t, f, x)(d) over ambient input I  =  f(d) ∈ extract(x, eval(t, I))
 
 Normative semantics:
 
-- **The sub-term `t`** MUST be DSet-sort (`input` | `select` | `union` | `mask`); any other root
-  operator is rejected at parse time. It is evaluated against the **ambient input** — the full
+- **The sub-term `t`** MUST be one of the reflection-free DSet-sort roots `input` | `select` |
+  `union` | `mask`; any other root operator is rejected at parse time. This is an explicit
+  allowlist, not "any DSet-sort term": `difference`/`intersect` (§4.9), though DSet-sort, are
+  deliberately **not** admitted as reflective sub-terms in `alg: 1` — no consumer needs a
+  reflected view defined by exclusion, and adding them later is an additive, parse-visible
+  extension (§8, no bump). It is evaluated against the **ambient input** — the full
   delta set the enclosing evaluation received, *not* the enclosing operator's operand — with the
   same ambient root and hole bindings. (A grant landing anywhere in the set may flip a negation's
   standing, even when the enclosing mask's operand is a narrow selection.) A `mask(annotate)`
@@ -122,7 +126,7 @@ Normative semantics:
 
 ## 4. The Instruction Set
 
-Eight operators. Each entry: signature, semantics, notes.
+Ten operators. Each entry: signature, semantics, notes.
 
 ### 4.1 `select : Pred → DSet → DSet`
 
@@ -134,7 +138,11 @@ The σ of the system. Defines relevance boundaries; every schema begins here. Co
 
 ### 4.2 `union : DSet → DSet → DSet`
 
-Set union by `id`. With `select`, gives ∪/∩/− over delta sets (∩ and − are derivable: `select(and(p,q))`, `select(and(p, not(q)))`).
+Set union by `id`. Its companions `intersect` (∩) and `difference` (−) are first-class operators
+too — see §4.9. The three together are the boolean set algebra over delta sets. (Historically ∩/−
+were noted here as *derivable within one set* — `select(and(p,q))`, `select(and(p, not(q)))` — but
+that derivation only reaches predicates over a single delta; differencing one *term* against
+another needs the operator, ERRATA-2 E17.)
 
 ### 4.3 `mask : MaskPolicy → DSet → DSet`
 
@@ -215,6 +223,34 @@ Registry and the root variable:
 - Schema bodies are functions of their root: predicates may use the **root variable** (`targetEntity: {"var": "root"}`), resolved against the ambient root at evaluation time. A root-variable predicate evaluated with no ambient root matches nothing.
 - `fix` sets the ambient root to its entity explicitly (ignoring any enclosing root); `expand` sets it to each expanded target entity. `fix`'s optional `bindings` introduce the ambient hole environment (§6), flowing through `expand` beneath it.
 
+### 4.9 `difference` and `intersect` — the rest of the set algebra
+
+```
+difference : DSet → DSet → DSet        difference(of, without) = { d ∈ of : d.id ∉ ids(without) }
+intersect  : DSet → DSet → DSet        intersect(left, right)  = { d ∈ left : d.id ∈ ids(right) }
+```
+
+The two companions of `union` (§4.2). With `union` they close the boolean algebra over delta sets:
+`∪`, `∩`, `∖`. Both are **whole-delta, keyed by content-addressed `id`**, DSet-sort in and out, and
+nestable to any depth — a `difference` may difference against a `difference`, which the reflective
+`select(not(inView(…)))` route cannot express (it is stratified at depth 1, §3.1). This composability
+is the point: containers defined relative to other containers (read scope = active containers ∖
+excluded containers) need it (ERRATA-2 E17).
+
+Pinned semantics:
+
+- **Keying is by `id` only** — membership in `without`/`right` is decided by delta id, the content
+  address, so identical claims from the same author collapse to one member (SPEC-1 §4.1) and the ops
+  inherit set semantics for free. Neither op inspects claims; they are pure set operations over the
+  operand results.
+- **`difference` is asymmetric**, hence `of`/`without` (not `left`/`right`): it keeps members of `of`
+  absent from `without`. `intersect` is symmetric and mirrors `union`'s `left`/`right`.
+- **The annotate tag channel does not survive** (§4.3, E14): if an operand is a `mask(annotate, …)`,
+  its `negated` tags are dropped — a set-op result is a plain DSet, never the `{ids, negated}` map.
+  The audit idiom stays `group(key, mask(annotate, …))` with no DSet op between.
+- **Empty operands are ordinary:** `intersect` with an empty operand is `∅`; `difference(of, ∅) =
+  of`; `difference(X, X) = ∅`. No set literals exist in the algebra (E17 Q7).
+
 ## 5. Evaluation Semantics
 
 Evaluation is a pure function:
@@ -225,7 +261,7 @@ eval : Term × DSet → (DSet | HView | View)
 
 - **Deterministic (P5):** same term, same set ⇒ identical canonical output. Conformance vectors test this byte-for-byte.
 - **Order-blind:** no operator may observe delta-set ordering or pointer ordering (SPEC-1 §4.1).
-- **Monotone where claimed:** `select`, `union`, `group`, `expand` are monotone in `D` (more deltas in ⇒ superset of deltas out). `mask` and `resolve` are **not** monotone (a new negation can remove; a new claim can change a resolved value). This split is normative: it tells the reactor exactly which operators need retraction logic (SPEC-4 §4.3). A `select` whose predicate contains `inView` (§3.1) forfeits monotonicity: a delta landing anywhere can shrink the reflected set (a revocation negating a grant), removing previously selected deltas. Reflection-free `select` remains monotone.
+- **Monotone where claimed:** `select`, `union`, `group`, `expand`, and `intersect` are monotone in `D` (more deltas in ⇒ superset of deltas out). `mask` and `resolve` are **not** monotone (a new negation can remove; a new claim can change a resolved value). `difference` is monotone in its `of` operand but **antitone in `without`**: a delta landing in the `without` sub-result *removes* an output, so the reactor must treat the `without` branch as a retraction source, exactly like a negation edge (SPEC-4 §4.3). This split is normative: it tells the reactor exactly which operators need retraction logic (SPEC-4 §4.3). A `select` whose predicate contains `inView` (§3.1) forfeits monotonicity: a delta landing anywhere can shrink the reflected set (a revocation negating a grant), removing previously selected deltas. Reflection-free `select` remains monotone.
 - **Complexity envelope:** for a term `t` and set `D`, evaluation MUST be achievable in O(|D| · |t|) without indexes; the entire point of L4 is to do far better incrementally.
 
 Canonical result encodings (what the conformance vectors compare, byte for byte):
@@ -250,9 +286,10 @@ Claim: the algebra expresses Codd's six primitive operations over relations enco
 |---|---|
 | Selection σ_p | `select(p̂)` where p̂ translates attribute predicates to `hasPointer` predicates |
 | Projection π_A | `group` + `prune(A)` |
-| Cartesian product × / Join ⋈ | joins are materialized as multi-pointer deltas at write time; navigational join is `expand`. Ad-hoc ×: derivable as a schema over pair-entities — see proof doc *(open: whether ad-hoc product needs a ninth operator or is acceptable as a write-time encoding)* |
+| Cartesian product × / Join ⋈ | joins are materialized as multi-pointer deltas at write time; navigational join is `expand`. Ad-hoc ×: derivable as a schema over pair-entities — see proof doc *(open: whether ad-hoc product needs an additional operator or is acceptable as a write-time encoding)* |
 | Union ∪ | `union` |
-| Difference − | `select(and(p, not(q)))` |
+| Difference − | `difference(of, without)` (§4.9) — first-class; `select(and(p, not(q)))` remains the single-set special case |
+| Intersection ∩ | `intersect(left, right)` (§4.9) — first-class; `select(and(p, q))` remains the single-set special case |
 | Rename ρ | vocabulary mapping at L5 (an ABI concern, not an algebra concern) |
 
 The honest open edge is ad-hoc product/join over entities not already linked by deltas. Position of this spec: Rhizomatic stores **materialized joins** (P-claim of the original design); ad-hoc joins are an L4 index/query-planner facility built *from* L2 terms, not a missing instruction. This is flagged for the formal proof to confirm or refute.
@@ -268,14 +305,47 @@ A term's content address is the hash of its canonical CBOR; `SchemaRef` MAY pin 
 
 ## 8. Versioning the Instruction Set
 
-The algebra version is part of every serialized term (`alg: 1`). Adding an operator is a major version; implementations MUST reject terms whose algebra version they do not implement, and MUST NOT partially evaluate them. (Silent degradation on an instruction set is corruption.)
+The algebra version (`alg`) is carried **once, by the HyperSchema wrapper** (`{name, alg, body}`,
+§4.8) — the current value is `1`. It is *not* restated on every term node; a bare term, and a term
+serialized as deltas (§7.2), do not repeat it. (Earlier prose here said `alg` "is part of every
+serialized term"; that was imprecise — the version rides the wrapped program, ERRATA-2 E17.)
 
-Grammar extensions within an operator's closed sub-grammars (a new predicate form, a new order,
-a new mask policy) are **parse-visible**: the profiles in §9 and SPEC-5 §7 are closed, so a
-conformant implementation that predates the extension rejects the unknown form at parse time —
-loudly, before any evaluation. That satisfies the rejection mandate without an `alg` bump; the
-version number gates changes that are *not* parse-visible (altered semantics of existing forms).
-`inView` (§3.1) and `chain` (SPEC-5 §3) enter under this rule.
+**What forces a bump.** An `alg` bump (major) is required **if and only if** the change is *not
+parse-visible* — i.e. it alters the meaning of a form a predating implementation already accepts
+(same bytes, new semantics). There, and only there, an old witness would *silently* produce a
+different result, which on an instruction set is corruption; the version number is the guard.
+Implementations MUST reject terms whose `alg` they do not implement, and MUST NOT partially
+evaluate them.
+
+**What does not force a bump — and the fail-closed rule that makes that safe.** Additive,
+parse-visible changes — a new operator, a new mask policy, a new predicate form, a new order —
+need **no** bump. The profiles in §9 and SPEC-5 §7 are **closed enumerations**, so a conformant
+implementation that predates the extension meets an unrecognized tag and rejects it *at parse
+time, loudly, before any evaluation*. That rejection **is** the safety a bump would have provided,
+so the bump would be redundant. This holds only because rejection is mandatory:
+
+> **A conformant parser MUST fail closed on any unrecognized tag in a closed enumeration** — an
+> unknown `op`, `policy`, `key`, `cmp`, `extract`, order, or predicate constructor. It MUST NOT
+> ignore, skip, or best-effort a term it does not fully recognize.
+
+**Rejection message (SHOULD).** Because additive operators enter *without* an `alg` bump, an
+unrecognized tag most often means **version skew** — the term was authored by a newer witness.
+Implementations SHOULD name the offending tag and point at that possibility rather than emit a bare
+parse error, e.g. *"unknown operator `difference` — this term may have been generated by a newer
+rhizomatic/loam; check whether support for it shipped in a release you haven't installed."* Note
+the `alg` number **cannot** carry this diagnosis: an additive feature shares the `alg` of the
+witnesses that predate it (§4.9 entered at `alg: 1`, unchanged), so a per-node `alg` would not
+distinguish "supports `difference`" from "doesn't." The **tag name** is the actionable signal;
+this is also why `alg` stays on the wrapper and is not restated per node (ERRATA-2 E17).
+
+This reconciles a contradiction in the prior text, which said both "adding an operator is a major
+version" *and* (for `inView`/`chain`) that parse-visible additions need no bump. The first was
+over-broad: an operator added to the closed §9 profile **is** parse-visible — an old parser hits an
+unknown `op` and rejects — so it enters under the parse-visible rule like any other closed-grammar
+extension. `inView` (§3.1), `chain` (SPEC-5 §3), and now `difference`/`intersect` (§4.9) all enter
+this way. The negative conformance vectors (`rejects[]` in `vectors/l1-eval/eval-setalgebra.json`)
+pin the fail-closed behavior across both witnesses — it is a parity requirement, not merely a
+consumer-protection one.
 
 ## 9. Appendix: Term JSON Profile (Normative)
 
@@ -284,8 +354,10 @@ vectors and the canonical CBOR pipeline (§7) consume:
 
 ```
 Term ::= "input"                                          // the delta set under evaluation
-       | { "op": "select",  "pred": Pred, "in": Term }
-       | { "op": "union",   "left": Term, "right": Term }
+       | { "op": "select",     "pred": Pred, "in": Term }
+       | { "op": "union",      "left": Term, "right": Term }
+       | { "op": "intersect",  "left": Term, "right": Term }   // §4.9
+       | { "op": "difference", "of": Term,  "without": Term }  // §4.9 (asymmetric: of ∖ without)
        | { "op": "mask",    "policy": MaskPolicy, "in": Term }
        | { "op": "group",   "key": "byTargetContext" | "byRole" | { "const": string }, "in": Term }
        | { "op": "prune",   "keep": "all" | StrMatch, "in": Term }
@@ -319,8 +391,13 @@ Hole ::= { "hole": "<name>" }                             // Const position only
 Const ::= Primitive | Hole | [Primitive...]               // array form only with cmp inSet
 ```
 
-Parse-time validation: `prefix` requires string (or hole) operands; `match` with `cmp: inSet`
-requires an array const; `and`/`or` take exactly two operands; an empty `PPred` is rejected.
+Parse-time validation: the profile is a **closed enumeration** — an unrecognized `op` (or any
+unrecognized `policy` / `key` / `cmp` / `extract` / order / predicate tag) MUST be **rejected**,
+loudly, before evaluation (§8 fail-closed rule); never ignored or best-effort. `intersect` requires
+`left`/`right`; `difference` requires `of`/`without` (supplying `union`'s `left`/`right` to
+`difference`, or vice versa, is malformed). `prefix` requires string (or hole) operands; `match`
+with `cmp: inSet` requires an array const; `and`/`or` take exactly two operands; an empty `PPred`
+is rejected.
 `inView.term` must parse as a DSet-sort term (`"input"` | `select` | `union` | `mask`) and must
 not itself contain `inView` (§3.1 stratification); `inView` is rejected inside SPEC-5 policy
 predicates and inside `aliased` trust predicates.
@@ -337,3 +414,5 @@ no operator consumes a View.
 - **Cost annotations:** should terms carry optional optimizer hints, or is that strictly an L4 concern?
 - **Reflective dispatch:** terms containing `inView` (§3.1) currently dispatch conservatively (every ingest may change the reflected set — SPEC-4 §4.2). Narrowing this — e.g., indexing the sub-term's own select predicates so only deltas relevant to the *reflected view* re-trigger — is an optimization awaiting a workload that needs it.
 - **Reflective depth:** stratification is pinned at depth 1. A grant-view whose own mask wants a reflective trust predicate ("grants honored per the *grants of grants*") would need depth 2 or an explicit budget; no consumer exists yet, and depth 1 keeps the termination argument trivial.
+- **Set-algebra incremental dispatch (E17 Q6):** `difference` is antitone in its `without` operand (§5) — a delta landing in the `without` sub-result retracts an output, so the reactor must track that branch as a retraction source (SPEC-4 §4.3), analogous to a negation edge. `intersect` is monotone in both. The exact dispatch narrowing (which incoming deltas can affect which branch) is L4 work; the monotonicity split is pinned now so the reactor knows where retraction logic is mandatory.
+- **N-ary set algebra / literals (E17 Q7):** `union`/`intersect`/`difference` are binary, matching one another; there are no `∅`/`all` set literals and no variadic forms. Binary composes to any arity today. A variadic spelling or explicit literals would be an additive, parse-visible extension (no `alg` bump, §8) if a consumer ever wants the ergonomics.

@@ -40,6 +40,8 @@ export type Term =
   | { readonly kind: "input" }
   | { readonly kind: "select"; readonly pred: Pred; readonly of: Term }
   | { readonly kind: "union"; readonly left: Term; readonly right: Term }
+  | { readonly kind: "intersect"; readonly left: Term; readonly right: Term }
+  | { readonly kind: "difference"; readonly of: Term; readonly without: Term }
   | { readonly kind: "mask"; readonly policy: MaskPolicy; readonly of: Term }
   | { readonly kind: "group"; readonly key: GroupKey; readonly of: Term }
   | { readonly kind: "prune"; readonly keep: "all" | StrMatch; readonly of: Term }
@@ -307,7 +309,10 @@ export function termContainsInView(t: Term): boolean {
     case "select":
       return predContainsInView(t.pred) || termContainsInView(t.of);
     case "union":
+    case "intersect":
       return termContainsInView(t.left) || termContainsInView(t.right);
+    case "difference":
+      return termContainsInView(t.of) || termContainsInView(t.without);
     case "mask":
       return (
         (t.policy.kind === "trust" && predContainsInView(t.policy.pred)) || termContainsInView(t.of)
@@ -381,6 +386,22 @@ export function evalTerm(
       const left = expectDSet(evalTerm(term.left, input, root, registry, bindings), "union");
       const right = expectDSet(evalTerm(term.right, input, root, registry, bindings), "union");
       return dsetResult(merge(left.set, right.set));
+    }
+    case "intersect": {
+      // left ∩ right, keyed by content-addressed id (SPEC-2 §4.9). Plain DSet result: any
+      // mask(annotate) tag channel on an operand is dropped, like select/union (E14).
+      const left = expectDSet(evalTerm(term.left, input, root, registry, bindings), "intersect");
+      const right = expectDSet(evalTerm(term.right, input, root, registry, bindings), "intersect");
+      return dsetResult(fork(left.set, (d) => right.set.has(d.id)));
+    }
+    case "difference": {
+      // of ∖ without, keyed by id (SPEC-2 §4.9). Asymmetric operands `of`/`without`.
+      const of = expectDSet(evalTerm(term.of, input, root, registry, bindings), "difference");
+      const without = expectDSet(
+        evalTerm(term.without, input, root, registry, bindings),
+        "difference",
+      );
+      return dsetResult(fork(of.set, (d) => !without.set.has(d.id)));
     }
     case "mask": {
       const of = expectDSet(evalTerm(term.of, input, root, registry, bindings), "mask");
