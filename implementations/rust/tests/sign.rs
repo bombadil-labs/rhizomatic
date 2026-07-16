@@ -83,6 +83,35 @@ fn signed_delta_vectors() {
     }
 }
 
+/// Signature acceptance edge cases (SPEC-1 §5.1 strict criterion, ERRATA D13, issue #20):
+/// non-canonical scalars/encodings, small-order components, and the cofactorless boundary.
+/// Several cases are accepted by permissive (ZIP215) verifiers and MUST be refused here.
+#[test]
+fn sig_edge_vectors() {
+    for v in read_vector("l0-delta/deltas-sig-edge.json") {
+        let name = v["name"].as_str().unwrap();
+        let claims = parse_claims(&v["claims"]).unwrap();
+        let id = v["id"].as_str().unwrap();
+        assert_eq!(compute_id(&claims).unwrap(), id, "id mismatch for {name}");
+        let delta = Delta {
+            id: id.to_string(),
+            claims,
+            sig: Some(v["sig"].as_str().unwrap().to_string()),
+        };
+        let expected = match v["verdict"].as_str().unwrap() {
+            "verified" => Verification::Verified,
+            "invalid" => Verification::Invalid,
+            other => panic!("unknown verdict {other} in {name}"),
+        };
+        assert_eq!(
+            verify_delta(&delta),
+            expected,
+            "{name} — {}",
+            v["reason"].as_str().unwrap_or("")
+        );
+    }
+}
+
 #[test]
 fn refuses_author_mismatch() {
     let keys = read_vector("keys/keys.json");

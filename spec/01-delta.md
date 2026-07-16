@@ -218,6 +218,44 @@ Any consuming language needs a correctly-rounded parser guarantee.
 - Signatures are OPTIONAL at L1 (local/trusted contexts may omit them). For any delta crossing a federation boundary, signature coverage is REQUIRED in one of two forms: the delta carries its own `sig`, **or** it is accompanied by a signed transaction manifest (§9) whose `DeltaRef` pointers cover it — Merkle coverage, exactly as a git commit authenticates its blobs. An extracted delta travels with its proof.
 - An unsigned delta's `author` field is an unverified claim. Resolution policies (SPEC-5) MAY weight signed and unsigned claims differently. The legacy "spoofable author" problem is thereby reframed: spoofing is detectable wherever signatures are demanded, and policy decides what unsigned claims are worth.
 
+### 5.1 Signature acceptance (the strict criterion)
+
+RFC 8032 underspecifies which edge-case signatures verify, and real libraries disagree (see
+*"Taming the many EdDSAs"* / ed25519-speccheck). Verification is admission: a federation whose
+witnesses admit different delta sets does not converge. So the acceptance criterion is pinned
+here, **normatively and in full** — the text below, not any library's default, is the criterion
+(ERRATA D13, issue #20).
+
+Let `p = 2^255 − 19`, `L = 2^252 + 27742317777372353535851937790883648493` (the prime order of
+the basepoint subgroup), `B` the Ed25519 basepoint, and `M` the message (the 34 raw multihash
+bytes of the delta's `id`, per §5). A 64-byte signature `R ‖ S` against the 32-byte public key
+`A` verifies **iff every one of these checks passes**:
+
+1. **Canonical scalar.** `S`, read little-endian, satisfies `S < L`.
+2. **Canonical encoding of `A`.** The 32 bytes of `A` decompress to a point on the curve, and
+   re-compressing that point reproduces the identical 32 bytes. (This rejects `y ≥ p` and a set
+   sign bit when `x = 0`.)
+3. **Canonical encoding of `R`.** Same check as 2, applied to the first 32 signature bytes.
+4. **No small-order components.** Neither `A` nor `R` is a point of small order — i.e.
+   `[8]A ≠ 𝒪` and `[8]R ≠ 𝒪`, where `𝒪` is the identity. (A point of *large* order carrying a
+   torsion component is NOT rejected by this check; check 5 decides it.)
+5. **Cofactorless equation.** `[S]B = R + [k]A` holds **exactly** (no multiplication by the
+   cofactor 8 on either side), where `k = SHA-512(R ‖ A ‖ M) mod L`.
+
+The checks are stated in evaluation order for clarity, but they are pure predicates: an input is
+accepted iff all five hold, so implementations may evaluate them in any order. Rejection is
+rejection — the boundary refuses non-canonical and small-order inputs rather than normalizing
+them, exactly as NFC is validated and never repaired (§4.1). Implementations MUST NOT delegate
+this criterion to a library default without confirming the library implements precisely these
+five checks; the conformance vectors (`vectors/l0-delta/deltas-sig-edge.json`) machine-check
+every clause, including inputs that the permissive ZIP215 criterion accepts and this criterion
+refuses, and one mixed-torsion input that this criterion deliberately accepts.
+
+*(Why strict and not ZIP215: ZIP215's virtue is inter-verifier agreement, which any pin achieves;
+strict additionally matches this spec's boundary discipline. ZIP215's other virtue — batch
+verification compatibility — is not exercised by this format. Signing is unaffected: RFC 8032
+signing is deterministic and identical under both criteria.)*
+
 ## 6. Time
 
 There is no clock in the format. `timestamp` is a **claim made by the author**, with the same epistemic status as every other claim:

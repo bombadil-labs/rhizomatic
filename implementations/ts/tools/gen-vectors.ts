@@ -23,8 +23,11 @@ import {
 } from "../src/schema-deltas.js";
 import { SchemaRegistry } from "../src/schema.js";
 import { schemaCanonicalHex, termCanonicalHex, termHash, termToJson } from "../src/term-io.js";
+import { ED25519_TORSION_SUBGROUP, ed25519 } from "@noble/curves/ed25519";
+import { sha512 } from "@noble/hashes/sha2";
+import { concatBytes, hexToBytes } from "@noble/hashes/utils";
 import { DeltaSet, makeDelta } from "../src/set.js";
-import { authorForSeed, publicKeyFromSeed, signClaims } from "../src/sign.js";
+import { authorForSeed, publicKeyFromSeed, signClaims, verifyDelta } from "../src/sign.js";
 import { parsePred, parseSchema, parseTerm } from "../src/term-json.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -235,6 +238,277 @@ const signed = signedInputs.map(({ name, spec, keyId, mk }) => {
 
 writeFileSync(resolve(outDir, "deltas-signed.json"), `${JSON.stringify(signed, null, 2)}\n`);
 console.log(`wrote ${signed.length} signed delta vectors to vectors/l0-delta/deltas-signed.json`);
+
+// --- signature acceptance edge cases (SPEC-1 §5.1 strict criterion, ERRATA D13, issue #20) ---
+// Each case targets one clause of the five-check criterion. Constructions are fully
+// deterministic (fixed scalars, exhaustive torsion search), and every expected verdict is
+// re-checked against verifyDelta at generation time — a regenerated vector can never silently
+// ship a wrong verdict. `zip215Accepts` is informative: it documents which cases split the
+// strict pin from the permissive ZIP215 criterion the TS witness used before D13.
+
+const EdPoint = ed25519.ExtendedPoint;
+const L_ORDER = ed25519.CURVE.n;
+const leNum = (b: Uint8Array): bigint => {
+  let n = 0n;
+  for (let i = b.length - 1; i >= 0; i--) n = (n << 8n) | BigInt(b[i]!);
+  return n;
+};
+const numLe32 = (n: bigint): Uint8Array => {
+  const out = new Uint8Array(32);
+  for (let i = 0; i < 32; i++) {
+    out[i] = Number(n & 0xffn);
+    n >>= 8n;
+  }
+  return out;
+};
+const kScalar = (r: Uint8Array, a: Uint8Array, m: Uint8Array): bigint =>
+  leNum(sha512(concatBytes(r, a, m))) % L_ORDER;
+
+const key1 = keys[0]!;
+const key1Pub = hexToBytes(key1.publicKeyHex);
+const key1Scalar = ed25519.utils.getExtendedPublicKey(hexToBytes(key1.seedHex)).scalar;
+const key1Point = EdPoint.fromHex(key1.publicKeyHex, false);
+
+// Fixed nonce scalar — nothing about the criterion depends on nonce secrecy in these vectors.
+const rFixed = leNum(sha512(new TextEncoder().encode("rhizomatic deltas-sig-edge r1"))) % L_ORDER;
+
+const IDENTITY_HEX = `01${"00".repeat(31)}`; // canonical encoding of 𝒪 (order 1)
+const NONCANONICAL_Y_HEX = `ed${"ff".repeat(30)}7f`; // y = p, a non-canonical spelling of y = 0
+const SIGNBIT_IDENTITY_HEX = `01${"00".repeat(30)}80`; // 𝒪 with the sign bit set (x = 0 ⇒ MUST be 0)
+const torsion8 = EdPoint.fromHex(ED25519_TORSION_SUBGROUP[1]!, true); // an order-8 point, canonical
+
+interface SigEdgeCase {
+  name: string;
+  spec: string;
+  reason: string;
+  claims: unknown;
+  id: string;
+  sig: string;
+  verdict: "verified" | "invalid";
+  zip215Accepts: boolean;
+}
+
+const sigEdgeCases: SigEdgeCase[] = [];
+const addEdge = (
+  name: string,
+  spec: string,
+  reason: string,
+  claimsJson: unknown,
+  sigBytes: Uint8Array,
+  verdict: "verified" | "invalid",
+) => {
+  const parsed = parseClaims(claimsJson);
+  const id = computeId(parsed);
+  const msg = hexToBytes(id);
+  const pubHex = parsed.author.slice("ed25519:".length);
+  let zip215Accepts = false;
+  try {
+    zip215Accepts = ed25519.verify(sigBytes, msg, hexToBytes(pubHex), { zip215: true });
+  } catch {
+    zip215Accepts = false;
+  }
+  const sig = bytesToHex(sigBytes);
+  const got = verifyDelta({ id, claims: parsed, sig });
+  if (got !== verdict) {
+    throw new Error(`sig-edge "${name}": expected ${verdict}, verifyDelta says ${got}`);
+  }
+  sigEdgeCases.push({ name, spec, reason, claims: claimsJson, id, sig, verdict, zip215Accepts });
+};
+
+// 1. Control: an honest signature verifies (all five checks pass).
+const controlClaims = {
+  timestamp: 777,
+  author: key1.author,
+  pointers: [{ role: "case", target: "control-valid" }],
+};
+const controlDelta = signClaims(parseClaims(controlClaims), key1.seedHex);
+addEdge(
+  "sig-edge-control-valid",
+  "SPEC-1 §5.1 (all checks pass)",
+  "honest RFC 8032 signature by test-key-1",
+  controlClaims,
+  hexToBytes(controlDelta.sig!),
+  "verified",
+);
+
+// 2. Check 1 — non-canonical scalar: S + L names the same residue but MUST be rejected.
+{
+  const sigBytes = hexToBytes(controlDelta.sig!);
+  const bumped = concatBytes(
+    sigBytes.subarray(0, 32),
+    numLe32(leNum(sigBytes.subarray(32)) + L_ORDER),
+  );
+  addEdge(
+    "sig-edge-noncanonical-s",
+    "SPEC-1 §5.1 check 1",
+    "S' = S + L: same residue mod L as the control signature, non-canonical spelling (ZIP215 also rejects this)",
+    controlClaims,
+    bumped,
+    "invalid",
+  );
+}
+
+// 3. Check 4 — small-order public key. A = 𝒪 makes every k·A vanish, so (R = rB, S = r)
+// satisfies the cofactorless equation for ANY message; only the small-order check stops it.
+{
+  const author = `ed25519:${IDENTITY_HEX}`;
+  const claimsJson = {
+    timestamp: 777,
+    author,
+    pointers: [{ role: "case", target: "small-order-pubkey" }],
+  };
+  const R = EdPoint.BASE.multiply(rFixed);
+  addEdge(
+    "sig-edge-small-order-pubkey-identity",
+    "SPEC-1 §5.1 check 4 (small-order A)",
+    "A = identity: the cofactorless equation holds for any message (kA = 𝒪), a universal forgery admitted by ZIP215 and refused by strict",
+    claimsJson,
+    concatBytes(R.toRawBytes(), numLe32(rFixed)),
+    "invalid",
+  );
+}
+
+// 4. Check 4 — small-order R. With the honest key and R = 𝒪, S = k·a satisfies the equation.
+{
+  const claimsJson = {
+    timestamp: 777,
+    author: key1.author,
+    pointers: [{ role: "case", target: "small-order-r" }],
+  };
+  const id = computeId(parseClaims(claimsJson));
+  const iBytes = hexToBytes(IDENTITY_HEX);
+  const k = kScalar(iBytes, key1Pub, hexToBytes(id));
+  const s = (k * key1Scalar) % L_ORDER;
+  addEdge(
+    "sig-edge-small-order-r-identity",
+    "SPEC-1 §5.1 check 4 (small-order R)",
+    "R = identity, S = k·a: the cofactorless equation holds, only the small-order check refuses it (ZIP215 accepts)",
+    claimsJson,
+    concatBytes(iBytes, numLe32(s)),
+    "invalid",
+  );
+}
+
+// 5. Check 4 — small-order pair, S = 0 (the classic speccheck shape). The cofactored equation
+// [8]𝒪 = [8]R + [8k]A holds trivially for ANY torsion pair, so ZIP215 accepts it outright.
+{
+  const author = `ed25519:${torsion8.toHex()}`;
+  const claimsJson = {
+    timestamp: 777,
+    author,
+    pointers: [{ role: "case", target: "small-order-pair" }],
+  };
+  const rTorsion = EdPoint.fromHex(ED25519_TORSION_SUBGROUP[3]!, true);
+  addEdge(
+    "sig-edge-small-order-pair-s-zero",
+    "SPEC-1 §5.1 check 4 (small-order A and R)",
+    "order-8 A and R with S = 0: cofactored verification (ZIP215) accepts any such pair; strict refuses both components",
+    claimsJson,
+    concatBytes(rTorsion.toRawBytes(), numLe32(0n)),
+    "invalid",
+  );
+}
+
+// 6./7./8. Checks 2 and 3 — non-canonical encodings.
+addEdge(
+  "sig-edge-noncanonical-pubkey-y-geq-p",
+  "SPEC-1 §5.1 check 2",
+  "A encodes y = p (a non-canonical spelling of y = 0): decompress-recompress does not reproduce the bytes (ZIP215 accepts the encoding)",
+  {
+    timestamp: 777,
+    author: `ed25519:${NONCANONICAL_Y_HEX}`,
+    pointers: [{ role: "case", target: "noncanonical-pubkey" }],
+  },
+  new Uint8Array(64),
+  "invalid",
+);
+addEdge(
+  "sig-edge-noncanonical-r-y-geq-p",
+  "SPEC-1 §5.1 check 3",
+  "R encodes y = p: same rejection as check 2, applied to the signature's point half",
+  {
+    timestamp: 777,
+    author: key1.author,
+    pointers: [{ role: "case", target: "noncanonical-r" }],
+  },
+  concatBytes(hexToBytes(NONCANONICAL_Y_HEX), new Uint8Array(32)),
+  "invalid",
+);
+addEdge(
+  "sig-edge-noncanonical-pubkey-sign-bit",
+  "SPEC-1 §5.1 check 2",
+  "A encodes the identity with the sign bit set: x = 0 admits only sign 0, so the encoding is non-canonical",
+  {
+    timestamp: 777,
+    author: `ed25519:${SIGNBIT_IDENTITY_HEX}`,
+    pointers: [{ role: "case", target: "signbit-pubkey" }],
+  },
+  new Uint8Array(64),
+  "invalid",
+);
+
+// 9./10. Check 5 boundary — a MIXED-order key (honest key + order-8 torsion). Such an A is not
+// small-order, so check 4 passes and the cofactorless equation alone decides. The torsion
+// subgroup is cyclic of order 8, so iterating R = rB + T' over all eight T' yields exactly one
+// candidate where the torsion cancels (cofactorless holds → verified) and seven where it
+// survives (cofactored holds, cofactorless fails → invalid; ZIP215 accepts, strict refuses).
+{
+  const aMixed = key1Point.add(torsion8);
+  const aMixedBytes = aMixed.toRawBytes();
+  const author = `ed25519:${bytesToHex(aMixedBytes)}`;
+  const claimsJson = {
+    timestamp: 777,
+    author,
+    pointers: [{ role: "case", target: "mixed-torsion" }],
+  };
+  const id = computeId(parseClaims(claimsJson));
+  const msg = hexToBytes(id);
+  let cancelling: Uint8Array | undefined;
+  let surviving: Uint8Array | undefined;
+  for (const tHex of ED25519_TORSION_SUBGROUP) {
+    const tPrime = EdPoint.fromHex(tHex, true);
+    const R = EdPoint.BASE.multiply(rFixed).add(tPrime);
+    const rBytes = R.toRawBytes();
+    const k = kScalar(rBytes, aMixedBytes, msg);
+    const s = (rFixed + k * key1Scalar) % L_ORDER;
+    const sig = concatBytes(rBytes, numLe32(s));
+    const torsionResidue = tPrime.add(torsion8.multiplyUnsafe(k));
+    if (torsionResidue.is0()) {
+      cancelling ??= sig;
+    } else {
+      surviving ??= sig;
+    }
+  }
+  if (!cancelling || !surviving) {
+    throw new Error(
+      "sig-edge mixed-torsion search failed: torsion subgroup should be cyclic of order 8",
+    );
+  }
+  addEdge(
+    "sig-edge-mixed-torsion-verifies",
+    "SPEC-1 §5.1 check 5 (mixed order is NOT small order)",
+    "A carries an order-8 torsion component but is large-order; the torsion cancels in the cofactorless equation, so strict deliberately accepts — check 4 rejects small-order components, not mixed-order keys",
+    claimsJson,
+    cancelling,
+    "verified",
+  );
+  addEdge(
+    "sig-edge-cofactored-only",
+    "SPEC-1 §5.1 check 5 (cofactorless, exactly)",
+    "same mixed-order A, but the torsion survives: multiplying by the cofactor would erase it (ZIP215 accepts), the exact equation does not",
+    claimsJson,
+    surviving,
+    "invalid",
+  );
+}
+
+writeFileSync(
+  resolve(outDir, "deltas-sig-edge.json"),
+  `${JSON.stringify(sigEdgeCases, null, 2)}\n`,
+);
+console.log(
+  `wrote ${sigEdgeCases.length} signature-edge vectors to vectors/l0-delta/deltas-sig-edge.json`,
+);
 
 // --- bytes target kind (issue #7, 0.4, ERRATA D12) — all additive ---
 
