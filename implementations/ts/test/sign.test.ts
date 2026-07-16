@@ -75,6 +75,28 @@ describe("signed delta vectors (ERRATA D8-D9)", () => {
     expect(verifyDelta(unsigned)).toBe("unsigned");
   });
 
+  interface SigEdgeVector {
+    name: string;
+    spec: string;
+    reason: string;
+    claims: unknown;
+    id: string;
+    sig: string;
+    verdict: "verified" | "invalid";
+  }
+
+  const sigEdge = read("l0-delta/deltas-sig-edge.json") as SigEdgeVector[];
+
+  describe("signature acceptance edge cases (SPEC-1 §5.1 strict criterion, ERRATA D13)", () => {
+    for (const v of sigEdge) {
+      it(`${v.name} — ${v.reason}`, () => {
+        const claims = parseClaims(v.claims);
+        expect(computeId(claims)).toBe(v.id);
+        expect(verifyDelta({ id: v.id, claims, sig: v.sig })).toBe(v.verdict);
+      });
+    }
+  });
+
   it("refuses to sign claims whose author mismatches the key (ERRATA D8)", () => {
     const key = keys[0]!;
     const claims = parseClaims({

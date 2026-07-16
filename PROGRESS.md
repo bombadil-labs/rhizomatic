@@ -1,5 +1,31 @@
 # Progress
 
+> **RESUME HERE (2026-07-16). THE ED25519 ACCEPTANCE CRITERION IS PINNED — STRICT (issue #20,
+> branch `ed25519-strict-pin`; releases as 0.7.0):**
+>
+> - **The finding:** the two witnesses verified under different criteria — TS on noble's ZIP215
+>   default (cofactored, permissive encodings), Rust on dalek's `verify_strict` (cofactorless,
+>   canonical-only, small-order-rejecting). Honest signatures agree, so every prior vector passed
+>   in both; adversarial edge cases split them, and verification is admission — a criterion split
+>   is a federation split. Invisible to the old suite by construction.
+> - **The pin (Myk):** strict, stated normatively in the spec's own words — SPEC-1 §5.1's five
+>   checks (canonical `S < L`; canonical `A`/`R` encodings by decompress–recompress; no
+>   small-order `A`/`R`; the cofactorless equation, exactly). ERRATA D13 records the decision.
+>   Mixed-order points are deliberately NOT rejected — the equation decides them; the vectors pin
+>   both sides of that boundary.
+> - **Vectors:** `l0-delta/deltas-sig-edge.json`, ten deterministic constructions (fixed nonce
+>   scalars; exhaustive search over the cyclic order-8 torsion subgroup) covering every clause,
+>   six of them ZIP215-accepts/strict-refuses; verdicts re-checked by `verifyDelta` at generation
+>   time. Both witnesses now implement the five checks explicitly (noble primitives / 
+>   `curve25519-dalek` + `sha2`) — never a library's opinion of "strict".
+> - **Gates:** unblocks the sign/verify slice of the Elixir witness (#19), which waits on this
+>   pin and nothing else in it.
+>
+> Both witnesses green, canonical bytes match, `node tools/check-all.mjs` clean, wasm target
+> clippy-clean, docs bundles rebuilt.
+>
+> ---
+
 > **RESUME HERE (2026-07-11). THE L5 VOCABULARY REALIGNMENT SHIPPED (issue #3, Option B —
 > branch `rename/3-schema-vocabulary`; releases as 0.3.0):**
 >

@@ -2913,10 +2913,10 @@
   }
   var wNAF = class {
     // Parametrized with a given Point class (not individual point)
-    constructor(Point, bits) {
-      this.BASE = Point.BASE;
-      this.ZERO = Point.ZERO;
-      this.Fn = Point.Fn;
+    constructor(Point2, bits) {
+      this.BASE = Point2.BASE;
+      this.ZERO = Point2.ZERO;
+      this.Fn = Point2.Fn;
       this.bits = bits;
     }
     // non-const time multiplication ladder
@@ -3144,7 +3144,7 @@
       return n;
     }
     function aextpoint(other) {
-      if (!(other instanceof Point))
+      if (!(other instanceof Point2))
         throw new Error("ExtendedPoint expected");
     }
     const toAffineMemo = memoized((p, iz) => {
@@ -3181,7 +3181,7 @@
         throw new Error("bad point: equation left != right (2)");
       return true;
     });
-    class Point {
+    class Point2 {
       constructor(X, Y, Z, T) {
         this.X = acoord("x", X);
         this.Y = acoord("y", Y);
@@ -3193,12 +3193,12 @@
         return CURVE;
       }
       static fromAffine(p) {
-        if (p instanceof Point)
+        if (p instanceof Point2)
           throw new Error("extended point not allowed");
         const { x, y } = p || {};
         acoord("x", x);
         acoord("y", y);
-        return new Point(x, y, _1n4, modP(x * y));
+        return new Point2(x, y, _1n4, modP(x * y));
       }
       // Uses algo from RFC8032 5.1.3.
       static fromBytes(bytes, zip215 = false) {
@@ -3224,10 +3224,10 @@
           throw new Error("bad point: x=0 and x_0=1");
         if (isLastByteOdd !== isXOdd)
           x = modP(-x);
-        return Point.fromAffine({ x, y });
+        return Point2.fromAffine({ x, y });
       }
       static fromHex(bytes, zip215 = false) {
-        return Point.fromBytes(ensureBytes("point", bytes), zip215);
+        return Point2.fromBytes(ensureBytes("point", bytes), zip215);
       }
       get x() {
         return this.toAffine().x;
@@ -3257,10 +3257,10 @@
         return X1Z2 === X2Z1 && Y1Z2 === Y2Z1;
       }
       is0() {
-        return this.equals(Point.ZERO);
+        return this.equals(Point2.ZERO);
       }
       negate() {
-        return new Point(modP(-this.X), this.Y, this.Z, modP(-this.T));
+        return new Point2(modP(-this.X), this.Y, this.Z, modP(-this.T));
       }
       // Fast algo for doubling Extended Point.
       // https://hyperelliptic.org/EFD/g1p/auto-twisted-extended.html#doubling-dbl-2008-hwcd
@@ -3281,7 +3281,7 @@
         const Y3 = modP(G * H);
         const T3 = modP(E * H);
         const Z3 = modP(F * G);
-        return new Point(X3, Y3, Z3, T3);
+        return new Point2(X3, Y3, Z3, T3);
       }
       // Fast algo for adding 2 Extended Points.
       // https://hyperelliptic.org/EFD/g1p/auto-twisted-extended.html#addition-add-2008-hwcd
@@ -3303,7 +3303,7 @@
         const Y3 = modP(G * H);
         const T3 = modP(E * H);
         const Z3 = modP(F * G);
-        return new Point(X3, Y3, Z3, T3);
+        return new Point2(X3, Y3, Z3, T3);
       }
       subtract(other) {
         return this.add(other.negate());
@@ -3312,22 +3312,22 @@
       multiply(scalar) {
         if (!Fn2.isValidNot0(scalar))
           throw new Error("invalid scalar: expected 1 <= sc < curve.n");
-        const { p, f } = wnaf.cached(this, scalar, (p2) => normalizeZ(Point, p2));
-        return normalizeZ(Point, [p, f])[0];
+        const { p, f } = wnaf.cached(this, scalar, (p2) => normalizeZ(Point2, p2));
+        return normalizeZ(Point2, [p, f])[0];
       }
       // Non-constant-time multiplication. Uses double-and-add algorithm.
       // It's faster, but should only be used when you don't care about
       // an exposed private key e.g. sig verification.
       // Does NOT allow scalars higher than CURVE.n.
       // Accepts optional accumulator to merge with multiply (important for sparse scalars)
-      multiplyUnsafe(scalar, acc = Point.ZERO) {
+      multiplyUnsafe(scalar, acc = Point2.ZERO) {
         if (!Fn2.isValid(scalar))
           throw new Error("invalid scalar: expected 0 <= sc < curve.n");
         if (scalar === _0n4)
-          return Point.ZERO;
+          return Point2.ZERO;
         if (this.is0() || scalar === _1n4)
           return this;
-        return wnaf.unsafe(this, scalar, (p) => normalizeZ(Point, p), acc);
+        return wnaf.unsafe(this, scalar, (p) => normalizeZ(Point2, p), acc);
       }
       // Checks if point is of small order.
       // If you add something to small order point, you will have "dirty"
@@ -3377,10 +3377,10 @@
         return this.T;
       }
       static normalizeZ(points) {
-        return normalizeZ(Point, points);
+        return normalizeZ(Point2, points);
       }
       static msm(points, scalars) {
-        return pippenger(Point, Fn2, points, scalars);
+        return pippenger(Point2, Fn2, points, scalars);
       }
       _setWindowSize(windowSize) {
         this.precompute(windowSize);
@@ -3389,13 +3389,13 @@
         return this.toBytes();
       }
     }
-    Point.BASE = new Point(CURVE.Gx, CURVE.Gy, _1n4, modP(CURVE.Gx * CURVE.Gy));
-    Point.ZERO = new Point(_0n4, _1n4, _1n4, _0n4);
-    Point.Fp = Fp2;
-    Point.Fn = Fn2;
-    const wnaf = new wNAF(Point, Fn2.BITS);
-    Point.BASE.precompute(8);
-    return Point;
+    Point2.BASE = new Point2(CURVE.Gx, CURVE.Gy, _1n4, modP(CURVE.Gx * CURVE.Gy));
+    Point2.ZERO = new Point2(_0n4, _1n4, _1n4, _0n4);
+    Point2.Fp = Fp2;
+    Point2.Fn = Fn2;
+    const wnaf = new wNAF(Point2, Fn2.BITS);
+    Point2.BASE.precompute(8);
+    return Point2;
   }
   var PrimeEdwardsPoint = class {
     constructor(ep) {
@@ -3464,7 +3464,7 @@
       return this.toBytes();
     }
   };
-  function eddsa(Point, cHash, eddsaOpts = {}) {
+  function eddsa(Point2, cHash, eddsaOpts = {}) {
     if (typeof cHash !== "function")
       throw new Error('"hash" function param is required');
     _validateObject(eddsaOpts, {}, {
@@ -3475,7 +3475,7 @@
       mapToCurve: "function"
     });
     const { prehash } = eddsaOpts;
-    const { BASE, Fp: Fp2, Fn: Fn2 } = Point;
+    const { BASE, Fp: Fp2, Fn: Fn2 } = Point2;
     const randomBytes2 = eddsaOpts.randomBytes || randomBytes;
     const adjustScalarBytes2 = eddsaOpts.adjustScalarBytes || ((bytes) => bytes);
     const domain = eddsaOpts.domain || ((data, ctx, phflag) => {
@@ -3539,8 +3539,8 @@
       const s = bytesToNumberLE(sig.subarray(mid, len));
       let A, R, SB;
       try {
-        A = Point.fromBytes(publicKey, zip215);
-        R = Point.fromBytes(r, zip215);
+        A = Point2.fromBytes(publicKey, zip215);
+        R = Point2.fromBytes(r, zip215);
         SB = BASE.multiplyUnsafe(s);
       } catch (error) {
         return false;
@@ -3570,7 +3570,7 @@
     }
     function isValidPublicKey(key, zip215) {
       try {
-        return !!Point.fromBytes(key, zip215);
+        return !!Point2.fromBytes(key, zip215);
       } catch (error) {
         return false;
       }
@@ -3590,7 +3590,7 @@
        *   - `(x, y) = (sqrt(156324)*u/v, (1+u)/(1-u))`
        */
       toMontgomery(publicKey) {
-        const { y } = Point.fromBytes(publicKey);
+        const { y } = Point2.fromBytes(publicKey);
         const size = lengths.publicKey;
         const is25519 = size === 32;
         if (!is25519 && size !== 57)
@@ -3607,7 +3607,7 @@
       /** @deprecated */
       randomPrivateKey: randomSecretKey,
       /** @deprecated */
-      precompute(windowSize = 8, point = Point.BASE) {
+      precompute(windowSize = 8, point = Point2.BASE) {
         return point.precompute(windowSize, false);
       }
     };
@@ -3617,7 +3617,7 @@
       sign,
       verify,
       utils,
-      Point,
+      Point: Point2,
       lengths
     });
   }
@@ -3644,19 +3644,19 @@
     return { CURVE, curveOpts, hash: c.hash, eddsaOpts };
   }
   function _eddsa_new_output_to_legacy(c, eddsa2) {
-    const Point = eddsa2.Point;
+    const Point2 = eddsa2.Point;
     const legacy = Object.assign({}, eddsa2, {
-      ExtendedPoint: Point,
+      ExtendedPoint: Point2,
       CURVE: c,
-      nBitLength: Point.Fn.BITS,
-      nByteLength: Point.Fn.BYTES
+      nBitLength: Point2.Fn.BITS,
+      nByteLength: Point2.Fn.BYTES
     });
     return legacy;
   }
   function twistedEdwards(c) {
     const { CURVE, curveOpts, hash, eddsaOpts } = _eddsa_legacy_opts_to_new(c);
-    const Point = edwards(CURVE, curveOpts);
-    const EDDSA = eddsa(Point, hash, eddsaOpts);
+    const Point2 = edwards(CURVE, curveOpts);
+    const EDDSA = eddsa(Point2, hash, eddsaOpts);
     return _eddsa_new_output_to_legacy(c, EDDSA);
   }
 
@@ -3900,13 +3900,39 @@
     const sig = bytesToHex(ed25519.sign(hexToBytes(id), hexToBytes(seedHex)));
     return { id, claims, sig };
   }
+  var Point = ed25519.ExtendedPoint;
+  var L = ed25519.CURVE.n;
+  function bytesToNumberLE2(bytes) {
+    let n = 0n;
+    for (let i = bytes.length - 1; i >= 0; i--) n = n << 8n | BigInt(bytes[i]);
+    return n;
+  }
+  function verifySigStrict(sig, msg, pub) {
+    if (sig.length !== 64 || pub.length !== 32) return false;
+    const rBytes = sig.subarray(0, 32);
+    const s = bytesToNumberLE2(sig.subarray(32));
+    if (s >= L) return false;
+    let A;
+    let R;
+    try {
+      A = Point.fromHex(pub, false);
+      R = Point.fromHex(rBytes, false);
+    } catch {
+      return false;
+    }
+    if (A.isSmallOrder() || R.isSmallOrder()) return false;
+    const k = bytesToNumberLE2(sha512(concatBytes(rBytes, pub, msg))) % L;
+    const lhs = Point.BASE.multiplyUnsafe(s);
+    const rhs = R.add(A.multiplyUnsafe(k));
+    return lhs.equals(rhs);
+  }
   function verifyDelta(delta) {
     if (computeId(delta.claims) !== delta.id) return "invalid";
     if (delta.sig === void 0) return "unsigned";
     if (!delta.claims.author.startsWith(AUTHOR_PREFIX)) return "invalid";
     const pubHex = delta.claims.author.slice(AUTHOR_PREFIX.length);
     try {
-      return ed25519.verify(hexToBytes(delta.sig), hexToBytes(delta.id), hexToBytes(pubHex)) ? "verified" : "invalid";
+      return verifySigStrict(hexToBytes(delta.sig), hexToBytes(delta.id), hexToBytes(pubHex)) ? "verified" : "invalid";
     } catch {
       return "invalid";
     }

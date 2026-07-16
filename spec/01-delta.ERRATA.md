@@ -98,6 +98,30 @@ existing vector entry changes, no content address moves.
   drift. Encoding is canonical by construction; decoding validates it.
 
 
+## D13 — Ed25519 verification pinned to the strict criterion (2026-07-16, issue #20)
+
+Normative text folded into SPEC-1 §5.1; recorded here for the decision and its rationale, pinned
+by `vectors/l0-delta/deltas-sig-edge.json`.
+
+The two witnesses verified under different acceptance criteria — TS on `@noble/curves`' default
+(ZIP215: cofactored, permissive about non-canonical encodings), Rust on `ed25519-dalek`'s
+`verify_strict` (cofactorless, rejecting non-canonical encodings and small-order components).
+Honest signatures verify identically under both, so every prior vector passed in both witnesses;
+the divergence was confined to adversarial edge cases (ed25519-speccheck territory) — and a
+delta one conformant witness admits and the other refuses is a federation split.
+
+**Decision (Myk, issue #20): strict.** Rationale: matches the house aesthetic — the boundary
+refuses weirdness rather than normalizing it (NFC validated never repaired, ids must recompute,
+b64u canonical or rejected). ZIP215's distinguishing virtue is that it names an unambiguous
+criterion all verifiers can share; *any* pin achieves that, and this repo's criterion is the
+SPEC-1 §5.1 text itself, not a library default. Both witnesses now implement the five checks
+explicitly (canonical `S`, canonical `A`/`R` encodings, no small-order `A`/`R`, cofactorless
+equation) rather than calling a library's opinion of "strict", because strictness varies subtly
+between libraries. Small-order components are rejected; a large-order point carrying torsion is
+decided by the cofactorless equation alone — `deltas-sig-edge.json` pins both sides of that
+boundary, including the case a cofactored (ZIP215-style) verifier would accept and a strict
+verifier refuses.
+
 ## JSON debug profile (for vectors)
 
 Folded into SPEC-1 §4.2 (2026-06-11); history in git.

@@ -4,6 +4,35 @@ All notable changes to **`@bombadil/rhizomatic`**. This project is pre-1.0, so b
 land in **minor** bumps (see [CLAUDE.md → Releasing](CLAUDE.md#releasing-bombadilrhizomatic-to-npm)).
 Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 
+## 0.7.0 — unreleased
+
+The Ed25519 signature-acceptance criterion is **pinned to strict** ([#20](https://github.com/bombadil-labs/rhizomatic/issues/20),
+SPEC-1 §5.1, ERRATA D13). The two witnesses verified under different criteria — TS on `@noble/curves`'
+permissive ZIP215 default, Rust on `ed25519-dalek`'s `verify_strict` — which agree on every honest
+signature but split on adversarial edge cases (non-canonical encodings, small-order components).
+Verification is admission, so a criterion split is a federation split; the spec now states one
+criterion normatively, in its own words.
+
+### Added
+
+- **SPEC-1 §5.1 — the strict acceptance criterion**, five explicit checks: canonical scalar
+  (`S < L`), canonical point encodings of `A` and `R` (decompress–recompress must reproduce the
+  bytes), no small-order `A` or `R`, and the **cofactorless** verification equation, exactly.
+  Mixed-order (torsion-carrying but large-order) points are deliberately *not* rejected by the
+  small-order check; the equation decides them.
+- **`vectors/l0-delta/deltas-sig-edge.json`** — ten speccheck-style vectors machine-checking every
+  clause, six of which a ZIP215 verifier accepts and a conformant witness MUST refuse (each carries
+  an informative `zip215Accepts` flag). Verdicts are re-verified at generation time.
+
+### Changed
+
+- **Both witnesses now implement the five checks explicitly** rather than delegating to a library's
+  notion of "strict" (noble point/scalar primitives in TS, `curve25519-dalek` + `sha2` in Rust).
+  - **For consumers:** signing is untouched (RFC 8032 signing is deterministic and identical under
+    both criteria), and every honestly-generated signature verifies exactly as before. The only
+    behavior change is that the TS witness now *refuses* edge-case signatures it previously
+    admitted under ZIP215 — a tightening, and the point of the pin.
+
 ## 0.6.0 — 2026-07-15
 
 First-class **set algebra over delta-sets**: the operator algebra had `union` but no difference or

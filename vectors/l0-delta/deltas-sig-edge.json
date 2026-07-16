@@ -1,0 +1,192 @@
+[
+  {
+    "name": "sig-edge-control-valid",
+    "spec": "SPEC-1 §5.1 (all checks pass)",
+    "reason": "honest RFC 8032 signature by test-key-1",
+    "claims": {
+      "timestamp": 777,
+      "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+      "pointers": [
+        {
+          "role": "case",
+          "target": "control-valid"
+        }
+      ]
+    },
+    "id": "1e2066be9e690db0e1387b6944f04fe817cda7b42ede489a4857c9c8c4ae00e8810f",
+    "sig": "4bbfb2bca65009faff6f9321717e80bd275b0292a7e979ddff4cb91fff8a46c8d68f78d0ad82eea14f26491ad6e57cb06bc9b68fb3d6bdc154e9998dfbf3050a",
+    "verdict": "verified",
+    "zip215Accepts": true
+  },
+  {
+    "name": "sig-edge-noncanonical-s",
+    "spec": "SPEC-1 §5.1 check 1",
+    "reason": "S' = S + L: same residue mod L as the control signature, non-canonical spelling (ZIP215 also rejects this)",
+    "claims": {
+      "timestamp": 777,
+      "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+      "pointers": [
+        {
+          "role": "case",
+          "target": "control-valid"
+        }
+      ]
+    },
+    "id": "1e2066be9e690db0e1387b6944f04fe817cda7b42ede489a4857c9c8c4ae00e8810f",
+    "sig": "4bbfb2bca65009faff6f9321717e80bd275b0292a7e979ddff4cb91fff8a46c8c3636e2dc8e500fa25c340bdb4df5bc56bc9b68fb3d6bdc154e9998dfbf3051a",
+    "verdict": "invalid",
+    "zip215Accepts": false
+  },
+  {
+    "name": "sig-edge-small-order-pubkey-identity",
+    "spec": "SPEC-1 §5.1 check 4 (small-order A)",
+    "reason": "A = identity: the cofactorless equation holds for any message (kA = 𝒪), a universal forgery admitted by ZIP215 and refused by strict",
+    "claims": {
+      "timestamp": 777,
+      "author": "ed25519:0100000000000000000000000000000000000000000000000000000000000000",
+      "pointers": [
+        {
+          "role": "case",
+          "target": "small-order-pubkey"
+        }
+      ]
+    },
+    "id": "1e20e1ae9b62e9bbd8d0f105e57537e4e89d0b9c051d22ec342e8bb96c4c782695bc",
+    "sig": "c520b6aeb9ece717dba33fa4e4052f3dc3d0df12cd4e2e6f041ee785e9452f3e150fe6c17b3b2233d4d4c611f16087818010049ec8d8b02a6df02bd39277ac08",
+    "verdict": "invalid",
+    "zip215Accepts": true
+  },
+  {
+    "name": "sig-edge-small-order-r-identity",
+    "spec": "SPEC-1 §5.1 check 4 (small-order R)",
+    "reason": "R = identity, S = k·a: the cofactorless equation holds, only the small-order check refuses it (ZIP215 accepts)",
+    "claims": {
+      "timestamp": 777,
+      "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+      "pointers": [
+        {
+          "role": "case",
+          "target": "small-order-r"
+        }
+      ]
+    },
+    "id": "1e20e55628fb8b08af39d6d8a0d077b59748308b37bcb5bb74d74f89bc1dc77b6d49",
+    "sig": "01000000000000000000000000000000000000000000000000000000000000003a7dc51216ecc825189d63f6a069970aadf6a4ea738ad9ab16f3abe608d5d201",
+    "verdict": "invalid",
+    "zip215Accepts": true
+  },
+  {
+    "name": "sig-edge-small-order-pair-s-zero",
+    "spec": "SPEC-1 §5.1 check 4 (small-order A and R)",
+    "reason": "order-8 A and R with S = 0: cofactored verification (ZIP215) accepts any such pair; strict refuses both components",
+    "claims": {
+      "timestamp": 777,
+      "author": "ed25519:c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac037a",
+      "pointers": [
+        {
+          "role": "case",
+          "target": "small-order-pair"
+        }
+      ]
+    },
+    "id": "1e20ed4b9144fa54fec717584d6e5d62def4254f7cbed7b728ea6aa12cfeab208e29",
+    "sig": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc050000000000000000000000000000000000000000000000000000000000000000",
+    "verdict": "invalid",
+    "zip215Accepts": true
+  },
+  {
+    "name": "sig-edge-noncanonical-pubkey-y-geq-p",
+    "spec": "SPEC-1 §5.1 check 2",
+    "reason": "A encodes y = p (a non-canonical spelling of y = 0): decompress-recompress does not reproduce the bytes (ZIP215 accepts the encoding)",
+    "claims": {
+      "timestamp": 777,
+      "author": "ed25519:edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+      "pointers": [
+        {
+          "role": "case",
+          "target": "noncanonical-pubkey"
+        }
+      ]
+    },
+    "id": "1e20dcabf362d01951804b432294c51595d6eb1f8717106033349762c2a30c53582f",
+    "sig": "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "verdict": "invalid",
+    "zip215Accepts": true
+  },
+  {
+    "name": "sig-edge-noncanonical-r-y-geq-p",
+    "spec": "SPEC-1 §5.1 check 3",
+    "reason": "R encodes y = p: same rejection as check 2, applied to the signature's point half",
+    "claims": {
+      "timestamp": 777,
+      "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+      "pointers": [
+        {
+          "role": "case",
+          "target": "noncanonical-r"
+        }
+      ]
+    },
+    "id": "1e206598e713c44f03d402aedb98b3af04673ad83c049d135776decdabe962a4ac71",
+    "sig": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000",
+    "verdict": "invalid",
+    "zip215Accepts": false
+  },
+  {
+    "name": "sig-edge-noncanonical-pubkey-sign-bit",
+    "spec": "SPEC-1 §5.1 check 2",
+    "reason": "A encodes the identity with the sign bit set: x = 0 admits only sign 0, so the encoding is non-canonical",
+    "claims": {
+      "timestamp": 777,
+      "author": "ed25519:0100000000000000000000000000000000000000000000000000000000000080",
+      "pointers": [
+        {
+          "role": "case",
+          "target": "signbit-pubkey"
+        }
+      ]
+    },
+    "id": "1e202ea84b8c36ec3d0c7ed3a9a9c6c9db152775ceffcba70e597b160402accfb06b",
+    "sig": "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "verdict": "invalid",
+    "zip215Accepts": true
+  },
+  {
+    "name": "sig-edge-mixed-torsion-verifies",
+    "spec": "SPEC-1 §5.1 check 5 (mixed order is NOT small order)",
+    "reason": "A carries an order-8 torsion component but is large-order; the torsion cancels in the cofactorless equation, so strict deliberately accepts — check 4 rejects small-order components, not mixed-order keys",
+    "claims": {
+      "timestamp": 777,
+      "author": "ed25519:9ea3f11f5bd34f0cd7147fd0a436c088f624c6100c1df6a53c0a29e05d60cea0",
+      "pointers": [
+        {
+          "role": "case",
+          "target": "mixed-torsion"
+        }
+      ]
+    },
+    "id": "1e2030fa6fad7b75c8c23a3602532dc47daa26d108c96f10c58f56f3c379c899ebbe",
+    "sig": "ced1e9cd7196b582db742343ae4a08bffa4217afe726e9b2acc2d29b55d3218ba183250a36ccc604f97c33f043069519f134483912c1b1fbd6aa635111755f0c",
+    "verdict": "verified",
+    "zip215Accepts": true
+  },
+  {
+    "name": "sig-edge-cofactored-only",
+    "spec": "SPEC-1 §5.1 check 5 (cofactorless, exactly)",
+    "reason": "same mixed-order A, but the torsion survives: multiplying by the cofactor would erase it (ZIP215 accepts), the exact equation does not",
+    "claims": {
+      "timestamp": 777,
+      "author": "ed25519:9ea3f11f5bd34f0cd7147fd0a436c088f624c6100c1df6a53c0a29e05d60cea0",
+      "pointers": [
+        {
+          "role": "case",
+          "target": "mixed-torsion"
+        }
+      ]
+    },
+    "id": "1e2030fa6fad7b75c8c23a3602532dc47daa26d108c96f10c58f56f3c379c899ebbe",
+    "sig": "c520b6aeb9ece717dba33fa4e4052f3dc3d0df12cd4e2e6f041ee785e9452f3edf2a5f3abae4c4fff19812b7e396e4095c311dbd7424abb76c934d3a62546107",
+    "verdict": "invalid",
+    "zip215Accepts": true
+  }
+]
