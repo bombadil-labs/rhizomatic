@@ -5459,6 +5459,22 @@
       },
       canonicalCborHex: "a366617574686f726d6469643a6b65793a636166c3a968706f696e7465727381a264726f6c65646e6f7465667461726765746bc3bc6ec3af63c3b664c3a96974696d657374616d70f90000",
       id: "1e20ae8d97020b460597ffd10075fb7aa4d69af7ded1fd06fdaf013e5d3f26e0513e"
+    },
+    {
+      name: "number-integer-spelling",
+      spec: "SPEC-1 \xA74.1 / ERRATA D14 (a JSON integer token is a float spelling: 42 \u2261 42.0, one canonical encoding)",
+      claims: {
+        timestamp: 42,
+        author: "did:key:zAuthorA",
+        pointers: [
+          {
+            role: "answer",
+            target: 42
+          }
+        ]
+      },
+      canonicalCborHex: "a366617574686f72706469643a6b65793a7a417574686f724168706f696e7465727381a264726f6c6566616e7377657266746172676574f951406974696d657374616d70f95140",
+      id: "1e207c3ceeddcf2b5781f26432c2b1d6d57f5734f10da4d710ea0dd5ab4f23395fbb"
     }
   ];
 
@@ -5555,11 +5571,12 @@
       "1e2060947ef77cb97b5d8905129276e5d14d4fe81a32de9514da1da1ac210b7b68ee",
       "1e2061705edb89869037fb5d850bcb235e5584292470249e650a0d790b28712c3949",
       "1e207b4310e7d0247d5f4671ae0cff5f2fd1df36cc7ab5e198f121008ee3dd3f8e91",
+      "1e207c3ceeddcf2b5781f26432c2b1d6d57f5734f10da4d710ea0dd5ab4f23395fbb",
       "1e20a3a0a90a8c87aab1bad05dc7e971d20c772976658691ede840d5f38865c9de60",
       "1e20ae8d97020b460597ffd10075fb7aa4d69af7ded1fd06fdaf013e5d3f26e0513e",
       "1e20b210c4e3eb8a91fde259c7d2171cbf730685354f9f7a8df5e322da3f576e25a5"
     ],
-    digest: "1e2045ed910984d0adf599284650e16f071d52eed8d4da39c0a8eac22698d5e9ce5d"
+    digest: "1e2050addfba2d6e19bc8ceb2a87113c8cdcde2d059561796a121b8be4f838d7dea2"
   };
 
   // ../../vectors/l1-eval/eval-basic.json

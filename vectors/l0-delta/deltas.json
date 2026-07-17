@@ -158,5 +158,21 @@
     },
     "canonicalCborHex": "a366617574686f726d6469643a6b65793a636166c3a968706f696e7465727381a264726f6c65646e6f7465667461726765746bc3bc6ec3af63c3b664c3a96974696d657374616d70f90000",
     "id": "1e20ae8d97020b460597ffd10075fb7aa4d69af7ded1fd06fdaf013e5d3f26e0513e"
+  },
+  {
+    "name": "number-integer-spelling",
+    "spec": "SPEC-1 §4.1 / ERRATA D14 (a JSON integer token is a float spelling: 42 ≡ 42.0, one canonical encoding)",
+    "claims": {
+      "timestamp": 42,
+      "author": "did:key:zAuthorA",
+      "pointers": [
+        {
+          "role": "answer",
+          "target": 42
+        }
+      ]
+    },
+    "canonicalCborHex": "a366617574686f72706469643a6b65793a7a417574686f724168706f696e7465727381a264726f6c6566616e7377657266746172676574f951406974696d657374616d70f95140",
+    "id": "1e207c3ceeddcf2b5781f26432c2b1d6d57f5734f10da4d710ea0dd5ab4f23395fbb"
   }
 ]

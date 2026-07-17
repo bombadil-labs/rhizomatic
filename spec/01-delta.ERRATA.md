@@ -122,6 +122,44 @@ decided by the cofactorless equation alone — `deltas-sig-edge.json` pins both 
 boundary, including the case a cofactored (ZIP215-style) verifier would accept and a strict
 verifier refuses.
 
+## D14 — Host-boundary numeric policy: reject native integer terms (2026-07-16, issue #19)
+
+Normative text folded into SPEC-1 §4.1; recorded here for the decision. SPEC-1 pinned the
+*bytes* (floats only, no integer major types) but not what a witness does when handed a **native
+integer term** at claim construction — a question only askable in hosts that have one (the BEAM,
+Python, Ruby; JS cannot ask it, which is why the spec was silent until a BEAM witness was
+proposed). Three candidate policies existed: reject, always-coerce, coerce-iff-exact.
+
+**Decision: reject, with one blessed coercion point.** Always-coerce silently destroys integers
+above 2^53 and — worse — makes `42` and `42.0` (distinct terms and distinct map keys on the
+BEAM) name the same claim, breaking the "in-memory equality is byte equality" invariant the NFC
+rule exists to protect. The JSON debug profile parser is the one blessed coercion point, because
+a JSON integer token is unambiguously a float spelling (JSON has one number type; the vectors'
+own `"timestamp": 0` already requires it). Values not exactly representable as f64 reject
+everywhere, always. Pinned by the `number-integer-spelling` vector (profile half) and
+per-witness boundary tests (native-term half). If a consumer someday needs true arithmetic
+integers or decimals, the path is an additive, shape-distinguishable target kind (the D12
+`bytes` precedent) — never a repin of the number model.
+
+## D15 — OPEN: the Unicode version behind NFC validation (raised 2026-07-16, issue #19)
+
+"Is this string NFC?" is answered by a Unicode data table, and the witnesses consult different
+ones: host ICU (TS — Node 22 ships Unicode 15.1), the `unicode-normalization` crate's pinned
+tables (Rust), OTP's own (Elixir). Unicode's stability policy guarantees normalization is stable
+for **assigned** code points, so the divergence surface is exactly the *unassigned* ones: a code
+point unassigned in version X passes NFC validation under X's tables, but may gain a canonical
+decomposition when a later version assigns it — admitted by one witness, refused by another.
+
+The candidate fixes trade differently: **(a)** pin an exact Unicode version normatively — fully
+convergent, but no host library exposes "validate per version N", so every witness hand-rolls an
+unassigned-ranges table; **(b)** reject strings containing code points unassigned per the
+witness's own tables — fail-closed and matches the house aesthetic, but acceptance still varies
+with table freshness; **(c)** document the seam and accept it — cheapest, but it is a standing
+exception to P5 determinism. The issue's "one sentence in SPEC-1 closes it" underestimated:
+whose tables answer the question is a real tradeoff. **Unresolved — needs Myk's pick.** Until
+then the normative text stands as-is (NFC per the witness's tables), and the divergence window
+is code points newer than the oldest witness's tables.
+
 ## JSON debug profile (for vectors)
 
 Folded into SPEC-1 §4.2 (2026-06-11); history in git.

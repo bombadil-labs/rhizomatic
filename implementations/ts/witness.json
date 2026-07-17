@@ -1,0 +1,9 @@
+{
+  "witness": "ts",
+  "language": "TypeScript",
+  "conformanceLevel": 4,
+  "levelNote": "SPEC-0 §5.1: L4 derivation host — passes every vector family in vectors/",
+  "checks": [
+    { "label": "green-gate (format + lint + typecheck + tests)", "command": "npm run check" }
+  ]
+}

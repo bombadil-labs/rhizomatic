@@ -1,0 +1,12 @@
+{
+  "witness": "rust",
+  "language": "Rust",
+  "conformanceLevel": 4,
+  "levelNote": "SPEC-0 §5.1: L4 derivation host — passes every vector family in vectors/",
+  "envProfile": "cargo-scoop-windows",
+  "checks": [
+    { "label": "fmt", "command": "cargo fmt --check" },
+    { "label": "clippy", "command": "cargo clippy --all-targets --quiet -- -D warnings" },
+    { "label": "tests", "command": "cargo test --quiet" }
+  ]
+}

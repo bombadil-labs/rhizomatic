@@ -18,6 +18,7 @@ vectors/
     deltas-signed.json     signed deltas: + keyId and deterministic Ed25519 sig bytes (ERRATA D8-D9)
     deltas-bytes.json      the bytes target kind: (mime, value) -> canonical CBOR hex + id (0.4, D12)
     deltas-invalid.json    malformed claims that MUST be rejected at the boundary (SPEC-4 §2)
+    deltas-sig-edge.json   Ed25519 acceptance edge cases: the SPEC-1 §5.1 strict criterion (0.7, D13)
     set-digest.json        canonical membership digest of the deltas.json set (ERRATA D10, provisional)
   l0-pack/
     pack.json              L0 pack round-trip: delta set -> (pack bytes, packId) (SPEC-8, M3)
@@ -30,6 +31,64 @@ vectors/
 
 (Levels here name the conformance level being exercised, per SPEC-0 §5.1 — Level 0 = Format,
 Level 1 = Evaluator.)
+
+## Bringing up a new witness (the L0 path)
+
+You are implementing Rhizomatic from `spec/` and this directory. That is the intended path — the
+format ships a **conformance suite, not a reference implementation** (SPEC-0 §5), and an
+implementation that passes these vectors is a first-class citizen at its declared level. This
+section is the map: which vectors constitute Level 0, what order to attack them in, and what
+"done" means. (Written for issue #19's Elixir witness, kept for whoever comes next.)
+
+**The rule that makes your implementation a witness instead of a port:** build from `spec/` +
+`vectors/` only. When the spec is ambiguous or a vector surprises you, the resolution is to fix
+`spec/` or `vectors/` (file an issue; record it in the relevant `spec/*.ERRATA.md`) — never to
+peek at an existing witness. Every place the suite fails to specify your next line of code is a
+finding. Comparing notes with the other witnesses *after* a slice is green is fine, and useful.
+
+Attack order at L0:
+
+1. **`l0-delta/cbor-primitives.json`** — the canonical CBOR encoder, one scalar at a time:
+   shortest-form floats (RFC 8949 §4.2.1, down to f16 subnormals; floats only, never integer
+   major types; `-0.0` → `+0.0`), definite-length text strings, booleans, byte strings with
+   shortest length heads. Get every `hex` byte-exact before moving on — everything stacks on
+   this encoder. If your host has no native f16/f32 (the BEAM, most Lisps), you are hand-rolling
+   the float ladder; these vectors are your ground truth.
+2. **`l0-delta/deltas.json`** — full claims maps: bytewise map-key ordering, pointer/target
+   layout (SPEC-1 §4.1), then BLAKE3-256 content addressing (`id` = `1e20` + hash bytes). Match
+   `canonicalCborHex` first; `id` falls out.
+3. **`l0-delta/deltas-invalid.json`** — boundary rejection (SPEC-4 §2: reject, never repair).
+   Host-boundary policies a JSON file cannot express — e.g. native integer terms MUST be
+   rejected at claim construction on hosts that distinguish them (SPEC-1 §4.1, ERRATA D14) —
+   get per-witness boundary tests instead.
+4. **`l0-delta/deltas-bytes.json`** — the `bytes` target kind (D12).
+5. **`keys/keys.json` + `l0-delta/deltas-signed.json`** — Ed25519: derive public keys from the
+   seeds, *reproduce* the pinned deterministic signature bytes, verify.
+6. **`l0-delta/deltas-sig-edge.json`** — the SPEC-1 §5.1 **strict acceptance criterion**, clause
+   by clause. Do NOT delegate to your crypto library's default verifier: several cases are
+   accepted by permissive (ZIP215-style) verifiers and MUST be refused, one mixed-torsion case
+   must be *accepted*, and library notions of "strict" vary. Implement the five checks from the
+   spec text. (Each case carries an informative `zip215Accepts` flag.)
+7. **`l0-delta/set-digest.json`** — delta-set ops + the D10 set digest (provisional; gates as
+   such).
+8. **`l0-pack/`** — the pack round-trip (SPEC-8): byte-exact pack bytes and `packId`.
+
+**Done at L0** means every case above passes, byte-exact wherever the file pins bytes, and the
+witness declares itself — a `witness.json` beside your code:
+
+```json
+{
+  "witness": "<short-name>",
+  "language": "<Language>",
+  "conformanceLevel": 0,
+  "checks": [{ "label": "tests", "command": "<your test command>" }]
+}
+```
+
+`node tools/check-all.mjs` discovers every manifest and runs its declared checks; parity is a
+relation over the whole witness set. Lockstep binds per level (CLAUDE.md): an L0 witness is
+complete at L0, not "behind" the L4 witnesses. Climb to L1+ only when a consumer needs it — and
+if you're the first to climb from below, the L1 bring-up notes are your finding to file here.
 
 ## Vector shapes
 

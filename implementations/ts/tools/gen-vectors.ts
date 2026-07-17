@@ -133,6 +133,15 @@ const inputs: Input[] = [
       pointers: [{ role: "note", target: "ünïcödé" }],
     },
   },
+  {
+    name: "number-integer-spelling",
+    spec: "SPEC-1 §4.1 / ERRATA D14 (a JSON integer token is a float spelling: 42 ≡ 42.0, one canonical encoding)",
+    claims: {
+      timestamp: 42,
+      author: "did:key:zAuthorA",
+      pointers: [{ role: "answer", target: 42 }],
+    },
+  },
 ];
 
 const out = inputs.map(({ name, spec, claims }) => {
