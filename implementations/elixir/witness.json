@@ -1,0 +1,8 @@
+{
+  "witness": "elixir",
+  "language": "Elixir",
+  "conformanceLevel": 0,
+  "levelNote": "SPEC-0 §5.1: L0 format — parse, canonically serialize, content-address, sign/verify, pack",
+  "envProfile": "elixir-scoop-windows",
+  "checks": [{ "label": "tests", "command": "mix test" }]
+}

@@ -10,8 +10,8 @@ fn read(rel: &str) -> Value {
     serde_json::from_str(&std::fs::read_to_string(path).expect("read vector file")).unwrap()
 }
 
-fn vector_set() -> (DeltaSet, Value) {
-    let vec = read("l0-pack/pack.json");
+fn vector_set_from(rel: &str) -> (DeltaSet, Value) {
+    let vec = read(rel);
     let set = DeltaSet::from_deltas(vec["deltas"].as_array().unwrap().iter().map(|d| {
         let sig = d.get("sig").and_then(Value::as_str).map(str::to_string);
         make_delta(parse_claims(&d["claims"]).unwrap(), sig).unwrap()
@@ -20,12 +20,22 @@ fn vector_set() -> (DeltaSet, Value) {
     (set, vec)
 }
 
+fn vector_set() -> (DeltaSet, Value) {
+    vector_set_from("l0-pack/pack.json")
+}
+
 #[test]
 fn reproduces_the_cross_impl_pack_vector_byte_for_byte() {
-    let (set, vec) = vector_set();
-    let bytes = pack_set(&set);
-    assert_eq!(hex::encode(&bytes), vec["packHex"].as_str().unwrap());
-    assert_eq!(pack_id(&bytes), vec["packId"].as_str().unwrap());
+    for rel in ["l0-pack/pack.json", "l0-pack/pack-bytes.json"] {
+        let (set, vec) = vector_set_from(rel);
+        let bytes = pack_set(&set);
+        assert_eq!(
+            hex::encode(&bytes),
+            vec["packHex"].as_str().unwrap(),
+            "{rel}"
+        );
+        assert_eq!(pack_id(&bytes), vec["packId"].as_str().unwrap(), "{rel}");
+    }
 }
 
 #[test]

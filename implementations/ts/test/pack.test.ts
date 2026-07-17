@@ -113,18 +113,20 @@ describe("packs (SPEC-8, ERRATA-8)", () => {
     );
   });
 
-  it("matches the cross-impl pack vector", () => {
-    const vec = read("l0-pack/pack.json") as {
-      deltas: Array<{ claims: unknown; sig?: string }>;
-      packHex: string;
-      packId: string;
-    };
-    const set = DeltaSet.from(vec.deltas.map((d) => makeDelta(parseClaims(d.claims), d.sig)));
-    const bytes = packSet(set);
-    expect(bytesToHex(bytes)).toBe(vec.packHex);
-    expect(packId(bytes)).toBe(vec.packId);
-    expect(unpackSet(hexToBytes(vec.packHex)).digest()).toBe(set.digest());
-  });
+  for (const file of ["l0-pack/pack.json", "l0-pack/pack-bytes.json"]) {
+    it(`matches the cross-impl pack vector (${file})`, () => {
+      const vec = read(file) as {
+        deltas: Array<{ claims: unknown; sig?: string }>;
+        packHex: string;
+        packId: string;
+      };
+      const set = DeltaSet.from(vec.deltas.map((d) => makeDelta(parseClaims(d.claims), d.sig)));
+      const bytes = packSet(set);
+      expect(bytesToHex(bytes)).toBe(vec.packHex);
+      expect(packId(bytes)).toBe(vec.packId);
+      expect(unpackSet(hexToBytes(vec.packHex)).digest()).toBe(set.digest());
+    });
+  }
 });
 
 // keep the type import used

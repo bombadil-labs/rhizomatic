@@ -46,6 +46,12 @@ section is the map: which vectors constitute Level 0, what order to attack them 
 peek at an existing witness. Every place the suite fails to specify your next line of code is a
 finding. Comparing notes with the other witnesses *after* a slice is green is fine, and useful.
 
+Before anything else, test your JSON parser *directly*: assert that parsing
+`5.960464477539063e-8` yields exactly 2^-24 (correctly-rounded parsing is normative, SPEC-1
+§4.2). A 1-ULP-off fast float path otherwise surfaces as a baffling downstream canonical-byte
+mismatch instead of a clear parse failure (#19 F8 — an hour of staring at CBOR hex, donated so
+you don't have to).
+
 Attack order at L0:
 
 1. **`l0-delta/cbor-primitives.json`** — the canonical CBOR encoder, one scalar at a time:
@@ -116,9 +122,10 @@ if you're the first to climb from below, the L1 bring-up notes are your finding 
 
 ### Bytes target (`l0-delta/deltas-bytes.json`, 0.4)
 
-Same envelope as the delta shape above (`name`, `spec`, `claims`, `canonicalCborHex`, `id`; a
-`keyId`+`sig` on the one signed case). The distinguishing part is the pointer target, a bytes
-literal in the JSON debug profile:
+Same envelope as the delta shape above (`name`, `spec`, `claims`, `canonicalCborHex`, `id`). The
+signed bytes case (`signed-bytes-icon`) lives in `deltas-signed.json` with the other signed
+vectors, not here. The distinguishing part is the pointer target, a bytes literal in the JSON
+debug profile:
 
 ```json
 { "role": "icon", "target": { "mime": "image/png", "value": "iVBORw0KGgo" } }

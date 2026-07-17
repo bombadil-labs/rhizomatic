@@ -15,6 +15,12 @@ implementations/ts/demo/playground/bundle.js
 implementations/rust/target/
 **/*.rs.bk
 
+# Elixir / BEAM
+implementations/elixir/_build/
+implementations/elixir/deps/
+implementations/elixir/cover/
+*.beam
+
 # Editor / OS
 .DS_Store
 *.log

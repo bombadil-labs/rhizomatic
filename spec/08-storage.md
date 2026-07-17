@@ -31,16 +31,15 @@ share the codec, identical delta sets produce identical pack bytes, and
 
 ```
 Pack = map {
-  "version":   1,
-  "strings":   [tstr...],          // sorted unique string table (roles, ids, authors, contexts,
-                                   //  delta-ref hexes, string primitives, sig hexes)
+  "version":   1,                  // the profile has no integer encoding: encodes as float (f9 3c00)
+  "strings":   [tstr...],          // sorted unique string table — see below for order and contents
   "envelopes": [Record...],        // hydrated rhizomatic.txn manifests, sorted by manifest id
   "members":   [MemberRecord...],  // dehydrated members, sorted by member id
   "loose":     [Record...],        // hydrated deltas claimed by no stored manifest, sorted by id
 }
 
-Record       = map { "a": authorIdx, "t": timestamp, "p": [Ptr...], "s"?: sigIdx }
-MemberRecord = map { "m": envelopeIdx, "p": [Ptr...],
+Record       = map { "a": authorIdx, "i": idIdx, "t": timestamp, "p": [Ptr...], "s"?: sigIdx }
+MemberRecord = map { "m": envelopeIdx, "i": idIdx, "p": [Ptr...],
                      "a"?: authorIdx,   // only when it differs from the manifest's (invariant 2)
                      "dt"?: number,     // timestamp minus manifest timestamp; omitted when 0
                      "s"?: sigIdx }     // stored whenever present (sigs are kept verbatim)
@@ -48,6 +47,16 @@ Ptr = map { "r": roleIdx, "e"|"d"|"s": idx | "n": number | "b": bool | ("m": mim
       // e=EntityRef id, d=DeltaRef hex, s=string primitive, n=number, b=bool;
       // m=mime string-table idx + y=raw bytes payload (a bytes target); c=context
 ```
+
+Every record carries `"i"`, the delta's own id hex as a `strings` index — it is what the §4
+rehydrate-and-verify fsck checks the recomputed multihash against. *(The grammar originally
+omitted it while §4 presupposed it; found by the Elixir witness bring-up, issue #19 F2.)*
+
+**The `strings` table** is sorted by the **bytewise lexicographic order of the raw UTF-8 string
+bytes** — NOT by the encoded-CBOR-key order of SPEC-1 §4.1 D4, whose length head dominates; the
+two orders differ whenever lengths differ (#19 F3). Its contents are exactly the strings the
+records reference (#19 F4): every delta's own id hex (`"i"`), authors, roles, contexts,
+EntityRef ids, DeltaRef hexes, string primitives, sig hexes, and mimes.
 
 All indices are positions in `strings` (numbers in the profile's float encoding — small ints are
 f16, so the cost is modest). Determinism is total: same delta set ⇒ same pack bytes ⇒ same packId.
@@ -70,6 +79,14 @@ Relative to the referencing manifest's envelope:
 - A member claimed by several manifests is stored once, dehydrated against the
   **lexicographically first** claiming manifest in the pack. Deltas whose claiming manifest is
   absent from the set are stored loose, fully hydrated.
+- **Envelopes win** (#19 F6): a delta qualifies as a manifest for this section's partition iff it
+  carries at least one pointer with role `rhizomatic.txn.member` **and** a DeltaRef target (the
+  SPEC-1 §9 shape; a `rhizomatic.txn.member` pointer with a primitive target does not qualify).
+  Every manifest in the set is stored hydrated in `envelopes`, never dehydrated — even when
+  another manifest claims it as a member. (Member records point *at* envelope indices; a
+  dehydrated envelope would make rehydration order-dependent.)
+- *(Open, #19 F5: `dt` is f64 arithmetic and lossy for pathologically distant timestamps — a
+  packer could emit a pack failing its own §4 fsck. See ERRATA-8.)*
 
 ### 3.2 Deferred physical conveniences
 

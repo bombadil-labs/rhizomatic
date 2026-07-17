@@ -19,8 +19,9 @@ const root = resolve(fileURLToPath(import.meta.url), "../..");
 const implDir = join(root, "implementations");
 
 function envFor(profile) {
-  if (profile === "cargo-scoop-windows" && process.platform === "win32") {
-    const scoop = join(homedir(), "scoop");
+  if (process.platform !== "win32") return {};
+  const scoop = join(homedir(), "scoop");
+  if (profile === "cargo-scoop-windows") {
     const cargoHome = join(scoop, "persist", "rustup", ".cargo");
     if (existsSync(cargoHome)) {
       return {
@@ -28,6 +29,14 @@ function envFor(profile) {
         CARGO_HOME: cargoHome,
         PATH: `${join(cargoHome, "bin")};${join(scoop, "apps", "gcc", "current", "bin")};${process.env.PATH}`,
       };
+    }
+  }
+  if (profile === "elixir-scoop-windows") {
+    // scoop's elixir package adds its bin dir to the USER registry PATH only — already-running
+    // processes (this one) never see it, so inject it explicitly.
+    const elixirBin = join(scoop, "apps", "elixir", "current", "bin");
+    if (existsSync(elixirBin)) {
+      return { PATH: `${elixirBin};${process.env.PATH}` };
     }
   }
   return {};
