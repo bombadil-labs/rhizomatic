@@ -51,7 +51,10 @@ are underspecified, and that is a finding, not a nuisance.
 4. **Implement in Rust.**
 5. **Run both against `vectors/`.** Confirm parity. Diff the canonical bytes, not just "tests pass."
 6. **Commit only when both are green.** Keep the two implementations within one slice of each other —
-   never let one race more than a slice ahead.
+   never let one race more than a slice ahead. **Lockstep binds per conformance level, not per
+   repo** (issue #19): a witness that has declared a lower level in its `witness.json` (e.g. the
+   Elixir witness at L0) is a complete, first-class citizen at that level — it is "behind" at L1+
+   by design, not by racing. Within any level a witness implements, the one-slice rule holds.
 
 ## Testing norms
 
@@ -167,7 +170,9 @@ Filled in as each implementation is scaffolded.
 
 - TypeScript: `cd implementations/ts && npm test`
 - Rust: `cd implementations/rust && cargo test`
-- Parity (both witnesses, one command): `node tools/check-all.mjs` from the repo root
+- Parity (every witness, one command): `node tools/check-all.mjs` from the repo root — discovers
+  witnesses from `implementations/*/witness.json`; pass names to filter (`node tools/check-all.mjs ts elixir`)
+- Elixir: `cd implementations/elixir && mix test`
 - ADLC: tickets live in `.adlc/tickets.json` (synced to GitHub issues). Sync with
   `adlc-ticket-sync pull|push --write`, health-check with `adlc-ticket-sync doctor`, and gate
   executability with `adlc coldstart '<id>' --prompt-only`. See the **ADLC** section above.

@@ -1,4 +1,4 @@
-# The parity contract, enforced mechanically: both witnesses must pass their full green-gates,
+# The parity contract, enforced mechanically: every witness must pass its full green-gate,
 # and the committed vectors must be exactly what the generator produces (no stale vectors).
 name: ci
 
@@ -59,3 +59,20 @@ jobs:
           rustup target add wasm32-unknown-unknown
           cargo clippy --release --target wasm32-unknown-unknown -- -D warnings
           cargo build --release --target wasm32-unknown-unknown
+
+  elixir:
+    name: Elixir witness (L0)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: implementations/elixir
+    steps:
+      - uses: actions/checkout@v7
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: "27"
+          elixir-version: "1.18"
+      - name: green-gate (format + tests)
+        run: |
+          mix format --check-formatted
+          mix test

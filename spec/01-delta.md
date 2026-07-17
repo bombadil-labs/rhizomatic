@@ -132,6 +132,18 @@ that otherwise fractures cross-implementation interop. `-0.0` normalizes to `+0.
 encoding. The shortest-float rule is full RFC 8949 §4.2.1: encode in the shortest of float16 /
 float32 / float64 that represents the value *exactly*, including f16 subnormals down to 2^-24.
 
+**The host-boundary numeric policy** (ERRATA D14, issue #19): in hosts whose native numeric
+terms distinguish integers from floats (Erlang, Python, Ruby — JS cannot ask the question),
+claim-construction APIs MUST **reject native integer terms** rather than coerce them. The NFC
+rationale above decides this: "in-memory equality is thereby byte equality everywhere" fails the
+moment `42` and `42.0` — distinct terms, distinct map keys on such hosts — can name the same
+claim. The single blessed coercion point is the **JSON debug profile parser** (§4.2), where an
+integer token is unambiguously a float spelling (JSON has one number type): `42` and `42.0`
+parse to the same f64 and the same canonical bytes. Values not exactly representable as an f64
+are rejected everywhere, always — never rounded. The profile half is pinned by the
+`number-integer-spelling` vector (`l0-delta/deltas.json`); the native-term half is structurally
+invisible to JSON vector files and lives as per-witness boundary tests.
+
 **Strings** (`role`, `context`, `author`, entity ids, hashes, string primitives) encode as
 definite-length CBOR text strings, **NFC-normalized**. Normalization is *validated at the
 boundary, never repaired at encode time*: every string in claims MUST already be NFC, and

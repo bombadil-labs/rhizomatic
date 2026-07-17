@@ -133,6 +133,15 @@ const inputs: Input[] = [
       pointers: [{ role: "note", target: "ünïcödé" }],
     },
   },
+  {
+    name: "number-integer-spelling",
+    spec: "SPEC-1 §4.1 / ERRATA D14 (a JSON integer token is a float spelling: 42 ≡ 42.0, one canonical encoding)",
+    claims: {
+      timestamp: 42,
+      author: "did:key:zAuthorA",
+      pointers: [{ role: "answer", target: 42 }],
+    },
+  },
 ];
 
 const out = inputs.map(({ name, spec, claims }) => {
@@ -1778,6 +1787,58 @@ writeFileSync(
 );
 console.log(
   `wrote pack vector (${packDeltas.length} deltas, packId ${packId(packBytes).slice(0, 14)}...)`,
+);
+
+// --- l0-pack: bytes-target pack round-trip (D12; promised since 0.4, first generated for #19/F1) ---
+// Two bytes deltas sharing one mime (the `m` intern) + a raw un-interned `y` payload each, one of
+// them signed, one loose string delta alongside. Pins the m/y Ptr records of SPEC-8 §3.
+const packBytesDeltas = [
+  makeDelta(
+    parseClaims({
+      timestamp: 6000,
+      author: "did:key:zAsset",
+      pointers: [
+        { role: "subject", target: { id: "entity:logo", context: "asset" } },
+        { role: "data", target: bytesTarget("image/png", PNG4) },
+      ],
+    }),
+  ),
+  signClaims(
+    parseClaims({
+      timestamp: 6001,
+      author: keys[1]!.author,
+      pointers: [{ role: "icon", target: bytesTarget("image/png", BLOB30) }],
+    }),
+    keys[1]!.seedHex,
+  ),
+  makeDelta(
+    parseClaims({
+      timestamp: 6002,
+      author: "did:key:zAsset",
+      pointers: [{ role: "alt", target: "the logo" }],
+    }),
+  ),
+];
+const packBytesSet = DeltaSet.from(packBytesDeltas);
+const packBytesBytes = packSet(packBytesSet);
+writeFileSync(
+  resolve(evalDir, "../l0-pack/pack-bytes.json"),
+  `${JSON.stringify(
+    {
+      note: "bytes-target pack round-trip: two bytes deltas sharing one mime (the m intern) with raw y payloads, one signed, one loose string delta (SPEC-8 §3, D12).",
+      deltas: packBytesDeltas.map((d) => ({
+        claims: claimsToJson(d.claims),
+        ...(d.sig === undefined ? {} : { sig: d.sig }),
+      })),
+      packHex: bytesToHex(packBytesBytes),
+      packId: packId(packBytesBytes),
+    },
+    null,
+    2,
+  )}\n`,
+);
+console.log(
+  `wrote pack-bytes vector (${packBytesDeltas.length} deltas, packId ${packId(packBytesBytes).slice(0, 14)}...)`,
 );
 
 // the fixture ids double as documentation: surface two for sanity

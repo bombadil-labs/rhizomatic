@@ -4,7 +4,45 @@ All notable changes to **`@bombadil/rhizomatic`**. This project is pre-1.0, so b
 land in **minor** bumps (see [CLAUDE.md → Releasing](CLAUDE.md#releasing-bombadilrhizomatic-to-npm)).
 Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 
-## 0.7.0 — unreleased
+## 0.8.0 — unreleased
+
+**A third witness** ([#19](https://github.com/bombadil-labs/rhizomatic/issues/19)):
+`implementations/elixir`, at conformance Level 0, written from `spec/` + `vectors/` **alone** —
+the first real test of SPEC-0 §5's claim that the conformance suite is sufficient to conform to.
+Zero dependencies (pure-Elixir BLAKE3 and Edwards arithmetic; OTP `:crypto` for signing only).
+Its findings drove the rest of this release.
+
+### Added
+
+- **`implementations/elixir`** — the L0 witness (106 tests), plus `FINDINGS.md`: the full record
+  of where spec/vectors underspecified the work (the experiment's actual deliverable).
+- **`vectors/l0-pack/pack-bytes.json`** — the bytes-target pack vector promised by D12 and the
+  vectors README since 0.4 but never generated (finding F1); all three witnesses now consume it.
+- **N-witness parity runner** — `tools/check-all.mjs` discovers `implementations/*/witness.json`
+  manifests (machine-readable conformance level + checks); CI gains an Elixir job.
+- **The L0 bring-up path** in `vectors/README.md` — attack order, gate, and the no-peeking rule,
+  for the next citizen.
+- **SPEC-1 §4.1 + ERRATA D14 — host-boundary numeric policy**: hosts distinguishing integer from
+  float terms MUST reject native integer terms at claim construction; the JSON-profile parser is
+  the single blessed coercion point (an integer token is a float spelling). Pinned by the new
+  `number-integer-spelling` vector.
+
+### Changed
+
+- **SPEC-8 §3 reconciled with its own vector** (findings F2–F4, ERRATA-8 P4): the record grammar
+  gains the `"i"` stored-id field it always needed (§4's fsck presupposed it), the `strings`
+  table's raw-bytewise sort order is stated, interned string sources are enumerated, and
+  `"version": 1` is noted to encode as a float. **No byte changes** — the spec text now describes
+  what every witness already emits.
+- SPEC-8 §3.1: **envelopes win** (F6, ERRATA-8 P5) — a manifest claimed by another manifest stays
+  hydrated in `envelopes`; manifest-ness = a `rhizomatic.txn.member` pointer with a DeltaRef
+  target. Open questions recorded: MemberRecord `dt` lossiness (F5, P6) and the Unicode version
+  behind NFC validation (ERRATA D15).
+- CLAUDE.md: lockstep binds per conformance level, not per repo.
+  - **For consumers:** nothing — no wire bytes, ids, or evaluation semantics change. New vectors
+    are additive (`deltas.json` +1 case regenerates the provisional D10 set digest).
+
+## 0.7.0 — 2026-07-16
 
 The Ed25519 signature-acceptance criterion is **pinned to strict** ([#20](https://github.com/bombadil-labs/rhizomatic/issues/20),
 SPEC-1 §5.1, ERRATA D13). The two witnesses verified under different criteria — TS on `@noble/curves`'
