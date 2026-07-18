@@ -4,6 +4,7 @@
 
 import { type CborValue, array, bool, bstr, encode, float, map, tstr } from "./cbor.js";
 import { bytesToHex } from "./hash.js";
+import type { Schema } from "./resolution.js";
 import type { Claims, Delta, Target } from "./types.js";
 
 export interface HVEntry {
@@ -12,6 +13,10 @@ export interface HVEntry {
   readonly negated: boolean;
   // expand replacements: pointer index (authored order) -> nested HView (E11).
   readonly expanded?: ReadonlyMap<number, HView>;
+  // The reading (child's resolution Schema) each expansion resolves through, same keying
+  // (issue #23). In-memory only: readings are program state, so they never enter the HView's
+  // canonical form — hview identity is data identity.
+  readonly readings?: ReadonlyMap<number, Schema>;
 }
 
 export interface HView {

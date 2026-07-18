@@ -6,6 +6,37 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 
 ## 0.8.0 — unreleased
 
+**`expand` names the child's reading** ([#23](https://github.com/bombadil-labs/rhizomatic/issues/23),
+SPEC-2 §4.5/E18, SPEC-5 §4/R8): an expand term now states **both halves of the child's lens** —
+`schema` (how the child gathers) and `reading` (the resolution Schema the child resolves through
+when the expansion crosses the `resolve` boundary). Before this, an expanded child was silently
+resolved with the **parent's** Schema — a child's intended reading was unstatable, and two parents
+embedding the same child under different Schemas produced different child views with nothing in
+the program identifying either. Surfaced by Loam's multi-lens coexistence work (Loam T25).
+
+### ⚠️ Breaking
+
+- **Resolving an expansion under a legacy body (no `reading`) is now a loud error** — there is no
+  fallback to the parent's Schema. Gather is unchanged: legacy bodies still parse, evaluate, and
+  hash byte-identically; only `resolve` over their expansions refuses. **Migration:** every
+  pre-#23 hyperschema had exactly one Schema (coexistence postdates them), so re-publish each
+  expand-carrying body with `"reading": <that Schema's name or pinned hash>`. Bodies gaining
+  `reading` mint new termHashes — the reference is genuinely part of the program's identity.
+- `SchemaRegistry.build` gains a second argument: `readings` (named resolution Schemas), indexed
+  by name and content address (`schemaHash`, newly exported); reading refs validate at build.
+  Existing single-argument calls compile unchanged (defaults to none).
+
+### Added (readings)
+
+- `expand.reading` in the term grammar (SPEC-2 §9) — present-iff-authored, so legacy hashes are
+  untouched; `schemaHash(schema)` — a resolution Schema's content address, the referent of
+  `reading: {pinned: …}`; registry `resolveReading`/`getReading`; `collectReadingRefs`.
+- `vectors/l1-eval/eval-resolve.json` regenerated: a `readings` registry section, the
+  `resolve-nested-expansion` case now observably resolved through the child's own reading, and a
+  `legacy-expand-resolve-rejected` reject (verified to reject at generation time).
+
+---
+
 **A third witness** ([#19](https://github.com/bombadil-labs/rhizomatic/issues/19)):
 `implementations/elixir`, at conformance Level 0, written from `spec/` + `vectors/` **alone** —
 the first real test of SPEC-0 §5's claim that the conformance suite is sufficient to conform to.

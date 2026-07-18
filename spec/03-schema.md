@@ -62,6 +62,7 @@ The reference graph `schema —refs→ schema` MUST be acyclic.
 - Validation: at schema registration/receipt, walk `refs` transitively; reject cycles. Because `refs` is declared (not discovered by interpreting the body), this check is cheap and static.
 - Data cycles remain fully legal (Keanu created BRZRKR; BRZRKR was created by Keanu). The DAG constraint is on *programs*, not *data*. Expansion of a data cycle terminates because the schema chain terminates: a terminal schema (one with no `expand`s) leaves `EntityRef`s as bare references.
 - Consequence: every HyperView has a statically known maximum expansion depth — the longest path in the schema DAG — which gives implementations a hard bound for resource planning.
+- The registry also holds **resolution Schemas ("readings")**, indexed by name and by content address, so an `expand`'s `reading` reference (SPEC-2 §4.5, issue #23) is validated at the same build step — an unknown reading fails registration, never mid-evaluation. Readings reference no schemas, so they add no edges to the DAG.
 
 *(Open: bounded self-reference — `expand(..., self, depth: k)` for tree-shaped data like comment threads. Expressible today by k manual schema copies; ugly. A `depth`-bounded SchemaRef would preserve termination and static bounds while restoring ergonomics. Needs vectors before admission.)*
 

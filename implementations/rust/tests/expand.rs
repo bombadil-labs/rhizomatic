@@ -5,7 +5,8 @@ use rhizomatic::eval::{eval_term, result_canonical_hex, EvalResult};
 use rhizomatic::json_profile::parse_claims;
 use rhizomatic::schema::{collect_refs, HyperSchema, SchemaRegistry};
 use rhizomatic::set::{make_delta, DeltaSet};
-use rhizomatic::term_json::parse_term;
+use rhizomatic::term_io::schema_hash;
+use rhizomatic::term_json::{parse_schema, parse_term};
 use serde_json::{json, Value};
 
 fn load() -> Value {
@@ -39,6 +40,7 @@ fn registry(doc: &Value) -> SchemaRegistry {
                 body: parse_term(&s["body"]).unwrap(),
             })
             .collect(),
+        vec![],
     )
     .unwrap()
 }
@@ -128,7 +130,7 @@ fn registry_guards() {
             &json!({ "op": "expand", "role": { "exact": "y" }, "schema": "A", "in": group_input }),
         ),
     };
-    let err = SchemaRegistry::build(vec![a.clone(), b]).unwrap_err();
+    let err = SchemaRegistry::build(vec![a.clone(), b], vec![]).unwrap_err();
     assert!(err.contains("cycle"), "got: {err}");
 
     // unresolved reference
@@ -139,7 +141,7 @@ fn registry_guards() {
             &json!({ "op": "expand", "role": { "exact": "x" }, "schema": "Ghost", "in": group_input }),
         ),
     };
-    let err = SchemaRegistry::build(vec![ghost]).unwrap_err();
+    let err = SchemaRegistry::build(vec![ghost], vec![]).unwrap_err();
     assert!(err.contains("unknown schema"), "got: {err}");
 
     // duplicate names
@@ -148,7 +150,7 @@ fn registry_guards() {
         alg: 1,
         body: body(&group_input),
     };
-    let err = SchemaRegistry::build(vec![dup.clone(), dup]).unwrap_err();
+    let err = SchemaRegistry::build(vec![dup.clone(), dup], vec![]).unwrap_err();
     assert!(err.contains("duplicate"), "got: {err}");
 
     // missing registry at eval time
@@ -157,4 +159,54 @@ fn registry_guards() {
     let term = parse_term(&json!({ "op": "fix", "schema": "A", "entity": "e" })).unwrap();
     let err = eval_term(&term, &input, None, None, None).unwrap_err();
     assert!(err.contains("no registry"), "got: {err}");
+}
+
+// issue #23: reading references validate at build, exactly as gather references do.
+#[test]
+fn rejects_unknown_reading_reference_at_build() {
+    let group_input = json!({ "op": "group", "key": "byRole", "in": "input" });
+    let base = HyperSchema {
+        name: "Base".to_string(),
+        alg: 1,
+        body: parse_term(&group_input).unwrap(),
+    };
+    let a = HyperSchema {
+        name: "A".to_string(),
+        alg: 1,
+        body: parse_term(&json!({
+            "op": "expand",
+            "role": { "exact": "x" },
+            "schema": "Base",
+            "reading": "GhostReading",
+            "in": group_input,
+        }))
+        .unwrap(),
+    };
+    let err = SchemaRegistry::build(vec![base, a], vec![]).unwrap_err();
+    assert!(err.contains("unknown reading"), "got: {err}");
+}
+
+#[test]
+fn resolves_a_registered_reading_by_name_and_by_pinned_hash() {
+    let reading = parse_schema(&json!({
+        "name": "R",
+        "alg": 1,
+        "props": { "name": { "pick": { "order": { "byTimestamp": "asc" } } } },
+        "default": { "pick": { "order": "lexById" } },
+    }))
+    .unwrap();
+    let base = HyperSchema {
+        name: "Base".to_string(),
+        alg: 1,
+        body: parse_term(&json!({ "op": "group", "key": "byRole", "in": "input" })).unwrap(),
+    };
+    let registry = SchemaRegistry::build(vec![base], vec![reading.clone()]).unwrap();
+    assert_eq!(
+        registry.resolve_reading(&SchemaRef::Name("R".to_string())),
+        Some(&reading)
+    );
+    assert_eq!(
+        registry.resolve_reading(&SchemaRef::Pinned(schema_hash(&reading).unwrap())),
+        Some(&reading)
+    );
 }

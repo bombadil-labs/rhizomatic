@@ -36,6 +36,7 @@ fn world() -> (Vec<Delta>, SchemaRegistry, Term) {
                 body: parse_term(&s["body"]).unwrap(),
             })
             .collect(),
+        vec![],
     )
     .unwrap();
     let body = reg.get("MovieDeep").unwrap().body.clone();

@@ -49,6 +49,10 @@ export type Term =
       readonly kind: "expand";
       readonly role: StrMatch;
       readonly schema: SchemaRefT;
+      // The child's resolution Schema — the other half of the child's lens (issue #23). Required
+      // in the current vocabulary; absent only in legacy bodies, whose expansions then refuse to
+      // RESOLVE (gather is unchanged). There is deliberately no parent-Schema fallback.
+      readonly reading?: SchemaRefT;
       readonly of: Term;
     }
   | {
@@ -446,12 +450,17 @@ export function evalTerm(
     case "expand": {
       const of = expectHView(evalTerm(term.of, input, root, registry, bindings), "expand");
       const role = expandStrMatch(term.role, input, root);
+      // Resolve the child's reading once, up front — an unknown reading fails the whole
+      // evaluation loudly, exactly as an unknown gather schema does (issue #23).
+      const reading =
+        term.reading === undefined ? undefined : lookupReading(term.reading, registry);
       const props = new Map<string, readonly HVEntry[]>();
       for (const [prop, entries] of of.hview.props) {
         props.set(
           prop,
           entries.map((e) => {
             let expanded: Map<number, HView> | undefined;
+            let readings: Map<number, Schema> | undefined;
             e.delta.claims.pointers.forEach((ptr, i) => {
               // Only role-matching EntityRef pointers expand; everything else passes through
               // as written (E11, SPEC-3 §7 graceful degradation).
@@ -465,8 +474,12 @@ export function evalTerm(
               );
               expanded = expanded ?? new Map(e.expanded ?? []);
               expanded.set(i, nested);
+              if (reading !== undefined) {
+                readings = readings ?? new Map(e.readings ?? []);
+                readings.set(i, reading);
+              }
             });
-            return expanded === undefined ? e : { ...e, expanded };
+            return expanded === undefined ? e : { ...e, expanded, ...(readings && { readings }) };
           }),
         );
       }
@@ -505,6 +518,17 @@ function evalSchema(
     throw new Error(`schema ${label} body must be an HView-sort term (E10)`);
   }
   return result.hview;
+}
+
+// Look up an expand's reading — the child's resolution Schema (issue #23). Mirrors evalSchema's
+// error discipline: unknown references fail loudly, never fall back.
+function lookupReading(ref: SchemaRefT, registry: SchemaRegistry | undefined): Schema {
+  const label = ref.kind === "name" ? ref.name : `pinned:${ref.hash.slice(0, 12)}…`;
+  if (registry === undefined)
+    throw new Error(`reading ${label} referenced but no registry supplied (issue #23)`);
+  const schema = registry.resolveReading(ref);
+  if (schema === undefined) throw new Error(`unknown reading: ${label} (issue #23)`);
+  return schema;
 }
 
 // Canonical serialization of an evaluation result (ERRATA-2 E2, E7).

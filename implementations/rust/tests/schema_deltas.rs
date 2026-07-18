@@ -41,6 +41,7 @@ fn expand_world() -> (DeltaSet, SchemaRegistry) {
                 body: parse_term(&s["body"]).unwrap(),
             })
             .collect(),
+        vec![],
     )
     .unwrap();
     (set, reg)

@@ -545,6 +545,12 @@ pub fn parse_term(raw: &Value) -> Result<Term, String> {
         Some("expand") => Ok(Term::Expand {
             role: parse_str_match(o.get("role").unwrap_or(&Value::Null), "expand.role")?,
             schema: parse_schema_ref(o.get("schema").unwrap_or(&Value::Null))?,
+            // `reading` is required in the current vocabulary (issue #23); legacy bodies without
+            // it still parse and gather, but their expansions refuse to resolve (SPEC-5 §6).
+            reading: match o.get("reading") {
+                None => None,
+                Some(r) => Some(parse_schema_ref(r)?),
+            },
             of: Box::new(parse_term(o.get("in").unwrap_or(&Value::Null))?),
         }),
         Some("fix") => {

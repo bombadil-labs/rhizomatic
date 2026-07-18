@@ -1068,8 +1068,17 @@
       return a.delta.id < b.delta.id ? -1 : a.delta.id > b.delta.id ? 1 : 0;
     });
   }
-  function renderTarget(t, expansion, schema) {
-    if (expansion !== void 0) return resolveView(schema, expansion);
+  function renderTarget(t, e, i) {
+    const expansion = e.expanded?.get(i);
+    if (expansion !== void 0) {
+      const reading = e.readings?.get(i);
+      if (reading === void 0) {
+        throw new Error(
+          `expansion at pointer ${i} of delta ${e.delta.id} carries no reading \u2014 legacy expand bodies must name the child's resolution Schema (SPEC-5 \xA74, issue #23)`
+        );
+      }
+      return resolveView(reading, expansion);
+    }
     switch (t.kind) {
       case "primitive":
         return t.value;
@@ -1081,12 +1090,12 @@
         return { mime: t.mime, value: t.value };
     }
   }
-  function candidateValue(e, root, schema) {
+  function candidateValue(e, root) {
     const nonFiling = [];
     e.delta.claims.pointers.forEach((p, i) => {
       const filing = p.target.kind === "entity" && p.target.entity.id === root;
       if (filing) return;
-      nonFiling.push([p.role, renderTarget(p.target, e.expanded?.get(i), schema)]);
+      nonFiling.push([p.role, renderTarget(p.target, e, i)]);
     });
     if (nonFiling.length === 0) return true;
     if (nonFiling.length === 1) return nonFiling[0][1];
@@ -1122,10 +1131,10 @@
   function isPrimitive(v) {
     return typeof v === "string" || typeof v === "number" || typeof v === "boolean";
   }
-  function applyMerge(fn, entries, root, schema) {
+  function applyMerge(fn, entries, root) {
     const sorted = sortEntries({ kind: "lexById" }, entries);
     if (fn === "count") return sorted.length === 0 ? ABSENT : sorted.length;
-    const prims = sorted.map((e) => candidateValue(e, root, schema)).filter((v) => isPrimitive(v));
+    const prims = sorted.map((e) => candidateValue(e, root)).filter((v) => isPrimitive(v));
     switch (fn) {
       case "max":
       case "min": {
@@ -1152,25 +1161,25 @@
       }
     }
   }
-  function applyPolicy(policy, entries, root, schema) {
+  function applyPolicy(policy, entries, root) {
     switch (policy.kind) {
       case "pick": {
         if (entries.length === 0) return ABSENT;
         const sorted = sortEntries(policy.order, entries);
-        return candidateValue(sorted[0], root, schema);
+        return candidateValue(sorted[0], root);
       }
       case "all": {
         if (entries.length === 0) return ABSENT;
-        return sortEntries(policy.order, entries).map((e) => candidateValue(e, root, schema));
+        return sortEntries(policy.order, entries).map((e) => candidateValue(e, root));
       }
       case "merge":
-        return applyMerge(policy.fn, entries, root, schema);
+        return applyMerge(policy.fn, entries, root);
       case "conflicts": {
         const sorted = sortEntries(policy.order, entries);
         const seen = /* @__PURE__ */ new Set();
         const distinct = [];
         for (const e of sorted) {
-          const v = candidateValue(e, root, schema);
+          const v = candidateValue(e, root);
           const key = viewCanonicalHex(v);
           if (!seen.has(key)) {
             seen.add(key);
@@ -1180,7 +1189,7 @@
         return distinct.length >= 2 ? distinct : ABSENT;
       }
       case "absentAs": {
-        const inner = applyPolicy(policy.then, entries, root, schema);
+        const inner = applyPolicy(policy.then, entries, root);
         return inner === ABSENT ? policy.constant : inner;
       }
     }
@@ -1191,7 +1200,7 @@
     for (const key of keys) {
       const entries = hview.props.get(key) ?? [];
       const policy = schema.props.get(key) ?? schema.default;
-      const v = applyPolicy(policy, entries, hview.id, schema);
+      const v = applyPolicy(policy, entries, hview.id);
       if (v !== ABSENT) obj[key] = v;
     }
     return obj;
@@ -1726,12 +1735,14 @@
       case "expand": {
         const of = expectHView(evalTerm(term.of, input, root, registry, bindings), "expand");
         const role = expandStrMatch(term.role, input, root);
+        const reading = term.reading === void 0 ? void 0 : lookupReading(term.reading, registry);
         const props = /* @__PURE__ */ new Map();
         for (const [prop, entries] of of.hview.props) {
           props.set(
             prop,
             entries.map((e) => {
               let expanded;
+              let readings;
               e.delta.claims.pointers.forEach((ptr, i) => {
                 if (ptr.target.kind !== "entity" || !strMatch(role, ptr.role)) return;
                 const nested = evalSchema(
@@ -1743,8 +1754,12 @@
                 );
                 expanded = expanded ?? new Map(e.expanded ?? []);
                 expanded.set(i, nested);
+                if (reading !== void 0) {
+                  readings = readings ?? new Map(e.readings ?? []);
+                  readings.set(i, reading);
+                }
               });
-              return expanded === void 0 ? e : { ...e, expanded };
+              return expanded === void 0 ? e : { ...e, expanded, ...readings && { readings } };
             })
           );
         }
@@ -1772,6 +1787,14 @@
       throw new Error(`schema ${label} body must be an HView-sort term (E10)`);
     }
     return result.hview;
+  }
+  function lookupReading(ref, registry) {
+    const label = ref.kind === "name" ? ref.name : `pinned:${ref.hash.slice(0, 12)}\u2026`;
+    if (registry === void 0)
+      throw new Error(`reading ${label} referenced but no registry supplied (issue #23)`);
+    const schema = registry.resolveReading(ref);
+    if (schema === void 0) throw new Error(`unknown reading: ${label} (issue #23)`);
+    return schema;
   }
 
   // src/schema.ts
@@ -2144,12 +2167,14 @@
       case "group":
         return { kind: "group", key: parseGroupKey(o["key"]), of: parseTerm(o["in"]) };
       case "expand": {
-        return {
+        const expand = {
           kind: "expand",
           role: parseStrMatch(o["role"], "expand.role"),
           schema: parseSchemaRef(o["schema"]),
           of: parseTerm(o["in"])
         };
+        if (o["reading"] === void 0) return expand;
+        return { ...expand, reading: parseSchemaRef(o["reading"]) };
       }
       case "fix": {
         if (typeof o["entity"] !== "string") throw new Error("fix.entity must be a string");

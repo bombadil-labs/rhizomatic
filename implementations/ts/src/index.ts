@@ -42,7 +42,7 @@ export {
 } from "./eval.js";
 export { relationSignature, relationSignatureCanonicalHex } from "./alias.js";
 export { hviewCanonicalHex, type HVEntry, type HView } from "./hview.js";
-export { SchemaRegistry, collectRefs, type HyperSchema } from "./schema.js";
+export { SchemaRegistry, collectRefs, collectReadingRefs, type HyperSchema } from "./schema.js";
 export {
   resolveView,
   viewCanonicalHex,
@@ -59,6 +59,7 @@ export {
   jsonToCbor,
   schemaToJson,
   schemaCanonicalHex,
+  schemaHash,
   predToJson,
   termCanonicalHex,
   termHash,

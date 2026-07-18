@@ -95,8 +95,21 @@ function sortEntries(order: Order, entries: readonly HVEntry[]): HVEntry[] {
 
 // --- candidate value extraction (R1) ---------------------------------------------------------------
 
-function renderTarget(t: Target, expansion: HView | undefined, schema: Schema): View {
-  if (expansion !== undefined) return resolveView(schema, expansion);
+function renderTarget(t: Target, e: HVEntry, i: number): View {
+  const expansion = e.expanded?.get(i);
+  if (expansion !== undefined) {
+    // An expansion resolves through ITS OWN reading — the child's resolution Schema named in the
+    // expand term (issue #23). There is no parent-Schema fallback: a legacy body (no reading)
+    // gathers fine but refuses to resolve, loudly.
+    const reading = e.readings?.get(i);
+    if (reading === undefined) {
+      throw new Error(
+        `expansion at pointer ${i} of delta ${e.delta.id} carries no reading — ` +
+          `legacy expand bodies must name the child's resolution Schema (SPEC-5 §4, issue #23)`,
+      );
+    }
+    return resolveView(reading, expansion);
+  }
   switch (t.kind) {
     case "primitive":
       return t.value;
@@ -109,12 +122,12 @@ function renderTarget(t: Target, expansion: HView | undefined, schema: Schema): 
   }
 }
 
-function candidateValue(e: HVEntry, root: string, schema: Schema): View {
+function candidateValue(e: HVEntry, root: string): View {
   const nonFiling: Array<[string, View]> = [];
   e.delta.claims.pointers.forEach((p, i) => {
     const filing = p.target.kind === "entity" && p.target.entity.id === root;
     if (filing) return;
-    nonFiling.push([p.role, renderTarget(p.target, e.expanded?.get(i), schema)]);
+    nonFiling.push([p.role, renderTarget(p.target, e, i)]);
   });
   if (nonFiling.length === 0) return true; // the bare fact of the edge
   if (nonFiling.length === 1) return nonFiling[0]![1];
@@ -161,17 +174,12 @@ function isPrimitive(v: View): v is Primitive {
   return typeof v === "string" || typeof v === "number" || typeof v === "boolean";
 }
 
-function applyMerge(
-  fn: MergeFn,
-  entries: readonly HVEntry[],
-  root: string,
-  schema: Schema,
-): Resolved {
+function applyMerge(fn: MergeFn, entries: readonly HVEntry[], root: string): Resolved {
   // Fold in ascending delta-id order — float addition is order-dependent (R2).
   const sorted = sortEntries({ kind: "lexById" }, entries);
   if (fn === "count") return sorted.length === 0 ? ABSENT : sorted.length;
   const prims = sorted
-    .map((e) => candidateValue(e, root, schema))
+    .map((e) => candidateValue(e, root))
     .filter((v): v is Primitive => isPrimitive(v));
   switch (fn) {
     case "max":
@@ -200,30 +208,25 @@ function applyMerge(
   }
 }
 
-function applyPolicy(
-  policy: Policy,
-  entries: readonly HVEntry[],
-  root: string,
-  schema: Schema,
-): Resolved {
+function applyPolicy(policy: Policy, entries: readonly HVEntry[], root: string): Resolved {
   switch (policy.kind) {
     case "pick": {
       if (entries.length === 0) return ABSENT;
       const sorted = sortEntries(policy.order, entries);
-      return candidateValue(sorted[0]!, root, schema);
+      return candidateValue(sorted[0]!, root);
     }
     case "all": {
       if (entries.length === 0) return ABSENT;
-      return sortEntries(policy.order, entries).map((e) => candidateValue(e, root, schema));
+      return sortEntries(policy.order, entries).map((e) => candidateValue(e, root));
     }
     case "merge":
-      return applyMerge(policy.fn, entries, root, schema);
+      return applyMerge(policy.fn, entries, root);
     case "conflicts": {
       const sorted = sortEntries(policy.order, entries);
       const seen = new Set<string>();
       const distinct: View[] = [];
       for (const e of sorted) {
-        const v = candidateValue(e, root, schema);
+        const v = candidateValue(e, root);
         const key = viewCanonicalHex(v);
         if (!seen.has(key)) {
           seen.add(key);
@@ -233,7 +236,7 @@ function applyPolicy(
       return distinct.length >= 2 ? distinct : ABSENT;
     }
     case "absentAs": {
-      const inner = applyPolicy(policy.then, entries, root, schema);
+      const inner = applyPolicy(policy.then, entries, root);
       return inner === ABSENT ? policy.constant : inner;
     }
   }
@@ -247,7 +250,7 @@ export function resolveView(schema: Schema, hview: HView): View {
   for (const key of keys) {
     const entries = hview.props.get(key) ?? [];
     const policy = schema.props.get(key) ?? schema.default;
-    const v = applyPolicy(policy, entries, hview.id, schema);
+    const v = applyPolicy(policy, entries, hview.id);
     if (v !== ABSENT) obj[key] = v;
   }
   return obj;

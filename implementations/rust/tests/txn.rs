@@ -33,6 +33,7 @@ fn world() -> (Vec<Delta>, SchemaRegistry) {
                 body: parse_term(&s["body"]).unwrap(),
             })
             .collect(),
+        vec![],
     )
     .unwrap();
     (deltas, reg)

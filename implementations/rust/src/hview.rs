@@ -5,6 +5,7 @@
 use std::collections::BTreeMap;
 
 use crate::cbor::{encode, CborValue};
+use crate::resolution::Schema;
 use crate::types::{Claims, Delta, Primitive, Target};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -14,6 +15,10 @@ pub struct HVEntry {
     pub negated: bool,
     /// expand replacements: pointer index (authored order) -> nested HView (E11).
     pub expanded: BTreeMap<usize, HView>,
+    /// The reading (child's resolution Schema) each expansion resolves through, same keying
+    /// (issue #23). In-memory only: readings are program state, so they never enter the HView's
+    /// canonical form — hview identity is data identity.
+    pub readings: BTreeMap<usize, Schema>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
