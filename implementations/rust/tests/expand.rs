@@ -40,7 +40,10 @@ fn registry(doc: &Value) -> SchemaRegistry {
                 body: parse_term(&s["body"]).unwrap(),
             })
             .collect(),
-        vec![],
+        doc["readings"]
+            .as_array()
+            .map(|rs| rs.iter().map(|r| parse_schema(r).unwrap()).collect())
+            .unwrap_or_default(),
     )
     .unwrap()
 }

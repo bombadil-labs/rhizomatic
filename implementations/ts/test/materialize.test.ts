@@ -8,7 +8,7 @@ import { parseClaims } from "../src/json-profile.js";
 import { Reactor } from "../src/reactor.js";
 import { SchemaRegistry } from "../src/schema.js";
 import { DeltaSet, makeDelta, makeNegationClaims } from "../src/set.js";
-import { parseTerm } from "../src/term-json.js";
+import { parseSchema, parseTerm } from "../src/term-json.js";
 import type { Delta } from "../src/types.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -16,12 +16,14 @@ const expandDoc = JSON.parse(
   readFileSync(resolve(here, "../../../vectors/l1-eval/eval-expand.json"), "utf8"),
 ) as {
   fixture: { deltas: Array<{ name: string; claims: unknown }> };
+  readings: unknown[];
   schemas: Array<{ name: string; alg: number; body: unknown }>;
 };
 
 const baseDeltas = expandDoc.fixture.deltas.map((d) => makeDelta(parseClaims(d.claims)));
 const registry = SchemaRegistry.build(
   expandDoc.schemas.map((s) => ({ name: s.name, alg: s.alg, body: parseTerm(s.body) })),
+  expandDoc.readings.map((r) => parseSchema(r)),
 );
 const movieDeepBody = registry.get("MovieDeep")!.body;
 

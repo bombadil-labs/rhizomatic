@@ -5,6 +5,8 @@
 import { type CborValue, array, bool, bstr, encode, float, map, tstr } from "./cbor.js";
 import { bytesToHex } from "./hash.js";
 import type { Schema } from "./resolution.js";
+// Runtime-safe: term-io's only import from this module's dependents is the type-only Term.
+import { schemaHash } from "./term-io.js";
 import type { Claims, Delta, Target } from "./types.js";
 
 export interface HVEntry {
@@ -14,8 +16,9 @@ export interface HVEntry {
   // expand replacements: pointer index (authored order) -> nested HView (E11).
   readonly expanded?: ReadonlyMap<number, HView>;
   // The reading (child's resolution Schema) each expansion resolves through, same keying
-  // (issue #23). In-memory only: readings are program state, so they never enter the HView's
-  // canonical form — hview identity is data identity.
+  // (issue #23). The full Schema is in-memory registry state; the canonical form carries only
+  // its CONTENT ADDRESS, so a serialized hview stays self-describing and resolvable (a
+  // rehydrator dereferences the hash through the registry).
   readonly readings?: ReadonlyMap<number, Schema>;
 }
 
@@ -24,8 +27,21 @@ export interface HView {
   readonly props: ReadonlyMap<string, readonly HVEntry[]>;
 }
 
-function targetToCborWithExpansion(t: Target, expansion: HView | undefined): CborValue {
-  if (expansion !== undefined) return hviewToCbor(expansion);
+function targetToCborWithExpansion(
+  t: Target,
+  expansion: HView | undefined,
+  reading: Schema | undefined,
+): CborValue {
+  if (expansion !== undefined) {
+    const child = hviewToCbor(expansion);
+    if (reading === undefined || child.t !== "map") return child;
+    // The reading's CONTENT ADDRESS rides the canonical form (issue #23 follow-up): the reading
+    // is part of the program identity ("the version lives in the vocabulary"), and without it a
+    // rehydrated hview would be unresolvable — canonical form must be self-describing. The full
+    // Schema stays out (it is registry state, dereferenced by hash at resolution).
+    // Key order stays canonical: "id" < "props" < "reading".
+    return map([...child.v, ["reading", tstr(schemaHash(reading))]]);
+  }
   switch (t.kind) {
     case "primitive": {
       const v = t.value;
@@ -56,6 +72,7 @@ function targetToCborWithExpansion(t: Target, expansion: HView | undefined): Cbo
 function claimsToCborWithExpansions(
   claims: Claims,
   expanded: ReadonlyMap<number, HView> | undefined,
+  readings: ReadonlyMap<number, Schema> | undefined,
 ): CborValue {
   return map([
     ["author", tstr(claims.author)],
@@ -65,7 +82,7 @@ function claimsToCborWithExpansions(
         claims.pointers.map((p, i) =>
           map([
             ["role", tstr(p.role)],
-            ["target", targetToCborWithExpansion(p.target, expanded?.get(i))],
+            ["target", targetToCborWithExpansion(p.target, expanded?.get(i), readings?.get(i))],
           ]),
         ),
       ),
@@ -77,7 +94,7 @@ function claimsToCborWithExpansions(
 export function hvEntryToCbor(e: HVEntry): CborValue {
   const entries: Array<[string, CborValue]> = [
     ["id", tstr(e.delta.id)],
-    ["claims", claimsToCborWithExpansions(e.delta.claims, e.expanded)],
+    ["claims", claimsToCborWithExpansions(e.delta.claims, e.expanded, e.readings)],
   ];
   if (e.delta.sig !== undefined) entries.push(["sig", tstr(e.delta.sig)]);
   if (e.negated) entries.push(["negated", bool(true)]);

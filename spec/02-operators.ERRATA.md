@@ -214,5 +214,9 @@ legacy body by construction.
 Mechanics pinned alongside: the registry holds resolution Schemas by name and by content address
 (`schemaHash`, the same multihash construction as `termHash`); reading refs are collected from
 bodies and validated at registry build (unknown reading = build error, never mid-eval); the
-resolved reading rides the in-memory HVEntry beside its expansion and **never enters the HView
-canonical form** — hview identity is data identity, readings are program state.
+resolved reading rides the in-memory HVEntry beside its expansion, and the HView canonical form
+carries the reading's **content address** on each expanded target (SPEC-3 §4) — the full Schema
+body stays out (registry state, dereferenced by hash), but the *name* of the reading must survive
+serialization or a rehydrated hview could never be resolved. Pinned by
+`eval-expand.json`'s `fix-expand-with-reading` (bytes differ from the legacy twin only by the
+reading hash) and by the untouched legacy cases (reading key present iff authored).

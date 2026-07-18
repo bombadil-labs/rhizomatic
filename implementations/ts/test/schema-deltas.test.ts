@@ -45,6 +45,7 @@ const doc = read("schema-deltas.json") as {
 
 const expandDoc = read("eval-expand.json") as {
   fixture: { deltas: Array<{ claims: unknown }> };
+  readings: unknown[];
   schemas: Array<{ name: string; alg: number; body: unknown }>;
 };
 const expandSet = DeltaSet.from(
@@ -52,6 +53,7 @@ const expandSet = DeltaSet.from(
 );
 const expandRegistry = SchemaRegistry.build(
   expandDoc.schemas.map((s) => ({ name: s.name, alg: s.alg, body: parseTerm(s.body) })),
+  expandDoc.readings.map((r) => parseSchema(r)),
 );
 
 describe("term canonical CBOR + hashes (E12)", () => {

@@ -1016,9 +1016,253 @@
     return contentAddress(canonicalBytes(claims));
   }
 
+  // src/b64u.ts
+  var ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+  function b64uEncode(bytes) {
+    let out = "";
+    for (let i = 0; i < bytes.length; i += 3) {
+      const b0 = bytes[i];
+      const b1 = i + 1 < bytes.length ? bytes[i + 1] : 0;
+      const b2 = i + 2 < bytes.length ? bytes[i + 2] : 0;
+      const n = b0 << 16 | b1 << 8 | b2;
+      out += ALPHABET[n >> 18 & 63] + ALPHABET[n >> 12 & 63];
+      if (i + 1 < bytes.length) out += ALPHABET[n >> 6 & 63];
+      if (i + 2 < bytes.length) out += ALPHABET[n & 63];
+    }
+    return out;
+  }
+  function sextet(c) {
+    const code = c.charCodeAt(0);
+    if (code >= 65 && code <= 90) return code - 65;
+    if (code >= 97 && code <= 122) return code - 97 + 26;
+    if (code >= 48 && code <= 57) return code - 48 + 52;
+    if (c === "-") return 62;
+    if (c === "_") return 63;
+    throw new Error(`base64url: invalid character ${JSON.stringify(c)}`);
+  }
+  function b64uDecode(s) {
+    if (s.length % 4 === 1) throw new Error("base64url: invalid length (\u2261 1 mod 4)");
+    const out = [];
+    for (let i = 0; i < s.length; i += 4) {
+      const end = Math.min(i + 4, s.length);
+      const len = end - i;
+      let acc = 0;
+      for (let j = i; j < end; j++) acc = acc << 6 | sextet(s[j]);
+      if (len === 4) {
+        out.push(acc >> 16 & 255, acc >> 8 & 255, acc & 255);
+      } else if (len === 3) {
+        if ((acc & 3) !== 0) throw new Error("base64url: non-canonical trailing bits");
+        const a = acc >> 2;
+        out.push(a >> 8 & 255, a & 255);
+      } else {
+        if ((acc & 15) !== 0) throw new Error("base64url: non-canonical trailing bits");
+        out.push(acc >> 4 & 255);
+      }
+    }
+    return Uint8Array.from(out);
+  }
+
+  // src/term-io.ts
+  function paramToJson(v) {
+    return typeof v === "object" ? { hole: v.name } : v;
+  }
+  function strMatchToJson(m) {
+    switch (m.kind) {
+      case "exact":
+        return { exact: m.value };
+      case "prefix":
+        return { prefix: m.value };
+      case "inSet":
+        return { inSet: [...m.values] };
+      case "aliased": {
+        const a = { name: m.name };
+        if (m.via !== void 0) a["via"] = m.via;
+        if (m.trust !== void 0) a["trust"] = predToJson(m.trust);
+        return { aliased: a };
+      }
+    }
+  }
+  function valMatchToJson(m) {
+    switch (m.kind) {
+      case "vcmp":
+        return { vcmp: { cmp: m.cmp, value: paramToJson(m.value) } };
+      case "between":
+        return { between: [m.lo, m.hi] };
+      case "inSet":
+        return { inSet: [...m.values] };
+    }
+  }
+  function ppredToJson(p) {
+    const out = {};
+    if (p.role !== void 0) out["role"] = strMatchToJson(p.role);
+    if (p.targetEntity !== void 0) {
+      out["targetEntity"] = p.targetEntity.kind === "const" ? p.targetEntity.id : p.targetEntity.kind === "hole" ? { hole: p.targetEntity.name } : { var: "root" };
+    }
+    if (p.targetDelta !== void 0) out["targetDelta"] = p.targetDelta;
+    if (p.context !== void 0) out["context"] = strMatchToJson(p.context);
+    if (p.targetIsPrimitive !== void 0) out["targetIsPrimitive"] = p.targetIsPrimitive;
+    if (p.targetValue !== void 0) out["targetValue"] = valMatchToJson(p.targetValue);
+    return out;
+  }
+  function predToJson(pred) {
+    switch (pred.kind) {
+      case "true":
+        return "true";
+      case "false":
+        return "false";
+      case "match":
+        return {
+          match: {
+            field: pred.field,
+            cmp: pred.cmp,
+            const: Array.isArray(pred.constant) ? [...pred.constant] : paramToJson(pred.constant)
+          }
+        };
+      case "hasPointer":
+        return { hasPointer: ppredToJson(pred.ppred) };
+      case "and":
+        return { and: [predToJson(pred.left), predToJson(pred.right)] };
+      case "or":
+        return { or: [predToJson(pred.left), predToJson(pred.right)] };
+      case "not":
+        return { not: predToJson(pred.pred) };
+      case "inView":
+        return {
+          inView: {
+            term: termToJson(pred.term),
+            field: pred.field,
+            extract: pred.extract.kind === "field" ? { field: pred.extract.field } : { role: pred.extract.role }
+          }
+        };
+    }
+  }
+  function orderToJson(o) {
+    switch (o.kind) {
+      case "byTimestamp":
+        return { byTimestamp: o.dir };
+      case "byAuthorRank":
+        return { byAuthorRank: [...o.authors] };
+      case "byPred":
+        return { byPred: { pred: predToJson(o.pred), then: orderToJson(o.then) } };
+      case "chain":
+        return { chain: o.orders.map(orderToJson) };
+      case "lexById":
+        return "lexById";
+    }
+  }
+  function policyToJson(pp) {
+    switch (pp.kind) {
+      case "pick":
+        return { pick: { order: orderToJson(pp.order) } };
+      case "all":
+        return { all: { order: orderToJson(pp.order) } };
+      case "merge":
+        return { merge: pp.fn };
+      case "conflicts":
+        return { conflicts: { order: orderToJson(pp.order) } };
+      case "absentAs":
+        return { absentAs: { const: pp.constant, then: policyToJson(pp.then) } };
+    }
+  }
+  function schemaToJson(p) {
+    const props = {};
+    for (const [k, v] of p.props) props[k] = policyToJson(v);
+    const out = { props, default: policyToJson(p.default) };
+    if (p.name !== void 0) out.name = p.name;
+    if (p.alg !== void 0) out.alg = p.alg;
+    return out;
+  }
+  function termToJson(term) {
+    switch (term.kind) {
+      case "input":
+        return "input";
+      case "select":
+        return { op: "select", pred: predToJson(term.pred), in: termToJson(term.of) };
+      case "union":
+        return { op: "union", left: termToJson(term.left), right: termToJson(term.right) };
+      case "intersect":
+        return { op: "intersect", left: termToJson(term.left), right: termToJson(term.right) };
+      case "difference":
+        return { op: "difference", of: termToJson(term.of), without: termToJson(term.without) };
+      case "mask": {
+        const policy = term.policy.kind === "trust" ? { trust: predToJson(term.policy.pred) } : term.policy.kind;
+        return { op: "mask", policy, in: termToJson(term.of) };
+      }
+      case "group": {
+        const key = term.key.kind === "const" ? { const: term.key.prop } : term.key.kind;
+        return { op: "group", key, in: termToJson(term.of) };
+      }
+      case "prune":
+        return {
+          op: "prune",
+          keep: term.keep === "all" ? "all" : strMatchToJson(term.keep),
+          in: termToJson(term.of)
+        };
+      case "expand": {
+        const out = {
+          op: "expand",
+          role: strMatchToJson(term.role),
+          schema: schemaRefToJson(term.schema)
+        };
+        if (term.reading !== void 0) out["reading"] = schemaRefToJson(term.reading);
+        out["in"] = termToJson(term.of);
+        return out;
+      }
+      case "fix": {
+        const out = {
+          op: "fix",
+          schema: schemaRefToJson(term.schema),
+          entity: term.entity
+        };
+        if (term.bindings !== void 0 && term.bindings.size > 0) {
+          const bindings = {};
+          for (const key of [...term.bindings.keys()].sort()) {
+            bindings[key] = term.bindings.get(key);
+          }
+          out["bindings"] = bindings;
+        }
+        return out;
+      }
+      case "resolve":
+        return { op: "resolve", schema: schemaToJson(term.schema), in: termToJson(term.of) };
+    }
+  }
+  function schemaRefToJson(ref) {
+    return ref.kind === "name" ? ref.name : { pinned: ref.hash };
+  }
+  function jsonToCbor(v) {
+    if (typeof v === "string") return tstr(v);
+    if (typeof v === "number") return float(v);
+    if (typeof v === "boolean") return bool(v);
+    if (Array.isArray(v)) return array(v.map(jsonToCbor));
+    if (typeof v === "object" && v !== null) {
+      return map(
+        Object.entries(v).map(([k, x]) => [
+          k,
+          jsonToCbor(x)
+        ])
+      );
+    }
+    throw new Error("json value outside the CBOR profile (null/undefined are not representable)");
+  }
+  function termCanonicalBytes(term) {
+    return encode(jsonToCbor(termToJson(term)));
+  }
+  function termHash(term) {
+    return contentAddress(termCanonicalBytes(term));
+  }
+  function schemaHash(schema) {
+    const body = schemaToJson({ props: schema.props, default: schema.default });
+    return contentAddress(encode(jsonToCbor(body)));
+  }
+
   // src/hview.ts
-  function targetToCborWithExpansion(t, expansion) {
-    if (expansion !== void 0) return hviewToCbor(expansion);
+  function targetToCborWithExpansion(t, expansion, reading) {
+    if (expansion !== void 0) {
+      const child = hviewToCbor(expansion);
+      if (reading === void 0 || child.t !== "map") return child;
+      return map([...child.v, ["reading", tstr(schemaHash(reading))]]);
+    }
     switch (t.kind) {
       case "primitive": {
         const v = t.value;
@@ -1043,7 +1287,7 @@
         ]);
     }
   }
-  function claimsToCborWithExpansions(claims, expanded) {
+  function claimsToCborWithExpansions(claims, expanded, readings) {
     return map([
       ["author", tstr(claims.author)],
       [
@@ -1052,7 +1296,7 @@
           claims.pointers.map(
             (p, i) => map([
               ["role", tstr(p.role)],
-              ["target", targetToCborWithExpansion(p.target, expanded?.get(i))]
+              ["target", targetToCborWithExpansion(p.target, expanded?.get(i), readings?.get(i))]
             ])
           )
         )
@@ -1063,7 +1307,7 @@
   function hvEntryToCbor(e) {
     const entries = [
       ["id", tstr(e.delta.id)],
-      ["claims", claimsToCborWithExpansions(e.delta.claims, e.expanded)]
+      ["claims", claimsToCborWithExpansions(e.delta.claims, e.expanded, e.readings)]
     ];
     if (e.delta.sig !== void 0) entries.push(["sig", tstr(e.delta.sig)]);
     if (e.negated) entries.push(["negated", bool(true)]);
@@ -1914,246 +2158,6 @@
         ])
       )
     );
-  }
-
-  // src/b64u.ts
-  var ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
-  function b64uEncode(bytes) {
-    let out = "";
-    for (let i = 0; i < bytes.length; i += 3) {
-      const b0 = bytes[i];
-      const b1 = i + 1 < bytes.length ? bytes[i + 1] : 0;
-      const b2 = i + 2 < bytes.length ? bytes[i + 2] : 0;
-      const n = b0 << 16 | b1 << 8 | b2;
-      out += ALPHABET[n >> 18 & 63] + ALPHABET[n >> 12 & 63];
-      if (i + 1 < bytes.length) out += ALPHABET[n >> 6 & 63];
-      if (i + 2 < bytes.length) out += ALPHABET[n & 63];
-    }
-    return out;
-  }
-  function sextet(c) {
-    const code = c.charCodeAt(0);
-    if (code >= 65 && code <= 90) return code - 65;
-    if (code >= 97 && code <= 122) return code - 97 + 26;
-    if (code >= 48 && code <= 57) return code - 48 + 52;
-    if (c === "-") return 62;
-    if (c === "_") return 63;
-    throw new Error(`base64url: invalid character ${JSON.stringify(c)}`);
-  }
-  function b64uDecode(s) {
-    if (s.length % 4 === 1) throw new Error("base64url: invalid length (\u2261 1 mod 4)");
-    const out = [];
-    for (let i = 0; i < s.length; i += 4) {
-      const end = Math.min(i + 4, s.length);
-      const len = end - i;
-      let acc = 0;
-      for (let j = i; j < end; j++) acc = acc << 6 | sextet(s[j]);
-      if (len === 4) {
-        out.push(acc >> 16 & 255, acc >> 8 & 255, acc & 255);
-      } else if (len === 3) {
-        if ((acc & 3) !== 0) throw new Error("base64url: non-canonical trailing bits");
-        const a = acc >> 2;
-        out.push(a >> 8 & 255, a & 255);
-      } else {
-        if ((acc & 15) !== 0) throw new Error("base64url: non-canonical trailing bits");
-        out.push(acc >> 4 & 255);
-      }
-    }
-    return Uint8Array.from(out);
-  }
-
-  // src/term-io.ts
-  function paramToJson(v) {
-    return typeof v === "object" ? { hole: v.name } : v;
-  }
-  function strMatchToJson(m) {
-    switch (m.kind) {
-      case "exact":
-        return { exact: m.value };
-      case "prefix":
-        return { prefix: m.value };
-      case "inSet":
-        return { inSet: [...m.values] };
-      case "aliased": {
-        const a = { name: m.name };
-        if (m.via !== void 0) a["via"] = m.via;
-        if (m.trust !== void 0) a["trust"] = predToJson(m.trust);
-        return { aliased: a };
-      }
-    }
-  }
-  function valMatchToJson(m) {
-    switch (m.kind) {
-      case "vcmp":
-        return { vcmp: { cmp: m.cmp, value: paramToJson(m.value) } };
-      case "between":
-        return { between: [m.lo, m.hi] };
-      case "inSet":
-        return { inSet: [...m.values] };
-    }
-  }
-  function ppredToJson(p) {
-    const out = {};
-    if (p.role !== void 0) out["role"] = strMatchToJson(p.role);
-    if (p.targetEntity !== void 0) {
-      out["targetEntity"] = p.targetEntity.kind === "const" ? p.targetEntity.id : p.targetEntity.kind === "hole" ? { hole: p.targetEntity.name } : { var: "root" };
-    }
-    if (p.targetDelta !== void 0) out["targetDelta"] = p.targetDelta;
-    if (p.context !== void 0) out["context"] = strMatchToJson(p.context);
-    if (p.targetIsPrimitive !== void 0) out["targetIsPrimitive"] = p.targetIsPrimitive;
-    if (p.targetValue !== void 0) out["targetValue"] = valMatchToJson(p.targetValue);
-    return out;
-  }
-  function predToJson(pred) {
-    switch (pred.kind) {
-      case "true":
-        return "true";
-      case "false":
-        return "false";
-      case "match":
-        return {
-          match: {
-            field: pred.field,
-            cmp: pred.cmp,
-            const: Array.isArray(pred.constant) ? [...pred.constant] : paramToJson(pred.constant)
-          }
-        };
-      case "hasPointer":
-        return { hasPointer: ppredToJson(pred.ppred) };
-      case "and":
-        return { and: [predToJson(pred.left), predToJson(pred.right)] };
-      case "or":
-        return { or: [predToJson(pred.left), predToJson(pred.right)] };
-      case "not":
-        return { not: predToJson(pred.pred) };
-      case "inView":
-        return {
-          inView: {
-            term: termToJson(pred.term),
-            field: pred.field,
-            extract: pred.extract.kind === "field" ? { field: pred.extract.field } : { role: pred.extract.role }
-          }
-        };
-    }
-  }
-  function orderToJson(o) {
-    switch (o.kind) {
-      case "byTimestamp":
-        return { byTimestamp: o.dir };
-      case "byAuthorRank":
-        return { byAuthorRank: [...o.authors] };
-      case "byPred":
-        return { byPred: { pred: predToJson(o.pred), then: orderToJson(o.then) } };
-      case "chain":
-        return { chain: o.orders.map(orderToJson) };
-      case "lexById":
-        return "lexById";
-    }
-  }
-  function policyToJson(pp) {
-    switch (pp.kind) {
-      case "pick":
-        return { pick: { order: orderToJson(pp.order) } };
-      case "all":
-        return { all: { order: orderToJson(pp.order) } };
-      case "merge":
-        return { merge: pp.fn };
-      case "conflicts":
-        return { conflicts: { order: orderToJson(pp.order) } };
-      case "absentAs":
-        return { absentAs: { const: pp.constant, then: policyToJson(pp.then) } };
-    }
-  }
-  function schemaToJson(p) {
-    const props = {};
-    for (const [k, v] of p.props) props[k] = policyToJson(v);
-    const out = { props, default: policyToJson(p.default) };
-    if (p.name !== void 0) out.name = p.name;
-    if (p.alg !== void 0) out.alg = p.alg;
-    return out;
-  }
-  function termToJson(term) {
-    switch (term.kind) {
-      case "input":
-        return "input";
-      case "select":
-        return { op: "select", pred: predToJson(term.pred), in: termToJson(term.of) };
-      case "union":
-        return { op: "union", left: termToJson(term.left), right: termToJson(term.right) };
-      case "intersect":
-        return { op: "intersect", left: termToJson(term.left), right: termToJson(term.right) };
-      case "difference":
-        return { op: "difference", of: termToJson(term.of), without: termToJson(term.without) };
-      case "mask": {
-        const policy = term.policy.kind === "trust" ? { trust: predToJson(term.policy.pred) } : term.policy.kind;
-        return { op: "mask", policy, in: termToJson(term.of) };
-      }
-      case "group": {
-        const key = term.key.kind === "const" ? { const: term.key.prop } : term.key.kind;
-        return { op: "group", key, in: termToJson(term.of) };
-      }
-      case "prune":
-        return {
-          op: "prune",
-          keep: term.keep === "all" ? "all" : strMatchToJson(term.keep),
-          in: termToJson(term.of)
-        };
-      case "expand": {
-        const out = {
-          op: "expand",
-          role: strMatchToJson(term.role),
-          schema: schemaRefToJson(term.schema)
-        };
-        if (term.reading !== void 0) out["reading"] = schemaRefToJson(term.reading);
-        out["in"] = termToJson(term.of);
-        return out;
-      }
-      case "fix": {
-        const out = {
-          op: "fix",
-          schema: schemaRefToJson(term.schema),
-          entity: term.entity
-        };
-        if (term.bindings !== void 0 && term.bindings.size > 0) {
-          const bindings = {};
-          for (const key of [...term.bindings.keys()].sort()) {
-            bindings[key] = term.bindings.get(key);
-          }
-          out["bindings"] = bindings;
-        }
-        return out;
-      }
-      case "resolve":
-        return { op: "resolve", schema: schemaToJson(term.schema), in: termToJson(term.of) };
-    }
-  }
-  function schemaRefToJson(ref) {
-    return ref.kind === "name" ? ref.name : { pinned: ref.hash };
-  }
-  function jsonToCbor(v) {
-    if (typeof v === "string") return tstr(v);
-    if (typeof v === "number") return float(v);
-    if (typeof v === "boolean") return bool(v);
-    if (Array.isArray(v)) return array(v.map(jsonToCbor));
-    if (typeof v === "object" && v !== null) {
-      return map(
-        Object.entries(v).map(([k, x]) => [
-          k,
-          jsonToCbor(x)
-        ])
-      );
-    }
-    throw new Error("json value outside the CBOR profile (null/undefined are not representable)");
-  }
-  function termCanonicalBytes(term) {
-    return encode(jsonToCbor(termToJson(term)));
-  }
-  function termHash(term) {
-    return contentAddress(termCanonicalBytes(term));
-  }
-  function schemaHash(schema) {
-    const body = schemaToJson({ props: schema.props, default: schema.default });
-    return contentAddress(encode(jsonToCbor(body)));
   }
 
   // src/term-json.ts
@@ -7066,6 +7070,26 @@
         }
       ]
     },
+    readings: [
+      {
+        name: "ActorNameReading",
+        alg: 1,
+        props: {
+          name: {
+            pick: {
+              order: {
+                byTimestamp: "asc"
+              }
+            }
+          }
+        },
+        default: {
+          pick: {
+            order: "lexById"
+          }
+        }
+      }
+    ],
     schemas: [
       {
         name: "MovieBasic",
@@ -7202,6 +7226,37 @@
             }
           }
         }
+      },
+      {
+        name: "MovieWithCastRead",
+        alg: 1,
+        body: {
+          op: "expand",
+          role: {
+            exact: "actor"
+          },
+          schema: "ActorName",
+          reading: "ActorNameReading",
+          in: {
+            op: "group",
+            key: "byTargetContext",
+            in: {
+              op: "select",
+              pred: {
+                hasPointer: {
+                  targetEntity: {
+                    var: "root"
+                  }
+                }
+              },
+              in: {
+                op: "mask",
+                policy: "drop",
+                in: "input"
+              }
+            }
+          }
+        }
       }
     ],
     cases: [
@@ -7226,6 +7281,17 @@
           entity: "movie:matrix"
         },
         expectedCanonicalHex: "a26269646c6d6f7669653a6d61747269786570726f7073a2646361737481a26269647844316532303765613231666666353031633632366364623865353932646234313632353139633839613834666561646662626635383531353737653565663263303464396466636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727383a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746463617374a264726f6c65656163746f7266746172676574a26269646b6163746f723a6b65616e756570726f7073a3646e616d6581a26269647844316532303533373039333433386230313930396336653137313232343230353966333866363666303839656134353431346362376464663763396564323964656432313666636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646b6163746f723a6b65616e7567636f6e74657874646e616d65a264726f6c656576616c7565667461726765746c4b65616e75205265657665736974696d657374616d70f956406b66696c6d6f67726170687981a26269647844316532303765613231666666353031633632366364623865353932646234313632353139633839613834666561646662626635383531353737653565663263303464396466636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727383a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746463617374a264726f6c65656163746f7266746172676574a26269646b6163746f723a6b65616e7567636f6e746578746b66696c6d6f677261706879a264726f6c656963686172616374657266746172676574634e656f6974696d657374616d70f958106c63726561746564576f726b7381a26269647844316532306539343164343531393536643739613432616334363566326638333262336534373930333532326663396562366233643431653038373164613339343334333066636c61696d73a366617574686f726e6469643a6b65793a7a4361726f6c68706f696e7465727382a264726f6c656763726561746f7266746172676574a26269646b6163746f723a6b65616e7567636f6e746578746c63726561746564576f726b73a264726f6c6564776f726b66746172676574a26269646c6d6f7669653a62727a726b7267636f6e74657874696372656174656442796974696d657374616d70f95860a264726f6c656963686172616374657266746172676574634e656f6974696d657374616d70f95810657469746c6581a26269647844316532303636363237616162393237346634343862626361633635633534383033386264303335653931313861336139613039613361396137663961353937323438336566636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656576616c7565667461726765746a546865204d61747269786974696d657374616d70f956e0"
+      },
+      {
+        name: "fix-expand-with-reading",
+        spec: "SPEC-2 \xA74.5 / SPEC-3 \xA74 / E18 (the reading's content address rides the expansion in canonical form)",
+        note: "same gather as fix-expand-one-level; the bytes differ only by the reading hash on the expanded target, keeping serialized hviews self-describing",
+        term: {
+          op: "fix",
+          schema: "MovieWithCastRead",
+          entity: "movie:matrix"
+        },
+        expectedCanonicalHex: "a26269646c6d6f7669653a6d61747269786570726f7073a2646361737481a26269647844316532303765613231666666353031633632366364623865353932646234313632353139633839613834666561646662626635383531353737653565663263303464396466636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727383a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746463617374a264726f6c65656163746f7266746172676574a36269646b6163746f723a6b65616e756570726f7073a3646e616d6581a26269647844316532303533373039333433386230313930396336653137313232343230353966333866363666303839656134353431346362376464663763396564323964656432313666636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646b6163746f723a6b65616e7567636f6e74657874646e616d65a264726f6c656576616c7565667461726765746c4b65616e75205265657665736974696d657374616d70f956406b66696c6d6f67726170687981a26269647844316532303765613231666666353031633632366364623865353932646234313632353139633839613834666561646662626635383531353737653565663263303464396466636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727383a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746463617374a264726f6c65656163746f7266746172676574a26269646b6163746f723a6b65616e7567636f6e746578746b66696c6d6f677261706879a264726f6c656963686172616374657266746172676574634e656f6974696d657374616d70f958106c63726561746564576f726b7381a26269647844316532306539343164343531393536643739613432616334363566326638333262336534373930333532326663396562366233643431653038373164613339343334333066636c61696d73a366617574686f726e6469643a6b65793a7a4361726f6c68706f696e7465727382a264726f6c656763726561746f7266746172676574a26269646b6163746f723a6b65616e7567636f6e746578746c63726561746564576f726b73a264726f6c6564776f726b66746172676574a26269646c6d6f7669653a62727a726b7267636f6e74657874696372656174656442796974696d657374616d70f958606772656164696e6778443165323031323236636331393962343133633061343937613135333965343064636161653437336562376231313133666339646432373666313865663066626264303035a264726f6c656963686172616374657266746172676574634e656f6974696d657374616d70f95810657469746c6581a26269647844316532303636363237616162393237346634343862626361633635633534383033386264303335653931313861336139613039613361396137663961353937323438336566636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656576616c7565667461726765746a546865204d61747269786974696d657374616d70f956e0"
       },
       {
         name: "fix-data-cycle-terminates",

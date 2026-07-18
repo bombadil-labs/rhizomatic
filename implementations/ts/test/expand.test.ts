@@ -14,6 +14,7 @@ const doc = JSON.parse(
   readFileSync(resolve(here, "../../../vectors/l1-eval/eval-expand.json"), "utf8"),
 ) as {
   fixture: { deltas: Array<{ name: string; id: string; claims: unknown }> };
+  readings: unknown[];
   schemas: Array<{ name: string; alg: number; body: unknown }>;
   cases: Array<{ name: string; term: unknown; expectedCanonicalHex: string }>;
 };
@@ -21,6 +22,7 @@ const doc = JSON.parse(
 const fixtureSet = DeltaSet.from(doc.fixture.deltas.map((d) => makeDelta(parseClaims(d.claims))));
 const registry = SchemaRegistry.build(
   doc.schemas.map((s) => ({ name: s.name, alg: s.alg, body: parseTerm(s.body) })),
+  doc.readings.map((r) => parseSchema(r)),
 );
 
 describe("l1-eval expand/fix vectors", () => {

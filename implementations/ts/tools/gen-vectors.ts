@@ -1211,10 +1211,34 @@ const schemas = [
     alg: 1,
     body: { op: "expand", role: { exact: "actor" }, schema: "ActorWithWorks", in: canonicalBody },
   },
+  {
+    // The current-vocabulary form (issue #23): the expand names the child's reading too. Its
+    // hview canonical bytes differ from MovieWithCast's ONLY by the reading content address
+    // riding each expansion — pinned by fix-expand-with-reading below.
+    name: "MovieWithCastRead",
+    alg: 1,
+    body: {
+      op: "expand",
+      role: { exact: "actor" },
+      schema: "ActorName",
+      reading: "ActorNameReading",
+      in: canonicalBody,
+    },
+  },
+];
+
+const expandReadings = [
+  {
+    name: "ActorNameReading",
+    alg: 1,
+    props: { name: { pick: { order: { byTimestamp: "asc" } } } },
+    default: { pick: { order: "lexById" } },
+  },
 ];
 
 const expandRegistry = SchemaRegistry.build(
   schemas.map((s) => ({ name: s.name, alg: s.alg, body: parseTerm(s.body) })),
+  expandReadings.map((r) => parseSchema(r)),
 );
 
 const expandCases: Array<{ name: string; spec: string; term: unknown; note?: string }> = [
@@ -1229,6 +1253,12 @@ const expandCases: Array<{ name: string; spec: string; term: unknown; note?: str
     spec: "SPEC-2 §4.5 §4.8 / E11",
     term: { op: "fix", schema: "MovieWithCast", entity: "movie:matrix" },
     note: "c1's actor pointer is replaced by the ActorName HView at actor:keanu",
+  },
+  {
+    name: "fix-expand-with-reading",
+    spec: "SPEC-2 §4.5 / SPEC-3 §4 / E18 (the reading's content address rides the expansion in canonical form)",
+    term: { op: "fix", schema: "MovieWithCastRead", entity: "movie:matrix" },
+    note: "same gather as fix-expand-one-level; the bytes differ only by the reading hash on the expanded target, keeping serialized hviews self-describing",
   },
   {
     name: "fix-data-cycle-terminates",
@@ -1286,6 +1316,7 @@ const expandOut = {
     note: "actors/movies with a keanu<->brzrkr data cycle; schema DAG depth 3",
     deltas: Object.entries(xfx).map(([name, f]) => ({ name, id: f.id, claims: f.claims })),
   },
+  readings: expandReadings,
   schemas,
   cases: expandVectors,
 };

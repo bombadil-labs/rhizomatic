@@ -1206,9 +1206,201 @@
     return obj;
   }
 
+  // src/term-io.ts
+  function paramToJson(v) {
+    return typeof v === "object" ? { hole: v.name } : v;
+  }
+  function strMatchToJson(m) {
+    switch (m.kind) {
+      case "exact":
+        return { exact: m.value };
+      case "prefix":
+        return { prefix: m.value };
+      case "inSet":
+        return { inSet: [...m.values] };
+      case "aliased": {
+        const a = { name: m.name };
+        if (m.via !== void 0) a["via"] = m.via;
+        if (m.trust !== void 0) a["trust"] = predToJson(m.trust);
+        return { aliased: a };
+      }
+    }
+  }
+  function valMatchToJson(m) {
+    switch (m.kind) {
+      case "vcmp":
+        return { vcmp: { cmp: m.cmp, value: paramToJson(m.value) } };
+      case "between":
+        return { between: [m.lo, m.hi] };
+      case "inSet":
+        return { inSet: [...m.values] };
+    }
+  }
+  function ppredToJson(p) {
+    const out = {};
+    if (p.role !== void 0) out["role"] = strMatchToJson(p.role);
+    if (p.targetEntity !== void 0) {
+      out["targetEntity"] = p.targetEntity.kind === "const" ? p.targetEntity.id : p.targetEntity.kind === "hole" ? { hole: p.targetEntity.name } : { var: "root" };
+    }
+    if (p.targetDelta !== void 0) out["targetDelta"] = p.targetDelta;
+    if (p.context !== void 0) out["context"] = strMatchToJson(p.context);
+    if (p.targetIsPrimitive !== void 0) out["targetIsPrimitive"] = p.targetIsPrimitive;
+    if (p.targetValue !== void 0) out["targetValue"] = valMatchToJson(p.targetValue);
+    return out;
+  }
+  function predToJson(pred) {
+    switch (pred.kind) {
+      case "true":
+        return "true";
+      case "false":
+        return "false";
+      case "match":
+        return {
+          match: {
+            field: pred.field,
+            cmp: pred.cmp,
+            const: Array.isArray(pred.constant) ? [...pred.constant] : paramToJson(pred.constant)
+          }
+        };
+      case "hasPointer":
+        return { hasPointer: ppredToJson(pred.ppred) };
+      case "and":
+        return { and: [predToJson(pred.left), predToJson(pred.right)] };
+      case "or":
+        return { or: [predToJson(pred.left), predToJson(pred.right)] };
+      case "not":
+        return { not: predToJson(pred.pred) };
+      case "inView":
+        return {
+          inView: {
+            term: termToJson(pred.term),
+            field: pred.field,
+            extract: pred.extract.kind === "field" ? { field: pred.extract.field } : { role: pred.extract.role }
+          }
+        };
+    }
+  }
+  function orderToJson(o) {
+    switch (o.kind) {
+      case "byTimestamp":
+        return { byTimestamp: o.dir };
+      case "byAuthorRank":
+        return { byAuthorRank: [...o.authors] };
+      case "byPred":
+        return { byPred: { pred: predToJson(o.pred), then: orderToJson(o.then) } };
+      case "chain":
+        return { chain: o.orders.map(orderToJson) };
+      case "lexById":
+        return "lexById";
+    }
+  }
+  function policyToJson(pp) {
+    switch (pp.kind) {
+      case "pick":
+        return { pick: { order: orderToJson(pp.order) } };
+      case "all":
+        return { all: { order: orderToJson(pp.order) } };
+      case "merge":
+        return { merge: pp.fn };
+      case "conflicts":
+        return { conflicts: { order: orderToJson(pp.order) } };
+      case "absentAs":
+        return { absentAs: { const: pp.constant, then: policyToJson(pp.then) } };
+    }
+  }
+  function schemaToJson(p) {
+    const props = {};
+    for (const [k, v] of p.props) props[k] = policyToJson(v);
+    const out = { props, default: policyToJson(p.default) };
+    if (p.name !== void 0) out.name = p.name;
+    if (p.alg !== void 0) out.alg = p.alg;
+    return out;
+  }
+  function termToJson(term) {
+    switch (term.kind) {
+      case "input":
+        return "input";
+      case "select":
+        return { op: "select", pred: predToJson(term.pred), in: termToJson(term.of) };
+      case "union":
+        return { op: "union", left: termToJson(term.left), right: termToJson(term.right) };
+      case "intersect":
+        return { op: "intersect", left: termToJson(term.left), right: termToJson(term.right) };
+      case "difference":
+        return { op: "difference", of: termToJson(term.of), without: termToJson(term.without) };
+      case "mask": {
+        const policy = term.policy.kind === "trust" ? { trust: predToJson(term.policy.pred) } : term.policy.kind;
+        return { op: "mask", policy, in: termToJson(term.of) };
+      }
+      case "group": {
+        const key = term.key.kind === "const" ? { const: term.key.prop } : term.key.kind;
+        return { op: "group", key, in: termToJson(term.of) };
+      }
+      case "prune":
+        return {
+          op: "prune",
+          keep: term.keep === "all" ? "all" : strMatchToJson(term.keep),
+          in: termToJson(term.of)
+        };
+      case "expand": {
+        const out = {
+          op: "expand",
+          role: strMatchToJson(term.role),
+          schema: schemaRefToJson(term.schema)
+        };
+        if (term.reading !== void 0) out["reading"] = schemaRefToJson(term.reading);
+        out["in"] = termToJson(term.of);
+        return out;
+      }
+      case "fix": {
+        const out = {
+          op: "fix",
+          schema: schemaRefToJson(term.schema),
+          entity: term.entity
+        };
+        if (term.bindings !== void 0 && term.bindings.size > 0) {
+          const bindings = {};
+          for (const key of [...term.bindings.keys()].sort()) {
+            bindings[key] = term.bindings.get(key);
+          }
+          out["bindings"] = bindings;
+        }
+        return out;
+      }
+      case "resolve":
+        return { op: "resolve", schema: schemaToJson(term.schema), in: termToJson(term.of) };
+    }
+  }
+  function schemaRefToJson(ref) {
+    return ref.kind === "name" ? ref.name : { pinned: ref.hash };
+  }
+  function jsonToCbor(v) {
+    if (typeof v === "string") return tstr(v);
+    if (typeof v === "number") return float(v);
+    if (typeof v === "boolean") return bool(v);
+    if (Array.isArray(v)) return array(v.map(jsonToCbor));
+    if (typeof v === "object" && v !== null) {
+      return map(
+        Object.entries(v).map(([k, x]) => [
+          k,
+          jsonToCbor(x)
+        ])
+      );
+    }
+    throw new Error("json value outside the CBOR profile (null/undefined are not representable)");
+  }
+  function schemaHash(schema) {
+    const body = schemaToJson({ props: schema.props, default: schema.default });
+    return contentAddress(encode(jsonToCbor(body)));
+  }
+
   // src/hview.ts
-  function targetToCborWithExpansion(t, expansion) {
-    if (expansion !== void 0) return hviewToCbor(expansion);
+  function targetToCborWithExpansion(t, expansion, reading) {
+    if (expansion !== void 0) {
+      const child = hviewToCbor(expansion);
+      if (reading === void 0 || child.t !== "map") return child;
+      return map([...child.v, ["reading", tstr(schemaHash(reading))]]);
+    }
     switch (t.kind) {
       case "primitive": {
         const v = t.value;
@@ -1233,7 +1425,7 @@
         ]);
     }
   }
-  function claimsToCborWithExpansions(claims, expanded) {
+  function claimsToCborWithExpansions(claims, expanded, readings) {
     return map([
       ["author", tstr(claims.author)],
       [
@@ -1242,7 +1434,7 @@
           claims.pointers.map(
             (p, i) => map([
               ["role", tstr(p.role)],
-              ["target", targetToCborWithExpansion(p.target, expanded?.get(i))]
+              ["target", targetToCborWithExpansion(p.target, expanded?.get(i), readings?.get(i))]
             ])
           )
         )
@@ -1253,7 +1445,7 @@
   function hvEntryToCbor(e) {
     const entries = [
       ["id", tstr(e.delta.id)],
-      ["claims", claimsToCborWithExpansions(e.delta.claims, e.expanded)]
+      ["claims", claimsToCborWithExpansions(e.delta.claims, e.expanded, e.readings)]
     ];
     if (e.delta.sig !== void 0) entries.push(["sig", tstr(e.delta.sig)]);
     if (e.negated) entries.push(["negated", bool(true)]);

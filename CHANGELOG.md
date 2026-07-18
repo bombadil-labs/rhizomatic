@@ -18,10 +18,15 @@ the program identifying either. Surfaced by Loam's multi-lens coexistence work (
 
 - **Resolving an expansion under a legacy body (no `reading`) is now a loud error** — there is no
   fallback to the parent's Schema. Gather is unchanged: legacy bodies still parse, evaluate, and
-  hash byte-identically; only `resolve` over their expansions refuses. **Migration:** every
-  pre-#23 hyperschema had exactly one Schema (coexistence postdates them), so re-publish each
-  expand-carrying body with `"reading": <that Schema's name or pinned hash>`. Bodies gaining
-  `reading` mint new termHashes — the reference is genuinely part of the program's identity.
+  hash byte-identically; only `resolve` over their expansions refuses. **Migration — this is not
+  optional and there is no compatibility path:** every expand-carrying hyperschema body in every
+  store MUST be re-published with `"reading": <its Schema's name or pinned hash>` before anything
+  resolves through it. Every pre-#23 hyperschema had exactly one Schema (coexistence postdates
+  them), so the choice is mechanical. Bodies gaining `reading` mint new termHashes — **and every
+  `{pinned: <old hash>}` reference elsewhere keeps pointing at the legacy body, which will refuse
+  to resolve forever. Walk pinned refs too and re-pin them to the migrated hashes.** Regenerate
+  any deltas that would hit either path; do not ship a store that mixes migrated and unmigrated
+  expand bodies.
 - `SchemaRegistry.build` gains a second argument: `readings` (named resolution Schemas), indexed
   by name and content address (`schemaHash`, newly exported); reading refs validate at build.
   Existing single-argument calls compile unchanged (defaults to none).
@@ -31,9 +36,14 @@ the program identifying either. Surfaced by Loam's multi-lens coexistence work (
 - `expand.reading` in the term grammar (SPEC-2 §9) — present-iff-authored, so legacy hashes are
   untouched; `schemaHash(schema)` — a resolution Schema's content address, the referent of
   `reading: {pinned: …}`; registry `resolveReading`/`getReading`; `collectReadingRefs`.
+- **Serialized HyperViews stay self-describing** (SPEC-3 §4): an expanded target's canonical form
+  carries the reading's content address (`{"id", "props", "reading"}`, key present iff the expand
+  named one) — a rehydrated hview can name its readings and be resolved through a registry. Legacy
+  hview bytes are untouched.
 - `vectors/l1-eval/eval-resolve.json` regenerated: a `readings` registry section, the
   `resolve-nested-expansion` case now observably resolved through the child's own reading, and a
   `legacy-expand-resolve-rejected` reject (verified to reject at generation time).
+  `eval-expand.json` gains `fix-expand-with-reading`, pinning the reading hash in canonical bytes.
 
 ---
 

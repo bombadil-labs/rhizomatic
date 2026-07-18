@@ -6,6 +6,7 @@ use std::collections::BTreeMap;
 
 use crate::cbor::{encode, CborValue};
 use crate::resolution::Schema;
+use crate::term_io::schema_hash;
 use crate::types::{Claims, Delta, Primitive, Target};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -16,8 +17,9 @@ pub struct HVEntry {
     /// expand replacements: pointer index (authored order) -> nested HView (E11).
     pub expanded: BTreeMap<usize, HView>,
     /// The reading (child's resolution Schema) each expansion resolves through, same keying
-    /// (issue #23). In-memory only: readings are program state, so they never enter the HView's
-    /// canonical form — hview identity is data identity.
+    /// (issue #23). The full Schema is in-memory registry state; the canonical form carries only
+    /// its CONTENT ADDRESS, so a serialized hview stays self-describing and resolvable (a
+    /// rehydrator dereferences the hash through the registry).
     pub readings: BTreeMap<usize, Schema>,
 }
 
@@ -28,9 +30,25 @@ pub struct HView {
     pub props: BTreeMap<String, Vec<HVEntry>>,
 }
 
-fn target_to_cbor_with_expansion(t: &Target, expansion: Option<&HView>) -> CborValue {
+fn target_to_cbor_with_expansion(
+    t: &Target,
+    expansion: Option<&HView>,
+    reading: Option<&Schema>,
+) -> CborValue {
     if let Some(h) = expansion {
-        return hview_to_cbor(h);
+        // The reading's CONTENT ADDRESS rides the canonical form (issue #23 follow-up): the
+        // reading is part of the program identity, and without it a rehydrated hview would be
+        // unresolvable. The full Schema stays out (registry state, dereferenced by hash).
+        // Key order stays canonical: "id" < "props" < "reading".
+        return match (reading, hview_to_cbor(h)) {
+            (Some(r), CborValue::Map(mut entries)) => {
+                // Infallible in practice: every registered reading was hashed at registry build.
+                let hash = schema_hash(r).expect("reading was hashed at registry build");
+                entries.push(("reading".to_string(), CborValue::Tstr(hash)));
+                CborValue::Map(entries)
+            }
+            (_, child) => child,
+        };
     }
     match t {
         Target::Primitive(Primitive::Str(s)) => CborValue::Tstr(s.clone()),
@@ -59,7 +77,11 @@ fn target_to_cbor_with_expansion(t: &Target, expansion: Option<&HView>) -> CborV
 
 /// Claims rendered for an HVEntry: identical to the L1 canonical claims encoding, except that
 /// expanded pointer targets are replaced by nested HView maps (E11). Never used for hashing.
-fn claims_to_cbor_with_expansions(claims: &Claims, expanded: &BTreeMap<usize, HView>) -> CborValue {
+fn claims_to_cbor_with_expansions(
+    claims: &Claims,
+    expanded: &BTreeMap<usize, HView>,
+    readings: &BTreeMap<usize, Schema>,
+) -> CborValue {
     CborValue::Map(vec![
         ("author".to_string(), CborValue::Tstr(claims.author.clone())),
         (
@@ -74,7 +96,11 @@ fn claims_to_cbor_with_expansions(claims: &Claims, expanded: &BTreeMap<usize, HV
                             ("role".to_string(), CborValue::Tstr(p.role.clone())),
                             (
                                 "target".to_string(),
-                                target_to_cbor_with_expansion(&p.target, expanded.get(&i)),
+                                target_to_cbor_with_expansion(
+                                    &p.target,
+                                    expanded.get(&i),
+                                    readings.get(&i),
+                                ),
                             ),
                         ])
                     })
@@ -90,7 +116,7 @@ pub fn hv_entry_to_cbor(e: &HVEntry) -> CborValue {
         ("id".to_string(), CborValue::Tstr(e.delta.id.clone())),
         (
             "claims".to_string(),
-            claims_to_cbor_with_expansions(&e.delta.claims, &e.expanded),
+            claims_to_cbor_with_expansions(&e.delta.claims, &e.expanded, &e.readings),
         ),
     ];
     if let Some(sig) = &e.delta.sig {

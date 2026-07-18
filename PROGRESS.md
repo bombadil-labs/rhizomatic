@@ -13,9 +13,10 @@
 >   No parent-Schema fallback: legacy bodies gather byte-identically but their expansions refuse
 >   to RESOLVE, loudly. Migration is unambiguous (pre-#23 bodies predate coexistence: one Schema
 >   per hyperschema — re-sign naming it).
-> - **Mechanics:** the resolved reading rides the in-memory HVEntry beside its expansion and
->   never enters HView canonical form (hview identity is data identity). `reading` serializes
->   present-iff-authored, so every legacy termHash is untouched.
+> - **Mechanics:** the resolved reading rides the in-memory HVEntry beside its expansion; the
+>   HView canonical form carries the reading's content address on each expanded target (SPEC-3
+>   §4) so serialized hviews stay self-describing and resolvable. `reading` serializes
+>   present-iff-authored, so every legacy termHash and legacy hview byte is untouched.
 > - **Pins:** SPEC-2 §4.5/§9 + E18, SPEC-5 §4 + R8, SPEC-3 §3 registry note;
 >   `eval-resolve.json` regenerated (readings section, observable child-reading win in
 >   `resolve-nested-expansion`, `legacy-expand-resolve-rejected` verified-reject).
