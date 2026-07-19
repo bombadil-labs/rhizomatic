@@ -45,6 +45,82 @@ the program identifying either. Surfaced by Loam's multi-lens coexistence work (
   `legacy-expand-resolve-rejected` reject (verified to reject at generation time).
   `eval-expand.json` gains `fix-expand-with-reading`, pinning the reading hash in canonical bytes.
 
+### Integrating (consumers)
+
+**1. Author the expand with both halves of the child's lens.**
+
+```jsonc
+// before — the child was silently resolved with the PARENT's Schema
+{ "op": "expand", "role": { "exact": "post" }, "schema": "PachyPost", "in": <Term> }
+
+// after — the child's gather AND its reading are named in the term
+{ "op": "expand", "role": { "exact": "post" }, "schema": "PachyPost",
+  "reading": "Post", "in": <Term> }
+
+// or pin the reading by content address (immutable; survives a rename)
+{ "op": "expand", "role": { "exact": "post" }, "schema": "PachyPost",
+  "reading": { "pinned": "1e20…" }, "in": <Term> }
+```
+
+**2. Register readings alongside hyperschemas.** `SchemaRegistry.build` takes a second argument;
+a registered reading MUST carry a `name` (an inline, anonymous Schema cannot be referenced).
+
+```ts
+import { SchemaRegistry, parseSchema, parseTerm, schemaHash, loadSchema } from "@bombadil/rhizomatic";
+
+const readings = [
+  parseSchema({
+    name: "Post",                       // required to be registerable
+    alg: 1,
+    props: { title: { pick: { order: { byTimestamp: "desc" } } } },
+    default: { pick: { order: "lexById" } },
+  }),
+];
+const registry = SchemaRegistry.build(hyperSchemas, readings);
+
+// Schemas published as deltas (0.5.0) load straight back into this slot — loadSchema
+// reattaches name/alg, which is exactly what registration requires:
+const fromStore = loadSchema(dset, "schema:Post");
+const registry2 = SchemaRegistry.build(hyperSchemas, [fromStore]);
+
+// The referent of `reading: {pinned: …}`:
+schemaHash(readings[0]); // => "1e20…"
+```
+
+**3. Errors you will see, and what each means.** All three are loud and none fall back:
+
+| Message | Cause | Fix |
+|---|---|---|
+| `schema <X> references unknown reading <Y> (issue #23)` | thrown at **`SchemaRegistry.build`** | register `Y` (or correct the ref) — this is the good failure: it fires before any evaluation |
+| `unknown reading: <Y> (issue #23)` | thrown at **eval**, registry built without the reading | same, for registries assembled dynamically |
+| `expansion at pointer <i> of delta <id> carries no reading — legacy expand bodies must name the child's resolution Schema` | thrown at **resolve**, body predates `reading` | migrate that body (below) — gather succeeded, so this surfaces late |
+
+**4. Migration checklist.**
+
+1. Find every hyperschema body containing an `expand` (`collectRefs`/`collectReadingRefs` over
+   parsed bodies makes this mechanical).
+2. For each, add `"reading": <the one Schema that hyperschema was used with>` — pre-0.8 stores
+   have exactly one candidate per hyperschema, since multi-lens coexistence postdates them.
+3. Re-publish the body. It mints a **new termHash**.
+4. **Walk every `{"pinned": <hash>}` schema reference and re-pin it** to the migrated hash —
+   pinned refs to pre-migration bodies keep resolving to the legacy body and refuse forever.
+5. Regenerate any stored deltas carrying old bodies or old pinned refs. Do not ship a store
+   mixing migrated and unmigrated expand bodies.
+
+**5. What does not change.** Gather semantics, canonical delta bytes, ids, signatures, and the
+`resolve` API surface are all untouched; a body with no `expand` is entirely unaffected. Terms
+without `reading` still parse and hash identically, so migration is detectable but not forced at
+parse time. No `alg` bump.
+
+**6. One mixed-version hazard, worth knowing before you federate.** A **pre-0.8 witness** handed a
+`reading`-carrying body does **not** fail closed — it silently ignores the unknown key and
+evaluates the body as a legacy expand, resolving children under the parent's Schema. Two peers on
+different versions therefore produce *different views from the same term* without either erroring.
+This is a gap in the fail-closed doctrine (which covers unknown **tags** but not unknown **keys**)
+and is tracked in [#25](https://github.com/bombadil-labs/rhizomatic/issues/25). Adopting 0.8.0 does
+**not** require #25 — but until it lands, upgrade all peers that share bodies together, and treat
+"peer resolves this expansion differently" as a version-skew symptom rather than a logic bug.
+
 ---
 
 **A third witness** ([#19](https://github.com/bombadil-labs/rhizomatic/issues/19)):
