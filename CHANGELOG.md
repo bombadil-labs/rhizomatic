@@ -4,7 +4,7 @@ All notable changes to **`@bombadil/rhizomatic`**. This project is pre-1.0, so b
 land in **minor** bumps (see [CLAUDE.md → Releasing](CLAUDE.md#releasing-bombadilrhizomatic-to-npm)).
 Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 
-## 0.8.0 — unreleased
+## 0.8.0 — 2026-07-19
 
 **`expand` names the child's reading** ([#23](https://github.com/bombadil-labs/rhizomatic/issues/23),
 SPEC-2 §4.5/E18, SPEC-5 §4/R8): an expand term now states **both halves of the child's lens** —
