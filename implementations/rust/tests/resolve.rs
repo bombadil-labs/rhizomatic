@@ -6,7 +6,7 @@ use rhizomatic::json_profile::parse_claims;
 use rhizomatic::resolution::View;
 use rhizomatic::schema::{HyperSchema, SchemaRegistry};
 use rhizomatic::set::{make_delta, DeltaSet};
-use rhizomatic::term_json::parse_term;
+use rhizomatic::term_json::{parse_schema, parse_term};
 use serde_json::{json, Value};
 
 fn load() -> Value {
@@ -28,17 +28,26 @@ fn fixture_set(doc: &Value) -> DeltaSet {
     .unwrap()
 }
 
+fn hyper_schemas(raw: &Value) -> Vec<HyperSchema> {
+    raw.as_array()
+        .unwrap()
+        .iter()
+        .map(|s| HyperSchema {
+            name: s["name"].as_str().unwrap().to_string(),
+            alg: s["alg"].as_u64().unwrap() as u32,
+            body: parse_term(&s["body"]).unwrap(),
+        })
+        .collect()
+}
+
 fn registry(doc: &Value) -> SchemaRegistry {
     SchemaRegistry::build(
-        doc["schemas"]
+        hyper_schemas(&doc["schemas"]),
+        doc["readings"]
             .as_array()
             .unwrap()
             .iter()
-            .map(|s| HyperSchema {
-                name: s["name"].as_str().unwrap().to_string(),
-                alg: s["alg"].as_u64().unwrap() as u32,
-                body: parse_term(&s["body"]).unwrap(),
-            })
+            .map(|r| parse_schema(r).unwrap())
             .collect(),
     )
     .unwrap()
@@ -62,6 +71,21 @@ fn resolve_vectors() {
             c["expectedCanonicalHex"].as_str().unwrap(),
             "canonical view mismatch for {name}"
         );
+    }
+}
+
+// The legacy fate (issue #23): expansions under a reading-less body refuse to resolve.
+#[test]
+fn reject_vectors() {
+    let doc = load();
+    let input = fixture_set(&doc);
+    for r in doc["rejects"].as_array().unwrap() {
+        let name = r["name"].as_str().unwrap();
+        let legacy = SchemaRegistry::build(hyper_schemas(&r["schemas"]), vec![]).unwrap();
+        let term = parse_term(&r["term"]).unwrap_or_else(|e| panic!("parse {name}: {e}"));
+        let err = eval_term(&term, &input, None, Some(&legacy), None)
+            .expect_err(&format!("{name}: evaluation must error"));
+        assert!(err.contains("reading"), "{name}: got: {err}");
     }
 }
 

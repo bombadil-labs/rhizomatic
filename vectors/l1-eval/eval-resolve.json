@@ -1,6 +1,6 @@
 {
   "fixture": {
-    "note": "superposed titles, competing ratings, mixed-type sizes, a negation, and a cast edge for nested resolution",
+    "note": "superposed titles, competing ratings, mixed-type sizes, a negation, and a cast edge for nested resolution through the child's own reading (issue #23)",
     "deltas": [
       {
         "name": "t1-title-a",
@@ -360,9 +360,52 @@
             }
           ]
         }
+      },
+      {
+        "name": "a2-keanu-name-newer",
+        "id": "1e20fe3b581a39ca61790ddc81655550a7f7426b69cc3053c68993eccd877ed7dd00",
+        "claims": {
+          "timestamp": 900,
+          "author": "did:key:zBob",
+          "pointers": [
+            {
+              "role": "subject",
+              "target": {
+                "id": "actor:keanu",
+                "context": "name"
+              }
+            },
+            {
+              "role": "value",
+              "target": "K. Reeves"
+            }
+          ]
+        }
       }
     ]
   },
+  "readings": [
+    {
+      "name": "ActorReading",
+      "alg": 1,
+      "props": {
+        "name": {
+          "pick": {
+            "order": {
+              "byTimestamp": "asc"
+            }
+          }
+        }
+      },
+      "default": {
+        "pick": {
+          "order": {
+            "byTimestamp": "desc"
+          }
+        }
+      }
+    }
+  ],
   "schemas": [
     {
       "name": "MovieRaw",
@@ -457,6 +500,7 @@
           "exact": "actor"
         },
         "schema": "ActorNameV",
+        "reading": "ActorReading",
         "in": {
           "op": "group",
           "key": "byTargetContext",
@@ -867,8 +911,8 @@
     },
     {
       "name": "resolve-nested-expansion",
-      "spec": "ERRATA-5 R1/R6 (multi-pointer candidate; nested View with same schema)",
-      "note": "cast candidate is {actor: {name: Keanu Reeves}, character: Neo}",
+      "spec": "ERRATA-5 R1/R6 + issue #23 (the expansion resolves through ITS OWN reading, never the parent's Schema)",
+      "note": "ActorReading picks the OLDEST name: actor resolves to {filmography: true, name: Keanu Reeves} even though the parent policy is latest (which would pick K. Reeves) — the child's reading decided",
       "term": {
         "op": "resolve",
         "schema": {
@@ -1130,6 +1174,85 @@
         "motto": "measure twice"
       },
       "expectedCanonicalHex": "a26362696f781e466f756e646572206f66207468652076696c6c6167652061726368697665656d6f74746f6d6d656173757265207477696365"
+    }
+  ],
+  "rejects": [
+    {
+      "name": "legacy-expand-resolve-rejected",
+      "spec": "SPEC-5 §4 / issue #23 (no parent-Schema fallback)",
+      "reason": "MovieCastLegacy's expand carries no reading; resolving its expansion is a loud error, not a silent resolve under the parent's Schema",
+      "schemas": [
+        {
+          "name": "ActorNameV",
+          "alg": 1,
+          "body": {
+            "op": "group",
+            "key": "byTargetContext",
+            "in": {
+              "op": "select",
+              "pred": {
+                "hasPointer": {
+                  "targetEntity": {
+                    "var": "root"
+                  }
+                }
+              },
+              "in": {
+                "op": "mask",
+                "policy": "drop",
+                "in": "input"
+              }
+            }
+          }
+        },
+        {
+          "name": "MovieCastLegacy",
+          "alg": 1,
+          "body": {
+            "op": "expand",
+            "role": {
+              "exact": "actor"
+            },
+            "schema": "ActorNameV",
+            "in": {
+              "op": "group",
+              "key": "byTargetContext",
+              "in": {
+                "op": "select",
+                "pred": {
+                  "hasPointer": {
+                    "targetEntity": {
+                      "var": "root"
+                    }
+                  }
+                },
+                "in": {
+                  "op": "mask",
+                  "policy": "drop",
+                  "in": "input"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "term": {
+        "op": "resolve",
+        "schema": {
+          "default": {
+            "pick": {
+              "order": {
+                "byTimestamp": "desc"
+              }
+            }
+          }
+        },
+        "in": {
+          "op": "fix",
+          "schema": "MovieCastLegacy",
+          "entity": "movie:matrix"
+        }
+      }
     }
   ]
 }

@@ -400,12 +400,16 @@ export function parseTerm(raw: unknown): Term {
     case "group":
       return { kind: "group", key: parseGroupKey(o["key"]), of: parseTerm(o["in"]) };
     case "expand": {
-      return {
-        kind: "expand",
+      // `reading` is required in the current vocabulary (issue #23); legacy bodies without it
+      // still parse and gather, but their expansions refuse to resolve (SPEC-5 §4).
+      const expand = {
+        kind: "expand" as const,
         role: parseStrMatch(o["role"], "expand.role"),
         schema: parseSchemaRef(o["schema"]),
         of: parseTerm(o["in"]),
       };
+      if (o["reading"] === undefined) return expand;
+      return { ...expand, reading: parseSchemaRef(o["reading"]) };
     }
     case "fix": {
       if (typeof o["entity"] !== "string") throw new Error("fix.entity must be a string");

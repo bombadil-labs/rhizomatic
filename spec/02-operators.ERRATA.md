@@ -186,3 +186,37 @@ generation time). Both witnesses implement it, byte-exact and at parity: TS `eva
 `inView.term` deliberately **not** — the reflective allowlist stays `input | select | union | mask`
 in `alg: 1` (§3.1); difference/intersect inside `inView.term` reject at parse in both witnesses.
 
+
+## E18 — `expand` names the child's reading; no parent-Schema fallback (2026-07-18, issue #23)
+
+Normative text folded into SPEC-2 §4.5 / §9 and SPEC-5 §4; recorded here for the decision and its
+rationale, pinned by the regenerated `vectors/l1-eval/eval-resolve.json` (`readings` +
+`resolve-nested-expansion` + the `legacy-expand-resolve-rejected` reject).
+
+Before #23, an expanded child was resolved with the **parent's own Schema**, threaded down
+unchanged — a child's intended reading was unstatable, two parents embedding the same child under
+different Schemas silently produced different child views, and downstream reading-keyed machinery
+(Loam's binding-level resolvers) had nothing to reference. This worked only by prop-name
+coincidence or when everything fell to `default`.
+
+**Decision (Myk, issue #23 thread): the term names both halves of the child's lens** — `schema`
+(gather) and `reading` (resolution), `reading` as structural as `schema`, resolved and validated
+through the registry identically. The filed proposal's optional-with-parent-fallback was
+rejected: the gather side already names the child's program explicitly per role-matching child;
+the parent-Schema recursion in resolution was the asymmetry, not a default worth preserving.
+
+The legacy fate: bodies without `reading` parse and gather byte-identically (hashes unmoved — the
+key is present-iff-authored), but resolving one of their expansions MUST fail loudly, naming the
+missing reading. Migration is unambiguous for all pre-#23 stores: each hyperschema then had
+exactly one Schema; re-sign the body naming it. Post-coexistence ambiguity cannot arise in a
+legacy body by construction.
+
+Mechanics pinned alongside: the registry holds resolution Schemas by name and by content address
+(`schemaHash`, the same multihash construction as `termHash`); reading refs are collected from
+bodies and validated at registry build (unknown reading = build error, never mid-eval); the
+resolved reading rides the in-memory HVEntry beside its expansion, and the HView canonical form
+carries the reading's **content address** on each expanded target (SPEC-3 §4) — the full Schema
+body stays out (registry state, dereferenced by hash), but the *name* of the reading must survive
+serialization or a rehydrated hview could never be resolved. Pinned by
+`eval-expand.json`'s `fix-expand-with-reading` (bytes differ from the legacy twin only by the
+reading hash) and by the untouched legacy cases (reading key present iff authored).

@@ -76,6 +76,11 @@ pub enum Term {
     Expand {
         role: StrMatch,
         schema: SchemaRef,
+        /// The child's resolution Schema — the other half of the child's lens (issue #23).
+        /// Required in the current vocabulary; absent only in legacy bodies, whose expansions
+        /// then refuse to RESOLVE (gather is unchanged). There is deliberately no parent-Schema
+        /// fallback.
+        reading: Option<SchemaRef>,
         of: Box<Term>,
     },
     Fix {
@@ -408,6 +413,7 @@ fn eval_group(key: &GroupKey, set: &DeltaSet, negated: &BTreeSet<String>, root: 
                 delta: d.clone(),
                 negated: negated.contains(&d.id),
                 expanded: BTreeMap::new(),
+                readings: BTreeMap::new(),
             });
     };
     for d in set.iter() {
@@ -469,6 +475,25 @@ fn eval_schema(
             "schema {label} body must be an HView-sort term (E10)"
         )),
     }
+}
+
+/// Look up an expand's reading — the child's resolution Schema (issue #23). Mirrors eval_schema's
+/// error discipline: unknown references fail loudly, never fall back.
+fn lookup_reading(
+    reading_ref: &SchemaRef,
+    registry: Option<&SchemaRegistry>,
+) -> Result<Schema, String> {
+    let label = match reading_ref {
+        SchemaRef::Name(n) => n.clone(),
+        SchemaRef::Pinned(h) => format!("pinned:{}", &h[..h.len().min(16)]),
+    };
+    let registry = registry.ok_or(format!(
+        "reading {label} referenced but no registry supplied (issue #23)"
+    ))?;
+    registry
+        .resolve_reading(reading_ref)
+        .cloned()
+        .ok_or(format!("unknown reading: {label} (issue #23)"))
 }
 
 pub fn eval_term(
@@ -588,9 +613,20 @@ pub fn eval_term(
                 }
             }))
         }
-        Term::Expand { role, schema, of } => {
+        Term::Expand {
+            role,
+            schema,
+            reading,
+            of,
+        } => {
             let h = expect_hview(eval_term(of, input, root, registry, bindings)?, "expand")?;
             let role = expand_str_match(role, input, root);
+            // Resolve the child's reading once, up front — an unknown reading fails the whole
+            // evaluation loudly, exactly as an unknown gather schema does (issue #23).
+            let reading = match reading {
+                None => None,
+                Some(r) => Some(lookup_reading(r, registry)?),
+            };
             let mut props: BTreeMap<String, Vec<HVEntry>> = BTreeMap::new();
             for (prop, entries) in h.props {
                 let mut out = Vec::with_capacity(entries.len());
@@ -606,6 +642,9 @@ pub fn eval_term(
                         }
                         let nested = eval_schema(schema, input, &er.id, registry, bindings)?;
                         e.expanded.insert(i, nested);
+                        if let Some(r) = &reading {
+                            e.readings.insert(i, r.clone());
+                        }
                     }
                     out.push(e);
                 }
@@ -630,7 +669,7 @@ pub fn eval_term(
         }
         Term::Resolve { schema, of } => {
             let h = expect_hview(eval_term(of, input, root, registry, bindings)?, "resolve")?;
-            Ok(EvalResult::View(resolve_view(schema, &h)))
+            Ok(EvalResult::View(resolve_view(schema, &h)?))
         }
     }
 }

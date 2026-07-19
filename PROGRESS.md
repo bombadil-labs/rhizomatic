@@ -1,5 +1,28 @@
 # Progress
 
+> **RESUME HERE (2026-07-18). EXPAND NAMES THE CHILD'S READING (issue #23, branch
+> `expand-reading`; ships in the unreleased 0.8.0):**
+>
+> - **The defect:** `renderTarget` resolved an expanded child with the PARENT's Schema, threaded
+>   down unchanged — a child's intended reading was unstatable, and reading-keyed host machinery
+>   (Loam's binding-level resolvers, T25) had no reference to hang on. Worked only by prop-name
+>   coincidence.
+> - **The pin (Myk, issue thread):** the term names both halves of the child's lens —
+>   `expand { role, schema, reading }`, `reading` as structural as `schema`, resolved/validated
+>   through the registry identically (readings indexed by name + `schemaHash` content address).
+>   No parent-Schema fallback: legacy bodies gather byte-identically but their expansions refuse
+>   to RESOLVE, loudly. Migration is unambiguous (pre-#23 bodies predate coexistence: one Schema
+>   per hyperschema — re-sign naming it).
+> - **Mechanics:** the resolved reading rides the in-memory HVEntry beside its expansion; the
+>   HView canonical form carries the reading's content address on each expanded target (SPEC-3
+>   §4) so serialized hviews stay self-describing and resolvable. `reading` serializes
+>   present-iff-authored, so every legacy termHash and legacy hview byte is untouched.
+> - **Pins:** SPEC-2 §4.5/§9 + E18, SPEC-5 §4 + R8, SPEC-3 §3 registry note;
+>   `eval-resolve.json` regenerated (readings section, observable child-reading win in
+>   `resolve-nested-expansion`, `legacy-expand-resolve-rejected` verified-reject).
+>
+> ---
+
 > **RESUME HERE (2026-07-16, later). THE THIRD WITNESS EXISTS — ELIXIR AT L0, BUILT FROM SPEC +
 > VECTORS ALONE (issue #19, branch `elixir-witness`; releases as 0.8.0):**
 >

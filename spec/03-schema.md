@@ -62,6 +62,7 @@ The reference graph `schema —refs→ schema` MUST be acyclic.
 - Validation: at schema registration/receipt, walk `refs` transitively; reject cycles. Because `refs` is declared (not discovered by interpreting the body), this check is cheap and static.
 - Data cycles remain fully legal (Keanu created BRZRKR; BRZRKR was created by Keanu). The DAG constraint is on *programs*, not *data*. Expansion of a data cycle terminates because the schema chain terminates: a terminal schema (one with no `expand`s) leaves `EntityRef`s as bare references.
 - Consequence: every HyperView has a statically known maximum expansion depth — the longest path in the schema DAG — which gives implementations a hard bound for resource planning.
+- The registry also holds **resolution Schemas ("readings")**, indexed by name and by content address, so an `expand`'s `reading` reference (SPEC-2 §4.5, issue #23) is validated at the same build step — an unknown reading fails registration, never mid-evaluation. Readings reference no schemas, so they add no edges to the DAG.
 
 *(Open: bounded self-reference — `expand(..., self, depth: k)` for tree-shaped data like comment threads. Expressible today by k manual schema copies; ugly. A `depth`-bounded SchemaRef would preserve termination and static bounds while restoring ergonomics. Needs vectors before admission.)*
 
@@ -79,6 +80,7 @@ HView {
 - **Provenance-complete:** every HVEntry is a full delta (id, author, timestamp, signature status, all pointers), possibly with expanded targets. Nothing is summarized away below `resolve`.
 - **Superposition-preserving:** competing claims for a property coexist as sibling entries. The HyperView is the staging area where conflicts are *visible but not yet adjudicated*.
 - **Deterministic & canonical:** same (schema, DSet) ⇒ byte-identical canonical serialization. HyperViews are therefore content-addressable, which is what makes them cacheable and diffable (SPEC-4).
+- **Self-describing under expansion** (issue #23): an expanded target's canonical form carries the **content address of its reading** alongside the nested HView (`{"id", "props", "reading"}` — the reading key present iff the expand named one). The full Schema is registry state, not payload: a consumer of a serialized HyperView dereferences the hash through its registry to resolve. Without this, a rehydrated HyperView would be unresolvable — canonical form must capture everything resolution needs to *name*, even though it never embeds program bodies. Two evaluations differing only in reading therefore serialize differently, which is correct: the reading is part of the program's identity (SPEC-2 §4.5).
 - **Bounded:** membership is exactly the relevance closure of §2.1 — no delta outside the closure may appear.
 
 A HyperView is simultaneously: a query result, an index entry (when materialized, SPEC-4), a federation payload (a self-contained provenance bundle, SPEC-6), and a view template (input to `resolve`, SPEC-5). One abstraction, four duties — this is intentional and normative.

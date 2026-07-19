@@ -15,7 +15,7 @@ use crate::json_profile::parse_claims;
 use crate::schema::{HyperSchema, SchemaRegistry};
 use crate::set::{make_delta, DeltaSet};
 use crate::sign::{sign_claims, verify_delta, Verification};
-use crate::term_json::parse_term;
+use crate::term_json::{parse_schema, parse_term};
 use crate::types::Delta;
 
 fn set_from(v: &Value) -> Result<DeltaSet, String> {
@@ -76,7 +76,15 @@ fn handle(req: &Value) -> Result<Value, String> {
                             body: parse_term(&s["body"])?,
                         });
                     }
-                    Some(SchemaRegistry::build(schemas)?)
+                    // Named resolution Schemas the expand `reading` refs resolve against (#23).
+                    let readings = match req.get("readings") {
+                        Some(Value::Array(arr)) => arr
+                            .iter()
+                            .map(parse_schema)
+                            .collect::<Result<Vec<_>, _>>()?,
+                        _ => Vec::new(),
+                    };
+                    Some(SchemaRegistry::build(schemas, readings)?)
                 }
                 _ => None,
             };

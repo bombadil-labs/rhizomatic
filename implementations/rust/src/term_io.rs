@@ -248,12 +248,23 @@ pub fn term_to_json(term: &Term) -> Value {
             };
             json!({ "op": "prune", "keep": keep, "in": term_to_json(of) })
         }
-        Term::Expand { role, schema, of } => json!({
-            "op": "expand",
-            "role": str_match_to_json(role),
-            "schema": schema_ref_to_json(schema),
-            "in": term_to_json(of),
-        }),
+        Term::Expand {
+            role,
+            schema,
+            reading,
+            of,
+        } => {
+            let mut out = Map::new();
+            out.insert("op".into(), json!("expand"));
+            out.insert("role".into(), str_match_to_json(role));
+            out.insert("schema".into(), schema_ref_to_json(schema));
+            // Present-iff-authored: legacy bodies keep byte-identical hashes (issue #23).
+            if let Some(r) = reading {
+                out.insert("reading".into(), schema_ref_to_json(r));
+            }
+            out.insert("in".into(), term_to_json(of));
+            Value::Object(out)
+        }
         Term::Fix {
             schema,
             entity,
@@ -351,4 +362,18 @@ pub fn schema_canonical_hex(schema: &Schema) -> Result<String, String> {
 /// A term's content address: same multihash as deltas (E12).
 pub fn term_hash(term: &Term) -> Result<String, String> {
     Ok(content_address(&term_canonical_bytes(term)?))
+}
+
+/// A resolution Schema's content address (issue #23): the multihash of its canonical bytes,
+/// exactly parallel to term_hash — this is what a pinned `reading: {pinned: hash}` names.
+pub fn schema_hash(schema: &Schema) -> Result<String, String> {
+    let body = Schema {
+        props: schema.props.clone(),
+        default: schema.default.clone(),
+        name: None,
+        alg: None,
+    };
+    Ok(content_address(&encode(&json_to_cbor(&schema_to_json(
+        &body,
+    ))?)))
 }

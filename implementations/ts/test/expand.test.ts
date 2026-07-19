@@ -6,13 +6,15 @@ import { evalTerm, resultCanonicalHex } from "../src/eval.js";
 import { parseClaims } from "../src/json-profile.js";
 import { SchemaRegistry, collectRefs, type HyperSchema } from "../src/schema.js";
 import { DeltaSet, makeDelta } from "../src/set.js";
-import { parseTerm } from "../src/term-json.js";
+import { parseSchema, parseTerm } from "../src/term-json.js";
+import { schemaHash } from "../src/term-io.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const doc = JSON.parse(
   readFileSync(resolve(here, "../../../vectors/l1-eval/eval-expand.json"), "utf8"),
 ) as {
   fixture: { deltas: Array<{ name: string; id: string; claims: unknown }> };
+  readings: unknown[];
   schemas: Array<{ name: string; alg: number; body: unknown }>;
   cases: Array<{ name: string; term: unknown; expectedCanonicalHex: string }>;
 };
@@ -20,6 +22,7 @@ const doc = JSON.parse(
 const fixtureSet = DeltaSet.from(doc.fixture.deltas.map((d) => makeDelta(parseClaims(d.claims))));
 const registry = SchemaRegistry.build(
   doc.schemas.map((s) => ({ name: s.name, alg: s.alg, body: parseTerm(s.body) })),
+  doc.readings.map((r) => parseSchema(r)),
 );
 
 describe("l1-eval expand/fix vectors", () => {
@@ -98,6 +101,36 @@ describe("schema registry (SPEC-3 §3 / E10)", () => {
   it("rejects duplicate names", () => {
     const a: HyperSchema = { name: "A", alg: 1, body: body(groupInput) };
     expect(() => SchemaRegistry.build([a, a])).toThrow(/duplicate/);
+  });
+
+  // issue #23: reading references validate at build, exactly as gather references do.
+  it("rejects an unknown reading reference at build", () => {
+    const base: HyperSchema = { name: "Base", alg: 1, body: body(groupInput) };
+    const a: HyperSchema = {
+      name: "A",
+      alg: 1,
+      body: body({
+        op: "expand",
+        role: { exact: "x" },
+        schema: "Base",
+        reading: "GhostReading",
+        in: groupInput,
+      }),
+    };
+    expect(() => SchemaRegistry.build([base, a])).toThrow(/unknown reading/);
+  });
+
+  it("resolves a registered reading by name and by pinned hash", () => {
+    const reading = parseSchema({
+      name: "R",
+      alg: 1,
+      props: { name: { pick: { order: { byTimestamp: "asc" } } } },
+      default: { pick: { order: "lexById" } },
+    });
+    const base: HyperSchema = { name: "Base", alg: 1, body: body(groupInput) };
+    const registry = SchemaRegistry.build([base], [reading]);
+    expect(registry.resolveReading({ kind: "name", name: "R" })).toBe(reading);
+    expect(registry.resolveReading({ kind: "pinned", hash: schemaHash(reading) })).toBe(reading);
   });
 
   it("evaluating a schema reference without a registry throws", () => {

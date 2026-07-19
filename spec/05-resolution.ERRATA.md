@@ -29,3 +29,11 @@ Folded into SPEC-5 §2.1 (2026-06-11); history in git.
 ## R7 — `resolve` in the term JSON profile
 
 Folded into SPEC-2 §9 (appendix) (2026-06-11); history in git.
+
+## R8 — Expansions resolve through their own reading (2026-07-18, issue #23)
+
+Folded into SPEC-5 §4 (expanded-targets bullet) and SPEC-2 §4.5/E18. Supersedes the implicit
+pre-#23 behavior R6 described, where `renderTarget` recursed with the parent's Schema. Pinned by
+`vectors/l1-eval/eval-resolve.json`: `resolve-nested-expansion` (the child's reading observably
+wins over the parent's policy) and the `legacy-expand-resolve-rejected` reject (no parent-Schema
+fallback).

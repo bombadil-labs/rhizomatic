@@ -1211,10 +1211,34 @@ const schemas = [
     alg: 1,
     body: { op: "expand", role: { exact: "actor" }, schema: "ActorWithWorks", in: canonicalBody },
   },
+  {
+    // The current-vocabulary form (issue #23): the expand names the child's reading too. Its
+    // hview canonical bytes differ from MovieWithCast's ONLY by the reading content address
+    // riding each expansion — pinned by fix-expand-with-reading below.
+    name: "MovieWithCastRead",
+    alg: 1,
+    body: {
+      op: "expand",
+      role: { exact: "actor" },
+      schema: "ActorName",
+      reading: "ActorNameReading",
+      in: canonicalBody,
+    },
+  },
+];
+
+const expandReadings = [
+  {
+    name: "ActorNameReading",
+    alg: 1,
+    props: { name: { pick: { order: { byTimestamp: "asc" } } } },
+    default: { pick: { order: "lexById" } },
+  },
 ];
 
 const expandRegistry = SchemaRegistry.build(
   schemas.map((s) => ({ name: s.name, alg: s.alg, body: parseTerm(s.body) })),
+  expandReadings.map((r) => parseSchema(r)),
 );
 
 const expandCases: Array<{ name: string; spec: string; term: unknown; note?: string }> = [
@@ -1229,6 +1253,12 @@ const expandCases: Array<{ name: string; spec: string; term: unknown; note?: str
     spec: "SPEC-2 §4.5 §4.8 / E11",
     term: { op: "fix", schema: "MovieWithCast", entity: "movie:matrix" },
     note: "c1's actor pointer is replaced by the ActorName HView at actor:keanu",
+  },
+  {
+    name: "fix-expand-with-reading",
+    spec: "SPEC-2 §4.5 / SPEC-3 §4 / E18 (the reading's content address rides the expansion in canonical form)",
+    term: { op: "fix", schema: "MovieWithCastRead", entity: "movie:matrix" },
+    note: "same gather as fix-expand-one-level; the bytes differ only by the reading hash on the expanded target, keeping serialized hviews self-describing",
   },
   {
     name: "fix-data-cycle-terminates",
@@ -1286,6 +1316,7 @@ const expandOut = {
     note: "actors/movies with a keanu<->brzrkr data cycle; schema DAG depth 3",
     deltas: Object.entries(xfx).map(([name, f]) => ({ name, id: f.id, claims: f.claims })),
   },
+  readings: expandReadings,
   schemas,
   cases: expandVectors,
 };
@@ -1422,6 +1453,17 @@ addRfx(
   ]),
 );
 
+// A second, newer name claim for keanu makes the child's reading OBSERVABLE: the ActorReading
+// below picks the oldest name, while any latest-flavoured parent policy would pick this one —
+// so resolve-nested-expansion now proves the expansion resolved through its own reading (#23).
+addRfx(
+  "a2-keanu-name-newer",
+  claim(900, B, [
+    { role: "subject", ...subj("actor:keanu", "name") },
+    { role: "value", target: "K. Reeves" },
+  ]),
+);
+
 const resolveFixtureSet = DeltaSet.from(
   Object.values(rfx).map((f) => makeDelta(parseClaims(f.claims))),
 );
@@ -1431,6 +1473,16 @@ const rawBody = {
   key: "byTargetContext",
   in: sel({ hasPointer: { targetEntity: { var: "root" } } }),
 };
+// The child's reading (issue #23): a named resolution Schema held by the registry. `name` picks
+// the OLDEST claim — deliberately opposite to every latest-flavoured parent policy in this file.
+const resolveReadings = [
+  {
+    name: "ActorReading",
+    alg: 1,
+    props: { name: { pick: { order: { byTimestamp: "asc" } } } },
+    default: { pick: { order: { byTimestamp: "desc" } } },
+  },
+];
 const resolveSchemas = [
   { name: "MovieRaw", alg: 1, body: rawBody },
   { name: "PersonRaw", alg: 1, body: rawBody },
@@ -1439,11 +1491,19 @@ const resolveSchemas = [
   {
     name: "MovieCast",
     alg: 1,
-    body: { op: "expand", role: { exact: "actor" }, schema: "ActorNameV", in: canonicalBody },
+    // The expand names BOTH halves of the child's lens: gather (schema) and reading (#23).
+    body: {
+      op: "expand",
+      role: { exact: "actor" },
+      schema: "ActorNameV",
+      reading: "ActorReading",
+      in: canonicalBody,
+    },
   },
 ];
 const resolveRegistry = SchemaRegistry.build(
   resolveSchemas.map((s) => ({ name: s.name, alg: s.alg, body: parseTerm(s.body) })),
+  resolveReadings.map((r) => parseSchema(r)),
 );
 
 const latest = { pick: { order: { byTimestamp: "desc" } } };
@@ -1548,9 +1608,9 @@ const resolveCases: Array<{ name: string; spec: string; term: unknown; note?: st
   },
   {
     name: "resolve-nested-expansion",
-    spec: "ERRATA-5 R1/R6 (multi-pointer candidate; nested View with same schema)",
+    spec: "ERRATA-5 R1/R6 + issue #23 (the expansion resolves through ITS OWN reading, never the parent's Schema)",
     term: res({ default: latest }, fixMovie("MovieCast")),
-    note: "cast candidate is {actor: {name: Keanu Reeves}, character: Neo}",
+    note: "ActorReading picks the OLDEST name: actor resolves to {filmography: true, name: Keanu Reeves} even though the parent policy is latest (which would pick K. Reeves) — the child's reading decided",
   },
   {
     name: "author-rank-terminal-ties-lexById",
@@ -1640,13 +1700,50 @@ const resolveVectors = resolveCases.map(({ name, spec, term, note }) => {
   };
 });
 
+// The legacy fate (issue #23): a body whose expand names no reading still parses and gathers,
+// but resolving one of its expansions MUST fail loudly — never fall back to the parent's Schema.
+// Verified at generation time so a regenerated vector can never ship a reject that resolves.
+const resolveRejects = [
+  {
+    name: "legacy-expand-resolve-rejected",
+    spec: "SPEC-5 §4 / issue #23 (no parent-Schema fallback)",
+    reason:
+      "MovieCastLegacy's expand carries no reading; resolving its expansion is a loud error, not a silent resolve under the parent's Schema",
+    schemas: [
+      { name: "ActorNameV", alg: 1, body: canonicalBody },
+      {
+        name: "MovieCastLegacy",
+        alg: 1,
+        body: { op: "expand", role: { exact: "actor" }, schema: "ActorNameV", in: canonicalBody },
+      },
+    ],
+    term: res({ default: latest }, fixMovie("MovieCastLegacy")),
+  },
+];
+for (const r of resolveRejects) {
+  const legacyRegistry = SchemaRegistry.build(
+    r.schemas.map((s) => ({ name: s.name, alg: s.alg, body: parseTerm(s.body) })),
+  );
+  let rejected = false;
+  try {
+    evalTerm(parseTerm(r.term), resolveFixtureSet, undefined, legacyRegistry);
+  } catch {
+    rejected = true;
+  }
+  if (!rejected) {
+    throw new Error(`resolve reject "${r.name}" was accepted; the legacy fate is violated (#23)`);
+  }
+}
+
 const resolveOut = {
   fixture: {
-    note: "superposed titles, competing ratings, mixed-type sizes, a negation, and a cast edge for nested resolution",
+    note: "superposed titles, competing ratings, mixed-type sizes, a negation, and a cast edge for nested resolution through the child's own reading (issue #23)",
     deltas: Object.entries(rfx).map(([name, f]) => ({ name, id: f.id, claims: f.claims })),
   },
+  readings: resolveReadings,
   schemas: resolveSchemas,
   cases: resolveVectors,
+  rejects: resolveRejects,
 };
 writeFileSync(resolve(evalDir, "eval-resolve.json"), `${JSON.stringify(resolveOut, null, 2)}\n`);
 console.log(

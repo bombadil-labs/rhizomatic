@@ -169,13 +169,17 @@ export function termToJson(term: Term): unknown {
         keep: term.keep === "all" ? "all" : strMatchToJson(term.keep),
         in: termToJson(term.of),
       };
-    case "expand":
-      return {
+    case "expand": {
+      const out: Record<string, unknown> = {
         op: "expand",
         role: strMatchToJson(term.role),
         schema: schemaRefToJson(term.schema),
-        in: termToJson(term.of),
       };
+      // Present-iff-authored: legacy bodies keep byte-identical hashes (issue #23).
+      if (term.reading !== undefined) out["reading"] = schemaRefToJson(term.reading);
+      out["in"] = termToJson(term.of);
+      return out;
+    }
     case "fix": {
       const out: Record<string, unknown> = {
         op: "fix",
@@ -259,4 +263,11 @@ export function schemaCanonicalHex(schema: Schema): string {
 // A term's content address: same multihash as deltas (E12).
 export function termHash(term: Term): string {
   return contentAddress(termCanonicalBytes(term));
+}
+
+// A resolution Schema's content address (issue #23): the multihash of its canonical bytes,
+// exactly parallel to termHash — this is what a pinned `reading: {pinned: hash}` names.
+export function schemaHash(schema: Schema): string {
+  const body = schemaToJson({ props: schema.props, default: schema.default });
+  return contentAddress(encode(jsonToCbor(body)));
 }

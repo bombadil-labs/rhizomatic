@@ -94,6 +94,7 @@ Normative notes:
 - **All entries negated** under the schema's `mask(drop)`: indistinguishable from empty — negation already happened upstream. Policies see only survivors.
 - **`mask(annotate)` schemas:** tagged entries remain candidates (§2.1) — audit views resolve like any other. Ordering *by* the tag is deferred: the Pred grammar sees only the delta, and the tag is entry metadata (likely future: a `negated` pseudo-field on `match`).
 - **Type heterogeneity:** competing claims of different primitive types are legal (someone asserted `size: 3`, someone `size: "large"`). `pick` is type-blind; `merge(max)` over mixed types MUST resolve by canonical type order (bool < number < string) then value — defined, deterministic, and ugly, which is the correct incentive to fix it with vocabulary discipline (§6) or negation.
+- **Expanded targets** (SPEC-2 §4.5, issue #23): a candidate pointer whose target was replaced by an expansion resolves as `resolve(reading, childHView)` where `reading` is the resolution Schema the expand term named for that child. The parent's Schema is **never** applied to a child's hyperview. An expansion carrying no reading (a legacy body) MUST fail resolution loudly, naming the missing reading — falling back to the parent's Schema is the pre-#23 defect, not a degraded mode. Gather is unaffected: the same legacy body still evaluates to an HView.
 
 ## 5. View Output Profiles
 

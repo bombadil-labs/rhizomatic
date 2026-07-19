@@ -87,7 +87,7 @@
         }
       ],
       "duration": 2,
-      "category": "fix"
+      "category": "spec"
     },
     {
       "id": "gh:bombadil-labs/rhizomatic#19",
@@ -105,6 +105,42 @@
       "edges": [],
       "duration": 5,
       "category": "feature"
+    },
+    {
+      "id": "gh:bombadil-labs/rhizomatic#23",
+      "title": "expand should reference the child's READING, not inherit the parent's Schema",
+      "body": "## `expand` should reference the child's *reading*, not inherit the parent's\n\n**Context (downstream, in Loam).** Loam now serves multiple resolution Schemas (\"lenses\") over one\nHyperSchema (coexistence, Loam #131), and decorates a lens's fields with host-level resolvers that\nride its binding (Loam SPEC §22). Building a real app on this (a feed whose gather `expand`s post\nentities) surfaced the gap described here. Loam ticket T25 tracks the downstream half and is\nblocked on this issue.\n\n**The mechanism as it stands (read from 0.6.x dist, not guessed):**\n\n- `eval.js`, the `expand` case: a role-matching EntityRef pointer evaluates the *named hyperschema*\n  at the child entity (`evalSchema(term.schema, input, childId, registry)`) and stores the child\n  **hview** on the entry (`e.expanded`).\n- `resolution.js`, `renderTarget`: an expanded child is resolved with\n  `resolveView(schema, expansion)` — where `schema` is **the parent's own Schema**, threaded down\n  through `candidateValue` unchanged.\n\nSo an embedded child is never resolved through any reading *of its own*: the parent's resolution\nprogram is applied recursively to the child's hview. This works by coincidence when parent and\nchild prop names align (or everything falls to `default`), and it means:\n\n1. A child's intended reading — which Policies govern *its* fields — is unstatable in the term.\n2. Two parents embedding the same child through different Schemas silently produce different child\n   views, with nothing in the program identifying either reading.\n3. Downstream, any host-level decoration keyed on the child's reading (Loam's resolvers) has no\n   reference to hang on: post-coexistence, \"which of the sibling readings did this parent mean?\"\n   has no answer in the bytes.\n\n**The ask — three small, resolver-agnostic pieces.** The substrate should not learn what a\n\"resolver\" is; it needs only to *reason at the reading level*:\n\n1. **`expand` gains an optional `reading` reference** naming the child's resolution Schema — the\n   same reference shape `evalSchema` already supports for gathers (`{name}` via the registry, or\n   pinned `{hash}` — Schemas are content-addressed since 0.5.0's `schemaCanonicalHex`, so a pinned\n   reading is already expressible). Absent → today's behavior, verbatim.\n2. **The registry learns to hold/look up resolution Schemas** by name and by hash. 0.5.0 made the\n   Schema publishable and loadable (`SCHEMA_SCHEMA`, `publishSchemaClaims`/`loadSchema`); the\n   registry composing them at eval is the missing half. (Build-time validation as for gathers:\n   an unknown reading reference fails registry build, not mid-eval.)\n3. **`renderTarget` resolves an expansion through the named reading's Schema when present**, else\n   the parent's (today's path, unchanged).\n\nThat is the whole substrate ask. The host-side decoration then needs **no output annotation**: the\nreading reference is static in the term, so a host can walk the parent body, find each `expand`'s\nreading, and apply its own binding-level machinery to the corresponding child views. The substrate\ncarries the reference; the semantics of what a reading *additionally* means stay above the line.\n\n**Compatibility & identity.**\n\n- The field is optional; existing bodies parse, evaluate, and hash byte-identically. A body that\n  *uses* it mints a new termHash — correct, since the reference is genuinely part of the program's\n  identity (the same doctrine as everything else here: the version lives in the vocabulary).\n- The JSON profile grows one optional key on `expand` (parseTerm/termToJson/termHash all follow\n  mechanically).\n- Pinned readings (`reading: {hash}`) align with the deferred VersionedHyperSchema direction —\n  both deepen what a gather reference can freeze, and they can share reference vocabulary.\n\n**Alternatives considered and set aside (recorded so they're not relitigated):**\n\n- *Host-side heuristic* (resolve children through \"the reading whose name matches the\n  hyperschema's\"): restores the common case downstream but silently picks a winner among sibling\n  readings — papering over exactly the ambiguity this ask makes expressible. Rejected downstream.\n- *Annotating outputs with the reading instead of extending the term*: unnecessary once the\n  reference is static in the term, and it would put reading-identity in every view rather than\n  once in the program.\n- *Doing nothing*: viable (Loam documents \"embedded children resolve under the parent's Schema\"\n  as a boundary), but the parent-Schema recursion is surprising even without coexistence, and the\n  cost compounds as embedding gets richer.\n\n**Sketch of downstream consumption (for concreteness, not part of this ask):** Loam's feed gather\nbecomes `expand { role: \"post\", schema: \"PachyPost\", reading: \"Post\" }`; registration validates the\nreading exists; the read path applies the `Post` binding's resolvers to expanded children by\nstatic term inspection. The degenerate case (no `reading`) stays exactly today's serving.\n\n---\n\nFiled from the Loam side after the mechanism-read above; happy to carry the implementation\nconversation wherever you want it. — 🤖 with Loam T25 as the downstream tracker",
+      "scope": [
+        "spec/**",
+        "vectors/**",
+        "implementations/ts/**",
+        "implementations/rust/**",
+        "CHANGELOG.md",
+        "PROGRESS.md",
+        "docs/**"
+      ],
+      "rails": [],
+      "edges": [],
+      "duration": 3,
+      "category": "feature"
+    },
+    {
+      "id": "gh:bombadil-labs/rhizomatic#25",
+      "title": "Fail-closed parsing covers tags but not keys — an unknown/misspelled key is silently ignored",
+      "body": "## Summary\n\nSPEC-2 §8's fail-closed rule is normative for **tags**: a conformant parser MUST reject an\nunrecognized `op` / `policy` / `cmp` / `key`-tag, loudly, before evaluation. That rule is what\nlets additive operators enter the closed §9 profile without an `alg` bump — an older witness meets\n`{\"op\": \"difference\"}`, doesn't recognize it, and refuses.\n\n**The same doctrine does not cover unknown object *keys*.** Every term parser reads the keys it\nknows and ignores the rest, so a typo or a from-the-future field is silently dropped:\n\n```json\n{ \"op\": \"expand\", \"role\": {\"exact\": \"actor\"}, \"schema\": \"Actor\", \"readng\": \"ActorReading\", \"in\": \"...\" }\n```\n\nThis parses today as a **legacy** expand (no reading), hashes as a legacy body, gathers happily —\nand then fails at resolution with \"carries no reading\", far from the actual mistake. Worse, the\nsilent-drop case is exactly the version-skew case the fail-closed rule exists to catch: a body\nauthored against a newer vocabulary loses its new field and becomes a *different, still-valid*\nprogram rather than a rejected one.\n\nSurfaced while reviewing #23 (`expand.reading`), which is the newest and sharpest instance, but\nthe gap is grammar-wide: predicates, orders, policies, group keys, and every term op share it.\n\n## Why it matters here specifically\n\nThe repo's whole version story is *\"the version lives in the vocabulary\"* — additive fields are\nsafe **because** old witnesses refuse what they don't understand. Key-level laxity is the one\nplace that promise doesn't hold: an old witness doesn't refuse, it silently reinterprets. That is\nthe difference between a federation partition (detectable) and a silent semantic fork\n(undetectable), which is precisely the failure mode #20 was filed about on the signature side.\n\n## Requested\n\n1. **Strict key validation across the term/pred/schema JSON profile** — every object node\n   rejects keys outside its known set, naming the offending key and, where cheap, the nearest\n   known key (`unknown key \"readng\" on expand; did you mean \"reading\"?`).\n2. **SPEC-2 §8 amended** to make key-strictness normative alongside tag-strictness, so the\n   fail-closed doctrine reads as one rule rather than two-thirds of one.\n3. **Vectors** — an `unknown-key` reject per node kind, in the shape the existing `rejects`\n   arrays already use (verified to reject at generation time), so all three witnesses are held to\n   it forever. This is the part that makes it *caught in tests* rather than remembered.\n\n## Notes / scope\n\n- Deliberately **not** folded into #23's PR: the fix touches every node in the grammar, needs its\n  own vector family, and must land in both L2 witnesses together. Half-strict parsing (expand\n  only) would be worse than none — it reads as a guarantee that isn't there.\n- No `alg` bump: this makes the parser *stricter*, so every currently-valid body stays valid.\n  Bodies that were only accidentally valid (carrying junk keys) start failing, which is the point.\n- Check whether the JSON profile for **claims** (SPEC-1 §4.2) has the same gap; if so it belongs\n  in the same slice, since \"reject, never repair\" is the identical doctrine one layer down.\n\n_Filed from the #23 review._\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)",
+      "scope": [
+        "spec/**",
+        "vectors/**",
+        "implementations/ts/**",
+        "implementations/rust/**",
+        "implementations/elixir/**",
+        "CHANGELOG.md",
+        "PROGRESS.md"
+      ],
+      "rails": [],
+      "edges": [],
+      "duration": 3,
+      "category": "spec"
     }
   ]
 }

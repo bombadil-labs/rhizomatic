@@ -115,11 +115,21 @@ fn sort_entries<'a>(order: &Order, entries: &'a [HVEntry]) -> Vec<&'a HVEntry> {
 
 // --- candidate value extraction (R1) ---------------------------------------------------------------
 
-fn render_target(t: &Target, expansion: Option<&HView>, schema: &Schema) -> View {
-    if let Some(h) = expansion {
-        return resolve_view(schema, h);
+fn render_target(t: &Target, e: &HVEntry, i: usize) -> Result<View, String> {
+    if let Some(expansion) = e.expanded.get(&i) {
+        // An expansion resolves through ITS OWN reading — the child's resolution Schema named in
+        // the expand term (issue #23). There is no parent-Schema fallback: a legacy body (no
+        // reading) gathers fine but refuses to resolve, loudly.
+        let Some(reading) = e.readings.get(&i) else {
+            return Err(format!(
+                "expansion at pointer {i} of delta {} carries no reading — \
+                 legacy expand bodies must name the child's resolution Schema (SPEC-5 §6, issue #23)",
+                e.delta.id
+            ));
+        };
+        return resolve_view(reading, expansion);
     }
-    match t {
+    Ok(match t {
         Target::Primitive(p) => View::Prim(p.clone()),
         Target::Entity(e) => View::Prim(Primitive::Str(e.id.clone())),
         Target::Delta(d) => View::Prim(Primitive::Str(d.delta.clone())),
@@ -127,26 +137,23 @@ fn render_target(t: &Target, expansion: Option<&HView>, schema: &Schema) -> View
             mime: mime.clone(),
             value: value.clone(),
         },
-    }
+    })
 }
 
-fn candidate_value(e: &HVEntry, root: &str, schema: &Schema) -> View {
+fn candidate_value(e: &HVEntry, root: &str) -> Result<View, String> {
     let mut non_filing: Vec<(String, View)> = Vec::new();
     for (i, p) in e.delta.claims.pointers.iter().enumerate() {
         let filing = matches!(&p.target, Target::Entity(er) if er.id == root);
         if filing {
             continue;
         }
-        non_filing.push((
-            p.role.clone(),
-            render_target(&p.target, e.expanded.get(&i), schema),
-        ));
+        non_filing.push((p.role.clone(), render_target(&p.target, e, i)?));
     }
     if non_filing.is_empty() {
-        return View::Prim(Primitive::Bool(true)); // the bare fact of the edge
+        return Ok(View::Prim(Primitive::Bool(true))); // the bare fact of the edge
     }
     if non_filing.len() == 1 {
-        return non_filing.into_iter().next().unwrap().1;
+        return Ok(non_filing.into_iter().next().unwrap().1);
     }
     let mut obj: BTreeMap<String, View> = BTreeMap::new();
     for (role, v) in non_filing {
@@ -163,7 +170,7 @@ fn candidate_value(e: &HVEntry, root: &str, schema: &Schema) -> View {
             }
         }
     }
-    View::Obj(obj)
+    Ok(View::Obj(obj))
 }
 
 // --- View canonical form (R4) ----------------------------------------------------------------------
@@ -200,22 +207,24 @@ fn is_primitive(v: &View) -> Option<&Primitive> {
     }
 }
 
-fn apply_merge(fn_: MergeFn, entries: &[HVEntry], root: &str, schema: &Schema) -> Option<View> {
+fn apply_merge(fn_: MergeFn, entries: &[HVEntry], root: &str) -> Result<Option<View>, String> {
     // Fold in ascending delta-id order — float addition is order-dependent (R2).
     let sorted = sort_entries(&Order::LexById, entries);
     if fn_ == MergeFn::Count {
-        return if sorted.is_empty() {
+        return Ok(if sorted.is_empty() {
             None
         } else {
             Some(View::Prim(Primitive::Num(sorted.len() as f64)))
-        };
+        });
     }
-    let prims: Vec<Primitive> = sorted
-        .iter()
-        .map(|e| candidate_value(e, root, schema))
-        .filter_map(|v| is_primitive(&v).cloned())
-        .collect();
-    match fn_ {
+    let mut prims: Vec<Primitive> = Vec::new();
+    for e in &sorted {
+        let v = candidate_value(e, root)?;
+        if let Some(p) = is_primitive(&v) {
+            prims.push(p.clone());
+        }
+    }
+    Ok(match fn_ {
         MergeFn::Max | MergeFn::Min => prims
             .into_iter()
             .reduce(|acc, v| {
@@ -276,36 +285,35 @@ fn apply_merge(fn_: MergeFn, entries: &[HVEntry], root: &str, schema: &Schema) -
             }
         }
         MergeFn::Count => unreachable!("handled above"),
-    }
+    })
 }
 
-fn apply_policy(policy: &Policy, entries: &[HVEntry], root: &str, schema: &Schema) -> Option<View> {
-    match policy {
+fn apply_policy(policy: &Policy, entries: &[HVEntry], root: &str) -> Result<Option<View>, String> {
+    Ok(match policy {
         Policy::Pick(order) => {
             if entries.is_empty() {
-                return None;
+                return Ok(None);
             }
             let sorted = sort_entries(order, entries);
-            Some(candidate_value(sorted[0], root, schema))
+            Some(candidate_value(sorted[0], root)?)
         }
         Policy::All(order) => {
             if entries.is_empty() {
-                return None;
+                return Ok(None);
             }
-            Some(View::Arr(
-                sort_entries(order, entries)
-                    .iter()
-                    .map(|e| candidate_value(e, root, schema))
-                    .collect(),
-            ))
+            let mut out: Vec<View> = Vec::with_capacity(entries.len());
+            for e in sort_entries(order, entries) {
+                out.push(candidate_value(e, root)?);
+            }
+            Some(View::Arr(out))
         }
-        Policy::Merge(fn_) => apply_merge(*fn_, entries, root, schema),
+        Policy::Merge(fn_) => apply_merge(*fn_, entries, root)?,
         Policy::Conflicts(order) => {
             let sorted = sort_entries(order, entries);
             let mut seen: BTreeSet<String> = BTreeSet::new();
             let mut distinct: Vec<View> = Vec::new();
             for e in sorted {
-                let v = candidate_value(e, root, schema);
+                let v = candidate_value(e, root)?;
                 if seen.insert(view_canonical_hex(&v)) {
                     distinct.push(v);
                 }
@@ -317,14 +325,15 @@ fn apply_policy(policy: &Policy, entries: &[HVEntry], root: &str, schema: &Schem
             }
         }
         Policy::AbsentAs { constant, then } => {
-            apply_policy(then, entries, root, schema).or_else(|| Some(View::Prim(constant.clone())))
+            Some(apply_policy(then, entries, root)?.unwrap_or_else(|| View::Prim(constant.clone())))
         }
-    }
+    })
 }
 
-/// resolve(schema, HView) -> View. Deterministic; total; provenance-optional (SPEC-5 §2).
-/// The View covers every property named in the schema plus every HView property (R3).
-pub fn resolve_view(schema: &Schema, hview: &HView) -> View {
+/// resolve(schema, HView) -> View. Deterministic; provenance-optional (SPEC-5 §2). The View
+/// covers every property named in the schema plus every HView property (R3). Errs only on an
+/// expansion that carries no reading (a legacy expand body, issue #23).
+pub fn resolve_view(schema: &Schema, hview: &HView) -> Result<View, String> {
     let mut keys: BTreeSet<&String> = schema.props.keys().collect();
     keys.extend(hview.props.keys());
     let empty: Vec<HVEntry> = Vec::new();
@@ -332,9 +341,9 @@ pub fn resolve_view(schema: &Schema, hview: &HView) -> View {
     for key in keys {
         let entries = hview.props.get(key).unwrap_or(&empty);
         let policy = schema.props.get(key).unwrap_or(&schema.default);
-        if let Some(v) = apply_policy(policy, entries, &hview.id, schema) {
+        if let Some(v) = apply_policy(policy, entries, &hview.id)? {
             obj.insert(key.clone(), v);
         }
     }
-    View::Obj(obj)
+    Ok(View::Obj(obj))
 }

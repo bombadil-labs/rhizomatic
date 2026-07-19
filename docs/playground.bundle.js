@@ -1068,8 +1068,17 @@
       return a.delta.id < b.delta.id ? -1 : a.delta.id > b.delta.id ? 1 : 0;
     });
   }
-  function renderTarget(t, expansion, schema) {
-    if (expansion !== void 0) return resolveView(schema, expansion);
+  function renderTarget(t, e, i) {
+    const expansion = e.expanded?.get(i);
+    if (expansion !== void 0) {
+      const reading = e.readings?.get(i);
+      if (reading === void 0) {
+        throw new Error(
+          `expansion at pointer ${i} of delta ${e.delta.id} carries no reading \u2014 legacy expand bodies must name the child's resolution Schema (SPEC-5 \xA74, issue #23)`
+        );
+      }
+      return resolveView(reading, expansion);
+    }
     switch (t.kind) {
       case "primitive":
         return t.value;
@@ -1081,12 +1090,12 @@
         return { mime: t.mime, value: t.value };
     }
   }
-  function candidateValue(e, root, schema) {
+  function candidateValue(e, root) {
     const nonFiling = [];
     e.delta.claims.pointers.forEach((p, i) => {
       const filing = p.target.kind === "entity" && p.target.entity.id === root;
       if (filing) return;
-      nonFiling.push([p.role, renderTarget(p.target, e.expanded?.get(i), schema)]);
+      nonFiling.push([p.role, renderTarget(p.target, e, i)]);
     });
     if (nonFiling.length === 0) return true;
     if (nonFiling.length === 1) return nonFiling[0][1];
@@ -1122,10 +1131,10 @@
   function isPrimitive(v) {
     return typeof v === "string" || typeof v === "number" || typeof v === "boolean";
   }
-  function applyMerge(fn, entries, root, schema) {
+  function applyMerge(fn, entries, root) {
     const sorted = sortEntries({ kind: "lexById" }, entries);
     if (fn === "count") return sorted.length === 0 ? ABSENT : sorted.length;
-    const prims = sorted.map((e) => candidateValue(e, root, schema)).filter((v) => isPrimitive(v));
+    const prims = sorted.map((e) => candidateValue(e, root)).filter((v) => isPrimitive(v));
     switch (fn) {
       case "max":
       case "min": {
@@ -1152,25 +1161,25 @@
       }
     }
   }
-  function applyPolicy(policy, entries, root, schema) {
+  function applyPolicy(policy, entries, root) {
     switch (policy.kind) {
       case "pick": {
         if (entries.length === 0) return ABSENT;
         const sorted = sortEntries(policy.order, entries);
-        return candidateValue(sorted[0], root, schema);
+        return candidateValue(sorted[0], root);
       }
       case "all": {
         if (entries.length === 0) return ABSENT;
-        return sortEntries(policy.order, entries).map((e) => candidateValue(e, root, schema));
+        return sortEntries(policy.order, entries).map((e) => candidateValue(e, root));
       }
       case "merge":
-        return applyMerge(policy.fn, entries, root, schema);
+        return applyMerge(policy.fn, entries, root);
       case "conflicts": {
         const sorted = sortEntries(policy.order, entries);
         const seen = /* @__PURE__ */ new Set();
         const distinct = [];
         for (const e of sorted) {
-          const v = candidateValue(e, root, schema);
+          const v = candidateValue(e, root);
           const key = viewCanonicalHex(v);
           if (!seen.has(key)) {
             seen.add(key);
@@ -1180,7 +1189,7 @@
         return distinct.length >= 2 ? distinct : ABSENT;
       }
       case "absentAs": {
-        const inner = applyPolicy(policy.then, entries, root, schema);
+        const inner = applyPolicy(policy.then, entries, root);
         return inner === ABSENT ? policy.constant : inner;
       }
     }
@@ -1191,15 +1200,207 @@
     for (const key of keys) {
       const entries = hview.props.get(key) ?? [];
       const policy = schema.props.get(key) ?? schema.default;
-      const v = applyPolicy(policy, entries, hview.id, schema);
+      const v = applyPolicy(policy, entries, hview.id);
       if (v !== ABSENT) obj[key] = v;
     }
     return obj;
   }
 
+  // src/term-io.ts
+  function paramToJson(v) {
+    return typeof v === "object" ? { hole: v.name } : v;
+  }
+  function strMatchToJson(m) {
+    switch (m.kind) {
+      case "exact":
+        return { exact: m.value };
+      case "prefix":
+        return { prefix: m.value };
+      case "inSet":
+        return { inSet: [...m.values] };
+      case "aliased": {
+        const a = { name: m.name };
+        if (m.via !== void 0) a["via"] = m.via;
+        if (m.trust !== void 0) a["trust"] = predToJson(m.trust);
+        return { aliased: a };
+      }
+    }
+  }
+  function valMatchToJson(m) {
+    switch (m.kind) {
+      case "vcmp":
+        return { vcmp: { cmp: m.cmp, value: paramToJson(m.value) } };
+      case "between":
+        return { between: [m.lo, m.hi] };
+      case "inSet":
+        return { inSet: [...m.values] };
+    }
+  }
+  function ppredToJson(p) {
+    const out = {};
+    if (p.role !== void 0) out["role"] = strMatchToJson(p.role);
+    if (p.targetEntity !== void 0) {
+      out["targetEntity"] = p.targetEntity.kind === "const" ? p.targetEntity.id : p.targetEntity.kind === "hole" ? { hole: p.targetEntity.name } : { var: "root" };
+    }
+    if (p.targetDelta !== void 0) out["targetDelta"] = p.targetDelta;
+    if (p.context !== void 0) out["context"] = strMatchToJson(p.context);
+    if (p.targetIsPrimitive !== void 0) out["targetIsPrimitive"] = p.targetIsPrimitive;
+    if (p.targetValue !== void 0) out["targetValue"] = valMatchToJson(p.targetValue);
+    return out;
+  }
+  function predToJson(pred) {
+    switch (pred.kind) {
+      case "true":
+        return "true";
+      case "false":
+        return "false";
+      case "match":
+        return {
+          match: {
+            field: pred.field,
+            cmp: pred.cmp,
+            const: Array.isArray(pred.constant) ? [...pred.constant] : paramToJson(pred.constant)
+          }
+        };
+      case "hasPointer":
+        return { hasPointer: ppredToJson(pred.ppred) };
+      case "and":
+        return { and: [predToJson(pred.left), predToJson(pred.right)] };
+      case "or":
+        return { or: [predToJson(pred.left), predToJson(pred.right)] };
+      case "not":
+        return { not: predToJson(pred.pred) };
+      case "inView":
+        return {
+          inView: {
+            term: termToJson(pred.term),
+            field: pred.field,
+            extract: pred.extract.kind === "field" ? { field: pred.extract.field } : { role: pred.extract.role }
+          }
+        };
+    }
+  }
+  function orderToJson(o) {
+    switch (o.kind) {
+      case "byTimestamp":
+        return { byTimestamp: o.dir };
+      case "byAuthorRank":
+        return { byAuthorRank: [...o.authors] };
+      case "byPred":
+        return { byPred: { pred: predToJson(o.pred), then: orderToJson(o.then) } };
+      case "chain":
+        return { chain: o.orders.map(orderToJson) };
+      case "lexById":
+        return "lexById";
+    }
+  }
+  function policyToJson(pp) {
+    switch (pp.kind) {
+      case "pick":
+        return { pick: { order: orderToJson(pp.order) } };
+      case "all":
+        return { all: { order: orderToJson(pp.order) } };
+      case "merge":
+        return { merge: pp.fn };
+      case "conflicts":
+        return { conflicts: { order: orderToJson(pp.order) } };
+      case "absentAs":
+        return { absentAs: { const: pp.constant, then: policyToJson(pp.then) } };
+    }
+  }
+  function schemaToJson(p) {
+    const props = {};
+    for (const [k, v] of p.props) props[k] = policyToJson(v);
+    const out = { props, default: policyToJson(p.default) };
+    if (p.name !== void 0) out.name = p.name;
+    if (p.alg !== void 0) out.alg = p.alg;
+    return out;
+  }
+  function termToJson(term) {
+    switch (term.kind) {
+      case "input":
+        return "input";
+      case "select":
+        return { op: "select", pred: predToJson(term.pred), in: termToJson(term.of) };
+      case "union":
+        return { op: "union", left: termToJson(term.left), right: termToJson(term.right) };
+      case "intersect":
+        return { op: "intersect", left: termToJson(term.left), right: termToJson(term.right) };
+      case "difference":
+        return { op: "difference", of: termToJson(term.of), without: termToJson(term.without) };
+      case "mask": {
+        const policy = term.policy.kind === "trust" ? { trust: predToJson(term.policy.pred) } : term.policy.kind;
+        return { op: "mask", policy, in: termToJson(term.of) };
+      }
+      case "group": {
+        const key = term.key.kind === "const" ? { const: term.key.prop } : term.key.kind;
+        return { op: "group", key, in: termToJson(term.of) };
+      }
+      case "prune":
+        return {
+          op: "prune",
+          keep: term.keep === "all" ? "all" : strMatchToJson(term.keep),
+          in: termToJson(term.of)
+        };
+      case "expand": {
+        const out = {
+          op: "expand",
+          role: strMatchToJson(term.role),
+          schema: schemaRefToJson(term.schema)
+        };
+        if (term.reading !== void 0) out["reading"] = schemaRefToJson(term.reading);
+        out["in"] = termToJson(term.of);
+        return out;
+      }
+      case "fix": {
+        const out = {
+          op: "fix",
+          schema: schemaRefToJson(term.schema),
+          entity: term.entity
+        };
+        if (term.bindings !== void 0 && term.bindings.size > 0) {
+          const bindings = {};
+          for (const key of [...term.bindings.keys()].sort()) {
+            bindings[key] = term.bindings.get(key);
+          }
+          out["bindings"] = bindings;
+        }
+        return out;
+      }
+      case "resolve":
+        return { op: "resolve", schema: schemaToJson(term.schema), in: termToJson(term.of) };
+    }
+  }
+  function schemaRefToJson(ref) {
+    return ref.kind === "name" ? ref.name : { pinned: ref.hash };
+  }
+  function jsonToCbor(v) {
+    if (typeof v === "string") return tstr(v);
+    if (typeof v === "number") return float(v);
+    if (typeof v === "boolean") return bool(v);
+    if (Array.isArray(v)) return array(v.map(jsonToCbor));
+    if (typeof v === "object" && v !== null) {
+      return map(
+        Object.entries(v).map(([k, x]) => [
+          k,
+          jsonToCbor(x)
+        ])
+      );
+    }
+    throw new Error("json value outside the CBOR profile (null/undefined are not representable)");
+  }
+  function schemaHash(schema) {
+    const body = schemaToJson({ props: schema.props, default: schema.default });
+    return contentAddress(encode(jsonToCbor(body)));
+  }
+
   // src/hview.ts
-  function targetToCborWithExpansion(t, expansion) {
-    if (expansion !== void 0) return hviewToCbor(expansion);
+  function targetToCborWithExpansion(t, expansion, reading) {
+    if (expansion !== void 0) {
+      const child = hviewToCbor(expansion);
+      if (reading === void 0 || child.t !== "map") return child;
+      return map([...child.v, ["reading", tstr(schemaHash(reading))]]);
+    }
     switch (t.kind) {
       case "primitive": {
         const v = t.value;
@@ -1224,7 +1425,7 @@
         ]);
     }
   }
-  function claimsToCborWithExpansions(claims, expanded) {
+  function claimsToCborWithExpansions(claims, expanded, readings) {
     return map([
       ["author", tstr(claims.author)],
       [
@@ -1233,7 +1434,7 @@
           claims.pointers.map(
             (p, i) => map([
               ["role", tstr(p.role)],
-              ["target", targetToCborWithExpansion(p.target, expanded?.get(i))]
+              ["target", targetToCborWithExpansion(p.target, expanded?.get(i), readings?.get(i))]
             ])
           )
         )
@@ -1244,7 +1445,7 @@
   function hvEntryToCbor(e) {
     const entries = [
       ["id", tstr(e.delta.id)],
-      ["claims", claimsToCborWithExpansions(e.delta.claims, e.expanded)]
+      ["claims", claimsToCborWithExpansions(e.delta.claims, e.expanded, e.readings)]
     ];
     if (e.delta.sig !== void 0) entries.push(["sig", tstr(e.delta.sig)]);
     if (e.negated) entries.push(["negated", bool(true)]);
@@ -1726,12 +1927,14 @@
       case "expand": {
         const of = expectHView(evalTerm(term.of, input, root, registry, bindings), "expand");
         const role = expandStrMatch(term.role, input, root);
+        const reading = term.reading === void 0 ? void 0 : lookupReading(term.reading, registry);
         const props = /* @__PURE__ */ new Map();
         for (const [prop, entries] of of.hview.props) {
           props.set(
             prop,
             entries.map((e) => {
               let expanded;
+              let readings;
               e.delta.claims.pointers.forEach((ptr, i) => {
                 if (ptr.target.kind !== "entity" || !strMatch(role, ptr.role)) return;
                 const nested = evalSchema(
@@ -1743,8 +1946,12 @@
                 );
                 expanded = expanded ?? new Map(e.expanded ?? []);
                 expanded.set(i, nested);
+                if (reading !== void 0) {
+                  readings = readings ?? new Map(e.readings ?? []);
+                  readings.set(i, reading);
+                }
               });
-              return expanded === void 0 ? e : { ...e, expanded };
+              return expanded === void 0 ? e : { ...e, expanded, ...readings && { readings } };
             })
           );
         }
@@ -1772,6 +1979,14 @@
       throw new Error(`schema ${label} body must be an HView-sort term (E10)`);
     }
     return result.hview;
+  }
+  function lookupReading(ref, registry) {
+    const label = ref.kind === "name" ? ref.name : `pinned:${ref.hash.slice(0, 12)}\u2026`;
+    if (registry === void 0)
+      throw new Error(`reading ${label} referenced but no registry supplied (issue #23)`);
+    const schema = registry.resolveReading(ref);
+    if (schema === void 0) throw new Error(`unknown reading: ${label} (issue #23)`);
+    return schema;
   }
 
   // src/schema.ts
@@ -2144,12 +2359,14 @@
       case "group":
         return { kind: "group", key: parseGroupKey(o["key"]), of: parseTerm(o["in"]) };
       case "expand": {
-        return {
+        const expand = {
           kind: "expand",
           role: parseStrMatch(o["role"], "expand.role"),
           schema: parseSchemaRef(o["schema"]),
           of: parseTerm(o["in"])
         };
+        if (o["reading"] === void 0) return expand;
+        return { ...expand, reading: parseSchemaRef(o["reading"]) };
       }
       case "fix": {
         if (typeof o["entity"] !== "string") throw new Error("fix.entity must be a string");

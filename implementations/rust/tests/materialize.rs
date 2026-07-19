@@ -7,7 +7,7 @@ use rhizomatic::json_profile::parse_claims;
 use rhizomatic::reactor::{IngestResult, Reactor};
 use rhizomatic::schema::{HyperSchema, SchemaRegistry};
 use rhizomatic::set::{make_delta, make_negation_claims, DeltaSet};
-use rhizomatic::term_json::parse_term;
+use rhizomatic::term_json::{parse_schema, parse_term};
 use rhizomatic::types::Delta;
 use serde_json::{json, Value};
 
@@ -36,6 +36,10 @@ fn world() -> (Vec<Delta>, SchemaRegistry, Term) {
                 body: parse_term(&s["body"]).unwrap(),
             })
             .collect(),
+        doc["readings"]
+            .as_array()
+            .map(|rs| rs.iter().map(|r| parse_schema(r).unwrap()).collect())
+            .unwrap_or_default(),
     )
     .unwrap();
     let body = reg.get("MovieDeep").unwrap().body.clone();
