@@ -2,17 +2,11 @@
 // into the logical delta model. The CBOR form is normative; this is for authoring/inspection.
 
 import { b64uDecode, b64uEncode } from "./b64u.js";
+import { asObject } from "./strict.js";
 import type { Claims, Pointer, Primitive, Target } from "./types.js";
 
 const TARGET_SHAPES =
   "target must be a primitive, {id, context?}, {delta, context?}, or {mime, value}";
-
-function asObject(x: unknown, what: string): Record<string, unknown> {
-  if (typeof x !== "object" || x === null || Array.isArray(x)) {
-    throw new Error(`expected object for ${what}`);
-  }
-  return x as Record<string, unknown>;
-}
 
 function parsePrimitive(v: unknown): Primitive {
   if (typeof v === "string" || typeof v === "boolean") return v;
@@ -34,12 +28,28 @@ function parseContext(o: Record<string, unknown>): string | undefined {
   return context;
 }
 
+// The discriminator keys of the three object target shapes. Exactly one may be present: the
+// former first-match-wins reading silently picked an arm and dropped the rest, which is repair
+// (SPEC-4 §2) and is now rejected as ambiguous (issue #25).
+const TARGET_DISCRIMINATORS = ["id", "delta", "mime"] as const;
+
 function parseTarget(raw: unknown): Target {
   if (typeof raw === "string" || typeof raw === "number" || typeof raw === "boolean") {
     return { kind: "primitive", value: parsePrimitive(raw) };
   }
-  const o = asObject(raw, "target");
-  if ("id" in o) {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+    throw new Error(TARGET_SHAPES);
+  }
+  const present = TARGET_DISCRIMINATORS.filter((k) => k in (raw as Record<string, unknown>));
+  if (present.length === 0) throw new Error(TARGET_SHAPES);
+  if (present.length > 1) {
+    throw new Error(
+      `target is ambiguous — ${present.map((p) => `"${p}"`).join(" and ")} are both present, ` +
+        `but exactly one names the target kind`,
+    );
+  }
+  if (present[0] === "id") {
+    const o = asObject(raw, "entity ref target", ["id", "context"]);
     const id = o["id"];
     if (typeof id !== "string") throw new Error("entity ref id must be a string");
     const context = parseContext(o);
@@ -47,7 +57,8 @@ function parseTarget(raw: unknown): Target {
       ? { kind: "entity", entity: { id } }
       : { kind: "entity", entity: { id, context } };
   }
-  if ("delta" in o) {
+  if (present[0] === "delta") {
+    const o = asObject(raw, "delta ref target", ["delta", "context"]);
     const delta = o["delta"];
     if (typeof delta !== "string") throw new Error("delta ref delta must be a string");
     const context = parseContext(o);
@@ -55,21 +66,18 @@ function parseTarget(raw: unknown): Target {
       ? { kind: "delta", deltaRef: { delta } }
       : { kind: "delta", deltaRef: { delta, context } };
   }
-  // else mime → Bytes (SPEC-1 §4.2, first match wins). A bytes literal has no context; extra keys
-  // are ignored, exactly as on refs. value is canonical base64url — malformed encodings are
-  // rejected, never repaired (D12).
-  if ("mime" in o) {
-    const mime = o["mime"];
-    if (typeof mime !== "string") throw new Error("bytes target mime must be a string");
-    const value = o["value"];
-    if (typeof value !== "string") throw new Error("bytes target value must be a base64url string");
-    return { kind: "bytes", mime, value: b64uDecode(value) };
-  }
-  throw new Error(TARGET_SHAPES);
+  // A bytes literal has no context (D12). `value` is canonical base64url — malformed encodings
+  // are rejected, never repaired.
+  const o = asObject(raw, "bytes target", ["mime", "value"]);
+  const mime = o["mime"];
+  if (typeof mime !== "string") throw new Error("bytes target mime must be a string");
+  const value = o["value"];
+  if (typeof value !== "string") throw new Error("bytes target value must be a base64url string");
+  return { kind: "bytes", mime, value: b64uDecode(value) };
 }
 
 function parsePointer(raw: unknown): Pointer {
-  const o = asObject(raw, "pointer");
+  const o = asObject(raw, "pointer", ["role", "target"]);
   if (typeof o["role"] !== "string") throw new Error("pointer.role must be a string");
   return { role: o["role"], target: parseTarget(o["target"]) };
 }
@@ -109,7 +117,7 @@ export function claimsToJson(claims: Claims): unknown {
 }
 
 export function parseClaims(raw: unknown): Claims {
-  const o = asObject(raw, "claims");
+  const o = asObject(raw, "claims", ["timestamp", "author", "pointers"]);
   if (typeof o["timestamp"] !== "number") throw new Error("claims.timestamp must be a number");
   if (typeof o["author"] !== "string") throw new Error("claims.author must be a string");
   if (!Array.isArray(o["pointers"])) throw new Error("claims.pointers must be an array");

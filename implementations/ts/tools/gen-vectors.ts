@@ -971,6 +971,205 @@ console.log(
   `wrote ${setAlgVectors.length} set-algebra vectors + ${setAlgRejects.length} rejects to vectors/l1-eval/eval-setalgebra.json`,
 );
 
+// --- l1-eval: fail-closed KEY parsing (SPEC-2 §8, ERRATA-2 E19, issue #25) ---
+// The §8 fail-closed rule always covered unrecognized TAGS. These pin the same discipline over
+// unknown KEYS and ambiguous TAG MULTIPLICITY — the two remaining ways a witness could silently
+// ignore input it does not understand. Every case is a whole Term so the contract is uniform:
+// `parseTerm` MUST reject. Verified to reject at generation time.
+
+const sel1 = (pred: unknown) => ({ op: "select", pred, in: "input" });
+const resolveWith = (schema: unknown) => ({ op: "resolve", schema, in: "input" });
+const pickBy = (order: unknown) => ({ props: {}, default: { pick: { order } } });
+
+const strictKeyRejects: Array<{ name: string; spec: string; reason: string; term: unknown }> = [
+  // --- unknown keys, one per node kind -----------------------------------------------------
+  {
+    name: "term-unknown-key",
+    spec: "SPEC-2 §8 / E19 (closed key set per operator)",
+    reason: "`junk` is not a key of select; a lax parser drops it silently",
+    term: { op: "select", pred: "true", in: "input", junk: 1 },
+  },
+  {
+    name: "expand-misspelled-reading",
+    spec: "SPEC-2 §8 / E19 (the motivating case, issue #25)",
+    reason:
+      "`readng` is a typo for `reading`; a lax parser drops it and evaluates the body as a legacy expand, failing far away at resolve time",
+    term: {
+      op: "expand",
+      role: { exact: "actor" },
+      schema: "S",
+      readng: "R",
+      in: { op: "group", key: "byRole", in: "input" },
+    },
+  },
+  {
+    name: "fix-unknown-key",
+    spec: "SPEC-2 §8 / E19",
+    reason: "`root` is not a key of fix (the entity field is `entity`)",
+    term: { op: "fix", schema: "S", entity: "e", root: "e" },
+  },
+  {
+    name: "match-unknown-key",
+    spec: "SPEC-2 §8 / E19",
+    reason: "`value` is not a key of match (the constant field is `const`)",
+    term: sel1({ match: { field: "author", cmp: "eq", const: "a", value: "a" } }),
+  },
+  {
+    name: "haspointer-unknown-key",
+    spec: "SPEC-2 §8 / E19",
+    reason: "`targetRole` is not a PPred field",
+    term: sel1({ hasPointer: { role: { exact: "x" }, targetRole: "y" } }),
+  },
+  {
+    name: "strmatch-unknown-key",
+    spec: "SPEC-2 §8 / E19",
+    reason: "a StrMatch carries exactly its arm; `caseInsensitive` is not in the grammar",
+    term: sel1({ hasPointer: { role: { exact: "x", caseInsensitive: true } } }),
+  },
+  {
+    name: "aliased-unknown-key",
+    spec: "SPEC-2 §8 / E19 (SPEC-9 §4.1 aliased spec is closed)",
+    reason: "`depth` is not a key of aliased",
+    term: sel1({ hasPointer: { role: { aliased: { name: "n", depth: 2 } } } }),
+  },
+  {
+    name: "vcmp-unknown-key",
+    spec: "SPEC-2 §8 / E19",
+    reason: "`const` is not a key of vcmp (the value field is `value`)",
+    term: sel1({ hasPointer: { targetValue: { vcmp: { cmp: "gt", value: 1, const: 1 } } } }),
+  },
+  {
+    name: "inview-unknown-key",
+    spec: "SPEC-2 §8 / E19",
+    reason: "`depth` is not a key of inView",
+    term: sel1({
+      inView: { term: "input", field: "author", extract: { field: "author" }, depth: 1 },
+    }),
+  },
+  {
+    name: "extract-unknown-key",
+    spec: "SPEC-2 §8 / E19",
+    reason: "`path` is not a key of inView.extract",
+    term: sel1({ inView: { term: "input", field: "author", extract: { role: "r", path: "p" } } }),
+  },
+  {
+    name: "groupkey-unknown-key",
+    spec: "SPEC-2 §8 / E19",
+    reason: "`const` is the only key of an object group key",
+    term: { op: "group", key: { const: "p", fallback: "q" }, in: "input" },
+  },
+  {
+    name: "schemaref-unknown-key",
+    spec: "SPEC-2 §8 / E19 (E13 pinned refs)",
+    reason: "`pinned` is the only key of an object schema ref",
+    term: { op: "fix", schema: { pinned: "1e20aa", name: "S" }, entity: "e" },
+  },
+  {
+    name: "hole-unknown-key",
+    spec: "SPEC-2 §8 / E19 (E15 holes)",
+    reason: "`hole` is the only key of a hole; `default` is not in the grammar",
+    term: sel1({ match: { field: "author", cmp: "eq", const: { hole: "a", default: "z" } } }),
+  },
+  {
+    name: "schema-unknown-key",
+    spec: "SPEC-2 §8 / E19 (SPEC-5 §7 schema profile)",
+    reason: "`policies` is not a key of a resolution Schema (the field is `props`)",
+    term: resolveWith({ props: {}, default: { pick: { order: "lexById" } }, policies: {} }),
+  },
+  {
+    name: "policy-absentas-unknown-key",
+    spec: "SPEC-2 §8 / E19",
+    reason: "`else` is not a key of absentAs (the continuation field is `then`)",
+    term: resolveWith({
+      props: {},
+      default: { absentAs: { const: "x", then: { pick: { order: "lexById" } }, else: 1 } },
+    }),
+  },
+  {
+    name: "order-bypred-unknown-key",
+    spec: "SPEC-2 §8 / E19",
+    reason: "`else` is not a key of byPred",
+    term: resolveWith(pickBy({ byPred: { pred: "true", then: "lexById", else: "lexById" } })),
+  },
+  // --- ambiguous tag multiplicity ----------------------------------------------------------
+  {
+    name: "strmatch-ambiguous",
+    spec: "SPEC-2 §8 / E19 (exactly one arm)",
+    reason: "both `exact` and `prefix` present; first-match-wins silently picked one",
+    term: sel1({ hasPointer: { role: { exact: "a", prefix: "b" } } }),
+  },
+  {
+    name: "pred-ambiguous",
+    spec: "SPEC-2 §8 / E19 (exactly one arm)",
+    reason: "both `match` and `not` present; the second was silently ignored",
+    term: sel1({ match: { field: "author", cmp: "eq", const: "a" }, not: "true" }),
+  },
+  {
+    name: "valmatch-ambiguous",
+    spec: "SPEC-2 §8 / E19 (exactly one arm)",
+    reason: "both `vcmp` and `between` present",
+    term: sel1({
+      hasPointer: { targetValue: { vcmp: { cmp: "gt", value: 1 }, between: [1, 2] } },
+    }),
+  },
+  {
+    name: "order-ambiguous",
+    spec: "SPEC-2 §8 / E19 (exactly one arm)",
+    reason: "both `byTimestamp` and `chain` present",
+    term: resolveWith({
+      props: {},
+      default: { pick: { order: { byTimestamp: "desc", chain: ["lexById"] } } },
+    }),
+  },
+  {
+    name: "policy-ambiguous",
+    spec: "SPEC-2 §8 / E19 (exactly one arm)",
+    reason: "both `pick` and `merge` present",
+    term: resolveWith({
+      props: {},
+      default: { pick: { order: "lexById" }, merge: "max" },
+    }),
+  },
+  {
+    name: "extract-ambiguous",
+    spec: "SPEC-2 §8 / E19 (exactly one arm)",
+    reason: "both `field` and `role` present",
+    term: sel1({
+      inView: { term: "input", field: "author", extract: { field: "author", role: "r" } },
+    }),
+  },
+  {
+    name: "maskpolicy-ambiguous-is-unknown-key",
+    spec: "SPEC-2 §8 / E19",
+    reason: "`trust` is the only key of an object mask policy; `drop` alongside it is not grammar",
+    term: { op: "mask", policy: { trust: "true", drop: true }, in: "input" },
+  },
+];
+
+for (const r of strictKeyRejects) {
+  let rejected = false;
+  try {
+    parseTerm(r.term);
+  } catch {
+    rejected = true;
+  }
+  if (!rejected) {
+    throw new Error(`strict-key reject "${r.name}" was accepted; §8 fail-closed is violated (#25)`);
+  }
+}
+
+const strictKeyOut = {
+  note: "Fail-closed KEY parsing (SPEC-2 §8, ERRATA-2 E19, issue #25). The §8 rule always covered unrecognized tags; these pin the same discipline over unknown object KEYS and over ambiguous tag multiplicity (two arms of a one-of node both present). Every case is a whole Term: a conformant `parseTerm` MUST reject it, loudly, before evaluation. Error text is NOT normative — only the rejection is. Verified to reject at generation time.",
+  rejects: strictKeyRejects,
+};
+writeFileSync(
+  resolve(evalDir, "eval-strict-keys.json"),
+  `${JSON.stringify(strictKeyOut, null, 2)}\n`,
+);
+console.log(
+  `wrote ${strictKeyRejects.length} strict-key rejects to vectors/l1-eval/eval-strict-keys.json`,
+);
+
 // --- l1-eval: group/prune into HyperViews (ERRATA-2 E6-E9) ---
 
 // Extend the movie fixture with multi-context and contextless filing probes.

@@ -220,3 +220,55 @@ body stays out (registry state, dereferenced by hash), but the *name* of the rea
 serialization or a rehydrated hview could never be resolved. Pinned by
 `eval-expand.json`'s `fix-expand-with-reading` (bytes differ from the legacy twin only by the
 reading hash) and by the untouched legacy cases (reading key present iff authored).
+
+## E19 — Fail-closed parsing covers keys and tag multiplicity, not just tags (2026-07-19, issue #25)
+
+Normative text folded into SPEC-2 §8 (and SPEC-1 §4.2 for the L0 claims profile); recorded here
+for the decision and its rationale, pinned by `vectors/l1-eval/eval-strict-keys.json` (23 rejects)
+and the unknown-key/ambiguous-target additions to `vectors/l0-delta/deltas-invalid.json`.
+
+§8's fail-closed rule was normative for **tags** — an unknown `op`/`cmp`/`policy` must be rejected
+— because that rejection is precisely what lets additive forms enter the closed profiles without
+an `alg` bump. Two sibling laxities survived it, both silent:
+
+1. **Unknown keys.** Every parser read the keys it knew and ignored the rest, so
+   `{"op":"expand", …, "readng":"Post"}` parsed as a *legacy* expand (issue #23), hashed as one,
+   gathered happily, and failed far away at resolve time. Worse, this is exactly the version-skew
+   case §8 exists to catch: a body authored against a newer vocabulary loses its new field and
+   becomes a **different, still-valid** program instead of a rejected one.
+2. **Ambiguous tag multiplicity.** One-of nodes resolved by declaration order, so
+   `{"exact":"a","prefix":"b"}` silently took `exact`; at L0 a target carrying both `id` and
+   `delta` silently became an EntityRef ("first match wins", SPEC-1 §4.2 as written).
+
+**Decision:** both are rejections. A dropped key is *repair* (SPEC-4 §2), and repair is how two
+witnesses drift — an old peer doesn't refuse a newer body, it silently reinterprets it, turning a
+detectable partition into a silent semantic fork.
+
+**No `alg` bump.** This makes parsers strictly *stricter*: every currently-valid body stays valid.
+Bodies that were only accidentally valid (carrying junk keys) start failing, which is the point.
+
+**Two nodes stay open**, because their keys are author-chosen data rather than grammar:
+`fix.bindings` (hole names) and a Schema's `props` (property names). Both now say so explicitly at
+their call sites, so openness is deliberate and visible rather than accidental — the witnesses
+implement this by making the known-key list a **required argument** of the object-parsing helper,
+so the type checker (not vigilance) guarantees no node was left lax during the sweep.
+
+**Error text is not normative** — only the rejection is. §8's rejection-message SHOULD extends to
+keys: name the offending key, suggest the nearest known one when it is a plausible typo, and point
+at version skew otherwise.
+
+**Cross-witness finding — the outsider was already right.** All eight new L0 vectors passed the
+**Elixir** witness *before any change was made to it*. Written from spec + vectors alone (#19), it
+had been fail-closed on keys by construction since day one (arity guards on claims and pointers,
+explicit key-set subtraction per target arm) — it simply never occurred to that implementer to
+read keys leniently. TS and Rust, the two witnesses written by the same hand that wrote the spec,
+both carried the laxity; the third host did not. This is precisely the experiment #19 was for,
+landing in the direction nobody predicted: not "the suite was insufficient to conform to," but
+"the authors' shared habit was invisible to the authors, and an outsider's reading was stricter
+and better." The gap was a *spec* gap all along (§4.2's "first match wins", §8's tags-only
+enumeration), and only a third reading surfaced it.
+
+One genuine defect did surface in Elixir under review: its ambiguity *diagnosis* still reflected
+first-match-wins (`{"id":…, "delta":…}` was reported as an entity ref with a stray key rather than
+as a target with no kind). Rejected either way — the accept/reject boundary never moved — but the
+error named the wrong finding, so it was corrected alongside.

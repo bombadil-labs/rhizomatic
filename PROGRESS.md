@@ -1,5 +1,30 @@
 # Progress
 
+> **RESUME HERE (2026-07-19, later). FAIL-CLOSED PARSING NOW COVERS KEYS (issue #25, branch
+> `strict-keys`; releases as 0.9.0):**
+>
+> - **The gap:** SPEC-2 §8's fail-closed rule was normative for *tags* only. Two sibling laxities
+>   survived it, both silent: unknown **keys** (every parser read what it knew and dropped the
+>   rest) and ambiguous **tag multiplicity** (one-of nodes resolved by declaration order;
+>   `{exact, prefix}` silently took `exact`, and at L0 `{id, delta}` silently became an EntityRef).
+>   Surfaced reviewing #23 — a misspelled `readng:` parsed as a legacy expand and failed far away.
+> - **Why it mattered:** the no-bump story rests on old witnesses *refusing* what they don't
+>   understand. A dropped key does the opposite — it silently reinterprets a newer body as an
+>   older, still-valid program, turning a detectable partition into a silent semantic fork.
+> - **The design worth keeping:** the known-key list is a **required argument** of the
+>   object-parsing helper (`src/strict.ts`, `strict.rs`), so the *type checker* — not vigilance —
+>   guarantees no node was left lax during the sweep. Exactly two nodes stay open, and say so:
+>   `fix.bindings` (hole names) and `schema.props` (property names), whose keys are author data.
+> - **Scope:** L2 grammar (TS + Rust) *and* the L0 claims profile (all three witnesses, so Elixir
+>   participated). Vectors: new `eval-strict-keys.json` (23 rejects, verified-to-reject at
+>   generation) + `deltas-invalid.json` 26 → 34.
+> - **No `alg` bump, no migration:** strictly stricter, so every correctly-authored body stays
+>   valid and no canonical bytes move. What breaks was only accidentally valid.
+>
+> Retires the mixed-version hazard the 0.8.0 changelog had to document as open.
+>
+> ---
+
 > **RESUME HERE (2026-07-18). EXPAND NAMES THE CHILD'S READING (issue #23, branch
 > `expand-reading`; ships in the unreleased 0.8.0):**
 >
