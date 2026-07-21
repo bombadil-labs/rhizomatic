@@ -6,6 +6,25 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 
 ## 0.9.0 — unreleased
 
+### Documentation
+
+- **`inView` stratification at depth 1 is now stated as permanent**
+  ([#27](https://github.com/bombadil-labs/rhizomatic/issues/27), SPEC-2 §3.1, ERRATA-2 E20) — a
+  settled decision rather than a provisional limit awaiting a consumer, closing the "Reflective
+  depth" open question in §10. **No behavior change:** the depth-1 parse rejection already shipped;
+  this documents what it means and how to work with it.
+  - The recursive case (a container tree whose every level carries its own trust declaration) has
+    **two sanctioned routes, selected by freshness requirement, not preference**: flatten in the
+    host to an `inSet` predicate — zero-lag when computed per read, and **required** wherever a
+    change must bind on the very next read, revocation being the motivating case; or have a derived
+    author (SPEC-7) emit the closure as signed deltas and read it with a depth-1 `inView` — one
+    derivation cascade of lag, in exchange for provenance and third-party replay verification.
+  - The routes **compose**: the binding path uses the first, an auditable artifact alongside uses
+    the second. They answer different questions.
+  - ⚠️ **A closure one cascade behind is indistinguishable from a current one by inspection**, so
+    using the derived route on a revocation path regresses a zero-lag guarantee *silently*. If your
+    spec states such a guarantee, flatten in the host.
+
 **Fail-closed parsing now covers keys, not just tags**
 ([#25](https://github.com/bombadil-labs/rhizomatic/issues/25), SPEC-2 §8 + SPEC-1 §4.2,
 ERRATA-2 E19). The fail-closed rule was normative for **tags** — an unknown `op`/`cmp`/`policy`

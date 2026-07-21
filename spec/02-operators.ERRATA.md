@@ -272,3 +272,53 @@ One genuine defect did surface in Elixir under review: its ambiguity *diagnosis*
 first-match-wins (`{"id":…, "delta":…}` was reported as an entity ref with a stray key rather than
 as a target with no kind). Rejected either way — the accept/reject boundary never moved — but the
 error named the wrong finding, so it was corrected alongside.
+
+## E20 — `inView` stratification is permanent; the recursive case goes to L7 (2026-07-21, issue #27)
+
+Normative text folded into SPEC-2 §3.1 ("Resolving a recursive trusted set"); the §10 open question
+"Reflective depth" is closed by it. **Documentation only** — no witness behavior changes, no vector
+moves, no `alg` bump. The depth-1 parse rejection that already shipped is now *the settled answer*
+rather than a provisional limit awaiting a consumer.
+
+Raised from Loam, which is building container-scoped trust (its SPEC §27): a store is a container,
+tenants are containers within it, containers may nest, and each carries its own trust declaration.
+Resolving "whose claims bind inside container C" means walking C's chain toward the root — depth N.
+`inView` reaches exactly one link, so that is inexpressible in a lens.
+
+**Decision: depth 1 stays, permanently.** The three candidates and why:
+
+- **Bounded nesting** would be the wrong build. `inView` nesting is *syntactic* — depth 2 means
+  literally writing one inside another — so a term nests to a depth fixed when it is authored,
+  while a container tree's depth is data. It cannot express the motivating case at any bound.
+- **A recursive closure primitive** is Datalog-style recursion, and breaks three properties the
+  algebra rests on: §3's "evaluating any `Pred` against any delta is O(|delta|)"; the decidable
+  subsumption goal reactor dispatch is designed around; and incremental maintenance under
+  negation-aware masks, in the one area (reflective dispatch, SPEC-4 §4.2) still deliberately
+  conservative and unoptimized.
+- **Route it to L7**, which §3 already mandates for general cross-delta logic. This was sanctioned
+  all along and neither side had been reading it as an answer — the finding of the thread.
+
+**Two sanctioned routes, selected by freshness requirement, not preference.** (a) host-flatten to
+`inSet`, zero-lag when computed per read, **required** where a change must bind on the very next
+read; (b) a derived author emits the closure as signed deltas and a depth-1 `inView` reads them,
+costing one derivation cascade of lag and buying provenance and third-party replay verification.
+They **compose** — (a) on the binding path, (b) alongside as an auditable artifact — because they
+answer different questions.
+
+The freshness qualifier is load-bearing and was Loam's catch: its own §7 states and tests
+*"revoking a grant un-binds its author's strikes on the very next read."* An unqualified "derive,
+then `inView`" would let a future reader regress that **silently**, since a closure one cascade
+behind is indistinguishable from a current one by inspection. Naming the qualifier is the
+difference between a doc that helps and one that plants a bug.
+
+Two corrections recorded so they are not relitigated. **The §4.5 shared-reading constraint is
+per-body, not per-store**: HyperSchema bodies are content-addressed and publishable as deltas, so
+two tenants in *separate* stores that both adopt one published body still share its child readings.
+Store isolation does not imply reading isolation; authoring a distinct body does. (Bodies differing
+only in `reading` have different `termHash`es, so nothing collides when a store holds both.) And
+**extracting a tenant from a commingled store is not merely expensive but evaluation-changing**:
+`fork(A, p)` (SPEC-1 §8) leaves negations behind, and `negated(d, D)` ranges over the operand set
+(§4.3), so a claim suppressed in the shared store can reappear **un-suppressed** in the extracted
+one — pinned by `select-then-mask-scopes-to-operand` in `eval-basic.json`. A migration that splits a
+store MUST carry the negation closure along with its targets, or it silently reinstates masked
+claims.
