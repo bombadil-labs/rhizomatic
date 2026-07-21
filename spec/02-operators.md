@@ -108,9 +108,43 @@ Normative semantics:
   non-strings contribute nothing.
 - **The candidate test** compares the candidate delta's `Field` (`author` | `id`) for membership
   in the extracted set, under the canonical string equality of §3.
-- **Stratified, depth 1:** `inView` MUST NOT appear anywhere within `t` — rejected at parse time.
-  The sub-evaluation is therefore one nested pass of the reflection-free algebra: total,
-  terminating, and inside the §5 complexity envelope.
+- **Stratified, depth 1 — permanently:** `inView` MUST NOT appear anywhere within `t` — rejected at
+  parse time. The sub-evaluation is therefore one nested pass of the reflection-free algebra: total,
+  terminating, and inside the §5 complexity envelope. This is a **settled decision, not a
+  provisional limit** (issue #27): recursive and nested trusted sets — a container tree whose every
+  level carries its own trust declaration, resolved by walking the chain toward a root — are
+  deliberately not expressible inside a lens, and will not become so. Bounded syntactic nesting
+  could not express them regardless: a term nests to a depth fixed when it is *authored*, while a
+  container tree's depth is *data*.
+
+#### Resolving a recursive trusted set
+
+The recursive case is general cross-delta logic, which §3 already routes out of the algebra — it
+"belongs at L7 (SPEC-7), where a derived author can compute [it] and assert it as a delta that
+*then* becomes selectable." Two routes are sanctioned, and **the choice between them is a freshness
+requirement, not a preference**:
+
+- **(a) Flatten in the host.** Resolve the chain in the host language and supply the result as a
+  plain `inSet` predicate. Computed per read, it is **zero-lag** — the set is as current as the
+  request. **Required wherever a change MUST bind on the very next read**, revocation being the
+  motivating case: un-binding a revoked grant's authority cannot wait. It carries no provenance,
+  and a host that *caches* the flattened set reintroduces staleness — so do not cache it.
+- **(b) Derive, then `inView` at depth 1.** A derived author (SPEC-7) walks the chain to any depth,
+  handling cycles once inside one function rather than in every host, and emits the closure as
+  ordinary signed deltas; a depth-1 `inView` over those is live with respect to them. It costs
+  **one derivation cascade of lag** — the emission re-enters as an ordinary ingest — and buys
+  provenance: `rhizomatic.derived.from` pins the input view's canonical hash, `explain` (SPEC-4 §7)
+  traces the trusted set to function → input snapshot → underlying deltas → their authors, and pure
+  derivations are replay-verifiable by any third party (SPEC-7 §4).
+
+> **A stale trusted set is well-formed.** A closure one cascade behind is indistinguishable from a
+> current one by inspection, so applying (b) to a revocation path regresses a zero-lag guarantee
+> **silently**. Where such a guarantee is stated, (a) is the required route.
+
+The two **compose**, and for a tenancy model that is the expected shape rather than a hedge, because
+they answer different questions: (a) answers *"does this claim bind, right now?"* on the binding
+path, while (b) answers *"why did this author bind, and can a third party verify it independently?"*
+alongside, as an auditable artifact. Running both is normal.
 - **Sites:** `inView` is legal only where predicates meet the data — `select`'s predicate and
   `mask(trust)`'s predicate. It MUST be rejected at parse time inside SPEC-5 policy predicates
   (`byPred`) and inside `aliased` trust predicates (SPEC-9), which are required to be closed.
@@ -440,7 +474,7 @@ no operator consumes a View.
 - **Parameterized terms:** queries want runtime parameters ("movies with actor *X*"). `hole(name)` leaves in Const position, bound by an optional `bindings` object on `fix`; terms stay first-order and a body with holes keeps a single hash however it is later bound. Semantics pinned in ERRATA-2 E15; vectors in `vectors/l1-eval/eval-holes.json`.
 - **Cost annotations:** should terms carry optional optimizer hints, or is that strictly an L4 concern?
 - **Reflective dispatch:** terms containing `inView` (§3.1) currently dispatch conservatively (every ingest may change the reflected set — SPEC-4 §4.2). Narrowing this — e.g., indexing the sub-term's own select predicates so only deltas relevant to the *reflected view* re-trigger — is an optimization awaiting a workload that needs it.
-- **Reflective depth:** stratification is pinned at depth 1. A grant-view whose own mask wants a reflective trust predicate ("grants honored per the *grants of grants*") would need depth 2 or an explicit budget; no consumer exists yet, and depth 1 keeps the termination argument trivial.
+- ~~**Reflective depth:**~~ **Closed (2026-07-21, issue #27).** Stratification at depth 1 is permanent, and the recursive case has two sanctioned routes selected by freshness requirement — see §3.1, "Resolving a recursive trusted set."
 - **Set-algebra incremental dispatch (E17 Q6):** `difference` is antitone in its `without` operand (§5) — a delta landing in the `without` sub-result retracts an output, so the reactor must track that branch as a retraction source (SPEC-4 §4.3), analogous to a negation edge. `intersect` is monotone in both. The exact dispatch narrowing (which incoming deltas can affect which branch) is L4 work; the monotonicity split is pinned now so the reactor knows where retraction logic is mandatory.
 - **N-ary set algebra / literals (E17 Q7):** `union`/`intersect`/`difference` are binary, matching one another; there are no `∅`/`all` set literals and no variadic forms. Binary composes to any arity today. A variadic spelling or explicit literals would be an additive, parse-visible extension (no `alg` bump, §8) if a consumer ever wants the ergonomics.
 - **Per-lens child readings (§4.5, issue #23):** `reading` is fixed in the gather body, so sibling resolution Schemas over one HyperSchema necessarily share the child's reading. The escape, if a consumer ever needs it, is a `hole` in reading position bound at `fix` time (parameterization, above) — additive and shape-distinguishable. Deliberately not built until a real workload asks: a differing child reading is currently expressed as a different gather body, which is one delta.
