@@ -4,7 +4,7 @@ All notable changes to **`@bombadil/rhizomatic`**. This project is pre-1.0, so b
 land in **minor** bumps (see [CLAUDE.md → Releasing](CLAUDE.md#releasing-bombadilrhizomatic-to-npm)).
 Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 
-## 0.9.0 — unreleased
+## 0.9.0 — 2026-07-21
 
 ### Documentation
 
