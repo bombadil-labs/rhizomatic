@@ -2,6 +2,7 @@
 //! profile"). Mirrors ../ts/src/json-profile.ts. The CBOR form is normative; this is for vectors.
 
 use crate::b64u;
+use crate::strict::as_object;
 use crate::types::{Claims, DeltaRef, EntityRef, Pointer, Primitive, Target};
 use serde_json::Value;
 
@@ -35,17 +36,39 @@ fn parse_context(o: &serde_json::Map<String, Value>) -> Result<Option<String>, S
     }
 }
 
+/// The discriminator keys of the three object target shapes. Exactly one may be present: the
+/// former first-match-wins reading silently picked an arm and dropped the rest, which is repair
+/// (SPEC-4 §2) and is now rejected as ambiguous (issue #25).
+const TARGET_DISCRIMINATORS: [&str; 3] = ["id", "delta", "mime"];
+
 fn parse_target(v: &Value) -> Result<Target, String> {
     if matches!(v, Value::String(_) | Value::Number(_) | Value::Bool(_)) {
         return Ok(Target::Primitive(parse_primitive(v)?));
     }
     let o = v.as_object().ok_or(TARGET_SHAPES)?;
-    // Structural discrimination, first match wins (SPEC-1 §4.2): id → EntityRef, delta → DeltaRef,
-    // else mime → Bytes, else reject. A bytes literal has no context slot; extra keys are ignored
-    // on it exactly as on refs (the lenient-extra-keys behavior).
-    if let Some(id) = o.get("id") {
-        let id = id
-            .as_str()
+    let present: Vec<&str> = TARGET_DISCRIMINATORS
+        .iter()
+        .filter(|k| o.contains_key(**k))
+        .copied()
+        .collect();
+    if present.is_empty() {
+        return Err(TARGET_SHAPES.into());
+    }
+    if present.len() > 1 {
+        return Err(format!(
+            "target is ambiguous — {} are both present, but exactly one names the target kind",
+            present
+                .iter()
+                .map(|p| format!("\"{p}\""))
+                .collect::<Vec<_>>()
+                .join(" and ")
+        ));
+    }
+    if present[0] == "id" {
+        let o = as_object(v, "entity ref target", &["id", "context"])?;
+        let id = o
+            .get("id")
+            .and_then(Value::as_str)
             .ok_or("entity ref id must be a string")?
             .to_string();
         return Ok(Target::Entity(EntityRef {
@@ -53,9 +76,11 @@ fn parse_target(v: &Value) -> Result<Target, String> {
             context: parse_context(o)?,
         }));
     }
-    if let Some(delta) = o.get("delta") {
-        let delta = delta
-            .as_str()
+    if present[0] == "delta" {
+        let o = as_object(v, "delta ref target", &["delta", "context"])?;
+        let delta = o
+            .get("delta")
+            .and_then(Value::as_str)
             .ok_or("delta ref delta must be a string")?
             .to_string();
         return Ok(Target::Delta(DeltaRef {
@@ -63,27 +88,26 @@ fn parse_target(v: &Value) -> Result<Target, String> {
             context: parse_context(o)?,
         }));
     }
-    if let Some(mime) = o.get("mime") {
-        let mime = mime
-            .as_str()
-            .ok_or("bytes target mime must be a string")?
-            .to_string();
-        let value_s = o
-            .get("value")
-            .ok_or("bytes target requires a value")?
-            .as_str()
-            .ok_or("bytes target value must be a base64url string")?;
-        // canonical unpadded base64url; malformed encodings are rejected, never repaired (D12).
-        return Ok(Target::Bytes {
-            mime,
-            value: b64u::decode(value_s)?,
-        });
-    }
-    Err(TARGET_SHAPES.into())
+    // A bytes literal has no context (D12). `value` is canonical unpadded base64url — malformed
+    // encodings are rejected, never repaired.
+    let o = as_object(v, "bytes target", &["mime", "value"])?;
+    let mime = o
+        .get("mime")
+        .and_then(Value::as_str)
+        .ok_or("bytes target mime must be a string")?
+        .to_string();
+    let value_s = o
+        .get("value")
+        .and_then(Value::as_str)
+        .ok_or("bytes target value must be a base64url string")?;
+    Ok(Target::Bytes {
+        mime,
+        value: b64u::decode(value_s)?,
+    })
 }
 
 fn parse_pointer(v: &Value) -> Result<Pointer, String> {
-    let o = v.as_object().ok_or("pointer must be an object")?;
+    let o = as_object(v, "pointer", &["role", "target"])?;
     let role = o
         .get("role")
         .and_then(Value::as_str)
@@ -94,7 +118,7 @@ fn parse_pointer(v: &Value) -> Result<Pointer, String> {
 }
 
 pub fn parse_claims(v: &Value) -> Result<Claims, String> {
-    let o = v.as_object().ok_or("claims must be an object")?;
+    let o = as_object(v, "claims", &["timestamp", "author", "pointers"])?;
     let timestamp = o
         .get("timestamp")
         .and_then(Value::as_f64)

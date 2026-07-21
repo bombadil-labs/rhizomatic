@@ -4,6 +4,65 @@ All notable changes to **`@bombadil/rhizomatic`**. This project is pre-1.0, so b
 land in **minor** bumps (see [CLAUDE.md → Releasing](CLAUDE.md#releasing-bombadilrhizomatic-to-npm)).
 Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 
+## 0.9.0 — unreleased
+
+**Fail-closed parsing now covers keys, not just tags**
+([#25](https://github.com/bombadil-labs/rhizomatic/issues/25), SPEC-2 §8 + SPEC-1 §4.2,
+ERRATA-2 E19). The fail-closed rule was normative for **tags** — an unknown `op`/`cmp`/`policy`
+must be rejected — because that rejection is exactly what lets additive forms enter the closed
+profiles without an `alg` bump. Two sibling laxities survived it, both silent, and both are now
+rejections.
+
+### ⚠️ Breaking
+
+- **Unknown object keys are rejected.** Every object node in the term profile (SPEC-2 §9), the
+  schema profile (SPEC-5 §7), and the L0 claims profile (SPEC-1 §4.2) is a **closed record**. A
+  key outside the node's declared set is an error naming the offending key. Previously such keys
+  were silently dropped — so `{"op": "expand", …, "readng": "Post"}` parsed as a *legacy* expand
+  (0.8.0's `reading`, #23), hashed as one, gathered happily, and failed far away at resolve time.
+- **Ambiguous one-of nodes are rejected.** `StrMatch`, `ValMatch`, `Pred`, `Order`, `Policy`,
+  `GroupKey`, `SchemaRef`, and `inView.extract` carry **exactly one** arm; two or more present is
+  ambiguous rather than resolved by declaration order. At L0, a pointer target carrying more than
+  one of `id`/`delta`/`mime` is likewise ambiguous — SPEC-1 §4.2's "first match wins" is retired.
+- **`{mime, value}` bytes targets reject a `context` key** (ERRATA D12 always said a bytes literal
+  has no context; it was silently ignored until now).
+- **For consumers:** every *correctly authored* body, term, schema, and delta is unaffected —
+  this makes parsers strictly stricter, so all currently-valid input stays valid and no canonical
+  bytes, ids, or hashes move. What starts failing is input that was only *accidentally* valid, and
+  each failure is a bug the old parser was hiding. **No `alg` bump** and no migration: if you have
+  no junk keys, there is nothing to do. If a body does trip this, the error names the key and, for
+  a plausible typo, suggests the intended one.
+- **This closes the mixed-version hazard 0.8.0 documented.** A pre-0.9 peer handed a body with a
+  from-the-future key silently ignores it and evaluates a *different, still-valid* program — a
+  silent semantic fork rather than a detectable partition. Post-0.9 witnesses refuse instead, which
+  is the guarantee the whole "the version lives in the vocabulary" story assumed it already had.
+
+### Added
+
+- `vectors/l1-eval/eval-strict-keys.json` — 23 rejects covering every node kind in the L2 grammar
+  (unknown-key and ambiguous-arm cases), verified to reject at generation time.
+- `vectors/l0-delta/deltas-invalid.json` grows 26 → 34 with the L0 unknown-key and
+  ambiguous-target cases; all three witnesses consume them.
+- Rejection messages follow SPEC-2 §8's SHOULD: they name the offending key, suggest the nearest
+  known key when it is a plausible typo (`unknown key "readng" on expand; did you mean
+  "reading"?`), and point at version skew otherwise. **Error text is not normative** — only the
+  rejection is — so witnesses may word it differently.
+
+### Note for implementers
+
+The **Elixir witness needed no behavioral change** — written from spec + vectors alone (#19), it
+had been fail-closed on keys by construction since day one, and passed all eight new L0 vectors
+before being touched. The two witnesses written alongside the spec both carried the laxity. The
+gap was in the spec text, and only a third, independent reading surfaced it (ERRATA-2 E19,
+`implementations/elixir/FINDINGS.md` F10).
+
+Exactly **two** nodes in the whole profile stay open, because their keys are author-chosen data
+rather than grammar: `fix.bindings` (hole names) and a Schema's `props` (property names). Both say
+so explicitly at their call sites. The witnesses make this structural by taking the known-key list
+as a **required argument** of the object-parsing helper, so the type checker — not vigilance —
+guarantees no node was left lax during the sweep; a new node cannot compile without declaring its
+keys. Recommended for any new witness.
+
 ## 0.8.0 — 2026-07-19
 
 **`expand` names the child's reading** ([#23](https://github.com/bombadil-labs/rhizomatic/issues/23),

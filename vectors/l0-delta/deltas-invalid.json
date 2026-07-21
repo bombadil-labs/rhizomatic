@@ -257,5 +257,87 @@
       "author": "did:key:zAuthorA",
       "pointers": [{ "role": "icon", "target": { "mime": "image/png", "value": "Zh" } }]
     }
+  },
+  {
+    "name": "claims-unknown-key",
+    "spec": "SPEC-1 §4.2 / SPEC-4 §2 (issue #25)",
+    "reason": "an unrecognized claims key is silently dropped by a lax parser",
+    "claims": {
+      "timestamp": 0,
+      "author": "did:key:zAuthorA",
+      "version": 2,
+      "pointers": [{ "role": "r", "target": "x" }]
+    }
+  },
+  {
+    "name": "claims-misspelled-timestamp",
+    "spec": "SPEC-1 §4.2 / SPEC-4 §2 (issue #25)",
+    "reason": "'timestmp' is a typo; a lax parser drops it and reports a confusing missing-timestamp error",
+    "claims": {
+      "timestmp": 0,
+      "timestamp": 0,
+      "author": "did:key:zAuthorA",
+      "pointers": [{ "role": "r", "target": "x" }]
+    }
+  },
+  {
+    "name": "pointer-unknown-key",
+    "spec": "SPEC-1 §4.2 / SPEC-4 §2 (issue #25)",
+    "reason": "a pointer carries exactly role and target; 'weight' is not in the profile",
+    "claims": {
+      "timestamp": 0,
+      "author": "did:key:zAuthorA",
+      "pointers": [{ "role": "r", "target": "x", "weight": 5 }]
+    }
+  },
+  {
+    "name": "entity-target-unknown-key",
+    "spec": "SPEC-1 §4.2 / SPEC-4 §2 (issue #25)",
+    "reason": "an entity ref carries id and optional context only",
+    "claims": {
+      "timestamp": 0,
+      "author": "did:key:zAuthorA",
+      "pointers": [{ "role": "r", "target": { "id": "e", "context": "c", "label": "no" } }]
+    }
+  },
+  {
+    "name": "delta-target-unknown-key",
+    "spec": "SPEC-1 §4.2 / SPEC-4 §2 (issue #25)",
+    "reason": "a delta ref carries delta and optional context only",
+    "claims": {
+      "timestamp": 0,
+      "author": "did:key:zAuthorA",
+      "pointers": [{ "role": "r", "target": { "delta": "1e2000", "depth": 1 } }]
+    }
+  },
+  {
+    "name": "bytes-target-context",
+    "spec": "SPEC-1 §4.2 / SPEC-4 §2 (issue #25)",
+    "reason": "a bytes literal has no context (D12); it was previously ignored",
+    "claims": {
+      "timestamp": 0,
+      "author": "did:key:zAuthorA",
+      "pointers": [{ "role": "r", "target": { "mime": "image/png", "value": "Zg", "context": "c" } }]
+    }
+  },
+  {
+    "name": "target-ambiguous-id-and-delta",
+    "spec": "SPEC-1 §4.2 / SPEC-4 §2 (issue #25)",
+    "reason": "both id and delta present; first-match-wins silently made it an entity ref",
+    "claims": {
+      "timestamp": 0,
+      "author": "did:key:zAuthorA",
+      "pointers": [{ "role": "r", "target": { "id": "e", "delta": "1e2000" } }]
+    }
+  },
+  {
+    "name": "target-ambiguous-id-and-mime",
+    "spec": "SPEC-1 §4.2 / SPEC-4 §2 (issue #25)",
+    "reason": "both id and mime present; the bytes half was silently dropped",
+    "claims": {
+      "timestamp": 0,
+      "author": "did:key:zAuthorA",
+      "pointers": [{ "role": "r", "target": { "id": "e", "mime": "image/png", "value": "Zg" } }]
+    }
   }
 ]

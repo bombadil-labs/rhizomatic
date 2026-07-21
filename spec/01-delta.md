@@ -200,7 +200,7 @@ A JSON profile is offered for authoring and inspection (the conformance vectors 
 CBOR bytes remain normative for hashing. The profile is **isomorphic to the canonical
 encoding**: a pointer target is the bare primitive, an entity ref object, a delta ref object, or
 a bytes object — discriminated structurally, exactly as in CBOR (`id` → EntityRef, `delta` →
-DeltaRef, else `mime` → Bytes, else a bare scalar; first match wins):
+DeltaRef, `mime` → Bytes, else a bare scalar):
 
 ```json
 { "role": "title", "target": "The Matrix" }
@@ -208,6 +208,16 @@ DeltaRef, else `mime` → Bytes, else a bare scalar; first match wins):
 { "role": "negates", "target": { "delta": "1e20…", "context": "audit" } }
 { "role": "icon",  "target": { "mime": "image/png", "value": "iVBORw0KGgo" } }
 ```
+
+**The profile is closed** (issue #25). Each node carries exactly its own keys — `claims` is
+`{timestamp, author, pointers}`, a pointer is `{role, target}`, an EntityRef is `{id, context?}`, a
+DeltaRef is `{delta, context?}`, a Bytes literal is `{mime, value}` (no `context` — D12). A parser
+MUST reject any other key, and MUST reject a target object carrying **more than one** of
+`id`/`delta`/`mime` as ambiguous rather than resolving it by declaration order. Earlier text here
+specified "first match wins" and permitted extra keys; both were laxity, and laxity is repair
+(SPEC-4 §2) — a dropped key silently turns a delta authored against a newer vocabulary into a
+different, still-valid one. This mirrors the L2 rule at SPEC-2 §8. Vectors:
+`vectors/l0-delta/deltas-invalid.json`.
 
 **Byte payloads in the JSON profile are base64url (RFC 4648 §5), unpadded, and canonical.**
 Canonical means: no `=` padding; the alphabet is strictly `A–Z a–z 0–9 - _`; the length is never

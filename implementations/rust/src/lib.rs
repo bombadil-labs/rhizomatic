@@ -23,6 +23,7 @@ pub mod schema;
 pub mod schema_deltas;
 pub mod set;
 pub mod sign;
+pub mod strict;
 pub mod term_io;
 pub mod term_json;
 pub mod types;

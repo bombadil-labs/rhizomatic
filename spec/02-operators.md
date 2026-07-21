@@ -331,6 +331,28 @@ so the bump would be redundant. This holds only because rejection is mandatory:
 > unknown `op`, `policy`, `key`, `cmp`, `extract`, order, or predicate constructor. It MUST NOT
 > ignore, skip, or best-effort a term it does not fully recognize.
 
+The rule governs **three** kinds of unrecognized input, not one — tags were merely the first to be
+written down (ERRATA-2 E19, issue #25). All three are the same failure: input the witness silently
+ignores, which is *repair* in the SPEC-4 §2 sense.
+
+> **1. Unknown tags** (above). **2. Unknown keys:** every object node in the §9 term profile and
+> the SPEC-5 §7 schema profile is a **closed record** — a parser MUST reject any key outside that
+> node's declared set. **3. Ambiguous tags:** a one-of node (`StrMatch`, `ValMatch`, `Pred`,
+> `Order`, `Policy`, `GroupKey`, `SchemaRef`, `inView.extract`) carries **exactly one** arm;
+> two or more present is ambiguous and MUST be rejected, never resolved by declaration order.
+
+Exactly two nodes in the whole profile are **open**, because their keys are author-chosen data
+rather than grammar: `fix.bindings` (hole names, §6) and a Schema's `props` (property names,
+SPEC-5 §7). Every other object node is closed. An implementation SHOULD make this structural — if
+the key set is a required argument of the object-parsing helper, the compiler, not vigilance,
+guarantees no node is left lax.
+
+Why keys matter as much as tags: the whole no-bump story rests on an old witness *refusing* what
+it does not understand. A dropped key does the opposite — it silently reinterprets a newer body as
+an older, still-valid program. Two peers on different versions then produce different results from
+the same term with neither erroring, which is a silent semantic fork rather than a detectable
+partition (the same hazard, one layer up, that SPEC-1 §5.1 pins for signatures).
+
 **Rejection message (SHOULD).** Because additive operators enter *without* an `alg` bump, an
 unrecognized tag most often means **version skew** — the term was authored by a newer witness.
 Implementations SHOULD name the offending tag and point at that possibility rather than emit a bare

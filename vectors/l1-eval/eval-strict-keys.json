@@ -1,0 +1,411 @@
+{
+  "note": "Fail-closed KEY parsing (SPEC-2 §8, ERRATA-2 E19, issue #25). The §8 rule always covered unrecognized tags; these pin the same discipline over unknown object KEYS and over ambiguous tag multiplicity (two arms of a one-of node both present). Every case is a whole Term: a conformant `parseTerm` MUST reject it, loudly, before evaluation. Error text is NOT normative — only the rejection is. Verified to reject at generation time.",
+  "rejects": [
+    {
+      "name": "term-unknown-key",
+      "spec": "SPEC-2 §8 / E19 (closed key set per operator)",
+      "reason": "`junk` is not a key of select; a lax parser drops it silently",
+      "term": {
+        "op": "select",
+        "pred": "true",
+        "in": "input",
+        "junk": 1
+      }
+    },
+    {
+      "name": "expand-misspelled-reading",
+      "spec": "SPEC-2 §8 / E19 (the motivating case, issue #25)",
+      "reason": "`readng` is a typo for `reading`; a lax parser drops it and evaluates the body as a legacy expand, failing far away at resolve time",
+      "term": {
+        "op": "expand",
+        "role": {
+          "exact": "actor"
+        },
+        "schema": "S",
+        "readng": "R",
+        "in": {
+          "op": "group",
+          "key": "byRole",
+          "in": "input"
+        }
+      }
+    },
+    {
+      "name": "fix-unknown-key",
+      "spec": "SPEC-2 §8 / E19",
+      "reason": "`root` is not a key of fix (the entity field is `entity`)",
+      "term": {
+        "op": "fix",
+        "schema": "S",
+        "entity": "e",
+        "root": "e"
+      }
+    },
+    {
+      "name": "match-unknown-key",
+      "spec": "SPEC-2 §8 / E19",
+      "reason": "`value` is not a key of match (the constant field is `const`)",
+      "term": {
+        "op": "select",
+        "pred": {
+          "match": {
+            "field": "author",
+            "cmp": "eq",
+            "const": "a",
+            "value": "a"
+          }
+        },
+        "in": "input"
+      }
+    },
+    {
+      "name": "haspointer-unknown-key",
+      "spec": "SPEC-2 §8 / E19",
+      "reason": "`targetRole` is not a PPred field",
+      "term": {
+        "op": "select",
+        "pred": {
+          "hasPointer": {
+            "role": {
+              "exact": "x"
+            },
+            "targetRole": "y"
+          }
+        },
+        "in": "input"
+      }
+    },
+    {
+      "name": "strmatch-unknown-key",
+      "spec": "SPEC-2 §8 / E19",
+      "reason": "a StrMatch carries exactly its arm; `caseInsensitive` is not in the grammar",
+      "term": {
+        "op": "select",
+        "pred": {
+          "hasPointer": {
+            "role": {
+              "exact": "x",
+              "caseInsensitive": true
+            }
+          }
+        },
+        "in": "input"
+      }
+    },
+    {
+      "name": "aliased-unknown-key",
+      "spec": "SPEC-2 §8 / E19 (SPEC-9 §4.1 aliased spec is closed)",
+      "reason": "`depth` is not a key of aliased",
+      "term": {
+        "op": "select",
+        "pred": {
+          "hasPointer": {
+            "role": {
+              "aliased": {
+                "name": "n",
+                "depth": 2
+              }
+            }
+          }
+        },
+        "in": "input"
+      }
+    },
+    {
+      "name": "vcmp-unknown-key",
+      "spec": "SPEC-2 §8 / E19",
+      "reason": "`const` is not a key of vcmp (the value field is `value`)",
+      "term": {
+        "op": "select",
+        "pred": {
+          "hasPointer": {
+            "targetValue": {
+              "vcmp": {
+                "cmp": "gt",
+                "value": 1,
+                "const": 1
+              }
+            }
+          }
+        },
+        "in": "input"
+      }
+    },
+    {
+      "name": "inview-unknown-key",
+      "spec": "SPEC-2 §8 / E19",
+      "reason": "`depth` is not a key of inView",
+      "term": {
+        "op": "select",
+        "pred": {
+          "inView": {
+            "term": "input",
+            "field": "author",
+            "extract": {
+              "field": "author"
+            },
+            "depth": 1
+          }
+        },
+        "in": "input"
+      }
+    },
+    {
+      "name": "extract-unknown-key",
+      "spec": "SPEC-2 §8 / E19",
+      "reason": "`path` is not a key of inView.extract",
+      "term": {
+        "op": "select",
+        "pred": {
+          "inView": {
+            "term": "input",
+            "field": "author",
+            "extract": {
+              "role": "r",
+              "path": "p"
+            }
+          }
+        },
+        "in": "input"
+      }
+    },
+    {
+      "name": "groupkey-unknown-key",
+      "spec": "SPEC-2 §8 / E19",
+      "reason": "`const` is the only key of an object group key",
+      "term": {
+        "op": "group",
+        "key": {
+          "const": "p",
+          "fallback": "q"
+        },
+        "in": "input"
+      }
+    },
+    {
+      "name": "schemaref-unknown-key",
+      "spec": "SPEC-2 §8 / E19 (E13 pinned refs)",
+      "reason": "`pinned` is the only key of an object schema ref",
+      "term": {
+        "op": "fix",
+        "schema": {
+          "pinned": "1e20aa",
+          "name": "S"
+        },
+        "entity": "e"
+      }
+    },
+    {
+      "name": "hole-unknown-key",
+      "spec": "SPEC-2 §8 / E19 (E15 holes)",
+      "reason": "`hole` is the only key of a hole; `default` is not in the grammar",
+      "term": {
+        "op": "select",
+        "pred": {
+          "match": {
+            "field": "author",
+            "cmp": "eq",
+            "const": {
+              "hole": "a",
+              "default": "z"
+            }
+          }
+        },
+        "in": "input"
+      }
+    },
+    {
+      "name": "schema-unknown-key",
+      "spec": "SPEC-2 §8 / E19 (SPEC-5 §7 schema profile)",
+      "reason": "`policies` is not a key of a resolution Schema (the field is `props`)",
+      "term": {
+        "op": "resolve",
+        "schema": {
+          "props": {},
+          "default": {
+            "pick": {
+              "order": "lexById"
+            }
+          },
+          "policies": {}
+        },
+        "in": "input"
+      }
+    },
+    {
+      "name": "policy-absentas-unknown-key",
+      "spec": "SPEC-2 §8 / E19",
+      "reason": "`else` is not a key of absentAs (the continuation field is `then`)",
+      "term": {
+        "op": "resolve",
+        "schema": {
+          "props": {},
+          "default": {
+            "absentAs": {
+              "const": "x",
+              "then": {
+                "pick": {
+                  "order": "lexById"
+                }
+              },
+              "else": 1
+            }
+          }
+        },
+        "in": "input"
+      }
+    },
+    {
+      "name": "order-bypred-unknown-key",
+      "spec": "SPEC-2 §8 / E19",
+      "reason": "`else` is not a key of byPred",
+      "term": {
+        "op": "resolve",
+        "schema": {
+          "props": {},
+          "default": {
+            "pick": {
+              "order": {
+                "byPred": {
+                  "pred": "true",
+                  "then": "lexById",
+                  "else": "lexById"
+                }
+              }
+            }
+          }
+        },
+        "in": "input"
+      }
+    },
+    {
+      "name": "strmatch-ambiguous",
+      "spec": "SPEC-2 §8 / E19 (exactly one arm)",
+      "reason": "both `exact` and `prefix` present; first-match-wins silently picked one",
+      "term": {
+        "op": "select",
+        "pred": {
+          "hasPointer": {
+            "role": {
+              "exact": "a",
+              "prefix": "b"
+            }
+          }
+        },
+        "in": "input"
+      }
+    },
+    {
+      "name": "pred-ambiguous",
+      "spec": "SPEC-2 §8 / E19 (exactly one arm)",
+      "reason": "both `match` and `not` present; the second was silently ignored",
+      "term": {
+        "op": "select",
+        "pred": {
+          "match": {
+            "field": "author",
+            "cmp": "eq",
+            "const": "a"
+          },
+          "not": "true"
+        },
+        "in": "input"
+      }
+    },
+    {
+      "name": "valmatch-ambiguous",
+      "spec": "SPEC-2 §8 / E19 (exactly one arm)",
+      "reason": "both `vcmp` and `between` present",
+      "term": {
+        "op": "select",
+        "pred": {
+          "hasPointer": {
+            "targetValue": {
+              "vcmp": {
+                "cmp": "gt",
+                "value": 1
+              },
+              "between": [
+                1,
+                2
+              ]
+            }
+          }
+        },
+        "in": "input"
+      }
+    },
+    {
+      "name": "order-ambiguous",
+      "spec": "SPEC-2 §8 / E19 (exactly one arm)",
+      "reason": "both `byTimestamp` and `chain` present",
+      "term": {
+        "op": "resolve",
+        "schema": {
+          "props": {},
+          "default": {
+            "pick": {
+              "order": {
+                "byTimestamp": "desc",
+                "chain": [
+                  "lexById"
+                ]
+              }
+            }
+          }
+        },
+        "in": "input"
+      }
+    },
+    {
+      "name": "policy-ambiguous",
+      "spec": "SPEC-2 §8 / E19 (exactly one arm)",
+      "reason": "both `pick` and `merge` present",
+      "term": {
+        "op": "resolve",
+        "schema": {
+          "props": {},
+          "default": {
+            "pick": {
+              "order": "lexById"
+            },
+            "merge": "max"
+          }
+        },
+        "in": "input"
+      }
+    },
+    {
+      "name": "extract-ambiguous",
+      "spec": "SPEC-2 §8 / E19 (exactly one arm)",
+      "reason": "both `field` and `role` present",
+      "term": {
+        "op": "select",
+        "pred": {
+          "inView": {
+            "term": "input",
+            "field": "author",
+            "extract": {
+              "field": "author",
+              "role": "r"
+            }
+          }
+        },
+        "in": "input"
+      }
+    },
+    {
+      "name": "maskpolicy-ambiguous-is-unknown-key",
+      "spec": "SPEC-2 §8 / E19",
+      "reason": "`trust` is the only key of an object mask policy; `drop` alongside it is not grammar",
+      "term": {
+        "op": "mask",
+        "policy": {
+          "trust": "true",
+          "drop": true
+        },
+        "in": "input"
+      }
+    }
+  ]
+}

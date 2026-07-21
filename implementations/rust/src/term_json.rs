@@ -10,14 +10,47 @@ use crate::pred::{
     Param, Pred, StrMatch, ValMatch,
 };
 use crate::resolution::{MergeFn, Order, Policy, Schema};
+use crate::strict::{as_dispatched, as_object, as_open_map, one_tag};
 use crate::types::Primitive;
 
-/// A hole in Const position: {"hole": "name"} (E15).
-fn parse_hole(v: &Value) -> Option<String> {
-    v.as_object()
-        .and_then(|o| o.get("hole"))
-        .and_then(Value::as_str)
-        .map(nfc)
+/// The closed key sets of the §9 profile (issue #25). Every object node in the grammar names its
+/// keys here or at its call site; the only open nodes are `fix.bindings` and `schema.props`, whose
+/// keys are author-chosen data rather than grammar.
+const TERM_KEYS: [(&str, &[&str]); 10] = [
+    ("select", &["op", "pred", "in"]),
+    ("union", &["op", "left", "right"]),
+    ("intersect", &["op", "left", "right"]),
+    ("difference", &["op", "of", "without"]),
+    ("mask", &["op", "policy", "in"]),
+    ("group", &["op", "key", "in"]),
+    ("prune", &["op", "keep", "in"]),
+    ("expand", &["op", "role", "schema", "reading", "in"]),
+    ("fix", &["op", "schema", "entity", "bindings"]),
+    ("resolve", &["op", "schema", "in"]),
+];
+
+const STR_MATCH_TAGS: [&str; 4] = ["exact", "prefix", "inSet", "aliased"];
+const VAL_MATCH_TAGS: [&str; 3] = ["vcmp", "between", "inSet"];
+const PRED_TAGS: [&str; 6] = ["match", "hasPointer", "and", "or", "not", "inView"];
+const ORDER_TAGS: [&str; 4] = ["byTimestamp", "byAuthorRank", "byPred", "chain"];
+const POLICY_TAGS: [&str; 5] = ["pick", "all", "merge", "conflicts", "absentAs"];
+const EXTRACT_TAGS: [&str; 2] = ["field", "role"];
+
+/// A hole in Const position: {"hole": "name"} (E15). Speculative — a non-hole returns None so the
+/// caller can try a primitive — but once the `hole` key is present the node IS a hole, and its
+/// keys are checked like any other closed node (issue #25).
+fn parse_hole(v: &Value) -> Result<Option<String>, String> {
+    match v.as_object() {
+        Some(o) if o.contains_key("hole") => {
+            let o = as_object(v, "hole", &["hole"])?;
+            let name = o
+                .get("hole")
+                .and_then(Value::as_str)
+                .ok_or("hole name must be a string")?;
+            Ok(Some(nfc(name)))
+        }
+        _ => Ok(None),
+    }
 }
 
 fn nfc(s: &str) -> String {
@@ -56,60 +89,62 @@ fn parse_cmp(v: &Value, what: &str) -> Result<Cmp, String> {
 }
 
 fn parse_str_match(v: &Value, what: &str) -> Result<StrMatch, String> {
-    let o = v
-        .as_object()
-        .ok_or_else(|| format!("{what}: expected object"))?;
-    if let Some(s) = o.get("exact").and_then(Value::as_str) {
-        return Ok(StrMatch::Exact(nfc(s)));
+    let (o, tag) = one_tag(v, &STR_MATCH_TAGS, what)?;
+    match tag {
+        "exact" => Ok(StrMatch::Exact(nfc(o["exact"]
+            .as_str()
+            .ok_or_else(|| format!("{what}: exact must be a string"))?))),
+        "prefix" => Ok(StrMatch::Prefix(nfc(o["prefix"]
+            .as_str()
+            .ok_or_else(|| format!("{what}: prefix must be a string"))?))),
+        "inSet" => {
+            let arr = o["inSet"]
+                .as_array()
+                .ok_or_else(|| format!("{what}: inSet must be an array"))?;
+            let values = arr
+                .iter()
+                .map(|s| {
+                    s.as_str()
+                        .map(nfc)
+                        .ok_or_else(|| format!("{what}: inSet members must be strings"))
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(StrMatch::InSet(values))
+        }
+        _ => {
+            let ao = as_object(
+                &o["aliased"],
+                &format!("{what}.aliased"),
+                &["name", "via", "trust"],
+            )?;
+            let name = ao
+                .get("name")
+                .and_then(Value::as_str)
+                .map(nfc)
+                .ok_or_else(|| format!("{what}: aliased.name must be a string"))?;
+            let via = match ao.get("via") {
+                None => None,
+                Some(v) => Some(
+                    v.as_str()
+                        .map(nfc)
+                        .ok_or_else(|| format!("{what}: aliased.via must be an entity id"))?,
+                ),
+            };
+            let trust = match ao.get("trust") {
+                None => None,
+                Some(t) => {
+                    let pred = parse_pred(t)?;
+                    assert_closed_trust_pred(&pred, &format!("{what}.aliased.trust"))?;
+                    Some(pred)
+                }
+            };
+            Ok(StrMatch::Aliased(Box::new(AliasedMatch {
+                name,
+                via,
+                trust,
+            })))
+        }
     }
-    if let Some(s) = o.get("prefix").and_then(Value::as_str) {
-        return Ok(StrMatch::Prefix(nfc(s)));
-    }
-    if let Some(arr) = o.get("inSet").and_then(Value::as_array) {
-        let values = arr
-            .iter()
-            .map(|s| {
-                s.as_str()
-                    .map(nfc)
-                    .ok_or_else(|| format!("{what}: inSet members must be strings"))
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-        return Ok(StrMatch::InSet(values));
-    }
-    if let Some(a) = o.get("aliased") {
-        let ao = a
-            .as_object()
-            .ok_or_else(|| format!("{what}.aliased: expected object"))?;
-        let name = ao
-            .get("name")
-            .and_then(Value::as_str)
-            .map(nfc)
-            .ok_or_else(|| format!("{what}: aliased.name must be a string"))?;
-        let via = match ao.get("via") {
-            None => None,
-            Some(v) => Some(
-                v.as_str()
-                    .map(nfc)
-                    .ok_or_else(|| format!("{what}: aliased.via must be an entity id"))?,
-            ),
-        };
-        let trust = match ao.get("trust") {
-            None => None,
-            Some(t) => {
-                let pred = parse_pred(t)?;
-                assert_closed_trust_pred(&pred, &format!("{what}.aliased.trust"))?;
-                Some(pred)
-            }
-        };
-        return Ok(StrMatch::Aliased(Box::new(AliasedMatch {
-            name,
-            via,
-            trust,
-        })));
-    }
-    Err(format!(
-        "{what}: StrMatch must be exact | prefix | inSet | aliased"
-    ))
 }
 
 /// An aliased trust predicate admits no holes and no nested aliased (SPEC-9 §4.1): it is
@@ -159,53 +194,67 @@ fn assert_closed_trust_pred(p: &Pred, what: &str) -> Result<(), String> {
 }
 
 fn parse_val_match(v: &Value, what: &str) -> Result<ValMatch, String> {
-    let o = v
-        .as_object()
-        .ok_or_else(|| format!("{what}: expected object"))?;
-    if let Some(vc) = o.get("vcmp") {
-        let vo = vc
-            .as_object()
-            .ok_or_else(|| format!("{what}.vcmp: expected object"))?;
-        let cmp = parse_cmp(
-            vo.get("cmp").unwrap_or(&Value::Null),
-            &format!("{what}.vcmp"),
-        )?;
-        if cmp == Cmp::InSet {
-            return Err(format!(
-                "{what}: vcmp cmp inSet is not allowed; use the inSet arm"
-            ));
+    let (o, tag) = one_tag(v, &VAL_MATCH_TAGS, what)?;
+    match tag {
+        "vcmp" => {
+            let vo = as_object(&o["vcmp"], &format!("{what}.vcmp"), &["cmp", "value"])?;
+            let cmp = parse_cmp(
+                vo.get("cmp").unwrap_or(&Value::Null),
+                &format!("{what}.vcmp"),
+            )?;
+            if cmp == Cmp::InSet {
+                return Err(format!(
+                    "{what}: vcmp cmp inSet is not allowed; use the inSet arm"
+                ));
+            }
+            let raw = vo.get("value").unwrap_or(&Value::Null);
+            let value = match parse_hole(raw)? {
+                Some(name) => Param::Hole(name),
+                None => Param::Lit(parse_primitive(raw, &format!("{what}.vcmp"))?),
+            };
+            if cmp == Cmp::Prefix
+                && !matches!(value, Param::Lit(Primitive::Str(_)) | Param::Hole(_))
+            {
+                return Err(format!("{what}: prefix requires a string constant"));
+            }
+            Ok(ValMatch::Vcmp { cmp, value })
         }
-        let raw = vo.get("value").unwrap_or(&Value::Null);
-        let value = match parse_hole(raw) {
-            Some(name) => Param::Hole(name),
-            None => Param::Lit(parse_primitive(raw, &format!("{what}.vcmp"))?),
-        };
-        if cmp == Cmp::Prefix && !matches!(value, Param::Lit(Primitive::Str(_)) | Param::Hole(_)) {
-            return Err(format!("{what}: prefix requires a string constant"));
+        "between" => {
+            let arr = o["between"]
+                .as_array()
+                .filter(|a| a.len() == 2)
+                .ok_or_else(|| format!("{what}: between takes [lo, hi]"))?;
+            Ok(ValMatch::Between {
+                lo: parse_primitive(&arr[0], &format!("{what}.between"))?,
+                hi: parse_primitive(&arr[1], &format!("{what}.between"))?,
+            })
         }
-        return Ok(ValMatch::Vcmp { cmp, value });
-    }
-    if let Some(arr) = o.get("between").and_then(Value::as_array) {
-        if arr.len() != 2 {
-            return Err(format!("{what}: between takes [lo, hi]"));
+        _ => {
+            let arr = o["inSet"]
+                .as_array()
+                .ok_or_else(|| format!("{what}: inSet must be an array"))?;
+            let values = arr
+                .iter()
+                .map(|x| parse_primitive(x, &format!("{what}.inSet")))
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(ValMatch::InSet(values))
         }
-        return Ok(ValMatch::Between {
-            lo: parse_primitive(&arr[0], &format!("{what}.between"))?,
-            hi: parse_primitive(&arr[1], &format!("{what}.between"))?,
-        });
     }
-    if let Some(arr) = o.get("inSet").and_then(Value::as_array) {
-        let values = arr
-            .iter()
-            .map(|x| parse_primitive(x, &format!("{what}.inSet")))
-            .collect::<Result<Vec<_>, _>>()?;
-        return Ok(ValMatch::InSet(values));
-    }
-    Err(format!("{what}: ValMatch must be vcmp | between | inSet"))
 }
 
 fn parse_ppred(v: &Value) -> Result<PPred, String> {
-    let o = v.as_object().ok_or("hasPointer: expected object")?;
+    let o = as_object(
+        v,
+        "hasPointer",
+        &[
+            "role",
+            "targetEntity",
+            "targetDelta",
+            "context",
+            "targetIsPrimitive",
+            "targetValue",
+        ],
+    )?;
     let mut out = PPred::default();
     let mut any = false;
     if let Some(r) = o.get("role") {
@@ -215,14 +264,17 @@ fn parse_ppred(v: &Value) -> Result<PPred, String> {
     if let Some(e) = o.get("targetEntity") {
         out.target_entity = Some(if let Some(s) = e.as_str() {
             EntityMatch::Const(nfc(s))
-        } else if let Some(name) = parse_hole(e) {
+        } else if let Some(name) = parse_hole(e)? {
             EntityMatch::Hole(name)
-        } else if e.get("var").and_then(Value::as_str) == Some("root") {
-            EntityMatch::Root
         } else {
-            return Err(
-                "targetEntity must be a string, {var: \"root\"}, or {hole: \"name\"}".to_string(),
-            );
+            let vo = as_object(e, "targetEntity", &["var"])?;
+            if vo.get("var").and_then(Value::as_str) != Some("root") {
+                return Err(
+                    "targetEntity must be a string, {var: \"root\"}, or {hole: \"name\"}"
+                        .to_string(),
+                );
+            }
+            EntityMatch::Root
         });
         any = true;
     }
@@ -259,105 +311,101 @@ pub fn parse_pred(raw: &Value) -> Result<Pred, String> {
     if raw == "false" {
         return Ok(Pred::False);
     }
-    let o = raw.as_object().ok_or("pred: expected object")?;
-    if let Some(m) = o.get("match") {
-        let mo = m.as_object().ok_or("match: expected object")?;
-        let field = match mo.get("field").and_then(Value::as_str) {
-            Some("author") => Field::Author,
-            Some("timestamp") => Field::Timestamp,
-            Some("id") => Field::Id,
-            other => return Err(format!("match: unknown field {other:?}")),
-        };
-        let cmp = parse_cmp(mo.get("cmp").unwrap_or(&Value::Null), "match")?;
-        let raw_const = mo.get("const").unwrap_or(&Value::Null);
-        let constant = if cmp == Cmp::InSet {
-            let arr = raw_const
-                .as_array()
-                .ok_or("match: inSet requires an array const")?;
-            MatchConst::Many(
-                arr.iter()
-                    .map(|v| parse_primitive(v, "match.const"))
-                    .collect::<Result<Vec<_>, _>>()?,
-            )
-        } else if let Some(name) = parse_hole(raw_const) {
-            MatchConst::Hole(name)
-        } else {
-            let one = parse_primitive(raw_const, "match.const")?;
-            if cmp == Cmp::Prefix && !matches!(one, Primitive::Str(_)) {
-                return Err("match: prefix requires a string const".to_string());
-            }
-            MatchConst::One(one)
-        };
-        return Ok(Pred::Match {
-            field,
-            cmp,
-            constant,
-        });
-    }
-    if let Some(hp) = o.get("hasPointer") {
-        return Ok(Pred::HasPointer(parse_ppred(hp)?));
-    }
-    for (key, is_and) in [("and", true), ("or", false)] {
-        if let Some(arr) = o.get(key) {
-            let arr = arr
+    let (o, tag) = one_tag(raw, &PRED_TAGS, "pred")?;
+    match tag {
+        "match" => {
+            let mo = as_object(&o["match"], "match", &["field", "cmp", "const"])?;
+            let field = match mo.get("field").and_then(Value::as_str) {
+                Some("author") => Field::Author,
+                Some("timestamp") => Field::Timestamp,
+                Some("id") => Field::Id,
+                other => return Err(format!("match: unknown field {other:?}")),
+            };
+            let cmp = parse_cmp(mo.get("cmp").unwrap_or(&Value::Null), "match")?;
+            let raw_const = mo.get("const").unwrap_or(&Value::Null);
+            let constant = if cmp == Cmp::InSet {
+                let arr = raw_const
+                    .as_array()
+                    .ok_or("match: inSet requires an array const")?;
+                MatchConst::Many(
+                    arr.iter()
+                        .map(|v| parse_primitive(v, "match.const"))
+                        .collect::<Result<Vec<_>, _>>()?,
+                )
+            } else if let Some(name) = parse_hole(raw_const)? {
+                MatchConst::Hole(name)
+            } else {
+                let one = parse_primitive(raw_const, "match.const")?;
+                if cmp == Cmp::Prefix && !matches!(one, Primitive::Str(_)) {
+                    return Err("match: prefix requires a string const".to_string());
+                }
+                MatchConst::One(one)
+            };
+            Ok(Pred::Match {
+                field,
+                cmp,
+                constant,
+            })
+        }
+        "hasPointer" => Ok(Pred::HasPointer(parse_ppred(&o["hasPointer"])?)),
+        "and" | "or" => {
+            let arr = o[tag]
                 .as_array()
                 .filter(|a| a.len() == 2)
-                .ok_or_else(|| format!("{key} takes exactly [Pred, Pred] (E1)"))?;
+                .ok_or_else(|| format!("{tag} takes exactly [Pred, Pred] (E1)"))?;
             let left = Box::new(parse_pred(&arr[0])?);
             let right = Box::new(parse_pred(&arr[1])?);
-            return Ok(if is_and {
+            Ok(if tag == "and" {
                 Pred::And(left, right)
             } else {
                 Pred::Or(left, right)
-            });
+            })
+        }
+        "not" => Ok(Pred::Not(Box::new(parse_pred(&o["not"])?))),
+        _ => {
+            let iv = as_object(&o["inView"], "inView", &["term", "field", "extract"])?;
+            let term = parse_term(iv.get("term").unwrap_or(&Value::Null))?;
+            if !matches!(
+                term,
+                Term::Input | Term::Select { .. } | Term::Union { .. } | Term::Mask { .. }
+            ) {
+                return Err(
+                    "inView.term must be a DSet-sort term (input | select | union | mask)"
+                        .to_string(),
+                );
+            }
+            if term_contains_in_view(&term) {
+                return Err(
+                    "inView is stratified: no inView inside inView.term (SPEC-2 §3.1)".to_string(),
+                );
+            }
+            let field = match iv.get("field").and_then(Value::as_str) {
+                Some("author") => Field::Author,
+                Some("id") => Field::Id,
+                _ => return Err("inView.field must be author | id".to_string()),
+            };
+            Ok(Pred::InView {
+                term: Box::new(term),
+                field,
+                extract: parse_extract(iv.get("extract").unwrap_or(&Value::Null))?,
+            })
         }
     }
-    if let Some(n) = o.get("not") {
-        return Ok(Pred::Not(Box::new(parse_pred(n)?)));
-    }
-    if let Some(v) = o.get("inView") {
-        let iv = v.as_object().ok_or("inView: expected object")?;
-        let term = parse_term(iv.get("term").unwrap_or(&Value::Null))?;
-        if !matches!(
-            term,
-            Term::Input | Term::Select { .. } | Term::Union { .. } | Term::Mask { .. }
-        ) {
-            return Err(
-                "inView.term must be a DSet-sort term (input | select | union | mask)".to_string(),
-            );
-        }
-        if term_contains_in_view(&term) {
-            return Err(
-                "inView is stratified: no inView inside inView.term (SPEC-2 §3.1)".to_string(),
-            );
-        }
-        let field = match iv.get("field").and_then(Value::as_str) {
-            Some("author") => Field::Author,
-            Some("id") => Field::Id,
-            _ => return Err("inView.field must be author | id".to_string()),
-        };
-        return Ok(Pred::InView {
-            term: Box::new(term),
-            field,
-            extract: parse_extract(iv.get("extract").unwrap_or(&Value::Null))?,
-        });
-    }
-    Err("pred must be true | false | match | hasPointer | and | or | not | inView".to_string())
 }
 
 fn parse_extract(raw: &Value) -> Result<InViewExtract, String> {
-    let o = raw.as_object().ok_or("inView.extract: expected object")?;
-    if let Some(f) = o.get("field") {
-        return match f.as_str() {
+    let (o, tag) = one_tag(raw, &EXTRACT_TAGS, "inView.extract")?;
+    if tag == "field" {
+        return match o["field"].as_str() {
             Some("author") => Ok(InViewExtract::Author),
             Some("id") => Ok(InViewExtract::Id),
             _ => Err("inView.extract.field must be author | id".to_string()),
         };
     }
-    if let Some(r) = o.get("role").and_then(Value::as_str) {
-        return Ok(InViewExtract::Role(nfc(r)));
-    }
-    Err("inView.extract must be {field: author|id} | {role: string}".to_string())
+    let r = o["role"]
+        .as_str()
+        .ok_or("inView.extract.role must be a string")?;
+    Ok(InViewExtract::Role(nfc(r)))
 }
 
 fn parse_mask_policy(raw: &Value) -> Result<MaskPolicy, String> {
@@ -367,111 +415,106 @@ fn parse_mask_policy(raw: &Value) -> Result<MaskPolicy, String> {
     if raw == "annotate" {
         return Ok(MaskPolicy::Annotate);
     }
-    if let Some(o) = raw.as_object() {
-        if let Some(p) = o.get("trust") {
-            return Ok(MaskPolicy::Trust(parse_pred(p)?));
-        }
-    }
-    Err("mask policy must be drop | annotate | {trust: Pred}".to_string())
+    let (o, _) = one_tag(raw, &["trust"], "mask.policy")?;
+    Ok(MaskPolicy::Trust(parse_pred(&o["trust"])?))
 }
 
 fn parse_order(raw: &Value) -> Result<Order, String> {
     if raw == "lexById" {
         return Ok(Order::LexById);
     }
-    let o = raw.as_object().ok_or("order: expected object")?;
-    if let Some(d) = o.get("byTimestamp") {
-        return match d.as_str() {
+    let (o, tag) = one_tag(raw, &ORDER_TAGS, "order")?;
+    match tag {
+        "byTimestamp" => match o["byTimestamp"].as_str() {
             Some("desc") => Ok(Order::ByTimestamp { desc: true }),
             Some("asc") => Ok(Order::ByTimestamp { desc: false }),
             _ => Err("byTimestamp must be desc | asc".to_string()),
-        };
-    }
-    if let Some(arr) = o.get("byAuthorRank").and_then(Value::as_array) {
-        let authors = arr
-            .iter()
-            .map(|a| {
-                a.as_str()
-                    .map(nfc)
-                    .ok_or("byAuthorRank entries must be strings".to_string())
+        },
+        "byAuthorRank" => {
+            let arr = o["byAuthorRank"]
+                .as_array()
+                .ok_or("byAuthorRank must be an array")?;
+            let authors = arr
+                .iter()
+                .map(|a| {
+                    a.as_str()
+                        .map(nfc)
+                        .ok_or("byAuthorRank entries must be strings".to_string())
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(Order::ByAuthorRank(authors))
+        }
+        "byPred" => {
+            let po = as_object(&o["byPred"], "byPred", &["pred", "then"])?;
+            let pred = parse_pred(po.get("pred").unwrap_or(&Value::Null))?;
+            // Schema predicates are closed: they run inside resolve, after the mask already decided
+            // standing — a reflective order would be a second, unlowered trust surface (SPEC-2 §3.1).
+            if pred_contains_in_view(&pred) {
+                return Err(
+                    "inView is not allowed inside a policy byPred predicate (SPEC-2 §3.1)"
+                        .to_string(),
+                );
+            }
+            Ok(Order::ByPred {
+                pred,
+                then: Box::new(parse_order(po.get("then").unwrap_or(&Value::Null))?),
             })
-            .collect::<Result<Vec<_>, _>>()?;
-        return Ok(Order::ByAuthorRank(authors));
-    }
-    if let Some(bp) = o.get("byPred") {
-        let po = bp.as_object().ok_or("byPred: expected object")?;
-        let pred = parse_pred(po.get("pred").unwrap_or(&Value::Null))?;
-        // Schema predicates are closed: they run inside resolve, after the mask already decided
-        // standing — a reflective order would be a second, unlowered trust surface (SPEC-2 §3.1).
-        if pred_contains_in_view(&pred) {
-            return Err(
-                "inView is not allowed inside a policy byPred predicate (SPEC-2 §3.1)".to_string(),
-            );
         }
-        return Ok(Order::ByPred {
-            pred,
-            then: Box::new(parse_order(po.get("then").unwrap_or(&Value::Null))?),
-        });
-    }
-    if let Some(arr) = o.get("chain").and_then(Value::as_array) {
-        if arr.is_empty() {
-            return Err("chain must name at least one order".to_string());
+        _ => {
+            let arr = o["chain"].as_array().ok_or("chain must be an array")?;
+            if arr.is_empty() {
+                return Err("chain must name at least one order".to_string());
+            }
+            let orders = arr.iter().map(parse_order).collect::<Result<Vec<_>, _>>()?;
+            Ok(Order::Chain(orders))
         }
-        let orders = arr.iter().map(parse_order).collect::<Result<Vec<_>, _>>()?;
-        return Ok(Order::Chain(orders));
     }
-    Err("order must be lexById | byTimestamp | byAuthorRank | byPred | chain".to_string())
 }
 
 fn parse_policy(raw: &Value) -> Result<Policy, String> {
-    let o = raw.as_object().ok_or("propPolicy: expected object")?;
-    if let Some(p) = o.get("pick") {
-        let po = p.as_object().ok_or("pick: expected object")?;
-        return Ok(Policy::Pick(parse_order(
-            po.get("order").unwrap_or(&Value::Null),
-        )?));
+    let (o, tag) = one_tag(raw, &POLICY_TAGS, "propPolicy")?;
+    match tag {
+        "pick" | "all" | "conflicts" => {
+            let po = as_object(&o[tag], tag, &["order"])?;
+            let order = parse_order(po.get("order").unwrap_or(&Value::Null))?;
+            Ok(match tag {
+                "pick" => Policy::Pick(order),
+                "all" => Policy::All(order),
+                _ => Policy::Conflicts(order),
+            })
+        }
+        "merge" => {
+            let fn_ = match o["merge"].as_str() {
+                Some("max") => MergeFn::Max,
+                Some("min") => MergeFn::Min,
+                Some("sum") => MergeFn::Sum,
+                Some("count") => MergeFn::Count,
+                Some("and") => MergeFn::And,
+                Some("or") => MergeFn::Or,
+                Some("concatSorted") => MergeFn::ConcatSorted,
+                other => return Err(format!("unknown merge fn {other:?}")),
+            };
+            Ok(Policy::Merge(fn_))
+        }
+        _ => {
+            let ao = as_object(&o["absentAs"], "absentAs", &["const", "then"])?;
+            Ok(Policy::AbsentAs {
+                constant: parse_primitive(
+                    ao.get("const").unwrap_or(&Value::Null),
+                    "absentAs.const",
+                )?,
+                then: Box::new(parse_policy(ao.get("then").unwrap_or(&Value::Null))?),
+            })
+        }
     }
-    if let Some(p) = o.get("all") {
-        let po = p.as_object().ok_or("all: expected object")?;
-        return Ok(Policy::All(parse_order(
-            po.get("order").unwrap_or(&Value::Null),
-        )?));
-    }
-    if let Some(m) = o.get("merge") {
-        let fn_ = match m.as_str() {
-            Some("max") => MergeFn::Max,
-            Some("min") => MergeFn::Min,
-            Some("sum") => MergeFn::Sum,
-            Some("count") => MergeFn::Count,
-            Some("and") => MergeFn::And,
-            Some("or") => MergeFn::Or,
-            Some("concatSorted") => MergeFn::ConcatSorted,
-            other => return Err(format!("unknown merge fn {other:?}")),
-        };
-        return Ok(Policy::Merge(fn_));
-    }
-    if let Some(c) = o.get("conflicts") {
-        let co = c.as_object().ok_or("conflicts: expected object")?;
-        return Ok(Policy::Conflicts(parse_order(
-            co.get("order").unwrap_or(&Value::Null),
-        )?));
-    }
-    if let Some(a) = o.get("absentAs") {
-        let ao = a.as_object().ok_or("absentAs: expected object")?;
-        return Ok(Policy::AbsentAs {
-            constant: parse_primitive(ao.get("const").unwrap_or(&Value::Null), "absentAs.const")?,
-            then: Box::new(parse_policy(ao.get("then").unwrap_or(&Value::Null))?),
-        });
-    }
-    Err("propPolicy must be pick | all | merge | conflicts | absentAs".to_string())
 }
 
 pub fn parse_schema(raw: &Value) -> Result<Schema, String> {
-    let o = raw.as_object().ok_or("policy: expected object")?;
+    let o = as_object(raw, "schema", &["props", "default", "name", "alg"])?;
     let mut props = std::collections::BTreeMap::new();
     if let Some(ps) = o.get("props") {
-        let po = ps.as_object().ok_or("policy.props: expected object")?;
-        for (k, v) in po {
+        // OPEN by design: the keys are the author's property names, not grammar (issue #25).
+        for (k, v) in as_open_map(ps, "schema.props")? {
             props.insert(nfc(k), parse_policy(v)?);
         }
     }
@@ -492,57 +535,57 @@ fn parse_group_key(raw: &Value) -> Result<GroupKey, String> {
     if raw == "byRole" {
         return Ok(GroupKey::ByRole);
     }
-    if let Some(o) = raw.as_object() {
-        if let Some(s) = o.get("const").and_then(Value::as_str) {
-            return Ok(GroupKey::Const(nfc(s)));
-        }
-    }
-    Err("group key must be byTargetContext | byRole | {const: string}".to_string())
+    let (o, _) = one_tag(raw, &["const"], "group.key")?;
+    let s = o["const"]
+        .as_str()
+        .ok_or("group.key const must be a string")?;
+    Ok(GroupKey::Const(nfc(s)))
 }
 
 fn parse_schema_ref(raw: &Value) -> Result<SchemaRef, String> {
     if let Some(s) = raw.as_str() {
         return Ok(SchemaRef::Name(nfc(s)));
     }
-    if let Some(o) = raw.as_object() {
-        if let Some(h) = o.get("pinned").and_then(Value::as_str) {
-            return Ok(SchemaRef::Pinned(h.to_string()));
-        }
-    }
-    Err("schema ref must be a name string or {pinned: hash} (E13)".to_string())
+    let (o, _) = one_tag(raw, &["pinned"], "schemaRef")?;
+    let h = o["pinned"]
+        .as_str()
+        .ok_or("schema ref must be a name string or {pinned: hash} (E13)")?;
+    Ok(SchemaRef::Pinned(h.to_string()))
 }
 
 pub fn parse_term(raw: &Value) -> Result<Term, String> {
     if raw == "input" {
         return Ok(Term::Input);
     }
-    let o = raw.as_object().ok_or("term: expected object")?;
-    match o.get("op").and_then(Value::as_str) {
-        Some("select") => Ok(Term::Select {
+    // Dispatched node: the `op` is checked first (the §8 tag rule), then the keys are checked
+    // against exactly that operator's row of the closed grammar (issue #25).
+    let (o, tag) = as_dispatched(raw, "term", "op", &TERM_KEYS)?;
+    match tag {
+        "select" => Ok(Term::Select {
             pred: parse_pred(o.get("pred").unwrap_or(&Value::Null))?,
             of: Box::new(parse_term(o.get("in").unwrap_or(&Value::Null))?),
         }),
-        Some("union") => Ok(Term::Union {
+        "union" => Ok(Term::Union {
             left: Box::new(parse_term(o.get("left").unwrap_or(&Value::Null))?),
             right: Box::new(parse_term(o.get("right").unwrap_or(&Value::Null))?),
         }),
-        Some("intersect") => Ok(Term::Intersect {
+        "intersect" => Ok(Term::Intersect {
             left: Box::new(parse_term(o.get("left").unwrap_or(&Value::Null))?),
             right: Box::new(parse_term(o.get("right").unwrap_or(&Value::Null))?),
         }),
-        Some("difference") => Ok(Term::Difference {
+        "difference" => Ok(Term::Difference {
             of: Box::new(parse_term(o.get("of").unwrap_or(&Value::Null))?),
             without: Box::new(parse_term(o.get("without").unwrap_or(&Value::Null))?),
         }),
-        Some("mask") => Ok(Term::Mask {
+        "mask" => Ok(Term::Mask {
             policy: parse_mask_policy(o.get("policy").unwrap_or(&Value::Null))?,
             of: Box::new(parse_term(o.get("in").unwrap_or(&Value::Null))?),
         }),
-        Some("group") => Ok(Term::Group {
+        "group" => Ok(Term::Group {
             key: parse_group_key(o.get("key").unwrap_or(&Value::Null))?,
             of: Box::new(parse_term(o.get("in").unwrap_or(&Value::Null))?),
         }),
-        Some("expand") => Ok(Term::Expand {
+        "expand" => Ok(Term::Expand {
             role: parse_str_match(o.get("role").unwrap_or(&Value::Null), "expand.role")?,
             schema: parse_schema_ref(o.get("schema").unwrap_or(&Value::Null))?,
             // `reading` is required in the current vocabulary (issue #23); legacy bodies without
@@ -553,7 +596,7 @@ pub fn parse_term(raw: &Value) -> Result<Term, String> {
             },
             of: Box::new(parse_term(o.get("in").unwrap_or(&Value::Null))?),
         }),
-        Some("fix") => {
+        "fix" => {
             let entity = o
                 .get("entity")
                 .and_then(Value::as_str)
@@ -561,7 +604,8 @@ pub fn parse_term(raw: &Value) -> Result<Term, String> {
             let bindings = match o.get("bindings") {
                 None => None,
                 Some(b) => {
-                    let bo = b.as_object().ok_or("fix.bindings must be an object")?;
+                    // OPEN by design: the keys are the author's hole names, not grammar (#25).
+                    let bo = as_open_map(b, "fix.bindings")?;
                     let mut out = crate::pred::Bindings::new();
                     for (k, v) in bo {
                         out.insert(nfc(k), parse_primitive(v, &format!("fix.bindings.{k}"))?);
@@ -575,11 +619,11 @@ pub fn parse_term(raw: &Value) -> Result<Term, String> {
                 bindings,
             })
         }
-        Some("resolve") => Ok(Term::Resolve {
+        "resolve" => Ok(Term::Resolve {
             schema: parse_schema(o.get("schema").unwrap_or(&Value::Null))?,
             of: Box::new(parse_term(o.get("in").unwrap_or(&Value::Null))?),
         }),
-        Some("prune") => {
+        "prune" => {
             let keep_raw = o.get("keep").unwrap_or(&Value::Null);
             let keep = if keep_raw == "all" {
                 PruneKeep::All
@@ -591,6 +635,7 @@ pub fn parse_term(raw: &Value) -> Result<Term, String> {
                 of: Box::new(parse_term(o.get("in").unwrap_or(&Value::Null))?),
             })
         }
+        // as_dispatched already rejected every tag outside TERM_KEYS.
         other => Err(format!("unknown term op {other:?}")),
     }
 }

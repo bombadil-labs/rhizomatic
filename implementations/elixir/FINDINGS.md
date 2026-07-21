@@ -137,3 +137,30 @@ census is complete.
 3. **Expected envelope/member/loose counts** in `pack.json` — the file pins bytes, not the
    intermediate partition; a `packJson`-style debug rendering next to `packHex` would let a
    witness localize a mismatch without decoding CBOR by hand.
+
+## F10 — This witness was already fail-closed on keys; the two older witnesses were not (issue #25)
+
+Added 2026-07-19, after the fact — the finding was produced by this witness's *existence* rather
+than by its bring-up.
+
+When issue #25 tightened parsing across the repo (unknown object keys and ambiguous target
+discriminators become rejections, SPEC-2 §8 / SPEC-1 §4.2, ERRATA-2 E19), all eight new L0 vectors
+passed here **before this witness was touched**. It had been closed by construction since day one:
+arity guards on `claims` and `pointer`, explicit key-set subtraction on each target arm. Reading
+the spec cold, leniency never suggested itself.
+
+TS and Rust — both written by the hand that wrote the spec — silently dropped unknown keys and
+resolved multi-discriminator targets by declaration order, because SPEC-1 §4.2 said "first match
+wins" and SPEC-2 §8 enumerated only *tags*. The laxity was in the spec, and the two witnesses that
+grew up alongside it inherited it invisibly.
+
+This is the #19 experiment paying out in the direction nobody planned for. The thesis was "a third
+witness will expose places the conformance suite is insufficient to conform to." What it actually
+exposed was a place the suite was *permissive enough to encode a bad habit* — and the outsider,
+having no habit, was stricter and right. Worth remembering that the value of an independent
+witness is not only the failures it reports.
+
+(One real defect did surface here under review: the ambiguity *diagnosis* still reflected
+first-match-wins — `{"id": …, "delta": …}` was reported as an entity ref carrying a stray key
+rather than as a target with no kind. Rejected either way, so the accept/reject boundary never
+moved, but the error named the wrong finding. Fixed in the same change.)
