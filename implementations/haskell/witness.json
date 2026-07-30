@@ -1,0 +1,7 @@
+{
+  "witness": "haskell",
+  "language": "Haskell",
+  "conformanceLevel": 0,
+  "levelNote": "SPEC-0 §5.1: L0 format — parse, canonically serialize, content-address, sign/verify, pack",
+  "checks": [{ "label": "tests", "command": "node check.mjs" }]
+}

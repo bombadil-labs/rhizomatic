@@ -173,6 +173,7 @@ Filled in as each implementation is scaffolded.
 - Parity (every witness, one command): `node tools/check-all.mjs` from the repo root — discovers
   witnesses from `implementations/*/witness.json`; pass names to filter (`node tools/check-all.mjs ts elixir`)
 - Elixir: `cd implementations/elixir && mix test`
+- Haskell: `cd implementations/haskell && node check.mjs` (needs GHC ≥ 9.4 on PATH; no cabal, no deps)
 - ADLC: tickets live in `.adlc/tickets.json` (synced to GitHub issues). Sync with
   `adlc-ticket-sync pull|push --write`, health-check with `adlc-ticket-sync doctor`, and gate
   executability with `adlc coldstart '<id>' --prompt-only`. See the **ADLC** section above.

@@ -17,7 +17,7 @@ import Data.Bits (shiftL, shiftR, (.&.), (.|.))
 import Data.List (sortOn)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
-import Data.Word (Word8, Word16, Word32, Word64)
+import Data.Word (Word8, Word16, Word64)
 import GHC.Float (castDoubleToWord64, castWord64ToDouble, castFloatToWord32, castWord32ToFloat, double2Float, float2Double)
 
 data Item

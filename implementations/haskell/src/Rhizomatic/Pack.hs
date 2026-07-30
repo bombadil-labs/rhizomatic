@@ -15,7 +15,7 @@ module Rhizomatic.Pack (PackedDelta (..), buildPack, unpackPack, packIdHex) wher
 import qualified Data.ByteString as B
 import Data.List (elemIndex, sortOn)
 import qualified Data.Map.Strict as M
-import Data.Maybe (fromMaybe, mapMaybe)
+import Data.Maybe (fromMaybe)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import Rhizomatic.Blake3 (blake3)
@@ -45,7 +45,6 @@ buildPack deltas = do
   -- a delta set is a set: dedup by id (keep the first occurrence)
   let withIds = dedupOn snd withIds0
       envelopes = sortOn snd [x | x@(pd, _) <- withIds, isManifest (pdClaims pd)]
-      envelopeIds = map snd envelopes
       -- member id -> index of the lexicographically first claiming manifest
       claimedBy =
         M.fromListWith min

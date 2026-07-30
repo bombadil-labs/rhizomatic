@@ -41,8 +41,12 @@ setDigestTests :: IO [Test]
 setDigestTests = do
   JObj fields <- loadVectors "l0-delta/set-digest.json"
   JArr deltaCases <- loadVectors "l0-delta/deltas.json"
-  let Just (JArr idVals) = lookup "ids" fields
-      Just (JStr digestT) = lookup "digest" fields
+  let idVals = case lookup "ids" fields of
+        Just (JArr xs) -> xs
+        _ -> error "set-digest.json: ids missing"
+      digestT = case lookup "digest" fields of
+        Just (JStr t) -> t
+        _ -> error "set-digest.json: digest missing"
       pinnedIds = [T.unpack t | JStr t <- idVals]
       computedIds =
         [ either (\e -> "ERROR: " ++ e) id (claimsFromJson claimsJson >>= deltaIdHex)
@@ -61,9 +65,15 @@ setDigestTests = do
 packTests :: String -> IO [Test]
 packTests file = do
   JObj fields <- loadVectors file
-  let Just (JArr deltaVals) = lookup "deltas" fields
-      Just (JStr packHexT) = lookup "packHex" fields
-      Just (JStr packIdT) = lookup "packId" fields
+  let deltaVals = case lookup "deltas" fields of
+        Just (JArr xs) -> xs
+        _ -> error (file ++ ": deltas missing")
+      packHexT = case lookup "packHex" fields of
+        Just (JStr t) -> t
+        _ -> error (file ++ ": packHex missing")
+      packIdT = case lookup "packId" fields of
+        Just (JStr t) -> t
+        _ -> error (file ++ ": packId missing")
   case mapM packedFromJson deltaVals of
     Left err -> pure [failure "parse-deltas" err]
     Right pds ->
