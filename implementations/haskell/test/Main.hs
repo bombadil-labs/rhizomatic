@@ -8,10 +8,12 @@ import Harness
 import Rhizomatic.Blake3 (blake3)
 import Rhizomatic.Cbor (Item (..), decode, encode)
 import Rhizomatic.Delta (canonicalBytes, deltaIdHex)
+import Rhizomatic.Ed25519 (derivePublicKey)
 import Rhizomatic.Hex (decodeHex, encodeHex)
 import Rhizomatic.Json (JValue (..), parseJson)
 import Rhizomatic.Nfc (isNfc)
 import Rhizomatic.Profile (claimsFromJson)
+import Rhizomatic.Signer (signDelta, verifyDelta)
 
 main :: IO ()
 main =
@@ -22,8 +24,86 @@ main =
       ("boundary", pure boundaryTests),
       ("deltas", deltaFileTests "l0-delta/deltas.json"),
       ("deltas-bytes", deltaFileTests "l0-delta/deltas-bytes.json"),
-      ("deltas-invalid", deltasInvalidTests)
+      ("deltas-invalid", deltasInvalidTests),
+      ("keys", keysTests),
+      ("deltas-signed", deltasSignedTests),
+      ("deltas-sig-edge", sigEdgeTests)
     ]
+
+-- keys.json: derive each public key from its seed and match the pinned bytes.
+keysTests :: IO [Test]
+keysTests = do
+  JArr keys <- loadVectors "keys/keys.json"
+  pure (map keyCase keys)
+  where
+    keyCase (JObj fields) =
+      case (lookup "keyId" fields, lookup "seedHex" fields, lookup "publicKeyHex" fields, lookup "author" fields) of
+        (Just (JStr kid), Just (JStr seedT), Just (JStr pubT), Just (JStr authorT)) ->
+          let n = T.unpack kid
+           in case decodeHex (T.unpack seedT) of
+                Left err -> failure n err
+                Right seed ->
+                  let pubHex = encodeHex (derivePublicKey seed)
+                   in ( n,
+                        if pubHex == T.unpack pubT && T.unpack authorT == "ed25519:" ++ pubHex
+                          then Right ()
+                          else Left ("derived " ++ pubHex ++ ", pinned " ++ T.unpack pubT)
+                      )
+        _ -> failure "key-case" "malformed vector entry"
+    keyCase _ = failure "key-case" "vector entry is not an object"
+
+-- deltas-signed.json: canonical bytes and id as usual, then *reproduce* the
+-- pinned deterministic signature bytes from the named key, then verify.
+deltasSignedTests :: IO [Test]
+deltasSignedTests = do
+  JArr keys <- loadVectors "keys/keys.json"
+  let seeds = [(kid, seedT) | JObj f <- keys, Just (JStr kid) <- [lookup "keyId" f], Just (JStr seedT) <- [lookup "seedHex" f]]
+  JArr cases <- loadVectors "l0-delta/deltas-signed.json"
+  pure (concatMap (signedCase seeds) cases)
+  where
+    signedCase seeds (JObj fields) =
+      case (lookup "name" fields, lookup "keyId" fields, lookup "claims" fields, lookup "canonicalCborHex" fields, lookup "id" fields, lookup "sig" fields) of
+        (Just (JStr nameT), Just (JStr kid), Just claimsJson, Just (JStr hexT), Just (JStr idT), Just (JStr sigT)) ->
+          let n = T.unpack nameT
+           in case (claimsFromJson claimsJson, lookup kid seeds) of
+                (Left err, _) -> [failure n ("claims rejected: " ++ err)]
+                (_, Nothing) -> [failure n ("unknown keyId " ++ T.unpack kid)]
+                (Right claims, Just seedT) ->
+                  case decodeHex (T.unpack seedT) of
+                    Left err -> [failure n err]
+                    Right seed ->
+                      [ expectEq (n ++ "/canonical-bytes") (encodeHex <$> canonicalBytes claims) (Right (T.unpack hexT)),
+                        expectEq (n ++ "/id") (deltaIdHex claims) (Right (T.unpack idT)),
+                        expectEq (n ++ "/sig-reproduced") (signDelta seed claims) (Right (T.unpack sigT)),
+                        expectEq (n ++ "/verifies") (verifyDelta claims (T.unpack idT) (T.unpack sigT)) (Right True)
+                      ]
+        _ -> [failure "signed-case" "malformed vector entry"]
+    signedCase _ _ = [failure "signed-case" "vector entry is not an object"]
+
+-- deltas-sig-edge.json: the §5.1 strict criterion, clause by clause.
+sigEdgeTests :: IO [Test]
+sigEdgeTests = do
+  JArr cases <- loadVectors "l0-delta/deltas-sig-edge.json"
+  pure (map edgeCase cases)
+  where
+    edgeCase (JObj fields) =
+      case (lookup "name" fields, lookup "claims" fields, lookup "id" fields, lookup "sig" fields, lookup "verdict" fields) of
+        (Just (JStr nameT), Just claimsJson, Just (JStr idT), Just (JStr sigT), Just (JStr verdictT)) ->
+          let n = T.unpack nameT
+              want = verdictT == "verified"
+           in case claimsFromJson claimsJson of
+                Left err -> failure n ("claims rejected: " ++ err)
+                Right claims ->
+                  case verifyDelta claims (T.unpack idT) (T.unpack sigT) of
+                    Left err -> failure n ("verification errored: " ++ err)
+                    Right got ->
+                      ( n,
+                        if got == want
+                          then Right ()
+                          else Left ("verdict " ++ show got ++ ", vector pins " ++ show want)
+                      )
+        _ -> failure "sig-edge-case" "malformed vector entry"
+    edgeCase _ = failure "sig-edge-case" "vector entry is not an object"
 
 -- BLAKE3 known answers (input = the reference suite's repeating 0..250 byte
 -- pattern; digests cross-checked against the official blake3 implementation),
