@@ -35,7 +35,7 @@ lib/rhizomatic/
   signer.ex      author↔key match on sign; verify = id recomputes, then strict Ed25519
   set_digest.ex  provisional D10 membership digest
   pack.ex        SPEC-8 L0 pack: build (byte-deterministic) + unpack (fsck on every record)
-test/            one file per vector family + boundary_test.exs (D14 native-int, D11 NFC)
+test/            one file per vector family + boundary_test.exs (D14 native-int, D16 byte-honest strings)
 test/support/vectors.ex   loads ../../vectors/*.json via built-in JSON
 ```
 
@@ -46,7 +46,7 @@ test/support/vectors.ex   loads ../../vectors/*.json via built-in JSON
   or bytes, and `42`/`42.0` are distinct terms — the AST makes both distinctions explicit.
   D14 is enforced twice: `Delta.validate` rejects native integer terms; `Cbor.encode` only
   accepts `{:float, f}` with an actual float.
-- **NFC** via OTP's `:unicode` tables (see FINDINGS F9 / SPEC-1 ERRATA D15).
+- **Byte-honest strings** (D16): no NFC validation; `String.valid?` still gates that text fields are valid UTF-8 (a BEAM binary can be arbitrary bytes).
 - Pure functions, no I/O in `lib/`; only tests touch the filesystem.
 - Crypto split: OTP `:crypto` for Ed25519 *signing* + SHA-512 (deterministic, criterion-free);
   verification and BLAKE3 are hand-rolled from their specs. Correctness over speed everywhere.

@@ -8,11 +8,10 @@ import qualified Data.Text as T
 import Harness
 import Rhizomatic.Blake3 (blake3)
 import Rhizomatic.Cbor (Item (..), decode, encode)
-import Rhizomatic.Delta (canonicalBytes, deltaIdHex)
+import Rhizomatic.Delta (Claims (..), Pointer (..), Target (..), canonicalBytes, deltaIdHex)
 import Rhizomatic.Ed25519 (derivePublicKey)
 import Rhizomatic.Hex (decodeHex, encodeHex)
 import Rhizomatic.Json (JValue (..), parseJson)
-import Rhizomatic.Nfc (isNfc)
 import Rhizomatic.Pack (PackedDelta (..), buildPack, packIdHex, unpackPack)
 import Rhizomatic.Profile (claimsFromJson)
 import Rhizomatic.SetDigest (setDigestHex)
@@ -203,9 +202,15 @@ blake3Tests =
 -- Host-boundary policies a JSON file cannot express (vectors/README.md §3).
 boundaryTests :: [Test]
 boundaryTests =
-  [ expect "non-nfc-is-detected" (not (isNfc "e\x0301")) "e + combining acute accepted as NFC",
-    expect "nfc-is-accepted" (isNfc "\x00e9") "precomposed \233 rejected",
-    expect "hangul-nfc" (isNfc "\xac00" && not (isNfc "\x1100\x1161")) "Hangul composition wrong",
+  [ -- D16: byte-honest strings — both spellings admitted, as two distinct claims
+    expect
+      "byte-honest-spellings-distinct"
+      ( let mk r = deltaIdHex (Claims 0 "a" [Pointer r (TBool True)])
+         in case (mk "caf\x00e9", mk "cafe\x0301") of
+              (Right a, Right b) -> a /= b
+              _ -> False
+      )
+      "decomposed spelling rejected or spellings collided",
     -- D14: native integer terms cannot reach claim construction in this
     -- witness — the claims number type is Double; there is no Integer
     -- constructor. The profile half (integer token = float spelling) is

@@ -1,5 +1,24 @@
 # Progress
 
+> **RESUME HERE (2026-07-30, night). D15 DISSOLVED: BYTE-HONEST STRINGS (issue #36; D16, E22):**
+>
+> - **Decision (Myk):** NFC demoted from validated MUST to authoring hygiene. L1 admits any
+>   valid UTF-8; bytes are bytes; canonically-equivalent spellings are two claims (the D12
+>   mime-case honesty, uniform). P5 fully intact — and the kernel is now
+>   **Unicode-version-independent**: no witness ships tables (Rust dropped
+>   unicode-normalization; Haskell deleted its generated UCD module; Elixir keeps only
+>   String.valid?; TS encoder/parser stopped normalizing).
+> - **Why:** the D15 seam was a machine-dependent admission split (newer tables reject what
+>   older admitted) with real UX (macOS NFD filenames) and no compensating security. Worst case
+>   under byte-honesty is data quality, not divergence — remedies pre-existed (aliases, lint,
+>   conflicts visibility). Consumer playbook tiered in SPEC-5 §6; authoring SHOULD in SPEC-4 §6.
+> - **Vectors:** author-not-nfc removed from deltas-invalid (34→33); unicode-non-nfc-spelling
+>   positive case added (distinct id from composed sibling); set-digest regenerated accordingly.
+>   All four witnesses updated; Elixir verified in CI (no local mix).
+> - **Watch for:** peers on ≤0.10.0 fail closed on newly-legal deltas (version-skew, by design).
+>
+> ---
+
 > **RESUME HERE (2026-07-30, latest). `all(distinct)` SHIPPED (issue #33; SPEC-5 §3/§7, R9,
 > `eval-distinct.json`):**
 >

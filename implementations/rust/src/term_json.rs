@@ -1,8 +1,8 @@
 //! Parse the JSON term profile (ERRATA-2 E1) into Term/Pred. Mirrors ../ts/src/term-json.ts.
-//! Strings are NFC-normalized at parse time.
+//! Strings pass through byte-honest — no parse-time normalization (D16): a normalized term
+//! would silently change which data it matches. Authors SHOULD write NFC (SPEC-5 §6).
 
 use serde_json::Value;
-use unicode_normalization::UnicodeNormalization;
 
 use crate::eval::{term_contains_in_view, GroupKey, MaskPolicy, PruneKeep, SchemaRef, Term};
 use crate::pred::{
@@ -47,19 +47,19 @@ fn parse_hole(v: &Value) -> Result<Option<String>, String> {
                 .get("hole")
                 .and_then(Value::as_str)
                 .ok_or("hole name must be a string")?;
-            Ok(Some(nfc(name)))
+            Ok(Some(owned(name)))
         }
         _ => Ok(None),
     }
 }
 
-fn nfc(s: &str) -> String {
-    s.nfc().collect()
+fn owned(s: &str) -> String {
+    s.to_string()
 }
 
 fn parse_primitive(v: &Value, what: &str) -> Result<Primitive, String> {
     match v {
-        Value::String(s) => Ok(Primitive::Str(nfc(s))),
+        Value::String(s) => Ok(Primitive::Str(owned(s))),
         Value::Bool(b) => Ok(Primitive::Bool(*b)),
         Value::Number(_) => {
             let n = v.as_f64().ok_or_else(|| format!("{what}: bad number"))?;
@@ -91,12 +91,16 @@ fn parse_cmp(v: &Value, what: &str) -> Result<Cmp, String> {
 fn parse_str_match(v: &Value, what: &str) -> Result<StrMatch, String> {
     let (o, tag) = one_tag(v, &STR_MATCH_TAGS, what)?;
     match tag {
-        "exact" => Ok(StrMatch::Exact(nfc(o["exact"]
-            .as_str()
-            .ok_or_else(|| format!("{what}: exact must be a string"))?))),
-        "prefix" => Ok(StrMatch::Prefix(nfc(o["prefix"]
-            .as_str()
-            .ok_or_else(|| format!("{what}: prefix must be a string"))?))),
+        "exact" => {
+            Ok(StrMatch::Exact(owned(o["exact"].as_str().ok_or_else(
+                || format!("{what}: exact must be a string"),
+            )?)))
+        }
+        "prefix" => {
+            Ok(StrMatch::Prefix(owned(o["prefix"].as_str().ok_or_else(
+                || format!("{what}: prefix must be a string"),
+            )?)))
+        }
         "inSet" => {
             let arr = o["inSet"]
                 .as_array()
@@ -105,7 +109,7 @@ fn parse_str_match(v: &Value, what: &str) -> Result<StrMatch, String> {
                 .iter()
                 .map(|s| {
                     s.as_str()
-                        .map(nfc)
+                        .map(owned)
                         .ok_or_else(|| format!("{what}: inSet members must be strings"))
                 })
                 .collect::<Result<Vec<_>, _>>()?;
@@ -120,13 +124,13 @@ fn parse_str_match(v: &Value, what: &str) -> Result<StrMatch, String> {
             let name = ao
                 .get("name")
                 .and_then(Value::as_str)
-                .map(nfc)
+                .map(owned)
                 .ok_or_else(|| format!("{what}: aliased.name must be a string"))?;
             let via = match ao.get("via") {
                 None => None,
                 Some(v) => Some(
                     v.as_str()
-                        .map(nfc)
+                        .map(owned)
                         .ok_or_else(|| format!("{what}: aliased.via must be an entity id"))?,
                 ),
             };
@@ -263,7 +267,7 @@ fn parse_ppred(v: &Value) -> Result<PPred, String> {
     }
     if let Some(e) = o.get("targetEntity") {
         out.target_entity = Some(if let Some(s) = e.as_str() {
-            EntityMatch::Const(nfc(s))
+            EntityMatch::Const(owned(s))
         } else if let Some(name) = parse_hole(e)? {
             EntityMatch::Hole(name)
         } else {
@@ -405,7 +409,7 @@ fn parse_extract(raw: &Value) -> Result<InViewExtract, String> {
     let r = o["role"]
         .as_str()
         .ok_or("inView.extract.role must be a string")?;
-    Ok(InViewExtract::Role(nfc(r)))
+    Ok(InViewExtract::Role(owned(r)))
 }
 
 fn parse_mask_policy(raw: &Value) -> Result<MaskPolicy, String> {
@@ -438,7 +442,7 @@ fn parse_order(raw: &Value) -> Result<Order, String> {
                 .iter()
                 .map(|a| {
                     a.as_str()
-                        .map(nfc)
+                        .map(owned)
                         .ok_or("byAuthorRank entries must be strings".to_string())
                 })
                 .collect::<Result<Vec<_>, _>>()?;
@@ -529,7 +533,7 @@ pub fn parse_schema(raw: &Value) -> Result<Schema, String> {
     if let Some(ps) = o.get("props") {
         // OPEN by design: the keys are the author's property names, not grammar (issue #25).
         for (k, v) in as_open_map(ps, "schema.props")? {
-            props.insert(nfc(k), parse_policy(v)?);
+            props.insert(owned(k), parse_policy(v)?);
         }
     }
     Ok(Schema {
@@ -537,7 +541,7 @@ pub fn parse_schema(raw: &Value) -> Result<Schema, String> {
         default: parse_policy(o.get("default").unwrap_or(&Value::Null))?,
         // Optional identity for a named/self-hosting Schema (SPEC-3 ERRATA S6); absent on inline
         // resolve-term schemas.
-        name: o.get("name").and_then(|v| v.as_str()).map(nfc),
+        name: o.get("name").and_then(|v| v.as_str()).map(owned),
         alg: o.get("alg").and_then(|v| v.as_f64()),
     })
 }
@@ -553,12 +557,12 @@ fn parse_group_key(raw: &Value) -> Result<GroupKey, String> {
     let s = o["const"]
         .as_str()
         .ok_or("group.key const must be a string")?;
-    Ok(GroupKey::Const(nfc(s)))
+    Ok(GroupKey::Const(owned(s)))
 }
 
 fn parse_schema_ref(raw: &Value) -> Result<SchemaRef, String> {
     if let Some(s) = raw.as_str() {
-        return Ok(SchemaRef::Name(nfc(s)));
+        return Ok(SchemaRef::Name(owned(s)));
     }
     let (o, _) = one_tag(raw, &["pinned"], "schemaRef")?;
     let h = o["pinned"]
@@ -622,14 +626,14 @@ pub fn parse_term(raw: &Value) -> Result<Term, String> {
                     let bo = as_open_map(b, "fix.bindings")?;
                     let mut out = crate::pred::Bindings::new();
                     for (k, v) in bo {
-                        out.insert(nfc(k), parse_primitive(v, &format!("fix.bindings.{k}"))?);
+                        out.insert(owned(k), parse_primitive(v, &format!("fix.bindings.{k}"))?);
                     }
                     Some(out)
                 }
             };
             Ok(Term::Fix {
                 schema: parse_schema_ref(o.get("schema").unwrap_or(&Value::Null))?,
-                entity: nfc(entity),
+                entity: owned(entity),
                 bindings,
             })
         }

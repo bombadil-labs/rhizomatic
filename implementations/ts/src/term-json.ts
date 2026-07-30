@@ -1,5 +1,6 @@
-// Parse the JSON term profile (ERRATA-2 E1) into Term/Pred. Strings are NFC-normalized at parse
-// time so term-side comparisons are NFC-vs-NFC (data strings are NFC by validation, D11).
+// Parse the JSON term profile (ERRATA-2 E1) into Term/Pred. Strings pass through byte-honest —
+// no parse-time normalization (D16): a normalized term would silently change which data it
+// matches. Authors SHOULD write NFC (authoring hygiene, SPEC-5 §6).
 
 import {
   termContainsInView,
@@ -48,12 +49,8 @@ const ORDER_TAGS = ["byTimestamp", "byAuthorRank", "byPred", "chain"] as const;
 const POLICY_TAGS = ["pick", "all", "merge", "conflicts", "absentAs"] as const;
 const EXTRACT_TAGS = ["field", "role"] as const;
 
-function nfc(s: string): string {
-  return s.normalize("NFC");
-}
-
 function parsePrimitive(v: unknown, what: string): Primitive {
-  if (typeof v === "string") return nfc(v);
+  if (typeof v === "string") return v;
   if (typeof v === "boolean") return v;
   if (typeof v === "number") {
     if (!Number.isFinite(v)) throw new Error(`${what}: numeric constant must be finite`);
@@ -70,7 +67,7 @@ function parseHole(v: unknown): Hole | undefined {
   if (!("hole" in (v as Record<string, unknown>))) return undefined;
   const o = asObject(v, "hole", ["hole"]);
   if (typeof o["hole"] !== "string") throw new Error("hole name must be a string");
-  return { kind: "hole", name: nfc(o["hole"]) };
+  return { kind: "hole", name: o["hole"] };
 }
 
 function parseParam(v: unknown, what: string): Primitive | Hole {
@@ -88,11 +85,11 @@ function parseStrMatch(raw: unknown, what: string): StrMatch {
   const { o, tag } = oneTag(raw, STR_MATCH_TAGS, what);
   if (tag === "exact") {
     if (typeof o["exact"] !== "string") throw new Error(`${what}: exact must be a string`);
-    return { kind: "exact", value: nfc(o["exact"]) };
+    return { kind: "exact", value: o["exact"] };
   }
   if (tag === "prefix") {
     if (typeof o["prefix"] !== "string") throw new Error(`${what}: prefix must be a string`);
-    return { kind: "prefix", value: nfc(o["prefix"]) };
+    return { kind: "prefix", value: o["prefix"] };
   }
   if (tag === "inSet") {
     if (!Array.isArray(o["inSet"])) throw new Error(`${what}: inSet must be an array`);
@@ -100,18 +97,18 @@ function parseStrMatch(raw: unknown, what: string): StrMatch {
       kind: "inSet",
       values: o["inSet"].map((s) => {
         if (typeof s !== "string") throw new Error(`${what}: inSet members must be strings`);
-        return nfc(s);
+        return s;
       }),
     };
   }
   {
     const a = asObject(o["aliased"], `${what}.aliased`, ["name", "via", "trust"]);
     if (typeof a["name"] !== "string") throw new Error(`${what}: aliased.name must be a string`);
-    const out: { name: string; via?: string; trust?: Pred } = { name: nfc(a["name"]) };
+    const out: { name: string; via?: string; trust?: Pred } = { name: a["name"] };
     if (a["via"] !== undefined) {
       if (typeof a["via"] !== "string")
         throw new Error(`${what}: aliased.via must be an entity id`);
-      out.via = nfc(a["via"]);
+      out.via = a["via"];
     }
     if (a["trust"] !== undefined) {
       const trust = parsePred(a["trust"]);
@@ -209,7 +206,7 @@ function parsePPred(raw: unknown): PPred {
   if (o["targetEntity"] !== undefined) {
     const te = o["targetEntity"];
     if (typeof te === "string") {
-      out.targetEntity = { kind: "const", id: nfc(te) };
+      out.targetEntity = { kind: "const", id: te };
     } else {
       const hole = parseHole(te);
       if (hole !== undefined) {
@@ -304,7 +301,7 @@ function parseExtract(raw: unknown): InViewExtract {
     return { kind: "field", field: o["field"] };
   }
   if (typeof o["role"] !== "string") throw new Error("inView.extract.role must be a string");
-  return { kind: "role", role: nfc(o["role"]) };
+  return { kind: "role", role: o["role"] };
 }
 
 function parseMaskPolicy(raw: unknown): MaskPolicy {
@@ -331,7 +328,7 @@ function parseOrder(raw: unknown): Order {
       kind: "byAuthorRank",
       authors: o["byAuthorRank"].map((a) => {
         if (typeof a !== "string") throw new Error("byAuthorRank entries must be strings");
-        return nfc(a);
+        return a;
       }),
     };
   }
@@ -395,11 +392,11 @@ export function parseSchema(raw: unknown): Schema {
   if (o["props"] !== undefined) {
     // OPEN by design: the keys are the author's property names, not grammar (issue #25).
     for (const [k, v] of Object.entries(asOpenMap(o["props"], "schema.props"))) {
-      props.set(nfc(k), parsePolicy(v));
+      props.set(k, parsePolicy(v));
     }
   }
   // name/alg optional (SPEC-3 ERRATA S6): present on a named/self-hosting Schema, absent inline.
-  const name = typeof o["name"] === "string" ? nfc(o["name"]) : undefined;
+  const name = typeof o["name"] === "string" ? o["name"] : undefined;
   const alg = typeof o["alg"] === "number" ? o["alg"] : undefined;
   return {
     props,
@@ -414,11 +411,11 @@ function parseGroupKey(raw: unknown): GroupKey {
   if (raw === "byRole") return { kind: "byRole" };
   const { o } = oneTag(raw, ["const"], "group.key");
   if (typeof o["const"] !== "string") throw new Error("group.key const must be a string");
-  return { kind: "const", prop: nfc(o["const"]) };
+  return { kind: "const", prop: o["const"] };
 }
 
 function parseSchemaRef(raw: unknown): SchemaRefT {
-  if (typeof raw === "string") return { kind: "name", name: nfc(raw) };
+  if (typeof raw === "string") return { kind: "name", name: raw };
   const { o } = oneTag(raw, ["pinned"], "schemaRef");
   if (typeof o["pinned"] !== "string") {
     throw new Error("schema ref must be a name string or {pinned: hash} (E13)");
@@ -461,14 +458,14 @@ export function parseTerm(raw: unknown): Term {
       const fix = {
         kind: "fix" as const,
         schema: parseSchemaRef(o["schema"]),
-        entity: nfc(o["entity"]),
+        entity: o["entity"],
       };
       if (o["bindings"] === undefined) return fix;
       // OPEN by design: the keys are the author's hole names, not grammar (issue #25).
       const bo = asOpenMap(o["bindings"], "fix.bindings");
       const bindings = new Map<string, Primitive>();
       for (const key of Object.keys(bo).sort()) {
-        bindings.set(nfc(key), parsePrimitive(bo[key], `fix.bindings.${key}`));
+        bindings.set(key, parsePrimitive(bo[key], `fix.bindings.${key}`));
       }
       return { ...fix, bindings };
     }

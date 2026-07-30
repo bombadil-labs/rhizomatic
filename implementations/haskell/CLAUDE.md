@@ -34,8 +34,6 @@ src/Rhizomatic/
                     (D13) — never a library default
   Base64Url.hs      canonical unpadded base64url (reject, never repair)
   Hex.hs            lowercase hex at boundaries
-  Nfc.hs            NFC validation by full normalize-and-compare (UAX #15)
-  UnicodeTables.hs  GENERATED — ccc / decompositions / primary composites (see gen/)
   Delta.hs          typed Claims/Pointer/Target AST, boundary validation, canonical bytes, id
   Profile.hs        JSON debug profile -> Claims; closed profile (issue #25), the ONE blessed
                     int-token -> float point (D14)
@@ -43,7 +41,6 @@ src/Rhizomatic/
   SetDigest.hs      provisional D10 membership digest
   Pack.hs           SPEC-8 L0 pack: byte-deterministic build + fsck-on-unpack
 test/Main.hs        one suite per vector family + boundary tests; Harness.hs is the runner
-gen/                gen_unicode_tables.py — regenerates UnicodeTables.hs (committed output)
 ```
 
 ## Conventions (this witness)
@@ -58,9 +55,9 @@ gen/                gen_unicode_tables.py — regenerates UnicodeTables.hs (comm
   no library-signing/hand-verify split; both directions are transcriptions of their specs.
   Correctness over speed everywhere; the whole suite runs in well under a second compiled.
 - Pure functions, no I/O in `src/`; only the test harness touches the filesystem.
-- NFC tables are generated from the build host's Python `unicodedata` (UCD version pinned in
-  the generated header — ERRATA D15). Regenerate only deliberately: `cd gen && python3
-  gen_unicode_tables.py ../src/Rhizomatic/UnicodeTables.hs`, then rerun the green-gate.
+- **No Unicode tables** (D16, issue #36): strings are byte-honest; the generated UCD table
+  module and its generator were deleted when NFC demoted to authoring hygiene. The kernel is
+  Unicode-version-independent — this witness ships zero Unicode data.
 
 ## Gotchas learned during bring-up
 

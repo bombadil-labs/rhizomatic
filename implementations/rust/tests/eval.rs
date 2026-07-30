@@ -314,33 +314,27 @@ proptest! {
     }
 }
 
-// --- NFC boundary (ERRATA D11) -----------------------------------------------------------------------
+// --- byte-honest strings (ERRATA D16: NFC demoted to authoring hygiene) --------------------------
 
 #[test]
-fn rejects_decomposed_role() {
-    let decomposed = "cafe\u{0301}"; // NFD form of café
-    let claims = Claims {
-        timestamp: 0.0,
-        author: "a".to_string(),
-        pointers: vec![Pointer {
-            role: decomposed.to_string(),
-            target: Target::Primitive(Primitive::Num(1.0)),
-        }],
+fn admits_both_spellings_as_distinct_claims() {
+    let mk = |role: &str| {
+        make_delta(
+            Claims {
+                timestamp: 0.0,
+                author: "a".to_string(),
+                pointers: vec![Pointer {
+                    role: role.to_string(),
+                    target: Target::Primitive(Primitive::Num(1.0)),
+                }],
+            },
+            None,
+        )
+        .unwrap()
     };
-    let err = make_delta(claims, None).unwrap_err();
-    assert!(err.contains("NFC"), "got: {err}");
-}
-
-#[test]
-fn accepts_composed_role() {
-    let composed = "caf\u{e9}"; // NFC form of café
-    let claims = Claims {
-        timestamp: 0.0,
-        author: "a".to_string(),
-        pointers: vec![Pointer {
-            role: composed.to_string(),
-            target: Target::Primitive(Primitive::Num(1.0)),
-        }],
-    };
-    assert!(make_delta(claims, None).unwrap().id.starts_with("1e20"));
+    let composed = mk("caf\u{e9}");
+    let decomposed = mk("cafe\u{0301}"); // NFD spelling: different bytes, different claim (D16)
+    assert!(composed.id.starts_with("1e20"));
+    assert!(decomposed.id.starts_with("1e20"));
+    assert_ne!(composed.id, decomposed.id);
 }

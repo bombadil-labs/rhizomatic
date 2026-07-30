@@ -135,7 +135,7 @@ const utf8 = new TextEncoder();
 function encodeInto(sink: ByteSink, val: CborValue): void {
   switch (val.t) {
     case "tstr": {
-      const bytes = utf8.encode(val.v.normalize("NFC"));
+      const bytes = utf8.encode(val.v); // byte-honest: no normalization at encode (D16)
       writeHead(sink, 3, bytes.length);
       sink.pushBytes(bytes);
       return;

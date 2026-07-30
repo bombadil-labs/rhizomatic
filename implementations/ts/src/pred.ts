@@ -119,7 +119,7 @@ function typeRank(v: Primitive): number {
   return 2;
 }
 
-// Type rank first (bool < number < string), then value; strings by NFC UTF-8 bytes.
+// Type rank first (bool < number < string), then value; strings by UTF-8 bytes (byte-honest, D16).
 export function comparePrimitives(a: Primitive, b: Primitive): number {
   const ra = typeRank(a);
   const rb = typeRank(b);

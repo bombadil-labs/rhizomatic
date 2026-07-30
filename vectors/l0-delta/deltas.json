@@ -160,6 +160,22 @@
     "id": "1e20ae8d97020b460597ffd10075fb7aa4d69af7ded1fd06fdaf013e5d3f26e0513e"
   },
   {
+    "name": "unicode-non-nfc-spelling",
+    "spec": "SPEC-1 §4.1 / ERRATA D16 (byte-honest strings: a decomposed spelling is admitted and is a DIFFERENT claim than its composed sibling — same honesty as image/PNG vs image/png, D12)",
+    "claims": {
+      "timestamp": 0,
+      "author": "did:key:café",
+      "pointers": [
+        {
+          "role": "note",
+          "target": "üñïcödé"
+        }
+      ]
+    },
+    "canonicalCborHex": "a366617574686f726e6469643a6b65793a63616665cc8168706f696e7465727381a264726f6c65646e6f7465667461726765747175cc886ecc8369cc88636fcc886465cc816974696d657374616d70f90000",
+    "id": "1e20f5932cced281d9e28ccac7a942804a3986ae7a1bc29c13cd8dc71f4fdaf9a59b"
+  },
+  {
     "name": "number-integer-spelling",
     "spec": "SPEC-1 §4.1 / ERRATA D14 (a JSON integer token is a float spelling: 42 ≡ 42.0, one canonical encoding)",
     "claims": {

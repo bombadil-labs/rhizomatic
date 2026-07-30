@@ -106,7 +106,7 @@
   function encodeInto(sink, val) {
     switch (val.t) {
       case "tstr": {
-        const bytes = utf8.encode(val.v.normalize("NFC"));
+        const bytes = utf8.encode(val.v);
         writeHead(sink, 3, bytes.length);
         sink.pushBytes(bytes);
         return;
@@ -957,21 +957,14 @@
       ["timestamp", float(claims.timestamp)]
     ]);
   }
-  function assertNfc(s, what) {
-    if (s.normalize("NFC") !== s) {
-      throw new Error(`${what} must be NFC-normalized (ERRATA D11): ${JSON.stringify(s)}`);
-    }
-  }
   function assertValidClaims(claims) {
     if (typeof claims.author !== "string") throw new Error("author must be a string");
     if (claims.author.length === 0) throw new Error("author must be non-empty");
-    assertNfc(claims.author, "author");
     if (!Number.isFinite(claims.timestamp)) throw new Error("timestamp must be finite");
     if (claims.pointers.length < 1) throw new Error("a delta MUST contain at least one pointer");
     for (const p of claims.pointers) {
       if (typeof p.role !== "string") throw new Error("role must be a string");
       if (p.role.length === 0) throw new Error("role must be non-empty");
-      assertNfc(p.role, "role");
       if (p.target.kind === "primitive") {
         const v = p.target.value;
         const t = typeof v;
@@ -983,16 +976,12 @@
         if (typeof v === "number" && !Number.isFinite(v)) {
           throw new Error("numeric primitive must be finite");
         }
-        if (typeof v === "string") assertNfc(v, "string primitive");
       }
-      if (p.target.kind === "entity") assertNfc(p.target.entity.id, "entity id");
-      if (p.target.kind === "delta") assertNfc(p.target.deltaRef.delta, "delta ref");
       if (p.target.kind === "bytes") {
         if (typeof p.target.mime !== "string") throw new Error("bytes target mime must be a string");
         if (p.target.mime.length === 0) {
           throw new Error("bytes target mime must be non-empty (SPEC-1 \xA72.1)");
         }
-        assertNfc(p.target.mime, "bytes mime");
         if (!(p.target.value instanceof Uint8Array)) {
           throw new Error("bytes target value must be a Uint8Array");
         }
@@ -1001,7 +990,6 @@
       if (ctx !== void 0) {
         if (typeof ctx !== "string") throw new Error("context, when present, must be a string");
         if (ctx.length === 0) throw new Error("context, when present, must be non-empty");
-        assertNfc(ctx, "context");
       }
     }
   }
@@ -2266,11 +2254,8 @@
   var ORDER_TAGS = ["byTimestamp", "byAuthorRank", "byPred", "chain"];
   var POLICY_TAGS = ["pick", "all", "merge", "conflicts", "absentAs"];
   var EXTRACT_TAGS = ["field", "role"];
-  function nfc(s) {
-    return s.normalize("NFC");
-  }
   function parsePrimitive(v, what) {
-    if (typeof v === "string") return nfc(v);
+    if (typeof v === "string") return v;
     if (typeof v === "boolean") return v;
     if (typeof v === "number") {
       if (!Number.isFinite(v)) throw new Error(`${what}: numeric constant must be finite`);
@@ -2283,7 +2268,7 @@
     if (!("hole" in v)) return void 0;
     const o = asObject(v, "hole", ["hole"]);
     if (typeof o["hole"] !== "string") throw new Error("hole name must be a string");
-    return { kind: "hole", name: nfc(o["hole"]) };
+    return { kind: "hole", name: o["hole"] };
   }
   function parseParam(v, what) {
     return parseHole(v) ?? parsePrimitive(v, what);
@@ -2298,11 +2283,11 @@
     const { o, tag } = oneTag(raw, STR_MATCH_TAGS, what);
     if (tag === "exact") {
       if (typeof o["exact"] !== "string") throw new Error(`${what}: exact must be a string`);
-      return { kind: "exact", value: nfc(o["exact"]) };
+      return { kind: "exact", value: o["exact"] };
     }
     if (tag === "prefix") {
       if (typeof o["prefix"] !== "string") throw new Error(`${what}: prefix must be a string`);
-      return { kind: "prefix", value: nfc(o["prefix"]) };
+      return { kind: "prefix", value: o["prefix"] };
     }
     if (tag === "inSet") {
       if (!Array.isArray(o["inSet"])) throw new Error(`${what}: inSet must be an array`);
@@ -2310,18 +2295,18 @@
         kind: "inSet",
         values: o["inSet"].map((s) => {
           if (typeof s !== "string") throw new Error(`${what}: inSet members must be strings`);
-          return nfc(s);
+          return s;
         })
       };
     }
     {
       const a = asObject(o["aliased"], `${what}.aliased`, ["name", "via", "trust"]);
       if (typeof a["name"] !== "string") throw new Error(`${what}: aliased.name must be a string`);
-      const out = { name: nfc(a["name"]) };
+      const out = { name: a["name"] };
       if (a["via"] !== void 0) {
         if (typeof a["via"] !== "string")
           throw new Error(`${what}: aliased.via must be an entity id`);
-        out.via = nfc(a["via"]);
+        out.via = a["via"];
       }
       if (a["trust"] !== void 0) {
         const trust = parsePred(a["trust"]);
@@ -2403,7 +2388,7 @@
     if (o["targetEntity"] !== void 0) {
       const te = o["targetEntity"];
       if (typeof te === "string") {
-        out.targetEntity = { kind: "const", id: nfc(te) };
+        out.targetEntity = { kind: "const", id: te };
       } else {
         const hole = parseHole(te);
         if (hole !== void 0) {
@@ -2488,7 +2473,7 @@
       return { kind: "field", field: o["field"] };
     }
     if (typeof o["role"] !== "string") throw new Error("inView.extract.role must be a string");
-    return { kind: "role", role: nfc(o["role"]) };
+    return { kind: "role", role: o["role"] };
   }
   function parseMaskPolicy(raw) {
     if (raw === "drop") return { kind: "drop" };
@@ -2512,7 +2497,7 @@
         kind: "byAuthorRank",
         authors: o["byAuthorRank"].map((a) => {
           if (typeof a !== "string") throw new Error("byAuthorRank entries must be strings");
-          return nfc(a);
+          return a;
         })
       };
     }
@@ -2570,10 +2555,10 @@
     const props = /* @__PURE__ */ new Map();
     if (o["props"] !== void 0) {
       for (const [k, v] of Object.entries(asOpenMap(o["props"], "schema.props"))) {
-        props.set(nfc(k), parsePolicy(v));
+        props.set(k, parsePolicy(v));
       }
     }
-    const name = typeof o["name"] === "string" ? nfc(o["name"]) : void 0;
+    const name = typeof o["name"] === "string" ? o["name"] : void 0;
     const alg = typeof o["alg"] === "number" ? o["alg"] : void 0;
     return {
       props,
@@ -2587,10 +2572,10 @@
     if (raw === "byRole") return { kind: "byRole" };
     const { o } = oneTag(raw, ["const"], "group.key");
     if (typeof o["const"] !== "string") throw new Error("group.key const must be a string");
-    return { kind: "const", prop: nfc(o["const"]) };
+    return { kind: "const", prop: o["const"] };
   }
   function parseSchemaRef(raw) {
-    if (typeof raw === "string") return { kind: "name", name: nfc(raw) };
+    if (typeof raw === "string") return { kind: "name", name: raw };
     const { o } = oneTag(raw, ["pinned"], "schemaRef");
     if (typeof o["pinned"] !== "string") {
       throw new Error("schema ref must be a name string or {pinned: hash} (E13)");
@@ -2628,13 +2613,13 @@
         const fix = {
           kind: "fix",
           schema: parseSchemaRef(o["schema"]),
-          entity: nfc(o["entity"])
+          entity: o["entity"]
         };
         if (o["bindings"] === void 0) return fix;
         const bo = asOpenMap(o["bindings"], "fix.bindings");
         const bindings = /* @__PURE__ */ new Map();
         for (const key of Object.keys(bo).sort()) {
-          bindings.set(nfc(key), parsePrimitive(bo[key], `fix.bindings.${key}`));
+          bindings.set(key, parsePrimitive(bo[key], `fix.bindings.${key}`));
         }
         return { ...fix, bindings };
       }
@@ -5683,6 +5668,22 @@
       id: "1e20ae8d97020b460597ffd10075fb7aa4d69af7ded1fd06fdaf013e5d3f26e0513e"
     },
     {
+      name: "unicode-non-nfc-spelling",
+      spec: "SPEC-1 \xA74.1 / ERRATA D16 (byte-honest strings: a decomposed spelling is admitted and is a DIFFERENT claim than its composed sibling \u2014 same honesty as image/PNG vs image/png, D12)",
+      claims: {
+        timestamp: 0,
+        author: "did:key:cafe\u0301",
+        pointers: [
+          {
+            role: "note",
+            target: "u\u0308n\u0303i\u0308co\u0308de\u0301"
+          }
+        ]
+      },
+      canonicalCborHex: "a366617574686f726e6469643a6b65793a63616665cc8168706f696e7465727381a264726f6c65646e6f7465667461726765747175cc886ecc8369cc88636fcc886465cc816974696d657374616d70f90000",
+      id: "1e20f5932cced281d9e28ccac7a942804a3986ae7a1bc29c13cd8dc71f4fdaf9a59b"
+    },
+    {
       name: "number-integer-spelling",
       spec: "SPEC-1 \xA74.1 / ERRATA D14 (a JSON integer token is a float spelling: 42 \u2261 42.0, one canonical encoding)",
       claims: {
@@ -5796,9 +5797,10 @@
       "1e207c3ceeddcf2b5781f26432c2b1d6d57f5734f10da4d710ea0dd5ab4f23395fbb",
       "1e20a3a0a90a8c87aab1bad05dc7e971d20c772976658691ede840d5f38865c9de60",
       "1e20ae8d97020b460597ffd10075fb7aa4d69af7ded1fd06fdaf013e5d3f26e0513e",
-      "1e20b210c4e3eb8a91fde259c7d2171cbf730685354f9f7a8df5e322da3f576e25a5"
+      "1e20b210c4e3eb8a91fde259c7d2171cbf730685354f9f7a8df5e322da3f576e25a5",
+      "1e20f5932cced281d9e28ccac7a942804a3986ae7a1bc29c13cd8dc71f4fdaf9a59b"
     ],
-    digest: "1e2050addfba2d6e19bc8ceb2a87113c8cdcde2d059561796a121b8be4f838d7dea2"
+    digest: "1e20771bafedaa30d7b94a8800324912211a4b5793f34b3f2d87426447356ead3250"
   };
 
   // ../../vectors/l1-eval/eval-basic.json

@@ -57,11 +57,11 @@ describe("cbor composites", () => {
     expect(bytesToHex(encode(array([tstr("a"), tstr("b")])))).toBe("8261616162");
   });
 
-  it("NFC-normalizes text before encoding (composed == decomposed)", () => {
-    const composed = bytesToHex(encode(tstr("é"))); // é
-    const decomposed = bytesToHex(encode(tstr("é"))); // e + combining acute
+  it("is byte-honest: composed and decomposed spellings encode differently (D16)", () => {
+    const composed = bytesToHex(encode(tstr("\u00e9")));
+    const decomposed = bytesToHex(encode(tstr("e\u0301"))); // e + combining acute
     expect(composed).toBe("62c3a9");
-    expect(decomposed).toBe(composed);
+    expect(decomposed).toBe("6365cc81"); // 3-byte tstr body: e + U+0301 as UTF-8
   });
 
   it("rejects non-finite numbers", () => {

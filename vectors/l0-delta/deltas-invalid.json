@@ -30,16 +30,6 @@
     }
   },
   {
-    "name": "author-not-nfc",
-    "spec": "ERRATA D11",
-    "reason": "author must be NFC-normalized (e + combining acute, not é)",
-    "claims": {
-      "timestamp": 0,
-      "author": "did:key:zAuthoré",
-      "pointers": [{ "role": "title", "target": "x" }]
-    }
-  },
-  {
     "name": "timestamp-not-a-number",
     "spec": "SPEC-1 §2",
     "reason": "timestamp must be a number",

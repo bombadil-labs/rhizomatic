@@ -80,7 +80,7 @@ defmodule BoundaryTest do
     end
   end
 
-  describe "NFC validated, never repaired (SPEC-1 §4.1 / ERRATA D11)" do
+  describe "byte-honest strings (SPEC-1 §4.1 / ERRATA D16: NFC demoted to authoring hygiene)" do
     # e + U+0301 COMBINING ACUTE ACCENT: valid UTF-8, canonically equivalent
     # to U+00E9, but not NFC. Explicit UTF-8 bytes so no editor or tool can
     # silently normalize a literal.
@@ -93,38 +93,42 @@ defmodule BoundaryTest do
       assert :unicode.characters_to_nfc_binary(@nfd_e) == @nfc_e
     end
 
-    test "non-NFC author is rejected at claim construction" do
-      assert {:error, {:not_nfc, :author}} =
-               Delta.validate(%{
-                 timestamp: 0.0,
-                 author: "did:key:zAuthor" <> @nfd_e,
-                 pointers: [%{role: "x", target: {:string, "y"}}]
-               })
-    end
-
-    test "non-NFC role / context / string primitive / mime are rejected" do
-      base = fn pointer ->
-        Delta.validate(%{timestamp: 0.0, author: "did:key:zA", pointers: [pointer]})
-      end
-
-      assert {:error, {:not_nfc, :role}} = base.(%{role: @nfd_e, target: {:string, "y"}})
-
-      assert {:error, {:not_nfc, :string_primitive}} =
-               base.(%{role: "x", target: {:string, @nfd_e}})
-
-      assert {:error, {:not_nfc, :context}} =
-               base.(%{role: "x", target: {:entity, "entity:a", @nfd_e}})
-
-      assert {:error, {:not_nfc, :mime}} =
-               base.(%{role: "x", target: {:bytes, "image/png" <> @nfd_e, <<1>>}})
-    end
-
-    test "the NFC form of the same text is accepted" do
+    test "both spellings are admitted in every string position" do
       assert {:ok, _} =
                Delta.validate(%{
                  timestamp: 0.0,
-                 author: "did:key:caf" <> @nfc_e,
-                 pointers: [%{role: "x", target: {:string, @nfc_e}}]
+                 author: "did:key:zAuthor" <> @nfd_e,
+                 pointers: [
+                   %{role: @nfd_e, target: {:string, @nfd_e}},
+                   %{role: "ctx", target: {:entity, "entity:a", @nfd_e}},
+                   %{role: "icon", target: {:bytes, "image/png" <> @nfd_e, <<1>>}}
+                 ]
+               })
+    end
+
+    test "the two spellings are two distinct claims (different bytes, different ids)" do
+      mk = fn s ->
+        {:ok, claims} =
+          Delta.validate(%{
+            timestamp: 0.0,
+            author: "did:key:zA",
+            pointers: [%{role: s, target: {:string, s}}]
+          })
+
+        Delta.id_hex(claims)
+      end
+
+      # canonical equivalence is a human judgment the substrate declines to make
+      # (the same honesty as image/PNG vs image/png, D12)
+      assert mk.(@nfd_e) != mk.(@nfc_e)
+    end
+
+    test "an invalid UTF-8 binary is still rejected (text must be text)" do
+      assert {:error, {:not_a_string, :role}} =
+               Delta.validate(%{
+                 timestamp: 0.0,
+                 author: "did:key:zA",
+                 pointers: [%{role: <<0xFF, 0xFE>>, target: {:string, "y"}}]
                })
     end
   end

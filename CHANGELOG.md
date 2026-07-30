@@ -4,6 +4,26 @@ All notable changes to **`@bombadil/rhizomatic`**. This project is pre-1.0, so b
 land in **minor** bumps (see [CLAUDE.md → Releasing](CLAUDE.md#releasing-bombadilrhizomatic-to-npm)).
 Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 
+## Unreleased
+
+### ⚠️ Breaking-ish (a loosening: nothing valid changes meaning; previously-rejected inputs become valid)
+
+- **Strings are byte-honest — NFC demoted from boundary law to authoring hygiene; D15 resolved
+  by dissolution** ([#36](https://github.com/bombadil-labs/rhizomatic/issues/36), SPEC-1
+  §2.1/§4.1, SPEC-2 §3/§9, ERRATA D16 + E22). L1 admits any valid UTF-8; the bytes the author
+  wrote are the bytes that hash; canonically-equivalent spellings are different claims (the
+  `image/PNG` ≠ `image/png` honesty, now uniform). **No existing canonical bytes move.** The
+  kernel consults no Unicode tables anywhere — the Rust witness dropped `unicode-normalization`,
+  the Haskell witness deleted its generated UCD module — so the D15 table-vintage admission seam
+  is gone rather than answered. Term parsing likewise stops normalizing (a normalized term
+  silently matches different data). The authoring SHOULD (normalize in mutation helpers, before
+  the hash exists) plus the tiered consumer playbook (query-time `inSet` expansion → alias
+  sentinel → renderer display normalization) live in SPEC-4 §6 / SPEC-5 §6. Vectors:
+  `author-not-nfc` leaves `deltas-invalid.json`; the new `unicode-non-nfc-spelling` positive
+  vector pins a decomposed spelling with its own id, distinct from its composed sibling.
+  **Interop:** peers on ≤0.10.0 fail closed on newly-legal deltas — the standard version-skew
+  story; upgrade before federating byte-honest data.
+
 ## 0.10.0 — 2026-07-30
 
 ### Added

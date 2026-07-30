@@ -11,7 +11,7 @@ defmodule Rhizomatic.Cbor do
     * definite lengths everywhere; indefinite lengths are forbidden;
     * map keys sort by the bytewise lexicographic order of their *encoded*
       key bytes;
-    * text strings are definite-length UTF-8 (NFC validation happens at the
+    * text strings are definite-length UTF-8, byte-honest (D16; validation at the
       claims boundary, not here); byte strings are definite-length with the
       same shortest length head.
 
