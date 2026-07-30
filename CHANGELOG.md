@@ -4,6 +4,21 @@ All notable changes to **`@bombadil/rhizomatic`**. This project is pre-1.0, so b
 land in **minor** bumps (see [CLAUDE.md → Releasing](CLAUDE.md#releasing-bombadilrhizomatic-to-npm)).
 Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 
+## Unreleased
+
+### Added
+
+- **`implementations/haskell` — the fourth witness, at conformance Level 0**
+  ([#29](https://github.com/bombadil-labs/rhizomatic/issues/29)). Zero dependencies (GHC boot
+  packages only); *all* crypto hand-rolled from the standards — BLAKE3, SHA-512, and Ed25519
+  signing **and** the SPEC-1 §5.1 five-check strict verifier. The typed claims AST discharges
+  D14 by construction (a claims number is only ever a `Double`). 178 checks across the full L0
+  vector surface; pack bytes reproduced byte-exactly. Bring-up record in
+  `implementations/haskell/FINDINGS.md` — headline: every #19 finding folded into normative
+  text carried this witness to first-try byte parity, and no new L0 underspecification
+  surfaced. **No package change**: nothing in `@bombadil/rhizomatic` moves; this entry records
+  the parity contract widening to four witnesses.
+
 ## 0.9.0 — 2026-07-21
 
 ### Documentation

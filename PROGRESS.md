@@ -1,5 +1,25 @@
 # Progress
 
+> **RESUME HERE (2026-07-30). THE FOURTH WITNESS: HASKELL AT L0 (issue #29, branch
+> `claude/additional-language-support-idetxp`):**
+>
+> - **What:** `implementations/haskell` — full Level 0 (canonical CBOR, content addressing,
+>   strict Ed25519, bytes targets, set digest, pack round-trip), 178 checks green, discovered
+>   by `tools/check-all.mjs` via `witness.json`, own CI job. Zero deps (GHC boot packages
+>   only), all crypto hand-rolled; green-gate is `node check.mjs`.
+> - **Honesty note:** NOT a #19-style clean-room experiment — the Elixir FINDINGS were read
+>   first. What it does establish (its FINDINGS H1): every #19 finding folded into normative
+>   spec text was consumed from the spec alone and produced **first-try byte parity** (CBOR,
+>   signatures, pack bytes). No new L0 underspecification surfaced.
+> - **One seam widened (H2, feeds ERRATA D15):** its NFC tables are UCD 14.0.0 (build host's
+>   Python), the oldest in the fleet — a concrete argument for resolving D15 to a pinned
+>   version rather than option (c).
+> - **Not done / deliberately out of scope:** L1+, property tests mirroring the CRDT laws
+>   (worthwhile QuickCheck follow-up if this witness ever climbs), Lisp witness (discussed in
+>   #29's origin conversation — deferred; marginal finding-value lower than Haskell's).
+>
+> ---
+
 > **RESUME HERE (2026-07-19, later). FAIL-CLOSED PARSING NOW COVERS KEYS (issue #25, branch
 > `strict-keys`; releases as 0.9.0):**
 >
