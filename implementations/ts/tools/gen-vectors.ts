@@ -971,6 +971,224 @@ console.log(
   `wrote ${setAlgVectors.length} set-algebra vectors + ${setAlgRejects.length} rejects to vectors/l1-eval/eval-setalgebra.json`,
 );
 
+// --- l1-eval: relational completeness (SPEC-2 §6, NOTE-13, ERRATA-2 E21, issue #31) --------------
+// The Theorem 1 constructions, positively, and Theorem 2, negatively. Relations encode per
+// NOTE-13 Definition 1: one delta per tuple — a relation-marker filing pointer plus one pointer
+// per attribute — under a fixed encoding author/timestamp, so id-equality is tuple-equality
+// (Lemma 2) and the algebra's id-keyed set ops coincide with Codd's tuple-keyed ones.
+const ENC_AUTHOR = "did:key:zEncoder";
+const relFx: Record<string, { claims: unknown; id: string }> = {};
+const addRelFx = (name: string, claims: unknown) => {
+  relFx[name] = { claims, id: computeId(parseClaims(claims)) };
+};
+const movieTuple = (title: string, year: number, genre: string) =>
+  claim(0, ENC_AUTHOR, [
+    { role: "rel", target: { id: "rel:Movies", context: "tuples" } },
+    { role: "title", target: title },
+    { role: "year", target: year },
+    { role: "genre", target: genre },
+  ]);
+addRelFx("m1-matrix", movieTuple("The Matrix", 1999, "scifi"));
+addRelFx("m2-johnwick", movieTuple("John Wick", 2014, "action"));
+addRelFx("m3-bladerunner", movieTuple("Blade Runner", 1982, "scifi"));
+addRelFx("m4-heat", movieTuple("Heat", 1995, "crime"));
+addRelFx("m5-paprika", movieTuple("Paprika", 2006, "anime"));
+// A non-relational stray, differently authored — the relation extent MUST exclude it.
+addRelFx(
+  "stray-note",
+  claim(50, A, [
+    { role: "subject", ...subj("movie:matrix", "note") },
+    { role: "value", target: "not a tuple of rel:Movies" },
+  ]),
+);
+
+const relFixtureSet = DeltaSet.from(
+  Object.values(relFx).map((f) => makeDelta(parseClaims(f.claims))),
+);
+
+const movies = sel({ hasPointer: { targetEntity: "rel:Movies" } });
+const attrEq = (role: string, value: unknown, of: unknown = movies) =>
+  sel({ hasPointer: { role: { exact: role }, targetValue: { vcmp: { cmp: "eq", value } } } }, of);
+
+const relCases: Array<{ name: string; spec: string; term: unknown; note?: string }> = [
+  {
+    name: "relation-extent",
+    spec: "NOTE-13 §2 (R̂: the relation's extent is a select on its marker)",
+    note: "all five tuples; the stray non-relational delta is excluded",
+    term: movies,
+  },
+  {
+    name: "sigma-attr-eq-const",
+    spec: "NOTE-13 Thm 1 (σ_{genre=scifi})",
+    note: "m1, m3",
+    term: attrEq("genre", "scifi"),
+  },
+  {
+    name: "sigma-boolean-closure",
+    spec: "NOTE-13 Thm 1 / SPEC-2 §3 (σ_{genre=scifi ∧ ¬(year=1999)})",
+    note: "m3 only — every tuple carries every attribute, so not(hasPointer) ≡ negated comparator",
+    term: sel(
+      {
+        and: [
+          {
+            hasPointer: {
+              role: { exact: "genre" },
+              targetValue: { vcmp: { cmp: "eq", value: "scifi" } },
+            },
+          },
+          {
+            not: {
+              hasPointer: {
+                role: { exact: "year" },
+                targetValue: { vcmp: { cmp: "eq", value: 1999 } },
+              },
+            },
+          },
+        ],
+      },
+      movies,
+    ),
+  },
+  {
+    name: "sigma-range-beyond-codd",
+    spec: "NOTE-13 Thm 1 (between exceeds Codd's θ-set)",
+    note: "σ_{1990 ≤ year ≤ 2010} = m1, m4, m5",
+    term: sel(
+      { hasPointer: { role: { exact: "year" }, targetValue: { between: [1990, 2010] } } },
+      movies,
+    ),
+  },
+  {
+    name: "union-of-instances",
+    spec: "NOTE-13 Thm 1 (∪ over same-marker instances; id-keyed = tuple-keyed by Lemma 2)",
+    note: "σ_{genre=scifi} ∪ σ_{year=2014} = m1, m2, m3",
+    term: { op: "union", left: attrEq("genre", "scifi"), right: attrEq("year", 2014) },
+  },
+  {
+    name: "difference-of-instances",
+    spec: "NOTE-13 Thm 1 (R̂ ∖ σ_{genre=scifi})",
+    note: "m2, m4, m5",
+    term: { op: "difference", of: movies, without: attrEq("genre", "scifi") },
+  },
+  {
+    name: "intersect-of-instances",
+    spec: "NOTE-13 Thm 1 (σ_{1990≤year≤2010} ∩ σ_{genre=scifi})",
+    note: "m1 only",
+    term: {
+      op: "intersect",
+      left: sel(
+        { hasPointer: { role: { exact: "year" }, targetValue: { between: [1990, 2010] } } },
+        movies,
+      ),
+      right: attrEq("genre", "scifi"),
+    },
+  },
+  {
+    name: "intersect-via-double-difference",
+    spec: "NOTE-13 Thm 1 (Codd's identity ∩ = R − (R − S), as an evaluated equality)",
+    note: "must produce byte-identical output to intersect-of-instances",
+    term: {
+      op: "difference",
+      of: sel(
+        { hasPointer: { role: { exact: "year" }, targetValue: { between: [1990, 2010] } } },
+        movies,
+      ),
+      without: {
+        op: "difference",
+        of: sel(
+          { hasPointer: { role: { exact: "year" }, targetValue: { between: [1990, 2010] } } },
+          movies,
+        ),
+        without: attrEq("genre", "scifi"),
+      },
+    },
+  },
+  {
+    name: "sigma-provenance-column",
+    spec: "NOTE-13 §7 (beyond Codd: author is a queryable system column)",
+    note: "everything the encoding author asserted — the five tuples; the stray (other author) is out",
+    term: sel({ match: { field: "author", cmp: "eq", const: ENC_AUTHOR } }),
+  },
+];
+
+const relVectors = relCases.map(({ name, spec, term, note }) => {
+  const result = evalTerm(parseTerm(term), relFixtureSet);
+  if (result.sort !== "dset") throw new Error(`${name}: expected a DSet result`);
+  return {
+    name,
+    spec,
+    ...(note === undefined ? {} : { note }),
+    term,
+    expected: { ids: result.set.ids() },
+    expectedCanonicalHex: resultCanonicalHex(result),
+  };
+});
+
+// Codd's ∩ = R − (R − S): assert the identity at generation time, so the two vectors can never
+// drift apart silently.
+{
+  const a = relVectors.find((v) => v.name === "intersect-of-instances");
+  const b = relVectors.find((v) => v.name === "intersect-via-double-difference");
+  if (a === undefined || b === undefined || a.expectedCanonicalHex !== b.expectedCanonicalHex) {
+    throw new Error("relational: ∩ ≠ R − (R − S); the Codd identity does not hold");
+  }
+}
+
+// Theorem 2's negative half: product-shaped terms MUST fail closed (§8 unknown-op rule) — the
+// no-minting lemma has no instruction to reach. Verified at generation time like every reject.
+const relRejects: Array<{ name: string; spec: string; reason: string; term: unknown }> = [
+  {
+    name: "product-op-rejected",
+    spec: "NOTE-13 Thm 2 + SPEC-2 §8 (no minting: an operator whose output exceeds its input does not exist; unknown `op` fails closed)",
+    reason:
+      "`product` is not in the closed §9 Term profile — deliberately: it would break the §5 complexity envelope and §1's sandbox (E21)",
+    term: { op: "product", left: "input", right: "input" },
+  },
+  {
+    name: "join-op-rejected",
+    spec: "NOTE-13 Thm 2 + SPEC-2 §8",
+    reason:
+      "`join` is not in the closed §9 Term profile; joins are write-time materialization or an L7 derivation stratum (E21)",
+    term: {
+      op: "join",
+      left: "input",
+      right: "input",
+      on: { role: { exact: "title" } },
+    },
+  },
+  {
+    name: "nested-product-rejected",
+    spec: "NOTE-13 Thm 2 + SPEC-2 §8 (fail-closed holds in nested operand position)",
+    reason: "a product-shaped sub-term is rejected at parse time wherever it appears",
+    term: sel("true", { op: "product", left: "input", right: "input" }),
+  },
+];
+for (const r of relRejects) {
+  let rejected = false;
+  try {
+    evalTerm(parseTerm(r.term), relFixtureSet);
+  } catch {
+    rejected = true;
+  }
+  if (!rejected) {
+    throw new Error(`relational reject "${r.name}" was accepted; §8 fail-closed is violated`);
+  }
+}
+
+const relOut = {
+  note: "Relational completeness (SPEC-2 §6, NOTE-13, ERRATA-2 E21): relations encoded per NOTE-13 Definition 1 (tuple = one delta: relation-marker filing pointer + one pointer per attribute; fixed encoding author/timestamp so id-equality = tuple-equality). `cases` pin the Theorem 1 constructions byte-exactly, including Codd's ∩ = R − (R − S) as an evaluated identity; `rejects` pin Theorem 2 — product-shaped terms fail closed in every witness (§8).",
+  fixture: {
+    note: "rel:Movies (title, year, genre) — five tuples plus one non-relational stray delta",
+    deltas: Object.entries(relFx).map(([name, f]) => ({ name, id: f.id, claims: f.claims })),
+  },
+  cases: relVectors,
+  rejects: relRejects,
+};
+writeFileSync(resolve(evalDir, "eval-relational.json"), `${JSON.stringify(relOut, null, 2)}\n`);
+console.log(
+  `wrote ${relVectors.length} relational vectors + ${relRejects.length} rejects to vectors/l1-eval/eval-relational.json`,
+);
+
 // --- l1-eval: fail-closed KEY parsing (SPEC-2 §8, ERRATA-2 E19, issue #25) ---
 // The §8 fail-closed rule always covered unrecognized TAGS. These pin the same discipline over
 // unknown KEYS and ambiguous TAG MULTIPLICITY — the two remaining ways a witness could silently

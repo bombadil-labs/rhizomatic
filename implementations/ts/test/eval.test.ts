@@ -96,6 +96,55 @@ describe("l1-eval set algebra vectors (difference/intersect)", () => {
   }
 });
 
+// --- relational-completeness vectors (SPEC-2 §6, NOTE-13, ERRATA-2 E21) -------------------------
+// Positive cases pin the Theorem 1 constructions; rejects pin Theorem 2 — a product-shaped term
+// MUST fail closed (§8), because the no-minting lemma leaves it no instruction to reach.
+const evalRelational = JSON.parse(
+  readFileSync(resolve(here, "../../../vectors/l1-eval/eval-relational.json"), "utf8"),
+) as {
+  fixture: { deltas: Array<{ name: string; id: string; claims: unknown }> };
+  cases: Array<{
+    name: string;
+    term: unknown;
+    expected: { ids: string[] };
+    expectedCanonicalHex: string;
+  }>;
+  rejects: Array<{ name: string; term: unknown }>;
+};
+
+const relationalSet = DeltaSet.from(
+  evalRelational.fixture.deltas.map((d) => makeDelta(parseClaims(d.claims))),
+);
+
+describe("l1-eval relational-completeness vectors", () => {
+  it("fixture ids match the pinned ids", () => {
+    for (const d of evalRelational.fixture.deltas) {
+      expect(makeDelta(parseClaims(d.claims)).id).toBe(d.id);
+    }
+  });
+
+  for (const c of evalRelational.cases) {
+    it(c.name, () => {
+      const result = asDSet(evalTerm(parseTerm(c.term), relationalSet));
+      expect(result.set.ids()).toEqual(c.expected.ids);
+      expect(resultCanonicalHex(result)).toBe(c.expectedCanonicalHex);
+    });
+  }
+
+  it("Codd's identity: ∩ evaluates byte-identically to R − (R − S)", () => {
+    const a = evalRelational.cases.find((c) => c.name === "intersect-of-instances");
+    const b = evalRelational.cases.find((c) => c.name === "intersect-via-double-difference");
+    expect(a?.expectedCanonicalHex).toBeDefined();
+    expect(a?.expectedCanonicalHex).toBe(b?.expectedCanonicalHex);
+  });
+
+  for (const r of evalRelational.rejects) {
+    it(`rejects: ${r.name}`, () => {
+      expect(() => evalTerm(parseTerm(r.term), relationalSet)).toThrow();
+    });
+  }
+});
+
 // --- property tests -----------------------------------------------------------------------------
 
 const pointerArb: fc.Arbitrary<Pointer> = fc.record({

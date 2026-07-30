@@ -317,19 +317,32 @@ Map keys sort canonically; entries within a property sort by delta id. The `nega
 
 ## 6. Relational Completeness
 
-Claim: the algebra expresses Codd's six primitive operations over relations encoded as delta sets. Sketch (full proof + vectors are a conformance deliverable):
+**Settled** (2026-07-30, issue #31, ERRATA-2 E21): the proof lives in
+[NOTE-13](13-relational-completeness.NOTE.md) and is pinned by
+`vectors/l1-eval/eval-relational.json`. The statement is exact — fix the tuple-as-delta encoding
+(NOTE §2: one delta per tuple, a relation-marker filing pointer plus one pointer per attribute,
+encoding author/timestamp constant so id-equality is tuple-equality); a term `T` expresses an
+algebra expression `E` when `dec(eval(T, enc(db))) = E(db)` for every instance. Then:
 
 | Relational | L2 encoding |
 |---|---|
-| Selection σ_p | `select(p̂)` where p̂ translates attribute predicates to `hasPointer` predicates |
-| Projection π_A | `group` + `prune(A)` |
-| Cartesian product × / Join ⋈ | joins are materialized as multi-pointer deltas at write time; navigational join is `expand`. Ad-hoc ×: derivable as a schema over pair-entities — see proof doc *(open: whether ad-hoc product needs an additional operator or is acceptable as a write-time encoding)* |
+| Selection σ (attr θ const) | `select` over `hasPointer`/`targetValue`, boolean closure via `and/or/not`; `between`/`inSet`/`prefix` exceed Codd's θ-set. Provenance fields (`author`, `timestamp`, `id`) are three extra queryable columns Codd doesn't have |
+| Selection σ (attr θ attr) | **inexpressible as a term** — cross-pointer comparison is the arbitrary predicate §3 excludes; same routes as product below |
+| Projection π_A | `group` + `prune(A)` — projection *with lineage*; set-semantic duplicate elimination is content addressing itself when re-asserted, or a View-boundary dedup (NOTE §4) |
+| Cartesian product × / Join ⋈ | **inexpressible as a term — proven** (NOTE Thm 2, from the no-minting lemma: every DSet-sort result ⊆ its input; no operator constructs a delta). Expressed by the system: joins are **materialized at write time** as multi-pointer deltas with `expand` as join *navigation*, and ad-hoc ×/⋈ is one L7 derivation stratum — an identified author emitting the pairs as signed deltas (NOTE Thm 3) |
 | Union ∪ | `union` |
-| Difference − | `difference(of, without)` (§4.9) — first-class; `select(and(p, not(q)))` remains the single-set special case |
-| Intersection ∩ | `intersect(left, right)` (§4.9) — first-class; `select(and(p, q))` remains the single-set special case |
-| Rename ρ | vocabulary mapping at L5 (an ABI concern, not an algebra concern) |
+| Difference − | `difference(of, without)` (§4.9); `select(and(p, not(q)))` remains the single-set special case |
+| Intersection ∩ | `intersect(left, right)` (§4.9); `= R − (R − S)`, pinned as a vector |
+| Rename ρ | absorbed at the boundaries — Schema prop naming and alias mapping at L5; product-side renames live inside the emitting derivation (NOTE Thm 3) |
 
-The honest open edge is ad-hoc product/join over entities not already linked by deltas. Position of this spec: Rhizomatic stores **materialized joins** (P-claim of the original design); ad-hoc joins are an L4 index/query-planner facility built *from* L2 terms, not a missing instruction. This is flagged for the formal proof to confirm or refute.
+The former "honest open edge" is now a theorem with a defense: the no-minting lemma that makes ×
+inexpressible is the same fact as the §5 complexity envelope (product output is Ω(|D|²)) and §1's
+sandboxing-by-construction (no received term can amplify). The gap is load-bearing twice over —
+pure L2 is exactly as complete as a read-only, provenance-preserving algebra can be, and
+**Rhizomatic-the-system is relationally complete by stratification** (L2 terms + L7 derivations
+whose outputs re-enter as signed, content-addressed deltas). The `rejects[]` half of
+`eval-relational.json` pins the negative side: a product-shaped term MUST fail closed in every
+witness (§8).
 
 ## 7. Serialization of Terms
 
@@ -469,7 +482,11 @@ no operator consumes a View.
 ## 10. Open Questions (L2)
 
 - **Aggregation:** count/sum/min/max as `resolve` policies (current position) or as algebra-level operators (needed if aggregates must feed back into selection)? Leaning policy-level until a counterexample forces otherwise.
-- **Ad-hoc join:** confirm derivability or admit a ninth operator (§6).
+- ~~**Ad-hoc join:**~~ **Closed (2026-07-30, issue #31, E21).** Not derivable — proven (NOTE-13
+  Thm 2) — and deliberately not admitted as an operator: a product-shaped instruction would break
+  the §5 complexity envelope and §1's sandboxing-by-construction, which are corollaries of the
+  same no-minting lemma that makes it inexpressible. Ad-hoc ×/⋈ is write-time materialization or
+  one L7 derivation stratum (§6).
 - **Predicate subsumption algorithm:** specify the exact decidable fragment and its complexity; needed for reactor dispatch guarantees.
 - **Parameterized terms:** queries want runtime parameters ("movies with actor *X*"). `hole(name)` leaves in Const position, bound by an optional `bindings` object on `fix`; terms stay first-order and a body with holes keeps a single hash however it is later bound. Semantics pinned in ERRATA-2 E15; vectors in `vectors/l1-eval/eval-holes.json`.
 - **Cost annotations:** should terms carry optional optimizer hints, or is that strictly an L4 concern?

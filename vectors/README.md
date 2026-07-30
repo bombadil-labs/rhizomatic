@@ -27,6 +27,8 @@ vectors/
     keys.json              test keypairs: keyId, seedHex, publicKeyHex, author (deterministic seeds)
   l1-eval/                 SPEC-2 / SPEC-3 / SPEC-5: operator-algebra evaluation
     eval-bytes.json        resolve over bytes candidates: View leaf, conflicts, merge-transparency (0.4)
+    eval-relational.json   relational completeness (NOTE-13, E21): Theorem 1 constructions over the
+                           tuple-as-delta encoding + rejects pinning that product-shaped terms fail closed
 ```
 
 (Levels here name the conformance level being exercised, per SPEC-0 §5.1 — Level 0 = Format,
