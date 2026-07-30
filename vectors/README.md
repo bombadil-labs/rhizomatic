@@ -29,6 +29,8 @@ vectors/
     eval-bytes.json        resolve over bytes candidates: View leaf, conflicts, merge-transparency (0.4)
     eval-relational.json   relational completeness (NOTE-13, E21): Theorem 1 constructions over the
                            tuple-as-delta encoding + rejects pinning that product-shaped terms fail closed
+    eval-distinct.json     all(order, distinct: true) — opt-in value-dedup at the resolve boundary
+                           (ERRATA-5 R9): order-then-first-occurrence, equality = canonical View bytes
 ```
 
 (Levels here name the conformance level being exercised, per SPEC-0 §5.1 — Level 0 = Format,

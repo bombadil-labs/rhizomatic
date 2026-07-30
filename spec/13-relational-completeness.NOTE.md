@@ -102,12 +102,14 @@ Proof is by the constructions plus Lemma 2; the positive half of
 
 **Projection's duplicates.** Codd's π eliminates duplicates; the HView keeps them, distinguished
 by lineage. Three collapses exist: (i) at the View boundary — Views are canonical CBOR, so
-value-keyed dedup is a trivial deterministic host step; (ii) a `distinct` flag on the `all`
-policy would be an additive, parse-visible schema extension (no `alg` bump, §8) if a consumer
-wants it inside the fence; (iii) by re-assertion — a derived author emitting each projected
-record as a fresh tuple delta gets duplicate elimination *for free*, because identical
-projections have identical claims and therefore the same content address. `DISTINCT` is not an
-operator here; it is identity.
+value-keyed dedup is a trivial deterministic host step; (ii) `all(order, distinct: true)` —
+designed here and **built the same day** (issue #33, ERRATA-5 R9, pinned by
+`vectors/l1-eval/eval-distinct.json`): an additive, parse-visible schema extension (no `alg`
+bump, §8) that orders candidates and keeps the first occurrence of each distinct value, equality
+being the View's canonical bytes; (iii) by re-assertion — a derived author emitting each
+projected record as a fresh tuple delta gets duplicate elimination *for free*, because identical
+projections have identical claims and therefore the same content address. `DISTINCT` as an
+operator is (ii); `DISTINCT` as a fact about the substrate is (iii) — identity.
 
 **Selection between two attributes.** σ_{A=B} — comparing two values of the same tuple — is not
 expressible: a `PPred`'s fields must hold on a single pointer (§3), and cross-pointer comparison

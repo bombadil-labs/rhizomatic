@@ -22,6 +22,7 @@ import {
   publishSchemaClaims,
 } from "../src/schema-deltas.js";
 import { SchemaRegistry } from "../src/schema.js";
+import { viewToJson } from "../src/resolution.js";
 import { schemaCanonicalHex, termCanonicalHex, termHash, termToJson } from "../src/term-io.js";
 import { ED25519_TORSION_SUBGROUP, ed25519 } from "@noble/curves/ed25519";
 import { sha512 } from "@noble/hashes/sha2";
@@ -3005,4 +3006,230 @@ writeFileSync(
 );
 console.log(
   `wrote ${reflectiveVectors.length} reflective vectors over ${reflectiveFixtureSet.size} fixture deltas to vectors/l1-eval/eval-reflective.json`,
+);
+
+// --- l1-eval: all(distinct) — opt-in value-dedup at the resolve boundary (R9, issue #33) ---------
+// Order first, keep the first occurrence of each distinct value; equality is the resolved View's
+// canonical CBOR bytes (the same equality `conflicts` dedups by). Default off: the control case
+// pins that plain `all` is byte-identical to its pre-R9 behavior.
+const dfx: Record<string, { claims: unknown; id: string }> = {};
+const addDfx = (name: string, claims: unknown) => {
+  dfx[name] = { claims, id: computeId(parseClaims(claims)) };
+};
+const poster = (ctx: string) => subj("media:poster", ctx);
+addDfx(
+  "tag-scifi-c",
+  claim(120, C, [
+    { role: "subject", ...poster("tag") },
+    { role: "value", target: "scifi" },
+  ]),
+);
+addDfx(
+  "tag-action-b",
+  claim(200, B, [
+    { role: "subject", ...poster("tag") },
+    { role: "value", target: "action" },
+  ]),
+);
+addDfx(
+  "tag-anime-a",
+  claim(300, A, [
+    { role: "subject", ...poster("tag") },
+    { role: "value", target: "anime" },
+  ]),
+);
+addDfx(
+  "tag-scifi-b",
+  claim(350, B, [
+    { role: "subject", ...poster("tag") },
+    { role: "value", target: "scifi" },
+  ]),
+);
+addDfx(
+  "year-a",
+  claim(100, A, [
+    { role: "subject", ...poster("year") },
+    { role: "value", target: 1999 },
+  ]),
+);
+addDfx(
+  "year-b",
+  claim(210, B, [
+    { role: "subject", ...poster("year") },
+    { role: "value", target: 1999 },
+  ]),
+);
+addDfx(
+  "size-large-c",
+  claim(700, C, [
+    { role: "subject", ...poster("size") },
+    { role: "value", target: "large" },
+  ]),
+);
+addDfx(
+  "size-3-a",
+  claim(710, A, [
+    { role: "subject", ...poster("size") },
+    { role: "value", target: 3 },
+  ]),
+);
+addDfx(
+  "size-3-b",
+  claim(720, B, [
+    { role: "subject", ...poster("size") },
+    { role: "value", target: 3 },
+  ]),
+);
+addDfx(
+  "icon-png-a",
+  claim(400, A, [
+    { role: "subject", ...poster("icon") },
+    { role: "icon", target: { mime: "image/png", value: "iVBORw0KGgo" } },
+  ]),
+);
+addDfx(
+  "icon-png-b",
+  claim(410, B, [
+    { role: "subject", ...poster("icon") },
+    { role: "icon", target: { mime: "image/png", value: "iVBORw0KGgo" } },
+  ]),
+);
+addDfx(
+  "icon-wasm-c",
+  claim(420, C, [
+    { role: "subject", ...poster("icon") },
+    { role: "icon", target: { mime: "application/wasm", value: "iVBORw0KGgo" } },
+  ]),
+);
+
+const distinctFixtureSet = DeltaSet.from(
+  Object.values(dfx).map((f) => makeDelta(parseClaims(f.claims))),
+);
+const distinctSchemas = [
+  { name: "PosterRaw", alg: 1, body: { op: "group", key: "byTargetContext", in: "input" } },
+];
+const distinctRegistry = SchemaRegistry.build(
+  distinctSchemas.map((s) => ({ name: s.name, alg: s.alg, body: parseTerm(s.body) })),
+  [],
+);
+const asc = { byTimestamp: "asc" };
+const desc = { byTimestamp: "desc" };
+const allOf = (order: unknown, distinct?: true) => ({
+  all: { order, ...(distinct === undefined ? {} : { distinct }) },
+});
+const dRes = (props: Record<string, unknown>) => ({
+  op: "resolve",
+  schema: { props, default: allOf(asc) },
+  in: { op: "fix", schema: "PosterRaw", entity: "media:poster" },
+});
+
+const distinctCases: Array<{ name: string; spec: string; term: unknown; note?: string }> = [
+  {
+    name: "all-without-distinct-control",
+    spec: "SPEC-5 §3 (default off: plain `all` keeps every claim, duplicates included — pre-R9 behavior byte-identical)",
+    note: "tag asc = [scifi, action, anime, scifi]",
+    term: dRes({}),
+  },
+  {
+    name: "all-distinct-asc",
+    spec: "SPEC-5 §3 / R9 (order first, first occurrence survives)",
+    note: "tag asc dedups to [scifi, action, anime]",
+    term: dRes({ tag: allOf(asc, true) }),
+  },
+  {
+    name: "all-distinct-desc-representative-order",
+    spec: "SPEC-5 §3 / R9 (the array order is first-occurrence order, so asc and desc legitimately differ)",
+    note: "tag desc = scifi(350), anime(300), action(200), scifi(120) → [scifi, anime, action]",
+    term: dRes({ tag: allOf(desc, true) }),
+  },
+  {
+    name: "distinct-numeric-collapse",
+    spec: "SPEC-5 §3 / R9 (equality is canonical bytes: one number type, two authors' 1999 collapse)",
+    note: "year = [1999]",
+    term: dRes({ year: allOf(asc, true) }),
+  },
+  {
+    name: "distinct-mixed-types-never-collide",
+    spec: "SPEC-5 §3 / R9 + SPEC-2 §3 (type rank is in the bytes)",
+    note: 'size asc = large(700), 3(710), 3(720) → ["large", 3]',
+    term: dRes({ size: allOf(asc, true) }),
+  },
+  {
+    name: "distinct-bytes-leaves",
+    spec: "SPEC-5 §3 / R9 + D12 (bytes leaves dedup by (mime, bytes) jointly; same bytes under a different mime stay distinct)",
+    note: "icon = [png leaf, wasm leaf] — the duplicate png (two authors) collapses",
+    term: dRes({ icon: allOf(asc, true) }),
+  },
+  {
+    name: "distinct-composes-with-absentAs",
+    spec: "SPEC-5 §3 / R9 (absentAs(then: all-distinct) fires on the empty property)",
+    note: 'ghost = "none"',
+    term: dRes({ ghost: { absentAs: { const: "none", then: allOf(asc, true) } } }),
+  },
+];
+
+const distinctVectors = distinctCases.map(({ name, spec, term, note }) => {
+  const result = evalTerm(parseTerm(term), distinctFixtureSet, undefined, distinctRegistry);
+  if (result.sort !== "view") throw new Error(`${name}: expected a View result`);
+  return {
+    name,
+    spec,
+    ...(note === undefined ? {} : { note }),
+    term,
+    // The first expectedView to carry a bytes leaf: rendered per SPEC-5 §5 (value as base64url).
+    // The canonical hex stays the byte-normative check; this rendering is for inspection and
+    // structural comparison in tests.
+    expectedView: viewToJson(result.view),
+    expectedCanonicalHex: resultCanonicalHex(result),
+  };
+});
+
+// R9's boundary discipline, verified-to-reject at generation like every reject.
+const distinctRejects: Array<{ name: string; spec: string; reason: string; term: unknown }> = [
+  {
+    name: "distinct-false-rejected",
+    spec: "SPEC-5 §3 / R9 (literal true only — one spelling per meaning)",
+    reason:
+      "`distinct: false` is not a synonym for omitted; a schema has exactly one spelling per meaning, so hashing needs no normalization rule",
+    term: dRes({ tag: { all: { order: asc, distinct: false } } }),
+  },
+  {
+    name: "distinct-nonboolean-rejected",
+    spec: "SPEC-5 §3 / R9",
+    reason: "`distinct` takes the literal true, never a truthy stand-in",
+    term: dRes({ tag: { all: { order: asc, distinct: "yes" } } }),
+  },
+  {
+    name: "pick-distinct-unknown-key-rejected",
+    spec: "SPEC-2 §8 / issue #25 (closed records: `distinct` exists on `all` only)",
+    reason:
+      "pick collapses to one value; `distinct` is an unknown key on its closed record and fails closed",
+    term: dRes({ tag: { pick: { order: desc, distinct: true } } }),
+  },
+];
+for (const r of distinctRejects) {
+  let rejected = false;
+  try {
+    evalTerm(parseTerm(r.term), distinctFixtureSet, undefined, distinctRegistry);
+  } catch {
+    rejected = true;
+  }
+  if (!rejected) {
+    throw new Error(`distinct reject "${r.name}" was accepted; R9 boundary discipline is violated`);
+  }
+}
+
+const distinctOut = {
+  note: "all(order, distinct: true) — opt-in value-dedup at the resolve boundary (SPEC-5 §3/§7, ERRATA-5 R9, issue #33; designed in NOTE-13 §4). Order first, first occurrence survives; equality is the resolved View's canonical CBOR bytes. `rejects` pin the literal-true rule and the closed-record boundary.",
+  fixture: {
+    note: "media:poster — duplicate tags across authors, numerically equal years, mixed-type sizes, and bytes icons (duplicate (mime,bytes) pair + same bytes under a different mime)",
+    deltas: Object.entries(dfx).map(([name, f]) => ({ name, id: f.id, claims: f.claims })),
+  },
+  schemas: distinctSchemas,
+  cases: distinctVectors,
+  rejects: distinctRejects,
+};
+writeFileSync(resolve(evalDir, "eval-distinct.json"), `${JSON.stringify(distinctOut, null, 2)}\n`);
+console.log(
+  `wrote ${distinctVectors.length} distinct vectors + ${distinctRejects.length} rejects to vectors/l1-eval/eval-distinct.json`,
 );

@@ -122,7 +122,9 @@ function policyToJson(pp: Policy): unknown {
     case "pick":
       return { pick: { order: orderToJson(pp.order) } };
     case "all":
-      return { all: { order: orderToJson(pp.order) } };
+      return pp.distinct === true
+        ? { all: { order: orderToJson(pp.order), distinct: true } }
+        : { all: { order: orderToJson(pp.order) } };
     case "merge":
       return { merge: pp.fn };
     case "conflicts":

@@ -348,7 +348,7 @@ confirm or refute"; §10 tracked "confirm derivability or admit a ninth operator
 
 Also recorded from the proof, for whoever needs them next: set-semantic duplicate elimination is
 content addressing (re-asserted projections dedup by id — `DISTINCT` is identity, not an
-operator); a `distinct` flag on the `all` policy remains available as an additive, parse-visible
-schema extension (no `alg` bump, §8) if a consumer ever wants boundary dedup inside the fence;
-and ρ never needs algebra support — renames normalize to the View boundary or into the emitting
-derivation.
+operator); the boundary-level form, a `distinct` flag on the `all` policy, was designed here and
+built the same day (issue #33, ERRATA-5 R9 — additive and parse-visible, no `alg` bump, exactly
+as predicted); and ρ never needs algebra support — renames normalize to the View boundary or
+into the emitting derivation.

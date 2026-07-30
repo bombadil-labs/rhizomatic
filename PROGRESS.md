@@ -1,5 +1,24 @@
 # Progress
 
+> **RESUME HERE (2026-07-30, latest). `all(distinct)` SHIPPED (issue #33; SPEC-5 §3/§7, R9,
+> `eval-distinct.json`):**
+>
+> - The boundary-dedup affordance NOTE-13 §4 designed, built the same day: order first, first
+>   occurrence survives, equality = the View's canonical CBOR bytes (the `conflicts` equality).
+>   Literal `true` only (`distinct: false` rejects — one spelling per meaning, no schema-hash
+>   normalization rule). `all` only; elsewhere the key fails closed (§8) — additive,
+>   parse-visible, no `alg` bump.
+> - Vectors: 7 cases (incl. asc-vs-desc representative order legitimately differing, numeric
+>   collapse, bytes-leaf `(mime, bytes)` dedup with same-bytes-different-mime surviving,
+>   absentAs composition, and a no-distinct control pinning default-off is byte-identical) +
+>   3 rejects, all verified at generation. TS 370 / Rust 119 green; byte parity held. First
+>   vectors to pin a bytes leaf inside an `expectedView` → new TS `viewToJson` export
+>   (SPEC-5 §5 rendering).
+> - Multiplicity guidance recorded in R9: the HyperView keeps every entry; pair with
+>   `merge(count)` when "how many said so" matters.
+>
+> ---
+
 > **RESUME HERE (2026-07-30, later). RELATIONAL COMPLETENESS SETTLED (issue #31; NOTE-13,
 > SPEC-2 §6/§10, E21, `eval-relational.json`):**
 >

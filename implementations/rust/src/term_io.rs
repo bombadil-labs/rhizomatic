@@ -176,7 +176,13 @@ fn merge_fn_str(f: MergeFn) -> &'static str {
 fn policy_to_json(pp: &Policy) -> Value {
     match pp {
         Policy::Pick(o) => json!({ "pick": { "order": order_to_json(o) } }),
-        Policy::All(o) => json!({ "all": { "order": order_to_json(o) } }),
+        Policy::All(o, distinct) => {
+            if *distinct {
+                json!({ "all": { "order": order_to_json(o), "distinct": true } })
+            } else {
+                json!({ "all": { "order": order_to_json(o) } })
+            }
+        }
         Policy::Merge(f) => json!({ "merge": merge_fn_str(*f) }),
         Policy::Conflicts(o) => json!({ "conflicts": { "order": order_to_json(o) } }),
         Policy::AbsentAs { constant, then } => {

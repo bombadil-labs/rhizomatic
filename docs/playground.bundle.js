@@ -1170,7 +1170,18 @@
       }
       case "all": {
         if (entries.length === 0) return ABSENT;
-        return sortEntries(policy.order, entries).map((e) => candidateValue(e, root));
+        const values = sortEntries(policy.order, entries).map((e) => candidateValue(e, root));
+        if (policy.distinct !== true) return values;
+        const seen = /* @__PURE__ */ new Set();
+        const firstOccurrences = [];
+        for (const v of values) {
+          const key = viewCanonicalHex(v);
+          if (!seen.has(key)) {
+            seen.add(key);
+            firstOccurrences.push(v);
+          }
+        }
+        return firstOccurrences;
       }
       case "merge":
         return applyMerge(policy.fn, entries, root);
@@ -1299,7 +1310,7 @@
       case "pick":
         return { pick: { order: orderToJson(pp.order) } };
       case "all":
-        return { all: { order: orderToJson(pp.order) } };
+        return pp.distinct === true ? { all: { order: orderToJson(pp.order), distinct: true } } : { all: { order: orderToJson(pp.order) } };
       case "merge":
         return { merge: pp.fn };
       case "conflicts":
@@ -2388,7 +2399,15 @@
       return { kind: "pick", order: parseOrder(asObject(o["pick"], "pick", ["order"])["order"]) };
     }
     if (tag === "all") {
-      return { kind: "all", order: parseOrder(asObject(o["all"], "all", ["order"])["order"]) };
+      const ao = asObject(o["all"], "all", ["order", "distinct"]);
+      const order = parseOrder(ao["order"]);
+      if (!("distinct" in ao)) return { kind: "all", order };
+      if (ao["distinct"] !== true) {
+        throw new Error(
+          `all.distinct must be the literal true when present; got ${JSON.stringify(ao["distinct"])}`
+        );
+      }
+      return { kind: "all", order, distinct: true };
     }
     if (tag === "merge") {
       if (!MERGE_FNS.includes(o["merge"])) {

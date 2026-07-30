@@ -2,6 +2,7 @@
 // HyperView into a View. resolve : Schema -> HView -> View is the only exit from the algebra
 // into application space; all pluralism is schema choice (P5).
 
+import { b64uEncode } from "./b64u.js";
 import { type CborValue, array, bool, bstr, encode, float, map, tstr } from "./cbor.js";
 import { bytesToHex } from "./hash.js";
 import type { HVEntry, HView } from "./hview.js";
@@ -37,7 +38,11 @@ export type Order =
 
 export type Policy =
   | { readonly kind: "pick"; readonly order: Order }
-  | { readonly kind: "all"; readonly order: Order }
+  // distinct (R9): order first, then keep the first occurrence of each distinct value — value
+  // equality is the View's canonical CBOR bytes, the same equality conflicts dedups by. Only the
+  // literal `true` is representable: absent means off, and `false` is a parse rejection, so a
+  // schema has exactly one spelling per meaning and hashing needs no normalization rule.
+  | { readonly kind: "all"; readonly order: Order; readonly distinct?: true }
   | { readonly kind: "merge"; readonly fn: MergeFn }
   | { readonly kind: "conflicts"; readonly order: Order }
   | { readonly kind: "absentAs"; readonly constant: Primitive; readonly then: Policy };
@@ -165,6 +170,17 @@ export function viewCanonicalHex(v: View): string {
   return bytesToHex(encode(viewToCbor(v)));
 }
 
+// The SPEC-5 §5 JSON rendering: a bytes leaf renders as { mime, value: <base64url> }; everything
+// else is already JSON-shaped. Inspection only — CBOR is normative (SPEC-1 §4.2).
+export function viewToJson(v: View): unknown {
+  if (v === null || typeof v !== "object") return v;
+  if (isBytesView(v)) return { mime: v.mime, value: b64uEncode(v.value) };
+  if (Array.isArray(v)) return v.map((x) => viewToJson(x as View));
+  return Object.fromEntries(
+    Object.entries(v as { [key: string]: View }).map(([k, x]) => [k, viewToJson(x)]),
+  );
+}
+
 // --- resolution ------------------------------------------------------------------------------------
 
 const ABSENT = Symbol("absent");
@@ -217,7 +233,18 @@ function applyPolicy(policy: Policy, entries: readonly HVEntry[], root: string):
     }
     case "all": {
       if (entries.length === 0) return ABSENT;
-      return sortEntries(policy.order, entries).map((e) => candidateValue(e, root));
+      const values = sortEntries(policy.order, entries).map((e) => candidateValue(e, root));
+      if (policy.distinct !== true) return values;
+      const seen = new Set<string>();
+      const firstOccurrences: View[] = [];
+      for (const v of values) {
+        const key = viewCanonicalHex(v);
+        if (!seen.has(key)) {
+          seen.add(key);
+          firstOccurrences.push(v);
+        }
+      }
+      return firstOccurrences;
     }
     case "merge":
       return applyMerge(policy.fn, entries, root);
