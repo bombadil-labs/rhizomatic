@@ -1014,20 +1014,19 @@ interface. Design `since(watermark)` now; leave the seam for the closure-scoped
 
 ## Queued next (in value order)
 
-1. **WASM host ABI proposal** — ✅ drafted: spec/07-derivation-abi.PROPOSAL.md (status:
-   proposal, awaiting review). Key moves: fnHash = contentAddress(wasm bytes); input = canonical
-   HView CBOR (the same bytes as rdb.derived.from); output = the v0 DerivedFn shape; keys never
-   enter guest memory; PURITY = zero imports, statically checkable. Next step after adoption: a
-   host implementation + a compiled-module conformance vector.
-2. **HTTP transport binding** — ✅ TS side shipped (ERRATA-6 F5: POST /rhz/v0/sync; ids never
-   on the wire, recomputed on receipt; lens + signature boundary + admission unchanged; two
-   peers converge over real localhost HTTP in the suite). **Rust side shipped too (src/http.rs:
-   serve_peer via tiny_http, pull_from_url via ureq) — and the CROSS-IMPLEMENTATION INTEROP IS
-   PROVEN: a Rust peer (cargo run --example http_sync) pulled from a live TypeScript server
-   (tools/serve-interop.ts), bundle included, and converged to the byte-identical canonical
-   digest: 1e20f71d4b7221330eac265aa3f4047c92be0392ec09a0327500f0ca7d7bcacfb6bb (count=5).**
-3. **`rdb.*` prefix decision** — the user's call; one-constant change + vector regen when made.
-4. Deeper conformance vectors (alias closure, parameterized terms/holes, keyed emission).
+1. **Cut 0.10.0** — three merged-not-released issue closures ride on it (#29 Haskell witness,
+   #31 relational completeness, #33 all(distinct)); CHANGELOG entries landed with the work.
+2. **D15: pin the Unicode version behind NFC validation** — needs Myk's pick (SPEC-1 ERRATA).
+   The Haskell witness widened the fleet's table spread (UCD 14.0.0 through Node ICU 15.1+),
+   sharpening the case for option (a) or (b) over (c).
+3. **WASM host ABI proposal** — drafted (spec/07-derivation-abi.PROPOSAL.md), awaiting review;
+   next step after adoption is a host implementation + a compiled-module conformance vector.
+4. **Lisp witness / community bring-up invitation** — deferred from #29's origin discussion;
+   the vectors README's "Bringing up a new witness" guide is the on-ramp either way.
+
+(Removed as done: HTTP transport binding — both sides shipped, cross-impl interop proven;
+vocabulary prefix decision — `rhizomatic.*`, decided 2026-06-11; deeper conformance vectors —
+holes/aliased/reflective/setalgebra/relational/distinct/bytes families all exist now.)
 
 ## Slice log
 
