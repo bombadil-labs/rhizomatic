@@ -241,27 +241,24 @@ describe("evaluator laws (SPEC-2)", () => {
   });
 });
 
-// --- NFC boundary (ERRATA D11) --------------------------------------------------------------------
+// --- byte-honest strings (ERRATA D16: NFC demoted to authoring hygiene) ----------------------------
 
-describe("NFC validation at the boundary (ERRATA D11)", () => {
-  it("rejects a decomposed role", () => {
-    const decomposed = "café"; // decomposed (NFD) form of cafe-with-acute
-    expect(() =>
-      makeDelta({
-        timestamp: 0,
-        author: "a",
-        pointers: [{ role: decomposed, target: { kind: "primitive", value: 1 } }],
-      }),
-    ).toThrow(/NFC/);
-  });
-
-  it("accepts the composed form of the same string", () => {
-    expect(
-      makeDelta({
-        timestamp: 0,
-        author: "a",
-        pointers: [{ role: "café", target: { kind: "primitive", value: 1 } }],
-      }).id,
-    ).toMatch(/^1e20/);
+describe("byte-honest strings at the boundary (ERRATA D16)", () => {
+  it("admits both spellings, as two distinct claims", () => {
+    const composed = makeDelta({
+      timestamp: 0,
+      author: "a",
+      pointers: [{ role: "caf\u00e9", target: { kind: "primitive", value: 1 } }],
+    });
+    const decomposed = makeDelta({
+      timestamp: 0,
+      author: "a",
+      pointers: [{ role: "cafe\u0301", target: { kind: "primitive", value: 1 } }],
+    });
+    expect(composed.id).toMatch(/^1e20/);
+    expect(decomposed.id).toMatch(/^1e20/);
+    // canonical equivalence is a human judgment the substrate declines to make (the same
+    // honesty as image/PNG vs image/png, D12): different bytes, different claims
+    expect(decomposed.id).not.toBe(composed.id);
   });
 });

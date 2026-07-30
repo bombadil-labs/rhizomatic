@@ -139,6 +139,16 @@ L1 accepts any `role`/`context` strings; composition across authors requires con
   string primitive, and lexicographic order coincides with temporal order, so existing orders and
   `cmp` work unchanged. There is deliberately no date kind (SPEC-1 §10 admission test).
 - **Enforcement point:** mutation helpers (SPEC-4 §6). The convention is enforced where deltas are *born*, audited by registry lint, and repaired by alias deltas — never by rejecting well-formed deltas at L1.
+- **Unicode spelling (ERRATA D16):** L1 is byte-honest — canonically-equivalent spellings are
+  different strings, exactly as `image/PNG` ≠ `image/png`. The convention here is **NFC at
+  authoring** (mutation helpers normalize before the hash exists). For consumers, the remedies
+  tier by cost, purchasable when the need appears: (1) normalize on write — the drift mostly
+  never enters your set; (2) query-time expansion in the host term builder (`exact(s)` →
+  `inSet([NFC(s), NFD(s)])`) — zero-lag, private, no substrate involvement; (3) an alias-sentinel
+  derived author emitting `rhizomatic.alias` mapping claims for observed spelling forks — shared,
+  signed, negatable judgment, at one derivation cascade of lag; (4) display-layer normalization
+  in renderers, which is presentation and never re-adjudicates (§5). Residual duplicate
+  *values* surface honestly in `all`/`conflicts` views; count multiplicity with `merge(count)`.
 
 ## 7. Appendix: Schema JSON Profile (Normative)
 

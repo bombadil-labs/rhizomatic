@@ -7,7 +7,7 @@ defmodule Rhizomatic.Delta do
 
       %{
         timestamp: float(),           # finite f64; a native integer is REJECTED (D14)
-        author: String.t(),           # non-empty, NFC
+        author: String.t(),           # non-empty, valid UTF-8 (byte-honest, D16)
         pointers: [pointer]           # at least one
       }
 
@@ -50,7 +50,7 @@ defmodule Rhizomatic.Delta do
   def validate(%{timestamp: ts, author: author, pointers: pointers} = claims)
       when map_size(claims) == 3 do
     with :ok <- validate_timestamp(ts),
-         :ok <- validate_nonempty_nfc(author, :author),
+         :ok <- validate_nonempty_string(author, :author),
          :ok <- validate_pointers(pointers) do
       {:ok, %{timestamp: ts, author: author, pointers: pointers}}
     end
@@ -79,51 +79,49 @@ defmodule Rhizomatic.Delta do
   defp validate_pointers(_), do: {:error, :pointers_not_a_list}
 
   defp validate_pointer(%{role: role, target: target} = p) when map_size(p) == 2 do
-    with :ok <- validate_nonempty_nfc(role, :role), do: validate_target(target)
+    with :ok <- validate_nonempty_string(role, :role), do: validate_target(target)
   end
 
   defp validate_pointer(_), do: {:error, :malformed_pointer}
 
-  defp validate_target({:string, s}), do: validate_nfc(s, :string_primitive)
+  defp validate_target({:string, s}), do: validate_string(s, :string_primitive)
   defp validate_target({:number, f}) when is_float(f), do: :ok
   defp validate_target({:number, i}) when is_integer(i), do: {:error, {:native_integer, :target}}
   defp validate_target({:boolean, b}) when is_boolean(b), do: :ok
 
   defp validate_target({:entity, id, context}) do
-    with :ok <- validate_nonempty_nfc(id, :entity_id), do: validate_context(context)
+    with :ok <- validate_nonempty_string(id, :entity_id), do: validate_context(context)
   end
 
   defp validate_target({:delta, hex, context}) do
-    with :ok <- validate_nonempty_nfc(hex, :delta_ref), do: validate_context(context)
+    with :ok <- validate_nonempty_string(hex, :delta_ref), do: validate_context(context)
   end
 
   defp validate_target({:bytes, mime, payload}) do
     cond do
       not is_binary(payload) -> {:error, :bytes_value_not_binary}
-      true -> validate_nonempty_nfc(mime, :mime)
+      true -> validate_nonempty_string(mime, :mime)
     end
   end
 
   defp validate_target(_), do: {:error, :malformed_target}
 
   defp validate_context(nil), do: :ok
-  defp validate_context(c), do: validate_nonempty_nfc(c, :context)
+  defp validate_context(c), do: validate_nonempty_string(c, :context)
 
-  defp validate_nonempty_nfc(s, field) do
+  # D16: strings are byte-honest — any VALID UTF-8 is admitted; NFC is authoring
+  # hygiene (SPEC-5 §6), not a boundary law. `String.valid?` stays: on the BEAM a
+  # binary can be arbitrary bytes, and a text field must still be text.
+  defp validate_nonempty_string(s, field) do
     cond do
       not is_binary(s) -> {:error, {:not_a_string, field}}
       s == "" -> {:error, {:empty_string, field}}
-      true -> validate_nfc(s, field)
+      true -> validate_string(s, field)
     end
   end
 
-  # NFC is validated at the boundary, never repaired (SPEC-1 §4.1 / D11)
-  defp validate_nfc(s, field) do
-    cond do
-      not is_binary(s) or not String.valid?(s) -> {:error, {:not_a_string, field}}
-      :unicode.characters_to_nfc_binary(s) != s -> {:error, {:not_nfc, field}}
-      true -> :ok
-    end
+  defp validate_string(s, field) do
+    if is_binary(s) and String.valid?(s), do: :ok, else: {:error, {:not_a_string, field}}
   end
 
   # --------------------------------------------------------- canonical form

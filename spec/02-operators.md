@@ -74,7 +74,7 @@ Normative properties:
 - **Value predicates are single-delta:** `targetValue` compares the primitive sitting on a pointer of *this* delta; comparison across primitives of different deltas is cross-delta logic and excluded. Mixed-type comparisons resolve by the canonical type order of SPEC-5 §4.
 - **Bytes are invisible to predicates:** value predicates (`targetValue`/`ValMatch`) see only *primitive* payloads; a `bytes` target (SPEC-1 §2) satisfies no value predicate, and bytes never appear as a term `Const` or a hole binding — predicate constants stay `string | number | bool`. This is why the `bytes` kind grows the L2 grammar by exactly zero (SPEC-1 ERRATA D12). Pointer predicates (`hasPointer`) still see a bytes pointer's `role` like any other.
 - **Value predicates are indexable:** `ValMatch` over `(role, value)` pairs is the contract behind the reactor's value index (SPEC-4 §3), making range queries (`releaseYear between 1990–1999`) sublinear. (Primitive targets carry no context — SPEC-1 §2 — so the pointer's role is what names a primitive payload.)
-- **One total order everywhere:** comparisons (`ValMatch`, `match` ordering, and SPEC-5 §4 mixed-type resolution) use a single canonical order — **type rank first (bool < number < string), then value**. Booleans: false < true. Numbers: IEEE-754 order (finite only, by L1 validation). Strings: **bytewise order of the NFC UTF-8 encoding** — not UTF-16 code-unit order, which diverges for astral-plane characters. This matches CBOR map-key ordering; implementations whose native string comparison is UTF-16 must compare encoded bytes. Cross-type `eq` is always false; cross-type ordering follows type rank.
+- **One total order everywhere:** comparisons (`ValMatch`, `match` ordering, and SPEC-5 §4 mixed-type resolution) use a single canonical order — **type rank first (bool < number < string), then value**. Booleans: false < true. Numbers: IEEE-754 order (finite only, by L1 validation). Strings: **bytewise order of the UTF-8 encoding** (byte-honest, ERRATA D16 — no normalization is applied on either side of a comparison) — not UTF-16 code-unit order, which diverges for astral-plane characters. This matches CBOR map-key ordering; implementations whose native string comparison is UTF-16 must compare encoded bytes. Cross-type `eq` is always false; cross-type ordering follows type rank.
 - **Decidable subsumption (goal):** for the reactor's dispatch optimization, implementations SHOULD be able to test `Pred₁ ⊑ Pred₂` (every delta matching 1 matches 2). The grammar is kept within a decidable fragment for this reason; extensions MUST preserve it.
 - `timestamp` comparisons enable time-travel as a filter (`match(timestamp, lte, T)`); per SPEC-1 §6 these range over *claimed* time.
 
@@ -475,8 +475,11 @@ is rejected.
 `inView.term` must parse as a DSet-sort term (`"input"` | `select` | `union` | `mask`) and must
 not itself contain `inView` (§3.1 stratification); `inView` is rejected inside SPEC-5 policy
 predicates and inside `aliased` trust predicates.
-All strings in terms are NFC-normalized at parse time, so term-side comparisons are NFC-vs-NFC
-with NFC-validated data. `resolve`'s operand must be HView-sort; its View result is terminal —
+Term strings pass through byte-honest — no parse-time normalization (ERRATA D16 / ERRATA-2
+E22): a normalized term would silently change which data it matches. Authors SHOULD write terms
+in NFC like all vocabulary (SPEC-5 §6); hosts wanting spelling-insensitive matching expand the
+predicate (`exact(s)` → `inSet([spellings…])`) in the term builder, where the term that
+evaluates stays plain enumerated data. `resolve`'s operand must be HView-sort; its View result is terminal —
 no operator consumes a View.
 
 ## 10. Open Questions (L2)

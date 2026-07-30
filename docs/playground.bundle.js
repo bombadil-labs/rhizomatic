@@ -106,7 +106,7 @@
   function encodeInto(sink, val) {
     switch (val.t) {
       case "tstr": {
-        const bytes = utf8.encode(val.v.normalize("NFC"));
+        const bytes = utf8.encode(val.v);
         writeHead(sink, 3, bytes.length);
         sink.pushBytes(bytes);
         return;
@@ -1520,21 +1520,14 @@
       ["timestamp", float(claims.timestamp)]
     ]);
   }
-  function assertNfc(s, what) {
-    if (s.normalize("NFC") !== s) {
-      throw new Error(`${what} must be NFC-normalized (ERRATA D11): ${JSON.stringify(s)}`);
-    }
-  }
   function assertValidClaims(claims) {
     if (typeof claims.author !== "string") throw new Error("author must be a string");
     if (claims.author.length === 0) throw new Error("author must be non-empty");
-    assertNfc(claims.author, "author");
     if (!Number.isFinite(claims.timestamp)) throw new Error("timestamp must be finite");
     if (claims.pointers.length < 1) throw new Error("a delta MUST contain at least one pointer");
     for (const p of claims.pointers) {
       if (typeof p.role !== "string") throw new Error("role must be a string");
       if (p.role.length === 0) throw new Error("role must be non-empty");
-      assertNfc(p.role, "role");
       if (p.target.kind === "primitive") {
         const v = p.target.value;
         const t = typeof v;
@@ -1546,16 +1539,12 @@
         if (typeof v === "number" && !Number.isFinite(v)) {
           throw new Error("numeric primitive must be finite");
         }
-        if (typeof v === "string") assertNfc(v, "string primitive");
       }
-      if (p.target.kind === "entity") assertNfc(p.target.entity.id, "entity id");
-      if (p.target.kind === "delta") assertNfc(p.target.deltaRef.delta, "delta ref");
       if (p.target.kind === "bytes") {
         if (typeof p.target.mime !== "string") throw new Error("bytes target mime must be a string");
         if (p.target.mime.length === 0) {
           throw new Error("bytes target mime must be non-empty (SPEC-1 \xA72.1)");
         }
-        assertNfc(p.target.mime, "bytes mime");
         if (!(p.target.value instanceof Uint8Array)) {
           throw new Error("bytes target value must be a Uint8Array");
         }
@@ -1564,7 +1553,6 @@
       if (ctx !== void 0) {
         if (typeof ctx !== "string") throw new Error("context, when present, must be a string");
         if (ctx.length === 0) throw new Error("context, when present, must be non-empty");
-        assertNfc(ctx, "context");
       }
     }
   }
@@ -2131,11 +2119,8 @@
   var ORDER_TAGS = ["byTimestamp", "byAuthorRank", "byPred", "chain"];
   var POLICY_TAGS = ["pick", "all", "merge", "conflicts", "absentAs"];
   var EXTRACT_TAGS = ["field", "role"];
-  function nfc(s) {
-    return s.normalize("NFC");
-  }
   function parsePrimitive(v, what) {
-    if (typeof v === "string") return nfc(v);
+    if (typeof v === "string") return v;
     if (typeof v === "boolean") return v;
     if (typeof v === "number") {
       if (!Number.isFinite(v)) throw new Error(`${what}: numeric constant must be finite`);
@@ -2148,7 +2133,7 @@
     if (!("hole" in v)) return void 0;
     const o = asObject(v, "hole", ["hole"]);
     if (typeof o["hole"] !== "string") throw new Error("hole name must be a string");
-    return { kind: "hole", name: nfc(o["hole"]) };
+    return { kind: "hole", name: o["hole"] };
   }
   function parseParam(v, what) {
     return parseHole(v) ?? parsePrimitive(v, what);
@@ -2163,11 +2148,11 @@
     const { o, tag } = oneTag(raw, STR_MATCH_TAGS, what);
     if (tag === "exact") {
       if (typeof o["exact"] !== "string") throw new Error(`${what}: exact must be a string`);
-      return { kind: "exact", value: nfc(o["exact"]) };
+      return { kind: "exact", value: o["exact"] };
     }
     if (tag === "prefix") {
       if (typeof o["prefix"] !== "string") throw new Error(`${what}: prefix must be a string`);
-      return { kind: "prefix", value: nfc(o["prefix"]) };
+      return { kind: "prefix", value: o["prefix"] };
     }
     if (tag === "inSet") {
       if (!Array.isArray(o["inSet"])) throw new Error(`${what}: inSet must be an array`);
@@ -2175,18 +2160,18 @@
         kind: "inSet",
         values: o["inSet"].map((s) => {
           if (typeof s !== "string") throw new Error(`${what}: inSet members must be strings`);
-          return nfc(s);
+          return s;
         })
       };
     }
     {
       const a = asObject(o["aliased"], `${what}.aliased`, ["name", "via", "trust"]);
       if (typeof a["name"] !== "string") throw new Error(`${what}: aliased.name must be a string`);
-      const out = { name: nfc(a["name"]) };
+      const out = { name: a["name"] };
       if (a["via"] !== void 0) {
         if (typeof a["via"] !== "string")
           throw new Error(`${what}: aliased.via must be an entity id`);
-        out.via = nfc(a["via"]);
+        out.via = a["via"];
       }
       if (a["trust"] !== void 0) {
         const trust = parsePred(a["trust"]);
@@ -2268,7 +2253,7 @@
     if (o["targetEntity"] !== void 0) {
       const te = o["targetEntity"];
       if (typeof te === "string") {
-        out.targetEntity = { kind: "const", id: nfc(te) };
+        out.targetEntity = { kind: "const", id: te };
       } else {
         const hole = parseHole(te);
         if (hole !== void 0) {
@@ -2353,7 +2338,7 @@
       return { kind: "field", field: o["field"] };
     }
     if (typeof o["role"] !== "string") throw new Error("inView.extract.role must be a string");
-    return { kind: "role", role: nfc(o["role"]) };
+    return { kind: "role", role: o["role"] };
   }
   function parseMaskPolicy(raw) {
     if (raw === "drop") return { kind: "drop" };
@@ -2377,7 +2362,7 @@
         kind: "byAuthorRank",
         authors: o["byAuthorRank"].map((a) => {
           if (typeof a !== "string") throw new Error("byAuthorRank entries must be strings");
-          return nfc(a);
+          return a;
         })
       };
     }
@@ -2435,10 +2420,10 @@
     const props = /* @__PURE__ */ new Map();
     if (o["props"] !== void 0) {
       for (const [k, v] of Object.entries(asOpenMap(o["props"], "schema.props"))) {
-        props.set(nfc(k), parsePolicy(v));
+        props.set(k, parsePolicy(v));
       }
     }
-    const name = typeof o["name"] === "string" ? nfc(o["name"]) : void 0;
+    const name = typeof o["name"] === "string" ? o["name"] : void 0;
     const alg = typeof o["alg"] === "number" ? o["alg"] : void 0;
     return {
       props,
@@ -2452,10 +2437,10 @@
     if (raw === "byRole") return { kind: "byRole" };
     const { o } = oneTag(raw, ["const"], "group.key");
     if (typeof o["const"] !== "string") throw new Error("group.key const must be a string");
-    return { kind: "const", prop: nfc(o["const"]) };
+    return { kind: "const", prop: o["const"] };
   }
   function parseSchemaRef(raw) {
-    if (typeof raw === "string") return { kind: "name", name: nfc(raw) };
+    if (typeof raw === "string") return { kind: "name", name: raw };
     const { o } = oneTag(raw, ["pinned"], "schemaRef");
     if (typeof o["pinned"] !== "string") {
       throw new Error("schema ref must be a name string or {pinned: hash} (E13)");
@@ -2493,13 +2478,13 @@
         const fix = {
           kind: "fix",
           schema: parseSchemaRef(o["schema"]),
-          entity: nfc(o["entity"])
+          entity: o["entity"]
         };
         if (o["bindings"] === void 0) return fix;
         const bo = asOpenMap(o["bindings"], "fix.bindings");
         const bindings = /* @__PURE__ */ new Map();
         for (const key of Object.keys(bo).sort()) {
-          bindings.set(nfc(key), parsePrimitive(bo[key], `fix.bindings.${key}`));
+          bindings.set(key, parsePrimitive(bo[key], `fix.bindings.${key}`));
         }
         return { ...fix, bindings };
       }

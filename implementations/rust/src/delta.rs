@@ -50,20 +50,11 @@ pub fn claims_to_cbor(claims: &Claims) -> CborValue {
     ])
 }
 
-fn check_nfc(s: &str, what: &str) -> Result<(), String> {
-    if unicode_normalization::is_nfc(s) {
-        Ok(())
-    } else {
-        Err(format!("{what} must be NFC-normalized (ERRATA D11): {s:?}"))
-    }
-}
-
 /// Reject malformed claims at the boundary; never repair (SPEC-4 §2).
 pub fn validate(claims: &Claims) -> Result<(), String> {
     if claims.author.is_empty() {
         return Err("author must be non-empty".into());
     }
-    check_nfc(&claims.author, "author")?;
     if !claims.timestamp.is_finite() {
         return Err("timestamp must be finite".into());
     }
@@ -74,24 +65,22 @@ pub fn validate(claims: &Claims) -> Result<(), String> {
         if p.role.is_empty() {
             return Err("role must be non-empty".into());
         }
-        check_nfc(&p.role, "role")?;
         match &p.target {
             Target::Primitive(Primitive::Num(n)) => {
                 if !n.is_finite() {
                     return Err("numeric primitive must be finite".into());
                 }
             }
-            Target::Primitive(Primitive::Str(s)) => check_nfc(s, "string primitive")?,
+            Target::Primitive(Primitive::Str(_)) => {}
             Target::Primitive(Primitive::Bool(_)) => {}
-            Target::Entity(e) => check_nfc(&e.id, "entity id")?,
-            Target::Delta(d) => check_nfc(&d.delta, "delta ref")?,
-            // mime is REQUIRED, non-empty, NFC, case-sensitive-opaque (SPEC-1 §2.1, D12);
-            // value is raw bytes — zero-length is legal and no NFC applies to it.
+            Target::Entity(_) => {}
+            Target::Delta(_) => {}
+            // mime is REQUIRED, non-empty, case-sensitive-opaque (SPEC-1 §2.1, D12);
+            // value is raw bytes — zero-length is legal.
             Target::Bytes { mime, .. } => {
                 if mime.is_empty() {
                     return Err("bytes target mime must be non-empty (SPEC-1 §2.1)".into());
                 }
-                check_nfc(mime, "bytes mime")?;
             }
         }
         let ctx = match &p.target {
@@ -104,7 +93,6 @@ pub fn validate(claims: &Claims) -> Result<(), String> {
             if c.is_empty() {
                 return Err("context, when present, must be non-empty".into());
             }
-            check_nfc(c, "context")?;
         }
     }
     Ok(())

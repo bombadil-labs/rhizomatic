@@ -1,8 +1,6 @@
 //! Deterministic CBOR encoder — Rhizomatic v0 profile (spec/01-delta.ERRATA.md D1-D4).
 //! Must reproduce ../ts/src/cbor.ts byte-for-byte.
 
-use unicode_normalization::UnicodeNormalization;
-
 #[derive(Debug, Clone, PartialEq)]
 pub enum CborValue {
     Tstr(String),
@@ -223,8 +221,8 @@ fn write_float(out: &mut Vec<u8>, value: f64) {
 fn encode_into(out: &mut Vec<u8>, value: &CborValue) {
     match value {
         CborValue::Tstr(s) => {
-            let normalized: String = s.nfc().collect();
-            let bytes = normalized.as_bytes();
+            // byte-honest: no normalization at encode (D16)
+            let bytes = s.as_bytes();
             write_head(out, 3, bytes.len() as u64);
             out.extend_from_slice(bytes);
         }

@@ -17,7 +17,7 @@ spec + vectors are carrying new implementations to byte parity with no cross-rea
 The lockstep bet ("when they disagree, the spec was underspecified — fix the pin") appears to
 have converged: this bring-up surfaced **no new underspecification** at L0.
 
-## H2 — D15's divergence window is real and this witness sits at its far edge (OPEN)
+## H2 — D15's divergence window is real and this witness sits at its far edge (RESOLVED by D16 — dissolved)
 
 NFC validation here runs against tables generated from the build host's Python `unicodedata`
 (UCD **14.0.0** — provenance pinned in the generated header). TS validates per Node's ICU
@@ -26,8 +26,9 @@ containing a code point **assigned after Unicode 14** that composes/reorders und
 could be admitted here and refused by a newer-tabled witness. Unicode's stability policy keeps
 every *assigned-in-14.0* code point convergent, so the practical surface is narrow, but this
 witness widens the repo's table spread and is a concrete argument for D15 option (a) or (b)
-over (c). If D15 resolves to a pinned version, regenerate `UnicodeTables.hs` from that version's
-UCD (the generator takes any host's tables) rather than hand-patching.
+over (c). **Postscript (2026-07-30, issue #36):** D15 resolved by *dissolution* — D16 demoted NFC to
+authoring hygiene, and this witness deleted its tables entirely. The widest-spread datapoint H2
+recorded became part of the argument for removing the question rather than answering it.
 
 ## H3 — A type system converts two of the repo's boundary tests into non-tests
 
@@ -56,4 +57,5 @@ but not the exclusion list: a code point X with a 2-char canonical decomposition
 composite **iff** `NFC(NFD(X)) == X`. The four exclusion classes (script-specific,
 post-composition, singletons, non-starter decompositions) are exactly the X that fail that
 round-trip, so the composition table falls out of `unicodedata` alone (941 pairs under UCD
-14.0.0, matching the spec'd exclusion counts).
+14.0.0, matching the spec'd exclusion counts). *(Historical as of D16 — the kernel no longer
+performs NFC — but the derivation trick stands for any consumer-layer normalizer.)*

@@ -163,3 +163,46 @@ is code points newer than the oldest witness's tables.
 ## JSON debug profile (for vectors)
 
 Folded into SPEC-1 §4.2 (2026-06-11); history in git.
+
+## D16 — Strings are byte-honest: NFC demoted to authoring hygiene; D15 resolved by dissolution (2026-07-30, issue #36)
+
+**Decision (Myk): leave it open.** The D11/D15 regime — NFC as a validated MUST, answered by
+whatever Unicode tables a witness happens to carry — is replaced by **byte-honesty**: L1 admits
+any valid UTF-8; the bytes the author wrote are the bytes that hash; no witness consults Unicode
+tables anywhere in the kernel. Normative text folded into SPEC-1 §2.1/§4.1, SPEC-2 §3/§9
+(E22), SPEC-4 §6, SPEC-5 §6.
+
+Why the MUST had to go, from the user's chair: a string their software legitimately produced
+(macOS file APIs emit NFD) hits a rejection they cannot understand — and under D15's table seam,
+a rejection that *varies by machine*: a newer-tabled witness refuses a delta an older one
+admitted, an admission split of exactly the kind D13 was pinned to prevent for signatures.
+Rejection-on-normalization bought no convergence (the seam) and no security (homoglyphs were
+never canonical-equivalents), at real UX cost.
+
+What byte-honesty buys and costs:
+
+- **P5 is fully restored, not weakened.** Same bytes ⇒ same hash ⇒ same evaluation, on every
+  machine, forever. Determinism never depended on NFC; it depended on everyone judging the same
+  bytes the same way. The kernel is now **Unicode-version-independent** — D15 is not answered
+  but dissolved (the Haskell witness deleted its generated UCD tables; the Rust witness dropped
+  `unicode-normalization`; no witness ships tables at all).
+- **The worst case is data quality, not divergence:** canonically-equivalent spellings are two
+  claims — the same honesty as `image/PNG` ≠ `image/png` (D12), with the same standing remedies
+  (aliases, lint, `conflicts` visibility). The consumer playbook is tiered in SPEC-5 §6:
+  normalize-on-write → query-time expansion → alias sentinel → renderer-level display
+  normalization. The loud-vs-quiet trade is real (a write-time rejection was explicable; a
+  read-time miss is silent) and is why the authoring SHOULD lives in mutation helpers, where the
+  common case converges without coercing anyone.
+- **Term-side symmetry (E22):** parse-time NFC normalization of term strings is likewise removed
+  — a normalized term silently changes which data it matches. Byte-honest on both sides of every
+  comparison.
+- **Transition:** a loosening — previously-rejected inputs become valid; no existing canonical
+  bytes move. Witnesses predating this erratum fail closed on newly-legal deltas (the standard
+  version-skew story). Vectors: `author-not-nfc` left `deltas-invalid.json`; the
+  `unicode-non-nfc-spelling` positive vector pins a decomposed spelling with its own id,
+  distinct from its composed sibling.
+
+## D15 status note
+
+D15 above remains as the record of the question; its resolution is D16 — the question was not
+answered but removed. No pinned Unicode version exists because nothing consults one.

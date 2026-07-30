@@ -61,10 +61,10 @@ Bytes {
 - A delta MUST contain at least one pointer.
 - `null`/`undefined` are not representable. Absence of a fact is absence of deltas.
 - Arrays are not primitives. Multiplicity is expressed by multiple pointers or multiple deltas.
-- `role` and `context` MUST be non-empty UTF-8 strings, NFC-normalized, case-sensitive. (Vocabulary conventions live at L5; L1 imposes no vocabulary.)
+- `role` and `context` MUST be non-empty, valid UTF-8 strings; they are case-sensitive and byte-honest — canonically-equivalent Unicode spellings are **different strings** (ERRATA D16). Authors SHOULD write NFC (an authoring convention enforced where deltas are born, SPEC-5 §6 — never by rejection at L1). (Vocabulary conventions live at L5; L1 imposes no vocabulary.)
 - Numbers MUST be IEEE-754 doubles serializable without loss; implementations MUST reject NaN and ±Infinity at ingestion. *(Open: integer/decimal extension — see §10.)*
 - `DeltaRef` vs `EntityRef` are structurally distinct. Targeting a delta (e.g., negation, annotation) is explicit, never inferred from the shape of an id.
-- A `Bytes` target's `mime` MUST be a non-empty, NFC-normalized string; it is case-sensitive and otherwise opaque — implementations MUST NOT lowercase or otherwise repair it (`image/PNG` and `image/png` are different claims). Its `value` is a raw byte payload; a zero-length payload is legal. A bytes target carries no `context` — a literal is not a vertex (§2.3). All four target kinds are structurally distinct (§4.1): `Bytes` is discriminated by its `mime` key, never inferred. *(Informative: authors SHOULD use the lowercase IANA form; payload-size caps are deployment configuration — doors, admission requirements — not substrate law, §10.)*
+- A `Bytes` target's `mime` MUST be a non-empty, valid UTF-8 string; it is case-sensitive, byte-honest, and otherwise opaque — implementations MUST NOT lowercase or otherwise repair it (`image/PNG` and `image/png` are different claims). Its `value` is a raw byte payload; a zero-length payload is legal. A bytes target carries no `context` — a literal is not a vertex (§2.3). All four target kinds are structurally distinct (§4.1): `Bytes` is discriminated by its `mime` key, never inferred. *(Informative: authors SHOULD use the lowercase IANA form; payload-size caps are deployment configuration — doors, admission requirements — not substrate law, §10.)*
 
 ### 2.2 The `system` field is removed
 
@@ -145,12 +145,17 @@ are rejected everywhere, always — never rounded. The profile half is pinned by
 invisible to JSON vector files and lives as per-witness boundary tests.
 
 **Strings** (`role`, `context`, `author`, entity ids, hashes, string primitives) encode as
-definite-length CBOR text strings, **NFC-normalized**. Normalization is *validated at the
-boundary, never repaired at encode time*: every string in claims MUST already be NFC, and
-validation rejects non-NFC strings. (If an implementation silently normalized while encoding, a
-non-NFC in-memory string would differ from the bytes its id commits to, and string comparisons
-at L2 would diverge from canonical-byte equality. In-memory equality is thereby byte equality
-everywhere.) **Booleans** encode as the CBOR simple values (`0xf5`/`0xf4`).
+definite-length CBOR text strings, **byte-honest**: the UTF-8 bytes the author wrote are the
+bytes that hash, with no normalization anywhere — not at validation, not at encode (ERRATA D16;
+an implementation that normalized while encoding would make an in-memory string differ from the
+bytes its id commits to). Canonically-equivalent Unicode spellings are therefore *different
+strings and different claims* — the same honesty as `image/PNG` ≠ `image/png` (§2.1, D12).
+In-memory equality is byte equality everywhere, with no Unicode tables consulted: the kernel is
+Unicode-version-independent, which is what dissolves the D15 divergence seam. NFC is an
+**authoring convention** (SHOULD, applied in mutation helpers *before* the hash exists —
+input conditioning, not repair; SPEC-4 §6 / SPEC-5 §6); spelling drift that reaches the set
+anyway is repaired by alias deltas and made visible by `conflicts` views, never by rejecting
+well-formed deltas at L1. **Booleans** encode as the CBOR simple values (`0xf5`/`0xf4`).
 
 **Byte strings** (a `Bytes` target's `value`) encode as definite-length CBOR byte strings (major
 type 2) with the same shortest-form length head the profile applies to every other type

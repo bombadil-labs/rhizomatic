@@ -32,7 +32,6 @@ sha2 = "0.10"
 # numbers up to 1 ULP off, which fractures canonical-bytes parity with JS (caught by the
 # float-f16-min-subnormal vector). See ERRATA "JSON debug profile".
 serde_json = { version = "1", features = ["float_roundtrip"] }
-unicode-normalization = "0.1"
 
 # The HTTP binding is host-only: these crates do not build on wasm32-unknown-unknown.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

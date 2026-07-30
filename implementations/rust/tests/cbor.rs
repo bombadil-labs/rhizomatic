@@ -51,14 +51,12 @@ fn preserves_array_order() {
 }
 
 #[test]
-fn nfc_normalizes_text() {
+fn byte_honest_text_spellings_encode_differently() {
+    // D16: no normalization at encode — composed and decomposed are different bytes
     let decomposed = CborValue::Tstr("e\u{0301}".to_string()); // e + combining acute
-    let composed = CborValue::Tstr("\u{e9}".to_string()); // é
-    assert_eq!(hex::encode(encode(&decomposed)), "62c3a9");
-    assert_eq!(
-        hex::encode(encode(&composed)),
-        hex::encode(encode(&decomposed))
-    );
+    let composed = CborValue::Tstr("\u{e9}".to_string());
+    assert_eq!(hex::encode(encode(&composed)), "62c3a9");
+    assert_eq!(hex::encode(encode(&decomposed)), "6365cc81");
 }
 
 #[test]

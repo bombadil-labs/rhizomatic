@@ -135,6 +135,18 @@ const inputs: Input[] = [
     },
   },
   {
+    name: "unicode-non-nfc-spelling",
+    spec: "SPEC-1 §4.1 / ERRATA D16 (byte-honest strings: a decomposed spelling is admitted and is a DIFFERENT claim than its composed sibling — same honesty as image/PNG vs image/png, D12)",
+    claims: {
+      timestamp: 0,
+      // "cafe" + U+0301 / vowels + U+0308..: the decomposed (NFD) spellings of the
+      // unicode-nfc-author strings, written as escapes so no editor can silently normalize
+      // them (the Elixir witness's fixture lesson).
+      author: "did:key:cafe\u0301",
+      pointers: [{ role: "note", target: "u\u0308n\u0303i\u0308co\u0308de\u0301" }],
+    },
+  },
+  {
     name: "number-integer-spelling",
     spec: "SPEC-1 §4.1 / ERRATA D14 (a JSON integer token is a float spelling: 42 ≡ 42.0, one canonical encoding)",
     claims: {

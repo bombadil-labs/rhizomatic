@@ -143,7 +143,7 @@ debug profile:
   **different** ids (mime is case-sensitive); `application/wasm` on the same bytes (different claim);
   a mixed-pointer delta (bytes + filing EntityRef + string primitive); a ≥24-byte payload (the
   `0x58 <len>` head path); 1- and 2-byte payloads (the nontrivial b64u tail shapes); one signed case.
-- Rejections for the kind live in `deltas-invalid.json` (appended): missing/empty/non-NFC `mime`,
+- Rejections for the kind live in `deltas-invalid.json` (appended): missing/empty `mime`,
   non-string `mime`/`value`, and the base64url failures (padded, bad alphabet, bad length,
   non-canonical trailing bits).
 

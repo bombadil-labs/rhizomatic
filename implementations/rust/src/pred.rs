@@ -145,8 +145,8 @@ fn type_rank(p: &Primitive) -> u8 {
     }
 }
 
-/// Type rank first (bool < number < string), then value; strings by NFC UTF-8 bytes
-/// (Rust `str` ordering IS bytewise UTF-8 order, and data strings are NFC by validation D11).
+/// Type rank first (bool < number < string), then value; strings by UTF-8 bytes, byte-honest
+/// (Rust `str` ordering IS bytewise UTF-8 order; D16 — no normalization anywhere).
 pub fn compare_primitives(a: &Primitive, b: &Primitive) -> Ordering {
     let (ra, rb) = (type_rank(a), type_rank(b));
     if ra != rb {

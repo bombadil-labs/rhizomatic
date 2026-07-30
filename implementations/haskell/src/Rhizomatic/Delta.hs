@@ -25,7 +25,6 @@ import qualified Data.Text as T
 import Rhizomatic.Blake3 (blake3)
 import Rhizomatic.Cbor (Item (..), encode)
 import Rhizomatic.Hex (encodeHex)
-import Rhizomatic.Nfc (isNfc)
 
 data Target
   = TEntity T.Text (Maybe T.Text) -- id, context?
@@ -44,35 +43,32 @@ data Claims = Claims {cTimestamp :: Double, cAuthor :: T.Text, cPointers :: [Poi
 validateClaims :: Claims -> Either String ()
 validateClaims (Claims ts author ptrs) = do
   finiteNumber "timestamp" ts
-  nonEmptyNfc "author" author
+  nonEmpty "author" author
   if null ptrs then Left "a delta MUST contain at least one pointer" else Right ()
   mapM_ validatePointer ptrs
 
 validatePointer :: Pointer -> Either String ()
 validatePointer (Pointer role target) = do
-  nonEmptyNfc "role" role
+  nonEmpty "role" role
   case target of
-    TEntity eid ctx -> nfcString "entity id" eid >> maybe (Right ()) (nonEmptyNfc "context") ctx
-    TDeltaRef d ctx -> nfcString "delta ref" d >> maybe (Right ()) (nonEmptyNfc "context") ctx
-    TString s -> nfcString "string primitive" s
+    TEntity _ ctx -> maybe (Right ()) (nonEmpty "context") ctx
+    TDeltaRef _ ctx -> maybe (Right ()) (nonEmpty "context") ctx
+    TString _ -> Right ()
     TNumber n -> finiteNumber "number primitive" n
     TBool _ -> Right ()
-    TBytes mime _ -> nonEmptyNfc "mime" mime
+    TBytes mime _ -> nonEmpty "mime" mime
 
 finiteNumber :: String -> Double -> Either String ()
 finiteNumber what d
   | isNaN d || isInfinite d = Left (what ++ " must be a finite number")
   | otherwise = Right ()
 
-nonEmptyNfc :: String -> T.Text -> Either String ()
-nonEmptyNfc what t
+-- D16: strings are byte-honest — any valid UTF-8 is admitted; NFC is authoring hygiene
+-- (SPEC-5 §6), not a boundary law. Only emptiness is checked where the spec demands it.
+nonEmpty :: String -> T.Text -> Either String ()
+nonEmpty what t
   | T.null t = Left (what ++ " must be non-empty")
-  | otherwise = nfcString what t
-
-nfcString :: String -> T.Text -> Either String ()
-nfcString what t
-  | isNfc t = Right ()
-  | otherwise = Left (what ++ " must be NFC-normalized")
+  | otherwise = Right ()
 
 -- | SPEC-1 §4.1 claims layout. Callers validate first; this is pure layout.
 claimsToCbor :: Claims -> Item

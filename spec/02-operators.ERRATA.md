@@ -352,3 +352,16 @@ operator); the boundary-level form, a `distinct` flag on the `all` policy, was d
 built the same day (issue #33, ERRATA-5 R9 — additive and parse-visible, no `alg` bump, exactly
 as predicted); and ρ never needs algebra support — renames normalize to the View boundary or
 into the emitting derivation.
+
+## E22 — Term strings are byte-honest; parse-time NFC normalization removed (2026-07-30, issue #36)
+
+The §9 rule "all strings in terms are NFC-normalized at parse time" is removed alongside the
+L1 demotion (SPEC-1 ERRATA D16). It was the right companion to NFC-validated data — NFC-vs-NFC
+comparisons — and becomes actively harmful without it: normalizing the term while the data stays
+byte-honest makes a term written with a decomposed spelling *silently* match different deltas
+than its author tested against. Byte-honest on both sides: the §3 canonical string order is the
+bytewise UTF-8 order of what was written, term hashing covers the authored bytes, and hosts
+wanting spelling-insensitive matching expand predicates in the term builder (`exact(s)` →
+`inSet([spellings…])`), where the evaluated term stays plain enumerated data inside the closed
+grammar. Semantically identical *authored* terms still hash identically; two spellings of a term
+are two terms, which is D16's honesty applied to programs — programs are data here, after all.

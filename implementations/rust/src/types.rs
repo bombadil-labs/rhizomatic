@@ -27,7 +27,7 @@ pub enum Target {
     Entity(EntityRef),
     Delta(DeltaRef),
     /// Raw byte payload carrying a required, in-kind media type (SPEC-1 §2, ERRATA D12).
-    /// Identity is the hash of `value`; `mime` is non-empty, NFC, case-sensitive (validated
+    /// Identity is the hash of `value`; `mime` is non-empty, case-sensitive (validated
     /// at construction). Encoded as `map { "mime": tstr, "value": bstr }`.
     Bytes {
         mime: String,

@@ -45,24 +45,16 @@ export function claimsToCbor(claims: Claims): CborValue {
   ]);
 }
 
-function assertNfc(s: string, what: string): void {
-  if (s.normalize("NFC") !== s) {
-    throw new Error(`${what} must be NFC-normalized (ERRATA D11): ${JSON.stringify(s)}`);
-  }
-}
-
 // Reject malformed claims at the boundary; never repair (SPEC-4 §2). Untyped callers
 // (plain JS, `as` casts) bypass the static types, so runtime guards here are the real boundary.
 export function assertValidClaims(claims: Claims): void {
   if (typeof claims.author !== "string") throw new Error("author must be a string");
   if (claims.author.length === 0) throw new Error("author must be non-empty");
-  assertNfc(claims.author, "author");
   if (!Number.isFinite(claims.timestamp)) throw new Error("timestamp must be finite");
   if (claims.pointers.length < 1) throw new Error("a delta MUST contain at least one pointer");
   for (const p of claims.pointers) {
     if (typeof p.role !== "string") throw new Error("role must be a string");
     if (p.role.length === 0) throw new Error("role must be non-empty");
-    assertNfc(p.role, "role");
     if (p.target.kind === "primitive") {
       const v = p.target.value;
       const t = typeof v;
@@ -75,18 +67,14 @@ export function assertValidClaims(claims: Claims): void {
       if (typeof v === "number" && !Number.isFinite(v)) {
         throw new Error("numeric primitive must be finite");
       }
-      if (typeof v === "string") assertNfc(v, "string primitive");
     }
-    if (p.target.kind === "entity") assertNfc(p.target.entity.id, "entity id");
-    if (p.target.kind === "delta") assertNfc(p.target.deltaRef.delta, "delta ref");
     if (p.target.kind === "bytes") {
-      // mime REQUIRED, non-empty, NFC, case-sensitive-opaque (SPEC-1 §2.1, D12); value is raw
-      // bytes — zero-length is legal, no NFC. Runtime guards catch untyped/`as`-cast callers.
+      // mime REQUIRED, non-empty, case-sensitive-opaque (SPEC-1 §2.1, D12); value is raw
+      // bytes — zero-length is legal. Runtime guards catch untyped/`as`-cast callers.
       if (typeof p.target.mime !== "string") throw new Error("bytes target mime must be a string");
       if (p.target.mime.length === 0) {
         throw new Error("bytes target mime must be non-empty (SPEC-1 §2.1)");
       }
-      assertNfc(p.target.mime, "bytes mime");
       if (!(p.target.value instanceof Uint8Array)) {
         throw new Error("bytes target value must be a Uint8Array");
       }
@@ -100,7 +88,6 @@ export function assertValidClaims(claims: Claims): void {
     if (ctx !== undefined) {
       if (typeof ctx !== "string") throw new Error("context, when present, must be a string");
       if (ctx.length === 0) throw new Error("context, when present, must be non-empty");
-      assertNfc(ctx, "context");
     }
   }
 }
