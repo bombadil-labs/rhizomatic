@@ -3,6 +3,7 @@
 module Main where
 
 import qualified Data.ByteString.Char8 as BC
+import qualified Data.List
 import qualified Data.Text as T
 import Harness
 import Rhizomatic.Blake3 (blake3)
@@ -12,7 +13,9 @@ import Rhizomatic.Ed25519 (derivePublicKey)
 import Rhizomatic.Hex (decodeHex, encodeHex)
 import Rhizomatic.Json (JValue (..), parseJson)
 import Rhizomatic.Nfc (isNfc)
+import Rhizomatic.Pack (PackedDelta (..), buildPack, packIdHex, unpackPack)
 import Rhizomatic.Profile (claimsFromJson)
+import Rhizomatic.SetDigest (setDigestHex)
 import Rhizomatic.Signer (signDelta, verifyDelta)
 
 main :: IO ()
@@ -27,8 +30,67 @@ main =
       ("deltas-invalid", deltasInvalidTests),
       ("keys", keysTests),
       ("deltas-signed", deltasSignedTests),
-      ("deltas-sig-edge", sigEdgeTests)
+      ("deltas-sig-edge", sigEdgeTests),
+      ("set-digest", setDigestTests),
+      ("pack", packTests "l0-pack/pack.json"),
+      ("pack-bytes", packTests "l0-pack/pack-bytes.json")
     ]
+
+-- set-digest.json (D10): ids of the deltas.json set, plus the pinned digest.
+setDigestTests :: IO [Test]
+setDigestTests = do
+  JObj fields <- loadVectors "l0-delta/set-digest.json"
+  JArr deltaCases <- loadVectors "l0-delta/deltas.json"
+  let Just (JArr idVals) = lookup "ids" fields
+      Just (JStr digestT) = lookup "digest" fields
+      pinnedIds = [T.unpack t | JStr t <- idVals]
+      computedIds =
+        [ either (\e -> "ERROR: " ++ e) id (claimsFromJson claimsJson >>= deltaIdHex)
+          | JObj f <- deltaCases,
+            Just claimsJson <- [lookup "claims" f]
+        ]
+  pure
+    [ expectEq "ids-match-deltas-json" (Data.List.sort computedIds) pinnedIds,
+      expectEq "digest" (setDigestHex computedIds) (T.unpack digestT),
+      expectEq "digest-order-independent" (setDigestHex (reverse computedIds)) (T.unpack digestT),
+      expectEq "digest-dedup" (setDigestHex (computedIds ++ computedIds)) (T.unpack digestT)
+    ]
+
+-- l0-pack: build must reproduce the pinned pack bytes and packId; unpack must
+-- round-trip to the same delta set (ids and sigs), fsck-verified.
+packTests :: String -> IO [Test]
+packTests file = do
+  JObj fields <- loadVectors file
+  let Just (JArr deltaVals) = lookup "deltas" fields
+      Just (JStr packHexT) = lookup "packHex" fields
+      Just (JStr packIdT) = lookup "packId" fields
+  case mapM packedFromJson deltaVals of
+    Left err -> pure [failure "parse-deltas" err]
+    Right pds ->
+      case buildPack pds of
+        Left err -> pure [failure "build" err]
+        Right packBytes -> do
+          let wantKeys pdList = Data.List.sort [(either error id (deltaIdHex (pdClaims pd)), pdSig pd) | pd <- pdList]
+          pure
+            [ expectEq "pack-bytes" (encodeHex packBytes) (T.unpack packHexT),
+              expectEq "pack-id" (packIdHex packBytes) (T.unpack packIdT),
+              case decodeHex (T.unpack packHexT) of
+                Left err -> failure "unpack" err
+                Right pinnedBytes ->
+                  case unpackPack pinnedBytes of
+                    Left err -> failure "unpack" err
+                    Right unpacked -> expectEq "round-trip-set" (wantKeys unpacked) (wantKeys pds)
+            ]
+  where
+    packedFromJson (JObj f) = do
+      claimsJson <- maybe (Left "delta entry missing claims") Right (lookup "claims" f)
+      claims <- claimsFromJson claimsJson
+      sig <- case lookup "sig" f of
+        Nothing -> Right Nothing
+        Just (JStr s) -> Right (Just s)
+        Just _ -> Left "sig must be a string"
+      Right (PackedDelta claims sig)
+    packedFromJson _ = Left "delta entry is not an object"
 
 -- keys.json: derive each public key from its seed and match the pinned bytes.
 keysTests :: IO [Test]
