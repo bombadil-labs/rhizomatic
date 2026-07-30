@@ -22,6 +22,7 @@ import {
   publishSchemaClaims,
 } from "../src/schema-deltas.js";
 import { SchemaRegistry } from "../src/schema.js";
+import { viewToJson } from "../src/resolution.js";
 import { schemaCanonicalHex, termCanonicalHex, termHash, termToJson } from "../src/term-io.js";
 import { ED25519_TORSION_SUBGROUP, ed25519 } from "@noble/curves/ed25519";
 import { sha512 } from "@noble/hashes/sha2";
@@ -969,6 +970,224 @@ const setAlgOut = {
 writeFileSync(resolve(evalDir, "eval-setalgebra.json"), `${JSON.stringify(setAlgOut, null, 2)}\n`);
 console.log(
   `wrote ${setAlgVectors.length} set-algebra vectors + ${setAlgRejects.length} rejects to vectors/l1-eval/eval-setalgebra.json`,
+);
+
+// --- l1-eval: relational completeness (SPEC-2 §6, NOTE-13, ERRATA-2 E21, issue #31) --------------
+// The Theorem 1 constructions, positively, and Theorem 2, negatively. Relations encode per
+// NOTE-13 Definition 1: one delta per tuple — a relation-marker filing pointer plus one pointer
+// per attribute — under a fixed encoding author/timestamp, so id-equality is tuple-equality
+// (Lemma 2) and the algebra's id-keyed set ops coincide with Codd's tuple-keyed ones.
+const ENC_AUTHOR = "did:key:zEncoder";
+const relFx: Record<string, { claims: unknown; id: string }> = {};
+const addRelFx = (name: string, claims: unknown) => {
+  relFx[name] = { claims, id: computeId(parseClaims(claims)) };
+};
+const movieTuple = (title: string, year: number, genre: string) =>
+  claim(0, ENC_AUTHOR, [
+    { role: "rel", target: { id: "rel:Movies", context: "tuples" } },
+    { role: "title", target: title },
+    { role: "year", target: year },
+    { role: "genre", target: genre },
+  ]);
+addRelFx("m1-matrix", movieTuple("The Matrix", 1999, "scifi"));
+addRelFx("m2-johnwick", movieTuple("John Wick", 2014, "action"));
+addRelFx("m3-bladerunner", movieTuple("Blade Runner", 1982, "scifi"));
+addRelFx("m4-heat", movieTuple("Heat", 1995, "crime"));
+addRelFx("m5-paprika", movieTuple("Paprika", 2006, "anime"));
+// A non-relational stray, differently authored — the relation extent MUST exclude it.
+addRelFx(
+  "stray-note",
+  claim(50, A, [
+    { role: "subject", ...subj("movie:matrix", "note") },
+    { role: "value", target: "not a tuple of rel:Movies" },
+  ]),
+);
+
+const relFixtureSet = DeltaSet.from(
+  Object.values(relFx).map((f) => makeDelta(parseClaims(f.claims))),
+);
+
+const movies = sel({ hasPointer: { targetEntity: "rel:Movies" } });
+const attrEq = (role: string, value: unknown, of: unknown = movies) =>
+  sel({ hasPointer: { role: { exact: role }, targetValue: { vcmp: { cmp: "eq", value } } } }, of);
+
+const relCases: Array<{ name: string; spec: string; term: unknown; note?: string }> = [
+  {
+    name: "relation-extent",
+    spec: "NOTE-13 §2 (R̂: the relation's extent is a select on its marker)",
+    note: "all five tuples; the stray non-relational delta is excluded",
+    term: movies,
+  },
+  {
+    name: "sigma-attr-eq-const",
+    spec: "NOTE-13 Thm 1 (σ_{genre=scifi})",
+    note: "m1, m3",
+    term: attrEq("genre", "scifi"),
+  },
+  {
+    name: "sigma-boolean-closure",
+    spec: "NOTE-13 Thm 1 / SPEC-2 §3 (σ_{genre=scifi ∧ ¬(year=1999)})",
+    note: "m3 only — every tuple carries every attribute, so not(hasPointer) ≡ negated comparator",
+    term: sel(
+      {
+        and: [
+          {
+            hasPointer: {
+              role: { exact: "genre" },
+              targetValue: { vcmp: { cmp: "eq", value: "scifi" } },
+            },
+          },
+          {
+            not: {
+              hasPointer: {
+                role: { exact: "year" },
+                targetValue: { vcmp: { cmp: "eq", value: 1999 } },
+              },
+            },
+          },
+        ],
+      },
+      movies,
+    ),
+  },
+  {
+    name: "sigma-range-beyond-codd",
+    spec: "NOTE-13 Thm 1 (between exceeds Codd's θ-set)",
+    note: "σ_{1990 ≤ year ≤ 2010} = m1, m4, m5",
+    term: sel(
+      { hasPointer: { role: { exact: "year" }, targetValue: { between: [1990, 2010] } } },
+      movies,
+    ),
+  },
+  {
+    name: "union-of-instances",
+    spec: "NOTE-13 Thm 1 (∪ over same-marker instances; id-keyed = tuple-keyed by Lemma 2)",
+    note: "σ_{genre=scifi} ∪ σ_{year=2014} = m1, m2, m3",
+    term: { op: "union", left: attrEq("genre", "scifi"), right: attrEq("year", 2014) },
+  },
+  {
+    name: "difference-of-instances",
+    spec: "NOTE-13 Thm 1 (R̂ ∖ σ_{genre=scifi})",
+    note: "m2, m4, m5",
+    term: { op: "difference", of: movies, without: attrEq("genre", "scifi") },
+  },
+  {
+    name: "intersect-of-instances",
+    spec: "NOTE-13 Thm 1 (σ_{1990≤year≤2010} ∩ σ_{genre=scifi})",
+    note: "m1 only",
+    term: {
+      op: "intersect",
+      left: sel(
+        { hasPointer: { role: { exact: "year" }, targetValue: { between: [1990, 2010] } } },
+        movies,
+      ),
+      right: attrEq("genre", "scifi"),
+    },
+  },
+  {
+    name: "intersect-via-double-difference",
+    spec: "NOTE-13 Thm 1 (Codd's identity ∩ = R − (R − S), as an evaluated equality)",
+    note: "must produce byte-identical output to intersect-of-instances",
+    term: {
+      op: "difference",
+      of: sel(
+        { hasPointer: { role: { exact: "year" }, targetValue: { between: [1990, 2010] } } },
+        movies,
+      ),
+      without: {
+        op: "difference",
+        of: sel(
+          { hasPointer: { role: { exact: "year" }, targetValue: { between: [1990, 2010] } } },
+          movies,
+        ),
+        without: attrEq("genre", "scifi"),
+      },
+    },
+  },
+  {
+    name: "sigma-provenance-column",
+    spec: "NOTE-13 §7 (beyond Codd: author is a queryable system column)",
+    note: "everything the encoding author asserted — the five tuples; the stray (other author) is out",
+    term: sel({ match: { field: "author", cmp: "eq", const: ENC_AUTHOR } }),
+  },
+];
+
+const relVectors = relCases.map(({ name, spec, term, note }) => {
+  const result = evalTerm(parseTerm(term), relFixtureSet);
+  if (result.sort !== "dset") throw new Error(`${name}: expected a DSet result`);
+  return {
+    name,
+    spec,
+    ...(note === undefined ? {} : { note }),
+    term,
+    expected: { ids: result.set.ids() },
+    expectedCanonicalHex: resultCanonicalHex(result),
+  };
+});
+
+// Codd's ∩ = R − (R − S): assert the identity at generation time, so the two vectors can never
+// drift apart silently.
+{
+  const a = relVectors.find((v) => v.name === "intersect-of-instances");
+  const b = relVectors.find((v) => v.name === "intersect-via-double-difference");
+  if (a === undefined || b === undefined || a.expectedCanonicalHex !== b.expectedCanonicalHex) {
+    throw new Error("relational: ∩ ≠ R − (R − S); the Codd identity does not hold");
+  }
+}
+
+// Theorem 2's negative half: product-shaped terms MUST fail closed (§8 unknown-op rule) — the
+// no-minting lemma has no instruction to reach. Verified at generation time like every reject.
+const relRejects: Array<{ name: string; spec: string; reason: string; term: unknown }> = [
+  {
+    name: "product-op-rejected",
+    spec: "NOTE-13 Thm 2 + SPEC-2 §8 (no minting: an operator whose output exceeds its input does not exist; unknown `op` fails closed)",
+    reason:
+      "`product` is not in the closed §9 Term profile — deliberately: it would break the §5 complexity envelope and §1's sandbox (E21)",
+    term: { op: "product", left: "input", right: "input" },
+  },
+  {
+    name: "join-op-rejected",
+    spec: "NOTE-13 Thm 2 + SPEC-2 §8",
+    reason:
+      "`join` is not in the closed §9 Term profile; joins are write-time materialization or an L7 derivation stratum (E21)",
+    term: {
+      op: "join",
+      left: "input",
+      right: "input",
+      on: { role: { exact: "title" } },
+    },
+  },
+  {
+    name: "nested-product-rejected",
+    spec: "NOTE-13 Thm 2 + SPEC-2 §8 (fail-closed holds in nested operand position)",
+    reason: "a product-shaped sub-term is rejected at parse time wherever it appears",
+    term: sel("true", { op: "product", left: "input", right: "input" }),
+  },
+];
+for (const r of relRejects) {
+  let rejected = false;
+  try {
+    evalTerm(parseTerm(r.term), relFixtureSet);
+  } catch {
+    rejected = true;
+  }
+  if (!rejected) {
+    throw new Error(`relational reject "${r.name}" was accepted; §8 fail-closed is violated`);
+  }
+}
+
+const relOut = {
+  note: "Relational completeness (SPEC-2 §6, NOTE-13, ERRATA-2 E21): relations encoded per NOTE-13 Definition 1 (tuple = one delta: relation-marker filing pointer + one pointer per attribute; fixed encoding author/timestamp so id-equality = tuple-equality). `cases` pin the Theorem 1 constructions byte-exactly, including Codd's ∩ = R − (R − S) as an evaluated identity; `rejects` pin Theorem 2 — product-shaped terms fail closed in every witness (§8).",
+  fixture: {
+    note: "rel:Movies (title, year, genre) — five tuples plus one non-relational stray delta",
+    deltas: Object.entries(relFx).map(([name, f]) => ({ name, id: f.id, claims: f.claims })),
+  },
+  cases: relVectors,
+  rejects: relRejects,
+};
+writeFileSync(resolve(evalDir, "eval-relational.json"), `${JSON.stringify(relOut, null, 2)}\n`);
+console.log(
+  `wrote ${relVectors.length} relational vectors + ${relRejects.length} rejects to vectors/l1-eval/eval-relational.json`,
 );
 
 // --- l1-eval: fail-closed KEY parsing (SPEC-2 §8, ERRATA-2 E19, issue #25) ---
@@ -2787,4 +3006,230 @@ writeFileSync(
 );
 console.log(
   `wrote ${reflectiveVectors.length} reflective vectors over ${reflectiveFixtureSet.size} fixture deltas to vectors/l1-eval/eval-reflective.json`,
+);
+
+// --- l1-eval: all(distinct) — opt-in value-dedup at the resolve boundary (R9, issue #33) ---------
+// Order first, keep the first occurrence of each distinct value; equality is the resolved View's
+// canonical CBOR bytes (the same equality `conflicts` dedups by). Default off: the control case
+// pins that plain `all` is byte-identical to its pre-R9 behavior.
+const dfx: Record<string, { claims: unknown; id: string }> = {};
+const addDfx = (name: string, claims: unknown) => {
+  dfx[name] = { claims, id: computeId(parseClaims(claims)) };
+};
+const poster = (ctx: string) => subj("media:poster", ctx);
+addDfx(
+  "tag-scifi-c",
+  claim(120, C, [
+    { role: "subject", ...poster("tag") },
+    { role: "value", target: "scifi" },
+  ]),
+);
+addDfx(
+  "tag-action-b",
+  claim(200, B, [
+    { role: "subject", ...poster("tag") },
+    { role: "value", target: "action" },
+  ]),
+);
+addDfx(
+  "tag-anime-a",
+  claim(300, A, [
+    { role: "subject", ...poster("tag") },
+    { role: "value", target: "anime" },
+  ]),
+);
+addDfx(
+  "tag-scifi-b",
+  claim(350, B, [
+    { role: "subject", ...poster("tag") },
+    { role: "value", target: "scifi" },
+  ]),
+);
+addDfx(
+  "year-a",
+  claim(100, A, [
+    { role: "subject", ...poster("year") },
+    { role: "value", target: 1999 },
+  ]),
+);
+addDfx(
+  "year-b",
+  claim(210, B, [
+    { role: "subject", ...poster("year") },
+    { role: "value", target: 1999 },
+  ]),
+);
+addDfx(
+  "size-large-c",
+  claim(700, C, [
+    { role: "subject", ...poster("size") },
+    { role: "value", target: "large" },
+  ]),
+);
+addDfx(
+  "size-3-a",
+  claim(710, A, [
+    { role: "subject", ...poster("size") },
+    { role: "value", target: 3 },
+  ]),
+);
+addDfx(
+  "size-3-b",
+  claim(720, B, [
+    { role: "subject", ...poster("size") },
+    { role: "value", target: 3 },
+  ]),
+);
+addDfx(
+  "icon-png-a",
+  claim(400, A, [
+    { role: "subject", ...poster("icon") },
+    { role: "icon", target: { mime: "image/png", value: "iVBORw0KGgo" } },
+  ]),
+);
+addDfx(
+  "icon-png-b",
+  claim(410, B, [
+    { role: "subject", ...poster("icon") },
+    { role: "icon", target: { mime: "image/png", value: "iVBORw0KGgo" } },
+  ]),
+);
+addDfx(
+  "icon-wasm-c",
+  claim(420, C, [
+    { role: "subject", ...poster("icon") },
+    { role: "icon", target: { mime: "application/wasm", value: "iVBORw0KGgo" } },
+  ]),
+);
+
+const distinctFixtureSet = DeltaSet.from(
+  Object.values(dfx).map((f) => makeDelta(parseClaims(f.claims))),
+);
+const distinctSchemas = [
+  { name: "PosterRaw", alg: 1, body: { op: "group", key: "byTargetContext", in: "input" } },
+];
+const distinctRegistry = SchemaRegistry.build(
+  distinctSchemas.map((s) => ({ name: s.name, alg: s.alg, body: parseTerm(s.body) })),
+  [],
+);
+const asc = { byTimestamp: "asc" };
+const desc = { byTimestamp: "desc" };
+const allOf = (order: unknown, distinct?: true) => ({
+  all: { order, ...(distinct === undefined ? {} : { distinct }) },
+});
+const dRes = (props: Record<string, unknown>) => ({
+  op: "resolve",
+  schema: { props, default: allOf(asc) },
+  in: { op: "fix", schema: "PosterRaw", entity: "media:poster" },
+});
+
+const distinctCases: Array<{ name: string; spec: string; term: unknown; note?: string }> = [
+  {
+    name: "all-without-distinct-control",
+    spec: "SPEC-5 §3 (default off: plain `all` keeps every claim, duplicates included — pre-R9 behavior byte-identical)",
+    note: "tag asc = [scifi, action, anime, scifi]",
+    term: dRes({}),
+  },
+  {
+    name: "all-distinct-asc",
+    spec: "SPEC-5 §3 / R9 (order first, first occurrence survives)",
+    note: "tag asc dedups to [scifi, action, anime]",
+    term: dRes({ tag: allOf(asc, true) }),
+  },
+  {
+    name: "all-distinct-desc-representative-order",
+    spec: "SPEC-5 §3 / R9 (the array order is first-occurrence order, so asc and desc legitimately differ)",
+    note: "tag desc = scifi(350), anime(300), action(200), scifi(120) → [scifi, anime, action]",
+    term: dRes({ tag: allOf(desc, true) }),
+  },
+  {
+    name: "distinct-numeric-collapse",
+    spec: "SPEC-5 §3 / R9 (equality is canonical bytes: one number type, two authors' 1999 collapse)",
+    note: "year = [1999]",
+    term: dRes({ year: allOf(asc, true) }),
+  },
+  {
+    name: "distinct-mixed-types-never-collide",
+    spec: "SPEC-5 §3 / R9 + SPEC-2 §3 (type rank is in the bytes)",
+    note: 'size asc = large(700), 3(710), 3(720) → ["large", 3]',
+    term: dRes({ size: allOf(asc, true) }),
+  },
+  {
+    name: "distinct-bytes-leaves",
+    spec: "SPEC-5 §3 / R9 + D12 (bytes leaves dedup by (mime, bytes) jointly; same bytes under a different mime stay distinct)",
+    note: "icon = [png leaf, wasm leaf] — the duplicate png (two authors) collapses",
+    term: dRes({ icon: allOf(asc, true) }),
+  },
+  {
+    name: "distinct-composes-with-absentAs",
+    spec: "SPEC-5 §3 / R9 (absentAs(then: all-distinct) fires on the empty property)",
+    note: 'ghost = "none"',
+    term: dRes({ ghost: { absentAs: { const: "none", then: allOf(asc, true) } } }),
+  },
+];
+
+const distinctVectors = distinctCases.map(({ name, spec, term, note }) => {
+  const result = evalTerm(parseTerm(term), distinctFixtureSet, undefined, distinctRegistry);
+  if (result.sort !== "view") throw new Error(`${name}: expected a View result`);
+  return {
+    name,
+    spec,
+    ...(note === undefined ? {} : { note }),
+    term,
+    // The first expectedView to carry a bytes leaf: rendered per SPEC-5 §5 (value as base64url).
+    // The canonical hex stays the byte-normative check; this rendering is for inspection and
+    // structural comparison in tests.
+    expectedView: viewToJson(result.view),
+    expectedCanonicalHex: resultCanonicalHex(result),
+  };
+});
+
+// R9's boundary discipline, verified-to-reject at generation like every reject.
+const distinctRejects: Array<{ name: string; spec: string; reason: string; term: unknown }> = [
+  {
+    name: "distinct-false-rejected",
+    spec: "SPEC-5 §3 / R9 (literal true only — one spelling per meaning)",
+    reason:
+      "`distinct: false` is not a synonym for omitted; a schema has exactly one spelling per meaning, so hashing needs no normalization rule",
+    term: dRes({ tag: { all: { order: asc, distinct: false } } }),
+  },
+  {
+    name: "distinct-nonboolean-rejected",
+    spec: "SPEC-5 §3 / R9",
+    reason: "`distinct` takes the literal true, never a truthy stand-in",
+    term: dRes({ tag: { all: { order: asc, distinct: "yes" } } }),
+  },
+  {
+    name: "pick-distinct-unknown-key-rejected",
+    spec: "SPEC-2 §8 / issue #25 (closed records: `distinct` exists on `all` only)",
+    reason:
+      "pick collapses to one value; `distinct` is an unknown key on its closed record and fails closed",
+    term: dRes({ tag: { pick: { order: desc, distinct: true } } }),
+  },
+];
+for (const r of distinctRejects) {
+  let rejected = false;
+  try {
+    evalTerm(parseTerm(r.term), distinctFixtureSet, undefined, distinctRegistry);
+  } catch {
+    rejected = true;
+  }
+  if (!rejected) {
+    throw new Error(`distinct reject "${r.name}" was accepted; R9 boundary discipline is violated`);
+  }
+}
+
+const distinctOut = {
+  note: "all(order, distinct: true) — opt-in value-dedup at the resolve boundary (SPEC-5 §3/§7, ERRATA-5 R9, issue #33; designed in NOTE-13 §4). Order first, first occurrence survives; equality is the resolved View's canonical CBOR bytes. `rejects` pin the literal-true rule and the closed-record boundary.",
+  fixture: {
+    note: "media:poster — duplicate tags across authors, numerically equal years, mixed-type sizes, and bytes icons (duplicate (mime,bytes) pair + same bytes under a different mime)",
+    deltas: Object.entries(dfx).map(([name, f]) => ({ name, id: f.id, claims: f.claims })),
+  },
+  schemas: distinctSchemas,
+  cases: distinctVectors,
+  rejects: distinctRejects,
+};
+writeFileSync(resolve(evalDir, "eval-distinct.json"), `${JSON.stringify(distinctOut, null, 2)}\n`);
+console.log(
+  `wrote ${distinctVectors.length} distinct vectors + ${distinctRejects.length} rejects to vectors/l1-eval/eval-distinct.json`,
 );

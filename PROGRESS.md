@@ -1,5 +1,45 @@
 # Progress
 
+> **RESUME HERE (2026-07-30, latest). `all(distinct)` SHIPPED (issue #33; SPEC-5 §3/§7, R9,
+> `eval-distinct.json`):**
+>
+> - The boundary-dedup affordance NOTE-13 §4 designed, built the same day: order first, first
+>   occurrence survives, equality = the View's canonical CBOR bytes (the `conflicts` equality).
+>   Literal `true` only (`distinct: false` rejects — one spelling per meaning, no schema-hash
+>   normalization rule). `all` only; elsewhere the key fails closed (§8) — additive,
+>   parse-visible, no `alg` bump.
+> - Vectors: 7 cases (incl. asc-vs-desc representative order legitimately differing, numeric
+>   collapse, bytes-leaf `(mime, bytes)` dedup with same-bytes-different-mime surviving,
+>   absentAs composition, and a no-distinct control pinning default-off is byte-identical) +
+>   3 rejects, all verified at generation. TS 370 / Rust 119 green; byte parity held. First
+>   vectors to pin a bytes leaf inside an `expectedView` → new TS `viewToJson` export
+>   (SPEC-5 §5 rendering).
+> - Multiplicity guidance recorded in R9: the HyperView keeps every entry; pair with
+>   `merge(count)` when "how many said so" matters.
+>
+> ---
+
+> **RESUME HERE (2026-07-30, later). RELATIONAL COMPLETENESS SETTLED (issue #31; NOTE-13,
+> SPEC-2 §6/§10, E21, `eval-relational.json`):**
+>
+> - **The result:** three-part. (1) The selective fragment of Codd's algebra is expressed
+>   exactly by L2 terms over the tuple-as-delta encoding (NOTE-13 Thm 1; `dec∘eval∘enc = E`).
+>   (2) Cartesian product is **provably inexpressible** as a term — the no-minting lemma
+>   (every DSet-sort result ⊆ its input; no operator constructs a delta) — and the lemma is
+>   the same fact as the §5 complexity envelope and §1's sandbox, so the gap is load-bearing
+>   twice over. (3) The system is relationally complete by stratification: each ×/⋈/σ_{A=B}/
+>   set-π node is one L7 derivation stratum; ρ absorbs at the boundaries; `DISTINCT` is
+>   content addressing.
+> - **Spec surface:** §6 retired its hedge and points at NOTE-13; §10's ad-hoc-join question
+>   closed (no ninth operator, as proof not taste); E21 records it.
+> - **Vectors:** `l1-eval/eval-relational.json` — 9 positive (incl. ∩ = R − (R − S) as an
+>   evaluated byte-identity, asserted at generation) + 3 rejects (`op: "product"`/`"join"`,
+>   nested form) verified-to-reject at generation. TS + Rust green; byte parity held.
+> - **Deliberately not done:** a `distinct` flag on `all` (additive, no alg bump — waits for
+>   a consumer); HView-sort projection vectors (group/prune already pinned by eval-hview.json).
+>
+> ---
+
 > **RESUME HERE (2026-07-30). THE FOURTH WITNESS: HASKELL AT L0 (issue #29, branch
 > `claude/additional-language-support-idetxp`):**
 >

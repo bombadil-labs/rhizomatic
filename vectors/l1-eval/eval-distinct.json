@@ -1,0 +1,817 @@
+{
+  "note": "all(order, distinct: true) — opt-in value-dedup at the resolve boundary (SPEC-5 §3/§7, ERRATA-5 R9, issue #33; designed in NOTE-13 §4). Order first, first occurrence survives; equality is the resolved View's canonical CBOR bytes. `rejects` pin the literal-true rule and the closed-record boundary.",
+  "fixture": {
+    "note": "media:poster — duplicate tags across authors, numerically equal years, mixed-type sizes, and bytes icons (duplicate (mime,bytes) pair + same bytes under a different mime)",
+    "deltas": [
+      {
+        "name": "tag-scifi-c",
+        "id": "1e209a77488eff38d67220fbd487bc33a516f62b6bb8a441ca2bdde266f1936e9faf",
+        "claims": {
+          "timestamp": 120,
+          "author": "did:key:zCarol",
+          "pointers": [
+            {
+              "role": "subject",
+              "target": {
+                "id": "media:poster",
+                "context": "tag"
+              }
+            },
+            {
+              "role": "value",
+              "target": "scifi"
+            }
+          ]
+        }
+      },
+      {
+        "name": "tag-action-b",
+        "id": "1e204c8227b130b8f6bd620b8022aa1038bf32633afe72a4da607737b624a3a489f3",
+        "claims": {
+          "timestamp": 200,
+          "author": "did:key:zBob",
+          "pointers": [
+            {
+              "role": "subject",
+              "target": {
+                "id": "media:poster",
+                "context": "tag"
+              }
+            },
+            {
+              "role": "value",
+              "target": "action"
+            }
+          ]
+        }
+      },
+      {
+        "name": "tag-anime-a",
+        "id": "1e20b794e6eb5bec5bc940292aa7df3fb9d8aafbffce4a1f2503e5ad3313ddd1938a",
+        "claims": {
+          "timestamp": 300,
+          "author": "did:key:zAlice",
+          "pointers": [
+            {
+              "role": "subject",
+              "target": {
+                "id": "media:poster",
+                "context": "tag"
+              }
+            },
+            {
+              "role": "value",
+              "target": "anime"
+            }
+          ]
+        }
+      },
+      {
+        "name": "tag-scifi-b",
+        "id": "1e2024b60bfd46d252c88f2a81022b7b0f490aa448766177e69c9c21151b9e9c73ee",
+        "claims": {
+          "timestamp": 350,
+          "author": "did:key:zBob",
+          "pointers": [
+            {
+              "role": "subject",
+              "target": {
+                "id": "media:poster",
+                "context": "tag"
+              }
+            },
+            {
+              "role": "value",
+              "target": "scifi"
+            }
+          ]
+        }
+      },
+      {
+        "name": "year-a",
+        "id": "1e20af3ad016e5d7c281498b1d6ffbfa5489d1a736f150c2c883fdf2d4d427ce9f54",
+        "claims": {
+          "timestamp": 100,
+          "author": "did:key:zAlice",
+          "pointers": [
+            {
+              "role": "subject",
+              "target": {
+                "id": "media:poster",
+                "context": "year"
+              }
+            },
+            {
+              "role": "value",
+              "target": 1999
+            }
+          ]
+        }
+      },
+      {
+        "name": "year-b",
+        "id": "1e2093a576a6836d08667f94a0ed3e1291740a2420a3088ce37e269dad4050fbede4",
+        "claims": {
+          "timestamp": 210,
+          "author": "did:key:zBob",
+          "pointers": [
+            {
+              "role": "subject",
+              "target": {
+                "id": "media:poster",
+                "context": "year"
+              }
+            },
+            {
+              "role": "value",
+              "target": 1999
+            }
+          ]
+        }
+      },
+      {
+        "name": "size-large-c",
+        "id": "1e20f2049418c9fc0b556d7601b5180c7a68cd2134e4ca9d4605d7a5f1bc5b24cd9f",
+        "claims": {
+          "timestamp": 700,
+          "author": "did:key:zCarol",
+          "pointers": [
+            {
+              "role": "subject",
+              "target": {
+                "id": "media:poster",
+                "context": "size"
+              }
+            },
+            {
+              "role": "value",
+              "target": "large"
+            }
+          ]
+        }
+      },
+      {
+        "name": "size-3-a",
+        "id": "1e20a68d9d171f86856bac4ff9fd96d25a7434187f6716547e7581f70ba569be4965",
+        "claims": {
+          "timestamp": 710,
+          "author": "did:key:zAlice",
+          "pointers": [
+            {
+              "role": "subject",
+              "target": {
+                "id": "media:poster",
+                "context": "size"
+              }
+            },
+            {
+              "role": "value",
+              "target": 3
+            }
+          ]
+        }
+      },
+      {
+        "name": "size-3-b",
+        "id": "1e2006bb2b9253ec69968b99a5d13b4d31039aa2ececa43941b49877b28fd8c89977",
+        "claims": {
+          "timestamp": 720,
+          "author": "did:key:zBob",
+          "pointers": [
+            {
+              "role": "subject",
+              "target": {
+                "id": "media:poster",
+                "context": "size"
+              }
+            },
+            {
+              "role": "value",
+              "target": 3
+            }
+          ]
+        }
+      },
+      {
+        "name": "icon-png-a",
+        "id": "1e20f5bac3731f335425190c0fa65b3c77b6382c3528767fa0c46f923669f366fae8",
+        "claims": {
+          "timestamp": 400,
+          "author": "did:key:zAlice",
+          "pointers": [
+            {
+              "role": "subject",
+              "target": {
+                "id": "media:poster",
+                "context": "icon"
+              }
+            },
+            {
+              "role": "icon",
+              "target": {
+                "mime": "image/png",
+                "value": "iVBORw0KGgo"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "name": "icon-png-b",
+        "id": "1e205783d308b02da1aa064fee72c961750eff751f22040b39386240edbad4426a48",
+        "claims": {
+          "timestamp": 410,
+          "author": "did:key:zBob",
+          "pointers": [
+            {
+              "role": "subject",
+              "target": {
+                "id": "media:poster",
+                "context": "icon"
+              }
+            },
+            {
+              "role": "icon",
+              "target": {
+                "mime": "image/png",
+                "value": "iVBORw0KGgo"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "name": "icon-wasm-c",
+        "id": "1e201850b98f1bea1cd8ccddaaadaff478d69f92d51385452542e4e798b4cf462744",
+        "claims": {
+          "timestamp": 420,
+          "author": "did:key:zCarol",
+          "pointers": [
+            {
+              "role": "subject",
+              "target": {
+                "id": "media:poster",
+                "context": "icon"
+              }
+            },
+            {
+              "role": "icon",
+              "target": {
+                "mime": "application/wasm",
+                "value": "iVBORw0KGgo"
+              }
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "schemas": [
+    {
+      "name": "PosterRaw",
+      "alg": 1,
+      "body": {
+        "op": "group",
+        "key": "byTargetContext",
+        "in": "input"
+      }
+    }
+  ],
+  "cases": [
+    {
+      "name": "all-without-distinct-control",
+      "spec": "SPEC-5 §3 (default off: plain `all` keeps every claim, duplicates included — pre-R9 behavior byte-identical)",
+      "note": "tag asc = [scifi, action, anime, scifi]",
+      "term": {
+        "op": "resolve",
+        "schema": {
+          "props": {},
+          "default": {
+            "all": {
+              "order": {
+                "byTimestamp": "asc"
+              }
+            }
+          }
+        },
+        "in": {
+          "op": "fix",
+          "schema": "PosterRaw",
+          "entity": "media:poster"
+        }
+      },
+      "expectedView": {
+        "tag": [
+          "scifi",
+          "action",
+          "anime",
+          "scifi"
+        ],
+        "year": [
+          1999,
+          1999
+        ],
+        "size": [
+          "large",
+          3,
+          3
+        ],
+        "icon": [
+          {
+            "mime": "image/png",
+            "value": "iVBORw0KGgo"
+          },
+          {
+            "mime": "image/png",
+            "value": "iVBORw0KGgo"
+          },
+          {
+            "mime": "application/wasm",
+            "value": "iVBORw0KGgo"
+          }
+        ]
+      },
+      "expectedCanonicalHex": "a4637461678465736369666966616374696f6e65616e696d656573636966696469636f6e83a2646d696d6569696d6167652f706e676576616c75654889504e470d0a1a0aa2646d696d6569696d6167652f706e676576616c75654889504e470d0a1a0aa2646d696d65706170706c69636174696f6e2f7761736d6576616c75654889504e470d0a1a0a6473697a6583656c61726765f94200f94200647965617282f967cff967cf"
+    },
+    {
+      "name": "all-distinct-asc",
+      "spec": "SPEC-5 §3 / R9 (order first, first occurrence survives)",
+      "note": "tag asc dedups to [scifi, action, anime]",
+      "term": {
+        "op": "resolve",
+        "schema": {
+          "props": {
+            "tag": {
+              "all": {
+                "order": {
+                  "byTimestamp": "asc"
+                },
+                "distinct": true
+              }
+            }
+          },
+          "default": {
+            "all": {
+              "order": {
+                "byTimestamp": "asc"
+              }
+            }
+          }
+        },
+        "in": {
+          "op": "fix",
+          "schema": "PosterRaw",
+          "entity": "media:poster"
+        }
+      },
+      "expectedView": {
+        "tag": [
+          "scifi",
+          "action",
+          "anime"
+        ],
+        "year": [
+          1999,
+          1999
+        ],
+        "size": [
+          "large",
+          3,
+          3
+        ],
+        "icon": [
+          {
+            "mime": "image/png",
+            "value": "iVBORw0KGgo"
+          },
+          {
+            "mime": "image/png",
+            "value": "iVBORw0KGgo"
+          },
+          {
+            "mime": "application/wasm",
+            "value": "iVBORw0KGgo"
+          }
+        ]
+      },
+      "expectedCanonicalHex": "a4637461678365736369666966616374696f6e65616e696d656469636f6e83a2646d696d6569696d6167652f706e676576616c75654889504e470d0a1a0aa2646d696d6569696d6167652f706e676576616c75654889504e470d0a1a0aa2646d696d65706170706c69636174696f6e2f7761736d6576616c75654889504e470d0a1a0a6473697a6583656c61726765f94200f94200647965617282f967cff967cf"
+    },
+    {
+      "name": "all-distinct-desc-representative-order",
+      "spec": "SPEC-5 §3 / R9 (the array order is first-occurrence order, so asc and desc legitimately differ)",
+      "note": "tag desc = scifi(350), anime(300), action(200), scifi(120) → [scifi, anime, action]",
+      "term": {
+        "op": "resolve",
+        "schema": {
+          "props": {
+            "tag": {
+              "all": {
+                "order": {
+                  "byTimestamp": "desc"
+                },
+                "distinct": true
+              }
+            }
+          },
+          "default": {
+            "all": {
+              "order": {
+                "byTimestamp": "asc"
+              }
+            }
+          }
+        },
+        "in": {
+          "op": "fix",
+          "schema": "PosterRaw",
+          "entity": "media:poster"
+        }
+      },
+      "expectedView": {
+        "tag": [
+          "scifi",
+          "anime",
+          "action"
+        ],
+        "year": [
+          1999,
+          1999
+        ],
+        "size": [
+          "large",
+          3,
+          3
+        ],
+        "icon": [
+          {
+            "mime": "image/png",
+            "value": "iVBORw0KGgo"
+          },
+          {
+            "mime": "image/png",
+            "value": "iVBORw0KGgo"
+          },
+          {
+            "mime": "application/wasm",
+            "value": "iVBORw0KGgo"
+          }
+        ]
+      },
+      "expectedCanonicalHex": "a4637461678365736369666965616e696d6566616374696f6e6469636f6e83a2646d696d6569696d6167652f706e676576616c75654889504e470d0a1a0aa2646d696d6569696d6167652f706e676576616c75654889504e470d0a1a0aa2646d696d65706170706c69636174696f6e2f7761736d6576616c75654889504e470d0a1a0a6473697a6583656c61726765f94200f94200647965617282f967cff967cf"
+    },
+    {
+      "name": "distinct-numeric-collapse",
+      "spec": "SPEC-5 §3 / R9 (equality is canonical bytes: one number type, two authors' 1999 collapse)",
+      "note": "year = [1999]",
+      "term": {
+        "op": "resolve",
+        "schema": {
+          "props": {
+            "year": {
+              "all": {
+                "order": {
+                  "byTimestamp": "asc"
+                },
+                "distinct": true
+              }
+            }
+          },
+          "default": {
+            "all": {
+              "order": {
+                "byTimestamp": "asc"
+              }
+            }
+          }
+        },
+        "in": {
+          "op": "fix",
+          "schema": "PosterRaw",
+          "entity": "media:poster"
+        }
+      },
+      "expectedView": {
+        "year": [
+          1999
+        ],
+        "tag": [
+          "scifi",
+          "action",
+          "anime",
+          "scifi"
+        ],
+        "size": [
+          "large",
+          3,
+          3
+        ],
+        "icon": [
+          {
+            "mime": "image/png",
+            "value": "iVBORw0KGgo"
+          },
+          {
+            "mime": "image/png",
+            "value": "iVBORw0KGgo"
+          },
+          {
+            "mime": "application/wasm",
+            "value": "iVBORw0KGgo"
+          }
+        ]
+      },
+      "expectedCanonicalHex": "a4637461678465736369666966616374696f6e65616e696d656573636966696469636f6e83a2646d696d6569696d6167652f706e676576616c75654889504e470d0a1a0aa2646d696d6569696d6167652f706e676576616c75654889504e470d0a1a0aa2646d696d65706170706c69636174696f6e2f7761736d6576616c75654889504e470d0a1a0a6473697a6583656c61726765f94200f94200647965617281f967cf"
+    },
+    {
+      "name": "distinct-mixed-types-never-collide",
+      "spec": "SPEC-5 §3 / R9 + SPEC-2 §3 (type rank is in the bytes)",
+      "note": "size asc = large(700), 3(710), 3(720) → [\"large\", 3]",
+      "term": {
+        "op": "resolve",
+        "schema": {
+          "props": {
+            "size": {
+              "all": {
+                "order": {
+                  "byTimestamp": "asc"
+                },
+                "distinct": true
+              }
+            }
+          },
+          "default": {
+            "all": {
+              "order": {
+                "byTimestamp": "asc"
+              }
+            }
+          }
+        },
+        "in": {
+          "op": "fix",
+          "schema": "PosterRaw",
+          "entity": "media:poster"
+        }
+      },
+      "expectedView": {
+        "size": [
+          "large",
+          3
+        ],
+        "tag": [
+          "scifi",
+          "action",
+          "anime",
+          "scifi"
+        ],
+        "year": [
+          1999,
+          1999
+        ],
+        "icon": [
+          {
+            "mime": "image/png",
+            "value": "iVBORw0KGgo"
+          },
+          {
+            "mime": "image/png",
+            "value": "iVBORw0KGgo"
+          },
+          {
+            "mime": "application/wasm",
+            "value": "iVBORw0KGgo"
+          }
+        ]
+      },
+      "expectedCanonicalHex": "a4637461678465736369666966616374696f6e65616e696d656573636966696469636f6e83a2646d696d6569696d6167652f706e676576616c75654889504e470d0a1a0aa2646d696d6569696d6167652f706e676576616c75654889504e470d0a1a0aa2646d696d65706170706c69636174696f6e2f7761736d6576616c75654889504e470d0a1a0a6473697a6582656c61726765f94200647965617282f967cff967cf"
+    },
+    {
+      "name": "distinct-bytes-leaves",
+      "spec": "SPEC-5 §3 / R9 + D12 (bytes leaves dedup by (mime, bytes) jointly; same bytes under a different mime stay distinct)",
+      "note": "icon = [png leaf, wasm leaf] — the duplicate png (two authors) collapses",
+      "term": {
+        "op": "resolve",
+        "schema": {
+          "props": {
+            "icon": {
+              "all": {
+                "order": {
+                  "byTimestamp": "asc"
+                },
+                "distinct": true
+              }
+            }
+          },
+          "default": {
+            "all": {
+              "order": {
+                "byTimestamp": "asc"
+              }
+            }
+          }
+        },
+        "in": {
+          "op": "fix",
+          "schema": "PosterRaw",
+          "entity": "media:poster"
+        }
+      },
+      "expectedView": {
+        "icon": [
+          {
+            "mime": "image/png",
+            "value": "iVBORw0KGgo"
+          },
+          {
+            "mime": "application/wasm",
+            "value": "iVBORw0KGgo"
+          }
+        ],
+        "tag": [
+          "scifi",
+          "action",
+          "anime",
+          "scifi"
+        ],
+        "year": [
+          1999,
+          1999
+        ],
+        "size": [
+          "large",
+          3,
+          3
+        ]
+      },
+      "expectedCanonicalHex": "a4637461678465736369666966616374696f6e65616e696d656573636966696469636f6e82a2646d696d6569696d6167652f706e676576616c75654889504e470d0a1a0aa2646d696d65706170706c69636174696f6e2f7761736d6576616c75654889504e470d0a1a0a6473697a6583656c61726765f94200f94200647965617282f967cff967cf"
+    },
+    {
+      "name": "distinct-composes-with-absentAs",
+      "spec": "SPEC-5 §3 / R9 (absentAs(then: all-distinct) fires on the empty property)",
+      "note": "ghost = \"none\"",
+      "term": {
+        "op": "resolve",
+        "schema": {
+          "props": {
+            "ghost": {
+              "absentAs": {
+                "const": "none",
+                "then": {
+                  "all": {
+                    "order": {
+                      "byTimestamp": "asc"
+                    },
+                    "distinct": true
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "all": {
+              "order": {
+                "byTimestamp": "asc"
+              }
+            }
+          }
+        },
+        "in": {
+          "op": "fix",
+          "schema": "PosterRaw",
+          "entity": "media:poster"
+        }
+      },
+      "expectedView": {
+        "ghost": "none",
+        "tag": [
+          "scifi",
+          "action",
+          "anime",
+          "scifi"
+        ],
+        "year": [
+          1999,
+          1999
+        ],
+        "size": [
+          "large",
+          3,
+          3
+        ],
+        "icon": [
+          {
+            "mime": "image/png",
+            "value": "iVBORw0KGgo"
+          },
+          {
+            "mime": "image/png",
+            "value": "iVBORw0KGgo"
+          },
+          {
+            "mime": "application/wasm",
+            "value": "iVBORw0KGgo"
+          }
+        ]
+      },
+      "expectedCanonicalHex": "a5637461678465736369666966616374696f6e65616e696d656573636966696469636f6e83a2646d696d6569696d6167652f706e676576616c75654889504e470d0a1a0aa2646d696d6569696d6167652f706e676576616c75654889504e470d0a1a0aa2646d696d65706170706c69636174696f6e2f7761736d6576616c75654889504e470d0a1a0a6473697a6583656c61726765f94200f94200647965617282f967cff967cf6567686f7374646e6f6e65"
+    }
+  ],
+  "rejects": [
+    {
+      "name": "distinct-false-rejected",
+      "spec": "SPEC-5 §3 / R9 (literal true only — one spelling per meaning)",
+      "reason": "`distinct: false` is not a synonym for omitted; a schema has exactly one spelling per meaning, so hashing needs no normalization rule",
+      "term": {
+        "op": "resolve",
+        "schema": {
+          "props": {
+            "tag": {
+              "all": {
+                "order": {
+                  "byTimestamp": "asc"
+                },
+                "distinct": false
+              }
+            }
+          },
+          "default": {
+            "all": {
+              "order": {
+                "byTimestamp": "asc"
+              }
+            }
+          }
+        },
+        "in": {
+          "op": "fix",
+          "schema": "PosterRaw",
+          "entity": "media:poster"
+        }
+      }
+    },
+    {
+      "name": "distinct-nonboolean-rejected",
+      "spec": "SPEC-5 §3 / R9",
+      "reason": "`distinct` takes the literal true, never a truthy stand-in",
+      "term": {
+        "op": "resolve",
+        "schema": {
+          "props": {
+            "tag": {
+              "all": {
+                "order": {
+                  "byTimestamp": "asc"
+                },
+                "distinct": "yes"
+              }
+            }
+          },
+          "default": {
+            "all": {
+              "order": {
+                "byTimestamp": "asc"
+              }
+            }
+          }
+        },
+        "in": {
+          "op": "fix",
+          "schema": "PosterRaw",
+          "entity": "media:poster"
+        }
+      }
+    },
+    {
+      "name": "pick-distinct-unknown-key-rejected",
+      "spec": "SPEC-2 §8 / issue #25 (closed records: `distinct` exists on `all` only)",
+      "reason": "pick collapses to one value; `distinct` is an unknown key on its closed record and fails closed",
+      "term": {
+        "op": "resolve",
+        "schema": {
+          "props": {
+            "tag": {
+              "pick": {
+                "order": {
+                  "byTimestamp": "desc"
+                },
+                "distinct": true
+              }
+            }
+          },
+          "default": {
+            "all": {
+              "order": {
+                "byTimestamp": "asc"
+              }
+            }
+          }
+        },
+        "in": {
+          "op": "fix",
+          "schema": "PosterRaw",
+          "entity": "media:poster"
+        }
+      }
+    }
+  ]
+}

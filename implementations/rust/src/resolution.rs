@@ -45,7 +45,10 @@ pub enum Order {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Policy {
     Pick(Order),
-    All(Order),
+    /// distinct (R9): order first, then keep the first occurrence of each distinct value — value
+    /// equality is the View's canonical CBOR bytes, the same equality Conflicts dedups by. Only
+    /// the literal `true` parses; `distinct: false` is rejected (one spelling per meaning).
+    All(Order, bool),
     Merge(MergeFn),
     Conflicts(Order),
     AbsentAs {
@@ -297,13 +300,18 @@ fn apply_policy(policy: &Policy, entries: &[HVEntry], root: &str) -> Result<Opti
             let sorted = sort_entries(order, entries);
             Some(candidate_value(sorted[0], root)?)
         }
-        Policy::All(order) => {
+        Policy::All(order, distinct) => {
             if entries.is_empty() {
                 return Ok(None);
             }
             let mut out: Vec<View> = Vec::with_capacity(entries.len());
+            let mut seen: BTreeSet<String> = BTreeSet::new();
             for e in sort_entries(order, entries) {
-                out.push(candidate_value(e, root)?);
+                let v = candidate_value(e, root)?;
+                if *distinct && !seen.insert(view_canonical_hex(&v)) {
+                    continue;
+                }
+                out.push(v);
             }
             Some(View::Arr(out))
         }

@@ -56,7 +56,7 @@ Schemas are terms in a closed grammar — serializable as deltas, federate-able,
 Schema      ::= object( Map<propertyName, Policy>, default: Policy )
 
 Policy      ::= pick(Order, Tiebreak)        // collapse to one value
-              | all(Order)                   // array of all surviving values
+              | all(Order, distinct?)        // array of all surviving values; distinct dedups by value (R9)
               | merge(MergeFn)               // closed combiners: §3.1
               | conflicts(Order)             // values only if ≥2 distinct survive
               | absentAs(Const, Policy)      // default for empty properties
@@ -75,6 +75,22 @@ MergeFn     ::= max | min | sum | count | and | or | concatSorted
 Normative notes:
 
 - Every `Order` chain MUST bottom out in `lexById` (delta content hashes give a canonical total order), guaranteeing determinism even among byte-equal claims from distinct deltas.
+- **`all(order, distinct: true)`** (issue #33, ERRATA-5 R9) orders the candidates first, then keeps
+  the **first occurrence** of each distinct value — so the surviving representative is meaningful
+  (under `byAuthorRank`, the most-trusted author's copy is the one `explain` traces), and the result
+  array's order is the order of first occurrences. **Value equality is byte equality of the resolved
+  View's canonical CBOR** — exactly the equality `conflicts` already dedups by; no second notion of
+  sameness enters the system. Consequences, all inherited rather than special-cased: numerically
+  equal claims collapse (there is one number type), bytes leaves dedup by `(mime, bytes)` jointly
+  (same bytes under a different mime stay distinct), mixed types never collide (type rank is in the
+  bytes), and expanded targets dedup by their resolved nested Views. Only the **literal `true`** is
+  legal: `distinct: false` is a rejected term, not a synonym for omission — one spelling per meaning,
+  the same discipline as `-0.0 → +0.0` and the HVEntry `negated` flag, so schema hashing needs no
+  normalization rule. `distinct` exists on `all` only (`pick` collapses, `conflicts` already dedups,
+  `merge` folds); on any other policy node the key is unknown and fails closed (SPEC-2 §8), which is
+  also the versioning story: additive, parse-visible, no `alg` bump. Duplicate *multiplicity* is not
+  lost upstream — the HyperView keeps every entry; count it via `merge(count)` alongside when "how
+  many said so" matters.
 - `chain` is the composition form: compare by each member in turn, taking the first decisive
   comparison; a chain whose every member ties falls through to the structural `lexById` like any
   other order. A `chain` MUST be non-empty (an empty chain is a rejected term, not an identity).
@@ -131,7 +147,7 @@ The JSON spelling of schema terms, used by the conformance vectors and as the au
 ```
 Schema     ::= { "props": { propName: Policy, ... }, "default": Policy }
 Policy     ::= { "pick": { "order": Order } }
-             | { "all": { "order": Order } }
+             | { "all": { "order": Order, "distinct"?: true } }   // literal true only (R9)
              | { "merge": "max"|"min"|"sum"|"count"|"and"|"or"|"concatSorted" }
              | { "conflicts": { "order": Order } }
              | { "absentAs": { "const": Primitive, "then": Policy } }

@@ -356,7 +356,16 @@ function parsePolicy(raw: unknown): Policy {
     return { kind: "pick", order: parseOrder(asObject(o["pick"], "pick", ["order"])["order"]) };
   }
   if (tag === "all") {
-    return { kind: "all", order: parseOrder(asObject(o["all"], "all", ["order"])["order"]) };
+    const ao = asObject(o["all"], "all", ["order", "distinct"]);
+    const order = parseOrder(ao["order"]);
+    if (!("distinct" in ao)) return { kind: "all", order };
+    if (ao["distinct"] !== true) {
+      // R9: one spelling per meaning — `false` is not a synonym for omitted.
+      throw new Error(
+        `all.distinct must be the literal true when present; got ${JSON.stringify(ao["distinct"])}`,
+      );
+    }
+    return { kind: "all", order, distinct: true };
   }
   if (tag === "merge") {
     if (!MERGE_FNS.includes(o["merge"] as MergeFn)) {

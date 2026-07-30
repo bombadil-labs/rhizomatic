@@ -8,6 +8,33 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 
 ### Added
 
+- **`all(order, distinct: true)` — opt-in value-dedup at the resolve boundary**
+  ([#33](https://github.com/bombadil-labs/rhizomatic/issues/33), SPEC-5 §3/§7, ERRATA-5 R9;
+  designed in NOTE-13 §4). Orders the property's candidates, then keeps the **first occurrence**
+  of each distinct value — so under `byAuthorRank` the survivor is the most-trusted author's copy,
+  and the array order is first-occurrence order. Value equality is the resolved View's canonical
+  CBOR bytes (the equality `conflicts` already dedups by): numeric spellings collapse, bytes
+  leaves dedup by `(mime, bytes)` jointly, mixed types never collide. Only the literal `true` is
+  legal — `distinct: false` rejects (one spelling per meaning), so schema hashing gains no
+  normalization rule. Default off and additive/parse-visible (no `alg` bump): plain `all` is
+  byte-identical to before, pinned by a control vector. New vector family
+  `vectors/l1-eval/eval-distinct.json` (7 cases + 3 rejects); new TS export `viewToJson` (the
+  SPEC-5 §5 JSON rendering, used by the first vectors to pin a bytes leaf inside an
+  `expectedView`).
+
+- **Relational completeness is settled** ([#31](https://github.com/bombadil-labs/rhizomatic/issues/31),
+  SPEC-2 §6/§10, ERRATA-2 E21, [NOTE-13](spec/13-relational-completeness.NOTE.md)). The selective
+  fragment of Codd's algebra (σ against constants with boolean closure, ∪, −, ∩, π-with-lineage)
+  is expressed exactly by L2 terms over the tuple-as-delta encoding; Cartesian product is
+  **provably inexpressible as a term** (the no-minting lemma — every DSet-sort result is a subset
+  of its input), and that same lemma is the §5 complexity envelope and §1's federation sandbox, so
+  §10's "admit a ninth operator?" closes with a principled no. The *system* is relationally
+  complete by stratification (L2 + L7 derivations). New vector family
+  `vectors/l1-eval/eval-relational.json`: 9 positive cases (including Codd's ∩ = R − (R − S) as an
+  evaluated byte-identity) + 3 `rejects[]` pinning that product-shaped terms fail closed in every
+  witness. **No behavior change** — no canonical bytes move; the closed §9 profile already rejected
+  unknown operators, and the new vectors pin that this is a theorem, not an accident.
+
 - **`implementations/haskell` — the fourth witness, at conformance Level 0**
   ([#29](https://github.com/bombadil-labs/rhizomatic/issues/29)). Zero dependencies (GHC boot
   packages only); *all* crypto hand-rolled from the standards — BLAKE3, SHA-512, and Ed25519

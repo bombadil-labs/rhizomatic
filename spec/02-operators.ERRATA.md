@@ -322,3 +322,33 @@ only in `reading` have different `termHash`es, so nothing collides when a store 
 one — pinned by `select-then-mask-scopes-to-operand` in `eval-basic.json`. A migration that splits a
 store MUST carry the negation closure along with its targets, or it silently reinstates masked
 claims.
+
+## E21 — Relational completeness settled: no ninth operator, the gap is the guarantee (2026-07-30, issue #31)
+
+§6 claimed Codd-completeness as a sketch and flagged ad-hoc product/join "for the formal proof to
+confirm or refute"; §10 tracked "confirm derivability or admit a ninth operator." The proof
+([NOTE-13](13-relational-completeness.NOTE.md)) resolves both, in three parts:
+
+- **Confirmed:** the selective fragment — σ against constants with boolean closure, ∪, −, ∩, and
+  π-with-lineage — is expressed exactly by L2 terms over the tuple-as-delta encoding
+  (`dec ∘ eval ∘ enc = E`, NOTE Thm 1), pinned byte-exactly by
+  `vectors/l1-eval/eval-relational.json`.
+- **Refuted:** ad-hoc Cartesian product (hence θ-join, hence σ comparing two attributes) is
+  **inexpressible as a term** — the no-minting lemma (every DSet-sort result is a subset of its
+  input; no operator constructs a delta) makes any output-exceeds-input operation unreachable
+  (NOTE Thm 2). The negative vectors (`rejects[]`: `op: "product"`, `op: "join"`, nested forms)
+  pin that every witness fails closed on product-shaped terms per the §8 rule.
+- **Decision — no ninth operator, as a matter of proof rather than taste:** the no-minting lemma
+  is the same fact as the §5 complexity envelope and §1's sandboxing-by-construction. An ad-hoc
+  product instruction would forfeit both guarantees to buy expressiveness the system already has:
+  write-time materialized joins (multi-pointer deltas; `expand` is join navigation), or one L7
+  derivation stratum — an identified author asserting the pairs as signed deltas, with
+  `rhizomatic.derived.from` provenance and replay verification. Stratified, the *system* is
+  relationally complete (NOTE Thm 3).
+
+Also recorded from the proof, for whoever needs them next: set-semantic duplicate elimination is
+content addressing (re-asserted projections dedup by id — `DISTINCT` is identity, not an
+operator); the boundary-level form, a `distinct` flag on the `all` policy, was designed here and
+built the same day (issue #33, ERRATA-5 R9 — additive and parse-visible, no `alg` bump, exactly
+as predicted); and ρ never needs algebra support — renames normalize to the View boundary or
+into the emitting derivation.

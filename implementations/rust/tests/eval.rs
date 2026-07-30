@@ -143,6 +143,67 @@ fn set_algebra_rejects() {
     }
 }
 
+// --- relational-completeness vectors (SPEC-2 §6, NOTE-13, ERRATA-2 E21) ----------------------------
+
+fn load_eval_relational() -> Value {
+    let path = format!(
+        "{}/../../vectors/l1-eval/eval-relational.json",
+        env!("CARGO_MANIFEST_DIR")
+    );
+    serde_json::from_str(&std::fs::read_to_string(path).expect("read eval-relational.json"))
+        .unwrap()
+}
+
+#[test]
+fn relational_fixture_ids_match() {
+    let doc = load_eval_relational();
+    for d in doc["fixture"]["deltas"].as_array().unwrap() {
+        let delta = make_delta(parse_claims(&d["claims"]).unwrap(), None).unwrap();
+        assert_eq!(delta.id, d["id"].as_str().unwrap(), "{}", d["name"]);
+    }
+}
+
+#[test]
+fn relational_vectors() {
+    let doc = load_eval_relational();
+    let input = fixture_set(&doc);
+    for c in doc["cases"].as_array().unwrap() {
+        let name = c["name"].as_str().unwrap();
+        let term = parse_term(&c["term"]).unwrap_or_else(|e| panic!("parse {name}: {e}"));
+        let result = eval_term(&term, &input, None, None, None).unwrap();
+        let hex = result_canonical_hex(&result);
+        let (set, _) = as_dset(result);
+        let expected_ids: Vec<&str> = c["expected"]["ids"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|x| x.as_str().unwrap())
+            .collect();
+        assert_eq!(set.ids(), expected_ids, "ids mismatch for {name}");
+        assert_eq!(
+            hex,
+            c["expectedCanonicalHex"].as_str().unwrap(),
+            "canonical result mismatch for {name}"
+        );
+    }
+}
+
+/// Theorem 2's negative half: product-shaped terms fail closed (§8 unknown-op rule) — the
+/// no-minting lemma leaves them no instruction to reach.
+#[test]
+fn relational_rejects() {
+    let doc = load_eval_relational();
+    let input = fixture_set(&doc);
+    for r in doc["rejects"].as_array().unwrap() {
+        let name = r["name"].as_str().unwrap();
+        let rejected = match parse_term(&r["term"]) {
+            Err(_) => true,
+            Ok(t) => eval_term(&t, &input, None, None, None).is_err(),
+        };
+        assert!(rejected, "expected rejection for {name}");
+    }
+}
+
 // --- property tests --------------------------------------------------------------------------------
 
 fn pointer() -> impl Strategy<Value = Pointer> {

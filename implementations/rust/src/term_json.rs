@@ -474,14 +474,28 @@ fn parse_order(raw: &Value) -> Result<Order, String> {
 fn parse_policy(raw: &Value) -> Result<Policy, String> {
     let (o, tag) = one_tag(raw, &POLICY_TAGS, "propPolicy")?;
     match tag {
-        "pick" | "all" | "conflicts" => {
+        "pick" | "conflicts" => {
             let po = as_object(&o[tag], tag, &["order"])?;
             let order = parse_order(po.get("order").unwrap_or(&Value::Null))?;
             Ok(match tag {
                 "pick" => Policy::Pick(order),
-                "all" => Policy::All(order),
                 _ => Policy::Conflicts(order),
             })
+        }
+        "all" => {
+            let po = as_object(&o["all"], "all", &["order", "distinct"])?;
+            let order = parse_order(po.get("order").unwrap_or(&Value::Null))?;
+            // R9: one spelling per meaning — `false` is not a synonym for omitted.
+            let distinct = match po.get("distinct") {
+                None => false,
+                Some(Value::Bool(true)) => true,
+                Some(other) => {
+                    return Err(format!(
+                        "all.distinct must be the literal true when present; got {other}"
+                    ))
+                }
+            };
+            Ok(Policy::All(order, distinct))
         }
         "merge" => {
             let fn_ = match o["merge"].as_str() {

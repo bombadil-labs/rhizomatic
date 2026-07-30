@@ -1,0 +1,669 @@
+{
+  "note": "Relational completeness (SPEC-2 §6, NOTE-13, ERRATA-2 E21): relations encoded per NOTE-13 Definition 1 (tuple = one delta: relation-marker filing pointer + one pointer per attribute; fixed encoding author/timestamp so id-equality = tuple-equality). `cases` pin the Theorem 1 constructions byte-exactly, including Codd's ∩ = R − (R − S) as an evaluated identity; `rejects` pin Theorem 2 — product-shaped terms fail closed in every witness (§8).",
+  "fixture": {
+    "note": "rel:Movies (title, year, genre) — five tuples plus one non-relational stray delta",
+    "deltas": [
+      {
+        "name": "m1-matrix",
+        "id": "1e203169c75b609ae7d7c67811e2526b34001d5610f9f1985f191df389e6af34cbe0",
+        "claims": {
+          "timestamp": 0,
+          "author": "did:key:zEncoder",
+          "pointers": [
+            {
+              "role": "rel",
+              "target": {
+                "id": "rel:Movies",
+                "context": "tuples"
+              }
+            },
+            {
+              "role": "title",
+              "target": "The Matrix"
+            },
+            {
+              "role": "year",
+              "target": 1999
+            },
+            {
+              "role": "genre",
+              "target": "scifi"
+            }
+          ]
+        }
+      },
+      {
+        "name": "m2-johnwick",
+        "id": "1e20a7083fb8d56b70e07e0b72d0f802f6b4775a9c9cb9daa472d02174cdde2e5edb",
+        "claims": {
+          "timestamp": 0,
+          "author": "did:key:zEncoder",
+          "pointers": [
+            {
+              "role": "rel",
+              "target": {
+                "id": "rel:Movies",
+                "context": "tuples"
+              }
+            },
+            {
+              "role": "title",
+              "target": "John Wick"
+            },
+            {
+              "role": "year",
+              "target": 2014
+            },
+            {
+              "role": "genre",
+              "target": "action"
+            }
+          ]
+        }
+      },
+      {
+        "name": "m3-bladerunner",
+        "id": "1e20d014e5bbbac6ca41a6b278f5869c399f083cab47f0d81484d1d17c576d4c43e5",
+        "claims": {
+          "timestamp": 0,
+          "author": "did:key:zEncoder",
+          "pointers": [
+            {
+              "role": "rel",
+              "target": {
+                "id": "rel:Movies",
+                "context": "tuples"
+              }
+            },
+            {
+              "role": "title",
+              "target": "Blade Runner"
+            },
+            {
+              "role": "year",
+              "target": 1982
+            },
+            {
+              "role": "genre",
+              "target": "scifi"
+            }
+          ]
+        }
+      },
+      {
+        "name": "m4-heat",
+        "id": "1e20dd7a2b450c9ddf5858f2709572a9e36bfa6ed7d7faa9bcf25ad84aa4fadfc72d",
+        "claims": {
+          "timestamp": 0,
+          "author": "did:key:zEncoder",
+          "pointers": [
+            {
+              "role": "rel",
+              "target": {
+                "id": "rel:Movies",
+                "context": "tuples"
+              }
+            },
+            {
+              "role": "title",
+              "target": "Heat"
+            },
+            {
+              "role": "year",
+              "target": 1995
+            },
+            {
+              "role": "genre",
+              "target": "crime"
+            }
+          ]
+        }
+      },
+      {
+        "name": "m5-paprika",
+        "id": "1e20ed16f5a9380b11fe3b681fec6eb58c4722c20006230636f6109d97c4e0794e1a",
+        "claims": {
+          "timestamp": 0,
+          "author": "did:key:zEncoder",
+          "pointers": [
+            {
+              "role": "rel",
+              "target": {
+                "id": "rel:Movies",
+                "context": "tuples"
+              }
+            },
+            {
+              "role": "title",
+              "target": "Paprika"
+            },
+            {
+              "role": "year",
+              "target": 2006
+            },
+            {
+              "role": "genre",
+              "target": "anime"
+            }
+          ]
+        }
+      },
+      {
+        "name": "stray-note",
+        "id": "1e20bcfb88938a4a8da80c9e52e9e30a258a1be95815bac315e6bd240456fdd22ce9",
+        "claims": {
+          "timestamp": 50,
+          "author": "did:key:zAlice",
+          "pointers": [
+            {
+              "role": "subject",
+              "target": {
+                "id": "movie:matrix",
+                "context": "note"
+              }
+            },
+            {
+              "role": "value",
+              "target": "not a tuple of rel:Movies"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "cases": [
+    {
+      "name": "relation-extent",
+      "spec": "NOTE-13 §2 (R̂: the relation's extent is a select on its marker)",
+      "note": "all five tuples; the stray non-relational delta is excluded",
+      "term": {
+        "op": "select",
+        "pred": {
+          "hasPointer": {
+            "targetEntity": "rel:Movies"
+          }
+        },
+        "in": "input"
+      },
+      "expected": {
+        "ids": [
+          "1e203169c75b609ae7d7c67811e2526b34001d5610f9f1985f191df389e6af34cbe0",
+          "1e20a7083fb8d56b70e07e0b72d0f802f6b4775a9c9cb9daa472d02174cdde2e5edb",
+          "1e20d014e5bbbac6ca41a6b278f5869c399f083cab47f0d81484d1d17c576d4c43e5",
+          "1e20dd7a2b450c9ddf5858f2709572a9e36bfa6ed7d7faa9bcf25ad84aa4fadfc72d",
+          "1e20ed16f5a9380b11fe3b681fec6eb58c4722c20006230636f6109d97c4e0794e1a"
+        ]
+      },
+      "expectedCanonicalHex": "857844316532303331363963373562363039616537643763363738313165323532366233343030316435363130663966313938356631393164663338396536616633346362653078443165323061373038336662386435366237306530376530623732643066383032663662343737356139633963623964616134373264303231373463646465326535656462784431653230643031346535626262616336636134316136623237386635383639633339396630383363616234376630643831343834643164313763353736643463343365357844316532306464376132623435306339646466353835386632373039353732613965333662666136656437643766616139626366323561643834616134666164666337326478443165323065643136663561393338306231316665336236383166656336656235386334373232633230303036323330363336663631303964393763346530373934653161"
+    },
+    {
+      "name": "sigma-attr-eq-const",
+      "spec": "NOTE-13 Thm 1 (σ_{genre=scifi})",
+      "note": "m1, m3",
+      "term": {
+        "op": "select",
+        "pred": {
+          "hasPointer": {
+            "role": {
+              "exact": "genre"
+            },
+            "targetValue": {
+              "vcmp": {
+                "cmp": "eq",
+                "value": "scifi"
+              }
+            }
+          }
+        },
+        "in": {
+          "op": "select",
+          "pred": {
+            "hasPointer": {
+              "targetEntity": "rel:Movies"
+            }
+          },
+          "in": "input"
+        }
+      },
+      "expected": {
+        "ids": [
+          "1e203169c75b609ae7d7c67811e2526b34001d5610f9f1985f191df389e6af34cbe0",
+          "1e20d014e5bbbac6ca41a6b278f5869c399f083cab47f0d81484d1d17c576d4c43e5"
+        ]
+      },
+      "expectedCanonicalHex": "827844316532303331363963373562363039616537643763363738313165323532366233343030316435363130663966313938356631393164663338396536616633346362653078443165323064303134653562626261633663613431613662323738663538363963333939663038336361623437663064383134383464316431376335373664346334336535"
+    },
+    {
+      "name": "sigma-boolean-closure",
+      "spec": "NOTE-13 Thm 1 / SPEC-2 §3 (σ_{genre=scifi ∧ ¬(year=1999)})",
+      "note": "m3 only — every tuple carries every attribute, so not(hasPointer) ≡ negated comparator",
+      "term": {
+        "op": "select",
+        "pred": {
+          "and": [
+            {
+              "hasPointer": {
+                "role": {
+                  "exact": "genre"
+                },
+                "targetValue": {
+                  "vcmp": {
+                    "cmp": "eq",
+                    "value": "scifi"
+                  }
+                }
+              }
+            },
+            {
+              "not": {
+                "hasPointer": {
+                  "role": {
+                    "exact": "year"
+                  },
+                  "targetValue": {
+                    "vcmp": {
+                      "cmp": "eq",
+                      "value": 1999
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "in": {
+          "op": "select",
+          "pred": {
+            "hasPointer": {
+              "targetEntity": "rel:Movies"
+            }
+          },
+          "in": "input"
+        }
+      },
+      "expected": {
+        "ids": [
+          "1e20d014e5bbbac6ca41a6b278f5869c399f083cab47f0d81484d1d17c576d4c43e5"
+        ]
+      },
+      "expectedCanonicalHex": "8178443165323064303134653562626261633663613431613662323738663538363963333939663038336361623437663064383134383464316431376335373664346334336535"
+    },
+    {
+      "name": "sigma-range-beyond-codd",
+      "spec": "NOTE-13 Thm 1 (between exceeds Codd's θ-set)",
+      "note": "σ_{1990 ≤ year ≤ 2010} = m1, m4, m5",
+      "term": {
+        "op": "select",
+        "pred": {
+          "hasPointer": {
+            "role": {
+              "exact": "year"
+            },
+            "targetValue": {
+              "between": [
+                1990,
+                2010
+              ]
+            }
+          }
+        },
+        "in": {
+          "op": "select",
+          "pred": {
+            "hasPointer": {
+              "targetEntity": "rel:Movies"
+            }
+          },
+          "in": "input"
+        }
+      },
+      "expected": {
+        "ids": [
+          "1e203169c75b609ae7d7c67811e2526b34001d5610f9f1985f191df389e6af34cbe0",
+          "1e20dd7a2b450c9ddf5858f2709572a9e36bfa6ed7d7faa9bcf25ad84aa4fadfc72d",
+          "1e20ed16f5a9380b11fe3b681fec6eb58c4722c20006230636f6109d97c4e0794e1a"
+        ]
+      },
+      "expectedCanonicalHex": "83784431653230333136396337356236303961653764376336373831316532353236623334303031643536313066396631393835663139316466333839653661663334636265307844316532306464376132623435306339646466353835386632373039353732613965333662666136656437643766616139626366323561643834616134666164666337326478443165323065643136663561393338306231316665336236383166656336656235386334373232633230303036323330363336663631303964393763346530373934653161"
+    },
+    {
+      "name": "union-of-instances",
+      "spec": "NOTE-13 Thm 1 (∪ over same-marker instances; id-keyed = tuple-keyed by Lemma 2)",
+      "note": "σ_{genre=scifi} ∪ σ_{year=2014} = m1, m2, m3",
+      "term": {
+        "op": "union",
+        "left": {
+          "op": "select",
+          "pred": {
+            "hasPointer": {
+              "role": {
+                "exact": "genre"
+              },
+              "targetValue": {
+                "vcmp": {
+                  "cmp": "eq",
+                  "value": "scifi"
+                }
+              }
+            }
+          },
+          "in": {
+            "op": "select",
+            "pred": {
+              "hasPointer": {
+                "targetEntity": "rel:Movies"
+              }
+            },
+            "in": "input"
+          }
+        },
+        "right": {
+          "op": "select",
+          "pred": {
+            "hasPointer": {
+              "role": {
+                "exact": "year"
+              },
+              "targetValue": {
+                "vcmp": {
+                  "cmp": "eq",
+                  "value": 2014
+                }
+              }
+            }
+          },
+          "in": {
+            "op": "select",
+            "pred": {
+              "hasPointer": {
+                "targetEntity": "rel:Movies"
+              }
+            },
+            "in": "input"
+          }
+        }
+      },
+      "expected": {
+        "ids": [
+          "1e203169c75b609ae7d7c67811e2526b34001d5610f9f1985f191df389e6af34cbe0",
+          "1e20a7083fb8d56b70e07e0b72d0f802f6b4775a9c9cb9daa472d02174cdde2e5edb",
+          "1e20d014e5bbbac6ca41a6b278f5869c399f083cab47f0d81484d1d17c576d4c43e5"
+        ]
+      },
+      "expectedCanonicalHex": "83784431653230333136396337356236303961653764376336373831316532353236623334303031643536313066396631393835663139316466333839653661663334636265307844316532306137303833666238643536623730653037653062373264306638303266366234373735613963396362396461613437326430323137346364646532653565646278443165323064303134653562626261633663613431613662323738663538363963333939663038336361623437663064383134383464316431376335373664346334336535"
+    },
+    {
+      "name": "difference-of-instances",
+      "spec": "NOTE-13 Thm 1 (R̂ ∖ σ_{genre=scifi})",
+      "note": "m2, m4, m5",
+      "term": {
+        "op": "difference",
+        "of": {
+          "op": "select",
+          "pred": {
+            "hasPointer": {
+              "targetEntity": "rel:Movies"
+            }
+          },
+          "in": "input"
+        },
+        "without": {
+          "op": "select",
+          "pred": {
+            "hasPointer": {
+              "role": {
+                "exact": "genre"
+              },
+              "targetValue": {
+                "vcmp": {
+                  "cmp": "eq",
+                  "value": "scifi"
+                }
+              }
+            }
+          },
+          "in": {
+            "op": "select",
+            "pred": {
+              "hasPointer": {
+                "targetEntity": "rel:Movies"
+              }
+            },
+            "in": "input"
+          }
+        }
+      },
+      "expected": {
+        "ids": [
+          "1e20a7083fb8d56b70e07e0b72d0f802f6b4775a9c9cb9daa472d02174cdde2e5edb",
+          "1e20dd7a2b450c9ddf5858f2709572a9e36bfa6ed7d7faa9bcf25ad84aa4fadfc72d",
+          "1e20ed16f5a9380b11fe3b681fec6eb58c4722c20006230636f6109d97c4e0794e1a"
+        ]
+      },
+      "expectedCanonicalHex": "83784431653230613730383366623864353662373065303765306237326430663830326636623437373561396339636239646161343732643032313734636464653265356564627844316532306464376132623435306339646466353835386632373039353732613965333662666136656437643766616139626366323561643834616134666164666337326478443165323065643136663561393338306231316665336236383166656336656235386334373232633230303036323330363336663631303964393763346530373934653161"
+    },
+    {
+      "name": "intersect-of-instances",
+      "spec": "NOTE-13 Thm 1 (σ_{1990≤year≤2010} ∩ σ_{genre=scifi})",
+      "note": "m1 only",
+      "term": {
+        "op": "intersect",
+        "left": {
+          "op": "select",
+          "pred": {
+            "hasPointer": {
+              "role": {
+                "exact": "year"
+              },
+              "targetValue": {
+                "between": [
+                  1990,
+                  2010
+                ]
+              }
+            }
+          },
+          "in": {
+            "op": "select",
+            "pred": {
+              "hasPointer": {
+                "targetEntity": "rel:Movies"
+              }
+            },
+            "in": "input"
+          }
+        },
+        "right": {
+          "op": "select",
+          "pred": {
+            "hasPointer": {
+              "role": {
+                "exact": "genre"
+              },
+              "targetValue": {
+                "vcmp": {
+                  "cmp": "eq",
+                  "value": "scifi"
+                }
+              }
+            }
+          },
+          "in": {
+            "op": "select",
+            "pred": {
+              "hasPointer": {
+                "targetEntity": "rel:Movies"
+              }
+            },
+            "in": "input"
+          }
+        }
+      },
+      "expected": {
+        "ids": [
+          "1e203169c75b609ae7d7c67811e2526b34001d5610f9f1985f191df389e6af34cbe0"
+        ]
+      },
+      "expectedCanonicalHex": "8178443165323033313639633735623630396165376437633637383131653235323662333430303164353631306639663139383566313931646633383965366166333463626530"
+    },
+    {
+      "name": "intersect-via-double-difference",
+      "spec": "NOTE-13 Thm 1 (Codd's identity ∩ = R − (R − S), as an evaluated equality)",
+      "note": "must produce byte-identical output to intersect-of-instances",
+      "term": {
+        "op": "difference",
+        "of": {
+          "op": "select",
+          "pred": {
+            "hasPointer": {
+              "role": {
+                "exact": "year"
+              },
+              "targetValue": {
+                "between": [
+                  1990,
+                  2010
+                ]
+              }
+            }
+          },
+          "in": {
+            "op": "select",
+            "pred": {
+              "hasPointer": {
+                "targetEntity": "rel:Movies"
+              }
+            },
+            "in": "input"
+          }
+        },
+        "without": {
+          "op": "difference",
+          "of": {
+            "op": "select",
+            "pred": {
+              "hasPointer": {
+                "role": {
+                  "exact": "year"
+                },
+                "targetValue": {
+                  "between": [
+                    1990,
+                    2010
+                  ]
+                }
+              }
+            },
+            "in": {
+              "op": "select",
+              "pred": {
+                "hasPointer": {
+                  "targetEntity": "rel:Movies"
+                }
+              },
+              "in": "input"
+            }
+          },
+          "without": {
+            "op": "select",
+            "pred": {
+              "hasPointer": {
+                "role": {
+                  "exact": "genre"
+                },
+                "targetValue": {
+                  "vcmp": {
+                    "cmp": "eq",
+                    "value": "scifi"
+                  }
+                }
+              }
+            },
+            "in": {
+              "op": "select",
+              "pred": {
+                "hasPointer": {
+                  "targetEntity": "rel:Movies"
+                }
+              },
+              "in": "input"
+            }
+          }
+        }
+      },
+      "expected": {
+        "ids": [
+          "1e203169c75b609ae7d7c67811e2526b34001d5610f9f1985f191df389e6af34cbe0"
+        ]
+      },
+      "expectedCanonicalHex": "8178443165323033313639633735623630396165376437633637383131653235323662333430303164353631306639663139383566313931646633383965366166333463626530"
+    },
+    {
+      "name": "sigma-provenance-column",
+      "spec": "NOTE-13 §7 (beyond Codd: author is a queryable system column)",
+      "note": "everything the encoding author asserted — the five tuples; the stray (other author) is out",
+      "term": {
+        "op": "select",
+        "pred": {
+          "match": {
+            "field": "author",
+            "cmp": "eq",
+            "const": "did:key:zEncoder"
+          }
+        },
+        "in": "input"
+      },
+      "expected": {
+        "ids": [
+          "1e203169c75b609ae7d7c67811e2526b34001d5610f9f1985f191df389e6af34cbe0",
+          "1e20a7083fb8d56b70e07e0b72d0f802f6b4775a9c9cb9daa472d02174cdde2e5edb",
+          "1e20d014e5bbbac6ca41a6b278f5869c399f083cab47f0d81484d1d17c576d4c43e5",
+          "1e20dd7a2b450c9ddf5858f2709572a9e36bfa6ed7d7faa9bcf25ad84aa4fadfc72d",
+          "1e20ed16f5a9380b11fe3b681fec6eb58c4722c20006230636f6109d97c4e0794e1a"
+        ]
+      },
+      "expectedCanonicalHex": "857844316532303331363963373562363039616537643763363738313165323532366233343030316435363130663966313938356631393164663338396536616633346362653078443165323061373038336662386435366237306530376530623732643066383032663662343737356139633963623964616134373264303231373463646465326535656462784431653230643031346535626262616336636134316136623237386635383639633339396630383363616234376630643831343834643164313763353736643463343365357844316532306464376132623435306339646466353835386632373039353732613965333662666136656437643766616139626366323561643834616134666164666337326478443165323065643136663561393338306231316665336236383166656336656235386334373232633230303036323330363336663631303964393763346530373934653161"
+    }
+  ],
+  "rejects": [
+    {
+      "name": "product-op-rejected",
+      "spec": "NOTE-13 Thm 2 + SPEC-2 §8 (no minting: an operator whose output exceeds its input does not exist; unknown `op` fails closed)",
+      "reason": "`product` is not in the closed §9 Term profile — deliberately: it would break the §5 complexity envelope and §1's sandbox (E21)",
+      "term": {
+        "op": "product",
+        "left": "input",
+        "right": "input"
+      }
+    },
+    {
+      "name": "join-op-rejected",
+      "spec": "NOTE-13 Thm 2 + SPEC-2 §8",
+      "reason": "`join` is not in the closed §9 Term profile; joins are write-time materialization or an L7 derivation stratum (E21)",
+      "term": {
+        "op": "join",
+        "left": "input",
+        "right": "input",
+        "on": {
+          "role": {
+            "exact": "title"
+          }
+        }
+      }
+    },
+    {
+      "name": "nested-product-rejected",
+      "spec": "NOTE-13 Thm 2 + SPEC-2 §8 (fail-closed holds in nested operand position)",
+      "reason": "a product-shaped sub-term is rejected at parse time wherever it appears",
+      "term": {
+        "op": "select",
+        "pred": "true",
+        "in": {
+          "op": "product",
+          "left": "input",
+          "right": "input"
+        }
+      }
+    }
+  ]
+}
