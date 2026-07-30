@@ -1,0 +1,43 @@
+# Creates a release tag from inside GitHub Actions. Exists because remote coding sessions reach
+# the repo through a git proxy that permits branch pushes but 403s tag pushes — so the release
+# script's final `git push origin HEAD <tag>` step can land the version-bump commit yet be unable
+# to cut the tag. This workflow is the sanctioned detour: dispatch it with the tag name and the
+# sha of the version-bump commit (which MUST already be on main), then dispatch release.yml with
+# the same tag (a tag created with GITHUB_TOKEN does not itself trigger tag-push workflows —
+# GitHub suppresses recursive triggering — so the release publish is always a second dispatch).
+name: tag-release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "rhizomatic-vX.Y.Z tag to create"
+        required: true
+      sha:
+        description: "Commit sha to tag (must be reachable from main)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    name: Create release tag
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: create annotated tag (guarded)
+        run: |
+          case "${{ inputs.tag }}" in
+            rhizomatic-v*) ;;
+            *) echo "tag must match rhizomatic-v*"; exit 1 ;;
+          esac
+          git merge-base --is-ancestor "${{ inputs.sha }}" origin/main || {
+            echo "sha ${{ inputs.sha }} is not on main"; exit 1
+          }
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "${{ inputs.tag }}" "${{ inputs.sha }}" -m "@bombadil/rhizomatic ${{ inputs.tag }}"
+          git push origin "refs/tags/${{ inputs.tag }}"

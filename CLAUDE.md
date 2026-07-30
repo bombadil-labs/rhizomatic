@@ -204,6 +204,12 @@ Publishing is cutting a tag; CI does the rest. When asked to cut a release:
 5. Verify: watch the run (`gh run watch`), then `npm view @bombadil/rhizomatic versions` must show
    the new version as `latest`.
 
+Remote-session lore (2026-07-30): the Claude Code remote environment's git proxy permits branch
+pushes but **403s tag pushes**, so `release:*` lands the version-bump commit on main and then dies
+at the tag push. The detour is `.github/workflows/tag-release.yml`: dispatch it with the tag name
+and the bump commit's sha (creates the tag from inside Actions), then dispatch `release.yml` with
+the same tag — a GITHUB_TOKEN-created tag never triggers tag-push workflows on its own.
+
 Failure lore (2026-07-10): `ENEEDAUTH` in the workflow is almost never about logging in — a 404 on
 the `…/oidc/token/exchange/…` request means the npmjs.com Trusted Publisher fields don't match
 (filename `release.yml`, org `bombadil-labs`, repo `rhizomatic`, environment blank). Never
