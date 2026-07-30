@@ -2,18 +2,98 @@
 
 module Main where
 
+import qualified Data.ByteString.Char8 as BC
 import qualified Data.Text as T
 import Harness
+import Rhizomatic.Blake3 (blake3)
 import Rhizomatic.Cbor (Item (..), decode, encode)
+import Rhizomatic.Delta (canonicalBytes, deltaIdHex)
 import Rhizomatic.Hex (decodeHex, encodeHex)
 import Rhizomatic.Json (JValue (..), parseJson)
+import Rhizomatic.Nfc (isNfc)
+import Rhizomatic.Profile (claimsFromJson)
 
 main :: IO ()
 main =
   runSuites
     [ ("json-parser", pure jsonParserTests),
-      ("cbor-primitives", cborPrimitiveTests)
+      ("cbor-primitives", cborPrimitiveTests),
+      ("blake3-known-answers", pure blake3Tests),
+      ("boundary", pure boundaryTests),
+      ("deltas", deltaFileTests "l0-delta/deltas.json"),
+      ("deltas-bytes", deltaFileTests "l0-delta/deltas-bytes.json"),
+      ("deltas-invalid", deltasInvalidTests)
     ]
+
+-- BLAKE3 known answers (input = the reference suite's repeating 0..250 byte
+-- pattern; digests cross-checked against the official blake3 implementation),
+-- so a subtle compression/tree bug fails here instead of as a baffling id
+-- mismatch. Lengths chosen to hit: empty, single block, partial/full/overfull
+-- chunk, balanced and unbalanced trees, and a 100-chunk tree.
+blake3Tests :: [Test]
+blake3Tests =
+  [ known 0 "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+    known 1 "2d3adedff11b61f14c886e35afa036736dcd87a74d27b5c1510225d0f592e213",
+    known 1023 "10108970eeda3eb932baac1428c7a2163b0e924c9a9e25b35bba72b28f70bd11",
+    known 1024 "42214739f095a406f3fc83deb889744ac00df831c10daa55189b5d121c855af7",
+    known 1025 "d00278ae47eb27b34faecf67b4fe263f82d5412916c1ffd97c8cb7fb814b8444",
+    known 2048 "e776b6028c7cd22a4d0ba182a8bf62205d2ef576467e838ed6f2529b85fba24a",
+    known 3072 "b98cb0ff3623be03326b373de6b9095218513e64f1ee2edd2525c7ad1e5cffd2",
+    known 4096 "015094013f57a5277b59d8475c0501042c0b642e531b0a1c8f58d2163229e969",
+    known 5001 "5404586088ac669a4333507f97a093197d16972d09ac2764a9a20542322104fa",
+    known 8192 "aae792484c8efe4f19e2ca7d371d8c467ffb10748d8a5a1ae579948f718a2a63",
+    known 102400 "bc3e3d41a1146b069abffad3c0d44860cf664390afce4d9661f7902e7943e085"
+  ]
+  where
+    pattern n = BC.pack (map (toEnum . (`mod` 251)) [0 .. n - 1])
+    known n want = expectEq ("blake3-len-" ++ show n) (encodeHex (blake3 (pattern n))) want
+
+-- Host-boundary policies a JSON file cannot express (vectors/README.md §3).
+boundaryTests :: [Test]
+boundaryTests =
+  [ expect "non-nfc-is-detected" (not (isNfc "e\x0301")) "e + combining acute accepted as NFC",
+    expect "nfc-is-accepted" (isNfc "\x00e9") "precomposed \233 rejected",
+    expect "hangul-nfc" (isNfc "\xac00" && not (isNfc "\x1100\x1161")) "Hangul composition wrong",
+    -- D14: native integer terms cannot reach claim construction in this
+    -- witness — the claims number type is Double; there is no Integer
+    -- constructor. The profile half (integer token = float spelling) is
+    -- pinned by the number-integer-spelling vector in deltas.json.
+    ok "d14-native-int-unrepresentable-by-construction"
+  ]
+
+deltaFileTests :: String -> IO [Test]
+deltaFileTests file = do
+  JArr cases <- loadVectors file
+  pure (concatMap deltaCase cases)
+
+deltaCase :: JValue -> [Test]
+deltaCase (JObj fields) =
+  case (lookup "name" fields, lookup "claims" fields, lookup "canonicalCborHex" fields, lookup "id" fields) of
+    (Just (JStr nameT), Just claimsJson, Just (JStr hexT), Just (JStr idT)) ->
+      let n = T.unpack nameT
+       in case claimsFromJson claimsJson of
+            Left err -> [failure n ("claims rejected: " ++ err)]
+            Right claims ->
+              [ expectEq (n ++ "/canonical-bytes") (encodeHex <$> canonicalBytes claims) (Right (T.unpack hexT)),
+                expectEq (n ++ "/id") (deltaIdHex claims) (Right (T.unpack idT))
+              ]
+    _ -> [failure "delta-case" "malformed vector entry"]
+deltaCase _ = [failure "delta-case" "vector entry is not an object"]
+
+deltasInvalidTests :: IO [Test]
+deltasInvalidTests = do
+  JArr cases <- loadVectors "l0-delta/deltas-invalid.json"
+  pure (map invalidCase cases)
+  where
+    invalidCase (JObj fields) =
+      case (lookup "name" fields, lookup "claims" fields) of
+        (Just (JStr nameT), Just claimsJson) ->
+          let n = T.unpack nameT
+           in case claimsFromJson claimsJson of
+                Left _ -> ok n
+                Right _ -> failure n "malformed claims were accepted"
+        _ -> failure "invalid-case" "malformed vector entry"
+    invalidCase _ = failure "invalid-case" "vector entry is not an object"
 
 -- vectors/README.md: before anything else, test the JSON parser directly.
 jsonParserTests :: [Test]
