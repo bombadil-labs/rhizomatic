@@ -1,0 +1,423 @@
+{
+  "note": "Resolution over bytes candidates (SPEC-5 §2.1/§3/§5, D12): pick yields the bytes View leaf (leafCanonicalHex pins the leaf's own canonical CBOR — identical to the target's), conflicts dedups by canonical hex so identical (mime, bytes) pairs are quiet while a differing mime fires, and merge folds are bytes-transparent except count. Promised by vectors/README.md since 0.4; shared truth as of issue #34.",
+  "fixture": {
+    "note": "media:logo — an icon under two mimes (same payload), a numeric weight property with a bytes interloper, and a stamp asserted identically by two authors",
+    "deltas": [
+      {
+        "name": "icon-png-a",
+        "id": "1e205dced91628078ee60be1ffa484dab2b7e3308262ec11561018f2144885657e7c",
+        "claims": {
+          "timestamp": 100,
+          "author": "did:key:zAlice",
+          "pointers": [
+            {
+              "role": "subject",
+              "target": {
+                "id": "media:logo",
+                "context": "icon"
+              }
+            },
+            {
+              "role": "icon",
+              "target": {
+                "mime": "image/png",
+                "value": "iVBORw0KGgo"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "name": "icon-png-b",
+        "id": "1e20e00cb43aad77f94f75a13a2b103ffb46fc0fe62a8ebd7a2372e789c1bbab06af",
+        "claims": {
+          "timestamp": 200,
+          "author": "did:key:zBob",
+          "pointers": [
+            {
+              "role": "subject",
+              "target": {
+                "id": "media:logo",
+                "context": "icon"
+              }
+            },
+            {
+              "role": "icon",
+              "target": {
+                "mime": "image/png",
+                "value": "iVBORw0KGgo"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "name": "icon-wasm-c",
+        "id": "1e20ad98e7ab1ed6e4b373f70b7fabda1f80bc1efd50ab8bc5c85ddeb0d7a9c6db0e",
+        "claims": {
+          "timestamp": 300,
+          "author": "did:key:zCarol",
+          "pointers": [
+            {
+              "role": "subject",
+              "target": {
+                "id": "media:logo",
+                "context": "icon"
+              }
+            },
+            {
+              "role": "icon",
+              "target": {
+                "mime": "application/wasm",
+                "value": "iVBORw0KGgo"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "name": "weight-2-a",
+        "id": "1e206a25215b180da821df100113296d4d820a0b8280e70ea7e912445cd260fd7ea5",
+        "claims": {
+          "timestamp": 400,
+          "author": "did:key:zAlice",
+          "pointers": [
+            {
+              "role": "subject",
+              "target": {
+                "id": "media:logo",
+                "context": "weight"
+              }
+            },
+            {
+              "role": "value",
+              "target": 2
+            }
+          ]
+        }
+      },
+      {
+        "name": "weight-3-b",
+        "id": "1e20e54f5fd80edac410d6674c1dd6157c52f32d1d3496bbcf0cbf2e854bd65b5eb7",
+        "claims": {
+          "timestamp": 410,
+          "author": "did:key:zBob",
+          "pointers": [
+            {
+              "role": "subject",
+              "target": {
+                "id": "media:logo",
+                "context": "weight"
+              }
+            },
+            {
+              "role": "value",
+              "target": 3
+            }
+          ]
+        }
+      },
+      {
+        "name": "weight-bytes-c",
+        "id": "1e2079c1bb808a4db33d26f16400a6f836eb15849c543f56c437f7b042e343b7fae4",
+        "claims": {
+          "timestamp": 420,
+          "author": "did:key:zCarol",
+          "pointers": [
+            {
+              "role": "subject",
+              "target": {
+                "id": "media:logo",
+                "context": "weight"
+              }
+            },
+            {
+              "role": "value",
+              "target": {
+                "mime": "image/png",
+                "value": "iVBORw0KGgo"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "name": "stamp-png-a",
+        "id": "1e20e5063f6b09083d8ad37880b04123395be150a9256238d6e2f19a86ad03ae41a0",
+        "claims": {
+          "timestamp": 500,
+          "author": "did:key:zAlice",
+          "pointers": [
+            {
+              "role": "subject",
+              "target": {
+                "id": "media:logo",
+                "context": "stamp"
+              }
+            },
+            {
+              "role": "stamp",
+              "target": {
+                "mime": "image/png",
+                "value": "iVBORw0KGgo"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "name": "stamp-png-b",
+        "id": "1e202557d887e305bb431730e45ccdfb753c30911ed70906b2ee2902a22125b90933",
+        "claims": {
+          "timestamp": 510,
+          "author": "did:key:zBob",
+          "pointers": [
+            {
+              "role": "subject",
+              "target": {
+                "id": "media:logo",
+                "context": "stamp"
+              }
+            },
+            {
+              "role": "stamp",
+              "target": {
+                "mime": "image/png",
+                "value": "iVBORw0KGgo"
+              }
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "schemas": [
+    {
+      "name": "LogoRaw",
+      "alg": 1,
+      "body": {
+        "op": "group",
+        "key": "byTargetContext",
+        "in": "input"
+      }
+    }
+  ],
+  "cases": [
+    {
+      "name": "pick-yields-bytes-leaf",
+      "spec": "SPEC-5 §2.1/§5 + D12 (a bytes target renders as the { mime, value } View leaf; its canonical CBOR is exactly the target's)",
+      "note": "icon pick byTimestamp desc → C's wasm leaf; leafCanonicalHex pins the leaf bytes themselves",
+      "term": {
+        "op": "resolve",
+        "schema": {
+          "props": {
+            "icon": {
+              "pick": {
+                "order": {
+                  "byTimestamp": "desc"
+                }
+              }
+            }
+          },
+          "default": {
+            "merge": "count"
+          }
+        },
+        "in": {
+          "op": "fix",
+          "schema": "LogoRaw",
+          "entity": "media:logo"
+        }
+      },
+      "leafProp": "icon",
+      "leafCanonicalHex": "a2646d696d65706170706c69636174696f6e2f7761736d6576616c75654889504e470d0a1a0a",
+      "expectedView": {
+        "icon": {
+          "mime": "application/wasm",
+          "value": "iVBORw0KGgo"
+        },
+        "weight": 3,
+        "stamp": 2
+      },
+      "expectedCanonicalHex": "a36469636f6ea2646d696d65706170706c69636174696f6e2f7761736d6576616c75654889504e470d0a1a0a657374616d70f9400066776569676874f94200"
+    },
+    {
+      "name": "conflicts-identical-pair-is-quiet",
+      "spec": "SPEC-5 §3 (conflicts dedups by the View's canonical hex: two authors asserting identical (mime, bytes) raise no conflict)",
+      "note": "stamp: png-X by A and B → one distinct value → absent",
+      "term": {
+        "op": "resolve",
+        "schema": {
+          "props": {
+            "stamp": {
+              "conflicts": {
+                "order": {
+                  "byTimestamp": "asc"
+                }
+              }
+            }
+          },
+          "default": {
+            "merge": "count"
+          }
+        },
+        "in": {
+          "op": "fix",
+          "schema": "LogoRaw",
+          "entity": "media:logo"
+        }
+      },
+      "expectedView": {
+        "icon": 3,
+        "weight": 3
+      },
+      "expectedCanonicalHex": "a26469636f6ef9420066776569676874f94200"
+    },
+    {
+      "name": "conflicts-differing-mime-fires",
+      "spec": "SPEC-5 §3 + D12 (same bytes under a different mime is a different claim → a real conflict)",
+      "note": "icon: png-X (×2, dedups) vs wasm-X → two distinct leaves",
+      "term": {
+        "op": "resolve",
+        "schema": {
+          "props": {
+            "icon": {
+              "conflicts": {
+                "order": {
+                  "byTimestamp": "asc"
+                }
+              }
+            }
+          },
+          "default": {
+            "merge": "count"
+          }
+        },
+        "in": {
+          "op": "fix",
+          "schema": "LogoRaw",
+          "entity": "media:logo"
+        }
+      },
+      "expectedView": {
+        "icon": [
+          {
+            "mime": "image/png",
+            "value": "iVBORw0KGgo"
+          },
+          {
+            "mime": "application/wasm",
+            "value": "iVBORw0KGgo"
+          }
+        ],
+        "weight": 3,
+        "stamp": 2
+      },
+      "expectedCanonicalHex": "a36469636f6e82a2646d696d6569696d6167652f706e676576616c75654889504e470d0a1a0aa2646d696d65706170706c69636174696f6e2f7761736d6576616c75654889504e470d0a1a0a657374616d70f9400066776569676874f94200"
+    },
+    {
+      "name": "merge-sum-transparent-to-bytes",
+      "spec": "SPEC-5 §3 (bytes are transparent to merge folds: sum sees only the numeric candidates)",
+      "note": "weight: 2 + 3 = 5; the bytes candidate is skipped, not an error",
+      "term": {
+        "op": "resolve",
+        "schema": {
+          "props": {
+            "weight": {
+              "merge": "sum"
+            }
+          },
+          "default": {
+            "merge": "count"
+          }
+        },
+        "in": {
+          "op": "fix",
+          "schema": "LogoRaw",
+          "entity": "media:logo"
+        }
+      },
+      "expectedView": {
+        "weight": 5,
+        "icon": 3,
+        "stamp": 2
+      },
+      "expectedCanonicalHex": "a36469636f6ef94200657374616d70f9400066776569676874f94500"
+    },
+    {
+      "name": "merge-count-counts-bytes",
+      "spec": "SPEC-5 §3 (count counts all surviving entries regardless of type — bytes included)",
+      "note": "weight: 3 entries",
+      "term": {
+        "op": "resolve",
+        "schema": {
+          "props": {
+            "weight": {
+              "merge": "count"
+            }
+          },
+          "default": {
+            "merge": "count"
+          }
+        },
+        "in": {
+          "op": "fix",
+          "schema": "LogoRaw",
+          "entity": "media:logo"
+        }
+      },
+      "expectedView": {
+        "weight": 3,
+        "icon": 3,
+        "stamp": 2
+      },
+      "expectedCanonicalHex": "a36469636f6ef94200657374616d70f9400066776569676874f94200"
+    },
+    {
+      "name": "all-bytes-leaves-ordered",
+      "spec": "SPEC-5 §3 (bytes are full participants in all: ordering is by entry metadata, never by comparing byte values)",
+      "note": "icon asc → [png-X(A), png-X(B), wasm-X(C)]",
+      "term": {
+        "op": "resolve",
+        "schema": {
+          "props": {
+            "icon": {
+              "all": {
+                "order": {
+                  "byTimestamp": "asc"
+                }
+              }
+            }
+          },
+          "default": {
+            "merge": "count"
+          }
+        },
+        "in": {
+          "op": "fix",
+          "schema": "LogoRaw",
+          "entity": "media:logo"
+        }
+      },
+      "expectedView": {
+        "icon": [
+          {
+            "mime": "image/png",
+            "value": "iVBORw0KGgo"
+          },
+          {
+            "mime": "image/png",
+            "value": "iVBORw0KGgo"
+          },
+          {
+            "mime": "application/wasm",
+            "value": "iVBORw0KGgo"
+          }
+        ],
+        "weight": 3,
+        "stamp": 2
+      },
+      "expectedCanonicalHex": "a36469636f6e83a2646d696d6569696d6167652f706e676576616c75654889504e470d0a1a0aa2646d696d6569696d6167652f706e676576616c75654889504e470d0a1a0aa2646d696d65706170706c69636174696f6e2f7761736d6576616c75654889504e470d0a1a0a657374616d70f9400066776569676874f94200"
+    }
+  ]
+}

@@ -4,9 +4,22 @@ All notable changes to **`@bombadil/rhizomatic`**. This project is pre-1.0, so b
 land in **minor** bumps (see [CLAUDE.md → Releasing](CLAUDE.md#releasing-bombadilrhizomatic-to-npm)).
 Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 
-## Unreleased
+## 0.10.0 — 2026-07-30
 
 ### Added
+
+- **`vectors/l1-eval/eval-bytes.json` exists now**
+  ([#34](https://github.com/bombadil-labs/rhizomatic/issues/34)) — the family the vectors README
+  had documented since 0.4 but which was never generated (bytes-at-resolve behavior was pinned
+  only by per-witness unit tests). Six cases, byte-exact in both L1 witnesses: `pick` yielding a
+  bytes View leaf (with `leafCanonicalHex` pinning that the leaf's canonical CBOR is exactly the
+  target's), `conflicts` staying quiet on an identical `(mime, bytes)` pair while firing on the
+  same bytes under a different mime, `merge(sum)` folding past bytes, `merge(count)` counting
+  them, and `all` ordering leaves by entry metadata. Also in #34: a docs-freshness sweep — README
+  now says four witnesses (and its "For the Implementer" section acknowledges the
+  relational-completeness proof it was waiting for), CLAUDE.md's layout block lists all four
+  implementations, PROGRESS's queued-next list dropped two shipped items and one
+  already-made decision.
 
 - **`all(order, distinct: true)` — opt-in value-dedup at the resolve boundary**
   ([#33](https://github.com/bombadil-labs/rhizomatic/issues/33), SPEC-5 §3/§7, ERRATA-5 R9;

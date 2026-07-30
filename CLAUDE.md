@@ -16,8 +16,10 @@ reference implementation: any codebase that passes the vectors is a first-class 
 spec/                  Normative specification — the source of truth for BEHAVIOR.
 vectors/               Language-agnostic conformance vectors — the source of truth for CORRECTNESS.
 implementations/
-  ts/                  TypeScript implementation (@bombadil/rhizomatic).
-  rust/                Rust implementation.
+  ts/                  TypeScript implementation (@bombadil/rhizomatic) — full depth.
+  rust/                Rust implementation — full depth.
+  elixir/              Elixir witness — Level 0 (issue #19).
+  haskell/             Haskell witness — Level 0 (issue #29).
 ERRATA.md              (created per spec doc, on demand) recorded spec/impl contradictions.
 ```
 

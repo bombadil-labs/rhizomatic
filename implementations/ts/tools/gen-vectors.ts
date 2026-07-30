@@ -22,7 +22,7 @@ import {
   publishSchemaClaims,
 } from "../src/schema-deltas.js";
 import { SchemaRegistry } from "../src/schema.js";
-import { viewToJson } from "../src/resolution.js";
+import { viewCanonicalHex, viewToJson, type View } from "../src/resolution.js";
 import { schemaCanonicalHex, termCanonicalHex, termHash, termToJson } from "../src/term-io.js";
 import { ED25519_TORSION_SUBGROUP, ed25519 } from "@noble/curves/ed25519";
 import { sha512 } from "@noble/hashes/sha2";
@@ -3232,4 +3232,171 @@ const distinctOut = {
 writeFileSync(resolve(evalDir, "eval-distinct.json"), `${JSON.stringify(distinctOut, null, 2)}\n`);
 console.log(
   `wrote ${distinctVectors.length} distinct vectors + ${distinctRejects.length} rejects to vectors/l1-eval/eval-distinct.json`,
+);
+
+// --- l1-eval: resolve over bytes candidates (D12, 0.4) — the family the vectors README promised -
+// vectors/README.md documented eval-bytes.json ("pick yielding a bytes View leaf, conflicts over
+// identical-vs-differing (mime, bytes), merge folding past bytes while count counts them") but the
+// file never existed — the behavior was pinned only by per-witness unit tests. Issue #34 territory:
+// shared truth or it didn't happen.
+const bfx: Record<string, { claims: unknown; id: string }> = {};
+const addBfx = (name: string, claims: unknown) => {
+  bfx[name] = { claims, id: computeId(parseClaims(claims)) };
+};
+const logo = (ctx: string) => subj("media:logo", ctx);
+const pngX = { mime: "image/png", value: "iVBORw0KGgo" };
+const wasmX = { mime: "application/wasm", value: "iVBORw0KGgo" };
+addBfx(
+  "icon-png-a",
+  claim(100, A, [
+    { role: "subject", ...logo("icon") },
+    { role: "icon", target: pngX },
+  ]),
+);
+addBfx(
+  "icon-png-b",
+  claim(200, B, [
+    { role: "subject", ...logo("icon") },
+    { role: "icon", target: pngX },
+  ]),
+);
+addBfx(
+  "icon-wasm-c",
+  claim(300, C, [
+    { role: "subject", ...logo("icon") },
+    { role: "icon", target: wasmX },
+  ]),
+);
+addBfx(
+  "weight-2-a",
+  claim(400, A, [
+    { role: "subject", ...logo("weight") },
+    { role: "value", target: 2 },
+  ]),
+);
+addBfx(
+  "weight-3-b",
+  claim(410, B, [
+    { role: "subject", ...logo("weight") },
+    { role: "value", target: 3 },
+  ]),
+);
+addBfx(
+  "weight-bytes-c",
+  claim(420, C, [
+    { role: "subject", ...logo("weight") },
+    { role: "value", target: pngX },
+  ]),
+);
+addBfx(
+  "stamp-png-a",
+  claim(500, A, [
+    { role: "subject", ...logo("stamp") },
+    { role: "stamp", target: pngX },
+  ]),
+);
+addBfx(
+  "stamp-png-b",
+  claim(510, B, [
+    { role: "subject", ...logo("stamp") },
+    { role: "stamp", target: pngX },
+  ]),
+);
+
+const bytesFixtureSet = DeltaSet.from(
+  Object.values(bfx).map((f) => makeDelta(parseClaims(f.claims))),
+);
+const bytesSchemas = [
+  { name: "LogoRaw", alg: 1, body: { op: "group", key: "byTargetContext", in: "input" } },
+];
+const bytesRegistry = SchemaRegistry.build(
+  bytesSchemas.map((s) => ({ name: s.name, alg: s.alg, body: parseTerm(s.body) })),
+  [],
+);
+const bRes = (props: Record<string, unknown>) => ({
+  op: "resolve",
+  // default merge(count) keeps the untested properties small in every expectedView
+  schema: { props, default: { merge: "count" } },
+  in: { op: "fix", schema: "LogoRaw", entity: "media:logo" },
+});
+
+const bytesCases: Array<{
+  name: string;
+  spec: string;
+  term: unknown;
+  note?: string;
+  leafProp?: string;
+}> = [
+  {
+    name: "pick-yields-bytes-leaf",
+    spec: "SPEC-5 §2.1/§5 + D12 (a bytes target renders as the { mime, value } View leaf; its canonical CBOR is exactly the target's)",
+    note: "icon pick byTimestamp desc → C's wasm leaf; leafCanonicalHex pins the leaf bytes themselves",
+    term: bRes({ icon: { pick: { order: { byTimestamp: "desc" } } } }),
+    leafProp: "icon",
+  },
+  {
+    name: "conflicts-identical-pair-is-quiet",
+    spec: "SPEC-5 §3 (conflicts dedups by the View's canonical hex: two authors asserting identical (mime, bytes) raise no conflict)",
+    note: "stamp: png-X by A and B → one distinct value → absent",
+    term: bRes({ stamp: { conflicts: { order: { byTimestamp: "asc" } } } }),
+  },
+  {
+    name: "conflicts-differing-mime-fires",
+    spec: "SPEC-5 §3 + D12 (same bytes under a different mime is a different claim → a real conflict)",
+    note: "icon: png-X (×2, dedups) vs wasm-X → two distinct leaves",
+    term: bRes({ icon: { conflicts: { order: { byTimestamp: "asc" } } } }),
+  },
+  {
+    name: "merge-sum-transparent-to-bytes",
+    spec: "SPEC-5 §3 (bytes are transparent to merge folds: sum sees only the numeric candidates)",
+    note: "weight: 2 + 3 = 5; the bytes candidate is skipped, not an error",
+    term: bRes({ weight: { merge: "sum" } }),
+  },
+  {
+    name: "merge-count-counts-bytes",
+    spec: "SPEC-5 §3 (count counts all surviving entries regardless of type — bytes included)",
+    note: "weight: 3 entries",
+    term: bRes({ weight: { merge: "count" } }),
+  },
+  {
+    name: "all-bytes-leaves-ordered",
+    spec: "SPEC-5 §3 (bytes are full participants in all: ordering is by entry metadata, never by comparing byte values)",
+    note: "icon asc → [png-X(A), png-X(B), wasm-X(C)]",
+    term: bRes({ icon: { all: { order: { byTimestamp: "asc" } } } }),
+  },
+];
+
+const bytesVectors = bytesCases.map(({ name, spec, term, note, leafProp }) => {
+  const result = evalTerm(parseTerm(term), bytesFixtureSet, undefined, bytesRegistry);
+  if (result.sort !== "view") throw new Error(`${name}: expected a View result`);
+  const extra: Record<string, unknown> = {};
+  if (leafProp !== undefined) {
+    const leaf = (result.view as Record<string, View>)[leafProp];
+    if (leaf === undefined) throw new Error(`${name}: leaf property ${leafProp} is absent`);
+    extra["leafProp"] = leafProp;
+    extra["leafCanonicalHex"] = viewCanonicalHex(leaf);
+  }
+  return {
+    name,
+    spec,
+    ...(note === undefined ? {} : { note }),
+    term,
+    ...extra,
+    expectedView: viewToJson(result.view),
+    expectedCanonicalHex: resultCanonicalHex(result),
+  };
+});
+
+const evalBytesOut = {
+  note: "Resolution over bytes candidates (SPEC-5 §2.1/§3/§5, D12): pick yields the bytes View leaf (leafCanonicalHex pins the leaf's own canonical CBOR — identical to the target's), conflicts dedups by canonical hex so identical (mime, bytes) pairs are quiet while a differing mime fires, and merge folds are bytes-transparent except count. Promised by vectors/README.md since 0.4; shared truth as of issue #34.",
+  fixture: {
+    note: "media:logo — an icon under two mimes (same payload), a numeric weight property with a bytes interloper, and a stamp asserted identically by two authors",
+    deltas: Object.entries(bfx).map(([name, f]) => ({ name, id: f.id, claims: f.claims })),
+  },
+  schemas: bytesSchemas,
+  cases: bytesVectors,
+};
+writeFileSync(resolve(evalDir, "eval-bytes.json"), `${JSON.stringify(evalBytesOut, null, 2)}\n`);
+console.log(
+  `wrote ${bytesVectors.length} bytes-resolve vectors to vectors/l1-eval/eval-bytes.json`,
 );

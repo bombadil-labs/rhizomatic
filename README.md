@@ -4,9 +4,10 @@
 
 Rhizomatic is not a database. A database is one kind of machine you can build on top of it. Rhizomatic is the format underneath: a way of writing down anything anyone claims about anything, such that any two collections of such claims can be combined by set union — no migration, no coordination protocol, no merge conflicts, no central authority deciding what's true.
 
-This repository contains the specification and two parallel implementations — TypeScript and
-Rust — built in lockstep against a shared conformance-vector suite ([vectors/](vectors)). All
-six substrate milestones (M0-M5, conformance Levels 0-4) are implemented in both witnesses. See
+This repository contains the specification and four witnesses built against a shared
+conformance-vector suite ([vectors/](vectors)): TypeScript and Rust, full-depth and in lockstep
+(all six substrate milestones, M0-M5, conformance Levels 0-4), plus Elixir and Haskell at
+Level 0 — complete citizens at their declared level (issue #19's model). See
 [PROGRESS.md](PROGRESS.md) for the full build log and [§ For the Implementer](#for-the-implementer)
 for the rules of engagement.
 
@@ -91,7 +92,7 @@ So that no implementer re-litigates them by accident (re-litigating them *on pur
 
 You may be a person. You may be a Claude instance reading this at the top of a fresh context window with instructions to make this real. Either way — welcome. Here is what you need to know that the spec's confident tone won't tell you:
 
-**The spec is ahead of the evidence, on purpose.** There are zero implementations and zero proofs behind these documents. Every MUST in SPEC-2 through SPEC-8 is *provisional until a conformance vector exists for it*. The operator set is version `alg: 1` until the relational-completeness proof ([SPEC-2 §6](spec/02-operators.md)) and at least one real workload have weighed in. The conformance suite is the mechanism by which guesses graduate into law. **Therefore: build the suite alongside the thing, not after it.**
+**The spec was ahead of the evidence, on purpose — and the evidence caught up.** When this section was first written there were zero implementations and zero proofs behind these documents; there are now four witnesses and a relational-completeness proof ([SPEC-2 §6](spec/02-operators.md), [NOTE-13](spec/13-relational-completeness.NOTE.md)), and the operator set is still `alg: 1` because every addition entered parse-visibly. The rule that made that possible is unchanged and still binding: every MUST is *provisional until a conformance vector exists for it* — the suite is the mechanism by which guesses graduate into law. **Therefore: build the suite alongside the thing, not after it.**
 
 **Build order.** Each milestone maps to a conformance level ([SPEC-0 §5.1](spec/00-overview.md)) and is independently valuable:
 
@@ -108,7 +109,7 @@ You may be a person. You may be a Claude instance reading this at the top of a f
 
 ## Status
 
-Specification draft **with two working witnesses**: TypeScript and Rust parity-verified
+Specification draft **with four working witnesses**: TypeScript and Rust parity-verified
 byte-for-byte against shared vectors at every layer — canonical CBOR, content addressing (now
 including the `bytes` Target kind, 0.4), Ed25519 signatures, the operator algebra
 (including parameterized terms and the SPEC-9 alias closure), resolution policies, the
@@ -118,7 +119,11 @@ browser (the Rust one as WebAssembly): 149/149. Cross-implementation HTTP federa
 (a Rust peer converging with a live TypeScript server to identical canonical digests). Gaps and
 contradictions found during implementation are recorded in per-spec ERRATA files
 (`spec/*.ERRATA.md`) — including genuine spec bugs the conformance suite caught — and every
-resolved erratum has been folded back into the spec documents themselves.
+resolved erratum has been folded back into the spec documents themselves. The Elixir and Haskell
+witnesses implement Level 0 (the full format layer: canonical CBOR, content addressing, strict
+Ed25519, packs) as complete citizens at that level; the Haskell bring-up confirmed the folded
+errata now carry a new witness to first-try byte parity
+([FINDINGS H1](implementations/haskell/FINDINGS.md)).
 The dream is old; this articulation of it is new. The arc that produced it — assembly language for data → portable IR → format-with-a-guaranteed-algebra → closed kernel with a sovereign userland — is preserved in the spec documents' structure itself, and the documents are the durable residue of that thinking.
 
 Mushrooms versus towers, all the way down. It compiles.
