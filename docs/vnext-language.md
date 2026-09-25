@@ -15,7 +15,9 @@ Choose the right-hand word from what the operation actually does.
 | cut | erasure run |
 | graveyard | erasure record |
 | condemned | marked for erasure |
-| forgiven | lifted |
+| strike, struck, forgiveness, forgiven | negation, negated |
+| tombstone, tombstoned | erasure, erased |
+| withdrawn | name the actual change: an erasure is negated; its target ID stays refused |
 | leeway | permissions |
 | envelope | resource limits |
 | blessing, curse | approval, rejection |
@@ -32,3 +34,8 @@ release. Existing format and API names are stable: `expand.reading` is a term JS
 `resolveReading` is an exported API. Describe those as a resolution Schema in new prose while
 spelling the actual keys and APIs exactly when needed. A rename of a canonical field needs its
 own spec rule, vectors, and compatibility plan.
+
+An erasure is the signed delta that records local byte removal; its target is erased. Negating
+the erasure changes whether that record is standing testimony. It does not remove the store's
+permanent refusal of the target ID. Existing identifiers such as `isTombstone` and fields such
+as `health().forgiven` keep their spelling until a separate compatibility change.
