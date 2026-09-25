@@ -40,12 +40,21 @@ npm run format       # prettier --write; format:check to verify
 
 ```
 src/
-  types.ts    Delta, Claims, Pointer, EntityRef, DeltaRef, Primitive
-  cbor.ts     deterministic CBOR encoder (RFC 8949 §4.2.1 profile — see spec/01-delta.ERRATA.md)
-  hash.ts     BLAKE3-256 + multihash wrapping
-  delta.ts    canonical bytes, id computation, delta-set ops
-  index.ts    public surface
+  index.ts          aggregate public barrel; all old root module paths are compatibility re-exports
+  delta/            claims, canonical CBOR, content addresses, signatures, sets, manifest vocabulary
+  syntax/           term and policy types, JSON and CBOR syntax, predicates
+  schema/           in-memory registry
+  algebra/          HyperView representation
+  resolve-kernel/   pure View policy evaluation
+  resolve/          terminal term evaluation, including resolve composition
+  schema-load/      self-hosted schema delta adapter
+  reactor/          indexed log and materializations
+  storage/          pack encoding and rehydration
+  federation/       peer and HTTP bindings
+  derivation/       derived author host
 test/
-  cbor.test.ts       encoder vs. external ground-truth (RFC 8949 Appendix A)
-  vectors.test.ts    loads ../../vectors/l0-delta and asserts byte-exact parity
+  vectors.test.ts  loads shared vectors and asserts byte-exact parity
 ```
+
+`node ../../tools/check-package-graph.mjs` enforces the internal package DAG for runtime and
+declaration imports. See `../../docs/package-graph.md` before changing an edge.

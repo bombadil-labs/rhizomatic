@@ -47,6 +47,8 @@ world.add(delta); // deduped by id; merge two DeltaSets and you get their union
 The public surface also covers the operator algebra (`evalTerm`), schemas, resolution policies
 (`resolveView`), packs (`packSet`/`unpackSet`), the reactor, federation (`Peer`), and derivation.
 See the [spec](https://github.com/bombadil-labs/rhizomatic/tree/main/spec) for what each layer means.
+The implementation is organized into [internal source packages](../../docs/package-graph.md);
+the `@bombadil/rhizomatic` import remains the public API.
 
 ## License
 

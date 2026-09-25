@@ -6,6 +6,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 
 ## Unreleased
 
+### Internal structure
+
+- **vNext steps 1–2** ([#38](https://github.com/bombadil-labs/rhizomatic/pull/38)):
+  the TypeScript witness now has an explicit, mechanically checked
+  acyclic source package graph. Runtime imports and declaration imports are checked before
+  the green gate runs. Source modules moved behind internal boundaries while the aggregate
+  `@bombadil/rhizomatic` barrel and old source module paths remain available. Manifest parsing,
+  shared term syntax, terminal resolve composition, and self-hosted schema loading have named
+  owners. Canonical bytes and shared vectors are unchanged.
+
 ### ⚠️ Breaking-ish (a loosening: nothing valid changes meaning; previously-rejected inputs become valid)
 
 - **Strings are byte-honest — NFC demoted from boundary law to authoring hygiene; D15 resolved

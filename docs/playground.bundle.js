@@ -1,6 +1,6 @@
 "use strict";
 (() => {
-  // src/cbor.ts
+  // src/delta/cbor.ts
   var tstr = (v) => ({ t: "tstr", v });
   var bstr = (v) => ({ t: "bstr", v });
   var float = (v) => ({ t: "float", v });
@@ -807,7 +807,7 @@
   };
   var blake3 = /* @__PURE__ */ createXOFer((opts) => new BLAKE3(opts));
 
-  // src/hash.ts
+  // src/delta/hash.ts
   var BLAKE3_MULTICODEC = 30;
   var DIGEST_LEN = 32;
   function contentAddress(data) {
@@ -819,7 +819,7 @@
     return bytesToHex(mh);
   }
 
-  // src/pred.ts
+  // src/syntax/pred.ts
   function resolveParam(p, bindings) {
     if (typeof p !== "object") return p;
     const bound = bindings?.get(p.name);
@@ -1026,7 +1026,7 @@
     }
   }
 
-  // src/resolution.ts
+  // src/resolve-kernel/resolution.ts
   function isBytesView(v) {
     return typeof v === "object" && v !== null && !Array.isArray(v) && v.value instanceof Uint8Array;
   }
@@ -1217,7 +1217,7 @@
     return obj;
   }
 
-  // src/term-io.ts
+  // src/syntax/term-io.ts
   function paramToJson(v) {
     return typeof v === "object" ? { hole: v.name } : v;
   }
@@ -1405,7 +1405,7 @@
     return contentAddress(encode(jsonToCbor(body)));
   }
 
-  // src/hview.ts
+  // src/algebra/hview.ts
   function targetToCborWithExpansion(t, expansion, reading) {
     if (expansion !== void 0) {
       const child = hviewToCbor(expansion);
@@ -1476,10 +1476,10 @@
     return bytesToHex(encode(hviewToCbor(h)));
   }
 
-  // src/vocab.ts
+  // src/delta/vocab.ts
   var VOCAB_PREFIX = "rhizomatic";
 
-  // src/delta.ts
+  // src/delta/delta.ts
   function targetToCbor(t) {
     switch (t.kind) {
       case "primitive": {
@@ -1564,7 +1564,7 @@
     return contentAddress(canonicalBytes(claims));
   }
 
-  // src/set.ts
+  // src/delta/set.ts
   function makeNegationClaims(author, timestamp, targetDeltaId, reason) {
     const pointers = [
       { role: "negates", target: { kind: "delta", deltaRef: { delta: targetDeltaId } } }
@@ -1624,7 +1624,30 @@
     return s;
   }
 
-  // src/eval.ts
+  // src/syntax/term-analysis.ts
+  function termContainsInView(t) {
+    switch (t.kind) {
+      case "input":
+      case "fix":
+        return false;
+      case "select":
+        return predContainsInView(t.pred) || termContainsInView(t.of);
+      case "union":
+      case "intersect":
+        return termContainsInView(t.left) || termContainsInView(t.right);
+      case "difference":
+        return termContainsInView(t.of) || termContainsInView(t.without);
+      case "mask":
+        return t.policy.kind === "trust" && predContainsInView(t.policy.pred) || termContainsInView(t.of);
+      case "group":
+      case "prune":
+      case "expand":
+      case "resolve":
+        return termContainsInView(t.of);
+    }
+  }
+
+  // src/resolve/eval.ts
   var dsetResult = (set) => ({
     sort: "dset",
     set,
@@ -1793,27 +1816,6 @@
         return { kind: "not", pred: resolveReflective(pred.pred, input, root, registry, bindings) };
       default:
         return pred;
-    }
-  }
-  function termContainsInView(t) {
-    switch (t.kind) {
-      case "input":
-      case "fix":
-        return false;
-      case "select":
-        return predContainsInView(t.pred) || termContainsInView(t.of);
-      case "union":
-      case "intersect":
-        return termContainsInView(t.left) || termContainsInView(t.right);
-      case "difference":
-        return termContainsInView(t.of) || termContainsInView(t.without);
-      case "mask":
-        return t.policy.kind === "trust" && predContainsInView(t.policy.pred) || termContainsInView(t.of);
-      case "group":
-      case "prune":
-      case "expand":
-      case "resolve":
-        return termContainsInView(t.of);
     }
   }
   function evalGroup(key, operand, root) {
@@ -1988,7 +1990,7 @@
     return schema;
   }
 
-  // src/schema.ts
+  // src/schema/schema.ts
   function collectRefs(term) {
     const out = [];
     const walk = (t) => {
@@ -2024,511 +2026,10 @@
     return out;
   }
 
-  // src/strict.ts
-  function editDistance(a, b) {
-    let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
-    for (let i = 1; i <= a.length; i++) {
-      const cur = [i];
-      for (let j = 1; j <= b.length; j++) {
-        cur[j] = Math.min(
-          prev[j] + 1,
-          cur[j - 1] + 1,
-          prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)
-        );
-      }
-      prev = cur;
-    }
-    return prev[b.length];
+  // src/delta/manifest.ts
+  function manifestMemberIds(manifest) {
+    return manifest.claims.pointers.filter((p) => p.role === `${VOCAB_PREFIX}.txn.member` && p.target.kind === "delta").map((p) => p.target.deltaRef.delta);
   }
-  function nearest(key, known) {
-    let best;
-    let bestDist = 3;
-    for (const k of known) {
-      const d = editDistance(key, k);
-      if (d < bestDist) {
-        bestDist = d;
-        best = k;
-      }
-    }
-    return best;
-  }
-  function unknownKeyMessage(key, known, what) {
-    const suggestion = nearest(key, known);
-    if (suggestion !== void 0) {
-      return `unknown key "${key}" on ${what}; did you mean "${suggestion}"?`;
-    }
-    return `unknown key "${key}" on ${what} (expected one of: ${known.join(", ")}) \u2014 this may have been generated by a newer rhizomatic; check whether support shipped in a release you haven't installed`;
-  }
-  function asRecord(x, what) {
-    if (typeof x !== "object" || x === null || Array.isArray(x)) {
-      throw new Error(`expected object for ${what}`);
-    }
-    return x;
-  }
-  function asObject(x, what, known) {
-    const o = asRecord(x, what);
-    for (const key of Object.keys(o)) {
-      if (!known.includes(key)) throw new Error(unknownKeyMessage(key, known, what));
-    }
-    return o;
-  }
-  function asOpenMap(x, what) {
-    return asRecord(x, what);
-  }
-  function asDispatched(x, what, tagKey, table) {
-    const raw = asRecord(x, what);
-    const tag = raw[tagKey];
-    if (typeof tag !== "string" || !Object.prototype.hasOwnProperty.call(table, tag)) {
-      throw new Error(
-        `unknown ${tagKey} ${String(tag)} on ${what} \u2014 this term may have been generated by a newer rhizomatic; check whether support for it shipped in a release you haven't installed`
-      );
-    }
-    return { o: asObject(raw, `${what} ${tag}`, table[tag]), tag };
-  }
-  function oneTag(x, tags, what) {
-    const o = asObject(x, what, tags);
-    const present = tags.filter((t) => o[t] !== void 0);
-    if (present.length === 0) {
-      throw new Error(`${what}: must be one of ${tags.join(" | ")}`);
-    }
-    if (present.length > 1) {
-      throw new Error(
-        `${what}: ambiguous \u2014 ${present.map((p) => `"${p}"`).join(" and ")} are both present, but exactly one is allowed`
-      );
-    }
-    return { o, tag: present[0] };
-  }
-
-  // src/term-json.ts
-  var CMPS = ["eq", "neq", "lt", "lte", "gt", "gte", "prefix", "inSet"];
-  var TERM_KEYS = {
-    select: ["op", "pred", "in"],
-    union: ["op", "left", "right"],
-    intersect: ["op", "left", "right"],
-    difference: ["op", "of", "without"],
-    mask: ["op", "policy", "in"],
-    group: ["op", "key", "in"],
-    prune: ["op", "keep", "in"],
-    expand: ["op", "role", "schema", "reading", "in"],
-    fix: ["op", "schema", "entity", "bindings"],
-    resolve: ["op", "schema", "in"]
-  };
-  var STR_MATCH_TAGS = ["exact", "prefix", "inSet", "aliased"];
-  var VAL_MATCH_TAGS = ["vcmp", "between", "inSet"];
-  var PRED_TAGS = ["match", "hasPointer", "and", "or", "not", "inView"];
-  var ORDER_TAGS = ["byTimestamp", "byAuthorRank", "byPred", "chain"];
-  var POLICY_TAGS = ["pick", "all", "merge", "conflicts", "absentAs"];
-  var EXTRACT_TAGS = ["field", "role"];
-  function parsePrimitive(v, what) {
-    if (typeof v === "string") return v;
-    if (typeof v === "boolean") return v;
-    if (typeof v === "number") {
-      if (!Number.isFinite(v)) throw new Error(`${what}: numeric constant must be finite`);
-      return v;
-    }
-    throw new Error(`${what}: constant must be string | number | boolean`);
-  }
-  function parseHole(v) {
-    if (typeof v !== "object" || v === null || Array.isArray(v)) return void 0;
-    if (!("hole" in v)) return void 0;
-    const o = asObject(v, "hole", ["hole"]);
-    if (typeof o["hole"] !== "string") throw new Error("hole name must be a string");
-    return { kind: "hole", name: o["hole"] };
-  }
-  function parseParam(v, what) {
-    return parseHole(v) ?? parsePrimitive(v, what);
-  }
-  function parseCmp(v, what) {
-    if (typeof v !== "string" || !CMPS.includes(v)) {
-      throw new Error(`${what}: unknown cmp ${String(v)}`);
-    }
-    return v;
-  }
-  function parseStrMatch(raw, what) {
-    const { o, tag } = oneTag(raw, STR_MATCH_TAGS, what);
-    if (tag === "exact") {
-      if (typeof o["exact"] !== "string") throw new Error(`${what}: exact must be a string`);
-      return { kind: "exact", value: o["exact"] };
-    }
-    if (tag === "prefix") {
-      if (typeof o["prefix"] !== "string") throw new Error(`${what}: prefix must be a string`);
-      return { kind: "prefix", value: o["prefix"] };
-    }
-    if (tag === "inSet") {
-      if (!Array.isArray(o["inSet"])) throw new Error(`${what}: inSet must be an array`);
-      return {
-        kind: "inSet",
-        values: o["inSet"].map((s) => {
-          if (typeof s !== "string") throw new Error(`${what}: inSet members must be strings`);
-          return s;
-        })
-      };
-    }
-    {
-      const a = asObject(o["aliased"], `${what}.aliased`, ["name", "via", "trust"]);
-      if (typeof a["name"] !== "string") throw new Error(`${what}: aliased.name must be a string`);
-      const out = { name: a["name"] };
-      if (a["via"] !== void 0) {
-        if (typeof a["via"] !== "string")
-          throw new Error(`${what}: aliased.via must be an entity id`);
-        out.via = a["via"];
-      }
-      if (a["trust"] !== void 0) {
-        const trust = parsePred(a["trust"]);
-        assertClosedTrustPred(trust, `${what}.aliased.trust`);
-        out.trust = trust;
-      }
-      return { kind: "aliased", ...out };
-    }
-  }
-  function assertClosedTrustPred(p, what) {
-    switch (p.kind) {
-      case "true":
-      case "false":
-        return;
-      case "match":
-        if (typeof p.constant === "object" && !Array.isArray(p.constant)) {
-          throw new Error(`${what}: holes are not allowed inside an aliased trust predicate`);
-        }
-        return;
-      case "hasPointer": {
-        const pp = p.ppred;
-        if (pp.targetEntity?.kind === "hole" || pp.targetValue?.kind === "vcmp" && typeof pp.targetValue.value === "object") {
-          throw new Error(`${what}: holes are not allowed inside an aliased trust predicate`);
-        }
-        if (pp.role?.kind === "aliased" || pp.context?.kind === "aliased") {
-          throw new Error(`${what}: nested aliased is not allowed inside an aliased trust predicate`);
-        }
-        return;
-      }
-      case "and":
-      case "or":
-        assertClosedTrustPred(p.left, what);
-        assertClosedTrustPred(p.right, what);
-        return;
-      case "not":
-        assertClosedTrustPred(p.pred, what);
-        return;
-      case "inView":
-        throw new Error(`${what}: inView is not allowed inside an aliased trust predicate`);
-    }
-  }
-  function parseValMatch(raw, what) {
-    const { o, tag } = oneTag(raw, VAL_MATCH_TAGS, what);
-    if (tag === "vcmp") {
-      const v = asObject(o["vcmp"], `${what}.vcmp`, ["cmp", "value"]);
-      const cmp = parseCmp(v["cmp"], `${what}.vcmp`);
-      if (cmp === "inSet")
-        throw new Error(`${what}: vcmp cmp inSet is not allowed; use the inSet arm`);
-      const value = parseParam(v["value"], `${what}.vcmp`);
-      if (cmp === "prefix" && typeof value !== "string" && typeof value !== "object") {
-        throw new Error(`${what}: prefix requires a string constant`);
-      }
-      return { kind: "vcmp", cmp, value };
-    }
-    if (tag === "between") {
-      if (!Array.isArray(o["between"]) || o["between"].length !== 2) {
-        throw new Error(`${what}: between takes [lo, hi]`);
-      }
-      return {
-        kind: "between",
-        lo: parsePrimitive(o["between"][0], `${what}.between`),
-        hi: parsePrimitive(o["between"][1], `${what}.between`)
-      };
-    }
-    if (!Array.isArray(o["inSet"])) throw new Error(`${what}: inSet must be an array`);
-    return { kind: "inSet", values: o["inSet"].map((v) => parsePrimitive(v, `${what}.inSet`)) };
-  }
-  function parsePPred(raw) {
-    const o = asObject(raw, "hasPointer", [
-      "role",
-      "targetEntity",
-      "targetDelta",
-      "context",
-      "targetIsPrimitive",
-      "targetValue"
-    ]);
-    const out = {};
-    if (o["role"] !== void 0) out.role = parseStrMatch(o["role"], "hasPointer.role");
-    if (o["targetEntity"] !== void 0) {
-      const te = o["targetEntity"];
-      if (typeof te === "string") {
-        out.targetEntity = { kind: "const", id: te };
-      } else {
-        const hole = parseHole(te);
-        if (hole !== void 0) {
-          out.targetEntity = hole;
-        } else {
-          const v = asObject(te, "targetEntity", ["var"]);
-          if (v["var"] !== "root") {
-            throw new Error('targetEntity must be a string, {var: "root"}, or {hole: "name"}');
-          }
-          out.targetEntity = { kind: "root" };
-        }
-      }
-    }
-    if (o["targetDelta"] !== void 0) {
-      if (typeof o["targetDelta"] !== "string") throw new Error("targetDelta must be a string");
-      out.targetDelta = o["targetDelta"];
-    }
-    if (o["context"] !== void 0) out.context = parseStrMatch(o["context"], "hasPointer.context");
-    if (o["targetIsPrimitive"] !== void 0) {
-      if (typeof o["targetIsPrimitive"] !== "boolean") {
-        throw new Error("targetIsPrimitive must be a boolean");
-      }
-      out.targetIsPrimitive = o["targetIsPrimitive"];
-    }
-    if (o["targetValue"] !== void 0) {
-      out.targetValue = parseValMatch(o["targetValue"], "hasPointer.targetValue");
-    }
-    if (Object.keys(out).length === 0) throw new Error("hasPointer requires at least one field (E1)");
-    return out;
-  }
-  function parsePred(raw) {
-    if (raw === "true") return { kind: "true" };
-    if (raw === "false") return { kind: "false" };
-    const { o, tag } = oneTag(raw, PRED_TAGS, "pred");
-    if (tag === "match") {
-      const m = asObject(o["match"], "match", ["field", "cmp", "const"]);
-      const field = m["field"];
-      if (field !== "author" && field !== "timestamp" && field !== "id") {
-        throw new Error(`match: unknown field ${String(field)}`);
-      }
-      const cmp = parseCmp(m["cmp"], "match");
-      const rawConst = m["const"];
-      const constant = cmp === "inSet" ? (() => {
-        if (!Array.isArray(rawConst)) throw new Error("match: inSet requires an array const");
-        return rawConst.map((v) => parsePrimitive(v, "match.const"));
-      })() : parseParam(rawConst, "match.const");
-      if (cmp === "prefix" && typeof constant !== "string" && typeof constant !== "object") {
-        throw new Error("match: prefix requires a string const");
-      }
-      return { kind: "match", field, cmp, constant };
-    }
-    if (tag === "hasPointer") return { kind: "hasPointer", ppred: parsePPred(o["hasPointer"]) };
-    if (tag === "and" || tag === "or") {
-      const arr = o[tag];
-      if (!Array.isArray(arr) || arr.length !== 2)
-        throw new Error(`${tag} takes exactly [Pred, Pred] (E1)`);
-      const left = parsePred(arr[0]);
-      const right = parsePred(arr[1]);
-      return tag === "and" ? { kind: "and", left, right } : { kind: "or", left, right };
-    }
-    if (tag === "not") return { kind: "not", pred: parsePred(o["not"]) };
-    {
-      const v = asObject(o["inView"], "inView", ["term", "field", "extract"]);
-      const term = parseTerm(v["term"]);
-      if (term.kind !== "input" && term.kind !== "select" && term.kind !== "union" && term.kind !== "mask") {
-        throw new Error("inView.term must be a DSet-sort term (input | select | union | mask)");
-      }
-      if (termContainsInView(term)) {
-        throw new Error("inView is stratified: no inView inside inView.term (SPEC-2 \xA73.1)");
-      }
-      const field = v["field"];
-      if (field !== "author" && field !== "id") throw new Error("inView.field must be author | id");
-      return { kind: "inView", term, field, extract: parseExtract(v["extract"]) };
-    }
-  }
-  function parseExtract(raw) {
-    const { o, tag } = oneTag(raw, EXTRACT_TAGS, "inView.extract");
-    if (tag === "field") {
-      if (o["field"] !== "author" && o["field"] !== "id") {
-        throw new Error("inView.extract.field must be author | id");
-      }
-      return { kind: "field", field: o["field"] };
-    }
-    if (typeof o["role"] !== "string") throw new Error("inView.extract.role must be a string");
-    return { kind: "role", role: o["role"] };
-  }
-  function parseMaskPolicy(raw) {
-    if (raw === "drop") return { kind: "drop" };
-    if (raw === "annotate") return { kind: "annotate" };
-    const { o } = oneTag(raw, ["trust"], "mask.policy");
-    return { kind: "trust", pred: parsePred(o["trust"]) };
-  }
-  var MERGE_FNS = ["max", "min", "sum", "count", "and", "or", "concatSorted"];
-  function parseOrder(raw) {
-    if (raw === "lexById") return { kind: "lexById" };
-    const { o, tag } = oneTag(raw, ORDER_TAGS, "order");
-    if (tag === "byTimestamp") {
-      if (o["byTimestamp"] !== "desc" && o["byTimestamp"] !== "asc") {
-        throw new Error("byTimestamp must be desc | asc");
-      }
-      return { kind: "byTimestamp", dir: o["byTimestamp"] };
-    }
-    if (tag === "byAuthorRank") {
-      if (!Array.isArray(o["byAuthorRank"])) throw new Error("byAuthorRank must be an array");
-      return {
-        kind: "byAuthorRank",
-        authors: o["byAuthorRank"].map((a) => {
-          if (typeof a !== "string") throw new Error("byAuthorRank entries must be strings");
-          return a;
-        })
-      };
-    }
-    if (tag === "byPred") {
-      const p = asObject(o["byPred"], "byPred", ["pred", "then"]);
-      const pred = parsePred(p["pred"]);
-      if (predContainsInView(pred)) {
-        throw new Error("inView is not allowed inside a policy byPred predicate (SPEC-2 \xA73.1)");
-      }
-      return { kind: "byPred", pred, then: parseOrder(p["then"]) };
-    }
-    if (!Array.isArray(o["chain"])) throw new Error("chain must be an array");
-    if (o["chain"].length === 0) throw new Error("chain must name at least one order");
-    return { kind: "chain", orders: o["chain"].map(parseOrder) };
-  }
-  function parsePolicy(raw) {
-    const { o, tag } = oneTag(raw, POLICY_TAGS, "propPolicy");
-    if (tag === "pick") {
-      return { kind: "pick", order: parseOrder(asObject(o["pick"], "pick", ["order"])["order"]) };
-    }
-    if (tag === "all") {
-      const ao = asObject(o["all"], "all", ["order", "distinct"]);
-      const order = parseOrder(ao["order"]);
-      if (!("distinct" in ao)) return { kind: "all", order };
-      if (ao["distinct"] !== true) {
-        throw new Error(
-          `all.distinct must be the literal true when present; got ${JSON.stringify(ao["distinct"])}`
-        );
-      }
-      return { kind: "all", order, distinct: true };
-    }
-    if (tag === "merge") {
-      if (!MERGE_FNS.includes(o["merge"])) {
-        throw new Error("unknown merge fn " + String(o["merge"]));
-      }
-      return { kind: "merge", fn: o["merge"] };
-    }
-    if (tag === "conflicts") {
-      return {
-        kind: "conflicts",
-        order: parseOrder(asObject(o["conflicts"], "conflicts", ["order"])["order"])
-      };
-    }
-    {
-      const a = asObject(o["absentAs"], "absentAs", ["const", "then"]);
-      return {
-        kind: "absentAs",
-        constant: parsePrimitive(a["const"], "absentAs.const"),
-        then: parsePolicy(a["then"])
-      };
-    }
-  }
-  function parseSchema(raw) {
-    const o = asObject(raw, "schema", ["props", "default", "name", "alg"]);
-    const props = /* @__PURE__ */ new Map();
-    if (o["props"] !== void 0) {
-      for (const [k, v] of Object.entries(asOpenMap(o["props"], "schema.props"))) {
-        props.set(k, parsePolicy(v));
-      }
-    }
-    const name = typeof o["name"] === "string" ? o["name"] : void 0;
-    const alg = typeof o["alg"] === "number" ? o["alg"] : void 0;
-    return {
-      props,
-      default: parsePolicy(o["default"]),
-      ...name !== void 0 ? { name } : {},
-      ...alg !== void 0 ? { alg } : {}
-    };
-  }
-  function parseGroupKey(raw) {
-    if (raw === "byTargetContext") return { kind: "byTargetContext" };
-    if (raw === "byRole") return { kind: "byRole" };
-    const { o } = oneTag(raw, ["const"], "group.key");
-    if (typeof o["const"] !== "string") throw new Error("group.key const must be a string");
-    return { kind: "const", prop: o["const"] };
-  }
-  function parseSchemaRef(raw) {
-    if (typeof raw === "string") return { kind: "name", name: raw };
-    const { o } = oneTag(raw, ["pinned"], "schemaRef");
-    if (typeof o["pinned"] !== "string") {
-      throw new Error("schema ref must be a name string or {pinned: hash} (E13)");
-    }
-    return { kind: "pinned", hash: o["pinned"] };
-  }
-  function parseTerm(raw) {
-    if (raw === "input") return { kind: "input" };
-    const { o, tag } = asDispatched(raw, "term", "op", TERM_KEYS);
-    switch (tag) {
-      case "select":
-        return { kind: "select", pred: parsePred(o["pred"]), of: parseTerm(o["in"]) };
-      case "union":
-        return { kind: "union", left: parseTerm(o["left"]), right: parseTerm(o["right"]) };
-      case "intersect":
-        return { kind: "intersect", left: parseTerm(o["left"]), right: parseTerm(o["right"]) };
-      case "difference":
-        return { kind: "difference", of: parseTerm(o["of"]), without: parseTerm(o["without"]) };
-      case "mask":
-        return { kind: "mask", policy: parseMaskPolicy(o["policy"]), of: parseTerm(o["in"]) };
-      case "group":
-        return { kind: "group", key: parseGroupKey(o["key"]), of: parseTerm(o["in"]) };
-      case "expand": {
-        const expand = {
-          kind: "expand",
-          role: parseStrMatch(o["role"], "expand.role"),
-          schema: parseSchemaRef(o["schema"]),
-          of: parseTerm(o["in"])
-        };
-        if (o["reading"] === void 0) return expand;
-        return { ...expand, reading: parseSchemaRef(o["reading"]) };
-      }
-      case "fix": {
-        if (typeof o["entity"] !== "string") throw new Error("fix.entity must be a string");
-        const fix = {
-          kind: "fix",
-          schema: parseSchemaRef(o["schema"]),
-          entity: o["entity"]
-        };
-        if (o["bindings"] === void 0) return fix;
-        const bo = asOpenMap(o["bindings"], "fix.bindings");
-        const bindings = /* @__PURE__ */ new Map();
-        for (const key of Object.keys(bo).sort()) {
-          bindings.set(key, parsePrimitive(bo[key], `fix.bindings.${key}`));
-        }
-        return { ...fix, bindings };
-      }
-      case "resolve":
-        return { kind: "resolve", schema: parseSchema(o["schema"]), of: parseTerm(o["in"]) };
-      case "prune": {
-        const keep = o["keep"] === "all" ? "all" : parseStrMatch(o["keep"], "prune.keep");
-        return { kind: "prune", keep, of: parseTerm(o["in"]) };
-      }
-      /* c8 ignore next 2 -- asDispatched already rejected every tag outside TERM_KEYS */
-      default:
-        throw new Error(`unknown term op ${String(tag)}`);
-    }
-  }
-
-  // src/schema-deltas.ts
-  var ROLE_DEFINES = `${VOCAB_PREFIX}.hyperschema.defines`;
-  var ROLE_NAME = `${VOCAB_PREFIX}.hyperschema.name`;
-  var ROLE_ALG = `${VOCAB_PREFIX}.hyperschema.alg`;
-  var ROLE_TERM = `${VOCAB_PREFIX}.hyperschema.term`;
-  var HYPER_SCHEMA_SCHEMA = {
-    name: `${VOCAB_PREFIX}.HyperSchemaSchema`,
-    alg: 1,
-    body: parseTerm({
-      op: "group",
-      key: "byTargetContext",
-      in: {
-        op: "select",
-        pred: { hasPointer: { targetEntity: { var: "root" } } },
-        // mask BEFORE select (ERRATA-3 S5): negations target deltas, not the root, so a
-        // select-first idiom would exclude them before mask could suppress anything.
-        in: { op: "mask", policy: "drop", in: "input" }
-      }
-    })
-  };
-  var SCHEMA_DEFINES = `${VOCAB_PREFIX}.schema.defines`;
-  var SCHEMA_NAME = `${VOCAB_PREFIX}.schema.name`;
-  var SCHEMA_ALG = `${VOCAB_PREFIX}.schema.alg`;
-  var SCHEMA_TERM = `${VOCAB_PREFIX}.schema.term`;
-  var SCHEMA_SCHEMA = {
-    name: `${VOCAB_PREFIX}.SchemaSchema`,
-    alg: 1,
-    body: HYPER_SCHEMA_SCHEMA.body
-  };
 
   // node_modules/@noble/hashes/esm/sha2.js
   var K512 = /* @__PURE__ */ (() => split([
@@ -4206,7 +3707,7 @@
   _RistrettoPoint.Fp = /* @__PURE__ */ (() => Fp)();
   _RistrettoPoint.Fn = /* @__PURE__ */ (() => Fn)();
 
-  // src/sign.ts
+  // src/delta/sign.ts
   var AUTHOR_PREFIX = "ed25519:";
   function publicKeyFromSeed(seedHex) {
     return bytesToHex(ed25519.getPublicKey(hexToBytes(seedHex)));
@@ -4261,7 +3762,7 @@
     }
   }
 
-  // src/reactor.ts
+  // src/reactor/reactor.ts
   var Reactor = class {
     // The append-only log in arrival order (v0: in-memory; the log is still the truth — V2).
     log = [];
@@ -4538,9 +4039,6 @@
       return manifestMemberIds(manifest).every((id) => this.set.has(id));
     }
   };
-  function manifestMemberIds(manifest) {
-    return manifest.claims.pointers.filter((p) => p.role === `${VOCAB_PREFIX}.txn.member` && p.target.kind === "delta").map((p) => p.target.deltaRef.delta);
-  }
   function propHexesOf(h) {
     const out = /* @__PURE__ */ new Map();
     for (const [prop, entries] of h.props) {
@@ -4623,7 +4121,7 @@
     return true;
   }
 
-  // src/peer.ts
+  // src/federation/peer.ts
   var ALL = { kind: "input" };
   var Peer = class {
     constructor(seedHex, offeredLens = ALL, admission = void 0) {
@@ -4704,6 +4202,482 @@
       };
     }
   };
+
+  // src/delta/strict.ts
+  function editDistance(a, b) {
+    let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+    for (let i = 1; i <= a.length; i++) {
+      const cur = [i];
+      for (let j = 1; j <= b.length; j++) {
+        cur[j] = Math.min(
+          prev[j] + 1,
+          cur[j - 1] + 1,
+          prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)
+        );
+      }
+      prev = cur;
+    }
+    return prev[b.length];
+  }
+  function nearest(key, known) {
+    let best;
+    let bestDist = 3;
+    for (const k of known) {
+      const d = editDistance(key, k);
+      if (d < bestDist) {
+        bestDist = d;
+        best = k;
+      }
+    }
+    return best;
+  }
+  function unknownKeyMessage(key, known, what) {
+    const suggestion = nearest(key, known);
+    if (suggestion !== void 0) {
+      return `unknown key "${key}" on ${what}; did you mean "${suggestion}"?`;
+    }
+    return `unknown key "${key}" on ${what} (expected one of: ${known.join(", ")}) \u2014 this may have been generated by a newer rhizomatic; check whether support shipped in a release you haven't installed`;
+  }
+  function asRecord(x, what) {
+    if (typeof x !== "object" || x === null || Array.isArray(x)) {
+      throw new Error(`expected object for ${what}`);
+    }
+    return x;
+  }
+  function asObject(x, what, known) {
+    const o = asRecord(x, what);
+    for (const key of Object.keys(o)) {
+      if (!known.includes(key)) throw new Error(unknownKeyMessage(key, known, what));
+    }
+    return o;
+  }
+  function asOpenMap(x, what) {
+    return asRecord(x, what);
+  }
+  function asDispatched(x, what, tagKey, table) {
+    const raw = asRecord(x, what);
+    const tag = raw[tagKey];
+    if (typeof tag !== "string" || !Object.prototype.hasOwnProperty.call(table, tag)) {
+      throw new Error(
+        `unknown ${tagKey} ${String(tag)} on ${what} \u2014 this term may have been generated by a newer rhizomatic; check whether support for it shipped in a release you haven't installed`
+      );
+    }
+    return { o: asObject(raw, `${what} ${tag}`, table[tag]), tag };
+  }
+  function oneTag(x, tags, what) {
+    const o = asObject(x, what, tags);
+    const present = tags.filter((t) => o[t] !== void 0);
+    if (present.length === 0) {
+      throw new Error(`${what}: must be one of ${tags.join(" | ")}`);
+    }
+    if (present.length > 1) {
+      throw new Error(
+        `${what}: ambiguous \u2014 ${present.map((p) => `"${p}"`).join(" and ")} are both present, but exactly one is allowed`
+      );
+    }
+    return { o, tag: present[0] };
+  }
+
+  // src/syntax/term-json.ts
+  var CMPS = ["eq", "neq", "lt", "lte", "gt", "gte", "prefix", "inSet"];
+  var TERM_KEYS = {
+    select: ["op", "pred", "in"],
+    union: ["op", "left", "right"],
+    intersect: ["op", "left", "right"],
+    difference: ["op", "of", "without"],
+    mask: ["op", "policy", "in"],
+    group: ["op", "key", "in"],
+    prune: ["op", "keep", "in"],
+    expand: ["op", "role", "schema", "reading", "in"],
+    fix: ["op", "schema", "entity", "bindings"],
+    resolve: ["op", "schema", "in"]
+  };
+  var STR_MATCH_TAGS = ["exact", "prefix", "inSet", "aliased"];
+  var VAL_MATCH_TAGS = ["vcmp", "between", "inSet"];
+  var PRED_TAGS = ["match", "hasPointer", "and", "or", "not", "inView"];
+  var ORDER_TAGS = ["byTimestamp", "byAuthorRank", "byPred", "chain"];
+  var POLICY_TAGS = ["pick", "all", "merge", "conflicts", "absentAs"];
+  var EXTRACT_TAGS = ["field", "role"];
+  function parsePrimitive(v, what) {
+    if (typeof v === "string") return v;
+    if (typeof v === "boolean") return v;
+    if (typeof v === "number") {
+      if (!Number.isFinite(v)) throw new Error(`${what}: numeric constant must be finite`);
+      return v;
+    }
+    throw new Error(`${what}: constant must be string | number | boolean`);
+  }
+  function parseHole(v) {
+    if (typeof v !== "object" || v === null || Array.isArray(v)) return void 0;
+    if (!("hole" in v)) return void 0;
+    const o = asObject(v, "hole", ["hole"]);
+    if (typeof o["hole"] !== "string") throw new Error("hole name must be a string");
+    return { kind: "hole", name: o["hole"] };
+  }
+  function parseParam(v, what) {
+    return parseHole(v) ?? parsePrimitive(v, what);
+  }
+  function parseCmp(v, what) {
+    if (typeof v !== "string" || !CMPS.includes(v)) {
+      throw new Error(`${what}: unknown cmp ${String(v)}`);
+    }
+    return v;
+  }
+  function parseStrMatch(raw, what) {
+    const { o, tag } = oneTag(raw, STR_MATCH_TAGS, what);
+    if (tag === "exact") {
+      if (typeof o["exact"] !== "string") throw new Error(`${what}: exact must be a string`);
+      return { kind: "exact", value: o["exact"] };
+    }
+    if (tag === "prefix") {
+      if (typeof o["prefix"] !== "string") throw new Error(`${what}: prefix must be a string`);
+      return { kind: "prefix", value: o["prefix"] };
+    }
+    if (tag === "inSet") {
+      if (!Array.isArray(o["inSet"])) throw new Error(`${what}: inSet must be an array`);
+      return {
+        kind: "inSet",
+        values: o["inSet"].map((s) => {
+          if (typeof s !== "string") throw new Error(`${what}: inSet members must be strings`);
+          return s;
+        })
+      };
+    }
+    {
+      const a = asObject(o["aliased"], `${what}.aliased`, ["name", "via", "trust"]);
+      if (typeof a["name"] !== "string") throw new Error(`${what}: aliased.name must be a string`);
+      const out = { name: a["name"] };
+      if (a["via"] !== void 0) {
+        if (typeof a["via"] !== "string")
+          throw new Error(`${what}: aliased.via must be an entity id`);
+        out.via = a["via"];
+      }
+      if (a["trust"] !== void 0) {
+        const trust = parsePred(a["trust"]);
+        assertClosedTrustPred(trust, `${what}.aliased.trust`);
+        out.trust = trust;
+      }
+      return { kind: "aliased", ...out };
+    }
+  }
+  function assertClosedTrustPred(p, what) {
+    switch (p.kind) {
+      case "true":
+      case "false":
+        return;
+      case "match":
+        if (typeof p.constant === "object" && !Array.isArray(p.constant)) {
+          throw new Error(`${what}: holes are not allowed inside an aliased trust predicate`);
+        }
+        return;
+      case "hasPointer": {
+        const pp = p.ppred;
+        if (pp.targetEntity?.kind === "hole" || pp.targetValue?.kind === "vcmp" && typeof pp.targetValue.value === "object") {
+          throw new Error(`${what}: holes are not allowed inside an aliased trust predicate`);
+        }
+        if (pp.role?.kind === "aliased" || pp.context?.kind === "aliased") {
+          throw new Error(`${what}: nested aliased is not allowed inside an aliased trust predicate`);
+        }
+        return;
+      }
+      case "and":
+      case "or":
+        assertClosedTrustPred(p.left, what);
+        assertClosedTrustPred(p.right, what);
+        return;
+      case "not":
+        assertClosedTrustPred(p.pred, what);
+        return;
+      case "inView":
+        throw new Error(`${what}: inView is not allowed inside an aliased trust predicate`);
+    }
+  }
+  function parseValMatch(raw, what) {
+    const { o, tag } = oneTag(raw, VAL_MATCH_TAGS, what);
+    if (tag === "vcmp") {
+      const v = asObject(o["vcmp"], `${what}.vcmp`, ["cmp", "value"]);
+      const cmp = parseCmp(v["cmp"], `${what}.vcmp`);
+      if (cmp === "inSet")
+        throw new Error(`${what}: vcmp cmp inSet is not allowed; use the inSet arm`);
+      const value = parseParam(v["value"], `${what}.vcmp`);
+      if (cmp === "prefix" && typeof value !== "string" && typeof value !== "object") {
+        throw new Error(`${what}: prefix requires a string constant`);
+      }
+      return { kind: "vcmp", cmp, value };
+    }
+    if (tag === "between") {
+      if (!Array.isArray(o["between"]) || o["between"].length !== 2) {
+        throw new Error(`${what}: between takes [lo, hi]`);
+      }
+      return {
+        kind: "between",
+        lo: parsePrimitive(o["between"][0], `${what}.between`),
+        hi: parsePrimitive(o["between"][1], `${what}.between`)
+      };
+    }
+    if (!Array.isArray(o["inSet"])) throw new Error(`${what}: inSet must be an array`);
+    return { kind: "inSet", values: o["inSet"].map((v) => parsePrimitive(v, `${what}.inSet`)) };
+  }
+  function parsePPred(raw) {
+    const o = asObject(raw, "hasPointer", [
+      "role",
+      "targetEntity",
+      "targetDelta",
+      "context",
+      "targetIsPrimitive",
+      "targetValue"
+    ]);
+    const out = {};
+    if (o["role"] !== void 0) out.role = parseStrMatch(o["role"], "hasPointer.role");
+    if (o["targetEntity"] !== void 0) {
+      const te = o["targetEntity"];
+      if (typeof te === "string") {
+        out.targetEntity = { kind: "const", id: te };
+      } else {
+        const hole = parseHole(te);
+        if (hole !== void 0) {
+          out.targetEntity = hole;
+        } else {
+          const v = asObject(te, "targetEntity", ["var"]);
+          if (v["var"] !== "root") {
+            throw new Error('targetEntity must be a string, {var: "root"}, or {hole: "name"}');
+          }
+          out.targetEntity = { kind: "root" };
+        }
+      }
+    }
+    if (o["targetDelta"] !== void 0) {
+      if (typeof o["targetDelta"] !== "string") throw new Error("targetDelta must be a string");
+      out.targetDelta = o["targetDelta"];
+    }
+    if (o["context"] !== void 0) out.context = parseStrMatch(o["context"], "hasPointer.context");
+    if (o["targetIsPrimitive"] !== void 0) {
+      if (typeof o["targetIsPrimitive"] !== "boolean") {
+        throw new Error("targetIsPrimitive must be a boolean");
+      }
+      out.targetIsPrimitive = o["targetIsPrimitive"];
+    }
+    if (o["targetValue"] !== void 0) {
+      out.targetValue = parseValMatch(o["targetValue"], "hasPointer.targetValue");
+    }
+    if (Object.keys(out).length === 0) throw new Error("hasPointer requires at least one field (E1)");
+    return out;
+  }
+  function parsePred(raw) {
+    if (raw === "true") return { kind: "true" };
+    if (raw === "false") return { kind: "false" };
+    const { o, tag } = oneTag(raw, PRED_TAGS, "pred");
+    if (tag === "match") {
+      const m = asObject(o["match"], "match", ["field", "cmp", "const"]);
+      const field = m["field"];
+      if (field !== "author" && field !== "timestamp" && field !== "id") {
+        throw new Error(`match: unknown field ${String(field)}`);
+      }
+      const cmp = parseCmp(m["cmp"], "match");
+      const rawConst = m["const"];
+      const constant = cmp === "inSet" ? (() => {
+        if (!Array.isArray(rawConst)) throw new Error("match: inSet requires an array const");
+        return rawConst.map((v) => parsePrimitive(v, "match.const"));
+      })() : parseParam(rawConst, "match.const");
+      if (cmp === "prefix" && typeof constant !== "string" && typeof constant !== "object") {
+        throw new Error("match: prefix requires a string const");
+      }
+      return { kind: "match", field, cmp, constant };
+    }
+    if (tag === "hasPointer") return { kind: "hasPointer", ppred: parsePPred(o["hasPointer"]) };
+    if (tag === "and" || tag === "or") {
+      const arr = o[tag];
+      if (!Array.isArray(arr) || arr.length !== 2)
+        throw new Error(`${tag} takes exactly [Pred, Pred] (E1)`);
+      const left = parsePred(arr[0]);
+      const right = parsePred(arr[1]);
+      return tag === "and" ? { kind: "and", left, right } : { kind: "or", left, right };
+    }
+    if (tag === "not") return { kind: "not", pred: parsePred(o["not"]) };
+    {
+      const v = asObject(o["inView"], "inView", ["term", "field", "extract"]);
+      const term = parseTerm(v["term"]);
+      if (term.kind !== "input" && term.kind !== "select" && term.kind !== "union" && term.kind !== "mask") {
+        throw new Error("inView.term must be a DSet-sort term (input | select | union | mask)");
+      }
+      if (termContainsInView(term)) {
+        throw new Error("inView is stratified: no inView inside inView.term (SPEC-2 \xA73.1)");
+      }
+      const field = v["field"];
+      if (field !== "author" && field !== "id") throw new Error("inView.field must be author | id");
+      return { kind: "inView", term, field, extract: parseExtract(v["extract"]) };
+    }
+  }
+  function parseExtract(raw) {
+    const { o, tag } = oneTag(raw, EXTRACT_TAGS, "inView.extract");
+    if (tag === "field") {
+      if (o["field"] !== "author" && o["field"] !== "id") {
+        throw new Error("inView.extract.field must be author | id");
+      }
+      return { kind: "field", field: o["field"] };
+    }
+    if (typeof o["role"] !== "string") throw new Error("inView.extract.role must be a string");
+    return { kind: "role", role: o["role"] };
+  }
+  function parseMaskPolicy(raw) {
+    if (raw === "drop") return { kind: "drop" };
+    if (raw === "annotate") return { kind: "annotate" };
+    const { o } = oneTag(raw, ["trust"], "mask.policy");
+    return { kind: "trust", pred: parsePred(o["trust"]) };
+  }
+  var MERGE_FNS = ["max", "min", "sum", "count", "and", "or", "concatSorted"];
+  function parseOrder(raw) {
+    if (raw === "lexById") return { kind: "lexById" };
+    const { o, tag } = oneTag(raw, ORDER_TAGS, "order");
+    if (tag === "byTimestamp") {
+      if (o["byTimestamp"] !== "desc" && o["byTimestamp"] !== "asc") {
+        throw new Error("byTimestamp must be desc | asc");
+      }
+      return { kind: "byTimestamp", dir: o["byTimestamp"] };
+    }
+    if (tag === "byAuthorRank") {
+      if (!Array.isArray(o["byAuthorRank"])) throw new Error("byAuthorRank must be an array");
+      return {
+        kind: "byAuthorRank",
+        authors: o["byAuthorRank"].map((a) => {
+          if (typeof a !== "string") throw new Error("byAuthorRank entries must be strings");
+          return a;
+        })
+      };
+    }
+    if (tag === "byPred") {
+      const p = asObject(o["byPred"], "byPred", ["pred", "then"]);
+      const pred = parsePred(p["pred"]);
+      if (predContainsInView(pred)) {
+        throw new Error("inView is not allowed inside a policy byPred predicate (SPEC-2 \xA73.1)");
+      }
+      return { kind: "byPred", pred, then: parseOrder(p["then"]) };
+    }
+    if (!Array.isArray(o["chain"])) throw new Error("chain must be an array");
+    if (o["chain"].length === 0) throw new Error("chain must name at least one order");
+    return { kind: "chain", orders: o["chain"].map(parseOrder) };
+  }
+  function parsePolicy(raw) {
+    const { o, tag } = oneTag(raw, POLICY_TAGS, "propPolicy");
+    if (tag === "pick") {
+      return { kind: "pick", order: parseOrder(asObject(o["pick"], "pick", ["order"])["order"]) };
+    }
+    if (tag === "all") {
+      const ao = asObject(o["all"], "all", ["order", "distinct"]);
+      const order = parseOrder(ao["order"]);
+      if (!("distinct" in ao)) return { kind: "all", order };
+      if (ao["distinct"] !== true) {
+        throw new Error(
+          `all.distinct must be the literal true when present; got ${JSON.stringify(ao["distinct"])}`
+        );
+      }
+      return { kind: "all", order, distinct: true };
+    }
+    if (tag === "merge") {
+      if (!MERGE_FNS.includes(o["merge"])) {
+        throw new Error("unknown merge fn " + String(o["merge"]));
+      }
+      return { kind: "merge", fn: o["merge"] };
+    }
+    if (tag === "conflicts") {
+      return {
+        kind: "conflicts",
+        order: parseOrder(asObject(o["conflicts"], "conflicts", ["order"])["order"])
+      };
+    }
+    {
+      const a = asObject(o["absentAs"], "absentAs", ["const", "then"]);
+      return {
+        kind: "absentAs",
+        constant: parsePrimitive(a["const"], "absentAs.const"),
+        then: parsePolicy(a["then"])
+      };
+    }
+  }
+  function parseSchema(raw) {
+    const o = asObject(raw, "schema", ["props", "default", "name", "alg"]);
+    const props = /* @__PURE__ */ new Map();
+    if (o["props"] !== void 0) {
+      for (const [k, v] of Object.entries(asOpenMap(o["props"], "schema.props"))) {
+        props.set(k, parsePolicy(v));
+      }
+    }
+    const name = typeof o["name"] === "string" ? o["name"] : void 0;
+    const alg = typeof o["alg"] === "number" ? o["alg"] : void 0;
+    return {
+      props,
+      default: parsePolicy(o["default"]),
+      ...name !== void 0 ? { name } : {},
+      ...alg !== void 0 ? { alg } : {}
+    };
+  }
+  function parseGroupKey(raw) {
+    if (raw === "byTargetContext") return { kind: "byTargetContext" };
+    if (raw === "byRole") return { kind: "byRole" };
+    const { o } = oneTag(raw, ["const"], "group.key");
+    if (typeof o["const"] !== "string") throw new Error("group.key const must be a string");
+    return { kind: "const", prop: o["const"] };
+  }
+  function parseSchemaRef(raw) {
+    if (typeof raw === "string") return { kind: "name", name: raw };
+    const { o } = oneTag(raw, ["pinned"], "schemaRef");
+    if (typeof o["pinned"] !== "string") {
+      throw new Error("schema ref must be a name string or {pinned: hash} (E13)");
+    }
+    return { kind: "pinned", hash: o["pinned"] };
+  }
+  function parseTerm(raw) {
+    if (raw === "input") return { kind: "input" };
+    const { o, tag } = asDispatched(raw, "term", "op", TERM_KEYS);
+    switch (tag) {
+      case "select":
+        return { kind: "select", pred: parsePred(o["pred"]), of: parseTerm(o["in"]) };
+      case "union":
+        return { kind: "union", left: parseTerm(o["left"]), right: parseTerm(o["right"]) };
+      case "intersect":
+        return { kind: "intersect", left: parseTerm(o["left"]), right: parseTerm(o["right"]) };
+      case "difference":
+        return { kind: "difference", of: parseTerm(o["of"]), without: parseTerm(o["without"]) };
+      case "mask":
+        return { kind: "mask", policy: parseMaskPolicy(o["policy"]), of: parseTerm(o["in"]) };
+      case "group":
+        return { kind: "group", key: parseGroupKey(o["key"]), of: parseTerm(o["in"]) };
+      case "expand": {
+        const expand = {
+          kind: "expand",
+          role: parseStrMatch(o["role"], "expand.role"),
+          schema: parseSchemaRef(o["schema"]),
+          of: parseTerm(o["in"])
+        };
+        if (o["reading"] === void 0) return expand;
+        return { ...expand, reading: parseSchemaRef(o["reading"]) };
+      }
+      case "fix": {
+        if (typeof o["entity"] !== "string") throw new Error("fix.entity must be a string");
+        const fix = {
+          kind: "fix",
+          schema: parseSchemaRef(o["schema"]),
+          entity: o["entity"]
+        };
+        if (o["bindings"] === void 0) return fix;
+        const bo = asOpenMap(o["bindings"], "fix.bindings");
+        const bindings = /* @__PURE__ */ new Map();
+        for (const key of Object.keys(bo).sort()) {
+          bindings.set(key, parsePrimitive(bo[key], `fix.bindings.${key}`));
+        }
+        return { ...fix, bindings };
+      }
+      case "resolve":
+        return { kind: "resolve", schema: parseSchema(o["schema"]), of: parseTerm(o["in"]) };
+      case "prune": {
+        const keep = o["keep"] === "all" ? "all" : parseStrMatch(o["keep"], "prune.keep");
+        return { kind: "prune", keep, of: parseTerm(o["in"]) };
+      }
+      /* c8 ignore next 2 -- asDispatched already rejected every tag outside TERM_KEYS */
+      default:
+        throw new Error(`unknown term op ${String(tag)}`);
+    }
+  }
 
   // demo/playground/playground.ts
   var peers = {
