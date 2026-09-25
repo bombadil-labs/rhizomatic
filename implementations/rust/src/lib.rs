@@ -15,6 +15,7 @@ pub mod hview;
 pub mod json_profile;
 pub mod materialize;
 pub mod pack;
+pub mod parse_error;
 pub mod peer;
 pub mod pred;
 pub mod reactor;
@@ -42,6 +43,7 @@ pub use http::{offer_for, pull_from_url, serve_peer};
 pub use hview::{hview_canonical_hex, HVEntry, HView};
 pub use materialize::{is_root_anchored, MaterializationChange};
 pub use pack::{pack_id, pack_set, unpack_set};
+pub use parse_error::{ParseError, ParseErrorKind};
 pub use peer::{sync_both, Peer, SyncReport};
 pub use pred::{compare_primitives, eval_pred, Pred};
 pub use reactor::{make_manifest_claims, manifest_member_ids, IngestResult, Reactor};
@@ -57,5 +59,5 @@ pub use term_io::{
     cbor_to_json, json_to_cbor, schema_canonical_hex, schema_hash, term_canonical_hex, term_hash,
     term_to_json,
 };
-pub use term_json::{parse_pred, parse_term};
+pub use term_json::{parse_pred, parse_pred_diagnostic, parse_term, parse_term_diagnostic};
 pub use types::{Claims, Delta, DeltaRef, EntityRef, Pointer, Primitive, Target};

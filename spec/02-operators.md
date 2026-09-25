@@ -410,6 +410,18 @@ witnesses that predate it (§4.9 entered at `alg: 1`, unchanged), so a per-node 
 distinguish "supports `difference`" from "doesn't." The **tag name** is the actionable signal;
 this is also why `alg` stays on the wrapper and is not restated per node (ERRATA-2 E17).
 
+**Structured parse diagnosis (MUST, issue #39).** A Term or Pred JSON parser MUST expose a
+machine-readable failure alongside its human message. The stable `kind` is `unknown-op` when a
+Term's `op` is absent or not recognized, `unknown-key` when a closed object carries a key outside
+its declared set, and `invalid-shape` for other malformed values (including ambiguous one-of
+nodes). The stable `path` is an RFC 6901 JSON Pointer into the submitted JSON. For `unknown-op`
+it names the `op` field; for `unknown-key` it names the unrecognized key. For `invalid-shape` it
+MAY name the malformed node or the root (`""`), but MUST NOT name a different, valid node. An implementation MAY also expose the
+offending field separately. The message text and any spelling suggestion remain non-normative.
+When several faults coexist, which one is reported is not normative; conformance cases isolate
+one fault. A parser MUST still reject before evaluation. Shared diagnostics are pinned in
+`vectors/l1-eval/eval-parse-errors.json`.
+
 This reconciles a contradiction in the prior text, which said both "adding an operator is a major
 version" *and* (for `inView`/`chain`) that parse-visible additions need no bump. The first was
 over-broad: an operator added to the closed §9 profile **is** parse-visible — an old parser hits an

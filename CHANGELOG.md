@@ -6,6 +6,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 
 ## Unreleased
 
+### Added
+
+- **Structured Term and Pred parser errors** ([#39](https://github.com/bombadil-labs/rhizomatic/issues/39), SPEC-2 §8): rejected JSON now has a stable `kind` (`unknown-op`, `unknown-key`, or `invalid-shape`) and an RFC 6901 `path` while human messages remain free to change. TypeScript `parseTerm`/`parsePred` throw the exported `ParseError`; Rust exposes `parse_term_diagnostic`/`parse_pred_diagnostic` alongside its string-error entry points. Shared reject vectors pin both witnesses. Loam can use `kind` to link to its manual without matching English text.
+
 ### Internal structure
 
 - **vNext steps 1–2** ([#38](https://github.com/bombadil-labs/rhizomatic/pull/38)):

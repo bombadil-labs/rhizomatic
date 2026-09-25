@@ -30,6 +30,7 @@ import { concatBytes, hexToBytes } from "@noble/hashes/utils";
 import { DeltaSet, makeDelta } from "../src/set.js";
 import { authorForSeed, publicKeyFromSeed, signClaims, verifyDelta } from "../src/sign.js";
 import { parsePred, parseSchema, parseTerm } from "../src/term-json.js";
+import { ParseError } from "../src/delta/parse-error.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const outDir = resolve(here, "../../../vectors/l0-delta");
@@ -3411,4 +3412,175 @@ const evalBytesOut = {
 writeFileSync(resolve(evalDir, "eval-bytes.json"), `${JSON.stringify(evalBytesOut, null, 2)}\n`);
 console.log(
   `wrote ${bytesVectors.length} bytes-resolve vectors to vectors/l1-eval/eval-bytes.json`,
+);
+
+// SPEC-2 §8: parser diagnostics are portable even though their human messages are not (#39).
+// Each case isolates one fault, so no tie-breaking rule between simultaneous faults is implied.
+const parseErrorCases = [
+  {
+    name: "unknown-term-op",
+    parse: "term",
+    input: { op: "futureOperator", in: "input" },
+    error: { kind: "unknown-op", path: "/op" },
+  },
+  {
+    name: "missing-term-op",
+    parse: "term",
+    input: { in: "input" },
+    error: { kind: "unknown-op", path: "/op" },
+  },
+  {
+    name: "unknown-nested-term-op",
+    parse: "term",
+    input: { op: "union", left: "input", right: { op: "futureOperator" } },
+    error: { kind: "unknown-op", path: "/right/op" },
+  },
+  {
+    name: "unknown-term-key",
+    parse: "term",
+    input: { op: "select", pred: "true", in: "input", "a/b~c": true },
+    error: { kind: "unknown-key", path: "/a~1b~0c" },
+  },
+  {
+    name: "unknown-nested-pred-key",
+    parse: "term",
+    input: {
+      op: "select",
+      pred: { match: { field: "author", cmp: "eq", const: "a", nope: true } },
+      in: "input",
+    },
+    error: { kind: "unknown-key", path: "/pred/match/nope" },
+  },
+  {
+    name: "unknown-pred-key",
+    parse: "pred",
+    input: { match: { field: "author", cmp: "eq", const: "a", nope: true } },
+    error: { kind: "unknown-key", path: "/match/nope" },
+  },
+  {
+    name: "unknown-schema-policy-key",
+    parse: "term",
+    input: {
+      op: "resolve",
+      schema: {
+        props: {},
+        default: { pick: { order: "lexById", extra: true } },
+      },
+      in: "input",
+    },
+    error: { kind: "unknown-key", path: "/schema/default/pick/extra" },
+  },
+  {
+    name: "unknown-pointer-match-key",
+    parse: "pred",
+    input: { hasPointer: { role: { exact: "r", extra: true } } },
+    error: { kind: "unknown-key", path: "/hasPointer/role/extra" },
+  },
+  {
+    name: "unknown-mask-trust-key",
+    parse: "term",
+    input: {
+      op: "mask",
+      policy: { trust: { match: { field: "author", cmp: "eq", const: "a", extra: true } } },
+      in: "input",
+    },
+    error: { kind: "unknown-key", path: "/policy/trust/match/extra" },
+  },
+  {
+    name: "unknown-expand-role-trust-key",
+    parse: "term",
+    input: {
+      op: "expand",
+      role: {
+        aliased: {
+          name: "r",
+          trust: { match: { field: "author", cmp: "eq", const: "a", extra: true } },
+        },
+      },
+      schema: "S",
+      in: "input",
+    },
+    error: { kind: "unknown-key", path: "/role/aliased/trust/match/extra" },
+  },
+  {
+    name: "unknown-schema-property-policy-key",
+    parse: "term",
+    input: {
+      op: "resolve",
+      schema: {
+        props: { title: { pick: { order: "lexById", extra: true } } },
+        default: { pick: { order: "lexById" } },
+      },
+      in: "input",
+    },
+    error: { kind: "unknown-key", path: "/schema/props/title/pick/extra" },
+  },
+  {
+    name: "unknown-group-key-field",
+    parse: "term",
+    input: { op: "group", key: { const: "x", extra: true }, in: "input" },
+    error: { kind: "unknown-key", path: "/key/extra" },
+  },
+  {
+    name: "unknown-inview-extract-key",
+    parse: "pred",
+    input: { inView: { term: "input", field: "id", extract: { field: "id", extra: true } } },
+    error: { kind: "unknown-key", path: "/inView/extract/extra" },
+  },
+  {
+    name: "ambiguous-pred-arms",
+    parse: "pred",
+    input: { and: ["true", "false"], not: "true" },
+    error: { kind: "invalid-shape", path: "" },
+  },
+  {
+    name: "missing-term-pred",
+    parse: "term",
+    input: { op: "select", in: "input" },
+    error: { kind: "invalid-shape", path: "" },
+  },
+  {
+    name: "repeated-primitive-does-not-mislocate-right",
+    parse: "term",
+    input: {
+      op: "union",
+      left: {
+        op: "select",
+        pred: { match: { field: "id", cmp: "eq", const: "x" } },
+        in: "input",
+      },
+      right: "x",
+    },
+    error: { kind: "invalid-shape", paths: ["", "/right"] },
+  },
+  {
+    name: "repeated-primitive-does-not-mislocate-in",
+    parse: "term",
+    input: {
+      op: "select",
+      pred: { match: { field: "timestamp", cmp: "eq", const: 3 } },
+      in: 3,
+    },
+    error: { kind: "invalid-shape", paths: ["", "/in"] },
+  },
+] as const;
+
+for (const test of parseErrorCases) {
+  try {
+    if (test.parse === "term") parseTerm(test.input);
+    else parsePred(test.input);
+    throw new Error(`${test.name}: parsed but must reject`);
+  } catch (error) {
+    if (!(error instanceof ParseError)) throw error;
+    const paths: readonly string[] = "path" in test.error ? [test.error.path] : test.error.paths;
+    if (error.kind !== test.error.kind || !paths.includes(error.path)) {
+      throw new Error(
+        `${test.name}: expected ${JSON.stringify(test.error)}, got ${error.kind} ${error.path}`,
+      );
+    }
+  }
+}
+writeFileSync(
+  resolve(evalDir, "eval-parse-errors.json"),
+  `${JSON.stringify({ note: "SPEC-2 §8 (#39). Kind and JSON Pointer are normative; human messages are not.", cases: parseErrorCases }, null, 2)}\n`,
 );
