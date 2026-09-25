@@ -17,6 +17,7 @@ import {
   type ValMatch,
 } from "./pred.js";
 import { asDispatched, asObject, asOpenMap, oneTag } from "../delta/strict.js";
+import { withParseError } from "../delta/parse-error.js";
 import type { Primitive } from "../delta/types.js";
 
 const CMPS: readonly Cmp[] = ["eq", "neq", "lt", "lte", "gt", "gte", "prefix", "inSet"];
@@ -234,6 +235,10 @@ function parsePPred(raw: unknown): PPred {
 }
 
 export function parsePred(raw: unknown): Pred {
+  return withParseError(raw, () => parsePredImpl(raw));
+}
+
+function parsePredImpl(raw: unknown): Pred {
   if (raw === "true") return { kind: "true" };
   if (raw === "false") return { kind: "false" };
   const { o, tag } = oneTag(raw, PRED_TAGS, "pred");
@@ -419,6 +424,10 @@ function parseSchemaRef(raw: unknown): SchemaRefT {
 }
 
 export function parseTerm(raw: unknown): Term {
+  return withParseError(raw, () => parseTermImpl(raw));
+}
+
+function parseTermImpl(raw: unknown): Term {
   if (raw === "input") return { kind: "input" };
   // Dispatched node: the `op` is checked first (the §8 tag rule), then the keys are checked
   // against exactly that operator's row of the closed grammar (issue #25).

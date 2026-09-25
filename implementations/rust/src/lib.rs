@@ -15,6 +15,7 @@ pub mod hview;
 pub mod json_profile;
 pub mod materialize;
 pub mod pack;
+pub mod parse_error;
 pub mod peer;
 pub mod pred;
 pub mod reactor;
@@ -57,5 +58,6 @@ pub use term_io::{
     cbor_to_json, json_to_cbor, schema_canonical_hex, schema_hash, term_canonical_hex, term_hash,
     term_to_json,
 };
-pub use term_json::{parse_pred, parse_term};
+pub use term_json::{parse_pred, parse_pred_diagnostic, parse_term, parse_term_diagnostic};
+pub use parse_error::{ParseError, ParseErrorKind};
 pub use types::{Claims, Delta, DeltaRef, EntityRef, Pointer, Primitive, Target};

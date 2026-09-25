@@ -54,6 +54,7 @@ export {
   type View,
 } from "./resolution.js";
 export { parseSchema, parsePred, parseTerm } from "./term-json.js";
+export { ParseError, type ParseErrorKind } from "./delta/parse-error.js";
 export {
   cborToJson,
   jsonToCbor,

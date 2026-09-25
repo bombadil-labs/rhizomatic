@@ -16,7 +16,7 @@ use crate::types::Primitive;
 /// The closed key sets of the §9 profile (issue #25). Every object node in the grammar names its
 /// keys here or at its call site; the only open nodes are `fix.bindings` and `schema.props`, whose
 /// keys are author-chosen data rather than grammar.
-const TERM_KEYS: [(&str, &[&str]); 10] = [
+pub(crate) const TERM_KEYS: [(&str, &[&str]); 10] = [
     ("select", &["op", "pred", "in"]),
     ("union", &["op", "left", "right"]),
     ("intersect", &["op", "left", "right"]),
@@ -51,6 +51,29 @@ fn parse_hole(v: &Value) -> Result<Option<String>, String> {
         }
         _ => Ok(None),
     }
+}
+
+/// Structured diagnostic companion to the existing string-error parser.
+/// The `message` remains descriptive and can change; `kind` and `path` are stable.
+pub fn parse_term_diagnostic(raw: &Value) -> Result<Term, crate::parse_error::ParseError> {
+    parse_term(raw).map_err(|message| {
+        crate::parse_error::finish(
+            crate::parse_error::diagnose_term(raw, "")
+                .unwrap_or_else(|| crate::parse_error::invalid(String::new())),
+            message,
+        )
+    })
+}
+
+/// Structured diagnostic companion for predicates.
+pub fn parse_pred_diagnostic(raw: &Value) -> Result<Pred, crate::parse_error::ParseError> {
+    parse_pred(raw).map_err(|message| {
+        crate::parse_error::finish(
+            crate::parse_error::diagnose_pred(raw, "")
+                .unwrap_or_else(|| crate::parse_error::invalid(String::new())),
+            message,
+        )
+    })
 }
 
 fn owned(s: &str) -> String {
