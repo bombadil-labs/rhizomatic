@@ -30,7 +30,9 @@ fn structured_parse_errors_match_shared_vectors() {
         } else {
             let paths = case["error"]["paths"].as_array().unwrap();
             assert!(
-                paths.iter().any(|p| p.as_str() == Some(error.path.as_str())),
+                paths
+                    .iter()
+                    .any(|p| p.as_str() == Some(error.path.as_str())),
                 "{name}: {} not in {paths:?}",
                 error.path
             );
