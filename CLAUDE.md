@@ -111,6 +111,9 @@ work: the reference demo (implementations/ts/demo), CI, and whatever PROGRESS.md
   `rhizomatic.term.*`, `rhizomatic.alias`, `rhizomatic.HyperSchemaSchema`) — decided 2026-06-11. It remains a
   single configurable constant (`VOCAB_PREFIX`) in each implementation, so any future change stays a
   one-line edit plus a vector regen.
+- Use [plain language in vNext specs and docs](docs/vnext-language.md). Loam's older vocabulary
+  must not become new Rhizomatic terminology. Existing wire keys and formal format names keep
+  their spelling until a separately specified format change.
 
 ## ADLC status
 
