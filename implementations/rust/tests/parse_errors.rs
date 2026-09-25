@@ -25,11 +25,16 @@ fn structured_parse_errors_match_shared_vectors() {
             case["error"]["kind"].as_str().unwrap(),
             "{name}"
         );
-        assert_eq!(
-            error.path,
-            case["error"]["path"].as_str().unwrap(),
-            "{name}"
-        );
+        if let Some(path) = case["error"]["path"].as_str() {
+            assert_eq!(error.path, path, "{name}");
+        } else {
+            let paths = case["error"]["paths"].as_array().unwrap();
+            assert!(
+                paths.iter().any(|p| p.as_str() == Some(error.path.as_str())),
+                "{name}: {} not in {paths:?}",
+                error.path
+            );
+        }
         assert!(!error.message.is_empty(), "{name}: missing human message");
     }
 }

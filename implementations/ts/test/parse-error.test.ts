@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { ParseError, parsePred, parseTerm } from "../src/index.js";
+import { ParseError, parsePred, parseSchema, parseTerm } from "../src/index.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const doc = JSON.parse(
@@ -12,7 +12,7 @@ const doc = JSON.parse(
     name: string;
     parse: "term" | "pred";
     input: unknown;
-    error: { kind: string; path: string };
+    error: { kind: string } & ({ path: string } | { paths: string[] });
   }>;
 };
 
@@ -28,8 +28,24 @@ describe("SPEC-2 §8 structured parse diagnostics", () => {
       }
       expect(caught).toBeInstanceOf(ParseError);
       const error = caught as ParseError;
-      expect({ kind: error.kind, path: error.path }).toEqual(c.error);
+      expect(error.kind).toBe(c.error.kind);
+      const paths = "path" in c.error ? [c.error.path] : c.error.paths;
+      expect(paths).toContain(error.path);
       expect(error.message.length).toBeGreaterThan(0);
     });
   }
+});
+
+it("parseSchema reports a nested unknown key without matching its message", () => {
+  let caught: unknown;
+  try {
+    parseSchema({ props: {}, default: { pick: { order: "lexById", extra: true } } });
+  } catch (error) {
+    caught = error;
+  }
+  expect(caught).toBeInstanceOf(ParseError);
+  expect({ kind: (caught as ParseError).kind, path: (caught as ParseError).path }).toEqual({
+    kind: "unknown-key",
+    path: "/default/pick/extra",
+  });
 });

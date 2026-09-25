@@ -387,6 +387,10 @@ function parsePolicy(raw: unknown): Policy {
 }
 
 export function parseSchema(raw: unknown): Schema {
+  return withParseError(raw, () => parseSchemaImpl(raw));
+}
+
+function parseSchemaImpl(raw: unknown): Schema {
   const o = asObject(raw, "schema", ["props", "default", "name", "alg"]);
   const props = new Map<string, Policy>();
   if (o["props"] !== undefined) {

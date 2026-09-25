@@ -4064,16 +4064,17 @@
     path;
     /** The offending field, when the error is tied to an object key. */
     field;
-    constructor(kind, message, node, field) {
+    constructor(kind, message, node, field, path = "") {
       super(message);
       this.name = "ParseError";
       this.kind = kind;
-      this.path = "";
+      this.path = path;
       this.field = field;
       nodes.set(this, node);
     }
   };
   function pointerTo(root, target, path = "", seen = /* @__PURE__ */ new WeakSet()) {
+    if (typeof target !== "object" || target === null) return void 0;
     if (root === target) return path;
     if (typeof root !== "object" || root === null) return void 0;
     if (seen.has(root)) return void 0;
@@ -4091,10 +4092,8 @@
     } catch (cause) {
       if (cause instanceof ParseError) {
         const base = pointerTo(raw, nodes.get(cause));
-        if (base !== void 0) {
-          cause.path = cause.field === void 0 ? base : `${base}/${cause.field.replace(/~/g, "~0").replace(/\//g, "~1")}`;
-        }
-        throw cause;
+        const path = base === void 0 ? "" : cause.field === void 0 ? base : `${base}/${cause.field.replace(/~/g, "~0").replace(/\//g, "~1")}`;
+        throw new ParseError(cause.kind, cause.message, nodes.get(cause), cause.field, path);
       }
       if (cause instanceof Error) throw new ParseError("invalid-shape", cause.message, raw);
       throw cause;
@@ -5427,6 +5426,9 @@
     }
   }
   function parseSchema(raw) {
+    return withParseError(raw, () => parseSchemaImpl(raw));
+  }
+  function parseSchemaImpl(raw) {
     const o = asObject(raw, "schema", ["props", "default", "name", "alg"]);
     const props = /* @__PURE__ */ new Map();
     if (o["props"] !== void 0) {

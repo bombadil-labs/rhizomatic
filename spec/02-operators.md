@@ -416,7 +416,7 @@ Term's `op` is absent or not recognized, `unknown-key` when a closed object carr
 its declared set, and `invalid-shape` for other malformed values (including ambiguous one-of
 nodes). The stable `path` is an RFC 6901 JSON Pointer into the submitted JSON. For `unknown-op`
 it names the `op` field; for `unknown-key` it names the unrecognized key. For `invalid-shape` it
-MAY name the nearest malformed node or the root (`""`). An implementation MAY also expose the
+MAY name the malformed node or the root (`""`), but MUST NOT name a different, valid node. An implementation MAY also expose the
 offending field separately. The message text and any spelling suggestion remain non-normative.
 When several faults coexist, which one is reported is not normative; conformance cases isolate
 one fault. A parser MUST still reject before evaluation. Shared diagnostics are pinned in
