@@ -1,6 +1,6 @@
 "use strict";
 (() => {
-  // src/cbor.ts
+  // src/delta/cbor.ts
   var tstr = (v) => ({ t: "tstr", v });
   var bstr = (v) => ({ t: "bstr", v });
   var float = (v) => ({ t: "float", v });
@@ -904,7 +904,7 @@
   };
   var blake3 = /* @__PURE__ */ createXOFer((opts) => new BLAKE3(opts));
 
-  // src/hash.ts
+  // src/delta/hash.ts
   var BLAKE3_MULTICODEC = 30;
   var DIGEST_LEN = 32;
   function contentAddress(data) {
@@ -916,7 +916,7 @@
     return bytesToHex(mh);
   }
 
-  // src/delta.ts
+  // src/delta/delta.ts
   function targetToCbor(t) {
     switch (t.kind) {
       case "primitive": {
@@ -1004,719 +1004,10 @@
     return contentAddress(canonicalBytes(claims));
   }
 
-  // src/b64u.ts
-  var ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
-  function b64uEncode(bytes) {
-    let out = "";
-    for (let i = 0; i < bytes.length; i += 3) {
-      const b0 = bytes[i];
-      const b1 = i + 1 < bytes.length ? bytes[i + 1] : 0;
-      const b2 = i + 2 < bytes.length ? bytes[i + 2] : 0;
-      const n = b0 << 16 | b1 << 8 | b2;
-      out += ALPHABET[n >> 18 & 63] + ALPHABET[n >> 12 & 63];
-      if (i + 1 < bytes.length) out += ALPHABET[n >> 6 & 63];
-      if (i + 2 < bytes.length) out += ALPHABET[n & 63];
-    }
-    return out;
-  }
-  function sextet(c) {
-    const code = c.charCodeAt(0);
-    if (code >= 65 && code <= 90) return code - 65;
-    if (code >= 97 && code <= 122) return code - 97 + 26;
-    if (code >= 48 && code <= 57) return code - 48 + 52;
-    if (c === "-") return 62;
-    if (c === "_") return 63;
-    throw new Error(`base64url: invalid character ${JSON.stringify(c)}`);
-  }
-  function b64uDecode(s) {
-    if (s.length % 4 === 1) throw new Error("base64url: invalid length (\u2261 1 mod 4)");
-    const out = [];
-    for (let i = 0; i < s.length; i += 4) {
-      const end = Math.min(i + 4, s.length);
-      const len = end - i;
-      let acc = 0;
-      for (let j = i; j < end; j++) acc = acc << 6 | sextet(s[j]);
-      if (len === 4) {
-        out.push(acc >> 16 & 255, acc >> 8 & 255, acc & 255);
-      } else if (len === 3) {
-        if ((acc & 3) !== 0) throw new Error("base64url: non-canonical trailing bits");
-        const a = acc >> 2;
-        out.push(a >> 8 & 255, a & 255);
-      } else {
-        if ((acc & 15) !== 0) throw new Error("base64url: non-canonical trailing bits");
-        out.push(acc >> 4 & 255);
-      }
-    }
-    return Uint8Array.from(out);
-  }
-
-  // src/term-io.ts
-  function paramToJson(v) {
-    return typeof v === "object" ? { hole: v.name } : v;
-  }
-  function strMatchToJson(m) {
-    switch (m.kind) {
-      case "exact":
-        return { exact: m.value };
-      case "prefix":
-        return { prefix: m.value };
-      case "inSet":
-        return { inSet: [...m.values] };
-      case "aliased": {
-        const a = { name: m.name };
-        if (m.via !== void 0) a["via"] = m.via;
-        if (m.trust !== void 0) a["trust"] = predToJson(m.trust);
-        return { aliased: a };
-      }
-    }
-  }
-  function valMatchToJson(m) {
-    switch (m.kind) {
-      case "vcmp":
-        return { vcmp: { cmp: m.cmp, value: paramToJson(m.value) } };
-      case "between":
-        return { between: [m.lo, m.hi] };
-      case "inSet":
-        return { inSet: [...m.values] };
-    }
-  }
-  function ppredToJson(p) {
-    const out = {};
-    if (p.role !== void 0) out["role"] = strMatchToJson(p.role);
-    if (p.targetEntity !== void 0) {
-      out["targetEntity"] = p.targetEntity.kind === "const" ? p.targetEntity.id : p.targetEntity.kind === "hole" ? { hole: p.targetEntity.name } : { var: "root" };
-    }
-    if (p.targetDelta !== void 0) out["targetDelta"] = p.targetDelta;
-    if (p.context !== void 0) out["context"] = strMatchToJson(p.context);
-    if (p.targetIsPrimitive !== void 0) out["targetIsPrimitive"] = p.targetIsPrimitive;
-    if (p.targetValue !== void 0) out["targetValue"] = valMatchToJson(p.targetValue);
-    return out;
-  }
-  function predToJson(pred) {
-    switch (pred.kind) {
-      case "true":
-        return "true";
-      case "false":
-        return "false";
-      case "match":
-        return {
-          match: {
-            field: pred.field,
-            cmp: pred.cmp,
-            const: Array.isArray(pred.constant) ? [...pred.constant] : paramToJson(pred.constant)
-          }
-        };
-      case "hasPointer":
-        return { hasPointer: ppredToJson(pred.ppred) };
-      case "and":
-        return { and: [predToJson(pred.left), predToJson(pred.right)] };
-      case "or":
-        return { or: [predToJson(pred.left), predToJson(pred.right)] };
-      case "not":
-        return { not: predToJson(pred.pred) };
-      case "inView":
-        return {
-          inView: {
-            term: termToJson(pred.term),
-            field: pred.field,
-            extract: pred.extract.kind === "field" ? { field: pred.extract.field } : { role: pred.extract.role }
-          }
-        };
-    }
-  }
-  function orderToJson(o) {
-    switch (o.kind) {
-      case "byTimestamp":
-        return { byTimestamp: o.dir };
-      case "byAuthorRank":
-        return { byAuthorRank: [...o.authors] };
-      case "byPred":
-        return { byPred: { pred: predToJson(o.pred), then: orderToJson(o.then) } };
-      case "chain":
-        return { chain: o.orders.map(orderToJson) };
-      case "lexById":
-        return "lexById";
-    }
-  }
-  function policyToJson(pp) {
-    switch (pp.kind) {
-      case "pick":
-        return { pick: { order: orderToJson(pp.order) } };
-      case "all":
-        return pp.distinct === true ? { all: { order: orderToJson(pp.order), distinct: true } } : { all: { order: orderToJson(pp.order) } };
-      case "merge":
-        return { merge: pp.fn };
-      case "conflicts":
-        return { conflicts: { order: orderToJson(pp.order) } };
-      case "absentAs":
-        return { absentAs: { const: pp.constant, then: policyToJson(pp.then) } };
-    }
-  }
-  function schemaToJson(p) {
-    const props = {};
-    for (const [k, v] of p.props) props[k] = policyToJson(v);
-    const out = { props, default: policyToJson(p.default) };
-    if (p.name !== void 0) out.name = p.name;
-    if (p.alg !== void 0) out.alg = p.alg;
-    return out;
-  }
-  function termToJson(term) {
-    switch (term.kind) {
-      case "input":
-        return "input";
-      case "select":
-        return { op: "select", pred: predToJson(term.pred), in: termToJson(term.of) };
-      case "union":
-        return { op: "union", left: termToJson(term.left), right: termToJson(term.right) };
-      case "intersect":
-        return { op: "intersect", left: termToJson(term.left), right: termToJson(term.right) };
-      case "difference":
-        return { op: "difference", of: termToJson(term.of), without: termToJson(term.without) };
-      case "mask": {
-        const policy = term.policy.kind === "trust" ? { trust: predToJson(term.policy.pred) } : term.policy.kind;
-        return { op: "mask", policy, in: termToJson(term.of) };
-      }
-      case "group": {
-        const key = term.key.kind === "const" ? { const: term.key.prop } : term.key.kind;
-        return { op: "group", key, in: termToJson(term.of) };
-      }
-      case "prune":
-        return {
-          op: "prune",
-          keep: term.keep === "all" ? "all" : strMatchToJson(term.keep),
-          in: termToJson(term.of)
-        };
-      case "expand": {
-        const out = {
-          op: "expand",
-          role: strMatchToJson(term.role),
-          schema: schemaRefToJson(term.schema)
-        };
-        if (term.reading !== void 0) out["reading"] = schemaRefToJson(term.reading);
-        out["in"] = termToJson(term.of);
-        return out;
-      }
-      case "fix": {
-        const out = {
-          op: "fix",
-          schema: schemaRefToJson(term.schema),
-          entity: term.entity
-        };
-        if (term.bindings !== void 0 && term.bindings.size > 0) {
-          const bindings = {};
-          for (const key of [...term.bindings.keys()].sort()) {
-            bindings[key] = term.bindings.get(key);
-          }
-          out["bindings"] = bindings;
-        }
-        return out;
-      }
-      case "resolve":
-        return { op: "resolve", schema: schemaToJson(term.schema), in: termToJson(term.of) };
-    }
-  }
-  function schemaRefToJson(ref) {
-    return ref.kind === "name" ? ref.name : { pinned: ref.hash };
-  }
-  function jsonToCbor(v) {
-    if (typeof v === "string") return tstr(v);
-    if (typeof v === "number") return float(v);
-    if (typeof v === "boolean") return bool(v);
-    if (Array.isArray(v)) return array(v.map(jsonToCbor));
-    if (typeof v === "object" && v !== null) {
-      return map(
-        Object.entries(v).map(([k, x]) => [
-          k,
-          jsonToCbor(x)
-        ])
-      );
-    }
-    throw new Error("json value outside the CBOR profile (null/undefined are not representable)");
-  }
-  function termCanonicalBytes(term) {
-    return encode(jsonToCbor(termToJson(term)));
-  }
-  function termHash(term) {
-    return contentAddress(termCanonicalBytes(term));
-  }
-  function schemaHash(schema) {
-    const body = schemaToJson({ props: schema.props, default: schema.default });
-    return contentAddress(encode(jsonToCbor(body)));
-  }
-
-  // src/hview.ts
-  function targetToCborWithExpansion(t, expansion, reading) {
-    if (expansion !== void 0) {
-      const child = hviewToCbor(expansion);
-      if (reading === void 0 || child.t !== "map") return child;
-      return map([...child.v, ["reading", tstr(schemaHash(reading))]]);
-    }
-    switch (t.kind) {
-      case "primitive": {
-        const v = t.value;
-        if (typeof v === "string") return tstr(v);
-        if (typeof v === "boolean") return bool(v);
-        return float(v);
-      }
-      case "entity": {
-        const entries = [["id", tstr(t.entity.id)]];
-        if (t.entity.context !== void 0) entries.push(["context", tstr(t.entity.context)]);
-        return map(entries);
-      }
-      case "delta": {
-        const entries = [["delta", tstr(t.deltaRef.delta)]];
-        if (t.deltaRef.context !== void 0) entries.push(["context", tstr(t.deltaRef.context)]);
-        return map(entries);
-      }
-      case "bytes":
-        return map([
-          ["mime", tstr(t.mime)],
-          ["value", bstr(t.value)]
-        ]);
-    }
-  }
-  function claimsToCborWithExpansions(claims, expanded, readings) {
-    return map([
-      ["author", tstr(claims.author)],
-      [
-        "pointers",
-        array(
-          claims.pointers.map(
-            (p, i) => map([
-              ["role", tstr(p.role)],
-              ["target", targetToCborWithExpansion(p.target, expanded?.get(i), readings?.get(i))]
-            ])
-          )
-        )
-      ],
-      ["timestamp", float(claims.timestamp)]
-    ]);
-  }
-  function hvEntryToCbor(e) {
-    const entries = [
-      ["id", tstr(e.delta.id)],
-      ["claims", claimsToCborWithExpansions(e.delta.claims, e.expanded, e.readings)]
-    ];
-    if (e.delta.sig !== void 0) entries.push(["sig", tstr(e.delta.sig)]);
-    if (e.negated) entries.push(["negated", bool(true)]);
-    return map(entries);
-  }
-  function hviewToCbor(h) {
-    const props = [...h.props.entries()].map(([prop, entries]) => [
-      prop,
-      array(entries.map(hvEntryToCbor))
-    ]);
-    return map([
-      ["id", tstr(h.id)],
-      ["props", map(props)]
-    ]);
-  }
-  function hviewCanonicalHex(h) {
-    return bytesToHex(encode(hviewToCbor(h)));
-  }
-
-  // src/pred.ts
-  function resolveParam(p, bindings) {
-    if (typeof p !== "object") return p;
-    const bound = bindings?.get(p.name);
-    if (bound === void 0) throw new Error(`unbound hole "${p.name}" (E15)`);
-    return bound;
-  }
-  function predContainsInView(pred) {
-    switch (pred.kind) {
-      case "inView":
-        return true;
-      case "and":
-      case "or":
-        return predContainsInView(pred.left) || predContainsInView(pred.right);
-      case "not":
-        return predContainsInView(pred.pred);
-      default:
-        return false;
-    }
-  }
-  var utf82 = new TextEncoder();
-  function utf8Compare(a, b) {
-    const ab = utf82.encode(a);
-    const bb = utf82.encode(b);
-    const n = Math.min(ab.length, bb.length);
-    for (let i = 0; i < n; i++) {
-      const d = ab[i] - bb[i];
-      if (d !== 0) return d;
-    }
-    return ab.length - bb.length;
-  }
-  function typeRank(v) {
-    if (typeof v === "boolean") return 0;
-    if (typeof v === "number") return 1;
-    return 2;
-  }
-  function comparePrimitives(a, b) {
-    const ra = typeRank(a);
-    const rb = typeRank(b);
-    if (ra !== rb) return ra - rb;
-    if (typeof a === "boolean") return (a ? 1 : 0) - (b ? 1 : 0);
-    if (typeof a === "number") {
-      const bn = b;
-      return a < bn ? -1 : a > bn ? 1 : 0;
-    }
-    return utf8Compare(a, b);
-  }
-  function compareWith(cmp, subject, constant) {
-    if (cmp === "inSet") {
-      const values = constant;
-      return values.some((v) => comparePrimitives(subject, v) === 0);
-    }
-    if (cmp === "prefix") {
-      return typeof subject === "string" && typeof constant === "string" && subject.startsWith(constant);
-    }
-    const c = comparePrimitives(subject, constant);
-    switch (cmp) {
-      case "eq":
-        return c === 0;
-      case "neq":
-        return c !== 0;
-      case "lt":
-        return c < 0;
-      case "lte":
-        return c <= 0;
-      case "gt":
-        return c > 0;
-      case "gte":
-        return c >= 0;
-    }
-  }
-  function strMatch(m, s) {
-    switch (m.kind) {
-      case "exact":
-        return s === m.value;
-      case "prefix":
-        return s.startsWith(m.value);
-      case "inSet":
-        return m.values.includes(s);
-      case "aliased":
-        throw new Error(`aliased("${m.name}") must be expanded before matching (SPEC-9)`);
-    }
-  }
-  function valMatch(m, v, bindings) {
-    switch (m.kind) {
-      case "vcmp":
-        return compareWith(m.cmp, v, resolveParam(m.value, bindings));
-      case "between":
-        return comparePrimitives(v, m.lo) >= 0 && comparePrimitives(v, m.hi) <= 0;
-      case "inSet":
-        return m.values.some((x) => comparePrimitives(v, x) === 0);
-    }
-  }
-  function entityWant(m, root, bindings) {
-    if (m.kind === "const") return m.id;
-    if (m.kind === "root") return root;
-    const bound = resolveParam(m, bindings);
-    if (typeof bound !== "string") {
-      throw new Error(`hole "${m.name}" bound to a non-string where an entity id is required (E15)`);
-    }
-    return bound;
-  }
-  function pointerMatches(p, ptr, root, bindings) {
-    if (p.role !== void 0 && !strMatch(p.role, ptr.role)) return false;
-    if (p.targetEntity !== void 0) {
-      if (ptr.target.kind !== "entity") return false;
-      const want = entityWant(p.targetEntity, root, bindings);
-      if (want === void 0 || ptr.target.entity.id !== want) return false;
-    }
-    if (p.targetDelta !== void 0) {
-      if (ptr.target.kind !== "delta" || ptr.target.deltaRef.delta !== p.targetDelta) return false;
-    }
-    if (p.context !== void 0) {
-      const ctx = ptr.target.kind === "entity" ? ptr.target.entity.context : ptr.target.kind === "delta" ? ptr.target.deltaRef.context : void 0;
-      if (ctx === void 0 || !strMatch(p.context, ctx)) return false;
-    }
-    if (p.targetIsPrimitive !== void 0) {
-      if (ptr.target.kind === "primitive" !== p.targetIsPrimitive) return false;
-    }
-    if (p.targetValue !== void 0) {
-      if (ptr.target.kind !== "primitive" || !valMatch(p.targetValue, ptr.target.value, bindings)) {
-        return false;
-      }
-    }
-    return true;
-  }
-  function substituteHoles(pred, bindings) {
-    switch (pred.kind) {
-      case "true":
-      case "false":
-        return pred;
-      case "match": {
-        const c = pred.constant;
-        if (typeof c === "object" && !Array.isArray(c)) {
-          return { ...pred, constant: resolveParam(c, bindings) };
-        }
-        return pred;
-      }
-      case "hasPointer": {
-        const p = pred.ppred;
-        let te = p.targetEntity;
-        if (te !== void 0 && te.kind === "hole") {
-          const bound = resolveParam(te, bindings);
-          if (typeof bound !== "string") {
-            throw new Error(
-              `hole "${te.name}" bound to a non-string where an entity id is required (E15)`
-            );
-          }
-          te = { kind: "const", id: bound };
-        }
-        let tv = p.targetValue;
-        if (tv !== void 0 && tv.kind === "vcmp" && typeof tv.value === "object") {
-          tv = { ...tv, value: resolveParam(tv.value, bindings) };
-        }
-        if (te === p.targetEntity && tv === p.targetValue) return pred;
-        return {
-          kind: "hasPointer",
-          ppred: {
-            ...p,
-            ...te === void 0 ? {} : { targetEntity: te },
-            ...tv === void 0 ? {} : { targetValue: tv }
-          }
-        };
-      }
-      case "and":
-        return {
-          kind: "and",
-          left: substituteHoles(pred.left, bindings),
-          right: substituteHoles(pred.right, bindings)
-        };
-      case "or":
-        return {
-          kind: "or",
-          left: substituteHoles(pred.left, bindings),
-          right: substituteHoles(pred.right, bindings)
-        };
-      case "not":
-        return { kind: "not", pred: substituteHoles(pred.pred, bindings) };
-      case "inView":
-        return pred;
-    }
-  }
-  function evalPred(pred, delta, root, bindings) {
-    switch (pred.kind) {
-      case "true":
-        return true;
-      case "false":
-        return false;
-      case "match": {
-        const subject = pred.field === "author" ? delta.claims.author : pred.field === "timestamp" ? delta.claims.timestamp : delta.id;
-        const c = pred.constant;
-        const constant = typeof c === "object" && !Array.isArray(c) ? resolveParam(c, bindings) : c;
-        return compareWith(pred.cmp, subject, constant);
-      }
-      case "hasPointer":
-        return delta.claims.pointers.some((ptr) => pointerMatches(pred.ppred, ptr, root, bindings));
-      case "and":
-        return evalPred(pred.left, delta, root, bindings) && evalPred(pred.right, delta, root, bindings);
-      case "or":
-        return evalPred(pred.left, delta, root, bindings) || evalPred(pred.right, delta, root, bindings);
-      case "not":
-        return !evalPred(pred.pred, delta, root, bindings);
-      case "inView":
-        throw new Error("inView must be resolved before matching (SPEC-2 \xA73.1)");
-    }
-  }
-
-  // src/resolution.ts
-  function isBytesView(v) {
-    return typeof v === "object" && v !== null && !Array.isArray(v) && v.value instanceof Uint8Array;
-  }
-  function cmpByOrder(order, a, b) {
-    switch (order.kind) {
-      case "byTimestamp": {
-        const d = a.delta.claims.timestamp - b.delta.claims.timestamp;
-        if (d !== 0) return order.dir === "desc" ? -d : d;
-        return 0;
-      }
-      case "byAuthorRank": {
-        const rank = (author) => {
-          const i = order.authors.indexOf(author);
-          return i === -1 ? order.authors.length : i;
-        };
-        return rank(a.delta.claims.author) - rank(b.delta.claims.author);
-      }
-      case "byPred": {
-        const am = evalPred(order.pred, a.delta) ? 0 : 1;
-        const bm = evalPred(order.pred, b.delta) ? 0 : 1;
-        if (am !== bm) return am - bm;
-        return cmpByOrder(order.then, a, b);
-      }
-      case "chain": {
-        for (const o of order.orders) {
-          const c = cmpByOrder(o, a, b);
-          if (c !== 0) return c;
-        }
-        return 0;
-      }
-      case "lexById":
-        return a.delta.id < b.delta.id ? -1 : a.delta.id > b.delta.id ? 1 : 0;
-    }
-  }
-  function sortEntries(order, entries) {
-    return [...entries].sort((a, b) => {
-      const primary = cmpByOrder(order, a, b);
-      if (primary !== 0) return primary;
-      return a.delta.id < b.delta.id ? -1 : a.delta.id > b.delta.id ? 1 : 0;
-    });
-  }
-  function renderTarget(t, e, i) {
-    const expansion = e.expanded?.get(i);
-    if (expansion !== void 0) {
-      const reading = e.readings?.get(i);
-      if (reading === void 0) {
-        throw new Error(
-          `expansion at pointer ${i} of delta ${e.delta.id} carries no reading \u2014 legacy expand bodies must name the child's resolution Schema (SPEC-5 \xA74, issue #23)`
-        );
-      }
-      return resolveView(reading, expansion);
-    }
-    switch (t.kind) {
-      case "primitive":
-        return t.value;
-      case "entity":
-        return t.entity.id;
-      case "delta":
-        return t.deltaRef.delta;
-      case "bytes":
-        return { mime: t.mime, value: t.value };
-    }
-  }
-  function candidateValue(e, root) {
-    const nonFiling = [];
-    e.delta.claims.pointers.forEach((p, i) => {
-      const filing = p.target.kind === "entity" && p.target.entity.id === root;
-      if (filing) return;
-      nonFiling.push([p.role, renderTarget(p.target, e, i)]);
-    });
-    if (nonFiling.length === 0) return true;
-    if (nonFiling.length === 1) return nonFiling[0][1];
-    const obj = {};
-    for (const [role, v] of nonFiling) {
-      const existing = obj[role];
-      if (existing === void 0) obj[role] = v;
-      else if (Array.isArray(existing)) obj[role] = [...existing, v];
-      else obj[role] = [existing, v];
-    }
-    return obj;
-  }
-  function viewToCbor(v) {
-    if (typeof v === "string") return tstr(v);
-    if (typeof v === "number") return float(v);
-    if (typeof v === "boolean") return bool(v);
-    if (Array.isArray(v)) return array(v.map(viewToCbor));
-    if (isBytesView(v)) {
-      return map([
-        ["mime", tstr(v.mime)],
-        ["value", bstr(v.value)]
-      ]);
-    }
-    const entries = Object.entries(v).map(
-      ([k, x]) => [k, viewToCbor(x)]
-    );
-    return map(entries);
-  }
-  function viewCanonicalHex(v) {
-    return bytesToHex(encode(viewToCbor(v)));
-  }
-  var ABSENT = /* @__PURE__ */ Symbol("absent");
-  function isPrimitive(v) {
-    return typeof v === "string" || typeof v === "number" || typeof v === "boolean";
-  }
-  function applyMerge(fn, entries, root) {
-    const sorted = sortEntries({ kind: "lexById" }, entries);
-    if (fn === "count") return sorted.length === 0 ? ABSENT : sorted.length;
-    const prims = sorted.map((e) => candidateValue(e, root)).filter((v) => isPrimitive(v));
-    switch (fn) {
-      case "max":
-      case "min": {
-        if (prims.length === 0) return ABSENT;
-        return prims.reduce((acc, v) => {
-          const c = comparePrimitives(v, acc);
-          return (fn === "max" ? c > 0 : c < 0) ? v : acc;
-        });
-      }
-      case "sum": {
-        const nums = prims.filter((v) => typeof v === "number");
-        if (nums.length === 0) return ABSENT;
-        return nums.reduce((a, b) => a + b, 0);
-      }
-      case "and":
-      case "or": {
-        const bools = prims.filter((v) => typeof v === "boolean");
-        if (bools.length === 0) return ABSENT;
-        return fn === "and" ? bools.every(Boolean) : bools.some(Boolean);
-      }
-      case "concatSorted": {
-        if (prims.length === 0) return ABSENT;
-        return [...prims].sort(comparePrimitives);
-      }
-    }
-  }
-  function applyPolicy(policy, entries, root) {
-    switch (policy.kind) {
-      case "pick": {
-        if (entries.length === 0) return ABSENT;
-        const sorted = sortEntries(policy.order, entries);
-        return candidateValue(sorted[0], root);
-      }
-      case "all": {
-        if (entries.length === 0) return ABSENT;
-        const values = sortEntries(policy.order, entries).map((e) => candidateValue(e, root));
-        if (policy.distinct !== true) return values;
-        const seen = /* @__PURE__ */ new Set();
-        const firstOccurrences = [];
-        for (const v of values) {
-          const key = viewCanonicalHex(v);
-          if (!seen.has(key)) {
-            seen.add(key);
-            firstOccurrences.push(v);
-          }
-        }
-        return firstOccurrences;
-      }
-      case "merge":
-        return applyMerge(policy.fn, entries, root);
-      case "conflicts": {
-        const sorted = sortEntries(policy.order, entries);
-        const seen = /* @__PURE__ */ new Set();
-        const distinct = [];
-        for (const e of sorted) {
-          const v = candidateValue(e, root);
-          const key = viewCanonicalHex(v);
-          if (!seen.has(key)) {
-            seen.add(key);
-            distinct.push(v);
-          }
-        }
-        return distinct.length >= 2 ? distinct : ABSENT;
-      }
-      case "absentAs": {
-        const inner = applyPolicy(policy.then, entries, root);
-        return inner === ABSENT ? policy.constant : inner;
-      }
-    }
-  }
-  function resolveView(schema, hview) {
-    const keys = /* @__PURE__ */ new Set([...schema.props.keys(), ...hview.props.keys()]);
-    const obj = {};
-    for (const key of keys) {
-      const entries = hview.props.get(key) ?? [];
-      const policy = schema.props.get(key) ?? schema.default;
-      const v = applyPolicy(policy, entries, hview.id);
-      if (v !== ABSENT) obj[key] = v;
-    }
-    return obj;
-  }
-
-  // src/vocab.ts
+  // src/delta/vocab.ts
   var VOCAB_PREFIX = "rhizomatic";
 
-  // src/set.ts
+  // src/delta/set.ts
   function makeDelta(claims, sig) {
     const id = computeId(claims);
     return sig === void 0 ? { id, claims } : { id, claims, sig };
@@ -1779,891 +1070,6 @@
     for (const d of a) if (p(d)) s.add(d);
     return s;
   }
-
-  // src/eval.ts
-  var dsetResult = (set) => ({
-    sort: "dset",
-    set,
-    negated: /* @__PURE__ */ new Set(),
-    annotated: false
-  });
-  function expectDSet(r, op) {
-    if (r.sort !== "dset") throw new Error(`${op} requires a DSet operand (E9)`);
-    return r;
-  }
-  function expectHView(r, op) {
-    if (r.sort !== "hview") throw new Error(`${op} requires an HView operand (E9)`);
-    return r;
-  }
-  function computeNegated(d, trusted) {
-    const negators = /* @__PURE__ */ new Map();
-    for (const n of d) {
-      if (trusted !== void 0 && !trusted(n)) continue;
-      for (const ptr of n.claims.pointers) {
-        if (ptr.role === "negates" && ptr.target.kind === "delta") {
-          const list = negators.get(ptr.target.deltaRef.delta);
-          if (list === void 0) negators.set(ptr.target.deltaRef.delta, [n.id]);
-          else list.push(n.id);
-        }
-      }
-    }
-    const memo = /* @__PURE__ */ new Map();
-    const isNegated = (id) => {
-      const cached = memo.get(id);
-      if (cached !== void 0) return cached;
-      memo.set(id, false);
-      const result = (negators.get(id) ?? []).some((nid) => !isNegated(nid));
-      memo.set(id, result);
-      return result;
-    };
-    const out = /* @__PURE__ */ new Set();
-    for (const delta of d) if (isNegated(delta.id)) out.add(delta.id);
-    return out;
-  }
-  var ALIAS_FRAGMENT = `${VOCAB_PREFIX}.alias.fragment`;
-  var ALIAS_SLOT = `${VOCAB_PREFIX}.alias.slot`;
-  var ALIAS_CONCEPT = `${VOCAB_PREFIX}.alias.concept`;
-  function aliasClosure(input, spec, root) {
-    const trustPred = spec.trust;
-    const trusted = trustPred === void 0 ? void 0 : (n) => evalPred(trustPred, n, root);
-    const negated = computeNegated(input, trusted);
-    const mappings = [];
-    const slotConcepts = /* @__PURE__ */ new Map();
-    for (const d of input) {
-      if (trusted !== void 0 && !trusted(d)) continue;
-      if (negated.has(d.id)) continue;
-      const fragments = [];
-      const slots = [];
-      const concepts = [];
-      for (const ptr of d.claims.pointers) {
-        if (ptr.role === ALIAS_FRAGMENT && ptr.target.kind === "primitive") {
-          if (typeof ptr.target.value === "string") fragments.push(ptr.target.value);
-        } else if (ptr.role === ALIAS_SLOT && ptr.target.kind === "entity") {
-          slots.push(ptr.target.entity.id);
-        } else if (ptr.role === ALIAS_CONCEPT && ptr.target.kind === "entity") {
-          concepts.push(ptr.target.entity.id);
-        }
-      }
-      for (const fragment of fragments) for (const slot of slots) mappings.push({ fragment, slot });
-      for (const slot of slots) {
-        for (const concept of concepts) {
-          let set = slotConcepts.get(slot);
-          if (set === void 0) {
-            set = /* @__PURE__ */ new Set();
-            slotConcepts.set(slot, set);
-          }
-          set.add(concept);
-        }
-      }
-    }
-    const eligible = spec.via === void 0 ? mappings : mappings.filter((m) => slotConcepts.get(m.slot)?.has(spec.via) ?? false);
-    const slotsOfName = new Set(eligible.filter((m) => m.fragment === spec.name).map((m) => m.slot));
-    const closure = /* @__PURE__ */ new Set([spec.name]);
-    for (const m of eligible) if (slotsOfName.has(m.slot)) closure.add(m.fragment);
-    return [...closure].sort(comparePrimitives);
-  }
-  function expandStrMatch(m, input, root) {
-    if (m.kind !== "aliased") return m;
-    return { kind: "inSet", values: aliasClosure(input, m, root) };
-  }
-  function expandAliased(pred, input, root) {
-    switch (pred.kind) {
-      case "true":
-      case "false":
-      case "match":
-        return pred;
-      case "hasPointer": {
-        const p = pred.ppred;
-        const role = p.role === void 0 ? void 0 : expandStrMatch(p.role, input, root);
-        const context = p.context === void 0 ? void 0 : expandStrMatch(p.context, input, root);
-        if (role === p.role && context === p.context) return pred;
-        return {
-          kind: "hasPointer",
-          ppred: {
-            ...p,
-            ...role === void 0 ? {} : { role },
-            ...context === void 0 ? {} : { context }
-          }
-        };
-      }
-      case "and":
-        return {
-          kind: "and",
-          left: expandAliased(pred.left, input, root),
-          right: expandAliased(pred.right, input, root)
-        };
-      case "or":
-        return {
-          kind: "or",
-          left: expandAliased(pred.left, input, root),
-          right: expandAliased(pred.right, input, root)
-        };
-      case "not":
-        return { kind: "not", pred: expandAliased(pred.pred, input, root) };
-      case "inView":
-        return pred;
-    }
-  }
-  function extractReflected(extract, set) {
-    const out = /* @__PURE__ */ new Set();
-    for (const d of set) {
-      if (extract.kind === "field") {
-        out.add(extract.field === "author" ? d.claims.author : d.id);
-        continue;
-      }
-      for (const ptr of d.claims.pointers) {
-        if (ptr.role !== extract.role) continue;
-        const t = ptr.target;
-        if (t.kind === "entity") out.add(t.entity.id);
-        else if (t.kind === "delta") out.add(t.deltaRef.delta);
-        else if (typeof t.value === "string") out.add(t.value);
-      }
-    }
-    return [...out].sort(comparePrimitives);
-  }
-  function resolveReflective(pred, input, root, registry, bindings) {
-    switch (pred.kind) {
-      case "inView": {
-        const sub = evalTerm(pred.term, input, root, registry, bindings);
-        if (sub.sort !== "dset") throw new Error("inView.term must evaluate to a DSet (E9)");
-        return {
-          kind: "match",
-          field: pred.field,
-          cmp: "inSet",
-          constant: extractReflected(pred.extract, sub.set)
-        };
-      }
-      case "and":
-        return {
-          kind: "and",
-          left: resolveReflective(pred.left, input, root, registry, bindings),
-          right: resolveReflective(pred.right, input, root, registry, bindings)
-        };
-      case "or":
-        return {
-          kind: "or",
-          left: resolveReflective(pred.left, input, root, registry, bindings),
-          right: resolveReflective(pred.right, input, root, registry, bindings)
-        };
-      case "not":
-        return { kind: "not", pred: resolveReflective(pred.pred, input, root, registry, bindings) };
-      default:
-        return pred;
-    }
-  }
-  function termContainsInView(t) {
-    switch (t.kind) {
-      case "input":
-      case "fix":
-        return false;
-      case "select":
-        return predContainsInView(t.pred) || termContainsInView(t.of);
-      case "union":
-      case "intersect":
-        return termContainsInView(t.left) || termContainsInView(t.right);
-      case "difference":
-        return termContainsInView(t.of) || termContainsInView(t.without);
-      case "mask":
-        return t.policy.kind === "trust" && predContainsInView(t.policy.pred) || termContainsInView(t.of);
-      case "group":
-      case "prune":
-      case "expand":
-      case "resolve":
-        return termContainsInView(t.of);
-    }
-  }
-  function evalGroup(key, operand, root) {
-    const buckets = /* @__PURE__ */ new Map();
-    const file = (prop, d) => {
-      let bucket = buckets.get(prop);
-      if (bucket === void 0) {
-        bucket = /* @__PURE__ */ new Map();
-        buckets.set(prop, bucket);
-      }
-      if (!bucket.has(d.id)) bucket.set(d.id, { delta: d, negated: operand.negated.has(d.id) });
-    };
-    for (const d of operand.set) {
-      if (key.kind === "const") {
-        file(key.prop, d);
-        continue;
-      }
-      for (const ptr of d.claims.pointers) {
-        if (ptr.target.kind !== "entity" || ptr.target.entity.id !== root) continue;
-        if (key.kind === "byTargetContext") {
-          const ctx = ptr.target.entity.context;
-          if (ctx !== void 0) file(ctx, d);
-        } else {
-          file(ptr.role, d);
-        }
-      }
-    }
-    const props = /* @__PURE__ */ new Map();
-    for (const [prop, bucket] of buckets) {
-      props.set(
-        prop,
-        [...bucket.values()].sort((a, b) => a.delta.id < b.delta.id ? -1 : 1)
-      );
-    }
-    return { id: root, props };
-  }
-  function evalTerm(term, input, root, registry, bindings) {
-    switch (term.kind) {
-      case "input":
-        return dsetResult(input);
-      case "select": {
-        const of = expectDSet(evalTerm(term.of, input, root, registry, bindings), "select");
-        const pred = resolveReflective(
-          expandAliased(substituteHoles(term.pred, bindings), input, root),
-          input,
-          root,
-          registry,
-          bindings
-        );
-        return dsetResult(fork(of.set, (d) => evalPred(pred, d, root)));
-      }
-      case "union": {
-        const left = expectDSet(evalTerm(term.left, input, root, registry, bindings), "union");
-        const right = expectDSet(evalTerm(term.right, input, root, registry, bindings), "union");
-        return dsetResult(merge(left.set, right.set));
-      }
-      case "intersect": {
-        const left = expectDSet(evalTerm(term.left, input, root, registry, bindings), "intersect");
-        const right = expectDSet(evalTerm(term.right, input, root, registry, bindings), "intersect");
-        return dsetResult(fork(left.set, (d) => right.set.has(d.id)));
-      }
-      case "difference": {
-        const of = expectDSet(evalTerm(term.of, input, root, registry, bindings), "difference");
-        const without = expectDSet(
-          evalTerm(term.without, input, root, registry, bindings),
-          "difference"
-        );
-        return dsetResult(fork(of.set, (d) => !without.set.has(d.id)));
-      }
-      case "mask": {
-        const of = expectDSet(evalTerm(term.of, input, root, registry, bindings), "mask");
-        switch (term.policy.kind) {
-          case "drop": {
-            const negated = computeNegated(of.set);
-            return dsetResult(fork(of.set, (d) => !negated.has(d.id)));
-          }
-          case "annotate": {
-            const negated = computeNegated(of.set);
-            return { sort: "dset", set: of.set, negated, annotated: true };
-          }
-          case "trust": {
-            const pred = resolveReflective(
-              expandAliased(substituteHoles(term.policy.pred, bindings), input, root),
-              input,
-              root,
-              registry,
-              bindings
-            );
-            const negated = computeNegated(of.set, (n) => evalPred(pred, n, root));
-            return dsetResult(fork(of.set, (d) => !negated.has(d.id)));
-          }
-        }
-        break;
-      }
-      case "group": {
-        if (root === void 0) throw new Error("group requires an ambient root entity (E9)");
-        const of = expectDSet(evalTerm(term.of, input, root, registry, bindings), "group");
-        return { sort: "hview", hview: evalGroup(term.key, of, root) };
-      }
-      case "prune": {
-        const of = expectHView(evalTerm(term.of, input, root, registry, bindings), "prune");
-        if (term.keep === "all") return of;
-        const keep = expandStrMatch(term.keep, input, root);
-        const props = /* @__PURE__ */ new Map();
-        for (const [prop, entries] of of.hview.props) {
-          if (strMatch(keep, prop)) props.set(prop, entries);
-        }
-        return { sort: "hview", hview: { id: of.hview.id, props } };
-      }
-      case "expand": {
-        const of = expectHView(evalTerm(term.of, input, root, registry, bindings), "expand");
-        const role = expandStrMatch(term.role, input, root);
-        const reading = term.reading === void 0 ? void 0 : lookupReading(term.reading, registry);
-        const props = /* @__PURE__ */ new Map();
-        for (const [prop, entries] of of.hview.props) {
-          props.set(
-            prop,
-            entries.map((e) => {
-              let expanded;
-              let readings;
-              e.delta.claims.pointers.forEach((ptr, i) => {
-                if (ptr.target.kind !== "entity" || !strMatch(role, ptr.role)) return;
-                const nested = evalSchema(
-                  term.schema,
-                  input,
-                  ptr.target.entity.id,
-                  registry,
-                  bindings
-                );
-                expanded = expanded ?? new Map(e.expanded ?? []);
-                expanded.set(i, nested);
-                if (reading !== void 0) {
-                  readings = readings ?? new Map(e.readings ?? []);
-                  readings.set(i, reading);
-                }
-              });
-              return expanded === void 0 ? e : { ...e, expanded, ...readings && { readings } };
-            })
-          );
-        }
-        return { sort: "hview", hview: { id: of.hview.id, props } };
-      }
-      case "fix":
-        return {
-          sort: "hview",
-          hview: evalSchema(term.schema, input, term.entity, registry, term.bindings ?? bindings)
-        };
-      case "resolve": {
-        const of = expectHView(evalTerm(term.of, input, root, registry, bindings), "resolve");
-        return { sort: "view", view: resolveView(term.schema, of.hview) };
-      }
-    }
-  }
-  function evalSchema(ref, input, root, registry, bindings) {
-    const label = ref.kind === "name" ? ref.name : `pinned:${ref.hash.slice(0, 12)}\u2026`;
-    if (registry === void 0)
-      throw new Error(`schema ${label} referenced but no registry supplied (E10)`);
-    const schema = registry.resolve(ref);
-    if (schema === void 0) throw new Error(`unknown schema: ${label} (E10/E13)`);
-    const result = evalTerm(schema.body, input, root, registry, bindings);
-    if (result.sort !== "hview") {
-      throw new Error(`schema ${label} body must be an HView-sort term (E10)`);
-    }
-    return result.hview;
-  }
-  function lookupReading(ref, registry) {
-    const label = ref.kind === "name" ? ref.name : `pinned:${ref.hash.slice(0, 12)}\u2026`;
-    if (registry === void 0)
-      throw new Error(`reading ${label} referenced but no registry supplied (issue #23)`);
-    const schema = registry.resolveReading(ref);
-    if (schema === void 0) throw new Error(`unknown reading: ${label} (issue #23)`);
-    return schema;
-  }
-  function resultCanonicalHex(result) {
-    if (result.sort === "view") return viewCanonicalHex(result.view);
-    if (result.sort === "hview") return hviewCanonicalHex(result.hview);
-    const ids = result.set.ids().map(tstr);
-    if (!result.annotated) return bytesToHex(encode(array(ids)));
-    const negated = [...result.negated].sort().map(tstr);
-    return bytesToHex(
-      encode(
-        map([
-          ["ids", array(ids)],
-          ["negated", array(negated)]
-        ])
-      )
-    );
-  }
-
-  // src/strict.ts
-  function editDistance(a, b) {
-    let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
-    for (let i = 1; i <= a.length; i++) {
-      const cur = [i];
-      for (let j = 1; j <= b.length; j++) {
-        cur[j] = Math.min(
-          prev[j] + 1,
-          cur[j - 1] + 1,
-          prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)
-        );
-      }
-      prev = cur;
-    }
-    return prev[b.length];
-  }
-  function nearest(key, known) {
-    let best;
-    let bestDist = 3;
-    for (const k of known) {
-      const d = editDistance(key, k);
-      if (d < bestDist) {
-        bestDist = d;
-        best = k;
-      }
-    }
-    return best;
-  }
-  function unknownKeyMessage(key, known, what) {
-    const suggestion = nearest(key, known);
-    if (suggestion !== void 0) {
-      return `unknown key "${key}" on ${what}; did you mean "${suggestion}"?`;
-    }
-    return `unknown key "${key}" on ${what} (expected one of: ${known.join(", ")}) \u2014 this may have been generated by a newer rhizomatic; check whether support shipped in a release you haven't installed`;
-  }
-  function asRecord(x, what) {
-    if (typeof x !== "object" || x === null || Array.isArray(x)) {
-      throw new Error(`expected object for ${what}`);
-    }
-    return x;
-  }
-  function asObject(x, what, known) {
-    const o = asRecord(x, what);
-    for (const key of Object.keys(o)) {
-      if (!known.includes(key)) throw new Error(unknownKeyMessage(key, known, what));
-    }
-    return o;
-  }
-  function asOpenMap(x, what) {
-    return asRecord(x, what);
-  }
-  function asDispatched(x, what, tagKey, table) {
-    const raw = asRecord(x, what);
-    const tag = raw[tagKey];
-    if (typeof tag !== "string" || !Object.prototype.hasOwnProperty.call(table, tag)) {
-      throw new Error(
-        `unknown ${tagKey} ${String(tag)} on ${what} \u2014 this term may have been generated by a newer rhizomatic; check whether support for it shipped in a release you haven't installed`
-      );
-    }
-    return { o: asObject(raw, `${what} ${tag}`, table[tag]), tag };
-  }
-  function oneTag(x, tags, what) {
-    const o = asObject(x, what, tags);
-    const present = tags.filter((t) => o[t] !== void 0);
-    if (present.length === 0) {
-      throw new Error(`${what}: must be one of ${tags.join(" | ")}`);
-    }
-    if (present.length > 1) {
-      throw new Error(
-        `${what}: ambiguous \u2014 ${present.map((p) => `"${p}"`).join(" and ")} are both present, but exactly one is allowed`
-      );
-    }
-    return { o, tag: present[0] };
-  }
-
-  // src/term-json.ts
-  var CMPS = ["eq", "neq", "lt", "lte", "gt", "gte", "prefix", "inSet"];
-  var TERM_KEYS = {
-    select: ["op", "pred", "in"],
-    union: ["op", "left", "right"],
-    intersect: ["op", "left", "right"],
-    difference: ["op", "of", "without"],
-    mask: ["op", "policy", "in"],
-    group: ["op", "key", "in"],
-    prune: ["op", "keep", "in"],
-    expand: ["op", "role", "schema", "reading", "in"],
-    fix: ["op", "schema", "entity", "bindings"],
-    resolve: ["op", "schema", "in"]
-  };
-  var STR_MATCH_TAGS = ["exact", "prefix", "inSet", "aliased"];
-  var VAL_MATCH_TAGS = ["vcmp", "between", "inSet"];
-  var PRED_TAGS = ["match", "hasPointer", "and", "or", "not", "inView"];
-  var ORDER_TAGS = ["byTimestamp", "byAuthorRank", "byPred", "chain"];
-  var POLICY_TAGS = ["pick", "all", "merge", "conflicts", "absentAs"];
-  var EXTRACT_TAGS = ["field", "role"];
-  function parsePrimitive(v, what) {
-    if (typeof v === "string") return v;
-    if (typeof v === "boolean") return v;
-    if (typeof v === "number") {
-      if (!Number.isFinite(v)) throw new Error(`${what}: numeric constant must be finite`);
-      return v;
-    }
-    throw new Error(`${what}: constant must be string | number | boolean`);
-  }
-  function parseHole(v) {
-    if (typeof v !== "object" || v === null || Array.isArray(v)) return void 0;
-    if (!("hole" in v)) return void 0;
-    const o = asObject(v, "hole", ["hole"]);
-    if (typeof o["hole"] !== "string") throw new Error("hole name must be a string");
-    return { kind: "hole", name: o["hole"] };
-  }
-  function parseParam(v, what) {
-    return parseHole(v) ?? parsePrimitive(v, what);
-  }
-  function parseCmp(v, what) {
-    if (typeof v !== "string" || !CMPS.includes(v)) {
-      throw new Error(`${what}: unknown cmp ${String(v)}`);
-    }
-    return v;
-  }
-  function parseStrMatch(raw, what) {
-    const { o, tag } = oneTag(raw, STR_MATCH_TAGS, what);
-    if (tag === "exact") {
-      if (typeof o["exact"] !== "string") throw new Error(`${what}: exact must be a string`);
-      return { kind: "exact", value: o["exact"] };
-    }
-    if (tag === "prefix") {
-      if (typeof o["prefix"] !== "string") throw new Error(`${what}: prefix must be a string`);
-      return { kind: "prefix", value: o["prefix"] };
-    }
-    if (tag === "inSet") {
-      if (!Array.isArray(o["inSet"])) throw new Error(`${what}: inSet must be an array`);
-      return {
-        kind: "inSet",
-        values: o["inSet"].map((s) => {
-          if (typeof s !== "string") throw new Error(`${what}: inSet members must be strings`);
-          return s;
-        })
-      };
-    }
-    {
-      const a = asObject(o["aliased"], `${what}.aliased`, ["name", "via", "trust"]);
-      if (typeof a["name"] !== "string") throw new Error(`${what}: aliased.name must be a string`);
-      const out = { name: a["name"] };
-      if (a["via"] !== void 0) {
-        if (typeof a["via"] !== "string")
-          throw new Error(`${what}: aliased.via must be an entity id`);
-        out.via = a["via"];
-      }
-      if (a["trust"] !== void 0) {
-        const trust = parsePred(a["trust"]);
-        assertClosedTrustPred(trust, `${what}.aliased.trust`);
-        out.trust = trust;
-      }
-      return { kind: "aliased", ...out };
-    }
-  }
-  function assertClosedTrustPred(p, what) {
-    switch (p.kind) {
-      case "true":
-      case "false":
-        return;
-      case "match":
-        if (typeof p.constant === "object" && !Array.isArray(p.constant)) {
-          throw new Error(`${what}: holes are not allowed inside an aliased trust predicate`);
-        }
-        return;
-      case "hasPointer": {
-        const pp = p.ppred;
-        if (pp.targetEntity?.kind === "hole" || pp.targetValue?.kind === "vcmp" && typeof pp.targetValue.value === "object") {
-          throw new Error(`${what}: holes are not allowed inside an aliased trust predicate`);
-        }
-        if (pp.role?.kind === "aliased" || pp.context?.kind === "aliased") {
-          throw new Error(`${what}: nested aliased is not allowed inside an aliased trust predicate`);
-        }
-        return;
-      }
-      case "and":
-      case "or":
-        assertClosedTrustPred(p.left, what);
-        assertClosedTrustPred(p.right, what);
-        return;
-      case "not":
-        assertClosedTrustPred(p.pred, what);
-        return;
-      case "inView":
-        throw new Error(`${what}: inView is not allowed inside an aliased trust predicate`);
-    }
-  }
-  function parseValMatch(raw, what) {
-    const { o, tag } = oneTag(raw, VAL_MATCH_TAGS, what);
-    if (tag === "vcmp") {
-      const v = asObject(o["vcmp"], `${what}.vcmp`, ["cmp", "value"]);
-      const cmp = parseCmp(v["cmp"], `${what}.vcmp`);
-      if (cmp === "inSet")
-        throw new Error(`${what}: vcmp cmp inSet is not allowed; use the inSet arm`);
-      const value = parseParam(v["value"], `${what}.vcmp`);
-      if (cmp === "prefix" && typeof value !== "string" && typeof value !== "object") {
-        throw new Error(`${what}: prefix requires a string constant`);
-      }
-      return { kind: "vcmp", cmp, value };
-    }
-    if (tag === "between") {
-      if (!Array.isArray(o["between"]) || o["between"].length !== 2) {
-        throw new Error(`${what}: between takes [lo, hi]`);
-      }
-      return {
-        kind: "between",
-        lo: parsePrimitive(o["between"][0], `${what}.between`),
-        hi: parsePrimitive(o["between"][1], `${what}.between`)
-      };
-    }
-    if (!Array.isArray(o["inSet"])) throw new Error(`${what}: inSet must be an array`);
-    return { kind: "inSet", values: o["inSet"].map((v) => parsePrimitive(v, `${what}.inSet`)) };
-  }
-  function parsePPred(raw) {
-    const o = asObject(raw, "hasPointer", [
-      "role",
-      "targetEntity",
-      "targetDelta",
-      "context",
-      "targetIsPrimitive",
-      "targetValue"
-    ]);
-    const out = {};
-    if (o["role"] !== void 0) out.role = parseStrMatch(o["role"], "hasPointer.role");
-    if (o["targetEntity"] !== void 0) {
-      const te = o["targetEntity"];
-      if (typeof te === "string") {
-        out.targetEntity = { kind: "const", id: te };
-      } else {
-        const hole = parseHole(te);
-        if (hole !== void 0) {
-          out.targetEntity = hole;
-        } else {
-          const v = asObject(te, "targetEntity", ["var"]);
-          if (v["var"] !== "root") {
-            throw new Error('targetEntity must be a string, {var: "root"}, or {hole: "name"}');
-          }
-          out.targetEntity = { kind: "root" };
-        }
-      }
-    }
-    if (o["targetDelta"] !== void 0) {
-      if (typeof o["targetDelta"] !== "string") throw new Error("targetDelta must be a string");
-      out.targetDelta = o["targetDelta"];
-    }
-    if (o["context"] !== void 0) out.context = parseStrMatch(o["context"], "hasPointer.context");
-    if (o["targetIsPrimitive"] !== void 0) {
-      if (typeof o["targetIsPrimitive"] !== "boolean") {
-        throw new Error("targetIsPrimitive must be a boolean");
-      }
-      out.targetIsPrimitive = o["targetIsPrimitive"];
-    }
-    if (o["targetValue"] !== void 0) {
-      out.targetValue = parseValMatch(o["targetValue"], "hasPointer.targetValue");
-    }
-    if (Object.keys(out).length === 0) throw new Error("hasPointer requires at least one field (E1)");
-    return out;
-  }
-  function parsePred(raw) {
-    if (raw === "true") return { kind: "true" };
-    if (raw === "false") return { kind: "false" };
-    const { o, tag } = oneTag(raw, PRED_TAGS, "pred");
-    if (tag === "match") {
-      const m = asObject(o["match"], "match", ["field", "cmp", "const"]);
-      const field = m["field"];
-      if (field !== "author" && field !== "timestamp" && field !== "id") {
-        throw new Error(`match: unknown field ${String(field)}`);
-      }
-      const cmp = parseCmp(m["cmp"], "match");
-      const rawConst = m["const"];
-      const constant = cmp === "inSet" ? (() => {
-        if (!Array.isArray(rawConst)) throw new Error("match: inSet requires an array const");
-        return rawConst.map((v) => parsePrimitive(v, "match.const"));
-      })() : parseParam(rawConst, "match.const");
-      if (cmp === "prefix" && typeof constant !== "string" && typeof constant !== "object") {
-        throw new Error("match: prefix requires a string const");
-      }
-      return { kind: "match", field, cmp, constant };
-    }
-    if (tag === "hasPointer") return { kind: "hasPointer", ppred: parsePPred(o["hasPointer"]) };
-    if (tag === "and" || tag === "or") {
-      const arr = o[tag];
-      if (!Array.isArray(arr) || arr.length !== 2)
-        throw new Error(`${tag} takes exactly [Pred, Pred] (E1)`);
-      const left = parsePred(arr[0]);
-      const right = parsePred(arr[1]);
-      return tag === "and" ? { kind: "and", left, right } : { kind: "or", left, right };
-    }
-    if (tag === "not") return { kind: "not", pred: parsePred(o["not"]) };
-    {
-      const v = asObject(o["inView"], "inView", ["term", "field", "extract"]);
-      const term = parseTerm(v["term"]);
-      if (term.kind !== "input" && term.kind !== "select" && term.kind !== "union" && term.kind !== "mask") {
-        throw new Error("inView.term must be a DSet-sort term (input | select | union | mask)");
-      }
-      if (termContainsInView(term)) {
-        throw new Error("inView is stratified: no inView inside inView.term (SPEC-2 \xA73.1)");
-      }
-      const field = v["field"];
-      if (field !== "author" && field !== "id") throw new Error("inView.field must be author | id");
-      return { kind: "inView", term, field, extract: parseExtract(v["extract"]) };
-    }
-  }
-  function parseExtract(raw) {
-    const { o, tag } = oneTag(raw, EXTRACT_TAGS, "inView.extract");
-    if (tag === "field") {
-      if (o["field"] !== "author" && o["field"] !== "id") {
-        throw new Error("inView.extract.field must be author | id");
-      }
-      return { kind: "field", field: o["field"] };
-    }
-    if (typeof o["role"] !== "string") throw new Error("inView.extract.role must be a string");
-    return { kind: "role", role: o["role"] };
-  }
-  function parseMaskPolicy(raw) {
-    if (raw === "drop") return { kind: "drop" };
-    if (raw === "annotate") return { kind: "annotate" };
-    const { o } = oneTag(raw, ["trust"], "mask.policy");
-    return { kind: "trust", pred: parsePred(o["trust"]) };
-  }
-  var MERGE_FNS = ["max", "min", "sum", "count", "and", "or", "concatSorted"];
-  function parseOrder(raw) {
-    if (raw === "lexById") return { kind: "lexById" };
-    const { o, tag } = oneTag(raw, ORDER_TAGS, "order");
-    if (tag === "byTimestamp") {
-      if (o["byTimestamp"] !== "desc" && o["byTimestamp"] !== "asc") {
-        throw new Error("byTimestamp must be desc | asc");
-      }
-      return { kind: "byTimestamp", dir: o["byTimestamp"] };
-    }
-    if (tag === "byAuthorRank") {
-      if (!Array.isArray(o["byAuthorRank"])) throw new Error("byAuthorRank must be an array");
-      return {
-        kind: "byAuthorRank",
-        authors: o["byAuthorRank"].map((a) => {
-          if (typeof a !== "string") throw new Error("byAuthorRank entries must be strings");
-          return a;
-        })
-      };
-    }
-    if (tag === "byPred") {
-      const p = asObject(o["byPred"], "byPred", ["pred", "then"]);
-      const pred = parsePred(p["pred"]);
-      if (predContainsInView(pred)) {
-        throw new Error("inView is not allowed inside a policy byPred predicate (SPEC-2 \xA73.1)");
-      }
-      return { kind: "byPred", pred, then: parseOrder(p["then"]) };
-    }
-    if (!Array.isArray(o["chain"])) throw new Error("chain must be an array");
-    if (o["chain"].length === 0) throw new Error("chain must name at least one order");
-    return { kind: "chain", orders: o["chain"].map(parseOrder) };
-  }
-  function parsePolicy(raw) {
-    const { o, tag } = oneTag(raw, POLICY_TAGS, "propPolicy");
-    if (tag === "pick") {
-      return { kind: "pick", order: parseOrder(asObject(o["pick"], "pick", ["order"])["order"]) };
-    }
-    if (tag === "all") {
-      const ao = asObject(o["all"], "all", ["order", "distinct"]);
-      const order = parseOrder(ao["order"]);
-      if (!("distinct" in ao)) return { kind: "all", order };
-      if (ao["distinct"] !== true) {
-        throw new Error(
-          `all.distinct must be the literal true when present; got ${JSON.stringify(ao["distinct"])}`
-        );
-      }
-      return { kind: "all", order, distinct: true };
-    }
-    if (tag === "merge") {
-      if (!MERGE_FNS.includes(o["merge"])) {
-        throw new Error("unknown merge fn " + String(o["merge"]));
-      }
-      return { kind: "merge", fn: o["merge"] };
-    }
-    if (tag === "conflicts") {
-      return {
-        kind: "conflicts",
-        order: parseOrder(asObject(o["conflicts"], "conflicts", ["order"])["order"])
-      };
-    }
-    {
-      const a = asObject(o["absentAs"], "absentAs", ["const", "then"]);
-      return {
-        kind: "absentAs",
-        constant: parsePrimitive(a["const"], "absentAs.const"),
-        then: parsePolicy(a["then"])
-      };
-    }
-  }
-  function parseSchema(raw) {
-    const o = asObject(raw, "schema", ["props", "default", "name", "alg"]);
-    const props = /* @__PURE__ */ new Map();
-    if (o["props"] !== void 0) {
-      for (const [k, v] of Object.entries(asOpenMap(o["props"], "schema.props"))) {
-        props.set(k, parsePolicy(v));
-      }
-    }
-    const name = typeof o["name"] === "string" ? o["name"] : void 0;
-    const alg = typeof o["alg"] === "number" ? o["alg"] : void 0;
-    return {
-      props,
-      default: parsePolicy(o["default"]),
-      ...name !== void 0 ? { name } : {},
-      ...alg !== void 0 ? { alg } : {}
-    };
-  }
-  function parseGroupKey(raw) {
-    if (raw === "byTargetContext") return { kind: "byTargetContext" };
-    if (raw === "byRole") return { kind: "byRole" };
-    const { o } = oneTag(raw, ["const"], "group.key");
-    if (typeof o["const"] !== "string") throw new Error("group.key const must be a string");
-    return { kind: "const", prop: o["const"] };
-  }
-  function parseSchemaRef(raw) {
-    if (typeof raw === "string") return { kind: "name", name: raw };
-    const { o } = oneTag(raw, ["pinned"], "schemaRef");
-    if (typeof o["pinned"] !== "string") {
-      throw new Error("schema ref must be a name string or {pinned: hash} (E13)");
-    }
-    return { kind: "pinned", hash: o["pinned"] };
-  }
-  function parseTerm(raw) {
-    if (raw === "input") return { kind: "input" };
-    const { o, tag } = asDispatched(raw, "term", "op", TERM_KEYS);
-    switch (tag) {
-      case "select":
-        return { kind: "select", pred: parsePred(o["pred"]), of: parseTerm(o["in"]) };
-      case "union":
-        return { kind: "union", left: parseTerm(o["left"]), right: parseTerm(o["right"]) };
-      case "intersect":
-        return { kind: "intersect", left: parseTerm(o["left"]), right: parseTerm(o["right"]) };
-      case "difference":
-        return { kind: "difference", of: parseTerm(o["of"]), without: parseTerm(o["without"]) };
-      case "mask":
-        return { kind: "mask", policy: parseMaskPolicy(o["policy"]), of: parseTerm(o["in"]) };
-      case "group":
-        return { kind: "group", key: parseGroupKey(o["key"]), of: parseTerm(o["in"]) };
-      case "expand": {
-        const expand = {
-          kind: "expand",
-          role: parseStrMatch(o["role"], "expand.role"),
-          schema: parseSchemaRef(o["schema"]),
-          of: parseTerm(o["in"])
-        };
-        if (o["reading"] === void 0) return expand;
-        return { ...expand, reading: parseSchemaRef(o["reading"]) };
-      }
-      case "fix": {
-        if (typeof o["entity"] !== "string") throw new Error("fix.entity must be a string");
-        const fix = {
-          kind: "fix",
-          schema: parseSchemaRef(o["schema"]),
-          entity: o["entity"]
-        };
-        if (o["bindings"] === void 0) return fix;
-        const bo = asOpenMap(o["bindings"], "fix.bindings");
-        const bindings = /* @__PURE__ */ new Map();
-        for (const key of Object.keys(bo).sort()) {
-          bindings.set(key, parsePrimitive(bo[key], `fix.bindings.${key}`));
-        }
-        return { ...fix, bindings };
-      }
-      case "resolve":
-        return { kind: "resolve", schema: parseSchema(o["schema"]), of: parseTerm(o["in"]) };
-      case "prune": {
-        const keep = o["keep"] === "all" ? "all" : parseStrMatch(o["keep"], "prune.keep");
-        return { kind: "prune", keep, of: parseTerm(o["in"]) };
-      }
-      /* c8 ignore next 2 -- asDispatched already rejected every tag outside TERM_KEYS */
-      default:
-        throw new Error(`unknown term op ${String(tag)}`);
-    }
-  }
-
-  // src/schema-deltas.ts
-  var ROLE_DEFINES = `${VOCAB_PREFIX}.hyperschema.defines`;
-  var ROLE_NAME = `${VOCAB_PREFIX}.hyperschema.name`;
-  var ROLE_ALG = `${VOCAB_PREFIX}.hyperschema.alg`;
-  var ROLE_TERM = `${VOCAB_PREFIX}.hyperschema.term`;
-  var HYPER_SCHEMA_SCHEMA = {
-    name: `${VOCAB_PREFIX}.HyperSchemaSchema`,
-    alg: 1,
-    body: parseTerm({
-      op: "group",
-      key: "byTargetContext",
-      in: {
-        op: "select",
-        pred: { hasPointer: { targetEntity: { var: "root" } } },
-        // mask BEFORE select (ERRATA-3 S5): negations target deltas, not the root, so a
-        // select-first idiom would exclude them before mask could suppress anything.
-        in: { op: "mask", policy: "drop", in: "input" }
-      }
-    })
-  };
-  var SCHEMA_DEFINES = `${VOCAB_PREFIX}.schema.defines`;
-  var SCHEMA_NAME = `${VOCAB_PREFIX}.schema.name`;
-  var SCHEMA_ALG = `${VOCAB_PREFIX}.schema.alg`;
-  var SCHEMA_TERM = `${VOCAB_PREFIX}.schema.term`;
-  var SCHEMA_SCHEMA = {
-    name: `${VOCAB_PREFIX}.SchemaSchema`,
-    alg: 1,
-    body: HYPER_SCHEMA_SCHEMA.body
-  };
 
   // node_modules/@noble/hashes/esm/sha2.js
   var K512 = /* @__PURE__ */ (() => split([
@@ -4341,7 +2747,7 @@
   _RistrettoPoint.Fp = /* @__PURE__ */ (() => Fp)();
   _RistrettoPoint.Fn = /* @__PURE__ */ (() => Fn)();
 
-  // src/sign.ts
+  // src/delta/sign.ts
   var AUTHOR_PREFIX = "ed25519:";
   function publicKeyFromSeed(seedHex) {
     return bytesToHex(ed25519.getPublicKey(hexToBytes(seedHex)));
@@ -4396,7 +2802,7 @@
     }
   }
 
-  // src/derivation.ts
+  // src/derivation/derivation.ts
   function emissionKey(substantive, contexts) {
     const pairs = [];
     for (const p of substantive) {
@@ -4560,9 +2966,1174 @@
     return ids.includes(emitted.id);
   }
 
-  // src/json-profile.ts
+  // src/delta/b64u.ts
+  var ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+  function b64uEncode(bytes) {
+    let out = "";
+    for (let i = 0; i < bytes.length; i += 3) {
+      const b0 = bytes[i];
+      const b1 = i + 1 < bytes.length ? bytes[i + 1] : 0;
+      const b2 = i + 2 < bytes.length ? bytes[i + 2] : 0;
+      const n = b0 << 16 | b1 << 8 | b2;
+      out += ALPHABET[n >> 18 & 63] + ALPHABET[n >> 12 & 63];
+      if (i + 1 < bytes.length) out += ALPHABET[n >> 6 & 63];
+      if (i + 2 < bytes.length) out += ALPHABET[n & 63];
+    }
+    return out;
+  }
+  function sextet(c) {
+    const code = c.charCodeAt(0);
+    if (code >= 65 && code <= 90) return code - 65;
+    if (code >= 97 && code <= 122) return code - 97 + 26;
+    if (code >= 48 && code <= 57) return code - 48 + 52;
+    if (c === "-") return 62;
+    if (c === "_") return 63;
+    throw new Error(`base64url: invalid character ${JSON.stringify(c)}`);
+  }
+  function b64uDecode(s) {
+    if (s.length % 4 === 1) throw new Error("base64url: invalid length (\u2261 1 mod 4)");
+    const out = [];
+    for (let i = 0; i < s.length; i += 4) {
+      const end = Math.min(i + 4, s.length);
+      const len = end - i;
+      let acc = 0;
+      for (let j = i; j < end; j++) acc = acc << 6 | sextet(s[j]);
+      if (len === 4) {
+        out.push(acc >> 16 & 255, acc >> 8 & 255, acc & 255);
+      } else if (len === 3) {
+        if ((acc & 3) !== 0) throw new Error("base64url: non-canonical trailing bits");
+        const a = acc >> 2;
+        out.push(a >> 8 & 255, a & 255);
+      } else {
+        if ((acc & 15) !== 0) throw new Error("base64url: non-canonical trailing bits");
+        out.push(acc >> 4 & 255);
+      }
+    }
+    return Uint8Array.from(out);
+  }
+
+  // src/syntax/term-io.ts
+  function paramToJson(v) {
+    return typeof v === "object" ? { hole: v.name } : v;
+  }
+  function strMatchToJson(m) {
+    switch (m.kind) {
+      case "exact":
+        return { exact: m.value };
+      case "prefix":
+        return { prefix: m.value };
+      case "inSet":
+        return { inSet: [...m.values] };
+      case "aliased": {
+        const a = { name: m.name };
+        if (m.via !== void 0) a["via"] = m.via;
+        if (m.trust !== void 0) a["trust"] = predToJson(m.trust);
+        return { aliased: a };
+      }
+    }
+  }
+  function valMatchToJson(m) {
+    switch (m.kind) {
+      case "vcmp":
+        return { vcmp: { cmp: m.cmp, value: paramToJson(m.value) } };
+      case "between":
+        return { between: [m.lo, m.hi] };
+      case "inSet":
+        return { inSet: [...m.values] };
+    }
+  }
+  function ppredToJson(p) {
+    const out = {};
+    if (p.role !== void 0) out["role"] = strMatchToJson(p.role);
+    if (p.targetEntity !== void 0) {
+      out["targetEntity"] = p.targetEntity.kind === "const" ? p.targetEntity.id : p.targetEntity.kind === "hole" ? { hole: p.targetEntity.name } : { var: "root" };
+    }
+    if (p.targetDelta !== void 0) out["targetDelta"] = p.targetDelta;
+    if (p.context !== void 0) out["context"] = strMatchToJson(p.context);
+    if (p.targetIsPrimitive !== void 0) out["targetIsPrimitive"] = p.targetIsPrimitive;
+    if (p.targetValue !== void 0) out["targetValue"] = valMatchToJson(p.targetValue);
+    return out;
+  }
+  function predToJson(pred) {
+    switch (pred.kind) {
+      case "true":
+        return "true";
+      case "false":
+        return "false";
+      case "match":
+        return {
+          match: {
+            field: pred.field,
+            cmp: pred.cmp,
+            const: Array.isArray(pred.constant) ? [...pred.constant] : paramToJson(pred.constant)
+          }
+        };
+      case "hasPointer":
+        return { hasPointer: ppredToJson(pred.ppred) };
+      case "and":
+        return { and: [predToJson(pred.left), predToJson(pred.right)] };
+      case "or":
+        return { or: [predToJson(pred.left), predToJson(pred.right)] };
+      case "not":
+        return { not: predToJson(pred.pred) };
+      case "inView":
+        return {
+          inView: {
+            term: termToJson(pred.term),
+            field: pred.field,
+            extract: pred.extract.kind === "field" ? { field: pred.extract.field } : { role: pred.extract.role }
+          }
+        };
+    }
+  }
+  function orderToJson(o) {
+    switch (o.kind) {
+      case "byTimestamp":
+        return { byTimestamp: o.dir };
+      case "byAuthorRank":
+        return { byAuthorRank: [...o.authors] };
+      case "byPred":
+        return { byPred: { pred: predToJson(o.pred), then: orderToJson(o.then) } };
+      case "chain":
+        return { chain: o.orders.map(orderToJson) };
+      case "lexById":
+        return "lexById";
+    }
+  }
+  function policyToJson(pp) {
+    switch (pp.kind) {
+      case "pick":
+        return { pick: { order: orderToJson(pp.order) } };
+      case "all":
+        return pp.distinct === true ? { all: { order: orderToJson(pp.order), distinct: true } } : { all: { order: orderToJson(pp.order) } };
+      case "merge":
+        return { merge: pp.fn };
+      case "conflicts":
+        return { conflicts: { order: orderToJson(pp.order) } };
+      case "absentAs":
+        return { absentAs: { const: pp.constant, then: policyToJson(pp.then) } };
+    }
+  }
+  function schemaToJson(p) {
+    const props = {};
+    for (const [k, v] of p.props) props[k] = policyToJson(v);
+    const out = { props, default: policyToJson(p.default) };
+    if (p.name !== void 0) out.name = p.name;
+    if (p.alg !== void 0) out.alg = p.alg;
+    return out;
+  }
+  function termToJson(term) {
+    switch (term.kind) {
+      case "input":
+        return "input";
+      case "select":
+        return { op: "select", pred: predToJson(term.pred), in: termToJson(term.of) };
+      case "union":
+        return { op: "union", left: termToJson(term.left), right: termToJson(term.right) };
+      case "intersect":
+        return { op: "intersect", left: termToJson(term.left), right: termToJson(term.right) };
+      case "difference":
+        return { op: "difference", of: termToJson(term.of), without: termToJson(term.without) };
+      case "mask": {
+        const policy = term.policy.kind === "trust" ? { trust: predToJson(term.policy.pred) } : term.policy.kind;
+        return { op: "mask", policy, in: termToJson(term.of) };
+      }
+      case "group": {
+        const key = term.key.kind === "const" ? { const: term.key.prop } : term.key.kind;
+        return { op: "group", key, in: termToJson(term.of) };
+      }
+      case "prune":
+        return {
+          op: "prune",
+          keep: term.keep === "all" ? "all" : strMatchToJson(term.keep),
+          in: termToJson(term.of)
+        };
+      case "expand": {
+        const out = {
+          op: "expand",
+          role: strMatchToJson(term.role),
+          schema: schemaRefToJson(term.schema)
+        };
+        if (term.reading !== void 0) out["reading"] = schemaRefToJson(term.reading);
+        out["in"] = termToJson(term.of);
+        return out;
+      }
+      case "fix": {
+        const out = {
+          op: "fix",
+          schema: schemaRefToJson(term.schema),
+          entity: term.entity
+        };
+        if (term.bindings !== void 0 && term.bindings.size > 0) {
+          const bindings = {};
+          for (const key of [...term.bindings.keys()].sort()) {
+            bindings[key] = term.bindings.get(key);
+          }
+          out["bindings"] = bindings;
+        }
+        return out;
+      }
+      case "resolve":
+        return { op: "resolve", schema: schemaToJson(term.schema), in: termToJson(term.of) };
+    }
+  }
+  function schemaRefToJson(ref) {
+    return ref.kind === "name" ? ref.name : { pinned: ref.hash };
+  }
+  function jsonToCbor(v) {
+    if (typeof v === "string") return tstr(v);
+    if (typeof v === "number") return float(v);
+    if (typeof v === "boolean") return bool(v);
+    if (Array.isArray(v)) return array(v.map(jsonToCbor));
+    if (typeof v === "object" && v !== null) {
+      return map(
+        Object.entries(v).map(([k, x]) => [
+          k,
+          jsonToCbor(x)
+        ])
+      );
+    }
+    throw new Error("json value outside the CBOR profile (null/undefined are not representable)");
+  }
+  function termCanonicalBytes(term) {
+    return encode(jsonToCbor(termToJson(term)));
+  }
+  function termHash(term) {
+    return contentAddress(termCanonicalBytes(term));
+  }
+  function schemaHash(schema) {
+    const body = schemaToJson({ props: schema.props, default: schema.default });
+    return contentAddress(encode(jsonToCbor(body)));
+  }
+
+  // src/algebra/hview.ts
+  function targetToCborWithExpansion(t, expansion, reading) {
+    if (expansion !== void 0) {
+      const child = hviewToCbor(expansion);
+      if (reading === void 0 || child.t !== "map") return child;
+      return map([...child.v, ["reading", tstr(schemaHash(reading))]]);
+    }
+    switch (t.kind) {
+      case "primitive": {
+        const v = t.value;
+        if (typeof v === "string") return tstr(v);
+        if (typeof v === "boolean") return bool(v);
+        return float(v);
+      }
+      case "entity": {
+        const entries = [["id", tstr(t.entity.id)]];
+        if (t.entity.context !== void 0) entries.push(["context", tstr(t.entity.context)]);
+        return map(entries);
+      }
+      case "delta": {
+        const entries = [["delta", tstr(t.deltaRef.delta)]];
+        if (t.deltaRef.context !== void 0) entries.push(["context", tstr(t.deltaRef.context)]);
+        return map(entries);
+      }
+      case "bytes":
+        return map([
+          ["mime", tstr(t.mime)],
+          ["value", bstr(t.value)]
+        ]);
+    }
+  }
+  function claimsToCborWithExpansions(claims, expanded, readings) {
+    return map([
+      ["author", tstr(claims.author)],
+      [
+        "pointers",
+        array(
+          claims.pointers.map(
+            (p, i) => map([
+              ["role", tstr(p.role)],
+              ["target", targetToCborWithExpansion(p.target, expanded?.get(i), readings?.get(i))]
+            ])
+          )
+        )
+      ],
+      ["timestamp", float(claims.timestamp)]
+    ]);
+  }
+  function hvEntryToCbor(e) {
+    const entries = [
+      ["id", tstr(e.delta.id)],
+      ["claims", claimsToCborWithExpansions(e.delta.claims, e.expanded, e.readings)]
+    ];
+    if (e.delta.sig !== void 0) entries.push(["sig", tstr(e.delta.sig)]);
+    if (e.negated) entries.push(["negated", bool(true)]);
+    return map(entries);
+  }
+  function hviewToCbor(h) {
+    const props = [...h.props.entries()].map(([prop, entries]) => [
+      prop,
+      array(entries.map(hvEntryToCbor))
+    ]);
+    return map([
+      ["id", tstr(h.id)],
+      ["props", map(props)]
+    ]);
+  }
+  function hviewCanonicalHex(h) {
+    return bytesToHex(encode(hviewToCbor(h)));
+  }
+
+  // src/syntax/pred.ts
+  function resolveParam(p, bindings) {
+    if (typeof p !== "object") return p;
+    const bound = bindings?.get(p.name);
+    if (bound === void 0) throw new Error(`unbound hole "${p.name}" (E15)`);
+    return bound;
+  }
+  function predContainsInView(pred) {
+    switch (pred.kind) {
+      case "inView":
+        return true;
+      case "and":
+      case "or":
+        return predContainsInView(pred.left) || predContainsInView(pred.right);
+      case "not":
+        return predContainsInView(pred.pred);
+      default:
+        return false;
+    }
+  }
+  var utf82 = new TextEncoder();
+  function utf8Compare(a, b) {
+    const ab = utf82.encode(a);
+    const bb = utf82.encode(b);
+    const n = Math.min(ab.length, bb.length);
+    for (let i = 0; i < n; i++) {
+      const d = ab[i] - bb[i];
+      if (d !== 0) return d;
+    }
+    return ab.length - bb.length;
+  }
+  function typeRank(v) {
+    if (typeof v === "boolean") return 0;
+    if (typeof v === "number") return 1;
+    return 2;
+  }
+  function comparePrimitives(a, b) {
+    const ra = typeRank(a);
+    const rb = typeRank(b);
+    if (ra !== rb) return ra - rb;
+    if (typeof a === "boolean") return (a ? 1 : 0) - (b ? 1 : 0);
+    if (typeof a === "number") {
+      const bn = b;
+      return a < bn ? -1 : a > bn ? 1 : 0;
+    }
+    return utf8Compare(a, b);
+  }
+  function compareWith(cmp, subject, constant) {
+    if (cmp === "inSet") {
+      const values = constant;
+      return values.some((v) => comparePrimitives(subject, v) === 0);
+    }
+    if (cmp === "prefix") {
+      return typeof subject === "string" && typeof constant === "string" && subject.startsWith(constant);
+    }
+    const c = comparePrimitives(subject, constant);
+    switch (cmp) {
+      case "eq":
+        return c === 0;
+      case "neq":
+        return c !== 0;
+      case "lt":
+        return c < 0;
+      case "lte":
+        return c <= 0;
+      case "gt":
+        return c > 0;
+      case "gte":
+        return c >= 0;
+    }
+  }
+  function strMatch(m, s) {
+    switch (m.kind) {
+      case "exact":
+        return s === m.value;
+      case "prefix":
+        return s.startsWith(m.value);
+      case "inSet":
+        return m.values.includes(s);
+      case "aliased":
+        throw new Error(`aliased("${m.name}") must be expanded before matching (SPEC-9)`);
+    }
+  }
+  function valMatch(m, v, bindings) {
+    switch (m.kind) {
+      case "vcmp":
+        return compareWith(m.cmp, v, resolveParam(m.value, bindings));
+      case "between":
+        return comparePrimitives(v, m.lo) >= 0 && comparePrimitives(v, m.hi) <= 0;
+      case "inSet":
+        return m.values.some((x) => comparePrimitives(v, x) === 0);
+    }
+  }
+  function entityWant(m, root, bindings) {
+    if (m.kind === "const") return m.id;
+    if (m.kind === "root") return root;
+    const bound = resolveParam(m, bindings);
+    if (typeof bound !== "string") {
+      throw new Error(`hole "${m.name}" bound to a non-string where an entity id is required (E15)`);
+    }
+    return bound;
+  }
+  function pointerMatches(p, ptr, root, bindings) {
+    if (p.role !== void 0 && !strMatch(p.role, ptr.role)) return false;
+    if (p.targetEntity !== void 0) {
+      if (ptr.target.kind !== "entity") return false;
+      const want = entityWant(p.targetEntity, root, bindings);
+      if (want === void 0 || ptr.target.entity.id !== want) return false;
+    }
+    if (p.targetDelta !== void 0) {
+      if (ptr.target.kind !== "delta" || ptr.target.deltaRef.delta !== p.targetDelta) return false;
+    }
+    if (p.context !== void 0) {
+      const ctx = ptr.target.kind === "entity" ? ptr.target.entity.context : ptr.target.kind === "delta" ? ptr.target.deltaRef.context : void 0;
+      if (ctx === void 0 || !strMatch(p.context, ctx)) return false;
+    }
+    if (p.targetIsPrimitive !== void 0) {
+      if (ptr.target.kind === "primitive" !== p.targetIsPrimitive) return false;
+    }
+    if (p.targetValue !== void 0) {
+      if (ptr.target.kind !== "primitive" || !valMatch(p.targetValue, ptr.target.value, bindings)) {
+        return false;
+      }
+    }
+    return true;
+  }
+  function substituteHoles(pred, bindings) {
+    switch (pred.kind) {
+      case "true":
+      case "false":
+        return pred;
+      case "match": {
+        const c = pred.constant;
+        if (typeof c === "object" && !Array.isArray(c)) {
+          return { ...pred, constant: resolveParam(c, bindings) };
+        }
+        return pred;
+      }
+      case "hasPointer": {
+        const p = pred.ppred;
+        let te = p.targetEntity;
+        if (te !== void 0 && te.kind === "hole") {
+          const bound = resolveParam(te, bindings);
+          if (typeof bound !== "string") {
+            throw new Error(
+              `hole "${te.name}" bound to a non-string where an entity id is required (E15)`
+            );
+          }
+          te = { kind: "const", id: bound };
+        }
+        let tv = p.targetValue;
+        if (tv !== void 0 && tv.kind === "vcmp" && typeof tv.value === "object") {
+          tv = { ...tv, value: resolveParam(tv.value, bindings) };
+        }
+        if (te === p.targetEntity && tv === p.targetValue) return pred;
+        return {
+          kind: "hasPointer",
+          ppred: {
+            ...p,
+            ...te === void 0 ? {} : { targetEntity: te },
+            ...tv === void 0 ? {} : { targetValue: tv }
+          }
+        };
+      }
+      case "and":
+        return {
+          kind: "and",
+          left: substituteHoles(pred.left, bindings),
+          right: substituteHoles(pred.right, bindings)
+        };
+      case "or":
+        return {
+          kind: "or",
+          left: substituteHoles(pred.left, bindings),
+          right: substituteHoles(pred.right, bindings)
+        };
+      case "not":
+        return { kind: "not", pred: substituteHoles(pred.pred, bindings) };
+      case "inView":
+        return pred;
+    }
+  }
+  function evalPred(pred, delta, root, bindings) {
+    switch (pred.kind) {
+      case "true":
+        return true;
+      case "false":
+        return false;
+      case "match": {
+        const subject = pred.field === "author" ? delta.claims.author : pred.field === "timestamp" ? delta.claims.timestamp : delta.id;
+        const c = pred.constant;
+        const constant = typeof c === "object" && !Array.isArray(c) ? resolveParam(c, bindings) : c;
+        return compareWith(pred.cmp, subject, constant);
+      }
+      case "hasPointer":
+        return delta.claims.pointers.some((ptr) => pointerMatches(pred.ppred, ptr, root, bindings));
+      case "and":
+        return evalPred(pred.left, delta, root, bindings) && evalPred(pred.right, delta, root, bindings);
+      case "or":
+        return evalPred(pred.left, delta, root, bindings) || evalPred(pred.right, delta, root, bindings);
+      case "not":
+        return !evalPred(pred.pred, delta, root, bindings);
+      case "inView":
+        throw new Error("inView must be resolved before matching (SPEC-2 \xA73.1)");
+    }
+  }
+
+  // src/resolve-kernel/resolution.ts
+  function isBytesView(v) {
+    return typeof v === "object" && v !== null && !Array.isArray(v) && v.value instanceof Uint8Array;
+  }
+  function cmpByOrder(order, a, b) {
+    switch (order.kind) {
+      case "byTimestamp": {
+        const d = a.delta.claims.timestamp - b.delta.claims.timestamp;
+        if (d !== 0) return order.dir === "desc" ? -d : d;
+        return 0;
+      }
+      case "byAuthorRank": {
+        const rank = (author) => {
+          const i = order.authors.indexOf(author);
+          return i === -1 ? order.authors.length : i;
+        };
+        return rank(a.delta.claims.author) - rank(b.delta.claims.author);
+      }
+      case "byPred": {
+        const am = evalPred(order.pred, a.delta) ? 0 : 1;
+        const bm = evalPred(order.pred, b.delta) ? 0 : 1;
+        if (am !== bm) return am - bm;
+        return cmpByOrder(order.then, a, b);
+      }
+      case "chain": {
+        for (const o of order.orders) {
+          const c = cmpByOrder(o, a, b);
+          if (c !== 0) return c;
+        }
+        return 0;
+      }
+      case "lexById":
+        return a.delta.id < b.delta.id ? -1 : a.delta.id > b.delta.id ? 1 : 0;
+    }
+  }
+  function sortEntries(order, entries) {
+    return [...entries].sort((a, b) => {
+      const primary = cmpByOrder(order, a, b);
+      if (primary !== 0) return primary;
+      return a.delta.id < b.delta.id ? -1 : a.delta.id > b.delta.id ? 1 : 0;
+    });
+  }
+  function renderTarget(t, e, i) {
+    const expansion = e.expanded?.get(i);
+    if (expansion !== void 0) {
+      const reading = e.readings?.get(i);
+      if (reading === void 0) {
+        throw new Error(
+          `expansion at pointer ${i} of delta ${e.delta.id} carries no reading \u2014 legacy expand bodies must name the child's resolution Schema (SPEC-5 \xA74, issue #23)`
+        );
+      }
+      return resolveView(reading, expansion);
+    }
+    switch (t.kind) {
+      case "primitive":
+        return t.value;
+      case "entity":
+        return t.entity.id;
+      case "delta":
+        return t.deltaRef.delta;
+      case "bytes":
+        return { mime: t.mime, value: t.value };
+    }
+  }
+  function candidateValue(e, root) {
+    const nonFiling = [];
+    e.delta.claims.pointers.forEach((p, i) => {
+      const filing = p.target.kind === "entity" && p.target.entity.id === root;
+      if (filing) return;
+      nonFiling.push([p.role, renderTarget(p.target, e, i)]);
+    });
+    if (nonFiling.length === 0) return true;
+    if (nonFiling.length === 1) return nonFiling[0][1];
+    const obj = {};
+    for (const [role, v] of nonFiling) {
+      const existing = obj[role];
+      if (existing === void 0) obj[role] = v;
+      else if (Array.isArray(existing)) obj[role] = [...existing, v];
+      else obj[role] = [existing, v];
+    }
+    return obj;
+  }
+  function viewToCbor(v) {
+    if (typeof v === "string") return tstr(v);
+    if (typeof v === "number") return float(v);
+    if (typeof v === "boolean") return bool(v);
+    if (Array.isArray(v)) return array(v.map(viewToCbor));
+    if (isBytesView(v)) {
+      return map([
+        ["mime", tstr(v.mime)],
+        ["value", bstr(v.value)]
+      ]);
+    }
+    const entries = Object.entries(v).map(
+      ([k, x]) => [k, viewToCbor(x)]
+    );
+    return map(entries);
+  }
+  function viewCanonicalHex(v) {
+    return bytesToHex(encode(viewToCbor(v)));
+  }
+  var ABSENT = /* @__PURE__ */ Symbol("absent");
+  function isPrimitive(v) {
+    return typeof v === "string" || typeof v === "number" || typeof v === "boolean";
+  }
+  function applyMerge(fn, entries, root) {
+    const sorted = sortEntries({ kind: "lexById" }, entries);
+    if (fn === "count") return sorted.length === 0 ? ABSENT : sorted.length;
+    const prims = sorted.map((e) => candidateValue(e, root)).filter((v) => isPrimitive(v));
+    switch (fn) {
+      case "max":
+      case "min": {
+        if (prims.length === 0) return ABSENT;
+        return prims.reduce((acc, v) => {
+          const c = comparePrimitives(v, acc);
+          return (fn === "max" ? c > 0 : c < 0) ? v : acc;
+        });
+      }
+      case "sum": {
+        const nums = prims.filter((v) => typeof v === "number");
+        if (nums.length === 0) return ABSENT;
+        return nums.reduce((a, b) => a + b, 0);
+      }
+      case "and":
+      case "or": {
+        const bools = prims.filter((v) => typeof v === "boolean");
+        if (bools.length === 0) return ABSENT;
+        return fn === "and" ? bools.every(Boolean) : bools.some(Boolean);
+      }
+      case "concatSorted": {
+        if (prims.length === 0) return ABSENT;
+        return [...prims].sort(comparePrimitives);
+      }
+    }
+  }
+  function applyPolicy(policy, entries, root) {
+    switch (policy.kind) {
+      case "pick": {
+        if (entries.length === 0) return ABSENT;
+        const sorted = sortEntries(policy.order, entries);
+        return candidateValue(sorted[0], root);
+      }
+      case "all": {
+        if (entries.length === 0) return ABSENT;
+        const values = sortEntries(policy.order, entries).map((e) => candidateValue(e, root));
+        if (policy.distinct !== true) return values;
+        const seen = /* @__PURE__ */ new Set();
+        const firstOccurrences = [];
+        for (const v of values) {
+          const key = viewCanonicalHex(v);
+          if (!seen.has(key)) {
+            seen.add(key);
+            firstOccurrences.push(v);
+          }
+        }
+        return firstOccurrences;
+      }
+      case "merge":
+        return applyMerge(policy.fn, entries, root);
+      case "conflicts": {
+        const sorted = sortEntries(policy.order, entries);
+        const seen = /* @__PURE__ */ new Set();
+        const distinct = [];
+        for (const e of sorted) {
+          const v = candidateValue(e, root);
+          const key = viewCanonicalHex(v);
+          if (!seen.has(key)) {
+            seen.add(key);
+            distinct.push(v);
+          }
+        }
+        return distinct.length >= 2 ? distinct : ABSENT;
+      }
+      case "absentAs": {
+        const inner = applyPolicy(policy.then, entries, root);
+        return inner === ABSENT ? policy.constant : inner;
+      }
+    }
+  }
+  function resolveView(schema, hview) {
+    const keys = /* @__PURE__ */ new Set([...schema.props.keys(), ...hview.props.keys()]);
+    const obj = {};
+    for (const key of keys) {
+      const entries = hview.props.get(key) ?? [];
+      const policy = schema.props.get(key) ?? schema.default;
+      const v = applyPolicy(policy, entries, hview.id);
+      if (v !== ABSENT) obj[key] = v;
+    }
+    return obj;
+  }
+
+  // src/syntax/term-analysis.ts
+  function termContainsInView(t) {
+    switch (t.kind) {
+      case "input":
+      case "fix":
+        return false;
+      case "select":
+        return predContainsInView(t.pred) || termContainsInView(t.of);
+      case "union":
+      case "intersect":
+        return termContainsInView(t.left) || termContainsInView(t.right);
+      case "difference":
+        return termContainsInView(t.of) || termContainsInView(t.without);
+      case "mask":
+        return t.policy.kind === "trust" && predContainsInView(t.policy.pred) || termContainsInView(t.of);
+      case "group":
+      case "prune":
+      case "expand":
+      case "resolve":
+        return termContainsInView(t.of);
+    }
+  }
+
+  // src/resolve/eval.ts
+  var dsetResult = (set) => ({
+    sort: "dset",
+    set,
+    negated: /* @__PURE__ */ new Set(),
+    annotated: false
+  });
+  function expectDSet(r, op) {
+    if (r.sort !== "dset") throw new Error(`${op} requires a DSet operand (E9)`);
+    return r;
+  }
+  function expectHView(r, op) {
+    if (r.sort !== "hview") throw new Error(`${op} requires an HView operand (E9)`);
+    return r;
+  }
+  function computeNegated(d, trusted) {
+    const negators = /* @__PURE__ */ new Map();
+    for (const n of d) {
+      if (trusted !== void 0 && !trusted(n)) continue;
+      for (const ptr of n.claims.pointers) {
+        if (ptr.role === "negates" && ptr.target.kind === "delta") {
+          const list = negators.get(ptr.target.deltaRef.delta);
+          if (list === void 0) negators.set(ptr.target.deltaRef.delta, [n.id]);
+          else list.push(n.id);
+        }
+      }
+    }
+    const memo = /* @__PURE__ */ new Map();
+    const isNegated = (id) => {
+      const cached = memo.get(id);
+      if (cached !== void 0) return cached;
+      memo.set(id, false);
+      const result = (negators.get(id) ?? []).some((nid) => !isNegated(nid));
+      memo.set(id, result);
+      return result;
+    };
+    const out = /* @__PURE__ */ new Set();
+    for (const delta of d) if (isNegated(delta.id)) out.add(delta.id);
+    return out;
+  }
+  var ALIAS_FRAGMENT = `${VOCAB_PREFIX}.alias.fragment`;
+  var ALIAS_SLOT = `${VOCAB_PREFIX}.alias.slot`;
+  var ALIAS_CONCEPT = `${VOCAB_PREFIX}.alias.concept`;
+  function aliasClosure(input, spec, root) {
+    const trustPred = spec.trust;
+    const trusted = trustPred === void 0 ? void 0 : (n) => evalPred(trustPred, n, root);
+    const negated = computeNegated(input, trusted);
+    const mappings = [];
+    const slotConcepts = /* @__PURE__ */ new Map();
+    for (const d of input) {
+      if (trusted !== void 0 && !trusted(d)) continue;
+      if (negated.has(d.id)) continue;
+      const fragments = [];
+      const slots = [];
+      const concepts = [];
+      for (const ptr of d.claims.pointers) {
+        if (ptr.role === ALIAS_FRAGMENT && ptr.target.kind === "primitive") {
+          if (typeof ptr.target.value === "string") fragments.push(ptr.target.value);
+        } else if (ptr.role === ALIAS_SLOT && ptr.target.kind === "entity") {
+          slots.push(ptr.target.entity.id);
+        } else if (ptr.role === ALIAS_CONCEPT && ptr.target.kind === "entity") {
+          concepts.push(ptr.target.entity.id);
+        }
+      }
+      for (const fragment of fragments) for (const slot of slots) mappings.push({ fragment, slot });
+      for (const slot of slots) {
+        for (const concept of concepts) {
+          let set = slotConcepts.get(slot);
+          if (set === void 0) {
+            set = /* @__PURE__ */ new Set();
+            slotConcepts.set(slot, set);
+          }
+          set.add(concept);
+        }
+      }
+    }
+    const eligible = spec.via === void 0 ? mappings : mappings.filter((m) => slotConcepts.get(m.slot)?.has(spec.via) ?? false);
+    const slotsOfName = new Set(eligible.filter((m) => m.fragment === spec.name).map((m) => m.slot));
+    const closure = /* @__PURE__ */ new Set([spec.name]);
+    for (const m of eligible) if (slotsOfName.has(m.slot)) closure.add(m.fragment);
+    return [...closure].sort(comparePrimitives);
+  }
+  function expandStrMatch(m, input, root) {
+    if (m.kind !== "aliased") return m;
+    return { kind: "inSet", values: aliasClosure(input, m, root) };
+  }
+  function expandAliased(pred, input, root) {
+    switch (pred.kind) {
+      case "true":
+      case "false":
+      case "match":
+        return pred;
+      case "hasPointer": {
+        const p = pred.ppred;
+        const role = p.role === void 0 ? void 0 : expandStrMatch(p.role, input, root);
+        const context = p.context === void 0 ? void 0 : expandStrMatch(p.context, input, root);
+        if (role === p.role && context === p.context) return pred;
+        return {
+          kind: "hasPointer",
+          ppred: {
+            ...p,
+            ...role === void 0 ? {} : { role },
+            ...context === void 0 ? {} : { context }
+          }
+        };
+      }
+      case "and":
+        return {
+          kind: "and",
+          left: expandAliased(pred.left, input, root),
+          right: expandAliased(pred.right, input, root)
+        };
+      case "or":
+        return {
+          kind: "or",
+          left: expandAliased(pred.left, input, root),
+          right: expandAliased(pred.right, input, root)
+        };
+      case "not":
+        return { kind: "not", pred: expandAliased(pred.pred, input, root) };
+      case "inView":
+        return pred;
+    }
+  }
+  function extractReflected(extract, set) {
+    const out = /* @__PURE__ */ new Set();
+    for (const d of set) {
+      if (extract.kind === "field") {
+        out.add(extract.field === "author" ? d.claims.author : d.id);
+        continue;
+      }
+      for (const ptr of d.claims.pointers) {
+        if (ptr.role !== extract.role) continue;
+        const t = ptr.target;
+        if (t.kind === "entity") out.add(t.entity.id);
+        else if (t.kind === "delta") out.add(t.deltaRef.delta);
+        else if (typeof t.value === "string") out.add(t.value);
+      }
+    }
+    return [...out].sort(comparePrimitives);
+  }
+  function resolveReflective(pred, input, root, registry, bindings) {
+    switch (pred.kind) {
+      case "inView": {
+        const sub = evalTerm(pred.term, input, root, registry, bindings);
+        if (sub.sort !== "dset") throw new Error("inView.term must evaluate to a DSet (E9)");
+        return {
+          kind: "match",
+          field: pred.field,
+          cmp: "inSet",
+          constant: extractReflected(pred.extract, sub.set)
+        };
+      }
+      case "and":
+        return {
+          kind: "and",
+          left: resolveReflective(pred.left, input, root, registry, bindings),
+          right: resolveReflective(pred.right, input, root, registry, bindings)
+        };
+      case "or":
+        return {
+          kind: "or",
+          left: resolveReflective(pred.left, input, root, registry, bindings),
+          right: resolveReflective(pred.right, input, root, registry, bindings)
+        };
+      case "not":
+        return { kind: "not", pred: resolveReflective(pred.pred, input, root, registry, bindings) };
+      default:
+        return pred;
+    }
+  }
+  function evalGroup(key, operand, root) {
+    const buckets = /* @__PURE__ */ new Map();
+    const file = (prop, d) => {
+      let bucket = buckets.get(prop);
+      if (bucket === void 0) {
+        bucket = /* @__PURE__ */ new Map();
+        buckets.set(prop, bucket);
+      }
+      if (!bucket.has(d.id)) bucket.set(d.id, { delta: d, negated: operand.negated.has(d.id) });
+    };
+    for (const d of operand.set) {
+      if (key.kind === "const") {
+        file(key.prop, d);
+        continue;
+      }
+      for (const ptr of d.claims.pointers) {
+        if (ptr.target.kind !== "entity" || ptr.target.entity.id !== root) continue;
+        if (key.kind === "byTargetContext") {
+          const ctx = ptr.target.entity.context;
+          if (ctx !== void 0) file(ctx, d);
+        } else {
+          file(ptr.role, d);
+        }
+      }
+    }
+    const props = /* @__PURE__ */ new Map();
+    for (const [prop, bucket] of buckets) {
+      props.set(
+        prop,
+        [...bucket.values()].sort((a, b) => a.delta.id < b.delta.id ? -1 : 1)
+      );
+    }
+    return { id: root, props };
+  }
+  function evalTerm(term, input, root, registry, bindings) {
+    switch (term.kind) {
+      case "input":
+        return dsetResult(input);
+      case "select": {
+        const of = expectDSet(evalTerm(term.of, input, root, registry, bindings), "select");
+        const pred = resolveReflective(
+          expandAliased(substituteHoles(term.pred, bindings), input, root),
+          input,
+          root,
+          registry,
+          bindings
+        );
+        return dsetResult(fork(of.set, (d) => evalPred(pred, d, root)));
+      }
+      case "union": {
+        const left = expectDSet(evalTerm(term.left, input, root, registry, bindings), "union");
+        const right = expectDSet(evalTerm(term.right, input, root, registry, bindings), "union");
+        return dsetResult(merge(left.set, right.set));
+      }
+      case "intersect": {
+        const left = expectDSet(evalTerm(term.left, input, root, registry, bindings), "intersect");
+        const right = expectDSet(evalTerm(term.right, input, root, registry, bindings), "intersect");
+        return dsetResult(fork(left.set, (d) => right.set.has(d.id)));
+      }
+      case "difference": {
+        const of = expectDSet(evalTerm(term.of, input, root, registry, bindings), "difference");
+        const without = expectDSet(
+          evalTerm(term.without, input, root, registry, bindings),
+          "difference"
+        );
+        return dsetResult(fork(of.set, (d) => !without.set.has(d.id)));
+      }
+      case "mask": {
+        const of = expectDSet(evalTerm(term.of, input, root, registry, bindings), "mask");
+        switch (term.policy.kind) {
+          case "drop": {
+            const negated = computeNegated(of.set);
+            return dsetResult(fork(of.set, (d) => !negated.has(d.id)));
+          }
+          case "annotate": {
+            const negated = computeNegated(of.set);
+            return { sort: "dset", set: of.set, negated, annotated: true };
+          }
+          case "trust": {
+            const pred = resolveReflective(
+              expandAliased(substituteHoles(term.policy.pred, bindings), input, root),
+              input,
+              root,
+              registry,
+              bindings
+            );
+            const negated = computeNegated(of.set, (n) => evalPred(pred, n, root));
+            return dsetResult(fork(of.set, (d) => !negated.has(d.id)));
+          }
+        }
+        break;
+      }
+      case "group": {
+        if (root === void 0) throw new Error("group requires an ambient root entity (E9)");
+        const of = expectDSet(evalTerm(term.of, input, root, registry, bindings), "group");
+        return { sort: "hview", hview: evalGroup(term.key, of, root) };
+      }
+      case "prune": {
+        const of = expectHView(evalTerm(term.of, input, root, registry, bindings), "prune");
+        if (term.keep === "all") return of;
+        const keep = expandStrMatch(term.keep, input, root);
+        const props = /* @__PURE__ */ new Map();
+        for (const [prop, entries] of of.hview.props) {
+          if (strMatch(keep, prop)) props.set(prop, entries);
+        }
+        return { sort: "hview", hview: { id: of.hview.id, props } };
+      }
+      case "expand": {
+        const of = expectHView(evalTerm(term.of, input, root, registry, bindings), "expand");
+        const role = expandStrMatch(term.role, input, root);
+        const reading = term.reading === void 0 ? void 0 : lookupReading(term.reading, registry);
+        const props = /* @__PURE__ */ new Map();
+        for (const [prop, entries] of of.hview.props) {
+          props.set(
+            prop,
+            entries.map((e) => {
+              let expanded;
+              let readings;
+              e.delta.claims.pointers.forEach((ptr, i) => {
+                if (ptr.target.kind !== "entity" || !strMatch(role, ptr.role)) return;
+                const nested = evalSchema(
+                  term.schema,
+                  input,
+                  ptr.target.entity.id,
+                  registry,
+                  bindings
+                );
+                expanded = expanded ?? new Map(e.expanded ?? []);
+                expanded.set(i, nested);
+                if (reading !== void 0) {
+                  readings = readings ?? new Map(e.readings ?? []);
+                  readings.set(i, reading);
+                }
+              });
+              return expanded === void 0 ? e : { ...e, expanded, ...readings && { readings } };
+            })
+          );
+        }
+        return { sort: "hview", hview: { id: of.hview.id, props } };
+      }
+      case "fix":
+        return {
+          sort: "hview",
+          hview: evalSchema(term.schema, input, term.entity, registry, term.bindings ?? bindings)
+        };
+      case "resolve": {
+        const of = expectHView(evalTerm(term.of, input, root, registry, bindings), "resolve");
+        return { sort: "view", view: resolveView(term.schema, of.hview) };
+      }
+    }
+  }
+  function evalSchema(ref, input, root, registry, bindings) {
+    const label = ref.kind === "name" ? ref.name : `pinned:${ref.hash.slice(0, 12)}\u2026`;
+    if (registry === void 0)
+      throw new Error(`schema ${label} referenced but no registry supplied (E10)`);
+    const schema = registry.resolve(ref);
+    if (schema === void 0) throw new Error(`unknown schema: ${label} (E10/E13)`);
+    const result = evalTerm(schema.body, input, root, registry, bindings);
+    if (result.sort !== "hview") {
+      throw new Error(`schema ${label} body must be an HView-sort term (E10)`);
+    }
+    return result.hview;
+  }
+  function lookupReading(ref, registry) {
+    const label = ref.kind === "name" ? ref.name : `pinned:${ref.hash.slice(0, 12)}\u2026`;
+    if (registry === void 0)
+      throw new Error(`reading ${label} referenced but no registry supplied (issue #23)`);
+    const schema = registry.resolveReading(ref);
+    if (schema === void 0) throw new Error(`unknown reading: ${label} (issue #23)`);
+    return schema;
+  }
+  function resultCanonicalHex(result) {
+    if (result.sort === "view") return viewCanonicalHex(result.view);
+    if (result.sort === "hview") return hviewCanonicalHex(result.hview);
+    const ids = result.set.ids().map(tstr);
+    if (!result.annotated) return bytesToHex(encode(array(ids)));
+    const negated = [...result.negated].sort().map(tstr);
+    return bytesToHex(
+      encode(
+        map([
+          ["ids", array(ids)],
+          ["negated", array(negated)]
+        ])
+      )
+    );
+  }
+
+  // src/delta/strict.ts
+  function editDistance(a, b) {
+    let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+    for (let i = 1; i <= a.length; i++) {
+      const cur = [i];
+      for (let j = 1; j <= b.length; j++) {
+        cur[j] = Math.min(
+          prev[j] + 1,
+          cur[j - 1] + 1,
+          prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)
+        );
+      }
+      prev = cur;
+    }
+    return prev[b.length];
+  }
+  function nearest(key, known) {
+    let best;
+    let bestDist = 3;
+    for (const k of known) {
+      const d = editDistance(key, k);
+      if (d < bestDist) {
+        bestDist = d;
+        best = k;
+      }
+    }
+    return best;
+  }
+  function unknownKeyMessage(key, known, what) {
+    const suggestion = nearest(key, known);
+    if (suggestion !== void 0) {
+      return `unknown key "${key}" on ${what}; did you mean "${suggestion}"?`;
+    }
+    return `unknown key "${key}" on ${what} (expected one of: ${known.join(", ")}) \u2014 this may have been generated by a newer rhizomatic; check whether support shipped in a release you haven't installed`;
+  }
+  function asRecord(x, what) {
+    if (typeof x !== "object" || x === null || Array.isArray(x)) {
+      throw new Error(`expected object for ${what}`);
+    }
+    return x;
+  }
+  function asObject(x, what, known) {
+    const o = asRecord(x, what);
+    for (const key of Object.keys(o)) {
+      if (!known.includes(key)) throw new Error(unknownKeyMessage(key, known, what));
+    }
+    return o;
+  }
+  function asOpenMap(x, what) {
+    return asRecord(x, what);
+  }
+  function asDispatched(x, what, tagKey, table) {
+    const raw = asRecord(x, what);
+    const tag = raw[tagKey];
+    if (typeof tag !== "string" || !Object.prototype.hasOwnProperty.call(table, tag)) {
+      throw new Error(
+        `unknown ${tagKey} ${String(tag)} on ${what} \u2014 this term may have been generated by a newer rhizomatic; check whether support for it shipped in a release you haven't installed`
+      );
+    }
+    return { o: asObject(raw, `${what} ${tag}`, table[tag]), tag };
+  }
+  function oneTag(x, tags, what) {
+    const o = asObject(x, what, tags);
+    const present = tags.filter((t) => o[t] !== void 0);
+    if (present.length === 0) {
+      throw new Error(`${what}: must be one of ${tags.join(" | ")}`);
+    }
+    if (present.length > 1) {
+      throw new Error(
+        `${what}: ambiguous \u2014 ${present.map((p) => `"${p}"`).join(" and ")} are both present, but exactly one is allowed`
+      );
+    }
+    return { o, tag: present[0] };
+  }
+
+  // src/delta/json-profile.ts
   var TARGET_SHAPES = "target must be a primitive, {id, context?}, {delta, context?}, or {mime, value}";
-  function parsePrimitive2(v) {
+  function parsePrimitive(v) {
     if (typeof v === "string" || typeof v === "boolean") return v;
     if (typeof v === "number") {
       if (!Number.isFinite(v)) throw new Error("numeric primitive must be finite");
@@ -4579,7 +4150,7 @@
   var TARGET_DISCRIMINATORS = ["id", "delta", "mime"];
   function parseTarget(raw) {
     if (typeof raw === "string" || typeof raw === "number" || typeof raw === "boolean") {
-      return { kind: "primitive", value: parsePrimitive2(raw) };
+      return { kind: "primitive", value: parsePrimitive(raw) };
     }
     if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
       throw new Error(TARGET_SHAPES);
@@ -4659,7 +4230,223 @@
     };
   }
 
-  // src/schema.ts
+  // src/delta/manifest.ts
+  function manifestMemberIds(manifest) {
+    return manifest.claims.pointers.filter((p) => p.role === `${VOCAB_PREFIX}.txn.member` && p.target.kind === "delta").map((p) => p.target.deltaRef.delta);
+  }
+
+  // src/storage/pack.ts
+  var PACK_VERSION = 1;
+  function stringsOf(delta, out) {
+    out.add(delta.id);
+    out.add(delta.claims.author);
+    if (delta.sig !== void 0) out.add(delta.sig);
+    for (const p of delta.claims.pointers) {
+      out.add(p.role);
+      switch (p.target.kind) {
+        case "entity":
+          out.add(p.target.entity.id);
+          if (p.target.entity.context !== void 0) out.add(p.target.entity.context);
+          break;
+        case "delta":
+          out.add(p.target.deltaRef.delta);
+          if (p.target.deltaRef.context !== void 0) out.add(p.target.deltaRef.context);
+          break;
+        case "primitive":
+          if (typeof p.target.value === "string") out.add(p.target.value);
+          break;
+        case "bytes":
+          out.add(p.target.mime);
+          break;
+      }
+    }
+  }
+  function ptrToCbor(p, idx) {
+    const entries = [["r", float(idx(p.role))]];
+    let context;
+    switch (p.target.kind) {
+      case "entity":
+        entries.push(["e", float(idx(p.target.entity.id))]);
+        context = p.target.entity.context;
+        break;
+      case "delta":
+        entries.push(["d", float(idx(p.target.deltaRef.delta))]);
+        context = p.target.deltaRef.context;
+        break;
+      case "primitive": {
+        const v = p.target.value;
+        if (typeof v === "string") entries.push(["s", float(idx(v))]);
+        else if (typeof v === "number") entries.push(["n", float(v)]);
+        else entries.push(["b", bool(v)]);
+        break;
+      }
+      // bytes: m = mime string-table index, y = raw payload (not interned). No context.
+      case "bytes":
+        entries.push(["m", float(idx(p.target.mime))]);
+        entries.push(["y", bstr(p.target.value)]);
+        break;
+    }
+    if (context !== void 0) entries.push(["c", float(idx(context))]);
+    return map(entries);
+  }
+  function hydratedRecord(d, idx) {
+    const entries = [
+      ["i", float(idx(d.id))],
+      ["a", float(idx(d.claims.author))],
+      ["t", float(d.claims.timestamp)],
+      ["p", array(d.claims.pointers.map((p) => ptrToCbor(p, idx)))]
+    ];
+    if (d.sig !== void 0) entries.push(["s", float(idx(d.sig))]);
+    return map(entries);
+  }
+  function memberRecord(d, manifest, envelopeIdx, idx) {
+    const entries = [
+      ["i", float(idx(d.id))],
+      ["m", float(envelopeIdx)],
+      ["p", array(d.claims.pointers.map((p) => ptrToCbor(p, idx)))]
+    ];
+    if (d.claims.author !== manifest.claims.author) entries.push(["a", float(idx(d.claims.author))]);
+    const dt = d.claims.timestamp - manifest.claims.timestamp;
+    if (dt !== 0) entries.push(["dt", float(dt)]);
+    if (d.sig !== void 0) entries.push(["s", float(idx(d.sig))]);
+    return map(entries);
+  }
+  function packSet(set) {
+    const deltas = [...set].sort((a, b) => a.id < b.id ? -1 : 1);
+    const manifests = deltas.filter((d) => manifestMemberIds(d).length > 0);
+    const memberToManifest = /* @__PURE__ */ new Map();
+    manifests.forEach((m, i) => {
+      for (const id of manifestMemberIds(m)) {
+        if (set.has(id) && !memberToManifest.has(id)) memberToManifest.set(id, i);
+      }
+    });
+    const manifestIds = new Set(manifests.map((m) => m.id));
+    const members = deltas.filter((d) => memberToManifest.has(d.id) && !manifestIds.has(d.id));
+    const loose = deltas.filter((d) => !memberToManifest.has(d.id) && !manifestIds.has(d.id));
+    const stringSet = /* @__PURE__ */ new Set();
+    for (const d of deltas) stringsOf(d, stringSet);
+    const strings = [...stringSet].sort();
+    const indexOf = new Map(strings.map((s, i) => [s, i]));
+    const idx = (s) => indexOf.get(s);
+    const packed = map([
+      ["version", float(PACK_VERSION)],
+      ["strings", array(strings.map(tstr))],
+      ["envelopes", array(manifests.map((m) => hydratedRecord(m, idx)))],
+      [
+        "members",
+        array(
+          members.map(
+            (d) => memberRecord(
+              d,
+              manifests[memberToManifest.get(d.id)],
+              memberToManifest.get(d.id),
+              idx
+            )
+          )
+        )
+      ],
+      ["loose", array(loose.map((d) => hydratedRecord(d, idx)))]
+    ]);
+    return encode(packed);
+  }
+  function packId(bytes) {
+    return contentAddress(bytes);
+  }
+  function asMap(v, what) {
+    if (v.t !== "map") throw new Error(`pack: expected map for ${what}`);
+    return new Map(v.v);
+  }
+  function asArray(v, what) {
+    if (v === void 0 || v.t !== "array") throw new Error(`pack: expected array for ${what}`);
+    return v.v;
+  }
+  function asNum(v, what) {
+    if (v === void 0 || v.t !== "float") throw new Error(`pack: expected number for ${what}`);
+    return v.v;
+  }
+  function ptrFromCbor(v, strings) {
+    const o = asMap(v, "pointer");
+    const str = (key) => strings[asNum(o.get(key), key)];
+    const role = str("r");
+    const context = o.has("c") ? str("c") : void 0;
+    let target;
+    if (o.has("e")) {
+      target = {
+        kind: "entity",
+        entity: context === void 0 ? { id: str("e") } : { id: str("e"), context }
+      };
+    } else if (o.has("d")) {
+      target = {
+        kind: "delta",
+        deltaRef: context === void 0 ? { delta: str("d") } : { delta: str("d"), context }
+      };
+    } else if (o.has("s")) {
+      target = { kind: "primitive", value: str("s") };
+    } else if (o.has("n")) {
+      target = { kind: "primitive", value: asNum(o.get("n"), "n") };
+    } else if (o.has("b")) {
+      const b = o.get("b");
+      if (b.t !== "bool") throw new Error("pack: expected bool for b");
+      target = { kind: "primitive", value: b.v };
+    } else if (o.has("m")) {
+      const y = o.get("y");
+      if (y === void 0 || y.t !== "bstr") throw new Error("pack: bytes pointer requires a bstr y");
+      target = { kind: "bytes", mime: str("m"), value: y.v };
+    } else {
+      throw new Error("pack: pointer record has no target");
+    }
+    return { role, target };
+  }
+  function hydrateRecord(v, strings) {
+    const o = asMap(v, "record");
+    const claims = {
+      author: strings[asNum(o.get("a"), "a")],
+      timestamp: asNum(o.get("t"), "t"),
+      pointers: asArray(o.get("p"), "p").map((p) => ptrFromCbor(p, strings))
+    };
+    const sig = o.has("s") ? strings[asNum(o.get("s"), "s")] : void 0;
+    return verifiedDelta(claims, sig, strings[asNum(o.get("i"), "i")]);
+  }
+  function verifiedDelta(claims, sig, storedId) {
+    const d = makeDelta(claims, sig);
+    if (d.id !== storedId) {
+      throw new Error(`pack: rehydrated delta ${d.id} does not match stored id ${storedId}`);
+    }
+    return d;
+  }
+  function unpackSet(bytes) {
+    const top = asMap(decode(bytes), "pack");
+    if (asNum(top.get("version"), "version") !== PACK_VERSION) {
+      throw new Error("pack: unsupported version");
+    }
+    const strings = asArray(top.get("strings"), "strings").map((s) => {
+      if (s.t !== "tstr") throw new Error("pack: string table entries must be text");
+      return s.v;
+    });
+    const out = new DeltaSet();
+    const envelopes = asArray(top.get("envelopes"), "envelopes").map(
+      (e) => hydrateRecord(e, strings)
+    );
+    for (const m of envelopes) out.add(m);
+    for (const rec of asArray(top.get("members"), "members")) {
+      const o = asMap(rec, "member");
+      const manifest = envelopes[asNum(o.get("m"), "m")];
+      if (manifest === void 0) throw new Error("pack: member references missing envelope");
+      const author = o.has("a") ? strings[asNum(o.get("a"), "a")] : manifest.claims.author;
+      const timestamp = manifest.claims.timestamp + (o.has("dt") ? asNum(o.get("dt"), "dt") : 0);
+      const claims = {
+        author,
+        timestamp,
+        pointers: asArray(o.get("p"), "p").map((p) => ptrFromCbor(p, strings))
+      };
+      const sig = o.has("s") ? strings[asNum(o.get("s"), "s")] : void 0;
+      out.add(verifiedDelta(claims, sig, strings[asNum(o.get("i"), "i")]));
+    }
+    for (const rec of asArray(top.get("loose"), "loose")) out.add(hydrateRecord(rec, strings));
+    return out;
+  }
+
+  // src/schema/schema.ts
   function collectRefs(term) {
     const out = [];
     const walk = (t) => {
@@ -4820,7 +4607,7 @@
     }
   };
 
-  // src/reactor.ts
+  // src/reactor/reactor.ts
   var Reactor = class {
     // The append-only log in arrival order (v0: in-memory; the log is still the truth — V2).
     log = [];
@@ -5097,9 +4884,6 @@
       return manifestMemberIds(manifest).every((id) => this.set.has(id));
     }
   };
-  function manifestMemberIds(manifest) {
-    return manifest.claims.pointers.filter((p) => p.role === `${VOCAB_PREFIX}.txn.member` && p.target.kind === "delta").map((p) => p.target.deltaRef.delta);
-  }
   function propHexesOf(h) {
     const out = /* @__PURE__ */ new Map();
     for (const [prop, entries] of h.props) {
@@ -5182,218 +4966,7 @@
     return true;
   }
 
-  // src/pack.ts
-  var PACK_VERSION = 1;
-  function stringsOf(delta, out) {
-    out.add(delta.id);
-    out.add(delta.claims.author);
-    if (delta.sig !== void 0) out.add(delta.sig);
-    for (const p of delta.claims.pointers) {
-      out.add(p.role);
-      switch (p.target.kind) {
-        case "entity":
-          out.add(p.target.entity.id);
-          if (p.target.entity.context !== void 0) out.add(p.target.entity.context);
-          break;
-        case "delta":
-          out.add(p.target.deltaRef.delta);
-          if (p.target.deltaRef.context !== void 0) out.add(p.target.deltaRef.context);
-          break;
-        case "primitive":
-          if (typeof p.target.value === "string") out.add(p.target.value);
-          break;
-        case "bytes":
-          out.add(p.target.mime);
-          break;
-      }
-    }
-  }
-  function ptrToCbor(p, idx) {
-    const entries = [["r", float(idx(p.role))]];
-    let context;
-    switch (p.target.kind) {
-      case "entity":
-        entries.push(["e", float(idx(p.target.entity.id))]);
-        context = p.target.entity.context;
-        break;
-      case "delta":
-        entries.push(["d", float(idx(p.target.deltaRef.delta))]);
-        context = p.target.deltaRef.context;
-        break;
-      case "primitive": {
-        const v = p.target.value;
-        if (typeof v === "string") entries.push(["s", float(idx(v))]);
-        else if (typeof v === "number") entries.push(["n", float(v)]);
-        else entries.push(["b", bool(v)]);
-        break;
-      }
-      // bytes: m = mime string-table index, y = raw payload (not interned). No context.
-      case "bytes":
-        entries.push(["m", float(idx(p.target.mime))]);
-        entries.push(["y", bstr(p.target.value)]);
-        break;
-    }
-    if (context !== void 0) entries.push(["c", float(idx(context))]);
-    return map(entries);
-  }
-  function hydratedRecord(d, idx) {
-    const entries = [
-      ["i", float(idx(d.id))],
-      ["a", float(idx(d.claims.author))],
-      ["t", float(d.claims.timestamp)],
-      ["p", array(d.claims.pointers.map((p) => ptrToCbor(p, idx)))]
-    ];
-    if (d.sig !== void 0) entries.push(["s", float(idx(d.sig))]);
-    return map(entries);
-  }
-  function memberRecord(d, manifest, envelopeIdx, idx) {
-    const entries = [
-      ["i", float(idx(d.id))],
-      ["m", float(envelopeIdx)],
-      ["p", array(d.claims.pointers.map((p) => ptrToCbor(p, idx)))]
-    ];
-    if (d.claims.author !== manifest.claims.author) entries.push(["a", float(idx(d.claims.author))]);
-    const dt = d.claims.timestamp - manifest.claims.timestamp;
-    if (dt !== 0) entries.push(["dt", float(dt)]);
-    if (d.sig !== void 0) entries.push(["s", float(idx(d.sig))]);
-    return map(entries);
-  }
-  function packSet(set) {
-    const deltas = [...set].sort((a, b) => a.id < b.id ? -1 : 1);
-    const manifests = deltas.filter((d) => manifestMemberIds(d).length > 0);
-    const memberToManifest = /* @__PURE__ */ new Map();
-    manifests.forEach((m, i) => {
-      for (const id of manifestMemberIds(m)) {
-        if (set.has(id) && !memberToManifest.has(id)) memberToManifest.set(id, i);
-      }
-    });
-    const manifestIds = new Set(manifests.map((m) => m.id));
-    const members = deltas.filter((d) => memberToManifest.has(d.id) && !manifestIds.has(d.id));
-    const loose = deltas.filter((d) => !memberToManifest.has(d.id) && !manifestIds.has(d.id));
-    const stringSet = /* @__PURE__ */ new Set();
-    for (const d of deltas) stringsOf(d, stringSet);
-    const strings = [...stringSet].sort();
-    const indexOf = new Map(strings.map((s, i) => [s, i]));
-    const idx = (s) => indexOf.get(s);
-    const packed = map([
-      ["version", float(PACK_VERSION)],
-      ["strings", array(strings.map(tstr))],
-      ["envelopes", array(manifests.map((m) => hydratedRecord(m, idx)))],
-      [
-        "members",
-        array(
-          members.map(
-            (d) => memberRecord(
-              d,
-              manifests[memberToManifest.get(d.id)],
-              memberToManifest.get(d.id),
-              idx
-            )
-          )
-        )
-      ],
-      ["loose", array(loose.map((d) => hydratedRecord(d, idx)))]
-    ]);
-    return encode(packed);
-  }
-  function packId(bytes) {
-    return contentAddress(bytes);
-  }
-  function asMap(v, what) {
-    if (v.t !== "map") throw new Error(`pack: expected map for ${what}`);
-    return new Map(v.v);
-  }
-  function asArray(v, what) {
-    if (v === void 0 || v.t !== "array") throw new Error(`pack: expected array for ${what}`);
-    return v.v;
-  }
-  function asNum(v, what) {
-    if (v === void 0 || v.t !== "float") throw new Error(`pack: expected number for ${what}`);
-    return v.v;
-  }
-  function ptrFromCbor(v, strings) {
-    const o = asMap(v, "pointer");
-    const str = (key) => strings[asNum(o.get(key), key)];
-    const role = str("r");
-    const context = o.has("c") ? str("c") : void 0;
-    let target;
-    if (o.has("e")) {
-      target = {
-        kind: "entity",
-        entity: context === void 0 ? { id: str("e") } : { id: str("e"), context }
-      };
-    } else if (o.has("d")) {
-      target = {
-        kind: "delta",
-        deltaRef: context === void 0 ? { delta: str("d") } : { delta: str("d"), context }
-      };
-    } else if (o.has("s")) {
-      target = { kind: "primitive", value: str("s") };
-    } else if (o.has("n")) {
-      target = { kind: "primitive", value: asNum(o.get("n"), "n") };
-    } else if (o.has("b")) {
-      const b = o.get("b");
-      if (b.t !== "bool") throw new Error("pack: expected bool for b");
-      target = { kind: "primitive", value: b.v };
-    } else if (o.has("m")) {
-      const y = o.get("y");
-      if (y === void 0 || y.t !== "bstr") throw new Error("pack: bytes pointer requires a bstr y");
-      target = { kind: "bytes", mime: str("m"), value: y.v };
-    } else {
-      throw new Error("pack: pointer record has no target");
-    }
-    return { role, target };
-  }
-  function hydrateRecord(v, strings) {
-    const o = asMap(v, "record");
-    const claims = {
-      author: strings[asNum(o.get("a"), "a")],
-      timestamp: asNum(o.get("t"), "t"),
-      pointers: asArray(o.get("p"), "p").map((p) => ptrFromCbor(p, strings))
-    };
-    const sig = o.has("s") ? strings[asNum(o.get("s"), "s")] : void 0;
-    return verifiedDelta(claims, sig, strings[asNum(o.get("i"), "i")]);
-  }
-  function verifiedDelta(claims, sig, storedId) {
-    const d = makeDelta(claims, sig);
-    if (d.id !== storedId) {
-      throw new Error(`pack: rehydrated delta ${d.id} does not match stored id ${storedId}`);
-    }
-    return d;
-  }
-  function unpackSet(bytes) {
-    const top = asMap(decode(bytes), "pack");
-    if (asNum(top.get("version"), "version") !== PACK_VERSION) {
-      throw new Error("pack: unsupported version");
-    }
-    const strings = asArray(top.get("strings"), "strings").map((s) => {
-      if (s.t !== "tstr") throw new Error("pack: string table entries must be text");
-      return s.v;
-    });
-    const out = new DeltaSet();
-    const envelopes = asArray(top.get("envelopes"), "envelopes").map(
-      (e) => hydrateRecord(e, strings)
-    );
-    for (const m of envelopes) out.add(m);
-    for (const rec of asArray(top.get("members"), "members")) {
-      const o = asMap(rec, "member");
-      const manifest = envelopes[asNum(o.get("m"), "m")];
-      if (manifest === void 0) throw new Error("pack: member references missing envelope");
-      const author = o.has("a") ? strings[asNum(o.get("a"), "a")] : manifest.claims.author;
-      const timestamp = manifest.claims.timestamp + (o.has("dt") ? asNum(o.get("dt"), "dt") : 0);
-      const claims = {
-        author,
-        timestamp,
-        pointers: asArray(o.get("p"), "p").map((p) => ptrFromCbor(p, strings))
-      };
-      const sig = o.has("s") ? strings[asNum(o.get("s"), "s")] : void 0;
-      out.add(verifiedDelta(claims, sig, strings[asNum(o.get("i"), "i")]));
-    }
-    for (const rec of asArray(top.get("loose"), "loose")) out.add(hydrateRecord(rec, strings));
-    return out;
-  }
-
-  // src/peer.ts
+  // src/federation/peer.ts
   var ALL = { kind: "input" };
   var Peer = class {
     constructor(seedHex, offeredLens = ALL, admission = void 0) {
@@ -5482,6 +5055,437 @@
       if (a.reactor.digest() + b.reactor.digest() === before) return;
     }
   }
+
+  // src/syntax/term-json.ts
+  var CMPS = ["eq", "neq", "lt", "lte", "gt", "gte", "prefix", "inSet"];
+  var TERM_KEYS = {
+    select: ["op", "pred", "in"],
+    union: ["op", "left", "right"],
+    intersect: ["op", "left", "right"],
+    difference: ["op", "of", "without"],
+    mask: ["op", "policy", "in"],
+    group: ["op", "key", "in"],
+    prune: ["op", "keep", "in"],
+    expand: ["op", "role", "schema", "reading", "in"],
+    fix: ["op", "schema", "entity", "bindings"],
+    resolve: ["op", "schema", "in"]
+  };
+  var STR_MATCH_TAGS = ["exact", "prefix", "inSet", "aliased"];
+  var VAL_MATCH_TAGS = ["vcmp", "between", "inSet"];
+  var PRED_TAGS = ["match", "hasPointer", "and", "or", "not", "inView"];
+  var ORDER_TAGS = ["byTimestamp", "byAuthorRank", "byPred", "chain"];
+  var POLICY_TAGS = ["pick", "all", "merge", "conflicts", "absentAs"];
+  var EXTRACT_TAGS = ["field", "role"];
+  function parsePrimitive2(v, what) {
+    if (typeof v === "string") return v;
+    if (typeof v === "boolean") return v;
+    if (typeof v === "number") {
+      if (!Number.isFinite(v)) throw new Error(`${what}: numeric constant must be finite`);
+      return v;
+    }
+    throw new Error(`${what}: constant must be string | number | boolean`);
+  }
+  function parseHole(v) {
+    if (typeof v !== "object" || v === null || Array.isArray(v)) return void 0;
+    if (!("hole" in v)) return void 0;
+    const o = asObject(v, "hole", ["hole"]);
+    if (typeof o["hole"] !== "string") throw new Error("hole name must be a string");
+    return { kind: "hole", name: o["hole"] };
+  }
+  function parseParam(v, what) {
+    return parseHole(v) ?? parsePrimitive2(v, what);
+  }
+  function parseCmp(v, what) {
+    if (typeof v !== "string" || !CMPS.includes(v)) {
+      throw new Error(`${what}: unknown cmp ${String(v)}`);
+    }
+    return v;
+  }
+  function parseStrMatch(raw, what) {
+    const { o, tag } = oneTag(raw, STR_MATCH_TAGS, what);
+    if (tag === "exact") {
+      if (typeof o["exact"] !== "string") throw new Error(`${what}: exact must be a string`);
+      return { kind: "exact", value: o["exact"] };
+    }
+    if (tag === "prefix") {
+      if (typeof o["prefix"] !== "string") throw new Error(`${what}: prefix must be a string`);
+      return { kind: "prefix", value: o["prefix"] };
+    }
+    if (tag === "inSet") {
+      if (!Array.isArray(o["inSet"])) throw new Error(`${what}: inSet must be an array`);
+      return {
+        kind: "inSet",
+        values: o["inSet"].map((s) => {
+          if (typeof s !== "string") throw new Error(`${what}: inSet members must be strings`);
+          return s;
+        })
+      };
+    }
+    {
+      const a = asObject(o["aliased"], `${what}.aliased`, ["name", "via", "trust"]);
+      if (typeof a["name"] !== "string") throw new Error(`${what}: aliased.name must be a string`);
+      const out = { name: a["name"] };
+      if (a["via"] !== void 0) {
+        if (typeof a["via"] !== "string")
+          throw new Error(`${what}: aliased.via must be an entity id`);
+        out.via = a["via"];
+      }
+      if (a["trust"] !== void 0) {
+        const trust = parsePred(a["trust"]);
+        assertClosedTrustPred(trust, `${what}.aliased.trust`);
+        out.trust = trust;
+      }
+      return { kind: "aliased", ...out };
+    }
+  }
+  function assertClosedTrustPred(p, what) {
+    switch (p.kind) {
+      case "true":
+      case "false":
+        return;
+      case "match":
+        if (typeof p.constant === "object" && !Array.isArray(p.constant)) {
+          throw new Error(`${what}: holes are not allowed inside an aliased trust predicate`);
+        }
+        return;
+      case "hasPointer": {
+        const pp = p.ppred;
+        if (pp.targetEntity?.kind === "hole" || pp.targetValue?.kind === "vcmp" && typeof pp.targetValue.value === "object") {
+          throw new Error(`${what}: holes are not allowed inside an aliased trust predicate`);
+        }
+        if (pp.role?.kind === "aliased" || pp.context?.kind === "aliased") {
+          throw new Error(`${what}: nested aliased is not allowed inside an aliased trust predicate`);
+        }
+        return;
+      }
+      case "and":
+      case "or":
+        assertClosedTrustPred(p.left, what);
+        assertClosedTrustPred(p.right, what);
+        return;
+      case "not":
+        assertClosedTrustPred(p.pred, what);
+        return;
+      case "inView":
+        throw new Error(`${what}: inView is not allowed inside an aliased trust predicate`);
+    }
+  }
+  function parseValMatch(raw, what) {
+    const { o, tag } = oneTag(raw, VAL_MATCH_TAGS, what);
+    if (tag === "vcmp") {
+      const v = asObject(o["vcmp"], `${what}.vcmp`, ["cmp", "value"]);
+      const cmp = parseCmp(v["cmp"], `${what}.vcmp`);
+      if (cmp === "inSet")
+        throw new Error(`${what}: vcmp cmp inSet is not allowed; use the inSet arm`);
+      const value = parseParam(v["value"], `${what}.vcmp`);
+      if (cmp === "prefix" && typeof value !== "string" && typeof value !== "object") {
+        throw new Error(`${what}: prefix requires a string constant`);
+      }
+      return { kind: "vcmp", cmp, value };
+    }
+    if (tag === "between") {
+      if (!Array.isArray(o["between"]) || o["between"].length !== 2) {
+        throw new Error(`${what}: between takes [lo, hi]`);
+      }
+      return {
+        kind: "between",
+        lo: parsePrimitive2(o["between"][0], `${what}.between`),
+        hi: parsePrimitive2(o["between"][1], `${what}.between`)
+      };
+    }
+    if (!Array.isArray(o["inSet"])) throw new Error(`${what}: inSet must be an array`);
+    return { kind: "inSet", values: o["inSet"].map((v) => parsePrimitive2(v, `${what}.inSet`)) };
+  }
+  function parsePPred(raw) {
+    const o = asObject(raw, "hasPointer", [
+      "role",
+      "targetEntity",
+      "targetDelta",
+      "context",
+      "targetIsPrimitive",
+      "targetValue"
+    ]);
+    const out = {};
+    if (o["role"] !== void 0) out.role = parseStrMatch(o["role"], "hasPointer.role");
+    if (o["targetEntity"] !== void 0) {
+      const te = o["targetEntity"];
+      if (typeof te === "string") {
+        out.targetEntity = { kind: "const", id: te };
+      } else {
+        const hole = parseHole(te);
+        if (hole !== void 0) {
+          out.targetEntity = hole;
+        } else {
+          const v = asObject(te, "targetEntity", ["var"]);
+          if (v["var"] !== "root") {
+            throw new Error('targetEntity must be a string, {var: "root"}, or {hole: "name"}');
+          }
+          out.targetEntity = { kind: "root" };
+        }
+      }
+    }
+    if (o["targetDelta"] !== void 0) {
+      if (typeof o["targetDelta"] !== "string") throw new Error("targetDelta must be a string");
+      out.targetDelta = o["targetDelta"];
+    }
+    if (o["context"] !== void 0) out.context = parseStrMatch(o["context"], "hasPointer.context");
+    if (o["targetIsPrimitive"] !== void 0) {
+      if (typeof o["targetIsPrimitive"] !== "boolean") {
+        throw new Error("targetIsPrimitive must be a boolean");
+      }
+      out.targetIsPrimitive = o["targetIsPrimitive"];
+    }
+    if (o["targetValue"] !== void 0) {
+      out.targetValue = parseValMatch(o["targetValue"], "hasPointer.targetValue");
+    }
+    if (Object.keys(out).length === 0) throw new Error("hasPointer requires at least one field (E1)");
+    return out;
+  }
+  function parsePred(raw) {
+    if (raw === "true") return { kind: "true" };
+    if (raw === "false") return { kind: "false" };
+    const { o, tag } = oneTag(raw, PRED_TAGS, "pred");
+    if (tag === "match") {
+      const m = asObject(o["match"], "match", ["field", "cmp", "const"]);
+      const field = m["field"];
+      if (field !== "author" && field !== "timestamp" && field !== "id") {
+        throw new Error(`match: unknown field ${String(field)}`);
+      }
+      const cmp = parseCmp(m["cmp"], "match");
+      const rawConst = m["const"];
+      const constant = cmp === "inSet" ? (() => {
+        if (!Array.isArray(rawConst)) throw new Error("match: inSet requires an array const");
+        return rawConst.map((v) => parsePrimitive2(v, "match.const"));
+      })() : parseParam(rawConst, "match.const");
+      if (cmp === "prefix" && typeof constant !== "string" && typeof constant !== "object") {
+        throw new Error("match: prefix requires a string const");
+      }
+      return { kind: "match", field, cmp, constant };
+    }
+    if (tag === "hasPointer") return { kind: "hasPointer", ppred: parsePPred(o["hasPointer"]) };
+    if (tag === "and" || tag === "or") {
+      const arr = o[tag];
+      if (!Array.isArray(arr) || arr.length !== 2)
+        throw new Error(`${tag} takes exactly [Pred, Pred] (E1)`);
+      const left = parsePred(arr[0]);
+      const right = parsePred(arr[1]);
+      return tag === "and" ? { kind: "and", left, right } : { kind: "or", left, right };
+    }
+    if (tag === "not") return { kind: "not", pred: parsePred(o["not"]) };
+    {
+      const v = asObject(o["inView"], "inView", ["term", "field", "extract"]);
+      const term = parseTerm(v["term"]);
+      if (term.kind !== "input" && term.kind !== "select" && term.kind !== "union" && term.kind !== "mask") {
+        throw new Error("inView.term must be a DSet-sort term (input | select | union | mask)");
+      }
+      if (termContainsInView(term)) {
+        throw new Error("inView is stratified: no inView inside inView.term (SPEC-2 \xA73.1)");
+      }
+      const field = v["field"];
+      if (field !== "author" && field !== "id") throw new Error("inView.field must be author | id");
+      return { kind: "inView", term, field, extract: parseExtract(v["extract"]) };
+    }
+  }
+  function parseExtract(raw) {
+    const { o, tag } = oneTag(raw, EXTRACT_TAGS, "inView.extract");
+    if (tag === "field") {
+      if (o["field"] !== "author" && o["field"] !== "id") {
+        throw new Error("inView.extract.field must be author | id");
+      }
+      return { kind: "field", field: o["field"] };
+    }
+    if (typeof o["role"] !== "string") throw new Error("inView.extract.role must be a string");
+    return { kind: "role", role: o["role"] };
+  }
+  function parseMaskPolicy(raw) {
+    if (raw === "drop") return { kind: "drop" };
+    if (raw === "annotate") return { kind: "annotate" };
+    const { o } = oneTag(raw, ["trust"], "mask.policy");
+    return { kind: "trust", pred: parsePred(o["trust"]) };
+  }
+  var MERGE_FNS = ["max", "min", "sum", "count", "and", "or", "concatSorted"];
+  function parseOrder(raw) {
+    if (raw === "lexById") return { kind: "lexById" };
+    const { o, tag } = oneTag(raw, ORDER_TAGS, "order");
+    if (tag === "byTimestamp") {
+      if (o["byTimestamp"] !== "desc" && o["byTimestamp"] !== "asc") {
+        throw new Error("byTimestamp must be desc | asc");
+      }
+      return { kind: "byTimestamp", dir: o["byTimestamp"] };
+    }
+    if (tag === "byAuthorRank") {
+      if (!Array.isArray(o["byAuthorRank"])) throw new Error("byAuthorRank must be an array");
+      return {
+        kind: "byAuthorRank",
+        authors: o["byAuthorRank"].map((a) => {
+          if (typeof a !== "string") throw new Error("byAuthorRank entries must be strings");
+          return a;
+        })
+      };
+    }
+    if (tag === "byPred") {
+      const p = asObject(o["byPred"], "byPred", ["pred", "then"]);
+      const pred = parsePred(p["pred"]);
+      if (predContainsInView(pred)) {
+        throw new Error("inView is not allowed inside a policy byPred predicate (SPEC-2 \xA73.1)");
+      }
+      return { kind: "byPred", pred, then: parseOrder(p["then"]) };
+    }
+    if (!Array.isArray(o["chain"])) throw new Error("chain must be an array");
+    if (o["chain"].length === 0) throw new Error("chain must name at least one order");
+    return { kind: "chain", orders: o["chain"].map(parseOrder) };
+  }
+  function parsePolicy(raw) {
+    const { o, tag } = oneTag(raw, POLICY_TAGS, "propPolicy");
+    if (tag === "pick") {
+      return { kind: "pick", order: parseOrder(asObject(o["pick"], "pick", ["order"])["order"]) };
+    }
+    if (tag === "all") {
+      const ao = asObject(o["all"], "all", ["order", "distinct"]);
+      const order = parseOrder(ao["order"]);
+      if (!("distinct" in ao)) return { kind: "all", order };
+      if (ao["distinct"] !== true) {
+        throw new Error(
+          `all.distinct must be the literal true when present; got ${JSON.stringify(ao["distinct"])}`
+        );
+      }
+      return { kind: "all", order, distinct: true };
+    }
+    if (tag === "merge") {
+      if (!MERGE_FNS.includes(o["merge"])) {
+        throw new Error("unknown merge fn " + String(o["merge"]));
+      }
+      return { kind: "merge", fn: o["merge"] };
+    }
+    if (tag === "conflicts") {
+      return {
+        kind: "conflicts",
+        order: parseOrder(asObject(o["conflicts"], "conflicts", ["order"])["order"])
+      };
+    }
+    {
+      const a = asObject(o["absentAs"], "absentAs", ["const", "then"]);
+      return {
+        kind: "absentAs",
+        constant: parsePrimitive2(a["const"], "absentAs.const"),
+        then: parsePolicy(a["then"])
+      };
+    }
+  }
+  function parseSchema(raw) {
+    const o = asObject(raw, "schema", ["props", "default", "name", "alg"]);
+    const props = /* @__PURE__ */ new Map();
+    if (o["props"] !== void 0) {
+      for (const [k, v] of Object.entries(asOpenMap(o["props"], "schema.props"))) {
+        props.set(k, parsePolicy(v));
+      }
+    }
+    const name = typeof o["name"] === "string" ? o["name"] : void 0;
+    const alg = typeof o["alg"] === "number" ? o["alg"] : void 0;
+    return {
+      props,
+      default: parsePolicy(o["default"]),
+      ...name !== void 0 ? { name } : {},
+      ...alg !== void 0 ? { alg } : {}
+    };
+  }
+  function parseGroupKey(raw) {
+    if (raw === "byTargetContext") return { kind: "byTargetContext" };
+    if (raw === "byRole") return { kind: "byRole" };
+    const { o } = oneTag(raw, ["const"], "group.key");
+    if (typeof o["const"] !== "string") throw new Error("group.key const must be a string");
+    return { kind: "const", prop: o["const"] };
+  }
+  function parseSchemaRef(raw) {
+    if (typeof raw === "string") return { kind: "name", name: raw };
+    const { o } = oneTag(raw, ["pinned"], "schemaRef");
+    if (typeof o["pinned"] !== "string") {
+      throw new Error("schema ref must be a name string or {pinned: hash} (E13)");
+    }
+    return { kind: "pinned", hash: o["pinned"] };
+  }
+  function parseTerm(raw) {
+    if (raw === "input") return { kind: "input" };
+    const { o, tag } = asDispatched(raw, "term", "op", TERM_KEYS);
+    switch (tag) {
+      case "select":
+        return { kind: "select", pred: parsePred(o["pred"]), of: parseTerm(o["in"]) };
+      case "union":
+        return { kind: "union", left: parseTerm(o["left"]), right: parseTerm(o["right"]) };
+      case "intersect":
+        return { kind: "intersect", left: parseTerm(o["left"]), right: parseTerm(o["right"]) };
+      case "difference":
+        return { kind: "difference", of: parseTerm(o["of"]), without: parseTerm(o["without"]) };
+      case "mask":
+        return { kind: "mask", policy: parseMaskPolicy(o["policy"]), of: parseTerm(o["in"]) };
+      case "group":
+        return { kind: "group", key: parseGroupKey(o["key"]), of: parseTerm(o["in"]) };
+      case "expand": {
+        const expand = {
+          kind: "expand",
+          role: parseStrMatch(o["role"], "expand.role"),
+          schema: parseSchemaRef(o["schema"]),
+          of: parseTerm(o["in"])
+        };
+        if (o["reading"] === void 0) return expand;
+        return { ...expand, reading: parseSchemaRef(o["reading"]) };
+      }
+      case "fix": {
+        if (typeof o["entity"] !== "string") throw new Error("fix.entity must be a string");
+        const fix = {
+          kind: "fix",
+          schema: parseSchemaRef(o["schema"]),
+          entity: o["entity"]
+        };
+        if (o["bindings"] === void 0) return fix;
+        const bo = asOpenMap(o["bindings"], "fix.bindings");
+        const bindings = /* @__PURE__ */ new Map();
+        for (const key of Object.keys(bo).sort()) {
+          bindings.set(key, parsePrimitive2(bo[key], `fix.bindings.${key}`));
+        }
+        return { ...fix, bindings };
+      }
+      case "resolve":
+        return { kind: "resolve", schema: parseSchema(o["schema"]), of: parseTerm(o["in"]) };
+      case "prune": {
+        const keep = o["keep"] === "all" ? "all" : parseStrMatch(o["keep"], "prune.keep");
+        return { kind: "prune", keep, of: parseTerm(o["in"]) };
+      }
+      /* c8 ignore next 2 -- asDispatched already rejected every tag outside TERM_KEYS */
+      default:
+        throw new Error(`unknown term op ${String(tag)}`);
+    }
+  }
+
+  // src/schema-load/schema-deltas.ts
+  var ROLE_DEFINES = `${VOCAB_PREFIX}.hyperschema.defines`;
+  var ROLE_NAME = `${VOCAB_PREFIX}.hyperschema.name`;
+  var ROLE_ALG = `${VOCAB_PREFIX}.hyperschema.alg`;
+  var ROLE_TERM = `${VOCAB_PREFIX}.hyperschema.term`;
+  var HYPER_SCHEMA_SCHEMA = {
+    name: `${VOCAB_PREFIX}.HyperSchemaSchema`,
+    alg: 1,
+    body: parseTerm({
+      op: "group",
+      key: "byTargetContext",
+      in: {
+        op: "select",
+        pred: { hasPointer: { targetEntity: { var: "root" } } },
+        // mask BEFORE select (ERRATA-3 S5): negations target deltas, not the root, so a
+        // select-first idiom would exclude them before mask could suppress anything.
+        in: { op: "mask", policy: "drop", in: "input" }
+      }
+    })
+  };
+  var SCHEMA_DEFINES = `${VOCAB_PREFIX}.schema.defines`;
+  var SCHEMA_NAME = `${VOCAB_PREFIX}.schema.name`;
+  var SCHEMA_ALG = `${VOCAB_PREFIX}.schema.alg`;
+  var SCHEMA_TERM = `${VOCAB_PREFIX}.schema.term`;
+  var SCHEMA_SCHEMA = {
+    name: `${VOCAB_PREFIX}.SchemaSchema`,
+    alg: 1,
+    body: HYPER_SCHEMA_SCHEMA.body
+  };
 
   // ../../vectors/keys/keys.json
   var keys_default = [

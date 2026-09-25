@@ -12,6 +12,19 @@ const src = join(root, "implementations", "ts", "src");
 const require = createRequire(join(root, "implementations", "ts", "package.json"));
 const ts = require("typescript");
 const report = process.argv.includes("--report");
+const allowedDependencies = {
+  delta: [],
+  syntax: ["delta"],
+  schema: ["syntax", "delta"],
+  algebra: ["syntax", "delta"],
+  "resolve-kernel": ["algebra", "syntax", "delta"],
+  resolve: ["resolve-kernel", "algebra", "schema", "syntax", "delta"],
+  "schema-load": ["resolve", "schema", "syntax", "delta"],
+  reactor: ["resolve", "resolve-kernel", "algebra", "schema", "syntax", "delta"],
+  storage: ["delta"],
+  federation: ["reactor", "resolve", "syntax", "delta"],
+  derivation: ["reactor", "algebra", "delta"],
+};
 
 function sourceFiles(dir) {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
@@ -39,9 +52,17 @@ const files = sourceFiles(src).sort();
 const edges = [];
 for (const from of files) {
   const ast = ts.createSourceFile(from, readFileSync(from, "utf8"), ts.ScriptTarget.Latest, true);
+  if (packageOf(from) === "aggregate" && relative(src, from) !== "index.ts") {
+    if (ast.statements.length !== 1 || !ts.isExportDeclaration(ast.statements[0])) {
+      throw new Error(`${relative(src, from)} must only re-export its internal package module`);
+    }
+  }
   for (const node of ast.statements) {
     if (!ts.isImportDeclaration(node) && !ts.isExportDeclaration(node)) continue;
     if (!node.moduleSpecifier || !ts.isStringLiteral(node.moduleSpecifier)) continue;
+    if (!node.moduleSpecifier.text.startsWith(".") && node.moduleSpecifier.text.startsWith("@bombadil/rhizomatic")) {
+      throw new Error(`${relative(src, from)} imports its own aggregate package`);
+    }
     const to = localTarget(from, node.moduleSpecifier.text);
     if (!to) continue;
     const clause = ts.isImportDeclaration(node) ? node.importClause : node.exportClause;
@@ -52,9 +73,25 @@ for (const from of files) {
       : named && ts.isNamedExports(named)
         ? named.elements.every((binding) => binding.isTypeOnly)
         : false;
-    const typeOnly = Boolean(clause?.isTypeOnly || onlyNamedTypes);
+    const hasValueDefault = ts.isImportDeclaration(node) && Boolean(node.importClause?.name);
+    const typeOnly = Boolean(clause?.isTypeOnly || (onlyNamedTypes && !hasValueDefault));
     edges.push({ from, to, kind: typeOnly ? "type" : "runtime" });
   }
+  function visit(node) {
+    if (ts.isImportTypeNode(node) && ts.isLiteralTypeNode(node.argument) && ts.isStringLiteral(node.argument.literal)) {
+      const to = localTarget(from, node.argument.literal.text);
+      if (to) edges.push({ from, to, kind: "type" });
+    }
+    if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
+      const arg = node.arguments[0];
+      if (arg && ts.isStringLiteral(arg)) {
+        const to = localTarget(from, arg.text);
+        if (to) edges.push({ from, to, kind: "runtime" });
+      }
+    }
+    ts.forEachChild(node, visit);
+  }
+  ts.forEachChild(ast, visit);
 }
 
 function findCycle(nodes, links) {
@@ -90,9 +127,15 @@ const declarationCycle = findCycle(files, edges.map((e) => [e.from, e.to]));
 
 const packageEdges = edges.filter((e) => packageOf(e.from) !== packageOf(e.to) && packageOf(e.from) !== "aggregate");
 const packages = new Set(files.map(packageOf).filter((p) => p !== "aggregate"));
+for (const pkg of packages) {
+  if (!(pkg in allowedDependencies)) throw new Error(`undeclared package: ${pkg}`);
+}
 for (const e of packageEdges) {
   if (packageOf(e.to) === "aggregate") {
     throw new Error(`${relative(src, e.from)} imports aggregate ${relative(src, e.to)}`);
+  }
+  if (!allowedDependencies[packageOf(e.from)]?.includes(packageOf(e.to))) {
+    throw new Error(`undeclared ${e.kind} package edge: ${packageOf(e.from)} -> ${packageOf(e.to)} (${relative(src, e.from)} -> ${relative(src, e.to)})`);
   }
 }
 const packageCycle = findCycle(packages, packageEdges.map((e) => [packageOf(e.from), packageOf(e.to)]));
