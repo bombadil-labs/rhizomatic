@@ -68,7 +68,10 @@ pub(crate) fn diagnose_term(raw: &Value, path: &str) -> Option<ParseError> {
         Some(op) => op,
         None => return Some(fault(ParseErrorKind::UnknownOp, at(path, "op"), Some("op"))),
     };
-    let known = match crate::term_json::TERM_KEYS.iter().find(|(name, _)| *name == op) {
+    let known = match crate::term_json::TERM_KEYS
+        .iter()
+        .find(|(name, _)| *name == op)
+    {
         Some((_, keys)) => *keys,
         None => return Some(fault(ParseErrorKind::UnknownOp, at(path, "op"), Some("op"))),
     };
@@ -106,7 +109,11 @@ pub(crate) fn diagnose_term(raw: &Value, path: &str) -> Option<ParseError> {
         }
         "expand" => {
             if let Some(role) = o.get("role") {
-                if let Some(err) = diagnose_match(role, &at(path, "role"), &["exact", "prefix", "inSet", "aliased"]) {
+                if let Some(err) = diagnose_match(
+                    role,
+                    &at(path, "role"),
+                    &["exact", "prefix", "inSet", "aliased"],
+                ) {
                     return Some(err);
                 }
             }
@@ -127,7 +134,11 @@ pub(crate) fn diagnose_term(raw: &Value, path: &str) -> Option<ParseError> {
         }
         "prune" => {
             if let Some(value) = o.get("keep") {
-                if let Some(err) = diagnose_match(value, &at(path, "keep"), &["exact", "prefix", "inSet", "aliased"]) {
+                if let Some(err) = diagnose_match(
+                    value,
+                    &at(path, "keep"),
+                    &["exact", "prefix", "inSet", "aliased"],
+                ) {
                     return Some(err);
                 }
             }
@@ -164,13 +175,24 @@ pub(crate) fn diagnose_pred(raw: &Value, path: &str) -> Option<ParseError> {
         if let Some(err) = unknown_key(
             p,
             &ppath,
-            &["role", "targetEntity", "targetDelta", "context", "targetIsPrimitive", "targetValue"],
+            &[
+                "role",
+                "targetEntity",
+                "targetDelta",
+                "context",
+                "targetIsPrimitive",
+                "targetValue",
+            ],
         ) {
             return Some(err);
         }
         for child in ["role", "context"] {
             if let Some(value) = p.get(child) {
-                if let Some(err) = diagnose_match(value, &at(&ppath, child), &["exact", "prefix", "inSet", "aliased"]) {
+                if let Some(err) = diagnose_match(
+                    value,
+                    &at(&ppath, child),
+                    &["exact", "prefix", "inSet", "aliased"],
+                ) {
                     return Some(err);
                 }
             }
@@ -186,7 +208,11 @@ pub(crate) fn diagnose_pred(raw: &Value, path: &str) -> Option<ParseError> {
             }
         }
         if let Some(value) = p.get("targetValue") {
-            return diagnose_match(value, &at(&ppath, "targetValue"), &["vcmp", "between", "inSet"]);
+            return diagnose_match(
+                value,
+                &at(&ppath, "targetValue"),
+                &["vcmp", "between", "inSet"],
+            );
         }
     }
     for tag in ["and", "or"] {
@@ -279,7 +305,8 @@ fn diagnose_mask(raw: &Value, path: &str) -> Option<ParseError> {
     if let Some(err) = unknown_key(o, path, &["trust"]) {
         return Some(err);
     }
-    o.get("trust").and_then(|v| diagnose_pred(v, &at(path, "trust")))
+    o.get("trust")
+        .and_then(|v| diagnose_pred(v, &at(path, "trust")))
 }
 
 fn diagnose_policy(raw: &Value, path: &str) -> Option<ParseError> {
@@ -346,5 +373,8 @@ pub(crate) fn finish(mut diagnosis: ParseError, message: String) -> ParseError {
 }
 
 pub(crate) fn invalid(message: String) -> ParseError {
-    finish(fault(ParseErrorKind::InvalidShape, String::new(), None), message)
+    finish(
+        fault(ParseErrorKind::InvalidShape, String::new(), None),
+        message,
+    )
 }

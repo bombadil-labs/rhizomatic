@@ -20,8 +20,16 @@ fn structured_parse_errors_match_shared_vectors() {
             other => panic!("{name}: unknown parser {other}"),
         };
         let error = result.expect_err(name);
-        assert_eq!(error.kind.as_str(), case["error"]["kind"].as_str().unwrap(), "{name}");
-        assert_eq!(error.path, case["error"]["path"].as_str().unwrap(), "{name}");
+        assert_eq!(
+            error.kind.as_str(),
+            case["error"]["kind"].as_str().unwrap(),
+            "{name}"
+        );
+        assert_eq!(
+            error.path,
+            case["error"]["path"].as_str().unwrap(),
+            "{name}"
+        );
         assert!(!error.message.is_empty(), "{name}: missing human message");
     }
 }

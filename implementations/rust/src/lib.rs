@@ -43,6 +43,7 @@ pub use http::{offer_for, pull_from_url, serve_peer};
 pub use hview::{hview_canonical_hex, HVEntry, HView};
 pub use materialize::{is_root_anchored, MaterializationChange};
 pub use pack::{pack_id, pack_set, unpack_set};
+pub use parse_error::{ParseError, ParseErrorKind};
 pub use peer::{sync_both, Peer, SyncReport};
 pub use pred::{compare_primitives, eval_pred, Pred};
 pub use reactor::{make_manifest_claims, manifest_member_ids, IngestResult, Reactor};
@@ -59,5 +60,4 @@ pub use term_io::{
     term_to_json,
 };
 pub use term_json::{parse_pred, parse_pred_diagnostic, parse_term, parse_term_diagnostic};
-pub use parse_error::{ParseError, ParseErrorKind};
 pub use types::{Claims, Delta, DeltaRef, EntityRef, Pointer, Primitive, Target};
