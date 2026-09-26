@@ -106,6 +106,8 @@ function orderToJson(o: Order): unknown {
   switch (o.kind) {
     case "byTimestamp":
       return { byTimestamp: o.dir };
+    case "byValidFrom":
+      return { byValidFrom: o.dir };
     case "byAuthorRank":
       return { byAuthorRank: [...o.authors] };
     case "byPred":

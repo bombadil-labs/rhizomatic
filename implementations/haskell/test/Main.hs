@@ -205,7 +205,7 @@ boundaryTests =
   [ -- D16: byte-honest strings — both spellings admitted, as two distinct claims
     expect
       "byte-honest-spellings-distinct"
-      ( let mk r = deltaIdHex (Claims 0 "a" [Pointer r (TBool True)])
+      ( let mk r = deltaIdHex (Claims 0 0 Nothing "a" [Pointer r (TBool True)])
          in case (mk "caf\x00e9", mk "cafe\x0301") of
               (Right a, Right b) -> a /= b
               _ -> False

@@ -37,7 +37,13 @@ const registry = SchemaRegistry.build(
 describe("l1-eval distinct vectors (R9)", () => {
   for (const c of doc.cases) {
     it(c.name, () => {
-      const result = evalTerm(parseTerm(c.term), fixtureSet, undefined, registry);
+      const result = evalTerm(
+        parseTerm(c.term),
+        fixtureSet,
+        1_000_000_000_000_000,
+        undefined,
+        registry,
+      );
       if (result.sort !== "view") throw new Error("expected a View result");
       expect(viewToJson(result.view)).toEqual(c.expectedView);
       expect(resultCanonicalHex(result)).toBe(c.expectedCanonicalHex);
@@ -46,7 +52,9 @@ describe("l1-eval distinct vectors (R9)", () => {
 
   for (const r of doc.rejects) {
     it(`${r.name} — ${r.reason}`, () => {
-      expect(() => evalTerm(parseTerm(r.term), fixtureSet, undefined, registry)).toThrow();
+      expect(() =>
+        evalTerm(parseTerm(r.term), fixtureSet, 1_000_000_000_000_000, undefined, registry),
+      ).toThrow();
     });
   }
 

@@ -75,6 +75,8 @@ fn spec(name: &str, budget: u32) -> BindingSpec {
 fn rating_claim(ts: f64, author: &str, value: f64) -> Claims {
     Claims {
         timestamp: ts,
+        valid_from: ts,
+        valid_until: None,
         author: author.to_string(),
         pointers: vec![
             Pointer {
@@ -288,6 +290,8 @@ fn keyed_negates_only_same_key_priors() {
     let rate = |host: &mut DerivationHost, movie: &str, ts: f64, value: f64| {
         let claims = Claims {
             timestamp: ts,
+            valid_from: ts,
+            valid_until: None,
             author: "did:key:zA".to_string(),
             pointers: vec![
                 Pointer {

@@ -38,7 +38,7 @@ const allDeltas: Delta[] = [...baseDeltas, n1, n2];
 const bagTerm = parseTerm({ op: "group", key: { const: "all" }, in: "input" });
 
 function batchHex(term: Term, set: DeltaSet, root: string): string {
-  return resultCanonicalHex(evalTerm(term, set, root, registry));
+  return resultCanonicalHex(evalTerm(term, set, 1_000_000_000_000_000, root, registry));
 }
 
 describe("incremental equivalence (SPEC-4 §1 — the defining contract)", () => {
@@ -46,8 +46,14 @@ describe("incremental equivalence (SPEC-4 §1 — the defining contract)", () =>
     fc.assert(
       fc.property(fc.shuffledSubarray(allDeltas, { minLength: allDeltas.length }), (perm) => {
         const r = new Reactor();
-        r.register("deep", movieDeepBody, ["movie:matrix", "movie:brzrkr"], registry);
-        r.register("bag", bagTerm, ["movie:matrix"], registry);
+        r.register(
+          "deep",
+          movieDeepBody,
+          ["movie:matrix", "movie:brzrkr"],
+          1_000_000_000_000_000,
+          registry,
+        );
+        r.register("bag", bagTerm, ["movie:matrix"], 1_000_000_000_000_000, registry);
         const grow = new DeltaSet();
         for (const d of perm) {
           if (r.ingest(d).status !== "accepted") return false;
@@ -71,7 +77,7 @@ describe("incremental equivalence (SPEC-4 §1 — the defining contract)", () =>
 
   it("the negation chain plays out incrementally: suppress, then reinstate", () => {
     const r = new Reactor();
-    r.register("deep", movieDeepBody, ["movie:matrix"], registry);
+    r.register("deep", movieDeepBody, ["movie:matrix"], 1_000_000_000_000_000, registry);
     for (const d of baseDeltas) r.ingest(d);
     const withCast = r.materializedHex("deep", "movie:matrix")!;
 
@@ -85,12 +91,13 @@ describe("incremental equivalence (SPEC-4 §1 — the defining contract)", () =>
 
   it("dispatch skips irrelevant deltas for anchored terms", () => {
     const r = new Reactor();
-    r.register("deep", movieDeepBody, ["movie:matrix"], registry);
+    r.register("deep", movieDeepBody, ["movie:matrix"], 1_000_000_000_000_000, registry);
     for (const d of baseDeltas) r.ingest(d);
     const before = r.evalCountOf("deep");
     const stranger = makeDelta(
       parseClaims({
         timestamp: 9999,
+        validFrom: 9999,
         author: "did:key:zStranger",
         pointers: [
           { role: "subject", target: { id: "movie:unrelated", context: "title" } },
@@ -105,7 +112,7 @@ describe("incremental equivalence (SPEC-4 §1 — the defining contract)", () =>
 
   it("change events fire only on real content change", () => {
     const r = new Reactor();
-    r.register("deep", movieDeepBody, ["movie:matrix"], registry);
+    r.register("deep", movieDeepBody, ["movie:matrix"], 1_000_000_000_000_000, registry);
     const m1 = byName.get("m1-matrix-title")!;
     r.ingest(m1);
     expect(r.changesFromLastIngest()).toEqual([
@@ -121,13 +128,14 @@ describe("incremental equivalence (SPEC-4 §1 — the defining contract)", () =>
 
   it("expansion support: a delta about an expanded entity re-materializes the parent", () => {
     const r = new Reactor();
-    r.register("deep", movieDeepBody, ["movie:matrix"], registry);
+    r.register("deep", movieDeepBody, ["movie:matrix"], 1_000_000_000_000_000, registry);
     for (const d of baseDeltas) r.ingest(d);
     const before = r.materializedHex("deep", "movie:matrix");
     // a new claim about keanu (an EXPANDED entity, not the root)
     const award = makeDelta(
       parseClaims({
         timestamp: 1500,
+        validFrom: 1500,
         author: "did:key:zCritic",
         pointers: [
           { role: "subject", target: { id: "actor:keanu", context: "award" } },

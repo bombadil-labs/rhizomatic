@@ -45,6 +45,10 @@ pub struct Pointer {
 pub struct Claims {
     /// ms since Unix epoch; a CLAIM, not an authority (SPEC-1 §6)
     pub timestamp: f64,
+    /// Inclusive start of the author's claimed validity interval.
+    pub valid_from: f64,
+    /// Exclusive end; None means no upper bound.
+    pub valid_until: Option<f64>,
     /// public key or fingerprint (SPEC-1 §5)
     pub author: String,
     /// 1 or more (SPEC-1 §2.1)

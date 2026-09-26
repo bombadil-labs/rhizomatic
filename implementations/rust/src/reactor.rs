@@ -3,7 +3,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::eval::{eval_term, EvalResult, Term};
+use crate::eval::{eval_term, eval_term_at, EvalResult, Term};
 use crate::hview::HView;
 use crate::materialize::{Materialization, MaterializationChange};
 use crate::pred::compare_primitives;
@@ -177,6 +177,17 @@ impl Reactor {
         eval_term(term, &self.set, root, registry, None)
     }
 
+    /// A validity read over the stored set at an explicit instant.
+    pub fn eval_at(
+        &self,
+        term: &Term,
+        now: f64,
+        root: Option<&str>,
+        registry: Option<&SchemaRegistry>,
+    ) -> Result<EvalResult, String> {
+        eval_term_at(term, &self.set, now, root, registry, None)
+    }
+
     // --- materializations (SPEC-4 §4, ERRATA-4 V5) ---
 
     /// Register a live materialization: an HView-sort term kept incrementally equal to batch
@@ -191,7 +202,30 @@ impl Reactor {
         if self.materializations.contains_key(name) {
             return Err(format!("duplicate materialization: {name}"));
         }
-        let mut mat = Materialization::new(name, term, roots, registry);
+        let mut mat = Materialization::new(name, term, roots, None, registry);
+        for root in mat.roots.clone() {
+            mat.refresh(&self.set, &root)?;
+        }
+        self.materializations.insert(name.to_string(), mat);
+        Ok(())
+    }
+
+    /// Register a maintained validity read. The caller owns the clock and schedules boundaries.
+    pub fn register_at(
+        &mut self,
+        name: &str,
+        term: Term,
+        roots: &[String],
+        now: f64,
+        registry: Option<SchemaRegistry>,
+    ) -> Result<(), String> {
+        if !now.is_finite() {
+            return Err("now must be a finite number".to_string());
+        }
+        if self.materializations.contains_key(name) {
+            return Err(format!("duplicate materialization: {name}"));
+        }
+        let mut mat = Materialization::new(name, term, roots, Some(now), registry);
         for root in mat.roots.clone() {
             mat.refresh(&self.set, &root)?;
         }
@@ -220,6 +254,48 @@ impl Reactor {
 
     pub fn changes_from_last_ingest(&self) -> &[MaterializationChange] {
         &self.last_changes
+    }
+
+    /// Refresh timed materializations at a caller-supplied instant. Empty responsible ids mean
+    /// the surface changed because an interval boundary passed without a new delta.
+    pub fn advance_time(&mut self, now: f64) -> Result<&[MaterializationChange], String> {
+        if !now.is_finite() {
+            return Err("now must be a finite number".to_string());
+        }
+        let mut changes = Vec::new();
+        for mat in self.materializations.values_mut() {
+            let Some(previous) = mat.now else { continue };
+            if previous == now { continue; }
+            mat.now = Some(now);
+            for root in mat.roots.clone() {
+                if let Some(changed_props) = mat.refresh(&self.set, &root)? {
+                    changes.push(MaterializationChange {
+                        materialization: mat.name.clone(),
+                        root: root.clone(),
+                        changed_props,
+                        responsible_delta_ids: vec![],
+                        new_hex: mat.hexes.get(&root).unwrap().clone(),
+                    });
+                }
+            }
+        }
+        self.last_changes = changes;
+        Ok(&self.last_changes)
+    }
+
+    pub fn next_validity_boundary(&self, now: f64) -> Result<Option<f64>, String> {
+        if !now.is_finite() {
+            return Err("now must be a finite number".to_string());
+        }
+        let mut next: Option<f64> = None;
+        for delta in self.set.iter() {
+            for candidate in [Some(delta.claims.valid_from), delta.claims.valid_until].into_iter().flatten() {
+                if candidate > now && next.is_none_or(|current| candidate < current) {
+                    next = Some(candidate);
+                }
+            }
+        }
+        Ok(next)
     }
 
     fn dispatch_and_update(&mut self, deltas: &[Delta]) -> Vec<MaterializationChange> {
@@ -350,6 +426,8 @@ pub fn make_manifest_claims(
     }
     Claims {
         timestamp,
+        valid_from: timestamp,
+        valid_until: None,
         author: author.to_string(),
         pointers,
     }

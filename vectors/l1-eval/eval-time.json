@@ -1,0 +1,482 @@
+{
+  "note": "Validity is a read-time filter over [validFrom, validUntil); byTimestamp and byValidFrom are independent Schema orders with ascending-id ties.",
+  "fixture": {
+    "fact-later": {
+      "id": "1e20d709c7bf816d3d33598bf67df4b7cab53311d8e5df6ef4b134a00deb8792f640",
+      "claims": {
+        "timestamp": 100,
+        "validFrom": 200,
+        "validUntil": 300,
+        "author": "author:a",
+        "pointers": [
+          {
+            "role": "subject",
+            "target": {
+              "id": "entity:time",
+              "context": "value"
+            }
+          },
+          {
+            "role": "payload",
+            "target": "fact-later"
+          }
+        ]
+      }
+    },
+    "statement-later": {
+      "id": "1e204349a8cd9e3e192b3af182b2b7ad6d939a31ebcb70a3630e7a6ea1e9b6203c95",
+      "claims": {
+        "timestamp": 150,
+        "validFrom": 100,
+        "author": "author:b",
+        "pointers": [
+          {
+            "role": "subject",
+            "target": {
+              "id": "entity:time",
+              "context": "value"
+            }
+          },
+          {
+            "role": "payload",
+            "target": "statement-later"
+          }
+        ]
+      }
+    },
+    "validity-tie": {
+      "id": "1e209b2914fd53cea37094b0826ae6fba34bbca85ec4eee533361d13cef232e64834",
+      "claims": {
+        "timestamp": 90,
+        "validFrom": 200,
+        "author": "author:c",
+        "pointers": [
+          {
+            "role": "subject",
+            "target": {
+              "id": "entity:time",
+              "context": "value"
+            }
+          },
+          {
+            "role": "payload",
+            "target": "validity-tie"
+          }
+        ]
+      }
+    },
+    "creation-tie": {
+      "id": "1e20495cfc487ae62ab047c202a6d7cb5e0af466e997411aeade083d714c7c19de9e",
+      "claims": {
+        "timestamp": 150,
+        "validFrom": 100,
+        "author": "author:d",
+        "pointers": [
+          {
+            "role": "subject",
+            "target": {
+              "id": "entity:time",
+              "context": "value"
+            }
+          },
+          {
+            "role": "payload",
+            "target": "creation-tie"
+          }
+        ]
+      }
+    },
+    "bounded-negation": {
+      "id": "1e20c296b996bcbb53f0e20541f3fc02d154805ddfa2b17e7e07740bb1272719bc4e",
+      "claims": {
+        "timestamp": 160,
+        "validFrom": 260,
+        "validUntil": 280,
+        "author": "author:a",
+        "pointers": [
+          {
+            "role": "negates",
+            "target": {
+              "delta": "1e20d709c7bf816d3d33598bf67df4b7cab53311d8e5df6ef4b134a00deb8792f640"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "cases": [
+    {
+      "name": "plain-interval-199",
+      "now": 199,
+      "input": [
+        "fact-later"
+      ],
+      "term": {
+        "op": "select",
+        "pred": {
+          "match": {
+            "field": "id",
+            "cmp": "eq",
+            "const": "1e20d709c7bf816d3d33598bf67df4b7cab53311d8e5df6ef4b134a00deb8792f640"
+          }
+        },
+        "in": {
+          "op": "mask",
+          "policy": "drop",
+          "in": "input"
+        }
+      },
+      "expectedCanonicalHex": "80",
+      "expectedIds": []
+    },
+    {
+      "name": "plain-interval-200",
+      "now": 200,
+      "input": [
+        "fact-later"
+      ],
+      "term": {
+        "op": "select",
+        "pred": {
+          "match": {
+            "field": "id",
+            "cmp": "eq",
+            "const": "1e20d709c7bf816d3d33598bf67df4b7cab53311d8e5df6ef4b134a00deb8792f640"
+          }
+        },
+        "in": {
+          "op": "mask",
+          "policy": "drop",
+          "in": "input"
+        }
+      },
+      "expectedCanonicalHex": "8178443165323064373039633762663831366433643333353938626636376466346237636162353333313164386535646636656634623133346130306465623837393266363430",
+      "expectedIds": [
+        "1e20d709c7bf816d3d33598bf67df4b7cab53311d8e5df6ef4b134a00deb8792f640"
+      ]
+    },
+    {
+      "name": "plain-interval-201",
+      "now": 201,
+      "input": [
+        "fact-later"
+      ],
+      "term": {
+        "op": "select",
+        "pred": {
+          "match": {
+            "field": "id",
+            "cmp": "eq",
+            "const": "1e20d709c7bf816d3d33598bf67df4b7cab53311d8e5df6ef4b134a00deb8792f640"
+          }
+        },
+        "in": {
+          "op": "mask",
+          "policy": "drop",
+          "in": "input"
+        }
+      },
+      "expectedCanonicalHex": "8178443165323064373039633762663831366433643333353938626636376466346237636162353333313164386535646636656634623133346130306465623837393266363430",
+      "expectedIds": [
+        "1e20d709c7bf816d3d33598bf67df4b7cab53311d8e5df6ef4b134a00deb8792f640"
+      ]
+    },
+    {
+      "name": "plain-interval-299",
+      "now": 299,
+      "input": [
+        "fact-later"
+      ],
+      "term": {
+        "op": "select",
+        "pred": {
+          "match": {
+            "field": "id",
+            "cmp": "eq",
+            "const": "1e20d709c7bf816d3d33598bf67df4b7cab53311d8e5df6ef4b134a00deb8792f640"
+          }
+        },
+        "in": {
+          "op": "mask",
+          "policy": "drop",
+          "in": "input"
+        }
+      },
+      "expectedCanonicalHex": "8178443165323064373039633762663831366433643333353938626636376466346237636162353333313164386535646636656634623133346130306465623837393266363430",
+      "expectedIds": [
+        "1e20d709c7bf816d3d33598bf67df4b7cab53311d8e5df6ef4b134a00deb8792f640"
+      ]
+    },
+    {
+      "name": "plain-interval-300",
+      "now": 300,
+      "input": [
+        "fact-later"
+      ],
+      "term": {
+        "op": "select",
+        "pred": {
+          "match": {
+            "field": "id",
+            "cmp": "eq",
+            "const": "1e20d709c7bf816d3d33598bf67df4b7cab53311d8e5df6ef4b134a00deb8792f640"
+          }
+        },
+        "in": {
+          "op": "mask",
+          "policy": "drop",
+          "in": "input"
+        }
+      },
+      "expectedCanonicalHex": "80",
+      "expectedIds": []
+    },
+    {
+      "name": "plain-interval-301",
+      "now": 301,
+      "input": [
+        "fact-later"
+      ],
+      "term": {
+        "op": "select",
+        "pred": {
+          "match": {
+            "field": "id",
+            "cmp": "eq",
+            "const": "1e20d709c7bf816d3d33598bf67df4b7cab53311d8e5df6ef4b134a00deb8792f640"
+          }
+        },
+        "in": {
+          "op": "mask",
+          "policy": "drop",
+          "in": "input"
+        }
+      },
+      "expectedCanonicalHex": "80",
+      "expectedIds": []
+    },
+    {
+      "name": "bounded-negation-279",
+      "now": 279,
+      "input": [
+        "fact-later",
+        "bounded-negation"
+      ],
+      "term": {
+        "op": "select",
+        "pred": {
+          "match": {
+            "field": "id",
+            "cmp": "eq",
+            "const": "1e20d709c7bf816d3d33598bf67df4b7cab53311d8e5df6ef4b134a00deb8792f640"
+          }
+        },
+        "in": {
+          "op": "mask",
+          "policy": "drop",
+          "in": "input"
+        }
+      },
+      "expectedCanonicalHex": "80",
+      "expectedIds": []
+    },
+    {
+      "name": "bounded-negation-280",
+      "now": 280,
+      "input": [
+        "fact-later",
+        "bounded-negation"
+      ],
+      "term": {
+        "op": "select",
+        "pred": {
+          "match": {
+            "field": "id",
+            "cmp": "eq",
+            "const": "1e20d709c7bf816d3d33598bf67df4b7cab53311d8e5df6ef4b134a00deb8792f640"
+          }
+        },
+        "in": {
+          "op": "mask",
+          "policy": "drop",
+          "in": "input"
+        }
+      },
+      "expectedCanonicalHex": "8178443165323064373039633762663831366433643333353938626636376466346237636162353333313164386535646636656634623133346130306465623837393266363430",
+      "expectedIds": [
+        "1e20d709c7bf816d3d33598bf67df4b7cab53311d8e5df6ef4b134a00deb8792f640"
+      ]
+    },
+    {
+      "name": "bounded-negation-281",
+      "now": 281,
+      "input": [
+        "fact-later",
+        "bounded-negation"
+      ],
+      "term": {
+        "op": "select",
+        "pred": {
+          "match": {
+            "field": "id",
+            "cmp": "eq",
+            "const": "1e20d709c7bf816d3d33598bf67df4b7cab53311d8e5df6ef4b134a00deb8792f640"
+          }
+        },
+        "in": {
+          "op": "mask",
+          "policy": "drop",
+          "in": "input"
+        }
+      },
+      "expectedCanonicalHex": "8178443165323064373039633762663831366433643333353938626636376466346237636162353333313164386535646636656634623133346130306465623837393266363430",
+      "expectedIds": [
+        "1e20d709c7bf816d3d33598bf67df4b7cab53311d8e5df6ef4b134a00deb8792f640"
+      ]
+    },
+    {
+      "name": "creation-order",
+      "now": 225,
+      "input": [
+        "fact-later",
+        "statement-later"
+      ],
+      "term": {
+        "op": "resolve",
+        "schema": {
+          "props": {
+            "value": {
+              "pick": {
+                "order": {
+                  "byTimestamp": "desc"
+                }
+              }
+            }
+          },
+          "default": {
+            "all": {
+              "order": "lexById"
+            }
+          }
+        },
+        "in": {
+          "op": "group",
+          "key": "byTargetContext",
+          "in": "input"
+        }
+      },
+      "expectedCanonicalHex": "a16576616c75656f73746174656d656e742d6c61746572",
+      "expectedView": {
+        "value": "statement-later"
+      }
+    },
+    {
+      "name": "validity-order",
+      "now": 225,
+      "input": [
+        "fact-later",
+        "statement-later"
+      ],
+      "term": {
+        "op": "resolve",
+        "schema": {
+          "props": {
+            "value": {
+              "pick": {
+                "order": {
+                  "byValidFrom": "desc"
+                }
+              }
+            }
+          },
+          "default": {
+            "all": {
+              "order": "lexById"
+            }
+          }
+        },
+        "in": {
+          "op": "group",
+          "key": "byTargetContext",
+          "in": "input"
+        }
+      },
+      "expectedCanonicalHex": "a16576616c75656a666163742d6c61746572",
+      "expectedView": {
+        "value": "fact-later"
+      }
+    },
+    {
+      "name": "creation-order-id-tie",
+      "now": 225,
+      "input": [
+        "statement-later",
+        "creation-tie"
+      ],
+      "term": {
+        "op": "resolve",
+        "schema": {
+          "props": {
+            "value": {
+              "pick": {
+                "order": {
+                  "byTimestamp": "desc"
+                }
+              }
+            }
+          },
+          "default": {
+            "all": {
+              "order": "lexById"
+            }
+          }
+        },
+        "in": {
+          "op": "group",
+          "key": "byTargetContext",
+          "in": "input"
+        }
+      },
+      "expectedCanonicalHex": "a16576616c75656f73746174656d656e742d6c61746572",
+      "expectedView": {
+        "value": "statement-later"
+      }
+    },
+    {
+      "name": "validity-order-id-tie",
+      "now": 225,
+      "input": [
+        "fact-later",
+        "validity-tie"
+      ],
+      "term": {
+        "op": "resolve",
+        "schema": {
+          "props": {
+            "value": {
+              "pick": {
+                "order": {
+                  "byValidFrom": "desc"
+                }
+              }
+            }
+          },
+          "default": {
+            "all": {
+              "order": "lexById"
+            }
+          }
+        },
+        "in": {
+          "op": "group",
+          "key": "byTargetContext",
+          "in": "input"
+        }
+      },
+      "expectedCanonicalHex": "a16576616c75656c76616c69646974792d746965",
+      "expectedView": {
+        "value": "validity-tie"
+      }
+    }
+  ]
+}

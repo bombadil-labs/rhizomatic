@@ -45,6 +45,8 @@ impl Peer {
     pub fn author_claims(&mut self, timestamp: f64, pointers: Vec<crate::types::Pointer>) -> Delta {
         let claims = Claims {
             timestamp,
+            valid_from: timestamp,
+            valid_until: None,
             author: self.author.clone(),
             pointers,
         };

@@ -29,6 +29,8 @@ export interface Pointer {
 
 export interface Claims {
   readonly timestamp: number; // ms since Unix epoch; a CLAIM, not an authority (SPEC-1 §6)
+  readonly validFrom: number; // inclusive start of the author's claimed validity interval
+  readonly validUntil?: number; // exclusive end; absent means no upper bound
   readonly author: string; // public key or fingerprint (SPEC-1 §5)
   readonly pointers: readonly Pointer[]; // 1 or more (SPEC-1 §2.1)
 }

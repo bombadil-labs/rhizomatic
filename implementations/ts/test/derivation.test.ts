@@ -57,6 +57,7 @@ const spec: BindingSpec = {
 
 const ratingClaim = (ts: number, author: string, value: number): Claims => ({
   timestamp: ts,
+  validFrom: ts,
   author,
   pointers: [
     { role: "subject", target: { kind: "entity", entity: { id: MOVIE, context: "rating" } } },
@@ -66,7 +67,7 @@ const ratingClaim = (ts: number, author: string, value: number): Claims => ({
 
 function world(): { host: DerivationHost; author: string } {
   const reactor = new Reactor();
-  reactor.register("movie", movieBody, [MOVIE]);
+  reactor.register("movie", movieBody, [MOVIE], 1_000_000_000_000_000);
   const host = new DerivationHost(reactor);
   const author = host.install(spec, avgRating, DERIVED_SEED);
   return { host, author };
@@ -121,7 +122,7 @@ describe("derivation (SPEC-7, ERRATA-7)", () => {
     ).value;
     // Rebuild the pre-emission view: a fresh reactor with only the base claim.
     const probe = new Reactor();
-    probe.register("movie", movieBody, [MOVIE]);
+    probe.register("movie", movieBody, [MOVIE], 1_000_000_000_000_000);
     probe.ingest(makeDelta(ratingClaim(1, "did:key:zA", 8)));
     expect(probe.materializedHex("movie", MOVIE)).toBe(fromHex);
     const view = probe.materializedView("movie", MOVIE)!;
@@ -140,7 +141,7 @@ describe("derivation (SPEC-7, ERRATA-7)", () => {
 
   it("the loop guard prevents self-triggering; the budget suspends runaways observably", () => {
     const reactor = new Reactor();
-    reactor.register("movie", movieBody, [MOVIE]);
+    reactor.register("movie", movieBody, [MOVIE], 1_000_000_000_000_000);
     const host = new DerivationHost(reactor);
     // budget 2: the third trigger suspends
     const tight: BindingSpec = { ...spec, name: "binding:tight", budget: 2 };
@@ -192,7 +193,7 @@ describe("keyed emission (G4): supersede per-subject", () => {
 
   it("negates only same-key priors; other subjects stay live", () => {
     const reactor = new Reactor();
-    reactor.register("movie", movieBody, [A, B]);
+    reactor.register("movie", movieBody, [A, B], 1_000_000_000_000_000);
     const host = new DerivationHost(reactor);
     const botAuthor = host.install(kspec, verdictFn, DERIVED_SEED);
 
@@ -200,6 +201,7 @@ describe("keyed emission (G4): supersede per-subject", () => {
       host.ingest(
         makeDelta({
           timestamp: ts,
+          validFrom: ts,
           author: "did:key:zA",
           pointers: [
             {

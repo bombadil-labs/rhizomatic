@@ -31,17 +31,19 @@ share the codec, identical delta sets produce identical pack bytes, and
 
 ```
 Pack = map {
-  "version":   1,                  // the profile has no integer encoding: encodes as float (f9 3c00)
+  "version":   2,                  // the profile has no integer encoding: encodes as float (f9 4000)
   "strings":   [tstr...],          // sorted unique string table — see below for order and contents
   "envelopes": [Record...],        // hydrated rhizomatic.txn manifests, sorted by manifest id
   "members":   [MemberRecord...],  // dehydrated members, sorted by member id
   "loose":     [Record...],        // hydrated deltas claimed by no stored manifest, sorted by id
 }
 
-Record       = map { "a": authorIdx, "i": idIdx, "t": timestamp, "p": [Ptr...], "s"?: sigIdx }
+Record       = map { "a": authorIdx, "i": idIdx, "t": timestamp, "f": validFrom,
+                     "u"?: validUntil, "p": [Ptr...], "s"?: sigIdx }
 MemberRecord = map { "m": envelopeIdx, "i": idIdx, "p": [Ptr...],
                      "a"?: authorIdx,   // only when it differs from the manifest's (invariant 2)
                      "dt"?: number,     // timestamp minus manifest timestamp; omitted when 0
+                     "f": validFrom, "u"?: validUntil,
                      "s"?: sigIdx }     // stored whenever present (sigs are kept verbatim)
 Ptr = map { "r": roleIdx, "e"|"d"|"s": idx | "n": number | "b": bool | ("m": mimeIdx, "y": bstr), "c"?: ctxIdx }
       // e=EntityRef id, d=DeltaRef hex, s=string primitive, n=number, b=bool;
@@ -74,6 +76,8 @@ Relative to the referencing manifest's envelope:
 
 - `author` — omitted when equal to the manifest's author; else stored explicitly.
 - `dt` — the member's timestamp minus the manifest's; omitted when 0.
+- `f` — the member's signed `validFrom`, always stored explicitly. `u` — the member's signed
+  `validUntil`, stored when present. Neither is inferred from `timestamp` or the envelope.
 - `sig` — stored verbatim whenever present (manifest coverage governs *transport* requirements,
   SPEC-1 §5, not storage).
 - A member claimed by several manifests is stored once, dehydrated against the

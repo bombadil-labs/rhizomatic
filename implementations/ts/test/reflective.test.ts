@@ -45,7 +45,7 @@ describe("l1-eval reflective vectors (SPEC-2 §3.1)", () => {
 
   for (const c of doc.cases) {
     it(c.name, () => {
-      const result = asDSet(evalTerm(parseTerm(c.term), fixtureSet));
+      const result = asDSet(evalTerm(parseTerm(c.term), fixtureSet, 1_000_000_000_000_000));
       expect(result.set.ids()).toEqual(c.expected.ids);
       expect(resultCanonicalHex(result)).toBe(c.expectedCanonicalHex);
     });
@@ -162,10 +162,15 @@ describe("reactor: reflective terms dispatch conservatively (SPEC-4 §4.1)", () 
         fc.constant(fixtureDeltas).chain((ds) => fc.shuffledSubarray(ds, { minLength: ds.length })),
         (order) => {
           const reactor = new Reactor();
-          reactor.register("sky", reflectiveTerm, ["topic:sky"]);
+          reactor.register("sky", reflectiveTerm, ["topic:sky"], 1_000_000_000_000_000);
           for (const delta of order) {
             expect(reactor.ingest(delta).status).toBe("accepted");
-            const batch = evalTerm(reflectiveTerm, reactor.snapshot(), "topic:sky");
+            const batch = evalTerm(
+              reflectiveTerm,
+              reactor.snapshot(),
+              1_000_000_000_000_000,
+              "topic:sky",
+            );
             if (batch.sort !== "hview") throw new Error("expected hview");
             expect(reactor.materializedHex("sky", "topic:sky")).toBe(
               hviewCanonicalHex(batch.hview),
@@ -180,7 +185,7 @@ describe("reactor: reflective terms dispatch conservatively (SPEC-4 §4.1)", () 
   it("a grant landing away from the root's support still refreshes the materialization", () => {
     const byName = new Map(doc.fixture.deltas.map((d, i) => [d.name, fixtureDeltas[i]!]));
     const reactor = new Reactor();
-    reactor.register("sky", reflectiveTerm, ["topic:sky"]);
+    reactor.register("sky", reflectiveTerm, ["topic:sky"], 1_000_000_000_000_000);
     // Claims and negations first: Bob has no grant yet, so his negation has no standing.
     for (const name of ["c1-color-blue", "n1-bob-negates-c1"]) {
       expect(reactor.ingest(byName.get(name)!).status).toBe("accepted");
@@ -191,7 +196,7 @@ describe("reactor: reflective terms dispatch conservatively (SPEC-4 §4.1)", () 
     expect(reactor.ingest(byName.get("g1-grant-bob")!).status).toBe("accepted");
     const after = reactor.materializedHex("sky", "topic:sky");
     expect(after).not.toBe(before);
-    const batch = evalTerm(reflectiveTerm, reactor.snapshot(), "topic:sky");
+    const batch = evalTerm(reflectiveTerm, reactor.snapshot(), 1_000_000_000_000_000, "topic:sky");
     if (batch.sort !== "hview") throw new Error("expected hview");
     expect(after).toBe(hviewCanonicalHex(batch.hview));
   });

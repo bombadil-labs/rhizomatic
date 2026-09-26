@@ -14,6 +14,8 @@ const BONZO: &[u8] = include_bytes!("../../../vectors/assets/bonzo.png");
 fn bonzo_claims() -> Claims {
     Claims {
         timestamp: 0.0,
+        valid_from: 0.0,
+        valid_until: None,
         author: "bonzo".to_string(),
         pointers: vec![Pointer {
             role: "avatar".to_string(),
@@ -57,4 +59,4 @@ fn bonzo_round_trips_to_one_content_address() {
 }
 
 /// bonzo's canonical content address — pinned here and asserted identically by the TS witness.
-const BONZO_ID: &str = "1e20d1a6dc435727435c822a76c5d23ae8235e5aa6c2bf3100b7b5a9434e362601d3";
+const BONZO_ID: &str = "1e20fca83dc25c1e553b8a11f35df78f5d85f69d58d38fafaffa96a68159633d2d63";

@@ -5,6 +5,7 @@
     "reason": "honest RFC 8032 signature by test-key-1",
     "claims": {
       "timestamp": 777,
+      "validFrom": 777,
       "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
       "pointers": [
         {
@@ -13,8 +14,8 @@
         }
       ]
     },
-    "id": "1e2066be9e690db0e1387b6944f04fe817cda7b42ede489a4857c9c8c4ae00e8810f",
-    "sig": "4bbfb2bca65009faff6f9321717e80bd275b0292a7e979ddff4cb91fff8a46c8d68f78d0ad82eea14f26491ad6e57cb06bc9b68fb3d6bdc154e9998dfbf3050a",
+    "id": "1e20f2d5de8583b98d42053ad6da70cc214d05728fec54589ca6643e9608ad1f8d01",
+    "sig": "007f431d99938234494d379c6f62693bf145a8e2ea26ffdf5847bd29f31f8a10c1ececec669b8b3c828d19d7d2f9c0f3365e9ca9e811faeeb185c1f32139bc04",
     "verdict": "verified",
     "zip215Accepts": true
   },
@@ -24,6 +25,7 @@
     "reason": "S' = S + L: same residue mod L as the control signature, non-canonical spelling (ZIP215 also rejects this)",
     "claims": {
       "timestamp": 777,
+      "validFrom": 777,
       "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
       "pointers": [
         {
@@ -32,8 +34,8 @@
         }
       ]
     },
-    "id": "1e2066be9e690db0e1387b6944f04fe817cda7b42ede489a4857c9c8c4ae00e8810f",
-    "sig": "4bbfb2bca65009faff6f9321717e80bd275b0292a7e979ddff4cb91fff8a46c8c3636e2dc8e500fa25c340bdb4df5bc56bc9b68fb3d6bdc154e9998dfbf3051a",
+    "id": "1e20f2d5de8583b98d42053ad6da70cc214d05728fec54589ca6643e9608ad1f8d01",
+    "sig": "007f431d99938234494d379c6f62693bf145a8e2ea26ffdf5847bd29f31f8a10aec0e24981fe9d94582a117ab1f39f08375e9ca9e811faeeb185c1f32139bc14",
     "verdict": "invalid",
     "zip215Accepts": false
   },
@@ -43,6 +45,7 @@
     "reason": "A = identity: the cofactorless equation holds for any message (kA = 𝒪), a universal forgery admitted by ZIP215 and refused by strict",
     "claims": {
       "timestamp": 777,
+      "validFrom": 777,
       "author": "ed25519:0100000000000000000000000000000000000000000000000000000000000000",
       "pointers": [
         {
@@ -51,7 +54,7 @@
         }
       ]
     },
-    "id": "1e20e1ae9b62e9bbd8d0f105e57537e4e89d0b9c051d22ec342e8bb96c4c782695bc",
+    "id": "1e208fc42cff812d856b5efcf312576da7f2685562c77f05e67ef489b4738724c27a",
     "sig": "c520b6aeb9ece717dba33fa4e4052f3dc3d0df12cd4e2e6f041ee785e9452f3e150fe6c17b3b2233d4d4c611f16087818010049ec8d8b02a6df02bd39277ac08",
     "verdict": "invalid",
     "zip215Accepts": true
@@ -62,6 +65,7 @@
     "reason": "R = identity, S = k·a: the cofactorless equation holds, only the small-order check refuses it (ZIP215 accepts)",
     "claims": {
       "timestamp": 777,
+      "validFrom": 777,
       "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
       "pointers": [
         {
@@ -70,8 +74,8 @@
         }
       ]
     },
-    "id": "1e20e55628fb8b08af39d6d8a0d077b59748308b37bcb5bb74d74f89bc1dc77b6d49",
-    "sig": "01000000000000000000000000000000000000000000000000000000000000003a7dc51216ecc825189d63f6a069970aadf6a4ea738ad9ab16f3abe608d5d201",
+    "id": "1e20024a33cfd49d420839e4900ae40b2d52720343db17eb2092fa3c25e767a845ca",
+    "sig": "010000000000000000000000000000000000000000000000000000000000000018fa725075bc5464543d978fc4ae3c4fc509c5e025199ae7f9d86776d997920a",
     "verdict": "invalid",
     "zip215Accepts": true
   },
@@ -81,6 +85,7 @@
     "reason": "order-8 A and R with S = 0: cofactored verification (ZIP215) accepts any such pair; strict refuses both components",
     "claims": {
       "timestamp": 777,
+      "validFrom": 777,
       "author": "ed25519:c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac037a",
       "pointers": [
         {
@@ -89,7 +94,7 @@
         }
       ]
     },
-    "id": "1e20ed4b9144fa54fec717584d6e5d62def4254f7cbed7b728ea6aa12cfeab208e29",
+    "id": "1e20001329b3193f174ad37e064cc253382335149594cf5e6aa6f012128e7bc812c9",
     "sig": "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc050000000000000000000000000000000000000000000000000000000000000000",
     "verdict": "invalid",
     "zip215Accepts": true
@@ -100,6 +105,7 @@
     "reason": "A encodes y = p (a non-canonical spelling of y = 0): decompress-recompress does not reproduce the bytes (ZIP215 accepts the encoding)",
     "claims": {
       "timestamp": 777,
+      "validFrom": 777,
       "author": "ed25519:edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
       "pointers": [
         {
@@ -108,7 +114,7 @@
         }
       ]
     },
-    "id": "1e20dcabf362d01951804b432294c51595d6eb1f8717106033349762c2a30c53582f",
+    "id": "1e20b65e26a7270c5b3b79122da33d0b22e0fc7a79268f340c4601d490a31906b889",
     "sig": "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
     "verdict": "invalid",
     "zip215Accepts": true
@@ -119,6 +125,7 @@
     "reason": "R encodes y = p: same rejection as check 2, applied to the signature's point half",
     "claims": {
       "timestamp": 777,
+      "validFrom": 777,
       "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
       "pointers": [
         {
@@ -127,7 +134,7 @@
         }
       ]
     },
-    "id": "1e206598e713c44f03d402aedb98b3af04673ad83c049d135776decdabe962a4ac71",
+    "id": "1e20e50d1542d508e428311fe05de5c680ace5ffa4573e0c368e0e2312831ca82043",
     "sig": "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000",
     "verdict": "invalid",
     "zip215Accepts": false
@@ -138,6 +145,7 @@
     "reason": "A encodes the identity with the sign bit set: x = 0 admits only sign 0, so the encoding is non-canonical",
     "claims": {
       "timestamp": 777,
+      "validFrom": 777,
       "author": "ed25519:0100000000000000000000000000000000000000000000000000000000000080",
       "pointers": [
         {
@@ -146,7 +154,7 @@
         }
       ]
     },
-    "id": "1e202ea84b8c36ec3d0c7ed3a9a9c6c9db152775ceffcba70e597b160402accfb06b",
+    "id": "1e20bb0dc1ea9abf089ec2dc34e88606417c1dba55eab6e43453003d751e65ce264e",
     "sig": "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
     "verdict": "invalid",
     "zip215Accepts": true
@@ -157,6 +165,7 @@
     "reason": "A carries an order-8 torsion component but is large-order; the torsion cancels in the cofactorless equation, so strict deliberately accepts — check 4 rejects small-order components, not mixed-order keys",
     "claims": {
       "timestamp": 777,
+      "validFrom": 777,
       "author": "ed25519:9ea3f11f5bd34f0cd7147fd0a436c088f624c6100c1df6a53c0a29e05d60cea0",
       "pointers": [
         {
@@ -165,8 +174,8 @@
         }
       ]
     },
-    "id": "1e2030fa6fad7b75c8c23a3602532dc47daa26d108c96f10c58f56f3c379c899ebbe",
-    "sig": "ced1e9cd7196b582db742343ae4a08bffa4217afe726e9b2acc2d29b55d3218ba183250a36ccc604f97c33f043069519f134483912c1b1fbd6aa635111755f0c",
+    "id": "1e20c0aaea2554cd2890e4c8ed9332b901aaafa99920888eee65f0048c47785afbfc",
+    "sig": "28df4951461318e8245cc05b1bfad0c23c2f20ed32b1d190fbe1187a16bad0c1a26a715cda735f2a0ef590d1dfe2a3986f83b003c155fd71a9c9bf8dd77c870e",
     "verdict": "verified",
     "zip215Accepts": true
   },
@@ -176,6 +185,7 @@
     "reason": "same mixed-order A, but the torsion survives: multiplying by the cofactor would erase it (ZIP215 accepts), the exact equation does not",
     "claims": {
       "timestamp": 777,
+      "validFrom": 777,
       "author": "ed25519:9ea3f11f5bd34f0cd7147fd0a436c088f624c6100c1df6a53c0a29e05d60cea0",
       "pointers": [
         {
@@ -184,8 +194,8 @@
         }
       ]
     },
-    "id": "1e2030fa6fad7b75c8c23a3602532dc47daa26d108c96f10c58f56f3c379c899ebbe",
-    "sig": "c520b6aeb9ece717dba33fa4e4052f3dc3d0df12cd4e2e6f041ee785e9452f3edf2a5f3abae4c4fff19812b7e396e4095c311dbd7424abb76c934d3a62546107",
+    "id": "1e20c0aaea2554cd2890e4c8ed9332b901aaafa99920888eee65f0048c47785afbfc",
+    "sig": "c520b6aeb9ece717dba33fa4e4052f3dc3d0df12cd4e2e6f041ee785e9452f3e8bc8566e47c287110b2807d5d7f73550db0cf8227dbeffd258eec8774eb02e0f",
     "verdict": "invalid",
     "zip215Accepts": true
   }

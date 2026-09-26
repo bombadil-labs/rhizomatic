@@ -92,14 +92,21 @@ describe("schemas as deltas + the bootstrap (S1-S3)", () => {
     const delta = makeDelta(claims);
     expect(delta.id).toBe(doc.published.deltaId);
     const dset = merge(expandSet, DeltaSet.from([delta]));
-    const loaded = loadHyperSchema(dset, doc.published.schemaEntity);
+    const loaded = loadHyperSchema(dset, doc.published.schemaEntity, 1_000_000_000_000_000);
     expect(loaded.name).toBe("MovieWithCast");
     expect(termHash(loaded.body)).toBe(doc.published.expectedTermHash);
     // and the loaded schema evaluates identically to the registry's original
-    const viaLoaded = evalTerm(loaded.body, expandSet, "movie:matrix", expandRegistry);
+    const viaLoaded = evalTerm(
+      loaded.body,
+      expandSet,
+      1_000_000_000_000_000,
+      "movie:matrix",
+      expandRegistry,
+    );
     const viaOriginal = evalTerm(
       expandRegistry.get("MovieWithCast")!.body,
       expandSet,
+      1_000_000_000_000_000,
       "movie:matrix",
       expandRegistry,
     );
@@ -120,7 +127,7 @@ describe("schemas as deltas + the bootstrap (S1-S3)", () => {
       2000,
     );
     const dset = DeltaSet.from([makeDelta(v1), makeDelta(v2)]);
-    const loaded = loadHyperSchema(dset, "schema:Evolving");
+    const loaded = loadHyperSchema(dset, "schema:Evolving", 1_000_000_000_000_000);
     expect(loaded.name).toBe("MovieBasicV2");
     expect(termHash(loaded.body)).toBe(termHash(expandRegistry.get("MovieWithCast")!.body));
   });
@@ -136,11 +143,14 @@ describe("schemas as deltas + the bootstrap (S1-S3)", () => {
     );
     const negation = makeDelta({
       timestamp: 1100,
+      validFrom: 1100,
       author: "did:key:zAlice",
       pointers: [{ role: "negates", target: { kind: "delta", deltaRef: { delta: v1.id } } }],
     });
     const dset = DeltaSet.from([v1, negation]);
-    expect(() => loadHyperSchema(dset, "schema:Dead")).toThrow(/no surviving schema definition/);
+    expect(() => loadHyperSchema(dset, "schema:Dead", 1_000_000_000_000_000)).toThrow(
+      /no surviving schema definition/,
+    );
   });
 });
 
@@ -155,7 +165,11 @@ describe("resolution Schema self-hosting via SCHEMA_SCHEMA (S6, issue #11)", () 
     const claims = parseClaims(doc.publishedSchema.claims);
     const delta = makeDelta(claims);
     expect(delta.id).toBe(doc.publishedSchema.deltaId);
-    const loaded = loadSchema(DeltaSet.from([delta]), doc.publishedSchema.schemaEntity);
+    const loaded = loadSchema(
+      DeltaSet.from([delta]),
+      doc.publishedSchema.schemaEntity,
+      1_000_000_000_000_000,
+    );
     expect(loaded.name).toBe("MovieView");
     expect(loaded.alg).toBe(1);
     expect(schemaCanonicalHex(loaded)).toBe(doc.publishedSchema.expectedSchemaHex);
@@ -176,6 +190,7 @@ describe("resolution Schema self-hosting via SCHEMA_SCHEMA (S6, issue #11)", () 
     // hand-forge a definition delta whose schema.term hex is a valid but non-canonical CBOR blob
     const bad = makeDelta({
       timestamp: 1,
+      validFrom: 1,
       author: "did:key:zA",
       pointers: [
         {
@@ -188,13 +203,19 @@ describe("resolution Schema self-hosting via SCHEMA_SCHEMA (S6, issue #11)", () 
         { role: "rhizomatic.schema.term", target: { kind: "primitive", value: "00" } },
       ],
     });
-    expect(() => loadSchema(DeltaSet.from([bad]), "schema:bad")).toThrow();
+    expect(() => loadSchema(DeltaSet.from([bad]), "schema:bad", 1_000_000_000_000_000)).toThrow();
   });
 });
 
 describe("pinned schema refs (E13)", () => {
   it("fix through {pinned: hash} equals fix through the name", () => {
-    const result = evalTerm(parseTerm(doc.pinnedRef.term), expandSet, undefined, expandRegistry);
+    const result = evalTerm(
+      parseTerm(doc.pinnedRef.term),
+      expandSet,
+      1_000_000_000_000_000,
+      undefined,
+      expandRegistry,
+    );
     expect(resultCanonicalHex(result)).toBe(doc.pinnedRef.expectedCanonicalHex);
   });
 
@@ -204,6 +225,8 @@ describe("pinned schema refs (E13)", () => {
       schema: { pinned: `1e20${"00".repeat(32)}` },
       entity: "movie:matrix",
     });
-    expect(() => evalTerm(term, expandSet, undefined, expandRegistry)).toThrow(/unknown schema/);
+    expect(() =>
+      evalTerm(term, expandSet, 1_000_000_000_000_000, undefined, expandRegistry),
+    ).toThrow(/unknown schema/);
   });
 });

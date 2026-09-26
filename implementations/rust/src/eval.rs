@@ -674,6 +674,25 @@ pub fn eval_term(
     }
 }
 
+/// A validity read at a caller-supplied instant. The raw evaluator above remains available for
+/// storage and federation machinery; it makes no assertion about which claims currently bind.
+pub fn eval_term_at(
+    term: &Term,
+    input: &DeltaSet,
+    now: f64,
+    root: Option<&str>,
+    registry: Option<&SchemaRegistry>,
+    bindings: Option<&Bindings>,
+) -> Result<EvalResult, String> {
+    if !now.is_finite() {
+        return Err("now must be a finite number".to_string());
+    }
+    let valid = fork(input, |d: &Delta| {
+        d.claims.valid_from <= now && d.claims.valid_until.is_none_or(|end| now < end)
+    });
+    eval_term(term, &valid, root, registry, bindings)
+}
+
 /// Canonical serialization of an evaluation result (ERRATA-2 E2, E7).
 pub fn result_canonical_hex(result: &EvalResult) -> String {
     match result {

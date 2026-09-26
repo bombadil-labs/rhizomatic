@@ -9,7 +9,7 @@
 use serde_json::{json, Value};
 
 use crate::delta::{canonical_hex, compute_id};
-use crate::eval::eval_term;
+use crate::eval::eval_term_at;
 use crate::eval::result_canonical_hex;
 use crate::json_profile::parse_claims;
 use crate::schema::{HyperSchema, SchemaRegistry};
@@ -61,10 +61,11 @@ fn handle(req: &Value) -> Result<Value, String> {
                 "tamperRejected": tamper_rejected,
             }))
         }
-        // full evaluation: fixture claims + term (+ root, + schema registry) -> canonical hex
+        // validity evaluation: fixture claims + term + explicit now (+ root, + registry)
         "eval" => {
             let set = set_from(&req["fixture"])?;
             let term = parse_term(&req["term"])?;
+            let now = req["now"].as_f64().ok_or("eval requires finite now")?;
             let root = req["root"].as_str();
             let registry = match req.get("schemas") {
                 Some(Value::Array(arr)) => {
@@ -88,7 +89,7 @@ fn handle(req: &Value) -> Result<Value, String> {
                 }
                 _ => None,
             };
-            let result = eval_term(&term, &set, root, registry.as_ref(), None)?;
+            let result = eval_term_at(&term, &set, now, root, registry.as_ref(), None)?;
             Ok(json!({ "hex": result_canonical_hex(&result) }))
         }
         other => Err(format!("unknown op: {other}")),

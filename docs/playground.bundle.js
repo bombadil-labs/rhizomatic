@@ -1037,6 +1037,11 @@
         if (d !== 0) return order.dir === "desc" ? -d : d;
         return 0;
       }
+      case "byValidFrom": {
+        const d = a.delta.claims.validFrom - b.delta.claims.validFrom;
+        if (d !== 0) return order.dir === "desc" ? -d : d;
+        return 0;
+      }
       case "byAuthorRank": {
         const rank = (author) => {
           const i = order.authors.indexOf(author);
@@ -1295,6 +1300,8 @@
     switch (o.kind) {
       case "byTimestamp":
         return { byTimestamp: o.dir };
+      case "byValidFrom":
+        return { byValidFrom: o.dir };
       case "byAuthorRank":
         return { byAuthorRank: [...o.authors] };
       case "byPred":
@@ -1514,16 +1521,25 @@
     ]);
   }
   function claimsToCbor(claims) {
-    return map([
+    const entries = [
       ["author", tstr(claims.author)],
       ["pointers", array(claims.pointers.map(pointerToCbor))],
-      ["timestamp", float(claims.timestamp)]
-    ]);
+      ["timestamp", float(claims.timestamp)],
+      ["validFrom", float(claims.validFrom)]
+    ];
+    if (claims.validUntil !== void 0) entries.push(["validUntil", float(claims.validUntil)]);
+    return map(entries);
   }
   function assertValidClaims(claims) {
     if (typeof claims.author !== "string") throw new Error("author must be a string");
     if (claims.author.length === 0) throw new Error("author must be non-empty");
     if (!Number.isFinite(claims.timestamp)) throw new Error("timestamp must be finite");
+    if (!Number.isFinite(claims.validFrom)) throw new Error("validFrom must be finite");
+    if (claims.validUntil !== void 0) {
+      if (!Number.isFinite(claims.validUntil)) throw new Error("validUntil must be finite");
+      if (claims.validUntil <= claims.validFrom)
+        throw new Error("validUntil must be greater than validFrom");
+    }
     if (claims.pointers.length < 1) throw new Error("a delta MUST contain at least one pointer");
     for (const p of claims.pointers) {
       if (typeof p.role !== "string") throw new Error("role must be a string");
@@ -1572,7 +1588,7 @@
     if (reason !== void 0) {
       pointers.push({ role: "reason", target: { kind: "primitive", value: reason } });
     }
-    return { timestamp, author, pointers };
+    return { timestamp, validFrom: timestamp, author, pointers };
   }
   var DeltaSet = class _DeltaSet {
     byId = /* @__PURE__ */ new Map();
@@ -1791,7 +1807,7 @@
   function resolveReflective(pred, input, root, registry, bindings) {
     switch (pred.kind) {
       case "inView": {
-        const sub = evalTerm(pred.term, input, root, registry, bindings);
+        const sub = evalTermRaw(pred.term, input, root, registry, bindings);
         if (sub.sort !== "dset") throw new Error("inView.term must evaluate to a DSet (E9)");
         return {
           kind: "match",
@@ -1852,12 +1868,12 @@
     }
     return { id: root, props };
   }
-  function evalTerm(term, input, root, registry, bindings) {
+  function evalTermRaw(term, input, root, registry, bindings) {
     switch (term.kind) {
       case "input":
         return dsetResult(input);
       case "select": {
-        const of = expectDSet(evalTerm(term.of, input, root, registry, bindings), "select");
+        const of = expectDSet(evalTermRaw(term.of, input, root, registry, bindings), "select");
         const pred = resolveReflective(
           expandAliased(substituteHoles(term.pred, bindings), input, root),
           input,
@@ -1868,25 +1884,28 @@
         return dsetResult(fork(of.set, (d) => evalPred(pred, d, root)));
       }
       case "union": {
-        const left = expectDSet(evalTerm(term.left, input, root, registry, bindings), "union");
-        const right = expectDSet(evalTerm(term.right, input, root, registry, bindings), "union");
+        const left = expectDSet(evalTermRaw(term.left, input, root, registry, bindings), "union");
+        const right = expectDSet(evalTermRaw(term.right, input, root, registry, bindings), "union");
         return dsetResult(merge(left.set, right.set));
       }
       case "intersect": {
-        const left = expectDSet(evalTerm(term.left, input, root, registry, bindings), "intersect");
-        const right = expectDSet(evalTerm(term.right, input, root, registry, bindings), "intersect");
+        const left = expectDSet(evalTermRaw(term.left, input, root, registry, bindings), "intersect");
+        const right = expectDSet(
+          evalTermRaw(term.right, input, root, registry, bindings),
+          "intersect"
+        );
         return dsetResult(fork(left.set, (d) => right.set.has(d.id)));
       }
       case "difference": {
-        const of = expectDSet(evalTerm(term.of, input, root, registry, bindings), "difference");
+        const of = expectDSet(evalTermRaw(term.of, input, root, registry, bindings), "difference");
         const without = expectDSet(
-          evalTerm(term.without, input, root, registry, bindings),
+          evalTermRaw(term.without, input, root, registry, bindings),
           "difference"
         );
         return dsetResult(fork(of.set, (d) => !without.set.has(d.id)));
       }
       case "mask": {
-        const of = expectDSet(evalTerm(term.of, input, root, registry, bindings), "mask");
+        const of = expectDSet(evalTermRaw(term.of, input, root, registry, bindings), "mask");
         switch (term.policy.kind) {
           case "drop": {
             const negated = computeNegated(of.set);
@@ -1912,11 +1931,11 @@
       }
       case "group": {
         if (root === void 0) throw new Error("group requires an ambient root entity (E9)");
-        const of = expectDSet(evalTerm(term.of, input, root, registry, bindings), "group");
+        const of = expectDSet(evalTermRaw(term.of, input, root, registry, bindings), "group");
         return { sort: "hview", hview: evalGroup(term.key, of, root) };
       }
       case "prune": {
-        const of = expectHView(evalTerm(term.of, input, root, registry, bindings), "prune");
+        const of = expectHView(evalTermRaw(term.of, input, root, registry, bindings), "prune");
         if (term.keep === "all") return of;
         const keep = expandStrMatch(term.keep, input, root);
         const props = /* @__PURE__ */ new Map();
@@ -1926,7 +1945,7 @@
         return { sort: "hview", hview: { id: of.hview.id, props } };
       }
       case "expand": {
-        const of = expectHView(evalTerm(term.of, input, root, registry, bindings), "expand");
+        const of = expectHView(evalTermRaw(term.of, input, root, registry, bindings), "expand");
         const role = expandStrMatch(term.role, input, root);
         const reading = term.reading === void 0 ? void 0 : lookupReading(term.reading, registry);
         const props = /* @__PURE__ */ new Map();
@@ -1964,10 +1983,18 @@
           hview: evalSchema(term.schema, input, term.entity, registry, term.bindings ?? bindings)
         };
       case "resolve": {
-        const of = expectHView(evalTerm(term.of, input, root, registry, bindings), "resolve");
+        const of = expectHView(evalTermRaw(term.of, input, root, registry, bindings), "resolve");
         return { sort: "view", view: resolveView(term.schema, of.hview) };
       }
     }
+  }
+  function evalTerm(term, input, now, root, registry, bindings) {
+    if (!Number.isFinite(now)) throw new Error("now must be a finite number");
+    const valid = fork(
+      input,
+      (d) => d.claims.validFrom <= now && (d.claims.validUntil === void 0 || now < d.claims.validUntil)
+    );
+    return evalTermRaw(term, valid, root, registry, bindings);
   }
   function evalSchema(ref, input, root, registry, bindings) {
     const label = ref.kind === "name" ? ref.name : `pinned:${ref.hash.slice(0, 12)}\u2026`;
@@ -1975,7 +2002,7 @@
       throw new Error(`schema ${label} referenced but no registry supplied (E10)`);
     const schema = registry.resolve(ref);
     if (schema === void 0) throw new Error(`unknown schema: ${label} (E10/E13)`);
-    const result = evalTerm(schema.body, input, root, registry, bindings);
+    const result = evalTermRaw(schema.body, input, root, registry, bindings);
     if (result.sort !== "hview") {
       throw new Error(`schema ${label} body must be an HView-sort term (E10)`);
     }
@@ -3881,14 +3908,15 @@
     }
     // Batch evaluation over the current set — the oracle hookup (SPEC-4 §1). Read-your-writes
     // holds trivially: ingest is synchronous, so an accepted delta is visible immediately (§6).
-    eval(term, root, registry) {
-      return evalTerm(term, this.set, root, registry);
+    eval(term, now, root, registry) {
+      return evalTerm(term, this.set, now, root, registry);
     }
     // --- materializations (SPEC-4 §4, ERRATA-4 V5) ---
     lastChanges = [];
     // Register a live materialization: an HView-sort term (a function of $root) kept
     // incrementally equal to batch evaluation at each root (SPEC-4 §1).
-    register(name, term, roots, registry) {
+    register(name, term, roots, now, registry) {
+      if (!Number.isFinite(now)) throw new Error("now must be a finite number");
       if (this.materializations.has(name)) throw new Error(`duplicate materialization: ${name}`);
       const mat = {
         name,
@@ -3896,6 +3924,7 @@
         roots: [...roots],
         registry,
         rootAnchored: isRootAnchored(term, registry),
+        now,
         views: /* @__PURE__ */ new Map(),
         hexes: /* @__PURE__ */ new Map(),
         propHexes: /* @__PURE__ */ new Map(),
@@ -3917,8 +3946,48 @@
     changesFromLastIngest() {
       return this.lastChanges;
     }
+    // Advance maintained views using a caller-supplied instant. The host schedules this at the
+    // next boundary; no clock is read inside the reactor. Empty responsible ids mean time alone
+    // changed the surface.
+    advanceTime(now) {
+      if (!Number.isFinite(now)) throw new Error("now must be a finite number");
+      const changes = [];
+      for (const mat of this.materializations.values()) {
+        if (mat.now === now) continue;
+        mat.now = now;
+        for (const root of mat.roots) {
+          const changedProps = this.refresh(mat, root);
+          if (changedProps !== void 0) {
+            changes.push({
+              materialization: mat.name,
+              root,
+              changedProps,
+              responsibleDeltaIds: [],
+              newHex: mat.hexes.get(root)
+            });
+          }
+        }
+      }
+      this.lastChanges = changes;
+      for (const c of changes) {
+        for (const cb of this.matSubscribers.get(c.materialization) ?? []) cb(c);
+      }
+      return changes;
+    }
+    nextValidityBoundary(now) {
+      if (!Number.isFinite(now)) throw new Error("now must be a finite number");
+      let next;
+      for (const d of this.set) {
+        for (const candidate of [d.claims.validFrom, d.claims.validUntil]) {
+          if (candidate !== void 0 && candidate > now && (next === void 0 || candidate < next)) {
+            next = candidate;
+          }
+        }
+      }
+      return next;
+    }
     refresh(mat, root) {
-      const result = evalTerm(mat.term, this.set, root, mat.registry);
+      const result = evalTerm(mat.term, this.set, mat.now, root, mat.registry);
       if (result.sort !== "hview") throw new Error("materialized terms must be HView-sort");
       mat.evalCount += 1;
       const hex = hviewCanonicalHex(result.hview);
@@ -4148,7 +4217,7 @@
     }
     // The offered set: eval(lens, log) — lens fidelity is a tested invariant (F4).
     offeredSet() {
-      const result = evalTerm(this.offeredLens, this.reactor.snapshot());
+      const result = evalTermRaw(this.offeredLens, this.reactor.snapshot());
       if (result.sort !== "dset") throw new Error("a lens must be a DSet-sort term (F4)");
       return [...result.set];
     }
@@ -4345,7 +4414,7 @@
   var STR_MATCH_TAGS = ["exact", "prefix", "inSet", "aliased"];
   var VAL_MATCH_TAGS = ["vcmp", "between", "inSet"];
   var PRED_TAGS = ["match", "hasPointer", "and", "or", "not", "inView"];
-  var ORDER_TAGS = ["byTimestamp", "byAuthorRank", "byPred", "chain"];
+  var ORDER_TAGS = ["byTimestamp", "byValidFrom", "byAuthorRank", "byPred", "chain"];
   var POLICY_TAGS = ["pick", "all", "merge", "conflicts", "absentAs"];
   var EXTRACT_TAGS = ["field", "role"];
   function parsePrimitive(v, what) {
@@ -4588,6 +4657,12 @@
       }
       return { kind: "byTimestamp", dir: o["byTimestamp"] };
     }
+    if (tag === "byValidFrom") {
+      if (o["byValidFrom"] !== "desc" && o["byValidFrom"] !== "asc") {
+        throw new Error("byValidFrom must be desc | asc");
+      }
+      return { kind: "byValidFrom", dir: o["byValidFrom"] };
+    }
     if (tag === "byAuthorRank") {
       if (!Array.isArray(o["byAuthorRank"])) throw new Error("byAuthorRank must be an array");
       return {
@@ -4754,6 +4829,7 @@
   function seedClaim(entity, context, value) {
     return {
       timestamp: tick(),
+      validFrom: tick(),
       pointers: [
         { role: "movie", target: { kind: "entity", entity: { id: entity, context } } },
         { role: context, target: { kind: "primitive", value } }
@@ -4794,7 +4870,7 @@
     }
   }
   function hviewAt(peer, root, asOf, audit) {
-    const result = peer.reactor.eval(bodyTerm(asOf, audit), root);
+    const result = peer.reactor.eval(bodyTerm(asOf, audit), Date.now(), root);
     if (result.sort !== "hview") throw new Error("expected hview");
     return result.hview;
   }
@@ -4849,7 +4925,11 @@
           const btn = el("button", { class: "small" }, "retract");
           btn.onclick = () => {
             const neg = makeNegationClaims(peer.author, tick(), d.id, "retracted in playground");
-            peer.authorClaims({ timestamp: neg.timestamp, pointers: [...neg.pointers] });
+            peer.authorClaims({
+              timestamp: neg.timestamp,
+              validFrom: neg.timestamp,
+              pointers: [...neg.pointers]
+            });
             refresh();
           };
           row.append(btn);

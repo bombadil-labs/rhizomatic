@@ -50,6 +50,7 @@ describe("l0-delta vectors (canonical bytes + content address)", () => {
   it("pointer order is significant for the id", () => {
     const a = parseClaims({
       timestamp: 0,
+      validFrom: 0,
       author: "did:key:zA",
       pointers: [
         { role: "x", target: "1" },
@@ -58,6 +59,7 @@ describe("l0-delta vectors (canonical bytes + content address)", () => {
     });
     const b = parseClaims({
       timestamp: 0,
+      validFrom: 0,
       author: "did:key:zA",
       pointers: [
         { role: "y", target: "2" },
@@ -93,6 +95,7 @@ describe("assertValidClaims guards the direct API against untyped callers (issue
   const claimsWith = (target: unknown) =>
     ({
       timestamp: 0,
+      validFrom: 0,
       author: "did:key:zA",
       pointers: [{ role: "r", target: { kind: "primitive", value: target } }],
     }) as unknown as Parameters<typeof canonicalHex>[0];
@@ -108,6 +111,7 @@ describe("assertValidClaims guards the direct API against untyped callers (issue
   it("non-string author rejects with a boundary error, not a TypeError", () => {
     const claims = {
       timestamp: 0,
+      validFrom: 0,
       author: 42,
       pointers: [{ role: "r", target: { kind: "primitive", value: "x" } }],
     } as unknown as Parameters<typeof canonicalHex>[0];

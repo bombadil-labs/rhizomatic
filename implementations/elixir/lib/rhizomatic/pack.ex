@@ -7,14 +7,15 @@ defmodule Rhizomatic.Pack do
   Layout (SPEC-8 §3, plus the `"i"` id field the §4 rehydration contract
   presupposes — see FINDINGS.md F2–F4):
 
-      Pack = { "version": 1, "strings": [tstr...],
+      Pack = { "version": 2, "strings": [tstr...],
                "envelopes": [Record...], "members": [MemberRecord...],
                "loose": [Record...] }
 
       Record       = { "a": authorIdx, "i": idIdx, "t": timestamp,
-                       "p": [Ptr...], "s"?: sigIdx }
+                       "f": validFrom, "u"?: validUntil, "p": [Ptr...], "s"?: sigIdx }
       MemberRecord = { "m": envelopeIdx, "i": idIdx, "p": [Ptr...],
-                       "a"?: authorIdx, "dt"?: number, "s"?: sigIdx }
+                       "a"?: authorIdx, "dt"?: number,
+                       "f": validFrom, "u"?: validUntil, "s"?: sigIdx }
       Ptr          = { "r": roleIdx,
                        "e"|"d"|"s": idx | "n": number | "b": bool
                                   | ("m": mimeIdx, "y": bstr),
@@ -72,7 +73,7 @@ defmodule Rhizomatic.Pack do
     pack_ast =
       {:map,
        [
-         {{:tstr, "version"}, {:float, 1.0}},
+         {{:tstr, "version"}, {:float, 2.0}},
          {{:tstr, "strings"}, {:arr, Enum.map(strings, &{:tstr, &1})}},
          {{:tstr, "envelopes"}, {:arr, Enum.map(envelopes, &record_ast(&1, idx))}},
          {{:tstr, "members"},
@@ -129,8 +130,9 @@ defmodule Rhizomatic.Pack do
        {{:tstr, "a"}, fidx(idx, e.claims.author)},
        {{:tstr, "i"}, fidx(idx, e.id)},
        {{:tstr, "t"}, {:float, e.claims.timestamp}},
+       {{:tstr, "f"}, {:float, e.claims.valid_from}},
        {{:tstr, "p"}, {:arr, Enum.map(e.claims.pointers, &ptr_ast(&1, idx))}}
-     ] ++ sig_pair(e, idx)}
+     ] ++ valid_until_pair(e) ++ sig_pair(e, idx)}
   end
 
   # dehydrated MemberRecord relative to its claiming manifest
@@ -141,6 +143,7 @@ defmodule Rhizomatic.Pack do
      [
        {{:tstr, "m"}, {:float, envelope_idx * 1.0}},
        {{:tstr, "i"}, fidx(idx, e.id)},
+       {{:tstr, "f"}, {:float, e.claims.valid_from}},
        {{:tstr, "p"}, {:arr, Enum.map(e.claims.pointers, &ptr_ast(&1, idx))}}
      ] ++
        if(e.claims.author == manifest.claims.author,
@@ -148,11 +151,19 @@ defmodule Rhizomatic.Pack do
          else: [{{:tstr, "a"}, fidx(idx, e.claims.author)}]
        ) ++
        if(dt == 0.0, do: [], else: [{{:tstr, "dt"}, {:float, dt}}]) ++
+       valid_until_pair(e) ++
        sig_pair(e, idx)}
   end
 
   defp sig_pair(%{sig: nil}, _idx), do: []
   defp sig_pair(%{sig: sig}, idx), do: [{{:tstr, "s"}, fidx(idx, sig)}]
+
+  defp valid_until_pair(e) do
+    case Map.fetch(e.claims, :valid_until) do
+      {:ok, end_time} -> [{{:tstr, "u"}, {:float, end_time}}]
+      :error -> []
+    end
+  end
 
   defp ptr_ast(%{role: role, target: target}, idx) do
     {:map, [{{:tstr, "r"}, fidx(idx, role)} | target_ptr_pairs(target, idx)]}
@@ -218,7 +229,7 @@ defmodule Rhizomatic.Pack do
         {_, v} -> {:bad_key, v}
       end)
 
-    with {:float, 1.0} <- Map.get(m, "version", :missing) do
+    with {:float, 2.0} <- Map.get(m, "version", :missing) do
       if Enum.sort(Map.keys(m)) == ["envelopes", "loose", "members", "strings", "version"] do
         {:ok, m}
       else
@@ -249,9 +260,15 @@ defmodule Rhizomatic.Pack do
       with {:ok, author} <- table(strings, m["a"]),
            {:ok, id} <- table(strings, m["i"]),
            {:float, ts} <- Map.get(m, "t", :missing),
+           {:float, valid_from} <- Map.get(m, "f", :missing),
+           {:ok, valid_until} <- optional_valid_until(m),
            {:ok, pointers} <- unpack_ptrs(m["p"], strings),
            {:ok, sig} <- opt_table(strings, m["s"]) do
-        {:ok, {%{claims: %{timestamp: ts, author: author, pointers: pointers}, sig: sig}, id}}
+        claims =
+          %{timestamp: ts, valid_from: valid_from, author: author, pointers: pointers}
+          |> maybe_valid_until(valid_until)
+
+        {:ok, {%{claims: claims, sig: sig}, id}}
       else
         _ -> {:error, :malformed_record}
       end
@@ -270,6 +287,8 @@ defmodule Rhizomatic.Pack do
            true <- env_idx < tuple_size(env) || {:error, :envelope_index_out_of_range},
            {manifest, _} <- elem(env, env_idx),
            {:ok, id} <- table(strings, m["i"]),
+           {:float, valid_from} <- Map.get(m, "f", :missing),
+           {:ok, valid_until} <- optional_valid_until(m),
            {:ok, pointers} <- unpack_ptrs(m["p"], strings),
            {:ok, author} <-
              (case m["a"] do
@@ -283,7 +302,11 @@ defmodule Rhizomatic.Pack do
                 _ -> {:error, :malformed_record}
               end),
            {:ok, sig} <- opt_table(strings, m["s"]) do
-        {:ok, {%{claims: %{timestamp: ts, author: author, pointers: pointers}, sig: sig}, id}}
+        claims =
+          %{timestamp: ts, valid_from: valid_from, author: author, pointers: pointers}
+          |> maybe_valid_until(valid_until)
+
+        {:ok, {%{claims: claims, sig: sig}, id}}
       else
         _ -> {:error, :malformed_record}
       end
@@ -291,6 +314,17 @@ defmodule Rhizomatic.Pack do
   end
 
   defp unpack_members(_, _, _), do: {:error, :malformed_pack}
+
+  defp optional_valid_until(m) do
+    case Map.fetch(m, "u") do
+      :error -> {:ok, nil}
+      {:ok, {:float, end_time}} -> {:ok, end_time}
+      _ -> {:error, :malformed_record}
+    end
+  end
+
+  defp maybe_valid_until(claims, nil), do: claims
+  defp maybe_valid_until(claims, value), do: Map.put(claims, :valid_until, value)
 
   defp unpack_ptrs({:arr, ptrs}, strings) do
     map_ok(ptrs, fn {:map, pairs} ->

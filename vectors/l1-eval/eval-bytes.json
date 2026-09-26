@@ -5,9 +5,10 @@
     "deltas": [
       {
         "name": "icon-png-a",
-        "id": "1e205dced91628078ee60be1ffa484dab2b7e3308262ec11561018f2144885657e7c",
+        "id": "1e20f464391b77f598965a3b8ca985977f9f9cf5d6ec7a2eb1d5b1283d4ef1c794ad",
         "claims": {
           "timestamp": 100,
+          "validFrom": 100,
           "author": "did:key:zAlice",
           "pointers": [
             {
@@ -29,9 +30,10 @@
       },
       {
         "name": "icon-png-b",
-        "id": "1e20e00cb43aad77f94f75a13a2b103ffb46fc0fe62a8ebd7a2372e789c1bbab06af",
+        "id": "1e205745a198b08ec2d26a250c2b05d87f8678fdf38788bd76545d6d5863fd93f75f",
         "claims": {
           "timestamp": 200,
+          "validFrom": 200,
           "author": "did:key:zBob",
           "pointers": [
             {
@@ -53,9 +55,10 @@
       },
       {
         "name": "icon-wasm-c",
-        "id": "1e20ad98e7ab1ed6e4b373f70b7fabda1f80bc1efd50ab8bc5c85ddeb0d7a9c6db0e",
+        "id": "1e2072df0736f39c80d7893d3bfef46b6786482497b4d08000be59b091c9c27296e8",
         "claims": {
           "timestamp": 300,
+          "validFrom": 300,
           "author": "did:key:zCarol",
           "pointers": [
             {
@@ -77,9 +80,10 @@
       },
       {
         "name": "weight-2-a",
-        "id": "1e206a25215b180da821df100113296d4d820a0b8280e70ea7e912445cd260fd7ea5",
+        "id": "1e2011ac2769a1e60c4d54ca70ebe6b15de69086eefc5cd81feaa202304a548e7dde",
         "claims": {
           "timestamp": 400,
+          "validFrom": 400,
           "author": "did:key:zAlice",
           "pointers": [
             {
@@ -98,9 +102,10 @@
       },
       {
         "name": "weight-3-b",
-        "id": "1e20e54f5fd80edac410d6674c1dd6157c52f32d1d3496bbcf0cbf2e854bd65b5eb7",
+        "id": "1e20f524cc2c31e8c37582097b0052a4bab6add5e3ff4297b0ff20135fe01d7b5ab2",
         "claims": {
           "timestamp": 410,
+          "validFrom": 410,
           "author": "did:key:zBob",
           "pointers": [
             {
@@ -119,9 +124,10 @@
       },
       {
         "name": "weight-bytes-c",
-        "id": "1e2079c1bb808a4db33d26f16400a6f836eb15849c543f56c437f7b042e343b7fae4",
+        "id": "1e20d40b70f5d866f7003f17cdeb0618b359d89c82fefb430918ccccdf405e4de02c",
         "claims": {
           "timestamp": 420,
+          "validFrom": 420,
           "author": "did:key:zCarol",
           "pointers": [
             {
@@ -143,9 +149,10 @@
       },
       {
         "name": "stamp-png-a",
-        "id": "1e20e5063f6b09083d8ad37880b04123395be150a9256238d6e2f19a86ad03ae41a0",
+        "id": "1e208c4e656e9d4419aeb6e6ba77dfb82c036f98e821153ba54d289d6960a7a6650c",
         "claims": {
           "timestamp": 500,
+          "validFrom": 500,
           "author": "did:key:zAlice",
           "pointers": [
             {
@@ -167,9 +174,10 @@
       },
       {
         "name": "stamp-png-b",
-        "id": "1e202557d887e305bb431730e45ccdfb753c30911ed70906b2ee2902a22125b90933",
+        "id": "1e2047e0c8ec2104df65bbb6c19e4db3abbc70439ad941855a612c47ca365af38f80",
         "claims": {
           "timestamp": 510,
+          "validFrom": 510,
           "author": "did:key:zBob",
           "pointers": [
             {

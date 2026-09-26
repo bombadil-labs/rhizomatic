@@ -62,6 +62,7 @@ Policy      ::= pick(Order, Tiebreak)        // collapse to one value
               | absentAs(Const, Policy)      // default for empty properties
 
 Order       ::= byTimestamp(desc|asc)
+              | byValidFrom(desc|asc)
               | byAuthorRank(AuthorId[])     // explicit trust list, first match wins
               | byPred(Pred, then: Order)    // partition by predicate, prefer matches
               | chain(Order[])               // compare by each in turn; first decisive wins
@@ -75,6 +76,10 @@ MergeFn     ::= max | min | sum | count | and | or | concatSorted
 Normative notes:
 
 - Every `Order` chain MUST bottom out in `lexById` (delta content hashes give a canonical total order), guaranteeing determinism even among byte-equal claims from distinct deltas.
+- Validity is decided before the HyperView reaches a Policy (SPEC-2 §5). `byValidFrom` does not
+  make a claim valid, and `byTimestamp` does not impose a creation cutoff. A Schema author may
+  select either order for each property while all valid claims remain in superposition until that
+  property's Policy renders a View.
 - **`all(order, distinct: true)`** (issue #33, ERRATA-5 R9) orders the candidates first, then keeps
   the **first occurrence** of each distinct value — so the surviving representative is meaningful
   (under `byAuthorRank`, the most-trusted author's copy is the one `explain` traces), and the result
@@ -98,7 +103,7 @@ Normative notes:
   latest*; `chain([byTimestamp(desc), byAuthorRank([...])])` of *latest, rank as tiebreak*.
   Encoding a rank as nested single-author `byPred`s is legal but discouraged — it duplicates what
   `byAuthorRank` + `chain` say directly.
-- `byAuthorRank` is the trust primitive. Trust *lists* are data (representable as deltas), so trust is queryable, forkable, and federated like everything else. `byAuthorRank` and `byTimestamp` are deliberately tie-*permissive* — composition is `chain`'s job, not a per-order `then`.
+- `byAuthorRank` is the trust primitive. Trust *lists* are data (representable as deltas), so trust is queryable, forkable, and federated like everything else. `byAuthorRank`, `byTimestamp`, and `byValidFrom` are deliberately tie-*permissive* — composition is `chain`'s job, not a per-order `then`. `byTimestamp` compares the signed creation claim; `byValidFrom` compares the signed validity start. Both finish equal keys by ascending delta id through the implicit tiebreak. Neither is a substrate rule for deciding which claim wins: the schema selects a Policy separately for each property.
 - `MergeFn` is a closed set by the same argument as SPEC-2 §1: arbitrary reducers cannot ship inside schema terms. They are not second-class, however — they are **derived authors** (SPEC-7). *(Open: whether aggregation pressure forces algebra-level support — tracked at SPEC-2 §9.)*
 - `merge(fn)` folds over the property's candidates in **ascending delta-id order** (float addition is order-dependent; the fold order is pinned). Domains: `max`/`min` take all primitive candidates by the canonical total order (SPEC-2 §3); `sum` numeric candidates only; `and`/`or` boolean only; `count` counts all surviving entries regardless of type; `concatSorted` yields all primitive candidates sorted canonically. Non-primitive candidates (§2.1 objects/arrays, and **bytes leaves**) are skipped by every MergeFn except `count`. A MergeFn with no candidates in its domain resolves to **absent**. Bytes are *transparent to merge folds* but full participants in `pick`/`all`/`conflicts`: those order by entry metadata (never by comparing byte values), and `conflicts` dedups by the View's canonical hex — so two authors asserting identical `(mime, bytes)` raise no conflict, while same bytes under a different `mime` do.
 - The resolved View includes every property named in `schema.props` — so `absentAs` can fire for properties with no deltas at all — plus every HView property not named, resolved via `default`. Every order chain ends in an **implicit lexById tiebreak**, structurally: determinism does not depend on authors remembering to write it.
@@ -162,6 +167,7 @@ Policy     ::= { "pick": { "order": Order } }
              | { "conflicts": { "order": Order } }
              | { "absentAs": { "const": Primitive, "then": Policy } }
 Order      ::= { "byTimestamp": "desc"|"asc" }
+             | { "byValidFrom": "desc"|"asc" }
              | { "byAuthorRank": [author, ...] }     // first match ranks first; unlisted rank last
              | { "byPred": { "pred": Pred, "then": Order } }   // matches first, then `then`
              | { "chain": [Order, ...] }             // non-empty; first decisive comparison wins

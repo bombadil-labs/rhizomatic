@@ -43,7 +43,13 @@ describe("transaction manifests + atomic bundles (SPEC-1 §9 / SPEC-4 §6)", () 
 
   it("an atomic bundle becomes visible to dispatch in ONE step", () => {
     const r = new Reactor();
-    r.register("deep", registry.get("MovieDeep")!.body, ["movie:matrix"], registry);
+    r.register(
+      "deep",
+      registry.get("MovieDeep")!.body,
+      ["movie:matrix"],
+      1_000_000_000_000_000,
+      registry,
+    );
     const events: number[] = [];
     r.subscribe("deep", () => events.push(1));
     const manifest = manifestFor(baseDeltas);

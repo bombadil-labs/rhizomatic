@@ -38,7 +38,13 @@ const registry = SchemaRegistry.build(
 describe("l1-eval resolve vectors (SPEC-5)", () => {
   for (const c of doc.cases) {
     it(c.name, () => {
-      const result = evalTerm(parseTerm(c.term), fixtureSet, undefined, registry);
+      const result = evalTerm(
+        parseTerm(c.term),
+        fixtureSet,
+        1_000_000_000_000_000,
+        undefined,
+        registry,
+      );
       if (result.sort !== "view") throw new Error("expected a View result");
       expect(result.view).toEqual(c.expectedView);
       expect(resultCanonicalHex(result)).toBe(c.expectedCanonicalHex);
@@ -51,7 +57,9 @@ describe("l1-eval resolve vectors (SPEC-5)", () => {
       const legacy = SchemaRegistry.build(
         r.schemas.map((s) => ({ name: s.name, alg: s.alg, body: parseTerm(s.body) })),
       );
-      expect(() => evalTerm(parseTerm(r.term), fixtureSet, undefined, legacy)).toThrow(/reading/);
+      expect(() =>
+        evalTerm(parseTerm(r.term), fixtureSet, 1_000_000_000_000_000, undefined, legacy),
+      ).toThrow(/reading/);
     });
   }
 
@@ -63,6 +71,7 @@ describe("l1-eval resolve vectors (SPEC-5)", () => {
         in: { op: "fix", schema: "MovieRaw", entity: "movie:matrix" },
       }),
       fixtureSet,
+      1_000_000_000_000_000,
       undefined,
       registry,
     );
@@ -73,6 +82,7 @@ describe("l1-eval resolve vectors (SPEC-5)", () => {
         in: { op: "fix", schema: "MovieRaw", entity: "movie:matrix" },
       }),
       fixtureSet,
+      1_000_000_000_000_000,
       undefined,
       registry,
     );
@@ -92,6 +102,7 @@ describe("l1-eval resolve vectors (SPEC-5)", () => {
           in: "input",
         }),
         fixtureSet,
+        1_000_000_000_000_000,
       ),
     ).toThrow(/HView operand/);
   });
@@ -112,8 +123,12 @@ describe("l1-eval resolve vectors (SPEC-5)", () => {
       schema: { default: { all: { order: "lexById" } } },
       in: { op: "fix", schema: "MovieRaw", entity: "movie:matrix" },
     });
-    const a = resultCanonicalHex(evalTerm(term, fixtureSet, undefined, registry));
-    const b = resultCanonicalHex(evalTerm(term, fixtureSet, undefined, registry));
+    const a = resultCanonicalHex(
+      evalTerm(term, fixtureSet, 1_000_000_000_000_000, undefined, registry),
+    );
+    const b = resultCanonicalHex(
+      evalTerm(term, fixtureSet, 1_000_000_000_000_000, undefined, registry),
+    );
     expect(a).toBe(b);
   });
 });

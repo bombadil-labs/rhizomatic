@@ -18,7 +18,7 @@ import { manifestMemberIds } from "../delta/manifest.js";
 import { DeltaSet, makeDelta } from "../delta/set.js";
 import type { Claims, Delta, Pointer, Target } from "../delta/types.js";
 
-const PACK_VERSION = 1;
+const PACK_VERSION = 2;
 
 // --- string interning -------------------------------------------------------------------------------
 
@@ -83,8 +83,10 @@ function hydratedRecord(d: Delta, idx: (s: string) => number): CborValue {
     ["i", float(idx(d.id))],
     ["a", float(idx(d.claims.author))],
     ["t", float(d.claims.timestamp)],
+    ["f", float(d.claims.validFrom)],
     ["p", array(d.claims.pointers.map((p) => ptrToCbor(p, idx)))],
   ];
+  if (d.claims.validUntil !== undefined) entries.push(["u", float(d.claims.validUntil)]);
   if (d.sig !== undefined) entries.push(["s", float(idx(d.sig))]);
   return map(entries);
 }
@@ -98,8 +100,10 @@ function memberRecord(
   const entries: Array<[string, CborValue]> = [
     ["i", float(idx(d.id))],
     ["m", float(envelopeIdx)],
+    ["f", float(d.claims.validFrom)],
     ["p", array(d.claims.pointers.map((p) => ptrToCbor(p, idx)))],
   ];
+  if (d.claims.validUntil !== undefined) entries.push(["u", float(d.claims.validUntil)]);
   // Dehydrate against the envelope (SPEC-8 §3.1); divergent fields stored explicitly (P2).
   if (d.claims.author !== manifest.claims.author) entries.push(["a", float(idx(d.claims.author))]);
   const dt = d.claims.timestamp - manifest.claims.timestamp;
@@ -214,6 +218,8 @@ function hydrateRecord(v: CborValue, strings: readonly string[]): Delta {
   const claims: Claims = {
     author: strings[asNum(o.get("a"), "a")]!,
     timestamp: asNum(o.get("t"), "t"),
+    validFrom: asNum(o.get("f"), "f"),
+    ...(o.has("u") ? { validUntil: asNum(o.get("u"), "u") } : {}),
     pointers: asArray(o.get("p"), "p").map((p) => ptrFromCbor(p, strings)),
   };
   const sig = o.has("s") ? strings[asNum(o.get("s"), "s")]! : undefined;
@@ -252,6 +258,8 @@ export function unpackSet(bytes: Uint8Array): DeltaSet {
     const claims: Claims = {
       author,
       timestamp,
+      validFrom: asNum(o.get("f"), "f"),
+      ...(o.has("u") ? { validUntil: asNum(o.get("u"), "u") } : {}),
       pointers: asArray(o.get("p"), "p").map((p) => ptrFromCbor(p, strings)),
     };
     const sig = o.has("s") ? strings[asNum(o.get("s"), "s")]! : undefined;

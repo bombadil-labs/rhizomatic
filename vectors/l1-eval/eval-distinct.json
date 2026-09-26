@@ -5,9 +5,10 @@
     "deltas": [
       {
         "name": "tag-scifi-c",
-        "id": "1e209a77488eff38d67220fbd487bc33a516f62b6bb8a441ca2bdde266f1936e9faf",
+        "id": "1e202c846c19d8a20dad5c8f087287cfac1bcc69e55644eb5117cf596f712d4f4ad7",
         "claims": {
           "timestamp": 120,
+          "validFrom": 120,
           "author": "did:key:zCarol",
           "pointers": [
             {
@@ -26,9 +27,10 @@
       },
       {
         "name": "tag-action-b",
-        "id": "1e204c8227b130b8f6bd620b8022aa1038bf32633afe72a4da607737b624a3a489f3",
+        "id": "1e2075e2e69c18af8bb6ea409d56f02103db8b274d0adea8675a1ed97212d483a8fd",
         "claims": {
           "timestamp": 200,
+          "validFrom": 200,
           "author": "did:key:zBob",
           "pointers": [
             {
@@ -47,9 +49,10 @@
       },
       {
         "name": "tag-anime-a",
-        "id": "1e20b794e6eb5bec5bc940292aa7df3fb9d8aafbffce4a1f2503e5ad3313ddd1938a",
+        "id": "1e2071e9bc6fbdbfba0713b784cba1a6c64f5e9b102915c8ee508d59b8682cd56e4a",
         "claims": {
           "timestamp": 300,
+          "validFrom": 300,
           "author": "did:key:zAlice",
           "pointers": [
             {
@@ -68,9 +71,10 @@
       },
       {
         "name": "tag-scifi-b",
-        "id": "1e2024b60bfd46d252c88f2a81022b7b0f490aa448766177e69c9c21151b9e9c73ee",
+        "id": "1e2033ab26214e40d11e97cc031a863f4e52979945d392c012baa0a7e6ba3e68a38d",
         "claims": {
           "timestamp": 350,
+          "validFrom": 350,
           "author": "did:key:zBob",
           "pointers": [
             {
@@ -89,9 +93,10 @@
       },
       {
         "name": "year-a",
-        "id": "1e20af3ad016e5d7c281498b1d6ffbfa5489d1a736f150c2c883fdf2d4d427ce9f54",
+        "id": "1e20102cd5b0bd5a5929733268ca9524cf8ca6ed6e00e17f1ac1bb4e160537cbe06d",
         "claims": {
           "timestamp": 100,
+          "validFrom": 100,
           "author": "did:key:zAlice",
           "pointers": [
             {
@@ -110,9 +115,10 @@
       },
       {
         "name": "year-b",
-        "id": "1e2093a576a6836d08667f94a0ed3e1291740a2420a3088ce37e269dad4050fbede4",
+        "id": "1e20937b50e66e64bd71ff95d3f0ae0fc7a2c15f41cb0a1d08438c079c77bce3e75f",
         "claims": {
           "timestamp": 210,
+          "validFrom": 210,
           "author": "did:key:zBob",
           "pointers": [
             {
@@ -131,9 +137,10 @@
       },
       {
         "name": "size-large-c",
-        "id": "1e20f2049418c9fc0b556d7601b5180c7a68cd2134e4ca9d4605d7a5f1bc5b24cd9f",
+        "id": "1e20545f6628689992e32f1afb2eb0852fb737ce1d3d821b65a6d2a0474e2fd5f542",
         "claims": {
           "timestamp": 700,
+          "validFrom": 700,
           "author": "did:key:zCarol",
           "pointers": [
             {
@@ -152,9 +159,10 @@
       },
       {
         "name": "size-3-a",
-        "id": "1e20a68d9d171f86856bac4ff9fd96d25a7434187f6716547e7581f70ba569be4965",
+        "id": "1e20573e698c2732e8adc84cd7fe5da638149750058b8c6b7c82c7fb0d510814d184",
         "claims": {
           "timestamp": 710,
+          "validFrom": 710,
           "author": "did:key:zAlice",
           "pointers": [
             {
@@ -173,9 +181,10 @@
       },
       {
         "name": "size-3-b",
-        "id": "1e2006bb2b9253ec69968b99a5d13b4d31039aa2ececa43941b49877b28fd8c89977",
+        "id": "1e20a15ebc32342bdf75687a8b1322d3dab261d4d156d6ca4a44952878068a2c521a",
         "claims": {
           "timestamp": 720,
+          "validFrom": 720,
           "author": "did:key:zBob",
           "pointers": [
             {
@@ -194,9 +203,10 @@
       },
       {
         "name": "icon-png-a",
-        "id": "1e20f5bac3731f335425190c0fa65b3c77b6382c3528767fa0c46f923669f366fae8",
+        "id": "1e202421723872543f828fe6ecc874d6218067d1f70f661b02ff1dec87f1b5c0c538",
         "claims": {
           "timestamp": 400,
+          "validFrom": 400,
           "author": "did:key:zAlice",
           "pointers": [
             {
@@ -218,9 +228,10 @@
       },
       {
         "name": "icon-png-b",
-        "id": "1e205783d308b02da1aa064fee72c961750eff751f22040b39386240edbad4426a48",
+        "id": "1e2055709dd82e0046ba54ec93c98b824adf1515428b9fb5625d0655550218266a95",
         "claims": {
           "timestamp": 410,
+          "validFrom": 410,
           "author": "did:key:zBob",
           "pointers": [
             {
@@ -242,9 +253,10 @@
       },
       {
         "name": "icon-wasm-c",
-        "id": "1e201850b98f1bea1cd8ccddaaadaff478d69f92d51385452542e4e798b4cf462744",
+        "id": "1e20de7abd8f28e1c8644d8e50e0a5774cbd86b66639a91e6381da892eb87d322433",
         "claims": {
           "timestamp": 420,
+          "validFrom": 420,
           "author": "did:key:zCarol",
           "pointers": [
             {

@@ -55,6 +55,7 @@ describe("rejection messages name the offending key (SHOULD, SPEC-2 §8)", () =>
     expect(() =>
       parseClaims({
         timestamp: 0,
+        validFrom: 0,
         author: "did:key:zA",
         pointers: [{ role: "r", target: { id: "e", delta: "1e2000" } }],
       }),

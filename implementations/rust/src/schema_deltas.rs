@@ -45,6 +45,8 @@ pub fn publish_hyper_schema_claims(
 ) -> Result<Claims, String> {
     Ok(Claims {
         timestamp,
+        valid_from: timestamp,
+        valid_until: None,
         author: author.to_string(),
         pointers: vec![
             Pointer {
@@ -171,6 +173,8 @@ pub fn publish_schema_claims(
     };
     Ok(Claims {
         timestamp,
+        valid_from: timestamp,
+        valid_until: None,
         author: author.to_string(),
         pointers: vec![
             Pointer {

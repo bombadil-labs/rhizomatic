@@ -241,7 +241,7 @@ function resolveReflective(
 ): Pred {
   switch (pred.kind) {
     case "inView": {
-      const sub = evalTerm(pred.term, input, root, registry, bindings);
+      const sub = evalTermRaw(pred.term, input, root, registry, bindings);
       if (sub.sort !== "dset") throw new Error("inView.term must evaluate to a DSet (E9)");
       return {
         kind: "match",
@@ -305,7 +305,9 @@ function evalGroup(key: GroupKey, operand: DSetResult, root: string): HView {
   return { id: root, props };
 }
 
-export function evalTerm(
+// Raw term evaluation is for machinery such as federation offers and storage inspection. It does
+// not make a validity claim; callers rendering a view use evalTerm with an explicit `now`.
+export function evalTermRaw(
   term: Term,
   input: DeltaSet,
   root?: string,
@@ -316,7 +318,7 @@ export function evalTerm(
     case "input":
       return dsetResult(input);
     case "select": {
-      const of = expectDSet(evalTerm(term.of, input, root, registry, bindings), "select");
+      const of = expectDSet(evalTermRaw(term.of, input, root, registry, bindings), "select");
       const pred = resolveReflective(
         expandAliased(substituteHoles(term.pred, bindings), input, root),
         input,
@@ -327,28 +329,31 @@ export function evalTerm(
       return dsetResult(fork(of.set, (d) => evalPred(pred, d, root)));
     }
     case "union": {
-      const left = expectDSet(evalTerm(term.left, input, root, registry, bindings), "union");
-      const right = expectDSet(evalTerm(term.right, input, root, registry, bindings), "union");
+      const left = expectDSet(evalTermRaw(term.left, input, root, registry, bindings), "union");
+      const right = expectDSet(evalTermRaw(term.right, input, root, registry, bindings), "union");
       return dsetResult(merge(left.set, right.set));
     }
     case "intersect": {
       // left ∩ right, keyed by content-addressed id (SPEC-2 §4.9). Plain DSet result: any
       // mask(annotate) tag channel on an operand is dropped, like select/union (E14).
-      const left = expectDSet(evalTerm(term.left, input, root, registry, bindings), "intersect");
-      const right = expectDSet(evalTerm(term.right, input, root, registry, bindings), "intersect");
+      const left = expectDSet(evalTermRaw(term.left, input, root, registry, bindings), "intersect");
+      const right = expectDSet(
+        evalTermRaw(term.right, input, root, registry, bindings),
+        "intersect",
+      );
       return dsetResult(fork(left.set, (d) => right.set.has(d.id)));
     }
     case "difference": {
       // of ∖ without, keyed by id (SPEC-2 §4.9). Asymmetric operands `of`/`without`.
-      const of = expectDSet(evalTerm(term.of, input, root, registry, bindings), "difference");
+      const of = expectDSet(evalTermRaw(term.of, input, root, registry, bindings), "difference");
       const without = expectDSet(
-        evalTerm(term.without, input, root, registry, bindings),
+        evalTermRaw(term.without, input, root, registry, bindings),
         "difference",
       );
       return dsetResult(fork(of.set, (d) => !without.set.has(d.id)));
     }
     case "mask": {
-      const of = expectDSet(evalTerm(term.of, input, root, registry, bindings), "mask");
+      const of = expectDSet(evalTermRaw(term.of, input, root, registry, bindings), "mask");
       switch (term.policy.kind) {
         case "drop": {
           const negated = computeNegated(of.set);
@@ -374,11 +379,11 @@ export function evalTerm(
     }
     case "group": {
       if (root === undefined) throw new Error("group requires an ambient root entity (E9)");
-      const of = expectDSet(evalTerm(term.of, input, root, registry, bindings), "group");
+      const of = expectDSet(evalTermRaw(term.of, input, root, registry, bindings), "group");
       return { sort: "hview", hview: evalGroup(term.key, of, root) };
     }
     case "prune": {
-      const of = expectHView(evalTerm(term.of, input, root, registry, bindings), "prune");
+      const of = expectHView(evalTermRaw(term.of, input, root, registry, bindings), "prune");
       if (term.keep === "all") return of;
       const keep = expandStrMatch(term.keep, input, root);
       const props = new Map<string, readonly HVEntry[]>();
@@ -388,7 +393,7 @@ export function evalTerm(
       return { sort: "hview", hview: { id: of.hview.id, props } };
     }
     case "expand": {
-      const of = expectHView(evalTerm(term.of, input, root, registry, bindings), "expand");
+      const of = expectHView(evalTermRaw(term.of, input, root, registry, bindings), "expand");
       const role = expandStrMatch(term.role, input, root);
       // Resolve the child's reading once, up front — an unknown reading fails the whole
       // evaluation loudly, exactly as an unknown gather schema does (issue #23).
@@ -433,10 +438,30 @@ export function evalTerm(
         hview: evalSchema(term.schema, input, term.entity, registry, term.bindings ?? bindings),
       };
     case "resolve": {
-      const of = expectHView(evalTerm(term.of, input, root, registry, bindings), "resolve");
+      const of = expectHView(evalTermRaw(term.of, input, root, registry, bindings), "resolve");
       return { sort: "view", view: resolveView(term.schema, of.hview) };
     }
   }
+}
+
+// Evaluate the claims whose signed validity intervals contain the caller's instant. The filter
+// happens once at the boundary so every nested term, alias lookup, and negation sees the same
+// effective delta set. A negation whose interval has ended cannot suppress its target.
+export function evalTerm(
+  term: Term,
+  input: DeltaSet,
+  now: number,
+  root?: string,
+  registry?: SchemaRegistry,
+  bindings?: Bindings,
+): EvalResult {
+  if (!Number.isFinite(now)) throw new Error("now must be a finite number");
+  const valid = fork(
+    input,
+    (d) =>
+      d.claims.validFrom <= now && (d.claims.validUntil === undefined || now < d.claims.validUntil),
+  );
+  return evalTermRaw(term, valid, root, registry, bindings);
 }
 
 // Evaluate a named schema at a root over the SAME delta set the enclosing evaluation received
@@ -453,7 +478,7 @@ function evalSchema(
     throw new Error(`schema ${label} referenced but no registry supplied (E10)`);
   const schema = registry.resolve(ref);
   if (schema === undefined) throw new Error(`unknown schema: ${label} (E10/E13)`);
-  const result = evalTerm(schema.body, input, root, registry, bindings);
+  const result = evalTermRaw(schema.body, input, root, registry, bindings);
   if (result.sort !== "hview") {
     throw new Error(`schema ${label} body must be an HView-sort term (E10)`);
   }

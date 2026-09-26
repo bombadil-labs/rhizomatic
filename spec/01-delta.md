@@ -24,7 +24,9 @@ It is *not* an instruction. It carries no operational semantics and presumes no 
 Delta {
   id:        Hash          // content-derived; see §4
   claims: {
-    timestamp: number      // milliseconds since Unix epoch; a CLAIM, not an authority (§6)
+    timestamp:  number     // claimed creation time, milliseconds since Unix epoch (§6)
+    validFrom:  number     // first moment this delta binds, inclusive (§6)
+    validUntil?: number    // first moment this delta no longer binds, exclusive (§6)
     author:    AuthorId    // public key or key fingerprint; see §5
     pointers:  Pointer[]   // 1 or more
   }
@@ -62,7 +64,7 @@ Bytes {
 - `null`/`undefined` are not representable. Absence of a fact is absence of deltas.
 - Arrays are not primitives. Multiplicity is expressed by multiple pointers or multiple deltas.
 - `role` and `context` MUST be non-empty, valid UTF-8 strings; they are case-sensitive and byte-honest — canonically-equivalent Unicode spellings are **different strings** (ERRATA D16). Authors SHOULD write NFC (an authoring convention enforced where deltas are born, SPEC-5 §6 — never by rejection at L1). (Vocabulary conventions live at L5; L1 imposes no vocabulary.)
-- Numbers MUST be IEEE-754 doubles serializable without loss; implementations MUST reject NaN and ±Infinity at ingestion. *(Open: integer/decimal extension — see §10.)*
+- Numbers MUST be IEEE-754 doubles serializable without loss; implementations MUST reject NaN and ±Infinity at ingestion. `timestamp`, `validFrom`, and `validUntil` are finite numbers; when present, `validUntil` MUST be strictly greater than `validFrom`. *(Open: integer/decimal extension — see §10.)*
 - `DeltaRef` vs `EntityRef` are structurally distinct. Targeting a delta (e.g., negation, annotation) is explicit, never inferred from the shape of an id.
 - A `Bytes` target's `mime` MUST be a non-empty, valid UTF-8 string; it is case-sensitive, byte-honest, and otherwise opaque — implementations MUST NOT lowercase or otherwise repair it (`image/PNG` and `image/png` are different claims). Its `value` is a raw byte payload; a zero-length payload is legal. A bytes target carries no `context` — a literal is not a vertex (§2.3). All four target kinds are structurally distinct (§4.1): `Bytes` is discriminated by its `mime` key, never inferred. *(Informative: authors SHOULD use the lowercase IANA form; payload-size caps are deployment configuration — doors, admission requirements — not substrate law, §10.)*
 
@@ -165,7 +167,8 @@ next rung of the storage ladder, §10). A delta's id therefore attests `(mime, b
 the `mime` rides in-kind with the bytes it types. A zero-length payload encodes as `0x40`.
 
 **Map keys** sort by the bytewise lexicographic order of their encoded keys. All Rhizomatic map
-keys are text strings; for `claims` the encoded order is therefore `author, pointers, timestamp`.
+keys are text strings; for `claims` the encoded order is therefore `author, pointers, timestamp,
+validFrom, validUntil` (with `validUntil` omitted when absent).
 
 **Pointer and target layout.** A `Pointer` encodes as the map `{ "role": tstr, "target": <target> }`.
 Targets are discriminated structurally:
@@ -184,7 +187,8 @@ its keys sort `mime` before `value` under the D4 rule. `context` is omitted enti
 — there is no null.
 
 **Claims layout.** `claims` encodes as the map
-`{ "author": tstr, "pointers": [Pointer...], "timestamp": float }`. The `pointers` array is
+`{ "author": tstr, "pointers": [Pointer...], "timestamp": float, "validFrom": float,
+"validUntil"?: float }`. The `pointers` array is
 definite-length; its order is **preserved and significant for hashing** (it is part of what the
 author signed) but MUST be treated as **semantically unordered** by all higher layers: no
 operator (SPEC-2) may distinguish deltas by pointer order.
@@ -215,7 +219,7 @@ DeltaRef, `mime` → Bytes, else a bare scalar):
 ```
 
 **The profile is closed** (issue #25). Each node carries exactly its own keys — `claims` is
-`{timestamp, author, pointers}`, a pointer is `{role, target}`, an EntityRef is `{id, context?}`, a
+`{timestamp, validFrom, validUntil?, author, pointers}`, a pointer is `{role, target}`, an EntityRef is `{id, context?}`, a
 DeltaRef is `{delta, context?}`, a Bytes literal is `{mime, value}` (no `context` — D12). A parser
 MUST reject any other key, and MUST reject a target object carrying **more than one** of
 `id`/`delta`/`mime` as ambiguous rather than resolving it by declaration order. Earlier text here
@@ -285,14 +289,32 @@ signing is deterministic and identical under both criteria.)*
 
 ## 6. Time
 
-There is no clock in the format. `timestamp` is a **claim made by the author**, with the same epistemic status as every other claim:
+There is no clock in the format. All three time fields are **claims by the author**:
 
-- Implementations MUST NOT treat `timestamp` as ground truth for ordering across authors.
-- Resolution policies decide how much to trust timestamps (SPEC-5).
-- Time-travel queries filter on claimed timestamps and are therefore relative to the claim-graph, not to an objective clock. This is honest: the format records who said what *and when they said they said it*.
-- Instances MAY record locally-trusted receipt times as annotation deltas (authored by the instance's own key) when wall-clock ordering matters operationally.
+- `timestamp` is when the author says the delta was created. The `byTimestamp` Schema Policy
+  (SPEC-5) compares it and finishes equal values by ascending delta id. L1 imposes no winning
+  claim or order over the superposition, and an implementation MUST NOT infer an author sequence
+  or cross-author causal order from the field. There is no HLC or author sequence in L1.
+- `validFrom` is the first moment the delta binds, inclusive. It is REQUIRED, even when equal to
+  `timestamp`: omission is malformed, never a default applied by the receiver.
+- `validUntil`, when present, is the first moment the delta no longer binds, exclusive. It MUST
+  be strictly greater than `validFrom`. Without it, the interval has no upper bound. `validFrom`
+  MAY be earlier or later than `timestamp`; retroactive and future-effective statements are legal.
 
-*(Open: optional hybrid-logical-clock annotation convention for causality — §9.)*
+At a caller-supplied finite `now`, a delta is valid exactly when `validFrom <= now` and either
+`validUntil` is absent or `now < validUntil`. The same rule applies to negation deltas. When a
+negation expires at T, its target can bind again at T if the target is still valid and no other
+effective negation suppresses it. No new delta is needed for an interval boundary to take effect.
+Every validity read MUST take `now` explicitly; a library MUST NOT fetch an ambient clock or
+silently choose a default time. A maintained surface MUST report its next known validity boundary
+so its host can refresh at that moment.
+
+Two time axes answer different questions. A **creation cutoff** at T selects deltas with
+`timestamp <= T`, asking what the authors claimed to have said by T. A **validity read** at T
+selects deltas whose interval contains T, asking what claims bind at T. A caller may combine
+them, but one parameter MUST NOT silently stand for both. Neither axis is objective time.
+Instances MAY record locally trusted receipt times as separate testimony when operational
+wall-clock ordering matters.
 
 ## 7. Negation
 

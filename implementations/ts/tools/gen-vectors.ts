@@ -55,6 +55,7 @@ const inputs: Input[] = [
     spec: "SPEC-1 §2",
     claims: {
       timestamp: 0,
+      validFrom: 0,
       author: "did:key:zAuthorA",
       pointers: [{ role: "title", target: "The Matrix" }],
     },
@@ -64,6 +65,7 @@ const inputs: Input[] = [
     spec: "SPEC-1 §2 / ERRATA D1",
     claims: {
       timestamp: 1717977600000,
+      validFrom: 1717977600000,
       author: "did:key:zAuthorA",
       pointers: [{ role: "releaseYear", target: 1999 }],
     },
@@ -73,6 +75,7 @@ const inputs: Input[] = [
     spec: "SPEC-1 §2",
     claims: {
       timestamp: 0,
+      validFrom: 0,
       author: "did:key:zAuthorA",
       pointers: [{ role: "isCanonical", target: true }],
     },
@@ -82,6 +85,7 @@ const inputs: Input[] = [
     spec: "SPEC-1 §2 / ERRATA D5",
     claims: {
       timestamp: 0,
+      validFrom: 0,
       author: "did:key:zAuthorA",
       pointers: [{ role: "subject", target: { id: "entity:the_matrix" } }],
     },
@@ -91,6 +95,7 @@ const inputs: Input[] = [
     spec: "SPEC-1 §2 / ERRATA D5",
     claims: {
       timestamp: 0,
+      validFrom: 0,
       author: "did:key:zAuthorA",
       pointers: [{ role: "cast", target: { id: "entity:keanu", context: "actor" } }],
     },
@@ -100,6 +105,7 @@ const inputs: Input[] = [
     spec: "SPEC-1 §7 / ERRATA D5",
     claims: {
       timestamp: 1,
+      validFrom: 1,
       author: "did:key:zAuthorB",
       pointers: [
         {
@@ -117,6 +123,7 @@ const inputs: Input[] = [
     spec: "SPEC-1 §3",
     claims: {
       timestamp: 1717977600000,
+      validFrom: 1717977600000,
       author: "did:key:zAuthorA",
       pointers: [
         { role: "buyer", target: { id: "entity:alice", context: "purchases" } },
@@ -131,6 +138,7 @@ const inputs: Input[] = [
     spec: "SPEC-1 §4.1 / ERRATA D2",
     claims: {
       timestamp: 0,
+      validFrom: 0,
       author: "did:key:café",
       pointers: [{ role: "note", target: "ünïcödé" }],
     },
@@ -140,6 +148,7 @@ const inputs: Input[] = [
     spec: "SPEC-1 §4.1 / ERRATA D16 (byte-honest strings: a decomposed spelling is admitted and is a DIFFERENT claim than its composed sibling — same honesty as image/PNG vs image/png, D12)",
     claims: {
       timestamp: 0,
+      validFrom: 0,
       // "cafe" + U+0301 / vowels + U+0308..: the decomposed (NFD) spellings of the
       // unicode-nfc-author strings, written as escapes so no editor can silently normalize
       // them (the Elixir witness's fixture lesson).
@@ -152,6 +161,7 @@ const inputs: Input[] = [
     spec: "SPEC-1 §4.1 / ERRATA D14 (a JSON integer token is a float spelling: 42 ≡ 42.0, one canonical encoding)",
     claims: {
       timestamp: 42,
+      validFrom: 42,
       author: "did:key:zAuthorA",
       pointers: [{ role: "answer", target: 42 }],
     },
@@ -200,6 +210,7 @@ const signedInputs: Array<{
     keyId: "test-key-1",
     mk: (author) => ({
       timestamp: 1717977600000,
+      validFrom: 1717977600000,
       author,
       pointers: [{ role: "title", target: "The Matrix" }],
     }),
@@ -210,6 +221,7 @@ const signedInputs: Array<{
     keyId: "test-key-2",
     mk: (author) => ({
       timestamp: 42,
+      validFrom: 42,
       author,
       pointers: [{ role: "cast", target: { id: "entity:keanu", context: "actor" } }],
     }),
@@ -220,6 +232,7 @@ const signedInputs: Array<{
     keyId: "test-key-3",
     mk: (author) => ({
       timestamp: 43,
+      validFrom: 43,
       author,
       pointers: [
         {
@@ -237,6 +250,7 @@ const signedInputs: Array<{
     keyId: "test-key-1",
     mk: (author) => ({
       timestamp: 4242,
+      validFrom: 4242,
       author,
       pointers: [{ role: "icon", target: bytesTarget("image/png", PNG4) }],
     }),
@@ -341,6 +355,7 @@ const addEdge = (
 // 1. Control: an honest signature verifies (all five checks pass).
 const controlClaims = {
   timestamp: 777,
+  validFrom: 777,
   author: key1.author,
   pointers: [{ role: "case", target: "control-valid" }],
 };
@@ -377,6 +392,7 @@ addEdge(
   const author = `ed25519:${IDENTITY_HEX}`;
   const claimsJson = {
     timestamp: 777,
+    validFrom: 777,
     author,
     pointers: [{ role: "case", target: "small-order-pubkey" }],
   };
@@ -395,6 +411,7 @@ addEdge(
 {
   const claimsJson = {
     timestamp: 777,
+    validFrom: 777,
     author: key1.author,
     pointers: [{ role: "case", target: "small-order-r" }],
   };
@@ -418,6 +435,7 @@ addEdge(
   const author = `ed25519:${torsion8.toHex()}`;
   const claimsJson = {
     timestamp: 777,
+    validFrom: 777,
     author,
     pointers: [{ role: "case", target: "small-order-pair" }],
   };
@@ -439,6 +457,7 @@ addEdge(
   "A encodes y = p (a non-canonical spelling of y = 0): decompress-recompress does not reproduce the bytes (ZIP215 accepts the encoding)",
   {
     timestamp: 777,
+    validFrom: 777,
     author: `ed25519:${NONCANONICAL_Y_HEX}`,
     pointers: [{ role: "case", target: "noncanonical-pubkey" }],
   },
@@ -451,6 +470,7 @@ addEdge(
   "R encodes y = p: same rejection as check 2, applied to the signature's point half",
   {
     timestamp: 777,
+    validFrom: 777,
     author: key1.author,
     pointers: [{ role: "case", target: "noncanonical-r" }],
   },
@@ -463,6 +483,7 @@ addEdge(
   "A encodes the identity with the sign bit set: x = 0 admits only sign 0, so the encoding is non-canonical",
   {
     timestamp: 777,
+    validFrom: 777,
     author: `ed25519:${SIGNBIT_IDENTITY_HEX}`,
     pointers: [{ role: "case", target: "signbit-pubkey" }],
   },
@@ -481,6 +502,7 @@ addEdge(
   const author = `ed25519:${bytesToHex(aMixedBytes)}`;
   const claimsJson = {
     timestamp: 777,
+    validFrom: 777,
     author,
     pointers: [{ role: "case", target: "mixed-torsion" }],
   };
@@ -541,6 +563,7 @@ const bytesInputs: Input[] = [
     spec: "SPEC-1 §2.1 §4.1 / D12 (zero-length payload is legal; encodes 0x40)",
     claims: {
       timestamp: 0,
+      validFrom: 0,
       author: "did:key:zAuthorA",
       pointers: [
         { role: "blob", target: bytesTarget("application/octet-stream", new Uint8Array()) },
@@ -552,6 +575,7 @@ const bytesInputs: Input[] = [
     spec: "SPEC-1 §4.1 / D12",
     claims: {
       timestamp: 0,
+      validFrom: 0,
       author: "did:key:zAuthorA",
       pointers: [{ role: "icon", target: bytesTarget("image/png", PNG4) }],
     },
@@ -561,6 +585,7 @@ const bytesInputs: Input[] = [
     spec: "D12 (image/PNG ≠ image/png — same bytes, different id)",
     claims: {
       timestamp: 0,
+      validFrom: 0,
       author: "did:key:zAuthorA",
       pointers: [{ role: "icon", target: bytesTarget("image/PNG", PNG4) }],
     },
@@ -570,6 +595,7 @@ const bytesInputs: Input[] = [
     spec: "D12 (same bytes under application/wasm — a different claim, different id)",
     claims: {
       timestamp: 0,
+      validFrom: 0,
       author: "did:key:zAuthorA",
       pointers: [{ role: "icon", target: bytesTarget("application/wasm", PNG4) }],
     },
@@ -579,6 +605,7 @@ const bytesInputs: Input[] = [
     spec: "D12 (bytes payload co-traveling with a filing EntityRef and a string primitive)",
     claims: {
       timestamp: 7,
+      validFrom: 7,
       author: "did:key:zAuthorA",
       pointers: [
         { role: "subject", target: { id: "entity:logo", context: "asset" } },
@@ -592,6 +619,7 @@ const bytesInputs: Input[] = [
     spec: "SPEC-1 §4.1 (0x58 one-byte length head path)",
     claims: {
       timestamp: 0,
+      validFrom: 0,
       author: "did:key:zAuthorA",
       pointers: [{ role: "blob", target: bytesTarget("application/octet-stream", BLOB30) }],
     },
@@ -601,6 +629,7 @@ const bytesInputs: Input[] = [
     spec: 'D12 (base64url 2-char tail: 0x66 → "Zg")',
     claims: {
       timestamp: 0,
+      validFrom: 0,
       author: "did:key:zAuthorA",
       pointers: [
         { role: "blob", target: bytesTarget("application/octet-stream", new Uint8Array([0x66])) },
@@ -612,6 +641,7 @@ const bytesInputs: Input[] = [
     spec: "D12 (base64url 3-char tail)",
     claims: {
       timestamp: 0,
+      validFrom: 0,
       author: "did:key:zAuthorA",
       pointers: [
         {
@@ -646,6 +676,7 @@ console.log(`wrote set digest (${dset.size} ids) to vectors/l0-delta/set-digest.
 // The fixture is built sequentially because negations pin earlier deltas by content address.
 const claim = (timestamp: number, author: string, pointers: unknown[]) => ({
   timestamp,
+  validFrom: timestamp,
   author,
   pointers,
 });
@@ -819,7 +850,7 @@ const evalCases: Array<{ name: string; spec: string; term: unknown; note?: strin
 
 const evalVectors = evalCases.map(({ name, spec, term, note }) => {
   const parsed = parseTerm(term);
-  const result = evalTerm(parsed, fixtureSet);
+  const result = evalTerm(parsed, fixtureSet, 1_000_000_000_000_000);
   if (result.sort !== "dset") throw new Error(`${name}: expected a DSet result`);
   const expected: { ids: string[]; negated?: string[] } = { ids: result.set.ids() };
   if (result.annotated) expected.negated = [...result.negated].sort();
@@ -915,7 +946,7 @@ const setAlgCases: Array<{ name: string; spec: string; term: unknown; note?: str
 ];
 
 const setAlgVectors = setAlgCases.map(({ name, spec, term, note }) => {
-  const result = evalTerm(parseTerm(term), fixtureSet);
+  const result = evalTerm(parseTerm(term), fixtureSet, 1_000_000_000_000_000);
   if (result.sort !== "dset") throw new Error(`${name}: expected a DSet result`);
   const expected: { ids: string[]; negated?: string[] } = { ids: result.set.ids() };
   if (result.annotated) expected.negated = [...result.negated].sort();
@@ -962,7 +993,7 @@ const setAlgRejects: Array<{ name: string; spec: string; reason: string; term: u
 for (const r of setAlgRejects) {
   let rejected = false;
   try {
-    evalTerm(parseTerm(r.term), fixtureSet);
+    evalTerm(parseTerm(r.term), fixtureSet, 1_000_000_000_000_000);
   } catch {
     rejected = true;
   }
@@ -1126,7 +1157,7 @@ const relCases: Array<{ name: string; spec: string; term: unknown; note?: string
 ];
 
 const relVectors = relCases.map(({ name, spec, term, note }) => {
-  const result = evalTerm(parseTerm(term), relFixtureSet);
+  const result = evalTerm(parseTerm(term), relFixtureSet, 1_000_000_000_000_000);
   if (result.sort !== "dset") throw new Error(`${name}: expected a DSet result`);
   return {
     name,
@@ -1180,7 +1211,7 @@ const relRejects: Array<{ name: string; spec: string; reason: string; term: unkn
 for (const r of relRejects) {
   let rejected = false;
   try {
-    evalTerm(parseTerm(r.term), relFixtureSet);
+    evalTerm(parseTerm(r.term), relFixtureSet, 1_000_000_000_000_000);
   } catch {
     rejected = true;
   }
@@ -1524,7 +1555,7 @@ const hviewCases: Array<{
 ];
 
 const hviewVectors = hviewCases.map(({ name, spec, root, term, note }) => {
-  const result = evalTerm(parseTerm(term), hviewFixtureSet, root);
+  const result = evalTerm(parseTerm(term), hviewFixtureSet, 1_000_000_000_000_000, root);
   if (result.sort !== "hview") throw new Error(`${name}: expected an HView result`);
   const props: Record<string, Array<{ id: string; negated?: boolean }>> = {};
   for (const [prop, entries] of [...result.hview.props.entries()].sort(([a], [b]) =>
@@ -1731,7 +1762,13 @@ const expandCases: Array<{ name: string; spec: string; term: unknown; note?: str
 ];
 
 const expandVectors = expandCases.map(({ name, spec, term, note }) => {
-  const result = evalTerm(parseTerm(term), expandFixtureSet, undefined, expandRegistry);
+  const result = evalTerm(
+    parseTerm(term),
+    expandFixtureSet,
+    1_000_000_000_000_000,
+    undefined,
+    expandRegistry,
+  );
   if (result.sort !== "hview") throw new Error(`${name}: expected an HView result`);
   return {
     name,
@@ -2119,7 +2156,13 @@ const resolveCases: Array<{ name: string; spec: string; term: unknown; note?: st
 ];
 
 const resolveVectors = resolveCases.map(({ name, spec, term, note }) => {
-  const result = evalTerm(parseTerm(term), resolveFixtureSet, undefined, resolveRegistry);
+  const result = evalTerm(
+    parseTerm(term),
+    resolveFixtureSet,
+    1_000_000_000_000_000,
+    undefined,
+    resolveRegistry,
+  );
   if (result.sort !== "view") throw new Error(`${name}: expected a View result`);
   return {
     name,
@@ -2157,7 +2200,13 @@ for (const r of resolveRejects) {
   );
   let rejected = false;
   try {
-    evalTerm(parseTerm(r.term), resolveFixtureSet, undefined, legacyRegistry);
+    evalTerm(
+      parseTerm(r.term),
+      resolveFixtureSet,
+      1_000_000_000_000_000,
+      undefined,
+      legacyRegistry,
+    );
   } catch {
     rejected = true;
   }
@@ -2197,7 +2246,13 @@ const publishedDelta = makeDelta(publishedClaims);
 // pinned-ref case: fix through the hash of MovieBasic must equal fix through its name
 const movieBasicHash = termHash(expandRegistry.get("MovieBasic")!.body);
 const pinnedTerm = { op: "fix", schema: { pinned: movieBasicHash }, entity: "movie:matrix" };
-const pinnedResult = evalTerm(parseTerm(pinnedTerm), expandFixtureSet, undefined, expandRegistry);
+const pinnedResult = evalTerm(
+  parseTerm(pinnedTerm),
+  expandFixtureSet,
+  1_000_000_000_000_000,
+  undefined,
+  expandRegistry,
+);
 
 // S6 (issue #11): a resolution Schema published + loaded back through SCHEMA_SCHEMA.
 const publishedSchemaInput = {
@@ -2212,7 +2267,11 @@ const publishedSchemaInput = {
 const publishedSchemaObj = parseSchema(publishedSchemaInput);
 const schemaClaims = publishSchemaClaims(publishedSchemaObj, "schema:MovieView", A, 2000);
 const schemaDelta = makeDelta(schemaClaims);
-const loadedSchema = loadSchema(DeltaSet.from([schemaDelta]), "schema:MovieView");
+const loadedSchema = loadSchema(
+  DeltaSet.from([schemaDelta]),
+  "schema:MovieView",
+  1_000_000_000_000_000,
+);
 if (schemaCanonicalHex(loadedSchema) !== schemaCanonicalHex(publishedSchemaObj)) {
   throw new Error("SCHEMA_SCHEMA round-trip failed in gen-vectors");
 }
@@ -2272,6 +2331,8 @@ const packMembers = [
   signClaims(
     parseClaims({
       timestamp: 4900,
+      validFrom: 4800,
+      validUntil: 5000,
       author: keys[0]!.author,
       pointers: [{ role: "note", target: "covered" }],
     }),
@@ -2301,7 +2362,7 @@ writeFileSync(
   resolve(evalDir, "../l0-pack/pack.json"),
   `${JSON.stringify(
     {
-      note: "members incl. a divergent-author member, a signed member, a multiply-claimed member; manifests + loose deltas. Rust must reproduce packHex byte-for-byte.",
+      note: "members incl. a divergent-author member, a signed member with a bounded validity interval, a multiply-claimed member; manifests + loose deltas. Rust must reproduce packHex byte-for-byte.",
       deltas: packDeltas.map((d) => ({
         claims: claimsToJson(d.claims),
         ...(d.sig === undefined ? {} : { sig: d.sig }),
@@ -2324,6 +2385,7 @@ const packBytesDeltas = [
   makeDelta(
     parseClaims({
       timestamp: 6000,
+      validFrom: 6000,
       author: "did:key:zAsset",
       pointers: [
         { role: "subject", target: { id: "entity:logo", context: "asset" } },
@@ -2334,6 +2396,7 @@ const packBytesDeltas = [
   signClaims(
     parseClaims({
       timestamp: 6001,
+      validFrom: 6001,
       author: keys[1]!.author,
       pointers: [{ role: "icon", target: bytesTarget("image/png", BLOB30) }],
     }),
@@ -2342,6 +2405,8 @@ const packBytesDeltas = [
   makeDelta(
     parseClaims({
       timestamp: 6002,
+      validFrom: 5900,
+      validUntil: 7000,
       author: "did:key:zAsset",
       pointers: [{ role: "alt", target: "the logo" }],
     }),
@@ -2533,7 +2598,7 @@ const holeCases: Array<{ name: string; spec: string; term: unknown; note?: strin
 
 const holeVectors = holeCases.map(({ name, spec, term, note }) => {
   const parsed = parseTerm(term);
-  const result = evalTerm(parsed, holesFixtureSet, undefined, holesRegistry);
+  const result = evalTerm(parsed, holesFixtureSet, 1_000_000_000_000_000, undefined, holesRegistry);
   if (result.sort !== "hview") throw new Error(`${name}: expected an HView result`);
   return {
     name,
@@ -2774,7 +2839,7 @@ const aliasCases: AliasCase[] = [
 
 const aliasVectors = aliasCases.map(({ name, spec, term, aliased, note }) => {
   const parsed = parseTerm(term);
-  const result = evalTerm(parsed, aliasFixtureSet);
+  const result = evalTerm(parsed, aliasFixtureSet, 1_000_000_000_000_000);
   if (result.sort !== "dset") throw new Error(`${name}: expected a DSet result`);
   return {
     name,
@@ -2806,7 +2871,7 @@ const recallCases = [
 ].map(({ name, root, note }) => {
   const term = { op: "fix", schema: "RecallWork", entity: root };
   const parsed = parseTerm(term);
-  const result = evalTerm(parsed, aliasFixtureSet, undefined, aliasRegistry);
+  const result = evalTerm(parsed, aliasFixtureSet, 1_000_000_000_000_000, undefined, aliasRegistry);
   if (result.sort !== "hview") throw new Error(`${name}: expected an HView result`);
   const props: Record<string, string[]> = {};
   for (const [prop, entries] of [...result.hview.props.entries()].sort(([a], [b]) =>
@@ -2994,7 +3059,7 @@ const reflectiveCases: Array<{ name: string; spec: string; term: unknown; note?:
 
 const reflectiveVectors = reflectiveCases.map(({ name, spec, term, note }) => {
   const parsed = parseTerm(term);
-  const result = evalTerm(parsed, reflectiveFixtureSet);
+  const result = evalTerm(parsed, reflectiveFixtureSet, 1_000_000_000_000_000);
   if (result.sort !== "dset") throw new Error(`${name}: expected a DSet result`);
   return {
     name,
@@ -3182,7 +3247,13 @@ const distinctCases: Array<{ name: string; spec: string; term: unknown; note?: s
 ];
 
 const distinctVectors = distinctCases.map(({ name, spec, term, note }) => {
-  const result = evalTerm(parseTerm(term), distinctFixtureSet, undefined, distinctRegistry);
+  const result = evalTerm(
+    parseTerm(term),
+    distinctFixtureSet,
+    1_000_000_000_000_000,
+    undefined,
+    distinctRegistry,
+  );
   if (result.sort !== "view") throw new Error(`${name}: expected a View result`);
   return {
     name,
@@ -3223,7 +3294,13 @@ const distinctRejects: Array<{ name: string; spec: string; reason: string; term:
 for (const r of distinctRejects) {
   let rejected = false;
   try {
-    evalTerm(parseTerm(r.term), distinctFixtureSet, undefined, distinctRegistry);
+    evalTerm(
+      parseTerm(r.term),
+      distinctFixtureSet,
+      1_000_000_000_000_000,
+      undefined,
+      distinctRegistry,
+    );
   } catch {
     rejected = true;
   }
@@ -3380,7 +3457,13 @@ const bytesCases: Array<{
 ];
 
 const bytesVectors = bytesCases.map(({ name, spec, term, note, leafProp }) => {
-  const result = evalTerm(parseTerm(term), bytesFixtureSet, undefined, bytesRegistry);
+  const result = evalTerm(
+    parseTerm(term),
+    bytesFixtureSet,
+    1_000_000_000_000_000,
+    undefined,
+    bytesRegistry,
+  );
   if (result.sort !== "view") throw new Error(`${name}: expected a View result`);
   const extra: Record<string, unknown> = {};
   if (leafProp !== undefined) {
@@ -3584,3 +3667,116 @@ writeFileSync(
   resolve(evalDir, "eval-parse-errors.json"),
   `${JSON.stringify({ note: "SPEC-2 §8 (#39). Kind and JSON Pointer are normative; human messages are not.", cases: parseErrorCases }, null, 2)}\n`,
 );
+
+// --- vNext time: signed intervals and per-property ordering (SPEC-1 §6, SPEC-2 §5, SPEC-5 §3) ---
+const timeClaims = (
+  timestamp: number,
+  validFrom: number,
+  validUntil: number | undefined,
+  author: string,
+  value: string,
+) => ({
+  timestamp,
+  validFrom,
+  ...(validUntil === undefined ? {} : { validUntil }),
+  author,
+  pointers: [
+    { role: "subject", target: { id: "entity:time", context: "value" } },
+    { role: "payload", target: value },
+  ],
+});
+const timeFx: Record<string, ReturnType<typeof makeDelta>> = {};
+const addTime = (name: string, claims: unknown) => {
+  timeFx[name] = makeDelta(parseClaims(claims));
+};
+addTime("fact-later", timeClaims(100, 200, 300, "author:a", "fact-later"));
+addTime("statement-later", timeClaims(150, 100, undefined, "author:b", "statement-later"));
+addTime("validity-tie", timeClaims(90, 200, undefined, "author:c", "validity-tie"));
+addTime("creation-tie", timeClaims(150, 100, undefined, "author:d", "creation-tie"));
+addTime("bounded-negation", {
+  timestamp: 160,
+  validFrom: 260,
+  validUntil: 280,
+  author: "author:a",
+  pointers: [{ role: "negates", target: { delta: timeFx["fact-later"]!.id } }],
+});
+const timeMasked = { op: "mask", policy: "drop", in: "input" };
+const timeFactOnly = {
+  op: "select",
+  pred: { match: { field: "id", cmp: "eq", const: timeFx["fact-later"]!.id } },
+  in: timeMasked,
+};
+const timeOrderTerm = (order: unknown) => ({
+  op: "resolve",
+  schema: { props: { value: { pick: { order } } }, default: { all: { order: "lexById" } } },
+  in: { op: "group", key: "byTargetContext", in: "input" },
+});
+const timeCases = [
+  ...[199, 200, 201, 299, 300, 301].map((now) => ({
+    name: `plain-interval-${now}`,
+    now,
+    input: ["fact-later"],
+    term: timeFactOnly,
+  })),
+  ...[279, 280, 281].map((now) => ({
+    name: `bounded-negation-${now}`,
+    now,
+    input: ["fact-later", "bounded-negation"],
+    term: timeFactOnly,
+  })),
+  {
+    name: "creation-order",
+    now: 225,
+    input: ["fact-later", "statement-later"],
+    term: timeOrderTerm({ byTimestamp: "desc" }),
+  },
+  {
+    name: "validity-order",
+    now: 225,
+    input: ["fact-later", "statement-later"],
+    term: timeOrderTerm({ byValidFrom: "desc" }),
+  },
+  {
+    name: "creation-order-id-tie",
+    now: 225,
+    input: ["statement-later", "creation-tie"],
+    term: timeOrderTerm({ byTimestamp: "desc" }),
+  },
+  {
+    name: "validity-order-id-tie",
+    now: 225,
+    input: ["fact-later", "validity-tie"],
+    term: timeOrderTerm({ byValidFrom: "desc" }),
+  },
+] as const;
+const timeVectors = timeCases.map((c) => {
+  const input = DeltaSet.from(c.input.map((name) => timeFx[name]!));
+  const result = evalTerm(parseTerm(c.term), input, c.now, "entity:time");
+  return {
+    name: c.name,
+    now: c.now,
+    input: c.input,
+    term: c.term,
+    expectedCanonicalHex: resultCanonicalHex(result),
+    ...(result.sort === "dset" ? { expectedIds: result.set.ids() } : {}),
+    ...(result.sort === "view" ? { expectedView: viewToJson(result.view) } : {}),
+  };
+});
+writeFileSync(
+  resolve(evalDir, "eval-time.json"),
+  `${JSON.stringify(
+    {
+      note: "Validity is a read-time filter over [validFrom, validUntil); byTimestamp and byValidFrom are independent Schema orders with ascending-id ties.",
+      fixture: Object.fromEntries(
+        Object.entries(timeFx).map(([name, d]) => [
+          name,
+          { id: d.id, claims: claimsToJson(d.claims) },
+        ]),
+      ),
+      cases: timeVectors,
+    },
+    null,
+    2,
+  )}\n`,
+);
+console.log(`wrote ${timeVectors.length} vNext time vectors to vectors/l1-eval/eval-time.json`);

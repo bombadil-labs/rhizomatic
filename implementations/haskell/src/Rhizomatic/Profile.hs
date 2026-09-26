@@ -15,11 +15,19 @@ import Rhizomatic.Json (JValue (..))
 claimsFromJson :: JValue -> Either String Claims
 claimsFromJson v = do
   fields <- asObj "claims" v
-  closedKeys "claims" ["timestamp", "author", "pointers"] fields
+  closedKeys "claims" ["timestamp", "validFrom", "validUntil", "author", "pointers"] fields
   ts <- case lookup "timestamp" fields of
     Just (JNum n) -> Right n
     Just _ -> Left "timestamp must be a number"
     Nothing -> Left "timestamp is required"
+  validFrom <- case lookup "validFrom" fields of
+    Just (JNum n) -> Right n
+    Just _ -> Left "validFrom must be a number"
+    Nothing -> Left "validFrom is required"
+  validUntil <- case lookup "validUntil" fields of
+    Nothing -> Right Nothing
+    Just (JNum n) -> Right (Just n)
+    Just _ -> Left "validUntil must be a number"
   author <- case lookup "author" fields of
     Just (JStr s) -> Right s
     Just _ -> Left "author must be a string"
@@ -28,7 +36,7 @@ claimsFromJson v = do
     Just (JArr xs) -> mapM pointerFromJson xs
     Just _ -> Left "pointers must be an array"
     Nothing -> Left "pointers must be an array"
-  let claims = Claims ts author ptrs
+  let claims = Claims ts validFrom validUntil author ptrs
   validateClaims claims
   Right claims
 

@@ -36,6 +36,7 @@ pub enum MergeFn {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Order {
     ByTimestamp { desc: bool },
+    ByValidFrom { desc: bool },
     ByAuthorRank(Vec<String>),
     ByPred { pred: Pred, then: Box<Order> },
     Chain(Vec<Order>),
@@ -83,6 +84,11 @@ fn cmp_by_order(order: &Order, a: &HVEntry, b: &HVEntry) -> Ordering {
             } else {
                 o
             }
+        }
+        Order::ByValidFrom { desc } => {
+            let o = a.delta.claims.valid_from.partial_cmp(&b.delta.claims.valid_from)
+                .expect("valid_from values are finite");
+            if *desc { o.reverse() } else { o }
         }
         Order::ByAuthorRank(authors) => {
             let rank = |author: &str| {

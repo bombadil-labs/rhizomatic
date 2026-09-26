@@ -43,6 +43,8 @@ fn claims() -> impl Strategy<Value = Claims> {
     )
         .prop_map(|(ts, author, pointers)| Claims {
             timestamp: ts as f64,
+            valid_from: ts as f64,
+            valid_until: None,
             author: author.to_string(),
             pointers,
         })

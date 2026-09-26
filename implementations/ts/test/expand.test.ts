@@ -28,7 +28,13 @@ const registry = SchemaRegistry.build(
 describe("l1-eval expand/fix vectors", () => {
   for (const c of doc.cases) {
     it(c.name, () => {
-      const result = evalTerm(parseTerm(c.term), fixtureSet, undefined, registry);
+      const result = evalTerm(
+        parseTerm(c.term),
+        fixtureSet,
+        1_000_000_000_000_000,
+        undefined,
+        registry,
+      );
       expect(resultCanonicalHex(result)).toBe(c.expectedCanonicalHex);
     });
   }
@@ -37,6 +43,7 @@ describe("l1-eval expand/fix vectors", () => {
     const result = evalTerm(
       parseTerm({ op: "fix", schema: "MovieDeep", entity: "movie:matrix" }),
       fixtureSet,
+      1_000_000_000_000_000,
       undefined,
       registry,
     );
@@ -134,8 +141,12 @@ describe("schema registry (SPEC-3 §3 / E10)", () => {
   });
 
   it("evaluating a schema reference without a registry throws", () => {
-    expect(() => evalTerm(parseTerm({ op: "fix", schema: "A", entity: "e" }), fixtureSet)).toThrow(
-      /no registry/,
-    );
+    expect(() =>
+      evalTerm(
+        parseTerm({ op: "fix", schema: "A", entity: "e" }),
+        fixtureSet,
+        1_000_000_000_000_000,
+      ),
+    ).toThrow(/no registry/);
   });
 });

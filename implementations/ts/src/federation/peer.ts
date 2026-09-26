@@ -1,7 +1,7 @@
 // Federation (SPEC-6, ERRATA-6): a peer is a reactor + keypair + offered lens + admission
 // predicate. Merge is union; this layer is selection and trust. Coordination without conscription.
 
-import { evalTerm, type Term } from "../resolve/eval.js";
+import { evalTermRaw, type Term } from "../resolve/eval.js";
 import { evalPred, type Pred } from "../syntax/pred.js";
 import { Reactor, type IngestResult } from "../reactor/reactor.js";
 import { manifestMemberIds } from "../delta/manifest.js";
@@ -48,7 +48,7 @@ export class Peer {
 
   // The offered set: eval(lens, log) — lens fidelity is a tested invariant (F4).
   offeredSet(): Delta[] {
-    const result = evalTerm(this.offeredLens, this.reactor.snapshot());
+    const result = evalTermRaw(this.offeredLens, this.reactor.snapshot());
     if (result.sort !== "dset") throw new Error("a lens must be a DSet-sort term (F4)");
     return [...result.set];
   }

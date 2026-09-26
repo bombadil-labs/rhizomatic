@@ -29,6 +29,7 @@ peers["Carol"]!.authorClaims(seedClaim("movie:blade_runner", "rating", 9));
 function seedClaim(entity: string, context: string, value: string | number) {
   return {
     timestamp: tick(),
+    validFrom: tick(),
     pointers: [
       { role: "movie", target: { kind: "entity" as const, entity: { id: entity, context } } },
       { role: context, target: { kind: "primitive" as const, value } },
@@ -79,7 +80,7 @@ function schemaFor(kind: string): Schema {
 }
 
 function hviewAt(peer: Peer, root: string, asOf: number | undefined, audit: boolean): HView {
-  const result = peer.reactor.eval(bodyTerm(asOf, audit), root);
+  const result = peer.reactor.eval(bodyTerm(asOf, audit), Date.now(), root);
   if (result.sort !== "hview") throw new Error("expected hview");
   return result.hview;
 }
@@ -150,7 +151,11 @@ function renderPeers(): void {
         const btn = el("button", { class: "small" }, "retract");
         btn.onclick = () => {
           const neg = makeNegationClaims(peer.author, tick(), d.id, "retracted in playground");
-          peer.authorClaims({ timestamp: neg.timestamp, pointers: [...neg.pointers] });
+          peer.authorClaims({
+            timestamp: neg.timestamp,
+            validFrom: neg.timestamp,
+            pointers: [...neg.pointers],
+          });
           refresh();
         };
         row.append(btn);

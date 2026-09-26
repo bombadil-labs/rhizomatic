@@ -39,6 +39,7 @@ defmodule KeysAndSignedTest do
     {:ok, claims} =
       Rhizomatic.Profile.parse_claims(%{
         "timestamp" => 0,
+        "validFrom" => 0,
         "author" => keys["test-key-2"]["author"],
         "pointers" => [%{"role" => "x", "target" => "y"}]
       })

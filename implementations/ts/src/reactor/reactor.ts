@@ -33,6 +33,7 @@ interface Materialization {
   readonly roots: readonly string[];
   readonly registry: SchemaRegistry | undefined;
   readonly rootAnchored: boolean;
+  now: number;
   readonly views: Map<string, HView>;
   readonly hexes: Map<string, string>;
   readonly propHexes: Map<string, Map<string, string>>;
@@ -182,8 +183,8 @@ export class Reactor {
 
   // Batch evaluation over the current set — the oracle hookup (SPEC-4 §1). Read-your-writes
   // holds trivially: ingest is synchronous, so an accepted delta is visible immediately (§6).
-  eval(term: Term, root?: string, registry?: SchemaRegistry): EvalResult {
-    return evalTerm(term, this.set, root, registry);
+  eval(term: Term, now: number, root?: string, registry?: SchemaRegistry): EvalResult {
+    return evalTerm(term, this.set, now, root, registry);
   }
 
   // --- materializations (SPEC-4 §4, ERRATA-4 V5) ---
@@ -192,7 +193,14 @@ export class Reactor {
 
   // Register a live materialization: an HView-sort term (a function of $root) kept
   // incrementally equal to batch evaluation at each root (SPEC-4 §1).
-  register(name: string, term: Term, roots: readonly string[], registry?: SchemaRegistry): void {
+  register(
+    name: string,
+    term: Term,
+    roots: readonly string[],
+    now: number,
+    registry?: SchemaRegistry,
+  ): void {
+    if (!Number.isFinite(now)) throw new Error("now must be a finite number");
     if (this.materializations.has(name)) throw new Error(`duplicate materialization: ${name}`);
     const mat: Materialization = {
       name,
@@ -200,6 +208,7 @@ export class Reactor {
       roots: [...roots],
       registry,
       rootAnchored: isRootAnchored(term, registry),
+      now,
       views: new Map(),
       hexes: new Map(),
       propHexes: new Map(),
@@ -226,8 +235,54 @@ export class Reactor {
     return this.lastChanges;
   }
 
+  // Advance maintained views using a caller-supplied instant. The host schedules this at the
+  // next boundary; no clock is read inside the reactor. Empty responsible ids mean time alone
+  // changed the surface.
+  advanceTime(now: number): readonly MaterializationChange[] {
+    if (!Number.isFinite(now)) throw new Error("now must be a finite number");
+    const changes: MaterializationChange[] = [];
+    for (const mat of this.materializations.values()) {
+      if (mat.now === now) continue;
+      mat.now = now;
+      for (const root of mat.roots) {
+        const changedProps = this.refresh(mat, root);
+        if (changedProps !== undefined) {
+          changes.push({
+            materialization: mat.name,
+            root,
+            changedProps,
+            responsibleDeltaIds: [],
+            newHex: mat.hexes.get(root)!,
+          });
+        }
+      }
+    }
+    this.lastChanges = changes;
+    for (const c of changes) {
+      for (const cb of this.matSubscribers.get(c.materialization) ?? []) cb(c);
+    }
+    return changes;
+  }
+
+  nextValidityBoundary(now: number): number | undefined {
+    if (!Number.isFinite(now)) throw new Error("now must be a finite number");
+    let next: number | undefined;
+    for (const d of this.set) {
+      for (const candidate of [d.claims.validFrom, d.claims.validUntil]) {
+        if (
+          candidate !== undefined &&
+          candidate > now &&
+          (next === undefined || candidate < next)
+        ) {
+          next = candidate;
+        }
+      }
+    }
+    return next;
+  }
+
   private refresh(mat: Materialization, root: string): string[] | undefined {
-    const result = evalTerm(mat.term, this.set, root, mat.registry);
+    const result = evalTerm(mat.term, this.set, mat.now, root, mat.registry);
     if (result.sort !== "hview") throw new Error("materialized terms must be HView-sort");
     mat.evalCount += 1;
     const hex = hviewCanonicalHex(result.hview);
@@ -389,7 +444,7 @@ export function makeManifestClaims(
       target: { kind: "primitive", value: options.intent },
     });
   }
-  return { timestamp, author, pointers };
+  return { timestamp, validFrom: timestamp, author, pointers };
 }
 
 // Per-property canonical hexes, for change-path diffing (SPEC-4 §5).

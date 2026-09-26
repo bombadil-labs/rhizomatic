@@ -47,6 +47,7 @@ export function publishHyperSchemaClaims(
 ): Claims {
   return {
     timestamp,
+    validFrom: timestamp,
     author,
     pointers: [
       {
@@ -72,8 +73,8 @@ function primitiveOf(claims: Claims, role: string): string | number | undefined 
 // Load a schema definition from the rhizome (S3): evaluate the bootstrap at the schema entity,
 // take the latest surviving definition (claimed timestamp, lexById tiebreak — a policy choice),
 // decode the term, and verify canonicality by re-encoding.
-export function loadHyperSchema(dset: DeltaSet, schemaEntity: string): HyperSchema {
-  const result = evalTerm(HYPER_SCHEMA_SCHEMA.body, dset, schemaEntity);
+export function loadHyperSchema(dset: DeltaSet, schemaEntity: string, now: number): HyperSchema {
+  const result = evalTerm(HYPER_SCHEMA_SCHEMA.body, dset, now, schemaEntity);
   if (result.sort !== "hview") throw new Error("bootstrap body must yield an HView");
   const defs = result.hview.props.get("definition") ?? [];
   if (defs.length === 0) throw new Error(`no surviving schema definition for ${schemaEntity}`);
@@ -130,6 +131,7 @@ export function publishSchemaClaims(
   }
   return {
     timestamp,
+    validFrom: timestamp,
     author,
     pointers: [
       {
@@ -146,8 +148,8 @@ export function publishSchemaClaims(
 // Load a resolution Schema from the rhizome (parallel to loadHyperSchema): gather via SCHEMA_SCHEMA,
 // take the latest surviving definition, decode props+default, reject non-canonical blobs, and
 // reattach name/alg from the roles.
-export function loadSchema(dset: DeltaSet, schemaEntity: string): Schema {
-  const result = evalTerm(SCHEMA_SCHEMA.body, dset, schemaEntity);
+export function loadSchema(dset: DeltaSet, schemaEntity: string, now: number): Schema {
+  const result = evalTerm(SCHEMA_SCHEMA.body, dset, now, schemaEntity);
   if (result.sort !== "hview") throw new Error("bootstrap body must yield an HView");
   const defs = result.hview.props.get("definition") ?? [];
   if (defs.length === 0) throw new Error(`no surviving schema definition for ${schemaEntity}`);

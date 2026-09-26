@@ -5,7 +5,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::cbor::{encode, CborValue};
-use crate::eval::{eval_term, term_contains_in_view, EvalResult, SchemaRef, Term};
+use crate::eval::{eval_term, eval_term_at, term_contains_in_view, EvalResult, SchemaRef, Term};
 use crate::hview::{hv_entry_to_cbor, hview_canonical_hex, HView};
 use crate::pred::Pred;
 use crate::schema::{collect_refs, SchemaRegistry};
@@ -30,6 +30,7 @@ pub(crate) struct Materialization {
     pub term: Term,
     pub roots: Vec<String>,
     pub root_anchored: bool,
+    pub now: Option<f64>,
     pub views: BTreeMap<String, HView>,
     pub hexes: BTreeMap<String, String>,
     pub prop_hexes: BTreeMap<String, BTreeMap<String, String>>,
@@ -39,12 +40,13 @@ pub(crate) struct Materialization {
 }
 
 impl Materialization {
-    pub fn new(name: &str, term: Term, roots: &[String], registry: Option<SchemaRegistry>) -> Self {
+    pub fn new(name: &str, term: Term, roots: &[String], now: Option<f64>, registry: Option<SchemaRegistry>) -> Self {
         Self {
             name: name.to_string(),
             root_anchored: is_root_anchored(&term, registry.as_ref()),
             term,
             roots: roots.to_vec(),
+            now,
             views: BTreeMap::new(),
             hexes: BTreeMap::new(),
             prop_hexes: BTreeMap::new(),
@@ -56,7 +58,10 @@ impl Materialization {
 
     /// Re-evaluate one root with the batch evaluator; Some(changed property paths) on change.
     pub fn refresh(&mut self, set: &DeltaSet, root: &str) -> Result<Option<Vec<String>>, String> {
-        let result = eval_term(&self.term, set, Some(root), self.registry.as_ref(), None)?;
+        let result = match self.now {
+            Some(now) => eval_term_at(&self.term, set, now, Some(root), self.registry.as_ref(), None)?,
+            None => eval_term(&self.term, set, Some(root), self.registry.as_ref(), None)?,
+        };
         let EvalResult::HView(h) = result else {
             return Err("materialized terms must be HView-sort".to_string());
         };
