@@ -6,11 +6,15 @@ use std::collections::{BTreeMap, BTreeSet};
 use rhizomatic::delta::compute_id;
 use rhizomatic::json_profile::parse_claims;
 use rhizomatic::principal::{
-    associated_keys, authors_for_principal, resolve_principal, PrincipalReadOptions,
+    associated_keys, authors_for_principal, eval_principal_term, principal_resolver,
+    register_principal_materialization, resolve_principal, PrincipalReadOptions,
     PrincipalSuppression, ScopePolicy,
 };
+use rhizomatic::eval::{eval_term_at, result_canonical_hex, EvalResult, GroupKey, Term};
 use rhizomatic::reactor::{IngestResult, Reactor};
 use rhizomatic::sign::{verify_delta, Verification};
+use rhizomatic::term_io::term_to_json;
+use rhizomatic::term_json::parse_term;
 use rhizomatic::types::Delta;
 use serde_json::Value;
 
@@ -188,6 +192,47 @@ fn principal_history_keeps_negated_associations() {
 }
 
 #[test]
+fn principal_predicates_lower_through_an_explicit_resolver() {
+    let v = vector();
+    let named = fixtures(&v);
+    for case in v["predicates"].as_array().unwrap() {
+        let name = case["name"].as_str().unwrap();
+        let term = parse_term(&case["term"]).unwrap();
+        assert_eq!(term_to_json(&term), case["term"], "{name}");
+        for reverse in [false, true] {
+            let reactor = case_reactor(case, &named, reverse);
+            let input = reactor.snapshot();
+            let now = case["now"].as_f64().unwrap();
+            if case["missingResolverMustThrow"].as_bool().unwrap() {
+                let error = eval_term_at(&term, &input, now, None, None, None).unwrap_err();
+                assert!(error.contains("principal resolver"), "{name}: {error}");
+            }
+            let result = eval_principal_term(
+                &term,
+                &input,
+                now,
+                &principal_resolver(PrincipalSuppression::SameAuthor),
+                None,
+                None,
+                None,
+            )
+            .unwrap();
+            let EvalResult::DSet { set, .. } = result else {
+                panic!("{name}: principal predicate must select a delta set");
+            };
+            let mut expected: Vec<&str> = case["expected"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|alias| named[alias.as_str().unwrap()].id.as_str())
+                .collect();
+            expected.sort();
+            assert_eq!(set.ids(), expected, "{name}");
+        }
+    }
+}
+
+#[test]
 fn principal_fixture_ids_signatures_and_references() {
     let v = vector();
     let mut named = BTreeMap::<String, Delta>::new();
@@ -272,4 +317,73 @@ fn principal_fixture_ids_signatures_and_references() {
             }
         }
     }
+}
+
+#[test]
+fn principal_materialization_refreshes_on_ingest_and_validity_boundary() {
+    let v = vector();
+    let named = fixtures(&v);
+    let root = v["keys"][v["defaults"]["root"].as_str().unwrap()]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let selected = parse_term(&v["predicates"][0]["term"]).unwrap();
+    let term = Term::Group {
+        key: GroupKey::ByRole,
+        of: Box::new(selected),
+    };
+    let expected_hex = |reactor: &Reactor, now: f64| {
+        result_canonical_hex(
+            &eval_principal_term(
+                &term,
+                &reactor.snapshot(),
+                now,
+                &principal_resolver(PrincipalSuppression::SameAuthor),
+                Some(&root),
+                None,
+                None,
+            )
+            .unwrap(),
+        )
+    };
+
+    let mut timed = Reactor::new();
+    for name in ["userDelegation", "connectionDelegation", "dataConnection"] {
+        assert_eq!(timed.ingest(named[name].clone()), IngestResult::Accepted);
+    }
+    register_principal_materialization(
+        &mut timed,
+        "member",
+        term.clone(),
+        &[root.clone()],
+        4.0,
+        principal_resolver(PrincipalSuppression::SameAuthor),
+        None,
+    )
+    .unwrap();
+    let before = timed.materialized_hex("member", &root).unwrap().to_string();
+    assert_eq!(before, expected_hex(&timed, 4.0));
+    timed.advance_time(5.0).unwrap();
+    assert_eq!(timed.materialized_hex("member", &root).unwrap(), expected_hex(&timed, 5.0));
+    assert_ne!(timed.materialized_hex("member", &root).unwrap(), before);
+
+    let mut arriving = Reactor::new();
+    for name in ["userDelegation", "dataConnection"] {
+        assert_eq!(arriving.ingest(named[name].clone()), IngestResult::Accepted);
+    }
+    register_principal_materialization(
+        &mut arriving,
+        "member",
+        term.clone(),
+        &[root.clone()],
+        6.0,
+        principal_resolver(PrincipalSuppression::SameAuthor),
+        None,
+    )
+    .unwrap();
+    let before_arrival = arriving.materialized_hex("member", &root).unwrap().to_string();
+    assert_eq!(before_arrival, expected_hex(&arriving, 6.0));
+    assert_eq!(arriving.ingest(named["connectionDelegation"].clone()), IngestResult::Accepted);
+    assert_eq!(arriving.materialized_hex("member", &root).unwrap(), expected_hex(&arriving, 6.0));
+    assert_ne!(arriving.materialized_hex("member", &root).unwrap(), before_arrival);
 }

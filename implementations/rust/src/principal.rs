@@ -3,6 +3,11 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::reactor::Reactor;
+use crate::eval::{eval_term_at, EvalResult, MaskPolicy, Term};
+use crate::pred::{Bindings, Cmp, Field, MatchConst, Pred, PrincipalPolicy, PrincipalPolicyKind};
+use crate::resolution::{Order, Policy, Schema};
+use crate::schema::SchemaRegistry;
+use crate::set::DeltaSet;
 use crate::sign::{verify_delta, Verification};
 use crate::types::{Delta, Primitive, Target};
 
@@ -467,4 +472,230 @@ pub fn associated_keys(
             .then_with(|| left.via.cmp(&right.via))
     });
     Ok(rows)
+}
+
+/// A principal resolver receives the exact delta set and time of the enclosing evaluation.
+pub type PrincipalResolver =
+    dyn Fn(&DeltaSet, &str, &PrincipalPolicy, f64) -> Result<Vec<String>, String>;
+
+/// Portable resolver over the supplied input set, with an explicit suppression profile.
+pub fn principal_resolver(
+    suppression: PrincipalSuppression,
+) -> impl Fn(&DeltaSet, &str, &PrincipalPolicy, f64) -> Result<Vec<String>, String> {
+    move |input, root, policy, at| {
+        let mut reactor = Reactor::new();
+        for delta in input.iter() {
+            if reactor.ingest(delta.clone()) != crate::reactor::IngestResult::Accepted {
+                return Err("principal input contains an invalid delta".to_string());
+            }
+        }
+        let scope_policy = match policy.kind {
+            PrincipalPolicyKind::Exact => ScopePolicy::Exact,
+            PrincipalPolicyKind::Prefix => ScopePolicy::Prefix,
+        };
+        authors_for_principal(
+            &reactor,
+            root,
+            &PrincipalReadOptions {
+                at,
+                now: at,
+                scope: policy.scope.clone(),
+                scope_policy,
+                suppression,
+            },
+        )
+    }
+}
+
+fn lower_pred(
+    pred: &Pred,
+    input: &DeltaSet,
+    at: f64,
+    resolver: &PrincipalResolver,
+) -> Result<Pred, String> {
+    Ok(match pred {
+        Pred::ActsFor { root, policy } => Pred::Match {
+            field: Field::Author,
+            cmp: Cmp::InSet,
+            constant: MatchConst::Many(
+                resolver(input, root, policy, at)?
+                    .into_iter()
+                    .map(Primitive::Str)
+                    .collect(),
+            ),
+        },
+        Pred::And(left, right) => Pred::And(
+            Box::new(lower_pred(left, input, at, resolver)?),
+            Box::new(lower_pred(right, input, at, resolver)?),
+        ),
+        Pred::Or(left, right) => Pred::Or(
+            Box::new(lower_pred(left, input, at, resolver)?),
+            Box::new(lower_pred(right, input, at, resolver)?),
+        ),
+        Pred::Not(inner) => Pred::Not(Box::new(lower_pred(inner, input, at, resolver)?)),
+        Pred::InView { term, field, extract } => Pred::InView {
+            term: Box::new(lower_principal_term(term, input, at, resolver)?),
+            field: *field,
+            extract: extract.clone(),
+        },
+        _ => pred.clone(),
+    })
+}
+
+fn lower_order(
+    order: &Order,
+    input: &DeltaSet,
+    at: f64,
+    resolver: &PrincipalResolver,
+) -> Result<Order, String> {
+    Ok(match order {
+        Order::ByPred { pred, then } => Order::ByPred {
+            pred: lower_pred(pred, input, at, resolver)?,
+            then: Box::new(lower_order(then, input, at, resolver)?),
+        },
+        Order::Chain(orders) => Order::Chain(
+            orders
+                .iter()
+                .map(|item| lower_order(item, input, at, resolver))
+                .collect::<Result<Vec<_>, _>>()?,
+        ),
+        _ => order.clone(),
+    })
+}
+
+fn lower_policy(
+    policy: &Policy,
+    input: &DeltaSet,
+    at: f64,
+    resolver: &PrincipalResolver,
+) -> Result<Policy, String> {
+    Ok(match policy {
+        Policy::Pick(order) => Policy::Pick(lower_order(order, input, at, resolver)?),
+        Policy::All(order, distinct) => {
+            Policy::All(lower_order(order, input, at, resolver)?, *distinct)
+        }
+        Policy::Conflicts(order) => Policy::Conflicts(lower_order(order, input, at, resolver)?),
+        Policy::AbsentAs { constant, then } => Policy::AbsentAs {
+            constant: constant.clone(),
+            then: Box::new(lower_policy(then, input, at, resolver)?),
+        },
+        _ => policy.clone(),
+    })
+}
+
+fn lower_schema(
+    schema: &Schema,
+    input: &DeltaSet,
+    at: f64,
+    resolver: &PrincipalResolver,
+) -> Result<Schema, String> {
+    let mut lowered = schema.clone();
+    lowered.props = schema
+        .props
+        .iter()
+        .map(|(name, policy)| {
+            Ok((name.clone(), lower_policy(policy, input, at, resolver)?))
+        })
+        .collect::<Result<BTreeMap<_, _>, String>>()?;
+    lowered.default = lower_policy(&schema.default, input, at, resolver)?;
+    Ok(lowered)
+}
+
+/// Lower every serializable actsFor node before the lower evaluator sees it.
+pub fn lower_principal_term(
+    term: &Term,
+    input: &DeltaSet,
+    at: f64,
+    resolver: &PrincipalResolver,
+) -> Result<Term, String> {
+    if !at.is_finite() {
+        return Err("now must be a finite number".to_string());
+    }
+    Ok(match term {
+        Term::Input | Term::Fix { .. } => term.clone(),
+        Term::Select { pred, of } => Term::Select {
+            pred: lower_pred(pred, input, at, resolver)?,
+            of: Box::new(lower_principal_term(of, input, at, resolver)?),
+        },
+        Term::Union { left, right } => Term::Union {
+            left: Box::new(lower_principal_term(left, input, at, resolver)?),
+            right: Box::new(lower_principal_term(right, input, at, resolver)?),
+        },
+        Term::Intersect { left, right } => Term::Intersect {
+            left: Box::new(lower_principal_term(left, input, at, resolver)?),
+            right: Box::new(lower_principal_term(right, input, at, resolver)?),
+        },
+        Term::Difference { of, without } => Term::Difference {
+            of: Box::new(lower_principal_term(of, input, at, resolver)?),
+            without: Box::new(lower_principal_term(without, input, at, resolver)?),
+        },
+        Term::Mask { policy, of } => Term::Mask {
+            policy: match policy {
+                MaskPolicy::Trust(pred) => {
+                    MaskPolicy::Trust(lower_pred(pred, input, at, resolver)?)
+                }
+                _ => policy.clone(),
+            },
+            of: Box::new(lower_principal_term(of, input, at, resolver)?),
+        },
+        Term::Group { key, of } => Term::Group {
+            key: key.clone(),
+            of: Box::new(lower_principal_term(of, input, at, resolver)?),
+        },
+        Term::Prune { keep, of } => Term::Prune {
+            keep: keep.clone(),
+            of: Box::new(lower_principal_term(of, input, at, resolver)?),
+        },
+        Term::Expand { role, schema, reading, of } => Term::Expand {
+            role: role.clone(),
+            schema: schema.clone(),
+            reading: reading.clone(),
+            of: Box::new(lower_principal_term(of, input, at, resolver)?),
+        },
+        Term::Resolve { schema, of } => Term::Resolve {
+            schema: lower_schema(schema, input, at, resolver)?,
+            of: Box::new(lower_principal_term(of, input, at, resolver)?),
+        },
+    })
+}
+
+/// Evaluate with an explicitly supplied principal resolver over this input and time.
+pub fn eval_principal_term(
+    term: &Term,
+    input: &DeltaSet,
+    now: f64,
+    resolver: &PrincipalResolver,
+    root: Option<&str>,
+    registry: Option<&SchemaRegistry>,
+    bindings: Option<&Bindings>,
+) -> Result<EvalResult, String> {
+    eval_term_at(
+        &lower_principal_term(term, input, now, resolver)?,
+        input,
+        now,
+        root,
+        registry,
+        bindings,
+    )
+}
+
+/// Register a view whose principal membership follows ingest and validity boundaries.
+pub fn register_principal_materialization<F>(
+    reactor: &mut Reactor,
+    name: &str,
+    term: Term,
+    roots: &[String],
+    now: f64,
+    resolver: F,
+    registry: Option<SchemaRegistry>,
+) -> Result<(), String>
+where
+    F: Fn(&DeltaSet, &str, &PrincipalPolicy, f64) -> Result<Vec<String>, String>
+        + Send
+        + Sync
+        + 'static,
+{
+    reactor.register_at_lowered(name, term, roots, now, registry, move |body, input, at| {
+        lower_principal_term(body, input, at, &resolver)
+    })
 }

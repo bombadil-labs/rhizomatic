@@ -266,7 +266,7 @@ fn expand_str_match(m: &StrMatch, input: &DeltaSet, root: Option<&str>) -> StrMa
 /// §4.1).
 pub fn expand_aliased(pred: &Pred, input: &DeltaSet, root: Option<&str>) -> Pred {
     match pred {
-        Pred::True | Pred::False | Pred::Match { .. } => pred.clone(),
+        Pred::True | Pred::False | Pred::Match { .. } | Pred::ActsFor { .. } => pred.clone(),
         Pred::HasPointer(pp) => {
             let mut out = pp.clone();
             if let Some(m) = &pp.role {
@@ -370,6 +370,9 @@ fn resolve_reflective(
         Pred::Not(p) => Pred::Not(Box::new(resolve_reflective(
             p, input, root, registry, bindings,
         )?)),
+        Pred::ActsFor { .. } => {
+            return Err("actsFor requires an explicit principal resolver (SPEC-14)".to_string())
+        }
         _ => pred.clone(),
     })
 }

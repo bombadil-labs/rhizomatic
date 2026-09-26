@@ -105,6 +105,13 @@ export {
   type AssociationGrade,
 } from "./principal.js";
 export {
+  evalPrincipalTerm,
+  lowerPrincipalTerm,
+  principalResolver,
+  registerPrincipalMaterialization,
+  type PrincipalResolver,
+} from "./principal.js";
+export {
   DerivationHost,
   derivedClaims,
   verifyPureDerivation,

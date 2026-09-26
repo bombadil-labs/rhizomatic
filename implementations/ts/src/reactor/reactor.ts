@@ -33,6 +33,7 @@ interface Materialization {
   readonly roots: readonly string[];
   readonly registry: SchemaRegistry | undefined;
   readonly rootAnchored: boolean;
+  readonly lowerTerm: ((term: Term, input: DeltaSet, now: number) => Term) | undefined;
   now: number;
   readonly views: Map<string, HView>;
   readonly hexes: Map<string, string>;
@@ -319,6 +320,7 @@ export class Reactor {
     roots: readonly string[],
     now: number,
     registry?: SchemaRegistry,
+    lowerTerm?: (term: Term, input: DeltaSet, now: number) => Term,
   ): void {
     if (!Number.isFinite(now)) throw new Error("now must be a finite number");
     if (this.materializations.has(name)) throw new Error(`duplicate materialization: ${name}`);
@@ -327,7 +329,9 @@ export class Reactor {
       term,
       roots: [...roots],
       registry,
-      rootAnchored: isRootAnchored(term, registry),
+      // A lowered predicate can depend on principal evidence anywhere in the set.
+      rootAnchored: lowerTerm === undefined && isRootAnchored(term, registry),
+      lowerTerm,
       now,
       views: new Map(),
       hexes: new Map(),
@@ -394,7 +398,8 @@ export class Reactor {
   }
 
   private refresh(mat: Materialization, root: string): string[] | undefined {
-    const result = evalTerm(mat.term, this.set, mat.now, root, mat.registry);
+    const term = mat.lowerTerm?.(mat.term, this.set, mat.now) ?? mat.term;
+    const result = evalTerm(term, this.set, mat.now, root, mat.registry);
     if (result.sort !== "hview") throw new Error("materialized terms must be HView-sort");
     mat.evalCount += 1;
     const hex = hviewCanonicalHex(result.hview);

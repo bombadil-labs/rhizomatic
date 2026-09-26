@@ -45,9 +45,9 @@ vectors/
 Level 1 = Evaluator.)
 
 The `principal/` directory is a vNext semantic suite, not a new conformance level. Its signed
-fixture ids and signatures, curated association and authority decisions, and historical
-associations are checked by the TypeScript and Rust witnesses. The `actsFor` predicate cases
-remain a separate implementation gate. Each case names a subset of the corpus and its expected
+fixture ids and signatures, curated association and authority decisions, historical
+associations, and `actsFor` predicate cases are checked by the TypeScript and Rust witnesses.
+Each case names a subset of the corpus and its expected
 result. A missing case field uses the file's explicit `defaults`; witnesses run the same subset
 in forward and reverse ingest order. Author aliases in expected results resolve through `keys`
 and compare after sorting by author id.

@@ -3104,6 +3104,8 @@
         return { or: [predToJson(pred.left), predToJson(pred.right)] };
       case "not":
         return { not: predToJson(pred.pred) };
+      case "actsFor":
+        return { actsFor: { root: pred.root, policy: pred.policy } };
       case "inView":
         return {
           inView: {
@@ -3485,6 +3487,8 @@
         };
       case "not":
         return { kind: "not", pred: substituteHoles(pred.pred, bindings) };
+      case "actsFor":
+        return pred;
       case "inView":
         return pred;
     }
@@ -3509,6 +3513,8 @@
         return evalPred(pred.left, delta, root, bindings) || evalPred(pred.right, delta, root, bindings);
       case "not":
         return !evalPred(pred.pred, delta, root, bindings);
+      case "actsFor":
+        throw new Error("actsFor requires an explicit principal resolver (SPEC-14)");
       case "inView":
         throw new Error("inView must be resolved before matching (SPEC-2 \xA73.1)");
     }
@@ -3824,6 +3830,7 @@
       case "true":
       case "false":
       case "match":
+      case "actsFor":
         return pred;
       case "hasPointer": {
         const p = pred.ppred;
@@ -3900,6 +3907,8 @@
         };
       case "not":
         return { kind: "not", pred: resolveReflective(pred.pred, input, root, registry, bindings) };
+      case "actsFor":
+        throw new Error("actsFor requires an explicit principal resolver (SPEC-14)");
       default:
         return pred;
     }
@@ -4942,7 +4951,7 @@
     lastChanges = [];
     // Register a live materialization: an HView-sort term (a function of $root) kept
     // incrementally equal to batch evaluation at each root (SPEC-4 §1).
-    register(name, term, roots, now, registry) {
+    register(name, term, roots, now, registry, lowerTerm) {
       if (!Number.isFinite(now)) throw new Error("now must be a finite number");
       if (this.materializations.has(name)) throw new Error(`duplicate materialization: ${name}`);
       const mat = {
@@ -4950,7 +4959,9 @@
         term,
         roots: [...roots],
         registry,
-        rootAnchored: isRootAnchored(term, registry),
+        // A lowered predicate can depend on principal evidence anywhere in the set.
+        rootAnchored: lowerTerm === void 0 && isRootAnchored(term, registry),
+        lowerTerm,
         now,
         views: /* @__PURE__ */ new Map(),
         hexes: /* @__PURE__ */ new Map(),
@@ -5009,7 +5020,8 @@
       return boundaryAfter(this.validityBoundaries, now);
     }
     refresh(mat, root) {
-      const result = evalTerm(mat.term, this.set, mat.now, root, mat.registry);
+      const term = mat.lowerTerm?.(mat.term, this.set, mat.now) ?? mat.term;
+      const result = evalTerm(term, this.set, mat.now, root, mat.registry);
       if (result.sort !== "hview") throw new Error("materialized terms must be HView-sort");
       mat.evalCount += 1;
       const hex = hviewCanonicalHex(result.hview);
@@ -5318,7 +5330,7 @@
   };
   var STR_MATCH_TAGS = ["exact", "prefix", "inSet", "aliased"];
   var VAL_MATCH_TAGS = ["vcmp", "between", "inSet"];
-  var PRED_TAGS = ["match", "hasPointer", "and", "or", "not", "inView"];
+  var PRED_TAGS = ["match", "hasPointer", "and", "or", "not", "inView", "actsFor"];
   var ORDER_TAGS = ["byTimestamp", "byValidFrom", "byAuthorRank", "byPred", "chain"];
   var POLICY_TAGS = ["pick", "all", "merge", "conflicts", "absentAs"];
   var EXTRACT_TAGS = ["field", "role"];
@@ -5412,6 +5424,8 @@
       case "not":
         assertClosedTrustPred(p.pred, what);
         return;
+      case "actsFor":
+        throw new Error(`${what}: actsFor requires a principal resolver`);
       case "inView":
         throw new Error(`${what}: inView is not allowed inside an aliased trust predicate`);
     }
@@ -5521,6 +5535,23 @@
       return tag === "and" ? { kind: "and", left, right } : { kind: "or", left, right };
     }
     if (tag === "not") return { kind: "not", pred: parsePred(o["not"]) };
+    if (tag === "actsFor") {
+      const value = asObject(o["actsFor"], "actsFor", ["root", "policy"]);
+      const root = value["root"];
+      if (typeof root !== "string" || !/^ed25519:[0-9a-f]{64}$/.test(root)) {
+        throw new Error("actsFor.root must be a lowercase Ed25519 author id");
+      }
+      const policy = asObject(value["policy"], "actsFor.policy", ["kind", "scope"]);
+      const kind = policy["kind"];
+      const scope = policy["scope"];
+      if (kind !== "exact" && kind !== "prefix") {
+        throw new Error("actsFor.policy.kind must be exact or prefix");
+      }
+      if (typeof scope !== "string" || scope.length === 0) {
+        throw new Error("actsFor.policy.scope must be nonempty");
+      }
+      return { kind: "actsFor", root, policy: { kind, scope } };
+    }
     {
       const v = asObject(o["inView"], "inView", ["term", "field", "extract"]);
       const term = parseTerm(v["term"]);

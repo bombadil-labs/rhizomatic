@@ -6,8 +6,17 @@ import { describe, expect, it } from "vitest";
 import { computeId } from "../src/delta.js";
 import { parseClaims } from "../src/json-profile.js";
 import { associatedKeys, authorsForPrincipal, resolvePrincipal } from "../src/principal.js";
+import {
+  evalPrincipalTerm,
+  principalResolver,
+  registerPrincipalMaterialization,
+} from "../src/principal.js";
 import { Reactor } from "../src/reactor.js";
 import { verifyDelta } from "../src/sign.js";
+import { evalTerm, resultCanonicalHex } from "../src/eval.js";
+import type { Term } from "../src/eval.js";
+import { parseTerm } from "../src/term-json.js";
+import { termToJson } from "../src/term-io.js";
 import type { Delta } from "../src/types.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -39,7 +48,14 @@ const vector = JSON.parse(
     now: number;
     expected: Array<{ key: string; via: string[]; negated: boolean }>;
   }>;
-  predicates: Array<{ name: string; members: string[]; expected: string[]; term: unknown }>;
+  predicates: Array<{
+    name: string;
+    members: string[];
+    now: number;
+    expected: string[];
+    term: unknown;
+    missingResolverMustThrow: boolean;
+  }>;
   defaults: { root: string; now: number; scopePolicy: "exact"; suppression: "sameAuthor" };
 };
 
@@ -159,5 +175,59 @@ describe("frozen principal evidence fixtures (SPEC-14)", () => {
         }
       }
     }
+  });
+
+  it("lowers serializable actsFor predicates through a supplied principal resolver", () => {
+    for (const c of vector.predicates) {
+      const term = parseTerm(c.term);
+      expect(termToJson(term), c.name).toEqual(c.term);
+      for (const members of [c.members, [...c.members].reverse()]) {
+        const reactor = new Reactor();
+        for (const name of members) {
+          expect(reactor.ingest(named.get(name)!)).toEqual({ status: "accepted" });
+        }
+        const input = reactor.snapshot();
+        if (c.missingResolverMustThrow) {
+          expect(() => evalTerm(term, input, c.now), c.name).toThrow(/principal resolver/);
+        }
+        const result = evalPrincipalTerm(term, input, c.now, principalResolver("sameAuthor"));
+        expect(result.sort, c.name).toBe("dset");
+        if (result.sort !== "dset") throw new Error("principal predicate must select a delta set");
+        expect(result.set.ids(), c.name).toEqual(
+          c.expected.map((alias) => named.get(alias)!.id).sort(),
+        );
+      }
+    }
+  });
+
+  it("refreshes principal membership when delegation arrives or reaches its start", () => {
+    const select = parseTerm(vector.predicates[0]!.term);
+    const term: Term = { kind: "group", key: { kind: "byRole" }, of: select };
+    const resolver = principalResolver("sameAuthor");
+    const root = vector.keys[vector.defaults.root]!;
+    const expectedHex = (reactor: Reactor, now: number) =>
+      resultCanonicalHex(evalPrincipalTerm(term, reactor.snapshot(), now, resolver, root));
+
+    const timed = new Reactor();
+    for (const name of ["userDelegation", "connectionDelegation", "dataConnection"]) {
+      expect(timed.ingest(named.get(name)!)).toEqual({ status: "accepted" });
+    }
+    registerPrincipalMaterialization(timed, "member", term, [root], 4, resolver);
+    const before = timed.materializedHex("member", root);
+    expect(before).toBe(expectedHex(timed, 4));
+    timed.advanceTime(5);
+    expect(timed.materializedHex("member", root)).toBe(expectedHex(timed, 5));
+    expect(timed.materializedHex("member", root)).not.toBe(before);
+
+    const arriving = new Reactor();
+    for (const name of ["userDelegation", "dataConnection"]) {
+      expect(arriving.ingest(named.get(name)!)).toEqual({ status: "accepted" });
+    }
+    registerPrincipalMaterialization(arriving, "member", term, [root], 6, resolver);
+    const beforeArrival = arriving.materializedHex("member", root);
+    expect(beforeArrival).toBe(expectedHex(arriving, 6));
+    expect(arriving.ingest(named.get("connectionDelegation")!)).toEqual({ status: "accepted" });
+    expect(arriving.materializedHex("member", root)).toBe(expectedHex(arriving, 6));
+    expect(arriving.materializedHex("member", root)).not.toBe(beforeArrival);
   });
 });

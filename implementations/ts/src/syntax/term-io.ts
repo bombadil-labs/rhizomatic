@@ -88,6 +88,8 @@ export function predToJson(pred: Pred): unknown {
       return { or: [predToJson(pred.left), predToJson(pred.right)] };
     case "not":
       return { not: predToJson(pred.pred) };
+    case "actsFor":
+      return { actsFor: { root: pred.root, policy: pred.policy } };
     case "inView":
       return {
         inView: {

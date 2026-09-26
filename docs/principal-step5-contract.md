@@ -14,12 +14,11 @@ exports through the existing `@bombadil/rhizomatic` barrel.
 
 `actsFor` must not make the lower algebra or reactor packages import principal. Its JSON syntax
 and canonical bytes live with other predicates in `syntax`. Evaluation receives an explicit
-`PrincipalAuthorResolver` interface, as it already receives other external evaluation inputs;
-the principal package supplies the adapter above the lower evaluator. A missing resolver for a
-term containing `actsFor` is an explicit evaluation error, not an empty author set. Reactor
-materialization receives the same adapter as a constructor/registration input, so time changes
-can refresh principal membership without a dependency cycle. The package graph checker must
-prove these edges before the runtime implementation lands.
+`PrincipalResolver` callback through `evalPrincipalTerm`; the principal package lowers the
+predicate above the lower evaluator. A missing resolver for a term containing `actsFor` is an
+explicit evaluation error, not an empty author set. `registerPrincipalMaterialization` passes
+the same lowerer into the reactor, so ingestion and validity boundaries refresh principal
+membership without a dependency cycle. The package graph checker enforces these edges.
 
 The `author` field remains the signing key. Principal resolution does not rewrite a delta, its
 content address, or its signature. Equal entity ids still merge. An application that reads a
