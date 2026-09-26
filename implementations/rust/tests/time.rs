@@ -92,12 +92,11 @@ fn materialization_refreshes_without_ingest() {
     reactor
         .register_at("time", body, &["entity:time".to_string()], 279.0, None)
         .unwrap();
-    assert!(reactor
+    assert!(!reactor
         .materialized_view("time", "entity:time")
         .unwrap()
         .props
-        .get("value")
-        .is_none());
+        .contains_key("value"));
     assert_eq!(reactor.next_validity_boundary(279.0).unwrap(), Some(280.0));
     let changes = reactor.advance_time(280.0).unwrap();
     assert_eq!(changes.len(), 1);
@@ -113,12 +112,11 @@ fn materialization_refreshes_without_ingest() {
     );
     let reversed = reactor.advance_time(279.0).unwrap();
     assert_eq!(reversed.len(), 1);
-    assert!(reactor
+    assert!(!reactor
         .materialized_view("time", "entity:time")
         .unwrap()
         .props
-        .get("value")
-        .is_none());
+        .contains_key("value"));
 }
 
 #[test]
