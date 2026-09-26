@@ -63,13 +63,22 @@ fn shared_governed_bindings_match_in_both_orders() {
                 &order(case["order"].as_str().unwrap()),
             );
             if case["expected"].is_null() {
-                assert!(loaded.unwrap_err().contains("no surviving schema definition"));
+                assert!(loaded
+                    .unwrap_err()
+                    .contains("no surviving schema definition"));
             } else {
                 let loaded = loaded.unwrap();
                 let expected = case["expected"].as_str().unwrap();
                 assert_eq!(loaded.name, expected);
-                let pin = if expected == "DefinitionA" { "hyperA" } else { "hyperB" };
-                assert_eq!(term_hash(&loaded.body).unwrap(), v["pins"][pin].as_str().unwrap());
+                let pin = if expected == "DefinitionA" {
+                    "hyperA"
+                } else {
+                    "hyperB"
+                };
+                assert_eq!(
+                    term_hash(&loaded.body).unwrap(),
+                    v["pins"][pin].as_str().unwrap()
+                );
             }
         }
         for case in v["schemaLoads"].as_array().unwrap() {
@@ -82,13 +91,22 @@ fn shared_governed_bindings_match_in_both_orders() {
                 &order(case["order"].as_str().unwrap()),
             );
             if case["expected"].is_null() {
-                assert!(loaded.unwrap_err().contains("no surviving schema definition"));
+                assert!(loaded
+                    .unwrap_err()
+                    .contains("no surviving schema definition"));
             } else {
                 let loaded = loaded.unwrap();
                 let expected = case["expected"].as_str().unwrap();
                 assert_eq!(loaded.name.as_deref(), Some(expected));
-                let pin = if expected == "ReadingA" { "schemaA" } else { "schemaB" };
-                assert_eq!(schema_hash(&loaded).unwrap(), v["pins"][pin].as_str().unwrap());
+                let pin = if expected == "ReadingA" {
+                    "schemaA"
+                } else {
+                    "schemaB"
+                };
+                assert_eq!(
+                    schema_hash(&loaded).unwrap(),
+                    v["pins"][pin].as_str().unwrap()
+                );
             }
         }
         for case in v["lensLoads"].as_array().unwrap() {

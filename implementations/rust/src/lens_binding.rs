@@ -66,7 +66,9 @@ fn pin(delta: &Delta, wanted: &str) -> Option<String> {
         Target::Primitive(Primitive::Str(value))
             if value.len() == 68
                 && value.starts_with("1e20")
-                && value[4..].bytes().all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase()) =>
+                && value[4..]
+                    .bytes()
+                    .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase()) =>
         {
             Some(value.clone())
         }

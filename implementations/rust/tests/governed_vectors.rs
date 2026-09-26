@@ -106,7 +106,11 @@ fn governed_vectors_match_in_both_orders() {
                 .get(case["target"].as_str().unwrap())
                 .map(|d| d.id.as_str())
                 .unwrap_or("1e200000000000000000000000000000000000000000000000000000000000000000");
-            let actual: Vec<String> = reader.witnesses(target).iter().map(|d| d.id.clone()).collect();
+            let actual: Vec<String> = reader
+                .witnesses(target)
+                .iter()
+                .map(|d| d.id.clone())
+                .collect();
             let expected: Vec<&str> = case["expectedIds"]
                 .as_array()
                 .unwrap()
