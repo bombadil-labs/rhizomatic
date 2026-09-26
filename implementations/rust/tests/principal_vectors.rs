@@ -42,7 +42,10 @@ fn fixtures(v: &Value) -> BTreeMap<String, Delta> {
 fn case_reactor(case: &Value, named: &BTreeMap<String, Delta>, reverse: bool) -> Reactor {
     let members = case["members"].as_array().unwrap();
     let mut reactor = Reactor::new();
-    let mut names: Vec<&str> = members.iter().map(|member| member.as_str().unwrap()).collect();
+    let mut names: Vec<&str> = members
+        .iter()
+        .map(|member| member.as_str().unwrap())
+        .collect();
     if reverse {
         names.reverse();
     }
@@ -64,7 +67,9 @@ fn principal_authority_decisions_are_order_independent() {
     let keys = v["keys"].as_object().unwrap();
     for case in v["cases"].as_array().unwrap() {
         let name = case["name"].as_str().unwrap();
-        let root_alias = case["root"].as_str().unwrap_or(v["defaults"]["root"].as_str().unwrap());
+        let root_alias = case["root"]
+            .as_str()
+            .unwrap_or(v["defaults"]["root"].as_str().unwrap());
         let root = keys[root_alias].as_str().unwrap();
         let key = keys[case["key"].as_str().unwrap()].as_str().unwrap();
         let policy_name = case["scopePolicy"]
@@ -75,7 +80,9 @@ fn principal_authority_decisions_are_order_independent() {
             .unwrap_or(v["defaults"]["suppression"].as_str().unwrap());
         let options = PrincipalReadOptions {
             at: case["at"].as_f64().unwrap(),
-            now: case["now"].as_f64().unwrap_or(v["defaults"]["now"].as_f64().unwrap()),
+            now: case["now"]
+                .as_f64()
+                .unwrap_or(v["defaults"]["now"].as_f64().unwrap()),
             scope: case["scope"].as_str().unwrap().to_string(),
             scope_policy: match policy_name {
                 "exact" => ScopePolicy::Exact,
@@ -99,9 +106,21 @@ fn principal_authority_decisions_are_order_independent() {
         for reverse in [false, true] {
             let reactor = case_reactor(case, &named, reverse);
             let result = resolve_principal(&reactor, root, key, &options).unwrap();
-            assert_eq!(result.grade.as_str(), expected["grade"].as_str().unwrap(), "{name}");
-            assert_eq!(result.authorized, expected["authorized"].as_bool().unwrap(), "{name}");
-            assert_eq!(result.delegable, expected["delegable"].as_bool().unwrap(), "{name}");
+            assert_eq!(
+                result.grade.as_str(),
+                expected["grade"].as_str().unwrap(),
+                "{name}"
+            );
+            assert_eq!(
+                result.authorized,
+                expected["authorized"].as_bool().unwrap(),
+                "{name}"
+            );
+            assert_eq!(
+                result.delegable,
+                expected["delegable"].as_bool().unwrap(),
+                "{name}"
+            );
             assert_eq!(result.authors, expected_authors, "{name}");
             assert_eq!(
                 authors_for_principal(&reactor, root, &options).unwrap(),
@@ -117,7 +136,9 @@ fn principal_history_keeps_negated_associations() {
     let v = vector();
     let named = fixtures(&v);
     let keys = v["keys"].as_object().unwrap();
-    let root = keys[v["defaults"]["root"].as_str().unwrap()].as_str().unwrap();
+    let root = keys[v["defaults"]["root"].as_str().unwrap()]
+        .as_str()
+        .unwrap();
     for case in v["history"].as_array().unwrap() {
         let name = case["name"].as_str().unwrap();
         let expected: Vec<(String, Vec<String>, bool)> = case["expected"]
@@ -126,7 +147,10 @@ fn principal_history_keeps_negated_associations() {
             .iter()
             .map(|row| {
                 (
-                    keys[row["key"].as_str().unwrap()].as_str().unwrap().to_string(),
+                    keys[row["key"].as_str().unwrap()]
+                        .as_str()
+                        .unwrap()
+                        .to_string(),
                     row["via"]
                         .as_array()
                         .unwrap()

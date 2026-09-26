@@ -73,9 +73,18 @@ pub struct AssociatedKey {
 #[derive(Clone)]
 enum EvidenceKind {
     Root,
-    Binding { key: String },
-    Succession { previous: String, key: String },
-    Delegation { key: String, scope: String, delegable: bool },
+    Binding {
+        key: String,
+    },
+    Succession {
+        previous: String,
+        key: String,
+    },
+    Delegation {
+        key: String,
+        scope: String,
+        delegable: bool,
+    },
     Locator,
 }
 
@@ -86,9 +95,12 @@ struct Evidence<'a> {
 }
 
 fn is_author(value: &str) -> bool {
-    value
-        .strip_prefix("ed25519:")
-        .is_some_and(|hex| hex.len() == 64 && hex.bytes().all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase()))
+    value.strip_prefix("ed25519:").is_some_and(|hex| {
+        hex.len() == 64
+            && hex
+                .bytes()
+                .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
+    })
 }
 
 fn primitive_str<'a>(fields: &BTreeMap<&str, &'a Target>, role: &str) -> Option<&'a str> {
@@ -135,7 +147,9 @@ fn parse_evidence<'a>(delta: &'a Delta, root: &str) -> Option<Evidence<'a>> {
             if !is_author(key) {
                 return None;
             }
-            EvidenceKind::Binding { key: key.to_string() }
+            EvidenceKind::Binding {
+                key: key.to_string(),
+            }
         }
         "succession" if exact(&fields, &["previous", "key"]) => {
             let previous = primitive_str(&fields, "previous")?;
@@ -176,7 +190,11 @@ fn evidence<'a>(reactor: &'a Reactor, root: &str) -> Vec<Evidence<'a>> {
     reactor
         .by_target(root)
         .iter()
-        .filter_map(|id| reactor.get(id).and_then(|delta| parse_evidence(delta, root)))
+        .filter_map(|id| {
+            reactor
+                .get(id)
+                .and_then(|delta| parse_evidence(delta, root))
+        })
         .collect()
 }
 
@@ -195,12 +213,7 @@ fn permits(policy: ScopePolicy, edge_scope: &str, request: &str) -> bool {
         || (policy == ScopePolicy::Prefix && request.starts_with(&format!("{edge_scope}:")))
 }
 
-fn suppresses(
-    policy: PrincipalSuppression,
-    root: &str,
-    negation: &Delta,
-    target: &Delta,
-) -> bool {
+fn suppresses(policy: PrincipalSuppression, root: &str, negation: &Delta, target: &Delta) -> bool {
     negation.claims.author == target.claims.author
         || (policy == PrincipalSuppression::RootOrSameAuthor && negation.claims.author == root)
 }
@@ -293,7 +306,9 @@ fn authority_paths(
         if parent.delegable {
             for record in &delegations {
                 if let EvidenceKind::Delegation { key, delegable, .. } = &record.kind {
-                    if record.delta.claims.author != parent.key || parent.ids.contains(&record.delta.id) {
+                    if record.delta.claims.author != parent.key
+                        || parent.ids.contains(&record.delta.id)
+                    {
                         continue;
                     }
                     let mut ids = parent.ids.clone();
@@ -334,7 +349,9 @@ pub fn resolve_principal(
     })?;
     let active: Vec<Evidence<'_>> = all
         .into_iter()
-        .filter(|record| valid_at(record.delta, options.at) && !negations.is_negated(&record.delta.id))
+        .filter(|record| {
+            valid_at(record.delta, options.at) && !negations.is_negated(&record.delta.id)
+        })
         .collect();
     let associations = association_paths(&active, root);
     let mine: Vec<&Path> = associations.iter().filter(|path| path.key == key).collect();
@@ -354,7 +371,9 @@ pub fn resolve_principal(
         .filter_map(|record| match &record.kind {
             EvidenceKind::Succession { previous, .. }
                 if record.delta.claims.author == root
-                    && successor_groups.get(previous).is_some_and(|group| group.len() > 1) =>
+                    && successor_groups
+                        .get(previous)
+                        .is_some_and(|group| group.len() > 1) =>
             {
                 Some(record.delta.id.as_str())
             }
@@ -382,8 +401,10 @@ pub fn resolve_principal(
     let authority = authority_paths(&active, root, &options.scope, options.scope_policy);
     let mine_authority: Vec<&Path> = authority.iter().filter(|path| path.key == key).collect();
     let authors: BTreeSet<String> = authority.iter().map(|path| path.key.clone()).collect();
-    let mut association_paths: Vec<Vec<String>> = mine.iter().map(|path| path.ids.clone()).collect();
-    let mut authority_paths: Vec<Vec<String>> = mine_authority.iter().map(|path| path.ids.clone()).collect();
+    let mut association_paths: Vec<Vec<String>> =
+        mine.iter().map(|path| path.ids.clone()).collect();
+    let mut authority_paths: Vec<Vec<String>> =
+        mine_authority.iter().map(|path| path.ids.clone()).collect();
     association_paths.sort();
     authority_paths.sort();
     Ok(PrincipalResult {
@@ -427,7 +448,10 @@ pub fn associated_keys(
                 .ids
                 .iter()
                 .map(|id| {
-                    let claims = &reactor.get(id).expect("path only holds retained evidence").claims;
+                    let claims = &reactor
+                        .get(id)
+                        .expect("path only holds retained evidence")
+                        .claims;
                     ValidityInterval {
                         valid_from: claims.valid_from,
                         valid_until: claims.valid_until,
@@ -437,6 +461,10 @@ pub fn associated_keys(
             negated: path.ids.iter().any(|id| negations.is_negated(id)),
         })
         .collect();
-    rows.sort_by(|left, right| left.key.cmp(&right.key).then_with(|| left.via.cmp(&right.via)));
+    rows.sort_by(|left, right| {
+        left.key
+            .cmp(&right.key)
+            .then_with(|| left.via.cmp(&right.via))
+    });
     Ok(rows)
 }
