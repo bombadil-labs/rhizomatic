@@ -35,8 +35,8 @@ pub use alias::{relation_signature, relation_signature_canonical_hex};
 pub use delta::{canonical_bytes, canonical_hex, compute_id};
 pub use derivation::{verify_pure_derivation, BindingSpec, DerivationHost};
 pub use eval::{
-    alias_closure, eval_term, expand_aliased, result_canonical_hex, EvalResult, GroupKey,
-    MaskPolicy, PruneKeep, Term,
+    alias_closure, eval_term, expand_aliased, governed_deltas, result_canonical_hex, EvalResult,
+    GroupKey, MaskPolicy, PruneKeep, Term,
 };
 #[cfg(not(target_arch = "wasm32"))]
 pub use http::{offer_for, pull_from_url, serve_peer};
@@ -47,7 +47,9 @@ pub use parse_error::{ParseError, ParseErrorKind};
 pub use peer::{sync_both, Peer, SyncReport};
 pub use pred::{compare_primitives, eval_pred, Pred};
 pub use reactor::{make_manifest_claims, manifest_member_ids, IngestResult, NegationReader, Reactor};
-pub use resolution::{resolve_view, view_canonical_hex, MergeFn, Order, Policy, Schema, View};
+pub use resolution::{
+    apply_policy, resolve_view, view_canonical_hex, MergeFn, Order, Policy, Schema, View,
+};
 pub use schema::{collect_reading_refs, collect_refs, HyperSchema, SchemaRegistry};
 pub use schema_deltas::{
     hyper_schema_schema, load_hyper_schema, load_schema, publish_hyper_schema_claims,

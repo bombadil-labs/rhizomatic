@@ -3,7 +3,7 @@
 
 use rhizomatic::eval::{eval_term, result_canonical_hex, EvalResult};
 use rhizomatic::json_profile::parse_claims;
-use rhizomatic::resolution::View;
+use rhizomatic::resolution::{apply_policy, Order, Policy, View};
 use rhizomatic::schema::{HyperSchema, SchemaRegistry};
 use rhizomatic::set::{make_delta, DeltaSet};
 use rhizomatic::term_json::{parse_schema, parse_term};
@@ -51,6 +51,20 @@ fn registry(doc: &Value) -> SchemaRegistry {
             .collect(),
     )
     .unwrap()
+}
+
+#[test]
+fn property_policy_exposes_absence_separately_from_a_present_false() {
+    let pick = Policy::Pick(Order::LexById);
+    assert_eq!(apply_policy(&pick, &[], "entity:one").unwrap(), None);
+    let with_default = Policy::AbsentAs {
+        constant: rhizomatic::types::Primitive::Bool(false),
+        then: Box::new(pick),
+    };
+    assert_eq!(
+        apply_policy(&with_default, &[], "entity:one").unwrap(),
+        Some(View::Prim(rhizomatic::types::Primitive::Bool(false)))
+    );
 }
 
 #[test]

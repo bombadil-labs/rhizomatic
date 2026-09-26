@@ -3,6 +3,7 @@
 use proptest::prelude::*;
 use rhizomatic::eval::result_canonical_hex;
 use rhizomatic::json_profile::parse_claims;
+use rhizomatic::eval::governed_deltas;
 use rhizomatic::reactor::{IngestResult, Reactor};
 use rhizomatic::set::{make_delta, make_negation_claims, DeltaSet};
 use rhizomatic::sign::{author_for_seed, sign_claims};
@@ -63,6 +64,46 @@ fn negation_query_keeps_target_validity_separate_from_edge_validity() {
     assert_eq!(reactor.ingest(counter), IngestResult::Accepted);
     assert!(!reactor.negation_reader(15.0, |_, _| true).unwrap().is_negated(&target.id));
     assert!(reactor.negation_reader(18.0, |_, _| true).unwrap().is_negated(&target.id));
+}
+
+#[test]
+fn governed_slice_filters_authors_and_half_open_validity() {
+    let first = make_delta(
+        parse_claims(&json!({
+            "timestamp": 1, "validFrom": 5, "validUntil": 20, "author": "A",
+            "pointers": [{ "role": "value", "target": "first" }]
+        }))
+        .unwrap(),
+        None,
+    )
+    .unwrap();
+    let second = make_delta(
+        parse_claims(&json!({
+            "timestamp": 2, "validFrom": 10, "author": "A",
+            "pointers": [{ "role": "value", "target": "second" }]
+        }))
+        .unwrap(),
+        None,
+    )
+    .unwrap();
+    let foreign = make_delta(
+        parse_claims(&json!({
+            "timestamp": 1, "validFrom": 5, "author": "B",
+            "pointers": [{ "role": "value", "target": "foreign" }]
+        }))
+        .unwrap(),
+        None,
+    )
+    .unwrap();
+    let set = DeltaSet::from_deltas([first.clone(), foreign, second.clone()]).unwrap();
+    let at_start = governed_deltas(&set, 10.0, |author| author == "A").unwrap();
+    assert!(at_start.contains(&first.id));
+    assert!(at_start.contains(&second.id));
+    assert_eq!(at_start.len(), 2);
+    let at_end = governed_deltas(&set, 20.0, |author| author == "A").unwrap();
+    assert!(!at_end.contains(&first.id));
+    assert!(at_end.contains(&second.id));
+    assert!(governed_deltas(&set, f64::NAN, |_| true).is_err());
 }
 
 #[test]

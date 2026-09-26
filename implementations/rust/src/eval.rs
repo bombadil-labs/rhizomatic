@@ -496,6 +496,23 @@ fn lookup_reading(
         .ok_or(format!("unknown reading: {label} (issue #23)"))
 }
 
+/// Retain the caller-authorized claims whose signed validity interval contains `now`.
+/// This is a slice, not a negation mask or a policy choosing a winning claim.
+pub fn governed_deltas(
+    input: &DeltaSet,
+    now: f64,
+    admits_author: impl Fn(&str) -> bool,
+) -> Result<DeltaSet, String> {
+    if !now.is_finite() {
+        return Err("now must be a finite number".to_string());
+    }
+    Ok(fork(input, |delta| {
+        admits_author(&delta.claims.author)
+            && delta.claims.valid_from <= now
+            && delta.claims.valid_until.is_none_or(|end| now < end)
+    }))
+}
+
 pub fn eval_term(
     term: &Term,
     input: &DeltaSet,
