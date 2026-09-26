@@ -1,11 +1,11 @@
-// Fixture gate for the frozen SPEC-14 corpus. Authority assertions join this file when the
-// principal reader lands; these checks already pin the signed bytes and case references.
+// Shared SPEC-14 evidence and authority decisions, in both ingest orders.
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { computeId } from "../src/delta.js";
 import { parseClaims } from "../src/json-profile.js";
+import { associatedKeys, authorsForPrincipal, resolvePrincipal } from "../src/principal.js";
 import { Reactor } from "../src/reactor.js";
 import { verifyDelta } from "../src/sign.js";
 import type { Delta } from "../src/types.js";
@@ -23,14 +23,24 @@ const vector = JSON.parse(
     now?: number;
     key: string;
     root?: string;
-    expected: { authors: string[] };
+    scope: string;
+    scopePolicy?: "exact" | "prefix";
+    suppression?: "sameAuthor" | "rootOrSameAuthor";
+    expected: {
+      grade: string;
+      authorized: boolean;
+      delegable: boolean;
+      authors: string[];
+    };
   }>;
   history: Array<{
     name: string;
     members: string[];
-    expected: Array<{ key: string; via: string[] }>;
+    now: number;
+    expected: Array<{ key: string; via: string[]; negated: boolean }>;
   }>;
   predicates: Array<{ name: string; members: string[]; expected: string[]; term: unknown }>;
+  defaults: { root: string; now: number; scopePolicy: "exact"; suppression: "sameAuthor" };
 };
 
 describe("frozen principal evidence fixtures (SPEC-14)", () => {
@@ -83,6 +93,71 @@ describe("frozen principal evidence fixtures (SPEC-14)", () => {
     for (const c of vector.predicates) {
       expect(c.term).toBeDefined();
       for (const name of c.expected) expect(named.has(name)).toBe(true);
+    }
+  });
+
+  it("matches every curated association and authority decision in both ingest orders", () => {
+    for (const c of vector.cases) {
+      for (const members of [c.members, [...c.members].reverse()]) {
+        const reactor = new Reactor();
+        for (const name of members) {
+          expect(reactor.ingest(named.get(name)!)).toEqual({ status: "accepted" });
+        }
+        const root = vector.keys[c.root ?? vector.defaults.root]!;
+        const key = vector.keys[c.key]!;
+        const options = {
+          at: c.at,
+          now: c.now ?? vector.defaults.now,
+          scope: c.scope,
+          scopePolicy: c.scopePolicy ?? vector.defaults.scopePolicy,
+          suppression: c.suppression ?? vector.defaults.suppression,
+        } as const;
+        const result = resolvePrincipal(reactor, root, key, options);
+        expect(result.grade, c.name).toBe(c.expected.grade);
+        expect(result.authorized, c.name).toBe(c.expected.authorized);
+        expect(result.delegable, c.name).toBe(c.expected.delegable);
+        const expectedAuthors = c.expected.authors.map((alias) => vector.keys[alias]!).sort();
+        expect(result.authors, c.name).toEqual(expectedAuthors);
+        expect(authorsForPrincipal(reactor, root, options), c.name).toEqual(expectedAuthors);
+      }
+    }
+  });
+
+  it("keeps historical association paths after effective negation", () => {
+    for (const c of vector.history) {
+      for (const members of [c.members, [...c.members].reverse()]) {
+        const reactor = new Reactor();
+        for (const name of members) {
+          expect(reactor.ingest(named.get(name)!)).toEqual({ status: "accepted" });
+        }
+        const rows = associatedKeys(
+          reactor,
+          vector.keys[vector.defaults.root]!,
+          c.now,
+          "sameAuthor",
+        );
+        expect(
+          rows.map((row) => ({ key: row.key, via: row.via, negated: row.negated })),
+          c.name,
+        ).toEqual(
+          c.expected.map((row) => ({
+            key: vector.keys[row.key],
+            via: row.via.map((name) => named.get(name)!.id),
+            negated: row.negated,
+          })),
+        );
+        for (const row of rows) {
+          expect(row.intervals).toEqual(
+            row.via.map((id) => {
+              const claims = reactor.get(id)!.claims;
+              return {
+                validFrom: claims.validFrom,
+                ...(claims.validUntil === undefined ? {} : { validUntil: claims.validUntil }),
+              };
+            }),
+          );
+        }
+      }
     }
   });
 });

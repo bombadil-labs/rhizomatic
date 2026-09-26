@@ -118,7 +118,8 @@ boolean plus its evidence paths.
 Dispute does not authorize an otherwise unauthorized key, and does not erase a valid delegation
 path. All output paths are deterministic and independent of input iteration order.
 
-`associatedKeys(input, root, now)` is a history query. It lists one row per root-associated key
+`associatedKeys(input, root, now, suppression)` is a history query. Its suppression policy is
+explicit because the current negation state depends on that policy. It lists one row per root-associated key
 and supporting path, including keys whose supporting records are now negated or outside their
 validity interval. The root has an empty evidence path. Each other row carries the path's delta
 ids, the intervals on those deltas, and whether any edge in that path is effectively negated at

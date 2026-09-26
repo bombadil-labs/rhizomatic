@@ -5,6 +5,10 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use rhizomatic::delta::compute_id;
 use rhizomatic::json_profile::parse_claims;
+use rhizomatic::principal::{
+    associated_keys, authors_for_principal, resolve_principal, PrincipalReadOptions,
+    PrincipalSuppression, ScopePolicy,
+};
 use rhizomatic::reactor::{IngestResult, Reactor};
 use rhizomatic::sign::{verify_delta, Verification};
 use rhizomatic::types::Delta;
@@ -16,6 +20,147 @@ fn vector() -> Value {
         env!("CARGO_MANIFEST_DIR")
     );
     serde_json::from_str(&std::fs::read_to_string(path).expect("read vector")).unwrap()
+}
+
+fn fixtures(v: &Value) -> BTreeMap<String, Delta> {
+    v["deltas"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|entry| {
+            let name = entry["name"].as_str().unwrap().to_string();
+            let delta = Delta {
+                id: entry["id"].as_str().unwrap().to_string(),
+                claims: parse_claims(&entry["claims"]).unwrap(),
+                sig: entry["sig"].as_str().map(str::to_string),
+            };
+            (name, delta)
+        })
+        .collect()
+}
+
+fn case_reactor(case: &Value, named: &BTreeMap<String, Delta>, reverse: bool) -> Reactor {
+    let members = case["members"].as_array().unwrap();
+    let mut reactor = Reactor::new();
+    let mut names: Vec<&str> = members.iter().map(|member| member.as_str().unwrap()).collect();
+    if reverse {
+        names.reverse();
+    }
+    for name in names {
+        assert_eq!(
+            reactor.ingest(named.get(name).expect("known fixture").clone()),
+            IngestResult::Accepted,
+            "case {}",
+            case["name"]
+        );
+    }
+    reactor
+}
+
+#[test]
+fn principal_authority_decisions_are_order_independent() {
+    let v = vector();
+    let named = fixtures(&v);
+    let keys = v["keys"].as_object().unwrap();
+    for case in v["cases"].as_array().unwrap() {
+        let name = case["name"].as_str().unwrap();
+        let root_alias = case["root"].as_str().unwrap_or(v["defaults"]["root"].as_str().unwrap());
+        let root = keys[root_alias].as_str().unwrap();
+        let key = keys[case["key"].as_str().unwrap()].as_str().unwrap();
+        let policy_name = case["scopePolicy"]
+            .as_str()
+            .unwrap_or(v["defaults"]["scopePolicy"].as_str().unwrap());
+        let suppression_name = case["suppression"]
+            .as_str()
+            .unwrap_or(v["defaults"]["suppression"].as_str().unwrap());
+        let options = PrincipalReadOptions {
+            at: case["at"].as_f64().unwrap(),
+            now: case["now"].as_f64().unwrap_or(v["defaults"]["now"].as_f64().unwrap()),
+            scope: case["scope"].as_str().unwrap().to_string(),
+            scope_policy: match policy_name {
+                "exact" => ScopePolicy::Exact,
+                "prefix" => ScopePolicy::Prefix,
+                _ => panic!("unknown scope policy in {name}"),
+            },
+            suppression: match suppression_name {
+                "sameAuthor" => PrincipalSuppression::SameAuthor,
+                "rootOrSameAuthor" => PrincipalSuppression::RootOrSameAuthor,
+                _ => panic!("unknown suppression in {name}"),
+            },
+        };
+        let expected = &case["expected"];
+        let mut expected_authors: Vec<String> = expected["authors"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|alias| keys[alias.as_str().unwrap()].as_str().unwrap().to_string())
+            .collect();
+        expected_authors.sort();
+        for reverse in [false, true] {
+            let reactor = case_reactor(case, &named, reverse);
+            let result = resolve_principal(&reactor, root, key, &options).unwrap();
+            assert_eq!(result.grade.as_str(), expected["grade"].as_str().unwrap(), "{name}");
+            assert_eq!(result.authorized, expected["authorized"].as_bool().unwrap(), "{name}");
+            assert_eq!(result.delegable, expected["delegable"].as_bool().unwrap(), "{name}");
+            assert_eq!(result.authors, expected_authors, "{name}");
+            assert_eq!(
+                authors_for_principal(&reactor, root, &options).unwrap(),
+                expected_authors,
+                "{name}"
+            );
+        }
+    }
+}
+
+#[test]
+fn principal_history_keeps_negated_associations() {
+    let v = vector();
+    let named = fixtures(&v);
+    let keys = v["keys"].as_object().unwrap();
+    let root = keys[v["defaults"]["root"].as_str().unwrap()].as_str().unwrap();
+    for case in v["history"].as_array().unwrap() {
+        let name = case["name"].as_str().unwrap();
+        let expected: Vec<(String, Vec<String>, bool)> = case["expected"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|row| {
+                (
+                    keys[row["key"].as_str().unwrap()].as_str().unwrap().to_string(),
+                    row["via"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .map(|alias| named[alias.as_str().unwrap()].id.clone())
+                        .collect(),
+                    row["negated"].as_bool().unwrap(),
+                )
+            })
+            .collect();
+        for reverse in [false, true] {
+            let reactor = case_reactor(case, &named, reverse);
+            let rows = associated_keys(
+                &reactor,
+                root,
+                case["now"].as_f64().unwrap(),
+                PrincipalSuppression::SameAuthor,
+            )
+            .unwrap();
+            let actual: Vec<(String, Vec<String>, bool)> = rows
+                .iter()
+                .map(|row| (row.key.clone(), row.via.clone(), row.negated))
+                .collect();
+            assert_eq!(actual, expected, "{name}");
+            for row in rows {
+                assert_eq!(row.intervals.len(), row.via.len(), "{name}");
+                for (interval, id) in row.intervals.iter().zip(&row.via) {
+                    let claims = &reactor.get(id).unwrap().claims;
+                    assert_eq!(interval.valid_from, claims.valid_from, "{name}");
+                    assert_eq!(interval.valid_until, claims.valid_until, "{name}");
+                }
+            }
+        }
+    }
 }
 
 #[test]

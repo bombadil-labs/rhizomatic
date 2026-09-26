@@ -66,7 +66,7 @@ can still return `rooted` from its held evidence; it must not pretend a registry
 
 ## Read contracts
 
-The core query shape is `resolvePrincipal(input, root, key, { at, now, policy })`. `at` is the
+The core query shape is `resolvePrincipal(input, root, key, { at, now, scope, scopePolicy, suppression })`. `at` is the
 effective time whose authority is in question; `now` is the caller's observation time. The
 caller supplies the evidence set available at `now`. Step 6 may construct that set from arrival
 testimony when it asks what authority existed at an earlier act. This API must not silently use
@@ -77,9 +77,9 @@ chooses how it treats disputed paths and scope. It cannot treat succession as de
 library must not resolve a dispute by arrival order, claimed creation time, or registry
 freshness. Paths and conflicts are sorted by delta id for deterministic output.
 
-`associatedKeys(input, root, now)` is a separate history query for every key ever associated
+`associatedKeys(input, root, now, suppression)` is a separate history query for every key ever associated
 with the root in the supplied evidence. It returns each key with its binding intervals, current
-negation state, evidence grade, and path ids, sorted by key then path id. It includes negated
+negation state, and path ids, sorted by key then path id. It includes negated
 bindings so a rotated user can find claims signed under an old key for a retract-your-own read.
 This history answer does not itself authorize the old key to sign today.
 
