@@ -125,6 +125,30 @@ describe("delta-set guards", () => {
     );
     const forged: Delta = { ...d, id: `1e20${"00".repeat(32)}` };
     expect(() => new DeltaSet().add(forged)).toThrow(/content addressing/);
+    expect(() => DeltaSet.from([forged])).toThrow(/content addressing/);
+  });
+
+  it("copies and filters verified sets without sharing membership", () => {
+    const first = makeDelta({
+      timestamp: 1,
+      validFrom: 1,
+      author: "a",
+      pointers: [{ role: "x", target: { kind: "primitive", value: 1 } }],
+    });
+    const second = makeDelta({
+      timestamp: 2,
+      validFrom: 2,
+      author: "a",
+      pointers: [{ role: "x", target: { kind: "primitive", value: 2 } }],
+    });
+    const original = DeltaSet.from([first]);
+    const copy = DeltaSet.from(original);
+    copy.add(second);
+    expect(original.ids()).toEqual([first.id]);
+    expect(copy.ids()).toEqual([first.id, second.id].sort());
+    const selected = fork(copy, (d) => d.id === second.id);
+    expect(selected.ids()).toEqual([second.id]);
+    expect(merge(original, selected).ids()).toEqual(copy.ids());
   });
 
   it("makeNegationClaims produces the SPEC-1 §7 shape", () => {

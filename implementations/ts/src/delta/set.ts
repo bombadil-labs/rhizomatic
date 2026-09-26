@@ -34,8 +34,31 @@ export class DeltaSet implements Iterable<Delta> {
   private readonly byId = new Map<string, Delta>();
 
   static from(deltas: Iterable<Delta>): DeltaSet {
+    if (deltas instanceof DeltaSet) return deltas.copy();
     const s = new DeltaSet();
     for (const d of deltas) s.add(d);
+    return s;
+  }
+
+  // A set has already checked every member at insertion. Copies between sets may carry those
+  // members directly; only insertion from an arbitrary iterable crosses the validation boundary.
+  // Delta values are immutable by contract (readonly types); mutating one after insertion also
+  // invalidates the original set and the reactor indexes, independent of this copy path.
+  copy(): DeltaSet {
+    const s = new DeltaSet();
+    for (const [id, delta] of this.byId) s.byId.set(id, delta);
+    return s;
+  }
+
+  filtered(p: (d: Delta) => boolean): DeltaSet {
+    const s = new DeltaSet();
+    for (const [id, delta] of this.byId) if (p(delta)) s.byId.set(id, delta);
+    return s;
+  }
+
+  union(other: DeltaSet): DeltaSet {
+    const s = this.copy();
+    for (const [id, delta] of other.byId) if (!s.byId.has(id)) s.byId.set(id, delta);
     return s;
   }
 
@@ -80,16 +103,12 @@ export class DeltaSet implements Iterable<Delta> {
 
 // merge(A, B) = A ∪ B — commutative, associative, idempotent (SPEC-1 §8).
 export function merge(a: DeltaSet, b: DeltaSet): DeltaSet {
-  const s = DeltaSet.from(a);
-  for (const d of b) s.add(d);
-  return s;
+  return a.union(b);
 }
 
 // fork(A, p) = { d ∈ A : p(d) } — any filter yields a valid delta set (SPEC-1 §8).
 export function fork(a: DeltaSet, p: (d: Delta) => boolean): DeltaSet {
-  const s = new DeltaSet();
-  for (const d of a) if (p(d)) s.add(d);
-  return s;
+  return a.filtered(p);
 }
 
 // federate(A, B, p) = A ∪ fork(B, p) — merge of a filtered fork (SPEC-1 §8).
