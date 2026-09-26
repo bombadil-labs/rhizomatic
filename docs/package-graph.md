@@ -43,6 +43,7 @@ resolve-kernel → algebra, syntax, delta
 resolve      → resolve-kernel, algebra, schema, syntax, delta
 schema-load  → resolve, schema, syntax, delta
 reactor      → resolve, resolve-kernel, algebra, schema, syntax, delta
+principal    → reactor, syntax, delta
 storage      → delta
 federation   → reactor, resolve, syntax, delta
 derivation   → reactor, algebra, delta
@@ -51,8 +52,9 @@ derivation   → reactor, algebra, delta
 `schema-load` is the registry adapter for self-hosted schema deltas. The `resolve` package owns
 the terminal `resolve` term composition and public `evalTerm` entry point. `resolve-kernel` owns
 pure View policy evaluation below that composition; `algebra` owns HView serialization. This
-prevents upward imports. Future `principal`
-and `erasure` packages are absent until their semantic steps. The approved name is **erasure**;
+prevents upward imports. Step 5 adds `principal` above the reactor. Its adapter is passed into
+lower evaluation as an explicit input; lower packages never import `principal`. The future
+`erasure` package is absent until its semantic step. The approved name is **erasure**;
 negation remains an algebraic delta operation.
 
 The graph check treats type-only imports and inline `import()` types as package edges. It permits
