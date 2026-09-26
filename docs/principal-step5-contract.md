@@ -25,7 +25,10 @@ principal; it proves control of the key, not that a human-readable name is uniqu
 pin the root key directly even when the declaration is unavailable.
 
 A key binding says that key K acts for principal P. A delegation says that a currently authorized
-key permits another key to act for P, optionally within a declared scope. A succession claim says
+key permits another key to act for P, optionally within a declared scope. The scope is an opaque
+string or entity id carried as evidence; the application interprets its meaning. The principal
+package compares it under a caller-supplied, explicit scope policy and does not impose Loam's
+container or role vocabulary. A succession claim says
 that a later key continues a previous key's principal association. Each is an ordinary signed
 delta with `validFrom` and optional `validUntil`; any negation of it is evaluated at an explicit
 read time. A locator claim gives an address at which a principal might be reached. It is a hint,
@@ -47,12 +50,30 @@ can still return `rooted` from its held evidence; it must not pretend a registry
 
 ## Read contracts
 
-The core query shape is `resolvePrincipal(input, root, key, now, policy)`. The result contains a
-grade, the held evidence paths, and the set of keys that the supplied policy accepts for the
-root. A convenience `authorsForPrincipal` supplies that set to governed reads. All inputs are
-explicit. A caller chooses whether its policy accepts delegation, succession, disputed paths,
-and a scope; the library must not resolve a dispute by arrival order, claimed creation time, or
-registry freshness. Paths and conflicts are sorted by delta id for deterministic output.
+The core query shape is `resolvePrincipal(input, root, key, { at, now, policy })`. `at` is the
+effective time whose authority is in question; `now` is the caller's observation time. The
+caller supplies the evidence set available at `now`. Step 6 may construct that set from arrival
+testimony when it asks what authority existed at an earlier act. This API must not silently use
+the author's signed creation time as the act time. The result contains a grade, the held evidence
+paths, and the set of keys that the supplied policy accepts for the root. A convenience
+`authorsForPrincipal` supplies that set to governed reads. All inputs are explicit. A caller
+chooses whether its policy accepts delegation, succession, disputed paths, and a scope; the
+library must not resolve a dispute by arrival order, claimed creation time, or registry
+freshness. Paths and conflicts are sorted by delta id for deterministic output.
+
+`associatedKeys(input, root, now)` is a separate history query for every key ever associated
+with the root in the supplied evidence. It returns each key with its binding intervals, current
+negation state, evidence grade, and path ids, sorted by key then path id. It includes negated
+bindings so a rotated user can find claims signed under an old key for a retract-your-own read.
+This history answer does not itself authorize the old key to sign today.
+
+Principal membership must also be usable in a serializable L2 predicate. The proposed shape is
+`actsFor: { root, policy }`, evaluated at the term's explicit `now` and lowered to a set of
+authors by `authorsForPrincipal`. `policy` must be a portable, closed JSON profile or a pinned
+principal-policy reference, never an ambient callback hidden inside a term. A container membership
+term can then follow key rotation without being rewritten for each new key. Step 6 admission
+guards can use the same predicate with their own explicit policy. A host callback remains
+available for local decisions that are not shipped as terms.
 
 Signer provenance and present authority are separate questions. `delta.author` plus signature
 verification proves which key signed it. A historical association query can show the held
@@ -83,6 +104,12 @@ that a binding used to exist.
 8. Two peers file at the same governed anchor: the pinned root/key choice separates their
    governed reads; an ordinary entity read still sees the union.
 9. A binding is purged but an index reference remains: it cannot authorize the delegated key.
+10. Container membership `actsFor(P)` includes K2 after a valid rotation/delegation from K1,
+    without changing the serialized Term; a raw `author == K1` predicate does not.
+11. The history query lists K1 and K2 with their intervals after K1's binding is negated,
+    while present authority may include only K2.
+12. Two reads over the same held evidence with different `at` values can differ; changing `now`
+    alone cannot fabricate a signed arrival time or a previously unseen edge.
 
 The TypeScript and Rust witnesses must agree on these vectors before a prerelease. Elixir and
 Haskell continue to declare their supported level in `witness.json`; the shared Level 0 bytes
