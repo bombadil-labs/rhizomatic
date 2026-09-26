@@ -114,6 +114,48 @@ Because schemas are deltas, automatically:
 - **The registry is queryable:** "all schemas that `expand` through `ActorSchema`" is just a query.
 - **Schemas are negatable:** deprecation is a negation delta.
 
+### 5.1 Governed definition reads
+
+A governed definition read takes a delta set, explicit finite `now`, a caller-chosen author set or
+author predicate, and a `pick` order. It first retains only deltas by selected authors whose signed
+validity interval contains `now` (SPEC-2 §5). It then evaluates the definition bootstrap, including
+`mask(drop)`, over that slice. The caller's author selection applies to negations as well as
+definitions: a negation by an unselected author cannot suppress a selected definition. The loader
+chooses the first surviving definition under the supplied order, including the ascending-id final
+tiebreak of SPEC-5 §3, then decodes and validates its canonical body as in S3/S6. It reports absence
+when none survives. The delta set alone never supplies the governing authors.
+
+`loadGovernedHyperSchema` and `loadGovernedSchema` implement this contract. The existing
+`loadHyperSchema` and `loadSchema` remain compatibility conveniences: all authors and
+`pick(byTimestamp desc)`. That default is a Policy choice, not a substrate winner. Equal entity-id
+strings continue to co-refer under P1; an author selection governs a particular read without
+changing identity or merge.
+
+### 5.2 Named lens bindings
+
+A named lens binding is one ordinary delta with exactly these three pointers:
+
+```
+{ role: "rhizomatic.lens.binds",       target: EntityRef(name, context: "lens") }
+{ role: "rhizomatic.lens.hyperschema", target: <lowercase term content address> }
+{ role: "rhizomatic.lens.schema",      target: <lowercase Schema content address> }
+```
+
+The HyperSchema pin is `termHash(body)`; the Schema pin is `schemaHash(schema)`. Both use the L1
+`1e20` multihash form. The binding's id is its own delta content address and is distinct from
+either pin. Extra or duplicate pointers, wrong target kinds, or malformed pins make a selected
+binding malformed; the reader MUST fail rather than reinterpret it. A missing selected binding
+reports absence. The binding does not require the pinned definitions to be locally held: a caller
+can retrieve them or report that they are missing.
+
+`loadLensBinding` takes the same explicit `now`, author selection, and `pick` order as a governed
+definition read. It filters authors and validity before `mask(drop)`, gathers the `lens` context at
+the named entity, and chooses one surviving binding by Policy order. Thus two authors can publish
+different bindings at the same name without either one becoming global authority. A timed
+negation affects the binding only within its own signed interval. The shared vectors in
+`vectors/l3-schema/governed-bindings.json` pin the author split, both time boundaries, both
+Policy orders, and the content pins.
+
 ## 6. Pinned vs. Evolvable References
 
 `SchemaRef` has two modes (L2 §7), and their semantics interact with everything above:

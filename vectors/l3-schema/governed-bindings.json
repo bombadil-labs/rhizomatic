@@ -1,0 +1,428 @@
+{
+  "spec": "SPEC-3 §5.2-5.3",
+  "pins": {
+    "hyperA": "1e20ed095177796d492bea63f2c087021689fd5234eb890d138320d0920942dd95af",
+    "hyperB": "1e20b8c3b0b1d28a76edfc06506215f95ecde58869faae53afc75c3b7c1b5fe87360",
+    "schemaA": "1e20f692a9bdf685c559d0a7aef6bdf2e552bebead00ed323f1d984a58d5cd58e49c",
+    "schemaB": "1e2027afdd0a8a7fe6137b2c3247fce2cda15c20483739324577df784487044f3388"
+  },
+  "deltas": [
+    {
+      "name": "hyperA",
+      "id": "1e20ea1e73ad39b36bf7a0d126d3c73a10021e2589f559109c14095720b5fed910d7",
+      "claims": {
+        "timestamp": 100,
+        "validFrom": 0,
+        "validUntil": 120,
+        "author": "A",
+        "pointers": [
+          {
+            "role": "rhizomatic.hyperschema.defines",
+            "target": {
+              "id": "schema:governed",
+              "context": "definition"
+            }
+          },
+          {
+            "role": "rhizomatic.hyperschema.name",
+            "target": "DefinitionA"
+          },
+          {
+            "role": "rhizomatic.hyperschema.alg",
+            "target": 1
+          },
+          {
+            "role": "rhizomatic.hyperschema.term",
+            "target": "65696e707574"
+          }
+        ]
+      }
+    },
+    {
+      "name": "hyperB",
+      "id": "1e200fb5b5f768e39d4370e279ac2057f8d8a83b63646d6f2cc0149618f3b02b7220",
+      "claims": {
+        "timestamp": 200,
+        "validFrom": 0,
+        "author": "B",
+        "pointers": [
+          {
+            "role": "rhizomatic.hyperschema.defines",
+            "target": {
+              "id": "schema:governed",
+              "context": "definition"
+            }
+          },
+          {
+            "role": "rhizomatic.hyperschema.name",
+            "target": "DefinitionB"
+          },
+          {
+            "role": "rhizomatic.hyperschema.alg",
+            "target": 1
+          },
+          {
+            "role": "rhizomatic.hyperschema.term",
+            "target": "a362696ea362696ea362696e65696e707574626f70646d61736b66706f6c6963796464726f70626f706673656c6563746470726564a16a686173506f696e746572a16c746172676574456e74697479a16376617264726f6f74626f706567726f7570636b65796f6279546172676574436f6e74657874"
+          }
+        ]
+      }
+    },
+    {
+      "name": "schemaA",
+      "id": "1e20cc024aa672f2fe888614739dba8a427ed29280d8f296a45aceee713f92fa1850",
+      "claims": {
+        "timestamp": 100,
+        "validFrom": 0,
+        "validUntil": 120,
+        "author": "A",
+        "pointers": [
+          {
+            "role": "rhizomatic.schema.defines",
+            "target": {
+              "id": "schema:reading",
+              "context": "definition"
+            }
+          },
+          {
+            "role": "rhizomatic.schema.name",
+            "target": "ReadingA"
+          },
+          {
+            "role": "rhizomatic.schema.alg",
+            "target": 1
+          },
+          {
+            "role": "rhizomatic.schema.term",
+            "target": "a26570726f7073a06764656661756c74a1647069636ba1656f72646572676c657842794964"
+          }
+        ]
+      }
+    },
+    {
+      "name": "schemaB",
+      "id": "1e2054c2b9ed513628dd8cfb5d4746c1353b2bce21d81d2d4990ca3d97b254325841",
+      "claims": {
+        "timestamp": 200,
+        "validFrom": 0,
+        "author": "B",
+        "pointers": [
+          {
+            "role": "rhizomatic.schema.defines",
+            "target": {
+              "id": "schema:reading",
+              "context": "definition"
+            }
+          },
+          {
+            "role": "rhizomatic.schema.name",
+            "target": "ReadingB"
+          },
+          {
+            "role": "rhizomatic.schema.alg",
+            "target": 1
+          },
+          {
+            "role": "rhizomatic.schema.term",
+            "target": "a26570726f7073a06764656661756c74a1647069636ba1656f72646572a16b627954696d657374616d706464657363"
+          }
+        ]
+      }
+    },
+    {
+      "name": "lensA",
+      "id": "1e202a80541e20670188c0aa38a5ade65d5a2d27fd2a070bc7fd7795122f7d23c981",
+      "claims": {
+        "timestamp": 100,
+        "validFrom": 50,
+        "author": "A",
+        "pointers": [
+          {
+            "role": "rhizomatic.lens.binds",
+            "target": {
+              "id": "lens:shared",
+              "context": "lens"
+            }
+          },
+          {
+            "role": "rhizomatic.lens.hyperschema",
+            "target": "1e20ed095177796d492bea63f2c087021689fd5234eb890d138320d0920942dd95af"
+          },
+          {
+            "role": "rhizomatic.lens.schema",
+            "target": "1e20f692a9bdf685c559d0a7aef6bdf2e552bebead00ed323f1d984a58d5cd58e49c"
+          }
+        ]
+      }
+    },
+    {
+      "name": "lensB",
+      "id": "1e20a01203519dc418cdd4398555c1e27eb6715bf3c76db6f957a00205fd8ab9b96d",
+      "claims": {
+        "timestamp": 200,
+        "validFrom": 0,
+        "author": "B",
+        "pointers": [
+          {
+            "role": "rhizomatic.lens.binds",
+            "target": {
+              "id": "lens:shared",
+              "context": "lens"
+            }
+          },
+          {
+            "role": "rhizomatic.lens.hyperschema",
+            "target": "1e20b8c3b0b1d28a76edfc06506215f95ecde58869faae53afc75c3b7c1b5fe87360"
+          },
+          {
+            "role": "rhizomatic.lens.schema",
+            "target": "1e2027afdd0a8a7fe6137b2c3247fce2cda15c20483739324577df784487044f3388"
+          }
+        ]
+      }
+    },
+    {
+      "name": "negateHyperA",
+      "id": "1e208dd6208f3f9d8da03c5dc548719c60cd505f1b843063f4cd4fd3897581130f31",
+      "claims": {
+        "timestamp": 70,
+        "validFrom": 70,
+        "validUntil": 90,
+        "author": "A",
+        "pointers": [
+          {
+            "role": "negates",
+            "target": {
+              "delta": "1e20ea1e73ad39b36bf7a0d126d3c73a10021e2589f559109c14095720b5fed910d7"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "negateSchemaA",
+      "id": "1e208fcd9d116fcab27c1df62af5ab29fc8a97408b4fd17c26b8e0efb5b3c53614ac",
+      "claims": {
+        "timestamp": 70,
+        "validFrom": 70,
+        "validUntil": 90,
+        "author": "A",
+        "pointers": [
+          {
+            "role": "negates",
+            "target": {
+              "delta": "1e20cc024aa672f2fe888614739dba8a427ed29280d8f296a45aceee713f92fa1850"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "negateLensA",
+      "id": "1e209509b9c1b6e99477e608b9157ebb17b7e1d2c0d7957d701a859d471178830ccd",
+      "claims": {
+        "timestamp": 70,
+        "validFrom": 70,
+        "validUntil": 90,
+        "author": "A",
+        "pointers": [
+          {
+            "role": "negates",
+            "target": {
+              "delta": "1e202a80541e20670188c0aa38a5ade65d5a2d27fd2a070bc7fd7795122f7d23c981"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "foreignNegateLensA",
+      "id": "1e2023fefc9d8a9b8f41371b1d8418e8221ab642c6d991977abe1d542fec0ecff00b",
+      "claims": {
+        "timestamp": 55,
+        "validFrom": 55,
+        "validUntil": 65,
+        "author": "B",
+        "pointers": [
+          {
+            "role": "negates",
+            "target": {
+              "delta": "1e202a80541e20670188c0aa38a5ade65d5a2d27fd2a070bc7fd7795122f7d23c981"
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "hyperLoads": [
+    {
+      "now": 60,
+      "authors": [
+        "A"
+      ],
+      "order": "byTimestamp",
+      "expected": "DefinitionA"
+    },
+    {
+      "now": 60,
+      "authors": [
+        "B"
+      ],
+      "order": "byTimestamp",
+      "expected": "DefinitionB"
+    },
+    {
+      "now": 60,
+      "authors": [
+        "A",
+        "B"
+      ],
+      "order": "byTimestamp",
+      "expected": "DefinitionB"
+    },
+    {
+      "now": 70,
+      "authors": [
+        "A"
+      ],
+      "order": "byTimestamp",
+      "expected": null
+    },
+    {
+      "now": 90,
+      "authors": [
+        "A"
+      ],
+      "order": "byTimestamp",
+      "expected": "DefinitionA"
+    },
+    {
+      "now": 120,
+      "authors": [
+        "A"
+      ],
+      "order": "byTimestamp",
+      "expected": null
+    }
+  ],
+  "schemaLoads": [
+    {
+      "now": 60,
+      "authors": [
+        "A"
+      ],
+      "order": "byTimestamp",
+      "expected": "ReadingA"
+    },
+    {
+      "now": 60,
+      "authors": [
+        "B"
+      ],
+      "order": "byTimestamp",
+      "expected": "ReadingB"
+    },
+    {
+      "now": 60,
+      "authors": [
+        "A",
+        "B"
+      ],
+      "order": "byTimestamp",
+      "expected": "ReadingB"
+    },
+    {
+      "now": 70,
+      "authors": [
+        "A"
+      ],
+      "order": "byTimestamp",
+      "expected": null
+    },
+    {
+      "now": 90,
+      "authors": [
+        "A"
+      ],
+      "order": "byTimestamp",
+      "expected": "ReadingA"
+    },
+    {
+      "now": 120,
+      "authors": [
+        "A"
+      ],
+      "order": "byTimestamp",
+      "expected": null
+    }
+  ],
+  "lensLoads": [
+    {
+      "now": 40,
+      "authors": [
+        "A"
+      ],
+      "order": "byTimestamp",
+      "expected": null
+    },
+    {
+      "now": 60,
+      "authors": [
+        "A"
+      ],
+      "order": "byTimestamp",
+      "expected": "lensA"
+    },
+    {
+      "now": 60,
+      "authors": [
+        "B"
+      ],
+      "order": "byTimestamp",
+      "expected": "lensB"
+    },
+    {
+      "now": 60,
+      "authors": [
+        "A",
+        "B"
+      ],
+      "order": "byTimestamp",
+      "expected": "lensB"
+    },
+    {
+      "now": 60,
+      "authors": [
+        "A",
+        "B"
+      ],
+      "order": "byValidFrom",
+      "expected": "lensB"
+    },
+    {
+      "now": 66,
+      "authors": [
+        "A",
+        "B"
+      ],
+      "order": "byValidFrom",
+      "expected": "lensA"
+    },
+    {
+      "now": 70,
+      "authors": [
+        "A"
+      ],
+      "order": "byTimestamp",
+      "expected": null
+    },
+    {
+      "now": 90,
+      "authors": [
+        "A"
+      ],
+      "order": "byTimestamp",
+      "expected": "lensA"
+    }
+  ]
+}

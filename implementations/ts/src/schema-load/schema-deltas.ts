@@ -4,10 +4,11 @@
 
 import { decode } from "../delta/cbor.js";
 import type { Term } from "../syntax/model.js";
-import { evalTerm } from "../resolve/eval.js";
+import { evalTerm, firstByOrder, governedDeltas, type AuthorSelection } from "../resolve/eval.js";
 import { hexToBytes } from "@noble/hashes/utils";
 import type { Schema } from "../syntax/model.js";
 import type { HyperSchema } from "../schema/schema.js";
+import type { Order } from "../syntax/model.js";
 import { DeltaSet } from "../delta/set.js";
 import { cborToJson, schemaCanonicalHex, termCanonicalHex } from "../syntax/term-io.js";
 import { parseSchema, parseTerm } from "../syntax/term-json.js";
@@ -73,16 +74,38 @@ function primitiveOf(claims: Claims, role: string): string | number | undefined 
 // Load a schema definition from the rhizome (S3): evaluate the bootstrap at the schema entity,
 // take the latest surviving definition (claimed timestamp, lexById tiebreak — a policy choice),
 // decode the term, and verify canonicality by re-encoding.
-export function loadHyperSchema(dset: DeltaSet, schemaEntity: string, now: number): HyperSchema {
-  const result = evalTerm(HYPER_SCHEMA_SCHEMA.body, dset, now, schemaEntity);
+function selectedDefinition(
+  body: Term,
+  dset: DeltaSet,
+  schemaEntity: string,
+  now: number,
+  authors: AuthorSelection,
+  order: Order,
+): NonNullable<ReturnType<typeof firstByOrder>> {
+  // Author selection happens before mask: a foreign negation cannot suppress governing law.
+  const result = evalTerm(body, governedDeltas(dset, now, authors), now, schemaEntity);
   if (result.sort !== "hview") throw new Error("bootstrap body must yield an HView");
   const defs = result.hview.props.get("definition") ?? [];
   if (defs.length === 0) throw new Error(`no surviving schema definition for ${schemaEntity}`);
-  const latest = [...defs].sort((a, b) => {
-    const dt = b.delta.claims.timestamp - a.delta.claims.timestamp;
-    if (dt !== 0) return dt;
-    return a.delta.id < b.delta.id ? -1 : 1;
-  })[0]!;
+  return firstByOrder(order, defs)!;
+}
+
+/** Load under an explicit governing author selection and a caller-chosen Pick order. */
+export function loadGovernedHyperSchema(
+  dset: DeltaSet,
+  schemaEntity: string,
+  now: number,
+  authors: AuthorSelection,
+  order: Order,
+): HyperSchema {
+  const latest = selectedDefinition(
+    HYPER_SCHEMA_SCHEMA.body,
+    dset,
+    schemaEntity,
+    now,
+    authors,
+    order,
+  );
   const name = primitiveOf(latest.delta.claims, ROLE_NAME);
   const alg = primitiveOf(latest.delta.claims, ROLE_ALG);
   const termHex = primitiveOf(latest.delta.claims, ROLE_TERM);
@@ -96,6 +119,14 @@ export function loadHyperSchema(dset: DeltaSet, schemaEntity: string, now: numbe
     throw new Error(`schema definition ${latest.delta.id} carries a non-canonical term blob`);
   }
   return { name, alg, body: term };
+}
+
+/** Legacy all-author loader; its ordering is an explicit compatibility Policy. */
+export function loadHyperSchema(dset: DeltaSet, schemaEntity: string, now: number): HyperSchema {
+  return loadGovernedHyperSchema(dset, schemaEntity, now, () => true, {
+    kind: "byTimestamp",
+    dir: "desc",
+  });
 }
 
 export function definitionRoles(): { defines: string; name: string; alg: string; term: string } {
@@ -148,16 +179,14 @@ export function publishSchemaClaims(
 // Load a resolution Schema from the rhizome (parallel to loadHyperSchema): gather via SCHEMA_SCHEMA,
 // take the latest surviving definition, decode props+default, reject non-canonical blobs, and
 // reattach name/alg from the roles.
-export function loadSchema(dset: DeltaSet, schemaEntity: string, now: number): Schema {
-  const result = evalTerm(SCHEMA_SCHEMA.body, dset, now, schemaEntity);
-  if (result.sort !== "hview") throw new Error("bootstrap body must yield an HView");
-  const defs = result.hview.props.get("definition") ?? [];
-  if (defs.length === 0) throw new Error(`no surviving schema definition for ${schemaEntity}`);
-  const latest = [...defs].sort((a, b) => {
-    const dt = b.delta.claims.timestamp - a.delta.claims.timestamp;
-    if (dt !== 0) return dt;
-    return a.delta.id < b.delta.id ? -1 : 1;
-  })[0]!;
+export function loadGovernedSchema(
+  dset: DeltaSet,
+  schemaEntity: string,
+  now: number,
+  authors: AuthorSelection,
+  order: Order,
+): Schema {
+  const latest = selectedDefinition(SCHEMA_SCHEMA.body, dset, schemaEntity, now, authors, order);
   const name = primitiveOf(latest.delta.claims, SCHEMA_NAME);
   const alg = primitiveOf(latest.delta.claims, SCHEMA_ALG);
   const termHex = primitiveOf(latest.delta.claims, SCHEMA_TERM);
@@ -170,4 +199,12 @@ export function loadSchema(dset: DeltaSet, schemaEntity: string, now: number): S
     throw new Error(`schema definition ${latest.delta.id} carries a non-canonical schema blob`);
   }
   return { ...body, name, alg };
+}
+
+/** Legacy all-author loader; its ordering is an explicit compatibility Policy. */
+export function loadSchema(dset: DeltaSet, schemaEntity: string, now: number): Schema {
+  return loadGovernedSchema(dset, schemaEntity, now, () => true, {
+    kind: "byTimestamp",
+    dir: "desc",
+  });
 }

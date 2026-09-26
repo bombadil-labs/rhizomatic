@@ -513,6 +513,33 @@ pub fn governed_deltas(
     }))
 }
 
+/// Latest signed creation claim per projected key after author and validity filtering.
+/// Equal timestamps resolve by ascending content id; input iteration order has no effect.
+pub fn latest_by_key(
+    input: &DeltaSet,
+    now: f64,
+    admits_author: impl Fn(&str) -> bool,
+    key_of: impl Fn(&Delta) -> Option<String>,
+) -> Result<BTreeMap<String, Delta>, String> {
+    let mut winners = BTreeMap::<String, Delta>::new();
+    for delta in governed_deltas(input, now, admits_author)?.iter() {
+        let Some(key) = key_of(delta) else {
+            continue;
+        };
+        let replace = match winners.get(&key) {
+            None => true,
+            Some(current) => {
+                delta.claims.timestamp > current.claims.timestamp
+                    || (delta.claims.timestamp == current.claims.timestamp && delta.id < current.id)
+            }
+        };
+        if replace {
+            winners.insert(key, delta.clone());
+        }
+    }
+    Ok(winners)
+}
+
 pub fn eval_term(
     term: &Term,
     input: &DeltaSet,

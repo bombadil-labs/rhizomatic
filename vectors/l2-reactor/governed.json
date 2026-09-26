@@ -1,0 +1,320 @@
+{
+  "spec": "SPEC-1 §6; SPEC-2 §5; SPEC-4 §3.1",
+  "deltas": [
+    {
+      "name": "target",
+      "id": "1e2056fcdc1678e38d183691115cb2b533609cdb8506b633ed5ff3c53481e38a4fdc",
+      "claims": {
+        "timestamp": 1,
+        "validFrom": 0,
+        "validUntil": 12,
+        "author": "A",
+        "pointers": [
+          {
+            "role": "value",
+            "target": "first"
+          },
+          {
+            "role": "subject",
+            "target": {
+              "id": "person:myk",
+              "context": "bio"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "foreign",
+      "id": "1e2071dc25c22c5149a95caf6aaebcbb355bbc00bea19f610b88dbf505985b37fc87",
+      "claims": {
+        "timestamp": 2,
+        "validFrom": 0,
+        "author": "B",
+        "pointers": [
+          {
+            "role": "value",
+            "target": "second"
+          },
+          {
+            "role": "subject",
+            "target": {
+              "id": "person:myk",
+              "context": "bio"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "tie",
+      "id": "1e204f4fdbaa0d64b762cd516ac2984fc8d473da96e0bc06b1fd08e4329e0b9b5d61",
+      "claims": {
+        "timestamp": 2,
+        "validFrom": 0,
+        "author": "C",
+        "pointers": [
+          { "role": "value", "target": "third" },
+          { "role": "subject", "target": { "id": "person:myk", "context": "bio" } }
+        ]
+      }
+    },
+    {
+      "name": "timed",
+      "id": "1e2033d326f7e0d7f291021e62c57be402c7eb808513210ebebfe8fa957dbfb0cc6d",
+      "claims": {
+        "timestamp": 10,
+        "validFrom": 10,
+        "validUntil": 20,
+        "author": "B",
+        "pointers": [
+          {
+            "role": "negates",
+            "target": {
+              "delta": "1e2056fcdc1678e38d183691115cb2b533609cdb8506b633ed5ff3c53481e38a4fdc"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "counter",
+      "id": "1e20bd0ab79921af266456a3e24531708fa767ece73a7c03efd9376887bc999ef385",
+      "claims": {
+        "timestamp": 15,
+        "validFrom": 15,
+        "validUntil": 18,
+        "author": "C",
+        "pointers": [
+          {
+            "role": "negates",
+            "target": {
+              "delta": "1e2033d326f7e0d7f291021e62c57be402c7eb808513210ebebfe8fa957dbfb0cc6d"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "self",
+      "id": "1e2029ff6ae29f248741d54d510d9f9f044536043f06c4e332809ada411feca4da98",
+      "claims": {
+        "timestamp": 11,
+        "validFrom": 11,
+        "validUntil": 30,
+        "author": "A",
+        "pointers": [
+          {
+            "role": "negates",
+            "target": {
+              "delta": "1e2056fcdc1678e38d183691115cb2b533609cdb8506b633ed5ff3c53481e38a4fdc"
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "governed": [
+    {
+      "now": 9,
+      "authors": [
+        "B"
+      ],
+      "expectedIds": [
+        "1e2071dc25c22c5149a95caf6aaebcbb355bbc00bea19f610b88dbf505985b37fc87"
+      ]
+    },
+    {
+      "now": 10,
+      "authors": [
+        "A"
+      ],
+      "expectedIds": [
+        "1e2056fcdc1678e38d183691115cb2b533609cdb8506b633ed5ff3c53481e38a4fdc"
+      ]
+    },
+    {
+      "now": 10,
+      "authors": [
+        "A",
+        "B"
+      ],
+      "expectedIds": [
+        "1e2033d326f7e0d7f291021e62c57be402c7eb808513210ebebfe8fa957dbfb0cc6d",
+        "1e2056fcdc1678e38d183691115cb2b533609cdb8506b633ed5ff3c53481e38a4fdc",
+        "1e2071dc25c22c5149a95caf6aaebcbb355bbc00bea19f610b88dbf505985b37fc87"
+      ]
+    },
+    {
+      "now": 12,
+      "authors": [
+        "A"
+      ],
+      "expectedIds": [
+        "1e2029ff6ae29f248741d54d510d9f9f044536043f06c4e332809ada411feca4da98"
+      ]
+    },
+    {
+      "now": 20,
+      "authors": [
+        "A",
+        "B",
+        "C"
+      ],
+      "expectedIds": [
+        "1e2029ff6ae29f248741d54d510d9f9f044536043f06c4e332809ada411feca4da98",
+        "1e204f4fdbaa0d64b762cd516ac2984fc8d473da96e0bc06b1fd08e4329e0b9b5d61",
+        "1e2071dc25c22c5149a95caf6aaebcbb355bbc00bea19f610b88dbf505985b37fc87"
+      ]
+    },
+    {
+      "now": 30,
+      "authors": [
+        "A"
+      ],
+      "expectedIds": []
+    }
+  ],
+  "latestByKey": [
+    { "now": 9, "authors": ["A", "B", "C"], "expected": "tie" },
+    { "now": 10, "authors": ["A"], "expected": "target" },
+    { "now": 12, "authors": ["A"], "expected": null },
+    { "now": 20, "authors": ["A", "B", "C"], "expected": "tie" }
+  ],
+  "witnesses": [
+    {
+      "now": 9,
+      "target": "target",
+      "permittedAuthors": [
+        "A",
+        "B",
+        "C"
+      ],
+      "expectedIds": []
+    },
+    {
+      "now": 10,
+      "target": "target",
+      "permittedAuthors": [
+        "A",
+        "B",
+        "C"
+      ],
+      "expectedIds": [
+        "1e2033d326f7e0d7f291021e62c57be402c7eb808513210ebebfe8fa957dbfb0cc6d"
+      ]
+    },
+    {
+      "now": 11,
+      "target": "target",
+      "permittedAuthors": [
+        "A",
+        "B",
+        "C"
+      ],
+      "expectedIds": [
+        "1e2029ff6ae29f248741d54d510d9f9f044536043f06c4e332809ada411feca4da98",
+        "1e2033d326f7e0d7f291021e62c57be402c7eb808513210ebebfe8fa957dbfb0cc6d"
+      ]
+    },
+    {
+      "now": 12,
+      "target": "target",
+      "permittedAuthors": [
+        "A",
+        "B",
+        "C"
+      ],
+      "expectedIds": [
+        "1e2029ff6ae29f248741d54d510d9f9f044536043f06c4e332809ada411feca4da98",
+        "1e2033d326f7e0d7f291021e62c57be402c7eb808513210ebebfe8fa957dbfb0cc6d"
+      ]
+    },
+    {
+      "now": 15,
+      "target": "target",
+      "permittedAuthors": [
+        "A",
+        "B",
+        "C"
+      ],
+      "expectedIds": [
+        "1e2029ff6ae29f248741d54d510d9f9f044536043f06c4e332809ada411feca4da98"
+      ]
+    },
+    {
+      "now": 15,
+      "target": "target",
+      "permittedAuthors": [
+        "B",
+        "C"
+      ],
+      "expectedIds": []
+    },
+    {
+      "now": 15,
+      "target": "target",
+      "permittedAuthors": [
+        "B"
+      ],
+      "expectedIds": [
+        "1e2033d326f7e0d7f291021e62c57be402c7eb808513210ebebfe8fa957dbfb0cc6d"
+      ]
+    },
+    {
+      "now": 15,
+      "target": "target",
+      "permittedAuthors": [
+        "A"
+      ],
+      "expectedIds": [
+        "1e2029ff6ae29f248741d54d510d9f9f044536043f06c4e332809ada411feca4da98"
+      ]
+    },
+    {
+      "now": 18,
+      "target": "target",
+      "permittedAuthors": [
+        "A",
+        "B",
+        "C"
+      ],
+      "expectedIds": [
+        "1e2029ff6ae29f248741d54d510d9f9f044536043f06c4e332809ada411feca4da98",
+        "1e2033d326f7e0d7f291021e62c57be402c7eb808513210ebebfe8fa957dbfb0cc6d"
+      ]
+    },
+    {
+      "now": 20,
+      "target": "target",
+      "permittedAuthors": [
+        "A",
+        "B",
+        "C"
+      ],
+      "expectedIds": [
+        "1e2029ff6ae29f248741d54d510d9f9f044536043f06c4e332809ada411feca4da98"
+      ]
+    },
+    {
+      "now": 30,
+      "target": "target",
+      "permittedAuthors": [
+        "A",
+        "B",
+        "C"
+      ],
+      "expectedIds": []
+    },
+    {
+      "now": 15,
+      "target": "missing",
+      "permittedAuthors": [
+        "A",
+        "B",
+        "C"
+      ],
+      "expectedIds": []
+    }
+  ]
+}

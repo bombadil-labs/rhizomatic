@@ -93,7 +93,10 @@ where
                 continue;
             };
             if negation.claims.valid_from > self.now
-                || negation.claims.valid_until.is_some_and(|end| self.now >= end)
+                || negation
+                    .claims
+                    .valid_until
+                    .is_some_and(|end| self.now >= end)
             {
                 continue;
             }
@@ -122,7 +125,11 @@ impl Reactor {
     }
 
     /// Build a memoized query over held targets and valid negation edges at an explicit time.
-    pub fn negation_reader<F>(&self, now: f64, suppression: F) -> Result<NegationReader<'_, F>, String>
+    pub fn negation_reader<F>(
+        &self,
+        now: f64,
+        suppression: F,
+    ) -> Result<NegationReader<'_, F>, String>
     where
         F: Fn(&Delta, &Delta) -> bool,
     {

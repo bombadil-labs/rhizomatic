@@ -68,6 +68,11 @@ function sortEntries(order: Order, entries: readonly HVEntry[]): HVEntry[] {
   });
 }
 
+/** Choose a candidate by the same Policy ordering used by resolution. */
+export function firstByOrder(order: Order, entries: readonly HVEntry[]): HVEntry | undefined {
+  return sortEntries(order, entries)[0];
+}
+
 // --- candidate value extraction (R1) ---------------------------------------------------------------
 
 function renderTarget(t: Target, e: HVEntry, i: number): View {

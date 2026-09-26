@@ -35,6 +35,15 @@ the caller may then omit an absent property or apply its own presentation rule. 
 uses no reactor, clock, network, or ambient authority. `resolve` applies it separately to each
 property, so the two forms MUST agree on the same candidates and Policy.
 
+For readers that choose one delta per application key, `latestByKey(input, now, authors, keyOf)`
+is a pure convenience. It applies the governed author and validity slice (SPEC-2 §5), projects
+each remaining delta to an optional string key, and chooses the greatest signed `timestamp` per
+key. Equal timestamps choose the **ascending** delta id. A missing key skips that candidate. The
+result is a map keyed in lexical order. This is equivalent to choosing
+`pick(byTimestamp desc)` separately for each projected key; it is not a global substrate winner.
+The caller decides which authors govern the read and which property supplies the key. The shared
+`vectors/l2-reactor/governed.json` cases pin the equal-timestamp tie in both ingest orders.
+
 ### 2.1 Candidate value extraction
 
 What part of an HVEntry's delta *is* the value a policy adjudicates? The rule is total and

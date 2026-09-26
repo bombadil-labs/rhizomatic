@@ -1,9 +1,9 @@
 //! Reactor core tests. Mirrors ../ts/test/reactor.test.ts.
 
 use proptest::prelude::*;
+use rhizomatic::eval::governed_deltas;
 use rhizomatic::eval::result_canonical_hex;
 use rhizomatic::json_profile::parse_claims;
-use rhizomatic::eval::governed_deltas;
 use rhizomatic::reactor::{IngestResult, Reactor};
 use rhizomatic::set::{make_delta, make_negation_claims, DeltaSet};
 use rhizomatic::sign::{author_for_seed, sign_claims};
@@ -62,8 +62,14 @@ fn negation_query_keeps_target_validity_separate_from_edge_validity() {
     counter_claims.valid_until = Some(18.0);
     let counter = make_delta(counter_claims, None).unwrap();
     assert_eq!(reactor.ingest(counter), IngestResult::Accepted);
-    assert!(!reactor.negation_reader(15.0, |_, _| true).unwrap().is_negated(&target.id));
-    assert!(reactor.negation_reader(18.0, |_, _| true).unwrap().is_negated(&target.id));
+    assert!(!reactor
+        .negation_reader(15.0, |_, _| true)
+        .unwrap()
+        .is_negated(&target.id));
+    assert!(reactor
+        .negation_reader(18.0, |_, _| true)
+        .unwrap()
+        .is_negated(&target.id));
 }
 
 #[test]
