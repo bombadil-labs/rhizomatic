@@ -118,7 +118,11 @@ fn parse_pointer(v: &Value) -> Result<Pointer, String> {
 }
 
 pub fn parse_claims(v: &Value) -> Result<Claims, String> {
-    let o = as_object(v, "claims", &["timestamp", "validFrom", "validUntil", "author", "pointers"])?;
+    let o = as_object(
+        v,
+        "claims",
+        &["timestamp", "validFrom", "validUntil", "author", "pointers"],
+    )?;
     let timestamp = o
         .get("timestamp")
         .and_then(Value::as_f64)

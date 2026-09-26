@@ -110,7 +110,7 @@ fn publish_load_round_trip() {
     assert_eq!(delta.id, doc["published"]["deltaId"].as_str().unwrap());
     let dset = merge(&expand_set, &DeltaSet::from_deltas([delta]).unwrap());
     let entity = doc["published"]["schemaEntity"].as_str().unwrap();
-    let loaded = load_hyper_schema(&dset, entity).unwrap();
+    let loaded = load_hyper_schema(&dset, entity, 1.0e15).unwrap();
     assert_eq!(loaded.name, "MovieWithCast");
     assert_eq!(
         term_hash(&loaded.body).unwrap(),
@@ -170,7 +170,7 @@ fn evolution_is_append_and_deprecation_is_negation() {
     )
     .unwrap();
     let dset = DeltaSet::from_deltas([v1.clone(), v2]).unwrap();
-    let loaded = load_hyper_schema(&dset, "schema:Evolving").unwrap();
+    let loaded = load_hyper_schema(&dset, "schema:Evolving", 1.0e15).unwrap();
     assert_eq!(loaded.name, "MovieBasicV2");
 
     // deprecation: negate the only definition -> nothing survives the bootstrap's mask
@@ -180,7 +180,7 @@ fn evolution_is_append_and_deprecation_is_negation() {
     )
     .unwrap();
     let dead = DeltaSet::from_deltas([v1, negation]).unwrap();
-    let err = load_hyper_schema(&dead, "schema:Evolving").unwrap_err();
+    let err = load_hyper_schema(&dead, "schema:Evolving", 1.0e15).unwrap_err();
     assert!(err.contains("no surviving schema definition"), "got: {err}");
 }
 
@@ -204,7 +204,7 @@ fn schema_schema_self_hosting() {
     );
     let entity = doc["publishedSchema"]["schemaEntity"].as_str().unwrap();
     let dset = DeltaSet::from_deltas([delta]).unwrap();
-    let loaded = load_schema(&dset, entity).unwrap();
+    let loaded = load_schema(&dset, entity, 1.0e15).unwrap();
     assert_eq!(loaded.name.as_deref(), Some("MovieView"));
     assert_eq!(loaded.alg, Some(1.0));
     assert_eq!(

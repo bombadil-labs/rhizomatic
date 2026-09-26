@@ -3790,6 +3790,50 @@
   }
 
   // src/reactor/reactor.ts
+  var height = (node) => node?.height ?? 0;
+  var boundaryNode = (at, left, right) => ({
+    at,
+    ...left === void 0 ? {} : { left },
+    ...right === void 0 ? {} : { right },
+    height: 1 + Math.max(height(left), height(right))
+  });
+  function rotateRight(node) {
+    const left = node.left;
+    return boundaryNode(left.at, left.left, boundaryNode(node.at, left.right, node.right));
+  }
+  function rotateLeft(node) {
+    const right = node.right;
+    return boundaryNode(right.at, boundaryNode(node.at, node.left, right.left), right.right);
+  }
+  function insertBoundary(node, at) {
+    if (node === void 0) return boundaryNode(at);
+    if (at === node.at) return node;
+    const updated = at < node.at ? boundaryNode(node.at, insertBoundary(node.left, at), node.right) : boundaryNode(node.at, node.left, insertBoundary(node.right, at));
+    const balance = height(updated.left) - height(updated.right);
+    if (balance > 1) {
+      return rotateRight(
+        at > updated.left.at ? boundaryNode(updated.at, rotateLeft(updated.left), updated.right) : updated
+      );
+    }
+    if (balance < -1) {
+      return rotateLeft(
+        at < updated.right.at ? boundaryNode(updated.at, updated.left, rotateRight(updated.right)) : updated
+      );
+    }
+    return updated;
+  }
+  function boundaryAfter(node, now) {
+    let next;
+    while (node !== void 0) {
+      if (node.at > now) {
+        next = node.at;
+        node = node.left;
+      } else {
+        node = node.right;
+      }
+    }
+    return next;
+  }
   var Reactor = class {
     // The append-only log in arrival order (v0: in-memory; the log is still the truth — V2).
     log = [];
@@ -3799,6 +3843,7 @@
     // negation index: delta id -> ids of negations targeting it (SPEC-4 §3)
     negationIndex = /* @__PURE__ */ new Map();
     materializations = /* @__PURE__ */ new Map();
+    validityBoundaries;
     // value index: role -> canonical primitive key -> { value, ids } (V1: keyed by role)
     valueIndex = /* @__PURE__ */ new Map();
     // Validate -> persist -> index. Idempotent by id; rejected deltas leave no trace (V3).
@@ -3819,6 +3864,10 @@
       return { status: "accepted" };
     }
     index(delta) {
+      this.validityBoundaries = insertBoundary(this.validityBoundaries, delta.claims.validFrom);
+      if (delta.claims.validUntil !== void 0) {
+        this.validityBoundaries = insertBoundary(this.validityBoundaries, delta.claims.validUntil);
+      }
       for (const ptr of delta.claims.pointers) {
         switch (ptr.target.kind) {
           case "entity": {
@@ -3976,15 +4025,7 @@
     }
     nextValidityBoundary(now) {
       if (!Number.isFinite(now)) throw new Error("now must be a finite number");
-      let next;
-      for (const d of this.set) {
-        for (const candidate of [d.claims.validFrom, d.claims.validUntil]) {
-          if (candidate !== void 0 && candidate > now && (next === void 0 || candidate < next)) {
-            next = candidate;
-          }
-        }
-      }
-      return next;
+      return boundaryAfter(this.validityBoundaries, now);
     }
     refresh(mat, root) {
       const result = evalTerm(mat.term, this.set, mat.now, root, mat.registry);

@@ -305,6 +305,8 @@ At a caller-supplied finite `now`, a delta is valid exactly when `validFrom <= n
 `validUntil` is absent or `now < validUntil`. The same rule applies to negation deltas. When a
 negation expires at T, its target can bind again at T if the target is still valid and no other
 effective negation suppresses it. No new delta is needed for an interval boundary to take effect.
+Published HyperSchema and Schema definitions are ordinary deltas under this rule: a loader at
+`now` MUST ignore definitions whose validity interval excludes `now`.
 Every validity read MUST take `now` explicitly; a library MUST NOT fetch an ambient clock or
 silently choose a default time. A maintained surface MUST report its next known validity boundary
 so its host can refresh at that moment.

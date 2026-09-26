@@ -478,5 +478,77 @@
         "value": "validity-tie"
       }
     }
+  ],
+  "expiringDefinitions": [
+    {
+      "kind": "hyperschema",
+      "entity": "schema:ExpiringHyper",
+      "expectedName": "MovieWithCast",
+      "validAt": 199,
+      "expiredAt": 200,
+      "id": "1e20045639bfbe4b67174522b18dfd9e3075175f314c249e017b2a26e2837cb94cd2",
+      "claims": {
+        "timestamp": 100,
+        "validFrom": 100,
+        "validUntil": 200,
+        "author": "did:key:zAlice",
+        "pointers": [
+          {
+            "role": "rhizomatic.hyperschema.defines",
+            "target": {
+              "id": "schema:ExpiringHyper",
+              "context": "definition"
+            }
+          },
+          {
+            "role": "rhizomatic.hyperschema.name",
+            "target": "MovieWithCast"
+          },
+          {
+            "role": "rhizomatic.hyperschema.alg",
+            "target": 1
+          },
+          {
+            "role": "rhizomatic.hyperschema.term",
+            "target": "a462696ea362696ea362696ea362696e65696e707574626f70646d61736b66706f6c6963796464726f70626f706673656c6563746470726564a16a686173506f696e746572a16c746172676574456e74697479a16376617264726f6f74626f706567726f7570636b65796f6279546172676574436f6e74657874626f7066657870616e6464726f6c65a1656578616374656163746f7266736368656d61694163746f724e616d65"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "schema",
+      "entity": "schema:ExpiringSchema",
+      "expectedName": "MovieView",
+      "validAt": 199,
+      "expiredAt": 200,
+      "id": "1e20ded45d035aa836280d221d23255e6719005165126c136a1553aeac2ec4b4c28c",
+      "claims": {
+        "timestamp": 100,
+        "validFrom": 100,
+        "validUntil": 200,
+        "author": "did:key:zAlice",
+        "pointers": [
+          {
+            "role": "rhizomatic.schema.defines",
+            "target": {
+              "id": "schema:ExpiringSchema",
+              "context": "definition"
+            }
+          },
+          {
+            "role": "rhizomatic.schema.name",
+            "target": "MovieView"
+          },
+          {
+            "role": "rhizomatic.schema.alg",
+            "target": 1
+          },
+          {
+            "role": "rhizomatic.schema.term",
+            "target": "a26570726f7073a2657469746c65a1647069636ba1656f72646572a16b627954696d657374616d70646465736366726174696e67a1656d65726765636d61786764656661756c74a1647069636ba1656f72646572676c657842794964"
+          }
+        ]
+      }
+    }
   ]
 }

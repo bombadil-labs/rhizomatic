@@ -17,6 +17,7 @@ import { claimsToJson, parseClaims } from "../src/json-profile.js";
 import {
   HYPER_SCHEMA_SCHEMA,
   SCHEMA_SCHEMA,
+  loadHyperSchema,
   loadSchema,
   publishHyperSchemaClaims,
   publishSchemaClaims,
@@ -3762,6 +3763,52 @@ const timeVectors = timeCases.map((c) => {
     ...(result.sort === "view" ? { expectedView: viewToJson(result.view) } : {}),
   };
 });
+const expiringHyper = makeDelta({
+  ...publishHyperSchemaClaims(movieWithCast, "schema:ExpiringHyper", A, 100),
+  validUntil: 200,
+});
+const expiringSchema = makeDelta({
+  ...publishSchemaClaims(publishedSchemaObj, "schema:ExpiringSchema", A, 100),
+  validUntil: 200,
+});
+const expiringDefinitions = [
+  {
+    kind: "hyperschema",
+    entity: "schema:ExpiringHyper",
+    expectedName: movieWithCast.name,
+    delta: expiringHyper,
+  },
+  {
+    kind: "schema",
+    entity: "schema:ExpiringSchema",
+    expectedName: publishedSchemaObj.name,
+    delta: expiringSchema,
+  },
+] as const;
+for (const item of expiringDefinitions) {
+  const set = DeltaSet.from([item.delta]);
+  if (item.kind === "hyperschema") {
+    if (loadHyperSchema(set, item.entity, 199).name !== item.expectedName)
+      throw new Error("expired definition vector setup failed");
+    try {
+      loadHyperSchema(set, item.entity, 200);
+      throw new Error("expired definition still loaded");
+    } catch (error) {
+      if (!(error instanceof Error) || !error.message.includes("no surviving schema definition"))
+        throw error;
+    }
+  } else {
+    if (loadSchema(set, item.entity, 199).name !== item.expectedName)
+      throw new Error("expired definition vector setup failed");
+    try {
+      loadSchema(set, item.entity, 200);
+      throw new Error("expired definition still loaded");
+    } catch (error) {
+      if (!(error instanceof Error) || !error.message.includes("no surviving schema definition"))
+        throw error;
+    }
+  }
+}
 writeFileSync(
   resolve(evalDir, "eval-time.json"),
   `${JSON.stringify(
@@ -3774,6 +3821,15 @@ writeFileSync(
         ]),
       ),
       cases: timeVectors,
+      expiringDefinitions: expiringDefinitions.map((item) => ({
+        kind: item.kind,
+        entity: item.entity,
+        expectedName: item.expectedName,
+        validAt: 199,
+        expiredAt: 200,
+        id: item.delta.id,
+        claims: claimsToJson(item.delta.claims),
+      })),
     },
     null,
     2,

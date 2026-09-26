@@ -3,7 +3,7 @@
 use serde_json::json;
 
 use crate::cbor::decode;
-use crate::eval::{eval_term, EvalResult};
+use crate::eval::{eval_term_at, EvalResult};
 use crate::resolution::Schema;
 use crate::schema::HyperSchema;
 use crate::set::DeltaSet;
@@ -86,9 +86,9 @@ fn primitive_of(claims: &Claims, want_role: &str) -> Option<Primitive> {
 
 /// Load a schema definition from the rhizome (S3): evaluate the bootstrap at the schema entity,
 /// take the latest surviving definition, decode the term, verify canonicality by re-encoding.
-pub fn load_hyper_schema(dset: &DeltaSet, schema_entity: &str) -> Result<HyperSchema, String> {
+pub fn load_hyper_schema(dset: &DeltaSet, schema_entity: &str, now: f64) -> Result<HyperSchema, String> {
     let boot = hyper_schema_schema();
-    let result = eval_term(&boot.body, dset, Some(schema_entity), None, None)?;
+    let result = eval_term_at(&boot.body, dset, now, Some(schema_entity), None, None)?;
     let EvalResult::HView(h) = result else {
         return Err("bootstrap body must yield an HView".to_string());
     };
@@ -203,9 +203,9 @@ pub fn publish_schema_claims(
 /// Load a resolution Schema from the rhizome (parallel to `load_hyper_schema`): gather via
 /// SCHEMA_SCHEMA, take the latest surviving definition, decode props+default, reject non-canonical
 /// blobs, and reattach name/alg from the roles.
-pub fn load_schema(dset: &DeltaSet, schema_entity: &str) -> Result<Schema, String> {
+pub fn load_schema(dset: &DeltaSet, schema_entity: &str, now: f64) -> Result<Schema, String> {
     let boot = schema_schema();
-    let result = eval_term(&boot.body, dset, Some(schema_entity), None, None)?;
+    let result = eval_term_at(&boot.body, dset, now, Some(schema_entity), None, None)?;
     let EvalResult::HView(h) = result else {
         return Err("bootstrap body must yield an HView".to_string());
     };

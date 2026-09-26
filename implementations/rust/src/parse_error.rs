@@ -340,7 +340,17 @@ fn diagnose_policy(raw: &Value, path: &str) -> Option<ParseError> {
 
 fn diagnose_order(raw: &Value, path: &str) -> Option<ParseError> {
     let o = raw.as_object()?;
-    if let Some(err) = unknown_key(o, path, &["byTimestamp", "byValidFrom", "byAuthorRank", "byPred", "chain"]) {
+    if let Some(err) = unknown_key(
+        o,
+        path,
+        &[
+            "byTimestamp",
+            "byValidFrom",
+            "byAuthorRank",
+            "byPred",
+            "chain",
+        ],
+    ) {
         return Some(err);
     }
     if let Some(bp) = o.get("byPred").and_then(Value::as_object) {

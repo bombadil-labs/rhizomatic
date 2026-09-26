@@ -86,9 +86,17 @@ fn cmp_by_order(order: &Order, a: &HVEntry, b: &HVEntry) -> Ordering {
             }
         }
         Order::ByValidFrom { desc } => {
-            let o = a.delta.claims.valid_from.partial_cmp(&b.delta.claims.valid_from)
+            let o = a
+                .delta
+                .claims
+                .valid_from
+                .partial_cmp(&b.delta.claims.valid_from)
                 .expect("valid_from values are finite");
-            if *desc { o.reverse() } else { o }
+            if *desc {
+                o.reverse()
+            } else {
+                o
+            }
         }
         Order::ByAuthorRank(authors) => {
             let rank = |author: &str| {

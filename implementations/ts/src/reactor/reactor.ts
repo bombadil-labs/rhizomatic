@@ -46,6 +46,65 @@ export type IngestResult =
   | { readonly status: "duplicate" }
   | { readonly status: "rejected"; readonly reason: string };
 
+interface BoundaryNode {
+  readonly at: number;
+  readonly left?: BoundaryNode;
+  readonly right?: BoundaryNode;
+  readonly height: number;
+}
+
+const height = (node: BoundaryNode | undefined): number => node?.height ?? 0;
+const boundaryNode = (at: number, left?: BoundaryNode, right?: BoundaryNode): BoundaryNode => ({
+  at,
+  ...(left === undefined ? {} : { left }),
+  ...(right === undefined ? {} : { right }),
+  height: 1 + Math.max(height(left), height(right)),
+});
+function rotateRight(node: BoundaryNode): BoundaryNode {
+  const left = node.left!;
+  return boundaryNode(left.at, left.left, boundaryNode(node.at, left.right, node.right));
+}
+function rotateLeft(node: BoundaryNode): BoundaryNode {
+  const right = node.right!;
+  return boundaryNode(right.at, boundaryNode(node.at, node.left, right.left), right.right);
+}
+function insertBoundary(node: BoundaryNode | undefined, at: number): BoundaryNode {
+  if (node === undefined) return boundaryNode(at);
+  if (at === node.at) return node;
+  const updated =
+    at < node.at
+      ? boundaryNode(node.at, insertBoundary(node.left, at), node.right)
+      : boundaryNode(node.at, node.left, insertBoundary(node.right, at));
+  const balance = height(updated.left) - height(updated.right);
+  if (balance > 1) {
+    return rotateRight(
+      at > updated.left!.at
+        ? boundaryNode(updated.at, rotateLeft(updated.left!), updated.right)
+        : updated,
+    );
+  }
+  if (balance < -1) {
+    return rotateLeft(
+      at < updated.right!.at
+        ? boundaryNode(updated.at, updated.left, rotateRight(updated.right!))
+        : updated,
+    );
+  }
+  return updated;
+}
+function boundaryAfter(node: BoundaryNode | undefined, now: number): number | undefined {
+  let next: number | undefined;
+  while (node !== undefined) {
+    if (node.at > now) {
+      next = node.at;
+      node = node.left;
+    } else {
+      node = node.right;
+    }
+  }
+  return next;
+}
+
 export class Reactor {
   // The append-only log in arrival order (v0: in-memory; the log is still the truth — V2).
   private readonly log: Delta[] = [];
@@ -55,6 +114,7 @@ export class Reactor {
   // negation index: delta id -> ids of negations targeting it (SPEC-4 §3)
   private readonly negationIndex = new Map<string, Set<string>>();
   private readonly materializations = new Map<string, Materialization>();
+  private validityBoundaries: BoundaryNode | undefined;
   // value index: role -> canonical primitive key -> { value, ids } (V1: keyed by role)
   private readonly valueIndex = new Map<
     string,
@@ -81,6 +141,10 @@ export class Reactor {
   }
 
   private index(delta: Delta): void {
+    this.validityBoundaries = insertBoundary(this.validityBoundaries, delta.claims.validFrom);
+    if (delta.claims.validUntil !== undefined) {
+      this.validityBoundaries = insertBoundary(this.validityBoundaries, delta.claims.validUntil);
+    }
     for (const ptr of delta.claims.pointers) {
       switch (ptr.target.kind) {
         case "entity": {
@@ -266,19 +330,7 @@ export class Reactor {
 
   nextValidityBoundary(now: number): number | undefined {
     if (!Number.isFinite(now)) throw new Error("now must be a finite number");
-    let next: number | undefined;
-    for (const d of this.set) {
-      for (const candidate of [d.claims.validFrom, d.claims.validUntil]) {
-        if (
-          candidate !== undefined &&
-          candidate > now &&
-          (next === undefined || candidate < next)
-        ) {
-          next = candidate;
-        }
-      }
-    }
-    return next;
+    return boundaryAfter(this.validityBoundaries, now);
   }
 
   private refresh(mat: Materialization, root: string): string[] | undefined {

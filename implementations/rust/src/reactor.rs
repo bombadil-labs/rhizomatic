@@ -20,6 +20,17 @@ pub enum IngestResult {
     Rejected(String),
 }
 
+// Order-preserving finite-f64 key for the boundary B-tree. Signed zero has one instant.
+fn boundary_key(value: f64) -> u64 {
+    let bits = if value == 0.0 { 0.0f64.to_bits() } else { value.to_bits() };
+    if bits >> 63 == 0 { bits ^ (1u64 << 63) } else { !bits }
+}
+
+fn boundary_value(key: u64) -> f64 {
+    let bits = if key >> 63 == 1 { key ^ (1u64 << 63) } else { !key };
+    f64::from_bits(bits)
+}
+
 #[derive(Debug, Default)]
 pub struct Reactor {
     /// The append-only log in arrival order (v0: in-memory; the log is still the truth — V2).
@@ -32,6 +43,7 @@ pub struct Reactor {
     /// value index: role -> canonical primitive key -> (value, ids) (V1: keyed by role)
     value_index: BTreeMap<String, BTreeMap<String, (Primitive, BTreeSet<String>)>>,
     materializations: BTreeMap<String, Materialization>,
+    validity_boundaries: BTreeSet<u64>,
     last_changes: Vec<MaterializationChange>,
 }
 
@@ -66,6 +78,10 @@ impl Reactor {
     }
 
     fn index(&mut self, delta: &Delta) {
+        self.validity_boundaries.insert(boundary_key(delta.claims.valid_from));
+        if let Some(end) = delta.claims.valid_until {
+            self.validity_boundaries.insert(boundary_key(end));
+        }
         for ptr in &delta.claims.pointers {
             match &ptr.target {
                 Target::Entity(er) => {
@@ -265,7 +281,9 @@ impl Reactor {
         let mut changes = Vec::new();
         for mat in self.materializations.values_mut() {
             let Some(previous) = mat.now else { continue };
-            if previous == now { continue; }
+            if previous == now {
+                continue;
+            }
             mat.now = Some(now);
             for root in mat.roots.clone() {
                 if let Some(changed_props) = mat.refresh(&self.set, &root)? {
@@ -287,15 +305,8 @@ impl Reactor {
         if !now.is_finite() {
             return Err("now must be a finite number".to_string());
         }
-        let mut next: Option<f64> = None;
-        for delta in self.set.iter() {
-            for candidate in [Some(delta.claims.valid_from), delta.claims.valid_until].into_iter().flatten() {
-                if candidate > now && next.is_none_or(|current| candidate < current) {
-                    next = Some(candidate);
-                }
-            }
-        }
-        Ok(next)
+        use std::ops::Bound::{Excluded, Unbounded};
+        Ok(self.validity_boundaries.range((Excluded(boundary_key(now)), Unbounded)).next().copied().map(boundary_value))
     }
 
     fn dispatch_and_update(&mut self, deltas: &[Delta]) -> Vec<MaterializationChange> {

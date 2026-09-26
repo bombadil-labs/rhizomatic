@@ -6,6 +6,7 @@ import { computeId } from "../src/delta.js";
 import { evalTerm, resultCanonicalHex } from "../src/eval.js";
 import { parseClaims } from "../src/json-profile.js";
 import { Reactor } from "../src/reactor.js";
+import { loadHyperSchema, loadSchema } from "../src/schema-deltas.js";
 import { viewToJson } from "../src/resolution.js";
 import { DeltaSet, makeDelta } from "../src/set.js";
 import { parseTerm } from "../src/term-json.js";
@@ -23,6 +24,15 @@ const doc = JSON.parse(
     expectedCanonicalHex: string;
     expectedIds?: string[];
     expectedView?: unknown;
+  }>;
+  expiringDefinitions: Array<{
+    kind: "hyperschema" | "schema";
+    entity: string;
+    expectedName: string;
+    validAt: number;
+    expiredAt: number;
+    id: string;
+    claims: unknown;
   }>;
 };
 const fixture = Object.fromEntries(
@@ -54,6 +64,17 @@ describe("vNext validity and Schema order vectors", () => {
     });
   }
 
+  for (const c of doc.expiringDefinitions) {
+    it(`${c.kind} definition expires at its signed end`, () => {
+      const delta = makeDelta(parseClaims(c.claims));
+      expect(delta.id).toBe(c.id);
+      const set = DeltaSet.from([delta]);
+      const load = c.kind === "hyperschema" ? loadHyperSchema : loadSchema;
+      expect(load(set, c.entity, c.validAt).name).toBe(c.expectedName);
+      expect(() => load(set, c.entity, c.expiredAt)).toThrow(/no surviving schema definition/);
+    });
+  }
+
   it("refreshes a maintained view at a validity boundary without a new delta", () => {
     const reactor = new Reactor();
     expect(reactor.ingest(fixture["fact-later"]!).status).toBe("accepted");
@@ -72,5 +93,31 @@ describe("vNext validity and Schema order vectors", () => {
     expect(reactor.materializedView("time", "entity:time")?.props.get("value")?.[0]?.delta.id).toBe(
       fixture["fact-later"]!.id,
     );
+    const reversed = reactor.advanceTime(279);
+    expect(reversed).toHaveLength(1);
+    expect(reactor.materializedView("time", "entity:time")?.props.get("value")).toBeUndefined();
+  });
+
+  it("finds the next boundary through the maintained index in either ingest order", () => {
+    const starts = [90, 10, 50, 30, 70, 20, 60, 80, 40, 100, 50];
+    for (const order of [starts, [...starts].reverse()]) {
+      const reactor = new Reactor();
+      for (const start of order) {
+        const delta = makeDelta({
+          timestamp: 0,
+          validFrom: start,
+          validUntil: start + 5,
+          author: "author:index",
+          pointers: [{ role: "value", target: { kind: "primitive", value: start } }],
+        });
+        reactor.ingest(delta);
+      }
+      const boundaries = [...new Set(starts.flatMap((start) => [start, start + 5]))].sort(
+        (a, b) => a - b,
+      );
+      for (const now of [0, 10, 15, 49, 50, 94, 100, 105]) {
+        expect(reactor.nextValidityBoundary(now)).toBe(boundaries.find((at) => at > now));
+      }
+    }
   });
 });

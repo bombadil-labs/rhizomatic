@@ -76,7 +76,8 @@ defmodule Rhizomatic.Delta do
   defp validate_timestamp(_), do: {:error, :timestamp_not_a_number}
 
   defp validate_valid_from(value) when is_float(value), do: :ok
-  defp validate_valid_from(value) when is_integer(value), do: {:error, {:native_integer, :valid_from}}
+  defp validate_valid_from(value) when is_integer(value),
+    do: {:error, {:native_integer, :valid_from}}
   defp validate_valid_from(_), do: {:error, :valid_from_not_a_number}
 
   defp validate_valid_until(claims, valid_from) do

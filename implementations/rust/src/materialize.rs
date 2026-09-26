@@ -40,7 +40,13 @@ pub(crate) struct Materialization {
 }
 
 impl Materialization {
-    pub fn new(name: &str, term: Term, roots: &[String], now: Option<f64>, registry: Option<SchemaRegistry>) -> Self {
+    pub fn new(
+        name: &str,
+        term: Term,
+        roots: &[String],
+        now: Option<f64>,
+        registry: Option<SchemaRegistry>,
+    ) -> Self {
         Self {
             name: name.to_string(),
             root_anchored: is_root_anchored(&term, registry.as_ref()),
@@ -59,7 +65,14 @@ impl Materialization {
     /// Re-evaluate one root with the batch evaluator; Some(changed property paths) on change.
     pub fn refresh(&mut self, set: &DeltaSet, root: &str) -> Result<Option<Vec<String>>, String> {
         let result = match self.now {
-            Some(now) => eval_term_at(&self.term, set, now, Some(root), self.registry.as_ref(), None)?,
+            Some(now) => eval_term_at(
+                &self.term,
+                set,
+                now,
+                Some(root),
+                self.registry.as_ref(),
+                None,
+            )?,
             None => eval_term(&self.term, set, Some(root), self.registry.as_ref(), None)?,
         };
         let EvalResult::HView(h) = result else {

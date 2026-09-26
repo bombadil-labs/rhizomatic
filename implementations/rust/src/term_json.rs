@@ -32,7 +32,13 @@ pub(crate) const TERM_KEYS: [(&str, &[&str]); 10] = [
 const STR_MATCH_TAGS: [&str; 4] = ["exact", "prefix", "inSet", "aliased"];
 const VAL_MATCH_TAGS: [&str; 3] = ["vcmp", "between", "inSet"];
 const PRED_TAGS: [&str; 6] = ["match", "hasPointer", "and", "or", "not", "inView"];
-const ORDER_TAGS: [&str; 5] = ["byTimestamp", "byValidFrom", "byAuthorRank", "byPred", "chain"];
+const ORDER_TAGS: [&str; 5] = [
+    "byTimestamp",
+    "byValidFrom",
+    "byAuthorRank",
+    "byPred",
+    "chain",
+];
 const POLICY_TAGS: [&str; 5] = ["pick", "all", "merge", "conflicts", "absentAs"];
 const EXTRACT_TAGS: [&str; 2] = ["field", "role"];
 
