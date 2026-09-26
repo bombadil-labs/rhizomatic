@@ -476,8 +476,8 @@ pub fn associated_keys(
 }
 
 /// A principal resolver receives the exact delta set and time of the enclosing evaluation.
-pub type PrincipalResolver =
-    dyn Fn(&DeltaSet, &str, &PrincipalPolicy, f64) -> Result<Vec<String>, String>;
+pub type PrincipalResolver<'a> =
+    dyn Fn(&DeltaSet, &str, &PrincipalPolicy, f64) -> Result<Vec<String>, String> + 'a;
 
 /// Portable resolver over the supplied input set, with an explicit suppression profile.
 pub fn principal_resolver(
@@ -543,7 +543,7 @@ fn lower_pred(
     pred: &Pred,
     input: &DeltaSet,
     at: f64,
-    resolver: &PrincipalResolver,
+    resolver: &PrincipalResolver<'_>,
 ) -> Result<Pred, String> {
     Ok(match pred {
         Pred::ActsFor { root, policy } => Pred::Match {
@@ -582,7 +582,7 @@ fn lower_order(
     order: &Order,
     input: &DeltaSet,
     at: f64,
-    resolver: &PrincipalResolver,
+    resolver: &PrincipalResolver<'_>,
 ) -> Result<Order, String> {
     Ok(match order {
         Order::ByPred { pred, then } => Order::ByPred {
@@ -603,7 +603,7 @@ fn lower_policy(
     policy: &Policy,
     input: &DeltaSet,
     at: f64,
-    resolver: &PrincipalResolver,
+    resolver: &PrincipalResolver<'_>,
 ) -> Result<Policy, String> {
     Ok(match policy {
         Policy::Pick(order) => Policy::Pick(lower_order(order, input, at, resolver)?),
@@ -623,7 +623,7 @@ fn lower_schema(
     schema: &Schema,
     input: &DeltaSet,
     at: f64,
-    resolver: &PrincipalResolver,
+    resolver: &PrincipalResolver<'_>,
 ) -> Result<Schema, String> {
     let mut lowered = schema.clone();
     lowered.props = schema
@@ -640,7 +640,7 @@ pub fn lower_principal_term(
     term: &Term,
     input: &DeltaSet,
     at: f64,
-    resolver: &PrincipalResolver,
+    resolver: &PrincipalResolver<'_>,
 ) -> Result<Term, String> {
     if !at.is_finite() {
         return Err("now must be a finite number".to_string());
@@ -703,7 +703,7 @@ pub fn lower_principal_registry(
     registry: &SchemaRegistry,
     input: &DeltaSet,
     at: f64,
-    resolver: &PrincipalResolver,
+    resolver: &PrincipalResolver<'_>,
 ) -> Result<SchemaRegistry, String> {
     registry.map_evaluation_bodies(
         |body| lower_principal_term(body, input, at, resolver),
@@ -716,7 +716,7 @@ pub fn eval_principal_term(
     term: &Term,
     input: &DeltaSet,
     now: f64,
-    resolver: &PrincipalResolver,
+    resolver: &PrincipalResolver<'_>,
     root: Option<&str>,
     registry: Option<&SchemaRegistry>,
     bindings: Option<&Bindings>,
