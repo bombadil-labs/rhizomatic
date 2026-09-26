@@ -121,6 +121,24 @@ export function lowerPrincipalTerm(
   return lowerTerm(term);
 }
 
+/** Keep pinned reference hashes tied to the signed program while lowering bodies for this read. */
+export function lowerPrincipalRegistry(
+  registry: SchemaRegistry,
+  input: DeltaSet,
+  at: number,
+  resolver: PrincipalResolver,
+): SchemaRegistry {
+  return registry.mapEvaluationBodies(
+    (body) => lowerPrincipalTerm(body, input, at, resolver),
+    (reading) => {
+      const wrapper: Term = { kind: "resolve", schema: reading, of: { kind: "input" } };
+      const lowered = lowerPrincipalTerm(wrapper, input, at, resolver);
+      if (lowered.kind !== "resolve") throw new Error("principal reading lowering failed");
+      return lowered.schema;
+    },
+  );
+}
+
 /** Evaluate a term with principal membership resolved over the caller's chosen input. */
 export function evalPrincipalTerm(
   term: Term,
@@ -136,7 +154,7 @@ export function evalPrincipalTerm(
     input,
     now,
     root,
-    registry,
+    registry === undefined ? undefined : lowerPrincipalRegistry(registry, input, now, resolver),
     bindings,
   );
 }
@@ -151,7 +169,10 @@ export function registerPrincipalMaterialization(
   resolver: PrincipalResolver,
   registry?: SchemaRegistry,
 ): void {
-  reactor.register(name, term, roots, now, registry, (body, input, at) =>
-    lowerPrincipalTerm(body, input, at, resolver),
-  );
+  reactor.register(name, term, roots, now, registry, (body, input, at, available) => ({
+    term: lowerPrincipalTerm(body, input, at, resolver),
+    ...(available === undefined
+      ? {}
+      : { registry: lowerPrincipalRegistry(available, input, at, resolver) }),
+  }));
 }

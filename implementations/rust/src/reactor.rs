@@ -353,7 +353,11 @@ impl Reactor {
         lower_term: F,
     ) -> Result<(), String>
     where
-        F: Fn(&Term, &DeltaSet, f64) -> Result<Term, String> + Send + Sync + 'static,
+        F: Fn(&Term, &DeltaSet, f64, Option<&SchemaRegistry>)
+                -> Result<(Term, Option<SchemaRegistry>), String>
+            + Send
+            + Sync
+            + 'static,
     {
         if !now.is_finite() {
             return Err("now must be a finite number".to_string());

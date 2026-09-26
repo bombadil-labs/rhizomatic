@@ -666,6 +666,19 @@ pub fn lower_principal_term(
     })
 }
 
+/// Preserve signed schema references while lowering their bodies for this evaluation.
+pub fn lower_principal_registry(
+    registry: &SchemaRegistry,
+    input: &DeltaSet,
+    at: f64,
+    resolver: &PrincipalResolver,
+) -> Result<SchemaRegistry, String> {
+    registry.map_evaluation_bodies(
+        |body| lower_principal_term(body, input, at, resolver),
+        |reading| lower_schema(reading, input, at, resolver),
+    )
+}
+
 /// Evaluate with an explicitly supplied principal resolver over this input and time.
 pub fn eval_principal_term(
     term: &Term,
@@ -676,12 +689,15 @@ pub fn eval_principal_term(
     registry: Option<&SchemaRegistry>,
     bindings: Option<&Bindings>,
 ) -> Result<EvalResult, String> {
+    let lowered_registry = registry
+        .map(|registry| lower_principal_registry(registry, input, now, resolver))
+        .transpose()?;
     eval_term_at(
         &lower_principal_term(term, input, now, resolver)?,
         input,
         now,
         root,
-        registry,
+        lowered_registry.as_ref(),
         bindings,
     )
 }
@@ -702,7 +718,19 @@ where
         + Sync
         + 'static,
 {
-    reactor.register_at_lowered(name, term, roots, now, registry, move |body, input, at| {
-        lower_principal_term(body, input, at, &resolver)
-    })
+    reactor.register_at_lowered(
+        name,
+        term,
+        roots,
+        now,
+        registry,
+        move |body, input, at, registry| {
+            Ok((
+                lower_principal_term(body, input, at, &resolver)?,
+                registry
+                    .map(|registry| lower_principal_registry(registry, input, at, &resolver))
+                    .transpose()?,
+            ))
+        },
+    )
 }

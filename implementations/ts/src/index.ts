@@ -107,6 +107,7 @@ export {
 export {
   evalPrincipalTerm,
   lowerPrincipalTerm,
+  lowerPrincipalRegistry,
   principalResolver,
   registerPrincipalMaterialization,
   type PrincipalResolver,

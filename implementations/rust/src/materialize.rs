@@ -40,7 +40,11 @@ pub(crate) struct Materialization {
     pub lower_term: Option<Arc<TermLowerer>>,
 }
 
-pub(crate) type TermLowerer = dyn Fn(&Term, &DeltaSet, f64) -> Result<Term, String> + Send + Sync;
+pub(crate) type TermLowerer =
+    dyn Fn(&Term, &DeltaSet, f64, Option<&SchemaRegistry>)
+            -> Result<(Term, Option<SchemaRegistry>), String>
+        + Send
+        + Sync;
 
 impl std::fmt::Debug for Materialization {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -80,16 +84,21 @@ impl Materialization {
     /// Re-evaluate one root with the batch evaluator; Some(changed property paths) on change.
     pub fn refresh(&mut self, set: &DeltaSet, root: &str) -> Result<Option<Vec<String>>, String> {
         let lowered = match (&self.lower_term, self.now) {
-            (Some(lower), Some(now)) => Some(lower(&self.term, set, now)?),
+            (Some(lower), Some(now)) => {
+                Some(lower(&self.term, set, now, self.registry.as_ref())?)
+            }
             (Some(_), None) => {
                 return Err("lowered materialization needs an explicit now".to_string())
             }
             (None, _) => None,
         };
-        let term = lowered.as_ref().unwrap_or(&self.term);
+        let (term, registry) = match &lowered {
+            Some((term, registry)) => (term, registry.as_ref()),
+            None => (&self.term, self.registry.as_ref()),
+        };
         let result = match self.now {
-            Some(now) => eval_term_at(term, set, now, Some(root), self.registry.as_ref(), None)?,
-            None => eval_term(term, set, Some(root), self.registry.as_ref(), None)?,
+            Some(now) => eval_term_at(term, set, now, Some(root), registry, None)?,
+            None => eval_term(term, set, Some(root), registry, None)?,
         };
         let EvalResult::HView(h) = result else {
             return Err("materialized terms must be HView-sort".to_string());

@@ -4,7 +4,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use rhizomatic::delta::compute_id;
-use rhizomatic::eval::{eval_term_at, result_canonical_hex, EvalResult, GroupKey, Term};
+use rhizomatic::eval::{eval_term_at, result_canonical_hex, EvalResult, GroupKey, SchemaRef, Term};
 use rhizomatic::json_profile::parse_claims;
 use rhizomatic::principal::{
     associated_keys, authors_for_principal, eval_principal_term, principal_resolver,
@@ -12,8 +12,9 @@ use rhizomatic::principal::{
     PrincipalSuppression, ScopePolicy,
 };
 use rhizomatic::reactor::{IngestResult, Reactor};
+use rhizomatic::schema::{HyperSchema, SchemaRegistry};
 use rhizomatic::sign::{verify_delta, Verification};
-use rhizomatic::term_io::term_to_json;
+use rhizomatic::term_io::{term_hash, term_to_json};
 use rhizomatic::term_json::parse_term;
 use rhizomatic::types::Delta;
 use serde_json::Value;
@@ -401,4 +402,66 @@ fn principal_materialization_refreshes_on_ingest_and_validity_boundary() {
         arriving.materialized_hex("member", &root).unwrap(),
         before_arrival
     );
+}
+
+#[test]
+fn principal_predicate_lowers_in_named_and_pinned_hyperschemas() {
+    let v = vector();
+    let named = fixtures(&v);
+    let root = v["keys"][v["defaults"]["root"].as_str().unwrap()]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let body = Term::Group {
+        key: GroupKey::ByRole,
+        of: Box::new(parse_term(&v["predicates"][0]["term"]).unwrap()),
+    };
+    let registry = SchemaRegistry::build(
+        vec![HyperSchema {
+            name: "principal-members".to_string(),
+            alg: 2,
+            body: body.clone(),
+        }],
+        vec![],
+    )
+    .unwrap();
+    let mut reactor = Reactor::new();
+    for name in ["userDelegation", "connectionDelegation", "dataConnection"] {
+        assert_eq!(reactor.ingest(named[name].clone()), IngestResult::Accepted);
+    }
+    let input = reactor.snapshot();
+    let resolver = principal_resolver(PrincipalSuppression::SameAuthor);
+    let expected = result_canonical_hex(
+        &eval_principal_term(&body, &input, 6.0, &resolver, Some(&root), None, None).unwrap(),
+    );
+    for reference in [
+        SchemaRef::Name("principal-members".to_string()),
+        SchemaRef::Pinned(term_hash(&body).unwrap()),
+    ] {
+        let fix = Term::Fix {
+            schema: reference,
+            entity: root.clone(),
+            bindings: None,
+        };
+        let actual = eval_principal_term(&fix, &input, 6.0, &resolver, None, Some(&registry), None)
+            .unwrap();
+        assert_eq!(result_canonical_hex(&actual), expected);
+    }
+
+    let fix = Term::Fix {
+        schema: SchemaRef::Name("principal-members".to_string()),
+        entity: root.clone(),
+        bindings: None,
+    };
+    register_principal_materialization(
+        &mut reactor,
+        "principal-members",
+        fix,
+        std::slice::from_ref(&root),
+        6.0,
+        principal_resolver(PrincipalSuppression::SameAuthor),
+        Some(registry),
+    )
+    .unwrap();
+    assert_eq!(reactor.materialized_hex("principal-members", &root), Some(expected.as_str()));
 }

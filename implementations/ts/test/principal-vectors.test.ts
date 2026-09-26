@@ -17,6 +17,8 @@ import { evalTerm, resultCanonicalHex } from "../src/eval.js";
 import type { Term } from "../src/eval.js";
 import { parseTerm } from "../src/term-json.js";
 import { termToJson } from "../src/term-io.js";
+import { termHash } from "../src/term-io.js";
+import { SchemaRegistry } from "../src/schema.js";
 import type { Delta } from "../src/types.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -229,5 +231,47 @@ describe("frozen principal evidence fixtures (SPEC-14)", () => {
     expect(arriving.ingest(named.get("connectionDelegation")!)).toEqual({ status: "accepted" });
     expect(arriving.materializedHex("member", root)).toBe(expectedHex(arriving, 6));
     expect(arriving.materializedHex("member", root)).not.toBe(beforeArrival);
+  });
+
+  it("lowers actsFor in named and pinned HyperSchema bodies", () => {
+    const reactor = new Reactor();
+    for (const name of ["userDelegation", "connectionDelegation", "dataConnection"]) {
+      expect(reactor.ingest(named.get(name)!)).toEqual({ status: "accepted" });
+    }
+    const root = vector.keys[vector.defaults.root]!;
+    const body: Term = {
+      kind: "group",
+      key: { kind: "byRole" },
+      of: parseTerm(vector.predicates[0]!.term),
+    };
+    const registry = SchemaRegistry.build([{ name: "principal-members", alg: 2, body }]);
+    const resolver = principalResolver("sameAuthor");
+    const input = reactor.snapshot();
+    const expected = resultCanonicalHex(evalPrincipalTerm(body, input, 6, resolver, root));
+    for (const schema of [
+      { kind: "name" as const, name: "principal-members" },
+      { kind: "pinned" as const, hash: termHash(body) },
+    ]) {
+      const fix: Term = { kind: "fix", schema, entity: root };
+      expect(
+        resultCanonicalHex(evalPrincipalTerm(fix, input, 6, resolver, undefined, registry)),
+      ).toBe(expected);
+    }
+
+    const fix: Term = {
+      kind: "fix",
+      schema: { kind: "name", name: "principal-members" },
+      entity: root,
+    };
+    registerPrincipalMaterialization(
+      reactor,
+      "principal-members",
+      fix,
+      [root],
+      6,
+      resolver,
+      registry,
+    );
+    expect(reactor.materializedHex("principal-members", root)).toBe(expected);
   });
 });

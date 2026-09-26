@@ -184,4 +184,24 @@ export class SchemaRegistry {
       ? this.readingsByName.get(ref.name)
       : this.readingsByHash.get(ref.hash);
   }
+
+  /** Evaluation overlay: preserve the signed program's name/hash lookup while lowering its body. */
+  mapEvaluationBodies(
+    mapTerm: (body: Term) => Term,
+    mapReading: (reading: Schema) => Schema,
+  ): SchemaRegistry {
+    const byName = new Map(
+      [...this.byName].map(([name, schema]) => [name, { ...schema, body: mapTerm(schema.body) }]),
+    );
+    const byHash = new Map(
+      [...this.byHash].map(([hash, schema]) => [hash, byName.get(schema.name)!]),
+    );
+    const readingsByName = new Map(
+      [...this.readingsByName].map(([name, reading]) => [name, mapReading(reading)]),
+    );
+    const readingsByHash = new Map(
+      [...this.readingsByHash].map(([hash, reading]) => [hash, readingsByName.get(reading.name!)!]),
+    );
+    return new SchemaRegistry(byName, byHash, readingsByName, readingsByHash);
+  }
 }
