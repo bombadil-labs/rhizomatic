@@ -103,8 +103,8 @@ fn materialization_refreshes_without_ingest() {
     assert_eq!(reactor.eval_count_of("time"), evals);
     let changes = reactor.advance_time(280.0).unwrap();
     assert_eq!(changes.len(), 1);
-    assert_eq!(reactor.eval_count_of("time"), evals + 1);
     assert!(changes[0].responsible_delta_ids.is_empty());
+    assert_eq!(reactor.eval_count_of("time"), evals + 1);
     assert_eq!(
         reactor
             .materialized_view("time", "entity:time")

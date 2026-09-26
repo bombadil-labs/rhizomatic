@@ -4003,7 +4003,10 @@
       const changes = [];
       for (const mat of this.materializations.values()) {
         if (mat.now === now) continue;
+        const nextBoundary = boundaryAfter(this.validityBoundaries, Math.min(mat.now, now));
+        const crossedBoundary = nextBoundary !== void 0 && nextBoundary <= Math.max(mat.now, now);
         mat.now = now;
+        if (!crossedBoundary) continue;
         for (const root of mat.roots) {
           const changedProps = this.refresh(mat, root);
           if (changedProps !== void 0) {
