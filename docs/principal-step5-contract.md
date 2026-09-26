@@ -12,6 +12,15 @@ reader. It does not import federation, a network registry, a host clock, or Loam
 may use principal output to make an admission decision; that dependency goes one way. The package
 exports through the existing `@bombadil/rhizomatic` barrel.
 
+`actsFor` must not make the lower algebra or reactor packages import principal. Its JSON syntax
+and canonical bytes live with other predicates in `syntax`. Evaluation receives an explicit
+`PrincipalAuthorResolver` interface, as it already receives other external evaluation inputs;
+the principal package supplies the adapter above the lower evaluator. A missing resolver for a
+term containing `actsFor` is an explicit evaluation error, not an empty author set. Reactor
+materialization receives the same adapter as a constructor/registration input, so time changes
+can refresh principal membership without a dependency cycle. The package graph checker must
+prove these edges before the runtime implementation lands.
+
 The `author` field remains the signing key. Principal resolution does not rewrite a delta, its
 content address, or its signature. Equal entity ids still merge. An application that reads a
 governed anchor supplies an explicit pinned principal root or governing key choice; the delta set
@@ -73,7 +82,9 @@ authors by `authorsForPrincipal`. `policy` must be a portable, closed JSON profi
 principal-policy reference, never an ambient callback hidden inside a term. A container membership
 term can then follow key rotation without being rewritten for each new key. Step 6 admission
 guards can use the same predicate with their own explicit policy. A host callback remains
-available for local decisions that are not shipped as terms.
+available for local decisions that are not shipped as terms. The lowering result is tied to the
+input delta set, explicit time, pinned root, and policy; a materialization refreshes it when any
+of those inputs changes. It cannot cache a key set solely by term hash.
 
 Signer provenance and present authority are separate questions. `delta.author` plus signature
 verification proves which key signed it. A historical association query can show the held
