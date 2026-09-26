@@ -5767,6 +5767,18 @@
       seedHex: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
       publicKeyHex: "ff57575dc7af8bfc4d0837cc1ce2017b686a88145dc5579a958e3462fe9a908e",
       author: "ed25519:ff57575dc7af8bfc4d0837cc1ce2017b686a88145dc5579a958e3462fe9a908e"
+    },
+    {
+      keyId: "test-key-4",
+      seedHex: "0404040404040404040404040404040404040404040404040404040404040404",
+      publicKeyHex: "ca93ac1705187071d67b83c7ff0efe8108e8ec4530575d7726879333dbdabe7c",
+      author: "ed25519:ca93ac1705187071d67b83c7ff0efe8108e8ec4530575d7726879333dbdabe7c"
+    },
+    {
+      keyId: "test-key-5",
+      seedHex: "0505050505050505050505050505050505050505050505050505050505050505",
+      publicKeyHex: "6e7a1cdd29b0b78fd13af4c5598feff4ef2a97166e3ca6f2e4fbfccd80505bf1",
+      author: "ed25519:6e7a1cdd29b0b78fd13af4c5598feff4ef2a97166e3ca6f2e4fbfccd80505bf1"
     }
   ];
 

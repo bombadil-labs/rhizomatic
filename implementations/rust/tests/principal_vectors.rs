@@ -56,7 +56,10 @@ fn principal_fixture_ids_signatures_and_references() {
             let mut ordered = Vec::new();
             for member in members {
                 let member_name = member.as_str().unwrap();
-                assert!(member_names.insert(member_name), "duplicate member in {name}");
+                assert!(
+                    member_names.insert(member_name),
+                    "duplicate member in {name}"
+                );
                 ordered.push(named.get(member_name).expect("known member").clone());
             }
             for reverse in [false, true] {
