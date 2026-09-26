@@ -58,9 +58,12 @@ All further indexes are materializations registered as schema terms — there is
 
 The reactor MUST expose a read-time query for negation under a caller-supplied suppression rule
 `S(negation, target) → boolean`. The rule decides whether each negation may suppress its immediate
-target; it is applied again when that negation is itself the target of another negation. This allows
-the caller to supply a key set or another pure authority decision without making transport or
-principal policy part of the reactor. The rule MUST be stable for the lifetime of one query reader.
+target; it is applied again when that negation is itself the target of another negation. The caller
+may supply a key set or another pure authority decision without making transport or principal
+policy part of the reactor. The callback MUST be deterministic over its explicit inputs and
+immutable caller state, and MUST be stable for the lifetime of one query reader. It MUST NOT
+recursively invoke that reader: a caller needing negation-derived standing computes it in a prior
+pass and supplies the result here. Re-entry would observe an unfinished chain walk and memo.
 
 For an explicit finite `now`, the target MUST be held, but its own validity interval does not
 affect this query. A caller may ask whether an expired historical claim is negated. Every negation

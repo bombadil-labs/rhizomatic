@@ -515,6 +515,7 @@ pub fn governed_deltas(
 
 /// Latest signed creation claim per projected key after author and validity filtering.
 /// Equal timestamps resolve by ascending content id; input iteration order has no effect.
+/// Does not mask negations: pass already-masked candidates when negations matter.
 pub fn latest_by_key(
     input: &DeltaSet,
     now: f64,

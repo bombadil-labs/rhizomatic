@@ -111,6 +111,17 @@ describe("governed read queries", () => {
     expect(isNegated(target.id)).toBe(true);
   });
 
+  it("fails a suppression callback that re-enters its unfinished reader", () => {
+    const target = claim("A", 0);
+    const negation = negate(target, "B", 10);
+    const reactor = reactorOf([target, negation]);
+    const reader = reactor.negationWitnesses(10, () => {
+      reader(target.id);
+      return true;
+    });
+    expect(() => reader(target.id)).toThrow(/re-entered/);
+  });
+
   it("can report a negation of a held but expired historical target", () => {
     const target = claim("A", 0, 12);
     const negation = negate(target, "B", 10, 20);

@@ -209,7 +209,8 @@ export class Reactor {
    * Effective direct negations of each target at a caller-supplied time. The returned reader
    * memoizes chain walks and clears its memo after an accepted ingest. Build a new reader if the
    * caller's suppression policy changes. A target must be held, but its own validity is a
-   * separate question: history readers can ask about an expired target.
+   * separate question: history readers can ask about an expired target. The suppression
+   * callback must not invoke this reader recursively; compute a trust set in a prior pass.
    */
   negationWitnesses(now: number, suppression: Suppression): (id: string) => readonly Delta[] {
     if (!Number.isFinite(now)) throw new Error("now must be a finite number");
@@ -228,7 +229,8 @@ export class Reactor {
       const cached = memo.get(id);
       if (cached !== undefined) return cached;
       const target = this.set.get(id);
-      if (target === undefined || visiting.has(id)) return [];
+      if (target === undefined) return [];
+      if (visiting.has(id)) throw new Error("negation reader re-entered during suppression");
       visiting.add(id);
       const effective: Delta[] = [];
       try {

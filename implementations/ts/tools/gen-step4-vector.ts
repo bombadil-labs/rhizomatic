@@ -116,7 +116,7 @@ writeFileSync(
   path,
   JSON.stringify(
     {
-      spec: "SPEC-3 §5.2-5.3",
+      spec: "SPEC-3 §5.1-5.2",
       pins: {
         hyperA: termHash(hyperA.body),
         hyperB: termHash(hyperB.body),

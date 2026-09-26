@@ -77,6 +77,7 @@ where
     F: Fn(&Delta, &Delta) -> bool,
 {
     /// Effective direct negations, in ascending delta-id order. Target validity is independent.
+    /// The suppression callback must not invoke this reader recursively; compute trust first.
     pub fn witnesses(&mut self, id: &str) -> Vec<Delta> {
         if let Some(cached) = self.memo.get(id) {
             return cached.clone();

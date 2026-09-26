@@ -46,7 +46,11 @@ export function governedDeltas(input: DeltaSet, now: number, authors: AuthorSele
   );
 }
 
-/** Pick the latest signed creation claim per caller-projected key after governance and validity. */
+/**
+ * Pick the latest signed creation claim per caller-projected key after governance and validity.
+ * This helper DOES NOT apply a negation mask. Pass already-masked candidates when negations
+ * matter; otherwise a newer negated claim can win. Equal timestamps choose the smaller id.
+ */
 export function latestByKey(
   input: DeltaSet,
   now: number,
