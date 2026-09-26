@@ -297,7 +297,19 @@ impl Reactor {
             if previous == now {
                 continue;
             }
+            // Between boundaries the effective set is identical; keep the clock current for ingest.
+            use std::ops::Bound::{Excluded, Included};
+            let lower = boundary_key(previous.min(now));
+            let upper = boundary_key(previous.max(now));
+            let crossed_boundary = self
+                .validity_boundaries
+                .range((Excluded(lower), Included(upper)))
+                .next()
+                .is_some();
             mat.now = Some(now);
+            if !crossed_boundary {
+                continue;
+            }
             for root in mat.roots.clone() {
                 if let Some(changed_props) = mat.refresh(&self.set, &root)? {
                     changes.push(MaterializationChange {
