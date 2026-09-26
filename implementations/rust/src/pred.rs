@@ -106,6 +106,10 @@ pub enum InViewExtract {
 pub enum Pred {
     True,
     False,
+    ActsFor {
+        root: String,
+        policy: PrincipalPolicy,
+    },
     Match {
         field: Field,
         cmp: Cmp,
@@ -122,6 +126,18 @@ pub enum Pred {
         field: Field,
         extract: InViewExtract,
     },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PrincipalPolicy {
+    pub kind: PrincipalPolicyKind,
+    pub scope: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PrincipalPolicyKind {
+    Exact,
+    Prefix,
 }
 
 /// Does the predicate contain a reflective node anywhere? (SPEC-2 §3.1 stratification and the
@@ -310,6 +326,9 @@ pub fn eval_pred(pred: &Pred, delta: &Delta, root: Option<&str>) -> bool {
         Pred::And(l, r) => eval_pred(l, delta, root) && eval_pred(r, delta, root),
         Pred::Or(l, r) => eval_pred(l, delta, root) || eval_pred(r, delta, root),
         Pred::Not(p) => !eval_pred(p, delta, root),
+        Pred::ActsFor { .. } => {
+            panic!("actsFor requires an explicit principal resolver (SPEC-14)")
+        }
         // Every consumer lowers inView against the ambient input first (SPEC-2 §3.1); reaching
         // here is an evaluator bug, not bad data.
         Pred::InView { .. } => {
@@ -323,7 +342,7 @@ pub fn eval_pred(pred: &Pred, delta: &Delta, root: Option<&str>) -> bool {
 /// regardless of how many deltas the operand happens to hold.
 pub fn substitute_holes(pred: &Pred, bindings: Option<&Bindings>) -> Result<Pred, String> {
     Ok(match pred {
-        Pred::True | Pred::False => pred.clone(),
+        Pred::True | Pred::False | Pred::ActsFor { .. } => pred.clone(),
         Pred::Match {
             field,
             cmp,

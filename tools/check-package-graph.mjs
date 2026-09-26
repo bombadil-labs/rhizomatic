@@ -21,6 +21,7 @@ const allowedDependencies = {
   resolve: ["resolve-kernel", "algebra", "schema", "syntax", "delta"],
   "schema-load": ["resolve", "schema", "syntax", "delta"],
   reactor: ["resolve", "resolve-kernel", "algebra", "schema", "syntax", "delta"],
+  principal: ["reactor", "resolve", "schema", "syntax", "delta"],
   storage: ["delta"],
   federation: ["reactor", "resolve", "syntax", "delta"],
   derivation: ["reactor", "algebra", "delta"],

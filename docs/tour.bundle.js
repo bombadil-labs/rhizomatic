@@ -3104,6 +3104,8 @@
         return { or: [predToJson(pred.left), predToJson(pred.right)] };
       case "not":
         return { not: predToJson(pred.pred) };
+      case "actsFor":
+        return { actsFor: { root: pred.root, policy: pred.policy } };
       case "inView":
         return {
           inView: {
@@ -3485,6 +3487,8 @@
         };
       case "not":
         return { kind: "not", pred: substituteHoles(pred.pred, bindings) };
+      case "actsFor":
+        return pred;
       case "inView":
         return pred;
     }
@@ -3509,6 +3513,8 @@
         return evalPred(pred.left, delta, root, bindings) || evalPred(pred.right, delta, root, bindings);
       case "not":
         return !evalPred(pred.pred, delta, root, bindings);
+      case "actsFor":
+        throw new Error("actsFor requires an explicit principal resolver (SPEC-14)");
       case "inView":
         throw new Error("inView must be resolved before matching (SPEC-2 \xA73.1)");
     }
@@ -3824,6 +3830,7 @@
       case "true":
       case "false":
       case "match":
+      case "actsFor":
         return pred;
       case "hasPointer": {
         const p = pred.ppred;
@@ -3900,6 +3907,8 @@
         };
       case "not":
         return { kind: "not", pred: resolveReflective(pred.pred, input, root, registry, bindings) };
+      case "actsFor":
+        throw new Error("actsFor requires an explicit principal resolver (SPEC-14)");
       default:
         return pred;
     }
@@ -4716,6 +4725,22 @@
     resolveReading(ref) {
       return ref.kind === "name" ? this.readingsByName.get(ref.name) : this.readingsByHash.get(ref.hash);
     }
+    /** Evaluation overlay: preserve the signed program's name/hash lookup while lowering its body. */
+    mapEvaluationBodies(mapTerm, mapReading) {
+      const byName = new Map(
+        [...this.byName].map(([name, schema]) => [name, { ...schema, body: mapTerm(schema.body) }])
+      );
+      const byHash = new Map(
+        [...this.byHash].map(([hash, schema]) => [hash, byName.get(schema.name)])
+      );
+      const readingsByName = new Map(
+        [...this.readingsByName].map(([name, reading]) => [name, mapReading(reading)])
+      );
+      const readingsByHash = new Map(
+        [...this.readingsByHash].map(([hash, reading]) => [hash, readingsByName.get(reading.name)])
+      );
+      return new _SchemaRegistry(byName, byHash, readingsByName, readingsByHash);
+    }
   };
 
   // src/reactor/reactor.ts
@@ -4942,7 +4967,7 @@
     lastChanges = [];
     // Register a live materialization: an HView-sort term (a function of $root) kept
     // incrementally equal to batch evaluation at each root (SPEC-4 §1).
-    register(name, term, roots, now, registry) {
+    register(name, term, roots, now, registry, lowerTerm) {
       if (!Number.isFinite(now)) throw new Error("now must be a finite number");
       if (this.materializations.has(name)) throw new Error(`duplicate materialization: ${name}`);
       const mat = {
@@ -4950,7 +4975,9 @@
         term,
         roots: [...roots],
         registry,
-        rootAnchored: isRootAnchored(term, registry),
+        // A lowered predicate can depend on principal evidence anywhere in the set.
+        rootAnchored: lowerTerm === void 0 && isRootAnchored(term, registry),
+        lowerTerm,
         now,
         views: /* @__PURE__ */ new Map(),
         hexes: /* @__PURE__ */ new Map(),
@@ -5009,7 +5036,11 @@
       return boundaryAfter(this.validityBoundaries, now);
     }
     refresh(mat, root) {
-      const result = evalTerm(mat.term, this.set, mat.now, root, mat.registry);
+      const program = mat.lowerTerm?.(mat.term, this.set, mat.now, mat.registry) ?? {
+        term: mat.term,
+        registry: mat.registry
+      };
+      const result = evalTerm(program.term, this.set, mat.now, root, program.registry);
       if (result.sort !== "hview") throw new Error("materialized terms must be HView-sort");
       mat.evalCount += 1;
       const hex = hviewCanonicalHex(result.hview);
@@ -5318,7 +5349,7 @@
   };
   var STR_MATCH_TAGS = ["exact", "prefix", "inSet", "aliased"];
   var VAL_MATCH_TAGS = ["vcmp", "between", "inSet"];
-  var PRED_TAGS = ["match", "hasPointer", "and", "or", "not", "inView"];
+  var PRED_TAGS = ["match", "hasPointer", "and", "or", "not", "inView", "actsFor"];
   var ORDER_TAGS = ["byTimestamp", "byValidFrom", "byAuthorRank", "byPred", "chain"];
   var POLICY_TAGS = ["pick", "all", "merge", "conflicts", "absentAs"];
   var EXTRACT_TAGS = ["field", "role"];
@@ -5412,6 +5443,8 @@
       case "not":
         assertClosedTrustPred(p.pred, what);
         return;
+      case "actsFor":
+        throw new Error(`${what}: actsFor requires a principal resolver`);
       case "inView":
         throw new Error(`${what}: inView is not allowed inside an aliased trust predicate`);
     }
@@ -5521,6 +5554,23 @@
       return tag === "and" ? { kind: "and", left, right } : { kind: "or", left, right };
     }
     if (tag === "not") return { kind: "not", pred: parsePred(o["not"]) };
+    if (tag === "actsFor") {
+      const value = asObject(o["actsFor"], "actsFor", ["root", "policy"]);
+      const root = value["root"];
+      if (typeof root !== "string" || !/^ed25519:[0-9a-f]{64}$/.test(root)) {
+        throw new Error("actsFor.root must be a lowercase Ed25519 author id");
+      }
+      const policy = asObject(value["policy"], "actsFor.policy", ["kind", "scope"]);
+      const kind = policy["kind"];
+      const scope = policy["scope"];
+      if (kind !== "exact" && kind !== "prefix") {
+        throw new Error("actsFor.policy.kind must be exact or prefix");
+      }
+      if (typeof scope !== "string" || scope.length === 0) {
+        throw new Error("actsFor.policy.scope must be nonempty");
+      }
+      return { kind: "actsFor", root, policy: { kind, scope } };
+    }
     {
       const v = asObject(o["inView"], "inView", ["term", "field", "extract"]);
       const term = parseTerm(v["term"]);
@@ -5767,6 +5817,18 @@
       seedHex: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
       publicKeyHex: "ff57575dc7af8bfc4d0837cc1ce2017b686a88145dc5579a958e3462fe9a908e",
       author: "ed25519:ff57575dc7af8bfc4d0837cc1ce2017b686a88145dc5579a958e3462fe9a908e"
+    },
+    {
+      keyId: "test-key-4",
+      seedHex: "0404040404040404040404040404040404040404040404040404040404040404",
+      publicKeyHex: "ca93ac1705187071d67b83c7ff0efe8108e8ec4530575d7726879333dbdabe7c",
+      author: "ed25519:ca93ac1705187071d67b83c7ff0efe8108e8ec4530575d7726879333dbdabe7c"
+    },
+    {
+      keyId: "test-key-5",
+      seedHex: "0505050505050505050505050505050505050505050505050505050505050505",
+      publicKeyHex: "6e7a1cdd29b0b78fd13af4c5598feff4ef2a97166e3ca6f2e4fbfccd80505bf1",
+      author: "ed25519:6e7a1cdd29b0b78fd13af4c5598feff4ef2a97166e3ca6f2e4fbfccd80505bf1"
     }
   ];
 

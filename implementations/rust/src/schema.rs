@@ -226,4 +226,52 @@ impl SchemaRegistry {
             SchemaRef::Pinned(h) => self.readings_by_hash.get(h),
         }
     }
+
+    /// Evaluation overlay: retain signed name/hash lookups while lowering runtime bodies.
+    pub fn map_evaluation_bodies<F, G>(&self, map_term: F, map_reading: G) -> Result<Self, String>
+    where
+        F: Fn(&Term) -> Result<Term, String>,
+        G: Fn(&Schema) -> Result<Schema, String>,
+    {
+        let by_name: HashMap<String, HyperSchema> = self
+            .by_name
+            .iter()
+            .map(|(name, schema)| {
+                Ok((
+                    name.clone(),
+                    HyperSchema {
+                        body: map_term(&schema.body)?,
+                        ..schema.clone()
+                    },
+                ))
+            })
+            .collect::<Result<_, String>>()?;
+        let by_hash = self
+            .by_hash
+            .iter()
+            .map(|(hash, schema)| Ok((hash.clone(), by_name[&schema.name].clone())))
+            .collect::<Result<_, String>>()?;
+        let readings_by_name: HashMap<String, Schema> = self
+            .readings_by_name
+            .iter()
+            .map(|(name, reading)| Ok((name.clone(), map_reading(reading)?)))
+            .collect::<Result<_, String>>()?;
+        let readings_by_hash = self
+            .readings_by_hash
+            .iter()
+            .map(|(hash, reading)| {
+                let name = reading
+                    .name
+                    .as_ref()
+                    .expect("registered reading has a name");
+                Ok((hash.clone(), readings_by_name[name].clone()))
+            })
+            .collect::<Result<_, String>>()?;
+        Ok(Self {
+            by_name,
+            by_hash,
+            readings_by_name,
+            readings_by_hash,
+        })
+    }
 }

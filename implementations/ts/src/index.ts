@@ -94,6 +94,26 @@ export { packId, packSet, unpackSet } from "./pack.js";
 export { Peer, syncBoth, type SyncReport } from "./peer.js";
 export { offerFor, pullFromUrl, servePeer } from "./http.js";
 export {
+  resolvePrincipal,
+  authorsForPrincipal,
+  associatedKeys,
+  type PrincipalReadOptions,
+  type PrincipalResult,
+  type AssociatedKey,
+  type ScopePolicy,
+  type PrincipalSuppression,
+  type AssociationGrade,
+} from "./principal.js";
+export {
+  evalPrincipalTerm,
+  lowerPrincipalTerm,
+  lowerPrincipalRegistry,
+  principalResolver,
+  principalResolverForReactor,
+  registerPrincipalMaterialization,
+  type PrincipalResolver,
+} from "./principal.js";
+export {
   DerivationHost,
   derivedClaims,
   verifyPureDerivation,

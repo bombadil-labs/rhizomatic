@@ -73,6 +73,11 @@ export type Pred =
   | { readonly kind: "and"; readonly left: Pred; readonly right: Pred }
   | { readonly kind: "or"; readonly left: Pred; readonly right: Pred }
   | { readonly kind: "not"; readonly pred: Pred }
+  | {
+      readonly kind: "actsFor";
+      readonly root: string;
+      readonly policy: { readonly kind: "exact" | "prefix"; readonly scope: string };
+    }
   // Reflective (SPEC-2 §3.1): candidate's field ∈ extract(sub-view over the ambient input).
   // Stratified depth-1; DSet-sort sub-term only; both enforced at parse time.
   | {
@@ -296,6 +301,8 @@ export function substituteHoles(pred: Pred, bindings: Bindings | undefined): Pre
       };
     case "not":
       return { kind: "not", pred: substituteHoles(pred.pred, bindings) };
+    case "actsFor":
+      return pred;
     case "inView":
       // Holes inside the sub-term resolve from the same ambient bindings when it is evaluated.
       return pred;
@@ -337,6 +344,8 @@ export function evalPred(pred: Pred, delta: Delta, root?: string, bindings?: Bin
       );
     case "not":
       return !evalPred(pred.pred, delta, root, bindings);
+    case "actsFor":
+      throw new Error("actsFor requires an explicit principal resolver (SPEC-14)");
     case "inView":
       // Every consumer lowers inView against the ambient input first (SPEC-2 §3.1).
       throw new Error("inView must be resolved before matching (SPEC-2 §3.1)");

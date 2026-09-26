@@ -1,0 +1,1855 @@
+{
+  "spec": "SPEC-14 §§1–5",
+  "keys": {
+    "userRoot": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+    "userKey": "ed25519:8139770ea87d175f56a35466c34c7ecccb8d8a91b4ee37a25df60f5b8fc9b394",
+    "connection": "ed25519:ff57575dc7af8bfc4d0837cc1ce2017b686a88145dc5579a958e3462fe9a908e",
+    "replacement": "ed25519:ca93ac1705187071d67b83c7ff0efe8108e8ec4530575d7726879333dbdabe7c",
+    "operatorRoot": "ed25519:6e7a1cdd29b0b78fd13af4c5598feff4ef2a97166e3ca6f2e4fbfccd80505bf1"
+  },
+  "deltas": [
+    {
+      "name": "userRootDeclaration",
+      "id": "1e204b4c6e7a2539f2c3716a23feb05a30384bbeeeaa49756d782ed925ae45f68852",
+      "sig": "d697a9968a632b18fc69ea5527b75ede748d8bdca8585073d5f35ba015b93983ad60bb19930a1b79c293e75f981adf07c5971ca7cbb94233e9187872653cae05",
+      "claims": {
+        "timestamp": 0,
+        "validFrom": 0,
+        "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+        "pointers": [
+          {
+            "role": "principal",
+            "target": {
+              "id": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+              "context": "rhizomatic.principal"
+            }
+          },
+          {
+            "role": "kind",
+            "target": "root"
+          }
+        ]
+      }
+    },
+    {
+      "name": "operatorRootDeclaration",
+      "id": "1e206a6be9f22d0cb467e1239528dbb0efeac7377a6585d28b10eab8ac914a2cc55c",
+      "sig": "38a3d153c1723e1469c329b9d828822535b9fcd45f889406e2dd1e3557a5ed81a5a8baa4917b5c77912c87b39bc6fad9f41f1515775df65bbbf882a2073dca0a",
+      "claims": {
+        "timestamp": 0,
+        "validFrom": 0,
+        "author": "ed25519:6e7a1cdd29b0b78fd13af4c5598feff4ef2a97166e3ca6f2e4fbfccd80505bf1",
+        "pointers": [
+          {
+            "role": "principal",
+            "target": {
+              "id": "ed25519:6e7a1cdd29b0b78fd13af4c5598feff4ef2a97166e3ca6f2e4fbfccd80505bf1",
+              "context": "rhizomatic.principal"
+            }
+          },
+          {
+            "role": "kind",
+            "target": "root"
+          }
+        ]
+      }
+    },
+    {
+      "name": "bindingUserKey",
+      "id": "1e2027f878b8101b74e6449f623b94fd2fbd3c7d177e7268a67e8ccc484d7d61f903",
+      "sig": "11a16e551c58953dbb45bd7bd60f745efb0fa8ec047a5d20009eb1e2df066ecd10eab0a0715a135333c08ef960211e7b097cbb9d7861320fe06cea3bc5c72300",
+      "claims": {
+        "timestamp": 0,
+        "validFrom": 0,
+        "validUntil": 50,
+        "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+        "pointers": [
+          {
+            "role": "principal",
+            "target": {
+              "id": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+              "context": "rhizomatic.principal"
+            }
+          },
+          {
+            "role": "kind",
+            "target": "binding"
+          },
+          {
+            "role": "key",
+            "target": "ed25519:8139770ea87d175f56a35466c34c7ecccb8d8a91b4ee37a25df60f5b8fc9b394"
+          }
+        ]
+      }
+    },
+    {
+      "name": "claimedConnectionBinding",
+      "id": "1e20cbdf7442d52e4b158a3ceac2848d45ac34d231b2f97833984cfee306a4cd7e7f",
+      "sig": "5aea111c9cf3f4a670a3c4d7f0fdb7db845c25e0571568471ea95f1d84db2801de7a01b8d28f225ccc3bfdea92c239fe05e72d0ce35e4efef0d4e83b8f211006",
+      "claims": {
+        "timestamp": 0,
+        "validFrom": 0,
+        "author": "ed25519:8139770ea87d175f56a35466c34c7ecccb8d8a91b4ee37a25df60f5b8fc9b394",
+        "pointers": [
+          {
+            "role": "principal",
+            "target": {
+              "id": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+              "context": "rhizomatic.principal"
+            }
+          },
+          {
+            "role": "kind",
+            "target": "binding"
+          },
+          {
+            "role": "key",
+            "target": "ed25519:ff57575dc7af8bfc4d0837cc1ce2017b686a88145dc5579a958e3462fe9a908e"
+          }
+        ]
+      }
+    },
+    {
+      "name": "successionToReplacement",
+      "id": "1e2003488b969c9f110a9f9ae95b2477aaf16504279b267c644170e75c677834dccd",
+      "sig": "f057eb3423d8b1fcad8e4ba38b6f4206ccf4f03c736988e3db762fc02a05ebd80689e814758003d0437893a1a205b4c0e41ba515cc79fdb40d3caba85e0b3208",
+      "claims": {
+        "timestamp": 10,
+        "validFrom": 10,
+        "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+        "pointers": [
+          {
+            "role": "principal",
+            "target": {
+              "id": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+              "context": "rhizomatic.principal"
+            }
+          },
+          {
+            "role": "kind",
+            "target": "succession"
+          },
+          {
+            "role": "previous",
+            "target": "ed25519:8139770ea87d175f56a35466c34c7ecccb8d8a91b4ee37a25df60f5b8fc9b394"
+          },
+          {
+            "role": "key",
+            "target": "ed25519:ca93ac1705187071d67b83c7ff0efe8108e8ec4530575d7726879333dbdabe7c"
+          }
+        ]
+      }
+    },
+    {
+      "name": "competingSuccession",
+      "id": "1e20052028003aa220507b954df6a2765653e4851dd06d689bc5e51e659d290877f4",
+      "sig": "0f84f4a28ca6b126c5f8cbfcceaba428bfebed8f39841f42111f9508f590adf183308dc7823f523ebb70a048175e39e8900d03dc7bde083eafffe414fe30fb03",
+      "claims": {
+        "timestamp": 10,
+        "validFrom": 10,
+        "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+        "pointers": [
+          {
+            "role": "principal",
+            "target": {
+              "id": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+              "context": "rhizomatic.principal"
+            }
+          },
+          {
+            "role": "kind",
+            "target": "succession"
+          },
+          {
+            "role": "previous",
+            "target": "ed25519:8139770ea87d175f56a35466c34c7ecccb8d8a91b4ee37a25df60f5b8fc9b394"
+          },
+          {
+            "role": "key",
+            "target": "ed25519:ff57575dc7af8bfc4d0837cc1ce2017b686a88145dc5579a958e3462fe9a908e"
+          }
+        ]
+      }
+    },
+    {
+      "name": "userDelegation",
+      "id": "1e2020693b22bd3ec0b6d5dbb500bc2c84a9e85898d1b7c8b1b8940b77c099d5792b",
+      "sig": "d3a9dd0cb27f738f2090086a08e0c4497f2fa14788afc1ab917e0cedc12c74e921221ed32e5aeb780c460bf9dd313aa8ede8a7958168491827498e79734a4b00",
+      "claims": {
+        "timestamp": 1000,
+        "validFrom": 0,
+        "validUntil": 50,
+        "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+        "pointers": [
+          {
+            "role": "principal",
+            "target": {
+              "id": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+              "context": "rhizomatic.principal"
+            }
+          },
+          {
+            "role": "kind",
+            "target": "delegation"
+          },
+          {
+            "role": "key",
+            "target": "ed25519:8139770ea87d175f56a35466c34c7ecccb8d8a91b4ee37a25df60f5b8fc9b394"
+          },
+          {
+            "role": "scope",
+            "target": "ada"
+          },
+          {
+            "role": "delegable",
+            "target": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "connectionDelegation",
+      "id": "1e202767f0f4d1f2b6706f971789df809f134811bacfaad29690f4750b3819f6cd3f",
+      "sig": "c895fee49b6d3ceb66808f7e37ef18e3aa6692894a33c4a9ddb4ea942295e56465a33f5c70d8bc4f85df76cadf6abad7e5235d44cebf0a6fac42777859a72d0b",
+      "claims": {
+        "timestamp": 5,
+        "validFrom": 5,
+        "validUntil": 20,
+        "author": "ed25519:8139770ea87d175f56a35466c34c7ecccb8d8a91b4ee37a25df60f5b8fc9b394",
+        "pointers": [
+          {
+            "role": "principal",
+            "target": {
+              "id": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+              "context": "rhizomatic.principal"
+            }
+          },
+          {
+            "role": "kind",
+            "target": "delegation"
+          },
+          {
+            "role": "key",
+            "target": "ed25519:ff57575dc7af8bfc4d0837cc1ce2017b686a88145dc5579a958e3462fe9a908e"
+          },
+          {
+            "role": "scope",
+            "target": "ada:journal"
+          },
+          {
+            "role": "delegable",
+            "target": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "directConnection",
+      "id": "1e2094e7509a47a959aee43c6fc07cd0c53303bb6d555365f8985ec2b06812045b12",
+      "sig": "70a2ce02198b85b48985ad5cb6c2d96e016b466612724b42280925c718fe015b8e0013de37d631aa71cb7e68507c38e4f5487a4983db4aa84c8b0359e828e40e",
+      "claims": {
+        "timestamp": 0,
+        "validFrom": 0,
+        "validUntil": 20,
+        "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+        "pointers": [
+          {
+            "role": "principal",
+            "target": {
+              "id": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+              "context": "rhizomatic.principal"
+            }
+          },
+          {
+            "role": "kind",
+            "target": "delegation"
+          },
+          {
+            "role": "key",
+            "target": "ed25519:ff57575dc7af8bfc4d0837cc1ce2017b686a88145dc5579a958e3462fe9a908e"
+          },
+          {
+            "role": "scope",
+            "target": "ada:journal"
+          },
+          {
+            "role": "delegable",
+            "target": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "connectionSubdelegation",
+      "id": "1e20ad899e3f766601e9aaae6d312ee2be64b9dee2f4f5cac95d15dfe0c1b8fa12dc",
+      "sig": "cf3ba817221b71fae23ca8820673db860ee157f1a533aa7598d6504048daf425d13e7fc9d2df71ddebc2e999cf1edff13c4c7c16b0b858df51bd1bdd98572307",
+      "claims": {
+        "timestamp": 5,
+        "validFrom": 5,
+        "validUntil": 20,
+        "author": "ed25519:ff57575dc7af8bfc4d0837cc1ce2017b686a88145dc5579a958e3462fe9a908e",
+        "pointers": [
+          {
+            "role": "principal",
+            "target": {
+              "id": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+              "context": "rhizomatic.principal"
+            }
+          },
+          {
+            "role": "kind",
+            "target": "delegation"
+          },
+          {
+            "role": "key",
+            "target": "ed25519:ca93ac1705187071d67b83c7ff0efe8108e8ec4530575d7726879333dbdabe7c"
+          },
+          {
+            "role": "scope",
+            "target": "ada:journal:notes"
+          },
+          {
+            "role": "delegable",
+            "target": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "nondelegableUser",
+      "id": "1e208ee01e3beaa698e1ce2f6bc86a16ac338b202fa36156c581918bb58b54b28bef",
+      "sig": "c2c443692b3b4672913619673bcde506b679ee3ad022c877a2aad1690aa152415a4beb7ef175a25fdf5dc5da3bd819236b861d35f435d808a920534095cfd10b",
+      "claims": {
+        "timestamp": 0,
+        "validFrom": 0,
+        "validUntil": 50,
+        "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+        "pointers": [
+          {
+            "role": "principal",
+            "target": {
+              "id": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+              "context": "rhizomatic.principal"
+            }
+          },
+          {
+            "role": "kind",
+            "target": "delegation"
+          },
+          {
+            "role": "key",
+            "target": "ed25519:8139770ea87d175f56a35466c34c7ecccb8d8a91b4ee37a25df60f5b8fc9b394"
+          },
+          {
+            "role": "scope",
+            "target": "ada"
+          },
+          {
+            "role": "delegable",
+            "target": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "universalConnection",
+      "id": "1e205ca3436c9841026912817004e03b148478475f2ec595d35369f52e7dcb5f564c",
+      "sig": "1551946aab202b991497fca6f81e51e0073304ff499f1bea14f576e78776c23c73cc14f00381f99c9ec32304f454ee8ab19c1445dd0fb34df04a5f9e7ecfdc06",
+      "claims": {
+        "timestamp": 0,
+        "validFrom": 0,
+        "validUntil": 50,
+        "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+        "pointers": [
+          {
+            "role": "principal",
+            "target": {
+              "id": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+              "context": "rhizomatic.principal"
+            }
+          },
+          {
+            "role": "kind",
+            "target": "delegation"
+          },
+          {
+            "role": "key",
+            "target": "ed25519:ff57575dc7af8bfc4d0837cc1ce2017b686a88145dc5579a958e3462fe9a908e"
+          },
+          {
+            "role": "scope",
+            "target": "*"
+          },
+          {
+            "role": "delegable",
+            "target": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "missingScope",
+      "id": "1e20fe30eb255d671ef0ee2cb67c83fad8498bd744909c32cfaf36e92190e7cb11c1",
+      "sig": "35bfde63a87654d645178ef6bf052f21ff0dcf73897e46420935f50decc189121017bb659b81a6fad3a497fe5ad8886a70b26f0575be87d365e86eaf9feb5b07",
+      "claims": {
+        "timestamp": 0,
+        "validFrom": 0,
+        "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+        "pointers": [
+          {
+            "role": "principal",
+            "target": {
+              "id": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+              "context": "rhizomatic.principal"
+            }
+          },
+          {
+            "role": "kind",
+            "target": "delegation"
+          },
+          {
+            "role": "key",
+            "target": "ed25519:ff57575dc7af8bfc4d0837cc1ce2017b686a88145dc5579a958e3462fe9a908e"
+          },
+          {
+            "role": "delegable",
+            "target": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "missingDelegable",
+      "id": "1e204a0c6ef00483fd877911949c817ac98c306a2f6f587ef5a4f2f28a48f6b46c62",
+      "sig": "19d5b2c910d40b7aaf3ff573ab47bbb4be27632e83facf3d909741e4a4803180ebd780e2ff44e8485ca5954be69fccad1a74322fbe48c35adabe9decfc941e05",
+      "claims": {
+        "timestamp": 0,
+        "validFrom": 0,
+        "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+        "pointers": [
+          {
+            "role": "principal",
+            "target": {
+              "id": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+              "context": "rhizomatic.principal"
+            }
+          },
+          {
+            "role": "kind",
+            "target": "delegation"
+          },
+          {
+            "role": "key",
+            "target": "ed25519:ff57575dc7af8bfc4d0837cc1ce2017b686a88145dc5579a958e3462fe9a908e"
+          },
+          {
+            "role": "scope",
+            "target": "ada:journal"
+          }
+        ]
+      }
+    },
+    {
+      "name": "wrongTypeDelegable",
+      "id": "1e203485068d4e0270ee6c899302ca0d12085070767527a2c202c744f8d43419a6a6",
+      "sig": "85bf8b95bcc74823b4509d605dbbbbe525473888bd10f93bdeabb1e56d2b5663b1285d5d7b25e20934d40a5b5ba350ea0e0502db947225fbf09e7deae32a3504",
+      "claims": {
+        "timestamp": 0,
+        "validFrom": 0,
+        "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+        "pointers": [
+          {
+            "role": "principal",
+            "target": {
+              "id": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+              "context": "rhizomatic.principal"
+            }
+          },
+          {
+            "role": "kind",
+            "target": "delegation"
+          },
+          {
+            "role": "key",
+            "target": "ed25519:ff57575dc7af8bfc4d0837cc1ce2017b686a88145dc5579a958e3462fe9a908e"
+          },
+          {
+            "role": "scope",
+            "target": "ada:journal"
+          },
+          {
+            "role": "delegable",
+            "target": "false"
+          }
+        ]
+      }
+    },
+    {
+      "name": "unsignedDelegation",
+      "id": "1e203f6902b2935247d6e327de9977200528273ae722fbdb490fe3500eb9dbdff394",
+      "claims": {
+        "timestamp": 1,
+        "validFrom": 1,
+        "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+        "pointers": [
+          {
+            "role": "principal",
+            "target": {
+              "id": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+              "context": "rhizomatic.principal"
+            }
+          },
+          {
+            "role": "kind",
+            "target": "delegation"
+          },
+          {
+            "role": "key",
+            "target": "ed25519:ff57575dc7af8bfc4d0837cc1ce2017b686a88145dc5579a958e3462fe9a908e"
+          },
+          {
+            "role": "scope",
+            "target": "ada:journal"
+          },
+          {
+            "role": "delegable",
+            "target": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "operatorDelegation",
+      "id": "1e20571ffd5d5153e9d91036971cca37b68d6a9fd72c7d5038bfec2803c8bb7bf795",
+      "sig": "b4c9b2a4e712e8ffa6d7d6955ff4366b44ba456f52d846d5a0f6f018c05ec72290846eb080c81855369507ee3a3d666fee3915a51f0134023e079b3362ad9c0f",
+      "claims": {
+        "timestamp": 0,
+        "validFrom": 0,
+        "author": "ed25519:6e7a1cdd29b0b78fd13af4c5598feff4ef2a97166e3ca6f2e4fbfccd80505bf1",
+        "pointers": [
+          {
+            "role": "principal",
+            "target": {
+              "id": "ed25519:6e7a1cdd29b0b78fd13af4c5598feff4ef2a97166e3ca6f2e4fbfccd80505bf1",
+              "context": "rhizomatic.principal"
+            }
+          },
+          {
+            "role": "kind",
+            "target": "delegation"
+          },
+          {
+            "role": "key",
+            "target": "ed25519:ff57575dc7af8bfc4d0837cc1ce2017b686a88145dc5579a958e3462fe9a908e"
+          },
+          {
+            "role": "scope",
+            "target": "*"
+          },
+          {
+            "role": "delegable",
+            "target": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "locator",
+      "id": "1e20ff7bc33667245f45b2f1d4f328cc189ecd0293f37d277fab2b6783d03cf230f8",
+      "sig": "e3dd5a39a9d58d8c134c6fd261900d7d09c9796a3c2bf5bd26aaa4187aaba18a50ae1901fe3621cfd559e034976a254671525d6a04cb3b2f27cf620f2e3f9508",
+      "claims": {
+        "timestamp": 0,
+        "validFrom": 0,
+        "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+        "pointers": [
+          {
+            "role": "principal",
+            "target": {
+              "id": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+              "context": "rhizomatic.principal"
+            }
+          },
+          {
+            "role": "kind",
+            "target": "locator"
+          },
+          {
+            "role": "address",
+            "target": "https://example.invalid/ada"
+          }
+        ]
+      }
+    },
+    {
+      "name": "otherLocator",
+      "id": "1e20af61a37e8eb081a3b93b4b66120bef54d103b9b093173d8ae77de1c55080b066",
+      "sig": "792839982dfbea5958c5d50c6481c900f1a325e534f3e5451438d0b7b7cd2953a2c9dc8483e0f8ddbab18728a3b2b29b4476c0a9945b201488c4f2378f987101",
+      "claims": {
+        "timestamp": 0,
+        "validFrom": 0,
+        "author": "ed25519:6e7a1cdd29b0b78fd13af4c5598feff4ef2a97166e3ca6f2e4fbfccd80505bf1",
+        "pointers": [
+          {
+            "role": "principal",
+            "target": {
+              "id": "ed25519:6e7a1cdd29b0b78fd13af4c5598feff4ef2a97166e3ca6f2e4fbfccd80505bf1",
+              "context": "rhizomatic.principal"
+            }
+          },
+          {
+            "role": "kind",
+            "target": "locator"
+          },
+          {
+            "role": "address",
+            "target": "https://example.invalid/operator"
+          }
+        ]
+      }
+    },
+    {
+      "name": "dataRoot",
+      "id": "1e20ee0edf8d7b4a945aeb20b698fbc6d7e808283fb2a3a7e7c3e47c6b257903ca67",
+      "sig": "cd4ee04d66450299bbd5e97362a3a87cc5c06170616fda04e4328d26bbf391a32abdb059a257b4500302f6eeaf50f8edd2c70491c9127b8106d44f081f266801",
+      "claims": {
+        "timestamp": 0,
+        "validFrom": 0,
+        "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+        "pointers": [
+          {
+            "role": "principal",
+            "target": {
+              "id": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+              "context": "rhizomatic.principal"
+            }
+          },
+          {
+            "role": "kind",
+            "target": "data"
+          },
+          {
+            "role": "value",
+            "target": "root"
+          }
+        ]
+      }
+    },
+    {
+      "name": "dataUser",
+      "id": "1e20d1d053826fc733dbc1a09663dcd37c68a1b37ec54aed3895131562a3ece56606",
+      "sig": "83b62695f0cf7915ff98a7aa8230f62d488dc9ba05bf58448bcbeec52526e456a5cb3eeaa448f2e728811f11c85df54d2fd052b6ce48376086a2ed08c3eec40c",
+      "claims": {
+        "timestamp": 0,
+        "validFrom": 0,
+        "author": "ed25519:8139770ea87d175f56a35466c34c7ecccb8d8a91b4ee37a25df60f5b8fc9b394",
+        "pointers": [
+          {
+            "role": "principal",
+            "target": {
+              "id": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+              "context": "rhizomatic.principal"
+            }
+          },
+          {
+            "role": "kind",
+            "target": "data"
+          },
+          {
+            "role": "value",
+            "target": "user"
+          }
+        ]
+      }
+    },
+    {
+      "name": "dataConnection",
+      "id": "1e20ef5f469ce948dd501f802a81bdbd6e48d9156f8361090ef7125a32dc96de4c7b",
+      "sig": "57039b834bf4cdb9b6b0a6e166e8d78fdad1421e309307fee466581e5a3b514e11f2843861ab976b73ab6d0eac8188c31dc8cd0db2a2b85f1b84e5a9551dec08",
+      "claims": {
+        "timestamp": 0,
+        "validFrom": 0,
+        "author": "ed25519:ff57575dc7af8bfc4d0837cc1ce2017b686a88145dc5579a958e3462fe9a908e",
+        "pointers": [
+          {
+            "role": "principal",
+            "target": {
+              "id": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+              "context": "rhizomatic.principal"
+            }
+          },
+          {
+            "role": "kind",
+            "target": "data"
+          },
+          {
+            "role": "value",
+            "target": "connection"
+          }
+        ]
+      }
+    },
+    {
+      "name": "dataReplacement",
+      "id": "1e20e14657af49f92540afda9dc2040a4c81a430002e0728449c3d838d3d25817c3a",
+      "sig": "ab0565a54995cfc26cb0e4bb5770001f4403713204b93ba10e5384a7222cefc0f41477f01f7fa1d5a1ebf26137f84139900cb445086ffb6aaa5a7ede45037d0e",
+      "claims": {
+        "timestamp": 0,
+        "validFrom": 0,
+        "author": "ed25519:ca93ac1705187071d67b83c7ff0efe8108e8ec4530575d7726879333dbdabe7c",
+        "pointers": [
+          {
+            "role": "principal",
+            "target": {
+              "id": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+              "context": "rhizomatic.principal"
+            }
+          },
+          {
+            "role": "kind",
+            "target": "data"
+          },
+          {
+            "role": "value",
+            "target": "replacement"
+          }
+        ]
+      }
+    },
+    {
+      "name": "negateUserDelegation",
+      "id": "1e203308fa13037ea0e0a0ba5f7222d8474ecbf2bfcb67569f2b19b52cc3c022b02c",
+      "sig": "68249ae0a6cb87873899c0747a6041326185c5fb0368999349c911e9b556f3c93aca36b8aa0188ee56d7d434bf6bd5cc1a7d14eb1ed6a77c5a50ac3732be5e07",
+      "claims": {
+        "timestamp": 10,
+        "validFrom": 10,
+        "validUntil": 15,
+        "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+        "pointers": [
+          {
+            "role": "negates",
+            "target": {
+              "delta": "1e2020693b22bd3ec0b6d5dbb500bc2c84a9e85898d1b7c8b1b8940b77c099d5792b"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "negateConnectionByRoot",
+      "id": "1e20c551de626cbe579ec64c2dc81c25ce307e53153b2e3e4cb9eec3df2131a819ab",
+      "sig": "de8d369a93af5984637dc162364ab694fa0f98a3ffe19174bb30a6951ba7c0ab3091958224800f0118967030989d168d910c3084045df5577c23b1e7fedd4406",
+      "claims": {
+        "timestamp": 12,
+        "validFrom": 12,
+        "validUntil": 19,
+        "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+        "pointers": [
+          {
+            "role": "negates",
+            "target": {
+              "delta": "1e202767f0f4d1f2b6706f971789df809f134811bacfaad29690f4750b3819f6cd3f"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "counterRootByUser",
+      "id": "1e206f0c14f93ed5dc1314f66b8fb7b659dec7ee3331d1bb07710741829cd46cb938",
+      "sig": "5cc3b224a0ec933cf3df0247f19d3f6cbcd10c7f435b2c77cf5723764eef7c9338038b00032bf15517dc994bc4bc693138c7bfd8330cd2f8d3ff52aed5a71a05",
+      "claims": {
+        "timestamp": 13,
+        "validFrom": 13,
+        "validUntil": 19,
+        "author": "ed25519:8139770ea87d175f56a35466c34c7ecccb8d8a91b4ee37a25df60f5b8fc9b394",
+        "pointers": [
+          {
+            "role": "negates",
+            "target": {
+              "delta": "1e20c551de626cbe579ec64c2dc81c25ce307e53153b2e3e4cb9eec3df2131a819ab"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "counterRootByRoot",
+      "id": "1e20b1d809daa153e0fef5d0434af1d78b593e40bfbe77cce32771bb9c4177e913a7",
+      "sig": "b38f3f1ee070cf00e554573fb992a97b7c3e59b933577fdb3ac0e0ce3323322720f7b643ee81375a61ddcaa079f3e9069f31708f72e3589bb932ad2e41acc900",
+      "claims": {
+        "timestamp": 14,
+        "validFrom": 14,
+        "validUntil": 19,
+        "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+        "pointers": [
+          {
+            "role": "negates",
+            "target": {
+              "delta": "1e20c551de626cbe579ec64c2dc81c25ce307e53153b2e3e4cb9eec3df2131a819ab"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "negateConnectionByUser",
+      "id": "1e200607fdb0ccdec76a63d671a20e2117f884f597c8538dfc0c8b8c3e81305b4233",
+      "sig": "593337524b1f5475f7962a116bae63433b3663481ca7b00bc8eba69bf2733a89b259a4775b9f7cfd4b2f72f2651f720e662d71b5840080e3aa5e9c5c097afe0c",
+      "claims": {
+        "timestamp": 11,
+        "validFrom": 11,
+        "validUntil": 16,
+        "author": "ed25519:8139770ea87d175f56a35466c34c7ecccb8d8a91b4ee37a25df60f5b8fc9b394",
+        "pointers": [
+          {
+            "role": "negates",
+            "target": {
+              "delta": "1e202767f0f4d1f2b6706f971789df809f134811bacfaad29690f4750b3819f6cd3f"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "negateBinding",
+      "id": "1e2098794d8fda75f542be323a367553ced7d4f73f0a8bf0d1b9983c1bb80c34baa5",
+      "sig": "10893733cd6044fb7124a9bcafcdce5330b35d94a51b7c916aea36a2026f8404f98c7b68b6cde81ec5d3d6e14c6b8e840a3de2d56d7f006340d48b22537adc0f",
+      "claims": {
+        "timestamp": 25,
+        "validFrom": 25,
+        "validUntil": 45,
+        "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+        "pointers": [
+          {
+            "role": "negates",
+            "target": {
+              "delta": "1e2027f878b8101b74e6449f623b94fd2fbd3c7d177e7268a67e8ccc484d7d61f903"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "negateSuccession",
+      "id": "1e207de35a03ba2e2ca60c9320d50c640e7b26d99ffbd98372ff521956a82a7cf09a",
+      "sig": "c71f3e23f01a7e9a6123ea6dd16cc25f798ff26e2d0c333e2eccd89ef55424b6ecce3faf9ed8b554a79c7e418ef8be6ff1f2eedfff5252f9ab55eb3132c6a50a",
+      "claims": {
+        "timestamp": 15,
+        "validFrom": 15,
+        "validUntil": 18,
+        "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+        "pointers": [
+          {
+            "role": "negates",
+            "target": {
+              "delta": "1e2003488b969c9f110a9f9ae95b2477aaf16504279b267c644170e75c677834dccd"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "unsignedRootNegation",
+      "id": "1e20dfa37ac66acf5755b78c6412fabdae701896a1fd80cd4898f79e87370731124f",
+      "claims": {
+        "timestamp": 10,
+        "validFrom": 10,
+        "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+        "pointers": [
+          {
+            "role": "negates",
+            "target": {
+              "delta": "1e2020693b22bd3ec0b6d5dbb500bc2c84a9e85898d1b7c8b1b8940b77c099d5792b"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "unsignedRootCounter",
+      "id": "1e20f518477cc5550bc3276997527c4a46cc14597623aed29966d6fc731a73b2ef48",
+      "claims": {
+        "timestamp": 14,
+        "validFrom": 14,
+        "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+        "pointers": [
+          {
+            "role": "negates",
+            "target": {
+              "delta": "1e20c551de626cbe579ec64c2dc81c25ce307e53153b2e3e4cb9eec3df2131a819ab"
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "defaults": {
+    "root": "userRoot",
+    "now": 30,
+    "scopePolicy": "exact",
+    "suppression": "sameAuthor"
+  },
+  "cases": [
+    {
+      "name": "root-needs-no-declaration",
+      "members": [],
+      "key": "userRoot",
+      "at": 0,
+      "scope": "*",
+      "expected": {
+        "grade": "rooted",
+        "authorized": true,
+        "delegable": true,
+        "authors": [
+          "userRoot"
+        ]
+      }
+    },
+    {
+      "name": "other-root-does-not-appoint-governor",
+      "members": [
+        "operatorRootDeclaration",
+        "operatorDelegation"
+      ],
+      "key": "connection",
+      "at": 0,
+      "scope": "ada:journal",
+      "expected": {
+        "grade": "unresolved",
+        "authorized": false,
+        "delegable": false,
+        "authors": [
+          "userRoot"
+        ]
+      }
+    },
+    {
+      "name": "same-set-under-operator-pin",
+      "members": [
+        "operatorRootDeclaration",
+        "operatorDelegation"
+      ],
+      "root": "operatorRoot",
+      "key": "connection",
+      "at": 0,
+      "scope": "ada:journal",
+      "expected": {
+        "grade": "unresolved",
+        "authorized": true,
+        "delegable": false,
+        "authors": [
+          "operatorRoot",
+          "connection"
+        ]
+      }
+    },
+    {
+      "name": "unrooted-claim-is-not-association",
+      "members": [
+        "claimedConnectionBinding"
+      ],
+      "key": "connection",
+      "at": 0,
+      "scope": "ada:journal",
+      "expected": {
+        "grade": "claimed",
+        "authorized": false,
+        "delegable": false,
+        "authors": [
+          "userRoot"
+        ]
+      }
+    },
+    {
+      "name": "binding-is-not-delegation",
+      "members": [
+        "bindingUserKey"
+      ],
+      "key": "userKey",
+      "at": 0,
+      "scope": "ada",
+      "expected": {
+        "grade": "rooted",
+        "authorized": false,
+        "delegable": false,
+        "authors": [
+          "userRoot"
+        ]
+      }
+    },
+    {
+      "name": "succession-before-start",
+      "members": [
+        "bindingUserKey",
+        "successionToReplacement"
+      ],
+      "key": "replacement",
+      "at": 9,
+      "scope": "ada",
+      "expected": {
+        "grade": "unresolved",
+        "authorized": false,
+        "delegable": false,
+        "authors": [
+          "userRoot"
+        ]
+      }
+    },
+    {
+      "name": "succession-needs-previous-association",
+      "members": [
+        "successionToReplacement"
+      ],
+      "key": "replacement",
+      "at": 10,
+      "scope": "ada",
+      "expected": {
+        "grade": "unresolved",
+        "authorized": false,
+        "delegable": false,
+        "authors": [
+          "userRoot"
+        ]
+      }
+    },
+    {
+      "name": "succession-is-not-delegation",
+      "members": [
+        "bindingUserKey",
+        "successionToReplacement"
+      ],
+      "key": "replacement",
+      "at": 10,
+      "scope": "ada",
+      "expected": {
+        "grade": "rooted",
+        "authorized": false,
+        "delegable": false,
+        "authors": [
+          "userRoot"
+        ]
+      }
+    },
+    {
+      "name": "succession-dispute-has-no-winner",
+      "members": [
+        "bindingUserKey",
+        "successionToReplacement",
+        "competingSuccession"
+      ],
+      "key": "replacement",
+      "at": 10,
+      "scope": "ada",
+      "expected": {
+        "grade": "disputed",
+        "authorized": false,
+        "delegable": false,
+        "authors": [
+          "userRoot"
+        ]
+      }
+    },
+    {
+      "name": "succession-negated-inside-window",
+      "members": [
+        "bindingUserKey",
+        "successionToReplacement",
+        "negateSuccession"
+      ],
+      "key": "replacement",
+      "at": 15,
+      "scope": "ada",
+      "expected": {
+        "grade": "unresolved",
+        "authorized": false,
+        "delegable": false,
+        "authors": [
+          "userRoot"
+        ]
+      }
+    },
+    {
+      "name": "succession-revives-at-negation-end",
+      "members": [
+        "bindingUserKey",
+        "successionToReplacement",
+        "negateSuccession"
+      ],
+      "key": "replacement",
+      "at": 18,
+      "scope": "ada",
+      "expected": {
+        "grade": "rooted",
+        "authorized": false,
+        "delegable": false,
+        "authors": [
+          "userRoot"
+        ]
+      }
+    },
+    {
+      "name": "binding-negated-but-held",
+      "members": [
+        "bindingUserKey",
+        "negateBinding"
+      ],
+      "key": "userKey",
+      "at": 25,
+      "scope": "ada",
+      "expected": {
+        "grade": "unresolved",
+        "authorized": false,
+        "delegable": false,
+        "authors": [
+          "userRoot"
+        ]
+      }
+    },
+    {
+      "name": "binding-revives-at-negation-end",
+      "members": [
+        "bindingUserKey",
+        "negateBinding"
+      ],
+      "key": "userKey",
+      "at": 45,
+      "scope": "ada",
+      "expected": {
+        "grade": "rooted",
+        "authorized": false,
+        "delegable": false,
+        "authors": [
+          "userRoot"
+        ]
+      }
+    },
+    {
+      "name": "delegation-can-authorize-without-association",
+      "members": [
+        "userDelegation"
+      ],
+      "key": "userKey",
+      "at": 0,
+      "scope": "ada",
+      "expected": {
+        "grade": "unresolved",
+        "authorized": true,
+        "delegable": true,
+        "authors": [
+          "userRoot",
+          "userKey"
+        ]
+      }
+    },
+    {
+      "name": "prefix-permits-child-scope",
+      "members": [
+        "userDelegation",
+        "connectionDelegation"
+      ],
+      "key": "connection",
+      "at": 5,
+      "scope": "ada:journal",
+      "scopePolicy": "prefix",
+      "expected": {
+        "grade": "unresolved",
+        "authorized": true,
+        "delegable": false,
+        "authors": [
+          "userRoot",
+          "userKey",
+          "connection"
+        ]
+      }
+    },
+    {
+      "name": "exact-does-not-widen-parent",
+      "members": [
+        "userDelegation",
+        "connectionDelegation"
+      ],
+      "key": "connection",
+      "at": 5,
+      "scope": "ada:journal",
+      "expected": {
+        "grade": "unresolved",
+        "authorized": false,
+        "delegable": false,
+        "authors": [
+          "userRoot"
+        ]
+      }
+    },
+    {
+      "name": "nondelegable-parent-cannot-extend",
+      "members": [
+        "nondelegableUser",
+        "connectionDelegation"
+      ],
+      "key": "connection",
+      "at": 5,
+      "scope": "ada:journal",
+      "scopePolicy": "prefix",
+      "expected": {
+        "grade": "unresolved",
+        "authorized": false,
+        "delegable": false,
+        "authors": [
+          "userRoot",
+          "userKey"
+        ]
+      }
+    },
+    {
+      "name": "nondelegable-connection-cannot-extend",
+      "members": [
+        "userDelegation",
+        "connectionDelegation",
+        "connectionSubdelegation"
+      ],
+      "key": "replacement",
+      "at": 5,
+      "scope": "ada:journal:notes",
+      "scopePolicy": "prefix",
+      "expected": {
+        "grade": "unresolved",
+        "authorized": false,
+        "delegable": false,
+        "authors": [
+          "userRoot",
+          "userKey",
+          "connection"
+        ]
+      }
+    },
+    {
+      "name": "direct-user-root-connection",
+      "members": [
+        "directConnection",
+        "connectionSubdelegation"
+      ],
+      "key": "connection",
+      "at": 5,
+      "scope": "ada:journal",
+      "scopePolicy": "prefix",
+      "expected": {
+        "grade": "unresolved",
+        "authorized": true,
+        "delegable": false,
+        "authors": [
+          "userRoot",
+          "connection"
+        ]
+      }
+    },
+    {
+      "name": "prefix-segment-boundary",
+      "members": [
+        "userDelegation"
+      ],
+      "key": "userKey",
+      "at": 5,
+      "scope": "adam:journal",
+      "scopePolicy": "prefix",
+      "expected": {
+        "grade": "unresolved",
+        "authorized": false,
+        "delegable": false,
+        "authors": [
+          "userRoot"
+        ]
+      }
+    },
+    {
+      "name": "universal-scope-is-explicit",
+      "members": [
+        "universalConnection"
+      ],
+      "key": "connection",
+      "at": 0,
+      "scope": "ada:journal",
+      "expected": {
+        "grade": "unresolved",
+        "authorized": true,
+        "delegable": false,
+        "authors": [
+          "userRoot",
+          "connection"
+        ]
+      }
+    },
+    {
+      "name": "scoped-edge-does-not-grant-universal",
+      "members": [
+        "userDelegation"
+      ],
+      "key": "userKey",
+      "at": 0,
+      "scope": "*",
+      "scopePolicy": "prefix",
+      "expected": {
+        "grade": "unresolved",
+        "authorized": false,
+        "delegable": false,
+        "authors": [
+          "userRoot"
+        ]
+      }
+    },
+    {
+      "name": "missing-scope-is-not-evidence",
+      "members": [
+        "missingScope"
+      ],
+      "key": "connection",
+      "at": 0,
+      "scope": "ada:journal",
+      "expected": {
+        "grade": "unresolved",
+        "authorized": false,
+        "delegable": false,
+        "authors": [
+          "userRoot"
+        ]
+      }
+    },
+    {
+      "name": "missing-delegable-is-not-evidence",
+      "members": [
+        "missingDelegable"
+      ],
+      "key": "connection",
+      "at": 0,
+      "scope": "ada:journal",
+      "expected": {
+        "grade": "unresolved",
+        "authorized": false,
+        "delegable": false,
+        "authors": [
+          "userRoot"
+        ]
+      }
+    },
+    {
+      "name": "wrong-type-delegable-is-not-evidence",
+      "members": [
+        "wrongTypeDelegable"
+      ],
+      "key": "connection",
+      "at": 0,
+      "scope": "ada:journal",
+      "expected": {
+        "grade": "unresolved",
+        "authorized": false,
+        "delegable": false,
+        "authors": [
+          "userRoot"
+        ]
+      }
+    },
+    {
+      "name": "unsigned-is-not-evidence",
+      "members": [
+        "unsignedDelegation"
+      ],
+      "key": "connection",
+      "at": 1,
+      "scope": "ada:journal",
+      "expected": {
+        "grade": "unresolved",
+        "authorized": false,
+        "delegable": false,
+        "authors": [
+          "userRoot"
+        ]
+      }
+    },
+    {
+      "name": "locator-is-not-authority",
+      "members": [
+        "locator",
+        "otherLocator"
+      ],
+      "key": "connection",
+      "at": 0,
+      "scope": "ada:journal",
+      "expected": {
+        "grade": "unresolved",
+        "authorized": false,
+        "delegable": false,
+        "authors": [
+          "userRoot"
+        ]
+      }
+    },
+    {
+      "name": "delegation-creation-time-is-not-validity",
+      "members": [
+        "userDelegation"
+      ],
+      "key": "userKey",
+      "at": 0,
+      "scope": "ada",
+      "expected": {
+        "grade": "unresolved",
+        "authorized": true,
+        "delegable": true,
+        "authors": [
+          "userRoot",
+          "userKey"
+        ]
+      }
+    },
+    {
+      "name": "observation-time-does-not-create-or-remove-edge",
+      "members": [
+        "userDelegation"
+      ],
+      "key": "userKey",
+      "at": 0,
+      "now": 100,
+      "scope": "ada",
+      "expected": {
+        "grade": "unresolved",
+        "authorized": true,
+        "delegable": true,
+        "authors": [
+          "userRoot",
+          "userKey"
+        ]
+      }
+    },
+    {
+      "name": "delegation-before-connection-start",
+      "members": [
+        "userDelegation",
+        "connectionDelegation"
+      ],
+      "key": "connection",
+      "at": 4,
+      "scope": "ada:journal",
+      "scopePolicy": "prefix",
+      "expected": {
+        "grade": "unresolved",
+        "authorized": false,
+        "delegable": false,
+        "authors": [
+          "userRoot",
+          "userKey"
+        ]
+      }
+    },
+    {
+      "name": "delegation-at-connection-end",
+      "members": [
+        "userDelegation",
+        "connectionDelegation"
+      ],
+      "key": "connection",
+      "at": 20,
+      "scope": "ada:journal",
+      "scopePolicy": "prefix",
+      "expected": {
+        "grade": "unresolved",
+        "authorized": false,
+        "delegable": false,
+        "authors": [
+          "userRoot",
+          "userKey"
+        ]
+      }
+    },
+    {
+      "name": "delegation-at-parent-end",
+      "members": [
+        "userDelegation",
+        "connectionDelegation"
+      ],
+      "key": "connection",
+      "at": 50,
+      "scope": "ada:journal",
+      "scopePolicy": "prefix",
+      "expected": {
+        "grade": "unresolved",
+        "authorized": false,
+        "delegable": false,
+        "authors": [
+          "userRoot"
+        ]
+      }
+    },
+    {
+      "name": "timed-negation-at-9",
+      "members": [
+        "userDelegation",
+        "connectionDelegation",
+        "negateUserDelegation"
+      ],
+      "key": "connection",
+      "at": 9,
+      "scope": "ada:journal",
+      "scopePolicy": "prefix",
+      "expected": {
+        "grade": "unresolved",
+        "authorized": true,
+        "delegable": false,
+        "authors": [
+          "userRoot",
+          "userKey",
+          "connection"
+        ]
+      }
+    },
+    {
+      "name": "timed-negation-at-10",
+      "members": [
+        "userDelegation",
+        "connectionDelegation",
+        "negateUserDelegation"
+      ],
+      "key": "connection",
+      "at": 10,
+      "scope": "ada:journal",
+      "scopePolicy": "prefix",
+      "expected": {
+        "grade": "unresolved",
+        "authorized": false,
+        "delegable": false,
+        "authors": [
+          "userRoot"
+        ]
+      }
+    },
+    {
+      "name": "timed-negation-at-15",
+      "members": [
+        "userDelegation",
+        "connectionDelegation",
+        "negateUserDelegation"
+      ],
+      "key": "connection",
+      "at": 15,
+      "scope": "ada:journal",
+      "scopePolicy": "prefix",
+      "expected": {
+        "grade": "unresolved",
+        "authorized": true,
+        "delegable": false,
+        "authors": [
+          "userRoot",
+          "userKey",
+          "connection"
+        ]
+      }
+    },
+    {
+      "name": "root-revokes-delegates-grant",
+      "members": [
+        "userDelegation",
+        "connectionDelegation",
+        "negateConnectionByRoot"
+      ],
+      "key": "connection",
+      "at": 12,
+      "scope": "ada:journal",
+      "scopePolicy": "prefix",
+      "suppression": "rootOrSameAuthor",
+      "expected": {
+        "grade": "unresolved",
+        "authorized": false,
+        "delegable": false,
+        "authors": [
+          "userRoot",
+          "userKey"
+        ]
+      }
+    },
+    {
+      "name": "unsigned-root-claim-does-not-revoke",
+      "members": [
+        "userDelegation",
+        "connectionDelegation",
+        "unsignedRootNegation"
+      ],
+      "key": "connection",
+      "at": 10,
+      "scope": "ada:journal",
+      "scopePolicy": "prefix",
+      "suppression": "rootOrSameAuthor",
+      "expected": {
+        "grade": "unresolved",
+        "authorized": true,
+        "delegable": false,
+        "authors": [
+          "userRoot",
+          "userKey",
+          "connection"
+        ]
+      }
+    },
+    {
+      "name": "unsigned-root-claim-does-not-counter-revocation",
+      "members": [
+        "userDelegation",
+        "connectionDelegation",
+        "negateConnectionByRoot",
+        "unsignedRootCounter"
+      ],
+      "key": "connection",
+      "at": 14,
+      "scope": "ada:journal",
+      "scopePolicy": "prefix",
+      "suppression": "rootOrSameAuthor",
+      "expected": {
+        "grade": "unresolved",
+        "authorized": false,
+        "delegable": false,
+        "authors": [
+          "userRoot",
+          "userKey"
+        ]
+      }
+    },
+    {
+      "name": "same-author-does-not-honor-root-on-delegate",
+      "members": [
+        "userDelegation",
+        "connectionDelegation",
+        "negateConnectionByRoot"
+      ],
+      "key": "connection",
+      "at": 12,
+      "scope": "ada:journal",
+      "scopePolicy": "prefix",
+      "expected": {
+        "grade": "unresolved",
+        "authorized": true,
+        "delegable": false,
+        "authors": [
+          "userRoot",
+          "userKey",
+          "connection"
+        ]
+      }
+    },
+    {
+      "name": "delegate-cannot-counter-root-revocation",
+      "members": [
+        "userDelegation",
+        "connectionDelegation",
+        "negateConnectionByRoot",
+        "counterRootByUser"
+      ],
+      "key": "connection",
+      "at": 13,
+      "scope": "ada:journal",
+      "scopePolicy": "prefix",
+      "suppression": "rootOrSameAuthor",
+      "expected": {
+        "grade": "unresolved",
+        "authorized": false,
+        "delegable": false,
+        "authors": [
+          "userRoot",
+          "userKey"
+        ]
+      }
+    },
+    {
+      "name": "root-can-counter-its-revocation",
+      "members": [
+        "userDelegation",
+        "connectionDelegation",
+        "negateConnectionByRoot",
+        "counterRootByRoot"
+      ],
+      "key": "connection",
+      "at": 14,
+      "scope": "ada:journal",
+      "scopePolicy": "prefix",
+      "suppression": "rootOrSameAuthor",
+      "expected": {
+        "grade": "unresolved",
+        "authorized": true,
+        "delegable": false,
+        "authors": [
+          "userRoot",
+          "userKey",
+          "connection"
+        ]
+      }
+    },
+    {
+      "name": "delegator-can-revoke",
+      "members": [
+        "userDelegation",
+        "connectionDelegation",
+        "negateConnectionByUser"
+      ],
+      "key": "connection",
+      "at": 11,
+      "scope": "ada:journal",
+      "scopePolicy": "prefix",
+      "expected": {
+        "grade": "unresolved",
+        "authorized": false,
+        "delegable": false,
+        "authors": [
+          "userRoot",
+          "userKey"
+        ]
+      }
+    },
+    {
+      "name": "expired-self-revocation-revives",
+      "members": [
+        "userDelegation",
+        "connectionDelegation",
+        "negateConnectionByUser"
+      ],
+      "key": "connection",
+      "at": 16,
+      "scope": "ada:journal",
+      "scopePolicy": "prefix",
+      "expected": {
+        "grade": "unresolved",
+        "authorized": true,
+        "delegable": false,
+        "authors": [
+          "userRoot",
+          "userKey",
+          "connection"
+        ]
+      }
+    }
+  ],
+  "history": [
+    {
+      "name": "negated-binding-stays-in-history",
+      "members": [
+        "bindingUserKey",
+        "negateBinding"
+      ],
+      "now": 30,
+      "expected": [
+        {
+          "key": "userKey",
+          "via": [
+            "bindingUserKey"
+          ],
+          "negated": true
+        },
+        {
+          "key": "userRoot",
+          "via": [],
+          "negated": false
+        }
+      ]
+    },
+    {
+      "name": "successor-stays-in-history",
+      "members": [
+        "bindingUserKey",
+        "successionToReplacement",
+        "negateBinding",
+        "negateSuccession"
+      ],
+      "now": 30,
+      "expected": [
+        {
+          "key": "userKey",
+          "via": [
+            "bindingUserKey"
+          ],
+          "negated": true
+        },
+        {
+          "key": "userRoot",
+          "via": [],
+          "negated": false
+        },
+        {
+          "key": "replacement",
+          "via": [
+            "bindingUserKey",
+            "successionToReplacement"
+          ],
+          "negated": true
+        }
+      ]
+    }
+  ],
+  "predicates": [
+    {
+      "name": "acts-for-prefix",
+      "members": [
+        "userDelegation",
+        "connectionDelegation",
+        "dataRoot",
+        "dataUser",
+        "dataConnection",
+        "dataReplacement"
+      ],
+      "now": 6,
+      "policy": {
+        "kind": "prefix",
+        "scope": "ada:journal"
+      },
+      "expected": [
+        "userDelegation",
+        "connectionDelegation",
+        "dataRoot",
+        "dataUser",
+        "dataConnection"
+      ],
+      "term": {
+        "op": "select",
+        "pred": {
+          "actsFor": {
+            "root": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+            "policy": {
+              "kind": "prefix",
+              "scope": "ada:journal"
+            }
+          }
+        },
+        "in": "input"
+      },
+      "missingResolverMustThrow": true
+    },
+    {
+      "name": "acts-for-exact",
+      "members": [
+        "userDelegation",
+        "connectionDelegation",
+        "dataRoot",
+        "dataUser",
+        "dataConnection"
+      ],
+      "now": 6,
+      "policy": {
+        "kind": "exact",
+        "scope": "ada:journal"
+      },
+      "expected": [
+        "userDelegation",
+        "dataRoot"
+      ],
+      "term": {
+        "op": "select",
+        "pred": {
+          "actsFor": {
+            "root": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+            "policy": {
+              "kind": "exact",
+              "scope": "ada:journal"
+            }
+          }
+        },
+        "in": "input"
+      },
+      "missingResolverMustThrow": true
+    }
+  ],
+  "note": "Expected decisions are curated from SPEC-14, not computed by the generator. Case members name signed deltas above. Query output author aliases are sets; witnesses compare them after sorting by author id. Implementations must run every case in forward and reverse ingest order."
+}

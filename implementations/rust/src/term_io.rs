@@ -127,6 +127,16 @@ pub fn pred_to_json(pred: &Pred) -> Value {
         Pred::And(l, r) => json!({ "and": [pred_to_json(l), pred_to_json(r)] }),
         Pred::Or(l, r) => json!({ "or": [pred_to_json(l), pred_to_json(r)] }),
         Pred::Not(p) => json!({ "not": pred_to_json(p) }),
+        Pred::ActsFor { root, policy } => json!({ "actsFor": {
+            "root": root,
+            "policy": {
+                "kind": match policy.kind {
+                    crate::pred::PrincipalPolicyKind::Exact => "exact",
+                    crate::pred::PrincipalPolicyKind::Prefix => "prefix",
+                },
+                "scope": policy.scope,
+            },
+        } }),
         Pred::InView {
             term,
             field,

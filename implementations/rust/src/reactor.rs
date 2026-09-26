@@ -2,6 +2,7 @@
 //! ingest -> validate -> persist -> index; the log is the truth, indexes are derived.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::sync::Arc;
 
 use crate::eval::{eval_term, eval_term_at, EvalResult, Term};
 use crate::hview::HView;
@@ -309,7 +310,7 @@ impl Reactor {
         if self.materializations.contains_key(name) {
             return Err(format!("duplicate materialization: {name}"));
         }
-        let mut mat = Materialization::new(name, term, roots, None, registry);
+        let mut mat = Materialization::new(name, term, roots, None, registry, None);
         for root in mat.roots.clone() {
             mat.refresh(&self.set, &root)?;
         }
@@ -332,7 +333,50 @@ impl Reactor {
         if self.materializations.contains_key(name) {
             return Err(format!("duplicate materialization: {name}"));
         }
-        let mut mat = Materialization::new(name, term, roots, Some(now), registry);
+        let mut mat = Materialization::new(name, term, roots, Some(now), registry, None);
+        for root in mat.roots.clone() {
+            mat.refresh(&self.set, &root)?;
+        }
+        self.materializations.insert(name.to_string(), mat);
+        Ok(())
+    }
+
+    /// Register a maintained validity read with an injected term-lowering adapter.
+    /// It dispatches conservatively because the adapter may depend on any held evidence.
+    pub fn register_at_lowered<F>(
+        &mut self,
+        name: &str,
+        term: Term,
+        roots: &[String],
+        now: f64,
+        registry: Option<SchemaRegistry>,
+        lower_term: F,
+    ) -> Result<(), String>
+    where
+        F: Fn(
+                &Term,
+                &DeltaSet,
+                f64,
+                Option<&SchemaRegistry>,
+            ) -> Result<(Term, Option<SchemaRegistry>), String>
+            + Send
+            + Sync
+            + 'static,
+    {
+        if !now.is_finite() {
+            return Err("now must be a finite number".to_string());
+        }
+        if self.materializations.contains_key(name) {
+            return Err(format!("duplicate materialization: {name}"));
+        }
+        let mut mat = Materialization::new(
+            name,
+            term,
+            roots,
+            Some(now),
+            registry,
+            Some(Arc::new(lower_term)),
+        );
         for root in mat.roots.clone() {
             mat.refresh(&self.set, &root)?;
         }

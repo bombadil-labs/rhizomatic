@@ -40,7 +40,7 @@ const TERM_KEYS: Readonly<Record<string, readonly string[]>> = {
 
 const STR_MATCH_TAGS = ["exact", "prefix", "inSet", "aliased"] as const;
 const VAL_MATCH_TAGS = ["vcmp", "between", "inSet"] as const;
-const PRED_TAGS = ["match", "hasPointer", "and", "or", "not", "inView"] as const;
+const PRED_TAGS = ["match", "hasPointer", "and", "or", "not", "inView", "actsFor"] as const;
 const ORDER_TAGS = ["byTimestamp", "byValidFrom", "byAuthorRank", "byPred", "chain"] as const;
 const POLICY_TAGS = ["pick", "all", "merge", "conflicts", "absentAs"] as const;
 const EXTRACT_TAGS = ["field", "role"] as const;
@@ -149,6 +149,8 @@ function assertClosedTrustPred(p: Pred, what: string): void {
     case "not":
       assertClosedTrustPred(p.pred, what);
       return;
+    case "actsFor":
+      throw new Error(`${what}: actsFor requires a principal resolver`);
     case "inView":
       throw new Error(`${what}: inView is not allowed inside an aliased trust predicate`);
   }
@@ -272,6 +274,23 @@ function parsePredImpl(raw: unknown): Pred {
     return tag === "and" ? { kind: "and", left, right } : { kind: "or", left, right };
   }
   if (tag === "not") return { kind: "not", pred: parsePred(o["not"]) };
+  if (tag === "actsFor") {
+    const value = asObject(o["actsFor"], "actsFor", ["root", "policy"]);
+    const root = value["root"];
+    if (typeof root !== "string" || !/^ed25519:[0-9a-f]{64}$/.test(root)) {
+      throw new Error("actsFor.root must be a lowercase Ed25519 author id");
+    }
+    const policy = asObject(value["policy"], "actsFor.policy", ["kind", "scope"]);
+    const kind = policy["kind"];
+    const scope = policy["scope"];
+    if (kind !== "exact" && kind !== "prefix") {
+      throw new Error("actsFor.policy.kind must be exact or prefix");
+    }
+    if (typeof scope !== "string" || scope.length === 0) {
+      throw new Error("actsFor.policy.scope must be nonempty");
+    }
+    return { kind: "actsFor", root, policy: { kind, scope } };
+  }
   {
     const v = asObject(o["inView"], "inView", ["term", "field", "extract"]);
     const term = parseTerm(v["term"]);

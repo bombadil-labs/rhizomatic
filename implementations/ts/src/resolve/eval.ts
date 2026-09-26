@@ -219,6 +219,7 @@ export function expandAliased(pred: Pred, input: DeltaSet, root: string | undefi
     case "true":
     case "false":
     case "match":
+    case "actsFor":
       return pred;
     case "hasPointer": {
       const p = pred.ppred;
@@ -311,6 +312,8 @@ function resolveReflective(
       };
     case "not":
       return { kind: "not", pred: resolveReflective(pred.pred, input, root, registry, bindings) };
+    case "actsFor":
+      throw new Error("actsFor requires an explicit principal resolver (SPEC-14)");
     default:
       return pred;
   }
