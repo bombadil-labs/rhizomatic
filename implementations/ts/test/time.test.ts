@@ -87,15 +87,24 @@ describe("vNext validity and Schema order vectors", () => {
     reactor.register("time", body, ["entity:time"], 279);
     expect(reactor.materializedView("time", "entity:time")?.props.get("value")).toBeUndefined();
     expect(reactor.nextValidityBoundary(279)).toBe(280);
+    const evals = reactor.evalCountOf("time");
+    expect(reactor.advanceTime(279.5)).toEqual([]);
+    expect(reactor.evalCountOf("time")).toBe(evals);
     const changes = reactor.advanceTime(280);
     expect(changes).toHaveLength(1);
+    expect(reactor.evalCountOf("time")).toBe(evals + 1);
     expect(changes[0]?.responsibleDeltaIds).toEqual([]);
     expect(reactor.materializedView("time", "entity:time")?.props.get("value")?.[0]?.delta.id).toBe(
       fixture["fact-later"]!.id,
     );
-    const reversed = reactor.advanceTime(279);
+    expect(reactor.advanceTime(280.5)).toEqual([]);
+    expect(reactor.evalCountOf("time")).toBe(evals + 1);
+    const reversed = reactor.advanceTime(279.5);
     expect(reversed).toHaveLength(1);
+    expect(reactor.evalCountOf("time")).toBe(evals + 2);
     expect(reactor.materializedView("time", "entity:time")?.props.get("value")).toBeUndefined();
+    expect(reactor.advanceTime(279)).toEqual([]);
+    expect(reactor.evalCountOf("time")).toBe(evals + 2);
   });
 
   it("finds the next boundary through the maintained index in either ingest order", () => {

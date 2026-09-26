@@ -307,7 +307,11 @@ export class Reactor {
     const changes: MaterializationChange[] = [];
     for (const mat of this.materializations.values()) {
       if (mat.now === now) continue;
+      // Between boundaries the effective set is identical; keep the clock current for ingest.
+      const nextBoundary = boundaryAfter(this.validityBoundaries, Math.min(mat.now, now));
+      const crossedBoundary = nextBoundary !== undefined && nextBoundary <= Math.max(mat.now, now);
       mat.now = now;
+      if (!crossedBoundary) continue;
       for (const root of mat.roots) {
         const changedProps = this.refresh(mat, root);
         if (changedProps !== undefined) {

@@ -98,8 +98,12 @@ fn materialization_refreshes_without_ingest() {
         .props
         .contains_key("value"));
     assert_eq!(reactor.next_validity_boundary(279.0).unwrap(), Some(280.0));
+    let evals = reactor.eval_count_of("time");
+    assert!(reactor.advance_time(279.5).unwrap().is_empty());
+    assert_eq!(reactor.eval_count_of("time"), evals);
     let changes = reactor.advance_time(280.0).unwrap();
     assert_eq!(changes.len(), 1);
+    assert_eq!(reactor.eval_count_of("time"), evals + 1);
     assert!(changes[0].responsible_delta_ids.is_empty());
     assert_eq!(
         reactor
@@ -110,13 +114,18 @@ fn materialization_refreshes_without_ingest() {
             .id,
         fact.id
     );
-    let reversed = reactor.advance_time(279.0).unwrap();
+    assert!(reactor.advance_time(280.5).unwrap().is_empty());
+    assert_eq!(reactor.eval_count_of("time"), evals + 1);
+    let reversed = reactor.advance_time(279.5).unwrap();
     assert_eq!(reversed.len(), 1);
+    assert_eq!(reactor.eval_count_of("time"), evals + 2);
     assert!(!reactor
         .materialized_view("time", "entity:time")
         .unwrap()
         .props
         .contains_key("value"));
+    assert!(reactor.advance_time(279.0).unwrap().is_empty());
+    assert_eq!(reactor.eval_count_of("time"), evals + 2);
 }
 
 #[test]
