@@ -33,10 +33,12 @@ export {
   aliasClosure,
   evalTerm,
   evalTermRaw,
+  governedDeltas,
   expandAliased,
   resultCanonicalHex,
   type AliasedSpec,
   type EvalResult,
+  type AuthorSelection,
   type GroupKey,
   type MaskPolicy,
   type Term,
@@ -45,6 +47,7 @@ export { relationSignature, relationSignatureCanonicalHex } from "./alias.js";
 export { hviewCanonicalHex, type HVEntry, type HView } from "./hview.js";
 export { SchemaRegistry, collectRefs, collectReadingRefs, type HyperSchema } from "./schema.js";
 export {
+  applyPolicy,
   resolveView,
   viewCanonicalHex,
   type BytesView,
@@ -94,4 +97,5 @@ export {
   manifestMemberIds,
   type IngestResult,
   type MaterializationChange,
+  type Suppression,
 } from "./reactor.js";

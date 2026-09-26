@@ -54,6 +54,29 @@ A Level-2-conformant reactor MUST maintain:
 
 All further indexes are materializations registered as schema terms — there is no second index machinery (§4).
 
+### 3.1 Indexed negation queries
+
+The reactor MUST expose a read-time query for negation under a caller-supplied suppression rule
+`S(negation, target) → boolean`. The rule decides whether each negation may suppress its immediate
+target; it is applied again when that negation is itself the target of another negation. This allows
+the caller to supply a key set or another pure authority decision without making transport or
+principal policy part of the reactor. The rule MUST be stable for the lifetime of one query reader.
+
+For an explicit finite `now`, the target MUST be held, but its own validity interval does not
+affect this query. A caller may ask whether an expired historical claim is negated. Every negation
+edge, including a counter-negation, MUST be held and valid at `now` under SPEC-2 §5. A held target
+is negated iff at least one valid, permitted, direct negation of it is not itself negated under the
+same rule. A missing or erased target returns false and no witnesses. The caller separately chooses
+present-validity or history when selecting targets. There is no creation-time cutoff and no ambient
+clock.
+
+The reactor MUST offer both a Boolean predicate for repeated checks and a witness form returning
+every effective direct negation, in ascending delta-id order. A witness includes the negation's
+id and its signed validity interval; an implementation may return the whole delta. Empty witnesses
+mean false. Implementations SHOULD memoize chain walks within a reader and MUST invalidate that
+memo when accepted membership changes. Duplicate or rejected ingest does not change membership.
+These queries are observational: they do not remove deltas or choose a winning claim.
+
 ## 4. Materializations (Indexes)
 
 **An index is a registered, persisted evaluation:** `(term t, roots R, pin-set P)` plus its current HyperViews. Registration compiles the term once into a maintenance plan. There is no separate index definition language — P4 means the schema *is* the index definition, and the relevance closure (SPEC-3 §2.1) *is* the maintenance contract.

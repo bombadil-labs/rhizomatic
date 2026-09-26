@@ -46,7 +46,7 @@ pub use pack::{pack_id, pack_set, unpack_set};
 pub use parse_error::{ParseError, ParseErrorKind};
 pub use peer::{sync_both, Peer, SyncReport};
 pub use pred::{compare_primitives, eval_pred, Pred};
-pub use reactor::{make_manifest_claims, manifest_member_ids, IngestResult, Reactor};
+pub use reactor::{make_manifest_claims, manifest_member_ids, IngestResult, NegationReader, Reactor};
 pub use resolution::{resolve_view, view_canonical_hex, MergeFn, Order, Policy, Schema, View};
 pub use schema::{collect_reading_refs, collect_refs, HyperSchema, SchemaRegistry};
 pub use schema_deltas::{

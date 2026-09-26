@@ -307,6 +307,13 @@ validity and MUST be exposed as a distinct operation. The library MUST NOT suppl
 clock or a default `now` for a validity read. A creation cutoff (`timestamp <= T`) is a separate
 selection axis (SPEC-1 §6), never inferred from `now`.
 
+A **governed delta slice** takes a delta set, explicit `now`, and a caller-supplied set of author
+keys or pure author predicate. It retains exactly the deltas valid at `now` whose author passes that
+selection. It does not apply a negation mask, rank claims, or infer a governing key from an entity
+id. A caller may then apply a term, a suppression query (SPEC-4 §3.1), or a Schema Policy to this
+slice. Equal entity-id strings still co-refer across peers; the governing keys are inputs to the
+read.
+
 - **Deterministic (P5):** same term, same set, same `now` ⇒ identical canonical output. Conformance vectors test this byte-for-byte.
 - **Order-blind:** no operator may observe delta-set ordering or pointer ordering (SPEC-1 §4.1).
 - **Monotone where claimed:** `select`, `union`, `group`, `expand`, and `intersect` are monotone in `D` (more deltas in ⇒ superset of deltas out). `mask` and `resolve` are **not** monotone (a new negation can remove; a new claim can change a resolved value). `difference` is monotone in its `of` operand but **antitone in `without`**: a delta landing in the `without` sub-result *removes* an output, so the reactor must treat the `without` branch as a retraction source, exactly like a negation edge (SPEC-4 §4.3). This split is normative: it tells the reactor exactly which operators need retraction logic (SPEC-4 §4.3). A `select` whose predicate contains `inView` (§3.1) forfeits monotonicity: a delta landing anywhere can shrink the reflected set (a revocation negating a grant), removing previously selected deltas. Reflection-free `select` remains monotone.

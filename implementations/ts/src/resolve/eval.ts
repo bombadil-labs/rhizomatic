@@ -26,6 +26,25 @@ import { SchemaRegistry } from "../schema/schema.js";
 import { DeltaSet, fork, merge } from "../delta/set.js";
 import type { Delta } from "../delta/types.js";
 
+/** The authors a governed read accepts, chosen by the caller rather than the delta set. */
+export type AuthorSelection = ReadonlySet<string> | ((author: string) => boolean);
+
+/**
+ * The validity and author slice for a governed read. It does not resolve competing claims or
+ * suppress negations; callers choose those rules separately. Iteration keeps input order.
+ */
+export function governedDeltas(input: DeltaSet, now: number, authors: AuthorSelection): DeltaSet {
+  if (!Number.isFinite(now)) throw new Error("now must be a finite number");
+  const admits = typeof authors === "function" ? authors : (author: string) => authors.has(author);
+  return fork(
+    input,
+    (d) =>
+      admits(d.claims.author) &&
+      d.claims.validFrom <= now &&
+      (d.claims.validUntil === undefined || now < d.claims.validUntil),
+  );
+}
+
 import type { GroupKey, SchemaRefT, Term } from "../syntax/model.js";
 export type { GroupKey, MaskPolicy, SchemaRefT, Term } from "../syntax/model.js";
 export { termContainsInView } from "../syntax/term-analysis.js";

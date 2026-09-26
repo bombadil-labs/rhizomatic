@@ -194,7 +194,7 @@ function applyMerge(fn: MergeFn, entries: readonly HVEntry[], root: string): Res
   }
 }
 
-function applyPolicy(policy: Policy, entries: readonly HVEntry[], root: string): Resolved {
+function applyPolicyValue(policy: Policy, entries: readonly HVEntry[], root: string): Resolved {
   switch (policy.kind) {
     case "pick": {
       if (entries.length === 0) return ABSENT;
@@ -233,10 +233,20 @@ function applyPolicy(policy: Policy, entries: readonly HVEntry[], root: string):
       return distinct.length >= 2 ? distinct : ABSENT;
     }
     case "absentAs": {
-      const inner = applyPolicy(policy.then, entries, root);
+      const inner = applyPolicyValue(policy.then, entries, root);
       return inner === ABSENT ? policy.constant : inner;
     }
   }
+}
+
+/** Resolve one property's candidates without a reactor or ambient authority. */
+export function applyPolicy(
+  policy: Policy,
+  entries: readonly HVEntry[],
+  root: string,
+): { kind: "present"; value: View } | { kind: "absent" } {
+  const value = applyPolicyValue(policy, entries, root);
+  return value === ABSENT ? { kind: "absent" } : { kind: "present", value };
 }
 
 // resolve(schema, HView) -> View. Deterministic; total; provenance-optional (SPEC-5 §2).
@@ -247,7 +257,7 @@ export function resolveView(schema: Schema, hview: HView): View {
   for (const key of keys) {
     const entries = hview.props.get(key) ?? [];
     const policy = schema.props.get(key) ?? schema.default;
-    const v = applyPolicy(policy, entries, hview.id);
+    const v = applyPolicyValue(policy, entries, hview.id);
     if (v !== ABSENT) obj[key] = v;
   }
   return obj;

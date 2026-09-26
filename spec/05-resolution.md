@@ -27,6 +27,14 @@ Naming (the layer grid): `Schema : View :: HyperSchema : HyperView`. The `Hyper-
 
 The same HyperView legitimately yields different Views under different schemas, simultaneously, within one application: an admin surface resolving `surfaceAll`, a public API resolving `trustedAuthors`, a quality dashboard resolving `conflictsOnly`. This is the original "feature, not a bug," now with a normative shape.
 
+A resolver library MUST also expose the pure property operation
+`applyPolicy(policy, candidates, root)`. `candidates` is an ordered or unordered collection of
+HVEntries for one property; the Policy supplies their order. `root` is the HyperView entity id
+used by candidate extraction (§2.1). The result distinguishes **absent** from a present View value;
+the caller may then omit an absent property or apply its own presentation rule. This operation
+uses no reactor, clock, network, or ambient authority. `resolve` applies it separately to each
+property, so the two forms MUST agree on the same candidates and Policy.
+
 ### 2.1 Candidate value extraction
 
 What part of an HVEntry's delta *is* the value a policy adjudicates? The rule is total and

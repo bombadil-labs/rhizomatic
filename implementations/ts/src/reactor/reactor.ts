@@ -46,6 +46,9 @@ export type IngestResult =
   | { readonly status: "duplicate" }
   | { readonly status: "rejected"; readonly reason: string };
 
+/** Whether a valid negation has authority to suppress its held target at this read. */
+export type Suppression = (negation: Delta, target: Delta) => boolean;
+
 interface BoundaryNode {
   readonly at: number;
   readonly left?: BoundaryNode;
@@ -115,6 +118,7 @@ export class Reactor {
   private readonly negationIndex = new Map<string, Set<string>>();
   private readonly materializations = new Map<string, Materialization>();
   private validityBoundaries: BoundaryNode | undefined;
+  private membershipRevision = 0;
   // value index: role -> canonical primitive key -> { value, ids } (V1: keyed by role)
   private readonly valueIndex = new Map<
     string,
@@ -135,6 +139,7 @@ export class Reactor {
     }
     this.log.push(delta);
     this.index(delta);
+    this.membershipRevision += 1;
     for (const cb of this.rawSubscribers) cb(delta);
     this.lastChanges = this.dispatchAndUpdate([delta]);
     return { status: "accepted" };
@@ -198,6 +203,55 @@ export class Reactor {
 
   negationsOf(deltaId: string): string[] {
     return [...(this.negationIndex.get(deltaId) ?? [])].sort();
+  }
+
+  /**
+   * Effective direct negations of each target at a caller-supplied time. The returned reader
+   * memoizes chain walks and clears its memo after an accepted ingest. Build a new reader if the
+   * caller's suppression policy changes. A target must be held, but its own validity is a
+   * separate question: history readers can ask about an expired target.
+   */
+  negationWitnesses(now: number, suppression: Suppression): (id: string) => readonly Delta[] {
+    if (!Number.isFinite(now)) throw new Error("now must be a finite number");
+    let revision = this.membershipRevision;
+    const memo = new Map<string, readonly Delta[]>();
+    const visiting = new Set<string>();
+    const valid = (delta: Delta): boolean =>
+      delta.claims.validFrom <= now &&
+      (delta.claims.validUntil === undefined || now < delta.claims.validUntil);
+    const witnesses = (id: string): readonly Delta[] => {
+      if (revision !== this.membershipRevision) {
+        memo.clear();
+        visiting.clear();
+        revision = this.membershipRevision;
+      }
+      const cached = memo.get(id);
+      if (cached !== undefined) return cached;
+      const target = this.set.get(id);
+      if (target === undefined || visiting.has(id)) return [];
+      visiting.add(id);
+      const effective: Delta[] = [];
+      try {
+        for (const negationId of this.negationsOf(id)) {
+          const negation = this.set.get(negationId);
+          if (negation === undefined || !valid(negation)) continue;
+          if (!suppression(negation, target) || witnesses(negationId).length > 0) continue;
+          effective.push(negation);
+        }
+      } finally {
+        visiting.delete(id);
+      }
+      const result = Object.freeze(effective);
+      memo.set(id, result);
+      return result;
+    };
+    return witnesses;
+  }
+
+  /** A memoized yes/no form of negationWitnesses for repeated checks in one read. */
+  negationPredicate(now: number, suppression: Suppression): (id: string) => boolean {
+    const witnesses = this.negationWitnesses(now, suppression);
+    return (id) => witnesses(id).length > 0;
   }
 
   // Range/equality queries over primitive payloads filed under a role (V1; ValMatch per SPEC-2 §3).
