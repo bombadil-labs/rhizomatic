@@ -3654,7 +3654,7 @@
       }
     }
   }
-  function applyPolicy(policy, entries, root) {
+  function applyPolicyValue(policy, entries, root) {
     switch (policy.kind) {
       case "pick": {
         if (entries.length === 0) return ABSENT;
@@ -3693,7 +3693,7 @@
         return distinct.length >= 2 ? distinct : ABSENT;
       }
       case "absentAs": {
-        const inner = applyPolicy(policy.then, entries, root);
+        const inner = applyPolicyValue(policy.then, entries, root);
         return inner === ABSENT ? policy.constant : inner;
       }
     }
@@ -3704,7 +3704,7 @@
     for (const key of keys) {
       const entries = hview.props.get(key) ?? [];
       const policy = schema.props.get(key) ?? schema.default;
-      const v = applyPolicy(policy, entries, hview.id);
+      const v = applyPolicyValue(policy, entries, hview.id);
       if (v !== ABSENT) obj[key] = v;
     }
     return obj;
@@ -4773,6 +4773,7 @@
     negationIndex = /* @__PURE__ */ new Map();
     materializations = /* @__PURE__ */ new Map();
     validityBoundaries;
+    membershipRevision = 0;
     // value index: role -> canonical primitive key -> { value, ids } (V1: keyed by role)
     valueIndex = /* @__PURE__ */ new Map();
     // Validate -> persist -> index. Idempotent by id; rejected deltas leave no trace (V3).
@@ -4788,6 +4789,7 @@
       }
       this.log.push(delta);
       this.index(delta);
+      this.membershipRevision += 1;
       for (const cb of this.rawSubscribers) cb(delta);
       this.lastChanges = this.dispatchAndUpdate([delta]);
       return { status: "accepted" };
@@ -4847,6 +4849,51 @@
     }
     negationsOf(deltaId) {
       return [...this.negationIndex.get(deltaId) ?? []].sort();
+    }
+    /**
+     * Effective direct negations of each target at a caller-supplied time. The returned reader
+     * memoizes chain walks and clears its memo after an accepted ingest. Build a new reader if the
+     * caller's suppression policy changes. A target must be held, but its own validity is a
+     * separate question: history readers can ask about an expired target.
+     */
+    negationWitnesses(now, suppression) {
+      if (!Number.isFinite(now)) throw new Error("now must be a finite number");
+      let revision = this.membershipRevision;
+      const memo = /* @__PURE__ */ new Map();
+      const visiting = /* @__PURE__ */ new Set();
+      const valid = (delta) => delta.claims.validFrom <= now && (delta.claims.validUntil === void 0 || now < delta.claims.validUntil);
+      const witnesses = (id) => {
+        if (revision !== this.membershipRevision) {
+          memo.clear();
+          visiting.clear();
+          revision = this.membershipRevision;
+        }
+        const cached = memo.get(id);
+        if (cached !== void 0) return cached;
+        const target = this.set.get(id);
+        if (target === void 0 || visiting.has(id)) return [];
+        visiting.add(id);
+        const effective = [];
+        try {
+          for (const negationId of this.negationsOf(id)) {
+            const negation = this.set.get(negationId);
+            if (negation === void 0 || !valid(negation)) continue;
+            if (!suppression(negation, target) || witnesses(negationId).length > 0) continue;
+            effective.push(negation);
+          }
+        } finally {
+          visiting.delete(id);
+        }
+        const result = Object.freeze(effective);
+        memo.set(id, result);
+        return result;
+      };
+      return witnesses;
+    }
+    /** A memoized yes/no form of negationWitnesses for repeated checks in one read. */
+    negationPredicate(now, suppression) {
+      const witnesses = this.negationWitnesses(now, suppression);
+      return (id) => witnesses(id).length > 0;
     }
     // Range/equality queries over primitive payloads filed under a role (V1; ValMatch per SPEC-2 §3).
     byValue(role, match) {
