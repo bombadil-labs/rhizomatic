@@ -1,7 +1,7 @@
 # Step 5: principal contract for review
 
-Status: design draft. This records the decisions needed before the principal vocabulary, API,
-and shared vectors become normative. Step 4 reads already accept a caller supplied author set or
+Status: design draft with Myk's 2026-09-26 succession rulings. The exact vocabulary, API, and
+shared vectors still need implementation review. Step 4 reads already accept a caller supplied author set or
 predicate; the principal tier will supply those inputs. Loam's `principal.*` recordings in #590
 are evidence of present behavior, not the desired answers.
 
@@ -33,27 +33,33 @@ not a person name or a registry entry. A root declaration is signed by the root 
 principal; it proves control of the key, not that a human-readable name is unique. A reader may
 pin the root key directly even when the declaration is unavailable.
 
-A key binding says that key K acts for principal P. A delegation says that a currently authorized
-key permits another key to act for P, optionally within a declared scope. The scope is an opaque
+A key binding associates key K with principal P; association alone does not permit K to act for P.
+A delegation says that a currently authorized key permits another key to act for P, optionally
+within a declared scope. The scope is an opaque
 string or entity id carried as evidence; the application interprets its meaning. The principal
 package compares it under a caller-supplied, explicit scope policy and does not impose Loam's
-container or role vocabulary. A succession claim says
-that a later key continues a previous key's principal association. Each is an ordinary signed
+container or role vocabulary. A succession claim says that a later key continues a previous
+key's principal association. **Succession records continuity only; it grants no authority.**
+The pinned root must authorize the succession. An old-key signature is optional, separate
+evidence of continuity, so losing the old key does not prevent rotation. Each is an ordinary signed
 delta with `validFrom` and optional `validUntil`; any negation of it is evaluated at an explicit
 read time. A locator claim gives an address at which a principal might be reached. It is a hint,
 never a source of signing authority. Registries may index these claims but may not be required
 for a local or offline resolution.
 
-The reader reports evidence rather than silently selecting a key:
+The reader reports association evidence and present authority separately rather than silently
+selecting a key:
 
 | Grade | What is established |
 | --- | --- |
 | unresolved | No verified path from the key to the pinned root is held. |
 | claimed | A relevant assertion is held, but its signer is not yet authorized by a path to the root. |
-| rooted | A verified, valid, non-negated chain reaches the pinned root at the explicit read time. |
-| disputed | More than one incompatible live path or successor is held; every path is returned. |
+| rooted | A verified association or succession path reaches the pinned root. This alone grants no signing authority. |
+| disputed | More than one incompatible live succession path is held; every path is returned. |
 
-`rooted` is relative to the supplied root and read time. It does not establish a global person
+Authority is a separate result, backed by a valid, non-negated delegation path at the requested
+effective time. A rooted association without such a path remains unauthorized. `rooted` is
+relative to the supplied root and evidence set. It does not establish a global person
 identity or guarantee that an unseen conflicting claim does not exist. A disconnected reader
 can still return `rooted` from its held evidence; it must not pretend a registry was checked.
 
@@ -64,9 +70,9 @@ effective time whose authority is in question; `now` is the caller's observation
 caller supplies the evidence set available at `now`. Step 6 may construct that set from arrival
 testimony when it asks what authority existed at an earlier act. This API must not silently use
 the author's signed creation time as the act time. The result contains a grade, the held evidence
-paths, and the set of keys that the supplied policy accepts for the root. A convenience
+paths, a separate authority verdict, and the set of keys that the supplied policy accepts for the root. A convenience
 `authorsForPrincipal` supplies that set to governed reads. All inputs are explicit. A caller
-chooses whether its policy accepts delegation, succession, disputed paths, and a scope; the
+chooses how it treats disputed paths and scope. It cannot treat succession as delegation. The
 library must not resolve a dispute by arrival order, claimed creation time, or registry
 freshness. Paths and conflicts are sorted by delta id for deterministic output.
 
@@ -88,9 +94,11 @@ of those inputs changes. It cannot cache a key set solely by term hash.
 
 Signer provenance and present authority are separate questions. `delta.author` plus signature
 verification proves which key signed it. A historical association query can show the held
-binding evidence even if that binding was later negated. A present-authority query uses the
-binding's and every delegation edge's validity and negation state at `now`. A later revocation
-must not erase the fact that an earlier signed act exists. It may remove authority for new acts.
+binding evidence even if that binding was later negated. An authority query uses every delegation
+edge's validity and negation state at `at`. A later revocation never erases the fact that an
+earlier signed act exists. **Until step 6 supplies arrival testimony, Loam judges the effect of
+earlier acts using present authority (`at = now`); revoking a key removes their present effect.**
+This is an application rule, not a claim that the old signature disappeared.
 An author's signed `timestamp` alone cannot prove when an act arrived or whether the key had
 authority when it was made; that needs the peer's separate arrival testimony in step 6.
 
@@ -104,12 +112,14 @@ that a binding used to exist.
 1. Pinned root with its self-signed declaration: the root resolves offline; a second unrelated
    self-signed root in the same set does not change that answer.
 2. Unknown key and unverifiable binding: unresolved or claimed, never rooted.
-3. Root delegates to A, A delegates to B: B has a two-edge path; removing either edge removes
-   present authority, while the signed acts remain attributed to their actual keys.
+3. Root delegates to A, A delegates to B: B has a two-edge authority path; removing either edge
+   removes present authority, while the signed acts remain attributed to their actual keys.
 4. A binding starts at T or ends at T: the present-authority answer changes exactly at T. A
    negation with its own interval changes the answer only while that negation is valid.
-5. A succeeds to B; two incompatible successors are held: return both paths and a dispute,
-   independent of ingest order. No automatic winner.
+5. Root authorizes succession A to B without A's signature: B is associated, but has no signing
+   authority until separately delegated. A's optional signature strengthens continuity evidence
+   without changing authority. Two incompatible root-authorized successors return both paths and
+   a dispute, independent of ingest order. No automatic winner.
 6. The reader is offline from a registry: its answer over held signed evidence is unchanged.
 7. A locator changes: the principal and author set do not change.
 8. Two peers file at the same governed anchor: the pinned root/key choice separates their
@@ -121,16 +131,19 @@ that a binding used to exist.
     while present authority may include only K2.
 12. Two reads over the same held evidence with different `at` values can differ; changing `now`
     alone cannot fabricate a signed arrival time or a previously unseen edge.
+13. At T, an expired negation of a delegation no longer suppresses it; the key is authorized again
+    if the delegation itself is still valid. Loam's interim read uses `at = now` for the grant and
+    for the earlier acts whose effect depends on it.
 
 The TypeScript and Rust witnesses must agree on these vectors before a prerelease. Elixir and
 Haskell continue to declare their supported level in `witness.json`; the shared Level 0 bytes
 are not changed by this package.
 
-## Decision to settle with Myk
+## Settled rulings
 
-**Succession authority.** Does a succession claim itself authorize the successor to sign for
-the principal, or does it only record continuity while a separate delegation grants authority?
-The latter keeps attribution and authority distinct and is the proposed default. The related
-choice is whether a successor must be acknowledged by the pinned root, by the old key, or by
-both. These choices determine the disputed-succession vectors and Loam's rotated-key behavior.
-The package API should expose all verified paths in either case.
+Myk ruled that succession records continuity only, separate delegation grants authority, and
+the pinned root must authorize succession. The old key's signature is optional evidence. Until
+step 6 has arrival testimony, Loam judges earlier acts at present authority. An expired negation
+of a Loam grant revives it; the write-standing check will read negations inside their validity
+windows. The principal vectors above pin the portable parts of these decisions; Loam pins its
+interim standing rule in its own tests.
