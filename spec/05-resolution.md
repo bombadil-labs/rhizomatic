@@ -27,6 +27,25 @@ Naming (the layer grid): `Schema : View :: HyperSchema : HyperView`. The `Hyper-
 
 The same HyperView legitimately yields different Views under different schemas, simultaneously, within one application: an admin surface resolving `surfaceAll`, a public API resolving `trustedAuthors`, a quality dashboard resolving `conflictsOnly`. This is the original "feature, not a bug," now with a normative shape.
 
+A resolver library MUST also expose the pure property operation
+`applyPolicy(policy, candidates, root)`. `candidates` is an ordered or unordered collection of
+HVEntries for one property; the Policy supplies their order. `root` is the HyperView entity id
+used by candidate extraction (§2.1). The result distinguishes **absent** from a present View value;
+the caller may then omit an absent property or apply its own presentation rule. This operation
+uses no reactor, clock, network, or ambient authority. `resolve` applies it separately to each
+property, so the two forms MUST agree on the same candidates and Policy.
+
+For readers that choose one delta per application key, `latestByKey(input, now, authors, keyOf)`
+is a pure convenience. It applies the governed author and validity slice (SPEC-2 §5), projects
+each remaining delta to an optional string key, and chooses the greatest signed `timestamp` per
+key. Equal timestamps choose the **ascending** delta id. A missing key skips that candidate. The
+result is a map keyed in lexical order. This is equivalent to choosing
+`pick(byTimestamp desc)` separately for each projected key; it is not a global substrate winner.
+The helper does not apply a negation mask or claim-ranking rule; callers that need one supply an
+already-filtered candidate set. The caller decides which authors govern the read and which
+property supplies the key. The shared
+`vectors/l2-reactor/governed.json` cases pin the equal-timestamp tie in both ingest orders.
+
 ### 2.1 Candidate value extraction
 
 What part of an HVEntry's delta *is* the value a policy adjudicates? The rule is total and

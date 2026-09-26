@@ -32,6 +32,10 @@ vectors/
     eval-distinct.json     all(order, distinct: true) — opt-in value-dedup at the resolve boundary
                            (ERRATA-5 R9): order-then-first-occurrence, equality = canonical View bytes
     eval-parse-errors.json stable kind and JSON Pointer for rejected Term/Pred inputs (SPEC-2 §8)
+  l2-reactor/
+    governed.json         governed author/validity slices and indexed timed-negation witnesses
+  l3-schema/
+    governed-bindings.json governed definition loaders and named lens bindings (SPEC-3 §5)
 ```
 
 (Levels here name the conformance level being exercised, per SPEC-0 §5.1 — Level 0 = Format,

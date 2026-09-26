@@ -130,6 +130,11 @@ fn sort_entries<'a>(order: &Order, entries: &'a [HVEntry]) -> Vec<&'a HVEntry> {
     out
 }
 
+/// Choose a candidate by the same Policy ordering used by resolution.
+pub fn first_by_order<'a>(order: &Order, entries: &'a [HVEntry]) -> Option<&'a HVEntry> {
+    sort_entries(order, entries).into_iter().next()
+}
+
 // --- candidate value extraction (R1) ---------------------------------------------------------------
 
 fn render_target(t: &Target, e: &HVEntry, i: usize) -> Result<View, String> {
@@ -305,7 +310,12 @@ fn apply_merge(fn_: MergeFn, entries: &[HVEntry], root: &str) -> Result<Option<V
     })
 }
 
-fn apply_policy(policy: &Policy, entries: &[HVEntry], root: &str) -> Result<Option<View>, String> {
+/// Resolve one property's candidates, preserving absence as `None`.
+pub fn apply_policy(
+    policy: &Policy,
+    entries: &[HVEntry],
+    root: &str,
+) -> Result<Option<View>, String> {
     Ok(match policy {
         Policy::Pick(order) => {
             if entries.is_empty() {

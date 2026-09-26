@@ -33,10 +33,13 @@ export {
   aliasClosure,
   evalTerm,
   evalTermRaw,
+  governedDeltas,
+  latestByKey,
   expandAliased,
   resultCanonicalHex,
   type AliasedSpec,
   type EvalResult,
+  type AuthorSelection,
   type GroupKey,
   type MaskPolicy,
   type Term,
@@ -45,6 +48,8 @@ export { relationSignature, relationSignatureCanonicalHex } from "./alias.js";
 export { hviewCanonicalHex, type HVEntry, type HView } from "./hview.js";
 export { SchemaRegistry, collectRefs, collectReadingRefs, type HyperSchema } from "./schema.js";
 export {
+  applyPolicy,
+  firstByOrder,
   resolveView,
   viewCanonicalHex,
   type BytesView,
@@ -72,11 +77,19 @@ export {
   SCHEMA_SCHEMA,
   VOCAB_PREFIX,
   loadHyperSchema,
+  loadGovernedHyperSchema,
   publishHyperSchemaClaims,
   loadSchema,
+  loadGovernedSchema,
   publishSchemaClaims,
 } from "./schema-deltas.js";
 export { decode } from "./cbor.js";
+export {
+  lensBindingRoles,
+  loadLensBinding,
+  publishLensBindingClaims,
+  type LensBinding,
+} from "./lens-binding.js";
 export { packId, packSet, unpackSet } from "./pack.js";
 export { Peer, syncBoth, type SyncReport } from "./peer.js";
 export { offerFor, pullFromUrl, servePeer } from "./http.js";
@@ -94,4 +107,5 @@ export {
   manifestMemberIds,
   type IngestResult,
   type MaterializationChange,
+  type Suppression,
 } from "./reactor.js";

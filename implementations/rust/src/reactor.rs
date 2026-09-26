@@ -59,6 +59,63 @@ pub struct Reactor {
     last_changes: Vec<MaterializationChange>,
 }
 
+/// A read-time negation query. Rust's shared borrow prevents ingest while this reader lives,
+/// so its memo needs no membership revision check.
+pub struct NegationReader<'a, F>
+where
+    F: Fn(&Delta, &Delta) -> bool,
+{
+    reactor: &'a Reactor,
+    now: f64,
+    suppression: F,
+    memo: BTreeMap<String, Vec<Delta>>,
+    visiting: BTreeSet<String>,
+}
+
+impl<F> NegationReader<'_, F>
+where
+    F: Fn(&Delta, &Delta) -> bool,
+{
+    /// Effective direct negations, in ascending delta-id order. Target validity is independent.
+    /// The suppression callback must not invoke this reader recursively; compute trust first.
+    pub fn witnesses(&mut self, id: &str) -> Vec<Delta> {
+        if let Some(cached) = self.memo.get(id) {
+            return cached.clone();
+        }
+        let Some(target) = self.reactor.get(id).cloned() else {
+            return Vec::new();
+        };
+        if !self.visiting.insert(id.to_string()) {
+            return Vec::new();
+        }
+        let mut effective = Vec::new();
+        for negation_id in self.reactor.negations_of(id) {
+            let Some(negation) = self.reactor.get(&negation_id).cloned() else {
+                continue;
+            };
+            if negation.claims.valid_from > self.now
+                || negation
+                    .claims
+                    .valid_until
+                    .is_some_and(|end| self.now >= end)
+            {
+                continue;
+            }
+            if !(self.suppression)(&negation, &target) || !self.witnesses(&negation_id).is_empty() {
+                continue;
+            }
+            effective.push(negation);
+        }
+        self.visiting.remove(id);
+        self.memo.insert(id.to_string(), effective.clone());
+        effective
+    }
+
+    pub fn is_negated(&mut self, id: &str) -> bool {
+        !self.witnesses(id).is_empty()
+    }
+}
+
 fn mat_affects(mat: &Materialization, delta: &Delta, root: &str, set: &DeltaSet) -> bool {
     mat.affects(delta, root, set)
 }
@@ -66,6 +123,27 @@ fn mat_affects(mat: &Materialization, delta: &Delta, root: &str, set: &DeltaSet)
 impl Reactor {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Build a memoized query over held targets and valid negation edges at an explicit time.
+    pub fn negation_reader<F>(
+        &self,
+        now: f64,
+        suppression: F,
+    ) -> Result<NegationReader<'_, F>, String>
+    where
+        F: Fn(&Delta, &Delta) -> bool,
+    {
+        if !now.is_finite() {
+            return Err("now must be a finite number".to_string());
+        }
+        Ok(NegationReader {
+            reactor: self,
+            now,
+            suppression,
+            memo: BTreeMap::new(),
+            visiting: BTreeSet::new(),
+        })
     }
 
     /// Validate -> persist -> index. Idempotent by id; rejected deltas leave no trace (V3).

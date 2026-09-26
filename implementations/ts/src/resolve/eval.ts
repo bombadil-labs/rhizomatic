@@ -11,6 +11,7 @@ import {
   type Schema,
   type View,
 } from "../resolve-kernel/resolution.js";
+export { firstByOrder } from "../resolve-kernel/resolution.js";
 import {
   comparePrimitives,
   evalPred,
@@ -25,6 +26,52 @@ import { VOCAB_PREFIX } from "../delta/vocab.js";
 import { SchemaRegistry } from "../schema/schema.js";
 import { DeltaSet, fork, merge } from "../delta/set.js";
 import type { Delta } from "../delta/types.js";
+
+/** The authors a governed read accepts, chosen by the caller rather than the delta set. */
+export type AuthorSelection = ReadonlySet<string> | ((author: string) => boolean);
+
+/**
+ * The validity and author slice for a governed read. It does not resolve competing claims or
+ * suppress negations; callers choose those rules separately. Iteration keeps input order.
+ */
+export function governedDeltas(input: DeltaSet, now: number, authors: AuthorSelection): DeltaSet {
+  if (!Number.isFinite(now)) throw new Error("now must be a finite number");
+  const admits = typeof authors === "function" ? authors : (author: string) => authors.has(author);
+  return fork(
+    input,
+    (d) =>
+      admits(d.claims.author) &&
+      d.claims.validFrom <= now &&
+      (d.claims.validUntil === undefined || now < d.claims.validUntil),
+  );
+}
+
+/**
+ * Pick the latest signed creation claim per caller-projected key after governance and validity.
+ * This helper DOES NOT apply a negation mask. Pass already-masked candidates when negations
+ * matter; otherwise a newer negated claim can win. Equal timestamps choose the smaller id.
+ */
+export function latestByKey(
+  input: DeltaSet,
+  now: number,
+  authors: AuthorSelection,
+  keyOf: (delta: Delta) => string | undefined,
+): ReadonlyMap<string, Delta> {
+  const winners = new Map<string, Delta>();
+  for (const delta of governedDeltas(input, now, authors)) {
+    const key = keyOf(delta);
+    if (key === undefined) continue;
+    const current = winners.get(key);
+    if (
+      current === undefined ||
+      delta.claims.timestamp > current.claims.timestamp ||
+      (delta.claims.timestamp === current.claims.timestamp && delta.id < current.id)
+    ) {
+      winners.set(key, delta);
+    }
+  }
+  return new Map([...winners].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
+}
 
 import type { GroupKey, SchemaRefT, Term } from "../syntax/model.js";
 export type { GroupKey, MaskPolicy, SchemaRefT, Term } from "../syntax/model.js";

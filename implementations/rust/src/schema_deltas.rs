@@ -3,8 +3,9 @@
 use serde_json::json;
 
 use crate::cbor::decode;
-use crate::eval::{eval_term_at, EvalResult};
-use crate::resolution::Schema;
+use crate::eval::{eval_term_at, governed_deltas, EvalResult, Term};
+use crate::hview::HVEntry;
+use crate::resolution::{first_by_order, Order, Schema};
 use crate::schema::HyperSchema;
 use crate::set::DeltaSet;
 use crate::term_io::{cbor_to_json, schema_canonical_hex, term_canonical_hex};
@@ -86,13 +87,17 @@ fn primitive_of(claims: &Claims, want_role: &str) -> Option<Primitive> {
 
 /// Load a schema definition from the rhizome (S3): evaluate the bootstrap at the schema entity,
 /// take the latest surviving definition, decode the term, verify canonicality by re-encoding.
-pub fn load_hyper_schema(
+fn selected_definition(
+    body: &Term,
     dset: &DeltaSet,
     schema_entity: &str,
     now: f64,
-) -> Result<HyperSchema, String> {
-    let boot = hyper_schema_schema();
-    let result = eval_term_at(&boot.body, dset, now, Some(schema_entity), None, None)?;
+    admits_author: impl Fn(&str) -> bool,
+    order: &Order,
+) -> Result<HVEntry, String> {
+    // Filter authors before mask: a foreign negation cannot suppress governing law.
+    let governed = governed_deltas(dset, now, admits_author)?;
+    let result = eval_term_at(body, &governed, now, Some(schema_entity), None, None)?;
     let EvalResult::HView(h) = result else {
         return Err("bootstrap body must yield an HView".to_string());
     };
@@ -103,17 +108,25 @@ pub fn load_hyper_schema(
             "no surviving schema definition for {schema_entity}"
         ));
     }
-    let latest = defs
-        .iter()
-        .max_by(|a, b| {
-            a.delta
-                .claims
-                .timestamp
-                .partial_cmp(&b.delta.claims.timestamp)
-                .unwrap()
-                .then_with(|| b.delta.id.cmp(&a.delta.id)) // lexById tiebreak (earlier id wins on tie)
-        })
-        .unwrap();
+    Ok(first_by_order(order, defs).unwrap().clone())
+}
+
+/// Load under a caller-selected governing author predicate and Pick order.
+pub fn load_governed_hyper_schema(
+    dset: &DeltaSet,
+    schema_entity: &str,
+    now: f64,
+    admits_author: impl Fn(&str) -> bool,
+    order: &Order,
+) -> Result<HyperSchema, String> {
+    let latest = selected_definition(
+        &hyper_schema_schema().body,
+        dset,
+        schema_entity,
+        now,
+        admits_author,
+        order,
+    )?;
     let Some(Primitive::Str(name)) = primitive_of(&latest.delta.claims, &role("name")) else {
         return Err(format!(
             "malformed schema definition delta {}",
@@ -146,6 +159,21 @@ pub fn load_hyper_schema(
         alg: alg as u32,
         body: term,
     })
+}
+
+/// Legacy all-author loader with its compatibility ordering made explicit.
+pub fn load_hyper_schema(
+    dset: &DeltaSet,
+    schema_entity: &str,
+    now: f64,
+) -> Result<HyperSchema, String> {
+    load_governed_hyper_schema(
+        dset,
+        schema_entity,
+        now,
+        |_| true,
+        &Order::ByTimestamp { desc: true },
+    )
 }
 
 // --- resolution Schema self-hosting (SPEC-3 ERRATA S6, issue #11) ----------------------------------
@@ -207,30 +235,21 @@ pub fn publish_schema_claims(
 /// Load a resolution Schema from the rhizome (parallel to `load_hyper_schema`): gather via
 /// SCHEMA_SCHEMA, take the latest surviving definition, decode props+default, reject non-canonical
 /// blobs, and reattach name/alg from the roles.
-pub fn load_schema(dset: &DeltaSet, schema_entity: &str, now: f64) -> Result<Schema, String> {
-    let boot = schema_schema();
-    let result = eval_term_at(&boot.body, dset, now, Some(schema_entity), None, None)?;
-    let EvalResult::HView(h) = result else {
-        return Err("bootstrap body must yield an HView".to_string());
-    };
-    let empty = Vec::new();
-    let defs = h.props.get("definition").unwrap_or(&empty);
-    if defs.is_empty() {
-        return Err(format!(
-            "no surviving schema definition for {schema_entity}"
-        ));
-    }
-    let latest = defs
-        .iter()
-        .max_by(|a, b| {
-            a.delta
-                .claims
-                .timestamp
-                .partial_cmp(&b.delta.claims.timestamp)
-                .unwrap()
-                .then_with(|| b.delta.id.cmp(&a.delta.id))
-        })
-        .unwrap();
+pub fn load_governed_schema(
+    dset: &DeltaSet,
+    schema_entity: &str,
+    now: f64,
+    admits_author: impl Fn(&str) -> bool,
+    order: &Order,
+) -> Result<Schema, String> {
+    let latest = selected_definition(
+        &schema_schema().body,
+        dset,
+        schema_entity,
+        now,
+        admits_author,
+        order,
+    )?;
     let Some(Primitive::Str(name)) = primitive_of(&latest.delta.claims, &schema_role("name"))
     else {
         return Err(format!(
@@ -263,4 +282,15 @@ pub fn load_schema(dset: &DeltaSet, schema_entity: &str, now: f64) -> Result<Sch
     schema.name = Some(name);
     schema.alg = Some(alg);
     Ok(schema)
+}
+
+/// Legacy all-author loader with its compatibility ordering made explicit.
+pub fn load_schema(dset: &DeltaSet, schema_entity: &str, now: f64) -> Result<Schema, String> {
+    load_governed_schema(
+        dset,
+        schema_entity,
+        now,
+        |_| true,
+        &Order::ByTimestamp { desc: true },
+    )
 }
