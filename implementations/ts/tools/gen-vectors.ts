@@ -184,6 +184,8 @@ const keySeeds: Array<[string, string]> = [
   ["test-key-1", "01".repeat(32)],
   ["test-key-2", "02".repeat(32)],
   ["test-key-3", "deadbeef".repeat(8)],
+  ["test-key-4", "04".repeat(32)],
+  ["test-key-5", "05".repeat(32)],
 ];
 
 const keys = keySeeds.map(([keyId, seedHex]) => ({

@@ -50,7 +50,8 @@ record remains a valid ordinary delta and MUST NOT be repaired into evidence by 
 Every `key` and `previous` value MUST be a well-formed Ed25519 author id; `previous` and `key`
 MUST differ. The root, binding, succession, and locator records are accepted as evidence only
 when signed by the pinned root. A non-root claim with the same shape is an unrooted claim,
-which MAY be reported as `claimed` evidence but MUST NOT create a rooted path. An optional
+which MUST be reported as `claimed` evidence for its named key when queried, but MUST NOT create
+a rooted path. An optional
 old-key signature on a succession is separate corroborating testimony; it is not required and
 cannot replace the root's signature. This step does not define an old-key attestation record.
 
@@ -108,16 +109,22 @@ time used for validity and negation. Both are explicit finite numbers. No librar
 `scope`, `scopePolicy`, and `suppression` are also required inputs; a reader MUST NOT silently
 choose a universal scope or a revocation policy.
 
-The association grade is `unresolved` when no relevant evidence is held, `claimed` for an
-unrooted relevant claim, `rooted` for a path to the pinned root, and `disputed` when incompatible
-rooted live succession paths are held. Authority is a separate boolean plus its evidence paths.
+The association grade is `unresolved` when no relevant effective evidence is held, `claimed` for
+an unrooted relevant claim, `rooted` for an effective path to the pinned root, and `disputed`
+when incompatible rooted succession paths are effective at `at`. The root itself is always
+`rooted`. A record outside its validity window or effectively negated at `at` does not provide
+a present association path; the history query below still reports it. Authority is a separate
+boolean plus its evidence paths.
 Dispute does not authorize an otherwise unauthorized key, and does not erase a valid delegation
 path. All output paths are deterministic and independent of input iteration order.
 
-`associatedKeys(input, root, now)` is a history query. It lists root-associated keys, including
-keys whose supporting records are now negated or outside their validity interval, with those
-intervals and current negation state. It MUST NOT turn historical association into current
-authority. `authorsForPrincipal` returns keys with an effective delegation path at `at`, plus
+`associatedKeys(input, root, now)` is a history query. It lists one row per root-associated key
+and supporting path, including keys whose supporting records are now negated or outside their
+validity interval. The root has an empty evidence path. Each other row carries the path's delta
+ids, the intervals on those deltas, and whether any edge in that path is effectively negated at
+`now`. Rows sort by key author id, then lexicographically by the path's sequence of delta ids.
+The history query MUST NOT turn historical association into current authority.
+`authorsForPrincipal` returns keys with an effective delegation path at `at`, plus
 the root itself; a governed read can pass that set as its explicit author selection.
 
 An application may choose to judge an earlier signed act using present authority (`at = now`).

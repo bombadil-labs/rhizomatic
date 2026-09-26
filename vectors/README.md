@@ -36,10 +36,21 @@ vectors/
     governed.json         governed author/validity slices and indexed timed-negation witnesses
   l3-schema/
     governed-bindings.json governed definition loaders and named lens bindings (SPEC-3 §5)
+  principal/
+    evidence.json         signed principal evidence and curated association, authority,
+                          history, and actsFor decisions (SPEC-14)
 ```
 
 (Levels here name the conformance level being exercised, per SPEC-0 §5.1 — Level 0 = Format,
 Level 1 = Evaluator.)
+
+The `principal/` directory is a vNext semantic suite, not a new conformance level. Its signed
+fixture ids and signatures are checked by both full-depth witnesses. The curated decisions are
+frozen before the principal readers land; until those readers are implemented, fixture checks
+alone do not establish principal conformance. Each case names a subset of the corpus and its
+expected result. A missing case field uses the file's explicit `defaults`; witnesses run the
+same subset in forward and reverse ingest order. Author aliases in expected results resolve
+through `keys` and compare after sorting by author id.
 
 ## Bringing up a new witness (the L0 path)
 
