@@ -102,16 +102,32 @@ fn materialization_refreshes_without_ingest() {
     let changes = reactor.advance_time(280.0).unwrap();
     assert_eq!(changes.len(), 1);
     assert!(changes[0].responsible_delta_ids.is_empty());
-    assert_eq!(reactor.materialized_view("time", "entity:time").unwrap().props["value"][0].delta.id, fact.id);
+    assert_eq!(
+        reactor
+            .materialized_view("time", "entity:time")
+            .unwrap()
+            .props["value"][0]
+            .delta
+            .id,
+        fact.id
+    );
     let reversed = reactor.advance_time(279.0).unwrap();
     assert_eq!(reversed.len(), 1);
-    assert!(reactor.materialized_view("time", "entity:time").unwrap().props.get("value").is_none());
+    assert!(reactor
+        .materialized_view("time", "entity:time")
+        .unwrap()
+        .props
+        .get("value")
+        .is_none());
 }
 
 #[test]
 fn published_definitions_obey_validity() {
     use rhizomatic::schema_deltas::{load_hyper_schema, load_schema};
-    let path = format!("{}/../../vectors/l1-eval/eval-time.json", env!("CARGO_MANIFEST_DIR"));
+    let path = format!(
+        "{}/../../vectors/l1-eval/eval-time.json",
+        env!("CARGO_MANIFEST_DIR")
+    );
     let doc: Value = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
     for c in doc["expiringDefinitions"].as_array().unwrap() {
         let delta = make_delta(parse_claims(&c["claims"]).unwrap(), None).unwrap();
@@ -123,12 +139,22 @@ fn published_definitions_obey_validity() {
         let expected = c["expectedName"].as_str().unwrap();
         match c["kind"].as_str().unwrap() {
             "hyperschema" => {
-                assert_eq!(load_hyper_schema(&set, entity, valid_at).unwrap().name, expected);
-                assert!(load_hyper_schema(&set, entity, expired_at).unwrap_err().contains("no surviving schema definition"));
+                assert_eq!(
+                    load_hyper_schema(&set, entity, valid_at).unwrap().name,
+                    expected
+                );
+                assert!(load_hyper_schema(&set, entity, expired_at)
+                    .unwrap_err()
+                    .contains("no surviving schema definition"));
             }
             "schema" => {
-                assert_eq!(load_schema(&set, entity, valid_at).unwrap().name.as_deref(), Some(expected));
-                assert!(load_schema(&set, entity, expired_at).unwrap_err().contains("no surviving schema definition"));
+                assert_eq!(
+                    load_schema(&set, entity, valid_at).unwrap().name.as_deref(),
+                    Some(expected)
+                );
+                assert!(load_schema(&set, entity, expired_at)
+                    .unwrap_err()
+                    .contains("no surviving schema definition"));
             }
             other => panic!("unknown definition kind {other}"),
         }
@@ -149,11 +175,22 @@ fn reactor_boundary_index_is_order_independent() {
                 "validUntil": start + 5.0,
                 "author": "author:index",
                 "pointers": [{"role":"value", "target": start}]
-            })).unwrap();
-            assert_eq!(reactor.ingest(make_delta(claims, None).unwrap()), IngestResult::Accepted);
+            }))
+            .unwrap();
+            assert_eq!(
+                reactor.ingest(make_delta(claims, None).unwrap()),
+                IngestResult::Accepted
+            );
         }
-        for (now, expected) in [(0.0, Some(10.0)), (10.0, Some(15.0)), (49.0, Some(50.0)),
-            (50.0, Some(55.0)), (94.0, Some(95.0)), (100.0, Some(105.0)), (105.0, None)] {
+        for (now, expected) in [
+            (0.0, Some(10.0)),
+            (10.0, Some(15.0)),
+            (49.0, Some(50.0)),
+            (50.0, Some(55.0)),
+            (94.0, Some(95.0)),
+            (100.0, Some(105.0)),
+            (105.0, None),
+        ] {
             assert_eq!(reactor.next_validity_boundary(now).unwrap(), expected);
         }
     }

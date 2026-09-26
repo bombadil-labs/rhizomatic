@@ -86,7 +86,11 @@ fn primitive_of(claims: &Claims, want_role: &str) -> Option<Primitive> {
 
 /// Load a schema definition from the rhizome (S3): evaluate the bootstrap at the schema entity,
 /// take the latest surviving definition, decode the term, verify canonicality by re-encoding.
-pub fn load_hyper_schema(dset: &DeltaSet, schema_entity: &str, now: f64) -> Result<HyperSchema, String> {
+pub fn load_hyper_schema(
+    dset: &DeltaSet,
+    schema_entity: &str,
+    now: f64,
+) -> Result<HyperSchema, String> {
     let boot = hyper_schema_schema();
     let result = eval_term_at(&boot.body, dset, now, Some(schema_entity), None, None)?;
     let EvalResult::HView(h) = result else {

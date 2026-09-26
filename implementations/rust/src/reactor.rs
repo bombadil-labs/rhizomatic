@@ -22,12 +22,24 @@ pub enum IngestResult {
 
 // Order-preserving finite-f64 key for the boundary B-tree. Signed zero has one instant.
 fn boundary_key(value: f64) -> u64 {
-    let bits = if value == 0.0 { 0.0f64.to_bits() } else { value.to_bits() };
-    if bits >> 63 == 0 { bits ^ (1u64 << 63) } else { !bits }
+    let bits = if value == 0.0 {
+        0.0f64.to_bits()
+    } else {
+        value.to_bits()
+    };
+    if bits >> 63 == 0 {
+        bits ^ (1u64 << 63)
+    } else {
+        !bits
+    }
 }
 
 fn boundary_value(key: u64) -> f64 {
-    let bits = if key >> 63 == 1 { key ^ (1u64 << 63) } else { !key };
+    let bits = if key >> 63 == 1 {
+        key ^ (1u64 << 63)
+    } else {
+        !key
+    };
     f64::from_bits(bits)
 }
 
@@ -78,7 +90,8 @@ impl Reactor {
     }
 
     fn index(&mut self, delta: &Delta) {
-        self.validity_boundaries.insert(boundary_key(delta.claims.valid_from));
+        self.validity_boundaries
+            .insert(boundary_key(delta.claims.valid_from));
         if let Some(end) = delta.claims.valid_until {
             self.validity_boundaries.insert(boundary_key(end));
         }
@@ -306,7 +319,12 @@ impl Reactor {
             return Err("now must be a finite number".to_string());
         }
         use std::ops::Bound::{Excluded, Unbounded};
-        Ok(self.validity_boundaries.range((Excluded(boundary_key(now)), Unbounded)).next().copied().map(boundary_value))
+        Ok(self
+            .validity_boundaries
+            .range((Excluded(boundary_key(now)), Unbounded))
+            .next()
+            .copied()
+            .map(boundary_value))
     }
 
     fn dispatch_and_update(&mut self, deltas: &[Delta]) -> Vec<MaterializationChange> {
