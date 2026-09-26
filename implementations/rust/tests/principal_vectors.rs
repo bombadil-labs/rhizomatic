@@ -458,11 +458,17 @@ fn principal_predicate_lowers_in_named_and_pinned_hyperschemas() {
         "principal-members",
         fix,
         std::slice::from_ref(&root),
-        6.0,
+        4.0,
         principal_resolver(PrincipalSuppression::SameAuthor),
         Some(registry),
     )
     .unwrap();
+    let before = reactor
+        .materialized_hex("principal-members", &root)
+        .unwrap()
+        .to_string();
+    assert_ne!(before, expected);
+    reactor.advance_time(5.0).unwrap();
     assert_eq!(
         reactor.materialized_hex("principal-members", &root),
         Some(expected.as_str())

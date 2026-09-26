@@ -268,10 +268,16 @@ describe("frozen principal evidence fixtures (SPEC-14)", () => {
       "principal-members",
       fix,
       [root],
-      6,
+      4,
       resolver,
       registry,
     );
+    const before = reactor.materializedHex("principal-members", root);
+    expect(before).toBe(
+      resultCanonicalHex(evalPrincipalTerm(fix, input, 4, resolver, undefined, registry)),
+    );
+    reactor.advanceTime(5);
     expect(reactor.materializedHex("principal-members", root)).toBe(expected);
+    expect(reactor.materializedHex("principal-members", root)).not.toBe(before);
   });
 });
