@@ -182,6 +182,32 @@
       }
     },
     {
+      "name": "malformedLens",
+      "id": "1e203f472ddb0505354b37afe23dd19dad246b561e8f07bce907ac2c2326b9db5bd4",
+      "claims": {
+        "timestamp": 300,
+        "validFrom": 0,
+        "author": "A",
+        "pointers": [
+          {
+            "role": "rhizomatic.lens.binds",
+            "target": {
+              "id": "lens:malformed",
+              "context": "lens"
+            }
+          },
+          {
+            "role": "rhizomatic.lens.hyperschema",
+            "target": "bad-pin"
+          },
+          {
+            "role": "rhizomatic.lens.schema",
+            "target": "1e20f692a9bdf685c559d0a7aef6bdf2e552bebead00ed323f1d984a58d5cd58e49c"
+          }
+        ]
+      }
+    },
+    {
       "name": "negateHyperA",
       "id": "1e208dd6208f3f9d8da03c5dc548719c60cd505f1b843063f4cd4fd3897581130f31",
       "claims": {
@@ -423,6 +449,15 @@
       ],
       "order": "byTimestamp",
       "expected": "lensA"
+    },
+    {
+      "name": "lens:malformed",
+      "now": 60,
+      "authors": [
+        "A"
+      ],
+      "order": "byTimestamp",
+      "expected": "error:malformed"
     }
   ]
 }

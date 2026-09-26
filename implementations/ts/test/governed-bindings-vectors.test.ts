@@ -17,7 +17,13 @@ const vector = JSON.parse(
   deltas: Array<{ name: string; id: string; claims: unknown }>;
   hyperLoads: Array<{ now: number; authors: string[]; order: string; expected: string | null }>;
   schemaLoads: Array<{ now: number; authors: string[]; order: string; expected: string | null }>;
-  lensLoads: Array<{ now: number; authors: string[]; order: string; expected: string | null }>;
+  lensLoads: Array<{
+    name?: string;
+    now: number;
+    authors: string[];
+    order: string;
+    expected: string | null;
+  }>;
 };
 
 const order = (name: string): Order => ({
@@ -73,8 +79,9 @@ describe("shared governed definition and lens binding vectors (SPEC-3)", () => {
       }
       for (const c of vector.lensLoads) {
         const read = () =>
-          loadLensBinding(set, "lens:shared", c.now, new Set(c.authors), order(c.order));
+          loadLensBinding(set, c.name ?? "lens:shared", c.now, new Set(c.authors), order(c.order));
         if (c.expected === null) expect(read).toThrow(/no surviving lens binding/);
+        else if (c.expected === "error:malformed") expect(read).toThrow(/malformed lens binding/);
         else {
           const binding = read();
           expect(binding).toEqual({

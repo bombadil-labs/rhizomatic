@@ -113,13 +113,15 @@ fn shared_governed_bindings_match_in_both_orders() {
             let permitted = authors(case);
             let loaded = load_lens_binding(
                 &set,
-                "lens:shared",
+                case["name"].as_str().unwrap_or("lens:shared"),
                 case["now"].as_f64().unwrap(),
                 |author| permitted.contains(author),
                 &order(case["order"].as_str().unwrap()),
             );
             if case["expected"].is_null() {
                 assert!(loaded.unwrap_err().contains("no surviving lens binding"));
+            } else if case["expected"].as_str() == Some("error:malformed") {
+                assert!(loaded.unwrap_err().contains("malformed lens binding"));
             } else {
                 let loaded = loaded.unwrap();
                 let expected = case["expected"].as_str().unwrap();

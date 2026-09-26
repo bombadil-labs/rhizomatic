@@ -73,6 +73,25 @@ const entries: Array<{ name: string; claims: Claims }> = [
     name: "lensB",
     claims: { ...publishLensBindingClaims("lens:shared", hyperB, schemaB, "B", 200), validFrom: 0 },
   },
+  {
+    name: "malformedLens",
+    claims: {
+      timestamp: 300,
+      validFrom: 0,
+      author: "A",
+      pointers: [
+        {
+          role: "rhizomatic.lens.binds",
+          target: { kind: "entity", entity: { id: "lens:malformed", context: "lens" } },
+        },
+        { role: "rhizomatic.lens.hyperschema", target: { kind: "primitive", value: "bad-pin" } },
+        {
+          role: "rhizomatic.lens.schema",
+          target: { kind: "primitive", value: schemaHash(schemaA) },
+        },
+      ],
+    },
+  },
 ];
 const id = (name: string) => makeDelta(entries.find((entry) => entry.name === name)!.claims).id;
 entries.push(

@@ -41,7 +41,9 @@ each remaining delta to an optional string key, and chooses the greatest signed 
 key. Equal timestamps choose the **ascending** delta id. A missing key skips that candidate. The
 result is a map keyed in lexical order. This is equivalent to choosing
 `pick(byTimestamp desc)` separately for each projected key; it is not a global substrate winner.
-The caller decides which authors govern the read and which property supplies the key. The shared
+The helper does not apply a negation mask or claim-ranking rule; callers that need one supply an
+already-filtered candidate set. The caller decides which authors govern the read and which
+property supplies the key. The shared
 `vectors/l2-reactor/governed.json` cases pin the equal-timestamp tie in both ingest orders.
 
 ### 2.1 Candidate value extraction
