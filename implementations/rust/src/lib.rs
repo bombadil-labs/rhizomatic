@@ -52,8 +52,8 @@ pub use pred::{compare_primitives, eval_pred, Pred};
 pub use principal::{
     associated_keys, authors_for_principal, eval_principal_term, lower_principal_term,
     principal_resolver, register_principal_materialization, resolve_principal, AssociatedKey,
-    AssociationGrade, PrincipalReadOptions,
-    PrincipalResult, PrincipalResolver, PrincipalSuppression, ScopePolicy, ValidityInterval,
+    AssociationGrade, PrincipalReadOptions, PrincipalResolver, PrincipalResult,
+    PrincipalSuppression, ScopePolicy, ValidityInterval,
 };
 pub use reactor::{
     make_manifest_claims, manifest_member_ids, IngestResult, NegationReader, Reactor,

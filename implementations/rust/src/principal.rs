@@ -2,9 +2,9 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::reactor::Reactor;
 use crate::eval::{eval_term_at, EvalResult, MaskPolicy, Term};
 use crate::pred::{Bindings, Cmp, Field, MatchConst, Pred, PrincipalPolicy, PrincipalPolicyKind};
+use crate::reactor::Reactor;
 use crate::resolution::{Order, Policy, Schema};
 use crate::schema::SchemaRegistry;
 use crate::set::DeltaSet;
@@ -533,7 +533,11 @@ fn lower_pred(
             Box::new(lower_pred(right, input, at, resolver)?),
         ),
         Pred::Not(inner) => Pred::Not(Box::new(lower_pred(inner, input, at, resolver)?)),
-        Pred::InView { term, field, extract } => Pred::InView {
+        Pred::InView {
+            term,
+            field,
+            extract,
+        } => Pred::InView {
             term: Box::new(lower_principal_term(term, input, at, resolver)?),
             field: *field,
             extract: extract.clone(),
@@ -593,9 +597,7 @@ fn lower_schema(
     lowered.props = schema
         .props
         .iter()
-        .map(|(name, policy)| {
-            Ok((name.clone(), lower_policy(policy, input, at, resolver)?))
-        })
+        .map(|(name, policy)| Ok((name.clone(), lower_policy(policy, input, at, resolver)?)))
         .collect::<Result<BTreeMap<_, _>, String>>()?;
     lowered.default = lower_policy(&schema.default, input, at, resolver)?;
     Ok(lowered)
@@ -646,7 +648,12 @@ pub fn lower_principal_term(
             keep: keep.clone(),
             of: Box::new(lower_principal_term(of, input, at, resolver)?),
         },
-        Term::Expand { role, schema, reading, of } => Term::Expand {
+        Term::Expand {
+            role,
+            schema,
+            reading,
+            of,
+        } => Term::Expand {
             role: role.clone(),
             schema: schema.clone(),
             reading: reading.clone(),

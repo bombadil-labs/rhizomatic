@@ -81,19 +81,14 @@ impl Materialization {
     pub fn refresh(&mut self, set: &DeltaSet, root: &str) -> Result<Option<Vec<String>>, String> {
         let lowered = match (&self.lower_term, self.now) {
             (Some(lower), Some(now)) => Some(lower(&self.term, set, now)?),
-            (Some(_), None) => return Err("lowered materialization needs an explicit now".to_string()),
+            (Some(_), None) => {
+                return Err("lowered materialization needs an explicit now".to_string())
+            }
             (None, _) => None,
         };
         let term = lowered.as_ref().unwrap_or(&self.term);
         let result = match self.now {
-            Some(now) => eval_term_at(
-                term,
-                set,
-                now,
-                Some(root),
-                self.registry.as_ref(),
-                None,
-            )?,
+            Some(now) => eval_term_at(term, set, now, Some(root), self.registry.as_ref(), None)?,
             None => eval_term(term, set, Some(root), self.registry.as_ref(), None)?,
         };
         let EvalResult::HView(h) = result else {

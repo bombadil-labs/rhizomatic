@@ -4,13 +4,13 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use rhizomatic::delta::compute_id;
+use rhizomatic::eval::{eval_term_at, result_canonical_hex, EvalResult, GroupKey, Term};
 use rhizomatic::json_profile::parse_claims;
 use rhizomatic::principal::{
     associated_keys, authors_for_principal, eval_principal_term, principal_resolver,
     register_principal_materialization, resolve_principal, PrincipalReadOptions,
     PrincipalSuppression, ScopePolicy,
 };
-use rhizomatic::eval::{eval_term_at, result_canonical_hex, EvalResult, GroupKey, Term};
 use rhizomatic::reactor::{IngestResult, Reactor};
 use rhizomatic::sign::{verify_delta, Verification};
 use rhizomatic::term_io::term_to_json;
@@ -364,7 +364,10 @@ fn principal_materialization_refreshes_on_ingest_and_validity_boundary() {
     let before = timed.materialized_hex("member", &root).unwrap().to_string();
     assert_eq!(before, expected_hex(&timed, 4.0));
     timed.advance_time(5.0).unwrap();
-    assert_eq!(timed.materialized_hex("member", &root).unwrap(), expected_hex(&timed, 5.0));
+    assert_eq!(
+        timed.materialized_hex("member", &root).unwrap(),
+        expected_hex(&timed, 5.0)
+    );
     assert_ne!(timed.materialized_hex("member", &root).unwrap(), before);
 
     let mut arriving = Reactor::new();
@@ -381,9 +384,21 @@ fn principal_materialization_refreshes_on_ingest_and_validity_boundary() {
         None,
     )
     .unwrap();
-    let before_arrival = arriving.materialized_hex("member", &root).unwrap().to_string();
+    let before_arrival = arriving
+        .materialized_hex("member", &root)
+        .unwrap()
+        .to_string();
     assert_eq!(before_arrival, expected_hex(&arriving, 6.0));
-    assert_eq!(arriving.ingest(named["connectionDelegation"].clone()), IngestResult::Accepted);
-    assert_eq!(arriving.materialized_hex("member", &root).unwrap(), expected_hex(&arriving, 6.0));
-    assert_ne!(arriving.materialized_hex("member", &root).unwrap(), before_arrival);
+    assert_eq!(
+        arriving.ingest(named["connectionDelegation"].clone()),
+        IngestResult::Accepted
+    );
+    assert_eq!(
+        arriving.materialized_hex("member", &root).unwrap(),
+        expected_hex(&arriving, 6.0)
+    );
+    assert_ne!(
+        arriving.materialized_hex("member", &root).unwrap(),
+        before_arrival
+    );
 }

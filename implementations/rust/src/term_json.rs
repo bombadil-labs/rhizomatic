@@ -31,7 +31,15 @@ pub(crate) const TERM_KEYS: [(&str, &[&str]); 10] = [
 
 const STR_MATCH_TAGS: [&str; 4] = ["exact", "prefix", "inSet", "aliased"];
 const VAL_MATCH_TAGS: [&str; 3] = ["vcmp", "between", "inSet"];
-const PRED_TAGS: [&str; 7] = ["match", "hasPointer", "and", "or", "not", "inView", "actsFor"];
+const PRED_TAGS: [&str; 7] = [
+    "match",
+    "hasPointer",
+    "and",
+    "or",
+    "not",
+    "inView",
+    "actsFor",
+];
 const ORDER_TAGS: [&str; 5] = [
     "byTimestamp",
     "byValidFrom",
@@ -398,20 +406,39 @@ pub fn parse_pred(raw: &Value) -> Result<Pred, String> {
         "not" => Ok(Pred::Not(Box::new(parse_pred(&o["not"])?))),
         "actsFor" => {
             let value = as_object(&o["actsFor"], "actsFor", &["root", "policy"])?;
-            let root = value.get("root").and_then(Value::as_str).ok_or("actsFor.root must be a lowercase Ed25519 author id")?;
-            if !root.starts_with("ed25519:") || root.len() != 72 || !root[8..].bytes().all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase()) {
+            let root = value
+                .get("root")
+                .and_then(Value::as_str)
+                .ok_or("actsFor.root must be a lowercase Ed25519 author id")?;
+            if !root.starts_with("ed25519:")
+                || root.len() != 72
+                || !root[8..]
+                    .bytes()
+                    .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
+            {
                 return Err("actsFor.root must be a lowercase Ed25519 author id".to_string());
             }
-            let policy = as_object(value.get("policy").unwrap_or(&Value::Null), "actsFor.policy", &["kind", "scope"])?;
+            let policy = as_object(
+                value.get("policy").unwrap_or(&Value::Null),
+                "actsFor.policy",
+                &["kind", "scope"],
+            )?;
             let kind = match policy.get("kind").and_then(Value::as_str) {
                 Some("exact") => crate::pred::PrincipalPolicyKind::Exact,
                 Some("prefix") => crate::pred::PrincipalPolicyKind::Prefix,
                 _ => return Err("actsFor.policy.kind must be exact or prefix".to_string()),
             };
-            let scope = policy.get("scope").and_then(Value::as_str).filter(|s| !s.is_empty()).ok_or("actsFor.policy.scope must be nonempty")?;
+            let scope = policy
+                .get("scope")
+                .and_then(Value::as_str)
+                .filter(|s| !s.is_empty())
+                .ok_or("actsFor.policy.scope must be nonempty")?;
             Ok(Pred::ActsFor {
                 root: root.to_string(),
-                policy: crate::pred::PrincipalPolicy { kind, scope: scope.to_string() },
+                policy: crate::pred::PrincipalPolicy {
+                    kind,
+                    scope: scope.to_string(),
+                },
             })
         }
         _ => {

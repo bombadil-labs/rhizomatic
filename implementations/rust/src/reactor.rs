@@ -361,7 +361,14 @@ impl Reactor {
         if self.materializations.contains_key(name) {
             return Err(format!("duplicate materialization: {name}"));
         }
-        let mut mat = Materialization::new(name, term, roots, Some(now), registry, Some(Arc::new(lower_term)));
+        let mut mat = Materialization::new(
+            name,
+            term,
+            roots,
+            Some(now),
+            registry,
+            Some(Arc::new(lower_term)),
+        );
         for root in mat.roots.clone() {
             mat.refresh(&self.set, &root)?;
         }
