@@ -1593,8 +1593,28 @@
   var DeltaSet = class _DeltaSet {
     byId = /* @__PURE__ */ new Map();
     static from(deltas) {
+      if (deltas instanceof _DeltaSet) return deltas.copy();
       const s = new _DeltaSet();
       for (const d of deltas) s.add(d);
+      return s;
+    }
+    // A set has already checked every member at insertion. Copies between sets may carry those
+    // members directly; only insertion from an arbitrary iterable crosses the validation boundary.
+    // Delta values are immutable by contract (readonly types); mutating one after insertion also
+    // invalidates the original set and the reactor indexes, independent of this copy path.
+    copy() {
+      const s = new _DeltaSet();
+      for (const [id, delta] of this.byId) s.byId.set(id, delta);
+      return s;
+    }
+    filtered(p) {
+      const s = new _DeltaSet();
+      for (const [id, delta] of this.byId) if (p(delta)) s.byId.set(id, delta);
+      return s;
+    }
+    union(other) {
+      const s = this.copy();
+      for (const [id, delta] of other.byId) if (!s.byId.has(id)) s.byId.set(id, delta);
       return s;
     }
     // Idempotent insert; returns false when the id was already present. Verifies content
@@ -1630,14 +1650,10 @@
     }
   };
   function merge(a, b) {
-    const s = DeltaSet.from(a);
-    for (const d of b) s.add(d);
-    return s;
+    return a.union(b);
   }
   function fork(a, p) {
-    const s = new DeltaSet();
-    for (const d of a) if (p(d)) s.add(d);
-    return s;
+    return a.filtered(p);
   }
 
   // src/syntax/term-analysis.ts
