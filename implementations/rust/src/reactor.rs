@@ -353,8 +353,12 @@ impl Reactor {
         lower_term: F,
     ) -> Result<(), String>
     where
-        F: Fn(&Term, &DeltaSet, f64, Option<&SchemaRegistry>)
-                -> Result<(Term, Option<SchemaRegistry>), String>
+        F: Fn(
+                &Term,
+                &DeltaSet,
+                f64,
+                Option<&SchemaRegistry>,
+            ) -> Result<(Term, Option<SchemaRegistry>), String>
             + Send
             + Sync
             + 'static,

@@ -1,9 +1,9 @@
 # Step 5: principal contract for review
 
-Status: design draft with Myk's 2026-09-26 succession rulings. The exact vocabulary, API, and
-shared vectors still need implementation review. Step 4 reads already accept a caller supplied author set or
-predicate; the principal tier will supply those inputs. Loam's `principal.*` recordings in #590
-are evidence of present behavior, not the desired answers.
+Status: implemented in TypeScript and Rust for step 5 review. Shared principal vectors pin the
+portable evidence and predicate decisions in both witnesses. Step 4 reads accept a caller supplied
+author set or predicate; the principal tier supplies those inputs. Loam's `principal.*` recordings
+in #590 are evidence of present behavior, not the desired answers.
 
 ## Boundary and dependency
 
@@ -25,7 +25,7 @@ content address, or its signature. Equal entity ids still merge. An application 
 governed anchor supplies an explicit pinned principal root or governing key choice; the delta set
 alone cannot appoint its own governor.
 
-## Proposed vocabulary and evidence grades
+## Vocabulary and evidence grades
 
 A principal root is a self-certifying Ed25519 public key. Its stable `PrincipalId` is that key,
 not a person name or a registry entry. A root declaration is signed by the root and names the
@@ -82,7 +82,7 @@ negation state, and path ids, sorted by key then path id. It includes negated
 bindings so a rotated user can find claims signed under an old key for a retract-your-own read.
 This history answer does not itself authorize the old key to sign today.
 
-Principal membership must also be usable in a serializable L2 predicate. The proposed shape is
+Principal membership is usable in a serializable L2 predicate. The shape is
 `actsFor: { root, policy: { kind, scope } }`, evaluated at the term's explicit `now` and lowered to a set of
 authors by `authorsForPrincipal`. `policy` must be a portable, closed JSON profile or a pinned
 principal-policy reference, never an ambient callback hidden inside a term. A container membership
@@ -107,7 +107,7 @@ does. A missing or purged binding cannot authorize a key. A binding whose bytes 
 cannot be reconstructed from an index entry. A caller can instead report the surviving testimony
 that a binding used to exist.
 
-## Cases to pin before implementation
+## Shared cases
 
 1. Pinned root with its self-signed declaration: the root resolves offline; a second unrelated
    self-signed root in the same set does not change that answer.

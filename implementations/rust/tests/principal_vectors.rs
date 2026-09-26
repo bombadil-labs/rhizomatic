@@ -443,8 +443,8 @@ fn principal_predicate_lowers_in_named_and_pinned_hyperschemas() {
             entity: root.clone(),
             bindings: None,
         };
-        let actual = eval_principal_term(&fix, &input, 6.0, &resolver, None, Some(&registry), None)
-            .unwrap();
+        let actual =
+            eval_principal_term(&fix, &input, 6.0, &resolver, None, Some(&registry), None).unwrap();
         assert_eq!(result_canonical_hex(&actual), expected);
     }
 
@@ -463,5 +463,8 @@ fn principal_predicate_lowers_in_named_and_pinned_hyperschemas() {
         Some(registry),
     )
     .unwrap();
-    assert_eq!(reactor.materialized_hex("principal-members", &root), Some(expected.as_str()));
+    assert_eq!(
+        reactor.materialized_hex("principal-members", &root),
+        Some(expected.as_str())
+    );
 }

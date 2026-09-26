@@ -40,11 +40,14 @@ pub(crate) struct Materialization {
     pub lower_term: Option<Arc<TermLowerer>>,
 }
 
-pub(crate) type TermLowerer =
-    dyn Fn(&Term, &DeltaSet, f64, Option<&SchemaRegistry>)
-            -> Result<(Term, Option<SchemaRegistry>), String>
-        + Send
-        + Sync;
+pub(crate) type TermLowerer = dyn Fn(
+        &Term,
+        &DeltaSet,
+        f64,
+        Option<&SchemaRegistry>,
+    ) -> Result<(Term, Option<SchemaRegistry>), String>
+    + Send
+    + Sync;
 
 impl std::fmt::Debug for Materialization {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -84,9 +87,7 @@ impl Materialization {
     /// Re-evaluate one root with the batch evaluator; Some(changed property paths) on change.
     pub fn refresh(&mut self, set: &DeltaSet, root: &str) -> Result<Option<Vec<String>>, String> {
         let lowered = match (&self.lower_term, self.now) {
-            (Some(lower), Some(now)) => {
-                Some(lower(&self.term, set, now, self.registry.as_ref())?)
-            }
+            (Some(lower), Some(now)) => Some(lower(&self.term, set, now, self.registry.as_ref())?),
             (Some(_), None) => {
                 return Err("lowered materialization needs an explicit now".to_string())
             }

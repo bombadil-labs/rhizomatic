@@ -1,6 +1,6 @@
 # Rhizomatic Specification — SPEC-14: Principal Evidence
 
-**Status:** Draft for step 5 conformance vectors
+**Status:** Step 5 conformance contract
 **Depends on:** SPEC-1, SPEC-4
 
 ## 1. Questions kept separate
@@ -144,6 +144,9 @@ resolver over the same input set and time. Without it, evaluation fails loudly i
 silently matching no authors. The lower syntax, algebra, resolve, and reactor packages MUST NOT
 import the principal package. The principal package provides the resolver adapter, so
 materializations can refresh when a relevant membership or validity boundary changes.
+An `actsFor` predicate in a named or pinned HyperSchema body uses the same resolver. Evaluation
+MUST retain the original signed body hash for pinned lookup while lowering the body for this
+read; lowering MUST NOT change the stored definition or its content address.
 
 The predicate does not infer a scope from a container. An application must put its requested
 scope in the serialized term, or explicitly supply an application policy to the resolver.

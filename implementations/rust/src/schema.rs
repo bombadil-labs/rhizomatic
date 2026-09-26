@@ -228,11 +228,7 @@ impl SchemaRegistry {
     }
 
     /// Evaluation overlay: retain signed name/hash lookups while lowering runtime bodies.
-    pub fn map_evaluation_bodies<F, G>(
-        &self,
-        map_term: F,
-        map_reading: G,
-    ) -> Result<Self, String>
+    pub fn map_evaluation_bodies<F, G>(&self, map_term: F, map_reading: G) -> Result<Self, String>
     where
         F: Fn(&Term) -> Result<Term, String>,
         G: Fn(&Schema) -> Result<Schema, String>,
@@ -264,7 +260,10 @@ impl SchemaRegistry {
             .readings_by_hash
             .iter()
             .map(|(hash, reading)| {
-                let name = reading.name.as_ref().expect("registered reading has a name");
+                let name = reading
+                    .name
+                    .as_ref()
+                    .expect("registered reading has a name");
                 Ok((hash.clone(), readings_by_name[name].clone()))
             })
             .collect::<Result<_, String>>()?;

@@ -4107,8 +4107,11 @@
       return boundaryAfter(this.validityBoundaries, now);
     }
     refresh(mat, root) {
-      const term = mat.lowerTerm?.(mat.term, this.set, mat.now) ?? mat.term;
-      const result = evalTerm(term, this.set, mat.now, root, mat.registry);
+      const program = mat.lowerTerm?.(mat.term, this.set, mat.now, mat.registry) ?? {
+        term: mat.term,
+        registry: mat.registry
+      };
+      const result = evalTerm(program.term, this.set, mat.now, root, program.registry);
       if (result.sort !== "hview") throw new Error("materialized terms must be HView-sort");
       mat.evalCount += 1;
       const hex = hviewCanonicalHex(result.hview);

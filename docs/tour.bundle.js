@@ -4725,6 +4725,22 @@
     resolveReading(ref) {
       return ref.kind === "name" ? this.readingsByName.get(ref.name) : this.readingsByHash.get(ref.hash);
     }
+    /** Evaluation overlay: preserve the signed program's name/hash lookup while lowering its body. */
+    mapEvaluationBodies(mapTerm, mapReading) {
+      const byName = new Map(
+        [...this.byName].map(([name, schema]) => [name, { ...schema, body: mapTerm(schema.body) }])
+      );
+      const byHash = new Map(
+        [...this.byHash].map(([hash, schema]) => [hash, byName.get(schema.name)])
+      );
+      const readingsByName = new Map(
+        [...this.readingsByName].map(([name, reading]) => [name, mapReading(reading)])
+      );
+      const readingsByHash = new Map(
+        [...this.readingsByHash].map(([hash, reading]) => [hash, readingsByName.get(reading.name)])
+      );
+      return new _SchemaRegistry(byName, byHash, readingsByName, readingsByHash);
+    }
   };
 
   // src/reactor/reactor.ts
@@ -5020,8 +5036,11 @@
       return boundaryAfter(this.validityBoundaries, now);
     }
     refresh(mat, root) {
-      const term = mat.lowerTerm?.(mat.term, this.set, mat.now) ?? mat.term;
-      const result = evalTerm(term, this.set, mat.now, root, mat.registry);
+      const program = mat.lowerTerm?.(mat.term, this.set, mat.now, mat.registry) ?? {
+        term: mat.term,
+        registry: mat.registry
+      };
+      const result = evalTerm(program.term, this.set, mat.now, root, program.registry);
       if (result.sort !== "hview") throw new Error("materialized terms must be HView-sort");
       mat.evalCount += 1;
       const hex = hviewCanonicalHex(result.hview);
