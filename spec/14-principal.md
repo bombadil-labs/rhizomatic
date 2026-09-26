@@ -14,8 +14,13 @@ principal read answers three separate questions over a caller-supplied delta set
 3. What evidence was present in the supplied set when the caller made the read?
 
 The caller pins an Ed25519 root author id (`ed25519:` followed by the lowercase public-key hex)
-outside the delta set. Its exact bytes are the principal id. An unpinned name, registry result, or
-claim in the set MUST NOT choose the governing root. The root is associated with itself and can
+outside this principal read. Its exact bytes are the principal id. The principal tier MUST NOT
+select its own governor from an unpinned name, registry result, or claim in the input set. An
+application MAY select the root through a separate governed read whose governing key or root was
+already pinned independently. That read is the application's explicit trust decision; an
+untrusted principal claim cannot appoint its own root. For example, a store can pin its operator
+key locally, then use an operator-governed user record to select a user's principal root. The
+root is associated with itself and can
 authorize its own acts without a declaration. A self-signed root declaration can provide
 discoverable evidence, but cannot make an unpinned root govern another principal.
 
@@ -39,7 +44,7 @@ record remains a valid ordinary delta and MUST NOT be repaired into evidence by 
 | `root` | none | `author = root` | Discoverable self-declaration. |
 | `binding` | `key`: author-id string | `author = root` | Associate the key with the root. Grants no authority. |
 | `succession` | `previous`: author-id string; `key`: author-id string | `author = root` | Root-authorized continuity from previous to key. Grants no authority. |
-| `delegation` | `key`: author-id string; optional `scope`: nonempty string | Author must have an effective delegation path from the root, or be the root. | Permit the key to act for this root within the stated scope. |
+| `delegation` | `key`: author-id string; `scope`: nonempty string; `delegable`: boolean | Author must have an effective delegable path from the root, or be the root. | Permit the key to act within the stated scope. `delegable` controls whether that key may sign a further delegation. |
 | `locator` | `address`: nonempty string | `author = root` | Reachability hint. Grants no authority. |
 
 Every `key` and `previous` value MUST be a well-formed Ed25519 author id; `previous` and `key`
@@ -63,33 +68,45 @@ and no effective, caller-honored negation suppresses it at `at` (SPEC-4 §3.1). 
 and negation rule applies to root declarations, bindings, successions, and locators when asking
 whether they stand at `at`; a history query can include records outside that window.
 
-The root is the starting authority. A delegation signed by the root extends authority to its
-`key`. A delegation signed by another key extends authority only if that signer already has an
-effective path from the root for the requested scope. Every edge of a path MUST permit that
-scope. Cycles without a path from the root grant nothing. A key's authority can end when any
+The root is the starting authority and may delegate. A delegation signed by the root extends
+authority to its `key`. A delegation signed by another key extends authority only if that signer
+already has an effective path from the root for the requested scope whose final edge has
+`delegable: true`. A key whose only effective paths end in `delegable: false` may act, but MUST
+NOT extend authority. The right to delegate is checked at every link; a later link cannot turn a
+non-delegable path into a delegable one. Every edge of a path MUST permit the requested scope.
+Cycles without a path from the root grant nothing. A key's authority can end when any
 edge in its path expires or is effectively negated. An expired negation stops suppressing its
 target at its `validUntil`, so a still-valid delegation can become effective again.
 
-Scopes are opaque strings. The core `exact` scope policy permits an unscoped edge for every
-request, and a scoped edge only when its scope equals the nonempty requested scope. A request
-without a scope does not accept a scoped edge. Other scope policies MAY be supplied explicitly
-by an application; their decisions are outside portable conformance. A scoped edge never grants
-unscoped authority under the core policy. The principal tier assigns no meaning to a scope
-string such as a container or role name.
+Every delegation MUST name a scope. The literal `*` is the explicit universal scope; omission
+does not mean universal authority. Every authority request also names a nonempty scope, using
+`*` only when asking for universal authority. For both portable policies, an edge with scope
+`*` permits any requested scope. Under `exact`, every other edge permits only an equal scope.
+Under `prefix`, an edge scoped `S` permits a request `R` when `R = S` or `R` begins with
+`S + ":"`. The colon is the portable separator; `user:ada` permits `user:ada:journal` but not
+`user:adam`. A request for `*` is permitted only by `*`. The rule applies at every edge, so a
+parent edge must permit the narrower scope a child delegates. These are comparisons of opaque
+strings; the principal tier assigns no meaning to a segment. An application MAY provide another
+explicit scope policy, but its decisions are outside portable conformance.
 
 The caller chooses which negations have authority through an explicit suppression predicate, as
 in SPEC-4. Principal resolution MUST NOT silently treat a negation by any signer as binding.
 The portable `sameAuthor` profile honors a negation only when its signer is the target record's
-signer. A suppression callback MUST NOT recursively invoke the same negation reader.
+signer. The portable `rootOrSameAuthor` profile also lets the pinned root negate any delegation
+under that root, including a delegation signed by another key. The same rule applies to
+counter-negations: a delegate cannot undo a root-signed revocation merely by negating it. A
+suppression callback MUST NOT recursively invoke the same negation reader.
 
 ## 4. Read results and time axes
 
-`resolvePrincipal(input, root, key, { at, now, scope, suppression })` reports association and
+`resolvePrincipal(input, root, key, { at, now, scope, scopePolicy, suppression })` reports association and
 authority separately, with the supporting delta-id paths sorted by id. `now` is the caller's
 observation time: the input set is the evidence the caller has chosen to make available at
 that time. The principal tier MUST NOT synthesize arrival testimony from `timestamp` or
 `validFrom`, and changing `now` alone MUST NOT fabricate an unseen edge. `at` is the effective
 time used for validity and negation. Both are explicit finite numbers. No library clock is read.
+`scope`, `scopePolicy`, and `suppression` are also required inputs; a reader MUST NOT silently
+choose a universal scope or a revocation policy.
 
 The association grade is `unresolved` when no relevant evidence is held, `claimed` for an
 unrooted relevant claim, `rooted` for a path to the pinned root, and `disputed` when incompatible
@@ -110,9 +127,10 @@ requires step 6 arrival testimony; the author's signed `timestamp` cannot supply
 ## 5. Predicate use
 
 The serializable predicate
-`{ "actsFor": { "root": "ed25519:…", "policy": { "kind": "exact", "scope": "container:example" } } }`
+`{ "actsFor": { "root": "ed25519:…", "policy": { "kind": "prefix", "scope": "user:ada:journal" } } }`
 matches a delta whose `author` is in `authorsForPrincipal` at the evaluation's explicit time.
-The `scope` member is optional; when absent the predicate requests unscoped authority.
+The policy `kind` is `exact` or `prefix`, and `scope` is required. `scope: "*"` is an explicit
+request for universal authority, not a default.
 The predicate's bytes live with SPEC-2 syntax. Evaluation MUST receive an explicit principal
 resolver over the same input set and time. Without it, evaluation fails loudly instead of
 silently matching no authors. The lower syntax, algebra, resolve, and reactor packages MUST NOT

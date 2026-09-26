@@ -34,11 +34,12 @@ principal; it proves control of the key, not that a human-readable name is uniqu
 pin the root key directly even when the declaration is unavailable.
 
 A key binding associates key K with principal P; association alone does not permit K to act for P.
-A delegation says that a currently authorized key permits another key to act for P, optionally
-within a declared scope. The scope is an opaque
-string or entity id carried as evidence; the application interprets its meaning. The principal
-package compares it under a caller-supplied, explicit scope policy and does not impose Loam's
-container or role vocabulary. A succession claim says that a later key continues a previous
+A delegation says that a currently authorized key permits another key to act for P within a
+required scope. The record also carries an explicit `delegable` boolean: a key with only
+non-delegable paths may act but cannot issue a further effective delegation. The scope is an
+opaque string; `*` explicitly means every scope. The portable `exact` and colon-separated
+`prefix` policies compare it without imposing Loam's container or role vocabulary. A succession
+claim says that a later key continues a previous
 key's principal association. **Succession records continuity only; it grants no authority.**
 The pinned root must authorize the succession. An old-key signature is optional, separate
 evidence of continuity, so losing the old key does not prevent rotation. Each is an ordinary signed
@@ -83,7 +84,7 @@ bindings so a rotated user can find claims signed under an old key for a retract
 This history answer does not itself authorize the old key to sign today.
 
 Principal membership must also be usable in a serializable L2 predicate. The proposed shape is
-`actsFor: { root, policy }`, evaluated at the term's explicit `now` and lowered to a set of
+`actsFor: { root, policy: { kind, scope } }`, evaluated at the term's explicit `now` and lowered to a set of
 authors by `authorsForPrincipal`. `policy` must be a portable, closed JSON profile or a pinned
 principal-policy reference, never an ambient callback hidden inside a term. A container membership
 term can then follow key rotation without being rewritten for each new key. Step 6 admission
@@ -134,6 +135,14 @@ that a binding used to exist.
 13. At T, an expired negation of a delegation no longer suppresses it; the key is authorized again
     if the delegation itself is still valid. Loam's interim read uses `at = now` for the grant and
     for the earlier acts whose effect depends on it.
+14. A non-delegable connection key may act in its declared scope but cannot extend authority;
+    a delegable user key may delegate a narrower scope under the portable `prefix` policy.
+15. `user:ada` permits `user:ada:journal` under `prefix`, but not `user:adam` or `*`. The
+    `exact` policy does not widen `user:ada`. A delegation missing `scope` or `delegable` is not
+    principal evidence; `scope: "*"` is the only universal delegation.
+16. A root-signed negation revokes a delegation signed by a delegate under
+    `rootOrSameAuthor`; that delegate cannot counter-negate the root's revocation. A delegator
+    may revoke its own delegation under either portable suppression profile.
 
 The TypeScript and Rust witnesses must agree on these vectors before a prerelease. Elixir and
 Haskell continue to declare their supported level in `witness.json`; the shared Level 0 bytes
