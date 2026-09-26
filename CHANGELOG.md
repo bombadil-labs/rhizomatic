@@ -6,6 +6,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 
 ## Unreleased
 
+## 0.11.0-next.1 — 2026-09-25
+
+### Improved
+
+- Timed materializations keep their read clock current without re-evaluation when no validity boundary was crossed. The same rule applies when time moves backward; refresh at a crossed boundary still emits the same view changes.
+
 ## 0.11.0-next.0 — 2026-09-25
 
 ### Breaking
