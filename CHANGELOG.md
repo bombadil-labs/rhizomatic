@@ -6,7 +6,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 
 ## Unreleased
 
+## 0.11.0-next.0 — 2026-09-25
+
+### Breaking
+
+- **Signed validity and explicit read time** ([#43](https://github.com/bombadil-labs/rhizomatic/pull/43), SPEC-1 §6): every delta now requires `validFrom` and may set `validUntil`; valid intervals are `[validFrom, validUntil)`. The new fields change content addresses and pack version 2. Validity reads and published definition loaders require a caller-supplied `now`. A bounded negation stops suppressing its target at its end time.
+- **Two Schema time orders:** `byTimestamp` compares signed creation claims; `byValidFrom` compares signed validity starts. Both finish ties by ascending delta id. The substrate keeps claims in superposition and chooses no winner. Shared time vectors pin both orders and boundary behavior.
+
 ### Added
+
+- Reactors report the next validity boundary from a maintained index and refresh materializations when the host advances time, including backward time changes. The tour's Rust WASM witness and browser bundles are refreshed for this format.
 
 - **Structured Term and Pred parser errors** ([#39](https://github.com/bombadil-labs/rhizomatic/issues/39), SPEC-2 §8): rejected JSON now has a stable `kind` (`unknown-op`, `unknown-key`, or `invalid-shape`) and an RFC 6901 `path` while human messages remain free to change. TypeScript `parseTerm`/`parsePred` throw the exported `ParseError`; Rust exposes `parse_term_diagnostic`/`parse_pred_diagnostic` alongside its string-error entry points. Shared reject vectors pin both witnesses. Loam can use `kind` to link to its manual without matching English text.
 
