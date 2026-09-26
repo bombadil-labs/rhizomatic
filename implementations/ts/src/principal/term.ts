@@ -33,6 +33,28 @@ export function principalResolver(suppression: PrincipalSuppression): PrincipalR
   };
 }
 
+/** Use an indexed live reactor when the term input is its exact current delta set. */
+export function principalResolverForReactor(
+  reactor: Reactor,
+  suppression: PrincipalSuppression,
+): PrincipalResolver {
+  return (input, root, policy, at) => {
+    if (
+      input.size !== reactor.size ||
+      [...input].some((delta) => reactor.get(delta.id) !== delta)
+    ) {
+      throw new Error("principal resolver input differs from the supplied reactor");
+    }
+    return authorsForPrincipal(reactor, root, {
+      at,
+      now: at,
+      scope: policy.scope,
+      scopePolicy: policy.kind,
+      suppression,
+    });
+  };
+}
+
 /** Replace each principal predicate with the sorted, explicit author set it denotes. */
 export function lowerPrincipalTerm(
   term: Term,

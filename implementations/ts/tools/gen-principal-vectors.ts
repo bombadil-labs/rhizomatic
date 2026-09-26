@@ -222,6 +222,11 @@ negation("counterRootByRoot", "userRoot", "negateConnectionByRoot", 14, 19);
 negation("negateConnectionByUser", "userKey", "connectionDelegation", 11, 16);
 negation("negateBinding", "userRoot", "bindingUserKey", 25, 45);
 negation("negateSuccession", "userRoot", "successionToReplacement", 15, 18);
+add("unsignedRootNegation", makeNegationClaims(author("userRoot"), 10, id("userDelegation")));
+add(
+  "unsignedRootCounter",
+  makeNegationClaims(author("userRoot"), 14, id("negateConnectionByRoot")),
+);
 
 const cases = [
   {
@@ -565,6 +570,41 @@ const cases = [
     members: ["userDelegation", "connectionDelegation", "negateConnectionByRoot"],
     key: "connection",
     at: 12,
+    scope: "ada:journal",
+    scopePolicy: "prefix",
+    suppression: "rootOrSameAuthor",
+    expected: {
+      grade: "unresolved",
+      authorized: false,
+      delegable: false,
+      authors: ["userRoot", "userKey"],
+    },
+  },
+  {
+    name: "unsigned-root-claim-does-not-revoke",
+    members: ["userDelegation", "connectionDelegation", "unsignedRootNegation"],
+    key: "connection",
+    at: 10,
+    scope: "ada:journal",
+    scopePolicy: "prefix",
+    suppression: "rootOrSameAuthor",
+    expected: {
+      grade: "unresolved",
+      authorized: true,
+      delegable: false,
+      authors: ["userRoot", "userKey", "connection"],
+    },
+  },
+  {
+    name: "unsigned-root-claim-does-not-counter-revocation",
+    members: [
+      "userDelegation",
+      "connectionDelegation",
+      "negateConnectionByRoot",
+      "unsignedRootCounter",
+    ],
+    key: "connection",
+    at: 14,
     scope: "ada:journal",
     scopePolicy: "prefix",
     suppression: "rootOrSameAuthor",

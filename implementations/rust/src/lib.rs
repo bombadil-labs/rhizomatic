@@ -51,7 +51,8 @@ pub use peer::{sync_both, Peer, SyncReport};
 pub use pred::{compare_primitives, eval_pred, Pred};
 pub use principal::{
     associated_keys, authors_for_principal, eval_principal_term, lower_principal_registry,
-    lower_principal_term, principal_resolver, register_principal_materialization,
+    lower_principal_term, principal_resolver, principal_resolver_for_reactor,
+    register_principal_materialization,
     resolve_principal, AssociatedKey, AssociationGrade, PrincipalReadOptions, PrincipalResolver,
     PrincipalResult, PrincipalSuppression, ScopePolicy, ValidityInterval,
 };

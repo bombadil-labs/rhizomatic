@@ -847,6 +847,40 @@
           }
         ]
       }
+    },
+    {
+      "name": "unsignedRootNegation",
+      "id": "1e20dfa37ac66acf5755b78c6412fabdae701896a1fd80cd4898f79e87370731124f",
+      "claims": {
+        "timestamp": 10,
+        "validFrom": 10,
+        "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+        "pointers": [
+          {
+            "role": "negates",
+            "target": {
+              "delta": "1e2020693b22bd3ec0b6d5dbb500bc2c84a9e85898d1b7c8b1b8940b77c099d5792b"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "unsignedRootCounter",
+      "id": "1e20f518477cc5550bc3276997527c4a46cc14597623aed29966d6fc731a73b2ef48",
+      "claims": {
+        "timestamp": 14,
+        "validFrom": 14,
+        "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+        "pointers": [
+          {
+            "role": "negates",
+            "target": {
+              "delta": "1e20c551de626cbe579ec64c2dc81c25ce307e53153b2e3e4cb9eec3df2131a819ab"
+            }
+          }
+        ]
+      }
     }
   ],
   "defaults": {
@@ -1517,6 +1551,52 @@
       ],
       "key": "connection",
       "at": 12,
+      "scope": "ada:journal",
+      "scopePolicy": "prefix",
+      "suppression": "rootOrSameAuthor",
+      "expected": {
+        "grade": "unresolved",
+        "authorized": false,
+        "delegable": false,
+        "authors": [
+          "userRoot",
+          "userKey"
+        ]
+      }
+    },
+    {
+      "name": "unsigned-root-claim-does-not-revoke",
+      "members": [
+        "userDelegation",
+        "connectionDelegation",
+        "unsignedRootNegation"
+      ],
+      "key": "connection",
+      "at": 10,
+      "scope": "ada:journal",
+      "scopePolicy": "prefix",
+      "suppression": "rootOrSameAuthor",
+      "expected": {
+        "grade": "unresolved",
+        "authorized": true,
+        "delegable": false,
+        "authors": [
+          "userRoot",
+          "userKey",
+          "connection"
+        ]
+      }
+    },
+    {
+      "name": "unsigned-root-claim-does-not-counter-revocation",
+      "members": [
+        "userDelegation",
+        "connectionDelegation",
+        "negateConnectionByRoot",
+        "unsignedRootCounter"
+      ],
+      "key": "connection",
+      "at": 14,
       "scope": "ada:journal",
       "scopePolicy": "prefix",
       "suppression": "rootOrSameAuthor",

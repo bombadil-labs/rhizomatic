@@ -92,7 +92,9 @@ explicit scope policy, but its decisions are outside portable conformance.
 
 The caller chooses which negations have authority through an explicit suppression predicate, as
 in SPEC-4. Principal resolution MUST NOT silently treat a negation by any signer as binding.
-The portable `sameAuthor` profile honors a negation only when its signer is the target record's
+The portable profiles honor a negation edge only when its signature verifies, including a
+counter-negation edge. An unsigned delta's claimed `author` cannot revoke or restore authority.
+The `sameAuthor` profile then honors a negation only when its signer is the target record's
 signer. The portable `rootOrSameAuthor` profile also lets the pinned root negate any delegation
 under that root, including a delegation signed by another key. The same rule applies to
 counter-negations: a delegate cannot undo a root-signed revocation merely by negating it. A
@@ -144,6 +146,9 @@ resolver over the same input set and time. Without it, evaluation fails loudly i
 silently matching no authors. The lower syntax, algebra, resolve, and reactor packages MUST NOT
 import the principal package. The principal package provides the resolver adapter, so
 materializations can refresh when a relevant membership or validity boundary changes.
+An adapter MAY use an already indexed reactor when the term's input is exactly that reactor's
+current held set. It MUST reject a mismatched or stale input; it cannot silently use evidence from
+outside the term's selected set.
 An `actsFor` predicate in a named or pinned HyperSchema body uses the same resolver. Evaluation
 MUST retain the original signed body hash for pinned lookup while lowering the body for this
 read; lowering MUST NOT change the stored definition or its content address.

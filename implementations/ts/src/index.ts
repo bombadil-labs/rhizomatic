@@ -109,6 +109,7 @@ export {
   lowerPrincipalTerm,
   lowerPrincipalRegistry,
   principalResolver,
+  principalResolverForReactor,
   registerPrincipalMaterialization,
   type PrincipalResolver,
 } from "./principal.js";

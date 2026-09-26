@@ -1,5 +1,6 @@
 // Principal evidence reads (SPEC-14). A pinned root is an input, never discovered from the set.
 import { verifyDelta } from "../delta/sign.js";
+import { computeId } from "../delta/delta.js";
 import type { Delta, Pointer, Primitive } from "../delta/types.js";
 import { Reactor, type Suppression } from "../reactor/reactor.js";
 
@@ -59,12 +60,26 @@ const validAt = (delta: Delta, at: number): boolean =>
   delta.claims.validFrom <= at &&
   (delta.claims.validUntil === undefined || at < delta.claims.validUntil);
 
+// Signature verification is costly on a hot authority read. Cache only a successful verdict for
+// this exact object/id/signature, and recheck its content address each time: a caller that mutates
+// a held object cannot carry an old signature verdict into a new principal claim.
+const verifiedEvidence = new WeakMap<Delta, { readonly id: string; readonly sig: string }>();
+
+function evidenceSignatureHolds(delta: Delta): boolean {
+  const cached = verifiedEvidence.get(delta);
+  if (cached?.id === delta.id && cached.sig === delta.sig && computeId(delta.claims) === delta.id)
+    return true;
+  if (verifyDelta(delta) !== "verified") return false;
+  verifiedEvidence.set(delta, { id: delta.id, sig: delta.sig! });
+  return true;
+}
+
 function primitive(pointer: Pointer | undefined): Primitive | undefined {
   return pointer?.target.kind === "primitive" ? pointer.target.value : undefined;
 }
 
 function parseEvidence(delta: Delta, root: string): Evidence | undefined {
-  if (verifyDelta(delta) !== "verified") return undefined;
+  if (!evidenceSignatureHolds(delta)) return undefined;
   const fields = new Map<string, Pointer>();
   for (const pointer of delta.claims.pointers) {
     if (fields.has(pointer.role)) return undefined;
@@ -144,8 +159,9 @@ function suppressionFor(root: string, policy: PrincipalSuppression): Suppression
     throw new Error("unknown principal suppression profile");
   }
   return (negation, target) =>
-    negation.claims.author === target.claims.author ||
-    (policy === "rootOrSameAuthor" && negation.claims.author === root);
+    evidenceSignatureHolds(negation) &&
+    (negation.claims.author === target.claims.author ||
+      (policy === "rootOrSameAuthor" && negation.claims.author === root));
 }
 
 function comparePaths(left: readonly string[], right: readonly string[]): number {

@@ -8,6 +8,7 @@ use rhizomatic::eval::{eval_term_at, result_canonical_hex, EvalResult, GroupKey,
 use rhizomatic::json_profile::parse_claims;
 use rhizomatic::principal::{
     associated_keys, authors_for_principal, eval_principal_term, principal_resolver,
+    principal_resolver_for_reactor,
     register_principal_materialization, resolve_principal, PrincipalReadOptions,
     PrincipalSuppression, ScopePolicy,
 };
@@ -473,4 +474,37 @@ fn principal_predicate_lowers_in_named_and_pinned_hyperschemas() {
         reactor.materialized_hex("principal-members", &root),
         Some(expected.as_str())
     );
+}
+
+#[test]
+fn indexed_principal_resolver_requires_the_reactors_exact_current_input() {
+    let v = vector();
+    let named = fixtures(&v);
+    let mut reactor = Reactor::new();
+    for name in ["userDelegation", "connectionDelegation", "dataConnection"] {
+        assert_eq!(reactor.ingest(named[name].clone()), IngestResult::Accepted);
+    }
+    let term = parse_term(&v["predicates"][0]["term"]).unwrap();
+    let old_input = reactor.snapshot();
+    let fast = principal_resolver_for_reactor(&reactor, PrincipalSuppression::RootOrSameAuthor);
+    let expected = eval_principal_term(
+        &term,
+        &old_input,
+        6.0,
+        &principal_resolver(PrincipalSuppression::RootOrSameAuthor),
+        None,
+        None,
+        None,
+    )
+    .unwrap();
+    let actual = eval_principal_term(&term, &old_input, 6.0, &fast, None, None, None).unwrap();
+    assert_eq!(result_canonical_hex(&actual), result_canonical_hex(&expected));
+    drop(fast);
+
+    assert_eq!(reactor.ingest(named["dataUser"].clone()), IngestResult::Accepted);
+    let fast = principal_resolver_for_reactor(&reactor, PrincipalSuppression::RootOrSameAuthor);
+    let error = eval_principal_term(&term, &old_input, 6.0, &fast, None, None, None).unwrap_err();
+    assert!(error.contains("input differs"), "{error}");
+    let current = reactor.snapshot();
+    assert!(eval_principal_term(&term, &current, 6.0, &fast, None, None, None).is_ok());
 }

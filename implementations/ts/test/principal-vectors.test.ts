@@ -9,6 +9,7 @@ import { associatedKeys, authorsForPrincipal, resolvePrincipal } from "../src/pr
 import {
   evalPrincipalTerm,
   principalResolver,
+  principalResolverForReactor,
   registerPrincipalMaterialization,
 } from "../src/principal.js";
 import { Reactor } from "../src/reactor.js";
@@ -279,5 +280,57 @@ describe("frozen principal evidence fixtures (SPEC-14)", () => {
     reactor.advanceTime(5);
     expect(reactor.materializedHex("principal-members", root)).toBe(expected);
     expect(reactor.materializedHex("principal-members", root)).not.toBe(before);
+  });
+
+  it("drops cached signature authority when a held evidence object changes", () => {
+    const root = vector.keys.userRoot!;
+    const delegation = structuredClone(named.get("userDelegation")!);
+    const reactor = new Reactor();
+    expect(reactor.ingest(delegation)).toEqual({ status: "accepted" });
+    expect(reactor.ingest(named.get("connectionDelegation")!)).toEqual({ status: "accepted" });
+    const options = {
+      at: 6,
+      now: 6,
+      scope: "ada:journal",
+      scopePolicy: "prefix" as const,
+      suppression: "rootOrSameAuthor" as const,
+    };
+    const expected = [root, vector.keys.userKey!, vector.keys.connection!].sort();
+    expect(authorsForPrincipal(reactor, root, options)).toEqual(expected);
+    expect(authorsForPrincipal(reactor, root, options)).toEqual(expected);
+
+    const mutable = delegation as { id: string; sig?: string; claims: Delta["claims"] };
+    const originalSig = mutable.sig!;
+    mutable.sig = named.get("connectionDelegation")!.sig!;
+    expect(authorsForPrincipal(reactor, root, options)).toEqual([root]);
+    mutable.sig = originalSig;
+    const originalClaims = mutable.claims;
+    mutable.claims = { ...originalClaims, timestamp: originalClaims.timestamp + 1 };
+    expect(authorsForPrincipal(reactor, root, options)).toEqual([root]);
+    mutable.claims = originalClaims;
+    expect(authorsForPrincipal(reactor, root, options)).toEqual(expected);
+  });
+
+  it("uses live principal indexes only for that reactor's exact current input", () => {
+    const reactor = new Reactor();
+    for (const name of ["userDelegation", "connectionDelegation", "dataConnection"]) {
+      expect(reactor.ingest(named.get(name)!)).toEqual({ status: "accepted" });
+    }
+    const term = parseTerm(vector.predicates[0]!.term);
+    const fast = principalResolverForReactor(reactor, "rootOrSameAuthor");
+    const oldInput = reactor.snapshot();
+    expect(resultCanonicalHex(evalPrincipalTerm(term, oldInput, 6, fast))).toBe(
+      resultCanonicalHex(
+        evalPrincipalTerm(term, oldInput, 6, principalResolver("rootOrSameAuthor")),
+      ),
+    );
+    expect(reactor.ingest(named.get("dataUser")!)).toEqual({ status: "accepted" });
+    expect(() => evalPrincipalTerm(term, oldInput, 6, fast)).toThrow(/input differs/);
+    const current = reactor.snapshot();
+    expect(resultCanonicalHex(evalPrincipalTerm(term, current, 6, fast))).toBe(
+      resultCanonicalHex(
+        evalPrincipalTerm(term, current, 6, principalResolver("rootOrSameAuthor")),
+      ),
+    );
   });
 });

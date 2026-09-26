@@ -219,8 +219,9 @@ fn permits(policy: ScopePolicy, edge_scope: &str, request: &str) -> bool {
 }
 
 fn suppresses(policy: PrincipalSuppression, root: &str, negation: &Delta, target: &Delta) -> bool {
-    negation.claims.author == target.claims.author
-        || (policy == PrincipalSuppression::RootOrSameAuthor && negation.claims.author == root)
+    verify_delta(negation) == Verification::Verified
+        && (negation.claims.author == target.claims.author
+            || (policy == PrincipalSuppression::RootOrSameAuthor && negation.claims.author == root))
 }
 
 fn check_root_time(root: &str, time: f64) -> Result<(), String> {
@@ -495,6 +496,37 @@ pub fn principal_resolver(
         };
         authors_for_principal(
             &reactor,
+            root,
+            &PrincipalReadOptions {
+                at,
+                now: at,
+                scope: policy.scope.clone(),
+                scope_policy,
+                suppression,
+            },
+        )
+    }
+}
+
+/// Resolve against an indexed reactor only when the term input is its exact current set.
+pub fn principal_resolver_for_reactor(
+    reactor: &Reactor,
+    suppression: PrincipalSuppression,
+) -> impl Fn(&DeltaSet, &str, &PrincipalPolicy, f64) -> Result<Vec<String>, String> + '_ {
+    move |input, root, policy, at| {
+        if input.len() != reactor.len()
+            || input
+                .iter()
+                .any(|delta| reactor.get(&delta.id) != Some(delta))
+        {
+            return Err("principal resolver input differs from the supplied reactor".to_string());
+        }
+        let scope_policy = match policy.kind {
+            PrincipalPolicyKind::Exact => ScopePolicy::Exact,
+            PrincipalPolicyKind::Prefix => ScopePolicy::Prefix,
+        };
+        authors_for_principal(
+            reactor,
             root,
             &PrincipalReadOptions {
                 at,

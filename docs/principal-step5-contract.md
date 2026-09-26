@@ -19,6 +19,9 @@ predicate above the lower evaluator. A missing resolver for a term containing `a
 explicit evaluation error, not an empty author set. `registerPrincipalMaterialization` passes
 the same lowerer into the reactor, so ingestion and validity boundaries refresh principal
 membership without a dependency cycle. The package graph checker enforces these edges.
+`principalResolverForReactor` reuses an indexed reactor only when the term input contains exactly
+its current held objects; a stale or different set fails. The portable `principalResolver` rebuilds
+from any supplied delta set.
 
 The `author` field remains the signing key. Principal resolution does not rewrite a delta, its
 content address, or its signature. Equal entity ids still merge. An application that reads a
