@@ -106,6 +106,7 @@ function widgetAtom(): void {
     const claims: Claims = {
       author: author.value,
       timestamp: Number(ts.value),
+      validFrom: Number(ts.value),
       pointers: [
         {
           role: role.value,
@@ -195,7 +196,7 @@ function widgetPerspectives(): void {
   const LATEST = parseSchema({ default: { pick: { order: { byTimestamp: "desc" } } } });
 
   const paneFor = (set: DeltaSet, root: string): string => {
-    const result = evalTerm(VIEW_TERM, set, root);
+    const result = evalTerm(VIEW_TERM, set, Date.now(), root);
     if (result.sort !== "hview") return "(not an hview)";
     const view = resolveView(LATEST, result.hview);
     return Object.keys(view).length === 0
@@ -208,6 +209,7 @@ function widgetPerspectives(): void {
     const claims: Claims = {
       author: "alice",
       timestamp: 1,
+      validFrom: 1,
       pointers: [
         {
           role: "movie",
@@ -281,6 +283,7 @@ function makeWorldA(): World {
   // the primitive pointer's role names what the value is.
   const claim = (context: string, value: string | number): Omit<Claims, "author"> => ({
     timestamp: tick(),
+    validFrom: tick(),
     pointers: [
       { role: "movie", target: { kind: "entity", entity: { id: ROOT, context } } },
       { role: context, target: { kind: "primitive", value: parseValue(String(value)) } },
@@ -325,7 +328,7 @@ function bodyTerm(asOf: number | undefined, audit: boolean) {
 }
 
 function hviewAt(peer: Peer, asOf: number | undefined, audit: boolean): HView {
-  const result = peer.reactor.eval(bodyTerm(asOf, audit), ROOT);
+  const result = peer.reactor.eval(bodyTerm(asOf, audit), Date.now(), ROOT);
   if (result.sort !== "hview") throw new Error("expected hview");
   return result.hview;
 }
@@ -374,6 +377,7 @@ function widgetSuperposition(): void {
     const peer = who.value === "Alice" ? A.alice : A.bob;
     peer.authorClaims({
       timestamp: A.tick(),
+      validFrom: A.tick(),
       pointers: [
         {
           role: "movie",
@@ -492,7 +496,11 @@ function renderHistory(): void {
       btn.onclick = () => {
         const peer = d.claims.author === A.alice.author ? A.alice : A.bob;
         const neg = makeNegationClaims(peer.author, A.tick(), d.id, "retracted in the tour");
-        peer.authorClaims({ timestamp: neg.timestamp, pointers: [...neg.pointers] });
+        peer.authorClaims({
+          timestamp: neg.timestamp,
+          validFrom: neg.timestamp,
+          pointers: [...neg.pointers],
+        });
         syncBoth(A.alice, A.bob);
         refreshWorldA();
       };
@@ -583,6 +591,7 @@ function makeWorldB(): FedWorld {
   const claim = (peer: Peer, context: string, value: string | number): void => {
     peer.authorClaims({
       timestamp: tick(),
+      validFrom: tick(),
       pointers: [
         { role: "person", target: { kind: "entity", entity: { id: ANAKIN, context } } },
         { role: context, target: { kind: "primitive", value } },
@@ -637,6 +646,7 @@ function renderFederation(): void {
       if (!prop.value || !val.value) return;
       peer.authorClaims({
         timestamp: B.tick(),
+        validFrom: B.tick(),
         pointers: [
           {
             role: "person",
@@ -826,7 +836,7 @@ function evalSuite(label: string, file: string, doc: EvalDoc): Suite {
     ),
     ...doc.cases.map((c) =>
       tryCase(c.name, () => {
-        const result = evalTerm(parseTerm(c.term), set, c.root, registry);
+        const result = evalTerm(parseTerm(c.term), set, Date.now(), c.root, registry);
         return resultCanonicalHex(result) === c.expectedCanonicalHex;
       }),
     ),
@@ -976,6 +986,7 @@ function runRustConformance(rust: RustWitness): Map<string, VecCase[]> {
         tryCase(c.name, () => {
           const req: Record<string, unknown> = {
             op: "eval",
+            now: 1_000_000_000_000_000,
             fixture: doc.fixture.deltas.map((d) => d.claims),
             term: c.term,
           };
@@ -1094,13 +1105,14 @@ function widgetDerivation(): void {
     },
   });
   const reactor = new Reactor();
-  reactor.register("movie", body, [root]);
+  reactor.register("movie", body, [root], Date.now());
   const bot = new DerivationHost(reactor);
 
   let clock = 1000;
   const dataClaim = (context: string, value: string | number, author: string): Delta =>
     makeDelta({
       timestamp: ++clock,
+      validFrom: ++clock,
       author,
       pointers: [
         { role: "movie", target: { kind: "entity", entity: { id: root, context } } },
@@ -1206,7 +1218,7 @@ function widgetDerivation(): void {
     // Rebuild the pinned input from first principles: a fresh reactor fed the arrival
     // prefix up to and including the triggering rating, nothing else.
     const probe = new Reactor();
-    probe.register("movie", body, [root]);
+    probe.register("movie", body, [root], Date.now());
     for (const d of reactor.arrivalLog().slice(0, lastInputLen)) probe.ingest(d);
     const viewHex = probe.materializedHex("movie", root);
     const view = probe.materializedView("movie", root);

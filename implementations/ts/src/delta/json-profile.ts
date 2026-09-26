@@ -86,6 +86,8 @@ function parsePointer(raw: unknown): Pointer {
 export function claimsToJson(claims: Claims): unknown {
   return {
     timestamp: claims.timestamp,
+    validFrom: claims.validFrom,
+    ...(claims.validUntil === undefined ? {} : { validUntil: claims.validUntil }),
     author: claims.author,
     pointers: claims.pointers.map((p) => {
       let target: unknown;
@@ -117,12 +119,17 @@ export function claimsToJson(claims: Claims): unknown {
 }
 
 export function parseClaims(raw: unknown): Claims {
-  const o = asObject(raw, "claims", ["timestamp", "author", "pointers"]);
+  const o = asObject(raw, "claims", ["timestamp", "validFrom", "validUntil", "author", "pointers"]);
   if (typeof o["timestamp"] !== "number") throw new Error("claims.timestamp must be a number");
+  if (typeof o["validFrom"] !== "number") throw new Error("claims.validFrom must be a number");
+  if (o["validUntil"] !== undefined && typeof o["validUntil"] !== "number")
+    throw new Error("claims.validUntil must be a number when present");
   if (typeof o["author"] !== "string") throw new Error("claims.author must be a string");
   if (!Array.isArray(o["pointers"])) throw new Error("claims.pointers must be an array");
   return {
     timestamp: o["timestamp"],
+    validFrom: o["validFrom"],
+    ...(o["validUntil"] === undefined ? {} : { validUntil: o["validUntil"] as number }),
     author: o["author"],
     pointers: o["pointers"].map(parsePointer),
   };

@@ -34,7 +34,7 @@ describe("l1-eval hole vectors (parameterized terms, SPEC-2 §6 / E15)", () => {
     it(c.name, () => {
       const term = parseTerm(c.term);
       expect(termHash(term)).toBe(c.termHash);
-      const result = evalTerm(term, set, undefined, registry);
+      const result = evalTerm(term, set, 1_000_000_000_000_000, undefined, registry);
       expect(resultCanonicalHex(result)).toBe(c.expectedCanonicalHex);
     });
   }
@@ -46,7 +46,9 @@ describe("l1-eval hole vectors (parameterized terms, SPEC-2 §6 / E15)", () => {
 
   it("an unbound hole fails loudly at evaluation time (E15)", () => {
     const term = parseTerm({ op: "fix", schema: "ViewAsOf", entity: "movie:matrix" });
-    expect(() => evalTerm(term, set, undefined, registry)).toThrow(/unbound hole/);
+    expect(() => evalTerm(term, set, 1_000_000_000_000_000, undefined, registry)).toThrow(
+      /unbound hole/,
+    );
   });
 
   it("parse∘serialize is identity on holes and bindings (E12)", () => {

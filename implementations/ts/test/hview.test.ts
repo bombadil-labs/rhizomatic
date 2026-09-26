@@ -26,7 +26,7 @@ const fixtureSet = DeltaSet.from(doc.fixture.deltas.map((d) => makeDelta(parseCl
 describe("l1-eval hview vectors (group/prune)", () => {
   for (const c of doc.cases) {
     it(c.name, () => {
-      const result = evalTerm(parseTerm(c.term), fixtureSet, c.root);
+      const result = evalTerm(parseTerm(c.term), fixtureSet, 1_000_000_000_000_000, c.root);
       if (result.sort !== "hview") throw new Error("expected an HView result");
       expect(result.hview.id).toBe(c.expected.id);
       const props: Record<string, Array<{ id: string; negated?: boolean }>> = {};
@@ -53,7 +53,12 @@ describe("l1-eval hview vectors (group/prune)", () => {
 describe("sort errors (ERRATA-2 E9)", () => {
   it("prune over a DSet operand throws", () => {
     expect(() =>
-      evalTerm(parseTerm({ op: "prune", keep: "all", in: "input" }), fixtureSet, "movie:matrix"),
+      evalTerm(
+        parseTerm({ op: "prune", keep: "all", in: "input" }),
+        fixtureSet,
+        1_000_000_000_000_000,
+        "movie:matrix",
+      ),
     ).toThrow(/HView operand/);
   });
 
@@ -63,12 +68,18 @@ describe("sort errors (ERRATA-2 E9)", () => {
       pred: "true",
       in: { op: "group", key: "byRole", in: "input" },
     });
-    expect(() => evalTerm(term, fixtureSet, "movie:matrix")).toThrow(/DSet operand/);
+    expect(() => evalTerm(term, fixtureSet, 1_000_000_000_000_000, "movie:matrix")).toThrow(
+      /DSet operand/,
+    );
   });
 
   it("group without an ambient root throws", () => {
     expect(() =>
-      evalTerm(parseTerm({ op: "group", key: "byRole", in: "input" }), fixtureSet),
+      evalTerm(
+        parseTerm({ op: "group", key: "byRole", in: "input" }),
+        fixtureSet,
+        1_000_000_000_000_000,
+      ),
     ).toThrow(/ambient root/);
   });
 });
@@ -78,6 +89,7 @@ describe("group filing invariants (E6)", () => {
     const result = evalTerm(
       parseTerm({ op: "group", key: "byRole", in: "input" }),
       fixtureSet,
+      1_000_000_000_000_000,
       "movie:matrix",
     );
     if (result.sort !== "hview") throw new Error("expected hview");
@@ -95,6 +107,7 @@ describe("group filing invariants (E6)", () => {
     const result = evalTerm(
       parseTerm({ op: "group", key: "byTargetContext", in: "input" }),
       fixtureSet,
+      1_000_000_000_000_000,
       "movie:matrix",
     );
     if (result.sort !== "hview") throw new Error("expected hview");

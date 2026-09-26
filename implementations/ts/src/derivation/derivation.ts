@@ -71,6 +71,7 @@ export function derivedClaims(
   // timestamp 0: pure output must be a function of (fn, input hash) only (G3).
   return {
     timestamp: 0,
+    validFrom: 0,
     author,
     pointers: [...substantive, ...provenancePointers(spec, inputHex)],
   };
@@ -88,6 +89,7 @@ export class DerivationHost {
     const binds = signClaims(
       {
         timestamp: 0,
+        validFrom: 0,
         author,
         pointers: [
           {
@@ -162,6 +164,7 @@ export class DerivationHost {
       // Divergence becomes an observable event, not a melted reactor (G2).
       return this.emitSigned(b, {
         timestamp: 0,
+        validFrom: 0,
         author: b.author,
         pointers: [
           {

@@ -43,6 +43,8 @@ fn claims() -> impl Strategy<Value = Claims> {
     )
         .prop_map(|(ts, author, pointers)| Claims {
             timestamp: ts as f64,
+            valid_from: ts as f64,
+            valid_until: None,
             author: author.to_string(),
             pointers,
         })
@@ -113,7 +115,7 @@ proptest! {
 #[test]
 fn rejects_forged_id() {
     let claims = parse_claims(&serde_json::json!({
-        "timestamp": 0, "author": "a",
+        "timestamp": 0, "validFrom": 0, "author": "a",
         "pointers": [{ "role": "x", "target": 1 }]
     }))
     .unwrap();

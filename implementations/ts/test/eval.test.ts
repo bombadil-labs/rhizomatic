@@ -41,7 +41,7 @@ describe("l1-eval vectors (select/union/mask)", () => {
 
   for (const c of evalBasic.cases) {
     it(c.name, () => {
-      const result = asDSet(evalTerm(parseTerm(c.term), fixtureSet));
+      const result = asDSet(evalTerm(parseTerm(c.term), fixtureSet, 1_000_000_000_000_000));
       expect(result.set.ids()).toEqual(c.expected.ids);
       if (c.expected.negated !== undefined) {
         expect([...result.negated].sort()).toEqual(c.expected.negated);
@@ -80,7 +80,7 @@ describe("l1-eval set algebra vectors (difference/intersect)", () => {
 
   for (const c of evalSetAlgebra.cases) {
     it(c.name, () => {
-      const result = asDSet(evalTerm(parseTerm(c.term), setAlgebraSet));
+      const result = asDSet(evalTerm(parseTerm(c.term), setAlgebraSet, 1_000_000_000_000_000));
       expect(result.set.ids()).toEqual(c.expected.ids);
       if (c.expected.negated !== undefined) {
         expect([...result.negated].sort()).toEqual(c.expected.negated);
@@ -91,7 +91,7 @@ describe("l1-eval set algebra vectors (difference/intersect)", () => {
 
   for (const r of evalSetAlgebra.rejects) {
     it(`rejects: ${r.name}`, () => {
-      expect(() => evalTerm(parseTerm(r.term), setAlgebraSet)).toThrow();
+      expect(() => evalTerm(parseTerm(r.term), setAlgebraSet, 1_000_000_000_000_000)).toThrow();
     });
   }
 });
@@ -125,7 +125,7 @@ describe("l1-eval relational-completeness vectors", () => {
 
   for (const c of evalRelational.cases) {
     it(c.name, () => {
-      const result = asDSet(evalTerm(parseTerm(c.term), relationalSet));
+      const result = asDSet(evalTerm(parseTerm(c.term), relationalSet, 1_000_000_000_000_000));
       expect(result.set.ids()).toEqual(c.expected.ids);
       expect(resultCanonicalHex(result)).toBe(c.expectedCanonicalHex);
     });
@@ -140,7 +140,7 @@ describe("l1-eval relational-completeness vectors", () => {
 
   for (const r of evalRelational.rejects) {
     it(`rejects: ${r.name}`, () => {
-      expect(() => evalTerm(parseTerm(r.term), relationalSet)).toThrow();
+      expect(() => evalTerm(parseTerm(r.term), relationalSet, 1_000_000_000_000_000)).toThrow();
     });
   }
 });
@@ -159,6 +159,7 @@ const pointerArb: fc.Arbitrary<Pointer> = fc.record({
 
 const claimsArb: fc.Arbitrary<Claims> = fc.record({
   timestamp: fc.integer({ min: 0, max: 1000 }),
+  validFrom: fc.integer({ min: 0, max: 1000 }),
   author: fc.constantFrom("did:key:zA", "did:key:zB"),
   pointers: fc.array(pointerArb, { minLength: 1, maxLength: 2 }),
 });
@@ -190,8 +191,10 @@ describe("evaluator laws (SPEC-2)", () => {
   it("select composes by conjunction: select(p, select(q, D)) = select(and(p,q), D)", () => {
     fc.assert(
       fc.property(setArb, predArb, predArb, (d, p, q) => {
-        const nested = asDSet(evalTerm(selectTerm(p, selectTerm(q)), d));
-        const conj = asDSet(evalTerm(selectTerm({ kind: "and", left: p, right: q }), d));
+        const nested = asDSet(evalTerm(selectTerm(p, selectTerm(q)), d, 1_000_000_000_000_000));
+        const conj = asDSet(
+          evalTerm(selectTerm({ kind: "and", left: p, right: q }), d, 1_000_000_000_000_000),
+        );
         return nested.set.digest() === conj.set.digest();
       }),
     );
@@ -200,8 +203,8 @@ describe("evaluator laws (SPEC-2)", () => {
   it("select is monotone: select(p, A) ⊆ select(p, A ∪ B)", () => {
     fc.assert(
       fc.property(setArb, setArb, predArb, (a, b, p) => {
-        const small = asDSet(evalTerm(selectTerm(p), a));
-        const big = asDSet(evalTerm(selectTerm(p), merge(a, b)));
+        const small = asDSet(evalTerm(selectTerm(p), a, 1_000_000_000_000_000));
+        const big = asDSet(evalTerm(selectTerm(p), merge(a, b), 1_000_000_000_000_000));
         return [...small.set].every((d) => big.set.has(d.id));
       }),
     );
@@ -211,7 +214,11 @@ describe("evaluator laws (SPEC-2)", () => {
     fc.assert(
       fc.property(setArb, (d) => {
         const masked = asDSet(
-          evalTerm({ kind: "mask", policy: { kind: "drop" }, of: { kind: "input" } }, d),
+          evalTerm(
+            { kind: "mask", policy: { kind: "drop" }, of: { kind: "input" } },
+            d,
+            1_000_000_000_000_000,
+          ),
         );
         return [...masked.set].every((x) => d.has(x.id));
       }),
@@ -222,9 +229,15 @@ describe("evaluator laws (SPEC-2)", () => {
     fc.assert(
       fc.property(setArb, predArb, predArb, (d, p, q) => {
         const viaUnion = asDSet(
-          evalTerm({ kind: "union", left: selectTerm(p), right: selectTerm(q) }, d),
+          evalTerm(
+            { kind: "union", left: selectTerm(p), right: selectTerm(q) },
+            d,
+            1_000_000_000_000_000,
+          ),
         );
-        const viaOr = asDSet(evalTerm(selectTerm({ kind: "or", left: p, right: q }), d));
+        const viaOr = asDSet(
+          evalTerm(selectTerm({ kind: "or", left: p, right: q }), d, 1_000_000_000_000_000),
+        );
         return viaUnion.set.digest() === viaOr.set.digest();
       }),
     );
@@ -233,7 +246,7 @@ describe("evaluator laws (SPEC-2)", () => {
   it("select agrees with direct fork over evalPred", () => {
     fc.assert(
       fc.property(setArb, predArb, (d, p) => {
-        const viaTerm = asDSet(evalTerm(selectTerm(p), d));
+        const viaTerm = asDSet(evalTerm(selectTerm(p), d, 1_000_000_000_000_000));
         const viaFork = fork(d, (x: Delta) => evalPred(p, x));
         return viaTerm.set.digest() === viaFork.digest();
       }),
@@ -247,11 +260,13 @@ describe("byte-honest strings at the boundary (ERRATA D16)", () => {
   it("admits both spellings, as two distinct claims", () => {
     const composed = makeDelta({
       timestamp: 0,
+      validFrom: 0,
       author: "a",
       pointers: [{ role: "caf\u00e9", target: { kind: "primitive", value: 1 } }],
     });
     const decomposed = makeDelta({
       timestamp: 0,
+      validFrom: 0,
       author: "a",
       pointers: [{ role: "cafe\u0301", target: { kind: "primitive", value: 1 } }],
     });

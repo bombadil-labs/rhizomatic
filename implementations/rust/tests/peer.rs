@@ -74,6 +74,8 @@ fn unsigned_uncovered_deltas_are_withheld() {
     let unsigned = make_delta(
         Claims {
             timestamp: 5.0,
+            valid_from: 5.0,
+            valid_until: None,
             author: "did:key:zLocalOnly".to_string(),
             pointers: vec![Pointer {
                 role: "note".to_string(),
@@ -99,6 +101,8 @@ fn signed_manifest_carries_unsigned_members_as_bundle() {
     let member = make_delta(
         Claims {
             timestamp: 7.0,
+            valid_from: 7.0,
+            valid_until: None,
             author: "did:key:zUnsignedAuthor".to_string(),
             pointers: vec![Pointer {
                 role: "note".to_string(),

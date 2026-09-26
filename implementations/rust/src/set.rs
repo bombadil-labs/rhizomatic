@@ -37,6 +37,8 @@ pub fn make_negation_claims(
     }
     Claims {
         timestamp,
+        valid_from: timestamp,
+        valid_until: None,
         author: author.to_string(),
         pointers,
     }

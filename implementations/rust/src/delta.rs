@@ -40,14 +40,19 @@ fn pointer_to_cbor(p: &Pointer) -> CborValue {
 }
 
 pub fn claims_to_cbor(claims: &Claims) -> CborValue {
-    CborValue::Map(vec![
+    let mut entries = vec![
         ("author".to_string(), CborValue::Tstr(claims.author.clone())),
         (
             "pointers".to_string(),
             CborValue::Array(claims.pointers.iter().map(pointer_to_cbor).collect()),
         ),
         ("timestamp".to_string(), CborValue::Float(claims.timestamp)),
-    ])
+        ("validFrom".to_string(), CborValue::Float(claims.valid_from)),
+    ];
+    if let Some(until) = claims.valid_until {
+        entries.push(("validUntil".to_string(), CborValue::Float(until)));
+    }
+    CborValue::Map(entries)
 }
 
 /// Reject malformed claims at the boundary; never repair (SPEC-4 §2).
@@ -57,6 +62,17 @@ pub fn validate(claims: &Claims) -> Result<(), String> {
     }
     if !claims.timestamp.is_finite() {
         return Err("timestamp must be finite".into());
+    }
+    if !claims.valid_from.is_finite() {
+        return Err("validFrom must be finite".into());
+    }
+    if let Some(until) = claims.valid_until {
+        if !until.is_finite() {
+            return Err("validUntil must be finite".into());
+        }
+        if until <= claims.valid_from {
+            return Err("validUntil must be greater than validFrom".into());
+        }
     }
     if claims.pointers.is_empty() {
         return Err("a delta MUST contain at least one pointer".into());

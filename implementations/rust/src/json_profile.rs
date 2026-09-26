@@ -118,11 +118,23 @@ fn parse_pointer(v: &Value) -> Result<Pointer, String> {
 }
 
 pub fn parse_claims(v: &Value) -> Result<Claims, String> {
-    let o = as_object(v, "claims", &["timestamp", "author", "pointers"])?;
+    let o = as_object(
+        v,
+        "claims",
+        &["timestamp", "validFrom", "validUntil", "author", "pointers"],
+    )?;
     let timestamp = o
         .get("timestamp")
         .and_then(Value::as_f64)
         .ok_or("claims.timestamp must be a number")?;
+    let valid_from = o
+        .get("validFrom")
+        .and_then(Value::as_f64)
+        .ok_or("claims.validFrom must be a number")?;
+    let valid_until = match o.get("validUntil") {
+        None => None,
+        Some(value) => Some(value.as_f64().ok_or("claims.validUntil must be a number")?),
+    };
     let author = o
         .get("author")
         .and_then(Value::as_str)
@@ -138,6 +150,8 @@ pub fn parse_claims(v: &Value) -> Result<Claims, String> {
         .collect::<Result<Vec<_>, _>>()?;
     Ok(Claims {
         timestamp,
+        valid_from,
+        valid_until,
         author,
         pointers,
     })
@@ -169,5 +183,9 @@ pub fn claims_to_json(claims: &Claims) -> Value {
             json!({ "role": p.role, "target": target })
         })
         .collect();
-    json!({ "timestamp": claims.timestamp, "author": claims.author, "pointers": pointers })
+    let mut out = json!({ "timestamp": claims.timestamp, "validFrom": claims.valid_from, "author": claims.author, "pointers": pointers });
+    if let Some(until) = claims.valid_until {
+        out["validUntil"] = json!(until);
+    }
+    out
 }

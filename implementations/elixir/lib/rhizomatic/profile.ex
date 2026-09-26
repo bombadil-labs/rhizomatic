@@ -26,7 +26,7 @@ defmodule Rhizomatic.Profile do
 
   import Bitwise
 
-  @claims_keys ["timestamp", "author", "pointers"]
+  @claims_keys ["timestamp", "validFrom", "validUntil", "author", "pointers"]
   @pointer_keys ["role", "target"]
   @entity_keys ["id", "context"]
   @delta_keys ["delta", "context"]
@@ -38,15 +38,31 @@ defmodule Rhizomatic.Profile do
   def parse_claims(m) when is_map(m) do
     with :ok <- closed(m, @claims_keys, :claims),
          {:ok, ts} <- fetch(m, "timestamp", :claims),
+         {:ok, valid_from} <- fetch(m, "validFrom", :claims),
          {:ok, author} <- fetch(m, "author", :claims),
          {:ok, raw_pointers} <- fetch(m, "pointers", :claims),
          {:ok, ts} <- coerce_number(ts, :timestamp),
+         {:ok, valid_from} <- coerce_number(valid_from, :valid_from),
+         {:ok, valid_until} <- optional_valid_until(m),
          {:ok, pointers} <- parse_pointers(raw_pointers) do
-      Delta.validate(%{timestamp: ts, author: author, pointers: pointers})
+      Delta.validate(
+        %{timestamp: ts, valid_from: valid_from, author: author, pointers: pointers}
+        |> maybe_valid_until(valid_until)
+      )
     end
   end
 
   def parse_claims(_), do: {:error, :malformed_claims}
+
+  defp optional_valid_until(m) do
+    case Map.fetch(m, "validUntil") do
+      :error -> {:ok, nil}
+      {:ok, value} -> coerce_number(value, :valid_until)
+    end
+  end
+
+  defp maybe_valid_until(claims, nil), do: claims
+  defp maybe_valid_until(claims, value), do: Map.put(claims, :valid_until, value)
 
   defp parse_pointers(pointers) when is_list(pointers) do
     pointers

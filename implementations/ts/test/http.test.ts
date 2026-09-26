@@ -10,6 +10,7 @@ import type { Claims } from "../src/types.js";
 const claim = (timestamp: number, entity: string, context: string, value: string | number) =>
   ({
     timestamp,
+    validFrom: timestamp,
     pointers: [
       { role: "subject", target: { kind: "entity", entity: { id: entity, context } } },
       { role: "value", target: { kind: "primitive", value } },
@@ -47,6 +48,7 @@ describe("the blessed HTTP binding (ERRATA-6 F5)", () => {
     const a = new Peer("c3".repeat(32));
     const member = makeDelta({
       timestamp: 7,
+      validFrom: 7,
       author: "did:key:zUnsigned",
       pointers: [{ role: "note", target: { kind: "primitive", value: "covered" } }],
     });

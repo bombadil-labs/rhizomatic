@@ -14,10 +14,11 @@ const here = dirname(fileURLToPath(import.meta.url));
 const bonzo = new Uint8Array(readFileSync(resolve(here, "../../../vectors/assets/bonzo.png")));
 
 // bonzo's canonical content address — pinned identically in the Rust witness.
-const BONZO_ID = "1e20d1a6dc435727435c822a76c5d23ae8235e5aa6c2bf3100b7b5a9434e362601d3";
+const BONZO_ID = "1e20fca83dc25c1e553b8a11f35df78f5d85f69d58d38fafaffa96a68159633d2d63";
 
 const bonzoClaims = (): Claims => ({
   timestamp: 0,
+  validFrom: 0,
   author: "bonzo",
   pointers: [{ role: "avatar", target: { kind: "bytes", mime: "image/png", value: bonzo } }],
 });

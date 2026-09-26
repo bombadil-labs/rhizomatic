@@ -32,7 +32,13 @@ pub(crate) const TERM_KEYS: [(&str, &[&str]); 10] = [
 const STR_MATCH_TAGS: [&str; 4] = ["exact", "prefix", "inSet", "aliased"];
 const VAL_MATCH_TAGS: [&str; 3] = ["vcmp", "between", "inSet"];
 const PRED_TAGS: [&str; 6] = ["match", "hasPointer", "and", "or", "not", "inView"];
-const ORDER_TAGS: [&str; 4] = ["byTimestamp", "byAuthorRank", "byPred", "chain"];
+const ORDER_TAGS: [&str; 5] = [
+    "byTimestamp",
+    "byValidFrom",
+    "byAuthorRank",
+    "byPred",
+    "chain",
+];
 const POLICY_TAGS: [&str; 5] = ["pick", "all", "merge", "conflicts", "absentAs"];
 const EXTRACT_TAGS: [&str; 2] = ["field", "role"];
 
@@ -456,6 +462,11 @@ fn parse_order(raw: &Value) -> Result<Order, String> {
             Some("desc") => Ok(Order::ByTimestamp { desc: true }),
             Some("asc") => Ok(Order::ByTimestamp { desc: false }),
             _ => Err("byTimestamp must be desc | asc".to_string()),
+        },
+        "byValidFrom" => match o["byValidFrom"].as_str() {
+            Some("desc") => Ok(Order::ByValidFrom { desc: true }),
+            Some("asc") => Ok(Order::ByValidFrom { desc: false }),
+            _ => Err("byValidFrom must be desc | asc".to_string()),
         },
         "byAuthorRank" => {
             let arr = o["byAuthorRank"]

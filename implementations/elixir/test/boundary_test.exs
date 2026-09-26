@@ -11,6 +11,7 @@ defmodule BoundaryTest do
       assert {:error, {:native_integer, :timestamp}} =
                Delta.validate(%{
                  timestamp: 42,
+                 valid_from: 42.0,
                  author: "did:key:zA",
                  pointers: [%{role: "x", target: {:string, "y"}}]
                })
@@ -20,6 +21,7 @@ defmodule BoundaryTest do
       assert {:error, {:native_integer, :target}} =
                Delta.validate(%{
                  timestamp: 0.0,
+                 valid_from: 0.0,
                  author: "did:key:zA",
                  pointers: [%{role: "answer", target: {:number, 42}}]
                })
@@ -29,6 +31,7 @@ defmodule BoundaryTest do
       assert {:ok, _} =
                Delta.validate(%{
                  timestamp: 42.0,
+                 valid_from: 42.0,
                  author: "did:key:zA",
                  pointers: [%{role: "answer", target: {:number, 42.0}}]
                })
@@ -38,6 +41,7 @@ defmodule BoundaryTest do
       {:ok, a} =
         Profile.parse_claims(%{
           "timestamp" => 42,
+          "validFrom" => 42,
           "author" => "did:key:zA",
           "pointers" => [%{"role" => "answer", "target" => 42}]
         })
@@ -45,6 +49,7 @@ defmodule BoundaryTest do
       {:ok, b} =
         Profile.parse_claims(%{
           "timestamp" => 42.0,
+          "validFrom" => 42.0,
           "author" => "did:key:zA",
           "pointers" => [%{"role" => "answer", "target" => 42.0}]
         })
@@ -59,6 +64,7 @@ defmodule BoundaryTest do
       assert {:error, {:not_exact_f64, _}} =
                Profile.parse_claims(%{
                  "timestamp" => 0,
+                 "validFrom" => 0,
                  "author" => "did:key:zA",
                  "pointers" => [%{"role" => "n", "target" => big}]
                })
@@ -71,6 +77,7 @@ defmodule BoundaryTest do
       assert {:ok, claims} =
                Profile.parse_claims(%{
                  "timestamp" => 0,
+                 "validFrom" => 0,
                  "author" => "did:key:zA",
                  "pointers" => [%{"role" => "n", "target" => exact}]
                })
@@ -97,6 +104,7 @@ defmodule BoundaryTest do
       assert {:ok, _} =
                Delta.validate(%{
                  timestamp: 0.0,
+                 valid_from: 0.0,
                  author: "did:key:zAuthor" <> @nfd_e,
                  pointers: [
                    %{role: @nfd_e, target: {:string, @nfd_e}},
@@ -111,6 +119,7 @@ defmodule BoundaryTest do
         {:ok, claims} =
           Delta.validate(%{
             timestamp: 0.0,
+            valid_from: 0.0,
             author: "did:key:zA",
             pointers: [%{role: s, target: {:string, s}}]
           })
@@ -127,6 +136,7 @@ defmodule BoundaryTest do
       assert {:error, {:not_a_string, :role}} =
                Delta.validate(%{
                  timestamp: 0.0,
+                 valid_from: 0.0,
                  author: "did:key:zA",
                  pointers: [%{role: <<0xFF, 0xFE>>, target: {:string, "y"}}]
                })

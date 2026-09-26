@@ -15,6 +15,7 @@ export type MergeFn = "max" | "min" | "sum" | "count" | "and" | "or" | "concatSo
 
 export type Order =
   | { readonly kind: "byTimestamp"; readonly dir: "desc" | "asc" }
+  | { readonly kind: "byValidFrom"; readonly dir: "desc" | "asc" }
   | { readonly kind: "byAuthorRank"; readonly authors: readonly string[] }
   | { readonly kind: "byPred"; readonly pred: Pred; readonly then: Order }
   | { readonly kind: "chain"; readonly orders: readonly Order[] }

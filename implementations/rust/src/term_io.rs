@@ -150,6 +150,7 @@ pub fn pred_to_json(pred: &Pred) -> Value {
 fn order_to_json(o: &Order) -> Value {
     match o {
         Order::ByTimestamp { desc } => json!({ "byTimestamp": if *desc { "desc" } else { "asc" } }),
+        Order::ByValidFrom { desc } => json!({ "byValidFrom": if *desc { "desc" } else { "asc" } }),
         Order::ByAuthorRank(authors) => json!({ "byAuthorRank": authors }),
         Order::ByPred { pred, then } => {
             json!({ "byPred": { "pred": pred_to_json(pred), "then": order_to_json(then) } })

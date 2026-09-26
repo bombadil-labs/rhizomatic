@@ -52,4 +52,10 @@ jobs:
       - name: publish (OIDC trusted publishing)
         # --provenance is spelled out despite docs claiming it's automatic (field reports differ).
         # Verified 2026-07-10: token exchange 201 against the package's Trusted Publisher config.
-        run: npm publish --provenance
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          if [[ "$VERSION" == *-* ]]; then
+            npm publish --provenance --tag next
+          else
+            npm publish --provenance
+          fi

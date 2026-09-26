@@ -951,16 +951,25 @@
     ]);
   }
   function claimsToCbor(claims) {
-    return map([
+    const entries = [
       ["author", tstr(claims.author)],
       ["pointers", array(claims.pointers.map(pointerToCbor))],
-      ["timestamp", float(claims.timestamp)]
-    ]);
+      ["timestamp", float(claims.timestamp)],
+      ["validFrom", float(claims.validFrom)]
+    ];
+    if (claims.validUntil !== void 0) entries.push(["validUntil", float(claims.validUntil)]);
+    return map(entries);
   }
   function assertValidClaims(claims) {
     if (typeof claims.author !== "string") throw new Error("author must be a string");
     if (claims.author.length === 0) throw new Error("author must be non-empty");
     if (!Number.isFinite(claims.timestamp)) throw new Error("timestamp must be finite");
+    if (!Number.isFinite(claims.validFrom)) throw new Error("validFrom must be finite");
+    if (claims.validUntil !== void 0) {
+      if (!Number.isFinite(claims.validUntil)) throw new Error("validUntil must be finite");
+      if (claims.validUntil <= claims.validFrom)
+        throw new Error("validUntil must be greater than validFrom");
+    }
     if (claims.pointers.length < 1) throw new Error("a delta MUST contain at least one pointer");
     for (const p of claims.pointers) {
       if (typeof p.role !== "string") throw new Error("role must be a string");
@@ -1019,7 +1028,7 @@
     if (reason !== void 0) {
       pointers.push({ role: "reason", target: { kind: "primitive", value: reason } });
     }
-    return { timestamp, author, pointers };
+    return { timestamp, validFrom: timestamp, author, pointers };
   }
   var DeltaSet = class _DeltaSet {
     byId = /* @__PURE__ */ new Map();
@@ -2830,6 +2839,7 @@
   function derivedClaims(spec, author, substantive, inputHex) {
     return {
       timestamp: 0,
+      validFrom: 0,
       author,
       pointers: [...substantive, ...provenancePointers(spec, inputHex)]
     };
@@ -2847,6 +2857,7 @@
       const binds = signClaims(
         {
           timestamp: 0,
+          validFrom: 0,
           author,
           pointers: [
             {
@@ -2913,6 +2924,7 @@
         b.suspended = true;
         return this.emitSigned(b, {
           timestamp: 0,
+          validFrom: 0,
           author: b.author,
           pointers: [
             {
@@ -3090,6 +3102,8 @@
     switch (o.kind) {
       case "byTimestamp":
         return { byTimestamp: o.dir };
+      case "byValidFrom":
+        return { byValidFrom: o.dir };
       case "byAuthorRank":
         return { byAuthorRank: [...o.authors] };
       case "byPred":
@@ -3495,6 +3509,11 @@
         if (d !== 0) return order.dir === "desc" ? -d : d;
         return 0;
       }
+      case "byValidFrom": {
+        const d = a.delta.claims.validFrom - b.delta.claims.validFrom;
+        if (d !== 0) return order.dir === "desc" ? -d : d;
+        return 0;
+      }
       case "byAuthorRank": {
         const rank = (author) => {
           const i = order.authors.indexOf(author);
@@ -3842,7 +3861,7 @@
   function resolveReflective(pred, input, root, registry, bindings) {
     switch (pred.kind) {
       case "inView": {
-        const sub = evalTerm(pred.term, input, root, registry, bindings);
+        const sub = evalTermRaw(pred.term, input, root, registry, bindings);
         if (sub.sort !== "dset") throw new Error("inView.term must evaluate to a DSet (E9)");
         return {
           kind: "match",
@@ -3903,12 +3922,12 @@
     }
     return { id: root, props };
   }
-  function evalTerm(term, input, root, registry, bindings) {
+  function evalTermRaw(term, input, root, registry, bindings) {
     switch (term.kind) {
       case "input":
         return dsetResult(input);
       case "select": {
-        const of = expectDSet(evalTerm(term.of, input, root, registry, bindings), "select");
+        const of = expectDSet(evalTermRaw(term.of, input, root, registry, bindings), "select");
         const pred = resolveReflective(
           expandAliased(substituteHoles(term.pred, bindings), input, root),
           input,
@@ -3919,25 +3938,28 @@
         return dsetResult(fork(of.set, (d) => evalPred(pred, d, root)));
       }
       case "union": {
-        const left = expectDSet(evalTerm(term.left, input, root, registry, bindings), "union");
-        const right = expectDSet(evalTerm(term.right, input, root, registry, bindings), "union");
+        const left = expectDSet(evalTermRaw(term.left, input, root, registry, bindings), "union");
+        const right = expectDSet(evalTermRaw(term.right, input, root, registry, bindings), "union");
         return dsetResult(merge(left.set, right.set));
       }
       case "intersect": {
-        const left = expectDSet(evalTerm(term.left, input, root, registry, bindings), "intersect");
-        const right = expectDSet(evalTerm(term.right, input, root, registry, bindings), "intersect");
+        const left = expectDSet(evalTermRaw(term.left, input, root, registry, bindings), "intersect");
+        const right = expectDSet(
+          evalTermRaw(term.right, input, root, registry, bindings),
+          "intersect"
+        );
         return dsetResult(fork(left.set, (d) => right.set.has(d.id)));
       }
       case "difference": {
-        const of = expectDSet(evalTerm(term.of, input, root, registry, bindings), "difference");
+        const of = expectDSet(evalTermRaw(term.of, input, root, registry, bindings), "difference");
         const without = expectDSet(
-          evalTerm(term.without, input, root, registry, bindings),
+          evalTermRaw(term.without, input, root, registry, bindings),
           "difference"
         );
         return dsetResult(fork(of.set, (d) => !without.set.has(d.id)));
       }
       case "mask": {
-        const of = expectDSet(evalTerm(term.of, input, root, registry, bindings), "mask");
+        const of = expectDSet(evalTermRaw(term.of, input, root, registry, bindings), "mask");
         switch (term.policy.kind) {
           case "drop": {
             const negated = computeNegated(of.set);
@@ -3963,11 +3985,11 @@
       }
       case "group": {
         if (root === void 0) throw new Error("group requires an ambient root entity (E9)");
-        const of = expectDSet(evalTerm(term.of, input, root, registry, bindings), "group");
+        const of = expectDSet(evalTermRaw(term.of, input, root, registry, bindings), "group");
         return { sort: "hview", hview: evalGroup(term.key, of, root) };
       }
       case "prune": {
-        const of = expectHView(evalTerm(term.of, input, root, registry, bindings), "prune");
+        const of = expectHView(evalTermRaw(term.of, input, root, registry, bindings), "prune");
         if (term.keep === "all") return of;
         const keep = expandStrMatch(term.keep, input, root);
         const props = /* @__PURE__ */ new Map();
@@ -3977,7 +3999,7 @@
         return { sort: "hview", hview: { id: of.hview.id, props } };
       }
       case "expand": {
-        const of = expectHView(evalTerm(term.of, input, root, registry, bindings), "expand");
+        const of = expectHView(evalTermRaw(term.of, input, root, registry, bindings), "expand");
         const role = expandStrMatch(term.role, input, root);
         const reading = term.reading === void 0 ? void 0 : lookupReading(term.reading, registry);
         const props = /* @__PURE__ */ new Map();
@@ -4015,10 +4037,18 @@
           hview: evalSchema(term.schema, input, term.entity, registry, term.bindings ?? bindings)
         };
       case "resolve": {
-        const of = expectHView(evalTerm(term.of, input, root, registry, bindings), "resolve");
+        const of = expectHView(evalTermRaw(term.of, input, root, registry, bindings), "resolve");
         return { sort: "view", view: resolveView(term.schema, of.hview) };
       }
     }
+  }
+  function evalTerm(term, input, now, root, registry, bindings) {
+    if (!Number.isFinite(now)) throw new Error("now must be a finite number");
+    const valid = fork(
+      input,
+      (d) => d.claims.validFrom <= now && (d.claims.validUntil === void 0 || now < d.claims.validUntil)
+    );
+    return evalTermRaw(term, valid, root, registry, bindings);
   }
   function evalSchema(ref, input, root, registry, bindings) {
     const label = ref.kind === "name" ? ref.name : `pinned:${ref.hash.slice(0, 12)}\u2026`;
@@ -4026,7 +4056,7 @@
       throw new Error(`schema ${label} referenced but no registry supplied (E10)`);
     const schema = registry.resolve(ref);
     if (schema === void 0) throw new Error(`unknown schema: ${label} (E10/E13)`);
-    const result = evalTerm(schema.body, input, root, registry, bindings);
+    const result = evalTermRaw(schema.body, input, root, registry, bindings);
     if (result.sort !== "hview") {
       throw new Error(`schema ${label} body must be an HView-sort term (E10)`);
     }
@@ -4241,6 +4271,8 @@
   function claimsToJson(claims) {
     return {
       timestamp: claims.timestamp,
+      validFrom: claims.validFrom,
+      ...claims.validUntil === void 0 ? {} : { validUntil: claims.validUntil },
       author: claims.author,
       pointers: claims.pointers.map((p) => {
         let target;
@@ -4269,12 +4301,17 @@
     };
   }
   function parseClaims(raw) {
-    const o = asObject(raw, "claims", ["timestamp", "author", "pointers"]);
+    const o = asObject(raw, "claims", ["timestamp", "validFrom", "validUntil", "author", "pointers"]);
     if (typeof o["timestamp"] !== "number") throw new Error("claims.timestamp must be a number");
+    if (typeof o["validFrom"] !== "number") throw new Error("claims.validFrom must be a number");
+    if (o["validUntil"] !== void 0 && typeof o["validUntil"] !== "number")
+      throw new Error("claims.validUntil must be a number when present");
     if (typeof o["author"] !== "string") throw new Error("claims.author must be a string");
     if (!Array.isArray(o["pointers"])) throw new Error("claims.pointers must be an array");
     return {
       timestamp: o["timestamp"],
+      validFrom: o["validFrom"],
+      ...o["validUntil"] === void 0 ? {} : { validUntil: o["validUntil"] },
       author: o["author"],
       pointers: o["pointers"].map(parsePointer)
     };
@@ -4286,7 +4323,7 @@
   }
 
   // src/storage/pack.ts
-  var PACK_VERSION = 1;
+  var PACK_VERSION = 2;
   function stringsOf(delta, out) {
     out.add(delta.id);
     out.add(delta.claims.author);
@@ -4344,8 +4381,10 @@
       ["i", float(idx(d.id))],
       ["a", float(idx(d.claims.author))],
       ["t", float(d.claims.timestamp)],
+      ["f", float(d.claims.validFrom)],
       ["p", array(d.claims.pointers.map((p) => ptrToCbor(p, idx)))]
     ];
+    if (d.claims.validUntil !== void 0) entries.push(["u", float(d.claims.validUntil)]);
     if (d.sig !== void 0) entries.push(["s", float(idx(d.sig))]);
     return map(entries);
   }
@@ -4353,8 +4392,10 @@
     const entries = [
       ["i", float(idx(d.id))],
       ["m", float(envelopeIdx)],
+      ["f", float(d.claims.validFrom)],
       ["p", array(d.claims.pointers.map((p) => ptrToCbor(p, idx)))]
     ];
+    if (d.claims.validUntil !== void 0) entries.push(["u", float(d.claims.validUntil)]);
     if (d.claims.author !== manifest.claims.author) entries.push(["a", float(idx(d.claims.author))]);
     const dt = d.claims.timestamp - manifest.claims.timestamp;
     if (dt !== 0) entries.push(["dt", float(dt)]);
@@ -4452,6 +4493,8 @@
     const claims = {
       author: strings[asNum(o.get("a"), "a")],
       timestamp: asNum(o.get("t"), "t"),
+      validFrom: asNum(o.get("f"), "f"),
+      ...o.has("u") ? { validUntil: asNum(o.get("u"), "u") } : {},
       pointers: asArray(o.get("p"), "p").map((p) => ptrFromCbor(p, strings))
     };
     const sig = o.has("s") ? strings[asNum(o.get("s"), "s")] : void 0;
@@ -4487,6 +4530,8 @@
       const claims = {
         author,
         timestamp,
+        validFrom: asNum(o.get("f"), "f"),
+        ...o.has("u") ? { validUntil: asNum(o.get("u"), "u") } : {},
         pointers: asArray(o.get("p"), "p").map((p) => ptrFromCbor(p, strings))
       };
       const sig = o.has("s") ? strings[asNum(o.get("s"), "s")] : void 0;
@@ -4658,6 +4703,50 @@
   };
 
   // src/reactor/reactor.ts
+  var height = (node) => node?.height ?? 0;
+  var boundaryNode = (at, left, right) => ({
+    at,
+    ...left === void 0 ? {} : { left },
+    ...right === void 0 ? {} : { right },
+    height: 1 + Math.max(height(left), height(right))
+  });
+  function rotateRight(node) {
+    const left = node.left;
+    return boundaryNode(left.at, left.left, boundaryNode(node.at, left.right, node.right));
+  }
+  function rotateLeft(node) {
+    const right = node.right;
+    return boundaryNode(right.at, boundaryNode(node.at, node.left, right.left), right.right);
+  }
+  function insertBoundary(node, at) {
+    if (node === void 0) return boundaryNode(at);
+    if (at === node.at) return node;
+    const updated = at < node.at ? boundaryNode(node.at, insertBoundary(node.left, at), node.right) : boundaryNode(node.at, node.left, insertBoundary(node.right, at));
+    const balance = height(updated.left) - height(updated.right);
+    if (balance > 1) {
+      return rotateRight(
+        at > updated.left.at ? boundaryNode(updated.at, rotateLeft(updated.left), updated.right) : updated
+      );
+    }
+    if (balance < -1) {
+      return rotateLeft(
+        at < updated.right.at ? boundaryNode(updated.at, updated.left, rotateRight(updated.right)) : updated
+      );
+    }
+    return updated;
+  }
+  function boundaryAfter(node, now) {
+    let next;
+    while (node !== void 0) {
+      if (node.at > now) {
+        next = node.at;
+        node = node.left;
+      } else {
+        node = node.right;
+      }
+    }
+    return next;
+  }
   var Reactor = class {
     // The append-only log in arrival order (v0: in-memory; the log is still the truth — V2).
     log = [];
@@ -4667,6 +4756,7 @@
     // negation index: delta id -> ids of negations targeting it (SPEC-4 §3)
     negationIndex = /* @__PURE__ */ new Map();
     materializations = /* @__PURE__ */ new Map();
+    validityBoundaries;
     // value index: role -> canonical primitive key -> { value, ids } (V1: keyed by role)
     valueIndex = /* @__PURE__ */ new Map();
     // Validate -> persist -> index. Idempotent by id; rejected deltas leave no trace (V3).
@@ -4687,6 +4777,10 @@
       return { status: "accepted" };
     }
     index(delta) {
+      this.validityBoundaries = insertBoundary(this.validityBoundaries, delta.claims.validFrom);
+      if (delta.claims.validUntil !== void 0) {
+        this.validityBoundaries = insertBoundary(this.validityBoundaries, delta.claims.validUntil);
+      }
       for (const ptr of delta.claims.pointers) {
         switch (ptr.target.kind) {
           case "entity": {
@@ -4776,14 +4870,15 @@
     }
     // Batch evaluation over the current set — the oracle hookup (SPEC-4 §1). Read-your-writes
     // holds trivially: ingest is synchronous, so an accepted delta is visible immediately (§6).
-    eval(term, root, registry) {
-      return evalTerm(term, this.set, root, registry);
+    eval(term, now, root, registry) {
+      return evalTerm(term, this.set, now, root, registry);
     }
     // --- materializations (SPEC-4 §4, ERRATA-4 V5) ---
     lastChanges = [];
     // Register a live materialization: an HView-sort term (a function of $root) kept
     // incrementally equal to batch evaluation at each root (SPEC-4 §1).
-    register(name, term, roots, registry) {
+    register(name, term, roots, now, registry) {
+      if (!Number.isFinite(now)) throw new Error("now must be a finite number");
       if (this.materializations.has(name)) throw new Error(`duplicate materialization: ${name}`);
       const mat = {
         name,
@@ -4791,6 +4886,7 @@
         roots: [...roots],
         registry,
         rootAnchored: isRootAnchored(term, registry),
+        now,
         views: /* @__PURE__ */ new Map(),
         hexes: /* @__PURE__ */ new Map(),
         propHexes: /* @__PURE__ */ new Map(),
@@ -4812,8 +4908,40 @@
     changesFromLastIngest() {
       return this.lastChanges;
     }
+    // Advance maintained views using a caller-supplied instant. The host schedules this at the
+    // next boundary; no clock is read inside the reactor. Empty responsible ids mean time alone
+    // changed the surface.
+    advanceTime(now) {
+      if (!Number.isFinite(now)) throw new Error("now must be a finite number");
+      const changes = [];
+      for (const mat of this.materializations.values()) {
+        if (mat.now === now) continue;
+        mat.now = now;
+        for (const root of mat.roots) {
+          const changedProps = this.refresh(mat, root);
+          if (changedProps !== void 0) {
+            changes.push({
+              materialization: mat.name,
+              root,
+              changedProps,
+              responsibleDeltaIds: [],
+              newHex: mat.hexes.get(root)
+            });
+          }
+        }
+      }
+      this.lastChanges = changes;
+      for (const c of changes) {
+        for (const cb of this.matSubscribers.get(c.materialization) ?? []) cb(c);
+      }
+      return changes;
+    }
+    nextValidityBoundary(now) {
+      if (!Number.isFinite(now)) throw new Error("now must be a finite number");
+      return boundaryAfter(this.validityBoundaries, now);
+    }
     refresh(mat, root) {
-      const result = evalTerm(mat.term, this.set, root, mat.registry);
+      const result = evalTerm(mat.term, this.set, mat.now, root, mat.registry);
       if (result.sort !== "hview") throw new Error("materialized terms must be HView-sort");
       mat.evalCount += 1;
       const hex = hviewCanonicalHex(result.hview);
@@ -5043,7 +5171,7 @@
     }
     // The offered set: eval(lens, log) — lens fidelity is a tested invariant (F4).
     offeredSet() {
-      const result = evalTerm(this.offeredLens, this.reactor.snapshot());
+      const result = evalTermRaw(this.offeredLens, this.reactor.snapshot());
       if (result.sort !== "dset") throw new Error("a lens must be a DSet-sort term (F4)");
       return [...result.set];
     }
@@ -5123,7 +5251,7 @@
   var STR_MATCH_TAGS = ["exact", "prefix", "inSet", "aliased"];
   var VAL_MATCH_TAGS = ["vcmp", "between", "inSet"];
   var PRED_TAGS = ["match", "hasPointer", "and", "or", "not", "inView"];
-  var ORDER_TAGS = ["byTimestamp", "byAuthorRank", "byPred", "chain"];
+  var ORDER_TAGS = ["byTimestamp", "byValidFrom", "byAuthorRank", "byPred", "chain"];
   var POLICY_TAGS = ["pick", "all", "merge", "conflicts", "absentAs"];
   var EXTRACT_TAGS = ["field", "role"];
   function parsePrimitive2(v, what) {
@@ -5366,6 +5494,12 @@
       }
       return { kind: "byTimestamp", dir: o["byTimestamp"] };
     }
+    if (tag === "byValidFrom") {
+      if (o["byValidFrom"] !== "desc" && o["byValidFrom"] !== "asc") {
+        throw new Error("byValidFrom must be desc | asc");
+      }
+      return { kind: "byValidFrom", dir: o["byValidFrom"] };
+    }
     if (tag === "byAuthorRank") {
       if (!Array.isArray(o["byAuthorRank"])) throw new Error("byAuthorRank must be an array");
       return {
@@ -5575,6 +5709,7 @@
       spec: "SPEC-1 \xA72",
       claims: {
         timestamp: 0,
+        validFrom: 0,
         author: "did:key:zAuthorA",
         pointers: [
           {
@@ -5583,14 +5718,15 @@
           }
         ]
       },
-      canonicalCborHex: "a366617574686f72706469643a6b65793a7a417574686f724168706f696e7465727381a264726f6c65657469746c65667461726765746a546865204d61747269786974696d657374616d70f90000",
-      id: "1e2030d96d325c7cfeb599f488598055041fb5303f062d3b32b43d5abedc6d3cee18"
+      canonicalCborHex: "a466617574686f72706469643a6b65793a7a417574686f724168706f696e7465727381a264726f6c65657469746c65667461726765746a546865204d61747269786974696d657374616d70f900006976616c696446726f6df90000",
+      id: "1e2091b3343b0bf840c97b298d30683c83510b53a910b8f99af8efcc476aa62dcb48"
     },
     {
       name: "primitive-number",
       spec: "SPEC-1 \xA72 / ERRATA D1",
       claims: {
         timestamp: 17179776e5,
+        validFrom: 17179776e5,
         author: "did:key:zAuthorA",
         pointers: [
           {
@@ -5599,14 +5735,15 @@
           }
         ]
       },
-      canonicalCborHex: "a366617574686f72706469643a6b65793a7a417574686f724168706f696e7465727381a264726f6c656b72656c656173655965617266746172676574f967cf6974696d657374616d70fb4278fff71d000000",
-      id: "1e20a3a0a90a8c87aab1bad05dc7e971d20c772976658691ede840d5f38865c9de60"
+      canonicalCborHex: "a466617574686f72706469643a6b65793a7a417574686f724168706f696e7465727381a264726f6c656b72656c656173655965617266746172676574f967cf6974696d657374616d70fb4278fff71d0000006976616c696446726f6dfb4278fff71d000000",
+      id: "1e202fd5fd8e3d745ade0e0edacf9e6f20566f48b6238d29aaa890c15fdeca57dce0"
     },
     {
       name: "primitive-boolean",
       spec: "SPEC-1 \xA72",
       claims: {
         timestamp: 0,
+        validFrom: 0,
         author: "did:key:zAuthorA",
         pointers: [
           {
@@ -5615,14 +5752,15 @@
           }
         ]
       },
-      canonicalCborHex: "a366617574686f72706469643a6b65793a7a417574686f724168706f696e7465727381a264726f6c656b697343616e6f6e6963616c66746172676574f56974696d657374616d70f90000",
-      id: "1e2060947ef77cb97b5d8905129276e5d14d4fe81a32de9514da1da1ac210b7b68ee"
+      canonicalCborHex: "a466617574686f72706469643a6b65793a7a417574686f724168706f696e7465727381a264726f6c656b697343616e6f6e6963616c66746172676574f56974696d657374616d70f900006976616c696446726f6df90000",
+      id: "1e20397ec06ab73a08a08f7ea601da79ad51460a494f9322adcbed1d63aea22f4a33"
     },
     {
       name: "entity-ref-no-context",
       spec: "SPEC-1 \xA72 / ERRATA D5",
       claims: {
         timestamp: 0,
+        validFrom: 0,
         author: "did:key:zAuthorA",
         pointers: [
           {
@@ -5633,14 +5771,15 @@
           }
         ]
       },
-      canonicalCborHex: "a366617574686f72706469643a6b65793a7a417574686f724168706f696e7465727381a264726f6c65677375626a65637466746172676574a162696471656e746974793a7468655f6d61747269786974696d657374616d70f90000",
-      id: "1e2061705edb89869037fb5d850bcb235e5584292470249e650a0d790b28712c3949"
+      canonicalCborHex: "a466617574686f72706469643a6b65793a7a417574686f724168706f696e7465727381a264726f6c65677375626a65637466746172676574a162696471656e746974793a7468655f6d61747269786974696d657374616d70f900006976616c696446726f6df90000",
+      id: "1e20972480cb680c73f951a6d1f01e49177a2b755fe876a5f9a95dba5cf714c6fdcc"
     },
     {
       name: "entity-ref-with-context",
       spec: "SPEC-1 \xA72 / ERRATA D5",
       claims: {
         timestamp: 0,
+        validFrom: 0,
         author: "did:key:zAuthorA",
         pointers: [
           {
@@ -5652,14 +5791,15 @@
           }
         ]
       },
-      canonicalCborHex: "a366617574686f72706469643a6b65793a7a417574686f724168706f696e7465727381a264726f6c65646361737466746172676574a26269646c656e746974793a6b65616e7567636f6e74657874656163746f726974696d657374616d70f90000",
-      id: "1e20b210c4e3eb8a91fde259c7d2171cbf730685354f9f7a8df5e322da3f576e25a5"
+      canonicalCborHex: "a466617574686f72706469643a6b65793a7a417574686f724168706f696e7465727381a264726f6c65646361737466746172676574a26269646c656e746974793a6b65616e7567636f6e74657874656163746f726974696d657374616d70f900006976616c696446726f6df90000",
+      id: "1e20fc1122c8d7652d1b7c2d26459cccfa0662be9a8a259a44933136dd89fc021991"
     },
     {
       name: "negation-delta-ref",
       spec: "SPEC-1 \xA77 / ERRATA D5",
       claims: {
         timestamp: 1,
+        validFrom: 1,
         author: "did:key:zAuthorB",
         pointers: [
           {
@@ -5674,14 +5814,15 @@
           }
         ]
       },
-      canonicalCborHex: "a366617574686f72706469643a6b65793a7a417574686f724268706f696e7465727382a264726f6c65676e65676174657366746172676574a16564656c74617842316532303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030a264726f6c6566726561736f6e667461726765746a737570657273656465646974696d657374616d70f93c00",
-      id: "1e207b4310e7d0247d5f4671ae0cff5f2fd1df36cc7ab5e198f121008ee3dd3f8e91"
+      canonicalCborHex: "a466617574686f72706469643a6b65793a7a417574686f724268706f696e7465727382a264726f6c65676e65676174657366746172676574a16564656c74617842316532303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030a264726f6c6566726561736f6e667461726765746a737570657273656465646974696d657374616d70f93c006976616c696446726f6df93c00",
+      id: "1e2035cd3e547ff2b1e9259c87e58756a89ff32a62c8e5b3b4465f7ecc82d5739b05"
     },
     {
       name: "multi-pointer-purchase",
       spec: "SPEC-1 \xA73",
       claims: {
         timestamp: 17179776e5,
+        validFrom: 17179776e5,
         author: "did:key:zAuthorA",
         pointers: [
           {
@@ -5711,14 +5852,15 @@
           }
         ]
       },
-      canonicalCborHex: "a366617574686f72706469643a6b65793a7a417574686f724168706f696e7465727384a264726f6c6565627579657266746172676574a26269646c656e746974793a616c69636567636f6e7465787469707572636861736573a264726f6c656673656c6c657266746172676574a26269646a656e746974793a626f6267636f6e746578746573616c6573a264726f6c65646974656d66746172676574a26269646d656e746974793a77696467657467636f6e7465787467736f6c64566961a264726f6c6565707269636566746172676574fb4033fd70a3d70a3d6974696d657374616d70fb4278fff71d000000",
-      id: "1e200561a1f0ed9b4f3619e1657ff6319fd6ca2812b8cd89ece6e46fb3608c219485"
+      canonicalCborHex: "a466617574686f72706469643a6b65793a7a417574686f724168706f696e7465727384a264726f6c6565627579657266746172676574a26269646c656e746974793a616c69636567636f6e7465787469707572636861736573a264726f6c656673656c6c657266746172676574a26269646a656e746974793a626f6267636f6e746578746573616c6573a264726f6c65646974656d66746172676574a26269646d656e746974793a77696467657467636f6e7465787467736f6c64566961a264726f6c6565707269636566746172676574fb4033fd70a3d70a3d6974696d657374616d70fb4278fff71d0000006976616c696446726f6dfb4278fff71d000000",
+      id: "1e20eeb5a69d60d4b5d8bd3d4f6ce02bc05afd3ad73a3f7e12c71c3bee7678c75257"
     },
     {
       name: "unicode-nfc-author",
       spec: "SPEC-1 \xA74.1 / ERRATA D2",
       claims: {
         timestamp: 0,
+        validFrom: 0,
         author: "did:key:caf\xE9",
         pointers: [
           {
@@ -5727,14 +5869,15 @@
           }
         ]
       },
-      canonicalCborHex: "a366617574686f726d6469643a6b65793a636166c3a968706f696e7465727381a264726f6c65646e6f7465667461726765746bc3bc6ec3af63c3b664c3a96974696d657374616d70f90000",
-      id: "1e20ae8d97020b460597ffd10075fb7aa4d69af7ded1fd06fdaf013e5d3f26e0513e"
+      canonicalCborHex: "a466617574686f726d6469643a6b65793a636166c3a968706f696e7465727381a264726f6c65646e6f7465667461726765746bc3bc6ec3af63c3b664c3a96974696d657374616d70f900006976616c696446726f6df90000",
+      id: "1e20889f80e5fc169681032828d0303865bf87960598c94bae3c709cf4686dd36128"
     },
     {
       name: "unicode-non-nfc-spelling",
       spec: "SPEC-1 \xA74.1 / ERRATA D16 (byte-honest strings: a decomposed spelling is admitted and is a DIFFERENT claim than its composed sibling \u2014 same honesty as image/PNG vs image/png, D12)",
       claims: {
         timestamp: 0,
+        validFrom: 0,
         author: "did:key:cafe\u0301",
         pointers: [
           {
@@ -5743,14 +5886,15 @@
           }
         ]
       },
-      canonicalCborHex: "a366617574686f726e6469643a6b65793a63616665cc8168706f696e7465727381a264726f6c65646e6f7465667461726765747175cc886ecc8369cc88636fcc886465cc816974696d657374616d70f90000",
-      id: "1e20f5932cced281d9e28ccac7a942804a3986ae7a1bc29c13cd8dc71f4fdaf9a59b"
+      canonicalCborHex: "a466617574686f726e6469643a6b65793a63616665cc8168706f696e7465727381a264726f6c65646e6f7465667461726765747175cc886ecc8369cc88636fcc886465cc816974696d657374616d70f900006976616c696446726f6df90000",
+      id: "1e20bab81ca9915bccc0cfc8a91a9a54efdd485e38b0eb6e4403c16c4cfc2e23339a"
     },
     {
       name: "number-integer-spelling",
       spec: "SPEC-1 \xA74.1 / ERRATA D14 (a JSON integer token is a float spelling: 42 \u2261 42.0, one canonical encoding)",
       claims: {
         timestamp: 42,
+        validFrom: 42,
         author: "did:key:zAuthorA",
         pointers: [
           {
@@ -5759,8 +5903,8 @@
           }
         ]
       },
-      canonicalCborHex: "a366617574686f72706469643a6b65793a7a417574686f724168706f696e7465727381a264726f6c6566616e7377657266746172676574f951406974696d657374616d70f95140",
-      id: "1e207c3ceeddcf2b5781f26432c2b1d6d57f5734f10da4d710ea0dd5ab4f23395fbb"
+      canonicalCborHex: "a466617574686f72706469643a6b65793a7a417574686f724168706f696e7465727381a264726f6c6566616e7377657266746172676574f951406974696d657374616d70f951406976616c696446726f6df95140",
+      id: "1e20e7598e3ab9a13ab6ebfc81f6a55bd787baeef7f953a239344b1ce8a107392d81"
     }
   ];
 
@@ -5772,6 +5916,7 @@
       keyId: "test-key-1",
       claims: {
         timestamp: 17179776e5,
+        validFrom: 17179776e5,
         author: "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
         pointers: [
           {
@@ -5780,9 +5925,9 @@
           }
         ]
       },
-      canonicalCborHex: "a366617574686f727848656432353531393a3861383865336464373430396631393566643532646232643363626135643732636136373039626631643934313231626633373438383031623430663666356368706f696e7465727381a264726f6c65657469746c65667461726765746a546865204d61747269786974696d657374616d70fb4278fff71d000000",
-      id: "1e205b744c395553a498e17204d46c22293de849532d7394e71ec4ea25665c1cc2fa",
-      sig: "07d38cc0b478a7f501fd51356a98383032725389adfa5a8fe00f589612181bd7f545299c621980255e6ded4fae30fc47860d8e64acb5ff8bcd32d02937d7f601"
+      canonicalCborHex: "a466617574686f727848656432353531393a3861383865336464373430396631393566643532646232643363626135643732636136373039626631643934313231626633373438383031623430663666356368706f696e7465727381a264726f6c65657469746c65667461726765746a546865204d61747269786974696d657374616d70fb4278fff71d0000006976616c696446726f6dfb4278fff71d000000",
+      id: "1e2086fd90cccc12187749cf507af658a9dc9ddc0473d65b8058c85e9c06c9141f72",
+      sig: "833460843050e40d56bc7ba78e0867b85e880db57266cf66428996e83113d320dfeb87885deb0079fdc2d670e8f352314c2c460fd8c4ca9b040fcb205b813d05"
     },
     {
       name: "signed-entity-ref",
@@ -5790,6 +5935,7 @@
       keyId: "test-key-2",
       claims: {
         timestamp: 42,
+        validFrom: 42,
         author: "ed25519:8139770ea87d175f56a35466c34c7ecccb8d8a91b4ee37a25df60f5b8fc9b394",
         pointers: [
           {
@@ -5801,9 +5947,9 @@
           }
         ]
       },
-      canonicalCborHex: "a366617574686f727848656432353531393a3831333937373065613837643137356635366133353436366333346337656363636238643861393162346565333761323564663630663562386663396233393468706f696e7465727381a264726f6c65646361737466746172676574a26269646c656e746974793a6b65616e7567636f6e74657874656163746f726974696d657374616d70f95140",
-      id: "1e20a8576e58e5cd51ff689252e4279927de268f524aa1a5deb60d24d788e91af512",
-      sig: "ef55abc24edb782b4d2be028cd2aa1c322df534875635b3643977990b4f879da9386fd21705d77331c2a221a69eb5a55c82a912034283ad3ea99c477b1440204"
+      canonicalCborHex: "a466617574686f727848656432353531393a3831333937373065613837643137356635366133353436366333346337656363636238643861393162346565333761323564663630663562386663396233393468706f696e7465727381a264726f6c65646361737466746172676574a26269646c656e746974793a6b65616e7567636f6e74657874656163746f726974696d657374616d70f951406976616c696446726f6df95140",
+      id: "1e203d75072d911644ca6bb75abdb5eb9e49902166ff0f3cbb10bf9649ee77b4093f",
+      sig: "2b05ebbd6dfcacdb867a4fa8ec5e9daeb9f9e3fb5d41de7cb3bdf7039e41e7da946e5a0e1715767844a4ee07b109628340a0a50e988b9336b1df2e5c935d3b0e"
     },
     {
       name: "signed-negation",
@@ -5811,6 +5957,7 @@
       keyId: "test-key-3",
       claims: {
         timestamp: 43,
+        validFrom: 43,
         author: "ed25519:ff57575dc7af8bfc4d0837cc1ce2017b686a88145dc5579a958e3462fe9a908e",
         pointers: [
           {
@@ -5821,9 +5968,9 @@
           }
         ]
       },
-      canonicalCborHex: "a366617574686f727848656432353531393a6666353735373564633761663862666334643038333763633163653230313762363836613838313435646335353739613935386533343632666539613930386568706f696e7465727381a264726f6c65676e65676174657366746172676574a16564656c746178423165323030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030306974696d657374616d70f95160",
-      id: "1e20de9cd104bc3d76e4062ec748ae98fb10f18fd7a99b9a80d1f1beaee38e48ef8e",
-      sig: "c13d762c618a5432d90dd0658570f92023be3b21de3cd25b1c4eb36e922e1be57bc7f57a5f49b11f2776af1f004ef45df8d087c583a4433ec229a5501ec7e309"
+      canonicalCborHex: "a466617574686f727848656432353531393a6666353735373564633761663862666334643038333763633163653230313762363836613838313435646335353739613935386533343632666539613930386568706f696e7465727381a264726f6c65676e65676174657366746172676574a16564656c746178423165323030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030306974696d657374616d70f951606976616c696446726f6df95160",
+      id: "1e2052b49d2190dbc901d3919acbc13d868f3846ae798a251b88b64baae3e49b91cd",
+      sig: "25284a11b0f103a80d70fb7449857d2c1aa1170254f479abaab8ab38da800593697f4d4874789c7a8b3ad03d78c5d2b519910b48ffc81f8e7bbcc54343adff05"
     },
     {
       name: "signed-bytes-icon",
@@ -5831,6 +5978,7 @@
       keyId: "test-key-1",
       claims: {
         timestamp: 4242,
+        validFrom: 4242,
         author: "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
         pointers: [
           {
@@ -5842,9 +5990,9 @@
           }
         ]
       },
-      canonicalCborHex: "a366617574686f727848656432353531393a3861383865336464373430396631393566643532646232643363626135643732636136373039626631643934313231626633373438383031623430663666356368706f696e7465727381a264726f6c656469636f6e66746172676574a2646d696d6569696d6167652f706e676576616c75654489504e476974696d657374616d70fa45849000",
-      id: "1e20f608b22806b6c22b7ab05f0688bb0c4c405523a8572d15ca026cee53a5156a03",
-      sig: "0c81aaaecfb9edafc242b1f4adfcbc3c691cea7f114b6d6ebf1344a0db9bae0e0141cebd4727cb40d623fdccd81e7034d4d378cf9155f6694afe53e5e1d25e00"
+      canonicalCborHex: "a466617574686f727848656432353531393a3861383865336464373430396631393566643532646232643363626135643732636136373039626631643934313231626633373438383031623430663666356368706f696e7465727381a264726f6c656469636f6e66746172676574a2646d696d6569696d6167652f706e676576616c75654489504e476974696d657374616d70fa458490006976616c696446726f6dfa45849000",
+      id: "1e20cbc7d5753cb208e96c02e54561a099a13b7402cdf287046fff00098ae228f02d",
+      sig: "090b9d0df4f59985d9eb40578805386dd46e19863bdf775f6c2c9bb89a0b957e80dc12c5debdbbb3b0342320567584bd145bb7befbd637be2103a0c2cce1e503"
     }
   ];
 
@@ -5852,18 +6000,18 @@
   var set_digest_default = {
     spec: "ERRATA D10 (provisional helper, not the SPEC-6 reconciliation digest)",
     ids: [
-      "1e200561a1f0ed9b4f3619e1657ff6319fd6ca2812b8cd89ece6e46fb3608c219485",
-      "1e2030d96d325c7cfeb599f488598055041fb5303f062d3b32b43d5abedc6d3cee18",
-      "1e2060947ef77cb97b5d8905129276e5d14d4fe81a32de9514da1da1ac210b7b68ee",
-      "1e2061705edb89869037fb5d850bcb235e5584292470249e650a0d790b28712c3949",
-      "1e207b4310e7d0247d5f4671ae0cff5f2fd1df36cc7ab5e198f121008ee3dd3f8e91",
-      "1e207c3ceeddcf2b5781f26432c2b1d6d57f5734f10da4d710ea0dd5ab4f23395fbb",
-      "1e20a3a0a90a8c87aab1bad05dc7e971d20c772976658691ede840d5f38865c9de60",
-      "1e20ae8d97020b460597ffd10075fb7aa4d69af7ded1fd06fdaf013e5d3f26e0513e",
-      "1e20b210c4e3eb8a91fde259c7d2171cbf730685354f9f7a8df5e322da3f576e25a5",
-      "1e20f5932cced281d9e28ccac7a942804a3986ae7a1bc29c13cd8dc71f4fdaf9a59b"
+      "1e202fd5fd8e3d745ade0e0edacf9e6f20566f48b6238d29aaa890c15fdeca57dce0",
+      "1e2035cd3e547ff2b1e9259c87e58756a89ff32a62c8e5b3b4465f7ecc82d5739b05",
+      "1e20397ec06ab73a08a08f7ea601da79ad51460a494f9322adcbed1d63aea22f4a33",
+      "1e20889f80e5fc169681032828d0303865bf87960598c94bae3c709cf4686dd36128",
+      "1e2091b3343b0bf840c97b298d30683c83510b53a910b8f99af8efcc476aa62dcb48",
+      "1e20972480cb680c73f951a6d1f01e49177a2b755fe876a5f9a95dba5cf714c6fdcc",
+      "1e20bab81ca9915bccc0cfc8a91a9a54efdd485e38b0eb6e4403c16c4cfc2e23339a",
+      "1e20e7598e3ab9a13ab6ebfc81f6a55bd787baeef7f953a239344b1ce8a107392d81",
+      "1e20eeb5a69d60d4b5d8bd3d4f6ce02bc05afd3ad73a3f7e12c71c3bee7678c75257",
+      "1e20fc1122c8d7652d1b7c2d26459cccfa0662be9a8a259a44933136dd89fc021991"
     ],
-    digest: "1e20771bafedaa30d7b94a8800324912211a4b5793f34b3f2d87426447356ead3250"
+    digest: "1e20e3b36f93b2f7b47a5a40668d8df89eb79e6d790041d5b5dd0835e1bac675c72d"
   };
 
   // ../../vectors/l1-eval/eval-basic.json
@@ -5873,9 +6021,10 @@
       deltas: [
         {
           name: "d1-title-matrix",
-          id: "1e205eff49bb6d03d3b53b0929e8b7a965da260df95b24894aa6c381be584cf39392",
+          id: "1e20c4442e4ade47b142b5d1389c16c7f65c296ec6a9535194fb9c1e026e261505d2",
           claims: {
             timestamp: 100,
+            validFrom: 100,
             author: "did:key:zAlice",
             pointers: [
               {
@@ -5894,9 +6043,10 @@
         },
         {
           name: "d2-title-reloaded",
-          id: "1e20b758d08491d624d45b41c48b8ccd7a84815d94f9ee227336075ac13d6a7bc744",
+          id: "1e20626aeba6c0deadc0743e47356addc87fa85f662d0d922f3495aad8de7053d493",
           claims: {
             timestamp: 200,
+            validFrom: 200,
             author: "did:key:zBob",
             pointers: [
               {
@@ -5915,9 +6065,10 @@
         },
         {
           name: "d3-year",
-          id: "1e20128fcc903f2270c79a0fe4de67be24e85dd7c95dd11b4dc25e7a939f429979c1",
+          id: "1e209463a17b99534a4d1c9b774499bef776e49490ed52d0fd431a5bbf680ea8692c",
           claims: {
             timestamp: 150,
+            validFrom: 150,
             author: "did:key:zAlice",
             pointers: [
               {
@@ -5936,15 +6087,16 @@
         },
         {
           name: "d4-negates-d2",
-          id: "1e20813a3c2552fbe7603d6fdacc369752f5b077c7e6c2e4b2fcd3b850d7c68cbb97",
+          id: "1e20c4505e2294e6b025692838ace1f8d74dc3f6d0362395d1943a0dc20456d650e4",
           claims: {
             timestamp: 300,
+            validFrom: 300,
             author: "did:key:zBob",
             pointers: [
               {
                 role: "negates",
                 target: {
-                  delta: "1e20b758d08491d624d45b41c48b8ccd7a84815d94f9ee227336075ac13d6a7bc744"
+                  delta: "1e20626aeba6c0deadc0743e47356addc87fa85f662d0d922f3495aad8de7053d493"
                 }
               },
               {
@@ -5956,15 +6108,16 @@
         },
         {
           name: "d5-negates-d4",
-          id: "1e20d52bc0da7ffc13ae23d2504ab0a2a06bbd943ff1d473c4915c4f3256f2dc059a",
+          id: "1e20a9e4d97f05897ceb98acd6e43ba3890145a48e34d8f398d5155a1e33316a57bc",
           claims: {
             timestamp: 400,
+            validFrom: 400,
             author: "did:key:zCarol",
             pointers: [
               {
                 role: "negates",
                 target: {
-                  delta: "1e20813a3c2552fbe7603d6fdacc369752f5b077c7e6c2e4b2fcd3b850d7c68cbb97"
+                  delta: "1e20c4505e2294e6b025692838ace1f8d74dc3f6d0362395d1943a0dc20456d650e4"
                 }
               }
             ]
@@ -5972,9 +6125,10 @@
         },
         {
           name: "d6-rating",
-          id: "1e206bc56e096e5855732a2fb8c379238db9cc28b61323ae4cf05436116e73fa8f1f",
+          id: "1e20a7e34ba656920fabbc0d0d410cb113f5346613d088d3f45ab2c2907332cef356",
           claims: {
             timestamp: 500,
+            validFrom: 500,
             author: "did:key:zAlice",
             pointers: [
               {
@@ -5993,9 +6147,10 @@
         },
         {
           name: "d7-tag",
-          id: "1e20c6909bffb9e1b198e3421911e9b2f4482c6a042c099545e7bf4d261db0d878b8",
+          id: "1e200d2e9b436f58aea8c7be951cd61649388c646740fb17a16c76874d0df5f380b0",
           claims: {
             timestamp: 120,
+            validFrom: 120,
             author: "did:key:zCarol",
             pointers: [
               {
@@ -6014,9 +6169,10 @@
         },
         {
           name: "d8-other-movie",
-          id: "1e20db70d6f537e65ce2a14d3b32a0abf3d48435be6dbc06aedba2f40ea1a3a5f709",
+          id: "1e205d461c990b680ed257f974d71fc0b155800f8e37386b62aa53751c8b4b33da4e",
           claims: {
             timestamp: 600,
+            validFrom: 600,
             author: "did:key:zAlice",
             pointers: [
               {
@@ -6052,13 +6208,13 @@
         },
         expected: {
           ids: [
-            "1e20128fcc903f2270c79a0fe4de67be24e85dd7c95dd11b4dc25e7a939f429979c1",
-            "1e205eff49bb6d03d3b53b0929e8b7a965da260df95b24894aa6c381be584cf39392",
-            "1e206bc56e096e5855732a2fb8c379238db9cc28b61323ae4cf05436116e73fa8f1f",
-            "1e20db70d6f537e65ce2a14d3b32a0abf3d48435be6dbc06aedba2f40ea1a3a5f709"
+            "1e205d461c990b680ed257f974d71fc0b155800f8e37386b62aa53751c8b4b33da4e",
+            "1e209463a17b99534a4d1c9b774499bef776e49490ed52d0fd431a5bbf680ea8692c",
+            "1e20a7e34ba656920fabbc0d0d410cb113f5346613d088d3f45ab2c2907332cef356",
+            "1e20c4442e4ade47b142b5d1389c16c7f65c296ec6a9535194fb9c1e026e261505d2"
           ]
         },
-        expectedCanonicalHex: "8478443165323031323866636339303366323237306337396130666534646536376265323465383564643763393564643131623464633235653761393339663432393937396331784431653230356566663439626236643033643362353362303932396538623761393635646132363064663935623234383934616136633338316265353834636633393339327844316532303662633536653039366535383535373332613266623863333739323338646239636332386236313332336165346366303534333631313665373366613866316678443165323064623730643666353337653635636532613134643362333261306162663364343834333562653664626330366165646261326634306561316133613566373039"
+        expectedCanonicalHex: "8478443165323035643436316339393062363830656432353766393734643731666330623135353830306638653337333836623632616135333735316338623462333364613465784431653230393436336131376239393533346134643163396237373434393962656637373665343934393065643532643066643433316135626266363830656138363932637844316532306137653334626136353639323066616262633064306434313063623131336635333436363133643038386433663435616232633239303733333263656633353678443165323063343434326534616465343762313432623564313338396331366337663635633239366563366139353335313934666239633165303236653236313530356432"
       },
       {
         name: "select-timestamp-lte",
@@ -6076,13 +6232,13 @@
         },
         expected: {
           ids: [
-            "1e20128fcc903f2270c79a0fe4de67be24e85dd7c95dd11b4dc25e7a939f429979c1",
-            "1e205eff49bb6d03d3b53b0929e8b7a965da260df95b24894aa6c381be584cf39392",
-            "1e20b758d08491d624d45b41c48b8ccd7a84815d94f9ee227336075ac13d6a7bc744",
-            "1e20c6909bffb9e1b198e3421911e9b2f4482c6a042c099545e7bf4d261db0d878b8"
+            "1e200d2e9b436f58aea8c7be951cd61649388c646740fb17a16c76874d0df5f380b0",
+            "1e20626aeba6c0deadc0743e47356addc87fa85f662d0d922f3495aad8de7053d493",
+            "1e209463a17b99534a4d1c9b774499bef776e49490ed52d0fd431a5bbf680ea8692c",
+            "1e20c4442e4ade47b142b5d1389c16c7f65c296ec6a9535194fb9c1e026e261505d2"
           ]
         },
-        expectedCanonicalHex: "8478443165323031323866636339303366323237306337396130666534646536376265323465383564643763393564643131623464633235653761393339663432393937396331784431653230356566663439626236643033643362353362303932396538623761393635646132363064663935623234383934616136633338316265353834636633393339327844316532306237353864303834393164363234643435623431633438623863636437613834383135643934663965653232373333363037356163313364366137626337343478443165323063363930396266666239653162313938653334323139313165396232663434383263366130343263303939353435653762663464323631646230643837386238"
+        expectedCanonicalHex: "8478443165323030643265396234333666353861656138633762653935316364363136343933383863363436373430666231376131366337363837346430646635663338306230784431653230363236616562613663306465616463303734336534373335366164646338376661383566363632643064393232663334393561616438646537303533643439337844316532303934363361313762393935333461346431633962373734343939626566373736653439343930656435326430666434333161356262663638306561383639326378443165323063343434326534616465343762313432623564313338396331366337663635633239366563366139353335313934666239633165303236653236313530356432"
       },
       {
         name: "select-target-entity",
@@ -6098,14 +6254,14 @@
         },
         expected: {
           ids: [
-            "1e20128fcc903f2270c79a0fe4de67be24e85dd7c95dd11b4dc25e7a939f429979c1",
-            "1e205eff49bb6d03d3b53b0929e8b7a965da260df95b24894aa6c381be584cf39392",
-            "1e206bc56e096e5855732a2fb8c379238db9cc28b61323ae4cf05436116e73fa8f1f",
-            "1e20b758d08491d624d45b41c48b8ccd7a84815d94f9ee227336075ac13d6a7bc744",
-            "1e20c6909bffb9e1b198e3421911e9b2f4482c6a042c099545e7bf4d261db0d878b8"
+            "1e200d2e9b436f58aea8c7be951cd61649388c646740fb17a16c76874d0df5f380b0",
+            "1e20626aeba6c0deadc0743e47356addc87fa85f662d0d922f3495aad8de7053d493",
+            "1e209463a17b99534a4d1c9b774499bef776e49490ed52d0fd431a5bbf680ea8692c",
+            "1e20a7e34ba656920fabbc0d0d410cb113f5346613d088d3f45ab2c2907332cef356",
+            "1e20c4442e4ade47b142b5d1389c16c7f65c296ec6a9535194fb9c1e026e261505d2"
           ]
         },
-        expectedCanonicalHex: "857844316532303132386663633930336632323730633739613066653464653637626532346538356464376339356464313162346463323565376139333966343239393739633178443165323035656666343962623664303364336235336230393239653862376139363564613236306466393562323438393461613663333831626535383463663339333932784431653230366263353665303936653538353537333261326662386333373932333864623963633238623631333233616534636630353433363131366537336661386631667844316532306237353864303834393164363234643435623431633438623863636437613834383135643934663965653232373333363037356163313364366137626337343478443165323063363930396266666239653162313938653334323139313165396232663434383263366130343263303939353435653762663464323631646230643837386238"
+        expectedCanonicalHex: "857844316532303064326539623433366635386165613863376265393531636436313634393338386336343637343066623137613136633736383734643064663566333830623078443165323036323661656261366330646561646330373433653437333536616464633837666138356636363264306439323266333439356161643864653730353364343933784431653230393436336131376239393533346134643163396237373434393962656637373665343934393065643532643066643433316135626266363830656138363932637844316532306137653334626136353639323066616262633064306434313063623131336635333436363133643038386433663435616232633239303733333263656633353678443165323063343434326534616465343762313432623564313338396331366337663635633239366563366139353335313934666239633165303236653236313530356432"
       },
       {
         name: "select-context-exact",
@@ -6123,12 +6279,12 @@
         },
         expected: {
           ids: [
-            "1e205eff49bb6d03d3b53b0929e8b7a965da260df95b24894aa6c381be584cf39392",
-            "1e20b758d08491d624d45b41c48b8ccd7a84815d94f9ee227336075ac13d6a7bc744",
-            "1e20db70d6f537e65ce2a14d3b32a0abf3d48435be6dbc06aedba2f40ea1a3a5f709"
+            "1e205d461c990b680ed257f974d71fc0b155800f8e37386b62aa53751c8b4b33da4e",
+            "1e20626aeba6c0deadc0743e47356addc87fa85f662d0d922f3495aad8de7053d493",
+            "1e20c4442e4ade47b142b5d1389c16c7f65c296ec6a9535194fb9c1e026e261505d2"
           ]
         },
-        expectedCanonicalHex: "83784431653230356566663439626236643033643362353362303932396538623761393635646132363064663935623234383934616136633338316265353834636633393339327844316532306237353864303834393164363234643435623431633438623863636437613834383135643934663965653232373333363037356163313364366137626337343478443165323064623730643666353337653635636532613134643362333261306162663364343834333562653664626330366165646261326634306561316133613566373039"
+        expectedCanonicalHex: "83784431653230356434363163393930623638306564323537663937346437316663306231353538303066386533373338366236326161353337353163386234623333646134657844316532303632366165626136633064656164633037343365343733353661646463383766613835663636326430643932326633343935616164386465373035336434393378443165323063343434326534616465343762313432623564313338396331366337663635633239366563366139353335313934666239633165303236653236313530356432"
       },
       {
         name: "select-role-prefix",
@@ -6146,11 +6302,11 @@
         },
         expected: {
           ids: [
-            "1e20813a3c2552fbe7603d6fdacc369752f5b077c7e6c2e4b2fcd3b850d7c68cbb97",
-            "1e20d52bc0da7ffc13ae23d2504ab0a2a06bbd943ff1d473c4915c4f3256f2dc059a"
+            "1e20a9e4d97f05897ceb98acd6e43ba3890145a48e34d8f398d5155a1e33316a57bc",
+            "1e20c4505e2294e6b025692838ace1f8d74dc3f6d0362395d1943a0dc20456d650e4"
           ]
         },
-        expectedCanonicalHex: "827844316532303831336133633235353266626537363033643666646163633336393735326635623037376337653663326534623266636433623835306437633638636262393778443165323064353262633064613766666331336165323364323530346162306132613036626264393433666631643437336334393135633466333235366632646330353961"
+        expectedCanonicalHex: "827844316532306139653464393766303538393763656239386163643665343362613338393031343561343865333464386633393864353135356131653333333136613537626378443165323063343530356532323934653662303235363932383338616365316638643734646333663664303336323339356431393433613064633230343536643635306534"
       },
       {
         name: "select-value-between",
@@ -6171,11 +6327,11 @@
         },
         expected: {
           ids: [
-            "1e20128fcc903f2270c79a0fe4de67be24e85dd7c95dd11b4dc25e7a939f429979c1",
-            "1e206bc56e096e5855732a2fb8c379238db9cc28b61323ae4cf05436116e73fa8f1f"
+            "1e209463a17b99534a4d1c9b774499bef776e49490ed52d0fd431a5bbf680ea8692c",
+            "1e20a7e34ba656920fabbc0d0d410cb113f5346613d088d3f45ab2c2907332cef356"
           ]
         },
-        expectedCanonicalHex: "827844316532303132386663633930336632323730633739613066653464653637626532346538356464376339356464313162346463323565376139333966343239393739633178443165323036626335366530393665353835353733326132666238633337393233386462396363323862363133323361653463663035343336313136653733666138663166"
+        expectedCanonicalHex: "827844316532303934363361313762393935333461346431633962373734343939626566373736653439343930656435326430666434333161356262663638306561383639326378443165323061376533346261363536393230666162626330643064343130636231313366353334363631336430383864336634356162326332393037333332636566333536"
       },
       {
         name: "select-value-gt-mixed-types",
@@ -6197,15 +6353,15 @@
         },
         expected: {
           ids: [
-            "1e20128fcc903f2270c79a0fe4de67be24e85dd7c95dd11b4dc25e7a939f429979c1",
-            "1e205eff49bb6d03d3b53b0929e8b7a965da260df95b24894aa6c381be584cf39392",
-            "1e20813a3c2552fbe7603d6fdacc369752f5b077c7e6c2e4b2fcd3b850d7c68cbb97",
-            "1e20b758d08491d624d45b41c48b8ccd7a84815d94f9ee227336075ac13d6a7bc744",
-            "1e20c6909bffb9e1b198e3421911e9b2f4482c6a042c099545e7bf4d261db0d878b8",
-            "1e20db70d6f537e65ce2a14d3b32a0abf3d48435be6dbc06aedba2f40ea1a3a5f709"
+            "1e200d2e9b436f58aea8c7be951cd61649388c646740fb17a16c76874d0df5f380b0",
+            "1e205d461c990b680ed257f974d71fc0b155800f8e37386b62aa53751c8b4b33da4e",
+            "1e20626aeba6c0deadc0743e47356addc87fa85f662d0d922f3495aad8de7053d493",
+            "1e209463a17b99534a4d1c9b774499bef776e49490ed52d0fd431a5bbf680ea8692c",
+            "1e20c4442e4ade47b142b5d1389c16c7f65c296ec6a9535194fb9c1e026e261505d2",
+            "1e20c4505e2294e6b025692838ace1f8d74dc3f6d0362395d1943a0dc20456d650e4"
           ]
         },
-        expectedCanonicalHex: "86784431653230313238666363393033663232373063373961306665346465363762653234653835646437633935646431316234646332356537613933396634323939373963317844316532303565666634396262366430336433623533623039323965386237613936356461323630646639356232343839346161366333383162653538346366333933393278443165323038313361336332353532666265373630336436666461636333363937353266356230373763376536633265346232666364336238353064376336386362623937784431653230623735386430383439316436323464343562343163343862386363643761383438313564393466396565323237333336303735616331336436613762633734347844316532306336393039626666623965316231393865333432313931316539623266343438326336613034326330393935343565376266346432363164623064383738623878443165323064623730643666353337653635636532613134643362333261306162663364343834333562653664626330366165646261326634306561316133613566373039"
+        expectedCanonicalHex: "86784431653230306432653962343336663538616561386337626539353163643631363439333838633634363734306662313761313663373638373464306466356633383062307844316532303564343631633939306236383065643235376639373464373166633062313535383030663865333733383662363261613533373531633862346233336461346578443165323036323661656261366330646561646330373433653437333536616464633837666138356636363264306439323266333439356161643864653730353364343933784431653230393436336131376239393533346134643163396237373434393962656637373665343934393065643532643066643433316135626266363830656138363932637844316532306334343432653461646534376231343262356431333839633136633766363563323936656336613935333531393466623963316530323665323631353035643278443165323063343530356532323934653662303235363932383338616365316638643734646333663664303336323339356431393433613064633230343536643635306534"
       },
       {
         name: "select-value-inset",
@@ -6226,11 +6382,11 @@
         },
         expected: {
           ids: [
-            "1e20813a3c2552fbe7603d6fdacc369752f5b077c7e6c2e4b2fcd3b850d7c68cbb97",
-            "1e20c6909bffb9e1b198e3421911e9b2f4482c6a042c099545e7bf4d261db0d878b8"
+            "1e200d2e9b436f58aea8c7be951cd61649388c646740fb17a16c76874d0df5f380b0",
+            "1e20c4505e2294e6b025692838ace1f8d74dc3f6d0362395d1943a0dc20456d650e4"
           ]
         },
-        expectedCanonicalHex: "827844316532303831336133633235353266626537363033643666646163633336393735326635623037376337653663326534623266636433623835306437633638636262393778443165323063363930396266666239653162313938653334323139313165396232663434383263366130343263303939353435653762663464323631646230643837386238"
+        expectedCanonicalHex: "827844316532303064326539623433366635386165613863376265393531636436313634393338386336343637343066623137613136633736383734643064663566333830623078443165323063343530356532323934653662303235363932383338616365316638643734646333663664303336323339356431393433613064633230343536643635306534"
       },
       {
         name: "select-and-not",
@@ -6261,11 +6417,11 @@
         },
         expected: {
           ids: [
-            "1e20128fcc903f2270c79a0fe4de67be24e85dd7c95dd11b4dc25e7a939f429979c1",
-            "1e206bc56e096e5855732a2fb8c379238db9cc28b61323ae4cf05436116e73fa8f1f"
+            "1e209463a17b99534a4d1c9b774499bef776e49490ed52d0fd431a5bbf680ea8692c",
+            "1e20a7e34ba656920fabbc0d0d410cb113f5346613d088d3f45ab2c2907332cef356"
           ]
         },
-        expectedCanonicalHex: "827844316532303132386663633930336632323730633739613066653464653637626532346538356464376339356464313162346463323565376139333966343239393739633178443165323036626335366530393665353835353733326132666238633337393233386462396363323862363133323361653463663035343336313136653733666138663166"
+        expectedCanonicalHex: "827844316532303934363361313762393935333461346431633962373734343939626566373736653439343930656435326430666434333161356262663638306561383639326378443165323061376533346261363536393230666162626330643064343130636231313366353334363631336430383864336634356162326332393037333332636566333536"
       },
       {
         name: "select-false-is-empty",
@@ -6310,13 +6466,13 @@
         },
         expected: {
           ids: [
-            "1e20813a3c2552fbe7603d6fdacc369752f5b077c7e6c2e4b2fcd3b850d7c68cbb97",
-            "1e20b758d08491d624d45b41c48b8ccd7a84815d94f9ee227336075ac13d6a7bc744",
-            "1e20c6909bffb9e1b198e3421911e9b2f4482c6a042c099545e7bf4d261db0d878b8",
-            "1e20d52bc0da7ffc13ae23d2504ab0a2a06bbd943ff1d473c4915c4f3256f2dc059a"
+            "1e200d2e9b436f58aea8c7be951cd61649388c646740fb17a16c76874d0df5f380b0",
+            "1e20626aeba6c0deadc0743e47356addc87fa85f662d0d922f3495aad8de7053d493",
+            "1e20a9e4d97f05897ceb98acd6e43ba3890145a48e34d8f398d5155a1e33316a57bc",
+            "1e20c4505e2294e6b025692838ace1f8d74dc3f6d0362395d1943a0dc20456d650e4"
           ]
         },
-        expectedCanonicalHex: "8478443165323038313361336332353532666265373630336436666461636333363937353266356230373763376536633265346232666364336238353064376336386362623937784431653230623735386430383439316436323464343562343163343862386363643761383438313564393466396565323237333336303735616331336436613762633734347844316532306336393039626666623965316231393865333432313931316539623266343438326336613034326330393935343565376266346432363164623064383738623878443165323064353262633064613766666331336165323364323530346162306132613036626264393433666631643437336334393135633466333235366632646330353961"
+        expectedCanonicalHex: "8478443165323030643265396234333666353861656138633762653935316364363136343933383863363436373430666231376131366337363837346430646635663338306230784431653230363236616562613663306465616463303734336534373335366164646338376661383566363632643064393232663334393561616438646537303533643439337844316532306139653464393766303538393763656239386163643665343362613338393031343561343865333464386633393864353135356131653333333136613537626378443165323063343530356532323934653662303235363932383338616365316638643734646333663664303336323339356431393433613064633230343536643635306534"
       },
       {
         name: "mask-drop-chain",
@@ -6329,16 +6485,16 @@
         },
         expected: {
           ids: [
-            "1e20128fcc903f2270c79a0fe4de67be24e85dd7c95dd11b4dc25e7a939f429979c1",
-            "1e205eff49bb6d03d3b53b0929e8b7a965da260df95b24894aa6c381be584cf39392",
-            "1e206bc56e096e5855732a2fb8c379238db9cc28b61323ae4cf05436116e73fa8f1f",
-            "1e20b758d08491d624d45b41c48b8ccd7a84815d94f9ee227336075ac13d6a7bc744",
-            "1e20c6909bffb9e1b198e3421911e9b2f4482c6a042c099545e7bf4d261db0d878b8",
-            "1e20d52bc0da7ffc13ae23d2504ab0a2a06bbd943ff1d473c4915c4f3256f2dc059a",
-            "1e20db70d6f537e65ce2a14d3b32a0abf3d48435be6dbc06aedba2f40ea1a3a5f709"
+            "1e200d2e9b436f58aea8c7be951cd61649388c646740fb17a16c76874d0df5f380b0",
+            "1e205d461c990b680ed257f974d71fc0b155800f8e37386b62aa53751c8b4b33da4e",
+            "1e20626aeba6c0deadc0743e47356addc87fa85f662d0d922f3495aad8de7053d493",
+            "1e209463a17b99534a4d1c9b774499bef776e49490ed52d0fd431a5bbf680ea8692c",
+            "1e20a7e34ba656920fabbc0d0d410cb113f5346613d088d3f45ab2c2907332cef356",
+            "1e20a9e4d97f05897ceb98acd6e43ba3890145a48e34d8f398d5155a1e33316a57bc",
+            "1e20c4442e4ade47b142b5d1389c16c7f65c296ec6a9535194fb9c1e026e261505d2"
           ]
         },
-        expectedCanonicalHex: "8778443165323031323866636339303366323237306337396130666534646536376265323465383564643763393564643131623464633235653761393339663432393937396331784431653230356566663439626236643033643362353362303932396538623761393635646132363064663935623234383934616136633338316265353834636633393339327844316532303662633536653039366535383535373332613266623863333739323338646239636332386236313332336165346366303534333631313665373366613866316678443165323062373538643038343931643632346434356234316334386238636364376138343831356439346639656532323733333630373561633133643661376263373434784431653230633639303962666662396531623139386533343231393131653962326634343832633661303432633039393534356537626634643236316462306438373862387844316532306435326263306461376666633133616532336432353034616230613261303662626439343366663164343733633439313563346633323536663264633035396178443165323064623730643666353337653635636532613134643362333261306162663364343834333562653664626330366165646261326634306561316133613566373039"
+        expectedCanonicalHex: "8778443165323030643265396234333666353861656138633762653935316364363136343933383863363436373430666231376131366337363837346430646635663338306230784431653230356434363163393930623638306564323537663937346437316663306231353538303066386533373338366236326161353337353163386234623333646134657844316532303632366165626136633064656164633037343365343733353661646463383766613835663636326430643932326633343935616164386465373035336434393378443165323039343633613137623939353334613464316339623737343439396265663737366534393439306564353264306664343331613562626636383065613836393263784431653230613765333462613635363932306661626263306430643431306362313133663533343636313364303838643366343561623263323930373333326365663335367844316532306139653464393766303538393763656239386163643665343362613338393031343561343865333464386633393864353135356131653333333136613537626378443165323063343434326534616465343762313432623564313338396331366337663635633239366563366139353335313934666239633165303236653236313530356432"
       },
       {
         name: "mask-annotate",
@@ -6350,20 +6506,20 @@
         },
         expected: {
           ids: [
-            "1e20128fcc903f2270c79a0fe4de67be24e85dd7c95dd11b4dc25e7a939f429979c1",
-            "1e205eff49bb6d03d3b53b0929e8b7a965da260df95b24894aa6c381be584cf39392",
-            "1e206bc56e096e5855732a2fb8c379238db9cc28b61323ae4cf05436116e73fa8f1f",
-            "1e20813a3c2552fbe7603d6fdacc369752f5b077c7e6c2e4b2fcd3b850d7c68cbb97",
-            "1e20b758d08491d624d45b41c48b8ccd7a84815d94f9ee227336075ac13d6a7bc744",
-            "1e20c6909bffb9e1b198e3421911e9b2f4482c6a042c099545e7bf4d261db0d878b8",
-            "1e20d52bc0da7ffc13ae23d2504ab0a2a06bbd943ff1d473c4915c4f3256f2dc059a",
-            "1e20db70d6f537e65ce2a14d3b32a0abf3d48435be6dbc06aedba2f40ea1a3a5f709"
+            "1e200d2e9b436f58aea8c7be951cd61649388c646740fb17a16c76874d0df5f380b0",
+            "1e205d461c990b680ed257f974d71fc0b155800f8e37386b62aa53751c8b4b33da4e",
+            "1e20626aeba6c0deadc0743e47356addc87fa85f662d0d922f3495aad8de7053d493",
+            "1e209463a17b99534a4d1c9b774499bef776e49490ed52d0fd431a5bbf680ea8692c",
+            "1e20a7e34ba656920fabbc0d0d410cb113f5346613d088d3f45ab2c2907332cef356",
+            "1e20a9e4d97f05897ceb98acd6e43ba3890145a48e34d8f398d5155a1e33316a57bc",
+            "1e20c4442e4ade47b142b5d1389c16c7f65c296ec6a9535194fb9c1e026e261505d2",
+            "1e20c4505e2294e6b025692838ace1f8d74dc3f6d0362395d1943a0dc20456d650e4"
           ],
           negated: [
-            "1e20813a3c2552fbe7603d6fdacc369752f5b077c7e6c2e4b2fcd3b850d7c68cbb97"
+            "1e20c4505e2294e6b025692838ace1f8d74dc3f6d0362395d1943a0dc20456d650e4"
           ]
         },
-        expectedCanonicalHex: "a263696473887844316532303132386663633930336632323730633739613066653464653637626532346538356464376339356464313162346463323565376139333966343239393739633178443165323035656666343962623664303364336235336230393239653862376139363564613236306466393562323438393461613663333831626535383463663339333932784431653230366263353665303936653538353537333261326662386333373932333864623963633238623631333233616534636630353433363131366537336661386631667844316532303831336133633235353266626537363033643666646163633336393735326635623037376337653663326534623266636433623835306437633638636262393778443165323062373538643038343931643632346434356234316334386238636364376138343831356439346639656532323733333630373561633133643661376263373434784431653230633639303962666662396531623139386533343231393131653962326634343832633661303432633039393534356537626634643236316462306438373862387844316532306435326263306461376666633133616532336432353034616230613261303662626439343366663164343733633439313563346633323536663264633035396178443165323064623730643666353337653635636532613134643362333261306162663364343834333562653664626330366165646261326634306561316133613566373039676e6567617465648178443165323038313361336332353532666265373630336436666461636333363937353266356230373763376536633265346232666364336238353064376336386362623937"
+        expectedCanonicalHex: "a263696473887844316532303064326539623433366635386165613863376265393531636436313634393338386336343637343066623137613136633736383734643064663566333830623078443165323035643436316339393062363830656432353766393734643731666330623135353830306638653337333836623632616135333735316338623462333364613465784431653230363236616562613663306465616463303734336534373335366164646338376661383566363632643064393232663334393561616438646537303533643439337844316532303934363361313762393935333461346431633962373734343939626566373736653439343930656435326430666434333161356262663638306561383639326378443165323061376533346261363536393230666162626330643064343130636231313366353334363631336430383864336634356162326332393037333332636566333536784431653230613965346439376630353839376365623938616364366534336261333839303134356134386533346438663339386435313535613165333333313661353762637844316532306334343432653461646534376231343262356431333839633136633766363563323936656336613935333531393466623963316530323665323631353035643278443165323063343530356532323934653662303235363932383338616365316638643734646333663664303336323339356431393433613064633230343536643635306534676e6567617465648178443165323063343530356532323934653662303235363932383338616365316638643734646333663664303336323339356431393433613064633230343536643635306534"
       },
       {
         name: "mask-trust-restricts-candidates",
@@ -6384,16 +6540,16 @@
         },
         expected: {
           ids: [
-            "1e20128fcc903f2270c79a0fe4de67be24e85dd7c95dd11b4dc25e7a939f429979c1",
-            "1e205eff49bb6d03d3b53b0929e8b7a965da260df95b24894aa6c381be584cf39392",
-            "1e206bc56e096e5855732a2fb8c379238db9cc28b61323ae4cf05436116e73fa8f1f",
-            "1e20813a3c2552fbe7603d6fdacc369752f5b077c7e6c2e4b2fcd3b850d7c68cbb97",
-            "1e20c6909bffb9e1b198e3421911e9b2f4482c6a042c099545e7bf4d261db0d878b8",
-            "1e20d52bc0da7ffc13ae23d2504ab0a2a06bbd943ff1d473c4915c4f3256f2dc059a",
-            "1e20db70d6f537e65ce2a14d3b32a0abf3d48435be6dbc06aedba2f40ea1a3a5f709"
+            "1e200d2e9b436f58aea8c7be951cd61649388c646740fb17a16c76874d0df5f380b0",
+            "1e205d461c990b680ed257f974d71fc0b155800f8e37386b62aa53751c8b4b33da4e",
+            "1e209463a17b99534a4d1c9b774499bef776e49490ed52d0fd431a5bbf680ea8692c",
+            "1e20a7e34ba656920fabbc0d0d410cb113f5346613d088d3f45ab2c2907332cef356",
+            "1e20a9e4d97f05897ceb98acd6e43ba3890145a48e34d8f398d5155a1e33316a57bc",
+            "1e20c4442e4ade47b142b5d1389c16c7f65c296ec6a9535194fb9c1e026e261505d2",
+            "1e20c4505e2294e6b025692838ace1f8d74dc3f6d0362395d1943a0dc20456d650e4"
           ]
         },
-        expectedCanonicalHex: "8778443165323031323866636339303366323237306337396130666534646536376265323465383564643763393564643131623464633235653761393339663432393937396331784431653230356566663439626236643033643362353362303932396538623761393635646132363064663935623234383934616136633338316265353834636633393339327844316532303662633536653039366535383535373332613266623863333739323338646239636332386236313332336165346366303534333631313665373366613866316678443165323038313361336332353532666265373630336436666461636333363937353266356230373763376536633265346232666364336238353064376336386362623937784431653230633639303962666662396531623139386533343231393131653962326634343832633661303432633039393534356537626634643236316462306438373862387844316532306435326263306461376666633133616532336432353034616230613261303662626439343366663164343733633439313563346633323536663264633035396178443165323064623730643666353337653635636532613134643362333261306162663364343834333562653664626330366165646261326634306561316133613566373039"
+        expectedCanonicalHex: "8778443165323030643265396234333666353861656138633762653935316364363136343933383863363436373430666231376131366337363837346430646635663338306230784431653230356434363163393930623638306564323537663937346437316663306231353538303066386533373338366236326161353337353163386234623333646134657844316532303934363361313762393935333461346431633962373734343939626566373736653439343930656435326430666434333161356262663638306561383639326378443165323061376533346261363536393230666162626330643064343130636231313366353334363631336430383864336634356162326332393037333332636566333536784431653230613965346439376630353839376365623938616364366534336261333839303134356134386533346438663339386435313535613165333333313661353762637844316532306334343432653461646534376231343262356431333839633136633766363563323936656336613935333531393466623963316530323665323631353035643278443165323063343530356532323934653662303235363932383338616365316638643734646333663664303336323339356431393433613064633230343536643635306534"
       },
       {
         name: "select-then-mask-scopes-to-operand",
@@ -6414,14 +6570,14 @@
         },
         expected: {
           ids: [
-            "1e20128fcc903f2270c79a0fe4de67be24e85dd7c95dd11b4dc25e7a939f429979c1",
-            "1e205eff49bb6d03d3b53b0929e8b7a965da260df95b24894aa6c381be584cf39392",
-            "1e206bc56e096e5855732a2fb8c379238db9cc28b61323ae4cf05436116e73fa8f1f",
-            "1e20b758d08491d624d45b41c48b8ccd7a84815d94f9ee227336075ac13d6a7bc744",
-            "1e20c6909bffb9e1b198e3421911e9b2f4482c6a042c099545e7bf4d261db0d878b8"
+            "1e200d2e9b436f58aea8c7be951cd61649388c646740fb17a16c76874d0df5f380b0",
+            "1e20626aeba6c0deadc0743e47356addc87fa85f662d0d922f3495aad8de7053d493",
+            "1e209463a17b99534a4d1c9b774499bef776e49490ed52d0fd431a5bbf680ea8692c",
+            "1e20a7e34ba656920fabbc0d0d410cb113f5346613d088d3f45ab2c2907332cef356",
+            "1e20c4442e4ade47b142b5d1389c16c7f65c296ec6a9535194fb9c1e026e261505d2"
           ]
         },
-        expectedCanonicalHex: "857844316532303132386663633930336632323730633739613066653464653637626532346538356464376339356464313162346463323565376139333966343239393739633178443165323035656666343962623664303364336235336230393239653862376139363564613236306466393562323438393461613663333831626535383463663339333932784431653230366263353665303936653538353537333261326662386333373932333864623963633238623631333233616534636630353433363131366537336661386631667844316532306237353864303834393164363234643435623431633438623863636437613834383135643934663965653232373333363037356163313364366137626337343478443165323063363930396266666239653162313938653334323139313165396232663434383263366130343263303939353435653762663464323631646230643837386238"
+        expectedCanonicalHex: "857844316532303064326539623433366635386165613863376265393531636436313634393338386336343637343066623137613136633736383734643064663566333830623078443165323036323661656261366330646561646330373433653437333536616464633837666138356636363264306439323266333439356161643864653730353364343933784431653230393436336131376239393533346134643163396237373434393962656637373665343934393065643532643066643433316135626266363830656138363932637844316532306137653334626136353639323066616262633064306434313063623131336635333436363133643038386433663435616232633239303733333263656633353678443165323063343434326534616465343762313432623564313338396331366337663635633239366563366139353335313934666239633165303236653236313530356432"
       }
     ]
   };
@@ -6433,9 +6589,10 @@
       deltas: [
         {
           name: "d1-title-matrix",
-          id: "1e205eff49bb6d03d3b53b0929e8b7a965da260df95b24894aa6c381be584cf39392",
+          id: "1e20c4442e4ade47b142b5d1389c16c7f65c296ec6a9535194fb9c1e026e261505d2",
           claims: {
             timestamp: 100,
+            validFrom: 100,
             author: "did:key:zAlice",
             pointers: [
               {
@@ -6454,9 +6611,10 @@
         },
         {
           name: "d2-title-reloaded",
-          id: "1e20b758d08491d624d45b41c48b8ccd7a84815d94f9ee227336075ac13d6a7bc744",
+          id: "1e20626aeba6c0deadc0743e47356addc87fa85f662d0d922f3495aad8de7053d493",
           claims: {
             timestamp: 200,
+            validFrom: 200,
             author: "did:key:zBob",
             pointers: [
               {
@@ -6475,9 +6633,10 @@
         },
         {
           name: "d3-year",
-          id: "1e20128fcc903f2270c79a0fe4de67be24e85dd7c95dd11b4dc25e7a939f429979c1",
+          id: "1e209463a17b99534a4d1c9b774499bef776e49490ed52d0fd431a5bbf680ea8692c",
           claims: {
             timestamp: 150,
+            validFrom: 150,
             author: "did:key:zAlice",
             pointers: [
               {
@@ -6496,15 +6655,16 @@
         },
         {
           name: "d4-negates-d2",
-          id: "1e20813a3c2552fbe7603d6fdacc369752f5b077c7e6c2e4b2fcd3b850d7c68cbb97",
+          id: "1e20c4505e2294e6b025692838ace1f8d74dc3f6d0362395d1943a0dc20456d650e4",
           claims: {
             timestamp: 300,
+            validFrom: 300,
             author: "did:key:zBob",
             pointers: [
               {
                 role: "negates",
                 target: {
-                  delta: "1e20b758d08491d624d45b41c48b8ccd7a84815d94f9ee227336075ac13d6a7bc744"
+                  delta: "1e20626aeba6c0deadc0743e47356addc87fa85f662d0d922f3495aad8de7053d493"
                 }
               },
               {
@@ -6516,15 +6676,16 @@
         },
         {
           name: "d5-negates-d4",
-          id: "1e20d52bc0da7ffc13ae23d2504ab0a2a06bbd943ff1d473c4915c4f3256f2dc059a",
+          id: "1e20a9e4d97f05897ceb98acd6e43ba3890145a48e34d8f398d5155a1e33316a57bc",
           claims: {
             timestamp: 400,
+            validFrom: 400,
             author: "did:key:zCarol",
             pointers: [
               {
                 role: "negates",
                 target: {
-                  delta: "1e20813a3c2552fbe7603d6fdacc369752f5b077c7e6c2e4b2fcd3b850d7c68cbb97"
+                  delta: "1e20c4505e2294e6b025692838ace1f8d74dc3f6d0362395d1943a0dc20456d650e4"
                 }
               }
             ]
@@ -6532,9 +6693,10 @@
         },
         {
           name: "d6-rating",
-          id: "1e206bc56e096e5855732a2fb8c379238db9cc28b61323ae4cf05436116e73fa8f1f",
+          id: "1e20a7e34ba656920fabbc0d0d410cb113f5346613d088d3f45ab2c2907332cef356",
           claims: {
             timestamp: 500,
+            validFrom: 500,
             author: "did:key:zAlice",
             pointers: [
               {
@@ -6553,9 +6715,10 @@
         },
         {
           name: "d7-tag",
-          id: "1e20c6909bffb9e1b198e3421911e9b2f4482c6a042c099545e7bf4d261db0d878b8",
+          id: "1e200d2e9b436f58aea8c7be951cd61649388c646740fb17a16c76874d0df5f380b0",
           claims: {
             timestamp: 120,
+            validFrom: 120,
             author: "did:key:zCarol",
             pointers: [
               {
@@ -6574,9 +6737,10 @@
         },
         {
           name: "d8-other-movie",
-          id: "1e20db70d6f537e65ce2a14d3b32a0abf3d48435be6dbc06aedba2f40ea1a3a5f709",
+          id: "1e205d461c990b680ed257f974d71fc0b155800f8e37386b62aa53751c8b4b33da4e",
           claims: {
             timestamp: 600,
+            validFrom: 600,
             author: "did:key:zAlice",
             pointers: [
               {
@@ -6595,9 +6759,10 @@
         },
         {
           name: "d9-variant",
-          id: "1e205ed1ab653742434cc1dcd417ea55f1a150ebd3d50dba8ce50be8df83cd9f87a2",
+          id: "1e207d3209898cd0d0b12e284394764341d18521c968d3a351c751390b1bdd7a6ba3",
           claims: {
             timestamp: 700,
+            validFrom: 700,
             author: "did:key:zCarol",
             pointers: [
               {
@@ -6623,9 +6788,10 @@
         },
         {
           name: "d10-contextless-mention",
-          id: "1e20068781e4ad85fb3d8509cee8f3654fc2a2795c09dedce91a5a308e720de2c83f",
+          id: "1e20233d5aeb384cbbbada871872ebe33491785ac0c3d9a6a28386caf39339e5053e",
           claims: {
             timestamp: 800,
+            validFrom: 800,
             author: "did:key:zBob",
             pointers: [
               {
@@ -6667,38 +6833,38 @@
           props: {
             rating: [
               {
-                id: "1e206bc56e096e5855732a2fb8c379238db9cc28b61323ae4cf05436116e73fa8f1f"
+                id: "1e20a7e34ba656920fabbc0d0d410cb113f5346613d088d3f45ab2c2907332cef356"
               }
             ],
             related: [
               {
-                id: "1e205ed1ab653742434cc1dcd417ea55f1a150ebd3d50dba8ce50be8df83cd9f87a2"
+                id: "1e207d3209898cd0d0b12e284394764341d18521c968d3a351c751390b1bdd7a6ba3"
               }
             ],
             releaseYear: [
               {
-                id: "1e20128fcc903f2270c79a0fe4de67be24e85dd7c95dd11b4dc25e7a939f429979c1"
+                id: "1e209463a17b99534a4d1c9b774499bef776e49490ed52d0fd431a5bbf680ea8692c"
               }
             ],
             tag: [
               {
-                id: "1e20c6909bffb9e1b198e3421911e9b2f4482c6a042c099545e7bf4d261db0d878b8"
+                id: "1e200d2e9b436f58aea8c7be951cd61649388c646740fb17a16c76874d0df5f380b0"
               }
             ],
             title: [
               {
-                id: "1e205ed1ab653742434cc1dcd417ea55f1a150ebd3d50dba8ce50be8df83cd9f87a2"
+                id: "1e20626aeba6c0deadc0743e47356addc87fa85f662d0d922f3495aad8de7053d493"
               },
               {
-                id: "1e205eff49bb6d03d3b53b0929e8b7a965da260df95b24894aa6c381be584cf39392"
+                id: "1e207d3209898cd0d0b12e284394764341d18521c968d3a351c751390b1bdd7a6ba3"
               },
               {
-                id: "1e20b758d08491d624d45b41c48b8ccd7a84815d94f9ee227336075ac13d6a7bc744"
+                id: "1e20c4442e4ade47b142b5d1389c16c7f65c296ec6a9535194fb9c1e026e261505d2"
               }
             ]
           }
         },
-        expectedCanonicalHex: "a26269646c6d6f7669653a6d61747269786570726f7073a56374616781a26269647844316532306336393039626666623965316231393865333432313931316539623266343438326336613034326330393935343565376266346432363164623064383738623866636c61696d73a366617574686f726e6469643a6b65793a7a4361726f6c68706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e7465787463746167a264726f6c656576616c7565667461726765746573636966696974696d657374616d70f95780657469746c6583a26269647844316532303565643161623635333734323433346363316463643431376561353566316131353065626433643530646261386365353062653864663833636439663837613266636c61696d73a366617574686f726e6469643a6b65793a7a4361726f6c68706f696e7465727383a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656976617269616e744f6666746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746772656c61746564a264726f6c656576616c75656674617267657471546865204d6174726978202831393939296974696d657374616d70f96178a26269647844316532303565666634396262366430336433623533623039323965386237613936356461323630646639356232343839346161366333383162653538346366333933393266636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656576616c7565667461726765746a546865204d61747269786974696d657374616d70f95640a26269647844316532306237353864303834393164363234643435623431633438623863636437613834383135643934663965653232373333363037356163313364366137626337343466636c61696d73a366617574686f726c6469643a6b65793a7a426f6268706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656576616c7565667461726765746f4d61747269782052656c6f616465646974696d657374616d70f95a4066726174696e6781a26269647844316532303662633536653039366535383535373332613266623863333739323338646239636332386236313332336165346366303534333631313665373366613866316666636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e7465787466726174696e67a264726f6c656576616c756566746172676574fb40216666666666666974696d657374616d70f95fd06772656c6174656481a26269647844316532303565643161623635333734323433346363316463643431376561353566316131353065626433643530646261386365353062653864663833636439663837613266636c61696d73a366617574686f726e6469643a6b65793a7a4361726f6c68706f696e7465727383a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656976617269616e744f6666746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746772656c61746564a264726f6c656576616c75656674617267657471546865204d6174726978202831393939296974696d657374616d70f961786b72656c656173655965617281a26269647844316532303132386663633930336632323730633739613066653464653637626532346538356464376339356464313162346463323565376139333966343239393739633166636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746b72656c6561736559656172a264726f6c656576616c756566746172676574f967cf6974696d657374616d70f958b0"
+        expectedCanonicalHex: "a26269646c6d6f7669653a6d61747269786570726f7073a56374616781a26269647844316532303064326539623433366635386165613863376265393531636436313634393338386336343637343066623137613136633736383734643064663566333830623066636c61696d73a366617574686f726e6469643a6b65793a7a4361726f6c68706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e7465787463746167a264726f6c656576616c7565667461726765746573636966696974696d657374616d70f95780657469746c6583a26269647844316532303632366165626136633064656164633037343365343733353661646463383766613835663636326430643932326633343935616164386465373035336434393366636c61696d73a366617574686f726c6469643a6b65793a7a426f6268706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656576616c7565667461726765746f4d61747269782052656c6f616465646974696d657374616d70f95a40a26269647844316532303764333230393839386364306430623132653238343339343736343334316431383532316339363864336133353163373531333930623162646437613662613366636c61696d73a366617574686f726e6469643a6b65793a7a4361726f6c68706f696e7465727383a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656976617269616e744f6666746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746772656c61746564a264726f6c656576616c75656674617267657471546865204d6174726978202831393939296974696d657374616d70f96178a26269647844316532306334343432653461646534376231343262356431333839633136633766363563323936656336613935333531393466623963316530323665323631353035643266636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656576616c7565667461726765746a546865204d61747269786974696d657374616d70f9564066726174696e6781a26269647844316532306137653334626136353639323066616262633064306434313063623131336635333436363133643038386433663435616232633239303733333263656633353666636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e7465787466726174696e67a264726f6c656576616c756566746172676574fb40216666666666666974696d657374616d70f95fd06772656c6174656481a26269647844316532303764333230393839386364306430623132653238343339343736343334316431383532316339363864336133353163373531333930623162646437613662613366636c61696d73a366617574686f726e6469643a6b65793a7a4361726f6c68706f696e7465727383a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656976617269616e744f6666746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746772656c61746564a264726f6c656576616c75656674617267657471546865204d6174726978202831393939296974696d657374616d70f961786b72656c656173655965617281a26269647844316532303934363361313762393935333461346431633962373734343939626566373736653439343930656435326430666434333161356262663638306561383639326366636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746b72656c6561736559656172a264726f6c656576616c756566746172676574f967cf6974696d657374616d70f958b0"
       },
       {
         name: "group-by-role",
@@ -6722,37 +6888,37 @@
           props: {
             mentions: [
               {
-                id: "1e20068781e4ad85fb3d8509cee8f3654fc2a2795c09dedce91a5a308e720de2c83f"
+                id: "1e20233d5aeb384cbbbada871872ebe33491785ac0c3d9a6a28386caf39339e5053e"
               }
             ],
             subject: [
               {
-                id: "1e20128fcc903f2270c79a0fe4de67be24e85dd7c95dd11b4dc25e7a939f429979c1"
+                id: "1e200d2e9b436f58aea8c7be951cd61649388c646740fb17a16c76874d0df5f380b0"
               },
               {
-                id: "1e205ed1ab653742434cc1dcd417ea55f1a150ebd3d50dba8ce50be8df83cd9f87a2"
+                id: "1e20626aeba6c0deadc0743e47356addc87fa85f662d0d922f3495aad8de7053d493"
               },
               {
-                id: "1e205eff49bb6d03d3b53b0929e8b7a965da260df95b24894aa6c381be584cf39392"
+                id: "1e207d3209898cd0d0b12e284394764341d18521c968d3a351c751390b1bdd7a6ba3"
               },
               {
-                id: "1e206bc56e096e5855732a2fb8c379238db9cc28b61323ae4cf05436116e73fa8f1f"
+                id: "1e209463a17b99534a4d1c9b774499bef776e49490ed52d0fd431a5bbf680ea8692c"
               },
               {
-                id: "1e20b758d08491d624d45b41c48b8ccd7a84815d94f9ee227336075ac13d6a7bc744"
+                id: "1e20a7e34ba656920fabbc0d0d410cb113f5346613d088d3f45ab2c2907332cef356"
               },
               {
-                id: "1e20c6909bffb9e1b198e3421911e9b2f4482c6a042c099545e7bf4d261db0d878b8"
+                id: "1e20c4442e4ade47b142b5d1389c16c7f65c296ec6a9535194fb9c1e026e261505d2"
               }
             ],
             variantOf: [
               {
-                id: "1e205ed1ab653742434cc1dcd417ea55f1a150ebd3d50dba8ce50be8df83cd9f87a2"
+                id: "1e207d3209898cd0d0b12e284394764341d18521c968d3a351c751390b1bdd7a6ba3"
               }
             ]
           }
         },
-        expectedCanonicalHex: "a26269646c6d6f7669653a6d61747269786570726f7073a3677375626a65637486a26269647844316532303132386663633930336632323730633739613066653464653637626532346538356464376339356464313162346463323565376139333966343239393739633166636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746b72656c6561736559656172a264726f6c656576616c756566746172676574f967cf6974696d657374616d70f958b0a26269647844316532303565643161623635333734323433346363316463643431376561353566316131353065626433643530646261386365353062653864663833636439663837613266636c61696d73a366617574686f726e6469643a6b65793a7a4361726f6c68706f696e7465727383a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656976617269616e744f6666746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746772656c61746564a264726f6c656576616c75656674617267657471546865204d6174726978202831393939296974696d657374616d70f96178a26269647844316532303565666634396262366430336433623533623039323965386237613936356461323630646639356232343839346161366333383162653538346366333933393266636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656576616c7565667461726765746a546865204d61747269786974696d657374616d70f95640a26269647844316532303662633536653039366535383535373332613266623863333739323338646239636332386236313332336165346366303534333631313665373366613866316666636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e7465787466726174696e67a264726f6c656576616c756566746172676574fb40216666666666666974696d657374616d70f95fd0a26269647844316532306237353864303834393164363234643435623431633438623863636437613834383135643934663965653232373333363037356163313364366137626337343466636c61696d73a366617574686f726c6469643a6b65793a7a426f6268706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656576616c7565667461726765746f4d61747269782052656c6f616465646974696d657374616d70f95a40a26269647844316532306336393039626666623965316231393865333432313931316539623266343438326336613034326330393935343565376266346432363164623064383738623866636c61696d73a366617574686f726e6469643a6b65793a7a4361726f6c68706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e7465787463746167a264726f6c656576616c7565667461726765746573636966696974696d657374616d70f95780686d656e74696f6e7381a26269647844316532303036383738316534616438356662336438353039636565386633363534666332613237393563303964656463653931613561333038653732306465326338336666636c61696d73a366617574686f726c6469643a6b65793a7a426f6268706f696e7465727381a264726f6c65686d656e74696f6e7366746172676574a16269646c6d6f7669653a6d61747269786974696d657374616d70f962406976617269616e744f6681a26269647844316532303565643161623635333734323433346363316463643431376561353566316131353065626433643530646261386365353062653864663833636439663837613266636c61696d73a366617574686f726e6469643a6b65793a7a4361726f6c68706f696e7465727383a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656976617269616e744f6666746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746772656c61746564a264726f6c656576616c75656674617267657471546865204d6174726978202831393939296974696d657374616d70f96178"
+        expectedCanonicalHex: "a26269646c6d6f7669653a6d61747269786570726f7073a3677375626a65637486a26269647844316532303064326539623433366635386165613863376265393531636436313634393338386336343637343066623137613136633736383734643064663566333830623066636c61696d73a366617574686f726e6469643a6b65793a7a4361726f6c68706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e7465787463746167a264726f6c656576616c7565667461726765746573636966696974696d657374616d70f95780a26269647844316532303632366165626136633064656164633037343365343733353661646463383766613835663636326430643932326633343935616164386465373035336434393366636c61696d73a366617574686f726c6469643a6b65793a7a426f6268706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656576616c7565667461726765746f4d61747269782052656c6f616465646974696d657374616d70f95a40a26269647844316532303764333230393839386364306430623132653238343339343736343334316431383532316339363864336133353163373531333930623162646437613662613366636c61696d73a366617574686f726e6469643a6b65793a7a4361726f6c68706f696e7465727383a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656976617269616e744f6666746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746772656c61746564a264726f6c656576616c75656674617267657471546865204d6174726978202831393939296974696d657374616d70f96178a26269647844316532303934363361313762393935333461346431633962373734343939626566373736653439343930656435326430666434333161356262663638306561383639326366636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746b72656c6561736559656172a264726f6c656576616c756566746172676574f967cf6974696d657374616d70f958b0a26269647844316532306137653334626136353639323066616262633064306434313063623131336635333436363133643038386433663435616232633239303733333263656633353666636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e7465787466726174696e67a264726f6c656576616c756566746172676574fb40216666666666666974696d657374616d70f95fd0a26269647844316532306334343432653461646534376231343262356431333839633136633766363563323936656336613935333531393466623963316530323665323631353035643266636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656576616c7565667461726765746a546865204d61747269786974696d657374616d70f95640686d656e74696f6e7381a26269647844316532303233336435616562333834636262626164613837313837326562653333343931373835616330633364396136613238333836636166333933333965353035336566636c61696d73a366617574686f726c6469643a6b65793a7a426f6268706f696e7465727381a264726f6c65686d656e74696f6e7366746172676574a16269646c6d6f7669653a6d61747269786974696d657374616d70f962406976617269616e744f6681a26269647844316532303764333230393839386364306430623132653238343339343736343334316431383532316339363864336133353163373531333930623162646437613662613366636c61696d73a366617574686f726e6469643a6b65793a7a4361726f6c68706f696e7465727383a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656976617269616e744f6666746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746772656c61746564a264726f6c656576616c75656674617267657471546865204d6174726978202831393939296974696d657374616d70f96178"
       },
       {
         name: "group-const-bags-everything",
@@ -6780,21 +6946,21 @@
           props: {
             claims: [
               {
-                id: "1e20128fcc903f2270c79a0fe4de67be24e85dd7c95dd11b4dc25e7a939f429979c1"
+                id: "1e205d461c990b680ed257f974d71fc0b155800f8e37386b62aa53751c8b4b33da4e"
               },
               {
-                id: "1e205eff49bb6d03d3b53b0929e8b7a965da260df95b24894aa6c381be584cf39392"
+                id: "1e209463a17b99534a4d1c9b774499bef776e49490ed52d0fd431a5bbf680ea8692c"
               },
               {
-                id: "1e206bc56e096e5855732a2fb8c379238db9cc28b61323ae4cf05436116e73fa8f1f"
+                id: "1e20a7e34ba656920fabbc0d0d410cb113f5346613d088d3f45ab2c2907332cef356"
               },
               {
-                id: "1e20db70d6f537e65ce2a14d3b32a0abf3d48435be6dbc06aedba2f40ea1a3a5f709"
+                id: "1e20c4442e4ade47b142b5d1389c16c7f65c296ec6a9535194fb9c1e026e261505d2"
               }
             ]
           }
         },
-        expectedCanonicalHex: "a26269646c6d6f7669653a6d61747269786570726f7073a166636c61696d7384a26269647844316532303132386663633930336632323730633739613066653464653637626532346538356464376339356464313162346463323565376139333966343239393739633166636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746b72656c6561736559656172a264726f6c656576616c756566746172676574f967cf6974696d657374616d70f958b0a26269647844316532303565666634396262366430336433623533623039323965386237613936356461323630646639356232343839346161366333383162653538346366333933393266636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656576616c7565667461726765746a546865204d61747269786974696d657374616d70f95640a26269647844316532303662633536653039366535383535373332613266623863333739323338646239636332386236313332336165346366303534333631313665373366613866316666636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e7465787466726174696e67a264726f6c656576616c756566746172676574fb40216666666666666974696d657374616d70f95fd0a26269647844316532306462373064366635333765363563653261313464336233326130616266336434383433356265366462633036616564626132663430656131613361356637303966636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646e6d6f7669653a6a6f686e7769636b67636f6e74657874657469746c65a264726f6c656576616c756566746172676574694a6f686e205769636b6974696d657374616d70f960b0"
+        expectedCanonicalHex: "a26269646c6d6f7669653a6d61747269786570726f7073a166636c61696d7384a26269647844316532303564343631633939306236383065643235376639373464373166633062313535383030663865333733383662363261613533373531633862346233336461346566636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646e6d6f7669653a6a6f686e7769636b67636f6e74657874657469746c65a264726f6c656576616c756566746172676574694a6f686e205769636b6974696d657374616d70f960b0a26269647844316532303934363361313762393935333461346431633962373734343939626566373736653439343930656435326430666434333161356262663638306561383639326366636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746b72656c6561736559656172a264726f6c656576616c756566746172676574f967cf6974696d657374616d70f958b0a26269647844316532306137653334626136353639323066616262633064306434313063623131336635333436363133643038386433663435616232633239303733333263656633353666636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e7465787466726174696e67a264726f6c656576616c756566746172676574fb40216666666666666974696d657374616d70f95fd0a26269647844316532306334343432653461646534376231343262356431333839633136633766363563323936656336613935333531393466623963316530323665323631353035643266636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656576616c7565667461726765746a546865204d61747269786974696d657374616d70f95640"
       },
       {
         name: "group-threads-annotate-tags",
@@ -6815,38 +6981,38 @@
           props: {
             rating: [
               {
-                id: "1e206bc56e096e5855732a2fb8c379238db9cc28b61323ae4cf05436116e73fa8f1f"
+                id: "1e20a7e34ba656920fabbc0d0d410cb113f5346613d088d3f45ab2c2907332cef356"
               }
             ],
             related: [
               {
-                id: "1e205ed1ab653742434cc1dcd417ea55f1a150ebd3d50dba8ce50be8df83cd9f87a2"
+                id: "1e207d3209898cd0d0b12e284394764341d18521c968d3a351c751390b1bdd7a6ba3"
               }
             ],
             releaseYear: [
               {
-                id: "1e20128fcc903f2270c79a0fe4de67be24e85dd7c95dd11b4dc25e7a939f429979c1"
+                id: "1e209463a17b99534a4d1c9b774499bef776e49490ed52d0fd431a5bbf680ea8692c"
               }
             ],
             tag: [
               {
-                id: "1e20c6909bffb9e1b198e3421911e9b2f4482c6a042c099545e7bf4d261db0d878b8"
+                id: "1e200d2e9b436f58aea8c7be951cd61649388c646740fb17a16c76874d0df5f380b0"
               }
             ],
             title: [
               {
-                id: "1e205ed1ab653742434cc1dcd417ea55f1a150ebd3d50dba8ce50be8df83cd9f87a2"
+                id: "1e20626aeba6c0deadc0743e47356addc87fa85f662d0d922f3495aad8de7053d493"
               },
               {
-                id: "1e205eff49bb6d03d3b53b0929e8b7a965da260df95b24894aa6c381be584cf39392"
+                id: "1e207d3209898cd0d0b12e284394764341d18521c968d3a351c751390b1bdd7a6ba3"
               },
               {
-                id: "1e20b758d08491d624d45b41c48b8ccd7a84815d94f9ee227336075ac13d6a7bc744"
+                id: "1e20c4442e4ade47b142b5d1389c16c7f65c296ec6a9535194fb9c1e026e261505d2"
               }
             ]
           }
         },
-        expectedCanonicalHex: "a26269646c6d6f7669653a6d61747269786570726f7073a56374616781a26269647844316532306336393039626666623965316231393865333432313931316539623266343438326336613034326330393935343565376266346432363164623064383738623866636c61696d73a366617574686f726e6469643a6b65793a7a4361726f6c68706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e7465787463746167a264726f6c656576616c7565667461726765746573636966696974696d657374616d70f95780657469746c6583a26269647844316532303565643161623635333734323433346363316463643431376561353566316131353065626433643530646261386365353062653864663833636439663837613266636c61696d73a366617574686f726e6469643a6b65793a7a4361726f6c68706f696e7465727383a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656976617269616e744f6666746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746772656c61746564a264726f6c656576616c75656674617267657471546865204d6174726978202831393939296974696d657374616d70f96178a26269647844316532303565666634396262366430336433623533623039323965386237613936356461323630646639356232343839346161366333383162653538346366333933393266636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656576616c7565667461726765746a546865204d61747269786974696d657374616d70f95640a26269647844316532306237353864303834393164363234643435623431633438623863636437613834383135643934663965653232373333363037356163313364366137626337343466636c61696d73a366617574686f726c6469643a6b65793a7a426f6268706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656576616c7565667461726765746f4d61747269782052656c6f616465646974696d657374616d70f95a4066726174696e6781a26269647844316532303662633536653039366535383535373332613266623863333739323338646239636332386236313332336165346366303534333631313665373366613866316666636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e7465787466726174696e67a264726f6c656576616c756566746172676574fb40216666666666666974696d657374616d70f95fd06772656c6174656481a26269647844316532303565643161623635333734323433346363316463643431376561353566316131353065626433643530646261386365353062653864663833636439663837613266636c61696d73a366617574686f726e6469643a6b65793a7a4361726f6c68706f696e7465727383a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656976617269616e744f6666746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746772656c61746564a264726f6c656576616c75656674617267657471546865204d6174726978202831393939296974696d657374616d70f961786b72656c656173655965617281a26269647844316532303132386663633930336632323730633739613066653464653637626532346538356464376339356464313162346463323565376139333966343239393739633166636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746b72656c6561736559656172a264726f6c656576616c756566746172676574f967cf6974696d657374616d70f958b0"
+        expectedCanonicalHex: "a26269646c6d6f7669653a6d61747269786570726f7073a56374616781a26269647844316532303064326539623433366635386165613863376265393531636436313634393338386336343637343066623137613136633736383734643064663566333830623066636c61696d73a366617574686f726e6469643a6b65793a7a4361726f6c68706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e7465787463746167a264726f6c656576616c7565667461726765746573636966696974696d657374616d70f95780657469746c6583a26269647844316532303632366165626136633064656164633037343365343733353661646463383766613835663636326430643932326633343935616164386465373035336434393366636c61696d73a366617574686f726c6469643a6b65793a7a426f6268706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656576616c7565667461726765746f4d61747269782052656c6f616465646974696d657374616d70f95a40a26269647844316532303764333230393839386364306430623132653238343339343736343334316431383532316339363864336133353163373531333930623162646437613662613366636c61696d73a366617574686f726e6469643a6b65793a7a4361726f6c68706f696e7465727383a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656976617269616e744f6666746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746772656c61746564a264726f6c656576616c75656674617267657471546865204d6174726978202831393939296974696d657374616d70f96178a26269647844316532306334343432653461646534376231343262356431333839633136633766363563323936656336613935333531393466623963316530323665323631353035643266636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656576616c7565667461726765746a546865204d61747269786974696d657374616d70f9564066726174696e6781a26269647844316532306137653334626136353639323066616262633064306434313063623131336635333436363133643038386433663435616232633239303733333263656633353666636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e7465787466726174696e67a264726f6c656576616c756566746172676574fb40216666666666666974696d657374616d70f95fd06772656c6174656481a26269647844316532303764333230393839386364306430623132653238343339343736343334316431383532316339363864336133353163373531333930623162646437613662613366636c61696d73a366617574686f726e6469643a6b65793a7a4361726f6c68706f696e7465727383a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656976617269616e744f6666746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746772656c61746564a264726f6c656576616c75656674617267657471546865204d6174726978202831393939296974696d657374616d70f961786b72656c656173655965617281a26269647844316532303934363361313762393935333461346431633962373734343939626566373736653439343930656435326430666434333161356262663638306561383639326366636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746b72656c6561736559656172a264726f6c656576616c756566746172676574f967cf6974696d657374616d70f958b0"
       },
       {
         name: "group-by-target-context-skips-contextless",
@@ -6872,12 +7038,12 @@
           props: {
             title: [
               {
-                id: "1e20b758d08491d624d45b41c48b8ccd7a84815d94f9ee227336075ac13d6a7bc744"
+                id: "1e20626aeba6c0deadc0743e47356addc87fa85f662d0d922f3495aad8de7053d493"
               }
             ]
           }
         },
-        expectedCanonicalHex: "a26269646c6d6f7669653a6d61747269786570726f7073a1657469746c6581a26269647844316532306237353864303834393164363234643435623431633438623863636437613834383135643934663965653232373333363037356163313364366137626337343466636c61696d73a366617574686f726c6469643a6b65793a7a426f6268706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656576616c7565667461726765746f4d61747269782052656c6f616465646974696d657374616d70f95a40"
+        expectedCanonicalHex: "a26269646c6d6f7669653a6d61747269786570726f7073a1657469746c6581a26269647844316532303632366165626136633064656164633037343365343733353661646463383766613835663636326430643932326633343935616164386465373035336434393366636c61696d73a366617574686f726c6469643a6b65793a7a426f6268706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656576616c7565667461726765746f4d61747269782052656c6f616465646974696d657374616d70f95a40"
       },
       {
         name: "group-by-role-files-contextless",
@@ -6903,17 +7069,17 @@
           props: {
             mentions: [
               {
-                id: "1e20068781e4ad85fb3d8509cee8f3654fc2a2795c09dedce91a5a308e720de2c83f"
+                id: "1e20233d5aeb384cbbbada871872ebe33491785ac0c3d9a6a28386caf39339e5053e"
               }
             ],
             subject: [
               {
-                id: "1e20b758d08491d624d45b41c48b8ccd7a84815d94f9ee227336075ac13d6a7bc744"
+                id: "1e20626aeba6c0deadc0743e47356addc87fa85f662d0d922f3495aad8de7053d493"
               }
             ]
           }
         },
-        expectedCanonicalHex: "a26269646c6d6f7669653a6d61747269786570726f7073a2677375626a65637481a26269647844316532306237353864303834393164363234643435623431633438623863636437613834383135643934663965653232373333363037356163313364366137626337343466636c61696d73a366617574686f726c6469643a6b65793a7a426f6268706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656576616c7565667461726765746f4d61747269782052656c6f616465646974696d657374616d70f95a40686d656e74696f6e7381a26269647844316532303036383738316534616438356662336438353039636565386633363534666332613237393563303964656463653931613561333038653732306465326338336666636c61696d73a366617574686f726c6469643a6b65793a7a426f6268706f696e7465727381a264726f6c65686d656e74696f6e7366746172676574a16269646c6d6f7669653a6d61747269786974696d657374616d70f96240"
+        expectedCanonicalHex: "a26269646c6d6f7669653a6d61747269786570726f7073a2677375626a65637481a26269647844316532303632366165626136633064656164633037343365343733353661646463383766613835663636326430643932326633343935616164386465373035336434393366636c61696d73a366617574686f726c6469643a6b65793a7a426f6268706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656576616c7565667461726765746f4d61747269782052656c6f616465646974696d657374616d70f95a40686d656e74696f6e7381a26269647844316532303233336435616562333834636262626164613837313837326562653333343931373835616330633364396136613238333836636166333933333965353035336566636c61696d73a366617574686f726c6469643a6b65793a7a426f6268706f696e7465727381a264726f6c65686d656e74696f6e7366746172676574a16269646c6d6f7669653a6d61747269786974696d657374616d70f96240"
       },
       {
         name: "group-empty-root",
@@ -6962,18 +7128,18 @@
           props: {
             title: [
               {
-                id: "1e205ed1ab653742434cc1dcd417ea55f1a150ebd3d50dba8ce50be8df83cd9f87a2"
+                id: "1e20626aeba6c0deadc0743e47356addc87fa85f662d0d922f3495aad8de7053d493"
               },
               {
-                id: "1e205eff49bb6d03d3b53b0929e8b7a965da260df95b24894aa6c381be584cf39392"
+                id: "1e207d3209898cd0d0b12e284394764341d18521c968d3a351c751390b1bdd7a6ba3"
               },
               {
-                id: "1e20b758d08491d624d45b41c48b8ccd7a84815d94f9ee227336075ac13d6a7bc744"
+                id: "1e20c4442e4ade47b142b5d1389c16c7f65c296ec6a9535194fb9c1e026e261505d2"
               }
             ]
           }
         },
-        expectedCanonicalHex: "a26269646c6d6f7669653a6d61747269786570726f7073a1657469746c6583a26269647844316532303565643161623635333734323433346363316463643431376561353566316131353065626433643530646261386365353062653864663833636439663837613266636c61696d73a366617574686f726e6469643a6b65793a7a4361726f6c68706f696e7465727383a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656976617269616e744f6666746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746772656c61746564a264726f6c656576616c75656674617267657471546865204d6174726978202831393939296974696d657374616d70f96178a26269647844316532303565666634396262366430336433623533623039323965386237613936356461323630646639356232343839346161366333383162653538346366333933393266636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656576616c7565667461726765746a546865204d61747269786974696d657374616d70f95640a26269647844316532306237353864303834393164363234643435623431633438623863636437613834383135643934663965653232373333363037356163313364366137626337343466636c61696d73a366617574686f726c6469643a6b65793a7a426f6268706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656576616c7565667461726765746f4d61747269782052656c6f616465646974696d657374616d70f95a40"
+        expectedCanonicalHex: "a26269646c6d6f7669653a6d61747269786570726f7073a1657469746c6583a26269647844316532303632366165626136633064656164633037343365343733353661646463383766613835663636326430643932326633343935616164386465373035336434393366636c61696d73a366617574686f726c6469643a6b65793a7a426f6268706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656576616c7565667461726765746f4d61747269782052656c6f616465646974696d657374616d70f95a40a26269647844316532303764333230393839386364306430623132653238343339343736343334316431383532316339363864336133353163373531333930623162646437613662613366636c61696d73a366617574686f726e6469643a6b65793a7a4361726f6c68706f696e7465727383a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656976617269616e744f6666746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746772656c61746564a264726f6c656576616c75656674617267657471546865204d6174726978202831393939296974696d657374616d70f96178a26269647844316532306334343432653461646534376231343262356431333839633136633766363563323936656336613935333531393466623963316530323665323631353035643266636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656576616c7565667461726765746a546865204d61747269786974696d657374616d70f95640"
       },
       {
         name: "prune-keep-inset",
@@ -7010,23 +7176,23 @@
           props: {
             rating: [
               {
-                id: "1e206bc56e096e5855732a2fb8c379238db9cc28b61323ae4cf05436116e73fa8f1f"
+                id: "1e20a7e34ba656920fabbc0d0d410cb113f5346613d088d3f45ab2c2907332cef356"
               }
             ],
             title: [
               {
-                id: "1e205ed1ab653742434cc1dcd417ea55f1a150ebd3d50dba8ce50be8df83cd9f87a2"
+                id: "1e20626aeba6c0deadc0743e47356addc87fa85f662d0d922f3495aad8de7053d493"
               },
               {
-                id: "1e205eff49bb6d03d3b53b0929e8b7a965da260df95b24894aa6c381be584cf39392"
+                id: "1e207d3209898cd0d0b12e284394764341d18521c968d3a351c751390b1bdd7a6ba3"
               },
               {
-                id: "1e20b758d08491d624d45b41c48b8ccd7a84815d94f9ee227336075ac13d6a7bc744"
+                id: "1e20c4442e4ade47b142b5d1389c16c7f65c296ec6a9535194fb9c1e026e261505d2"
               }
             ]
           }
         },
-        expectedCanonicalHex: "a26269646c6d6f7669653a6d61747269786570726f7073a2657469746c6583a26269647844316532303565643161623635333734323433346363316463643431376561353566316131353065626433643530646261386365353062653864663833636439663837613266636c61696d73a366617574686f726e6469643a6b65793a7a4361726f6c68706f696e7465727383a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656976617269616e744f6666746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746772656c61746564a264726f6c656576616c75656674617267657471546865204d6174726978202831393939296974696d657374616d70f96178a26269647844316532303565666634396262366430336433623533623039323965386237613936356461323630646639356232343839346161366333383162653538346366333933393266636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656576616c7565667461726765746a546865204d61747269786974696d657374616d70f95640a26269647844316532306237353864303834393164363234643435623431633438623863636437613834383135643934663965653232373333363037356163313364366137626337343466636c61696d73a366617574686f726c6469643a6b65793a7a426f6268706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656576616c7565667461726765746f4d61747269782052656c6f616465646974696d657374616d70f95a4066726174696e6781a26269647844316532303662633536653039366535383535373332613266623863333739323338646239636332386236313332336165346366303534333631313665373366613866316666636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e7465787466726174696e67a264726f6c656576616c756566746172676574fb40216666666666666974696d657374616d70f95fd0"
+        expectedCanonicalHex: "a26269646c6d6f7669653a6d61747269786570726f7073a2657469746c6583a26269647844316532303632366165626136633064656164633037343365343733353661646463383766613835663636326430643932326633343935616164386465373035336434393366636c61696d73a366617574686f726c6469643a6b65793a7a426f6268706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656576616c7565667461726765746f4d61747269782052656c6f616465646974696d657374616d70f95a40a26269647844316532303764333230393839386364306430623132653238343339343736343334316431383532316339363864336133353163373531333930623162646437613662613366636c61696d73a366617574686f726e6469643a6b65793a7a4361726f6c68706f696e7465727383a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656976617269616e744f6666746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746772656c61746564a264726f6c656576616c75656674617267657471546865204d6174726978202831393939296974696d657374616d70f96178a26269647844316532306334343432653461646534376231343262356431333839633136633766363563323936656336613935333531393466623963316530323665323631353035643266636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656576616c7565667461726765746a546865204d61747269786974696d657374616d70f9564066726174696e6781a26269647844316532306137653334626136353639323066616262633064306434313063623131336635333436363133643038386433663435616232633239303733333263656633353666636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e7465787466726174696e67a264726f6c656576616c756566746172676574fb40216666666666666974696d657374616d70f95fd0"
       },
       {
         name: "prune-keep-prefix",
@@ -7060,17 +7226,17 @@
           props: {
             related: [
               {
-                id: "1e205ed1ab653742434cc1dcd417ea55f1a150ebd3d50dba8ce50be8df83cd9f87a2"
+                id: "1e207d3209898cd0d0b12e284394764341d18521c968d3a351c751390b1bdd7a6ba3"
               }
             ],
             releaseYear: [
               {
-                id: "1e20128fcc903f2270c79a0fe4de67be24e85dd7c95dd11b4dc25e7a939f429979c1"
+                id: "1e209463a17b99534a4d1c9b774499bef776e49490ed52d0fd431a5bbf680ea8692c"
               }
             ]
           }
         },
-        expectedCanonicalHex: "a26269646c6d6f7669653a6d61747269786570726f7073a26772656c6174656481a26269647844316532303565643161623635333734323433346363316463643431376561353566316131353065626433643530646261386365353062653864663833636439663837613266636c61696d73a366617574686f726e6469643a6b65793a7a4361726f6c68706f696e7465727383a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656976617269616e744f6666746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746772656c61746564a264726f6c656576616c75656674617267657471546865204d6174726978202831393939296974696d657374616d70f961786b72656c656173655965617281a26269647844316532303132386663633930336632323730633739613066653464653637626532346538356464376339356464313162346463323565376139333966343239393739633166636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746b72656c6561736559656172a264726f6c656576616c756566746172676574f967cf6974696d657374616d70f958b0"
+        expectedCanonicalHex: "a26269646c6d6f7669653a6d61747269786570726f7073a26772656c6174656481a26269647844316532303764333230393839386364306430623132653238343339343736343334316431383532316339363864336133353163373531333930623162646437613662613366636c61696d73a366617574686f726e6469643a6b65793a7a4361726f6c68706f696e7465727383a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656976617269616e744f6666746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746772656c61746564a264726f6c656576616c75656674617267657471546865204d6174726978202831393939296974696d657374616d70f961786b72656c656173655965617281a26269647844316532303934363361313762393935333461346431633962373734343939626566373736653439343930656435326430666434333161356262663638306561383639326366636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746b72656c6561736559656172a264726f6c656576616c756566746172676574f967cf6974696d657374616d70f958b0"
       },
       {
         name: "prune-all-is-identity",
@@ -7102,38 +7268,38 @@
           props: {
             rating: [
               {
-                id: "1e206bc56e096e5855732a2fb8c379238db9cc28b61323ae4cf05436116e73fa8f1f"
+                id: "1e20a7e34ba656920fabbc0d0d410cb113f5346613d088d3f45ab2c2907332cef356"
               }
             ],
             related: [
               {
-                id: "1e205ed1ab653742434cc1dcd417ea55f1a150ebd3d50dba8ce50be8df83cd9f87a2"
+                id: "1e207d3209898cd0d0b12e284394764341d18521c968d3a351c751390b1bdd7a6ba3"
               }
             ],
             releaseYear: [
               {
-                id: "1e20128fcc903f2270c79a0fe4de67be24e85dd7c95dd11b4dc25e7a939f429979c1"
+                id: "1e209463a17b99534a4d1c9b774499bef776e49490ed52d0fd431a5bbf680ea8692c"
               }
             ],
             tag: [
               {
-                id: "1e20c6909bffb9e1b198e3421911e9b2f4482c6a042c099545e7bf4d261db0d878b8"
+                id: "1e200d2e9b436f58aea8c7be951cd61649388c646740fb17a16c76874d0df5f380b0"
               }
             ],
             title: [
               {
-                id: "1e205ed1ab653742434cc1dcd417ea55f1a150ebd3d50dba8ce50be8df83cd9f87a2"
+                id: "1e20626aeba6c0deadc0743e47356addc87fa85f662d0d922f3495aad8de7053d493"
               },
               {
-                id: "1e205eff49bb6d03d3b53b0929e8b7a965da260df95b24894aa6c381be584cf39392"
+                id: "1e207d3209898cd0d0b12e284394764341d18521c968d3a351c751390b1bdd7a6ba3"
               },
               {
-                id: "1e20b758d08491d624d45b41c48b8ccd7a84815d94f9ee227336075ac13d6a7bc744"
+                id: "1e20c4442e4ade47b142b5d1389c16c7f65c296ec6a9535194fb9c1e026e261505d2"
               }
             ]
           }
         },
-        expectedCanonicalHex: "a26269646c6d6f7669653a6d61747269786570726f7073a56374616781a26269647844316532306336393039626666623965316231393865333432313931316539623266343438326336613034326330393935343565376266346432363164623064383738623866636c61696d73a366617574686f726e6469643a6b65793a7a4361726f6c68706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e7465787463746167a264726f6c656576616c7565667461726765746573636966696974696d657374616d70f95780657469746c6583a26269647844316532303565643161623635333734323433346363316463643431376561353566316131353065626433643530646261386365353062653864663833636439663837613266636c61696d73a366617574686f726e6469643a6b65793a7a4361726f6c68706f696e7465727383a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656976617269616e744f6666746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746772656c61746564a264726f6c656576616c75656674617267657471546865204d6174726978202831393939296974696d657374616d70f96178a26269647844316532303565666634396262366430336433623533623039323965386237613936356461323630646639356232343839346161366333383162653538346366333933393266636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656576616c7565667461726765746a546865204d61747269786974696d657374616d70f95640a26269647844316532306237353864303834393164363234643435623431633438623863636437613834383135643934663965653232373333363037356163313364366137626337343466636c61696d73a366617574686f726c6469643a6b65793a7a426f6268706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656576616c7565667461726765746f4d61747269782052656c6f616465646974696d657374616d70f95a4066726174696e6781a26269647844316532303662633536653039366535383535373332613266623863333739323338646239636332386236313332336165346366303534333631313665373366613866316666636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e7465787466726174696e67a264726f6c656576616c756566746172676574fb40216666666666666974696d657374616d70f95fd06772656c6174656481a26269647844316532303565643161623635333734323433346363316463643431376561353566316131353065626433643530646261386365353062653864663833636439663837613266636c61696d73a366617574686f726e6469643a6b65793a7a4361726f6c68706f696e7465727383a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656976617269616e744f6666746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746772656c61746564a264726f6c656576616c75656674617267657471546865204d6174726978202831393939296974696d657374616d70f961786b72656c656173655965617281a26269647844316532303132386663633930336632323730633739613066653464653637626532346538356464376339356464313162346463323565376139333966343239393739633166636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746b72656c6561736559656172a264726f6c656576616c756566746172676574f967cf6974696d657374616d70f958b0"
+        expectedCanonicalHex: "a26269646c6d6f7669653a6d61747269786570726f7073a56374616781a26269647844316532303064326539623433366635386165613863376265393531636436313634393338386336343637343066623137613136633736383734643064663566333830623066636c61696d73a366617574686f726e6469643a6b65793a7a4361726f6c68706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e7465787463746167a264726f6c656576616c7565667461726765746573636966696974696d657374616d70f95780657469746c6583a26269647844316532303632366165626136633064656164633037343365343733353661646463383766613835663636326430643932326633343935616164386465373035336434393366636c61696d73a366617574686f726c6469643a6b65793a7a426f6268706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656576616c7565667461726765746f4d61747269782052656c6f616465646974696d657374616d70f95a40a26269647844316532303764333230393839386364306430623132653238343339343736343334316431383532316339363864336133353163373531333930623162646437613662613366636c61696d73a366617574686f726e6469643a6b65793a7a4361726f6c68706f696e7465727383a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656976617269616e744f6666746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746772656c61746564a264726f6c656576616c75656674617267657471546865204d6174726978202831393939296974696d657374616d70f96178a26269647844316532306334343432653461646534376231343262356431333839633136633766363563323936656336613935333531393466623963316530323665323631353035643266636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656576616c7565667461726765746a546865204d61747269786974696d657374616d70f9564066726174696e6781a26269647844316532306137653334626136353639323066616262633064306434313063623131336635333436363133643038386433663435616232633239303733333263656633353666636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e7465787466726174696e67a264726f6c656576616c756566746172676574fb40216666666666666974696d657374616d70f95fd06772656c6174656481a26269647844316532303764333230393839386364306430623132653238343339343736343334316431383532316339363864336133353163373531333930623162646437613662613366636c61696d73a366617574686f726e6469643a6b65793a7a4361726f6c68706f696e7465727383a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656976617269616e744f6666746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746772656c61746564a264726f6c656576616c75656674617267657471546865204d6174726978202831393939296974696d657374616d70f961786b72656c656173655965617281a26269647844316532303934363361313762393935333461346431633962373734343939626566373736653439343930656435326430666434333161356262663638306561383639326366636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746b72656c6561736559656172a264726f6c656576616c756566746172676574f967cf6974696d657374616d70f958b0"
       }
     ]
   };
@@ -7145,9 +7311,10 @@
       deltas: [
         {
           name: "a1-keanu-name",
-          id: "1e20537093438b01909c6e1712242059f38f66f089ea45414cb7ddf7c9ed29ded216",
+          id: "1e20ef0b71933a0d3e2ec5ca0793952333713edcfcd41b07ff6ba870405dca00b991",
           claims: {
             timestamp: 100,
+            validFrom: 100,
             author: "did:key:zAlice",
             pointers: [
               {
@@ -7166,9 +7333,10 @@
         },
         {
           name: "m1-matrix-title",
-          id: "1e2066627aab9274f448bbcac65c548038bd035e9118a3a9a09a3a9a7f9a5972483e",
+          id: "1e20fcd026d615eee706ce9f08569f0699facaf5ab40427525fbe34f190f71c29e17",
           claims: {
             timestamp: 110,
+            validFrom: 110,
             author: "did:key:zAlice",
             pointers: [
               {
@@ -7187,9 +7355,10 @@
         },
         {
           name: "m2-brzrkr-title",
-          id: "1e201f3746069c9313015cec661386a7e766378557dbe95764ce61e1e051810a467d",
+          id: "1e203f41e3d5407f2028cae8acfd9c2329f1b2a19720a1cbeba65a0fb6cb8e354df6",
           claims: {
             timestamp: 120,
+            validFrom: 120,
             author: "did:key:zBob",
             pointers: [
               {
@@ -7208,9 +7377,10 @@
         },
         {
           name: "c1-cast",
-          id: "1e207ea21fff501c626cdb8e592db4162519c89a84feadfbbf5851577e5ef2c04d9d",
+          id: "1e2061cf60fc59542f78c67fda0b8367326ba04b0d2080a4a3fe6bcd3b4bae91ead5",
           claims: {
             timestamp: 130,
+            validFrom: 130,
             author: "did:key:zAlice",
             pointers: [
               {
@@ -7236,9 +7406,10 @@
         },
         {
           name: "c2-created",
-          id: "1e20e941d451956d79a42ac465f2f832b3e47903522fc9eb6b3d41e0871da3943430",
+          id: "1e205f598c8725500dae2f89513f127a462605eac4ad65c8e72ad29e53931e49b487",
           claims: {
             timestamp: 140,
+            validFrom: 140,
             author: "did:key:zCarol",
             pointers: [
               {
@@ -7459,7 +7630,7 @@
           schema: "MovieBasic",
           entity: "movie:matrix"
         },
-        expectedCanonicalHex: "a26269646c6d6f7669653a6d61747269786570726f7073a2646361737481a26269647844316532303765613231666666353031633632366364623865353932646234313632353139633839613834666561646662626635383531353737653565663263303464396466636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727383a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746463617374a264726f6c65656163746f7266746172676574a26269646b6163746f723a6b65616e7567636f6e746578746b66696c6d6f677261706879a264726f6c656963686172616374657266746172676574634e656f6974696d657374616d70f95810657469746c6581a26269647844316532303636363237616162393237346634343862626361633635633534383033386264303335653931313861336139613039613361396137663961353937323438336566636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656576616c7565667461726765746a546865204d61747269786974696d657374616d70f956e0"
+        expectedCanonicalHex: "a26269646c6d6f7669653a6d61747269786570726f7073a2646361737481a26269647844316532303631636636306663353935343266373863363766646130623833363733323662613034623064323038306134613366653662636433623462616539316561643566636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727383a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746463617374a264726f6c65656163746f7266746172676574a26269646b6163746f723a6b65616e7567636f6e746578746b66696c6d6f677261706879a264726f6c656963686172616374657266746172676574634e656f6974696d657374616d70f95810657469746c6581a26269647844316532306663643032366436313565656537303663653966303835363966303639396661636166356162343034323735323566626533346631393066373163323965313766636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656576616c7565667461726765746a546865204d61747269786974696d657374616d70f956e0"
       },
       {
         name: "fix-expand-one-level",
@@ -7470,7 +7641,7 @@
           schema: "MovieWithCast",
           entity: "movie:matrix"
         },
-        expectedCanonicalHex: "a26269646c6d6f7669653a6d61747269786570726f7073a2646361737481a26269647844316532303765613231666666353031633632366364623865353932646234313632353139633839613834666561646662626635383531353737653565663263303464396466636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727383a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746463617374a264726f6c65656163746f7266746172676574a26269646b6163746f723a6b65616e756570726f7073a3646e616d6581a26269647844316532303533373039333433386230313930396336653137313232343230353966333866363666303839656134353431346362376464663763396564323964656432313666636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646b6163746f723a6b65616e7567636f6e74657874646e616d65a264726f6c656576616c7565667461726765746c4b65616e75205265657665736974696d657374616d70f956406b66696c6d6f67726170687981a26269647844316532303765613231666666353031633632366364623865353932646234313632353139633839613834666561646662626635383531353737653565663263303464396466636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727383a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746463617374a264726f6c65656163746f7266746172676574a26269646b6163746f723a6b65616e7567636f6e746578746b66696c6d6f677261706879a264726f6c656963686172616374657266746172676574634e656f6974696d657374616d70f958106c63726561746564576f726b7381a26269647844316532306539343164343531393536643739613432616334363566326638333262336534373930333532326663396562366233643431653038373164613339343334333066636c61696d73a366617574686f726e6469643a6b65793a7a4361726f6c68706f696e7465727382a264726f6c656763726561746f7266746172676574a26269646b6163746f723a6b65616e7567636f6e746578746c63726561746564576f726b73a264726f6c6564776f726b66746172676574a26269646c6d6f7669653a62727a726b7267636f6e74657874696372656174656442796974696d657374616d70f95860a264726f6c656963686172616374657266746172676574634e656f6974696d657374616d70f95810657469746c6581a26269647844316532303636363237616162393237346634343862626361633635633534383033386264303335653931313861336139613039613361396137663961353937323438336566636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656576616c7565667461726765746a546865204d61747269786974696d657374616d70f956e0"
+        expectedCanonicalHex: "a26269646c6d6f7669653a6d61747269786570726f7073a2646361737481a26269647844316532303631636636306663353935343266373863363766646130623833363733323662613034623064323038306134613366653662636433623462616539316561643566636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727383a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746463617374a264726f6c65656163746f7266746172676574a26269646b6163746f723a6b65616e756570726f7073a3646e616d6581a26269647844316532306566306237313933336130643365326563356361303739333935323333333731336564636663643431623037666636626138373034303564636130306239393166636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646b6163746f723a6b65616e7567636f6e74657874646e616d65a264726f6c656576616c7565667461726765746c4b65616e75205265657665736974696d657374616d70f956406b66696c6d6f67726170687981a26269647844316532303631636636306663353935343266373863363766646130623833363733323662613034623064323038306134613366653662636433623462616539316561643566636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727383a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746463617374a264726f6c65656163746f7266746172676574a26269646b6163746f723a6b65616e7567636f6e746578746b66696c6d6f677261706879a264726f6c656963686172616374657266746172676574634e656f6974696d657374616d70f958106c63726561746564576f726b7381a26269647844316532303566353938633837323535303064616532663839353133663132376134363236303565616334616436356338653732616432396535333933316534396234383766636c61696d73a366617574686f726e6469643a6b65793a7a4361726f6c68706f696e7465727382a264726f6c656763726561746f7266746172676574a26269646b6163746f723a6b65616e7567636f6e746578746c63726561746564576f726b73a264726f6c6564776f726b66746172676574a26269646c6d6f7669653a62727a726b7267636f6e74657874696372656174656442796974696d657374616d70f95860a264726f6c656963686172616374657266746172676574634e656f6974696d657374616d70f95810657469746c6581a26269647844316532306663643032366436313565656537303663653966303835363966303639396661636166356162343034323735323566626533346631393066373163323965313766636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656576616c7565667461726765746a546865204d61747269786974696d657374616d70f956e0"
       },
       {
         name: "fix-expand-with-reading",
@@ -7481,7 +7652,7 @@
           schema: "MovieWithCastRead",
           entity: "movie:matrix"
         },
-        expectedCanonicalHex: "a26269646c6d6f7669653a6d61747269786570726f7073a2646361737481a26269647844316532303765613231666666353031633632366364623865353932646234313632353139633839613834666561646662626635383531353737653565663263303464396466636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727383a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746463617374a264726f6c65656163746f7266746172676574a36269646b6163746f723a6b65616e756570726f7073a3646e616d6581a26269647844316532303533373039333433386230313930396336653137313232343230353966333866363666303839656134353431346362376464663763396564323964656432313666636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646b6163746f723a6b65616e7567636f6e74657874646e616d65a264726f6c656576616c7565667461726765746c4b65616e75205265657665736974696d657374616d70f956406b66696c6d6f67726170687981a26269647844316532303765613231666666353031633632366364623865353932646234313632353139633839613834666561646662626635383531353737653565663263303464396466636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727383a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746463617374a264726f6c65656163746f7266746172676574a26269646b6163746f723a6b65616e7567636f6e746578746b66696c6d6f677261706879a264726f6c656963686172616374657266746172676574634e656f6974696d657374616d70f958106c63726561746564576f726b7381a26269647844316532306539343164343531393536643739613432616334363566326638333262336534373930333532326663396562366233643431653038373164613339343334333066636c61696d73a366617574686f726e6469643a6b65793a7a4361726f6c68706f696e7465727382a264726f6c656763726561746f7266746172676574a26269646b6163746f723a6b65616e7567636f6e746578746c63726561746564576f726b73a264726f6c6564776f726b66746172676574a26269646c6d6f7669653a62727a726b7267636f6e74657874696372656174656442796974696d657374616d70f958606772656164696e6778443165323031323236636331393962343133633061343937613135333965343064636161653437336562376231313133666339646432373666313865663066626264303035a264726f6c656963686172616374657266746172676574634e656f6974696d657374616d70f95810657469746c6581a26269647844316532303636363237616162393237346634343862626361633635633534383033386264303335653931313861336139613039613361396137663961353937323438336566636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656576616c7565667461726765746a546865204d61747269786974696d657374616d70f956e0"
+        expectedCanonicalHex: "a26269646c6d6f7669653a6d61747269786570726f7073a2646361737481a26269647844316532303631636636306663353935343266373863363766646130623833363733323662613034623064323038306134613366653662636433623462616539316561643566636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727383a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746463617374a264726f6c65656163746f7266746172676574a36269646b6163746f723a6b65616e756570726f7073a3646e616d6581a26269647844316532306566306237313933336130643365326563356361303739333935323333333731336564636663643431623037666636626138373034303564636130306239393166636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646b6163746f723a6b65616e7567636f6e74657874646e616d65a264726f6c656576616c7565667461726765746c4b65616e75205265657665736974696d657374616d70f956406b66696c6d6f67726170687981a26269647844316532303631636636306663353935343266373863363766646130623833363733323662613034623064323038306134613366653662636433623462616539316561643566636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727383a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746463617374a264726f6c65656163746f7266746172676574a26269646b6163746f723a6b65616e7567636f6e746578746b66696c6d6f677261706879a264726f6c656963686172616374657266746172676574634e656f6974696d657374616d70f958106c63726561746564576f726b7381a26269647844316532303566353938633837323535303064616532663839353133663132376134363236303565616334616436356338653732616432396535333933316534396234383766636c61696d73a366617574686f726e6469643a6b65793a7a4361726f6c68706f696e7465727382a264726f6c656763726561746f7266746172676574a26269646b6163746f723a6b65616e7567636f6e746578746c63726561746564576f726b73a264726f6c6564776f726b66746172676574a26269646c6d6f7669653a62727a726b7267636f6e74657874696372656174656442796974696d657374616d70f958606772656164696e6778443165323031323236636331393962343133633061343937613135333965343064636161653437336562376231313133666339646432373666313865663066626264303035a264726f6c656963686172616374657266746172676574634e656f6974696d657374616d70f95810657469746c6581a26269647844316532306663643032366436313565656537303663653966303835363966303639396661636166356162343034323735323566626533346631393066373163323965313766636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656576616c7565667461726765746a546865204d61747269786974696d657374616d70f956e0"
       },
       {
         name: "fix-data-cycle-terminates",
@@ -7492,7 +7663,7 @@
           schema: "MovieDeep",
           entity: "movie:matrix"
         },
-        expectedCanonicalHex: "a26269646c6d6f7669653a6d61747269786570726f7073a2646361737481a26269647844316532303765613231666666353031633632366364623865353932646234313632353139633839613834666561646662626635383531353737653565663263303464396466636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727383a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746463617374a264726f6c65656163746f7266746172676574a26269646b6163746f723a6b65616e756570726f7073a3646e616d6581a26269647844316532303533373039333433386230313930396336653137313232343230353966333866363666303839656134353431346362376464663763396564323964656432313666636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646b6163746f723a6b65616e7567636f6e74657874646e616d65a264726f6c656576616c7565667461726765746c4b65616e75205265657665736974696d657374616d70f956406b66696c6d6f67726170687981a26269647844316532303765613231666666353031633632366364623865353932646234313632353139633839613834666561646662626635383531353737653565663263303464396466636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727383a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746463617374a264726f6c65656163746f7266746172676574a26269646b6163746f723a6b65616e7567636f6e746578746b66696c6d6f677261706879a264726f6c656963686172616374657266746172676574634e656f6974696d657374616d70f958106c63726561746564576f726b7381a26269647844316532306539343164343531393536643739613432616334363566326638333262336534373930333532326663396562366233643431653038373164613339343334333066636c61696d73a366617574686f726e6469643a6b65793a7a4361726f6c68706f696e7465727382a264726f6c656763726561746f7266746172676574a26269646b6163746f723a6b65616e7567636f6e746578746c63726561746564576f726b73a264726f6c6564776f726b66746172676574a26269646c6d6f7669653a62727a726b726570726f7073a2657469746c6581a26269647844316532303166333734363036396339333133303135636563363631333836613765373636333738353537646265393537363463653631653165303531383130613436376466636c61696d73a366617574686f726c6469643a6b65793a7a426f6268706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a62727a726b7267636f6e74657874657469746c65a264726f6c656576616c7565667461726765746642525a524b526974696d657374616d70f957806963726561746564427981a26269647844316532306539343164343531393536643739613432616334363566326638333262336534373930333532326663396562366233643431653038373164613339343334333066636c61696d73a366617574686f726e6469643a6b65793a7a4361726f6c68706f696e7465727382a264726f6c656763726561746f7266746172676574a26269646b6163746f723a6b65616e7567636f6e746578746c63726561746564576f726b73a264726f6c6564776f726b66746172676574a26269646c6d6f7669653a62727a726b7267636f6e74657874696372656174656442796974696d657374616d70f958606974696d657374616d70f95860a264726f6c656963686172616374657266746172676574634e656f6974696d657374616d70f95810657469746c6581a26269647844316532303636363237616162393237346634343862626361633635633534383033386264303335653931313861336139613039613361396137663961353937323438336566636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656576616c7565667461726765746a546865204d61747269786974696d657374616d70f956e0"
+        expectedCanonicalHex: "a26269646c6d6f7669653a6d61747269786570726f7073a2646361737481a26269647844316532303631636636306663353935343266373863363766646130623833363733323662613034623064323038306134613366653662636433623462616539316561643566636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727383a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746463617374a264726f6c65656163746f7266746172676574a26269646b6163746f723a6b65616e756570726f7073a3646e616d6581a26269647844316532306566306237313933336130643365326563356361303739333935323333333731336564636663643431623037666636626138373034303564636130306239393166636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646b6163746f723a6b65616e7567636f6e74657874646e616d65a264726f6c656576616c7565667461726765746c4b65616e75205265657665736974696d657374616d70f956406b66696c6d6f67726170687981a26269647844316532303631636636306663353935343266373863363766646130623833363733323662613034623064323038306134613366653662636433623462616539316561643566636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727383a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746463617374a264726f6c65656163746f7266746172676574a26269646b6163746f723a6b65616e7567636f6e746578746b66696c6d6f677261706879a264726f6c656963686172616374657266746172676574634e656f6974696d657374616d70f958106c63726561746564576f726b7381a26269647844316532303566353938633837323535303064616532663839353133663132376134363236303565616334616436356338653732616432396535333933316534396234383766636c61696d73a366617574686f726e6469643a6b65793a7a4361726f6c68706f696e7465727382a264726f6c656763726561746f7266746172676574a26269646b6163746f723a6b65616e7567636f6e746578746c63726561746564576f726b73a264726f6c6564776f726b66746172676574a26269646c6d6f7669653a62727a726b726570726f7073a2657469746c6581a26269647844316532303366343165336435343037663230323863616538616366643963323332396631623261313937323061316362656261363561306662366362386533353464663666636c61696d73a366617574686f726c6469643a6b65793a7a426f6268706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a62727a726b7267636f6e74657874657469746c65a264726f6c656576616c7565667461726765746642525a524b526974696d657374616d70f957806963726561746564427981a26269647844316532303566353938633837323535303064616532663839353133663132376134363236303565616334616436356338653732616432396535333933316534396234383766636c61696d73a366617574686f726e6469643a6b65793a7a4361726f6c68706f696e7465727382a264726f6c656763726561746f7266746172676574a26269646b6163746f723a6b65616e7567636f6e746578746c63726561746564576f726b73a264726f6c6564776f726b66746172676574a26269646c6d6f7669653a62727a726b7267636f6e74657874696372656174656442796974696d657374616d70f958606974696d657374616d70f95860a264726f6c656963686172616374657266746172676574634e656f6974696d657374616d70f95810657469746c6581a26269647844316532306663643032366436313565656537303663653966303835363966303639396661636166356162343034323735323566626533346631393066373163323965313766636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656576616c7565667461726765746a546865204d61747269786974696d657374616d70f956e0"
       },
       {
         name: "fix-actor-perspective",
@@ -7502,7 +7673,7 @@
           schema: "ActorWithWorks",
           entity: "actor:keanu"
         },
-        expectedCanonicalHex: "a26269646b6163746f723a6b65616e756570726f7073a3646e616d6581a26269647844316532303533373039333433386230313930396336653137313232343230353966333866363666303839656134353431346362376464663763396564323964656432313666636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646b6163746f723a6b65616e7567636f6e74657874646e616d65a264726f6c656576616c7565667461726765746c4b65616e75205265657665736974696d657374616d70f956406b66696c6d6f67726170687981a26269647844316532303765613231666666353031633632366364623865353932646234313632353139633839613834666561646662626635383531353737653565663263303464396466636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727383a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746463617374a264726f6c65656163746f7266746172676574a26269646b6163746f723a6b65616e7567636f6e746578746b66696c6d6f677261706879a264726f6c656963686172616374657266746172676574634e656f6974696d657374616d70f958106c63726561746564576f726b7381a26269647844316532306539343164343531393536643739613432616334363566326638333262336534373930333532326663396562366233643431653038373164613339343334333066636c61696d73a366617574686f726e6469643a6b65793a7a4361726f6c68706f696e7465727382a264726f6c656763726561746f7266746172676574a26269646b6163746f723a6b65616e7567636f6e746578746c63726561746564576f726b73a264726f6c6564776f726b66746172676574a26269646c6d6f7669653a62727a726b726570726f7073a2657469746c6581a26269647844316532303166333734363036396339333133303135636563363631333836613765373636333738353537646265393537363463653631653165303531383130613436376466636c61696d73a366617574686f726c6469643a6b65793a7a426f6268706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a62727a726b7267636f6e74657874657469746c65a264726f6c656576616c7565667461726765746642525a524b526974696d657374616d70f957806963726561746564427981a26269647844316532306539343164343531393536643739613432616334363566326638333262336534373930333532326663396562366233643431653038373164613339343334333066636c61696d73a366617574686f726e6469643a6b65793a7a4361726f6c68706f696e7465727382a264726f6c656763726561746f7266746172676574a26269646b6163746f723a6b65616e7567636f6e746578746c63726561746564576f726b73a264726f6c6564776f726b66746172676574a26269646c6d6f7669653a62727a726b7267636f6e74657874696372656174656442796974696d657374616d70f958606974696d657374616d70f95860"
+        expectedCanonicalHex: "a26269646b6163746f723a6b65616e756570726f7073a3646e616d6581a26269647844316532306566306237313933336130643365326563356361303739333935323333333731336564636663643431623037666636626138373034303564636130306239393166636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646b6163746f723a6b65616e7567636f6e74657874646e616d65a264726f6c656576616c7565667461726765746c4b65616e75205265657665736974696d657374616d70f956406b66696c6d6f67726170687981a26269647844316532303631636636306663353935343266373863363766646130623833363733323662613034623064323038306134613366653662636433623462616539316561643566636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727383a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746463617374a264726f6c65656163746f7266746172676574a26269646b6163746f723a6b65616e7567636f6e746578746b66696c6d6f677261706879a264726f6c656963686172616374657266746172676574634e656f6974696d657374616d70f958106c63726561746564576f726b7381a26269647844316532303566353938633837323535303064616532663839353133663132376134363236303565616334616436356338653732616432396535333933316534396234383766636c61696d73a366617574686f726e6469643a6b65793a7a4361726f6c68706f696e7465727382a264726f6c656763726561746f7266746172676574a26269646b6163746f723a6b65616e7567636f6e746578746c63726561746564576f726b73a264726f6c6564776f726b66746172676574a26269646c6d6f7669653a62727a726b726570726f7073a2657469746c6581a26269647844316532303366343165336435343037663230323863616538616366643963323332396631623261313937323061316362656261363561306662366362386533353464663666636c61696d73a366617574686f726c6469643a6b65793a7a426f6268706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a62727a726b7267636f6e74657874657469746c65a264726f6c656576616c7565667461726765746642525a524b526974696d657374616d70f957806963726561746564427981a26269647844316532303566353938633837323535303064616532663839353133663132376134363236303565616334616436356338653732616432396535333933316534396234383766636c61696d73a366617574686f726e6469643a6b65793a7a4361726f6c68706f696e7465727382a264726f6c656763726561746f7266746172676574a26269646b6163746f723a6b65616e7567636f6e746578746c63726561746564576f726b73a264726f6c6564776f726b66746172676574a26269646c6d6f7669653a62727a726b7267636f6e74657874696372656174656442796974696d657374616d70f958606974696d657374616d70f95860"
       },
       {
         name: "expand-no-matching-role-is-identity",
@@ -7519,7 +7690,7 @@
             entity: "movie:matrix"
           }
         },
-        expectedCanonicalHex: "a26269646c6d6f7669653a6d61747269786570726f7073a2646361737481a26269647844316532303765613231666666353031633632366364623865353932646234313632353139633839613834666561646662626635383531353737653565663263303464396466636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727383a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746463617374a264726f6c65656163746f7266746172676574a26269646b6163746f723a6b65616e7567636f6e746578746b66696c6d6f677261706879a264726f6c656963686172616374657266746172676574634e656f6974696d657374616d70f95810657469746c6581a26269647844316532303636363237616162393237346634343862626361633635633534383033386264303335653931313861336139613039613361396137663961353937323438336566636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656576616c7565667461726765746a546865204d61747269786974696d657374616d70f956e0"
+        expectedCanonicalHex: "a26269646c6d6f7669653a6d61747269786570726f7073a2646361737481a26269647844316532303631636636306663353935343266373863363766646130623833363733323662613034623064323038306134613366653662636433623462616539316561643566636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727383a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746463617374a264726f6c65656163746f7266746172676574a26269646b6163746f723a6b65616e7567636f6e746578746b66696c6d6f677261706879a264726f6c656963686172616374657266746172676574634e656f6974696d657374616d70f95810657469746c6581a26269647844316532306663643032366436313565656537303663653966303835363966303639396661636166356162343034323735323566626533346631393066373163323965313766636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656576616c7565667461726765746a546865204d61747269786974696d657374616d70f956e0"
       },
       {
         name: "expand-skips-primitive-targets",
@@ -7537,7 +7708,7 @@
             entity: "movie:matrix"
           }
         },
-        expectedCanonicalHex: "a26269646c6d6f7669653a6d61747269786570726f7073a2646361737481a26269647844316532303765613231666666353031633632366364623865353932646234313632353139633839613834666561646662626635383531353737653565663263303464396466636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727383a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746463617374a264726f6c65656163746f7266746172676574a26269646b6163746f723a6b65616e7567636f6e746578746b66696c6d6f677261706879a264726f6c656963686172616374657266746172676574634e656f6974696d657374616d70f95810657469746c6581a26269647844316532303636363237616162393237346634343862626361633635633534383033386264303335653931313861336139613039613361396137663961353937323438336566636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656576616c7565667461726765746a546865204d61747269786974696d657374616d70f956e0"
+        expectedCanonicalHex: "a26269646c6d6f7669653a6d61747269786570726f7073a2646361737481a26269647844316532303631636636306663353935343266373863363766646130623833363733323662613034623064323038306134613366653662636433623462616539316561643566636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727383a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746463617374a264726f6c65656163746f7266746172676574a26269646b6163746f723a6b65616e7567636f6e746578746b66696c6d6f677261706879a264726f6c656963686172616374657266746172676574634e656f6974696d657374616d70f95810657469746c6581a26269647844316532306663643032366436313565656537303663653966303835363966303639396661636166356162343034323735323566626533346631393066373163323965313766636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c656576616c7565667461726765746a546865204d61747269786974696d657374616d70f956e0"
       },
       {
         name: "fix-unknown-entity-is-empty",
@@ -7559,9 +7730,10 @@
       deltas: [
         {
           name: "t1-title-a",
-          id: "1e205eff49bb6d03d3b53b0929e8b7a965da260df95b24894aa6c381be584cf39392",
+          id: "1e20c4442e4ade47b142b5d1389c16c7f65c296ec6a9535194fb9c1e026e261505d2",
           claims: {
             timestamp: 100,
+            validFrom: 100,
             author: "did:key:zAlice",
             pointers: [
               {
@@ -7580,9 +7752,10 @@
         },
         {
           name: "t2-title-b",
-          id: "1e20b758d08491d624d45b41c48b8ccd7a84815d94f9ee227336075ac13d6a7bc744",
+          id: "1e20626aeba6c0deadc0743e47356addc87fa85f662d0d922f3495aad8de7053d493",
           claims: {
             timestamp: 200,
+            validFrom: 200,
             author: "did:key:zBob",
             pointers: [
               {
@@ -7601,9 +7774,10 @@
         },
         {
           name: "y1-year",
-          id: "1e20128fcc903f2270c79a0fe4de67be24e85dd7c95dd11b4dc25e7a939f429979c1",
+          id: "1e209463a17b99534a4d1c9b774499bef776e49490ed52d0fd431a5bbf680ea8692c",
           claims: {
             timestamp: 150,
+            validFrom: 150,
             author: "did:key:zAlice",
             pointers: [
               {
@@ -7622,9 +7796,10 @@
         },
         {
           name: "r1-rating-a",
-          id: "1e206bc56e096e5855732a2fb8c379238db9cc28b61323ae4cf05436116e73fa8f1f",
+          id: "1e20a7e34ba656920fabbc0d0d410cb113f5346613d088d3f45ab2c2907332cef356",
           claims: {
             timestamp: 500,
+            validFrom: 500,
             author: "did:key:zAlice",
             pointers: [
               {
@@ -7643,9 +7818,10 @@
         },
         {
           name: "r2-rating-b",
-          id: "1e2020389ed306335a0a3462af525c34b9db4bd79d79d91f61fbfcddc0af0ec1aa2d",
+          id: "1e2031ce2b7e6838171e66ca5b5548d40e0ba77a8ea9d59504bda42e829b6b3059e9",
           claims: {
             timestamp: 600,
+            validFrom: 600,
             author: "did:key:zBob",
             pointers: [
               {
@@ -7664,9 +7840,10 @@
         },
         {
           name: "g1-tag-scifi",
-          id: "1e20c6909bffb9e1b198e3421911e9b2f4482c6a042c099545e7bf4d261db0d878b8",
+          id: "1e200d2e9b436f58aea8c7be951cd61649388c646740fb17a16c76874d0df5f380b0",
           claims: {
             timestamp: 120,
+            validFrom: 120,
             author: "did:key:zCarol",
             pointers: [
               {
@@ -7685,9 +7862,10 @@
         },
         {
           name: "g2-tag-action",
-          id: "1e20a75bf8b77f15ec02483c1c86443ccde70d1be01e7a011df22009346c4630975c",
+          id: "1e2001e6d27874952e0e6d00173d3070797e3499852a17ed5fc632f749dc48df8f98",
           claims: {
             timestamp: 610,
+            validFrom: 610,
             author: "did:key:zBob",
             pointers: [
               {
@@ -7706,9 +7884,10 @@
         },
         {
           name: "s1-size-str",
-          id: "1e20a22266ce59718d14044c011026779b17e6da1ded148ee7fe01b94ba1931e82cf",
+          id: "1e20fa8844fcc6c3b25b75cab8f950bf89b87eb815ca3cab95444c8b1047090028ed",
           claims: {
             timestamp: 700,
+            validFrom: 700,
             author: "did:key:zCarol",
             pointers: [
               {
@@ -7727,9 +7906,10 @@
         },
         {
           name: "s2-size-num",
-          id: "1e20ae788b814e849a0c8d5c26a5ac260bf85cde7c8802f126168d0c1f72037ef487",
+          id: "1e20d415a5a4c4c587c8a9eee251ff797e68aa9acdf1620c937b4fa231c53e54e5c4",
           claims: {
             timestamp: 710,
+            validFrom: 710,
             author: "did:key:zAlice",
             pointers: [
               {
@@ -7748,15 +7928,16 @@
         },
         {
           name: "n1-negates-t2",
-          id: "1e204b62bb91e392af6ff668d0d8a974e6df49b722ca265f357740380532ee892c26",
+          id: "1e20b3f63d8e12ed82cbf84a49666f8af004513479483bbf6770e73d1c9b0c0d5c11",
           claims: {
             timestamp: 300,
+            validFrom: 300,
             author: "did:key:zBob",
             pointers: [
               {
                 role: "negates",
                 target: {
-                  delta: "1e20b758d08491d624d45b41c48b8ccd7a84815d94f9ee227336075ac13d6a7bc744"
+                  delta: "1e20626aeba6c0deadc0743e47356addc87fa85f662d0d922f3495aad8de7053d493"
                 }
               }
             ]
@@ -7764,9 +7945,10 @@
         },
         {
           name: "a1-keanu-name",
-          id: "1e20a3819b9abb8b7b3e1bd06687fdf661d8c58496494c3bff907a62138db3983174",
+          id: "1e200bc50640b5cf95a388d94e05fdc89112e5693de41fe43d21fbf2dfaf3b8d2c26",
           claims: {
             timestamp: 110,
+            validFrom: 110,
             author: "did:key:zAlice",
             pointers: [
               {
@@ -7785,9 +7967,10 @@
         },
         {
           name: "c1-cast",
-          id: "1e207ea21fff501c626cdb8e592db4162519c89a84feadfbbf5851577e5ef2c04d9d",
+          id: "1e2061cf60fc59542f78c67fda0b8367326ba04b0d2080a4a3fe6bcd3b4bae91ead5",
           claims: {
             timestamp: 130,
+            validFrom: 130,
             author: "did:key:zAlice",
             pointers: [
               {
@@ -7813,9 +7996,10 @@
         },
         {
           name: "w1-bio-old",
-          id: "1e201dcf76c37cc1e509557f84a5c9602e3b93f4adcc64b2a2fff1adf007191d79d0",
+          id: "1e208b7f05d937888e6a2f5f34be7aeb5721fefdd08055027edfb188e5a68fa6510a",
           claims: {
             timestamp: 100,
+            validFrom: 100,
             author: "did:key:zAlice",
             pointers: [
               {
@@ -7834,9 +8018,10 @@
         },
         {
           name: "w2-bio-new",
-          id: "1e20fbc7c918d328eb930d126b52c67e106f121d97faa00643390670f162aa277025",
+          id: "1e20dfed6113acfb485c5e5181f4a688092594b393adf5d6272ca75d5331e1ca4d3b",
           claims: {
             timestamp: 500,
+            validFrom: 500,
             author: "did:key:zAlice",
             pointers: [
               {
@@ -7855,9 +8040,10 @@
         },
         {
           name: "f1-bio-unranked",
-          id: "1e204ba8cfdda0237d8a1a3eb1e63c6712d78555528129d56f2f47288b8c28c168e8",
+          id: "1e20dbd2cf5d01fe373a4c2ce5f757f15a08b77665025d74bb37c531cf365f635da5",
           claims: {
             timestamp: 900,
+            validFrom: 900,
             author: "did:key:zCarol",
             pointers: [
               {
@@ -7876,9 +8062,10 @@
         },
         {
           name: "m1-motto-a",
-          id: "1e207a4a17d0653ce00ba5d45aacbc2a294a0c583d2193ec09a79b7ecabe8aca3ddb",
+          id: "1e20711a5db56cc161b956b62415b77db47e139fcb64745de494b4c7f756e509ffce",
           claims: {
             timestamp: 400,
+            validFrom: 400,
             author: "did:key:zAlice",
             pointers: [
               {
@@ -7897,9 +8084,10 @@
         },
         {
           name: "m2-motto-b",
-          id: "1e20abd7e2d841c82eb797b2b113fbae203637fb158b5664ae8d7b8fd9d4dbb0bfeb",
+          id: "1e205394c7c764742ed6ea88c799903599d1575bfa7703f6236b851cd6201983b481",
           claims: {
             timestamp: 400,
+            validFrom: 400,
             author: "did:key:zBob",
             pointers: [
               {
@@ -7918,9 +8106,10 @@
         },
         {
           name: "a2-keanu-name-newer",
-          id: "1e20fe3b581a39ca61790ddc81655550a7f7426b69cc3053c68993eccd877ed7dd00",
+          id: "1e200c2a6a83acc38ca1153675897a0cd7528af171cad90d37e107f8a6280bad33dd",
           claims: {
             timestamp: 900,
+            validFrom: 900,
             author: "did:key:zBob",
             pointers: [
               {
@@ -8538,9 +8727,9 @@
         },
         expectedView: {
           bio: "Founder of the village archive",
-          motto: "measure twice"
+          motto: "cut once"
         },
-        expectedCanonicalHex: "a26362696f781e466f756e646572206f66207468652076696c6c6167652061726368697665656d6f74746f6d6d656173757265207477696365"
+        expectedCanonicalHex: "a26362696f781e466f756e646572206f66207468652076696c6c6167652061726368697665656d6f74746f68637574206f6e6365"
       },
       {
         name: "chain-trusted-then-latest",
@@ -8583,9 +8772,9 @@
         },
         expectedView: {
           bio: "Archivist and cartographer",
-          motto: "measure twice"
+          motto: "cut once"
         },
-        expectedCanonicalHex: "a26362696f781a41726368697669737420616e6420636172746f67726170686572656d6f74746f6d6d656173757265207477696365"
+        expectedCanonicalHex: "a26362696f781a41726368697669737420616e6420636172746f67726170686572656d6f74746f68637574206f6e6365"
       },
       {
         name: "chain-latest-then-rank",
@@ -8675,9 +8864,9 @@
         },
         expectedView: {
           bio: "Founder of the village archive",
-          motto: "measure twice"
+          motto: "cut once"
         },
-        expectedCanonicalHex: "a26362696f781e466f756e646572206f66207468652076696c6c6167652061726368697665656d6f74746f6d6d656173757265207477696365"
+        expectedCanonicalHex: "a26362696f781e466f756e646572206f66207468652076696c6c6167652061726368697665656d6f74746f68637574206f6e6365"
       },
       {
         name: "chain-under-byPred",
@@ -8726,9 +8915,9 @@
         },
         expectedView: {
           bio: "Founder of the village archive",
-          motto: "measure twice"
+          motto: "cut once"
         },
-        expectedCanonicalHex: "a26362696f781e466f756e646572206f66207468652076696c6c6167652061726368697665656d6f74746f6d6d656173757265207477696365"
+        expectedCanonicalHex: "a26362696f781e466f756e646572206f66207468652076696c6c6167652061726368697665656d6f74746f68637574206f6e6365"
       }
     ],
     rejects: [
@@ -8819,9 +9008,10 @@
       deltas: [
         {
           name: "h1-title",
-          id: "1e20283257b1bb9a907a55812a07dd3b8dbdc4ab331c5edd4cec2fa59056d4897851",
+          id: "1e2004bdfbc1ac56a9f76ff317f81f6b7a3b255d4e7aa844bf3085185ef056c3049e",
           claims: {
             timestamp: 100,
+            validFrom: 100,
             author: "did:key:zAlice",
             pointers: [
               {
@@ -8840,9 +9030,10 @@
         },
         {
           name: "h2-rating-low",
-          id: "1e20bda18d31031ea14dcca962464bce5a145d379ca0b4d98591cbd57a5ee225f93a",
+          id: "1e20eece459c02e72308867c031ec6a7e3ea34c6eb320765100634ea0c0abc6aa471",
           claims: {
             timestamp: 150,
+            validFrom: 150,
             author: "did:key:zAlice",
             pointers: [
               {
@@ -8861,9 +9052,10 @@
         },
         {
           name: "h3-rating-high",
-          id: "1e202739d82800731c0d9c8db6b6932c2fdacc0707c7224b5f248e4d40e21077cd62",
+          id: "1e20d9f2755021a23df23242fa9b18e9d4d5e07857d7484a886fd0b5a1a873fec71c",
           claims: {
             timestamp: 200,
+            validFrom: 200,
             author: "did:key:zBob",
             pointers: [
               {
@@ -8882,9 +9074,10 @@
         },
         {
           name: "h4-cast-keanu",
-          id: "1e209d227c3a6ec77643ecbcd63324c84958b20342d05aea815196b58066d6548f4a",
+          id: "1e209fba4eb4f8efa4e96d2391cbe426a638d91f88694159625a74d5b042c7418632",
           claims: {
             timestamp: 250,
+            validFrom: 250,
             author: "did:key:zAlice",
             pointers: [
               {
@@ -8906,9 +9099,10 @@
         },
         {
           name: "h5-cast-carrie",
-          id: "1e20e85aefd48ee2a234c0f235c1547e1893ca15bbe2b961d4f681edd0ead46c79b3",
+          id: "1e2047c897ff6ffabcfbba1b67b4ec31af6c3855421eb2cdad7db60bee9e407108af",
           claims: {
             timestamp: 300,
+            validFrom: 300,
             author: "did:key:zAlice",
             pointers: [
               {
@@ -9035,7 +9229,7 @@
           }
         },
         termHash: "1e2047b998eb6a28ff6c0e28b97ed0c6831cf8854dd2bfb30324cbede05aa561613f",
-        expectedCanonicalHex: "a26269646c6d6f7669653a6d61747269786570726f7073a2657469746c6581a26269647844316532303238333235376231626239613930376135353831326130376464336238646264633461623333316335656464346365633266613539303536643438393738353166636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c65657469746c65667461726765746a546865204d61747269786974696d657374616d70f9564066726174696e6781a26269647844316532306264613138643331303331656131346463636139363234363462636535613134356433373963613062346439383539316362643537613565653232356639336166636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e7465787466726174696e67a264726f6c6566726174696e6766746172676574f947806974696d657374616d70f958b0"
+        expectedCanonicalHex: "a26269646c6d6f7669653a6d61747269786570726f7073a2657469746c6581a26269647844316532303034626466626331616335366139663736666633313766383166366237613362323535643465376161383434626633303835313835656630353663333034396566636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c65657469746c65667461726765746a546865204d61747269786974696d657374616d70f9564066726174696e6781a26269647844316532306565636534353963303265373233303838363763303331656336613765336561333463366562333230373635313030363334656130633061626336616134373166636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e7465787466726174696e67a264726f6c6566726174696e6766746172676574f947806974696d657374616d70f958b0"
       },
       {
         name: "asof-999-sees-all",
@@ -9049,7 +9243,7 @@
           }
         },
         termHash: "1e20986a04bc7bf70609d6c2ee19edf9c8f45aff0a536cad067767403537625b0090",
-        expectedCanonicalHex: "a26269646c6d6f7669653a6d61747269786570726f7073a3646361737482a26269647844316532303964323237633361366563373736343365636263643633333234633834393538623230333432643035616561383135313936623538303636643635343866346166636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746463617374a264726f6c65656163746f7266746172676574a26269646c656e746974793a6b65616e7567636f6e746578746b66696c6d6f6772617068796974696d657374616d70f95bd0a26269647844316532306538356165666434386565326132333463306632333563313534376531383933636131356262653262393631643466363831656464306561643436633739623366636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746463617374a264726f6c65656163746f7266746172676574a26269646d656e746974793a63617272696567636f6e746578746b66696c6d6f6772617068796974696d657374616d70f95cb0657469746c6581a26269647844316532303238333235376231626239613930376135353831326130376464336238646264633461623333316335656464346365633266613539303536643438393738353166636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c65657469746c65667461726765746a546865204d61747269786974696d657374616d70f9564066726174696e6782a26269647844316532303237333964383238303037333163306439633864623662363933326332666461636330373037633732323462356632343865346434306532313037376364363266636c61696d73a366617574686f726c6469643a6b65793a7a426f6268706f696e7465727382a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e7465787466726174696e67a264726f6c6566726174696e6766746172676574fb40226666666666666974696d657374616d70f95a40a26269647844316532306264613138643331303331656131346463636139363234363462636535613134356433373963613062346439383539316362643537613565653232356639336166636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e7465787466726174696e67a264726f6c6566726174696e6766746172676574f947806974696d657374616d70f958b0"
+        expectedCanonicalHex: "a26269646c6d6f7669653a6d61747269786570726f7073a3646361737482a26269647844316532303437633839376666366666616263666262613162363762346563333161663663333835353432316562326364616437646236306265653965343037313038616666636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746463617374a264726f6c65656163746f7266746172676574a26269646d656e746974793a63617272696567636f6e746578746b66696c6d6f6772617068796974696d657374616d70f95cb0a26269647844316532303966626134656234663865666134653936643233393163626534323661363338643931663838363934313539363235613734643562303432633734313836333266636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746463617374a264726f6c65656163746f7266746172676574a26269646c656e746974793a6b65616e7567636f6e746578746b66696c6d6f6772617068796974696d657374616d70f95bd0657469746c6581a26269647844316532303034626466626331616335366139663736666633313766383166366237613362323535643465376161383434626633303835313835656630353663333034396566636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c65657469746c65667461726765746a546865204d61747269786974696d657374616d70f9564066726174696e6782a26269647844316532306439663237353530323161323364663233323432666139623138653964346435653037383537643734383461383836666430623561316138373366656337316366636c61696d73a366617574686f726c6469643a6b65793a7a426f6268706f696e7465727382a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e7465787466726174696e67a264726f6c6566726174696e6766746172676574fb40226666666666666974696d657374616d70f95a40a26269647844316532306565636534353963303265373233303838363763303331656336613765336561333463366562333230373635313030363334656130633061626336616134373166636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e7465787466726174696e67a264726f6c6566726174696e6766746172676574f947806974696d657374616d70f958b0"
       },
       {
         name: "rated-at-least-9",
@@ -9064,7 +9258,7 @@
           }
         },
         termHash: "1e20cfedfebbf2eaf1f85ab80d9668bc7452349e4e07bc6861b675077dc9497ad12a",
-        expectedCanonicalHex: "a26269646c6d6f7669653a6d61747269786570726f7073a3646361737482a26269647844316532303964323237633361366563373736343365636263643633333234633834393538623230333432643035616561383135313936623538303636643635343866346166636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746463617374a264726f6c65656163746f7266746172676574a26269646c656e746974793a6b65616e7567636f6e746578746b66696c6d6f6772617068796974696d657374616d70f95bd0a26269647844316532306538356165666434386565326132333463306632333563313534376531383933636131356262653262393631643466363831656464306561643436633739623366636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746463617374a264726f6c65656163746f7266746172676574a26269646d656e746974793a63617272696567636f6e746578746b66696c6d6f6772617068796974696d657374616d70f95cb0657469746c6581a26269647844316532303238333235376231626239613930376135353831326130376464336238646264633461623333316335656464346365633266613539303536643438393738353166636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c65657469746c65667461726765746a546865204d61747269786974696d657374616d70f9564066726174696e6781a26269647844316532303237333964383238303037333163306439633864623662363933326332666461636330373037633732323462356632343865346434306532313037376364363266636c61696d73a366617574686f726c6469643a6b65793a7a426f6268706f696e7465727382a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e7465787466726174696e67a264726f6c6566726174696e6766746172676574fb40226666666666666974696d657374616d70f95a40"
+        expectedCanonicalHex: "a26269646c6d6f7669653a6d61747269786570726f7073a3646361737482a26269647844316532303437633839376666366666616263666262613162363762346563333161663663333835353432316562326364616437646236306265653965343037313038616666636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746463617374a264726f6c65656163746f7266746172676574a26269646d656e746974793a63617272696567636f6e746578746b66696c6d6f6772617068796974696d657374616d70f95cb0a26269647844316532303966626134656234663865666134653936643233393163626534323661363338643931663838363934313539363235613734643562303432633734313836333266636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746463617374a264726f6c65656163746f7266746172676574a26269646c656e746974793a6b65616e7567636f6e746578746b66696c6d6f6772617068796974696d657374616d70f95bd0657469746c6581a26269647844316532303034626466626331616335366139663736666633313766383166366237613362323535643465376161383434626633303835313835656630353663333034396566636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c65657469746c65667461726765746a546865204d61747269786974696d657374616d70f9564066726174696e6781a26269647844316532306439663237353530323161323364663233323432666139623138653964346435653037383537643734383461383836666430623561316138373366656337316366636c61696d73a366617574686f726c6469643a6b65793a7a426f6268706f696e7465727382a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e7465787466726174696e67a264726f6c6566726174696e6766746172676574fb40226666666666666974696d657374616d70f95a40"
       },
       {
         name: "rated-at-least-5",
@@ -9078,7 +9272,7 @@
           }
         },
         termHash: "1e203100e4720cd552ca5329263ca7a576e00b4413deb8b556532c957aa36a36fca3",
-        expectedCanonicalHex: "a26269646c6d6f7669653a6d61747269786570726f7073a3646361737482a26269647844316532303964323237633361366563373736343365636263643633333234633834393538623230333432643035616561383135313936623538303636643635343866346166636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746463617374a264726f6c65656163746f7266746172676574a26269646c656e746974793a6b65616e7567636f6e746578746b66696c6d6f6772617068796974696d657374616d70f95bd0a26269647844316532306538356165666434386565326132333463306632333563313534376531383933636131356262653262393631643466363831656464306561643436633739623366636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746463617374a264726f6c65656163746f7266746172676574a26269646d656e746974793a63617272696567636f6e746578746b66696c6d6f6772617068796974696d657374616d70f95cb0657469746c6581a26269647844316532303238333235376231626239613930376135353831326130376464336238646264633461623333316335656464346365633266613539303536643438393738353166636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c65657469746c65667461726765746a546865204d61747269786974696d657374616d70f9564066726174696e6782a26269647844316532303237333964383238303037333163306439633864623662363933326332666461636330373037633732323462356632343865346434306532313037376364363266636c61696d73a366617574686f726c6469643a6b65793a7a426f6268706f696e7465727382a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e7465787466726174696e67a264726f6c6566726174696e6766746172676574fb40226666666666666974696d657374616d70f95a40a26269647844316532306264613138643331303331656131346463636139363234363462636535613134356433373963613062346439383539316362643537613565653232356639336166636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e7465787466726174696e67a264726f6c6566726174696e6766746172676574f947806974696d657374616d70f958b0"
+        expectedCanonicalHex: "a26269646c6d6f7669653a6d61747269786570726f7073a3646361737482a26269647844316532303437633839376666366666616263666262613162363762346563333161663663333835353432316562326364616437646236306265653965343037313038616666636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746463617374a264726f6c65656163746f7266746172676574a26269646d656e746974793a63617272696567636f6e746578746b66696c6d6f6772617068796974696d657374616d70f95cb0a26269647844316532303966626134656234663865666134653936643233393163626534323661363338643931663838363934313539363235613734643562303432633734313836333266636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746463617374a264726f6c65656163746f7266746172676574a26269646c656e746974793a6b65616e7567636f6e746578746b66696c6d6f6772617068796974696d657374616d70f95bd0657469746c6581a26269647844316532303034626466626331616335366139663736666633313766383166366237613362323535643465376161383434626633303835313835656630353663333034396566636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e74657874657469746c65a264726f6c65657469746c65667461726765746a546865204d61747269786974696d657374616d70f9564066726174696e6782a26269647844316532306439663237353530323161323364663233323432666139623138653964346435653037383537643734383461383836666430623561316138373366656337316366636c61696d73a366617574686f726c6469643a6b65793a7a426f6268706f696e7465727382a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e7465787466726174696e67a264726f6c6566726174696e6766746172676574fb40226666666666666974696d657374616d70f95a40a26269647844316532306565636534353963303265373233303838363763303331656336613765336561333463366562333230373635313030363334656130633061626336616134373166636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e7465787466726174696e67a264726f6c6566726174696e6766746172676574f947806974696d657374616d70f958b0"
       },
       {
         name: "cast-member-keanu",
@@ -9093,7 +9287,7 @@
           }
         },
         termHash: "1e2065b06265a2373dce68155b176f2128db953aa54ac980cd81233fc057e5465060",
-        expectedCanonicalHex: "a26269646c6d6f7669653a6d61747269786570726f7073a1646361737481a26269647844316532303964323237633361366563373736343365636263643633333234633834393538623230333432643035616561383135313936623538303636643635343866346166636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746463617374a264726f6c65656163746f7266746172676574a26269646c656e746974793a6b65616e7567636f6e746578746b66696c6d6f6772617068796974696d657374616d70f95bd0"
+        expectedCanonicalHex: "a26269646c6d6f7669653a6d61747269786570726f7073a1646361737481a26269647844316532303966626134656234663865666134653936643233393163626534323661363338643931663838363934313539363235613734643562303432633734313836333266636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746463617374a264726f6c65656163746f7266746172676574a26269646c656e746974793a6b65616e7567636f6e746578746b66696c6d6f6772617068796974696d657374616d70f95bd0"
       },
       {
         name: "cast-member-carrie",
@@ -9107,7 +9301,7 @@
           }
         },
         termHash: "1e204c6d3f98a8d6b97a1c41cbd8774b1741cccd181c26e9901e6f27cc5b27d2af8c",
-        expectedCanonicalHex: "a26269646c6d6f7669653a6d61747269786570726f7073a1646361737481a26269647844316532306538356165666434386565326132333463306632333563313534376531383933636131356262653262393631643466363831656464306561643436633739623366636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746463617374a264726f6c65656163746f7266746172676574a26269646d656e746974793a63617272696567636f6e746578746b66696c6d6f6772617068796974696d657374616d70f95cb0"
+        expectedCanonicalHex: "a26269646c6d6f7669653a6d61747269786570726f7073a1646361737481a26269647844316532303437633839376666366666616263666262613162363762346563333161663663333835353432316562326364616437646236306265653965343037313038616666636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65656d6f76696566746172676574a26269646c6d6f7669653a6d617472697867636f6e746578746463617374a264726f6c65656163746f7266746172676574a26269646d656e746974793a63617272696567636f6e746578746b66696c6d6f6772617068796974696d657374616d70f95cb0"
       }
     ]
   };
@@ -9119,9 +9313,10 @@
       deltas: [
         {
           name: "a1-employment-ada",
-          id: "1e204ca3e79caaa86e53cba0b39f3009d92ff1087becd4dbcada2ababeb1bcb548b2",
+          id: "1e20176796c3b098e91970a2826c386ec6e7142091fb033e15bd344e36d7f17fec2e",
           claims: {
             timestamp: 100,
+            validFrom: 100,
             author: "did:key:zAppA",
             pointers: [
               {
@@ -9143,9 +9338,10 @@
         },
         {
           name: "b1-employment-bob",
-          id: "1e20b1f5de6d4806c9af854e314991b6f38d5058868e133bd669334775332ea94742",
+          id: "1e20941c3742538ef7ba80aa3343a1383b6a3cb667e26cac7c8e5c114eecbeb4859d",
           claims: {
             timestamp: 200,
+            validFrom: 200,
             author: "did:key:zAppB",
             pointers: [
               {
@@ -9167,9 +9363,10 @@
         },
         {
           name: "b2-address-bob",
-          id: "1e203cd579d9725d4daff72f1dd6029e05bad1bb543738c84764568dadc4592dd034",
+          id: "1e20ab2d6c7fc481a2cbf01f06b34e9e762eed799cf233cb6e6c015b50ccce877616",
           claims: {
             timestamp: 210,
+            validFrom: 210,
             author: "did:key:zAppB",
             pointers: [
               {
@@ -9188,9 +9385,10 @@
         },
         {
           name: "w1-manager-eve",
-          id: "1e20dc7764de920ac1b2af54384090a9323c244584f4427a9f97b54641fcef4db0b0",
+          id: "1e203b32b296a03c91b7fa950ce2fd010f5e2389418eeb8d80ddb63c50b28b3b8ac2",
           claims: {
             timestamp: 220,
+            validFrom: 220,
             author: "did:key:zAppA",
             pointers: [
               {
@@ -9211,9 +9409,10 @@
         },
         {
           name: "p1-note",
-          id: "1e209a329c90a28044ba17f8c376cfc2e1ec28fe8d0ab464cc8d23b7ee54a6285ec2",
+          id: "1e200e2038e3bf7e0b2488c938e71e14f8114ea5f4d7eadaf77327d510a28af4ceec",
           claims: {
             timestamp: 230,
+            validFrom: 230,
             author: "did:key:zAppB",
             pointers: [
               {
@@ -9225,9 +9424,10 @@
         },
         {
           name: "s1-slot-worker",
-          id: "1e20a2a876dd5ec17974257df3d02d2f59afb6d613ce93b91e39e77f68bf08a85acb",
+          id: "1e20317af8a29c799a8c69bb6060aaa33d374548698814788bde8d270e3a194fe9c7",
           claims: {
             timestamp: 300,
+            validFrom: 300,
             author: "did:key:zHuman",
             pointers: [
               {
@@ -9249,9 +9449,10 @@
         },
         {
           name: "s2-slot-organization",
-          id: "1e2046a556436898e55f7c79cea39b8b1fb6e8c8fd15033ced8cdc7f7e892e8bb596",
+          id: "1e207b7acfa69b7be6a1afb38f44ecd860cee37c5437cf081e6a687d2f1bb394a5af",
           claims: {
             timestamp: 310,
+            validFrom: 310,
             author: "did:key:zHuman",
             pointers: [
               {
@@ -9273,9 +9474,10 @@
         },
         {
           name: "s3-slot-location",
-          id: "1e207c9048661a0fdb18c4a1f3ad886e9b8d53e98b46319dc357976377733d3ca9d2",
+          id: "1e2087dd03739aabd65864a1047b3fcadc94ddc777d5a27787282b73272f91261aec",
           claims: {
             timestamp: 320,
+            validFrom: 320,
             author: "did:key:zHuman",
             pointers: [
               {
@@ -9297,9 +9499,10 @@
         },
         {
           name: "m1-employer",
-          id: "1e20f94c061c3bbb6e726ab73f22fea4de901b9144eda1835450cb5ef760c8af270d",
+          id: "1e20ff758f4af7e7f7918ac90725b4224a3cfbf2d3dcfded16933a2a5fe4b516e526",
           claims: {
             timestamp: 400,
+            validFrom: 400,
             author: "did:key:zLibrarian",
             pointers: [
               {
@@ -9322,9 +9525,10 @@
         },
         {
           name: "m2-job",
-          id: "1e2073c00404f88385ea752b0e59dce0ed47c0cef1fdba561125a75ad43da0691abe",
+          id: "1e20a168e568435881fb2856c573c22601dc1fa64deb514f292fbd3fbe15fcfa2d7b",
           claims: {
             timestamp: 410,
+            validFrom: 410,
             author: "did:key:zLibrarian",
             pointers: [
               {
@@ -9347,9 +9551,10 @@
         },
         {
           name: "m3-organization",
-          id: "1e20231a7abab5a0bbb3339453aab8eab66a79bf8745ac8a2e779a64c15b5f22e023",
+          id: "1e20dfb24cb51936ddc99c06e2f832df9bf8fa695e1d91c0526b3c83b85944c68231",
           claims: {
             timestamp: 420,
+            validFrom: 420,
             author: "did:key:zLibrarian",
             pointers: [
               {
@@ -9372,9 +9577,10 @@
         },
         {
           name: "m4-org",
-          id: "1e208ef2c59bb7f97a692a304d19d9f9f520ca397bb73dd3ab8e4bdd5116f6715fd1",
+          id: "1e2026e0f0023e509512075f6623e633157dd1bc231e7da7816fba08459bdee21941",
           claims: {
             timestamp: 430,
+            validFrom: 430,
             author: "did:key:zLibrarian",
             pointers: [
               {
@@ -9397,9 +9603,10 @@
         },
         {
           name: "m5-employees",
-          id: "1e208d432cdd295daadde582a967dc849a6a4c461024217ab7c87171030151c4ba4f",
+          id: "1e2000c9d0a37d6314465f261b2d6ddc8a61303fe47ec0840f82a9233f11a63cf7f9",
           claims: {
             timestamp: 440,
+            validFrom: 440,
             author: "did:key:zLibrarian",
             pointers: [
               {
@@ -9422,9 +9629,10 @@
         },
         {
           name: "m6-staff",
-          id: "1e20cee6d7a8a040f2662eb26585d7cb2096415f22f6d46ee0fc423612c1a4d6ab7b",
+          id: "1e20923532464fc40817be3d5c5d541db22cb1b3be36dbee62a3ae7a29b28c67f213",
           claims: {
             timestamp: 450,
+            validFrom: 450,
             author: "did:key:zLibrarian",
             pointers: [
               {
@@ -9447,9 +9655,10 @@
         },
         {
           name: "m7-manager",
-          id: "1e20f0fba16da63cc9805c63987ff60f979e48946c6b3c5187840c2aaae098a5ae42",
+          id: "1e2063498e37f40f1ada537ad8b3ed742fa87a91ebbc12b4543cd51e28d721472956",
           claims: {
             timestamp: 460,
+            validFrom: 460,
             author: "did:key:zLibrarian",
             pointers: [
               {
@@ -9472,9 +9681,10 @@
         },
         {
           name: "m8-address",
-          id: "1e202d45d39693dd3a07cae33c46b1c063215b9d78faa42a9d53340b1003596eaa72",
+          id: "1e20cdefd16fbdfcf768b4b88e2d77814e6dd582ee5c6c765fe6a20f120422d5f87b",
           claims: {
             timestamp: 470,
+            validFrom: 470,
             author: "did:key:zLibrarian",
             pointers: [
               {
@@ -9497,9 +9707,10 @@
         },
         {
           name: "m9-employer-location",
-          id: "1e205e277940a4640b5a6a82be7bc60cd2654b5c4f027c568fb37fc06e069c0457ba",
+          id: "1e209a39ae857bced369e88fb1d456f9ce28e8788ad27405e7a05c8d133ea8a7f69b",
           claims: {
             timestamp: 480,
+            validFrom: 480,
             author: "did:key:zSloppy",
             pointers: [
               {
@@ -9522,9 +9733,10 @@
         },
         {
           name: "m10-personnel-workforce",
-          id: "1e2056eb2eca31851d68ddb64f246179bf216ec7f63b1a0ee06cfa3731a40264527d",
+          id: "1e200c5f2e990eded8ea04772b21bd8f8e9437a0d3eecad8b4ef7694cb6f1563d765",
           claims: {
             timestamp: 490,
+            validFrom: 490,
             author: "did:key:zLibrarian",
             pointers: [
               {
@@ -9551,15 +9763,16 @@
         },
         {
           name: "n1-negates-m7",
-          id: "1e202aa972bef5e6c5c925233bfbb418f08de6a573ff809035517418c2c6cb869420",
+          id: "1e2081c89436ca3d1cad2ebf09ba8c537723b714310d44486a535babeb60281bba42",
           claims: {
             timestamp: 500,
+            validFrom: 500,
             author: "did:key:zHuman",
             pointers: [
               {
                 role: "negates",
                 target: {
-                  delta: "1e20f0fba16da63cc9805c63987ff60f979e48946c6b3c5187840c2aaae098a5ae42"
+                  delta: "1e2063498e37f40f1ada537ad8b3ed742fa87a91ebbc12b4543cd51e28d721472956"
                 }
               },
               {
@@ -9638,11 +9851,11 @@
         ],
         expected: {
           ids: [
-            "1e204ca3e79caaa86e53cba0b39f3009d92ff1087becd4dbcada2ababeb1bcb548b2",
-            "1e20b1f5de6d4806c9af854e314991b6f38d5058868e133bd669334775332ea94742"
+            "1e20176796c3b098e91970a2826c386ec6e7142091fb033e15bd344e36d7f17fec2e",
+            "1e20941c3742538ef7ba80aa3343a1383b6a3cb667e26cac7c8e5c114eecbeb4859d"
           ]
         },
-        expectedCanonicalHex: "827844316532303463613365373963616161383665353363626130623339663330303964393266663130383762656364346462636164613261626162656231626362353438623278443165323062316635646536643438303663396166383534653331343939316236663338643530353838363865313333626436363933333437373533333265613934373432"
+        expectedCanonicalHex: "827844316532303137363739366333623039386539313937306132383236633338366563366537313432303931666230333365313562643334346533366437663137666563326578443165323039343163333734323533386566376261383061613333343361313338336236613363623636376532366361633763386535633131346565636265623438353964"
       },
       {
         name: "closure-unrestricted-crosses-concepts",
@@ -9671,12 +9884,12 @@
         ],
         expected: {
           ids: [
-            "1e203cd579d9725d4daff72f1dd6029e05bad1bb543738c84764568dadc4592dd034",
-            "1e204ca3e79caaa86e53cba0b39f3009d92ff1087becd4dbcada2ababeb1bcb548b2",
-            "1e20b1f5de6d4806c9af854e314991b6f38d5058868e133bd669334775332ea94742"
+            "1e20176796c3b098e91970a2826c386ec6e7142091fb033e15bd344e36d7f17fec2e",
+            "1e20941c3742538ef7ba80aa3343a1383b6a3cb667e26cac7c8e5c114eecbeb4859d",
+            "1e20ab2d6c7fc481a2cbf01f06b34e9e762eed799cf233cb6e6c015b50ccce877616"
           ]
         },
-        expectedCanonicalHex: "83784431653230336364353739643937323564346461666637326631646436303239653035626164316262353433373338633834373634353638646164633435393264643033347844316532303463613365373963616161383665353363626130623339663330303964393266663130383762656364346462636164613261626162656231626362353438623278443165323062316635646536643438303663396166383534653331343939316236663338643530353838363865313333626436363933333437373533333265613934373432"
+        expectedCanonicalHex: "83784431653230313736373936633362303938653931393730613238323663333836656336653731343230393166623033336531356264333434653336643766313766656332657844316532303934316333373432353338656637626138306161333334336131333833623661336362363637653236636163376338653563313134656563626562343835396478443165323061623264366337666334383161326362663031663036623334653965373632656564373939636632333363623665366330313562353063636365383737363136"
       },
       {
         name: "closure-trust-confidence-gate",
@@ -9717,11 +9930,11 @@
         ],
         expected: {
           ids: [
-            "1e204ca3e79caaa86e53cba0b39f3009d92ff1087becd4dbcada2ababeb1bcb548b2",
-            "1e20b1f5de6d4806c9af854e314991b6f38d5058868e133bd669334775332ea94742"
+            "1e20176796c3b098e91970a2826c386ec6e7142091fb033e15bd344e36d7f17fec2e",
+            "1e20941c3742538ef7ba80aa3343a1383b6a3cb667e26cac7c8e5c114eecbeb4859d"
           ]
         },
-        expectedCanonicalHex: "827844316532303463613365373963616161383665353363626130623339663330303964393266663130383762656364346462636164613261626162656231626362353438623278443165323062316635646536643438303663396166383534653331343939316236663338643530353838363865313333626436363933333437373533333265613934373432"
+        expectedCanonicalHex: "827844316532303137363739366333623039386539313937306132383236633338366563366537313432303931666230333365313562643334346533366437663137666563326578443165323039343163333734323533386566376261383061613333343361313338336236613363623636376532366361633763386535633131346565636265623438353964"
       },
       {
         name: "closure-negated-mapping-dead",
@@ -9750,11 +9963,11 @@
         ],
         expected: {
           ids: [
-            "1e204ca3e79caaa86e53cba0b39f3009d92ff1087becd4dbcada2ababeb1bcb548b2",
-            "1e20b1f5de6d4806c9af854e314991b6f38d5058868e133bd669334775332ea94742"
+            "1e20176796c3b098e91970a2826c386ec6e7142091fb033e15bd344e36d7f17fec2e",
+            "1e20941c3742538ef7ba80aa3343a1383b6a3cb667e26cac7c8e5c114eecbeb4859d"
           ]
         },
-        expectedCanonicalHex: "827844316532303463613365373963616161383665353363626130623339663330303964393266663130383762656364346462636164613261626162656231626362353438623278443165323062316635646536643438303663396166383534653331343939316236663338643530353838363865313333626436363933333437373533333265613934373432"
+        expectedCanonicalHex: "827844316532303137363739366333623039386539313937306132383236633338366563366537313432303931666230333365313562643334346533366437663137666563326578443165323039343163333734323533386566376261383061613333343361313338336236613363623636376532366361633763386535633131346565636265623438353964"
       },
       {
         name: "closure-trust-excludes-the-negation",
@@ -9790,12 +10003,12 @@
         ],
         expected: {
           ids: [
-            "1e204ca3e79caaa86e53cba0b39f3009d92ff1087becd4dbcada2ababeb1bcb548b2",
-            "1e20b1f5de6d4806c9af854e314991b6f38d5058868e133bd669334775332ea94742",
-            "1e20dc7764de920ac1b2af54384090a9323c244584f4427a9f97b54641fcef4db0b0"
+            "1e20176796c3b098e91970a2826c386ec6e7142091fb033e15bd344e36d7f17fec2e",
+            "1e203b32b296a03c91b7fa950ce2fd010f5e2389418eeb8d80ddb63c50b28b3b8ac2",
+            "1e20941c3742538ef7ba80aa3343a1383b6a3cb667e26cac7c8e5c114eecbeb4859d"
           ]
         },
-        expectedCanonicalHex: "83784431653230346361336537396361616138366535336362613062333966333030396439326666313038376265636434646263616461326162616265623162636235343862327844316532306231663564653664343830366339616638353465333134393931623666333864353035383836386531333362643636393333343737353333326561393437343278443165323064633737363464653932306163316232616635343338343039306139333233633234343538346634343237613966393762353436343166636566346462306230"
+        expectedCanonicalHex: "83784431653230313736373936633362303938653931393730613238323663333836656336653731343230393166623033336531356264333434653336643766313766656332657844316532303362333262323936613033633931623766613935306365326664303130663565323338393431386565623864383064646236336335306232386233623861633278443165323039343163333734323533386566376261383061613333343361313338336236613363623636376532366361633763386535633131346565636265623438353964"
       },
       {
         name: "closure-identity",
@@ -9850,12 +10063,12 @@
         ],
         expected: {
           ids: [
-            "1e204ca3e79caaa86e53cba0b39f3009d92ff1087becd4dbcada2ababeb1bcb548b2",
-            "1e20b1f5de6d4806c9af854e314991b6f38d5058868e133bd669334775332ea94742",
-            "1e20dc7764de920ac1b2af54384090a9323c244584f4427a9f97b54641fcef4db0b0"
+            "1e20176796c3b098e91970a2826c386ec6e7142091fb033e15bd344e36d7f17fec2e",
+            "1e203b32b296a03c91b7fa950ce2fd010f5e2389418eeb8d80ddb63c50b28b3b8ac2",
+            "1e20941c3742538ef7ba80aa3343a1383b6a3cb667e26cac7c8e5c114eecbeb4859d"
           ]
         },
-        expectedCanonicalHex: "83784431653230346361336537396361616138366535336362613062333966333030396439326666313038376265636434646263616461326162616265623162636235343862327844316532306231663564653664343830366339616638353465333134393931623666333864353035383836386531333362643636393333343737353333326561393437343278443165323064633737363464653932306163316232616635343338343039306139333233633234343538346634343237613966393762353436343166636566346462306230"
+        expectedCanonicalHex: "83784431653230313736373936633362303938653931393730613238323663333836656336653731343230393166623033336531356264333434653336643766313766656332657844316532303362333262323936613033633931623766613935306365326664303130663565323338393431386565623864383064646236336335306232386233623861633278443165323039343163333734323533386566376261383061613333343361313338336236613363623636376532366361633763386535633131346565636265623438353964"
       },
       {
         name: "recall-bob-keeps-bobs-vocabulary",
@@ -9871,11 +10084,11 @@
           id: "person:bob",
           props: {
             job: [
-              "1e20b1f5de6d4806c9af854e314991b6f38d5058868e133bd669334775332ea94742"
+              "1e20941c3742538ef7ba80aa3343a1383b6a3cb667e26cac7c8e5c114eecbeb4859d"
             ]
           }
         },
-        expectedCanonicalHex: "a26269646a706572736f6e3a626f626570726f7073a1636a6f6281a26269647844316532306231663564653664343830366339616638353465333134393931623666333864353035383836386531333362643636393333343737353333326561393437343266636c61696d73a366617574686f726d6469643a6b65793a7a4170704268706f696e7465727382a264726f6c6566776f726b657266746172676574a26269646a706572736f6e3a626f6267636f6e74657874636a6f62a264726f6c65636f726766746172676574a26269646f636f6d70616e793a696e697465636867636f6e746578746573746166666974696d657374616d70f95a40"
+        expectedCanonicalHex: "a26269646a706572736f6e3a626f626570726f7073a1636a6f6281a26269647844316532303934316333373432353338656637626138306161333334336131333833623661336362363637653236636163376338653563313134656563626562343835396466636c61696d73a366617574686f726d6469643a6b65793a7a4170704268706f696e7465727382a264726f6c6566776f726b657266746172676574a26269646a706572736f6e3a626f6267636f6e74657874636a6f62a264726f6c65636f726766746172676574a26269646f636f6d70616e793a696e697465636867636f6e746578746573746166666974696d657374616d70f95a40"
       },
       {
         name: "recall-ada-keeps-adas-vocabulary",
@@ -9891,11 +10104,11 @@
           id: "person:ada",
           props: {
             employer: [
-              "1e204ca3e79caaa86e53cba0b39f3009d92ff1087becd4dbcada2ababeb1bcb548b2"
+              "1e20176796c3b098e91970a2826c386ec6e7142091fb033e15bd344e36d7f17fec2e"
             ]
           }
         },
-        expectedCanonicalHex: "a26269646a706572736f6e3a6164616570726f7073a168656d706c6f79657281a26269647844316532303463613365373963616161383665353363626130623339663330303964393266663130383762656364346462636164613261626162656231626362353438623266636c61696d73a366617574686f726d6469643a6b65793a7a4170704168706f696e7465727382a264726f6c6566776f726b657266746172676574a26269646a706572736f6e3a61646167636f6e7465787468656d706c6f796572a264726f6c656c6f7267616e697a6174696f6e66746172676574a26269646c636f6d70616e793a61636d6567636f6e7465787469656d706c6f796565736974696d657374616d70f95640"
+        expectedCanonicalHex: "a26269646a706572736f6e3a6164616570726f7073a168656d706c6f79657281a26269647844316532303137363739366333623039386539313937306132383236633338366563366537313432303931666230333365313562643334346533366437663137666563326566636c61696d73a366617574686f726d6469643a6b65793a7a4170704168706f696e7465727382a264726f6c6566776f726b657266746172676574a26269646a706572736f6e3a61646167636f6e7465787468656d706c6f796572a264726f6c656c6f7267616e697a6174696f6e66746172676574a26269646c636f6d70616e793a61636d6567636f6e7465787469656d706c6f796565736974696d657374616d70f95640"
       }
     ],
     signatures: [
@@ -9998,6 +10211,7 @@
       const claims = {
         author: author.value,
         timestamp: Number(ts.value),
+        validFrom: Number(ts.value),
         pointers: [
           {
             role: role.value,
@@ -10076,7 +10290,7 @@
     });
     const LATEST = parseSchema({ default: { pick: { order: { byTimestamp: "desc" } } } });
     const paneFor = (set, root) => {
-      const result = evalTerm(VIEW_TERM, set, root);
+      const result = evalTerm(VIEW_TERM, set, Date.now(), root);
       if (result.sort !== "hview") return "(not an hview)";
       const view = resolveView(LATEST, result.hview);
       return Object.keys(view).length === 0 ? "{}  \u2190 no backpointer. The reference exists;\n    the property was never granted." : JSON.stringify(view, null, 2);
@@ -10086,6 +10300,7 @@
       const claims = {
         author: "alice",
         timestamp: 1,
+        validFrom: 1,
         pointers: [
           {
             role: "movie",
@@ -10144,6 +10359,7 @@
     const tick = () => ++clock;
     const claim = (context, value) => ({
       timestamp: tick(),
+      validFrom: tick(),
       pointers: [
         { role: "movie", target: { kind: "entity", entity: { id: ROOT, context } } },
         { role: context, target: { kind: "primitive", value: parseValue(String(value)) } }
@@ -10180,7 +10396,7 @@
     });
   }
   function hviewAt(peer, asOf, audit) {
-    const result = peer.reactor.eval(bodyTerm(asOf, audit), ROOT);
+    const result = peer.reactor.eval(bodyTerm(asOf, audit), Date.now(), ROOT);
     if (result.sort !== "hview") throw new Error("expected hview");
     return result.hview;
   }
@@ -10225,6 +10441,7 @@
       const peer = who.value === "Alice" ? A.alice : A.bob;
       peer.authorClaims({
         timestamp: A.tick(),
+        validFrom: A.tick(),
         pointers: [
           {
             role: "movie",
@@ -10330,7 +10547,11 @@
         btn.onclick = () => {
           const peer = d.claims.author === A.alice.author ? A.alice : A.bob;
           const neg = makeNegationClaims(peer.author, A.tick(), d.id, "retracted in the tour");
-          peer.authorClaims({ timestamp: neg.timestamp, pointers: [...neg.pointers] });
+          peer.authorClaims({
+            timestamp: neg.timestamp,
+            validFrom: neg.timestamp,
+            pointers: [...neg.pointers]
+          });
           syncBoth(A.alice, A.bob);
           refreshWorldA();
         };
@@ -10408,6 +10629,7 @@
     const claim = (peer, context, value) => {
       peer.authorClaims({
         timestamp: tick(),
+        validFrom: tick(),
         pointers: [
           { role: "person", target: { kind: "entity", entity: { id: ANAKIN, context } } },
           { role: context, target: { kind: "primitive", value } }
@@ -10460,6 +10682,7 @@
         if (!prop.value || !val.value) return;
         peer.authorClaims({
           timestamp: B.tick(),
+          validFrom: B.tick(),
           pointers: [
             {
               role: "person",
@@ -10580,7 +10803,7 @@ replayed digest  ${replayed.slice(4, 36)}\u2026
       ),
       ...doc.cases.map(
         (c) => tryCase(c.name, () => {
-          const result = evalTerm(parseTerm(c.term), set, c.root, registry);
+          const result = evalTerm(parseTerm(c.term), set, Date.now(), c.root, registry);
           return resultCanonicalHex(result) === c.expectedCanonicalHex;
         })
       )
@@ -10711,6 +10934,7 @@ replayed digest  ${replayed.slice(4, 36)}\u2026
           (c) => tryCase(c.name, () => {
             const req = {
               op: "eval",
+              now: 1e15,
               fixture: doc.fixture.deltas.map((d) => d.claims),
               term: c.term
             };
@@ -10812,11 +11036,12 @@ unpacked \u2192 ${restored.size} deltas, digest ${match ? "IDENTICAL" : "MISMATC
       }
     });
     const reactor = new Reactor();
-    reactor.register("movie", body, [root]);
+    reactor.register("movie", body, [root], Date.now());
     const bot = new DerivationHost(reactor);
     let clock = 1e3;
     const dataClaim = (context, value, author) => makeDelta({
       timestamp: ++clock,
+      validFrom: ++clock,
       author,
       pointers: [
         { role: "movie", target: { kind: "entity", entity: { id: root, context } } },
@@ -10901,7 +11126,7 @@ unpacked \u2192 ${restored.size} deltas, digest ${match ? "IDENTICAL" : "MISMATC
       const emitted = latestEmission();
       if (emitted === void 0) return;
       const probe = new Reactor();
-      probe.register("movie", body, [root]);
+      probe.register("movie", body, [root], Date.now());
       for (const d of reactor.arrivalLog().slice(0, lastInputLen)) probe.ingest(d);
       const viewHex = probe.materializedHex("movie", root);
       const view = probe.materializedView("movie", root);

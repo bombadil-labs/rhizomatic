@@ -232,6 +232,8 @@ fn claims() -> impl Strategy<Value = Claims> {
     )
         .prop_map(|(ts, author, pointers)| Claims {
             timestamp: ts as f64,
+            valid_from: ts as f64,
+            valid_until: None,
             author: author.to_string(),
             pointers,
         })
@@ -322,6 +324,8 @@ fn admits_both_spellings_as_distinct_claims() {
         make_delta(
             Claims {
                 timestamp: 0.0,
+                valid_from: 0.0,
+                valid_until: None,
                 author: "a".to_string(),
                 pointers: vec![Pointer {
                     role: role.to_string(),

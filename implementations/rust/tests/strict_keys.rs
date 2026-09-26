@@ -68,6 +68,7 @@ fn rejection_messages_name_the_offending_key() {
 fn ambiguous_target_discriminators_are_named_at_l0() {
     let e = parse_claims(&json!({
         "timestamp": 0,
+        "validFrom": 0,
         "author": "did:key:zA",
         "pointers": [{ "role": "r", "target": { "id": "e", "delta": "1e2000" } }]
     }))

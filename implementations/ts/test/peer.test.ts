@@ -13,6 +13,7 @@ const seedB = "0b".repeat(32);
 const claim = (timestamp: number, entity: string, context: string, value: string | number) =>
   ({
     timestamp,
+    validFrom: timestamp,
     pointers: [
       { role: "subject", target: { kind: "entity", entity: { id: entity, context } } },
       { role: "value", target: { kind: "primitive", value } },
@@ -79,6 +80,7 @@ describe("federation (SPEC-6, ERRATA-6)", () => {
     const a = new Peer(seedA);
     const unsigned = makeDelta({
       timestamp: 5,
+      validFrom: 5,
       author: "did:key:zLocalOnly",
       pointers: [{ role: "note", target: { kind: "primitive", value: "stays home" } }],
     });
@@ -95,6 +97,7 @@ describe("federation (SPEC-6, ERRATA-6)", () => {
     const a = new Peer(seedA);
     const member = makeDelta({
       timestamp: 7,
+      validFrom: 7,
       author: "did:key:zUnsignedAuthor",
       pointers: [{ role: "note", target: { kind: "primitive", value: "covered" } }],
     });

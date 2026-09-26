@@ -101,6 +101,8 @@ pub fn derived_claims(
     // timestamp 0: pure output must be a function of (fn, input hash) only (G3).
     Claims {
         timestamp: 0.0,
+        valid_from: 0.0,
+        valid_until: None,
         author: author.to_string(),
         pointers,
     }
@@ -131,6 +133,8 @@ impl DerivationHost {
         let binds = sign_claims(
             &Claims {
                 timestamp: 0.0,
+                valid_from: 0.0,
+                valid_until: None,
                 author: author.clone(),
                 pointers: vec![
                     Pointer {
@@ -247,6 +251,8 @@ impl DerivationHost {
             // Divergence becomes an observable event, not a melted reactor (G2).
             let claims = Claims {
                 timestamp: 0.0,
+                valid_from: 0.0,
+                valid_until: None,
                 author: author.clone(),
                 pointers: vec![Pointer {
                     role: role("suspended"),

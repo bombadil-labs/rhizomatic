@@ -57,6 +57,7 @@ describe("ingest pipeline (SPEC-4 §2, ERRATA-4 V3)", () => {
     const key = keys[0]!;
     const claims = parseClaims({
       timestamp: 5,
+      validFrom: 5,
       author: authorForSeed(key.seedHex),
       pointers: [{ role: "x", target: "y" }],
     });
@@ -112,6 +113,7 @@ describe("core indexes (SPEC-4 §3, ERRATA-4 V1)", () => {
         pred: { hasPointer: { role: { exact: "value" }, targetValue: { between: [5, 2000] } } },
         in: "input",
       }),
+      1_000_000_000_000_000,
     );
     if (viaEval.sort !== "dset") throw new Error("expected dset");
     expect(viaIndex).toEqual(viaEval.set.ids());
@@ -123,7 +125,7 @@ describe("order convergence (SPEC-4 §2, ERRATA-4 V4)", () => {
     const reference = ingestAll(basicDeltas);
     const refDigest = reference.digest();
     const refEval = resultCanonicalHex(
-      reference.eval(parseTerm({ op: "mask", policy: "drop", in: "input" })),
+      reference.eval(parseTerm({ op: "mask", policy: "drop", in: "input" }), 1_000_000_000_000_000),
     );
     fc.assert(
       fc.property(fc.shuffledSubarray(basicDeltas, { minLength: basicDeltas.length }), (perm) => {
@@ -136,7 +138,7 @@ describe("order convergence (SPEC-4 §2, ERRATA-4 V4)", () => {
           return false;
         }
         const e = resultCanonicalHex(
-          r.eval(parseTerm({ op: "mask", policy: "drop", in: "input" })),
+          r.eval(parseTerm({ op: "mask", policy: "drop", in: "input" }), 1_000_000_000_000_000),
         );
         return e === refEval;
       }),

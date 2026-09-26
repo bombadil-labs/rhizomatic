@@ -142,6 +142,7 @@ fn dispatch_skips_irrelevant_deltas_for_anchored_terms() {
     let stranger = make_delta(
         parse_claims(&json!({
             "timestamp": 9999,
+            "validFrom": 9999,
             "author": "did:key:zStranger",
             "pointers": [
                 { "role": "subject", "target": { "id": "movie:unrelated", "context": "title" } },
@@ -175,6 +176,7 @@ fn expanded_entity_deltas_rematerialize_the_parent() {
     let award = make_delta(
         parse_claims(&json!({
             "timestamp": 1500,
+            "validFrom": 1500,
             "author": "did:key:zCritic",
             "pointers": [
                 { "role": "subject", "target": { "id": "actor:keanu", "context": "award" } },

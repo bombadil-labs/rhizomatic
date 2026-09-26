@@ -293,10 +293,21 @@ Pinned semantics:
 Evaluation is a pure function:
 
 ```
-eval : Term × DSet → (DSet | HView | View)
+evalAt : Term × DSet × now → (DSet | HView | View)
 ```
 
-- **Deterministic (P5):** same term, same set ⇒ identical canonical output. Conformance vectors test this byte-for-byte.
+`now` is a required, finite, caller-supplied number. `evalAt(t, D, now)` first forms the
+effective set `D_now = {d ∈ D | d.validFrom <= now ∧ (d.validUntil is absent ∨ now < d.validUntil)}`
+and evaluates the entire term against that set. Every nested term, alias lookup, and negation
+walk uses the same `D_now`. This is a read-time filter: the stored delta set and delta ids stay
+unchanged. In particular, a negation with `validUntil = T` ceases to negate at exactly T; a still
+valid target reappears unless another effective negation suppresses it. A raw evaluation over all
+held deltas is permitted for storage and federation machinery, but it does not assert current
+validity and MUST be exposed as a distinct operation. The library MUST NOT supply an ambient
+clock or a default `now` for a validity read. A creation cutoff (`timestamp <= T`) is a separate
+selection axis (SPEC-1 §6), never inferred from `now`.
+
+- **Deterministic (P5):** same term, same set, same `now` ⇒ identical canonical output. Conformance vectors test this byte-for-byte.
 - **Order-blind:** no operator may observe delta-set ordering or pointer ordering (SPEC-1 §4.1).
 - **Monotone where claimed:** `select`, `union`, `group`, `expand`, and `intersect` are monotone in `D` (more deltas in ⇒ superset of deltas out). `mask` and `resolve` are **not** monotone (a new negation can remove; a new claim can change a resolved value). `difference` is monotone in its `of` operand but **antitone in `without`**: a delta landing in the `without` sub-result *removes* an output, so the reactor must treat the `without` branch as a retraction source, exactly like a negation edge (SPEC-4 §4.3). This split is normative: it tells the reactor exactly which operators need retraction logic (SPEC-4 §4.3). A `select` whose predicate contains `inView` (§3.1) forfeits monotonicity: a delta landing anywhere can shrink the reflected set (a revocation negating a grant), removing previously selected deltas. Reflection-free `select` remains monotone.
 - **Complexity envelope:** for a term `t` and set `D`, evaluation MUST be achievable in O(|D| · |t|) without indexes; the entire point of L4 is to do far better incrementally.

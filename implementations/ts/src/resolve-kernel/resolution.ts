@@ -30,6 +30,11 @@ function cmpByOrder(order: Order, a: HVEntry, b: HVEntry): number {
       if (d !== 0) return order.dir === "desc" ? -d : d;
       return 0;
     }
+    case "byValidFrom": {
+      const d = a.delta.claims.validFrom - b.delta.claims.validFrom;
+      if (d !== 0) return order.dir === "desc" ? -d : d;
+      return 0;
+    }
     case "byAuthorRank": {
       const rank = (author: string) => {
         const i = order.authors.indexOf(author);

@@ -38,11 +38,14 @@ function pointerToCbor(p: Pointer): CborValue {
 }
 
 export function claimsToCbor(claims: Claims): CborValue {
-  return map([
+  const entries: Array<[string, CborValue]> = [
     ["author", tstr(claims.author)],
     ["pointers", array(claims.pointers.map(pointerToCbor))],
     ["timestamp", float(claims.timestamp)],
-  ]);
+    ["validFrom", float(claims.validFrom)],
+  ];
+  if (claims.validUntil !== undefined) entries.push(["validUntil", float(claims.validUntil)]);
+  return map(entries);
 }
 
 // Reject malformed claims at the boundary; never repair (SPEC-4 §2). Untyped callers
@@ -51,6 +54,12 @@ export function assertValidClaims(claims: Claims): void {
   if (typeof claims.author !== "string") throw new Error("author must be a string");
   if (claims.author.length === 0) throw new Error("author must be non-empty");
   if (!Number.isFinite(claims.timestamp)) throw new Error("timestamp must be finite");
+  if (!Number.isFinite(claims.validFrom)) throw new Error("validFrom must be finite");
+  if (claims.validUntil !== undefined) {
+    if (!Number.isFinite(claims.validUntil)) throw new Error("validUntil must be finite");
+    if (claims.validUntil <= claims.validFrom)
+      throw new Error("validUntil must be greater than validFrom");
+  }
   if (claims.pointers.length < 1) throw new Error("a delta MUST contain at least one pointer");
   for (const p of claims.pointers) {
     if (typeof p.role !== "string") throw new Error("role must be a string");

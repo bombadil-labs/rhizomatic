@@ -5,6 +5,7 @@
     "reason": "author must be a string",
     "claims": {
       "timestamp": 0,
+      "validFrom": 0,
       "author": 42,
       "pointers": [{ "role": "title", "target": "x" }]
     }
@@ -15,6 +16,7 @@
     "reason": "author must be a string",
     "claims": {
       "timestamp": 0,
+      "validFrom": 0,
       "author": null,
       "pointers": [{ "role": "title", "target": "x" }]
     }
@@ -25,6 +27,7 @@
     "reason": "author must be non-empty",
     "claims": {
       "timestamp": 0,
+      "validFrom": 0,
       "author": "",
       "pointers": [{ "role": "title", "target": "x" }]
     }
@@ -35,6 +38,7 @@
     "reason": "timestamp must be a number",
     "claims": {
       "timestamp": "0",
+      "validFrom": 0,
       "author": "did:key:zAuthorA",
       "pointers": [{ "role": "title", "target": "x" }]
     }
@@ -45,6 +49,7 @@
     "reason": "pointers must be an array",
     "claims": {
       "timestamp": 0,
+      "validFrom": 0,
       "author": "did:key:zAuthorA"
     }
   },
@@ -54,6 +59,7 @@
     "reason": "a delta MUST contain at least one pointer",
     "claims": {
       "timestamp": 0,
+      "validFrom": 0,
       "author": "did:key:zAuthorA",
       "pointers": []
     }
@@ -64,6 +70,7 @@
     "reason": "role must be non-empty",
     "claims": {
       "timestamp": 0,
+      "validFrom": 0,
       "author": "did:key:zAuthorA",
       "pointers": [{ "role": "", "target": "x" }]
     }
@@ -74,6 +81,7 @@
     "reason": "role must be a string",
     "claims": {
       "timestamp": 0,
+      "validFrom": 0,
       "author": "did:key:zAuthorA",
       "pointers": [{ "role": 5, "target": "x" }]
     }
@@ -84,6 +92,7 @@
     "reason": "null is not a primitive; must be string | number | boolean",
     "claims": {
       "timestamp": 0,
+      "validFrom": 0,
       "author": "did:key:zAuthorA",
       "pointers": [{ "role": "title", "target": null }]
     }
@@ -94,6 +103,7 @@
     "reason": "an array is not a primitive nor a ref",
     "claims": {
       "timestamp": 0,
+      "validFrom": 0,
       "author": "did:key:zAuthorA",
       "pointers": [{ "role": "title", "target": [1, 2] }]
     }
@@ -104,6 +114,7 @@
     "reason": "an object target must be {id, context?} or {delta, context?}",
     "claims": {
       "timestamp": 0,
+      "validFrom": 0,
       "author": "did:key:zAuthorA",
       "pointers": [{ "role": "title", "target": { "foo": "bar" } }]
     }
@@ -114,6 +125,7 @@
     "reason": "entity ref id must be a string",
     "claims": {
       "timestamp": 0,
+      "validFrom": 0,
       "author": "did:key:zAuthorA",
       "pointers": [{ "role": "subject", "target": { "id": 7 } }]
     }
@@ -124,6 +136,7 @@
     "reason": "delta ref delta must be a string",
     "claims": {
       "timestamp": 0,
+      "validFrom": 0,
       "author": "did:key:zAuthorA",
       "pointers": [{ "role": "negates", "target": { "delta": 7 } }]
     }
@@ -134,6 +147,7 @@
     "reason": "context, when present, must be a string — reject, never coerce or drop",
     "claims": {
       "timestamp": 0,
+      "validFrom": 0,
       "author": "did:key:zAuthorA",
       "pointers": [{ "role": "subject", "target": { "id": "entity:x", "context": 123 } }]
     }
@@ -144,6 +158,7 @@
     "reason": "an explicit null context is present-but-malformed, not absent",
     "claims": {
       "timestamp": 0,
+      "validFrom": 0,
       "author": "did:key:zAuthorA",
       "pointers": [{ "role": "subject", "target": { "id": "entity:x", "context": null } }]
     }
@@ -154,6 +169,7 @@
     "reason": "context, when present, must be non-empty",
     "claims": {
       "timestamp": 0,
+      "validFrom": 0,
       "author": "did:key:zAuthorA",
       "pointers": [{ "role": "subject", "target": { "id": "entity:x", "context": "" } }]
     }
@@ -164,6 +180,7 @@
     "reason": "a target object with value but no mime is neither a ref nor a bytes target",
     "claims": {
       "timestamp": 0,
+      "validFrom": 0,
       "author": "did:key:zAuthorA",
       "pointers": [{ "role": "icon", "target": { "value": "AAEC" } }]
     }
@@ -174,6 +191,7 @@
     "reason": "a bytes target requires a value",
     "claims": {
       "timestamp": 0,
+      "validFrom": 0,
       "author": "did:key:zAuthorA",
       "pointers": [{ "role": "icon", "target": { "mime": "image/png" } }]
     }
@@ -184,6 +202,7 @@
     "reason": "bytes mime must be non-empty",
     "claims": {
       "timestamp": 0,
+      "validFrom": 0,
       "author": "did:key:zAuthorA",
       "pointers": [{ "role": "icon", "target": { "mime": "", "value": "AAEC" } }]
     }
@@ -194,6 +213,7 @@
     "reason": "bytes mime must be a string",
     "claims": {
       "timestamp": 0,
+      "validFrom": 0,
       "author": "did:key:zAuthorA",
       "pointers": [{ "role": "icon", "target": { "mime": 123, "value": "AAEC" } }]
     }
@@ -204,6 +224,7 @@
     "reason": "bytes value must be a base64url string",
     "claims": {
       "timestamp": 0,
+      "validFrom": 0,
       "author": "did:key:zAuthorA",
       "pointers": [{ "role": "icon", "target": { "mime": "image/png", "value": 123 } }]
     }
@@ -214,6 +235,7 @@
     "reason": "base64url is unpadded; '=' is rejected, never stripped",
     "claims": {
       "timestamp": 0,
+      "validFrom": 0,
       "author": "did:key:zAuthorA",
       "pointers": [{ "role": "icon", "target": { "mime": "image/png", "value": "AAECAw==" } }]
     }
@@ -224,6 +246,7 @@
     "reason": "'+' is standard-base64, not base64url — rejected",
     "claims": {
       "timestamp": 0,
+      "validFrom": 0,
       "author": "did:key:zAuthorA",
       "pointers": [{ "role": "icon", "target": { "mime": "image/png", "value": "AAA+" } }]
     }
@@ -234,6 +257,7 @@
     "reason": "a base64url length ≡ 1 (mod 4) is impossible",
     "claims": {
       "timestamp": 0,
+      "validFrom": 0,
       "author": "did:key:zAuthorA",
       "pointers": [{ "role": "icon", "target": { "mime": "image/png", "value": "AAAAA" } }]
     }
@@ -244,6 +268,7 @@
     "reason": "'Zh' has nonzero spilled bits; only 'Zg' canonically encodes 0x66",
     "claims": {
       "timestamp": 0,
+      "validFrom": 0,
       "author": "did:key:zAuthorA",
       "pointers": [{ "role": "icon", "target": { "mime": "image/png", "value": "Zh" } }]
     }
@@ -254,6 +279,7 @@
     "reason": "an unrecognized claims key is silently dropped by a lax parser",
     "claims": {
       "timestamp": 0,
+      "validFrom": 0,
       "author": "did:key:zAuthorA",
       "version": 2,
       "pointers": [{ "role": "r", "target": "x" }]
@@ -266,6 +292,7 @@
     "claims": {
       "timestmp": 0,
       "timestamp": 0,
+      "validFrom": 0,
       "author": "did:key:zAuthorA",
       "pointers": [{ "role": "r", "target": "x" }]
     }
@@ -276,6 +303,7 @@
     "reason": "a pointer carries exactly role and target; 'weight' is not in the profile",
     "claims": {
       "timestamp": 0,
+      "validFrom": 0,
       "author": "did:key:zAuthorA",
       "pointers": [{ "role": "r", "target": "x", "weight": 5 }]
     }
@@ -286,6 +314,7 @@
     "reason": "an entity ref carries id and optional context only",
     "claims": {
       "timestamp": 0,
+      "validFrom": 0,
       "author": "did:key:zAuthorA",
       "pointers": [{ "role": "r", "target": { "id": "e", "context": "c", "label": "no" } }]
     }
@@ -296,6 +325,7 @@
     "reason": "a delta ref carries delta and optional context only",
     "claims": {
       "timestamp": 0,
+      "validFrom": 0,
       "author": "did:key:zAuthorA",
       "pointers": [{ "role": "r", "target": { "delta": "1e2000", "depth": 1 } }]
     }
@@ -306,6 +336,7 @@
     "reason": "a bytes literal has no context (D12); it was previously ignored",
     "claims": {
       "timestamp": 0,
+      "validFrom": 0,
       "author": "did:key:zAuthorA",
       "pointers": [{ "role": "r", "target": { "mime": "image/png", "value": "Zg", "context": "c" } }]
     }
@@ -316,6 +347,7 @@
     "reason": "both id and delta present; first-match-wins silently made it an entity ref",
     "claims": {
       "timestamp": 0,
+      "validFrom": 0,
       "author": "did:key:zAuthorA",
       "pointers": [{ "role": "r", "target": { "id": "e", "delta": "1e2000" } }]
     }
@@ -326,8 +358,55 @@
     "reason": "both id and mime present; the bytes half was silently dropped",
     "claims": {
       "timestamp": 0,
+      "validFrom": 0,
       "author": "did:key:zAuthorA",
       "pointers": [{ "role": "r", "target": { "id": "e", "mime": "image/png", "value": "Zg" } }]
+    }
+  },
+  {
+    "name": "valid-from-missing",
+    "spec": "SPEC-1 §6",
+    "reason": "validFrom is required, never inferred from timestamp",
+    "claims": {
+      "timestamp": 0,
+      "author": "did:key:zAuthorA",
+      "pointers": [{ "role": "r", "target": "x" }]
+    }
+  },
+  {
+    "name": "valid-until-equals-start",
+    "spec": "SPEC-1 §6",
+    "reason": "empty validity interval is rejected",
+    "claims": {
+      "timestamp": 0,
+      "validFrom": 10,
+      "validUntil": 10,
+      "author": "did:key:zAuthorA",
+      "pointers": [{ "role": "r", "target": "x" }]
+    }
+  },
+  {
+    "name": "valid-until-before-start",
+    "spec": "SPEC-1 §6",
+    "reason": "reverse validity interval is rejected",
+    "claims": {
+      "timestamp": 0,
+      "validFrom": 10,
+      "validUntil": 9,
+      "author": "did:key:zAuthorA",
+      "pointers": [{ "role": "r", "target": "x" }]
+    }
+  },
+  {
+    "name": "valid-until-not-a-number",
+    "spec": "SPEC-1 §6",
+    "reason": "validUntil must be a finite number",
+    "claims": {
+      "timestamp": 0,
+      "validFrom": 10,
+      "validUntil": "11",
+      "author": "did:key:zAuthorA",
+      "pointers": [{ "role": "r", "target": "x" }]
     }
   }
 ]

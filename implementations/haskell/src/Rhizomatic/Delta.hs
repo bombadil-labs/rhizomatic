@@ -37,12 +37,17 @@ data Target
 
 data Pointer = Pointer {pRole :: T.Text, pTarget :: Target} deriving (Eq, Show)
 
-data Claims = Claims {cTimestamp :: Double, cAuthor :: T.Text, cPointers :: [Pointer]} deriving (Eq, Show)
+data Claims = Claims {cTimestamp :: Double, cValidFrom :: Double, cValidUntil :: Maybe Double, cAuthor :: T.Text, cPointers :: [Pointer]} deriving (Eq, Show)
 
 -- | SPEC-1 §2.1 boundary validation: reject, never repair.
 validateClaims :: Claims -> Either String ()
-validateClaims (Claims ts author ptrs) = do
+validateClaims (Claims ts validFrom validUntil author ptrs) = do
   finiteNumber "timestamp" ts
+  finiteNumber "validFrom" validFrom
+  mapM_ (finiteNumber "validUntil") validUntil
+  case validUntil of
+    Just end | end <= validFrom -> Left "validUntil must be greater than validFrom"
+    _ -> Right ()
   nonEmpty "author" author
   if null ptrs then Left "a delta MUST contain at least one pointer" else Right ()
   mapM_ validatePointer ptrs
@@ -72,12 +77,13 @@ nonEmpty what t
 
 -- | SPEC-1 §4.1 claims layout. Callers validate first; this is pure layout.
 claimsToCbor :: Claims -> Item
-claimsToCbor (Claims ts author ptrs) =
+claimsToCbor (Claims ts validFrom validUntil author ptrs) =
   Map
-    [ ("author", TStr author),
+    ( [ ("author", TStr author),
       ("pointers", Arr (map pointerToCbor ptrs)),
-      ("timestamp", Num ts)
-    ]
+      ("timestamp", Num ts),
+      ("validFrom", Num validFrom)
+    ] ++ [("validUntil", Num end) | Just end <- [validUntil]] )
 
 pointerToCbor :: Pointer -> Item
 pointerToCbor (Pointer role target) = Map [("role", TStr role), ("target", targetToCbor target)]

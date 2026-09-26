@@ -71,7 +71,7 @@ describe("l1-eval aliased vectors (the alias closure, SPEC-9)", () => {
     it(c.name, () => {
       const term = parseTerm(c.term);
       expect(termHash(term)).toBe(c.termHash);
-      const result = evalTerm(term, set, undefined, registry);
+      const result = evalTerm(term, set, 1_000_000_000_000_000, undefined, registry);
       expect(resultCanonicalHex(result)).toBe(c.expectedCanonicalHex);
       if (c.expected.ids !== undefined && result.sort === "dset") {
         expect(result.set.ids()).toEqual(c.expected.ids);
@@ -98,7 +98,7 @@ describe("l1-eval aliased vectors (the alias closure, SPEC-9)", () => {
     const term = parseTerm(c.term);
     // Same authored term hashes identically whether evaluated against the fixture or nothing.
     expect(termHash(term)).toBe(c.termHash);
-    const empty = evalTerm(term, DeltaSet.from([]), undefined, registry);
+    const empty = evalTerm(term, DeltaSet.from([]), 1_000_000_000_000_000, undefined, registry);
     expect(empty.sort).toBe("dset");
   });
 

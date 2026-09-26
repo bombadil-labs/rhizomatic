@@ -73,9 +73,10 @@ buildPack deltas = do
             mClaims = pdClaims mPd
             claims = pdClaims pd
             dt = cTimestamp claims - cTimestamp mClaims
-         in ( [("i", SRef idHex), ("m", SNum (fromIntegral mIdx)), ("p", SPtrs (cPointers claims))]
+         in ( [("i", SRef idHex), ("m", SNum (fromIntegral mIdx)), ("f", SNum (cValidFrom claims)), ("p", SPtrs (cPointers claims))]
                 ++ [("a", SRef (T.unpack (cAuthor claims))) | cAuthor claims /= cAuthor mClaims]
                 ++ [("dt", SNum dt) | dt /= 0]
+                ++ [("u", SNum end) | Just end <- [cValidUntil claims]]
                 ++ [("s", SRef (T.unpack sig)) | Just sig <- [pdSig pd]]
             )
       envRecords = map envRecordOf envelopes
@@ -89,7 +90,7 @@ buildPack deltas = do
       table = sortOn (TE.encodeUtf8 . T.pack) allStrings
       item =
         Map
-          [ ("version", Num 1),
+          [ ("version", Num 2),
             ("strings", Arr (map (TStr . T.pack) table)),
             ("envelopes", Arr (map (recordToItem table) envRecords)),
             ("members", Arr (map (recordToItem table) memberRecords)),
@@ -110,8 +111,10 @@ hydratedRecord pd idHex =
    in [ ("a", SRef (T.unpack (cAuthor claims))),
         ("i", SRef idHex),
         ("t", SNum (cTimestamp claims)),
+        ("f", SNum (cValidFrom claims)),
         ("p", SPtrs (cPointers claims))
       ]
+        ++ [("u", SNum end) | Just end <- [cValidUntil claims]]
         ++ [("s", SRef (T.unpack sig)) | Just sig <- [pdSig pd]]
 
 recordStrings :: [(T.Text, SVal)] -> [String]
@@ -170,7 +173,7 @@ unpackPack bytes = do
   closedKeys' "pack" ["version", "strings", "envelopes", "members", "loose"] top
   version <- require "version" top
   case version of
-    Num 1 -> Right ()
+    Num 2 -> Right ()
     _ -> Left "pack: unsupported version"
   table <- require "strings" top >>= asStrings
   envItems <- require "envelopes" top >>= asArr "envelopes"
@@ -193,30 +196,38 @@ unpackPack bytes = do
 hydratedFromItem :: [T.Text] -> Item -> Either String (PackedDelta, String)
 hydratedFromItem table item = do
   fields <- asMap "record" item
-  closedKeys' "record" ["a", "i", "t", "p", "s"] fields
+  closedKeys' "record" ["a", "i", "t", "f", "u", "p", "s"] fields
   author <- require "a" fields >>= tableRef table
   idHex <- require "i" fields >>= tableRef table
   ts <- require "t" fields >>= asNum "t"
+  validFrom <- require "f" fields >>= asNum "f"
+  validUntil <- case lookup "u" fields of
+    Nothing -> Right Nothing
+    Just v -> Just <$> asNum "u" v
   ptrs <- require "p" fields >>= asArr "p" >>= mapM (ptrFromItem table)
   sig <- optionalRef table "s" fields
-  Right (PackedDelta (Claims ts author ptrs) sig, T.unpack idHex)
+  Right (PackedDelta (Claims ts validFrom validUntil author ptrs) sig, T.unpack idHex)
 
 memberFromItem :: [T.Text] -> [(PackedDelta, String)] -> Item -> Either String (PackedDelta, String)
 memberFromItem table envelopes item = do
   fields <- asMap "member" item
-  closedKeys' "member" ["m", "i", "p", "a", "dt", "s"] fields
+  closedKeys' "member" ["m", "i", "f", "u", "p", "a", "dt", "s"] fields
   mIdxN <- require "m" fields >>= asNum "m"
   (envPd, _) <- indexInto "member envelope" envelopes mIdxN
   let mClaims = pdClaims envPd
   idHex <- require "i" fields >>= tableRef table
   ptrs <- require "p" fields >>= asArr "p" >>= mapM (ptrFromItem table)
+  validFrom <- require "f" fields >>= asNum "f"
+  validUntil <- case lookup "u" fields of
+    Nothing -> Right Nothing
+    Just v -> Just <$> asNum "u" v
   authorM <- optionalRef table "a" fields
   let author = fromMaybe (cAuthor mClaims) authorM
   dt <- case lookup "dt" fields of
     Nothing -> Right 0
     Just v -> asNum "dt" v
   sig <- optionalRef table "s" fields
-  Right (PackedDelta (Claims (cTimestamp mClaims + dt) author ptrs) sig, T.unpack idHex)
+  Right (PackedDelta (Claims (cTimestamp mClaims + dt) validFrom validUntil author ptrs) sig, T.unpack idHex)
 
 ptrFromItem :: [T.Text] -> Item -> Either String Pointer
 ptrFromItem table item = do

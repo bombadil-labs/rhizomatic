@@ -38,7 +38,12 @@ defmodule Rhizomatic.Delta do
           | {:bytes, String.t(), binary()}
 
   @type pointer :: %{role: String.t(), target: target()}
-  @type claims :: %{timestamp: float(), author: String.t(), pointers: [pointer()]}
+  @type claims :: %{
+          timestamp: float(),
+          valid_from: float(),
+          author: String.t(),
+          pointers: [pointer()]
+        }
 
   # ------------------------------------------------------------- validation
 
@@ -47,12 +52,16 @@ defmodule Rhizomatic.Delta do
   `{:error, reason}`. Reject, never repair (SPEC-4 §2).
   """
   @spec validate(term()) :: {:ok, claims()} | {:error, term()}
-  def validate(%{timestamp: ts, author: author, pointers: pointers} = claims)
-      when map_size(claims) == 3 do
+  def validate(
+        %{timestamp: ts, valid_from: valid_from, author: author, pointers: pointers} = claims
+      )
+      when map_size(claims) in [4, 5] do
     with :ok <- validate_timestamp(ts),
+         :ok <- validate_valid_from(valid_from),
+         :ok <- validate_valid_until(claims, valid_from),
          :ok <- validate_nonempty_string(author, :author),
          :ok <- validate_pointers(pointers) do
-      {:ok, %{timestamp: ts, author: author, pointers: pointers}}
+      {:ok, claims}
     end
   end
 
@@ -65,6 +74,21 @@ defmodule Rhizomatic.Delta do
 
   defp validate_timestamp(ts) when is_integer(ts), do: {:error, {:native_integer, :timestamp}}
   defp validate_timestamp(_), do: {:error, :timestamp_not_a_number}
+
+  defp validate_valid_from(value) when is_float(value), do: :ok
+
+  defp validate_valid_from(value) when is_integer(value),
+    do: {:error, {:native_integer, :valid_from}}
+
+  defp validate_valid_from(_), do: {:error, :valid_from_not_a_number}
+
+  defp validate_valid_until(claims, valid_from) do
+    case Map.fetch(claims, :valid_until) do
+      :error when map_size(claims) == 4 -> :ok
+      {:ok, end_time} when is_float(end_time) and end_time > valid_from -> :ok
+      _ -> {:error, :invalid_valid_until}
+    end
+  end
 
   defp validate_pointers(pointers) when is_list(pointers) and pointers != [] do
     Enum.reduce_while(pointers, :ok, fn p, :ok ->
@@ -142,13 +166,20 @@ defmodule Rhizomatic.Delta do
 
   @doc false
   @spec to_cbor(claims()) :: Cbor.t()
-  def to_cbor(%{timestamp: ts, author: author, pointers: pointers}) do
+  def to_cbor(
+        %{timestamp: ts, valid_from: valid_from, author: author, pointers: pointers} = claims
+      ) do
     {:map,
      [
        {{:tstr, "author"}, {:tstr, author}},
        {{:tstr, "pointers"}, {:arr, Enum.map(pointers, &pointer_to_cbor/1)}},
-       {{:tstr, "timestamp"}, {:float, ts}}
-     ]}
+       {{:tstr, "timestamp"}, {:float, ts}},
+       {{:tstr, "validFrom"}, {:float, valid_from}}
+     ] ++
+       case Map.fetch(claims, :valid_until) do
+         {:ok, end_time} -> [{{:tstr, "validUntil"}, {:float, end_time}}]
+         :error -> []
+       end}
   end
 
   defp pointer_to_cbor(%{role: role, target: target}) do

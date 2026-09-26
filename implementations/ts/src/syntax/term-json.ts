@@ -41,7 +41,7 @@ const TERM_KEYS: Readonly<Record<string, readonly string[]>> = {
 const STR_MATCH_TAGS = ["exact", "prefix", "inSet", "aliased"] as const;
 const VAL_MATCH_TAGS = ["vcmp", "between", "inSet"] as const;
 const PRED_TAGS = ["match", "hasPointer", "and", "or", "not", "inView"] as const;
-const ORDER_TAGS = ["byTimestamp", "byAuthorRank", "byPred", "chain"] as const;
+const ORDER_TAGS = ["byTimestamp", "byValidFrom", "byAuthorRank", "byPred", "chain"] as const;
 const POLICY_TAGS = ["pick", "all", "merge", "conflicts", "absentAs"] as const;
 const EXTRACT_TAGS = ["field", "role"] as const;
 
@@ -321,6 +321,12 @@ function parseOrder(raw: unknown): Order {
       throw new Error("byTimestamp must be desc | asc");
     }
     return { kind: "byTimestamp", dir: o["byTimestamp"] };
+  }
+  if (tag === "byValidFrom") {
+    if (o["byValidFrom"] !== "desc" && o["byValidFrom"] !== "asc") {
+      throw new Error("byValidFrom must be desc | asc");
+    }
+    return { kind: "byValidFrom", dir: o["byValidFrom"] };
   }
   if (tag === "byAuthorRank") {
     if (!Array.isArray(o["byAuthorRank"])) throw new Error("byAuthorRank must be an array");

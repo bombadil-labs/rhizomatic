@@ -32,6 +32,7 @@ export {
 export {
   aliasClosure,
   evalTerm,
+  evalTermRaw,
   expandAliased,
   resultCanonicalHex,
   type AliasedSpec,

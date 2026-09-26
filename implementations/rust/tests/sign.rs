@@ -117,6 +117,7 @@ fn refuses_author_mismatch() {
     let keys = read_vector("keys/keys.json");
     let claims = parse_claims(&serde_json::json!({
         "timestamp": 0,
+        "validFrom": 0,
         "author": "ed25519:0000000000000000000000000000000000000000000000000000000000000000",
         "pointers": [{ "role": "x", "target": "y" }]
     }))

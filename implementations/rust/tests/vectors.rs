@@ -81,7 +81,7 @@ fn l0_delta_invalid_vectors_reject() {
 #[test]
 fn pointer_order_is_significant() {
     let a = parse_claims(&serde_json::json!({
-        "timestamp": 0, "author": "did:key:zA",
+        "timestamp": 0, "validFrom": 0, "author": "did:key:zA",
         "pointers": [
             { "role": "x", "target": "1" },
             { "role": "y", "target": "2" }
@@ -89,7 +89,7 @@ fn pointer_order_is_significant() {
     }))
     .unwrap();
     let b = parse_claims(&serde_json::json!({
-        "timestamp": 0, "author": "did:key:zA",
+        "timestamp": 0, "validFrom": 0, "author": "did:key:zA",
         "pointers": [
             { "role": "y", "target": "2" },
             { "role": "x", "target": "1" }

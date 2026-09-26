@@ -19,6 +19,7 @@ defmodule DeltasInvalidTest do
   defp claims(target) do
     %{
       "timestamp" => 0,
+      "validFrom" => 0,
       "author" => "did:key:zA",
       "pointers" => [%{"role" => "r", "target" => target}]
     }
@@ -57,8 +58,7 @@ defmodule DeltasInvalidTest do
     test "id and mime together is ambiguous, not an entity ref" do
       target = %{"id" => "e", "mime" => "image/png", "value" => "iVBO"}
 
-      assert {:error, {:ambiguous_target, ["id", "mime"]}} =
-               Profile.parse_claims(claims(target))
+      assert {:error, {:ambiguous_target, ["id", "mime"]}} = Profile.parse_claims(claims(target))
     end
 
     test "exactly one discriminator still parses" do

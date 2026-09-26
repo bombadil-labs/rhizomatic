@@ -66,6 +66,7 @@ const claim = (
   value: string | number,
 ): Omit<Claims, "author"> => ({
   timestamp,
+  validFrom: timestamp,
   pointers: [
     { role: "movie", target: { kind: "entity", entity: { id: entity, context } } },
     { role: context, target: { kind: "primitive", value } },
@@ -77,7 +78,7 @@ function show(view: View): string {
 }
 
 function resolveAt(reactor: Reactor, schema: Schema, root: string): View {
-  const result = reactor.eval(movieBody, root);
+  const result = reactor.eval(movieBody, Date.now(), root);
   if (result.sort !== "hview") throw new Error("expected hview");
   return resolveView(schema, result.hview);
 }
@@ -124,7 +125,7 @@ export function main(): string {
   syncBoth(alice, bob);
   say(`Bob negates his own director claim (reason: "I was wrong").`);
   say(`default view  -> ${show(resolveAt(alice.reactor, latest, MOVIE))}`);
-  const audit = alice.reactor.eval(auditBody, MOVIE);
+  const audit = alice.reactor.eval(auditBody, Date.now(), MOVIE);
   if (audit.sort !== "hview") throw new Error("expected hview");
   const auditDirectors = (audit.hview.props.get("director") ?? []).map(
     (e) => `${e.negated ? "[retracted] " : ""}${JSON.stringify(valueOf(e.delta.claims))}`,
@@ -152,7 +153,7 @@ export function main(): string {
       },
     },
   });
-  const past = alice.reactor.eval(asOf250, MOVIE);
+  const past = alice.reactor.eval(asOf250, Date.now(), MOVIE);
   if (past.sort !== "hview") throw new Error("expected hview");
   say(`The world as of t=250 (before Bob's retraction at t=300):`);
   say(`  -> ${show(resolveView(latest, past.hview))}`);
@@ -179,7 +180,7 @@ export function main(): string {
   // === ACT 6 =================================================================================
   act(6, "Everything that computes is an author", "P4/L7: the write-back loop");
   const host = new DerivationHost(alice.reactor);
-  alice.reactor.register("movie", movieBody, [MOVIE]);
+  alice.reactor.register("movie", movieBody, [MOVIE], Date.now());
   const avgFn: DerivedFn = (view: HView, root: string): Pointer[][] => {
     const nums = (view.props.get("rating") ?? [])
       .flatMap((e) => e.delta.claims.pointers)
@@ -223,7 +224,10 @@ export function main(): string {
   say(
     `  title=${show(withBot["title"]!)} director=${show(withBot["director"]!)} avgRating=${show(avgCandidate?.["avgRating"] ?? "?")}`,
   );
-  const derived = alice.reactor.eval(movieBody, MOVIE) as { sort: "hview"; hview: HView };
+  const derived = alice.reactor.eval(movieBody, Date.now(), MOVIE) as {
+    sort: "hview";
+    hview: HView;
+  };
   const derivedEntry = (derived.hview.props.get("avgRating") ?? [])[0];
   const fromHex = derivedEntry?.delta.claims.pointers.find(
     (p) => p.role === `${VOCAB_PREFIX}.derived.from`,

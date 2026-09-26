@@ -44,7 +44,13 @@ describe("l1-eval bytes-resolve vectors (D12 at the resolve boundary)", () => {
 
   for (const c of doc.cases) {
     it(c.name, () => {
-      const result = evalTerm(parseTerm(c.term), fixtureSet, undefined, registry);
+      const result = evalTerm(
+        parseTerm(c.term),
+        fixtureSet,
+        1_000_000_000_000_000,
+        undefined,
+        registry,
+      );
       if (result.sort !== "view") throw new Error("expected a View result");
       expect(viewToJson(result.view)).toEqual(c.expectedView);
       expect(resultCanonicalHex(result)).toBe(c.expectedCanonicalHex);

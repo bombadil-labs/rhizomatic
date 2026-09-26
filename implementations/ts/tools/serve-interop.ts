@@ -13,6 +13,7 @@ const peer = new Peer("11".repeat(32));
 const claim = (timestamp: number, entity: string, context: string, value: string | number) =>
   ({
     timestamp,
+    validFrom: timestamp,
     pointers: [
       { role: "subject", target: { kind: "entity", entity: { id: entity, context } } },
       { role: "value", target: { kind: "primitive", value } },
@@ -25,6 +26,7 @@ peer.authorClaims(claim(3, "movie:blade_runner", "rating", 8.7));
 // a signed manifest covering an unsigned member: exercises the bundle path cross-impl
 const member = makeDelta({
   timestamp: 4,
+  validFrom: 4,
   author: "did:key:zUnsignedLocal",
   pointers: [{ role: "note", target: { kind: "primitive", value: "covered across impls" } }],
 });

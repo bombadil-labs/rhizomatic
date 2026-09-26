@@ -33,6 +33,7 @@ interface Materialization {
   readonly roots: readonly string[];
   readonly registry: SchemaRegistry | undefined;
   readonly rootAnchored: boolean;
+  now: number;
   readonly views: Map<string, HView>;
   readonly hexes: Map<string, string>;
   readonly propHexes: Map<string, Map<string, string>>;
@@ -45,6 +46,65 @@ export type IngestResult =
   | { readonly status: "duplicate" }
   | { readonly status: "rejected"; readonly reason: string };
 
+interface BoundaryNode {
+  readonly at: number;
+  readonly left?: BoundaryNode;
+  readonly right?: BoundaryNode;
+  readonly height: number;
+}
+
+const height = (node: BoundaryNode | undefined): number => node?.height ?? 0;
+const boundaryNode = (at: number, left?: BoundaryNode, right?: BoundaryNode): BoundaryNode => ({
+  at,
+  ...(left === undefined ? {} : { left }),
+  ...(right === undefined ? {} : { right }),
+  height: 1 + Math.max(height(left), height(right)),
+});
+function rotateRight(node: BoundaryNode): BoundaryNode {
+  const left = node.left!;
+  return boundaryNode(left.at, left.left, boundaryNode(node.at, left.right, node.right));
+}
+function rotateLeft(node: BoundaryNode): BoundaryNode {
+  const right = node.right!;
+  return boundaryNode(right.at, boundaryNode(node.at, node.left, right.left), right.right);
+}
+function insertBoundary(node: BoundaryNode | undefined, at: number): BoundaryNode {
+  if (node === undefined) return boundaryNode(at);
+  if (at === node.at) return node;
+  const updated =
+    at < node.at
+      ? boundaryNode(node.at, insertBoundary(node.left, at), node.right)
+      : boundaryNode(node.at, node.left, insertBoundary(node.right, at));
+  const balance = height(updated.left) - height(updated.right);
+  if (balance > 1) {
+    return rotateRight(
+      at > updated.left!.at
+        ? boundaryNode(updated.at, rotateLeft(updated.left!), updated.right)
+        : updated,
+    );
+  }
+  if (balance < -1) {
+    return rotateLeft(
+      at < updated.right!.at
+        ? boundaryNode(updated.at, updated.left, rotateRight(updated.right!))
+        : updated,
+    );
+  }
+  return updated;
+}
+function boundaryAfter(node: BoundaryNode | undefined, now: number): number | undefined {
+  let next: number | undefined;
+  while (node !== undefined) {
+    if (node.at > now) {
+      next = node.at;
+      node = node.left;
+    } else {
+      node = node.right;
+    }
+  }
+  return next;
+}
+
 export class Reactor {
   // The append-only log in arrival order (v0: in-memory; the log is still the truth — V2).
   private readonly log: Delta[] = [];
@@ -54,6 +114,7 @@ export class Reactor {
   // negation index: delta id -> ids of negations targeting it (SPEC-4 §3)
   private readonly negationIndex = new Map<string, Set<string>>();
   private readonly materializations = new Map<string, Materialization>();
+  private validityBoundaries: BoundaryNode | undefined;
   // value index: role -> canonical primitive key -> { value, ids } (V1: keyed by role)
   private readonly valueIndex = new Map<
     string,
@@ -80,6 +141,10 @@ export class Reactor {
   }
 
   private index(delta: Delta): void {
+    this.validityBoundaries = insertBoundary(this.validityBoundaries, delta.claims.validFrom);
+    if (delta.claims.validUntil !== undefined) {
+      this.validityBoundaries = insertBoundary(this.validityBoundaries, delta.claims.validUntil);
+    }
     for (const ptr of delta.claims.pointers) {
       switch (ptr.target.kind) {
         case "entity": {
@@ -182,8 +247,8 @@ export class Reactor {
 
   // Batch evaluation over the current set — the oracle hookup (SPEC-4 §1). Read-your-writes
   // holds trivially: ingest is synchronous, so an accepted delta is visible immediately (§6).
-  eval(term: Term, root?: string, registry?: SchemaRegistry): EvalResult {
-    return evalTerm(term, this.set, root, registry);
+  eval(term: Term, now: number, root?: string, registry?: SchemaRegistry): EvalResult {
+    return evalTerm(term, this.set, now, root, registry);
   }
 
   // --- materializations (SPEC-4 §4, ERRATA-4 V5) ---
@@ -192,7 +257,14 @@ export class Reactor {
 
   // Register a live materialization: an HView-sort term (a function of $root) kept
   // incrementally equal to batch evaluation at each root (SPEC-4 §1).
-  register(name: string, term: Term, roots: readonly string[], registry?: SchemaRegistry): void {
+  register(
+    name: string,
+    term: Term,
+    roots: readonly string[],
+    now: number,
+    registry?: SchemaRegistry,
+  ): void {
+    if (!Number.isFinite(now)) throw new Error("now must be a finite number");
     if (this.materializations.has(name)) throw new Error(`duplicate materialization: ${name}`);
     const mat: Materialization = {
       name,
@@ -200,6 +272,7 @@ export class Reactor {
       roots: [...roots],
       registry,
       rootAnchored: isRootAnchored(term, registry),
+      now,
       views: new Map(),
       hexes: new Map(),
       propHexes: new Map(),
@@ -226,8 +299,42 @@ export class Reactor {
     return this.lastChanges;
   }
 
+  // Advance maintained views using a caller-supplied instant. The host schedules this at the
+  // next boundary; no clock is read inside the reactor. Empty responsible ids mean time alone
+  // changed the surface.
+  advanceTime(now: number): readonly MaterializationChange[] {
+    if (!Number.isFinite(now)) throw new Error("now must be a finite number");
+    const changes: MaterializationChange[] = [];
+    for (const mat of this.materializations.values()) {
+      if (mat.now === now) continue;
+      mat.now = now;
+      for (const root of mat.roots) {
+        const changedProps = this.refresh(mat, root);
+        if (changedProps !== undefined) {
+          changes.push({
+            materialization: mat.name,
+            root,
+            changedProps,
+            responsibleDeltaIds: [],
+            newHex: mat.hexes.get(root)!,
+          });
+        }
+      }
+    }
+    this.lastChanges = changes;
+    for (const c of changes) {
+      for (const cb of this.matSubscribers.get(c.materialization) ?? []) cb(c);
+    }
+    return changes;
+  }
+
+  nextValidityBoundary(now: number): number | undefined {
+    if (!Number.isFinite(now)) throw new Error("now must be a finite number");
+    return boundaryAfter(this.validityBoundaries, now);
+  }
+
   private refresh(mat: Materialization, root: string): string[] | undefined {
-    const result = evalTerm(mat.term, this.set, root, mat.registry);
+    const result = evalTerm(mat.term, this.set, mat.now, root, mat.registry);
     if (result.sort !== "hview") throw new Error("materialized terms must be HView-sort");
     mat.evalCount += 1;
     const hex = hviewCanonicalHex(result.hview);
@@ -389,7 +496,7 @@ export function makeManifestClaims(
       target: { kind: "primitive", value: options.intent },
     });
   }
-  return { timestamp, author, pointers };
+  return { timestamp, validFrom: timestamp, author, pointers };
 }
 
 // Per-property canonical hexes, for change-path diffing (SPEC-4 §5).

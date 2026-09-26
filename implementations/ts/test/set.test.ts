@@ -38,6 +38,7 @@ const pointerArb: fc.Arbitrary<Pointer> = fc.record({
 
 const claimsArb: fc.Arbitrary<Claims> = fc.record({
   timestamp: fc.integer({ min: 0, max: 1_000_000 }),
+  validFrom: fc.integer({ min: 0, max: 1_000_000 }),
   author: fc.constantFrom("did:key:zA", "did:key:zB", "did:key:zC"),
   pointers: fc.array(pointerArb, { minLength: 1, maxLength: 3 }),
 });
@@ -115,7 +116,12 @@ describe("delta-set algebra: grow-only set CRDT laws", () => {
 describe("delta-set guards", () => {
   it("rejects a delta whose id does not recompute (P6)", () => {
     const d = makeDelta(
-      parseClaims({ timestamp: 0, author: "a", pointers: [{ role: "x", target: 1 }] }),
+      parseClaims({
+        timestamp: 0,
+        validFrom: 0,
+        author: "a",
+        pointers: [{ role: "x", target: 1 }],
+      }),
     );
     const forged: Delta = { ...d, id: `1e20${"00".repeat(32)}` };
     expect(() => new DeltaSet().add(forged)).toThrow(/content addressing/);

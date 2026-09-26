@@ -8,7 +8,7 @@ use crate::reactor::manifest_member_ids;
 use crate::set::{make_delta, DeltaSet};
 use crate::types::{Claims, Delta, Pointer, Primitive, Target};
 
-const PACK_VERSION: f64 = 1.0;
+const PACK_VERSION: f64 = 2.0;
 
 fn strings_of(delta: &Delta, out: &mut BTreeSet<String>) {
     out.insert(delta.id.clone()); // stored ids make rehydration self-verifying (SPEC-8 §4)
@@ -83,6 +83,7 @@ fn hydrated_record(d: &Delta, idx: &BTreeMap<String, usize>) -> CborValue {
         ("i".to_string(), fidx(idx, &d.id)),
         ("a".to_string(), fidx(idx, &d.claims.author)),
         ("t".to_string(), CborValue::Float(d.claims.timestamp)),
+        ("f".to_string(), CborValue::Float(d.claims.valid_from)),
         (
             "p".to_string(),
             CborValue::Array(
@@ -94,6 +95,9 @@ fn hydrated_record(d: &Delta, idx: &BTreeMap<String, usize>) -> CborValue {
             ),
         ),
     ];
+    if let Some(valid_until) = d.claims.valid_until {
+        entries.push(("u".to_string(), CborValue::Float(valid_until)));
+    }
     if let Some(sig) = &d.sig {
         entries.push(("s".to_string(), fidx(idx, sig)));
     }
@@ -109,6 +113,7 @@ fn member_record(
     let mut entries = vec![
         ("i".to_string(), fidx(idx, &d.id)),
         ("m".to_string(), CborValue::Float(envelope_idx as f64)),
+        ("f".to_string(), CborValue::Float(d.claims.valid_from)),
         (
             "p".to_string(),
             CborValue::Array(
@@ -120,6 +125,9 @@ fn member_record(
             ),
         ),
     ];
+    if let Some(valid_until) = d.claims.valid_until {
+        entries.push(("u".to_string(), CborValue::Float(valid_until)));
+    }
     // Dehydrate against the envelope (SPEC-8 §3.1); divergent fields stored explicitly (P2).
     if d.claims.author != manifest.claims.author {
         entries.push(("a".to_string(), fidx(idx, &d.claims.author)));
@@ -293,6 +301,8 @@ fn hydrate_record(v: &CborValue, strings: &[String]) -> Result<Delta, String> {
     let claims = Claims {
         author: strings[as_num(o.get("a"), "a")? as usize].clone(),
         timestamp: as_num(o.get("t"), "t")?,
+        valid_from: as_num(o.get("f"), "f")?,
+        valid_until: o.get("u").map(|v| as_num(Some(v), "u")).transpose()?,
         pointers: as_array(o.get("p"), "p")?
             .iter()
             .map(|p| ptr_from_cbor(p, strings))
@@ -344,6 +354,8 @@ pub fn unpack_set(bytes: &[u8]) -> Result<DeltaSet, String> {
         let claims = Claims {
             author,
             timestamp: manifest.claims.timestamp + dt,
+            valid_from: as_num(o.get("f"), "f")?,
+            valid_until: o.get("u").map(|v| as_num(Some(v), "u")).transpose()?,
             pointers: as_array(o.get("p"), "p")?
                 .iter()
                 .map(|p| ptr_from_cbor(p, &strings))

@@ -27,7 +27,7 @@ export function makeNegationClaims(
   if (reason !== undefined) {
     pointers.push({ role: "reason", target: { kind: "primitive", value: reason } });
   }
-  return { timestamp, author, pointers };
+  return { timestamp, validFrom: timestamp, author, pointers };
 }
 
 export class DeltaSet implements Iterable<Delta> {

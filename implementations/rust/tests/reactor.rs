@@ -54,6 +54,7 @@ fn signed_accept_and_tamper_reject() {
     let seed = keys[0]["seedHex"].as_str().unwrap();
     let claims = parse_claims(&json!({
         "timestamp": 5,
+        "validFrom": 5,
         "author": author_for_seed(seed).unwrap(),
         "pointers": [{ "role": "x", "target": "y" }]
     }))

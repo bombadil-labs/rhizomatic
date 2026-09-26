@@ -28,6 +28,7 @@ function bundleWorld(): DeltaSet {
   const signedMember = signClaims(
     parseClaims({
       timestamp: 4900,
+      validFrom: 4900,
       author: authorForSeed(keys[0]!.seedHex),
       pointers: [{ role: "note", target: "covered" }],
     }),
@@ -86,6 +87,7 @@ describe("packs (SPEC-8, ERRATA-8)", () => {
   it("property: pack/unpack round-trips arbitrary sets", () => {
     const claimsArb = fc.record({
       timestamp: fc.integer({ min: 0, max: 100000 }),
+      validFrom: fc.integer({ min: 0, max: 100000 }),
       author: fc.constantFrom("did:key:zA", "did:key:zB"),
       pointers: fc.array(
         fc.record({

@@ -32,6 +32,7 @@ const author = authorForSeed(seed);
 const delta = signClaims(
   {
     timestamp: 0,
+    validFrom: 0,
     author,
     pointers: [{ role: "name", target: { kind: "primitive", value: "Ada" } }],
   },
