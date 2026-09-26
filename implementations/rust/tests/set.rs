@@ -115,7 +115,7 @@ proptest! {
 #[test]
 fn rejects_forged_id() {
     let claims = parse_claims(&serde_json::json!({
-        "timestamp": 0, "author": "a",
+        "timestamp": 0, "validFrom": 0, "author": "a",
         "pointers": [{ "role": "x", "target": 1 }]
     }))
     .unwrap();
