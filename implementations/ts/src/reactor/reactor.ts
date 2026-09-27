@@ -538,8 +538,11 @@ export class Reactor {
       this.set.add(d);
       this.log.push(d);
       this.index(d);
-      for (const cb of this.rawSubscribers) cb(d);
     }
+    // Existing negation readers memoize membership; one accepted bundle is one revision.
+    this.membershipRevision += 1;
+    // Publish only after every member is indexed, so a subscriber sees the atomic bundle.
+    for (const d of fresh) for (const cb of this.rawSubscribers) cb(d);
     this.lastChanges = this.dispatchAndUpdate(fresh);
     return { status: "accepted" };
   }
