@@ -67,9 +67,10 @@ The pipeline is:
    admitted set. Next select **effective erasure orders**: candidates that passed every prior
    gate, whose signature and target binding verify, and which the receiver's erasure policy
    authorizes from the pre-transfer admitted set. A candidate may inspect a verified co-offered
-   target's claims to check its author, but cannot borrow authority from that target. An erasure
-   order or its bundle MUST NOT have a declared post-commit requirement on a candidate in this
-   transfer; such a unit is rejected. A bundle containing both an erasure and its target is also
+   target's claims to check its author, but cannot borrow authority from that target. An
+   erasure-bearing unit MUST NOT have any declared post-commit requirement; such a unit is
+   rejected. Its authorization and well-formedness checks use the pre-transfer snapshot and the
+   verified target claims only. A bundle containing both an erasure and its target is also
    rejected. An erasure targeting an erasure is invalid. A foreign erasure is testimony unless
    the receiving peer's declared policy makes it an effective local order. Only effective orders
    exclude and refuse their targets. They may target a separate co-offered candidate: that
@@ -185,7 +186,8 @@ epoch**, never the first arrival in the peer's lifetime.
   exclusion effect; D and a bystander can land. An effective erasure E of held N makes N
   unavailable as a post-commit requirement for candidate T; T is pruned, while E and an
   unrelated candidate land. Two erasure orders are judged against the same pre-transfer state,
-  so one cannot retroactively invalidate the other's authorization in this transfer.
+  so one cannot retroactively invalidate the other's authorization in this transfer. An erasure
+  unit with a post-commit requirement is rejected before it can exclude anything.
 - A committed erasure with an unfinished purge keeps its id outside the admitted and serving
   sets after restart. A re-offer gets `purge-pending`, not silent dedup, and cannot race the
   purge. The report stays `pending` or `failed` with a durable fault until declared surfaces
