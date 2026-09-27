@@ -61,7 +61,8 @@ The pipeline is:
 3. Apply candidate-local guards in declared order, each against the same pre-transfer admitted
    set. No general transfer quota is charged at this stage; a candidate rejected later cannot
    consume ordinary capacity. A receiver that limits erasure orders uses an explicit erasure
-   guard before step 4, so a quota cannot withdraw an order after its exclusion took effect.
+   guard before step 4, using a receiver-declared rank independent of wire order. A quota cannot
+   withdraw an order after its exclusion took effect.
 4. Compute a **proposed** final set without changing holdings. Apply any declared, deterministic
    candidate-set conflict rule to candidates that passed steps 1–3, using the pre-transfer
    admitted set. Next form **provisional erasure orders**: candidates that passed every prior
@@ -118,6 +119,9 @@ The pipeline is:
    Quota capacity may remain unused after dependency pruning, but an id that did not land is
    never charged. An internal `purge-pending` outcome reveals that the peer held and erased this
    id; a public endpoint MAY map it to a generic refusal, while preserving the private reason.
+   Later acceptance can still reveal when a re-entry gate completed. A host that keeps
+   co-tenant holdings confidential MUST restrict that retry visibility or choose a gate whose
+   completion does not depend on another peer's holdings.
 
 A signed bundle is one indivisible candidate unit through every gate: failure of any member
 rejects that bundle, not another bundle that covers some of the same ids. Loose self-signed
