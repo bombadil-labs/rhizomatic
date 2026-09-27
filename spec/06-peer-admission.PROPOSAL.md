@@ -26,12 +26,21 @@ exclusive new-peer reference satisfies the copy requirement only if the new peer
 without the old peer remaining available. If that reference is unreadable, admission and serving
 reads fail closed; a live host view does not satisfy the requirement. The snapshot covers inherited
 refusals only. Active obligations MUST reside durably in the new peer's own state, independent of
-the old peer. The handoff record includes the inherited refusal snapshot's digest. To repair an
-unreadable snapshot, the new peer MAY restore an authenticated copy with that exact digest,
+the old peer. The handoff MUST stage a verified recovery copy of the inherited refusal snapshot
+that remains readable independently of the primary and the old peer before it commits. The
+handoff record includes that snapshot's digest and is authenticated by the old governing key.
+A recovery copy is valid only when its bytes match the committed digest, never by evaluating the
+host's later live set. To repair an unreadable snapshot, the new peer MAY restore a valid copy,
 without replaying the handoff or changing obligation ownership. It MUST verify that copy before
 resuming admission or serving.
-If no such copy is available, it remains closed and reports the storage fault; it cannot claim
-the outstanding erasure is complete.
+If no such copy remains, ordinary admission and serving stay closed. The peer MAY use a
+receiver-authorized **decommission** operation outside delta admission: it permanently ends
+serving and admission under this `PeerId`, attempts to remove bytes on its declared surfaces
+without touching another peer's holdings, and keeps every pending obligation and fault report
+until byte absence is proved. Its terminal marker MUST be durable before byte removal starts,
+and its authorization uses the peer's local configuration rather than the missing snapshot.
+Decommission itself is not proof of erasure. The `PeerId` MUST NOT be reused as a fresh peer
+without restoring its prior state; a new peer needs a new governing key.
 Carried refusal-event and admission-epoch references retain their source `PeerId` and source
 identifier. The new peer uses those qualified references for re-entry acts, exclusions, and
 obligations, and starts a distinct local sequence for later admissions and refusal events. An
@@ -39,12 +48,17 @@ imported host sequence is not a new-peer arrival claim. Cross-peer sequence numb
 compared as bare integers; the handoff itself establishes that imported history precedes new
 peer-local admissions, and an unproved comparison remains `unproven`.
 
-A handoff first closes the old surface entry path at a **barrier**. An operation accepted into
-that old peer's queue before the barrier MUST finish there before cutover: an order commits and
+A handoff declares a finite deadline on the receiver's trusted clock and first closes the old
+surface entry path at a **barrier**. The attempt and deadline are durable; recovery aborts an
+uncommitted attempt when that deadline passes, including after the coordinator crashes. An
+operation accepted into the old peer's queue before the barrier MUST finish there before cutover:
+an order commits and
 its refusal is copied, or it fails explicitly. An arrival at the transitioning surface after the
-barrier is held without admission until cutover commits or aborts. If it cannot be held, the path
-returns retryable `handoff-pending`, never `peer-changed` while the outcome is unresolved. On
-abort, the old peer reopens the surface path and processes held arrivals through its own pipeline.
+barrier is held without admission until cutover commits or aborts. The path MUST durably queue a
+held arrival before acknowledging that it retained it. If it cannot, it returns retryable
+`handoff-pending`, which is not acceptance; the sender must retry. It never reports
+`peer-changed` while the outcome is unresolved. On abort, the old peer reopens the surface path
+and processes held arrivals through its own pipeline.
 On commit, an order bound to the old `PeerId`, or signed by the old governing key without a
 receiving `PeerId`, gets `peer-changed` naming the new `PeerId` and MUST NOT be routed as testimony
 to the new peer. Other held deltas may enter the new peer's own pipeline. The old endpoint MUST
@@ -102,16 +116,21 @@ For erasure authorization, a peer MAY pin additional governor keys in its own co
 including a host operator key. Such a key can authorize orders under that peer's declared policy
 without becoming its `PeerId` or sharing its admission state. After handoff, that key must be
 pinned in the new peer's own configuration before it can authorize an order; pins are not copied
-as refusal state. An order relying on an additional governor key MUST sign the receiving `PeerId`
-in its canonical claims. Any order that names a receiving `PeerId` has erasure effect only at that
-peer, regardless of its signer or delivery
-route. A different receiver may retain it as testimony but MUST NOT classify it as an order,
-even if that signer is its own governing key or an additional governor. At a peer that pins an
+as refusal state. The new peer's erasure-authority policy, including any pins, MUST be installed
+in the handoff commit before it serves. An order relying on an additional governor key MUST sign
+the receiving `PeerId` in its canonical claims. Any order that names a receiving `PeerId` has
+erasure effect only at that peer, regardless of its signer or delivery route. A different
+receiver, except the successor of that peer after a handoff, may retain it as testimony but MUST
+NOT classify it as an order, even if that signer is its own governing key or an additional
+governor. At a peer that pins an
 additional governor, an order by that key with no receiving `PeerId` is testimony only; it cannot
 acquire an erasure effect from the pin. A peer's own governing key MAY issue an order without a
 receiving `PeerId`; that order can take effect only at the peer identified by that key. A
 handoff may copy the resulting peer-local refusal into the new peer's state; this is a transfer
-of state, not a new erasure effect of the original order at the new peer. A
+of state, not a new erasure effect of the original order at the new peer. After cutover, the new
+peer returns `peer-changed` for an order bound to its predecessor's `PeerId`, or signed by that
+predecessor's governing key without a receiver, on every entry path. It MUST NOT retain such an
+order as testimony, whether delivered directly or by gossip. A
 **non-governor** order is one authorized by neither the peer's governing key nor a configured
 additional governor key; the advance-refusal cap below applies to those orders.
 
@@ -563,9 +582,15 @@ incompleteness remains after re-entry, so a later consumer cannot infer a false 
   has durable commit proof; afterward the new peer reports it, even if the host backend fails.
   A new-peer-owned pinned refusal snapshot may share physical backend storage with the old peer,
   but remains readable when the old peer process stops; obligations live in the new peer's own
-  durable state. If the inherited snapshot becomes unreadable, admission and serving reads close
-  until an authenticated copy matching the handoff digest restores it. The peer still reports
-  the pending obligation and storage fault throughout.
+  durable state, and a verified independent recovery copy exists before commit. If the primary
+  snapshot becomes unreadable, admission and serving reads close until that copy, checked against
+  the committed digest, restores it. If every copy is lost, the peer cannot accept a new erasure
+  order through admission; it may decommission without claiming byte removal. It stays unable to
+  serve under that `PeerId` and reports each pending obligation until bytes are proved gone.
+  A post-commit host-PeerId order delivered at the new peer gets `peer-changed` with the new
+  `PeerId`, not testimony, even if it arrived by gossip. An uncommitted handoff whose coordinator
+  crashes past its declared deadline aborts; a durably held order returns to the old path, while
+  an unqueued arrival got retryable `handoff-pending` and no acceptance promise.
   A combined erase whose roster changes at cutover returns `peer-changed` with its committed
   member results; a later operation needs a new order for the new peer.
   A combined erase reports each member result; if B rejects while A commits, the combined report
