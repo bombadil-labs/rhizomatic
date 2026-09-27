@@ -16,15 +16,24 @@ reusing one key identifies one peer, not two. A shared-key container is a surfac
 until it is given a distinct key and peer state; it cannot claim separate arrival or erasure
 testimony. Assigning a new key alone does not create a working peer: the container remains a
 surface of the original peer and MUST NOT serve or report as a separate peer until a durable
-state handoff completes. That handoff MUST carry every refusal applicable to the surface and
-every active byte-removal obligation for its bytes into the new peer's own state before it can
-admit or serve deltas. It MUST preserve the obligation's storage generation and worker fence, or
-stop the old worker and establish an equivalent fence before the new peer takes responsibility.
-The old peer MUST retain responsibility in its report until the new peer durably acknowledges the
-handoff; a failed handoff leaves the surface under the old peer. The new peer starts its own
-arrival history when it admits inherited holdings; it MUST NOT present copied host arrival
-testimony as its own. A host MAY offer a combined view or coordinated operations across peers for
-convenience,
+state handoff completes. Every refusal in the old peer's set applied to every entry path into
+that surface, even for an id the surface never held. The handoff MUST therefore copy the entire
+refusal set and every active byte-removal obligation for bytes on that surface into the new
+peer's own state before it can admit or serve deltas. The new peer MUST NOT enumerate carried
+refusals for ids it never held or reveal their provenance in a public report; an attempted entry
+gets only a generic refusal. A handoff establishes one linearization point: admissions, orders,
+and purge work for the surface are stopped or fenced while its state is copied, and the durable
+new-peer import, worker-ownership transfer, new peer's acknowledgement, and old peer's release
+of responsibility commit as one effect. An operation arriving during the handoff is queued or
+decided entirely on one side of that point; it cannot commit only to a stale snapshot. A purge
+obligation keeps its stable identity and storage generation through the transfer. The storage
+fence MUST reject an old worker after ownership moves, and only the new peer may resume the
+obligation. The handoff attempt binds the new `PeerId`, old peer state version, and copied-state
+digest; its acknowledgement is one-shot and cannot complete a later attempt. If any part cannot
+commit or be fenced, the surface remains under the old peer, which retains its reporting and
+purge responsibility, and the new peer MUST NOT serve. The new peer starts its own arrival
+history when it admits inherited holdings; it MUST NOT present copied host arrival testimony as
+its own. A host MAY offer a combined view or coordinated operations across peers for convenience,
 but that composition does not merge their PeerIds, keys, admission decisions, arrival histories,
 refusal sets, or erasure obligations and reports. When one peer erases an id, a shared backend
 MUST preserve bytes still held by another peer.
@@ -50,11 +59,15 @@ need distinct strings at creation.
 For erasure authorization, a peer MAY pin additional governor keys in its own configuration,
 including a host operator key. Such a key can authorize orders under that peer's declared policy
 without becoming its `PeerId` or sharing its admission state. An order relying on an additional
-governor key MUST sign the receiving `PeerId` in its canonical claims. Only that peer may classify
-it as an order; another receiver may retain it as testimony but MUST NOT give it erasure effect,
-even if it pins the same additional key. A **non-governor** order is one authorized by neither the
-peer's governing key nor a configured additional governor key; the advance-refusal cap below
-applies to those orders.
+governor key MUST sign the receiving `PeerId` in its canonical claims. Any order that names a
+receiving `PeerId` has erasure effect only at that peer, regardless of its signer or delivery
+route. A different receiver may retain it as testimony but MUST NOT classify it as an order,
+even if that signer is its own governing key or an additional governor. At a peer that pins an
+additional governor, an order by that key with no receiving `PeerId` is testimony only; it cannot
+acquire an erasure effect from the pin. A peer's own governing key MAY issue an order without a
+receiving `PeerId`; that order can take effect only at the peer identified by that key. A
+**non-governor** order is one authorized by neither the peer's governing key nor a configured
+additional governor key; the advance-refusal cap below applies to those orders.
 
 ## 2. Admission
 
@@ -381,6 +394,8 @@ incompleteness remains after re-entry, so a later consumer cannot infer a false 
   operator key as an additional governor without sharing that host's `PeerId`. Pools A and B pin
   the same host key. An order signed by that key names A's `PeerId`: A may apply it through its own
   pipeline, while B's receipt through gossip is testimony and never refuses or erases D at B.
+  Receipt at the host is likewise testimony, although the signer is the host's own governing key.
+  A host-key order without a receiving `PeerId` can act at the host but is testimony at A and B.
 - E is an effective erasure order, and its eligible negation N is co-offered. Ordinary quota skips
   N. E still commits its refusal and any byte-removal obligation; N's absence never prunes E.
   If N later lands and negates E's standing testimony, the committed refusal remains.
@@ -481,10 +496,15 @@ incompleteness remains after re-entry, so a later consumer cannot infer a false 
   D from one peer does not remove the other peer's held D or rewrite its arrival testimony.
 - A shared-key container with no distinct peer state is a surface of the host peer, so its bytes
   belong in that peer's erasure report. Once it has its own key and state it is a separate peer.
-  If the host refused D while it was a surface, a new key alone leaves D refused under the host.
-  Completing the peer-state handoff carries D's refusal and any active purge obligation to the
-  new peer before it serves; D cannot arrive there through gossip after the handoff. A failed
-  handoff keeps the host responsible and does not create a separate serving peer.
+  The host refused D held by that surface and X that the surface never held; both refusals applied
+  there. A new key alone leaves both under the host. The handoff copies both refusals and D's
+  active purge obligation before the new peer serves. Neither id can enter by gossip afterward;
+  an offer of X gets a generic refusal and its provenance is not publicly listed. A failed handoff
+  keeps the host responsible and does not create a separate serving peer. If an effective host
+  order for Y reaches the host during a handoff, it either commits before the cutover and Y's
+  refusal is carried, or commits afterward for the host only. It cannot land in a stale host
+  snapshot that the new peer never received. A stale acknowledgement for an earlier
+  attempt cannot close this handoff, and a purge worker from the host cannot run after transfer.
   A combined erase reports each member result; if B rejects while A commits, the combined report
   cannot say both erased D. A combined read unions only A's and B's serving reads that its audience
   may access, never raw backend bytes.
