@@ -22,7 +22,9 @@ refusal set and every active byte-removal obligation for bytes on that surface i
 peer's own state before it can admit or serve deltas. The new peer MUST NOT enumerate carried
 refusals for ids it never held or reveal their provenance in a public report; an attempted entry
 gets only a generic refusal. An immutable, pinned snapshot of the old refusal set with an
-exclusive new-peer reference satisfies the copy requirement; a live host view does not.
+exclusive new-peer reference satisfies the copy requirement only if the new peer can read it
+without the old peer remaining available. If that reference is unreadable, admission and serving
+reads fail closed; a live host view does not satisfy the requirement.
 Carried refusal-event and admission-epoch references retain their source `PeerId` and source
 identifier. The new peer uses those qualified references for re-entry acts, exclusions, and
 obligations, and starts a distinct local sequence for later admissions and refusal events. An
@@ -30,16 +32,21 @@ imported host sequence is not a new-peer arrival claim. Cross-peer sequence numb
 compared as bare integers; the handoff itself establishes that imported history precedes new
 peer-local admissions, and an unproved comparison remains `unproven`.
 
-A handoff establishes one linearization point. The old peer MUST drain every accepted order for
-the surface before that point, including orders queued during the handoff; each commits and is
-copied, or fails explicitly. New arrivals held behind the cutover barrier are routed to the new
-peer's own pipeline or fail with a peer-changed outcome; an old-peer order cannot silently lose
-its effect on the surface. Admissions and purge work for the surface are stopped or fenced while
-state is copied. The durable new-peer import, worker-ownership transfer, acknowledgement, and
-old peer's release of responsibility commit as one effect. The old peer owns the authoritative
+A handoff first closes the old surface entry path at a **barrier**. An operation accepted into
+that old peer's queue before the barrier MUST finish there before cutover: an order commits and
+its refusal is copied, or it fails explicitly. An arrival at the transitioning surface after the
+barrier is not accepted by the old peer. If it is an order bound to the old `PeerId`, or an order
+signed by the old governing key without a receiving `PeerId`, it gets `peer-changed` and MUST NOT
+be routed as testimony to the new peer. Other deltas may enter the new peer's own pipeline after
+cutover. No old-peer order can silently lose its effect on the surface. The handoff then has one
+linearization point: admissions and purge work for the surface are stopped or fenced while state
+is copied. The durable new-peer import, worker-ownership transfer, acknowledgement, and old
+peer's release of responsibility commit as one effect. The old peer owns the authoritative
 handoff record. On separate backends, both peers MUST recover against one durable commit record
 and its attempt id; the new peer MUST possess durable proof of that record's committed state
-before it serves, even if the old backend later becomes unreachable. A backend unable to make
+before it serves, even if the old backend later becomes unreachable. The old peer MUST continue
+reporting a carried pending obligation until that proof is durable at the new peer; the new peer
+then reports it, including after a host crash. A backend unable to make
 ownership transfer atomic or provide that shared durable commit proof MUST keep the surface
 under the old peer. A purge obligation keeps its stable identity and storage generation through
 the transfer. The storage fence MUST reject an old worker after ownership moves. Only the new
@@ -47,9 +54,9 @@ peer may resume the obligation. The handoff attempt binds the new `PeerId`, old 
 version, and copied-state digest; its acknowledgement is one-shot and cannot complete a later
 attempt. If any part cannot commit or be fenced, the surface remains under the old peer. It
 retains reporting and purge responsibility, and the new peer MUST NOT serve. The new peer starts
-its own arrival
-history when it admits inherited holdings; it MUST NOT present copied host arrival testimony as
-its own. A host MAY offer a combined view or coordinated operations across peers for convenience,
+its own arrival history when it admits inherited holdings; it MUST NOT present copied host arrival
+testimony as its own. A host MAY offer a combined view or coordinated operations across peers for
+convenience,
 but that composition does not merge their PeerIds, keys, admission decisions, arrival histories,
 refusal sets, or erasure obligations and reports. When one peer erases an id, a shared backend
 MUST preserve bytes still held by another peer.
@@ -63,9 +70,13 @@ A combined operation's effect is exactly the set of member peers whose own admis
 committed it. Its report MUST name each member result or assert a conjunction proved by all
 member reports; it cannot say an id was erased across the group while one member rejected or
 failed the order. The operation MUST fix its member PeerIds at commit against the current peer
-roster version; if a handoff changes that roster before commit, it fails or retries with the new
-member set. A combined view is a union of each member's serving read under that member's
-audience rules. It MUST NOT read raw shared storage or expose a member's result to an audience
+roster version; if a handoff changes that roster before commit, the operation returns
+`peer-changed` with every member result already committed and the new roster. It MUST NOT retry
+automatically with the old orders: each newly included peer needs its own separately authorized
+order naming that peer's `PeerId`. A later operation may use those new orders, but neither report
+may claim group completion until every current member has an effective result. A combined view
+is a union of each member's serving read under that member's audience rules. It MUST NOT read raw
+shared storage or expose a member's result to an audience
 that member would refuse.
 
 The same canonical delta has the same id and bytes in every peer. String-equal entity ids refer to
@@ -522,14 +533,21 @@ incompleteness remains after re-entry, so a later consumer cannot infer a false 
   active purge obligation before the new peer serves. Neither id can enter by gossip afterward;
   an offer of X gets a generic refusal and its provenance is not publicly listed. A failed handoff
   keeps the host responsible and does not create a separate serving peer. If an effective host
-  order for Y was accepted for the surface before the cutover, it commits and Y's refusal is
-  carried or it explicitly fails; it cannot commit for the host only afterward. A new arrival
-  behind the cutover barrier is routed to the new peer or gets `peer-changed`. A stale
+  order for Y entered the old surface queue before the barrier, it commits and Y's refusal is
+  carried or it explicitly fails; it cannot commit for the host only afterward. If that order
+  named the host `PeerId`, the new peer receives only the resulting refusal state, never a new
+  erasure effect of the order. A host-key order
+  for Y submitted to the surface after the barrier gets `peer-changed`, not testimony at the new
+  peer. An ordinary delta may enter the new peer's pipeline after cutover. A stale
   acknowledgement for an earlier attempt cannot close this handoff, and a purge worker from the
   host cannot run after transfer. A new-peer re-entry act names D's qualified host refusal
   event; a new-peer arrival sequence equal to a numeric host sequence cannot collide with it.
-  A combined erase whose member set was fixed before the cutover fails or retries against the
-  new peer roster; it cannot report complete while omitting the new peer.
+  With separate backends, the old peer keeps reporting D's pending obligation until the new peer
+  has durable commit proof; afterward the new peer reports it, even if the host backend fails.
+  A pinned snapshot on the host that becomes unreadable makes the new peer fail admission and
+  serving reads closed.
+  A combined erase whose roster changes at cutover returns `peer-changed` with its committed
+  member results; a later operation needs a new order for the new peer.
   A combined erase reports each member result; if B rejects while A commits, the combined report
   cannot say both erased D. A combined read unions only A's and B's serving reads that its audience
   may access, never raw backend bytes.
