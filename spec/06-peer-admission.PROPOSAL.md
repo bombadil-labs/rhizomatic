@@ -20,32 +20,33 @@ need distinct strings at creation.
 ## 2. Admission
 
 Admission is a local, ordered pipeline over a proposed transfer. The implementation supplies the
-guards; federation does not import an application's rules. Every guard receives explicit inputs:
-the candidate delta, the sending peer id, the receiving peer id, the receiver's admitted delta
-set, the already verified candidates in this transfer, the receiver's arrival time, and any
-application policy state. A guard returns accept or reject. Portable guard profiles depend only
-on those explicit inputs; a host supplies policy state, including quota counters. The receiving
-peer MAY select a
-different pipeline for a local append and a foreign transfer, but both pass through verification
-and the peer's admission boundary.
+guards; federation does not import an application's rules. Each guard receives explicit inputs:
+the surviving, verified candidates from the previous gate; the sending and receiving peer ids;
+the receiver's admitted delta set before this transfer; the receiver's arrival time; and any
+application policy state. It returns the candidates it accepts. Portable guard profiles depend
+only on those explicit inputs; a host supplies policy state, including quota counters. The
+receiving peer MAY select a different pipeline for a local append and a foreign transfer, but
+both pass through verification and the peer's admission boundary.
 
 The pipeline is:
 
-1. Verify the candidate's canonical bytes, id, and signature or signed-manifest coverage. An
-   unverified member is never visible to an admission guard as an accepted candidate.
+1. Verify every candidate's canonical bytes, id, and signature or signed-manifest coverage.
+   An unverified candidate is removed before any guard sees the transfer.
 2. Check the subscribed lens, when a subscription is present.
-3. Apply the receiver's ordered guards. A guard can evaluate a declared closure over the
-   candidate and the admitted set, including related negations or manifest members. The closure
-   is an input to the guard, not an automatic expansion of the received set.
-4. Atomically add the accepted delta or bundle to the receiver's delta set and record local
-   arrival testimony. A rejected or duplicate delta creates no new arrival record.
+3. Apply the receiver's guards in declared order. Each guard sees only candidates that survived
+   all previous gates. A guard can evaluate a declared closure over those candidates and the
+   pre-transfer admitted set, including related negations or manifest members. The closure is
+   an input to the guard, not an automatic expansion of the received set.
+4. Add the final accepted candidates to the receiver's delta set and record local arrival
+   testimony in the same transaction. A rejected or duplicate delta creates no new arrival.
 
-Loose candidates in one transfer are processed in ascending id order; each accepted candidate
-enters the admitted set before the next guard runs. A signed bundle is one candidate for
-admission: all members verify first, every guard sees the same pre-bundle admitted set and the
-verified bundle, and either the whole bundle lands or none of it does. These rules make one
-transfer reproducible while preserving the possibility that separate transfers in different
-orders produce different admitted sets.
+A signed bundle is one indivisible candidate: if a member fails verification, lens selection, or
+any guard, the whole bundle is rejected. Loose deltas are independent candidates, but the guards
+see the eligible loose set as a batch. A guard that rejects an erasure removes it before a later
+guard can use that erasure to reject its target. The admitted set supplied to every guard is the
+pre-transfer set; newly accepted deltas affect the next transfer. This makes one transfer
+order-independent while preserving the possibility that separate transfers in different orders
+produce different admitted sets.
 
 A guard may depend on the receiver's already admitted set. Thus accepting A, changing the roster,
 then receiving B can differ from receiving B first. This is a fact about that peer's admission
@@ -81,7 +82,10 @@ same underlying bytes.
 - Two peers view one host storage. Each admits one id at a different time and each reports its own
   arrival. The second peer never inherits the first peer's arrival.
 - One peer admits A, changes a roster guard, then receives B; another receives B before A. Their
-  admitted sets may differ, while evaluation over either fixed set is order-independent.
+  admitted sets may differ, while evaluation over either fixed set is order-independent. A and B
+  in one transfer see the same pre-transfer roster.
+- An earlier guard turns away an otherwise valid erasure T. A later erasure guard cannot use T to
+  refuse its target D in that transfer; D and a bystander can land.
 - A foreign delta with a future `validFrom` is admitted at T and remains invisible to validity
   reads until its signed start. Arrival testimony says T throughout.
 - A duplicate delivery does not change first arrival; a rejected delta has no arrival.
