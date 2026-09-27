@@ -65,8 +65,11 @@ The pipeline is:
    related candidates from the verified offer (for example, negations or manifest members), but
    never fabricate a delta or bypass **any** candidate-local guard. It states which selected ids
    require which related ids. There is no implicit lens closure. Independently of a lens, a
-   target selected for admission requires every co-offered, eligible negation of it to land too;
-   if quota or another later gate skips such a negation, the target is pruned rather than admitted
+   ordinary target selected for admission requires every co-offered, eligible negation of it to
+   land too. Effective erasure orders are exempt: their refusal and durable obligation commit
+   whether a co-offered negation of the erasure lands or ordinary quota skips it. Negating the
+   erasure can withdraw its standing testimony but cannot undo that peer's refusal event. For an
+   ordinary target, if quota or another later gate skips such a negation, the target is pruned rather than admitted
    live. This dependency applies recursively to negations of negations and never overrides an
    earlier rejection of a negation. Here eligible means verified and passed the lens, every
    candidate-local guard, conflict rule, and erasure resolution before ordinary quota. A host can
@@ -76,8 +79,10 @@ The pipeline is:
    an erasure-bearing bundle. The receiver rejects a configuration that does so; it does not
    silently turn an erasure order into a non-erasure candidate. The target reference and claimed
    author are checked for shape at verification. If the target is held or co-offered, compare its
-   actual author too. An absent target cannot supply that comparison: an otherwise authorized
-   erasure order may still install a refusal for its id in advance. A later offer of that target
+   actual author too. An absent target cannot supply that comparison: an order whose authority
+   depends on the target's author is `erasure-ineligible` until the target is available. A policy
+   that authorizes independently of that unverified author, such as a pinned-governor rule, may
+   install a refusal for the id in advance. A later offer of that target
    is refused on the receiving peer before candidate guards. The peer checks its author then and
    reports any mismatch as a binding discrepancy; under permanent refusal, that discrepancy does
    not silently remove the refusal. Target-author binding is not a closure requirement.
@@ -109,13 +114,21 @@ The pipeline is:
    lowest-id surviving order; skipping a target skips all its orders with an `erasure-limit`
    outcome. Run the same simultaneous-round filter again on the budget-selected orders, without
    refilling budget after a failure. Only its survivors are effective. Different orders for one
-   target create at most one purge obligation for that id and admission epoch, needed only when
-   a declared surface still holds its bytes. Thus an order may verify its own target's tenant or
+   target create at most one active purge obligation for that id. The obligation records the
+   current refusal event and names a prior admission epoch only when one exists; a later order
+   updates that event without starting a second physical purge of the same bytes. An obligation
+   is needed only when this peer's declared
+   surfaces hold the target's bytes. Another peer's holding alone creates no obligation here;
+   an advance order MUST NOT probe a co-tenant's holdings to decide this peer's report. Thus an
+   order may verify its own target's tenant or
    author while a second order cannot preserve authority that its peer erases. An authorized order
    for a target neither held nor co-offered also creates the refusal event at commit; it creates
-   no byte-removal obligation unless a declared surface actually holds bytes. One atomic commit
+   no byte-removal obligation unless this peer's declared surface actually holds bytes. One atomic commit
    creates one durable, peer-local refusal event per newly refused target, even if several
-   effective orders name it. A later effective order for that id advances the event once more.
+   effective orders name it. A later effective order for that id advances the event once more. A
+   peer admitting non-governor orders for absent targets MUST declare and enforce a finite cap on
+   outstanding advance refusals; reaching the cap rejects the new order as `erasure-limit` and
+   never evicts an existing refusal.
    A rejected order
    gets an `erasure-ineligible` outcome and reason in the receiver's private report. Every
    order candidate that is not effective, including one rejected for shape, authority, or
@@ -181,8 +194,9 @@ The pipeline is:
 
    Under `bytes-removed`, re-entry waits for the obligation's terminal `removed` state. Under
    `peer-released`, it waits for release and for every in-flight physical purge of the old
-   admission epoch to finish or be fenced out. The storage layer MUST reject a stale epoch at the
-   **byte mutation itself**, under the same lock or transaction that removes bytes. A prior
+   refusal event and any prior admission epoch to finish or be fenced out. The storage layer MUST
+   reject a stale refusal event or admission epoch at the **byte mutation itself**, under the same
+   lock or transaction that removes bytes. A prior
    worker check alone does not fence a stalled or replayed worker. Before the re-entry commit,
    the peer MUST stage and verify or rewrite the delta's bytes on every declared serving surface,
    including after a partial prior purge. If staging fails, or a worker cannot be proved finished
@@ -193,11 +207,13 @@ The pipeline is:
    new admission epoch, and forbids any retry of that old obligation. A backend that cannot
    publish bytes and epoch state together MUST refuse re-entry. An old worker cannot remove a
    newly admitted holding.
-   The old erasure's exclusion is keyed to the old admission epoch. A peer serving read takes the
+   The old erasure's exclusion is keyed to its refusal event and the targeted admission epoch when
+   one existed; after re-entry, the old event is no longer current. A peer serving read takes the
    admitted delta set **and** the peer's explicit epoch/exclusion state as inputs, and filters out
    only occurrences excluded in their own epoch. A held erasure delta remains testimony, but its
    old storage effect does not suppress the new occurrence of its target id. A duplicate delivery
-   of E reports `held-effective-for-epoch` with its old epoch and explicitly says its exclusion is
+   of E reports `held-effective-for-refusal` with its old refusal event (and prior admission epoch
+   when one exists) and explicitly says its exclusion is
    not current; it does not claim the newly admitted D is erased. Pure substrate
    evaluation then runs over that filtered set at explicit `now`. Before re-entry the id is
    outside serving reads; after re-entry it is eligible under the ordinary validity and read
@@ -317,6 +333,13 @@ incompleteness remains after re-entry, so a later consumer cannot infer a false 
   no byte-removal obligation while no declared surface holds D. A later verified offer of D is
   refused before caller guards, with a binding discrepancy reported if D's author differs from
   E's claim; permanent refusal still prevents D from landing.
+- A non-governor order E claims authority because it names itself as absent D's author. With D
+  unavailable, the receiver rejects E as `erasure-ineligible`; the claimed author cannot install
+  a permanent veto. A peer that allows other non-governor advance orders has a finite outstanding
+  refusal cap: at the cap, another order gets `erasure-limit`, while earlier refusals stay intact.
+- E is an effective erasure order, and its eligible negation N is co-offered. Ordinary quota skips
+  N. E still commits its refusal and any byte-removal obligation; N's absence never prunes E.
+  If N later lands and negates E's standing testimony, the committed refusal remains.
 - An order candidate E is rejected by the erasure budget or reduced-set authority check. It does not
   land as ordinary data; a later re-offer is judged again. An erasure classified as
   testimony may land, but has no exclusion effect.
@@ -327,7 +350,8 @@ incompleteness remains after re-entry, so a later consumer cannot infer a false 
   rejected as `erasure-ineligible`, not admitted as testimony; G and E co-offered cannot change
   that classification or borrow G's authority.
 - Two valid erasure orders target admitted D. The erasure budget charges one target, both records
-  may land, and the commit creates one purge obligation for D's admission epoch. A third order targeting X
+  may land, and the commit creates one purge obligation keyed to D's refusal event and prior
+  admission epoch. A third order targeting X
   is not displaced merely because D had two orders.
 - A committed erasure with an unfinished purge keeps its id outside the admitted and serving
   sets after restart. A re-offer gets `purge-pending`, not silent dedup, and cannot race the
@@ -335,7 +359,7 @@ incompleteness remains after re-entry, so a later consumer cannot infer a false 
   prove removal or a weaker `peer-released` re-entry supersedes the obligation. A failed purge
   can be retried while active. Even after a `bytes-removed` gate passes, routine gossip gets
   `reentry-required` and does not re-admit D. An explicit receiver-authorized local act names D,
-  the current refusal event, and the prior epoch. The same requirement holds when E refused a
+  the current refusal event, and the prior epoch when one exists. The same requirement holds when E refused a
   co-offered D that the peer never held. Under `peer-released`,
   re-entry waits for old purge workers to be fenced out. A worker that checked its fence before a
   stall is rejected by storage at mutation time. If that worker cannot be fenced, or staging and
@@ -344,8 +368,8 @@ incompleteness remains after re-entry, so a later consumer cannot infer a false 
   then atomically publishes them, marks the old obligation `superseded`, and admits a new epoch.
   The act is consumed; its replay creates no further epoch, and a synced copy cannot execute at
   another peer. An old retry cannot delete the new holding; a partial old purge cannot yield
-  damaged admitted bytes. The held
-  erasure still names the old epoch and does not suppress the new one. The new epoch serves under
+  damaged admitted bytes. The held erasure still names its old refusal event and any prior epoch;
+  it does not suppress the new one. The new epoch serves under
   normal validity and read rules.
   `peer-released` and `bytes-removed` gates give different outcomes while another peer retains
   the bytes.
@@ -353,7 +377,8 @@ incompleteness remains after re-entry, so a later consumer cannot infer a false 
   event is current and its signer is still authorized at commit under the receiving PeerId's exact
   delegation scope. A synced copy executes nowhere else. A new effective E2 for D during the
   block creates a new refusal event, so retrying the old act cannot re-admit D. After successful
-  re-entry, a duplicate E reports `held-effective-for-epoch` for the old epoch while D serves.
+  re-entry, a duplicate E reports `held-effective-for-refusal` for the old event (with an old epoch
+  only when one existed) while D serves.
 - An id permanently refused after erasure is rejected by both local append and foreign transfer,
   even when the erasure record has been negated.
 - A candidate grant G and an act A arrive together. A guard checking A's authority uses the
@@ -406,6 +431,10 @@ incompleteness remains after re-entry, so a later consumer cannot infer a false 
   `unproven`.
 - Two logical peers viewing one backend have different governing keys and refusal sets. Erasing
   D from one peer does not remove the other peer's held D or rewrite its arrival testimony.
+- A installs an advance refusal for D while A has no D bytes and co-tenant B does. A creates no
+  byte-removal obligation and reports no information about B's holding. If A's own declared
+  surface independently holds unadmitted D bytes, A records an obligation keyed to its refusal
+  event even though D has no prior admission epoch.
 - Two stores' `person:myk` deltas merge by entity string. A governed read with one governing key
   selects only that key's declarations on a shared rules anchor.
 
