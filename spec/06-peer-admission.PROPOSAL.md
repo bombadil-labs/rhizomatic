@@ -75,11 +75,12 @@ The pipeline is:
 5. Commit the final additions, logical exclusions, permanent refusals, quota counters, arrival
    records, and **durable pending-purge obligations** in one atomic transaction. If the backend
    cannot commit that logical state together, reject the affected component without changing
-   holdings. Physical byte removal follows the commit. Until it succeeds, the peer reports the
-   bytes as still held, records the outstanding obligation across restart, and keeps the id out
-   of serving reads (plan step 9). A lower erasure posture may permit re-entry only after the
-   pending purge completes; a permanent refusal never does. A rejected or duplicate id creates
-   no arrival event.
+   holdings. Physical byte removal or release of this peer's reference on a shared host follows
+   the commit. Until the declared erasure surfaces confirm that this peer no longer holds the
+   bytes, it reports them as still held, records the outstanding obligation across restart, and
+   keeps the id out of serving reads (plan step 9). It reports co-tenant bytes separately. A
+   lower erasure posture may permit re-entry only after this peer's pending purge completes; a
+   permanent refusal never does. A rejected or duplicate id creates no arrival event.
    Quota capacity may remain unused after dependency pruning, but an id that did not land is
    never charged.
 
