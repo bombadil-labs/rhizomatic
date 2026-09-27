@@ -109,6 +109,16 @@ SPEC-2 §5 splits the algebra; L4 inherits the split as two maintenance modes:
 
 A reactor MAY implement non-monotone repair by localized recomputation (re-evaluate the affected property of the affected root) — full differential dataflow is an optimization, not a requirement. Incremental equivalence (§1) is the only contract.
 
+An evaluation adapter MAY lower a registered term using caller-owned evidence outside this
+reactor's delta set. The caller is responsible for refreshing the affected materializations when
+that evidence changes, including when its validity boundary passes without a local ingest. An
+explicit refresh evaluates every registered root at the supplied read time even when neither the
+local set nor that time has changed. It emits ordinary change events only for changed HyperViews;
+their responsible-delta list is empty because no delta in this reactor caused the refresh. The
+signed term and any pinned definition hash remain unchanged by evaluation-time lowering. A
+checkpoint for such a materialization also depends on the external evidence: replaying only this
+reactor's log cannot reconstruct its view.
+
 ### 4.4 Checkpoints
 
 Reactors SHOULD persist materialization checkpoints `(term hash, pin-set, log position, canonical HView hashes)` so restart cost is replay-from-checkpoint, not replay-from-genesis. Because HyperViews are content-addressable (SPEC-3 §4), checkpoint verification is hash comparison.
@@ -124,7 +134,7 @@ The canonical write-back subscriber is the **derived author** (SPEC-7): a conten
 
 Change events MUST carry: the root entity, the affected property paths, the responsible delta ids, and the materialization's new content hash. (Subscribers can then fetch, diff, or re-`resolve` as they please; the reactor never pushes resolved Views unless a `resolve` term is itself registered.)
 
-Delivery guarantees are transport-specific and out of scope, with one normative rule: a subscriber that reconnects and replays from a checkpoint hash MUST be able to reach current state (events are re-derivable from the log; the log is the truth).
+Delivery guarantees are transport-specific and out of scope, with one normative rule: a subscriber that reconnects and replays from a checkpoint hash MUST be able to reach current state. Events from terms evaluated solely over this reactor's set are re-derivable from its log; a term lowered using external evidence (§4.3) also requires that evidence at replay.
 
 ## 6. Mutation
 

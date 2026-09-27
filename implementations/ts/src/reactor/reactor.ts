@@ -404,6 +404,37 @@ export class Reactor {
     return changes;
   }
 
+  /**
+   * Re-evaluate every current materialization when a caller-supplied lowering dependency changes
+   * outside this reactor. Unlike advanceTime, this also runs at the same time and without a local
+   * validity boundary. Changed views notify existing subscribers; unchanged views stay silent.
+   * Empty responsibleDeltaIds means no delta in this reactor caused the refresh.
+   */
+  refreshAll(now: number): readonly MaterializationChange[] {
+    if (!Number.isFinite(now)) throw new Error("now must be a finite number");
+    const changes: MaterializationChange[] = [];
+    for (const mat of this.materializations.values()) {
+      mat.now = now;
+      for (const root of mat.roots) {
+        const changedProps = this.refresh(mat, root);
+        if (changedProps !== undefined) {
+          changes.push({
+            materialization: mat.name,
+            root,
+            changedProps,
+            responsibleDeltaIds: [],
+            newHex: mat.hexes.get(root)!,
+          });
+        }
+      }
+    }
+    this.lastChanges = changes;
+    for (const c of changes) {
+      for (const cb of this.matSubscribers.get(c.materialization) ?? []) cb(c);
+    }
+    return changes;
+  }
+
   nextValidityBoundary(now: number): number | undefined {
     if (!Number.isFinite(now)) throw new Error("now must be a finite number");
     return boundaryAfter(this.validityBoundaries, now);
