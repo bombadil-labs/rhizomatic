@@ -45,8 +45,9 @@ The pipeline is:
    including local append and foreign transfer, before any caller-selected guard. An id in that
    set cannot re-enter even when its erasure record is negated. Deduplicate ids already **admitted**
    before any guard or quota. A duplicate erasure id gets an outcome saying whether this peer
-   holds it as testimony, as an order effective for the current admission epoch, or as an order
-   effective only for an earlier epoch; dedup never silently upgrades testimony or re-applies an
+   holds it as testimony, as an order effective for the current refusal event, or as an order
+   effective only for an earlier refusal event or admission epoch; dedup never silently upgrades
+   testimony or re-applies an
    old exclusion. A permanent-posture peer reports its refusal for an erased id even while a
    purge is active; `purge-pending` is an internal storage outcome, never a replacement for that refusal.
    An erased id outside the permanent refusal posture is also refused on every entry
