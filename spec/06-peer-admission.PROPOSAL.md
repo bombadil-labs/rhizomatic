@@ -78,15 +78,24 @@ The pipeline is:
    provisional local order. Conservatively filter those orders: for each E, remove the targets of
    **other** provisional orders from a copy of the pre-transfer admitted set, but retain E's own
    target even if another order names that same id. Recheck E's authorization against that
-   reduced set. Remove failing orders without re-admitting one; repeat until no further order
-   fails. Apply any erasure-specific budget only to these survivors, using a receiver-declared
-   rank independent of wire order; a skipped order gets an `erasure-limit` outcome. Run the same
-   conservative filter again on the budget-selected orders, without refilling budget after a
-   failure. Only its survivors are effective. Thus an order may verify its own target's tenant or
+   reduced set. Each round tests every remaining order against the same round-start set and
+   removes **all** failing orders together; repeat without re-admission until stable. Apply any
+   erasure-specific budget only to these survivors, using a receiver-declared rank independent
+   of wire order. The budget charges once per distinct target id, ranking a target by its
+   lowest-id surviving order; skipping a target skips all its orders with an `erasure-limit`
+   outcome. Run the same simultaneous-round filter again on the budget-selected orders, without
+   refilling budget after a failure. Only its survivors are effective. Different orders for one
+   target create at most one purge obligation for that id and admission epoch, needed only when
+   a declared surface still holds its bytes. Thus an order may verify its own target's tenant or
    author while a second order cannot preserve authority that its peer erases. A rejected order
-   gets an `erasure-ineligible` outcome and reason in the receiver's private report. Only
-   effective orders
-   exclude and refuse their targets. They may target a separate co-offered candidate: that
+   gets an `erasure-ineligible` outcome and reason in the receiver's private report. Every
+   local erasure order that is not effective, including one rejected for shape, authority, or
+   budget, is rejected from this transfer: it does not land as an ordinary held delta and cannot
+   later be silently deduplicated. A foreign erasure classified as testimony before provisional
+   selection may land as ordinary data, with no exclusion effect. That admission-time
+   classification is fixed; a later policy change does not turn held testimony into an erasure
+   order without a new local order or adoption. Only effective orders exclude and refuse their
+   targets. They may target a separate co-offered candidate: that
    target is refused, the erasure lands, and unrelated candidates remain eligible. If that target
    is a member of another signed bundle, that whole bundle is rejected as
    `bundle-excluded-by-erasure`; its other unsigned members need independent coverage or a later
@@ -122,10 +131,19 @@ The pipeline is:
    and for every in-flight physical purge of the old admission epoch to finish or be fenced out.
    Re-entry atomically makes the old obligation terminal as `superseded` (with a byte report of
    `not removed` unless absence was independently proved), creates the new admission epoch, and
-   forbids any retry of that old obligation. A purge worker MUST check the epoch fence before it
-   removes bytes; an old worker cannot remove a newly admitted holding. The old erasure's
-   exclusion applies only to the old epoch. Before re-entry the id is outside serving reads;
-   after re-entry it is eligible under the ordinary validity and read policies. A permanent
+   forbids any retry of that old obligation. The storage layer MUST reject a stale epoch at the
+   **byte mutation itself**, under the same lock or transaction that removes bytes. A prior
+   worker check alone does not fence a stalled or replayed worker. Before exposing the new epoch,
+   the peer MUST verify or rewrite the delta's bytes on every declared serving surface, including
+   after a partial prior purge. If a worker cannot be proved finished or fenced, re-entry fails
+   closed; a timeout does not make it safe. An old worker cannot remove a newly admitted holding.
+   The old erasure's exclusion is keyed to the old admission epoch. A peer serving read takes the
+   admitted delta set **and** the peer's explicit epoch/exclusion state as inputs, and filters out
+   only occurrences excluded in their own epoch. A held erasure delta remains testimony, but its
+   old storage effect does not suppress the new occurrence of its target id. Pure substrate
+   evaluation then runs over that filtered set at explicit `now`. Before re-entry the id is
+   outside serving reads; after re-entry it is eligible under the ordinary validity and read
+   policies. A permanent
    refusal never permits re-entry. A rejected or duplicate id creates no arrival event.
    Quota capacity may remain unused after dependency pruning, but an id that did not land is
    never charged. An internal `purge-pending` outcome reveals that the peer held and erased this
@@ -150,7 +168,9 @@ differ.
 
 A guard may depend on the receiver's already admitted set. Thus accepting A, changing the roster,
 then receiving B can differ from receiving B first. This is a fact about that peer's admission
-history. Evaluation over either resulting admitted set remains independent of ingest order.
+history. Substrate evaluation over a fixed admitted delta set remains independent of ingest
+order. A peer serving read also takes its explicit epoch/exclusion state; two peers with equal
+delta ids but different erasure histories may serve different sets under their declared postures.
 Under this portable snapshot rule, if a revocation N and an act A by the revoked key arrive in
 one transfer, A's candidate-local guard sees the pre-transfer authority and may admit A. N and A
 receive distinct arrival sequences, but their shared transfer ordinal says they were admitted under
@@ -234,13 +254,23 @@ incompleteness remains after re-entry, so a later consumer cannot infer a false 
   Sending E1 first in a separate transfer also rejects E2. An E whose policy derives tenant
   authority from its **own** target remains eligible in the reduced-set recheck. A closure
   configuration that assigns post-commit requirements to erasures is rejected at setup.
+- A local erasure E is rejected by the erasure budget or reduced-set authority check. It does not
+  land as ordinary data; a later re-offer is judged again. A foreign erasure classified as
+  testimony may land, but has no exclusion effect.
+- Two valid erasure orders target admitted D. The erasure budget charges one target, both records
+  may land, and the commit creates one purge obligation for D's admission epoch. A third order targeting X
+  is not displaced merely because D had two orders.
 - A committed erasure with an unfinished purge keeps its id outside the admitted and serving
   sets after restart. A re-offer gets `purge-pending`, not silent dedup, and cannot race the
   purge. The report stays `pending` or `failed` with a durable fault until declared surfaces
   prove removal or a weaker `peer-released` re-entry supersedes the obligation. A failed purge
   can be retried while active. Re-entry after peer release waits for old purge workers to be
   fenced out, then atomically marks the old obligation `superseded` and admits a new epoch; an old
-  retry cannot delete the new holding. The new epoch serves under normal validity and read rules.
+  retry cannot delete the new holding. A worker that checked its fence before a stall is rejected
+  by storage at mutation time. The new epoch's bytes are verified on every declared serving
+  surface before it can serve; a partial old purge cannot yield damaged admitted bytes. The held
+  erasure still names the old epoch and does not suppress the new one. The new epoch serves under
+  normal validity and read rules.
   `peer-released` and `bytes-removed` gates give different outcomes while another peer retains
   the bytes.
 - An id permanently refused after erasure is rejected by both local append and foreign transfer,
@@ -257,6 +287,12 @@ incompleteness remains after re-entry, so a later consumer cannot infer a false 
   erasure and its target is rejected **before** quota and cannot consume capacity that would
   admit a fitting honest bundle. A low-id unauthorized erasure or one that fails the conservative
   authority recheck cannot consume an erasure-specific budget ahead of a valid order.
+- A non-monotone policy authorizes E when held A and B have the same presence. Both are held
+  before transfer; provisional H_A and H_B erase A and B, so E survives the first reduced-set
+  check. A later budget keeps H_A but skips H_B, leaving A absent and B present; the second
+  filter removes E and may leave capacity unused. Each round removes all failures together and
+  never re-admits E by choosing an order-dependent fixed point. This is a declared liveness cost,
+  not a purge.
 - A foreign delta with a future `validFrom` is admitted at T and remains invisible to validity
   reads until its signed start. Arrival testimony says T throughout.
 - A duplicate delivery does not change first arrival or charge quota; a rejected delta has no
