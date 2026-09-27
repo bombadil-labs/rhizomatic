@@ -5149,8 +5149,9 @@
         this.set.add(d);
         this.log.push(d);
         this.index(d);
-        for (const cb of this.rawSubscribers) cb(d);
       }
+      this.membershipRevision += 1;
+      for (const d of fresh) for (const cb of this.rawSubscribers) cb(d);
       this.lastChanges = this.dispatchAndUpdate(fresh);
       return { status: "accepted" };
     }
