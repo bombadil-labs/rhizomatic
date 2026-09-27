@@ -68,9 +68,12 @@ held arrival before acknowledging that it retained it. If it cannot, it returns 
 `peer-changed` while the outcome is unresolved. On abort, the old peer reopens the surface path
 and processes held arrivals through its own pipeline.
 The durable queue is a declared temporary storage surface of the old peer. Its bytes count in
-that peer's erasure and decommission reports until the item is admitted, rejected and removed,
-or transferred to the new peer. A queue item never becomes ownerless at cutover; its disposition
-and byte removal or transfer are recorded before either peer reports completion.
+that peer's erasure and decommission reports until physical absence on the old queue surface is
+proved, whether the item is admitted, rejected, or copied to the new peer. A transfer MUST
+remove the old queue copy; the new peer accounts for its own copy. An order answered
+`peer-changed` is rejected from the old queue and its bytes are removed there. A queue item never
+becomes ownerless at cutover; its disposition and byte removal are recorded before either peer
+reports completion.
 On commit, an order bound to the old `PeerId`, or signed by the old governing key without a
 receiving `PeerId`, gets `peer-changed` naming the new `PeerId` and MUST NOT be routed as testimony
 to the new peer. Other held deltas may enter the new peer's own pipeline. The old endpoint MUST
@@ -607,8 +610,9 @@ incompleteness remains after re-entry, so a later consumer cannot infer a false 
   compare-and-set on the old peer's authoritative record; a simultaneous late commit loses and
   cannot make the new peer serve. A durably held order returns to the old path, while an unqueued
   arrival got retryable `handoff-pending` and no acceptance promise. The hold queue is a declared
-  old-peer surface: its bytes are removed or transferred before an erasure report can say
-  `bytes-removed`.
+  old-peer surface: if D is copied to the new peer but remains in the old queue file, the old
+  peer cannot report `bytes-removed`. A held order answered `peer-changed` is removed from that
+  queue before the old peer reports completion.
   A combined erase whose roster changes at cutover returns `peer-changed` with its committed
   member results; a later operation needs a new order for the new peer.
   A combined erase reports each member result; if B rejects while A commits, the combined report
