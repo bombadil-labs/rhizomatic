@@ -10,10 +10,12 @@ A peer has a governing key, an admitted delta set, an admission policy, a sharin
 erasure posture. Its delta set may be backed by its own storage or by a view over a host's storage.
 A shared backend does not collapse two peers into one: each peer keeps its own admission
 decisions, arrival records, governing key, sharing policy, refusal set, and erasure reports. A
-container hosted inside another peer is still a peer. Since `PeerId` is the peer's public key,
-two logical peers MUST have different governing keys; reusing one key identifies one peer, not
-two. A host MAY offer a combined view or coordinated operations across peers for convenience,
-but that composition does not merge their ids, keys, admission decisions, arrival histories,
+hosted container is a separate peer only when it has its own governing key and all those states.
+Since `PeerId` is the peer's public key, two logical peers MUST have different governing keys;
+reusing one key identifies one peer, not two. A shared-key container is a surface of that peer
+until it is given a distinct key and peer state; it cannot claim separate arrival or erasure
+testimony. A host MAY offer a combined view or coordinated operations across peers for convenience,
+but that composition does not merge their PeerIds, keys, admission decisions, arrival histories,
 refusal sets, or erasure obligations and reports. When one peer erases an id, a shared backend
 MUST preserve bytes still held by another peer.
 An erasing peer may report that it released its own holding, but it MUST NOT report physical byte
@@ -22,11 +24,24 @@ that bytes remain for another tenant, without naming that tenant; a peer MUST NO
 peer's holdings through its public report. The physical layout and garbage collection are
 implementation choices, subject to that reporting distinction.
 
+A combined operation's effect is exactly the set of member peers whose own admission pipeline
+committed it. Its report MUST name each member result or assert a conjunction proved by all
+member reports; it cannot say an id was erased across the group while one member rejected or
+failed the order. A combined view is a union of each member's serving read under that member's
+audience rules. It MUST NOT read raw shared storage or expose a member's result to an audience
+that member would refuse.
+
 The same canonical delta has the same id and bytes in every peer. String-equal entity ids refer to
 the same entity after union. The peer boundary does not qualify or rewrite entity ids. A peer
 decides which claims travel through its sharing policy; a governed read decides which authors'
 claims bind through an explicit author selection. Instance-local ids that must remain distinct
 need distinct strings at creation.
+
+For erasure authorization, a peer MAY pin additional governor keys in its own configuration,
+including a host operator key. Such a key can authorize orders under that peer's declared policy
+without becoming its `PeerId` or sharing its admission state. A **non-governor** order is one
+authorized by neither the peer's governing key nor a configured additional governor key; the
+advance-refusal cap below applies to those orders.
 
 ## 2. Admission
 
@@ -83,8 +98,9 @@ The pipeline is:
    silently turn an erasure order into a non-erasure candidate. The target reference and claimed
    author are checked for shape at verification. If the target is held or co-offered, compare its
    actual author too. An absent target cannot supply that comparison: an order whose authority
-   depends on the target's author is `erasure-ineligible` until the target is available. A policy
-   that authorizes independently of that unverified author, such as a pinned-governor rule, may
+   depends on **any unverified property of the target**, including its author or tenant, is
+   `erasure-ineligible` until the target is available. A policy that authorizes independently of
+   those unverified properties, such as a pinned-governor rule, may
    install a refusal for the id in advance. A later offer of that target
    is refused on the receiving peer before candidate guards. The peer checks its author then and
    reports any mismatch as a binding discrepancy; under permanent refusal, that discrepancy does
@@ -117,9 +133,11 @@ The pipeline is:
    lowest-id surviving order; skipping a target skips all its orders with an `erasure-limit`
    outcome. Run the same simultaneous-round filter again on the budget-selected orders, without
    refilling budget after a failure. Only its survivors are effective. Different orders for one
-   target create at most one active purge obligation for that id. The obligation records the
-   current refusal event and names a prior admission epoch only when one exists; a later order
-   updates that event without starting a second physical purge of the same bytes. An obligation
+   target create at most one active purge obligation for that id. The obligation has a stable
+   identity and storage generation separate from the current refusal event; it names a prior
+   admission epoch only when one exists. A later order updates the refusal event on that same
+   obligation without invalidating its in-flight purge worker or starting a second physical purge
+   of the same bytes. An obligation
    is needed only when this peer's declared
    surfaces hold the target's bytes. Another peer's holding alone creates no obligation here;
    an advance order MUST NOT probe a co-tenant's holdings to decide this peer's report. Thus an
@@ -172,8 +190,11 @@ The pipeline is:
    auditor without naming another peer; the peer's public report says only `not removed`. A
    per-peer release can complete while host bytes remain for another peer. The peer's declared
    erasure posture MUST name its re-entry gate: `peer-released` (its reference is verifiably
-   absent) or `bytes-removed` (physical absence is proved on declared surfaces). A shared-held id
-   cannot pass the latter gate while another peer retains its bytes. Every active pending or
+   absent) or `bytes-removed` (physical absence is proved on its declared surfaces). An obligation
+   for bytes this peer held cannot pass the latter gate while the same physical bytes remain
+   shared-held by another peer. An advance refusal for an id this peer never held has no purge
+   obligation: its gate is satisfied without probing a co-tenant, and its report says no peer
+   holding was removed rather than claiming physical byte removal. Every active pending or
    failed obligation remains visible across restart and is retryable through an explicit
    operation; failure never silently counts as byte removal. **Gate completion alone never
    re-admits an id.** A lower-posture peer additionally requires an explicit, receiver-authorized
@@ -197,9 +218,11 @@ The pipeline is:
 
    Under `bytes-removed`, re-entry waits for the obligation's terminal `removed` state. Under
    `peer-released`, it waits for release and for every in-flight physical purge of the old
-   refusal event and any prior admission epoch to finish or be fenced out. The storage layer MUST
-   reject a stale refusal event or admission epoch at the **byte mutation itself**, under the same
-   lock or transaction that removes bytes. A prior
+   obligation to finish or be fenced out. The storage layer MUST reject a stale obligation
+   generation or admission epoch at the **byte mutation itself**, under the same lock or
+   transaction that removes bytes. A refusal-event update alone leaves that obligation generation
+   unchanged; a terminal supersession changes it atomically so an old worker cannot touch new
+   bytes. A prior
    worker check alone does not fence a stalled or replayed worker. Before the re-entry commit,
    the peer MUST stage and verify or rewrite the delta's bytes on every declared serving surface,
    including after a partial prior purge. If staging fails, or a worker cannot be proved finished
@@ -257,7 +280,7 @@ steps 1–3, whether or not N later lands. That conservative application choice 
 provisional N authority; federation
 assigns no universal meaning to that application-specific revocation.
 The portable admission dependency requires every eligible co-offered negation of a selected
-target. An offered lens MAY declare stronger requirements, including what happens when a related
+**ordinary** target; effective erasure orders remain exempt. An offered lens MAY declare stronger requirements, including what happens when a related
 negation was not offered; a privacy-preserving rule may refuse the target. The closure rule MUST
 NOT silently add an unoffered delta. Plan step 7 defines the publish-side closure audit and checks
 what the peer was actually able to transfer.
@@ -340,6 +363,9 @@ incompleteness remains after re-entry, so a later consumer cannot infer a false 
   unavailable, the receiver rejects E as `erasure-ineligible`; the claimed author cannot install
   a permanent veto. A peer that allows other non-governor advance orders has a finite outstanding
   refusal cap: at the cap, another order gets `erasure-limit`, while earlier refusals stay intact.
+- An order whose only claimed authority is D's tenant is equally ineligible while D is absent;
+  the signed tenant label on E is not evidence of D's tenant. A pool may separately pin its host
+  operator key as an additional governor without sharing that host's `PeerId`.
 - E is an effective erasure order, and its eligible negation N is co-offered. Ordinary quota skips
   N. E still commits its refusal and any byte-removal obligation; N's absence never prunes E.
   If N later lands and negates E's standing testimony, the committed refusal remains.
@@ -382,6 +408,10 @@ incompleteness remains after re-entry, so a later consumer cannot infer a false 
   block creates a new refusal event, so retrying the old act cannot re-admit D. After successful
   re-entry, a duplicate E reports `held-effective-for-refusal` for the old event (with an old epoch
   only when one existed) while D serves.
+- E1 starts a purge of admitted D under obligation O. E2 names D before that worker finishes and
+  advances D's refusal event. O keeps its stable storage generation, so the E1 worker may finish
+  removing the same old bytes. Re-entry supersedes O atomically and advances its generation;
+  a stalled old worker then cannot remove newly admitted bytes.
 - An id permanently refused after erasure is rejected by both local append and foreign transfer,
   even when the erasure record has been negated.
 - A candidate grant G and an act A arrive together. A guard checking A's authority uses the
@@ -434,10 +464,18 @@ incompleteness remains after re-entry, so a later consumer cannot infer a false 
   `unproven`.
 - Two logical peers viewing one backend have different governing keys and refusal sets. Erasing
   D from one peer does not remove the other peer's held D or rewrite its arrival testimony.
+- A shared-key container with no distinct peer state is a surface of the host peer, so its bytes
+  belong in that peer's erasure report. Once it has its own key and state it is a separate peer.
+  A combined erase reports each member result; if B rejects while A commits, the combined report
+  cannot say both erased D. A combined read unions only A's and B's serving reads that its audience
+  may access, never raw backend bytes.
 - A installs an advance refusal for D while A has no D bytes and co-tenant B does. A creates no
   byte-removal obligation and reports no information about B's holding. If A's own declared
   surface independently holds unadmitted D bytes, A records an obligation keyed to its refusal
   event even though D has no prior admission epoch.
+- At a lower-posture peer A that never held D, an advance refusal has no purge obligation. Its
+  `bytes-removed` gate is satisfied without testing B's shared holding, but routine gossip still
+  gets `reentry-required` until A commits a local re-entry act.
 - Two stores' `person:myk` deltas merge by entity string. A governed read with one governing key
   selects only that key's declarations on a shared rules anchor.
 
