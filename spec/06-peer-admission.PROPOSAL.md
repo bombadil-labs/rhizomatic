@@ -24,7 +24,14 @@ refusals for ids it never held or reveal their provenance in a public report; an
 gets only a generic refusal. An immutable, pinned snapshot of the old refusal set with an
 exclusive new-peer reference satisfies the copy requirement only if the new peer can read it
 without the old peer remaining available. If that reference is unreadable, admission and serving
-reads fail closed; a live host view does not satisfy the requirement.
+reads fail closed; a live host view does not satisfy the requirement. The snapshot covers inherited
+refusals only. Active obligations MUST reside durably in the new peer's own state, independent of
+the old peer. The handoff record includes the inherited refusal snapshot's digest. To repair an
+unreadable snapshot, the new peer MAY restore an authenticated copy with that exact digest,
+without replaying the handoff or changing obligation ownership. It MUST verify that copy before
+resuming admission or serving.
+If no such copy is available, it remains closed and reports the storage fault; it cannot claim
+the outstanding erasure is complete.
 Carried refusal-event and admission-epoch references retain their source `PeerId` and source
 identifier. The new peer uses those qualified references for re-entry acts, exclusions, and
 obligations, and starts a distinct local sequence for later admissions and refusal events. An
@@ -35,11 +42,16 @@ peer-local admissions, and an unproved comparison remains `unproven`.
 A handoff first closes the old surface entry path at a **barrier**. An operation accepted into
 that old peer's queue before the barrier MUST finish there before cutover: an order commits and
 its refusal is copied, or it fails explicitly. An arrival at the transitioning surface after the
-barrier is not accepted by the old peer. If it is an order bound to the old `PeerId`, or an order
-signed by the old governing key without a receiving `PeerId`, it gets `peer-changed` and MUST NOT
-be routed as testimony to the new peer. Other deltas may enter the new peer's own pipeline after
-cutover. No old-peer order can silently lose its effect on the surface. The handoff then has one
-linearization point: admissions and purge work for the surface are stopped or fenced while state
+barrier is held without admission until cutover commits or aborts. If it cannot be held, the path
+returns retryable `handoff-pending`, never `peer-changed` while the outcome is unresolved. On
+abort, the old peer reopens the surface path and processes held arrivals through its own pipeline.
+On commit, an order bound to the old `PeerId`, or signed by the old governing key without a
+receiving `PeerId`, gets `peer-changed` naming the new `PeerId` and MUST NOT be routed as testimony
+to the new peer. Other held deltas may enter the new peer's own pipeline. The old endpoint MUST
+report the committed new `PeerId` on later `peer-changed` outcomes, so a sender can issue a new
+order; the new peer's local policy still decides whether that signer has authority. No old-peer
+order can silently lose its effect on the surface. The handoff then has one linearization point:
+admissions and purge work for the surface are stopped or fenced while state
 is copied. The durable new-peer import, worker-ownership transfer, acknowledgement, and old
 peer's release of responsibility commit as one effect. The old peer owns the authoritative
 handoff record. On separate backends, both peers MUST recover against one durable commit record
@@ -53,8 +65,9 @@ the transfer. The storage fence MUST reject an old worker after ownership moves.
 peer may resume the obligation. The handoff attempt binds the new `PeerId`, old peer state
 version, and copied-state digest; its acknowledgement is one-shot and cannot complete a later
 attempt. If any part cannot commit or be fenced, the surface remains under the old peer. It
-retains reporting and purge responsibility, and the new peer MUST NOT serve. The new peer starts
-its own arrival history when it admits inherited holdings; it MUST NOT present copied host arrival
+retains reporting and purge responsibility, the barrier aborts and reopens, and the new peer MUST
+NOT serve. The new peer starts its own arrival history when it admits inherited holdings; it MUST
+NOT present copied host arrival
 testimony as its own. A host MAY offer a combined view or coordinated operations across peers for
 convenience,
 but that composition does not merge their PeerIds, keys, admission decisions, arrival histories,
@@ -87,9 +100,11 @@ need distinct strings at creation.
 
 For erasure authorization, a peer MAY pin additional governor keys in its own configuration,
 including a host operator key. Such a key can authorize orders under that peer's declared policy
-without becoming its `PeerId` or sharing its admission state. An order relying on an additional
-governor key MUST sign the receiving `PeerId` in its canonical claims. Any order that names a
-receiving `PeerId` has erasure effect only at that peer, regardless of its signer or delivery
+without becoming its `PeerId` or sharing its admission state. After handoff, that key must be
+pinned in the new peer's own configuration before it can authorize an order; pins are not copied
+as refusal state. An order relying on an additional governor key MUST sign the receiving `PeerId`
+in its canonical claims. Any order that names a receiving `PeerId` has erasure effect only at that
+peer, regardless of its signer or delivery
 route. A different receiver may retain it as testimony but MUST NOT classify it as an order,
 even if that signer is its own governing key or an additional governor. At a peer that pins an
 additional governor, an order by that key with no receiving `PeerId` is testimony only; it cannot
@@ -536,16 +551,21 @@ incompleteness remains after re-entry, so a later consumer cannot infer a false 
   order for Y entered the old surface queue before the barrier, it commits and Y's refusal is
   carried or it explicitly fails; it cannot commit for the host only afterward. If that order
   named the host `PeerId`, the new peer receives only the resulting refusal state, never a new
-  erasure effect of the order. A host-key order
-  for Y submitted to the surface after the barrier gets `peer-changed`, not testimony at the new
-  peer. An ordinary delta may enter the new peer's pipeline after cutover. A stale
+  erasure effect of the order. A host-key order for Y submitted to the surface after the barrier
+  is held. If cutover commits, it gets
+  `peer-changed` naming the new `PeerId`, not testimony at the new peer; if cutover aborts, the
+  old peer processes it. An ordinary delta follows the same choice of pipeline. If the path
+  cannot hold either arrival, it returns retryable `handoff-pending`. A stale
   acknowledgement for an earlier attempt cannot close this handoff, and a purge worker from the
   host cannot run after transfer. A new-peer re-entry act names D's qualified host refusal
   event; a new-peer arrival sequence equal to a numeric host sequence cannot collide with it.
   With separate backends, the old peer keeps reporting D's pending obligation until the new peer
   has durable commit proof; afterward the new peer reports it, even if the host backend fails.
-  A pinned snapshot on the host that becomes unreadable makes the new peer fail admission and
-  serving reads closed.
+  A new-peer-owned pinned refusal snapshot may share physical backend storage with the old peer,
+  but remains readable when the old peer process stops; obligations live in the new peer's own
+  durable state. If the inherited snapshot becomes unreadable, admission and serving reads close
+  until an authenticated copy matching the handoff digest restores it. The peer still reports
+  the pending obligation and storage fault throughout.
   A combined erase whose roster changes at cutover returns `peer-changed` with its committed
   member results; a later operation needs a new order for the new peer.
   A combined erase reports each member result; if B rejects while A commits, the combined report
