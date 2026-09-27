@@ -21,17 +21,33 @@ that surface, even for an id the surface never held. The handoff MUST therefore 
 refusal set and every active byte-removal obligation for bytes on that surface into the new
 peer's own state before it can admit or serve deltas. The new peer MUST NOT enumerate carried
 refusals for ids it never held or reveal their provenance in a public report; an attempted entry
-gets only a generic refusal. A handoff establishes one linearization point: admissions, orders,
-and purge work for the surface are stopped or fenced while its state is copied, and the durable
-new-peer import, worker-ownership transfer, new peer's acknowledgement, and old peer's release
-of responsibility commit as one effect. An operation arriving during the handoff is queued or
-decided entirely on one side of that point; it cannot commit only to a stale snapshot. A purge
-obligation keeps its stable identity and storage generation through the transfer. The storage
-fence MUST reject an old worker after ownership moves, and only the new peer may resume the
-obligation. The handoff attempt binds the new `PeerId`, old peer state version, and copied-state
-digest; its acknowledgement is one-shot and cannot complete a later attempt. If any part cannot
-commit or be fenced, the surface remains under the old peer, which retains its reporting and
-purge responsibility, and the new peer MUST NOT serve. The new peer starts its own arrival
+gets only a generic refusal. An immutable, pinned snapshot of the old refusal set with an
+exclusive new-peer reference satisfies the copy requirement; a live host view does not.
+Carried refusal-event and admission-epoch references retain their source `PeerId` and source
+identifier. The new peer uses those qualified references for re-entry acts, exclusions, and
+obligations, and starts a distinct local sequence for later admissions and refusal events. An
+imported host sequence is not a new-peer arrival claim. Cross-peer sequence numbers MUST NOT be
+compared as bare integers; the handoff itself establishes that imported history precedes new
+peer-local admissions, and an unproved comparison remains `unproven`.
+
+A handoff establishes one linearization point. The old peer MUST drain every accepted order for
+the surface before that point, including orders queued during the handoff; each commits and is
+copied, or fails explicitly. New arrivals held behind the cutover barrier are routed to the new
+peer's own pipeline or fail with a peer-changed outcome; an old-peer order cannot silently lose
+its effect on the surface. Admissions and purge work for the surface are stopped or fenced while
+state is copied. The durable new-peer import, worker-ownership transfer, acknowledgement, and
+old peer's release of responsibility commit as one effect. The old peer owns the authoritative
+handoff record. On separate backends, both peers MUST recover against one durable commit record
+and its attempt id; the new peer MUST possess durable proof of that record's committed state
+before it serves, even if the old backend later becomes unreachable. A backend unable to make
+ownership transfer atomic or provide that shared durable commit proof MUST keep the surface
+under the old peer. A purge obligation keeps its stable identity and storage generation through
+the transfer. The storage fence MUST reject an old worker after ownership moves. Only the new
+peer may resume the obligation. The handoff attempt binds the new `PeerId`, old peer state
+version, and copied-state digest; its acknowledgement is one-shot and cannot complete a later
+attempt. If any part cannot commit or be fenced, the surface remains under the old peer. It
+retains reporting and purge responsibility, and the new peer MUST NOT serve. The new peer starts
+its own arrival
 history when it admits inherited holdings; it MUST NOT present copied host arrival testimony as
 its own. A host MAY offer a combined view or coordinated operations across peers for convenience,
 but that composition does not merge their PeerIds, keys, admission decisions, arrival histories,
@@ -46,7 +62,9 @@ implementation choices, subject to that reporting distinction.
 A combined operation's effect is exactly the set of member peers whose own admission pipeline
 committed it. Its report MUST name each member result or assert a conjunction proved by all
 member reports; it cannot say an id was erased across the group while one member rejected or
-failed the order. A combined view is a union of each member's serving read under that member's
+failed the order. The operation MUST fix its member PeerIds at commit against the current peer
+roster version; if a handoff changes that roster before commit, it fails or retries with the new
+member set. A combined view is a union of each member's serving read under that member's
 audience rules. It MUST NOT read raw shared storage or expose a member's result to an audience
 that member would refuse.
 
@@ -66,6 +84,8 @@ even if that signer is its own governing key or an additional governor. At a pee
 additional governor, an order by that key with no receiving `PeerId` is testimony only; it cannot
 acquire an erasure effect from the pin. A peer's own governing key MAY issue an order without a
 receiving `PeerId`; that order can take effect only at the peer identified by that key. A
+handoff may copy the resulting peer-local refusal into the new peer's state; this is a transfer
+of state, not a new erasure effect of the original order at the new peer. A
 **non-governor** order is one authorized by neither the peer's governing key nor a configured
 additional governor key; the advance-refusal cap below applies to those orders.
 
@@ -244,7 +264,7 @@ The pipeline is:
 
    Under `bytes-removed`, re-entry waits for the obligation's terminal `removed` state. Under
    `peer-released`, it waits for release and for every in-flight physical purge of the old
-   obligation to finish or be fenced out. The storage layer MUST reject a stale obligation
+  obligation to finish or be fenced out. The storage layer MUST reject a stale obligation
    generation or admission epoch at the **byte mutation itself**, under the same lock or
    transaction that removes bytes. A refusal-event update alone leaves that obligation generation
    unchanged; a terminal supersession changes it atomically so an old worker cannot touch new
@@ -322,7 +342,8 @@ For each newly accepted id, a peer records the receiver-supplied arrival time, a
 increasing peer-local arrival sequence that never resets during the peer's lifetime, a
 receiver-assigned transfer ordinal that also increases for the peer's lifetime, an admission
 epoch identified by that id's arrival sequence, and the sending peer id (or `local` for an
-append). The arrival time comes from the receiver's
+append). An epoch reference is (`PeerId`, arrival sequence); sequences from different peers are
+not one numeric order. The arrival time comes from the receiver's
 trusted clock, never from an author-signed field. This is local testimony by the receiver,
 outside the delta's canonical bytes and
 content id. A relay records its own arrival when it admits a delta; it never copies the upstream
@@ -501,10 +522,14 @@ incompleteness remains after re-entry, so a later consumer cannot infer a false 
   active purge obligation before the new peer serves. Neither id can enter by gossip afterward;
   an offer of X gets a generic refusal and its provenance is not publicly listed. A failed handoff
   keeps the host responsible and does not create a separate serving peer. If an effective host
-  order for Y reaches the host during a handoff, it either commits before the cutover and Y's
-  refusal is carried, or commits afterward for the host only. It cannot land in a stale host
-  snapshot that the new peer never received. A stale acknowledgement for an earlier
-  attempt cannot close this handoff, and a purge worker from the host cannot run after transfer.
+  order for Y was accepted for the surface before the cutover, it commits and Y's refusal is
+  carried or it explicitly fails; it cannot commit for the host only afterward. A new arrival
+  behind the cutover barrier is routed to the new peer or gets `peer-changed`. A stale
+  acknowledgement for an earlier attempt cannot close this handoff, and a purge worker from the
+  host cannot run after transfer. A new-peer re-entry act names D's qualified host refusal
+  event; a new-peer arrival sequence equal to a numeric host sequence cannot collide with it.
+  A combined erase whose member set was fixed before the cutover fails or retries against the
+  new peer roster; it cannot report complete while omitting the new peer.
   A combined erase reports each member result; if B rejects while A commits, the combined report
   cannot say both erased D. A combined read unions only A's and B's serving reads that its audience
   may access, never raw backend bytes.
