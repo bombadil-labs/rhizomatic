@@ -14,7 +14,17 @@ hosted container is a separate peer only when it has its own governing key and a
 Since `PeerId` is the peer's public key, two logical peers MUST have different governing keys;
 reusing one key identifies one peer, not two. A shared-key container is a surface of that peer
 until it is given a distinct key and peer state; it cannot claim separate arrival or erasure
-testimony. A host MAY offer a combined view or coordinated operations across peers for convenience,
+testimony. Assigning a new key alone does not create a working peer: the container remains a
+surface of the original peer and MUST NOT serve or report as a separate peer until a durable
+state handoff completes. That handoff MUST carry every refusal applicable to the surface and
+every active byte-removal obligation for its bytes into the new peer's own state before it can
+admit or serve deltas. It MUST preserve the obligation's storage generation and worker fence, or
+stop the old worker and establish an equivalent fence before the new peer takes responsibility.
+The old peer MUST retain responsibility in its report until the new peer durably acknowledges the
+handoff; a failed handoff leaves the surface under the old peer. The new peer starts its own
+arrival history when it admits inherited holdings; it MUST NOT present copied host arrival
+testimony as its own. A host MAY offer a combined view or coordinated operations across peers for
+convenience,
 but that composition does not merge their PeerIds, keys, admission decisions, arrival histories,
 refusal sets, or erasure obligations and reports. When one peer erases an id, a shared backend
 MUST preserve bytes still held by another peer.
@@ -39,9 +49,12 @@ need distinct strings at creation.
 
 For erasure authorization, a peer MAY pin additional governor keys in its own configuration,
 including a host operator key. Such a key can authorize orders under that peer's declared policy
-without becoming its `PeerId` or sharing its admission state. A **non-governor** order is one
-authorized by neither the peer's governing key nor a configured additional governor key; the
-advance-refusal cap below applies to those orders.
+without becoming its `PeerId` or sharing its admission state. An order relying on an additional
+governor key MUST sign the receiving `PeerId` in its canonical claims. Only that peer may classify
+it as an order; another receiver may retain it as testimony but MUST NOT give it erasure effect,
+even if it pins the same additional key. A **non-governor** order is one authorized by neither the
+peer's governing key nor a configured additional governor key; the advance-refusal cap below
+applies to those orders.
 
 ## 2. Admission
 
@@ -365,7 +378,9 @@ incompleteness remains after re-entry, so a later consumer cannot infer a false 
   refusal cap: at the cap, another order gets `erasure-limit`, while earlier refusals stay intact.
 - An order whose only claimed authority is D's tenant is equally ineligible while D is absent;
   the signed tenant label on E is not evidence of D's tenant. A pool may separately pin its host
-  operator key as an additional governor without sharing that host's `PeerId`.
+  operator key as an additional governor without sharing that host's `PeerId`. Pools A and B pin
+  the same host key. An order signed by that key names A's `PeerId`: A may apply it through its own
+  pipeline, while B's receipt through gossip is testimony and never refuses or erases D at B.
 - E is an effective erasure order, and its eligible negation N is co-offered. Ordinary quota skips
   N. E still commits its refusal and any byte-removal obligation; N's absence never prunes E.
   If N later lands and negates E's standing testimony, the committed refusal remains.
@@ -379,9 +394,9 @@ incompleteness remains after re-entry, so a later consumer cannot infer a false 
   rejected as `erasure-ineligible`, not admitted as testimony; G and E co-offered cannot change
   that classification or borrow G's authority.
 - Two valid erasure orders target admitted D. The erasure budget charges one target, both records
-  may land, and the commit creates one purge obligation keyed to D's refusal event and prior
-  admission epoch. A third order targeting X
-  is not displaced merely because D had two orders.
+  may land, and the commit creates one stable purge obligation linked to D's current refusal event
+  and prior admission epoch. A third order targeting X is not displaced merely because D had two
+  orders.
 - A committed erasure with an unfinished purge keeps its id outside the admitted and serving
   sets after restart. A re-offer gets `purge-pending`, not silent dedup, and cannot race the
   purge. The report stays `pending` or `failed` with a durable fault until declared surfaces
@@ -466,13 +481,17 @@ incompleteness remains after re-entry, so a later consumer cannot infer a false 
   D from one peer does not remove the other peer's held D or rewrite its arrival testimony.
 - A shared-key container with no distinct peer state is a surface of the host peer, so its bytes
   belong in that peer's erasure report. Once it has its own key and state it is a separate peer.
+  If the host refused D while it was a surface, a new key alone leaves D refused under the host.
+  Completing the peer-state handoff carries D's refusal and any active purge obligation to the
+  new peer before it serves; D cannot arrive there through gossip after the handoff. A failed
+  handoff keeps the host responsible and does not create a separate serving peer.
   A combined erase reports each member result; if B rejects while A commits, the combined report
   cannot say both erased D. A combined read unions only A's and B's serving reads that its audience
   may access, never raw backend bytes.
 - A installs an advance refusal for D while A has no D bytes and co-tenant B does. A creates no
   byte-removal obligation and reports no information about B's holding. If A's own declared
-  surface independently holds unadmitted D bytes, A records an obligation keyed to its refusal
-  event even though D has no prior admission epoch.
+  surface independently holds unadmitted D bytes, A records a stable obligation linked to its
+  current refusal event even though D has no prior admission epoch.
 - At a lower-posture peer A that never held D, an advance refusal has no purge obligation. Its
   `bytes-removed` gate is satisfied without testing B's shared holding, but routine gossip still
   gets `reentry-required` until A commits a local re-entry act.
