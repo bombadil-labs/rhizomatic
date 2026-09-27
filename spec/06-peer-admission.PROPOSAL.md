@@ -61,8 +61,10 @@ The pipeline is:
 3. Apply candidate-local guards in declared order, each against the same pre-transfer admitted
    set. No general transfer quota is charged at this stage; a candidate rejected later cannot
    consume ordinary capacity. A receiver that limits erasure orders uses an explicit erasure
-   guard before step 4, using a receiver-declared rank independent of wire order. A quota cannot
-   withdraw an order after its exclusion took effect.
+   guard before step 4, using a receiver-declared rank independent of wire order. That guard
+   checks the structural erasure exclusions in step 4 before ranking units, so an E-plus-target
+   or mixed-member bundle cannot consume erasure capacity either. A quota cannot withdraw an
+   order after its exclusion took effect.
 4. Compute a **proposed** final set without changing holdings. Apply any declared, deterministic
    candidate-set conflict rule to candidates that passed steps 1–3, using the pre-transfer
    admitted set. Next form **provisional erasure orders**: candidates that passed every prior
