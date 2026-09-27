@@ -42,8 +42,10 @@ The pipeline is:
    proposed transfer. Apply the receiver's permanent refusal set on **every** entry path,
    including local append and foreign transfer, before any caller-selected guard. An id in that
    set cannot re-enter even when its erasure record is negated. Deduplicate ids already held and
-   repeated ids in the transfer before any guard or quota. Invalid or refused candidates cannot
-   serve as evidence for others.
+   repeated ids in the transfer before any guard or quota. A self-signed loose copy remains
+   independently eligible even when a bundle names its id. Invalid or refused candidates cannot
+   serve as evidence for others. An id with a pending physical purge still counts as held and
+   excluded from serving; it cannot re-enter until the purge finishes.
 2. Apply the subscribed lens, when present, and its **declared** closure rule. That rule may add
    related candidates from the verified offer (for example, negations or manifest members), but
    never fabricate a delta or bypass **any** candidate-local guard. It states which selected ids
@@ -56,29 +58,36 @@ The pipeline is:
    use a private, stable rank to make low-id grinding ineffective. A unit too large for the
    remaining quota is skipped, and later units are considered. Quota counters commit only for
    the final accepted set.
-4. Compute a **proposed** final set without changing holdings. A declared requirement is met by
-   a final candidate or an id still held in the proposed post-commit set. Remove candidates with
-   unmet requirements; repeat until stable. A surviving peer-local erasure may
-   propose excluding its target, including a target already held. An erasure of another erasure is
-   invalid. If an erasure would remove a member of a signed bundle in this transfer, reject that
-   erasure and bundle as one conflicting component; unrelated loose candidates may proceed.
-   Recheck closure requirements against the proposed post-commit holdings after exclusions, and
-   prune again until stable. A
-   provisional candidate cannot confer authority or an erasure effect unless it remains in this
-   final set; the conflicting-component rule above may reject both sides.
-5. Commit the final additions, logical exclusions, permanent refusals, quota counters, and
-   arrival records in **one atomic transaction**. If the backend cannot commit that logical state
-   together, reject the affected component without changing holdings. Physical byte removal may
-   follow the commit; until it succeeds, the peer reports the bytes as still held and keeps them
-   out of serving reads (plan step 9). A rejected or duplicate id creates no arrival event.
+4. Compute a **proposed** final set without changing holdings. First reject any connected
+   conflict component in which a candidate erasure targets another erasure, a candidate in this
+   transfer, or an id required by a candidate in this transfer. A component contains the
+   conflicting erasure, the affected candidates, and candidates linked to either by a declared
+   requirement or signed-bundle membership; unrelated loose candidates may proceed. This
+   conservative rule also covers two erasures that remove one another's requirements. Once
+   these components are removed, surviving peer-local erasures may exclude already held ids.
+   A foreign erasure is testimony unless the receiving peer's declared policy adopts it as its
+   own erasure order. Prune candidates whose declared requirements are not met by another final
+   candidate or a still-held post-commit id; repeat until stable. Exclusions now remain fixed,
+   and pruning can only remove candidates. A provisional candidate cannot confer authority or
+   an erasure effect unless it remains in this final set.
+5. Commit the final additions, logical exclusions, permanent refusals, quota counters, arrival
+   records, and **durable pending-purge obligations** in one atomic transaction. If the backend
+   cannot commit that logical state together, reject the affected component without changing
+   holdings. Physical byte removal follows the commit. Until it succeeds, the peer reports the
+   bytes as still held, records the outstanding obligation across restart, and keeps the id out
+   of serving reads (plan step 9). A lower erasure posture may permit re-entry only after the
+   pending purge completes; a permanent refusal never does. A rejected or duplicate id creates
+   no arrival event.
    Quota capacity may remain unused after dependency pruning, but an id that did not land is
    never charged.
 
 A signed bundle is one indivisible candidate through every gate: failure of any member rejects
-the whole bundle. Loose deltas are independent candidates. A delta with its own verifying
-signature remains independently eligible when a third party also names it in a bundle. Failure
-of that bundle cannot reject the valid loose copy. An unsigned delta needs a verified covering
-bundle; if multiple valid bundles cover it, the lowest manifest id supplies its atomic unit.
+the whole bundle. Loose self-signed deltas are independent candidates, even when a third party
+also names them in a bundle; failure of that bundle cannot reject the loose copy. An unsigned
+delta needs verified bundle coverage. Verified bundles that overlap through an unsigned member
+form one indivisible component, regardless of manifest rank. Failure of any bundle in that
+component rejects the component; there is no fallback to a second covering bundle. A bundle
+that fails initial verification supplies no coverage and is absent from component formation.
 Repeated appearances of one id create at most one arrival event and quota charge. The candidate
 set is unordered; every set-level selection uses the declared rank. Separate transfers in
 different orders may still produce different admitted sets because their pre-transfer states
@@ -90,9 +99,10 @@ history. Evaluation over either resulting admitted set remains independent of in
 Under this portable snapshot rule, if a revocation N and an act A by the revoked key arrive in
 one transfer, A's candidate-local guard sees the pre-transfer authority and may admit A. N and A
 receive distinct arrival sequences, but their shared transfer id says they were admitted under
-one authority snapshot. A receiver that wants N to bar A within that transfer MUST declare an
-additional final-set guard and pin its precedence; federation assigns no universal meaning to
-that application-specific revocation.
+one authority snapshot. A receiver that wants N to bar A within that transfer can declare a
+pre-transfer **conflict rule** that rejects A whenever N is also offered, whether or not N later
+lands. That conservative application choice gives no provisional N authority; federation
+assigns no universal meaning to that application-specific revocation.
 The declared closure rule MUST say whether a target requires its eligible negations and what
 happens when one is unavailable. A privacy-preserving rule may refuse the target. It MUST NOT
 silently add an unoffered delta. Plan step 7 defines the publish-side closure audit and checks
@@ -106,7 +116,8 @@ it does not confer authority to bypass admission.
 ## 3. Arrival testimony
 
 For each newly accepted id, a peer records the receiver-supplied arrival time, a strictly
-increasing peer-local arrival sequence, a receiver-assigned transfer id unique within that peer,
+increasing peer-local arrival sequence that never resets during the peer's lifetime, a
+receiver-assigned transfer id unique within that peer,
 and the sending peer id (or `local` for an append). The arrival time comes from the receiver's
 trusted clock, never from an author-signed field. This is local testimony by the receiver,
 outside the delta's canonical bytes and
@@ -128,9 +139,10 @@ layout. A shared host MUST keep one arrival history per peer, even when their de
 same underlying bytes. An erasure removes bytes from one peer's holdings and does not change
 another peer's arrival history. Whether the erasing peer retains old arrival metadata is part of
 its declared erasure posture (plan step 9). Under permanent refusal, that id never re-enters. If
-a lower posture permits re-entry after erasure, it creates a new admission epoch with a new
-sequence. If the earlier arrival metadata was purged, the new record is described as the first
-arrival **in that epoch**, never the first arrival in the peer's lifetime.
+a lower posture permits re-entry after physical purge, the peer assigns a later lifetime sequence
+and a new admission epoch for that id. The peer MUST persist the sequence counter even if it
+purges earlier arrival metadata. If the earlier metadata was purged, the new record is described
+as the first arrival **in that epoch**, never the first arrival in the peer's lifetime.
 
 ## 4. Conformance cases to freeze
 
@@ -142,16 +154,19 @@ arrival **in that epoch**, never the first arrival in the peer's lifetime.
 - An earlier guard turns away an otherwise valid erasure T. A later erasure guard cannot use T to
   refuse its target D in that transfer; D and a bystander can land.
 - An erasure E targets held D but the logical commit fails. D remains admitted and no new
-  refusal or arrival is recorded. A retry can commit the whole logical change. If E excludes a
-  negation N required by selected T, T is pruned before commit. If E targets a member of a bundle
-  in the same transfer, the conflicting component is rejected and a bystander still lands.
+  refusal, purge obligation, or arrival is recorded. A retry can commit the whole logical change.
+  If E would exclude a held N required by selected T, their conflict component is rejected. The
+  same holds when E targets a candidate, including a bundle member; a bystander still lands.
+- E1 requires held X and erases held Y; E2 requires Y and erases X. Their conflict component is
+  rejected once, without oscillation or a partial erasure effect. A committed erasure with a
+  pending purge stays excluded from serving after restart; a re-offer cannot race the purge.
 - An id permanently refused after erasure is rejected by both local append and foreign transfer,
   even when the erasure record has been negated.
 - A candidate grant G and an act A arrive together. A guard checking A's authority uses the
   pre-transfer set, so A cannot borrow authority from G if G is later rejected.
 - A live grant D, its revocation N, and an act A under D arrive in one transfer. The portable
   snapshot profile admits A under pre-transfer authority and records N and A in one transfer with
-  separate sequences; a declared final-set guard can choose the stricter result.
+  separate sequences; a declared pre-transfer conflict rule may reject A whenever N is offered.
 - A quota receives the same candidates in two wire orders. It selects the same ids by canonical
   rank and charges only the ids that finally land. A bundle too large for remaining quota is
   skipped while a later fitting loose candidate may land.
@@ -162,7 +177,12 @@ arrival **in that epoch**, never the first arrival in the peer's lifetime.
   arrival time and distinct sequences in ascending id order.
 - A signed manifest and unsigned covered members are admitted atomically, with no partial arrival
   records on rejection. A member with its own signature can still land loose when a third-party
-  bundle naming it fails; an unsigned member cannot. A repeated id creates one arrival record.
+  bundle naming it fails; an unsigned member cannot. Two verified bundles covering the same
+  unsigned member form one unit, so a rejection of either rejects both. A repeated id creates one
+  arrival record.
+- A lower-posture peer erases and fully purges an id, then re-admits it. The new arrival sequence
+  is greater than every earlier sequence, even when old arrival metadata was purged; it is a new
+  admission epoch for that id, not an earlier event in the peer's history.
 - Two logical peers viewing one backend have different governing keys and refusal sets. Erasing
   D from one peer does not remove the other peer's held D or rewrite its arrival testimony.
 - Two stores' `person:myk` deltas merge by entity string. A governed read with one governing key
