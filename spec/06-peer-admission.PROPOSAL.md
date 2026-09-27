@@ -58,7 +58,9 @@ The pipeline is:
    use a private, stable rank to make low-id grinding ineffective. A unit too large for the
    remaining quota is skipped, and later units are considered. Quota counters commit only for
    the final accepted set.
-4. Compute a **proposed** final set without changing holdings. First reject any connected
+4. Compute a **proposed** final set without changing holdings. Apply any declared, deterministic
+   candidate-set conflict rule to candidates that passed steps 1–3, using the pre-transfer
+   admitted set. Then reject any connected
    conflict component in which a candidate erasure targets another erasure, a candidate in this
    transfer, or an id required by a candidate in this transfer. A component contains the
    conflicting erasure, the affected candidates, and candidates linked to either by a declared
@@ -100,8 +102,9 @@ Under this portable snapshot rule, if a revocation N and an act A by the revoked
 one transfer, A's candidate-local guard sees the pre-transfer authority and may admit A. N and A
 receive distinct arrival sequences, but their shared transfer id says they were admitted under
 one authority snapshot. A receiver that wants N to bar A within that transfer can declare a
-pre-transfer **conflict rule** that rejects A whenever N is also offered, whether or not N later
-lands. That conservative application choice gives no provisional N authority; federation
+**candidate-set conflict rule** that rejects A when N is an eligible verified candidate after
+steps 1–3, whether or not N later lands. That conservative application choice gives no
+provisional N authority; federation
 assigns no universal meaning to that application-specific revocation.
 The declared closure rule MUST say whether a target requires its eligible negations and what
 happens when one is unavailable. A privacy-preserving rule may refuse the target. It MUST NOT
@@ -166,7 +169,8 @@ as the first arrival **in that epoch**, never the first arrival in the peer's li
   pre-transfer set, so A cannot borrow authority from G if G is later rejected.
 - A live grant D, its revocation N, and an act A under D arrive in one transfer. The portable
   snapshot profile admits A under pre-transfer authority and records N and A in one transfer with
-  separate sequences; a declared pre-transfer conflict rule may reject A whenever N is offered.
+  separate sequences; a declared candidate-set conflict rule may reject A when N is eligible after
+  the ordinary verification and guard steps.
 - A quota receives the same candidates in two wire orders. It selects the same ids by canonical
   rank and charges only the ids that finally land. A bundle too large for remaining quota is
   skipped while a later fitting loose candidate may land.
