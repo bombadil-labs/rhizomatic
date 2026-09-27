@@ -44,9 +44,13 @@ The pipeline is:
    proposed transfer. Apply the receiver's permanent refusal set on **every** entry path,
    including local append and foreign transfer, before any caller-selected guard. An id in that
    set cannot re-enter even when its erasure record is negated. Deduplicate ids already **admitted**
-   before any guard or quota. An id with an **active** purge obligation is outside the admitted
-   set: a re-offer gets an explicit `purge-pending` outcome, not a silent duplicate. The gate and
-   terminal transition in step 6 decide when a lower-posture peer may re-admit it. Preserve each
+   before any guard or quota. A duplicate erasure id gets an outcome saying whether this peer
+   holds it as an effective local order or as testimony only; dedup never silently upgrades
+   testimony. An erased id outside the permanent refusal posture is also refused on every entry
+   path until step 6's explicit local re-entry act commits, even if its purge obligation is
+   terminal or it was never held. While an obligation is **active**, a re-offer gets an explicit
+   `purge-pending` outcome, not a silent duplicate. The gate and terminal transition in step 6
+   decide when a lower-posture peer may re-admit it. Preserve each
    verified bundle's coverage and any self-signed loose copy as separate
    candidate units until bundle selection; coalesce an id only when it lands. Invalid or refused
    candidates cannot serve as evidence for others. In a bundle covering any unsigned member,
@@ -74,8 +78,10 @@ The pipeline is:
    even if the target was already admitted. An erasure-bearing bundle may contain only its
    manifest and erasure members; mixing ordinary members into an effective erasure unit is
    rejected so they cannot bypass the ordinary quota. An erasure targeting an erasure is invalid.
-   A foreign erasure is testimony unless the receiving peer's declared policy makes it a
-   provisional local order. Conservatively filter those orders: for each E, remove the targets of
+   The receiving peer classifies an erasure from **any** entry path as a local order or testimony
+   under its declared policy over the verified claim and pre-transfer state; the sending route
+   alone MUST NOT change that classification. An origin's assertion does not force a local effect.
+   Conservatively filter local orders: for each E, remove the targets of
    **other** provisional orders from a copy of the pre-transfer admitted set, but retain E's own
    target even if another order names that same id. Recheck E's authorization against that
    reduced set. Each round tests every remaining order against the same round-start set and
@@ -91,11 +97,12 @@ The pipeline is:
    gets an `erasure-ineligible` outcome and reason in the receiver's private report. Every
    local erasure order that is not effective, including one rejected for shape, authority, or
    budget, is rejected from this transfer: it does not land as an ordinary held delta and cannot
-   later be silently deduplicated. A foreign erasure classified as testimony before provisional
+   later be silently deduplicated. An erasure classified as testimony before provisional
    selection may land as ordinary data, with no exclusion effect. That admission-time
-   classification is fixed; a later policy change does not turn held testimony into an erasure
-   order without a new local order or adoption. Only effective orders exclude and refuse their
-   targets. They may target a separate co-offered candidate: that
+   classification is fixed; a later policy change or a direct redelivery does not turn held
+   testimony into an erasure order without a new local order or adoption delta. The duplicate
+   outcome says `held-as-testimony` and makes no erasure promise. Only effective orders exclude
+   and refuse their targets. They may target a separate co-offered candidate: that
    target is refused, the erasure lands, and unrelated candidates remain eligible. If that target
    is a member of another signed bundle, that whole bundle is rejected as
    `bundle-excluded-by-erasure`; its other unsigned members need independent coverage or a later
@@ -126,17 +133,28 @@ The pipeline is:
    absent) or `bytes-removed` (physical absence is proved on declared surfaces). A shared-held id
    cannot pass the latter gate while another peer retains its bytes. Every active pending or
    failed obligation remains visible across restart and is retryable through an explicit
-   operation; failure never silently counts as byte removal. Under `bytes-removed`, re-entry
-   waits for the obligation's terminal `removed` state. Under `peer-released`, it waits for release
-   and for every in-flight physical purge of the old admission epoch to finish or be fenced out.
-   Re-entry atomically makes the old obligation terminal as `superseded` (with a byte report of
-   `not removed` unless absence was independently proved), creates the new admission epoch, and
-   forbids any retry of that old obligation. The storage layer MUST reject a stale epoch at the
+   operation; failure never silently counts as byte removal. **Gate completion alone never
+   re-admits an id.** A lower-posture peer additionally requires an explicit, receiver-authorized
+   local re-entry act naming the id and its refusal event, plus the prior admission epoch when one
+   exists. Routine gossip, a duplicate offer,
+   or a negation of the held erasure record cannot supply that act. The act and its outcome are
+   durable peer testimony. A co-offered id the peer never held also remains refused until this
+   explicit act, even when its byte-removal gate is already satisfied.
+
+   Under `bytes-removed`, re-entry waits for the obligation's terminal `removed` state. Under
+   `peer-released`, it waits for release and for every in-flight physical purge of the old
+   admission epoch to finish or be fenced out. The storage layer MUST reject a stale epoch at the
    **byte mutation itself**, under the same lock or transaction that removes bytes. A prior
-   worker check alone does not fence a stalled or replayed worker. Before exposing the new epoch,
-   the peer MUST verify or rewrite the delta's bytes on every declared serving surface, including
-   after a partial prior purge. If a worker cannot be proved finished or fenced, re-entry fails
-   closed; a timeout does not make it safe. An old worker cannot remove a newly admitted holding.
+   worker check alone does not fence a stalled or replayed worker. Before the re-entry commit,
+   the peer MUST stage and verify or rewrite the delta's bytes on every declared serving surface,
+   including after a partial prior purge. If staging fails, or a worker cannot be proved finished
+   or fenced, the peer records a durable `reentry-blocked` fault and keeps the id unadmitted;
+   a timeout does not make it safe. The peer may retry the explicit act after repair. The commit
+   atomically promotes verified staged bytes, makes any old obligation terminal as `superseded`
+   (with a byte report of `not removed` unless absence was independently proved), creates the
+   new admission epoch, and forbids any retry of that old obligation. A backend that cannot
+   publish bytes and epoch state together MUST refuse re-entry. An old worker cannot remove a
+   newly admitted holding.
    The old erasure's exclusion is keyed to the old admission epoch. A peer serving read takes the
    admitted delta set **and** the peer's explicit epoch/exclusion state as inputs, and filters out
    only occurrences excluded in their own epoch. A held erasure delta remains testimony, but its
@@ -257,6 +275,9 @@ incompleteness remains after re-entry, so a later consumer cannot infer a false 
 - A local erasure E is rejected by the erasure budget or reduced-set authority check. It does not
   land as ordinary data; a later re-offer is judged again. A foreign erasure classified as
   testimony may land, but has no exclusion effect.
+- The receiver classifies E the same way whether the owner sends it directly or a relay forwards
+  it. If E first lands as testimony, a direct duplicate reports `held-as-testimony` and does not
+  erase D; changing the receiver's policy requires a new local order or adoption delta.
 - Two valid erasure orders target admitted D. The erasure budget charges one target, both records
   may land, and the commit creates one purge obligation for D's admission epoch. A third order targeting X
   is not displaced merely because D had two orders.
@@ -264,11 +285,15 @@ incompleteness remains after re-entry, so a later consumer cannot infer a false 
   sets after restart. A re-offer gets `purge-pending`, not silent dedup, and cannot race the
   purge. The report stays `pending` or `failed` with a durable fault until declared surfaces
   prove removal or a weaker `peer-released` re-entry supersedes the obligation. A failed purge
-  can be retried while active. Re-entry after peer release waits for old purge workers to be
-  fenced out, then atomically marks the old obligation `superseded` and admits a new epoch; an old
-  retry cannot delete the new holding. A worker that checked its fence before a stall is rejected
-  by storage at mutation time. The new epoch's bytes are verified on every declared serving
-  surface before it can serve; a partial old purge cannot yield damaged admitted bytes. The held
+  can be retried while active. Even after a `bytes-removed` gate passes, routine gossip does not
+  re-admit D. An explicit receiver-authorized local act names D and the prior epoch. The same
+  requirement holds when E refused a co-offered D that the peer never held. Under `peer-released`,
+  re-entry waits for old purge workers to be fenced out. A worker that checked its fence before a
+  stall is rejected by storage at mutation time. If that worker cannot be fenced, or staging and
+  verifying the new bytes fails, the durable outcome is `reentry-blocked`: D is not admitted and
+  the prior obligation is not superseded. A repaired retry stages verified bytes, then atomically
+  publishes them, marks the old obligation `superseded`, and admits a new epoch. An old retry
+  cannot delete the new holding; a partial old purge cannot yield damaged admitted bytes. The held
   erasure still names the old epoch and does not suppress the new one. The new epoch serves under
   normal validity and read rules.
   `peer-released` and `bytes-removed` gates give different outcomes while another peer retains
@@ -309,7 +334,7 @@ incompleteness remains after re-entry, so a later consumer cannot infer a false 
   bystander lands. If Alice's bundle covers unsigned M and a Mallory-authored D, signed or
   unsigned, the bundle is invalid at verification, so Mallory cannot permanently veto M by
   erasing D.
-- A lower-posture peer erases and fully purges an id, then re-admits it. The new arrival sequence
+- A lower-posture peer erases and fully purges an id, then explicitly re-admits it. The new arrival sequence
   is greater than every earlier sequence, even when old arrival metadata was purged; it is a new
   admission epoch for that id, not an earlier event in the peer's history. A persisted purged-epoch
   marker forces `unproven` for a comparison needing the erased testimony; if the marker itself was
