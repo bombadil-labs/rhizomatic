@@ -45,14 +45,17 @@ The pipeline is:
    including local append and foreign transfer, before any caller-selected guard. An id in that
    set cannot re-enter even when its erasure record is negated. Deduplicate ids already **admitted**
    before any guard or quota. A duplicate erasure id gets an outcome saying whether this peer
-   holds it as an effective local order or as testimony only; dedup never silently upgrades
-   testimony. An erased id outside the permanent refusal posture is also refused on every entry
+   holds it as testimony, as an order effective for the current admission epoch, or as an order
+   effective only for an earlier epoch; dedup never silently upgrades testimony or re-applies an
+   old exclusion. A permanent-posture peer reports its refusal for an erased id even while a
+   purge is active; `purge-pending` is an internal storage outcome, never a replacement for that refusal.
+   An erased id outside the permanent refusal posture is also refused on every entry
    path until step 6's explicit local re-entry act commits, even if its purge obligation is
    terminal or it was never held. While an obligation is **active**, a re-offer gets `purge-pending`;
    after the gate completes but before that act commits, it gets `reentry-required`. Neither is a
    silent duplicate. The gate and terminal transition in step 6 decide when a lower-posture peer
-   may re-admit it. Preserve each verified bundle's coverage and any self-signed loose copy as separate
-   candidate units until bundle selection; coalesce an id only when it lands. Invalid or refused
+   may re-admit it. Preserve each verified bundle's coverage and any self-signed loose copy as
+   separate candidate units until bundle selection; coalesce an id only when it lands. Invalid or refused
    candidates cannot serve as evidence for others. In a bundle covering any unsigned member,
    **every** member's claimed author MUST equal the verified manifest signer. Reject a bundle
    that mixes authors during verification, even when the foreign member was already admitted.
@@ -60,12 +63,23 @@ The pipeline is:
 2. Apply the subscribed lens, when present, and its **declared** closure rule. That rule may add
    related candidates from the verified offer (for example, negations or manifest members), but
    never fabricate a delta or bypass **any** candidate-local guard. It states which selected ids
-   require which related ids. There is no implicit closure. A host can write a guard that admits
+   require which related ids. There is no implicit lens closure. Independently of a lens, a
+   target selected for admission requires every co-offered, eligible negation of it to land too;
+   if quota or another later gate skips such a negation, the target is pruned rather than admitted
+   live. This dependency applies recursively to negations of negations and never overrides an
+   earlier rejection of a negation. Here eligible means verified and passed the lens, every
+   candidate-local guard, conflict rule, and erasure resolution before ordinary quota. A host can
+   write a guard that admits
    an otherwise unrostered negation of a pre-transfer id; closure does not silently override its
    roster rule. A closure rule MUST NOT assign a post-commit requirement to an erasure delta or
    an erasure-bearing bundle. The receiver rejects a configuration that does so; it does not
-   silently turn an erasure order into a non-erasure candidate. Target-author binding is a
-   verification check, not a closure requirement.
+   silently turn an erasure order into a non-erasure candidate. The target reference and claimed
+   author are checked for shape at verification. If the target is held or co-offered, compare its
+   actual author too. An absent target cannot supply that comparison: an otherwise authorized
+   erasure order may still install a refusal for its id in advance. A later offer of that target
+   is refused on the receiving peer before candidate guards. The peer checks its author then and
+   reports any mismatch as a binding discrepancy; under permanent refusal, that discrepancy does
+   not silently remove the refusal. Target-author binding is not a closure requirement.
 3. Apply candidate-local guards in declared order, each against the same pre-transfer admitted
    set. No quota is charged at this stage; a candidate rejected later cannot consume capacity.
 4. Compute a **proposed** final set without changing holdings. Apply any declared, deterministic
@@ -73,9 +87,10 @@ The pipeline is:
    admitted set. First classify every erasure remaining after steps 1–3 by the receiver's declared
    policy over its claim as either an order candidate for this peer or testimony only. This
    classification does not depend on the sending route or on whether the candidate currently has
-   authority. An order candidate lacking authority is rejected with `erasure-ineligible`; it never falls back
-   to testimony. Next form **provisional erasure orders**: order candidates that passed every prior
-   gate, whose signature and target binding verify, and which the receiver's erasure policy
+   authority. An order candidate lacking authority is rejected with `erasure-ineligible`; it never
+   falls back to testimony. Next form **provisional erasure orders**: order candidates that passed
+   every prior gate, whose signature and target reference verify (including author binding when
+   the target is available), and which the receiver's erasure policy
    authorizes from the pre-transfer admitted set. A candidate may inspect a verified co-offered
    target's claims to check its author, but cannot borrow authority from that target. A bundle
    containing both an erasure and its target is rejected based on its verified member list,
@@ -95,7 +110,12 @@ The pipeline is:
    refilling budget after a failure. Only its survivors are effective. Different orders for one
    target create at most one purge obligation for that id and admission epoch, needed only when
    a declared surface still holds its bytes. Thus an order may verify its own target's tenant or
-   author while a second order cannot preserve authority that its peer erases. A rejected order
+   author while a second order cannot preserve authority that its peer erases. An authorized order
+   for a target neither held nor co-offered also creates the refusal event at commit; it creates
+   no byte-removal obligation unless a declared surface actually holds bytes. One atomic commit
+   creates one durable, peer-local refusal event per newly refused target, even if several
+   effective orders name it. A later effective order for that id advances the event once more.
+   A rejected order
    gets an `erasure-ineligible` outcome and reason in the receiver's private report. Every
    order candidate that is not effective, including one rejected for shape, authority, or
    budget, is rejected from this transfer: it does not land as an ordinary held delta and cannot
@@ -105,8 +125,8 @@ The pipeline is:
    testimony into an erasure order without a new, distinctly identified order candidate authorized
    under the receiver's policy. That candidate passes steps 1–6, including authorization, budget,
    exclusion, and durable purge obligation; merely pointing to the held testimony does not bypass
-   any gate. The duplicate outcome says `held-as-testimony` and makes no erasure promise. Only effective orders exclude
-   and refuse their targets. They may target a separate co-offered candidate: that
+   any gate. The duplicate outcome says `held-as-testimony` and makes no erasure promise. Only
+   effective orders exclude and refuse their targets. They may target a separate co-offered candidate: that
    target is refused, the erasure lands, and unrelated candidates remain eligible. If that target
    is a member of another signed bundle, that whole bundle is rejected as
    `bundle-excluded-by-erasure`; its other unsigned members need independent coverage or a later
@@ -122,7 +142,8 @@ The pipeline is:
    grinding ineffective. A unit too large for remaining capacity is skipped, and later units
    are considered. Each selected unit is charged for ids it newly adds after higher-ranked
    selected units; the same id is never charged twice. Prune selected ordinary units whose
-   requirements were skipped by quota, repeating until stable. Freed capacity need not be
+   requirements, including the mandatory eligible-negation dependency, were skipped by quota,
+   repeating until stable. Freed capacity need not be
    refilled, but no id that failed to land is charged.
 6. Commit the final additions, logical exclusions, permanent refusals, quota counters, arrival
    records, and **durable pending-purge obligations** in one atomic transaction. If the backend
@@ -139,15 +160,23 @@ The pipeline is:
    failed obligation remains visible across restart and is retryable through an explicit
    operation; failure never silently counts as byte removal. **Gate completion alone never
    re-admits an id.** A lower-posture peer additionally requires an explicit, receiver-authorized
-   local re-entry act naming the id and its **current** refusal event, plus the prior admission
-   epoch when one exists. The act MUST be signed by the peer's pinned governing key, or by a key
-   the peer has explicitly delegated for this operation outside the transferred delta set. A
-   transferred copy of another peer's act is testimony only and cannot execute here. Routine
-   gossip, a duplicate offer, or a negation of the held erasure record cannot supply that act. The act and its outcome are
-   durable peer testimony. A co-offered id the peer never held also remains refused until this
+   local re-entry act naming the receiving `PeerId`, the id, and its **current** refusal event,
+   plus the prior admission epoch when one exists. The act MUST be signed by the peer's pinned
+   governing key, or by a key that root delegated in a locally admitted SPEC-14 record with exact
+   scope `rhizomatic.peer.reentry:<PeerId>` and `delegable: false`. The peer checks that authority
+   at commit, including every retry after `reentry-blocked`; a same-transfer delegation cannot
+   authorize the act. A transferred copy of another peer's act is testimony only and cannot
+   execute here. Routine gossip, a duplicate offer, or a negation of the held erasure record
+   cannot supply that act. The act and its outcome are durable peer testimony. A co-offered id
+   the peer never held also remains refused until this
    explicit act, even when its byte-removal gate is already satisfied. A `reentry-blocked` fault
-   leaves the same act retryable after repair. A successful commit consumes it: replaying or
-   redelivering it cannot create another epoch, and a later refusal event requires a new act.
+   leaves the same act retryable after repair while its named refusal event remains current. A
+   successful commit compares the named refusal event to the peer's current event atomically and
+   consumes the act: replaying or redelivering it cannot create another epoch, and a
+   later refusal event requires a new act. If a newly effective erasure E2 names an id already
+   refused while re-entry is blocked, E2 creates the new current refusal event; the prior act no
+   longer authorizes re-entry and the peer reports that change. E2 cannot be erased by retrying
+   the earlier act.
 
    Under `bytes-removed`, re-entry waits for the obligation's terminal `removed` state. Under
    `peer-released`, it waits for release and for every in-flight physical purge of the old
@@ -166,11 +195,13 @@ The pipeline is:
    The old erasure's exclusion is keyed to the old admission epoch. A peer serving read takes the
    admitted delta set **and** the peer's explicit epoch/exclusion state as inputs, and filters out
    only occurrences excluded in their own epoch. A held erasure delta remains testimony, but its
-   old storage effect does not suppress the new occurrence of its target id. Pure substrate
+   old storage effect does not suppress the new occurrence of its target id. A duplicate delivery
+   of E reports `held-effective-for-epoch` with its old epoch and explicitly says its exclusion is
+   not current; it does not claim the newly admitted D is erased. Pure substrate
    evaluation then runs over that filtered set at explicit `now`. Before re-entry the id is
    outside serving reads; after re-entry it is eligible under the ordinary validity and read
-   policies. A permanent
-   refusal never permits re-entry. A rejected or duplicate id creates no arrival event.
+   policies. A permanent refusal never permits re-entry. A rejected or duplicate id creates no
+   arrival event.
    Quota capacity may remain unused after dependency pruning, but an id that did not land is
    never charged. An internal `purge-pending` outcome reveals that the peer held and erased this
    id; a public endpoint MAY map it to a generic refusal, while preserving the private reason.
@@ -205,9 +236,10 @@ one authority snapshot. A receiver that wants N to bar A within that transfer ca
 steps 1–3, whether or not N later lands. That conservative application choice gives no
 provisional N authority; federation
 assigns no universal meaning to that application-specific revocation.
-The declared closure rule MUST say whether a target requires its eligible negations and what
-happens when one is unavailable. A privacy-preserving rule may refuse the target. It MUST NOT
-silently add an unoffered delta. Plan step 7 defines the publish-side closure audit and checks
+The portable admission dependency requires every eligible co-offered negation of a selected
+target. An offered lens MAY declare stronger requirements, including what happens when a related
+negation was not offered; a privacy-preserving rule may refuse the target. The closure rule MUST
+NOT silently add an unoffered delta. Plan step 7 defines the publish-side closure audit and checks
 what the peer was actually able to transfer.
 
 An admission decision never edits a delta. The author-signed `timestamp`, `validFrom`, and
@@ -240,9 +272,9 @@ incomplete and return `unproven` for all historical authority comparisons. A con
 treat `unproven` as fail-closed; it cannot guess ordering from currently held ids.
 
 The signed creation time, the claimed validity interval, and the receiver's arrival time are
-three independent axes. Validity is evaluated at the caller's explicit read time. A later local
-adoption MAY name a foreign delta and choose a local effective time, but receipt never rewrites
-the foreign claim's validity interval.
+three independent axes. Validity is evaluated at the caller's explicit read time. A separate local
+claim may reference a foreign delta and use its own validity interval; receiving the foreign
+delta never rewrites its interval.
 
 An arrival record can be persisted as private peer metadata or expressed as a receiver-signed
 annotation delta. The portable contract is the receiver's observable testimony, not one storage
@@ -280,6 +312,10 @@ incompleteness remains after re-entry, so a later consumer cannot infer a false 
   Sending E1 first in a separate transfer also rejects E2. An E whose policy derives tenant
   authority from its **own** target remains eligible in the reduced-set recheck. A closure
   configuration that assigns post-commit requirements to erasures is rejected at setup.
+- An operator-authorized erasure E names absent D. E lands, installs a refusal for D, and creates
+  no byte-removal obligation while no declared surface holds D. A later verified offer of D is
+  refused before caller guards, with a binding discrepancy reported if D's author differs from
+  E's claim; permanent refusal still prevents D from landing.
 - An order candidate E is rejected by the erasure budget or reduced-set authority check. It does not
   land as ordinary data; a later re-offer is judged again. An erasure classified as
   testimony may land, but has no exclusion effect.
@@ -312,6 +348,11 @@ incompleteness remains after re-entry, so a later consumer cannot infer a false 
   normal validity and read rules.
   `peer-released` and `bytes-removed` gates give different outcomes while another peer retains
   the bytes.
+- After `reentry-blocked`, an authorized re-entry act may be retried only while its named refusal
+  event is current and its signer is still authorized at commit under the receiving PeerId's exact
+  delegation scope. A synced copy executes nowhere else. A new effective E2 for D during the
+  block creates a new refusal event, so retrying the old act cannot re-admit D. After successful
+  re-entry, a duplicate E reports `held-effective-for-epoch` for the old epoch while D serves.
 - An id permanently refused after erasure is rejected by both local append and foreign transfer,
   even when the erasure record has been negated.
 - A candidate grant G and an act A arrive together. A guard checking A's authority uses the
@@ -324,8 +365,13 @@ incompleteness remains after re-entry, so a later consumer cannot infer a false 
   rank and charges only the ids that finally land. A bundle too large for remaining quota is
   skipped while a later fitting loose candidate may land. A low-ranked bundle containing an
   erasure and its target is rejected **before** quota and cannot consume capacity that would
-  admit a fitting honest bundle. A low-id unauthorized erasure or one that fails the conservative
+  admit a fitting honest bundle. A low-id unauthorized order candidate or one that fails the conservative
   authority recheck cannot consume an erasure-specific budget ahead of a valid order.
+- Without an offered lens, eligible T and its co-offered negation N reach ordinary quota. If quota
+  skips N, final dependency pruning removes T too; T never lands as a live claim merely because
+  quota cut N. If a candidate-local guard rejects N, N is not eligible and this mandatory
+  dependency does not bypass that guard. The same rule applies when N itself has an eligible
+  co-offered negation.
 - A non-monotone policy authorizes E when held A and B have the same presence. Both are held
   before transfer; provisional H_A and H_B erase A and B, so E survives the first reduced-set
   check. A later budget keeps H_A but skips H_B, leaving A absent and B present; the second
