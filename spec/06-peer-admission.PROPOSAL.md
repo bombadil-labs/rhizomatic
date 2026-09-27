@@ -44,11 +44,15 @@ The pipeline is:
    proposed transfer. Apply the receiver's permanent refusal set on **every** entry path,
    including local append and foreign transfer, before any caller-selected guard. An id in that
    set cannot re-enter even when its erasure record is negated. Deduplicate ids already **admitted**
-   before any guard or quota. An id with an outstanding purge is outside the admitted set: a
-   re-offer gets an explicit `purge-pending` outcome, not a silent duplicate, and cannot re-enter
-   yet. Preserve each verified bundle's coverage and any self-signed loose copy as separate
+   before any guard or quota. An id with an **active** purge obligation is outside the admitted
+   set: a re-offer gets an explicit `purge-pending` outcome, not a silent duplicate. The gate and
+   terminal transition in step 6 decide when a lower-posture peer may re-admit it. Preserve each
+   verified bundle's coverage and any self-signed loose copy as separate
    candidate units until bundle selection; coalesce an id only when it lands. Invalid or refused
-   candidates cannot serve as evidence for others.
+   candidates cannot serve as evidence for others. In a bundle covering any unsigned member,
+   **every** member's claimed author MUST equal the verified manifest signer. Reject a bundle
+   that mixes authors during verification, even when the foreign member was already admitted.
+   Its self-signed members remain independently eligible as loose candidates.
 2. Apply the subscribed lens, when present, and its **declared** closure rule. That rule may add
    related candidates from the verified offer (for example, negations or manifest members), but
    never fabricate a delta or bypass **any** candidate-local guard. It states which selected ids
@@ -59,12 +63,7 @@ The pipeline is:
    silently turn an erasure order into a non-erasure candidate. Target-author binding is a
    verification check, not a closure requirement.
 3. Apply candidate-local guards in declared order, each against the same pre-transfer admitted
-   set. No general transfer quota is charged at this stage; a candidate rejected later cannot
-   consume ordinary capacity. A receiver that limits erasure orders uses an explicit erasure
-   guard before step 4, using a receiver-declared rank independent of wire order. That guard
-   checks the structural erasure exclusions in step 4 before ranking units, so an E-plus-target
-   or mixed-member bundle cannot consume erasure capacity either. A quota cannot withdraw an
-   order after its exclusion took effect.
+   set. No quota is charged at this stage; a candidate rejected later cannot consume capacity.
 4. Compute a **proposed** final set without changing holdings. Apply any declared, deterministic
    candidate-set conflict rule to candidates that passed steps 1–3, using the pre-transfer
    admitted set. Next form **provisional erasure orders**: candidates that passed every prior
@@ -75,13 +74,16 @@ The pipeline is:
    even if the target was already admitted. An erasure-bearing bundle may contain only its
    manifest and erasure members; mixing ordinary members into an effective erasure unit is
    rejected so they cannot bypass the ordinary quota. An erasure targeting an erasure is invalid.
-   A foreign
-   erasure is testimony unless the receiving peer's declared policy makes it a provisional local
-   order. Before any effect, remove every provisional target from a copy of the pre-transfer
-   admitted set and recheck each provisional order's authorization against that reduced set.
-   Only orders that pass **both** checks are effective; a failed order is not reconsidered when
-   another order fails. This is the default conservative rule: same-transfer erasures cannot
-   preserve authority for one another or widen what is purged through batching. A rejected order
+   A foreign erasure is testimony unless the receiving peer's declared policy makes it a
+   provisional local order. Conservatively filter those orders: for each E, remove the targets of
+   **other** provisional orders from a copy of the pre-transfer admitted set, but retain E's own
+   target even if another order names that same id. Recheck E's authorization against that
+   reduced set. Remove failing orders without re-admitting one; repeat until no further order
+   fails. Apply any erasure-specific budget only to these survivors, using a receiver-declared
+   rank independent of wire order; a skipped order gets an `erasure-limit` outcome. Run the same
+   conservative filter again on the budget-selected orders, without refilling budget after a
+   failure. Only its survivors are effective. Thus an order may verify its own target's tenant or
+   author while a second order cannot preserve authority that its peer erases. A rejected order
    gets an `erasure-ineligible` outcome and reason in the receiver's private report. Only
    effective orders
    exclude and refuse their targets. They may target a separate co-offered candidate: that
@@ -113,11 +115,18 @@ The pipeline is:
    per-peer release can complete while host bytes remain for another peer. The peer's declared
    erasure posture MUST name its re-entry gate: `peer-released` (its reference is verifiably
    absent) or `bytes-removed` (physical absence is proved on declared surfaces). A shared-held id
-   cannot pass the latter gate while another peer retains its bytes. Every pending or failed
-   obligation remains visible across restart and is retryable through an explicit operation;
-   failure never silently counts as completion. The id remains outside serving reads. A lower
-   erasure posture may permit re-entry only when its declared gate is complete; a permanent
-   refusal never does. A rejected or duplicate id creates no arrival event.
+   cannot pass the latter gate while another peer retains its bytes. Every active pending or
+   failed obligation remains visible across restart and is retryable through an explicit
+   operation; failure never silently counts as byte removal. Under `bytes-removed`, re-entry
+   waits for the obligation's terminal `removed` state. Under `peer-released`, it waits for release
+   and for every in-flight physical purge of the old admission epoch to finish or be fenced out.
+   Re-entry atomically makes the old obligation terminal as `superseded` (with a byte report of
+   `not removed` unless absence was independently proved), creates the new admission epoch, and
+   forbids any retry of that old obligation. A purge worker MUST check the epoch fence before it
+   removes bytes; an old worker cannot remove a newly admitted holding. The old erasure's
+   exclusion applies only to the old epoch. Before re-entry the id is outside serving reads;
+   after re-entry it is eligible under the ordinary validity and read policies. A permanent
+   refusal never permits re-entry. A rejected or duplicate id creates no arrival event.
    Quota capacity may remain unused after dependency pruning, but an id that did not land is
    never charged. An internal `purge-pending` outcome reveals that the peer held and erased this
    id; a public endpoint MAY map it to a generic refusal, while preserving the private reason.
@@ -132,6 +141,8 @@ can land only through a selected verified bundle that covers it. Each bundle is 
 ranked independently; if one fails verification, guard, closure, or quota, another covering
 bundle remains eligible. When two bundles land with a shared member, that id lands once, has one
 arrival event, and costs quota once. No bundle borrows a member from a bundle that failed.
+The same-author rule for bundles with unsigned members prevents a third-party author from
+permanently vetoing their admission by erasing its own member, signed or unsigned.
 Repeated appearances of one id create at most one arrival event and quota charge. The candidate
 set is unordered; every set-level selection uses the declared rank. Separate transfers in
 different orders may still produce different admitted sets because their pre-transfer states
@@ -218,16 +229,20 @@ incompleteness remains after re-entry, so a later consumer cannot infer a false 
 - A testimony-only foreign erasure and an unauthorized local erasure co-offered with D have no
   exclusion effect; D and a bystander can land. An effective erasure E of held N makes N
   unavailable as a post-commit requirement for candidate T; T is pruned, while E and an
-  unrelated candidate land. E1, authorized by the pinned root, erases grant G, which is E2's sole authority: both are
-  provisionally eligible, but the reduced-snapshot recheck rejects E2. Sending E1 first in a
-  separate transfer also rejects E2. A closure configuration that assigns post-commit
-  requirements to erasures is rejected at setup.
+  unrelated candidate land. E1, authorized by the pinned root, erases grant G, which is E2's sole
+  authority: both are provisionally eligible, but the reduced-snapshot recheck rejects E2.
+  Sending E1 first in a separate transfer also rejects E2. An E whose policy derives tenant
+  authority from its **own** target remains eligible in the reduced-set recheck. A closure
+  configuration that assigns post-commit requirements to erasures is rejected at setup.
 - A committed erasure with an unfinished purge keeps its id outside the admitted and serving
   sets after restart. A re-offer gets `purge-pending`, not silent dedup, and cannot race the
   purge. The report stays `pending` or `failed` with a durable fault until declared surfaces
-  prove removal; a failed purge can be retried. Release of a shared-host reference is reported
-  separately from physical removal. `peer-released` and `bytes-removed` re-entry gates give
-  different outcomes while another peer retains the bytes.
+  prove removal or a weaker `peer-released` re-entry supersedes the obligation. A failed purge
+  can be retried while active. Re-entry after peer release waits for old purge workers to be
+  fenced out, then atomically marks the old obligation `superseded` and admits a new epoch; an old
+  retry cannot delete the new holding. The new epoch serves under normal validity and read rules.
+  `peer-released` and `bytes-removed` gates give different outcomes while another peer retains
+  the bytes.
 - An id permanently refused after erasure is rejected by both local append and foreign transfer,
   even when the erasure record has been negated.
 - A candidate grant G and an act A arrive together. A guard checking A's authority uses the
@@ -240,7 +255,8 @@ incompleteness remains after re-entry, so a later consumer cannot infer a false 
   rank and charges only the ids that finally land. A bundle too large for remaining quota is
   skipped while a later fitting loose candidate may land. A low-ranked bundle containing an
   erasure and its target is rejected **before** quota and cannot consume capacity that would
-  admit a fitting honest bundle.
+  admit a fitting honest bundle. A low-id unauthorized erasure or one that fails the conservative
+  authority recheck cannot consume an erasure-specific budget ahead of a valid order.
 - A foreign delta with a future `validFrom` is admitted at T and remains invisible to validity
   reads until its signed start. Arrival testimony says T throughout.
 - A duplicate delivery does not change first arrival or charge quota; a rejected delta has no
@@ -251,9 +267,12 @@ incompleteness remains after re-entry, so a later consumer cannot infer a false 
   bundle naming it fails. Two verified bundles covering the same unsigned member are considered
   independently; a failing or oversized attacker bundle cannot veto a fitting honest bundle.
   When both land, the shared id creates one arrival record and one quota charge.
-- A loose effective erasure E targets D in a separate bundle {D, unsigned M}. E lands, that
-  bundle is rejected without splitting it, and M needs another valid cover or a later bundle.
-  The private report names `bundle-excluded-by-erasure`; an unrelated loose bystander lands.
+- A loose effective erasure E targets D in a separate same-signer bundle {D, unsigned M}. E
+  lands, that bundle is rejected without splitting it, and M needs another valid cover or a
+  later bundle. The private report names `bundle-excluded-by-erasure`; an unrelated loose
+  bystander lands. If Alice's bundle covers unsigned M and a Mallory-authored D, signed or
+  unsigned, the bundle is invalid at verification, so Mallory cannot permanently veto M by
+  erasing D.
 - A lower-posture peer erases and fully purges an id, then re-admits it. The new arrival sequence
   is greater than every earlier sequence, even when old arrival metadata was purged; it is a new
   admission epoch for that id, not an earlier event in the peer's history. A persisted purged-epoch
