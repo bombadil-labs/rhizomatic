@@ -12,7 +12,10 @@ A shared backend does not collapse two peers into one: each peer keeps its own a
 decisions, arrival records, governing key, sharing policy, refusal set, and erasure reports. A
 container hosted inside another peer is still a peer. Since `PeerId` is the peer's public key,
 two logical peers MUST have different governing keys; reusing one key identifies one peer, not
-two. When one peer erases an id, a shared backend MUST preserve bytes still held by another peer.
+two. A host MAY offer a combined view or coordinated operations across peers for convenience,
+but that composition does not merge their ids, keys, admission decisions, arrival histories,
+refusal sets, or erasure obligations and reports. When one peer erases an id, a shared backend
+MUST preserve bytes still held by another peer.
 An erasing peer may report that it released its own holding, but it MUST NOT report physical byte
 removal until removal is confirmed on its declared storage surfaces. A host-level report may say
 that bytes remain for another tenant, without naming that tenant; a peer MUST NOT reveal another
