@@ -46,6 +46,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
   An active-only carry transition check now rejects dropped or renumbered purge debt and changed
   historical refusal events across a later peer. Holding evidence accepts an admitted manifest
   directly and rejects refused or unused separate covers.
+  A v4 closed import image now durably stages the inherited-refusal image, verified holding
+  inventory, active obligations, policy bytes, and old-peer attempt descriptor under separately
+  pinned carried-state and policy digests. It remains closed pending authoritative commit proof.
 
 ## 0.11.0-next.1 — 2026-09-25
 

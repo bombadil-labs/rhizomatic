@@ -175,20 +175,37 @@ fn shared_active_carry_transitions() {
         .unwrap_or_else(|error| panic!("{}: {error}", case["name"]));
     }
     for case in vector["invalidCases"].as_array().unwrap() {
-        let (after_snapshot, after) = successor(
-            case["mutation"].as_str().unwrap(),
-            &original,
-            snapshot(
-                case["afterSnapshotCase"].as_u64().unwrap() as usize,
-                &snapshots,
-            ),
+        let previous_index = case["beforeCarryCase"]
+            .as_u64()
+            .unwrap_or(vector["beforeCarryCase"].as_u64().unwrap())
+            as usize;
+        let previous = ImportedObligationCarry {
+            obligations: carries["cases"][previous_index]["obligations"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(obligation)
+                .collect(),
+        };
+        let after_snapshot = snapshot(
+            case["afterSnapshotCase"].as_u64().unwrap() as usize,
+            &snapshots,
         );
+        let (after_snapshot, after) = if case["mutation"] == "identity-reuse" {
+            (after_snapshot, previous.clone())
+        } else {
+            successor(
+                case["mutation"].as_str().unwrap(),
+                &original,
+                after_snapshot,
+            )
+        };
         let error = validate_imported_obligation_transition(
             &before_snapshot,
-            &before,
+            &previous,
             &after_snapshot,
             &after,
-            "peer-B",
+            case["interveningPeerId"].as_str().unwrap_or("peer-B"),
         )
         .unwrap_err();
         assert!(

@@ -5,6 +5,8 @@ pub mod alias;
 pub mod arrival;
 pub mod b64u;
 pub mod cbor;
+#[doc(hidden)]
+pub mod closed_import;
 pub mod delta;
 pub mod derivation;
 #[doc(hidden)]

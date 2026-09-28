@@ -80,6 +80,17 @@ transition belong to the intervening peer; they cannot be minted under an inheri
 For every target refused by a new intervening-peer event, the later snapshot's current reference
 MUST name that peer's latest new event. Otherwise it retains the earlier current reference.
 An active-only transition with no terminal proof therefore rejects a missing earlier obligation.
+A combined closed import stage MAY persist these three already validated components together:
+the complete inherited-refusal snapshot, the verified admitted-holding inventory, and the active
+obligation carry. It MUST bind the new peer id, old peer id, attempt id, old state version, trusted
+old-peer deadline, and the destination policy's format and bytes. The carried-state digest covers
+the three canonical component images; the policy digest covers its format and bytes separately.
+The new peer's local candidate state is empty at this stage, so copied host arrivals cannot be
+mistaken for new-peer testimony. A one-shot stage verifies and syncs the independent refusal
+recovery copy before creating its own durable primary image. The stage alone cannot authenticate
+the old peer's record, interpret opaque policy bytes, transfer obligation ownership, admit
+holdings, or serve. The later commit compares both digests and the attempt descriptor against
+old-peer-authoritative proof before assigning new-peer arrivals or opening any entry path.
 The v1 permanent-posture inherited-refusal snapshot binds every carried refusal event to its
 source `PeerId` and source sequence, and names exactly one current event for every event target.
 It retains earlier events for the same target; a current reference cannot point before a later

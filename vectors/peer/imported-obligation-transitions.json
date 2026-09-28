@@ -19,6 +19,8 @@
     { "name": "earlier refusal event cannot be rewritten", "mutation": "changed-prior-event", "afterSnapshotCase": 5, "expected": "prior refusal event changed" },
     { "name": "new refusal event cannot be minted under a foreign source", "mutation": "foreign-event", "afterSnapshotCase": 5, "expected": "foreign refusal event added" },
     { "name": "current obligation event cannot remain stale", "mutation": "stale-current-event", "afterSnapshotCase": 5, "expected": "invalid active obligation" },
-    { "name": "new local refusal event must become current", "mutation": "local-event-not-current", "afterSnapshotCase": 5, "expected": "current refusal did not advance" }
+    { "name": "new local refusal event must become current", "mutation": "local-event-not-current", "afterSnapshotCase": 5, "expected": "current refusal did not advance" },
+    { "name": "intervening peer cannot reuse an inherited refusal source", "mutation": "identity-reuse", "afterSnapshotCase": 2, "interveningPeerId": "peer-A", "expected": "intervening peer reuses inherited source" },
+    { "name": "intervening peer cannot reuse an inherited obligation source", "mutation": "identity-reuse", "beforeCarryCase": 3, "afterSnapshotCase": 2, "interveningPeerId": "peer-B", "expected": "intervening peer reuses inherited source" }
   ]
 }

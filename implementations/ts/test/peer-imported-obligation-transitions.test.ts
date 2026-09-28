@@ -19,6 +19,8 @@ const vector = at("imported-obligation-transitions.json") as {
     name: string;
     mutation: string;
     afterSnapshotCase: number;
+    beforeCarryCase?: number;
+    interveningPeerId?: string;
     expected: string;
   }>;
 };
@@ -155,18 +157,18 @@ describe("shared SPEC-6 active carry succession", () => {
   }
   for (const c of vector.invalidCases) {
     it(c.name, () => {
-      const { afterSnapshot, after } = successor(
-        c.mutation,
-        original,
-        snapshot(c.afterSnapshotCase),
-      );
+      const previous = carryVector.cases[c.beforeCarryCase ?? vector.beforeCarryCase]!;
+      const { afterSnapshot, after } =
+        c.mutation === "identity-reuse"
+          ? { afterSnapshot: snapshot(c.afterSnapshotCase), after: previous }
+          : successor(c.mutation, original, snapshot(c.afterSnapshotCase));
       expect(() =>
         validateImportedObligationTransition(
           beforeSnapshot,
-          before,
+          previous,
           afterSnapshot,
           after,
-          vector.interveningPeerId,
+          c.interveningPeerId ?? vector.interveningPeerId,
         ),
       ).toThrow(c.expected);
     });

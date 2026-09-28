@@ -19,7 +19,8 @@ earlier active row keeps its identity, target, surface, generation, and prior ep
 fault, and the current refusal-event reference may advance. Earlier qualified refusal events
 survive unchanged; newly created events and obligations must name the intervening peer. A later
 intervening-peer event for a target becomes its current reference; without one, that reference
-stays put. A later format must carry authenticated terminal byte proof before an active row can
+stays put. The intervening peer id cannot reuse any inherited event or obligation source. A later
+format must carry authenticated terminal byte proof before an active row can
 disappear.
 
 This image is a staged component. It does not prove that a surface holds the named bytes, that

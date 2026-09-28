@@ -254,6 +254,17 @@ pub fn validate_imported_obligation_transition(
     if intervening_peer_id.is_empty() {
         return Err("imported obligations: invalid intervening peer".into());
     }
+    if before_snapshot
+        .events
+        .iter()
+        .any(|event| event.source_peer_id == intervening_peer_id)
+        || before
+            .obligations
+            .iter()
+            .any(|row| row.source_peer_id == intervening_peer_id)
+    {
+        return Err("imported obligations: intervening peer reuses inherited source".into());
+    }
     let old_events: BTreeMap<(&str, u64), _> = before_snapshot
         .events
         .iter()

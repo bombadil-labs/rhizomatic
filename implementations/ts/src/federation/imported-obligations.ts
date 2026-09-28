@@ -196,6 +196,11 @@ export function validateImportedObligationTransition(
   encodeImportedObligations(beforeSnapshot, before);
   encodeImportedObligations(afterSnapshot, after);
   if (!interveningPeerId) throw new Error("imported obligations: invalid intervening peer");
+  if (
+    beforeSnapshot.events.some((event) => event.sourcePeerId === interveningPeerId) ||
+    before.obligations.some((row) => row.sourcePeerId === interveningPeerId)
+  )
+    throw new Error("imported obligations: intervening peer reuses inherited source");
   const oldEvents = new Map(beforeSnapshot.events.map((event) => [refKey(event), event]));
   const nextEvents = new Map(afterSnapshot.events.map((event) => [refKey(event), event]));
   for (const [key, previous] of oldEvents) {
