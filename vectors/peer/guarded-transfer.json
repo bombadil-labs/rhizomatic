@@ -1,0 +1,102 @@
+{
+  "spec": "SPEC-6 vNext §2 steps 1 and 3",
+  "description": "Candidate-local guards use only the pre-transfer admitted set. Bundle and loose copies remain separate units until later selection.",
+  "cases": [
+    {
+      "name": "a same-transfer grant cannot authorize an act",
+      "prior": [],
+      "units": [{ "loose": "grant" }, { "loose": "act" }],
+      "guards": ["requiresGrant"],
+      "expected": ["eligible", "guard-rejected"],
+      "fresh": [["grant"], []],
+      "checked": ["grant", "act"]
+    },
+    {
+      "name": "wire order does not let a grant authorize an act",
+      "prior": [],
+      "units": [{ "loose": "act" }, { "loose": "grant" }],
+      "guards": ["requiresGrant"],
+      "expected": ["guard-rejected", "eligible"],
+      "fresh": [[], ["grant"]],
+      "checked": ["act", "grant"]
+    },
+    {
+      "name": "a prior grant authorizes an act and the duplicate skips guards",
+      "prior": ["grant"],
+      "units": [{ "loose": "grant" }, { "loose": "act" }],
+      "guards": ["requiresGrant"],
+      "expected": ["duplicate", "eligible"],
+      "fresh": [[], ["act"]],
+      "checked": ["act"]
+    },
+    {
+      "name": "same-transfer revocation does not change guard authority",
+      "prior": ["grant"],
+      "units": [{ "loose": "revoke" }, { "loose": "act" }],
+      "guards": ["requiresGrant"],
+      "expected": ["eligible", "eligible"],
+      "fresh": [["revoke"], ["act"]],
+      "checked": ["revoke", "act"]
+    },
+    {
+      "name": "one rejected member rejects its bundle but a loose copy remains independent",
+      "prior": [],
+      "units": [{ "bundle": ["act", "deny"] }, { "loose": "act" }],
+      "guards": ["denyValue"],
+      "expected": ["guard-rejected", "eligible"],
+      "fresh": [[], ["act"]],
+      "checked": ["manifest", "act", "deny", "act"]
+    },
+    {
+      "name": "refusal rejects a bundle before any guard",
+      "prior": [],
+      "refused": ["deny"],
+      "units": [{ "bundle": ["act", "deny"] }, { "loose": "act" }],
+      "guards": ["denyValue"],
+      "expected": ["refused", "eligible"],
+      "fresh": [[], ["act"]],
+      "checked": ["act"]
+    },
+    {
+      "name": "invalid loose input never reaches a guard",
+      "prior": [],
+      "units": [{ "loose": "act", "mutation": "forgeSignature" }],
+      "guards": ["requiresGrant"],
+      "expected": ["invalid"],
+      "fresh": [[]],
+      "checked": []
+    },
+    {
+      "name": "peer context is supplied to the guard",
+      "prior": [],
+      "sender": "unexpected",
+      "units": [{ "loose": "act" }],
+      "guards": ["expectedPeer"],
+      "expected": ["guard-rejected"],
+      "fresh": [[]],
+      "checked": ["act"]
+    },
+    {
+      "name": "declared guard order stops at the first rejection",
+      "prior": [],
+      "sender": "unexpected",
+      "units": [{ "loose": "deny" }],
+      "guards": ["expectedPeer", "denyValue"],
+      "expected": ["guard-rejected"],
+      "fresh": [[]],
+      "checked": ["deny"],
+      "checkedOrder": ["expectedPeer:deny"]
+    },
+    {
+      "name": "reversing guards changes which rule runs first",
+      "prior": [],
+      "sender": "unexpected",
+      "units": [{ "loose": "deny" }],
+      "guards": ["denyValue", "expectedPeer"],
+      "expected": ["guard-rejected"],
+      "fresh": [[]],
+      "checked": ["deny"],
+      "checkedOrder": ["denyValue:deny"]
+    }
+  ]
+}

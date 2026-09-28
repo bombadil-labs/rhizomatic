@@ -94,6 +94,15 @@ export { packId, packSet, unpackSet } from "./pack.js";
 export { Peer, syncBoth, type SyncReport } from "./peer.js";
 export { bundleEntryStatus, looseEntryStatus, type LooseEntryStatus } from "./federation/entry.js";
 export {
+  preflightTransfer,
+  type CandidateGuard,
+  type GuardContext,
+  type GuardedUnit,
+  type GuardedUnitStatus,
+  type PreflightContext,
+  type TransferUnit,
+} from "./federation/preflight.js";
+export {
   planArrivals,
   type ArrivalCursor,
   type ArrivalPlan,
