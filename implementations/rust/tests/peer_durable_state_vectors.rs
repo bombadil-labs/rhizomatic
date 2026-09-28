@@ -430,6 +430,56 @@ fn durable_writer_transitions_match_shared_vectors() {
                     fault: None,
                 }];
             }
+            Some("coOfferedRefusedArrival") => {
+                let target_id = named["userRootDeclaration"].id.clone();
+                let order_id = named["operatorRootDeclaration"].id.clone();
+                let planned = plan_arrivals(
+                    actual.base.cursor,
+                    &BTreeSet::new(),
+                    &[target_id.clone(), order_id.clone()],
+                    100.0,
+                    "peer-B",
+                )
+                .unwrap();
+                let prior_epoch = planned
+                    .arrivals
+                    .iter()
+                    .find(|row| row.id == target_id)
+                    .unwrap()
+                    .sequence;
+                proposed.base.admitted =
+                    DeltaSet::from_deltas([named["operatorRootDeclaration"].clone()]).unwrap();
+                proposed.base.cursor = ArrivalCursor {
+                    last_sequence: planned.last_sequence,
+                    last_transfer: planned.last_transfer,
+                };
+                proposed.base.arrivals = planned.arrivals;
+                proposed.base.refused_ids.insert(target_id.clone());
+                proposed.quota_used = 1;
+                proposed.refusal_counter = 1;
+                proposed.obligation_counter = 1;
+                proposed.events = vec![RefusalEvent {
+                    sequence: 1,
+                    target_id: target_id.clone(),
+                    order_ids: vec![order_id.clone()],
+                    prior_epoch: Some(prior_epoch),
+                }];
+                proposed.exclusions = vec![ErasureExclusion {
+                    order_id,
+                    target_id: target_id.clone(),
+                    event_sequence: 1,
+                    prior_epoch: Some(prior_epoch),
+                }];
+                proposed.obligations = vec![PurgeObligation {
+                    sequence: 1,
+                    target_id,
+                    generation: 1,
+                    event_sequence: 1,
+                    prior_epoch: Some(prior_epoch),
+                    status: "pending".into(),
+                    fault: None,
+                }];
+            }
             _ => {}
         }
         let expected_bytes = case["expectedCase"].as_u64().map(|index| {

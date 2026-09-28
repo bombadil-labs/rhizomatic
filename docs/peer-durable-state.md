@@ -12,17 +12,16 @@ no purge obligation.
 effective erasure groups. Its caller must run candidate verification, guards, authority filtering,
 ordinary selection, and surface ownership checks before supplying those decisions. The planner
 does not interpret an order's claims to discover its target; the caller must verify the
-order-to-target binding before planning.
-The planner
-rejects duplicate or permanently refused additions, unsigned effective orders, repeated target
+order-to-target binding before planning. The planner rejects duplicate or permanently refused additions, unsigned effective orders, repeated target
 groups, an ordinary quota charge that differs from the new non-order ids, and counter overflow.
-It assigns new arrival testimony and forms one image containing
-all changes. The file writer then replaces that complete image with a sync, rename, and directory
+It assigns new arrival testimony and forms one image containing all changes. The file writer then
+replaces that complete image with a sync, rename, and directory
 sync. Each write must supply the exact prior image bytes it planned against, or `null` when
 creating the file; a mismatch rejects the write. The writer also verifies that newly effective
-orders arrived in that transition and that quota growth equals new non-order arrivals. This
-expected-image check assumes the documented single writer; it does not implement a cross-process
-atomic compare-and-swap. A post-rename directory sync failure means `committed-unconfirmed`; the caller must reload
+orders arrived in that transition, that quota growth equals new non-order arrivals, and that every
+new arrival remains admitted. The expected-image check assumes the documented single writer; it
+does not implement a cross-process atomic compare-and-swap. A post-rename directory sync failure
+means `committed-unconfirmed`; the caller must reload
 and reconcile before acknowledging anything. A failed plan or pre-rename write leaves the prior
 image intact. An existing corrupt image blocks reads and writes.
 

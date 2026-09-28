@@ -327,6 +327,42 @@ describe("shared SPEC-6 durable writer transition vectors", () => {
               },
             ],
           };
+        } else if (c.mutation === "coOfferedRefusedArrival") {
+          const targetId = id("userRootDeclaration");
+          const orderId = id("operatorRootDeclaration");
+          const planned = planArrivals(
+            actual.base.cursor,
+            new Set(),
+            [targetId, orderId],
+            100,
+            "peer-B",
+          );
+          const priorEpoch = planned.arrivals.find((row) => row.id === targetId)!.sequence;
+          proposed = {
+            ...actual,
+            base: {
+              ...actual.base,
+              admitted: DeltaSet.from([named.get("operatorRootDeclaration")!]),
+              cursor: { lastSequence: planned.lastSequence, lastTransfer: planned.lastTransfer },
+              arrivals: planned.arrivals,
+              refusedIds: new Set([targetId]),
+            },
+            quotaUsed: 1,
+            refusalCounter: 1,
+            obligationCounter: 1,
+            events: [{ sequence: 1, targetId, orderIds: [orderId], priorEpoch }],
+            exclusions: [{ orderId, targetId, eventSequence: 1, priorEpoch }],
+            obligations: [
+              {
+                sequence: 1,
+                targetId,
+                generation: 1,
+                eventSequence: 1,
+                priorEpoch,
+                status: "pending",
+              },
+            ],
+          };
         } else proposed = fromCase(vector.cases[c.proposedCase!]!);
         const expected =
           c.expectedCase === undefined

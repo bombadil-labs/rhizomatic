@@ -32,6 +32,12 @@
       "actualCase": 0,
       "proposedCase": 0,
       "expected": "expected prior image changed"
+    },
+    {
+      "name": "co-offered refused target cannot receive arrival",
+      "beforeCase": 0,
+      "mutation": "coOfferedRefusedArrival",
+      "expected": "new arrival is not admitted"
     }
   ]
 }

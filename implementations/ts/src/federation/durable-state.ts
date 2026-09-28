@@ -361,6 +361,8 @@ function validateTransition(before: DurablePeerState, after: DurablePeerState): 
       throw new Error("durable peer state: prior refusal event changed");
   }
   const newArrivals = after.base.arrivals.slice(before.base.arrivals.length);
+  if (newArrivals.some((row) => !after.base.admitted.has(row.id)))
+    throw new Error("durable peer state: new arrival is not admitted");
   const newIds = new Set(newArrivals.map((row) => row.id));
   const newOrders = new Set<string>();
   for (const event of after.events.slice(before.events.length)) {

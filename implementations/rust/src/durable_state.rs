@@ -442,6 +442,12 @@ fn validate_transition(before: &DurablePeerState, after: &DurablePeerState) -> R
         return Err("durable peer state: prior refusal event changed".into());
     }
     let new_arrivals = &after.base.arrivals[before.base.arrivals.len()..];
+    if new_arrivals
+        .iter()
+        .any(|row| !after.base.admitted.contains(&row.id))
+    {
+        return Err("durable peer state: new arrival is not admitted".into());
+    }
     let new_ids: BTreeSet<&str> = new_arrivals.iter().map(|row| row.id.as_str()).collect();
     let mut new_orders = BTreeSet::new();
     for event in &after.events[before.events.len()..] {
