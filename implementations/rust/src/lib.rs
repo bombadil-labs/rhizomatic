@@ -7,6 +7,7 @@ pub mod b64u;
 pub mod cbor;
 pub mod delta;
 pub mod derivation;
+pub mod entry;
 pub mod eval;
 pub mod hash;
 // The HTTP binding is host-only (tiny_http/ureq do not build on wasm32).
@@ -38,6 +39,7 @@ pub use alias::{relation_signature, relation_signature_canonical_hex};
 pub use arrival::{plan_arrivals, ArrivalCursor, ArrivalPlan, ArrivalRecord};
 pub use delta::{canonical_bytes, canonical_hex, compute_id};
 pub use derivation::{verify_pure_derivation, BindingSpec, DerivationHost};
+pub use entry::{loose_entry_status, LooseEntryStatus};
 pub use eval::{
     alias_closure, eval_term, expand_aliased, governed_deltas, latest_by_key, result_canonical_hex,
     EvalResult, GroupKey, MaskPolicy, PruneKeep, Term,
