@@ -15,10 +15,11 @@ import { makeManifestClaims } from "../src/reactor/reactor.js";
 interface Case {
   name: string;
   prior: string[];
+  priorOrder?: "reverseId";
   refused?: string[];
   sender?: string;
   units: Array<{ loose: string; mutation?: "forgeSignature" } | { bundle: string[] }>;
-  guards: Array<"requiresGrant" | "denyValue" | "expectedPeer">;
+  guards: Array<"requiresGrant" | "denyValue" | "expectedPeer" | "sortedPrior">;
   expected: string[];
   fresh: string[][];
   checked: string[];
@@ -79,7 +80,9 @@ describe("shared SPEC-6 guarded transfer vectors", () => {
           members,
         };
       });
-      const prior = DeltaSet.from(c.prior.map((label) => named.get(label)!));
+      const priorDeltas = c.prior.map((label) => named.get(label)!);
+      if (c.priorOrder === "reverseId") priorDeltas.sort((a, b) => b.id.localeCompare(a.id));
+      const prior = DeltaSet.from(priorDeltas);
       const seen: string[] = [];
       const seenOrder: string[] = [];
       const guards: CandidateGuard<{ grantId: string }>[] = c.guards.map((rule) => (context) => {
@@ -89,6 +92,11 @@ describe("shared SPEC-6 guarded transfer vectors", () => {
         if (rule === "requiresGrant")
           return label !== "act" || context.admittedBefore.has(context.policyState.grantId);
         if (rule === "denyValue") return label !== "deny";
+        if (rule === "sortedPrior")
+          return (
+            [...context.admittedBefore].map((delta) => delta.id).join() ===
+            context.admittedBefore.ids().join()
+          );
         return context.sendingPeerId === "sender-A" && context.receivingPeerId === "receiver-B";
       });
       const result = preflightTransfer(units, {
@@ -131,6 +139,8 @@ it("isolates guard mutation from later guards, caller deltas, and returned candi
       ({ candidate, admittedBefore }) => {
         (candidate.claims as { author: string }).author = "tampered";
         ([...admittedBefore][0]!.claims as { author: string }).author = "tampered";
+        const standalone = admittedBefore.toDeltaSet();
+        ([...standalone][0]!.claims as { author: string }).author = "tampered";
         return true;
       },
       ({ candidate, admittedBefore, policyState: state }) =>

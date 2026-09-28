@@ -39,6 +39,16 @@
       "checked": ["revoke", "act"]
     },
     {
+      "name": "admitted snapshot enumerates ids in canonical order",
+      "prior": ["grant", "revoke", "deny"],
+      "priorOrder": "reverseId",
+      "units": [{ "loose": "act" }],
+      "guards": ["sortedPrior"],
+      "expected": ["eligible"],
+      "fresh": [["act"]],
+      "checked": ["act"]
+    },
+    {
       "name": "one rejected member rejects its bundle but a loose copy remains independent",
       "prior": [],
       "units": [{ "bundle": ["act", "deny"] }, { "loose": "act" }],

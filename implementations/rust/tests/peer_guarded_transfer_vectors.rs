@@ -92,14 +92,16 @@ fn candidate_guards_use_pre_transfer_state() {
                 units.push(TransferUnit::Bundle { manifest, members });
             }
         }
-        let prior = DeltaSet::from_deltas(
-            case["prior"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .map(|label| named[label.as_str().unwrap()].clone()),
-        )
-        .unwrap();
+        let mut prior_deltas: Vec<Delta> = case["prior"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|label| named[label.as_str().unwrap()].clone())
+            .collect();
+        if case["priorOrder"] == "reverseId" {
+            prior_deltas.sort_by(|a, b| b.id.cmp(&a.id));
+        }
+        let prior = DeltaSet::from_deltas(prior_deltas).unwrap();
         let refused: BTreeSet<String> = case["refused"]
             .as_array()
             .into_iter()
@@ -133,6 +135,11 @@ fn candidate_guards_use_pre_transfer_state() {
                         match rule.as_str() {
                             "requiresGrant" => label != "act" || before.contains(grant_id),
                             "denyValue" => label != "deny",
+                            "sortedPrior" => {
+                                let ids: Vec<&str> =
+                                    before.iter().map(|delta| delta.id.as_str()).collect();
+                                ids.windows(2).all(|pair| pair[0] <= pair[1])
+                            }
                             "expectedPeer" => sender == "sender-A" && receiver == "receiver-B",
                             _ => panic!("unknown guard"),
                         }

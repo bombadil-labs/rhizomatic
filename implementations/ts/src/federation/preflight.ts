@@ -12,6 +12,8 @@ export interface ReadonlyAdmittedSet extends Iterable<Delta> {
   get(id: string): Delta | undefined;
   readonly size: number;
   ids(): string[];
+  /** Create an independent mutable copy for APIs that require DeltaSet. Costs O(size). */
+  toDeltaSet(): DeltaSet;
 }
 
 export interface GuardContext<State> {
@@ -68,7 +70,7 @@ export function preflightTransfer<State>(
   // independent of caller-owned objects. Policy state is supplied by the application, whose
   // guards are required by the contract to treat it as read-only.
   const stableUnits = units.map((unit) => structuredClone(unit));
-  const stableBefore = DeltaSet.from([...admittedBefore].map((delta) => structuredClone(delta)));
+  const stableBefore = admittedBefore.copy();
   const admittedView: ReadonlyAdmittedSet = Object.freeze({
     has: (id: string) => stableBefore.has(id),
     get: (id: string) => {
@@ -79,8 +81,9 @@ export function preflightTransfer<State>(
       return stableBefore.size;
     },
     ids: () => stableBefore.ids(),
+    toDeltaSet: () => DeltaSet.from([...stableBefore].map((delta) => structuredClone(delta))),
     *[Symbol.iterator]() {
-      for (const delta of stableBefore) yield structuredClone(delta);
+      for (const id of stableBefore.ids()) yield structuredClone(stableBefore.get(id)!);
     },
   });
   const activeIds = new Set([...stableBefore].map((delta) => delta.id));

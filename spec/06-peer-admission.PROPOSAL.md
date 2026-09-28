@@ -220,12 +220,15 @@ The pipeline is:
    not silently remove the refusal. Target-author binding is not a closure requirement.
 3. Apply candidate-local guards in declared order, each against the same pre-transfer admitted
    set. A guard MUST be deterministic and side-effect-free with respect to its candidate,
-   pre-transfer set, and explicit policy state; mutation cannot change another guard's inputs or
-   the verified candidate that later stages receive. For each unit, the manifest runs first,
+   pre-transfer set, and explicit policy state. The implementation isolates the candidate and
+   admitted-set inputs so guard mutation cannot change later guards' inputs or the verified
+   candidate that later stages receive. The application supplies stable policy state, and its
+   guards MUST NOT mutate that state. For each unit, the manifest runs first,
    followed by supplied members in their supplied order; every fresh candidate runs guards in
    declared order. Repeated appearances of one fresh id in a unit run its guards once. A unit
    stops calling guards and is rejected after its first guard rejection. This call order carries
-   no admission authority and does not make the unit's
+   no admission authority. An iterable pre-transfer admitted set enumerates ascending delta id,
+   independent of how those ids arrived. Neither iteration order nor guard-call order makes the unit's
    set-level rank depend on wire order. No quota is charged at this stage; a
    candidate rejected later cannot consume capacity.
 4. Compute a **proposed** final set without changing holdings. Apply any declared, deterministic
