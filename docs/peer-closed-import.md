@@ -12,6 +12,8 @@ snapshot. The image retains the covering signed manifests needed to verify unsig
 including when the manifest is evidence outside the admitted set. Active purge identities,
 surfaces, generations, retry faults, and source-qualified event references are retained.
 An imported obligation cannot claim the new peer's source identity before that peer exists.
+Key spellings that identify the same public key are compared as one peer for this check, even
+before the signed preparation enforces canonical source spellings.
 
 `stageClosedImportState` / `stage_closed_import_state` creates one primary file only after a
 separate inherited-refusal recovery copy matches the snapshot digest and both the copy and its

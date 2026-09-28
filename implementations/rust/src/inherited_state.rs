@@ -7,6 +7,7 @@ use crate::durable_state::{
     decode_durable_peer_state, encode_durable_peer_state, DurablePeerState,
 };
 use crate::hash::content_address;
+use crate::peer_identity::same_peer_id;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::peer_state::PeerStateWriteOutcome;
 use crate::refusal_snapshot::{
@@ -54,7 +55,7 @@ fn validate(state: &ClosedPeerState) -> Result<(Vec<u8>, Vec<u8>), String> {
         .inherited
         .events
         .iter()
-        .any(|event| &event.source_peer_id == peer_id)
+        .any(|event| same_peer_id(&event.source_peer_id, peer_id))
     {
         return Err("closed peer state: inherited event uses local peer id".into());
     }

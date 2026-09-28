@@ -11,6 +11,7 @@ use crate::imported_obligations::{
     decode_imported_obligations, encode_imported_obligations, ImportedObligationCarry,
 };
 use crate::inherited_state::{decode_closed_peer_state, encode_closed_peer_state, ClosedPeerState};
+use crate::peer_identity::same_peer_id;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::peer_state::PeerStateWriteOutcome;
 #[cfg(not(target_arch = "wasm32"))]
@@ -56,7 +57,7 @@ struct Components {
 fn components(state: &ClosedImportState) -> Result<Components, String> {
     if state.attempt_id.is_empty()
         || state.old_peer_id.is_empty()
-        || state.old_peer_id == state.closed.local.base.peer_id
+        || same_peer_id(&state.old_peer_id, &state.closed.local.base.peer_id)
         || state.old_state_version > MAX_COUNTER
         || !state.deadline.is_finite()
         || state.policy_format.is_empty()
@@ -71,7 +72,7 @@ fn components(state: &ClosedImportState) -> Result<Components, String> {
         .obligations
         .obligations
         .iter()
-        .any(|row| row.source_peer_id == state.closed.local.base.peer_id)
+        .any(|row| same_peer_id(&row.source_peer_id, &state.closed.local.base.peer_id))
     {
         return Err("closed import: carried obligation uses new peer id".into());
     }

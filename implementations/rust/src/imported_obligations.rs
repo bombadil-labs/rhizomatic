@@ -4,6 +4,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use crate::cbor::{decode, encode, CborValue};
 use crate::hash::content_address;
+use crate::peer_identity::same_peer_id;
 use crate::refusal_snapshot::{
     encode_refusal_snapshot, refusal_snapshot_digest, QualifiedEventRef, RefusalSnapshot,
 };
@@ -257,11 +258,11 @@ pub fn validate_imported_obligation_transition(
     if before_snapshot
         .events
         .iter()
-        .any(|event| event.source_peer_id == intervening_peer_id)
+        .any(|event| same_peer_id(&event.source_peer_id, intervening_peer_id))
         || before
             .obligations
             .iter()
-            .any(|row| row.source_peer_id == intervening_peer_id)
+            .any(|row| same_peer_id(&row.source_peer_id, intervening_peer_id))
     {
         return Err("imported obligations: intervening peer reuses inherited source".into());
     }
@@ -292,7 +293,7 @@ pub fn validate_imported_obligation_transition(
     }
     for event in &after_snapshot.events {
         if !old_events.contains_key(&(event.source_peer_id.as_str(), event.sequence))
-            && event.source_peer_id != intervening_peer_id
+            && !same_peer_id(&event.source_peer_id, intervening_peer_id)
         {
             return Err("imported obligations: foreign refusal event added".into());
         }
@@ -352,7 +353,7 @@ pub fn validate_imported_obligation_transition(
     }
     for row in &after.obligations {
         if !old_rows.contains_key(&(row.source_peer_id.as_str(), row.sequence))
-            && row.source_peer_id != intervening_peer_id
+            && !same_peer_id(&row.source_peer_id, intervening_peer_id)
         {
             return Err("imported obligations: foreign obligation added".into());
         }

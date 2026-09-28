@@ -29,6 +29,7 @@ import {
   type ClosedPeerState,
 } from "./inherited-state.js";
 import type { PeerStateWriteOutcome } from "./peer-state.js";
+import { samePeerId } from "./peer-identity.js";
 import { encodeRefusalSnapshot, verifyRefusalSnapshotCopy } from "./refusal-snapshot.js";
 
 const VERSION = 4;
@@ -80,7 +81,7 @@ function components(state: ClosedImportState) {
     !wellFormed(state.attemptId) ||
     !state.oldPeerId ||
     !wellFormed(state.oldPeerId) ||
-    state.oldPeerId === state.closed.local.base.peerId ||
+    samePeerId(state.oldPeerId, state.closed.local.base.peerId) ||
     !Number.isSafeInteger(state.oldStateVersion) ||
     state.oldStateVersion < 0 ||
     !Number.isFinite(state.deadline) ||
@@ -91,7 +92,9 @@ function components(state: ClosedImportState) {
     throw new Error("closed import: invalid attempt or policy descriptor");
   if (!emptyLocal(state.closed)) throw new Error("closed import: local candidate is not empty");
   if (
-    state.obligations.obligations.some((row) => row.sourcePeerId === state.closed.local.base.peerId)
+    state.obligations.obligations.some((row) =>
+      samePeerId(row.sourcePeerId, state.closed.local.base.peerId),
+    )
   )
     throw new Error("closed import: carried obligation uses new peer id");
   const closed = encodeClosedPeerState(state.closed);

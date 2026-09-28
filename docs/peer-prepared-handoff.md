@@ -6,6 +6,11 @@ old and new governing keys, old surface, attempt, old state version, trusted dea
 snapshot digest, carried-state digest, and destination-policy digest. Both keys use
 `ed25519:<lowercase-public-key-hex>` in this v1 claim. A strict signature check and canonical
 CBOR check precede any descriptor comparison.
+The authenticated path requires the same spelling for every source-qualified peer id carried in
+the refusal snapshot and active obligations. Closed staging recognizes uppercase and raw-hex
+aliases of a key when checking that a new peer did not already create a carried event or debt;
+an alias cannot bypass that identity check. Opaque fixture ids remain usable in internal stages
+but cannot be signed as a v1 preparation.
 
 `verifyPreparedMatchesStage` / `verify_prepared_matches_stage` compares every signed field to
 the closed v4 import and the caller's declared surface. Validly signed substitutions still fail

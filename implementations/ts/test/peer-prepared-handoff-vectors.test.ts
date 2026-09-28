@@ -2,8 +2,10 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { authorForSeed } from "../src/delta/sign.js";
+import { validateImportedObligationTransition } from "../src/federation/imported-obligations.js";
 import {
   decodeClosedImportState,
+  encodeClosedImportState,
   type ClosedImportState,
 } from "../src/federation/closed-import.js";
 import {
@@ -40,11 +42,38 @@ function stage(baseCase: number): ClosedImportState {
     Buffer.from(closed.cases[baseCase]!.expectedHex, "hex"),
     "peer-new",
   );
+  const source = (id: string) => {
+    if (id === "peer-A") return authorForSeed(vector.oldSeedHex);
+    if (id === "peer-ancestor") return authorForSeed("03".repeat(32));
+    throw new Error(`unknown fixture source ${id}`);
+  };
   return {
     ...base,
     oldPeerId: authorForSeed(vector.oldSeedHex),
+    obligations: {
+      obligations: base.obligations.obligations.map((row) => ({
+        ...row,
+        sourcePeerId: source(row.sourcePeerId),
+        event: { ...row.event, sourcePeerId: source(row.event.sourcePeerId) },
+        ...(row.priorEpoch === undefined
+          ? {}
+          : {
+              priorEpoch: { ...row.priorEpoch, sourcePeerId: source(row.priorEpoch.sourcePeerId) },
+            }),
+      })),
+    },
     closed: {
       ...base.closed,
+      inherited: {
+        events: base.closed.inherited.events.map((event) => ({
+          ...event,
+          sourcePeerId: source(event.sourcePeerId),
+        })),
+        current: base.closed.inherited.current.map((row) => ({
+          ...row,
+          sourcePeerId: source(row.sourcePeerId),
+        })),
+      },
       local: {
         ...base.closed.local,
         base: { ...base.closed.local.base, peerId: authorForSeed(vector.newSeedHex) },
@@ -106,6 +135,85 @@ describe("shared SPEC-6 signed prepared handoff descriptor", () => {
         expect(() => signPreparedHandoff(descriptor, vector.newSeedHex)).toThrow(
           "wrong old peer signing key",
         );
+        return;
+      }
+      if (c.mutation === "uppercase-new-debt" || c.mutation === "raw-new-debt") {
+        const key = state.closed.local.base.peerId.slice("ed25519:".length);
+        const alias = c.mutation === "raw-new-debt" ? key : `ed25519:${key.toUpperCase()}`;
+        const aliased = {
+          ...state,
+          obligations: {
+            obligations: state.obligations.obligations.map((row) => ({
+              ...row,
+              sourcePeerId: alias,
+            })),
+          },
+        };
+        expect(() => encodeClosedImportState(aliased)).toThrow(
+          "carried obligation uses new peer id",
+        );
+        return;
+      }
+      if (c.mutation === "uppercase-new-event") {
+        const alias = `ed25519:${state.closed.local.base.peerId.slice("ed25519:".length).toUpperCase()}`;
+        const aliased = {
+          ...state,
+          closed: {
+            ...state.closed,
+            inherited: {
+              ...state.closed.inherited,
+              events: state.closed.inherited.events.map((event, i) =>
+                i === 0 ? { ...event, sourcePeerId: alias } : event,
+              ),
+            },
+          },
+        };
+        expect(() => encodeClosedImportState(aliased)).toThrow(
+          "inherited event uses local peer id",
+        );
+        return;
+      }
+      if (c.mutation === "uppercase-old-source") {
+        const ancestor = authorForSeed("03".repeat(32));
+        const alias = `ed25519:${ancestor.slice("ed25519:".length).toUpperCase()}`;
+        const aliased = {
+          ...state,
+          closed: {
+            ...state.closed,
+            inherited: {
+              events: state.closed.inherited.events.map((event) =>
+                event.sourcePeerId === ancestor ? { ...event, sourcePeerId: alias } : event,
+              ),
+              current: state.closed.inherited.current.map((row) =>
+                row.sourcePeerId === ancestor ? { ...row, sourcePeerId: alias } : row,
+              ),
+            },
+          },
+        };
+        expect(() => encodeClosedImportState(aliased)).not.toThrow();
+        expect(() => preparedDescriptorFromStage(aliased, base.surfaceId)).toThrow(
+          "noncanonical carried peer id",
+        );
+        return;
+      }
+      if (c.mutation === "same-key-alias") {
+        const alias = `ed25519:${state.closed.local.base.peerId.slice("ed25519:".length).toUpperCase()}`;
+        expect(() => encodeClosedImportState({ ...state, oldPeerId: alias })).toThrow(
+          "invalid attempt or policy descriptor",
+        );
+        return;
+      }
+      if (c.mutation === "uppercase-intervening-peer") {
+        const alias = `ed25519:${state.oldPeerId.slice("ed25519:".length).toUpperCase()}`;
+        expect(() =>
+          validateImportedObligationTransition(
+            state.closed.inherited,
+            state.obligations,
+            state.closed.inherited,
+            state.obligations,
+            alias,
+          ),
+        ).toThrow("intervening peer reuses inherited source");
         return;
       }
       if (c.mutation === "signature") {

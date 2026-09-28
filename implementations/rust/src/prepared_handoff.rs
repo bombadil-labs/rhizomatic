@@ -8,6 +8,7 @@ use crate::cbor::{decode, encode, CborValue};
 use crate::closed_import::{
     closed_import_carried_digest, closed_import_policy_digest, ClosedImportState,
 };
+use crate::peer_identity::is_canonical_peer_id;
 use crate::refusal_snapshot::refusal_snapshot_digest;
 use crate::sign::{author_for_seed, verify_sig_strict};
 
@@ -28,15 +29,6 @@ pub struct PreparedHandoffDescriptor {
     pub policy_digest: String,
 }
 
-fn peer_id(value: &str) -> bool {
-    value.strip_prefix("ed25519:").is_some_and(|hex| {
-        hex.len() == 64
-            && hex
-                .bytes()
-                .all(|ch| ch.is_ascii_hexdigit() && !ch.is_ascii_uppercase())
-    })
-}
-
 fn digest(value: &str) -> bool {
     value.strip_prefix("1e20").is_some_and(|hex| {
         hex.len() == 64
@@ -49,8 +41,8 @@ fn digest(value: &str) -> bool {
 fn validate(descriptor: &PreparedHandoffDescriptor) -> Result<(), String> {
     if descriptor.attempt_id.is_empty()
         || descriptor.surface_id.is_empty()
-        || !peer_id(&descriptor.old_peer_id)
-        || !peer_id(&descriptor.new_peer_id)
+        || !is_canonical_peer_id(&descriptor.old_peer_id)
+        || !is_canonical_peer_id(&descriptor.new_peer_id)
         || descriptor.old_peer_id == descriptor.new_peer_id
         || descriptor.old_state_version > MAX_COUNTER
         || !descriptor.deadline.is_finite()
@@ -63,10 +55,44 @@ fn validate(descriptor: &PreparedHandoffDescriptor) -> Result<(), String> {
     Ok(())
 }
 
+fn canonical_carried_sources(state: &ClosedImportState) -> Result<(), String> {
+    let snapshot_sources = state
+        .closed
+        .inherited
+        .events
+        .iter()
+        .map(|event| event.source_peer_id.as_str())
+        .chain(
+            state
+                .closed
+                .inherited
+                .current
+                .iter()
+                .map(|row| row.source_peer_id.as_str()),
+        );
+    let obligation_sources = state.obligations.obligations.iter().flat_map(|row| {
+        std::iter::once(row.source_peer_id.as_str())
+            .chain(std::iter::once(row.event.source_peer_id.as_str()))
+            .chain(
+                row.prior_epoch
+                    .iter()
+                    .map(|prior| prior.source_peer_id.as_str()),
+            )
+    });
+    if snapshot_sources
+        .chain(obligation_sources)
+        .any(|source| !is_canonical_peer_id(source))
+    {
+        return Err("prepared handoff: noncanonical carried peer id".into());
+    }
+    Ok(())
+}
+
 pub fn prepared_descriptor_from_stage(
     state: &ClosedImportState,
     surface_id: &str,
 ) -> Result<PreparedHandoffDescriptor, String> {
+    canonical_carried_sources(state)?;
     let descriptor = PreparedHandoffDescriptor {
         attempt_id: state.attempt_id.clone(),
         surface_id: surface_id.into(),

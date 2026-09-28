@@ -19,6 +19,7 @@ import {
   type DurablePeerState,
 } from "./durable-state.js";
 import type { PeerStateWriteOutcome } from "./peer-state.js";
+import { samePeerId } from "./peer-identity.js";
 import {
   decodeRefusalSnapshot,
   encodeRefusalSnapshot,
@@ -38,7 +39,7 @@ function validate(state: ClosedPeerState): { localBytes: Uint8Array; inheritedBy
   const localBytes = encodeDurablePeerState(state.local);
   const inheritedBytes = encodeRefusalSnapshot(state.inherited);
   const peerId = state.local.base.peerId;
-  if (state.inherited.events.some((event) => event.sourcePeerId === peerId))
+  if (state.inherited.events.some((event) => samePeerId(event.sourcePeerId, peerId)))
     throw new Error("closed peer state: inherited event uses local peer id");
   if (state.inherited.current.some((row) => state.local.base.admitted.has(row.targetId)))
     throw new Error("closed peer state: inherited refusal is locally admitted");

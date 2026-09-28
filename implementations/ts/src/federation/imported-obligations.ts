@@ -1,6 +1,7 @@
 // Internal active-obligation carry. The old peer owns these until a durable handoff commit.
 import { array, decode, encode, float, map, tstr, type CborValue } from "../delta/cbor.js";
 import { contentAddress } from "../delta/hash.js";
+import { samePeerId } from "./peer-identity.js";
 import {
   encodeRefusalSnapshot,
   refusalSnapshotDigest,
@@ -197,8 +198,8 @@ export function validateImportedObligationTransition(
   encodeImportedObligations(afterSnapshot, after);
   if (!interveningPeerId) throw new Error("imported obligations: invalid intervening peer");
   if (
-    beforeSnapshot.events.some((event) => event.sourcePeerId === interveningPeerId) ||
-    before.obligations.some((row) => row.sourcePeerId === interveningPeerId)
+    beforeSnapshot.events.some((event) => samePeerId(event.sourcePeerId, interveningPeerId)) ||
+    before.obligations.some((row) => samePeerId(row.sourcePeerId, interveningPeerId))
   )
     throw new Error("imported obligations: intervening peer reuses inherited source");
   const oldEvents = new Map(beforeSnapshot.events.map((event) => [refKey(event), event]));
@@ -214,7 +215,7 @@ export function validateImportedObligationTransition(
       throw new Error("imported obligations: prior refusal event changed");
   }
   for (const event of afterSnapshot.events) {
-    if (!oldEvents.has(refKey(event)) && event.sourcePeerId !== interveningPeerId)
+    if (!oldEvents.has(refKey(event)) && !samePeerId(event.sourcePeerId, interveningPeerId))
       throw new Error("imported obligations: foreign refusal event added");
   }
   const localLatest = new Map<string, QualifiedEventRef>();
@@ -246,7 +247,7 @@ export function validateImportedObligationTransition(
       throw new Error("imported obligations: prior active obligation changed");
   }
   for (const row of after.obligations) {
-    if (!oldRows.has(refKey(row)) && row.sourcePeerId !== interveningPeerId)
+    if (!oldRows.has(refKey(row)) && !samePeerId(row.sourcePeerId, interveningPeerId))
       throw new Error("imported obligations: foreign obligation added");
   }
 }

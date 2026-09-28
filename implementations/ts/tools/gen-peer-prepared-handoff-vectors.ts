@@ -14,6 +14,7 @@ import {
 
 const oldSeedHex = "01".repeat(32);
 const newSeedHex = "02".repeat(32);
+const ancestorSeedHex = "03".repeat(32);
 const file = fileURLToPath(new URL("../../../vectors/peer/prepared-handoff.json", import.meta.url));
 const closed = JSON.parse(
   readFileSync(
@@ -29,11 +30,38 @@ const cases = [
     Buffer.from(closed.cases[c.baseCase]!.expectedHex, "hex"),
     "peer-new",
   );
+  const source = (id: string) => {
+    if (id === "peer-A") return authorForSeed(oldSeedHex);
+    if (id === "peer-ancestor") return authorForSeed(ancestorSeedHex);
+    throw new Error(`unknown fixture source ${id}`);
+  };
   const bound = {
     ...stage,
     oldPeerId: authorForSeed(oldSeedHex),
+    obligations: {
+      obligations: stage.obligations.obligations.map((row) => ({
+        ...row,
+        sourcePeerId: source(row.sourcePeerId),
+        event: { ...row.event, sourcePeerId: source(row.event.sourcePeerId) },
+        ...(row.priorEpoch === undefined
+          ? {}
+          : {
+              priorEpoch: { ...row.priorEpoch, sourcePeerId: source(row.priorEpoch.sourcePeerId) },
+            }),
+      })),
+    },
     closed: {
       ...stage.closed,
+      inherited: {
+        events: stage.closed.inherited.events.map((event) => ({
+          ...event,
+          sourcePeerId: source(event.sourcePeerId),
+        })),
+        current: stage.closed.inherited.current.map((row) => ({
+          ...row,
+          sourcePeerId: source(row.sourcePeerId),
+        })),
+      },
       local: {
         ...stage.closed.local,
         base: { ...stage.closed.local.base, peerId: authorForSeed(newSeedHex) },
@@ -98,6 +126,18 @@ writeFileSync(
         { name: "invalid signature", mutation: "signature" },
         { name: "wrong signing seed", mutation: "wrong-seed" },
         { name: "changed staged policy", mutation: "stage-policy" },
+        { name: "uppercase spelling of new peer in obligation", mutation: "uppercase-new-debt" },
+        { name: "unprefixed spelling of new peer in obligation", mutation: "raw-new-debt" },
+        {
+          name: "uppercase spelling of new peer in inherited refusal",
+          mutation: "uppercase-new-event",
+        },
+        { name: "noncanonical other source cannot be signed", mutation: "uppercase-old-source" },
+        { name: "old and new peer key aliases cannot hand off", mutation: "same-key-alias" },
+        {
+          name: "intervening peer alias cannot reuse source",
+          mutation: "uppercase-intervening-peer",
+        },
       ],
       invalidImages: [
         {

@@ -53,6 +53,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
   keys, state version, deadline, refusal snapshot, carried state, and destination policy. It is
   authenticated preparation only; the durable CAS, acknowledgement, and ownership transfer are
   still required.
+  V1 preparation now requires canonical key-spelled source peer ids. Closed-stage identity guards
+  compare uppercase and raw-hex aliases by key so they cannot evade new-peer or intervening-peer
+  source checks.
 
 ## 0.11.0-next.1 — 2026-09-25
 

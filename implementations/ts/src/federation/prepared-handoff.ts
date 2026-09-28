@@ -9,9 +9,9 @@ import {
   type ClosedImportState,
 } from "./closed-import.js";
 import { refusalSnapshotDigest } from "./refusal-snapshot.js";
+import { isCanonicalPeerId } from "./peer-identity.js";
 
 const DOMAIN = "rhizomatic.peer.handoff.prepare.v1";
-const PEER_ID = /^ed25519:[0-9a-f]{64}$/;
 const DIGEST = /^1e20[0-9a-f]{64}$/;
 const VERSION = 1;
 
@@ -45,8 +45,8 @@ function validate(descriptor: PreparedHandoffDescriptor): void {
     !wellFormed(descriptor.attemptId) ||
     !descriptor.surfaceId ||
     !wellFormed(descriptor.surfaceId) ||
-    !PEER_ID.test(descriptor.oldPeerId) ||
-    !PEER_ID.test(descriptor.newPeerId) ||
+    !isCanonicalPeerId(descriptor.oldPeerId) ||
+    !isCanonicalPeerId(descriptor.newPeerId) ||
     descriptor.oldPeerId === descriptor.newPeerId ||
     !Number.isSafeInteger(descriptor.oldStateVersion) ||
     descriptor.oldStateVersion < 0 ||
@@ -58,10 +58,25 @@ function validate(descriptor: PreparedHandoffDescriptor): void {
     throw new Error("prepared handoff: invalid descriptor");
 }
 
+function canonicalCarriedSources(state: ClosedImportState): void {
+  const sources = [
+    ...state.closed.inherited.events.map((event) => event.sourcePeerId),
+    ...state.closed.inherited.current.map((row) => row.sourcePeerId),
+    ...state.obligations.obligations.flatMap((row) => [
+      row.sourcePeerId,
+      row.event.sourcePeerId,
+      ...(row.priorEpoch === undefined ? [] : [row.priorEpoch.sourcePeerId]),
+    ]),
+  ];
+  if (sources.some((source) => !isCanonicalPeerId(source)))
+    throw new Error("prepared handoff: noncanonical carried peer id");
+}
+
 export function preparedDescriptorFromStage(
   state: ClosedImportState,
   surfaceId: string,
 ): PreparedHandoffDescriptor {
+  canonicalCarriedSources(state);
   const descriptor = {
     attemptId: state.attemptId,
     surfaceId,

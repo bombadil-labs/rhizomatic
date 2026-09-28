@@ -1,0 +1,20 @@
+{
+  "spec": "SPEC-6 vNext §1 public-key PeerId identity",
+  "description": "A prepared handoff requires one canonical spelling; closed-stage identity guards also recognize noncanonical spellings of the same key before refusing them.",
+  "canonicalCases": [
+    { "id": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c", "valid": true },
+    { "id": "ed25519:8A88E3DD7409F195FD52DB2D3CBA5D72CA6709BF1D94121BF3748801B40F6F5C", "valid": false },
+    { "id": "8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c", "valid": false },
+    { "id": "peer-A", "valid": false }
+  ],
+  "sameCases": [
+    { "a": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c", "b": "ed25519:8A88E3DD7409F195FD52DB2D3CBA5D72CA6709BF1D94121BF3748801B40F6F5C", "same": true },
+    { "a": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c", "b": "8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c", "same": true },
+    { "a": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c", "b": "ED25519:8A88E3DD7409F195FD52DB2D3CBA5D72CA6709BF1D94121BF3748801B40F6F5C", "same": true },
+    { "a": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c", "b": "ed25519:8139770ea87d175f56a35466c34c7ecccb8d8a91b4ee37a25df60f5b8fc9b394", "same": false },
+    { "a": "peer-A", "b": "peer-A", "same": true },
+    { "a": "peer-A", "b": "peer-a", "same": false },
+    { "a": "peer-A", "b": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c", "same": false },
+    { "a": "😀😀😀😀😀😀😀😀", "b": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c", "same": false }
+  ]
+}

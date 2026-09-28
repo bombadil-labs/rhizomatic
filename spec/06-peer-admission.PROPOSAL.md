@@ -106,6 +106,15 @@ preparation authenticates what the old peer proposed; it does not prove the old 
 prepared or committed it, that the old surface was fenced, or that the new peer acknowledged
 import. It never grants serving or transfers obligation ownership. A later authoritative CAS
 must still compare the same descriptor and both digests before commit.
+The authenticated v1 preparation requires that **every** source-qualified `PeerId` in its carried
+refusal snapshot and obligation carry use that same canonical `ed25519:<lowercase-hex>` spelling.
+An earlier internal stage may hold opaque peer identifiers, but it cannot pass v1 prepared
+verification with them. Before rejecting a source as different from a key-backed peer, the
+closed stage and carry transition compare recognized key spellings by public-key bytes,
+including uppercase and unprefixed hex aliases; aliases cannot mint new-peer debt or inherited
+new-peer history. The authoritative CAS must still compare the carried snapshot and obligations
+with the old peer's actual state at the named version; a signature over a self-consistent stage
+alone does not prove that its source claims were true.
 The v1 permanent-posture inherited-refusal snapshot binds every carried refusal event to its
 source `PeerId` and source sequence, and names exactly one current event for every event target.
 It retains earlier events for the same target; a current reference cannot point before a later

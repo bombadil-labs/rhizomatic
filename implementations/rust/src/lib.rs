@@ -37,6 +37,8 @@ pub mod pack;
 pub mod parse_error;
 pub mod peer;
 #[doc(hidden)]
+pub mod peer_identity;
+#[doc(hidden)]
 pub mod peer_state;
 pub mod pred;
 pub mod preflight;

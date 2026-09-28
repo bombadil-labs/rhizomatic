@@ -1,6 +1,9 @@
 //! Shared canonical prepared descriptor and old-peer Ed25519 signature.
 
-use rhizomatic::closed_import::{decode_closed_import_state, ClosedImportState};
+use rhizomatic::closed_import::{
+    decode_closed_import_state, encode_closed_import_state, ClosedImportState,
+};
+use rhizomatic::imported_obligations::validate_imported_obligation_transition;
 use rhizomatic::prepared_handoff::{
     decode_prepared_handoff, encode_prepared_handoff_claim, prepared_descriptor_from_stage,
     sign_prepared_handoff, verify_prepared_matches_stage, PreparedHandoffDescriptor,
@@ -16,7 +19,27 @@ fn read(name: &str) -> Value {
 fn stage(base_case: usize, closed: &Value, vector: &Value) -> ClosedImportState {
     let image = hex::decode(closed["cases"][base_case]["expectedHex"].as_str().unwrap()).unwrap();
     let mut state = decode_closed_import_state(&image, "peer-new").unwrap();
-    state.old_peer_id = author_for_seed(vector["oldSeedHex"].as_str().unwrap()).unwrap();
+    let old = author_for_seed(vector["oldSeedHex"].as_str().unwrap()).unwrap();
+    let ancestor = author_for_seed(&"03".repeat(32)).unwrap();
+    let source = |id: &str| match id {
+        "peer-A" => old.clone(),
+        "peer-ancestor" => ancestor.clone(),
+        other => panic!("unknown fixture source {other}"),
+    };
+    for event in &mut state.closed.inherited.events {
+        event.source_peer_id = source(&event.source_peer_id);
+    }
+    for row in &mut state.closed.inherited.current {
+        row.source_peer_id = source(&row.source_peer_id);
+    }
+    for row in &mut state.obligations.obligations {
+        row.source_peer_id = source(&row.source_peer_id);
+        row.event.source_peer_id = source(&row.event.source_peer_id);
+        if let Some(prior) = &mut row.prior_epoch {
+            prior.source_peer_id = source(&prior.source_peer_id);
+        }
+    }
+    state.old_peer_id = old;
     state.closed.local.base.peer_id =
         author_for_seed(vector["newSeedHex"].as_str().unwrap()).unwrap();
     state
@@ -92,6 +115,75 @@ fn valid_but_substituted_descriptors_and_invalid_signatures_fail() {
     for invalid in vector["invalidCases"].as_array().unwrap() {
         let mutation = invalid["mutation"].as_str().unwrap();
         match mutation {
+            "uppercase-new-debt" => {
+                let mut aliased = state.clone();
+                let new_peer = &state.closed.local.base.peer_id;
+                aliased.obligations.obligations[0].source_peer_id =
+                    format!("ed25519:{}", new_peer["ed25519:".len()..].to_uppercase());
+                assert!(encode_closed_import_state(&aliased)
+                    .unwrap_err()
+                    .contains("carried obligation uses new peer id"));
+            }
+            "raw-new-debt" => {
+                let mut aliased = state.clone();
+                aliased.obligations.obligations[0].source_peer_id =
+                    state.closed.local.base.peer_id["ed25519:".len()..].into();
+                assert!(encode_closed_import_state(&aliased)
+                    .unwrap_err()
+                    .contains("carried obligation uses new peer id"));
+            }
+            "uppercase-new-event" => {
+                let mut aliased = state.clone();
+                let new_peer = &state.closed.local.base.peer_id;
+                aliased.closed.inherited.events[0].source_peer_id =
+                    format!("ed25519:{}", new_peer["ed25519:".len()..].to_uppercase());
+                assert!(encode_closed_import_state(&aliased)
+                    .unwrap_err()
+                    .contains("inherited event uses local peer id"));
+            }
+            "uppercase-old-source" => {
+                let mut aliased = state.clone();
+                let ancestor = author_for_seed(&"03".repeat(32)).unwrap();
+                let upper = format!("ed25519:{}", ancestor["ed25519:".len()..].to_uppercase());
+                for event in &mut aliased.closed.inherited.events {
+                    if event.source_peer_id == ancestor {
+                        event.source_peer_id = upper.clone();
+                    }
+                }
+                for row in &mut aliased.closed.inherited.current {
+                    if row.source_peer_id == ancestor {
+                        row.source_peer_id = upper.clone();
+                    }
+                }
+                encode_closed_import_state(&aliased).unwrap();
+                assert!(prepared_descriptor_from_stage(&aliased, surface)
+                    .unwrap_err()
+                    .contains("noncanonical carried peer id"));
+            }
+            "same-key-alias" => {
+                let mut aliased = state.clone();
+                let new_peer = &state.closed.local.base.peer_id;
+                aliased.old_peer_id =
+                    format!("ed25519:{}", new_peer["ed25519:".len()..].to_uppercase());
+                assert!(encode_closed_import_state(&aliased)
+                    .unwrap_err()
+                    .contains("invalid attempt or policy descriptor"));
+            }
+            "uppercase-intervening-peer" => {
+                let alias = format!(
+                    "ed25519:{}",
+                    state.old_peer_id["ed25519:".len()..].to_uppercase()
+                );
+                assert!(validate_imported_obligation_transition(
+                    &state.closed.inherited,
+                    &state.obligations,
+                    &state.closed.inherited,
+                    &state.obligations,
+                    &alias
+                )
+                .unwrap_err()
+                .contains("intervening peer reuses inherited source"));
+            }
             "wrong-seed" => {
                 assert!(
                     sign_prepared_handoff(&descriptor, vector["newSeedHex"].as_str().unwrap())
