@@ -7,8 +7,10 @@ storage generation, current source-qualified refusal event, and optional qualifi
 admission epoch. A failed row carries its retryable fault. The rows sort by source peer and
 sequence, and the image binds them to the exact inherited-refusal snapshot digest.
 
-Encoding rejects repeated obligation identities, unrefused targets, stale refusal references,
-nonpositive generations, and invalid status and fault combinations. Decoding verifies the
+Encoding rejects repeated obligation identities or target and surface pairs, unrefused targets,
+stale refusal references, a named prior epoch with no matching source event for that target,
+nonpositive generations, and invalid status and fault combinations. A prior epoch may be absent
+for unadmitted bytes on the declared surface. Decoding verifies the
 snapshot digest and canonical bytes. A later handoff can preserve the stable identity rather
 than assigning a new peer-local obligation sequence.
 

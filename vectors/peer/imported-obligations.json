@@ -155,6 +155,26 @@
       "name": "old source event is stale after later peer refusal",
       "baseCase": 4,
       "mutation": "outdated-event"
+    },
+    {
+      "name": "same target and surface cannot have two active purge workers",
+      "baseCase": 1,
+      "mutation": "duplicate-target-surface"
+    },
+    {
+      "name": "wrong prior epoch cannot fence inherited bytes",
+      "baseCase": 1,
+      "mutation": "wrong-prior-epoch"
+    },
+    {
+      "name": "orphan source cannot name inherited prior epoch",
+      "baseCase": 1,
+      "mutation": "orphan-prior-source"
+    },
+    {
+      "name": "prior epoch cannot be invented when no source event has one",
+      "baseCase": 4,
+      "mutation": "prior-epoch-without-event"
     }
   ]
 }

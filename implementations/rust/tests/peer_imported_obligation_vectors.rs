@@ -106,6 +106,29 @@ fn shared_invalid_obligations_fail() {
                 carry.obligations[0].event.source_peer_id = "peer-A".into();
                 carry.obligations[0].event.sequence = 1;
             }
+            "duplicate-target-surface" => {
+                let mut duplicate = carry.obligations[0].clone();
+                duplicate.sequence += 1;
+                carry.obligations.push(duplicate);
+            }
+            "wrong-prior-epoch" => {
+                carry.obligations[0].prior_epoch = Some(QualifiedEventRef {
+                    source_peer_id: "peer-A".into(),
+                    sequence: 99,
+                })
+            }
+            "orphan-prior-source" => {
+                carry.obligations[0].prior_epoch = Some(QualifiedEventRef {
+                    source_peer_id: "peer-Z".into(),
+                    sequence: 7,
+                })
+            }
+            "prior-epoch-without-event" => {
+                carry.obligations[0].prior_epoch = Some(QualifiedEventRef {
+                    source_peer_id: "peer-A".into(),
+                    sequence: 1,
+                });
+            }
             "zero-generation" => carry.obligations[0].generation = 0,
             "missing-fault" => carry.obligations[0].fault = None,
             "pending-fault" => carry.obligations[0].fault = Some("unexpected".into()),

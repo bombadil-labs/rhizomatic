@@ -54,10 +54,12 @@ fn validate(snapshot: &RefusalSnapshot, carry: &ImportedObligationCarry) -> Resu
         })
         .collect();
     let mut identities = BTreeSet::new();
+    let mut surfaces = BTreeSet::new();
     for row in &carry.obligations {
         if row.source_peer_id.is_empty()
             || !positive(row.sequence)
             || !identities.insert((&row.source_peer_id, row.sequence))
+            || !surfaces.insert((&row.target_id, &row.surface_id))
             || !valid_id(&row.target_id)
             || row.surface_id.is_empty()
             || !positive(row.generation)
@@ -65,10 +67,15 @@ fn validate(snapshot: &RefusalSnapshot, carry: &ImportedObligationCarry) -> Resu
             || !positive(row.event.sequence)
             || current.get(row.target_id.as_str()).copied()
                 != Some((row.event.source_peer_id.as_str(), row.event.sequence))
-            || row
-                .prior_epoch
-                .as_ref()
-                .is_some_and(|epoch| epoch.source_peer_id.is_empty() || !positive(epoch.sequence))
+            || row.prior_epoch.as_ref().is_some_and(|epoch| {
+                epoch.source_peer_id.is_empty()
+                    || !positive(epoch.sequence)
+                    || !snapshot.events.iter().any(|event| {
+                        event.target_id == row.target_id
+                            && event.source_peer_id == epoch.source_peer_id
+                            && event.prior_epoch == Some(epoch.sequence)
+                    })
+            })
             || !matches!(row.status.as_str(), "pending" | "failed")
             || (row.status == "failed"
                 && !row.fault.as_ref().is_some_and(|fault| !fault.is_empty()))

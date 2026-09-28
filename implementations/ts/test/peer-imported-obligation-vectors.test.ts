@@ -53,6 +53,14 @@ function mutate(base: Case, kind: string): ImportedObligationCarry {
           ...rows.slice(1),
         ],
       };
+    case "duplicate-target-surface":
+      return { obligations: [...rows, { ...first, sequence: first.sequence + 1 }] };
+    case "wrong-prior-epoch":
+      return { obligations: [{ ...first, priorEpoch: { sourcePeerId: "peer-A", sequence: 99 } }] };
+    case "orphan-prior-source":
+      return { obligations: [{ ...first, priorEpoch: { sourcePeerId: "peer-Z", sequence: 7 } }] };
+    case "prior-epoch-without-event":
+      return { obligations: [{ ...first, priorEpoch: { sourcePeerId: "peer-A", sequence: 1 } }] };
     case "zero-generation":
       return { obligations: [{ ...first, generation: 0 }, ...rows.slice(1)] };
     case "missing-fault":

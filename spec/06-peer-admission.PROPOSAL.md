@@ -43,10 +43,23 @@ the required transaction.
 The closed stage's local arrival fields are only candidate state: the eventual import MUST assign
 new-peer testimony to verified inherited holdings and MUST NOT accept copied host arrival fields
 as that testimony. The stage also cannot establish unsigned covering-bundle evidence by itself.
+The imported holding inventory names every id admitted by the old surface, including holdings
+currently hidden by validity or policy. Each imported holding MUST match its canonical claims
+bytes and content id and have either a valid own signature or a verified signed-manifest cover
+for that unsigned member. The cover remains evidence even when its manifest is not itself a
+holding. A missing or invalid claimed holding blocks import. Extra raw storage rows are not
+admitted by replay. An inherited-current-refused id cannot enter the imported admitted set,
+even when its bytes remain on a surface awaiting purge; exclusion and active purge debt remain
+separate state. The import transaction MUST assign the new peer's own arrival sequence and
+trusted import time to the verified admitted inventory.
 Each staged active byte-removal obligation names its stable identity as a source `PeerId` and
 source obligation sequence, its target, declared storage surface and generation, its current
 source-qualified refusal-event reference, and its `pending` or `failed` status with a retryable
-fault for failure. A prior admission epoch, when present, remains source-qualified too. A second
+fault for failure. A prior admission epoch, when present, remains source-qualified too and MUST
+match an event for that target and source in the carried refusal snapshot. It may be absent for
+bytes on a declared surface that were never admitted there, even when another source peer's
+event records a prior admission. At most one active obligation names a given target and surface.
+A second
 handoff keeps the obligation identities, surfaces, generations, and prior epochs. A later
 effective order for the same target advances the obligation's current refusal-event reference
 without changing its stable identity or storage generation. Staging this list
@@ -289,7 +302,8 @@ The pipeline is:
    lowest-id surviving order; skipping a target skips all its orders with an `erasure-limit`
    outcome. Run the same simultaneous-round filter again on the budget-selected orders, without
    refilling budget after a failure. Only its survivors are effective. Different orders for one
-   target create at most one active purge obligation for that id. The obligation has a stable
+   target create at most one active purge obligation for that id on each declared storage surface.
+   The obligation has a stable
    identity and storage generation separate from the current refusal event; it names a prior
    admission epoch only when one exists. A later order updates the refusal event on that same
    obligation without invalidating its in-flight purge worker or starting a second physical purge

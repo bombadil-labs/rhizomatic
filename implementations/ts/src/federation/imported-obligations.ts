@@ -37,11 +37,14 @@ function validate(snapshot: RefusalSnapshot, carry: ImportedObligationCarry): vo
   encodeRefusalSnapshot(snapshot);
   const current = new Map(snapshot.current.map((row) => [row.targetId, refKey(row)]));
   const identities = new Set<string>();
+  const surfaces = new Set<string>();
   for (const row of carry.obligations) {
+    const surfaceKey = JSON.stringify([row.targetId, row.surfaceId]);
     if (
       !row.sourcePeerId ||
       !positive(row.sequence) ||
       identities.has(refKey(row)) ||
+      surfaces.has(surfaceKey) ||
       !ID.test(row.targetId) ||
       !row.surfaceId ||
       !positive(row.generation) ||
@@ -49,12 +52,20 @@ function validate(snapshot: RefusalSnapshot, carry: ImportedObligationCarry): vo
       !positive(row.event.sequence) ||
       current.get(row.targetId) !== refKey(row.event) ||
       (row.priorEpoch !== undefined &&
-        (!row.priorEpoch.sourcePeerId || !positive(row.priorEpoch.sequence))) ||
+        (!row.priorEpoch.sourcePeerId ||
+          !positive(row.priorEpoch.sequence) ||
+          !snapshot.events.some(
+            (event) =>
+              event.targetId === row.targetId &&
+              event.sourcePeerId === row.priorEpoch!.sourcePeerId &&
+              event.priorEpoch === row.priorEpoch!.sequence,
+          ))) ||
       (row.status !== "pending" && row.status !== "failed") ||
       (row.status === "failed" ? !row.fault : row.fault !== undefined)
     )
       throw new Error("imported obligations: invalid active obligation");
     identities.add(refKey(row));
+    surfaces.add(surfaceKey);
   }
 }
 

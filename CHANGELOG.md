@@ -40,6 +40,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
   storage generations, current refusal references, and retryable failure faults across a proposed
   handoff. Its bytes and digest are pinned by shared vectors; staging alone does not transfer
   obligation ownership.
+  A separate internal holding inventory now pins canonical admitted bytes and signed-manifest
+  evidence for unsigned members, checks signatures and inherited refusals, and binds the image
+  to the inherited-refusal snapshot. It does not assign arrival testimony or prove the handoff.
 
 ## 0.11.0-next.1 — 2026-09-25
 
