@@ -4,7 +4,7 @@ All notable changes to **`@bombadil/rhizomatic`**. This project is pre-1.0, so b
 land in **minor** bumps (see [CLAUDE.md → Releasing](CLAUDE.md#releasing-bombadilrhizomatic-to-npm)).
 Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 
-## Unreleased
+## 0.11.0-next.6 — forthcoming
 
 ### ⚠️ Breaking
 
@@ -20,7 +20,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
   quota selection, and atomic in-memory Reactor batch ingestion.
   An internal typed signed-loose ordinary transfer path now composes those stages with the
   durable image and pins outcomes and bytes in shared vectors.
-  These are staged helpers; the typed admission and handoff API is still in progress.
+  A public typed single-peer API now opens a fresh canonical peer image and commits signed loose
+  ordinary deltas through an atomic image-and-row storage seam. It supports atomic local append,
+  per-candidate receive, refusal reasons, explicit local/authenticated/unattributed origins, and
+  fail-closed detection of rows without an image. Shared vectors pin canonical empty and admitted
+  image bytes in both witnesses. This is an initial single-peer trial surface; bundle and erasure
+  admission, scalable image storage, and durable handoff remain in progress.
 
 ### Internal structure
 

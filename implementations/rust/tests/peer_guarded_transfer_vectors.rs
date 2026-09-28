@@ -5,7 +5,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
 
 use rhizomatic::preflight::{
-    preflight_transfer, CandidateGuard, GuardedUnitStatus, PreflightContext, TransferUnit,
+    preflight_transfer, CandidateGuard, GuardDecision, GuardedUnitStatus, PreflightContext,
+    TransferUnit,
 };
 use rhizomatic::reactor::make_manifest_claims;
 use rhizomatic::set::DeltaSet;
@@ -132,7 +133,7 @@ fn candidate_guards_use_pre_transfer_state() {
                             .unwrap_or("manifest");
                         seen.borrow_mut().push(label.to_string());
                         seen_order.borrow_mut().push(format!("{rule}:{label}"));
-                        match rule.as_str() {
+                        let allowed = match rule.as_str() {
                             "requiresGrant" => label != "act" || before.contains(grant_id),
                             "denyValue" => label != "deny",
                             "sortedPrior" => {
@@ -142,6 +143,13 @@ fn candidate_guards_use_pre_transfer_state() {
                             }
                             "expectedPeer" => sender == "sender-A" && receiver == "receiver-B",
                             _ => panic!("unknown guard"),
+                        };
+                        if allowed {
+                            GuardDecision::Allow
+                        } else {
+                            GuardDecision::Reject {
+                                reason: String::new(),
+                            }
                         }
                     },
                 ) as Box<CandidateGuard<String>>

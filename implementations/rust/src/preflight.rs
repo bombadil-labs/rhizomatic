@@ -40,9 +40,17 @@ pub struct GuardedUnit {
     pub unit: TransferUnit,
     pub status: GuardedUnitStatus,
     pub fresh_ids: Vec<String>,
+    /// The first rejecting guard's application-owned explanation, when supplied.
+    pub reason: Option<String>,
 }
 
-pub type CandidateGuard<S> = dyn Fn(&Delta, &str, &str, &DeltaSet, f64, &S) -> bool;
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum GuardDecision {
+    Allow,
+    Reject { reason: String },
+}
+
+pub type CandidateGuard<S> = dyn Fn(&Delta, &str, &str, &DeltaSet, f64, &S) -> GuardDecision;
 
 pub struct PreflightContext<'a, S> {
     pub admitted_before: &'a DeltaSet,
@@ -117,11 +125,12 @@ pub fn preflight_transfer<S>(
                     unit,
                     status,
                     fresh_ids: Vec::new(),
+                    reason: None,
                 };
             }
             for candidate in &fresh {
                 for guard in guards.iter() {
-                    if !guard(
+                    if let GuardDecision::Reject { reason } = guard(
                         candidate,
                         sending_peer_id,
                         receiving_peer_id,
@@ -129,10 +138,19 @@ pub fn preflight_transfer<S>(
                         *arrived_at,
                         policy_state,
                     ) {
+                        if reason.is_empty() {
+                            return GuardedUnit {
+                                unit,
+                                status: GuardedUnitStatus::GuardRejected,
+                                fresh_ids: Vec::new(),
+                                reason: None,
+                            };
+                        }
                         return GuardedUnit {
                             unit,
                             status: GuardedUnitStatus::GuardRejected,
                             fresh_ids: Vec::new(),
+                            reason: Some(reason),
                         };
                     }
                 }
@@ -141,6 +159,7 @@ pub fn preflight_transfer<S>(
                 unit,
                 status,
                 fresh_ids: fresh.into_iter().map(|delta| delta.id).collect(),
+                reason: None,
             }
         })
         .collect())

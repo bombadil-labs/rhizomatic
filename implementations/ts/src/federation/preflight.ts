@@ -25,7 +25,11 @@ export interface GuardContext<State> {
   readonly policyState: Readonly<State>;
 }
 
-export type CandidateGuard<State> = (context: GuardContext<State>) => boolean;
+export type GuardDecision =
+  | boolean
+  | { readonly ok: true }
+  | { readonly ok: false; readonly reason: string };
+export type CandidateGuard<State> = (context: GuardContext<State>) => GuardDecision;
 export type GuardedUnitStatus = LooseEntryStatus | "guard-rejected";
 
 export interface PreflightContext<State> {
@@ -43,6 +47,8 @@ export interface GuardedUnit {
   readonly unit: TransferUnit;
   readonly status: GuardedUnitStatus;
   readonly freshIds: readonly string[];
+  /** The first rejecting guard's application-owned explanation, when supplied. */
+  readonly reason?: string;
 }
 
 /**
@@ -107,17 +113,22 @@ export function preflightTransfer<State>(
     if (status !== "eligible") return { unit, status, freshIds: [] };
     for (const candidate of fresh.values()) {
       for (const guard of guards) {
-        if (
-          !guard({
-            candidate: structuredClone(candidate),
-            sendingPeerId,
-            receivingPeerId,
-            admittedBefore: admittedView,
-            arrivedAt,
-            policyState,
-          })
-        ) {
-          return { unit, status: "guard-rejected", freshIds: [] };
+        const decision = guard({
+          candidate: structuredClone(candidate),
+          sendingPeerId,
+          receivingPeerId,
+          admittedBefore: admittedView,
+          arrivedAt,
+          policyState,
+        });
+        if (decision === false) return { unit, status: "guard-rejected", freshIds: [] };
+        if (decision !== true && !decision.ok) {
+          return {
+            unit,
+            status: "guard-rejected",
+            freshIds: [],
+            ...(decision.reason ? { reason: decision.reason } : {}),
+          };
         }
       }
     }

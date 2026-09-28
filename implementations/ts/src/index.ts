@@ -96,6 +96,7 @@ export { bundleEntryStatus, looseEntryStatus, type LooseEntryStatus } from "./fe
 export {
   preflightTransfer,
   type CandidateGuard,
+  type GuardDecision,
   type GuardContext,
   type GuardedUnit,
   type GuardedUnitStatus,
@@ -103,6 +104,36 @@ export {
   type ReadonlyAdmittedSet,
   type TransferUnit,
 } from "./federation/preflight.js";
+export {
+  emptyDurablePeerState,
+  encodeDurablePeerState,
+  decodeDurablePeerState,
+  planPermanentCommit,
+  type DurablePeerState,
+  type RefusalEvent,
+  type ErasureExclusion,
+  type PurgeObligation,
+} from "./federation/durable-state.js";
+export { type PeerState } from "./federation/peer-state.js";
+export {
+  planSignedLooseOrdinaryTransfer,
+  type SignedLooseOutcome,
+  type SignedLooseOutcomeStatus,
+  type SignedLooseTransferInput,
+} from "./federation/signed-loose-admission.js";
+export { isCanonicalPeerId, samePeerId } from "./federation/peer-identity.js";
+export {
+  openSinglePeer,
+  admitSinglePeerTransfer,
+  FileDurablePeerStore,
+  type ArrivalOrigin,
+  type DurablePeerStore,
+  type PeerImageWrite,
+  type PeerImageRead,
+  type OpenSinglePeerResult,
+  type SinglePeerTransferInput,
+  type SinglePeerTransferResult,
+} from "./federation/single-peer.js";
 export {
   planArrivals,
   type ArrivalCursor,

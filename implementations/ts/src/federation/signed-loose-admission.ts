@@ -22,6 +22,7 @@ export type SignedLooseOutcomeStatus =
 export interface SignedLooseOutcome {
   readonly id: string;
   readonly status: SignedLooseOutcomeStatus;
+  readonly reason?: string;
 }
 
 export interface SignedLooseTransferInput<State> {
@@ -104,6 +105,7 @@ export function planSignedLooseOrdinaryTransfer<State>(
   const outcomes: SignedLooseOutcome[] = stableOffered.map((delta, i) => ({
     id: delta.id,
     status: statuses[i] === "admitted" ? quotaStatus(delta.id) : statuses[i]!,
+    ...(guarded[i]!.reason === undefined ? {} : { reason: guarded[i]!.reason }),
   }));
   const state = planPermanentCommit(before, {
     additions: quota.admittedIds.map((id) => candidates.get(id)!),

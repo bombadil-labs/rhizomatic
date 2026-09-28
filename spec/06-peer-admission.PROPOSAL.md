@@ -418,6 +418,20 @@ The pipeline is:
    The peer may hand the verified final additions to its reactor as one internal update, so
    materializations observe the whole accepted transfer at once. That update is not a signed
    transaction bundle and grants no admission or authorship authority of its own.
+   A typed single-peer store seam compares the exact prior peer-image bytes and commits the next
+   image **with** newly admitted delta rows as one backend transaction. A conflict changes
+   nothing. An uncertain post-commit durability result is distinct from refusal and must be
+   resolved by recovery before retry. The file adapter is single-writer; a shared backend must
+   provide its own atomic compare-and-set. A fresh peer starts from the canonical empty durable
+   image for its governing key only when the backing store has no existing rows. A store with
+   rows but no image MUST fail closed on this path. Reopen reads the full admitted DeltaSet from
+   the image; an adapter with separate delta rows MUST verify those rows agree with the image
+   before exposing them and MUST NOT replay them as admission. A signed-loose ordinary entry path MAY expose two receipt modes:
+   `atomic` for a local append, where any failed candidate refuses the whole unit before commit,
+   and `individual` for a received transfer, where accepted candidates may commit together while
+   the others retain separate outcomes. Application batch checks run under the same admission
+   lock before the atomic planner. Candidate-local guards may return a refusal reason; the
+   outcome preserves the first rejecting guard's reason without rerunning the guard.
    Until declared storage surfaces prove physical absence, a byte-removal report says `pending`,
    `failed` with the fault, or `shared-held`; a release of this peer's reference is reported
    separately and never called byte removal. A host may disclose `shared-held` to its authorized
@@ -530,7 +544,9 @@ For each newly accepted id, a peer records the receiver-supplied arrival time, a
 increasing peer-local arrival sequence that never resets during the peer's lifetime, a
 receiver-assigned transfer ordinal that also increases for the peer's lifetime, an admission
 epoch identified by that id's arrival sequence, and the sending peer id (or `local` for an
-append). An epoch reference is (`PeerId`, arrival sequence); sequences from different peers are
+append). When the receiver has no authenticated sending key, it MUST record `unattributed`
+rather than assert a `PeerId`; this marker cannot be used as authenticated sender provenance.
+An epoch reference is (`PeerId`, arrival sequence); sequences from different peers are
 not one numeric order. The arrival time comes from the receiver's
 trusted clock, never from an author-signed field. This is local testimony by the receiver,
 outside the delta's canonical bytes and

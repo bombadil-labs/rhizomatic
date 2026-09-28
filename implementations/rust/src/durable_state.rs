@@ -5,6 +5,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use crate::arrival::{plan_arrivals, ArrivalCursor};
 use crate::cbor::{decode, encode, CborValue};
+use crate::peer_identity::is_canonical_peer_id;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::peer_state::PeerStateWriteOutcome;
 use crate::peer_state::{decode_peer_state, encode_peer_state, PeerState};
@@ -59,6 +60,31 @@ pub struct DurablePeerState {
     pub events: Vec<RefusalEvent>,
     pub exclusions: Vec<ErasureExclusion>,
     pub obligations: Vec<PurgeObligation>,
+}
+
+/// Fresh permanent-posture peer, before its first admission.
+pub fn empty_durable_peer_state(peer_id: &str) -> Result<DurablePeerState, String> {
+    if !is_canonical_peer_id(peer_id) {
+        return Err("durable peer state: invalid canonical peer id".into());
+    }
+    Ok(DurablePeerState {
+        base: PeerState {
+            peer_id: peer_id.into(),
+            admitted: DeltaSet::new(),
+            cursor: ArrivalCursor {
+                last_sequence: 0,
+                last_transfer: 0,
+            },
+            arrivals: Vec::new(),
+            refused_ids: BTreeSet::new(),
+        },
+        refusal_counter: 0,
+        obligation_counter: 0,
+        quota_used: 0,
+        events: Vec::new(),
+        exclusions: Vec::new(),
+        obligations: Vec::new(),
+    })
 }
 
 /// Final verified admission decisions. The caller supplies the surface ownership fact.

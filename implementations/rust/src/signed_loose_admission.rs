@@ -40,6 +40,7 @@ impl SignedLooseOutcomeStatus {
 pub struct SignedLooseOutcome {
     pub id: String,
     pub status: SignedLooseOutcomeStatus,
+    pub reason: Option<String>,
 }
 
 pub struct SignedLooseTransferInput<'a, S> {
@@ -149,7 +150,8 @@ pub fn plan_signed_loose_ordinary_transfer<S>(
     let outcomes = stable_offered
         .iter()
         .zip(statuses)
-        .map(|(delta, status)| {
+        .zip(&guarded)
+        .map(|((delta, status), guarded)| {
             let status = if status == SignedLooseOutcomeStatus::Admitted {
                 if admitted.contains(delta.id.as_str()) {
                     SignedLooseOutcomeStatus::Admitted
@@ -166,6 +168,7 @@ pub fn plan_signed_loose_ordinary_transfer<S>(
             Ok(SignedLooseOutcome {
                 id: delta.id.clone(),
                 status,
+                reason: guarded.reason.clone(),
             })
         })
         .collect::<Result<Vec<_>, String>>()?;

@@ -53,6 +53,7 @@ pub mod schema;
 pub mod schema_deltas;
 pub mod set;
 pub mod sign;
+pub mod single_peer;
 pub mod strict;
 pub mod term_io;
 pub mod term_json;
@@ -79,8 +80,8 @@ pub use parse_error::{ParseError, ParseErrorKind};
 pub use peer::{sync_both, Peer, SyncReport};
 pub use pred::{compare_primitives, eval_pred, Pred};
 pub use preflight::{
-    preflight_transfer, CandidateGuard, GuardedUnit, GuardedUnitStatus, PreflightContext,
-    TransferUnit,
+    preflight_transfer, CandidateGuard, GuardDecision, GuardedUnit, GuardedUnitStatus,
+    PreflightContext, TransferUnit,
 };
 pub use principal::{
     associated_keys, authors_for_principal, eval_principal_term, lower_principal_registry,

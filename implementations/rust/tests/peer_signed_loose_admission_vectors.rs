@@ -6,7 +6,7 @@ use rhizomatic::durable_state::{
     decode_durable_peer_state, encode_durable_peer_state, write_durable_peer_state,
 };
 use rhizomatic::json_profile::parse_claims;
-use rhizomatic::preflight::CandidateGuard;
+use rhizomatic::preflight::{CandidateGuard, GuardDecision};
 use rhizomatic::signed_loose_admission::{
     admit_signed_loose_ordinary_transfer, plan_signed_loose_ordinary_transfer,
     SignedLooseTransferInput,
@@ -87,13 +87,20 @@ fn ordinary_admission_matches_shared_outcomes_and_image_bytes() {
             .flatten()
             .map(|name| named[name.as_str().unwrap()].id.clone())
             .collect();
-        let guard =
-            |candidate: &Delta,
-             _: &str,
-             _: &str,
-             _: &rhizomatic::DeltaSet,
-             _: f64,
-             rejected: &BTreeSet<String>| { !rejected.contains(&candidate.id) };
+        let guard = |candidate: &Delta,
+                     _: &str,
+                     _: &str,
+                     _: &rhizomatic::DeltaSet,
+                     _: f64,
+                     rejected: &BTreeSet<String>| {
+            if rejected.contains(&candidate.id) {
+                GuardDecision::Reject {
+                    reason: String::new(),
+                }
+            } else {
+                GuardDecision::Allow
+            }
+        };
         let guards: [&CandidateGuard<BTreeSet<String>>; 1] = [&guard];
         let seen = std::cell::RefCell::new(BTreeSet::new());
         let classifier = |candidate: &Delta| {
@@ -163,7 +170,9 @@ fn ordinary_admission_commits_against_its_planning_image() {
     let path = dir.path().join("peer.bin");
     write_durable_peer_state(&path, &before, None).unwrap();
     let offered = vec![named[case["offered"][0].as_str().unwrap()].clone()];
-    let guard = |_: &Delta, _: &str, _: &str, _: &rhizomatic::DeltaSet, _: f64, _: &()| true;
+    let guard = |_: &Delta, _: &str, _: &str, _: &rhizomatic::DeltaSet, _: f64, _: &()| {
+        GuardDecision::Allow
+    };
     let guards: [&CandidateGuard<()>; 1] = [&guard];
     let classifier = |_: &Delta| false;
     let input = SignedLooseTransferInput {

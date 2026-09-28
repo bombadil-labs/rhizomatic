@@ -19,6 +19,7 @@ import type { Delta } from "../delta/types.js";
 import { planArrivals } from "./arrival.js";
 import type { PeerStateWriteOutcome, PeerState } from "./peer-state.js";
 import { decodePeerState, encodePeerState } from "./peer-state.js";
+import { isCanonicalPeerId } from "./peer-identity.js";
 
 const VERSION = 2;
 const DELTA_ID = /^1e20[0-9a-f]{64}$/;
@@ -58,6 +59,26 @@ export interface DurablePeerState {
   readonly events: readonly RefusalEvent[];
   readonly exclusions: readonly ErasureExclusion[];
   readonly obligations: readonly PurgeObligation[];
+}
+
+/** Fresh permanent-posture peer, before its first admission. */
+export function emptyDurablePeerState(peerId: string): DurablePeerState {
+  if (!isCanonicalPeerId(peerId)) throw new Error("durable peer state: invalid canonical peer id");
+  return {
+    base: {
+      peerId,
+      admitted: new DeltaSet(),
+      cursor: { lastSequence: 0, lastTransfer: 0 },
+      arrivals: [],
+      refusedIds: new Set(),
+    },
+    refusalCounter: 0,
+    obligationCounter: 0,
+    quotaUsed: 0,
+    events: [],
+    exclusions: [],
+    obligations: [],
+  };
 }
 
 /** Verified, final admission decisions. The caller supplies the surface ownership fact. */
