@@ -14,6 +14,14 @@ for unadmitted bytes on the declared surface. Decoding verifies the
 snapshot digest and canonical bytes. A later handoff can preserve the stable identity rather
 than assigning a new peer-local obligation sequence.
 
+`vectors/peer/imported-obligation-transitions.json` pins the active-only successor check. Every
+earlier active row keeps its identity, target, surface, generation, and prior epoch. Retry status,
+fault, and the current refusal-event reference may advance. Earlier qualified refusal events
+survive unchanged; newly created events and obligations must name the intervening peer. A later
+intervening-peer event for a target becomes its current reference; without one, that reference
+stays put. A later format must carry authenticated terminal byte proof before an active row can
+disappear.
+
 This image is a staged component. It does not prove that a surface holds the named bytes, that
 all relevant obligations were copied, or that the old peer has transferred ownership. The old
 peer remains responsible for reporting and resuming active work until a durable authoritative

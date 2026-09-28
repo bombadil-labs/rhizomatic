@@ -41,21 +41,37 @@ fn validated(
         .collect();
     let holdings = checked_set(&imported.holdings, "holding")?;
     let covers = checked_set(&imported.covers, "cover")?;
+    let unsigned: Vec<_> = holdings.iter().filter(|row| row.sig.is_none()).collect();
     for row in covers.iter() {
+        if refused.contains(row.id.as_str()) {
+            return Err("imported holdings: current refusal is cover evidence".into());
+        }
+        if holdings.contains(&row.id) {
+            return Err("imported holdings: cover duplicates admitted holding".into());
+        }
         if verify_delta(row) != Verification::Verified || manifest_member_ids(row).is_empty() {
             return Err("imported holdings: invalid signed cover".into());
+        }
+        if !unsigned.iter().any(|member| {
+            member.claims.author == row.claims.author
+                && manifest_member_ids(row).contains(&member.id)
+        }) {
+            return Err("imported holdings: cover has no unsigned member".into());
         }
     }
     for row in holdings.iter() {
         if refused.contains(row.id.as_str()) {
             return Err("imported holdings: current refusal is admitted".into());
         }
-        if row.sig.is_some() {
-            if verify_delta(row) != Verification::Verified {
-                return Err("imported holdings: invalid holding signature".into());
-            }
-        } else if !covers.iter().any(|cover| {
-            cover.claims.author == row.claims.author && manifest_member_ids(cover).contains(&row.id)
+        if row.sig.is_some() && verify_delta(row) != Verification::Verified {
+            return Err("imported holdings: invalid holding signature".into());
+        }
+    }
+    for row in unsigned {
+        if !covers.iter().chain(holdings.iter()).any(|cover| {
+            cover.sig.is_some()
+                && cover.claims.author == row.claims.author
+                && manifest_member_ids(cover).contains(&row.id)
         }) {
             return Err("imported holdings: unsigned holding has no verified cover".into());
         }

@@ -43,6 +43,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
   A separate internal holding inventory now pins canonical admitted bytes and signed-manifest
   evidence for unsigned members, checks signatures and inherited refusals, and binds the image
   to the inherited-refusal snapshot. It does not assign arrival testimony or prove the handoff.
+  An active-only carry transition check now rejects dropped or renumbered purge debt and changed
+  historical refusal events across a later peer. Holding evidence accepts an admitted manifest
+  directly and rejects refused or unused separate covers.
 
 ## 0.11.0-next.1 — 2026-09-25
 

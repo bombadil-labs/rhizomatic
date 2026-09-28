@@ -35,12 +35,24 @@ export const refusedSnapshot: RefusalSnapshot = {
   ],
   current: [{ sourcePeerId: "peer-old", sequence: 1, targetId: signed.id }],
 };
+export const refusedCoverSnapshot: RefusalSnapshot = {
+  events: [
+    {
+      sourcePeerId: "peer-old",
+      sequence: 1,
+      targetId: cover.id,
+      orderIds: [`1e20${"c".repeat(64)}`],
+    },
+  ],
+  current: [{ sourcePeerId: "peer-old", sequence: 1, targetId: cover.id }],
+};
 
 export function importedCase(names: readonly string[], hasCover: boolean): ImportedHoldings {
   return {
     holdings: names.map((name) => {
       if (name === "signed") return signed;
       if (name === "unsigned") return unsigned;
+      if (name === "manifest") return cover;
       throw new Error(`unknown holding ${name}`);
     }),
     covers: hasCover ? [cover] : [],
@@ -86,6 +98,18 @@ export function invalidCase(mutation: string): {
       };
     case "refused-holding":
       return { imported: { holdings: [signed], covers: [] }, snapshot: refusedSnapshot };
+    case "refused-cover":
+      return {
+        imported: { holdings: [unsigned], covers: [cover] },
+        snapshot: refusedCoverSnapshot,
+      };
+    case "orphan-cover":
+      return { imported: { holdings: [signed], covers: [cover] }, snapshot: emptySnapshot };
+    case "duplicate-cover-evidence":
+      return {
+        imported: { holdings: [cover, unsigned], covers: [cover] },
+        snapshot: emptySnapshot,
+      };
     default:
       throw new Error(`unknown mutation ${mutation}`);
   }

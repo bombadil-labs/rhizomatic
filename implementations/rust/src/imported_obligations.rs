@@ -240,3 +240,111 @@ pub fn imported_obligations_digest(
         snapshot, carry,
     )?))
 }
+
+/// Active-only successor check; terminal byte proof requires a later transition format.
+pub fn validate_imported_obligation_transition(
+    before_snapshot: &RefusalSnapshot,
+    before: &ImportedObligationCarry,
+    after_snapshot: &RefusalSnapshot,
+    after: &ImportedObligationCarry,
+    intervening_peer_id: &str,
+) -> Result<(), String> {
+    encode_imported_obligations(before_snapshot, before)?;
+    encode_imported_obligations(after_snapshot, after)?;
+    if intervening_peer_id.is_empty() {
+        return Err("imported obligations: invalid intervening peer".into());
+    }
+    let old_events: BTreeMap<(&str, u64), _> = before_snapshot
+        .events
+        .iter()
+        .map(|event| ((event.source_peer_id.as_str(), event.sequence), event))
+        .collect();
+    let next_events: BTreeMap<(&str, u64), _> = after_snapshot
+        .events
+        .iter()
+        .map(|event| ((event.source_peer_id.as_str(), event.sequence), event))
+        .collect();
+    for (key, previous) in &old_events {
+        let Some(next) = next_events.get(key) else {
+            return Err("imported obligations: prior refusal event changed".into());
+        };
+        let mut next_orders = next.order_ids.clone();
+        let mut previous_orders = previous.order_ids.clone();
+        next_orders.sort();
+        previous_orders.sort();
+        if next.target_id != previous.target_id
+            || next.prior_epoch != previous.prior_epoch
+            || next_orders != previous_orders
+        {
+            return Err("imported obligations: prior refusal event changed".into());
+        }
+    }
+    for event in &after_snapshot.events {
+        if !old_events.contains_key(&(event.source_peer_id.as_str(), event.sequence))
+            && event.source_peer_id != intervening_peer_id
+        {
+            return Err("imported obligations: foreign refusal event added".into());
+        }
+    }
+    let mut local_latest: BTreeMap<&str, (&str, u64)> = BTreeMap::new();
+    for event in &after_snapshot.events {
+        if old_events.contains_key(&(event.source_peer_id.as_str(), event.sequence)) {
+            continue;
+        }
+        let latest = local_latest
+            .entry(event.target_id.as_str())
+            .or_insert((event.source_peer_id.as_str(), event.sequence));
+        if event.sequence > latest.1 {
+            *latest = (event.source_peer_id.as_str(), event.sequence);
+        }
+    }
+    let old_current: BTreeMap<&str, (&str, u64)> = before_snapshot
+        .current
+        .iter()
+        .map(|row| {
+            (
+                row.target_id.as_str(),
+                (row.source_peer_id.as_str(), row.sequence),
+            )
+        })
+        .collect();
+    for row in &after_snapshot.current {
+        let expected = local_latest
+            .get(row.target_id.as_str())
+            .copied()
+            .or_else(|| old_current.get(row.target_id.as_str()).copied());
+        if expected != Some((row.source_peer_id.as_str(), row.sequence)) {
+            return Err("imported obligations: current refusal did not advance".into());
+        }
+    }
+    let old_rows: BTreeMap<(&str, u64), _> = before
+        .obligations
+        .iter()
+        .map(|row| ((row.source_peer_id.as_str(), row.sequence), row))
+        .collect();
+    let next_rows: BTreeMap<(&str, u64), _> = after
+        .obligations
+        .iter()
+        .map(|row| ((row.source_peer_id.as_str(), row.sequence), row))
+        .collect();
+    for (key, previous) in &old_rows {
+        let Some(next) = next_rows.get(key) else {
+            return Err("imported obligations: prior active obligation changed".into());
+        };
+        if next.target_id != previous.target_id
+            || next.surface_id != previous.surface_id
+            || next.generation != previous.generation
+            || next.prior_epoch != previous.prior_epoch
+        {
+            return Err("imported obligations: prior active obligation changed".into());
+        }
+    }
+    for row in &after.obligations {
+        if !old_rows.contains_key(&(row.source_peer_id.as_str(), row.sequence))
+            && row.source_peer_id != intervening_peer_id
+        {
+            return Err("imported obligations: foreign obligation added".into());
+        }
+    }
+    Ok(())
+}

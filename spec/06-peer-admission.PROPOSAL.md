@@ -47,7 +47,13 @@ The imported holding inventory names every id admitted by the old surface, inclu
 currently hidden by validity or policy. Each imported holding MUST match its canonical claims
 bytes and content id and have either a valid own signature or a verified signed-manifest cover
 for that unsigned member. The cover remains evidence even when its manifest is not itself a
-holding. A missing or invalid claimed holding blocks import. Extra raw storage rows are not
+holding. An admitted signed manifest also supplies its own cover evidence without a duplicate
+copy. A separately carried cover MUST support at least one imported unsigned holding and MUST
+NOT be currently refused. If an unsigned holding has no surviving unrefused cover, import stays
+closed rather than restoring erased manifest bytes. A signed manifest may name other signed ids
+from different authors; for an unsigned member, its own author must match the manifest author.
+The old peer's authenticated admission record, not cover syntax alone, proves that the old
+admission-time bundle rule was followed. A missing or invalid claimed holding blocks import. Extra raw storage rows are not
 admitted by replay. An inherited-current-refused id cannot enter the imported admitted set,
 even when its bytes remain on a surface awaiting purge; exclusion and active purge debt remain
 separate state. The import transaction MUST assign the new peer's own arrival sequence and
@@ -65,6 +71,15 @@ effective order for the same target advances the obligation's current refusal-ev
 without changing its stable identity or storage generation. Staging this list
 does not move ownership: until the authoritative commit and durable new-peer proof, the old peer
 still reports and resumes each obligation.
+A carry-to-carry transition MUST retain every earlier active obligation under the same stable
+identity, target, surface, generation, and prior epoch until an authenticated terminal byte
+outcome is committed. Pending and failed status and its fault may change on retry, and a later
+effective order may advance the current event reference. The later snapshot retains every
+earlier qualified refusal event unchanged. Newly created obligations and refusal events in this
+transition belong to the intervening peer; they cannot be minted under an inherited source id.
+For every target refused by a new intervening-peer event, the later snapshot's current reference
+MUST name that peer's latest new event. Otherwise it retains the earlier current reference.
+An active-only transition with no terminal proof therefore rejects a missing earlier obligation.
 The v1 permanent-posture inherited-refusal snapshot binds every carried refusal event to its
 source `PeerId` and source sequence, and names exactly one current event for every event target.
 It retains earlier events for the same target; a current reference cannot point before a later

@@ -23,7 +23,14 @@ fn claims(label: &str, timestamp: f64, valid_from: f64, author: &str) -> Claims 
     }
 }
 
-fn fixture() -> (Delta, Delta, Delta, RefusalSnapshot, RefusalSnapshot) {
+fn fixture() -> (
+    Delta,
+    Delta,
+    Delta,
+    RefusalSnapshot,
+    RefusalSnapshot,
+    RefusalSnapshot,
+) {
     let seed = "01".repeat(32);
     let author = author_for_seed(&seed).unwrap();
     let signed = sign_claims(&claims("signed", 1.0, 100.0, &author), &seed).unwrap();
@@ -56,7 +63,21 @@ fn fixture() -> (Delta, Delta, Delta, RefusalSnapshot, RefusalSnapshot) {
             target_id: signed.id.clone(),
         }],
     };
-    (signed, unsigned, cover, empty, refused)
+    let refused_cover = RefusalSnapshot {
+        events: vec![QualifiedRefusalEvent {
+            source_peer_id: "peer-old".into(),
+            sequence: 1,
+            target_id: cover.id.clone(),
+            order_ids: vec![format!("1e20{}", "c".repeat(64))],
+            prior_epoch: None,
+        }],
+        current: vec![CurrentRefusal {
+            source_peer_id: "peer-old".into(),
+            sequence: 1,
+            target_id: cover.id.clone(),
+        }],
+    };
+    (signed, unsigned, cover, empty, refused, refused_cover)
 }
 
 fn vector() -> Value {
@@ -70,7 +91,7 @@ fn vector() -> Value {
 #[test]
 fn shared_images_and_digests_match() {
     let vector = vector();
-    let (signed, unsigned, cover, empty, refused) = fixture();
+    let (signed, unsigned, cover, empty, refused, _) = fixture();
     for case in vector["cases"].as_array().unwrap() {
         let imported = ImportedHoldings {
             holdings: case["holdings"]
@@ -80,6 +101,7 @@ fn shared_images_and_digests_match() {
                 .map(|name| match name.as_str().unwrap() {
                     "signed" => signed.clone(),
                     "unsigned" => unsigned.clone(),
+                    "manifest" => cover.clone(),
                     other => panic!("unknown holding {other}"),
                 })
                 .collect(),
@@ -110,16 +132,16 @@ fn shared_images_and_digests_match() {
 #[test]
 fn invalid_inventory_or_evidence_fails() {
     let vector = vector();
-    let (signed, unsigned, cover, empty, refused) = fixture();
+    let (signed, unsigned, cover, empty, refused, refused_cover) = fixture();
     for case in vector["invalidCases"].as_array().unwrap() {
         let mut imported = ImportedHoldings {
             holdings: vec![signed.clone()],
             covers: vec![],
         };
-        let snapshot = if case["mutation"] == "refused-holding" {
-            &refused
-        } else {
-            &empty
+        let snapshot = match case["mutation"].as_str() {
+            Some("refused-holding") => &refused,
+            Some("refused-cover") => &refused_cover,
+            _ => &empty,
         };
         match case["mutation"].as_str().unwrap() {
             "duplicate-holding" => imported.holdings.push(signed.clone()),
@@ -148,6 +170,15 @@ fn invalid_inventory_or_evidence_fails() {
                 .unwrap()];
             }
             "refused-holding" => {}
+            "refused-cover" => {
+                imported.holdings = vec![unsigned.clone()];
+                imported.covers = vec![cover.clone()];
+            }
+            "orphan-cover" => imported.covers = vec![cover.clone()],
+            "duplicate-cover-evidence" => {
+                imported.holdings = vec![cover.clone(), unsigned.clone()];
+                imported.covers = vec![cover.clone()];
+            }
             other => panic!("unknown mutation {other}"),
         }
         let error = encode_imported_holdings(snapshot, &imported).unwrap_err();

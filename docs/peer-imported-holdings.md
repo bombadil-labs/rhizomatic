@@ -8,8 +8,14 @@ by validity or local view policy remain in the inventory.
 
 Each holding's content id must match its claims. A signed holding must verify its own signature;
 an unsigned holding must have a verified signed manifest naming its id and author. The inventory
-rejects duplicate ids, invalid cover signatures, and any currently refused id. The cover list
+can use a manifest already in its admitted holdings without duplicating its bytes in the cover
+list. A separate cover must support at least one unsigned holding and cannot itself be currently
+refused; if only an erased manifest covered a member, import remains closed. The inventory
+rejects duplicate ids, invalid cover signatures, and any currently refused holding. The cover list
 is validated and retained in the image, so decoding can recheck the same evidence after restart.
+Other signed ids named by that manifest do not change the author check for an unsigned member;
+the old peer's authenticated admission record must separately prove its admission-time bundle
+decision.
 The image sorts pack members by id and rejects noncanonical or snapshot-mismatched bytes.
 
 This verifier checks the claimed inventory, not its completeness relative to the old surface's

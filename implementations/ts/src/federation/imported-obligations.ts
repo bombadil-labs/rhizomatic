@@ -184,3 +184,64 @@ export function importedObligationsDigest(
 ): string {
   return contentAddress(encodeImportedObligations(snapshot, carry));
 }
+
+/** Active-only successor check; terminal byte proof requires a later transition format. */
+export function validateImportedObligationTransition(
+  beforeSnapshot: RefusalSnapshot,
+  before: ImportedObligationCarry,
+  afterSnapshot: RefusalSnapshot,
+  after: ImportedObligationCarry,
+  interveningPeerId: string,
+): void {
+  encodeImportedObligations(beforeSnapshot, before);
+  encodeImportedObligations(afterSnapshot, after);
+  if (!interveningPeerId) throw new Error("imported obligations: invalid intervening peer");
+  const oldEvents = new Map(beforeSnapshot.events.map((event) => [refKey(event), event]));
+  const nextEvents = new Map(afterSnapshot.events.map((event) => [refKey(event), event]));
+  for (const [key, previous] of oldEvents) {
+    const next = nextEvents.get(key);
+    if (
+      next === undefined ||
+      next.targetId !== previous.targetId ||
+      next.priorEpoch !== previous.priorEpoch ||
+      JSON.stringify([...next.orderIds].sort()) !== JSON.stringify([...previous.orderIds].sort())
+    )
+      throw new Error("imported obligations: prior refusal event changed");
+  }
+  for (const event of afterSnapshot.events) {
+    if (!oldEvents.has(refKey(event)) && event.sourcePeerId !== interveningPeerId)
+      throw new Error("imported obligations: foreign refusal event added");
+  }
+  const localLatest = new Map<string, QualifiedEventRef>();
+  for (const event of afterSnapshot.events) {
+    if (oldEvents.has(refKey(event))) continue;
+    const prior = localLatest.get(event.targetId);
+    if (prior === undefined || event.sequence > prior.sequence)
+      localLatest.set(event.targetId, event);
+  }
+  const oldCurrent = new Map(beforeSnapshot.current.map((row) => [row.targetId, row]));
+  const nextCurrent = new Map(afterSnapshot.current.map((row) => [row.targetId, row]));
+  for (const [target, row] of nextCurrent) {
+    const expected = localLatest.get(target) ?? oldCurrent.get(target);
+    if (expected === undefined || refKey(row) !== refKey(expected))
+      throw new Error("imported obligations: current refusal did not advance");
+  }
+  const oldRows = new Map(before.obligations.map((row) => [refKey(row), row]));
+  const nextRows = new Map(after.obligations.map((row) => [refKey(row), row]));
+  for (const [key, previous] of oldRows) {
+    const next = nextRows.get(key);
+    if (
+      next === undefined ||
+      next.targetId !== previous.targetId ||
+      next.surfaceId !== previous.surfaceId ||
+      next.generation !== previous.generation ||
+      next.priorEpoch?.sourcePeerId !== previous.priorEpoch?.sourcePeerId ||
+      next.priorEpoch?.sequence !== previous.priorEpoch?.sequence
+    )
+      throw new Error("imported obligations: prior active obligation changed");
+  }
+  for (const row of after.obligations) {
+    if (!oldRows.has(refKey(row)) && row.sourcePeerId !== interveningPeerId)
+      throw new Error("imported obligations: foreign obligation added");
+  }
+}

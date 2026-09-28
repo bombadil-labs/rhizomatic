@@ -43,22 +43,37 @@ function validated(
   const refused = new Set(snapshot.current.map((row) => row.targetId));
   const holdings = checkedSet(imported.holdings, "holding");
   const covers = checkedSet(imported.covers, "cover");
+  const unsigned = [...holdings].filter((row) => row.sig === undefined);
   for (const row of covers) {
+    if (refused.has(row.id))
+      throw new Error("imported holdings: current refusal is cover evidence");
+    if (holdings.has(row.id))
+      throw new Error("imported holdings: cover duplicates admitted holding");
     if (!validSignature(row) || manifestMemberIds(row).length === 0)
       throw new Error("imported holdings: invalid signed cover");
+    if (
+      !unsigned.some(
+        (member) =>
+          member.claims.author === row.claims.author && manifestMemberIds(row).includes(member.id),
+      )
+    )
+      throw new Error("imported holdings: cover has no unsigned member");
   }
   for (const row of holdings) {
     if (refused.has(row.id)) throw new Error("imported holdings: current refusal is admitted");
-    if (row.sig !== undefined) {
-      if (!validSignature(row)) throw new Error("imported holdings: invalid holding signature");
-    } else if (
-      ![...covers].some(
+    if (row.sig !== undefined && !validSignature(row))
+      throw new Error("imported holdings: invalid holding signature");
+  }
+  for (const row of unsigned) {
+    if (
+      ![...covers, ...holdings].some(
         (cover) =>
-          cover.claims.author === row.claims.author && manifestMemberIds(cover).includes(row.id),
+          cover.sig !== undefined &&
+          cover.claims.author === row.claims.author &&
+          manifestMemberIds(cover).includes(row.id),
       )
-    ) {
+    )
       throw new Error("imported holdings: unsigned holding has no verified cover");
-    }
   }
   return { holdings, covers };
 }
