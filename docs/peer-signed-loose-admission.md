@@ -15,6 +15,10 @@ The receiver supplies a classifier for erasure candidates. A candidate classifie
 cannot pass through this ordinary-only path and gets `unsupported-erasure`; it must use the later
 erasure admission path. This slice has no subscribed lens, signed-bundle coverage, candidate-set
 conflict rule, or erasure effect. Those stages remain necessary before a general admission API.
+The classifier must be deterministic over a verified claim. The path evaluates it once per
+distinct eligible id, so repeated appearances cannot split one id between ordinary and erasure
+outcomes. Duplicate effective erasure orders also belong to the later erasure receipt path; this
+ordinary path cannot report their current or earlier refusal event and must not be used for them.
 
 The file operation plans against the caller's exact prior v2 image bytes, then asks the durable
 writer to compare those bytes before replacement. A stale image rejects without changing the

@@ -199,6 +199,25 @@
       "expected": [
         "quota-skipped"
       ]
+    },
+    {
+      "name": "repeated id has one fixed erasure classification",
+      "beforeCase": 0,
+      "afterCase": 0,
+      "offered": [
+        "operatorRootDeclaration",
+        "operatorRootDeclaration"
+      ],
+      "erasureFirstOnly": [
+        "operatorRootDeclaration"
+      ],
+      "capacity": 1,
+      "at": 100,
+      "sender": "peer-B",
+      "expected": [
+        "unsupported-erasure",
+        "unsupported-erasure"
+      ]
     }
   ]
 }

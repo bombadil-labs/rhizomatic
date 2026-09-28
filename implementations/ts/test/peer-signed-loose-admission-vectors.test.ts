@@ -21,6 +21,7 @@ interface Case {
   offered: string[];
   guardReject?: string[];
   erasure?: string[];
+  erasureFirstOnly?: string[];
   corruptSignature?: string[];
   capacity: number;
   at: number;
@@ -44,6 +45,7 @@ const id = (name: string) => named.get(name)!.id;
 const image = (index: number) => Uint8Array.from(Buffer.from(images[index]!.expectedHex, "hex"));
 
 function input(c: Case, reverse = false) {
+  const classified = new Set<string>();
   const offered = c.offered.map((name) => {
     const delta = named.get(name)!;
     return c.corruptSignature?.includes(name) ? { ...delta, sig: "00" } : delta;
@@ -58,7 +60,14 @@ function input(c: Case, reverse = false) {
       (context: { candidate: Delta }) =>
         !c.guardReject?.some((name) => id(name) === context.candidate.id),
     ],
-    isErasureCandidate: (delta: Delta) => c.erasure?.some((name) => id(name) === delta.id) ?? false,
+    isErasureCandidate: (delta: Delta) => {
+      if (c.erasureFirstOnly?.some((name) => id(name) === delta.id)) {
+        if (classified.has(delta.id)) return false;
+        classified.add(delta.id);
+        return true;
+      }
+      return c.erasure?.some((name) => id(name) === delta.id) ?? false;
+    },
   };
 }
 

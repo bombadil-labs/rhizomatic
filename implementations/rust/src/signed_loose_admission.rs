@@ -101,6 +101,7 @@ pub fn plan_signed_loose_ordinary_transfer<S>(
         })
         .collect();
     let mut candidates = BTreeMap::new();
+    let mut classified = BTreeMap::new();
     let statuses: Vec<SignedLooseOutcomeStatus> = guarded
         .iter()
         .zip(&stable_offered)
@@ -109,12 +110,16 @@ pub fn plan_signed_loose_ordinary_transfer<S>(
             GuardedUnitStatus::Refused => SignedLooseOutcomeStatus::Refused,
             GuardedUnitStatus::Duplicate => SignedLooseOutcomeStatus::Duplicate,
             GuardedUnitStatus::GuardRejected => SignedLooseOutcomeStatus::GuardRejected,
-            GuardedUnitStatus::Eligible if (input.is_erasure_candidate)(delta) => {
-                SignedLooseOutcomeStatus::UnsupportedErasure
-            }
             GuardedUnitStatus::Eligible => {
-                candidates.insert(delta.id.clone(), delta.clone());
-                SignedLooseOutcomeStatus::Admitted
+                let erasure = *classified
+                    .entry(delta.id.clone())
+                    .or_insert_with(|| (input.is_erasure_candidate)(delta));
+                if erasure {
+                    SignedLooseOutcomeStatus::UnsupportedErasure
+                } else {
+                    candidates.insert(delta.id.clone(), delta.clone());
+                    SignedLooseOutcomeStatus::Admitted
+                }
             }
         })
         .collect();

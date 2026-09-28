@@ -73,10 +73,13 @@ export function planSignedLooseOrdinaryTransfer<State>(
     return unit.unit.delta;
   });
   const candidates = new Map<string, Delta>();
+  const classified = new Map<string, boolean>();
   const statuses: SignedLooseOutcomeStatus[] = guarded.map((unit, i) => {
     if (unit.status !== "eligible") return unit.status;
     const delta = stableOffered[i]!;
-    if (input.isErasureCandidate(structuredClone(delta))) return "unsupported-erasure";
+    if (!classified.has(delta.id))
+      classified.set(delta.id, input.isErasureCandidate(structuredClone(delta)));
+    if (classified.get(delta.id)) return "unsupported-erasure";
     candidates.set(delta.id, delta);
     return "admitted";
   });

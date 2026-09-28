@@ -81,6 +81,12 @@ fn ordinary_admission_matches_shared_outcomes_and_image_bytes() {
             .flatten()
             .map(|name| named[name.as_str().unwrap()].id.clone())
             .collect();
+        let first_only: BTreeSet<String> = case["erasureFirstOnly"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .map(|name| named[name.as_str().unwrap()].id.clone())
+            .collect();
         let guard =
             |candidate: &Delta,
              _: &str,
@@ -89,7 +95,14 @@ fn ordinary_admission_matches_shared_outcomes_and_image_bytes() {
              _: f64,
              rejected: &BTreeSet<String>| { !rejected.contains(&candidate.id) };
         let guards: [&CandidateGuard<BTreeSet<String>>; 1] = [&guard];
-        let classifier = |candidate: &Delta| erasure.contains(&candidate.id);
+        let seen = std::cell::RefCell::new(BTreeSet::new());
+        let classifier = |candidate: &Delta| {
+            if first_only.contains(&candidate.id) {
+                seen.borrow_mut().insert(candidate.id.clone())
+            } else {
+                erasure.contains(&candidate.id)
+            }
+        };
         let input = SignedLooseTransferInput {
             offered: &offered,
             sending_peer_id: case["sender"].as_str().unwrap(),
@@ -117,8 +130,17 @@ fn ordinary_admission_matches_shared_outcomes_and_image_bytes() {
             case["name"]
         );
         let reversed_offered: Vec<Delta> = offered.iter().cloned().rev().collect();
+        let reverse_seen = std::cell::RefCell::new(BTreeSet::new());
+        let reverse_classifier = |candidate: &Delta| {
+            if first_only.contains(&candidate.id) {
+                reverse_seen.borrow_mut().insert(candidate.id.clone())
+            } else {
+                erasure.contains(&candidate.id)
+            }
+        };
         let reverse = SignedLooseTransferInput {
             offered: &reversed_offered,
+            is_erasure_candidate: &reverse_classifier,
             ..input
         };
         let reversed = plan_signed_loose_ordinary_transfer(&before, &reverse).unwrap();
