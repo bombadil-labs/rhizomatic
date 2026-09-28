@@ -36,6 +36,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
   internal handoff component until obligations, holdings, policy, and commit proof are bound.
   A closed v3 staging image now durably retains those inherited bytes beside a local peer image;
   its full qualified refusal history survives a second handoff. It cannot admit or serve.
+  An internal canonical active-obligation carry now preserves source-qualified purge identities,
+  storage generations, current refusal references, and retryable failure faults across a proposed
+  handoff. Its bytes and digest are pinned by shared vectors; staging alone does not transfer
+  obligation ownership.
 
 ## 0.11.0-next.1 — 2026-09-25
 

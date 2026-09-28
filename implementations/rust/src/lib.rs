@@ -15,6 +15,8 @@ pub mod erasure_filter;
 pub mod eval;
 pub mod hash;
 #[doc(hidden)]
+pub mod imported_obligations;
+#[doc(hidden)]
 pub mod inherited_state;
 #[doc(hidden)]
 pub mod signed_loose_admission;

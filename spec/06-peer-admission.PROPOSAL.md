@@ -43,6 +43,15 @@ the required transaction.
 The closed stage's local arrival fields are only candidate state: the eventual import MUST assign
 new-peer testimony to verified inherited holdings and MUST NOT accept copied host arrival fields
 as that testimony. The stage also cannot establish unsigned covering-bundle evidence by itself.
+Each staged active byte-removal obligation names its stable identity as a source `PeerId` and
+source obligation sequence, its target, declared storage surface and generation, its current
+source-qualified refusal-event reference, and its `pending` or `failed` status with a retryable
+fault for failure. A prior admission epoch, when present, remains source-qualified too. A second
+handoff keeps the obligation identities, surfaces, generations, and prior epochs. A later
+effective order for the same target advances the obligation's current refusal-event reference
+without changing its stable identity or storage generation. Staging this list
+does not move ownership: until the authoritative commit and durable new-peer proof, the old peer
+still reports and resumes each obligation.
 The v1 permanent-posture inherited-refusal snapshot binds every carried refusal event to its
 source `PeerId` and source sequence, and names exactly one current event for every event target.
 It retains earlier events for the same target; a current reference cannot point before a later
