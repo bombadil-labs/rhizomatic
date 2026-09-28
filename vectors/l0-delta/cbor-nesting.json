@@ -1,0 +1,6 @@
+[
+  { "name": "array at reader depth limit", "prefixHex": "81", "repeat": 256, "suffixHex": "f4", "expected": "valid" },
+  { "name": "array one level past reader depth limit", "prefixHex": "81", "repeat": 257, "suffixHex": "f4", "expected": "cbor: nesting depth exceeded" },
+  { "name": "map at reader depth limit", "prefixHex": "a16161", "repeat": 256, "suffixHex": "f4", "expected": "valid" },
+  { "name": "map one level past reader depth limit", "prefixHex": "a16161", "repeat": 257, "suffixHex": "f4", "expected": "cbor: nesting depth exceeded" }
+]

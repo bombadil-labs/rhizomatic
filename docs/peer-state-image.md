@@ -17,3 +17,8 @@ rename leave the old image in place. If directory sync fails after the rename, t
 `committed-unconfirmed`: the caller must reload and reconcile before acknowledging admission.
 The adapter does not coordinate writers across processes or storage backends. Those guarantees
 remain necessary for the final step-6 API.
+
+If the existing image is corrupt, reads and writes fail closed. The adapter has no automatic
+recovery copy. Keep that peer offline until an externally authenticated, complete image can be
+restored; deleting the file and starting the same `PeerId` again would discard its counters and
+refusals. The handoff protocol will require its own verified recovery copy and commit proof.

@@ -137,6 +137,20 @@ describe("packs (SPEC-8, ERRATA-8)", () => {
     for (const c of cases) expect(() => unpackSet(hexToBytes(c.hex))).toThrow(c.error);
   });
 
+  it("rejects excessive nesting before unpacking", () => {
+    const cases = read("l0-delta/cbor-nesting.json") as Array<{
+      prefixHex: string;
+      repeat: number;
+      suffixHex: string;
+      expected: string;
+    }>;
+    for (const c of cases.filter((c) => c.expected !== "valid")) {
+      expect(() => unpackSet(hexToBytes(c.prefixHex.repeat(c.repeat) + c.suffixHex))).toThrow(
+        c.expected,
+      );
+    }
+  });
+
   it("property: pack/unpack round-trips arbitrary sets", () => {
     const claimsArb = fc.record({
       timestamp: fc.integer({ min: 0, max: 100000 }),

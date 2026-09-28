@@ -132,9 +132,22 @@ function cmpBytes(a: Uint8Array, b: Uint8Array): number {
 
 const utf8 = new TextEncoder();
 
+function wellFormedUnicode(value: string): boolean {
+  for (let i = 0; i < value.length; i++) {
+    const unit = value.charCodeAt(i);
+    if (unit >= 0xd800 && unit <= 0xdbff) {
+      if (++i >= value.length) return false;
+      const low = value.charCodeAt(i);
+      if (low < 0xdc00 || low > 0xdfff) return false;
+    } else if (unit >= 0xdc00 && unit <= 0xdfff) return false;
+  }
+  return true;
+}
+
 function encodeInto(sink: ByteSink, val: CborValue): void {
   switch (val.t) {
     case "tstr": {
+      if (!wellFormedUnicode(val.v)) throw new Error("cbor: text is not well-formed Unicode");
       const bytes = utf8.encode(val.v); // byte-honest: no normalization at encode (D16)
       writeHead(sink, 3, bytes.length);
       sink.pushBytes(bytes);
@@ -229,7 +242,10 @@ function f16BitsToNumber(bits: number): number {
   return sign * (1 + mant / 1024) * 2 ** (exp - 15);
 }
 
-function decodeItem(r: ByteReader): CborValue {
+const MAX_DECODE_DEPTH = 256;
+
+function decodeItem(r: ByteReader, depth: number): CborValue {
+  if (depth > MAX_DECODE_DEPTH) throw new Error("cbor: nesting depth exceeded");
   const head = r.u8();
   const major = head >> 5;
   const info = head & 0x1f;
@@ -246,7 +262,7 @@ function decodeItem(r: ByteReader): CborValue {
       const len = readLength(r, info);
       if (len > r.remaining()) throw new Error("cbor: unexpected end of input");
       const items: CborValue[] = [];
-      for (let i = 0; i < len; i++) items.push(decodeItem(r));
+      for (let i = 0; i < len; i++) items.push(decodeItem(r, depth + 1));
       return array(items);
     }
     case 5: {
@@ -254,9 +270,9 @@ function decodeItem(r: ByteReader): CborValue {
       if (len > Math.floor(r.remaining() / 2)) throw new Error("cbor: unexpected end of input");
       const entries: Array<[string, CborValue]> = [];
       for (let i = 0; i < len; i++) {
-        const key = decodeItem(r);
+        const key = decodeItem(r, depth + 1);
         if (key.t !== "tstr") throw new Error("cbor: map keys must be text strings");
-        entries.push([key.v, decodeItem(r)]);
+        entries.push([key.v, decodeItem(r, depth + 1)]);
       }
       return map(entries);
     }
@@ -290,7 +306,7 @@ function decodeItem(r: ByteReader): CborValue {
 
 export function decode(bytes: Uint8Array): CborValue {
   const r = new ByteReader(bytes);
-  const v = decodeItem(r);
+  const v = decodeItem(r, 0);
   if (!r.done()) throw new Error("cbor: trailing bytes after item");
   return v;
 }

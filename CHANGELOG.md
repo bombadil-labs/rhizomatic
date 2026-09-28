@@ -6,6 +6,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 
 ## Unreleased
 
+### Added
+
+- Step-6 admission building blocks in both TypeScript and Rust: shared arrival testimony vectors,
+  signed loose and bundle entry checks, candidate-local guard preflight against the pre-transfer
+  admitted set, and atomic in-memory Reactor batch ingestion. These are staged helpers; the
+  typed admission and handoff API is still in progress.
+
+### Internal structure
+
+- A canonical peer-local state image and single-writer file adapter preserve current holdings,
+  first-epoch arrival testimony, counters, and permanent refusals across restart. The image is
+  internal and does not yet hold erasure obligations or handoff proof. CBOR and pack readers now
+  reject malformed lengths, excessive nesting, and invalid table indices before admission.
+
 ## 0.11.0-next.1 — 2026-09-25
 
 ### Improved

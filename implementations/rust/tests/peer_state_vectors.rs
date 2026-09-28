@@ -38,6 +38,25 @@ fn fixtures() -> (Value, BTreeMap<String, Delta>) {
     (vector, named)
 }
 
+#[test]
+fn malformed_image_bytes_match_shared_vectors() {
+    let path = format!(
+        "{}/../../vectors/peer/state-invalid.json",
+        env!("CARGO_MANIFEST_DIR")
+    );
+    let vector: Value = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+    for case in vector["cases"].as_array().unwrap() {
+        let bytes = hex::decode(case["hex"].as_str().unwrap()).unwrap();
+        let error =
+            decode_peer_state(&bytes, case["expectedPeerId"].as_str().unwrap()).unwrap_err();
+        assert!(
+            error.contains(case["error"].as_str().unwrap()),
+            "{}: {error}",
+            case["name"]
+        );
+    }
+}
+
 fn from_case(case: &Value, named: &BTreeMap<String, Delta>) -> PeerState {
     let id = |name: &Value| named[name.as_str().unwrap()].id.clone();
     PeerState {
@@ -102,6 +121,32 @@ fn huge_malformed_container_lengths_fail_before_loading_peer_state() {
         assert_eq!(
             decode_peer_state(&bytes, "peer-A").unwrap_err(),
             case["error"].as_str().unwrap()
+        );
+    }
+}
+
+#[test]
+fn excessive_nesting_fails_before_loading_peer_state() {
+    let path = format!(
+        "{}/../../vectors/l0-delta/cbor-nesting.json",
+        env!("CARGO_MANIFEST_DIR")
+    );
+    let cases: Value = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+    for case in cases.as_array().unwrap() {
+        if case["expected"] == "valid" {
+            continue;
+        }
+        let hex = format!(
+            "{}{}",
+            case["prefixHex"]
+                .as_str()
+                .unwrap()
+                .repeat(case["repeat"].as_u64().unwrap() as usize),
+            case["suffixHex"].as_str().unwrap()
+        );
+        assert_eq!(
+            decode_peer_state(&hex::decode(hex).unwrap(), "peer-A").unwrap_err(),
+            case["expected"].as_str().unwrap()
         );
     }
 }
@@ -209,5 +254,30 @@ fn file_replacement_restores_complete_state_and_failed_validation_preserves_old_
         std::fs::write(&path, [0xff]).unwrap();
         assert!(read_peer_state(&path, "peer-A").is_err());
     }
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn stale_file_from_old_pid_scheme_does_not_block_or_get_deleted() {
+    let (vector, named) = fixtures();
+    let dir = std::env::temp_dir().join(format!(
+        "rhizomatic-stale-peer-state-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::create_dir(&dir).unwrap();
+    let path = dir.join("peer.bin");
+    let stale = path.with_extension(format!("{}.0.tmp", std::process::id()));
+    std::fs::write(&stale, b"left by a crashed writer").unwrap();
+    let state = from_case(&vector["cases"][0], &named);
+    assert_eq!(
+        write_peer_state(&path, &state).unwrap(),
+        PeerStateWriteOutcome::Durable
+    );
+    assert_eq!(std::fs::read(&stale).unwrap(), b"left by a crashed writer");
+    assert_eq!(read_peer_state(&path, "peer-A").unwrap().unwrap(), state);
     std::fs::remove_dir_all(dir).unwrap();
 }

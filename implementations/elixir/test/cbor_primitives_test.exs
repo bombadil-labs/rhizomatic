@@ -38,4 +38,20 @@ defmodule CborPrimitivesTest do
   test "-0.0 normalizes to +0.0 before encoding" do
     assert Vectors.hex(Cbor.encode({:float, -0.0})) == "f90000"
   end
+
+  test "CBOR nesting matches the shared reader boundary" do
+    for case_ <- Vectors.load!("l0-delta/cbor-nesting.json") do
+      bytes =
+        String.duplicate(case_["prefixHex"], case_["repeat"]) <>
+          case_["suffixHex"]
+
+      result = Cbor.decode_exact(Vectors.unhex(bytes))
+
+      if case_["expected"] == "valid" do
+        assert match?({:ok, _}, result), case_["name"]
+      else
+        assert result == {:error, :nesting_depth_exceeded}, case_["name"]
+      end
+    end
+  end
 end

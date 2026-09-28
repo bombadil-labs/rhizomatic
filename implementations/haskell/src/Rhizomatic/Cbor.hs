@@ -115,7 +115,7 @@ toF16 d
 -- UTF-8, non-text map keys, trailing bytes — is rejected.
 decode :: B.ByteString -> Either String Item
 decode input = do
-  (item, rest) <- decodeItem input
+  (item, rest) <- decodeItem 0 input
   if B.null rest
     then
       if encode item == input
@@ -123,8 +123,10 @@ decode input = do
         else Left "cbor: input is not in canonical form"
     else Left "cbor: trailing bytes"
 
-decodeItem :: B.ByteString -> Either String (Item, B.ByteString)
-decodeItem bs = do
+decodeItem :: Int -> B.ByteString -> Either String (Item, B.ByteString)
+decodeItem depth bs
+  | depth > 256 = Left "cbor: nesting depth exceeded"
+  | otherwise = do
   (b0, rest) <- uncons bs
   let major = b0 `shiftR` 5
       info = b0 .&. 0x1f
@@ -141,11 +143,11 @@ decodeItem bs = do
         Right t -> Right (TStr t, rest'')
     4 -> do
       (n, rest') <- argument info rest
-      (items, rest'') <- decodeN n rest'
+      (items, rest'') <- decodeN (depth + 1) n rest'
       Right (Arr items, rest'')
     5 -> do
       (n, rest') <- argument info rest
-      (kvs, rest'') <- decodePairs n rest'
+      (kvs, rest'') <- decodePairs (depth + 1) n rest'
       Right (Map kvs, rest'')
     7 -> case info of
       20 -> Right (Bool' False, rest)
@@ -166,21 +168,21 @@ decodeItem bs = do
       | isNaN d || isInfinite d = Left "cbor: non-finite float"
       | otherwise = Right (Num d, rest')
 
-decodeN :: Int -> B.ByteString -> Either String ([Item], B.ByteString)
-decodeN 0 bs = Right ([], bs)
-decodeN n bs = do
-  (x, rest) <- decodeItem bs
-  (xs, rest') <- decodeN (n - 1) rest
+decodeN :: Int -> Int -> B.ByteString -> Either String ([Item], B.ByteString)
+decodeN _ 0 bs = Right ([], bs)
+decodeN depth n bs = do
+  (x, rest) <- decodeItem depth bs
+  (xs, rest') <- decodeN depth (n - 1) rest
   Right (x : xs, rest')
 
-decodePairs :: Int -> B.ByteString -> Either String ([(T.Text, Item)], B.ByteString)
-decodePairs 0 bs = Right ([], bs)
-decodePairs n bs = do
-  (k, rest) <- decodeItem bs
+decodePairs :: Int -> Int -> B.ByteString -> Either String ([(T.Text, Item)], B.ByteString)
+decodePairs _ 0 bs = Right ([], bs)
+decodePairs depth n bs = do
+  (k, rest) <- decodeItem depth bs
   case k of
     TStr kt -> do
-      (v, rest') <- decodeItem rest
-      (kvs, rest'') <- decodePairs (n - 1) rest'
+      (v, rest') <- decodeItem depth rest
+      (kvs, rest'') <- decodePairs depth (n - 1) rest'
       if kt `elem` map fst kvs
         then Left "cbor: duplicate map key"
         else Right ((kt, v) : kvs, rest'')

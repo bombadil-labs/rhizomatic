@@ -32,6 +32,9 @@ const vector = JSON.parse(
   cases: StateCase[];
   invalidCases: Array<{ name: string; base: number; mutation: string; expected: string }>;
 };
+const invalidImages = JSON.parse(
+  readFileSync(resolve(import.meta.dirname, "../../../vectors/peer/state-invalid.json"), "utf8"),
+) as { cases: Array<{ name: string; hex: string; expectedPeerId: string; error: string }> };
 const named = new Map<string, Delta>(
   fixture.deltas.map((row) => [
     row.name,
@@ -47,6 +50,11 @@ const fromCase = (c: StateCase): PeerState => ({
 });
 
 describe("shared SPEC-6 peer state image vectors", () => {
+  for (const c of invalidImages.cases) {
+    it(`rejects image bytes: ${c.name}`, () => {
+      expect(() => decodePeerState(Buffer.from(c.hex, "hex"), c.expectedPeerId)).toThrow(c.error);
+    });
+  }
   for (const c of vector.cases) {
     it(c.name, () => {
       const state = fromCase(c);
@@ -197,5 +205,19 @@ describe("shared SPEC-6 peer state image vectors", () => {
     ) as Array<{ hex: string; error: string }>;
     for (const c of cases)
       expect(() => decodePeerState(Buffer.from(c.hex, "hex"), "peer-A")).toThrow(c.error);
+  });
+
+  it("rejects excessive nesting before loading peer state", () => {
+    const cases = JSON.parse(
+      readFileSync(
+        resolve(import.meta.dirname, "../../../vectors/l0-delta/cbor-nesting.json"),
+        "utf8",
+      ),
+    ) as Array<{ prefixHex: string; repeat: number; suffixHex: string; expected: string }>;
+    for (const c of cases.filter((c) => c.expected !== "valid")) {
+      expect(() =>
+        decodePeerState(Buffer.from(c.prefixHex.repeat(c.repeat) + c.suffixHex, "hex"), "peer-A"),
+      ).toThrow(c.expected);
+    }
   });
 });

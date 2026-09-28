@@ -22,6 +22,7 @@ main =
   runSuites
     [ ("json-parser", pure jsonParserTests),
       ("cbor-primitives", cborPrimitiveTests),
+      ("cbor-nesting", cborNestingTests),
       ("blake3-known-answers", pure blake3Tests),
       ("boundary", pure boundaryTests),
       ("deltas", deltaFileTests "l0-delta/deltas.json"),
@@ -264,6 +265,23 @@ cborPrimitiveTests :: IO [Test]
 cborPrimitiveTests = do
   JArr cases <- loadVectors "l0-delta/cbor-primitives.json"
   pure (concatMap primitiveCase cases)
+
+cborNestingTests :: IO [Test]
+cborNestingTests = do
+  JArr cases <- loadVectors "l0-delta/cbor-nesting.json"
+  pure (map nestingCase cases)
+
+nestingCase :: JValue -> Test
+nestingCase (JObj fields) =
+  case (lookup "name" fields, lookup "prefixHex" fields, lookup "repeat" fields, lookup "suffixHex" fields, lookup "expected" fields) of
+    (Just (JStr name), Just (JStr prefix), Just (JNum count), Just (JStr suffix), Just (JStr expected)) ->
+      let hex = concat (replicate (round count) (T.unpack prefix)) ++ T.unpack suffix
+          result = decodeHex hex >>= decode
+       in if expected == "valid"
+            then expectEq (T.unpack name) (either (const False) (const True) result) True
+            else expectEq (T.unpack name) result (Left "cbor: nesting depth exceeded")
+    _ -> failure "cbor-nesting" "malformed vector entry"
+nestingCase _ = failure "cbor-nesting" "vector entry is not an object"
 
 primitiveCase :: JValue -> [Test]
 primitiveCase (JObj fields) =

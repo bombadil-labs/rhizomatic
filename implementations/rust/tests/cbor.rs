@@ -24,6 +24,32 @@ fn malformed_lengths_fail_before_allocation() {
 }
 
 #[test]
+fn nesting_boundary_matches_shared_vectors() {
+    let cases: Vec<Value> = serde_json::from_str(&vector("cbor-nesting.json")).unwrap();
+    for case in cases {
+        let bytes = hex::decode(format!(
+            "{}{}",
+            case["prefixHex"]
+                .as_str()
+                .unwrap()
+                .repeat(case["repeat"].as_u64().unwrap() as usize),
+            case["suffixHex"].as_str().unwrap()
+        ))
+        .unwrap();
+        if case["expected"] == "valid" {
+            assert!(decode(&bytes).is_ok(), "{}", case["name"]);
+        } else {
+            assert_eq!(
+                decode(&bytes).unwrap_err(),
+                case["expected"].as_str().unwrap(),
+                "{}",
+                case["name"]
+            );
+        }
+    }
+}
+
+#[test]
 fn cbor_primitive_ground_truth() {
     let arr: Vec<Value> = serde_json::from_str(&vector("cbor-primitives.json")).unwrap();
     for c in arr {

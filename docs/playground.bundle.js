@@ -103,9 +103,21 @@
     return a.length - b.length;
   }
   var utf8 = new TextEncoder();
+  function wellFormedUnicode(value) {
+    for (let i = 0; i < value.length; i++) {
+      const unit = value.charCodeAt(i);
+      if (unit >= 55296 && unit <= 56319) {
+        if (++i >= value.length) return false;
+        const low = value.charCodeAt(i);
+        if (low < 56320 || low > 57343) return false;
+      } else if (unit >= 56320 && unit <= 57343) return false;
+    }
+    return true;
+  }
   function encodeInto(sink, val) {
     switch (val.t) {
       case "tstr": {
+        if (!wellFormedUnicode(val.v)) throw new Error("cbor: text is not well-formed Unicode");
         const bytes = utf8.encode(val.v);
         writeHead(sink, 3, bytes.length);
         sink.pushBytes(bytes);

@@ -130,3 +130,24 @@ fn huge_malformed_container_lengths_fail_before_unpacking() {
         );
     }
 }
+
+#[test]
+fn excessive_nesting_fails_before_unpacking() {
+    for case in read("l0-delta/cbor-nesting.json").as_array().unwrap() {
+        if case["expected"] == "valid" {
+            continue;
+        }
+        let hex = format!(
+            "{}{}",
+            case["prefixHex"]
+                .as_str()
+                .unwrap()
+                .repeat(case["repeat"].as_u64().unwrap() as usize),
+            case["suffixHex"].as_str().unwrap()
+        );
+        assert_eq!(
+            unpack_set(&hex::decode(hex).unwrap()).unwrap_err(),
+            case["expected"].as_str().unwrap()
+        );
+    }
+}

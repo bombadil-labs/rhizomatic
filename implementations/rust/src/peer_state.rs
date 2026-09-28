@@ -272,12 +272,8 @@ pub fn write_peer_state(
     path: &std::path::Path,
     state: &PeerState,
 ) -> Result<PeerStateWriteOutcome, String> {
-    use std::fs::{self, OpenOptions};
+    use std::fs;
     use std::io::Write;
-    #[cfg(unix)]
-    use std::os::unix::fs::OpenOptionsExt;
-    use std::sync::atomic::{AtomicU64, Ordering};
-    static NEXT_TEMP: AtomicU64 = AtomicU64::new(0);
 
     let bytes = encode_peer_state(state)?;
     if let Some(before) = read_peer_state(path, &state.peer_id)? {
@@ -288,27 +284,19 @@ pub fn write_peer_state(
         .filter(|parent| !parent.as_os_str().is_empty())
         .unwrap_or_else(|| std::path::Path::new("."));
     let dir = fs::File::open(parent).map_err(|e| e.to_string())?;
-    let nonce = NEXT_TEMP.fetch_add(1, Ordering::Relaxed);
-    let temp = path.with_extension(format!("{}.{}.tmp", std::process::id(), nonce));
-    let result = (|| -> Result<PeerStateWriteOutcome, String> {
-        let mut options = OpenOptions::new();
-        options.write(true).create_new(true);
-        #[cfg(unix)]
-        options.mode(0o600);
-        let mut file = options.open(&temp).map_err(|e| e.to_string())?;
-        file.write_all(&bytes).map_err(|e| e.to_string())?;
-        file.sync_all().map_err(|e| e.to_string())?;
-        drop(file);
-        fs::rename(&temp, path).map_err(|e| e.to_string())?;
-        Ok(match dir.sync_all() {
-            Ok(()) => PeerStateWriteOutcome::Durable,
-            Err(e) => PeerStateWriteOutcome::CommittedUnconfirmed {
-                fault: e.to_string(),
-            },
-        })
-    })();
-    let _ = fs::remove_file(temp);
-    result
+    // A random, privately owned temp file prevents pid reuse or a prior crash from colliding
+    // with this write. NamedTempFile removes only the file it created on any precommit failure.
+    let mut temp = tempfile::NamedTempFile::new_in(parent).map_err(|e| e.to_string())?;
+    temp.write_all(&bytes).map_err(|e| e.to_string())?;
+    temp.as_file().sync_all().map_err(|e| e.to_string())?;
+    let committed = temp.persist(path).map_err(|e| e.error.to_string())?;
+    drop(committed);
+    Ok(match dir.sync_all() {
+        Ok(()) => PeerStateWriteOutcome::Durable,
+        Err(e) => PeerStateWriteOutcome::CommittedUnconfirmed {
+            fault: e.to_string(),
+        },
+    })
 }
 
 #[cfg(not(target_arch = "wasm32"))]
