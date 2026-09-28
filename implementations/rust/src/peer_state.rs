@@ -98,6 +98,7 @@ fn validate(state: &PeerState) -> Result<(), String> {
     Ok(())
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn validate_transition(before: &PeerState, after: &PeerState) -> Result<(), String> {
     if after.arrivals.len() < before.arrivals.len() {
         return Err("peer state: arrival history cannot shrink".into());

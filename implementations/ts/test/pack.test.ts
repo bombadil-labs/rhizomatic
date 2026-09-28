@@ -93,6 +93,7 @@ describe("packs (SPEC-8, ERRATA-8)", () => {
         field: string;
         index: number;
         error: string;
+        hex: string;
       }>;
     };
     const principal = read("principal/evidence.json") as {
@@ -125,7 +126,8 @@ describe("packs (SPEC-8, ERRATA-8)", () => {
         return [key, array(records)];
       });
       expect(changed).toBe(true);
-      expect(() => unpackSet(encode(map(fields)))).toThrow(c.error);
+      expect(bytesToHex(encode(map(fields)))).toBe(c.hex);
+      expect(() => unpackSet(hexToBytes(c.hex))).toThrow(c.error);
     }
   });
 

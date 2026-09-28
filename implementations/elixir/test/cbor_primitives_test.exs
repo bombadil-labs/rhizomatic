@@ -54,4 +54,10 @@ defmodule CborPrimitivesTest do
       end
     end
   end
+
+  test "malformed advertised container lengths reject" do
+    for case_ <- Vectors.load!("l0-delta/cbor-invalid-length.json") do
+      assert match?({:error, _}, Cbor.decode_exact(Vectors.unhex(case_["hex"]))), case_["name"]
+    end
+  end
 end

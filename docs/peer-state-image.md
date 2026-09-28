@@ -22,3 +22,5 @@ If the existing image is corrupt, reads and writes fail closed. The adapter has 
 recovery copy. Keep that peer offline until an externally authenticated, complete image can be
 restored; deleting the file and starting the same `PeerId` again would discard its counters and
 refusals. The handoff protocol will require its own verified recovery copy and commit proof.
+An interrupted write may leave an uncommitted temporary image beside the primary file. After
+stopping the writer, operators may remove stale temporary files; they are never a recovery source.

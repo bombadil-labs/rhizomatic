@@ -214,4 +214,4 @@ item (depth 0). Arrays and maps each add one level for their contained items, in
 This is a decode resource boundary, not a change to the canonical encoding of accepted values.
 The same bound applies when CBOR appears inside a pack or peer-state image. Readers MUST reject
 before recursion can exhaust the host stack or an advertised container length can reserve memory
-far beyond the bytes present. Shared malformed-length and nesting vectors pin both witnesses.
+far beyond the bytes present. Shared malformed-length and nesting vectors pin all four witnesses.

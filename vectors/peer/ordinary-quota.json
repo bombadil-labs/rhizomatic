@@ -1,0 +1,109 @@
+{
+  "spec": "SPEC-6 vNext §2 step 5",
+  "description": "Portable rank, distinct-id charge, skip-then-prune without refill. Units have passed earlier admission gates.",
+  "keyCases": [
+    {
+      "name": "loose key is its content id",
+      "deltaId": "1e20aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "expected": "1e20aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "name": "bundle key sorts supplied member ids",
+      "deltaId": "1e20aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "members": [
+        "1e20cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "1e20bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      ],
+      "expected": "1e20aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:1e20bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb:1e20cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    }
+  ],
+  "cases": [
+    {
+      "name": "wire order does not set rank",
+      "existing": [], "excluded": [], "capacity": 2,
+      "units": [
+        { "key": "c", "rank": "c", "fresh": ["C"], "requires": [] },
+        { "key": "a", "rank": "a", "fresh": ["A"], "requires": [] },
+        { "key": "b", "rank": "b", "fresh": ["B"], "requires": [] }
+      ],
+      "selected": ["a", "b"], "skipped": ["c"], "pruned": [], "admitted": ["A", "B"], "charged": 2
+    },
+    {
+      "name": "oversized bundle does not block later fitting units",
+      "existing": [], "excluded": [], "capacity": 2,
+      "units": [
+        { "key": "large", "rank": "a", "fresh": ["M", "N", "O"], "requires": [] },
+        { "key": "small-1", "rank": "b", "fresh": ["P"], "requires": [] },
+        { "key": "small-2", "rank": "c", "fresh": ["Q"], "requires": [] }
+      ],
+      "selected": ["small-1", "small-2"], "skipped": ["large"], "pruned": [], "admitted": ["P", "Q"], "charged": 2
+    },
+    {
+      "name": "shared id is charged once",
+      "existing": [], "excluded": [], "capacity": 2,
+      "units": [
+        { "key": "bundle", "rank": "a", "fresh": ["X", "Y"], "requires": [] },
+        { "key": "loose-y", "rank": "b", "fresh": ["Y"], "requires": [] },
+        { "key": "loose-z", "rank": "c", "fresh": ["Z"], "requires": [] }
+      ],
+      "selected": ["bundle", "loose-y"], "skipped": ["loose-z"], "pruned": [], "admitted": ["X", "Y"], "charged": 2
+    },
+    {
+      "name": "skipped requirement prunes without refill",
+      "existing": [], "excluded": [], "capacity": 2,
+      "units": [
+        { "key": "target", "rank": "a", "fresh": ["A"], "requires": ["C"] },
+        { "key": "bystander", "rank": "b", "fresh": ["B"], "requires": [] },
+        { "key": "negation", "rank": "c", "fresh": ["C"], "requires": [] },
+        { "key": "later", "rank": "d", "fresh": ["D"], "requires": [] }
+      ],
+      "selected": ["bystander"], "skipped": ["negation", "later"], "pruned": ["target"], "admitted": ["B"], "charged": 1
+    },
+    {
+      "name": "dependency pruning cascades",
+      "existing": [], "excluded": [], "capacity": 2,
+      "units": [
+        { "key": "a", "rank": "a", "fresh": ["A"], "requires": ["B"] },
+        { "key": "b", "rank": "b", "fresh": ["B"], "requires": ["C"] },
+        { "key": "c", "rank": "c", "fresh": ["C"], "requires": [] }
+      ],
+      "selected": [], "skipped": ["c"], "pruned": ["a", "b"], "admitted": [], "charged": 0
+    },
+    {
+      "name": "excluded prior id cannot satisfy a requirement",
+      "existing": ["G"], "excluded": ["G"], "capacity": 2,
+      "units": [
+        { "key": "act", "rank": "a", "fresh": ["A"], "requires": ["G"] },
+        { "key": "bystander", "rank": "b", "fresh": ["B"], "requires": [] }
+      ],
+      "selected": ["bystander"], "skipped": [], "pruned": ["act"], "admitted": ["B"], "charged": 1
+    },
+    {
+      "name": "present prior id satisfies a requirement",
+      "existing": ["G"], "excluded": [], "capacity": 1,
+      "units": [
+        { "key": "act", "rank": "a", "fresh": ["A"], "requires": ["G"] }
+      ],
+      "selected": ["act"], "skipped": [], "pruned": [], "admitted": ["A"], "charged": 1
+    },
+    {
+      "name": "private rank ties break by stable unit key",
+      "existing": [], "excluded": [], "capacity": 1,
+      "units": [
+        { "key": "z", "rank": "same", "fresh": ["Z"], "requires": [] },
+        { "key": "a", "rank": "same", "fresh": ["A"], "requires": [] }
+      ],
+      "selected": ["a"], "skipped": ["z"], "pruned": [], "admitted": ["A"], "charged": 1
+    },
+    {
+      "name": "shared id survives when an earlier unit is pruned",
+      "existing": [], "excluded": [], "capacity": 2,
+      "units": [
+        { "key": "bundle", "rank": "a", "fresh": ["X", "Y"], "requires": ["Z"] },
+        { "key": "loose-y", "rank": "b", "fresh": ["Y"], "requires": [] },
+        { "key": "negation", "rank": "c", "fresh": ["Z"], "requires": [] }
+      ],
+      "selected": ["loose-y"], "skipped": ["negation"], "pruned": ["bundle"], "admitted": ["Y"], "charged": 1
+    }
+  ]
+}

@@ -23,6 +23,7 @@ main =
     [ ("json-parser", pure jsonParserTests),
       ("cbor-primitives", cborPrimitiveTests),
       ("cbor-nesting", cborNestingTests),
+      ("cbor-invalid-length", cborInvalidLengthTests),
       ("blake3-known-answers", pure blake3Tests),
       ("boundary", pure boundaryTests),
       ("deltas", deltaFileTests "l0-delta/deltas.json"),
@@ -33,7 +34,8 @@ main =
       ("deltas-sig-edge", sigEdgeTests),
       ("set-digest", setDigestTests),
       ("pack", packTests "l0-pack/pack.json"),
-      ("pack-bytes", packTests "l0-pack/pack-bytes.json")
+      ("pack-bytes", packTests "l0-pack/pack-bytes.json"),
+      ("pack-invalid-index", packInvalidIndexTests)
     ]
 
 -- set-digest.json (D10): ids of the deltas.json set, plus the pinned digest.
@@ -101,6 +103,22 @@ packTests file = do
         Just _ -> Left "sig must be a string"
       Right (PackedDelta claims sig)
     packedFromJson _ = Left "delta entry is not an object"
+
+packInvalidIndexTests :: IO [Test]
+packInvalidIndexTests = do
+  JObj fields <- loadVectors "l0-pack/invalid-index.json"
+  case lookup "cases" fields of
+    Just (JArr cases) -> pure (map invalidIndexCase cases)
+    _ -> pure [failure "pack-invalid-index" "cases missing"]
+
+invalidIndexCase :: JValue -> Test
+invalidIndexCase (JObj fields) =
+  case (lookup "name" fields, lookup "hex" fields) of
+    (Just (JStr name), Just (JStr hexT)) ->
+      let result = decodeHex (T.unpack hexT) >>= unpackPack
+       in expectEq (T.unpack name) (either (const True) (const False) result) True
+    _ -> failure "pack-invalid-index" "malformed vector entry"
+invalidIndexCase _ = failure "pack-invalid-index" "vector entry is not an object"
 
 -- keys.json: derive each public key from its seed and match the pinned bytes.
 keysTests :: IO [Test]
@@ -270,6 +288,20 @@ cborNestingTests :: IO [Test]
 cborNestingTests = do
   JArr cases <- loadVectors "l0-delta/cbor-nesting.json"
   pure (map nestingCase cases)
+
+cborInvalidLengthTests :: IO [Test]
+cborInvalidLengthTests = do
+  JArr cases <- loadVectors "l0-delta/cbor-invalid-length.json"
+  pure (map invalidLengthCase cases)
+
+invalidLengthCase :: JValue -> Test
+invalidLengthCase (JObj fields) =
+  case (lookup "name" fields, lookup "hex" fields) of
+    (Just (JStr name), Just (JStr hexT)) ->
+      let result = decodeHex (T.unpack hexT) >>= decode
+       in expectEq (T.unpack name) (either (const True) (const False) result) True
+    _ -> failure "cbor-invalid-length" "malformed vector entry"
+invalidLengthCase _ = failure "cbor-invalid-length" "vector entry is not an object"
 
 nestingCase :: JValue -> Test
 nestingCase (JObj fields) =

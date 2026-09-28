@@ -6,12 +6,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 
 ## Unreleased
 
+### ⚠️ Breaking
+
+- TypeScript canonical CBOR encoding, `computeId`, and `signClaims` now reject text containing
+  unpaired UTF-16 surrogates instead of replacing them with U+FFFD. Callers must supply valid
+  Unicode text or replace malformed code units before computing an id or signature.
+
 ### Added
 
 - Step-6 admission building blocks in both TypeScript and Rust: shared arrival testimony vectors,
   signed loose and bundle entry checks, candidate-local guard preflight against the pre-transfer
-  admitted set, and atomic in-memory Reactor batch ingestion. These are staged helpers; the
-  typed admission and handoff API is still in progress.
+  admitted set, set-level ordinary quota selection, and atomic in-memory Reactor batch ingestion.
+  These are staged helpers; the typed admission and handoff API is still in progress.
 
 ### Internal structure
 

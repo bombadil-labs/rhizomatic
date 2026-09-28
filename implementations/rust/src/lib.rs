@@ -17,6 +17,8 @@ pub mod hview;
 pub mod json_profile;
 pub mod lens_binding;
 pub mod materialize;
+#[doc(hidden)]
+pub mod ordinary_quota;
 pub mod pack;
 pub mod parse_error;
 pub mod peer;

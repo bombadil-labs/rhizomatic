@@ -112,7 +112,8 @@ fn rejects_out_of_range_indices_from_shared_vectors() {
             .find(|(key, _)| key == field_name)
             .unwrap()
             .1 = CborValue::Float(case["index"].as_f64().unwrap());
-        let error = unpack_set(&encode(&top)).unwrap_err();
+        assert_eq!(hex::encode(encode(&top)), case["hex"].as_str().unwrap());
+        let error = unpack_set(&hex::decode(case["hex"].as_str().unwrap()).unwrap()).unwrap_err();
         assert_eq!(error, case["error"].as_str().unwrap(), "{}", case["name"]);
     }
 }
