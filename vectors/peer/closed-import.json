@@ -66,6 +66,12 @@
       "mutation": "stale-obligation",
       "baseCase": 2,
       "expected": "invalid active obligation"
+    },
+    {
+      "name": "carried obligation cannot claim new peer identity",
+      "mutation": "new-peer-obligation",
+      "baseCase": 2,
+      "expected": "carried obligation uses new peer id"
     }
   ],
   "stageCases": [

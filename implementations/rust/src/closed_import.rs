@@ -67,6 +67,14 @@ fn components(state: &ClosedImportState) -> Result<Components, String> {
     if !empty_local(&state.closed) {
         return Err("closed import: local candidate is not empty".into());
     }
+    if state
+        .obligations
+        .obligations
+        .iter()
+        .any(|row| row.source_peer_id == state.closed.local.base.peer_id)
+    {
+        return Err("closed import: carried obligation uses new peer id".into());
+    }
     Ok(Components {
         closed: encode_closed_peer_state(&state.closed)?,
         obligations: encode_imported_obligations(&state.closed.inherited, &state.obligations)?,
@@ -265,10 +273,12 @@ pub fn stage_closed_import_state(
     let mut temp = tempfile::NamedTempFile::new_in(parent).map_err(|e| e.to_string())?;
     temp.write_all(&image).map_err(|e| e.to_string())?;
     temp.as_file().sync_all().map_err(|e| e.to_string())?;
-    let committed = temp
-        .persist_noclobber(path)
-        .map_err(|e| e.error.to_string())?;
-    drop(committed);
+    fs::hard_link(temp.path(), path).map_err(|e| e.to_string())?;
+    if let Err(e) = fs::remove_file(temp.path()) {
+        return Ok(PeerStateWriteOutcome::CommittedUnconfirmed {
+            fault: e.to_string(),
+        });
+    }
     Ok(match dir.sync_all() {
         Ok(()) => PeerStateWriteOutcome::Durable,
         Err(e) => PeerStateWriteOutcome::CommittedUnconfirmed {

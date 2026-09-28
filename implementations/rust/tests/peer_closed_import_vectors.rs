@@ -185,6 +185,9 @@ fn invalid_components_fail_before_staging() {
             "missing-policy" => state.policy_bytes.clear(),
             "unsafe-version" => state.old_state_version = 1_u64 << 53,
             "stale-obligation" => state.obligations.obligations[0].event.sequence = 3,
+            "new-peer-obligation" => {
+                state.obligations.obligations[0].source_peer_id = "peer-new".into()
+            }
             other => panic!("unknown mutation {other}"),
         }
         let error = encode_closed_import_state(&state).unwrap_err();

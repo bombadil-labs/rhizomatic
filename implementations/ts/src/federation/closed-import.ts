@@ -33,6 +33,18 @@ import { encodeRefusalSnapshot, verifyRefusalSnapshotCopy } from "./refusal-snap
 
 const VERSION = 4;
 
+function wellFormed(value: string): boolean {
+  for (let i = 0; i < value.length; i++) {
+    const code = value.charCodeAt(i);
+    if (code >= 0xd800 && code <= 0xdbff) {
+      if (++i === value.length) return false;
+      const low = value.charCodeAt(i);
+      if (low < 0xdc00 || low > 0xdfff) return false;
+    } else if (code >= 0xdc00 && code <= 0xdfff) return false;
+  }
+  return true;
+}
+
 export interface ClosedImportState {
   readonly attemptId: string;
   readonly oldPeerId: string;
@@ -65,16 +77,23 @@ function emptyLocal(closed: ClosedPeerState): boolean {
 function components(state: ClosedImportState) {
   if (
     !state.attemptId ||
+    !wellFormed(state.attemptId) ||
     !state.oldPeerId ||
+    !wellFormed(state.oldPeerId) ||
     state.oldPeerId === state.closed.local.base.peerId ||
     !Number.isSafeInteger(state.oldStateVersion) ||
     state.oldStateVersion < 0 ||
     !Number.isFinite(state.deadline) ||
     !state.policyFormat ||
+    !wellFormed(state.policyFormat) ||
     state.policyBytes.length === 0
   )
     throw new Error("closed import: invalid attempt or policy descriptor");
   if (!emptyLocal(state.closed)) throw new Error("closed import: local candidate is not empty");
+  if (
+    state.obligations.obligations.some((row) => row.sourcePeerId === state.closed.local.base.peerId)
+  )
+    throw new Error("closed import: carried obligation uses new peer id");
   const closed = encodeClosedPeerState(state.closed);
   const obligations = encodeImportedObligations(state.closed.inherited, state.obligations);
   const holdings = encodeImportedHoldings(state.closed.inherited, state.holdings);

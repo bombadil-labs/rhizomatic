@@ -32,6 +32,15 @@ const vector = JSON.parse(
 };
 
 describe("shared SPEC-6 v4 closed import stage", () => {
+  it("rejects malformed JavaScript descriptor text before UTF-8 replacement", () => {
+    const state = closedImportCase(vector.cases[0]!);
+    for (const field of ["attemptId", "oldPeerId", "policyFormat"] as const) {
+      expect(() => encodeClosedImportState({ ...state, [field]: "\ud800" })).toThrow(
+        "invalid attempt or policy descriptor",
+      );
+    }
+  });
+
   for (const c of vector.cases) {
     it(c.name, () => {
       const state = closedImportCase(c);

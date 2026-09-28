@@ -91,6 +91,9 @@ recovery copy before creating its own durable primary image. The stage alone can
 the old peer's record, interpret opaque policy bytes, transfer obligation ownership, admit
 holdings, or serve. The later commit compares both digests and the attempt descriptor against
 old-peer-authoritative proof before assigning new-peer arrivals or opening any entry path.
+No carried obligation may use the new peer's `PeerId` as its source identity: the new peer has
+not created local debt before the handoff, and reserving its source sequence space prevents a
+later local obligation from colliding with imported debt.
 The v1 permanent-posture inherited-refusal snapshot binds every carried refusal event to its
 source `PeerId` and source sequence, and names exactly one current event for every event target.
 It retains earlier events for the same target; a current reference cannot point before a later

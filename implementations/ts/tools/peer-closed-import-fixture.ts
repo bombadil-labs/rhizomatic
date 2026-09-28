@@ -78,6 +78,16 @@ export function invalidClosedImportCase(c: ClosedImportCase, mutation: string): 
           })),
         },
       };
+    case "new-peer-obligation":
+      return {
+        ...state,
+        obligations: {
+          obligations: state.obligations.obligations.map((row) => ({
+            ...row,
+            sourcePeerId: "peer-new",
+          })),
+        },
+      };
     default:
       throw new Error(`unknown closed import mutation ${mutation}`);
   }
