@@ -39,6 +39,11 @@ function compareBytes(a: string, b: string): number {
   }
   return x.length - y.length;
 }
+function sameIds(a: readonly string[], b: readonly string[]): boolean {
+  const left = new Set(a);
+  const right = new Set(b);
+  return left.size === right.size && [...left].every((id) => right.has(id));
+}
 
 /** Stable tie-breaker for verified loose and bundle appearances. */
 export function ordinaryUnitKey(deltaId: string, suppliedMemberIds?: readonly string[]): string {
@@ -54,27 +59,32 @@ export function planOrdinaryQuota(
   units: readonly OrdinaryQuotaUnit[],
   existingIds: ReadonlySet<string>,
   excludedIds: ReadonlySet<string>,
+  fixedLandingIds: ReadonlySet<string>,
   capacity: number,
 ): OrdinaryQuotaPlan {
   if (!Number.isSafeInteger(capacity) || capacity < 0)
     throw new Error("ordinary quota: capacity must be a nonnegative safe integer");
-  const keys = new Set<string>();
+  if ([...fixedLandingIds].some((id) => excludedIds.has(id)))
+    throw new Error("ordinary quota: fixed landing id cannot be excluded");
+  const byKey = new Map<string, OrdinaryQuotaUnit>();
   for (const unit of units) {
-    if (
-      !unit.key ||
-      !unit.rank ||
-      !wellFormedUnicode(unit.key) ||
-      !wellFormedUnicode(unit.rank) ||
-      keys.has(unit.key)
-    )
-      throw new Error(
-        "ordinary quota: unit keys must be unique and ranks well-formed nonempty text",
-      );
-    keys.add(unit.key);
-    if (unit.freshIds.some((id) => excludedIds.has(id)))
-      throw new Error("ordinary quota: excluded id reached ordinary selection");
+    if (!unit.key || !unit.rank || !wellFormedUnicode(unit.key) || !wellFormedUnicode(unit.rank))
+      throw new Error("ordinary quota: unit keys and ranks must be well-formed nonempty text");
+    if (unit.freshIds.some((id) => excludedIds.has(id) || fixedLandingIds.has(id)))
+      throw new Error("ordinary quota: fixed or excluded id reached ordinary selection");
+    const previous = byKey.get(unit.key);
+    if (previous !== undefined) {
+      if (
+        previous.rank !== unit.rank ||
+        !sameIds(previous.freshIds, unit.freshIds) ||
+        !sameIds(previous.requires, unit.requires)
+      )
+        throw new Error("ordinary quota: conflicting appearances share a unit key");
+      continue;
+    }
+    byKey.set(unit.key, unit);
   }
-  const ordered = [...units].sort(
+  const ordered = [...byKey.values()].sort(
     (a, b) => compareBytes(a.rank, b.rank) || compareBytes(a.key, b.key),
   );
   const charged = new Set<string>();
@@ -92,6 +102,7 @@ export function planOrdinaryQuota(
   const pruned = new Set<string>();
   while (true) {
     const available = new Set([...existingIds].filter((id) => !excludedIds.has(id)));
+    for (const id of fixedLandingIds) available.add(id);
     for (const unit of ordered) {
       if (selected.has(unit.key)) for (const id of unit.freshIds) available.add(id);
     }

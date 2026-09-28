@@ -1,0 +1,62 @@
+{
+  "spec": "SPEC-6 vNext §2 step 4, provisional and post-budget authority filtering",
+  "description": "Only already verified, classified order candidates enter. Test rules stand in for receiver-declared authority over the pre-transfer admitted set.",
+  "cases": [
+    {
+      "name": "erased grant removes another order's authority",
+      "prior": ["G", "D"], "budget": 2,
+      "orders": [
+        { "id": "E1", "target": "G", "rule": "always" },
+        { "id": "E2", "target": "D", "rule": "requires:G" }
+      ],
+      "effective": ["E1"], "ineligible": ["E2"], "limited": [], "selectedTargets": ["G"]
+    },
+    {
+      "name": "same-target orders retain their own target and cost one slot",
+      "prior": ["D"], "budget": 1,
+      "orders": [
+        { "id": "E2", "target": "D", "rule": "own-target" },
+        { "id": "E1", "target": "D", "rule": "own-target" }
+      ],
+      "effective": ["E1", "E2"], "ineligible": [], "limited": [], "selectedTargets": ["D"]
+    },
+    {
+      "name": "simultaneous failure does not revive one order",
+      "prior": ["A", "B"], "budget": 2,
+      "orders": [
+        { "id": "E2", "target": "B", "rule": "requires:A" },
+        { "id": "E1", "target": "A", "rule": "requires:B" }
+      ],
+      "effective": [], "ineligible": ["E1", "E2"], "limited": [], "selectedTargets": []
+    },
+    {
+      "name": "ineligible low id cannot consume budget",
+      "prior": [], "budget": 1,
+      "orders": [
+        { "id": "A", "target": "X", "rule": "requires:G" },
+        { "id": "Z", "target": "Y", "rule": "always" }
+      ],
+      "effective": ["Z"], "ineligible": ["A"], "limited": [], "selectedTargets": ["Y"]
+    },
+    {
+      "name": "budget ranks distinct targets by lowest surviving order id",
+      "prior": [], "budget": 1,
+      "orders": [
+        { "id": "C", "target": "Y", "rule": "always" },
+        { "id": "B", "target": "X", "rule": "always" },
+        { "id": "A", "target": "X", "rule": "always" }
+      ],
+      "effective": ["A", "B"], "ineligible": [], "limited": ["C"], "selectedTargets": ["X"]
+    },
+    {
+      "name": "second filter after budget does not refill",
+      "prior": ["A", "B", "X"], "budget": 2,
+      "orders": [
+        { "id": "c", "target": "B", "rule": "always" },
+        { "id": "b", "target": "X", "rule": "same-presence:A:B" },
+        { "id": "a", "target": "A", "rule": "always" }
+      ],
+      "effective": ["a"], "ineligible": ["b"], "limited": ["c"], "selectedTargets": ["A", "X"]
+    }
+  ]
+}

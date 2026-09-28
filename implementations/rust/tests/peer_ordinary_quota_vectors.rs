@@ -55,11 +55,18 @@ fn ordinary_quota_matches_shared_vectors_in_both_wire_orders() {
             .collect();
         let existing: BTreeSet<String> = strings(&case["existing"]).into_iter().collect();
         let excluded: BTreeSet<String> = strings(&case["excluded"]).into_iter().collect();
+        let fixed: BTreeSet<String> = case
+            .get("fixed")
+            .map(strings)
+            .unwrap_or_default()
+            .into_iter()
+            .collect();
         for order in [units.clone(), units.into_iter().rev().collect()] {
             let result = plan_ordinary_quota(
                 &order,
                 &existing,
                 &excluded,
+                &fixed,
                 case["capacity"].as_u64().unwrap() as usize,
             )
             .unwrap();

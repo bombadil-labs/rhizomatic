@@ -302,7 +302,8 @@ The pipeline is:
    key is its delta id; a bundle unit's key is its manifest id followed by `:` and the supplied
    member ids in ascending order, separated by `:`. These ids use canonical lowercase hex, so
    the key is unambiguous; it includes already-admitted supplied members and cannot depend on
-   wire position. Identical appearances may be coalesced before selection. A unit too large for
+   wire position. Repeated supplied member appearances remain repeated in the key. Identical
+   appearances may be coalesced before selection. A unit too large for
    remaining capacity is skipped, and later units
    are considered. Each selected unit is charged for ids it newly adds after higher-ranked
    selected units; the same id is never charged twice. Prune selected ordinary units whose

@@ -1,6 +1,6 @@
 //! SPEC-6 §2 step 5 after erasure and dependency pre-pruning. Internal staging result only.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 fn valid_delta_id(id: &str) -> bool {
     id.len() == 68
@@ -54,23 +54,45 @@ pub struct OrdinaryQuotaPlan {
     pub charged: usize,
 }
 
+fn same_ids(a: &[String], b: &[String]) -> bool {
+    a.iter().collect::<BTreeSet<_>>() == b.iter().collect::<BTreeSet<_>>()
+}
+
 /// Select by stable rank, skip oversized units, then prune requirements to a fixed point.
 pub fn plan_ordinary_quota(
     units: &[OrdinaryQuotaUnit],
     existing_ids: &BTreeSet<String>,
     excluded_ids: &BTreeSet<String>,
+    fixed_landing_ids: &BTreeSet<String>,
     capacity: usize,
 ) -> Result<OrdinaryQuotaPlan, String> {
-    let mut keys = BTreeSet::new();
+    if !fixed_landing_ids.is_disjoint(excluded_ids) {
+        return Err("ordinary quota: fixed landing id cannot be excluded".into());
+    }
+    let mut by_key: BTreeMap<&str, &OrdinaryQuotaUnit> = BTreeMap::new();
     for unit in units {
-        if unit.key.is_empty() || unit.rank.is_empty() || !keys.insert(&unit.key) {
-            return Err("ordinary quota: unit keys must be unique and ranks nonempty".into());
+        if unit.key.is_empty() || unit.rank.is_empty() {
+            return Err("ordinary quota: unit keys and ranks must be nonempty".into());
         }
-        if unit.fresh_ids.iter().any(|id| excluded_ids.contains(id)) {
-            return Err("ordinary quota: excluded id reached ordinary selection".into());
+        if unit
+            .fresh_ids
+            .iter()
+            .any(|id| excluded_ids.contains(id) || fixed_landing_ids.contains(id))
+        {
+            return Err("ordinary quota: fixed or excluded id reached ordinary selection".into());
+        }
+        if let Some(previous) = by_key.get(unit.key.as_str()) {
+            if previous.rank != unit.rank
+                || !same_ids(&previous.fresh_ids, &unit.fresh_ids)
+                || !same_ids(&previous.requires, &unit.requires)
+            {
+                return Err("ordinary quota: conflicting appearances share a unit key".into());
+            }
+        } else {
+            by_key.insert(unit.key.as_str(), unit);
         }
     }
-    let mut ordered: Vec<&OrdinaryQuotaUnit> = units.iter().collect();
+    let mut ordered: Vec<&OrdinaryQuotaUnit> = by_key.into_values().collect();
     ordered.sort_by(|a, b| a.rank.cmp(&b.rank).then(a.key.cmp(&b.key)));
     let mut charged = BTreeSet::new();
     let mut selected: BTreeSet<String> = BTreeSet::new();
@@ -92,6 +114,7 @@ pub fn plan_ordinary_quota(
     loop {
         let mut available: BTreeSet<String> =
             existing_ids.difference(excluded_ids).cloned().collect();
+        available.extend(fixed_landing_ids.iter().cloned());
         for unit in &ordered {
             if selected.contains(&unit.key) {
                 available.extend(unit.fresh_ids.iter().cloned());

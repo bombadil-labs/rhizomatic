@@ -8,6 +8,8 @@ pub mod cbor;
 pub mod delta;
 pub mod derivation;
 pub mod entry;
+#[doc(hidden)]
+pub mod erasure_filter;
 pub mod eval;
 pub mod hash;
 // The HTTP binding is host-only (tiny_http/ureq do not build on wasm32).

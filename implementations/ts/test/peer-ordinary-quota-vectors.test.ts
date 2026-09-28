@@ -12,6 +12,7 @@ interface Case {
   name: string;
   existing: string[];
   excluded: string[];
+  fixed?: string[];
   capacity: number;
   units: Array<{ key: string; rank: string; fresh: string[]; requires: string[] }>;
   selected: string[];
@@ -33,6 +34,7 @@ describe("shared SPEC-6 ordinary quota vectors", () => {
     expect(() =>
       planOrdinaryQuota(
         [{ key: "a", rank: "\ud800", freshIds: ["A"], requires: [] }],
+        new Set(),
         new Set(),
         new Set(),
         1,
@@ -63,7 +65,13 @@ describe("shared SPEC-6 ordinary quota vectors", () => {
       };
       for (const order of [units, [...units].reverse()]) {
         expect(
-          planOrdinaryQuota(order, new Set(c.existing), new Set(c.excluded), c.capacity),
+          planOrdinaryQuota(
+            order,
+            new Set(c.existing),
+            new Set(c.excluded),
+            new Set(c.fixed ?? []),
+            c.capacity,
+          ),
         ).toEqual(expected);
       }
     });

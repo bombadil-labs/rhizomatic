@@ -16,7 +16,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 
 - Step-6 admission building blocks in both TypeScript and Rust: shared arrival testimony vectors,
   signed loose and bundle entry checks, candidate-local guard preflight against the pre-transfer
-  admitted set, set-level ordinary quota selection, and atomic in-memory Reactor batch ingestion.
+  admitted set, conservative erasure authority and target-budget filtering, set-level ordinary
+  quota selection, and atomic in-memory Reactor batch ingestion.
   These are staged helpers; the typed admission and handoff API is still in progress.
 
 ### Internal structure

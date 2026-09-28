@@ -15,6 +15,12 @@
         "1e20bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
       ],
       "expected": "1e20aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:1e20bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb:1e20cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "name": "bundle key retains repeated supplied appearances",
+      "deltaId": "1e20aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "members": ["1e20bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "1e20bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"],
+      "expected": "1e20aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:1e20bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb:1e20bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
     }
   ],
   "cases": [
@@ -104,6 +110,32 @@
         { "key": "negation", "rank": "c", "fresh": ["Z"], "requires": [] }
       ],
       "selected": ["loose-y"], "skipped": ["negation"], "pruned": ["bundle"], "admitted": ["Y"], "charged": 1
+    },
+    {
+      "name": "fixed effective erasure satisfies an ordinary requirement",
+      "existing": [], "excluded": [], "fixed": ["E"], "capacity": 1,
+      "units": [
+        { "key": "negation", "rank": "a", "fresh": ["N"], "requires": ["E"] }
+      ],
+      "selected": ["negation"], "skipped": [], "pruned": [], "admitted": ["N"], "charged": 1
+    },
+    {
+      "name": "identical repeated loose appearance coalesces",
+      "existing": [], "excluded": [], "capacity": 1,
+      "units": [
+        { "key": "same", "rank": "a", "fresh": ["D"], "requires": [] },
+        { "key": "same", "rank": "a", "fresh": ["D"], "requires": [] }
+      ],
+      "selected": ["same"], "skipped": [], "pruned": [], "admitted": ["D"], "charged": 1
+    },
+    {
+      "name": "loose manifest wins an equal-rank tie with its bundle",
+      "existing": [], "excluded": [], "capacity": 1,
+      "units": [
+        { "key": "M:child", "rank": "M", "fresh": ["X"], "requires": [] },
+        { "key": "M", "rank": "M", "fresh": ["Y"], "requires": [] }
+      ],
+      "selected": ["M"], "skipped": ["M:child"], "pruned": [], "admitted": ["Y"], "charged": 1
     }
   ]
 }
