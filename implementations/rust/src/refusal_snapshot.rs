@@ -90,7 +90,9 @@ fn positive(n: u64) -> bool {
 fn validate(snapshot: &RefusalSnapshot) -> Result<(), String> {
     let mut events = BTreeMap::new();
     let mut targets = BTreeSet::new();
-    let mut orders = BTreeSet::new();
+    let mut orders = BTreeMap::new();
+    let mut source_orders = BTreeSet::new();
+    let mut epochs = BTreeMap::new();
     for event in &snapshot.events {
         if event.source_peer_id.is_empty()
             || !positive(event.sequence)
@@ -103,12 +105,30 @@ fn validate(snapshot: &RefusalSnapshot) -> Result<(), String> {
         {
             return Err("refusal snapshot: invalid event".into());
         }
+        let epoch_key = (&event.source_peer_id, &event.target_id);
+        if epochs
+            .get(&epoch_key)
+            .is_some_and(|prior| *prior != event.prior_epoch)
+        {
+            return Err("refusal snapshot: inconsistent prior epoch".into());
+        }
+        epochs.insert(epoch_key, event.prior_epoch);
         for order in &event.order_ids {
-            if !valid_id(order) || order == &event.target_id || !orders.insert(order) {
+            if !valid_id(order)
+                || order == &event.target_id
+                || orders
+                    .get(order)
+                    .is_some_and(|target| *target != &event.target_id)
+                || !source_orders.insert((&event.source_peer_id, order))
+            {
                 return Err("refusal snapshot: invalid order".into());
             }
+            orders.insert(order, &event.target_id);
         }
         targets.insert(&event.target_id);
+    }
+    if targets.iter().any(|target| orders.contains_key(*target)) {
+        return Err("refusal snapshot: erasure targets an effective order".into());
     }
     let mut current = BTreeSet::new();
     for row in &snapshot.current {
@@ -274,6 +294,17 @@ pub fn refusal_snapshot_digest(snapshot: &RefusalSnapshot) -> Result<String, Str
     Ok(content_address(&encode_refusal_snapshot(snapshot)?))
 }
 
+/// Validate one copy, including the independently staged recovery copy, before commit.
+pub fn verify_refusal_snapshot_copy(
+    expected_digest: &str,
+    bytes: &[u8],
+) -> Result<RefusalSnapshot, String> {
+    if content_address(bytes) != expected_digest {
+        return Err("refusal snapshot: copy digest mismatch".into());
+    }
+    decode_refusal_snapshot(bytes)
+}
+
 /// Validate an immutable primary or independent recovery copy against the committed digest.
 pub fn recover_refusal_snapshot(
     expected_digest: &str,
@@ -282,14 +313,12 @@ pub fn recover_refusal_snapshot(
 ) -> Result<RecoveredRefusalSnapshot, String> {
     for (candidate, used_recovery) in [(primary, false), (recovery, true)] {
         if let Some(bytes) = candidate {
-            if content_address(bytes) == expected_digest {
-                if let Ok(snapshot) = decode_refusal_snapshot(bytes) {
-                    return Ok(RecoveredRefusalSnapshot {
-                        snapshot,
-                        bytes: bytes.to_vec(),
-                        used_recovery,
-                    });
-                }
+            if let Ok(snapshot) = verify_refusal_snapshot_copy(expected_digest, bytes) {
+                return Ok(RecoveredRefusalSnapshot {
+                    snapshot,
+                    bytes: bytes.to_vec(),
+                    used_recovery,
+                });
             }
         }
     }

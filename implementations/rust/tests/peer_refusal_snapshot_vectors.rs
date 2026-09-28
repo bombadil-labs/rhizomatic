@@ -6,8 +6,8 @@ use rhizomatic::durable_state::decode_durable_peer_state;
 use rhizomatic::hash::content_address;
 use rhizomatic::refusal_snapshot::{
     decode_refusal_snapshot, encode_refusal_snapshot, local_refusal_snapshot,
-    recover_refusal_snapshot, refusal_snapshot_digest, CurrentRefusal, QualifiedRefusalEvent,
-    RefusalSnapshot,
+    recover_refusal_snapshot, refusal_snapshot_digest, verify_refusal_snapshot_copy,
+    CurrentRefusal, QualifiedRefusalEvent, RefusalSnapshot,
 };
 use serde_json::Value;
 
@@ -89,6 +89,25 @@ fn shared_invalid_cases_and_verified_recovery() {
             }
             "zero-epoch" => snapshot.events[0].prior_epoch = Some(0),
             "stale-current-same-source" => snapshot.current[0].sequence = 3,
+            "target-is-order" => {
+                let target_id = snapshot.events[0].order_ids[0].clone();
+                snapshot.events.push(QualifiedRefusalEvent {
+                    source_peer_id: "peer-C".into(),
+                    sequence: 1,
+                    target_id: target_id.clone(),
+                    order_ids: vec![format!("1e20{}", "f".repeat(64))],
+                    prior_epoch: None,
+                });
+                snapshot.current.push(CurrentRefusal {
+                    source_peer_id: "peer-C".into(),
+                    sequence: 1,
+                    target_id,
+                });
+            }
+            "conflicting-prior-epoch" => snapshot.events[1].prior_epoch = Some(8),
+            "order-reused-different-target" => {
+                snapshot.events[2].order_ids = snapshot.events[0].order_ids.clone()
+            }
             other => panic!("unknown mutation {other}"),
         }
         assert!(
@@ -128,6 +147,10 @@ fn shared_invalid_cases_and_verified_recovery() {
             assert_eq!(
                 restored.snapshot.current,
                 decode_refusal_snapshot(&bytes).unwrap().current
+            );
+            assert_eq!(
+                verify_refusal_snapshot_copy(&content_address(&bytes), &bytes).unwrap(),
+                restored.snapshot
             );
         }
     }

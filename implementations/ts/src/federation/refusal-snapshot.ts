@@ -67,7 +67,9 @@ function key(ref: QualifiedEventRef): string {
 function validate(snapshot: RefusalSnapshot): void {
   const events = new Map<string, QualifiedRefusalEvent>();
   const targets = new Set<string>();
-  const orders = new Set<string>();
+  const orders = new Map<string, string>();
+  const sourceOrders = new Set<string>();
+  const epochs = new Map<string, number | undefined>();
   for (const event of snapshot.events) {
     if (
       !validText(event.sourcePeerId) ||
@@ -78,14 +80,27 @@ function validate(snapshot: RefusalSnapshot): void {
       events.has(key(event))
     )
       throw new Error("refusal snapshot: invalid event");
+    const epochKey = JSON.stringify([event.sourcePeerId, event.targetId]);
+    if (epochs.has(epochKey) && epochs.get(epochKey) !== event.priorEpoch)
+      throw new Error("refusal snapshot: inconsistent prior epoch");
+    epochs.set(epochKey, event.priorEpoch);
     for (const order of event.orderIds) {
-      if (!ID.test(order) || order === event.targetId || orders.has(order))
+      const sourceOrderKey = JSON.stringify([event.sourcePeerId, order]);
+      if (
+        !ID.test(order) ||
+        order === event.targetId ||
+        (orders.has(order) && orders.get(order) !== event.targetId) ||
+        sourceOrders.has(sourceOrderKey)
+      )
         throw new Error("refusal snapshot: invalid order");
-      orders.add(order);
+      orders.set(order, event.targetId);
+      sourceOrders.add(sourceOrderKey);
     }
     events.set(key(event), event);
     targets.add(event.targetId);
   }
+  if ([...targets].some((target) => orders.has(target)))
+    throw new Error("refusal snapshot: erasure targets an effective order");
   const current = new Set<string>();
   for (const row of snapshot.current) {
     const event = events.get(key(row));
@@ -208,6 +223,16 @@ export function refusalSnapshotDigest(snapshot: RefusalSnapshot): string {
   return contentAddress(encodeRefusalSnapshot(snapshot));
 }
 
+/** Validate one copy, including the independently staged recovery copy, before commit. */
+export function verifyRefusalSnapshotCopy(
+  expectedDigest: string,
+  bytes: Uint8Array,
+): RefusalSnapshot {
+  if (contentAddress(bytes) !== expectedDigest)
+    throw new Error("refusal snapshot: copy digest mismatch");
+  return decodeRefusalSnapshot(bytes);
+}
+
 /** Validate an immutable primary or independent recovery copy against the committed digest. */
 export function recoverRefusalSnapshot(
   expectedDigest: string,
@@ -218,9 +243,13 @@ export function recoverRefusalSnapshot(
     [primary, false],
     [recovery, true],
   ] as const) {
-    if (bytes === undefined || contentAddress(bytes) !== expectedDigest) continue;
+    if (bytes === undefined) continue;
     try {
-      return { snapshot: decodeRefusalSnapshot(bytes), bytes: bytes.slice(), usedRecovery };
+      return {
+        snapshot: verifyRefusalSnapshotCopy(expectedDigest, bytes),
+        bytes: bytes.slice(),
+        usedRecovery,
+      };
     } catch {
       // An exact digest is necessary but the claimed image must also parse canonically.
     }

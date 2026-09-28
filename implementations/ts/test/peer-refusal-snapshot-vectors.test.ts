@@ -9,6 +9,7 @@ import {
   localRefusalSnapshot,
   recoverRefusalSnapshot,
   refusalSnapshotDigest,
+  verifyRefusalSnapshotCopy,
   type RefusalSnapshot,
 } from "../src/federation/refusal-snapshot.js";
 
@@ -71,6 +72,39 @@ function mutate(base: Case, mutation: string): RefusalSnapshot {
         ...snapshot,
         current: [{ ...snapshot.current[0]!, sequence: 3 }, ...snapshot.current.slice(1)],
       };
+    case "target-is-order": {
+      const targetId = snapshot.events[0]!.orderIds[0]!;
+      return {
+        events: [
+          ...snapshot.events,
+          {
+            sourcePeerId: "peer-C",
+            sequence: 1,
+            targetId,
+            orderIds: [`1e20${"f".repeat(64)}`],
+          },
+        ],
+        current: [...snapshot.current, { sourcePeerId: "peer-C", sequence: 1, targetId }],
+      };
+    }
+    case "conflicting-prior-epoch":
+      return {
+        ...snapshot,
+        events: [
+          snapshot.events[0]!,
+          { ...snapshot.events[1]!, priorEpoch: 8 },
+          ...snapshot.events.slice(2),
+        ],
+      };
+    case "order-reused-different-target":
+      return {
+        ...snapshot,
+        events: [
+          snapshot.events[0]!,
+          snapshot.events[1]!,
+          { ...snapshot.events[2]!, orderIds: snapshot.events[0]!.orderIds },
+        ],
+      };
     default:
       throw new Error(`unknown mutation ${mutation}`);
   }
@@ -123,6 +157,9 @@ describe("shared SPEC-6 inherited refusal snapshot", () => {
         expect(result.usedRecovery).toBe(c.usedRecovery);
         expect(result.bytes).toEqual(bytes);
         expect(result.snapshot.current).toEqual(decodeRefusalSnapshot(bytes).current);
+        expect(verifyRefusalSnapshotCopy(vectors.cases[c.sourceCase]!.digest, bytes)).toEqual(
+          result.snapshot,
+        );
       }
     });
   }

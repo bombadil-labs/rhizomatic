@@ -34,6 +34,7 @@ pub mod pred;
 pub mod preflight;
 pub mod principal;
 pub mod reactor;
+#[doc(hidden)]
 pub mod refusal_snapshot;
 pub mod resolution;
 pub mod schema;
