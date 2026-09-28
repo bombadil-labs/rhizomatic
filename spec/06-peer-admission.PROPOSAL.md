@@ -33,6 +33,15 @@ A recovery copy is valid only when its bytes match the committed digest, never b
 host's later live set. To repair an unreadable snapshot, the new peer MAY restore a valid copy,
 without replaying the handoff or changing obligation ownership. It MUST verify that copy before
 resuming admission or serving.
+The portable inherited-refusal snapshot binds every carried refusal event to its source `PeerId`
+and source sequence, and names exactly one current event for each refused target. The snapshot
+retains earlier events for the same target; a current reference cannot point before a later event
+for that target from the same source. A target absent from the current list is not a refusal. A
+source-qualified reference is compared as a pair, never by sequence alone. Its
+canonical bytes and BLAKE3 content address are pinned by shared vectors. A reader MUST accept a
+primary or independent recovery copy only when its entire canonical image matches the committed
+digest. A valid recovery copy may restore the primary; neither copy alone proves that a handoff
+committed. Import, obligation ownership, and serving still require the durable handoff proof.
 If no such copy remains, ordinary admission and serving stay closed. The peer MAY use a
 receiver-authorized **decommission** operation outside delta admission: it permanently ends
 serving and admission under this `PeerId` and attempts to remove bytes on its declared surfaces

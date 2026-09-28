@@ -31,6 +31,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
   prior image and check newly arrived orders and ordinary quota growth. The image does not yet
   supply a typed admission API, physical removal proof, or handoff proof. CBOR and pack readers now
   reject malformed lengths, excessive nesting, and invalid table indices before admission.
+  A canonical inherited-refusal snapshot now preserves source-qualified events and current
+  targets, with a digest-checked independent recovery path in both witnesses. It remains an
+  internal handoff component until obligations, holdings, policy, and commit proof are bound.
 
 ## 0.11.0-next.1 — 2026-09-25
 

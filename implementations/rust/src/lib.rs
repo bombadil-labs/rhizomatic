@@ -34,6 +34,7 @@ pub mod pred;
 pub mod preflight;
 pub mod principal;
 pub mod reactor;
+pub mod refusal_snapshot;
 pub mod resolution;
 pub mod schema;
 pub mod schema_deltas;
