@@ -126,6 +126,48 @@ describe("incremental equivalence (SPEC-4 §1 — the defining contract)", () =>
     ]);
   });
 
+  it("refreshes an external lowering dependency and notifies an existing subscriber", () => {
+    const r = new Reactor();
+    const now = 1_000_000_000_000_000;
+    const emptyBag = parseTerm({
+      op: "group",
+      key: { const: "all" },
+      in: { op: "difference", of: "input", without: "input" },
+    });
+    let include = false;
+    r.register("external", bagTerm, ["movie:matrix"], now, undefined, () => ({
+      term: include ? bagTerm : emptyBag,
+    }));
+    expect(r.ingest(baseDeltas[0]!).status).toBe("accepted");
+    const events: import("../src/reactor.js").MaterializationChange[] = [];
+    r.subscribe("external", (change) => events.push(change));
+    const before = r.materializedHex("external", "movie:matrix");
+    const size = r.size;
+
+    include = true; // an explicit dependency changed outside this reactor
+    expect(r.advanceTime(now)).toEqual([]); // same time, no local boundary
+    const changes = r.refreshAll(now);
+    expect(changes).toEqual([
+      {
+        materialization: "external",
+        root: "movie:matrix",
+        changedProps: ["all"],
+        responsibleDeltaIds: [],
+        newHex: r.materializedHex("external", "movie:matrix"),
+      },
+    ]);
+    expect(events).toEqual(changes);
+    expect(r.materializedHex("external", "movie:matrix")).not.toBe(before);
+    expect(r.size).toBe(size);
+
+    expect(r.refreshAll(now)).toEqual([]); // no content change, no second frame
+    expect(events).toHaveLength(1);
+    include = false;
+    expect(r.refreshAll(now)).toHaveLength(1);
+    expect(r.materializedHex("external", "movie:matrix")).toBe(before);
+    expect(events).toHaveLength(2);
+  });
+
   it("expansion support: a delta about an expanded entity re-materializes the parent", () => {
     const r = new Reactor();
     r.register("deep", movieDeepBody, ["movie:matrix"], 1_000_000_000_000_000, registry);

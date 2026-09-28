@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { parseClaims } from "../src/json-profile.js";
 import { Reactor, makeManifestClaims, manifestMemberIds } from "../src/reactor.js";
 import { SchemaRegistry } from "../src/schema.js";
-import { makeDelta } from "../src/set.js";
+import { makeDelta, makeNegationClaims } from "../src/set.js";
 import { parseSchema, parseTerm } from "../src/term-json.js";
 import type { Delta } from "../src/types.js";
 
@@ -112,5 +112,21 @@ describe("transaction manifests + atomic bundles (SPEC-1 §9 / SPEC-4 §6)", () 
     const manifest = manifestFor(baseDeltas.slice(0, 2));
     r.ingestBundle(manifest, baseDeltas.slice(0, 2));
     expect(seen).toHaveLength(3); // 2 members + the manifest
+  });
+
+  it("a live negation reader refreshes after an accepted bundle", () => {
+    const r = new Reactor();
+    const target = baseDeltas[0]!;
+    expect(r.ingest(target).status).toBe("accepted");
+    const negated = r.negationPredicate(5002, () => true);
+    expect(negated(target.id)).toBe(false); // memoize the absence
+
+    const negation = makeDelta(makeNegationClaims("did:key:zNegator", 5001, target.id));
+    const manifest = manifestFor([negation]);
+    const callbackVerdicts: boolean[] = [];
+    r.subscribeRaw(() => callbackVerdicts.push(negated(target.id)));
+    expect(r.ingestBundle(manifest, [negation]).status).toBe("accepted");
+    expect(negated(target.id)).toBe(true); // the same reader must observe the new member
+    expect(callbackVerdicts).toEqual([true, true]); // member and manifest callbacks see one bundle
   });
 });

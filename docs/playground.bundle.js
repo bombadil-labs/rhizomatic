@@ -4114,6 +4114,36 @@
       }
       return changes;
     }
+    /**
+     * Re-evaluate every current materialization when a caller-supplied lowering dependency changes
+     * outside this reactor. Unlike advanceTime, this also runs at the same time and without a local
+     * validity boundary. Changed views notify existing subscribers; unchanged views stay silent.
+     * Empty responsibleDeltaIds means no delta in this reactor caused the refresh.
+     */
+    refreshAll(now) {
+      if (!Number.isFinite(now)) throw new Error("now must be a finite number");
+      const changes = [];
+      for (const mat of this.materializations.values()) {
+        mat.now = now;
+        for (const root of mat.roots) {
+          const changedProps = this.refresh(mat, root);
+          if (changedProps !== void 0) {
+            changes.push({
+              materialization: mat.name,
+              root,
+              changedProps,
+              responsibleDeltaIds: [],
+              newHex: mat.hexes.get(root)
+            });
+          }
+        }
+      }
+      this.lastChanges = changes;
+      for (const c of changes) {
+        for (const cb of this.matSubscribers.get(c.materialization) ?? []) cb(c);
+      }
+      return changes;
+    }
     nextValidityBoundary(now) {
       if (!Number.isFinite(now)) throw new Error("now must be a finite number");
       return boundaryAfter(this.validityBoundaries, now);
@@ -4269,8 +4299,9 @@
         this.set.add(d);
         this.log.push(d);
         this.index(d);
-        for (const cb of this.rawSubscribers) cb(d);
       }
+      this.membershipRevision += 1;
+      for (const d of fresh) for (const cb of this.rawSubscribers) cb(d);
       this.lastChanges = this.dispatchAndUpdate(fresh);
       return { status: "accepted" };
     }
