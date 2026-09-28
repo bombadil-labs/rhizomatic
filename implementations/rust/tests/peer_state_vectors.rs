@@ -6,6 +6,7 @@ use rhizomatic::arrival::{ArrivalCursor, ArrivalRecord};
 use rhizomatic::json_profile::parse_claims;
 use rhizomatic::peer_state::{
     decode_peer_state, encode_peer_state, read_peer_state, write_peer_state, PeerState,
+    PeerStateWriteOutcome,
 };
 use rhizomatic::{Delta, DeltaSet};
 use serde_json::Value;
@@ -90,6 +91,22 @@ fn canonical_images_match_shared_vectors() {
 }
 
 #[test]
+fn huge_malformed_container_lengths_fail_before_loading_peer_state() {
+    let path = format!(
+        "{}/../../vectors/l0-delta/cbor-invalid-length.json",
+        env!("CARGO_MANIFEST_DIR")
+    );
+    let cases: Value = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+    for case in cases.as_array().unwrap() {
+        let bytes = hex::decode(case["hex"].as_str().unwrap()).unwrap();
+        assert_eq!(
+            decode_peer_state(&bytes, "peer-A").unwrap_err(),
+            case["error"].as_str().unwrap()
+        );
+    }
+}
+
+#[test]
 fn invalid_state_cases_match_shared_vectors() {
     let (vector, named) = fixtures();
     for case in vector["invalidCases"].as_array().unwrap() {
@@ -113,6 +130,12 @@ fn invalid_state_cases_match_shared_vectors() {
                 delta.sig = Some("00".repeat(64));
                 state.admitted = DeltaSet::from_deltas([delta]).unwrap();
             }
+            "junkArrivalId" => state.arrivals[0].id = "x".into(),
+            "junkRefusedId" => {
+                state.refused_ids.insert("x".into());
+            }
+            "repeatedEpoch" => state.arrivals[1].id = state.arrivals[0].id.clone(),
+            "lostHoldingAndRefusal" => state.refused_ids.clear(),
             other => panic!("unknown mutation {other}"),
         }
         let error = encode_peer_state(&state).unwrap_err();
@@ -141,17 +164,47 @@ fn file_replacement_restores_complete_state_and_failed_validation_preserves_old_
         assert!(read_peer_state(&path, "peer-A").unwrap().is_none());
         for case in vector["cases"].as_array().unwrap() {
             let state = from_case(case, &named);
-            write_peer_state(&path, &state).unwrap();
+            assert_eq!(
+                write_peer_state(&path, &state).unwrap(),
+                PeerStateWriteOutcome::Durable
+            );
             assert_eq!(
                 hex::encode(std::fs::read(&path).unwrap()),
                 case["expectedHex"]
             );
             assert_eq!(read_peer_state(&path, "peer-A").unwrap().unwrap(), state);
+            if case["name"] == "first admission" {
+                let before_signature_change = std::fs::read(&path).unwrap();
+                let mut changed = from_case(case, &named);
+                let mut delta = changed.admitted.iter().next().unwrap().clone();
+                delta.sig = None;
+                changed.admitted = DeltaSet::from_deltas([delta]).unwrap();
+                assert!(write_peer_state(&path, &changed)
+                    .unwrap_err()
+                    .contains("admitted signature changed"));
+                assert_eq!(std::fs::read(&path).unwrap(), before_signature_change);
+            }
         }
         let before = std::fs::read(&path).unwrap();
         let mut invalid = from_case(&vector["cases"][2], &named);
         invalid.cursor.last_sequence = 1;
         assert!(write_peer_state(&path, &invalid).is_err());
+        assert_eq!(std::fs::read(&path).unwrap(), before);
+        assert!(write_peer_state(&path, &from_case(&vector["cases"][1], &named)).is_err());
+        assert_eq!(std::fs::read(&path).unwrap(), before);
+        let mut removed_refusal = from_case(&vector["cases"][2], &named);
+        removed_refusal.refused_ids.clear();
+        removed_refusal
+            .admitted
+            .add(named["userRootDeclaration"].clone())
+            .unwrap();
+        assert!(write_peer_state(&path, &removed_refusal)
+            .unwrap_err()
+            .contains("permanent refusal cannot be removed"));
+        assert_eq!(std::fs::read(&path).unwrap(), before);
+        let mut wrong_peer = from_case(&vector["cases"][2], &named);
+        wrong_peer.peer_id = "other-peer".into();
+        assert!(write_peer_state(&path, &wrong_peer).is_err());
         assert_eq!(std::fs::read(&path).unwrap(), before);
         std::fs::write(&path, [0xff]).unwrap();
         assert!(read_peer_state(&path, "peer-A").is_err());

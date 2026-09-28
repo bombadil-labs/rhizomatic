@@ -39,7 +39,7 @@ impl<'a> Reader<'a> {
         Ok(b)
     }
     fn take(&mut self, n: usize) -> Result<&'a [u8], String> {
-        if self.pos + n > self.bytes.len() {
+        if n > self.bytes.len() - self.pos {
             return Err("cbor: unexpected end of input".to_string());
         }
         let out = &self.bytes[self.pos..self.pos + n];
@@ -86,6 +86,11 @@ fn decode_item(r: &mut Reader) -> Result<CborValue, String> {
         }
         4 => {
             let len = read_length(r, info)?;
+            // Every item consumes at least one byte. Check before reserving so a short hostile
+            // image cannot force an allocation based on an untrusted container length.
+            if len > r.bytes.len() - r.pos {
+                return Err("cbor: unexpected end of input".to_string());
+            }
             let mut items = Vec::with_capacity(len);
             for _ in 0..len {
                 items.push(decode_item(r)?);
@@ -94,6 +99,10 @@ fn decode_item(r: &mut Reader) -> Result<CborValue, String> {
         }
         5 => {
             let len = read_length(r, info)?;
+            // A map entry contains at least a one-byte key and a one-byte value.
+            if len > (r.bytes.len() - r.pos) / 2 {
+                return Err("cbor: unexpected end of input".to_string());
+            }
             let mut entries = Vec::with_capacity(len);
             for _ in 0..len {
                 let key = decode_item(r)?;

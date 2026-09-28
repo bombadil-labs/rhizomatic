@@ -1,4 +1,6 @@
-//! Peer-local logical state image for a single-writer durable admission store (SPEC-6 §§2–3).
+//! Internal single-writer image for current holdings, full first-epoch arrival history, and
+//! permanent refusals. Not a complete SPEC-6 admission or handoff transaction: no purge
+//! obligations, exclusion epochs, quota counters, re-entry acts, or handoff record.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -11,12 +13,21 @@ use crate::sign::{verify_delta, Verification};
 const VERSION: f64 = 1.0;
 const MAX_SEQUENCE: u64 = (1_u64 << 53) - 1;
 
+fn valid_delta_id(id: &str) -> bool {
+    id.len() == 68
+        && id.starts_with("1e20")
+        && id.as_bytes()[4..]
+            .iter()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(b))
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct PeerState {
     pub peer_id: String,
     pub admitted: DeltaSet,
     pub cursor: ArrivalCursor,
     pub arrivals: Vec<ArrivalRecord>,
+    /// Permanent refusals only; lower-posture re-entry needs a later image version.
     pub refused_ids: BTreeSet<String>,
 }
 
@@ -36,7 +47,7 @@ fn validate(state: &PeerState) -> Result<(), String> {
     let mut last_sender = "";
     let mut arrived = BTreeSet::new();
     for (i, row) in state.arrivals.iter().enumerate() {
-        if row.id.is_empty()
+        if !valid_delta_id(&row.id)
             || row.sender.is_empty()
             || !row.at.is_finite()
             || row.sequence != i as u64 + 1
@@ -59,14 +70,21 @@ fn validate(state: &PeerState) -> Result<(), String> {
         last_id = &row.id;
         last_at = row.at;
         last_sender = &row.sender;
-        arrived.insert(row.id.as_str());
+        if !arrived.insert(row.id.as_str()) {
+            return Err("peer state: repeated arrival epoch needs a richer image".into());
+        }
     }
     if last_transfer != state.cursor.last_transfer {
         return Err("peer state: transfer history does not match cursor".into());
     }
     for id in &state.refused_ids {
-        if id.is_empty() || state.admitted.contains(id) {
+        if !valid_delta_id(id) || state.admitted.contains(id) {
             return Err("peer state: invalid refusal set".into());
+        }
+    }
+    for id in &arrived {
+        if !state.admitted.contains(id) && !state.refused_ids.contains(*id) {
+            return Err("peer state: arrived id has no holding or refusal".into());
         }
     }
     for delta in state.admitted.iter() {
@@ -75,6 +93,31 @@ fn validate(state: &PeerState) -> Result<(), String> {
         }
         if delta.sig.is_some() && verify_delta(delta) != Verification::Verified {
             return Err("peer state: invalid admitted signature".into());
+        }
+    }
+    Ok(())
+}
+
+fn validate_transition(before: &PeerState, after: &PeerState) -> Result<(), String> {
+    if after.arrivals.len() < before.arrivals.len() {
+        return Err("peer state: arrival history cannot shrink".into());
+    }
+    if after.arrivals[..before.arrivals.len()] != before.arrivals {
+        return Err("peer state: prior arrival testimony changed".into());
+    }
+    if after.arrivals.len() > before.arrivals.len()
+        && after.arrivals[before.arrivals.len()].transfer != before.cursor.last_transfer + 1
+    {
+        return Err("peer state: new arrival must start a new transfer".into());
+    }
+    if !before.refused_ids.is_subset(&after.refused_ids) {
+        return Err("peer state: permanent refusal cannot be removed".into());
+    }
+    for prior in before.admitted.iter() {
+        if let Some(current) = after.admitted.get(&prior.id) {
+            if current.sig != prior.sig {
+                return Err("peer state: admitted signature changed".into());
+            }
         }
     }
     Ok(())
@@ -217,9 +260,18 @@ pub fn decode_peer_state(bytes: &[u8], expected_peer_id: &str) -> Result<PeerSta
     Ok(state)
 }
 
-/// Single-writer file backend. The caller serializes writes for this peer and directory.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PeerStateWriteOutcome {
+    Durable,
+    CommittedUnconfirmed { fault: String },
+}
+
+/// Single-writer file backend. An uncertain post-rename sync is distinct from failure.
 #[cfg(not(target_arch = "wasm32"))]
-pub fn write_peer_state(path: &std::path::Path, state: &PeerState) -> Result<(), String> {
+pub fn write_peer_state(
+    path: &std::path::Path,
+    state: &PeerState,
+) -> Result<PeerStateWriteOutcome, String> {
     use std::fs::{self, OpenOptions};
     use std::io::Write;
     #[cfg(unix)]
@@ -228,12 +280,17 @@ pub fn write_peer_state(path: &std::path::Path, state: &PeerState) -> Result<(),
     static NEXT_TEMP: AtomicU64 = AtomicU64::new(0);
 
     let bytes = encode_peer_state(state)?;
+    if let Some(before) = read_peer_state(path, &state.peer_id)? {
+        validate_transition(&before, state)?;
+    }
     let parent = path
         .parent()
-        .ok_or("peer state: missing parent directory")?;
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or_else(|| std::path::Path::new("."));
+    let dir = fs::File::open(parent).map_err(|e| e.to_string())?;
     let nonce = NEXT_TEMP.fetch_add(1, Ordering::Relaxed);
     let temp = path.with_extension(format!("{}.{}.tmp", std::process::id(), nonce));
-    let result = (|| -> Result<(), String> {
+    let result = (|| -> Result<PeerStateWriteOutcome, String> {
         let mut options = OpenOptions::new();
         options.write(true).create_new(true);
         #[cfg(unix)]
@@ -243,10 +300,12 @@ pub fn write_peer_state(path: &std::path::Path, state: &PeerState) -> Result<(),
         file.sync_all().map_err(|e| e.to_string())?;
         drop(file);
         fs::rename(&temp, path).map_err(|e| e.to_string())?;
-        fs::File::open(parent)
-            .and_then(|dir| dir.sync_all())
-            .map_err(|e| e.to_string())?;
-        Ok(())
+        Ok(match dir.sync_all() {
+            Ok(()) => PeerStateWriteOutcome::Durable,
+            Err(e) => PeerStateWriteOutcome::CommittedUnconfirmed {
+                fault: e.to_string(),
+            },
+        })
     })();
     let _ = fs::remove_file(temp);
     result

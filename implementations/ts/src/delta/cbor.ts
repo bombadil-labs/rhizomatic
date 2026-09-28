@@ -207,6 +207,9 @@ class ByteReader {
   done(): boolean {
     return this.pos === this.bytes.length;
   }
+  remaining(): number {
+    return this.bytes.length - this.pos;
+  }
 }
 
 function readLength(r: ByteReader, info: number): number {
@@ -241,12 +244,14 @@ function decodeItem(r: ByteReader): CborValue {
     }
     case 4: {
       const len = readLength(r, info);
+      if (len > r.remaining()) throw new Error("cbor: unexpected end of input");
       const items: CborValue[] = [];
       for (let i = 0; i < len; i++) items.push(decodeItem(r));
       return array(items);
     }
     case 5: {
       const len = readLength(r, info);
+      if (len > Math.floor(r.remaining() / 2)) throw new Error("cbor: unexpected end of input");
       const entries: Array<[string, CborValue]> = [];
       for (let i = 0; i < len; i++) {
         const key = decodeItem(r);

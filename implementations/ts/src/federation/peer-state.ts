@@ -1,5 +1,6 @@
-// Peer-local logical state image for a single-writer durable admission store (SPEC-6 vNext §§2–3).
-// A file replacement commits this image as one unit. It is not an admission decision by itself.
+// Internal single-writer image for the currently held set, full first-epoch arrival history, and
+// permanent refusals. This is not the complete SPEC-6 admission or handoff transaction: it has no
+// purge obligations, exclusion epochs, quota counters, re-entry acts, or handoff record.
 
 import {
   closeSync,
@@ -22,6 +23,19 @@ import type { ArrivalCursor, ArrivalRecord } from "./arrival.js";
 
 const VERSION = 1;
 const MAX_SEQUENCE = Number.MAX_SAFE_INTEGER;
+const DELTA_ID = /^1e20[0-9a-f]{64}$/;
+
+function wellFormed(text: string): boolean {
+  for (let i = 0; i < text.length; i++) {
+    const ch = text.charCodeAt(i);
+    if (ch >= 0xd800 && ch <= 0xdbff) {
+      if (++i >= text.length) return false;
+      const low = text.charCodeAt(i);
+      if (low < 0xdc00 || low > 0xdfff) return false;
+    } else if (ch >= 0xdc00 && ch <= 0xdfff) return false;
+  }
+  return true;
+}
 
 export interface PeerState {
   readonly peerId: string;
@@ -29,6 +43,7 @@ export interface PeerState {
   readonly cursor: ArrivalCursor;
   /** Full peer-local history in sequence order. */
   readonly arrivals: readonly ArrivalRecord[];
+  /** Permanent refusals only; lower-posture re-entry needs a later image version. */
   readonly refusedIds: ReadonlySet<string>;
 }
 
@@ -37,7 +52,8 @@ function validCounter(value: number): boolean {
 }
 
 function validateState(state: PeerState): void {
-  if (!state.peerId) throw new Error("peer state: peer id must not be empty");
+  if (!state.peerId || !wellFormed(state.peerId))
+    throw new Error("peer state: invalid peer id text");
   if (!validCounter(state.cursor.lastSequence) || !validCounter(state.cursor.lastTransfer))
     throw new Error("peer state: invalid arrival cursor");
   if (state.arrivals.length !== state.cursor.lastSequence)
@@ -49,7 +65,13 @@ function validateState(state: PeerState): void {
   const activeEpochs = new Set<string>();
   for (let i = 0; i < state.arrivals.length; i++) {
     const row = state.arrivals[i]!;
-    if (!row.id || !row.sender || !Number.isFinite(row.at) || row.sequence !== i + 1)
+    if (
+      !DELTA_ID.test(row.id) ||
+      !row.sender ||
+      !wellFormed(row.sender) ||
+      !Number.isFinite(row.at) ||
+      row.sequence !== i + 1
+    )
       throw new Error("peer state: invalid arrival record");
     if (
       !validCounter(row.transfer) ||
@@ -67,12 +89,19 @@ function validateState(state: PeerState): void {
     lastId = row.id;
     lastAt = row.at;
     lastSender = row.sender;
+    if (activeEpochs.has(row.id))
+      throw new Error("peer state: repeated arrival epoch needs a richer image");
     activeEpochs.add(row.id);
   }
   if (lastTransfer !== state.cursor.lastTransfer)
     throw new Error("peer state: transfer history does not match cursor");
   for (const id of state.refusedIds) {
-    if (!id || state.admitted.has(id)) throw new Error("peer state: invalid refusal set");
+    if (!DELTA_ID.test(id) || state.admitted.has(id))
+      throw new Error("peer state: invalid refusal set");
+  }
+  for (const id of activeEpochs) {
+    if (!state.admitted.has(id) && !state.refusedIds.has(id))
+      throw new Error("peer state: arrived id has no holding or refusal");
   }
   for (const delta of state.admitted) {
     if (!activeEpochs.has(delta.id)) throw new Error("peer state: admitted id has no arrival");
@@ -80,6 +109,37 @@ function validateState(state: PeerState): void {
       throw new Error("peer state: invalid admitted content id");
     if (delta.sig !== undefined && verifyDelta(delta) !== "verified")
       throw new Error("peer state: invalid admitted signature");
+  }
+}
+
+function validateTransition(before: PeerState, after: PeerState): void {
+  if (after.arrivals.length < before.arrivals.length)
+    throw new Error("peer state: arrival history cannot shrink");
+  for (let i = 0; i < before.arrivals.length; i++) {
+    const a = before.arrivals[i]!;
+    const b = after.arrivals[i]!;
+    if (
+      a.id !== b.id ||
+      a.at !== b.at ||
+      a.sequence !== b.sequence ||
+      a.transfer !== b.transfer ||
+      a.sender !== b.sender
+    )
+      throw new Error("peer state: prior arrival testimony changed");
+  }
+  if (
+    after.arrivals.length > before.arrivals.length &&
+    after.arrivals[before.arrivals.length]!.transfer !== before.cursor.lastTransfer + 1
+  )
+    throw new Error("peer state: new arrival must start a new transfer");
+  for (const id of before.refusedIds) {
+    if (!after.refusedIds.has(id))
+      throw new Error("peer state: permanent refusal cannot be removed");
+  }
+  for (const prior of before.admitted) {
+    const current = after.admitted.get(prior.id);
+    if (current !== undefined && current.sig !== prior.sig)
+      throw new Error("peer state: admitted signature changed");
   }
 }
 
@@ -168,11 +228,18 @@ export function decodePeerState(bytes: Uint8Array, expectedPeerId: string): Peer
   return state;
 }
 
-/** Single-writer file backend. The caller serializes writes for this peer and directory. */
-export function writePeerState(path: string, state: PeerState): void {
+export type PeerStateWriteOutcome =
+  | { readonly status: "durable" }
+  | { readonly status: "committed-unconfirmed"; readonly fault: string };
+
+/** Single-writer file backend. An uncertain post-rename sync is reported distinctly from failure. */
+export function writePeerState(path: string, state: PeerState): PeerStateWriteOutcome {
   const bytes = encodePeerState(state);
+  const before = readPeerState(path, state.peerId);
+  if (before !== undefined) validateTransition(before, state);
   const temp = `${path}.${process.pid}.${randomBytes(16).toString("hex")}.tmp`;
   let fd: number | undefined;
+  const dirFd = openSync(dirname(path), "r");
   try {
     fd = openSync(temp, "wx", 0o600);
     let offset = 0;
@@ -181,15 +248,16 @@ export function writePeerState(path: string, state: PeerState): void {
     closeSync(fd);
     fd = undefined;
     renameSync(temp, path);
-    const dirFd = openSync(dirname(path), "r");
     try {
       fsyncSync(dirFd);
-    } finally {
-      closeSync(dirFd);
+      return { status: "durable" };
+    } catch (error) {
+      return { status: "committed-unconfirmed", fault: String(error) };
     }
   } finally {
     if (fd !== undefined) closeSync(fd);
     if (existsSync(temp)) unlinkSync(temp);
+    closeSync(dirFd);
   }
 }
 

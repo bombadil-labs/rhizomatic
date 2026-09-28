@@ -171,6 +171,9 @@
     done() {
       return this.pos === this.bytes.length;
     }
+    remaining() {
+      return this.bytes.length - this.pos;
+    }
   };
   function readLength(r, info) {
     if (info < 24) return info;
@@ -202,12 +205,14 @@
       }
       case 4: {
         const len = readLength(r, info);
+        if (len > r.remaining()) throw new Error("cbor: unexpected end of input");
         const items = [];
         for (let i = 0; i < len; i++) items.push(decodeItem(r));
         return array(items);
       }
       case 5: {
         const len = readLength(r, info);
+        if (len > Math.floor(r.remaining() / 2)) throw new Error("cbor: unexpected end of input");
         const entries = [];
         for (let i = 0; i < len; i++) {
           const key = decodeItem(r);
@@ -4480,9 +4485,15 @@
     if (v === void 0 || v.t !== "float") throw new Error(`pack: expected number for ${what}`);
     return v.v;
   }
+  function at(items, value, what) {
+    const index = asNum(value, what);
+    if (!Number.isInteger(index) || index < 0 || index >= items.length)
+      throw new Error(`pack: ${what} index out of range`);
+    return items[index];
+  }
   function ptrFromCbor(v, strings) {
     const o = asMap(v, "pointer");
-    const str = (key) => strings[asNum(o.get(key), key)];
+    const str = (key) => at(strings, o.get(key), key);
     const role = str("r");
     const context = o.has("c") ? str("c") : void 0;
     let target;
@@ -4516,14 +4527,14 @@
   function hydrateRecord(v, strings) {
     const o = asMap(v, "record");
     const claims = {
-      author: strings[asNum(o.get("a"), "a")],
+      author: at(strings, o.get("a"), "a"),
       timestamp: asNum(o.get("t"), "t"),
       validFrom: asNum(o.get("f"), "f"),
       ...o.has("u") ? { validUntil: asNum(o.get("u"), "u") } : {},
       pointers: asArray(o.get("p"), "p").map((p) => ptrFromCbor(p, strings))
     };
-    const sig = o.has("s") ? strings[asNum(o.get("s"), "s")] : void 0;
-    return verifiedDelta(claims, sig, strings[asNum(o.get("i"), "i")]);
+    const sig = o.has("s") ? at(strings, o.get("s"), "s") : void 0;
+    return verifiedDelta(claims, sig, at(strings, o.get("i"), "i"));
   }
   function verifiedDelta(claims, sig, storedId) {
     const d = makeDelta(claims, sig);
@@ -4548,9 +4559,8 @@
     for (const m of envelopes) out.add(m);
     for (const rec of asArray(top.get("members"), "members")) {
       const o = asMap(rec, "member");
-      const manifest = envelopes[asNum(o.get("m"), "m")];
-      if (manifest === void 0) throw new Error("pack: member references missing envelope");
-      const author = o.has("a") ? strings[asNum(o.get("a"), "a")] : manifest.claims.author;
+      const manifest = at(envelopes, o.get("m"), "m");
+      const author = o.has("a") ? at(strings, o.get("a"), "a") : manifest.claims.author;
       const timestamp = manifest.claims.timestamp + (o.has("dt") ? asNum(o.get("dt"), "dt") : 0);
       const claims = {
         author,
@@ -4559,8 +4569,8 @@
         ...o.has("u") ? { validUntil: asNum(o.get("u"), "u") } : {},
         pointers: asArray(o.get("p"), "p").map((p) => ptrFromCbor(p, strings))
       };
-      const sig = o.has("s") ? strings[asNum(o.get("s"), "s")] : void 0;
-      out.add(verifiedDelta(claims, sig, strings[asNum(o.get("i"), "i")]));
+      const sig = o.has("s") ? at(strings, o.get("s"), "s") : void 0;
+      out.add(verifiedDelta(claims, sig, at(strings, o.get("i"), "i")));
     }
     for (const rec of asArray(top.get("loose"), "loose")) out.add(hydrateRecord(rec, strings));
     return out;
@@ -4745,8 +4755,8 @@
 
   // src/reactor/reactor.ts
   var height = (node) => node?.height ?? 0;
-  var boundaryNode = (at, left, right) => ({
-    at,
+  var boundaryNode = (at2, left, right) => ({
+    at: at2,
     ...left === void 0 ? {} : { left },
     ...right === void 0 ? {} : { right },
     height: 1 + Math.max(height(left), height(right))
@@ -4759,19 +4769,19 @@
     const right = node.right;
     return boundaryNode(right.at, boundaryNode(node.at, node.left, right.left), right.right);
   }
-  function insertBoundary(node, at) {
-    if (node === void 0) return boundaryNode(at);
-    if (at === node.at) return node;
-    const updated = at < node.at ? boundaryNode(node.at, insertBoundary(node.left, at), node.right) : boundaryNode(node.at, node.left, insertBoundary(node.right, at));
+  function insertBoundary(node, at2) {
+    if (node === void 0) return boundaryNode(at2);
+    if (at2 === node.at) return node;
+    const updated = at2 < node.at ? boundaryNode(node.at, insertBoundary(node.left, at2), node.right) : boundaryNode(node.at, node.left, insertBoundary(node.right, at2));
     const balance = height(updated.left) - height(updated.right);
     if (balance > 1) {
       return rotateRight(
-        at > updated.left.at ? boundaryNode(updated.at, rotateLeft(updated.left), updated.right) : updated
+        at2 > updated.left.at ? boundaryNode(updated.at, rotateLeft(updated.left), updated.right) : updated
       );
     }
     if (balance < -1) {
       return rotateLeft(
-        at < updated.right.at ? boundaryNode(updated.at, updated.left, rotateRight(updated.right)) : updated
+        at2 < updated.right.at ? boundaryNode(updated.at, updated.left, rotateRight(updated.right)) : updated
       );
     }
     return updated;

@@ -1,0 +1,5 @@
+[
+  { "name": "array advertises billions of missing items", "hex": "9affffffff", "error": "cbor: unexpected end of input" },
+  { "name": "map advertises billions of missing entries", "hex": "baffffffff", "error": "cbor: unexpected end of input" },
+  { "name": "nested array advertises missing items", "hex": "819affffffff", "error": "cbor: unexpected end of input" }
+]

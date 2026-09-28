@@ -1,12 +1,56 @@
 {
-  "spec": "SPEC-6 vNext §§2 step 6, 3",
+  "spec": "SPEC-6 vNext §3; internal partial image (not a step-6 commit)",
   "fixture": "vectors/principal/evidence.json",
   "description": "Canonical peer-local state images and restart continuity. Refused ids are no longer admitted, but their historical arrival remains.",
   "invalidCases": [
-    { "name": "cursor cannot lose an arrival", "base": 2, "mutation": "cursorGap", "expected": "arrival history" },
-    { "name": "refusal cannot coexist with active holding", "base": 1, "mutation": "refuseActive", "expected": "invalid refusal" },
-    { "name": "arrival sequence cannot repeat", "base": 2, "mutation": "duplicateSequence", "expected": "invalid arrival record" },
-    { "name": "forged held signature cannot be persisted", "base": 1, "mutation": "forgedSignature", "expected": "invalid admitted signature" }
+    {
+      "name": "cursor cannot lose an arrival",
+      "base": 2,
+      "mutation": "cursorGap",
+      "expected": "arrival history"
+    },
+    {
+      "name": "refusal cannot coexist with active holding",
+      "base": 1,
+      "mutation": "refuseActive",
+      "expected": "invalid refusal"
+    },
+    {
+      "name": "arrival sequence cannot repeat",
+      "base": 2,
+      "mutation": "duplicateSequence",
+      "expected": "invalid arrival record"
+    },
+    {
+      "name": "forged held signature cannot be persisted",
+      "base": 1,
+      "mutation": "forgedSignature",
+      "expected": "invalid admitted signature"
+    },
+    {
+      "name": "arrival id must be canonical",
+      "base": 1,
+      "mutation": "junkArrivalId",
+      "expected": "invalid arrival record"
+    },
+    {
+      "name": "refused id must be canonical",
+      "base": 0,
+      "mutation": "junkRefusedId",
+      "expected": "invalid refusal set"
+    },
+    {
+      "name": "repeated admission epoch needs richer state",
+      "base": 2,
+      "mutation": "repeatedEpoch",
+      "expected": "repeated arrival epoch"
+    },
+    {
+      "name": "lost historical id is rejected",
+      "base": 2,
+      "mutation": "lostHoldingAndRefusal",
+      "expected": "arrived id has no holding or refusal"
+    }
   ],
   "cases": [
     {

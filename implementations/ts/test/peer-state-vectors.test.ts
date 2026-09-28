@@ -93,6 +93,27 @@ describe("shared SPEC-6 peer state image vectors", () => {
           ).toThrow(c.expected);
           break;
         }
+        case "junkArrivalId":
+          expect(() =>
+            encodePeerState({ ...state, arrivals: [{ ...state.arrivals[0]!, id: "x" }] }),
+          ).toThrow(c.expected);
+          break;
+        case "junkRefusedId":
+          expect(() => encodePeerState({ ...state, refusedIds: new Set(["x"]) })).toThrow(
+            c.expected,
+          );
+          break;
+        case "repeatedEpoch":
+          expect(() =>
+            encodePeerState({
+              ...state,
+              arrivals: [state.arrivals[0]!, { ...state.arrivals[1]!, id: state.arrivals[0]!.id }],
+            }),
+          ).toThrow(c.expected);
+          break;
+        case "lostHoldingAndRefusal":
+          expect(() => encodePeerState({ ...state, refusedIds: new Set() })).toThrow(c.expected);
+          break;
         default:
           throw new Error(`unknown mutation ${c.mutation}`);
       }
@@ -105,9 +126,21 @@ describe("shared SPEC-6 peer state image vectors", () => {
     try {
       expect(readPeerState(path, "peer-A")).toBeUndefined();
       for (const c of vector.cases) {
-        writePeerState(path, fromCase(c));
+        expect(writePeerState(path, fromCase(c))).toEqual({ status: "durable" });
         expect(Buffer.from(readFileSync(path)).toString("hex")).toBe(c.expectedHex);
         expect(readPeerState(path, "peer-A")!.cursor).toEqual(c.cursor);
+        if (c.name === "first admission") {
+          const beforeSignatureChange = readFileSync(path);
+          const state = fromCase(c);
+          const delta = [...state.admitted][0]!;
+          expect(() =>
+            writePeerState(path, {
+              ...state,
+              admitted: DeltaSet.from([{ id: delta.id, claims: delta.claims }]),
+            }),
+          ).toThrow("admitted signature changed");
+          expect(readFileSync(path)).toEqual(beforeSignatureChange);
+        }
       }
       const before = readFileSync(path);
       expect(() =>
@@ -117,10 +150,52 @@ describe("shared SPEC-6 peer state image vectors", () => {
         }),
       ).toThrow("arrival history");
       expect(readFileSync(path)).toEqual(before);
+      expect(() => writePeerState(path, fromCase(vector.cases[1]!))).toThrow(
+        "arrival history cannot shrink",
+      );
+      expect(readFileSync(path)).toEqual(before);
+      const removedRefusal = fromCase(vector.cases[2]!);
+      expect(() =>
+        writePeerState(path, {
+          ...removedRefusal,
+          admitted: DeltaSet.from([...removedRefusal.admitted, named.get("userRootDeclaration")!]),
+          refusedIds: new Set(),
+        }),
+      ).toThrow("permanent refusal cannot be removed");
+      expect(readFileSync(path)).toEqual(before);
+      expect(() =>
+        writePeerState(path, { ...fromCase(vector.cases[2]!), peerId: "other-peer" }),
+      ).toThrow("wrong peer id");
+      expect(readFileSync(path)).toEqual(before);
       writeFileSync(path, Uint8Array.of(0xff));
       expect(() => readPeerState(path, "peer-A")).toThrow();
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+
+  it("rejects text that cannot survive UTF-8 encoding", () => {
+    const state = fromCase(vector.cases[0]!);
+    expect(() => encodePeerState({ ...state, peerId: "peer-\ud800" })).toThrow(
+      "invalid peer id text",
+    );
+    const arrived = fromCase(vector.cases[1]!);
+    expect(() =>
+      encodePeerState({
+        ...arrived,
+        arrivals: [{ ...arrived.arrivals[0]!, sender: "peer-\ud800" }],
+      }),
+    ).toThrow("invalid arrival record");
+  });
+
+  it("rejects huge malformed container lengths before loading peer state", () => {
+    const cases = JSON.parse(
+      readFileSync(
+        resolve(import.meta.dirname, "../../../vectors/l0-delta/cbor-invalid-length.json"),
+        "utf8",
+      ),
+    ) as Array<{ hex: string; error: string }>;
+    for (const c of cases)
+      expect(() => decodePeerState(Buffer.from(c.hex, "hex"), "peer-A")).toThrow(c.error);
   });
 });

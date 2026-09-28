@@ -3,7 +3,17 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { bytesToHex, hexToBytes } from "@noble/hashes/utils";
 import { describe, expect, it } from "vitest";
-import { array, bool, bstr, type CborValue, encode, float, map, tstr } from "../src/cbor.js";
+import {
+  array,
+  bool,
+  bstr,
+  type CborValue,
+  decode,
+  encode,
+  float,
+  map,
+  tstr,
+} from "../src/cbor.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const primsPath = resolve(here, "../../../vectors/l0-delta/cbor-primitives.json");
@@ -30,6 +40,15 @@ function build(p: Prim): CborValue {
 }
 
 const prims = JSON.parse(readFileSync(primsPath, "utf8")) as Prim[];
+const invalidLengths = JSON.parse(
+  readFileSync(resolve(here, "../../../vectors/l0-delta/cbor-invalid-length.json"), "utf8"),
+) as Array<{ name: string; hex: string; error: string }>;
+
+describe("shared CBOR malformed-length vectors", () => {
+  for (const c of invalidLengths) {
+    it(c.name, () => expect(() => decode(hexToBytes(c.hex))).toThrow(c.error));
+  }
+});
 
 describe("cbor primitive ground truth (RFC 8949 §4.2.1 / ERRATA D1–D3)", () => {
   for (const p of prims) {

@@ -1,0 +1,7 @@
+{
+  "spec": "SPEC-8 §4",
+  "cases": [
+    { "name": "loose signature index cannot erase signature", "source": "signed-singleton", "section": "loose", "field": "s", "index": 999, "error": "pack: s index out of range" },
+    { "name": "covered member signature index cannot erase signature", "source": "pack.json", "section": "members", "field": "s", "index": 999, "error": "pack: s index out of range" }
+  ]
+}
