@@ -198,7 +198,7 @@ export async function admitSinglePeerTransfer<State>(
   }
   const before = verifiedState(store, peerId, prior.image);
   const plan = planSignedLooseOrdinaryTransfer(before, {
-    offered: input.offered.map(plainDelta),
+    offered: input.offered,
     sendingPeerId: sender(input.origin, peerId),
     arrivedAt: input.arrivedAt,
     capacity: input.capacity ?? Number.MAX_SAFE_INTEGER,

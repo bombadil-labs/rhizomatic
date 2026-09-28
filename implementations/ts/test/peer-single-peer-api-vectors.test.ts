@@ -239,6 +239,52 @@ describe("shared SPEC-6 typed single-peer API", () => {
     ).rejects.toThrow("candidate guard: refusal reason must be text");
   });
 
+  it("reports a malformed candidate without aborting the rest of a received unit", async () => {
+    const malformedCandidates = [
+      { ...second, claims: null },
+      { ...second, claims: { ...second.claims, author: 5 } },
+      { ...second, claims: { ...second.claims, pointers: undefined } },
+      {
+        ...second,
+        claims: { ...second.claims, pointers: [{ role: "x", target: { kind: "unknown" } }] },
+      },
+      {
+        ...second,
+        claims: {
+          ...second.claims,
+          pointers: [{ role: "x", target: { kind: "primitive", value: Number.NaN } }],
+        },
+      },
+    ] as unknown as Delta[];
+    for (const malformed of malformedCandidates) {
+      const store = new MemoryStore();
+      await openSinglePeer(store, vector.peerId);
+      const input = {
+        offered: [first, malformed],
+        origin: { kind: "unattributed" as const },
+        arrivedAt: vector.individual.at,
+        policyState: {},
+        guards: [],
+        isErasureCandidate: ordinary,
+      };
+      const before = store.writes;
+      const atomic = await admitSinglePeerTransfer(store, vector.peerId, {
+        ...input,
+        mode: "atomic",
+      });
+      expect(atomic).toMatchObject({ status: "rejected", reason: "invalid" });
+      expect(store.writes).toBe(before);
+      const individual = await admitSinglePeerTransfer(store, vector.peerId, {
+        ...input,
+        mode: "individual",
+      });
+      expect(individual.status).toBe("committed");
+      if (individual.status !== "committed") throw new Error("expected commit");
+      expect(individual.outcomes.map((row) => row.status)).toEqual(["admitted", "invalid"]);
+      expect([...store.rows.keys()]).toEqual([first.id]);
+    }
+  });
+
   it("refuses the entire atomic unit with the first guard reason, and individually admits the survivor", async () => {
     const store = new MemoryStore();
     await openSinglePeer(store, vector.peerId);
