@@ -6,32 +6,30 @@ govern here. This file is only the Rust-specific usage patterns.
 
 ## Stack
 
-- **Rust, edition 2021.** On this machine the toolchain is the **GNU** target
-  (`stable-x86_64-pc-windows-gnu`, installed via scoop with gcc as the linker) — no MSVC dependency.
-- **blake3** crate for hashing; later **ed25519-dalek** for signatures. Crypto we *consume*.
+- **Rust, edition 2021.** Use the host's stable rustup toolchain. CI checks the Linux host build
+  and the browser WASM target; the Windows GNU setup below is for Windows workstations only.
+- **blake3** for hashing and **ed25519-dalek** for signatures. Crypto primitives we *consume*.
 - **serde / serde_json + hex** only for loading the shared JSON vectors in tests.
 - The canonical CBOR encoder is **hand-rolled** (`src/cbor.rs`), not `ciborium`/`serde_cbor` — it must
   reproduce the TypeScript encoder byte-for-byte, and the only way to guarantee that is to own both.
 
 ## Commands
 
-cargo is installed under scoop's rustup persist dir and is **not on the default PATH** in fresh
-shells. Prefix cargo invocations with this env setup (PowerShell):
+Run `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, and `cargo test` before
+committing. On Linux, install through rustup if needed and put `~/.cargo/bin` on `PATH`.
+On the Windows workstation where rustup lives under scoop, use this setup (PowerShell):
 
 ```powershell
 $env:RUSTUP_HOME = "$env:USERPROFILE\scoop\persist\rustup\.rustup"
 $env:CARGO_HOME  = "$env:USERPROFILE\scoop\persist\rustup\.cargo"
 $env:PATH = "$env:CARGO_HOME\bin;$env:USERPROFILE\scoop\apps\gcc\current\bin;$env:PATH"
-cargo fmt           # format; `cargo fmt --check` to verify (run before every commit)
+cargo fmt --check
 cargo clippy --all-targets -- -D warnings
-cargo test          # conformance + property + unit tests
-cargo build
+cargo test
 ```
 
-The green-gate before committing a slice: `cargo fmt --check` + `cargo clippy -- -D warnings` + `cargo test` all clean.
-
-The gcc bin dir on PATH is required — the GNU toolchain links via `gcc`/`ld`, and scoop registered
-it as a PATH entry rather than a shim.
+The Windows GNU target also needs gcc on `PATH`; scoop registered it as a PATH entry rather than
+a shim.
 
 ### The WASM witness
 
