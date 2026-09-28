@@ -81,7 +81,8 @@ export function preflightTransfer<State>(
       return stableBefore.size;
     },
     ids: () => stableBefore.ids(),
-    toDeltaSet: () => DeltaSet.from([...stableBefore].map((delta) => structuredClone(delta))),
+    toDeltaSet: () =>
+      DeltaSet.from(stableBefore.ids().map((id) => structuredClone(stableBefore.get(id)!))),
     *[Symbol.iterator]() {
       for (const id of stableBefore.ids()) yield structuredClone(stableBefore.get(id)!);
     },

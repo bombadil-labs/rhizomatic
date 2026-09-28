@@ -81,7 +81,8 @@ describe("shared SPEC-6 guarded transfer vectors", () => {
         };
       });
       const priorDeltas = c.prior.map((label) => named.get(label)!);
-      if (c.priorOrder === "reverseId") priorDeltas.sort((a, b) => b.id.localeCompare(a.id));
+      if (c.priorOrder === "reverseId")
+        priorDeltas.sort((a, b) => (b.id < a.id ? -1 : b.id > a.id ? 1 : 0));
       const prior = DeltaSet.from(priorDeltas);
       const seen: string[] = [];
       const seenOrder: string[] = [];
@@ -92,11 +93,16 @@ describe("shared SPEC-6 guarded transfer vectors", () => {
         if (rule === "requiresGrant")
           return label !== "act" || context.admittedBefore.has(context.policyState.grantId);
         if (rule === "denyValue") return label !== "deny";
-        if (rule === "sortedPrior")
+        if (rule === "sortedPrior") {
+          const iterated = [...context.admittedBefore].map((delta) => delta.id);
+          const copied = [...context.admittedBefore.toDeltaSet()].map((delta) => delta.id);
+          const ascending = iterated.every((id, i) => i === 0 || iterated[i - 1]! <= id);
           return (
-            [...context.admittedBefore].map((delta) => delta.id).join() ===
-            context.admittedBefore.ids().join()
+            ascending &&
+            iterated.join() === context.admittedBefore.ids().join() &&
+            copied.join() === iterated.join()
           );
+        }
         return context.sendingPeerId === "sender-A" && context.receivingPeerId === "receiver-B";
       });
       const result = preflightTransfer(units, {
