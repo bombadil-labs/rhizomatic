@@ -1,5 +1,8 @@
 # Internal peer-state image v1
 
+The internal permanent-posture v2 image and commit transitions are described in
+[peer-durable-state.md](peer-durable-state.md).
+
 The TypeScript and Rust witnesses share a private, canonical CBOR image for one peer's current
 holdings, full first-epoch arrival history, counters, and permanent refusal ids. The shared bytes
 are pinned in `vectors/peer/state.json`. The image embeds a SPEC-8 pack of admitted deltas and

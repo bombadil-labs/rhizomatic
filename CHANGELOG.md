@@ -23,8 +23,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 ### Internal structure
 
 - A canonical peer-local state image and single-writer file adapter preserve current holdings,
-  first-epoch arrival testimony, counters, and permanent refusals across restart. The image is
-  internal and does not yet hold erasure obligations or handoff proof. CBOR and pack readers now
+  first-epoch arrival testimony, counters, and permanent refusals across restart. An internal v2
+  image and commit planner now bind verified final additions, erasure exclusions, refusal events,
+  quota usage, and stable purge obligations in one local replacement. The image does not yet
+  supply a typed admission API, physical removal proof, or handoff proof. CBOR and pack readers now
   reject malformed lengths, excessive nesting, and invalid table indices before admission.
 
 ## 0.11.0-next.1 — 2026-09-25

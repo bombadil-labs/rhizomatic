@@ -7,6 +7,8 @@ pub mod b64u;
 pub mod cbor;
 pub mod delta;
 pub mod derivation;
+#[doc(hidden)]
+pub mod durable_state;
 pub mod entry;
 #[doc(hidden)]
 pub mod erasure_filter;
