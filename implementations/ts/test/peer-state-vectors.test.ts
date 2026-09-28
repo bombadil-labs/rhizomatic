@@ -4,13 +4,8 @@ import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parseClaims } from "../src/json-profile.js";
 import { DeltaSet } from "../src/set.js";
-import {
-  decodePeerState,
-  encodePeerState,
-  readPeerState,
-  writePeerState,
-  type PeerState,
-} from "../src/federation/peer-state.js";
+import { decodePeerState, encodePeerState, type PeerState } from "../src/federation/peer-state.js";
+import { readPeerState, writePeerState } from "../src/federation/file-peer-state.js";
 import type { ArrivalRecord } from "../src/federation/arrival.js";
 import type { Delta } from "../src/types.js";
 

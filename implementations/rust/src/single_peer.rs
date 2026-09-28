@@ -2,14 +2,16 @@
 
 use crate::durable_state::{
     decode_durable_peer_state, empty_durable_peer_state, encode_durable_peer_state,
-    DurablePeerState,
 };
 use crate::peer_identity::is_canonical_peer_id;
 use crate::preflight::CandidateGuard;
 use crate::signed_loose_admission::{
-    plan_signed_loose_ordinary_transfer, SignedLooseOutcome, SignedLooseTransferInput,
+    plan_signed_loose_ordinary_transfer, SignedLooseTransferInput,
 };
 use crate::types::Delta;
+
+pub use crate::durable_state::DurablePeerState;
+pub use crate::signed_loose_admission::SignedLooseOutcome;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ArrivalOrigin {
@@ -133,12 +135,15 @@ pub enum SinglePeerTransferResult {
     },
 }
 
-fn sender(origin: &ArrivalOrigin) -> Result<String, String> {
+fn sender(origin: &ArrivalOrigin, receiving_peer_id: &str) -> Result<String, String> {
     match origin {
         ArrivalOrigin::Local => Ok("local".into()),
         ArrivalOrigin::Unattributed => Ok("unattributed".into()),
         ArrivalOrigin::AuthenticatedPeer(peer_id) => {
             canonical_peer_id(peer_id)?;
+            if peer_id == receiving_peer_id {
+                return Err("single peer: authenticated sender is receiving peer".into());
+            }
             Ok(peer_id.clone())
         }
     }
@@ -156,7 +161,7 @@ pub fn admit_single_peer_transfer<S: DurablePeerStore, P>(
         _ => return Err("single peer: peer is not open".into()),
     };
     let before = decode_durable_peer_state(&prior, peer_id)?;
-    let sender = sender(input.origin)?;
+    let sender = sender(input.origin, peer_id)?;
     let plan = plan_signed_loose_ordinary_transfer(
         &before,
         &SignedLooseTransferInput {
@@ -187,6 +192,13 @@ pub fn admit_single_peer_transfer<S: DurablePeerStore, P>(
         }
     }
     let next = encode_durable_peer_state(&plan.state)?;
+    if next == prior {
+        return Ok(SinglePeerTransferResult::Committed {
+            outcomes: plan.outcomes,
+            state: Box::new(plan.state),
+            image: next,
+        });
+    }
     let admitted: Vec<Delta> = plan
         .admitted_ids
         .iter()

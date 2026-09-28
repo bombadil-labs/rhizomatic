@@ -1,23 +1,11 @@
 // Internal permanent-posture image: the v1 holding/arrival base and erasure ledger commit together.
 // Handoff, imported qualified references, lower-posture re-entry, and storage proof are later work.
 
-import {
-  closeSync,
-  existsSync,
-  fsyncSync,
-  openSync,
-  readFileSync,
-  renameSync,
-  unlinkSync,
-  writeSync,
-} from "node:fs";
-import { randomBytes } from "node:crypto";
-import { dirname } from "node:path";
 import { array, bstr, decode, encode, float, map, tstr, type CborValue } from "../delta/cbor.js";
 import { DeltaSet } from "../delta/set.js";
 import type { Delta } from "../delta/types.js";
 import { planArrivals } from "./arrival.js";
-import type { PeerStateWriteOutcome, PeerState } from "./peer-state.js";
+import type { PeerState } from "./peer-state.js";
 import { decodePeerState, encodePeerState } from "./peer-state.js";
 import { isCanonicalPeerId } from "./peer-identity.js";
 
@@ -331,12 +319,16 @@ export function decodeDurablePeerState(
     obligations,
   };
   validate(state);
-  if (Buffer.compare(Buffer.from(encodeDurablePeerState(state)), Buffer.from(bytes)) !== 0)
+  const canonical = encodeDurablePeerState(state);
+  if (canonical.length !== bytes.length || canonical.some((byte, i) => byte !== bytes[i]))
     throw new Error("durable peer state: noncanonical image");
   return state;
 }
 
-function validateTransition(before: DurablePeerState, after: DurablePeerState): void {
+export function validateDurablePeerStateTransition(
+  before: DurablePeerState,
+  after: DurablePeerState,
+): void {
   if (after.quotaUsed < before.quotaUsed)
     throw new Error("durable peer state: quota counter cannot shrink");
   if (after.base.arrivals.length < before.base.arrivals.length)
@@ -545,58 +537,6 @@ export function planPermanentCommit(
     obligations,
   };
   validate(after);
-  validateTransition(before, after);
+  validateDurablePeerStateTransition(before, after);
   return after;
-}
-
-/** Single-writer replacement for the complete local permanent-posture image. */
-export function writeDurablePeerState(
-  path: string,
-  state: DurablePeerState,
-  expectedPrior: Uint8Array | null,
-): PeerStateWriteOutcome {
-  const bytes = encodeDurablePeerState(state);
-  if (expectedPrior === undefined)
-    throw new Error("durable peer state: expected prior image required");
-  const priorBytes = existsSync(path) ? readFileSync(path) : null;
-  const before =
-    priorBytes === null ? undefined : decodeDurablePeerState(priorBytes, state.base.peerId);
-  if (
-    (priorBytes === null) !== (expectedPrior === null) ||
-    (priorBytes !== null &&
-      expectedPrior !== null &&
-      !Buffer.from(priorBytes).equals(Buffer.from(expectedPrior)))
-  )
-    throw new Error("durable peer state: expected prior image changed");
-  if (before !== undefined) validateTransition(before, state);
-  const temp = `${path}.${process.pid}.${randomBytes(16).toString("hex")}.tmp`;
-  const dirFd = openSync(dirname(path), "r");
-  let fd: number | undefined;
-  try {
-    fd = openSync(temp, "wx", 0o600);
-    let offset = 0;
-    while (offset < bytes.length) offset += writeSync(fd, bytes, offset, bytes.length - offset);
-    fsyncSync(fd);
-    closeSync(fd);
-    fd = undefined;
-    renameSync(temp, path);
-    try {
-      fsyncSync(dirFd);
-      return { status: "durable" };
-    } catch (error) {
-      return { status: "committed-unconfirmed", fault: String(error) };
-    }
-  } finally {
-    if (fd !== undefined) closeSync(fd);
-    if (existsSync(temp)) unlinkSync(temp);
-    closeSync(dirFd);
-  }
-}
-
-export function readDurablePeerState(
-  path: string,
-  expectedPeerId: string,
-): DurablePeerState | undefined {
-  if (!existsSync(path)) return undefined;
-  return decodeDurablePeerState(readFileSync(path), expectedPeerId);
 }

@@ -6,7 +6,6 @@ import { describe, expect, it } from "vitest";
 import { parseClaims } from "../src/delta/json-profile.js";
 import type { Delta } from "../src/delta/types.js";
 import {
-  FileDurablePeerStore,
   admitSinglePeerTransfer,
   emptyDurablePeerState,
   encodeDurablePeerState,
@@ -15,6 +14,7 @@ import {
   type PeerImageRead,
   type PeerImageWrite,
 } from "../src/index.js";
+import { FileDurablePeerStore } from "../src/federation/file-single-peer.js";
 
 const vector = JSON.parse(
   readFileSync(
@@ -23,6 +23,8 @@ const vector = JSON.parse(
   ),
 ) as {
   peerId: string;
+  selfSenderError: string;
+  noOpWrites: number;
   emptyHex: string;
   firstName: string;
   secondName: string;
@@ -57,6 +59,7 @@ class MemoryStore implements DurablePeerStore {
   image: Uint8Array | null = null;
   readonly rows = new Map<string, Delta>();
   nextWrite: "durable" | "conflict" | "committed-unconfirmed" = "durable";
+  writes = 0;
 
   readImage(peerId: string): Promise<PeerImageRead> {
     expect(peerId).toBe(vector.peerId);
@@ -74,6 +77,7 @@ class MemoryStore implements DurablePeerStore {
     newlyAdmitted: readonly Delta[],
   ): Promise<PeerImageWrite> {
     expect(peerId).toBe(vector.peerId);
+    this.writes++;
     const matches =
       this.image === null
         ? expectedPrior === null
@@ -128,6 +132,95 @@ describe("shared SPEC-6 typed single-peer API", () => {
     expect(Buffer.from(result.image).toString("hex")).toBe(vector.local.expectedHex);
     expect(store.rows.has(first.id)).toBe(true);
     expect(result.state.base.arrivals).toMatchObject([{ sender: "local", at: vector.local.at }]);
+  });
+
+  it("skips storage writes for unchanged offers and rejects a self-sender", async () => {
+    const store = new MemoryStore();
+    await openSinglePeer(store, vector.peerId);
+    const writes = store.writes;
+    const base = {
+      origin: { kind: "local" as const },
+      arrivedAt: vector.local.at,
+      policyState: {},
+      guards: [],
+      isErasureCandidate: ordinary,
+      mode: "atomic" as const,
+    };
+    expect(
+      (await admitSinglePeerTransfer(store, vector.peerId, { ...base, offered: [] })).status,
+    ).toBe("committed");
+    expect(store.writes - writes).toBe(vector.noOpWrites);
+    await expect(
+      admitSinglePeerTransfer(store, vector.peerId, {
+        ...base,
+        offered: [first],
+        origin: { kind: "authenticated-peer", peerId: vector.peerId },
+      }),
+    ).rejects.toThrow(vector.selfSenderError);
+    expect(store.writes - writes).toBe(vector.noOpWrites);
+    expect(
+      (await admitSinglePeerTransfer(store, vector.peerId, { ...base, offered: [first] })).status,
+    ).toBe("committed");
+    const after = store.writes;
+    expect(
+      (await admitSinglePeerTransfer(store, vector.peerId, { ...base, offered: [first] })).status,
+    ).toBe("committed");
+    expect(store.writes - after).toBe(vector.noOpWrites);
+  });
+
+  it("strips caller-only row fields and verifies a changed image before planning", async () => {
+    const store = new MemoryStore();
+    await openSinglePeer(store, vector.peerId);
+    const offered = { ...first, extra: "junk" };
+    const result = await admitSinglePeerTransfer(store, vector.peerId, {
+      offered: [offered],
+      origin: { kind: "local" },
+      arrivedAt: vector.local.at,
+      policyState: {},
+      guards: [],
+      isErasureCandidate: ordinary,
+      mode: "atomic",
+    });
+    expect(result.status).toBe("committed");
+    expect(Object.keys(store.rows.get(first.id)!)).toEqual(["id", "claims", "sig"]);
+    if (result.status !== "committed") throw new Error("expected commit");
+    const exposed = result.state.base.admitted.get(first.id)! as unknown as {
+      claims: { timestamp: number };
+    };
+    exposed.claims.timestamp = -999;
+    const reopened = await openSinglePeer(store, vector.peerId);
+    if (reopened.status !== "open") throw new Error("expected open");
+    expect(reopened.state.base.admitted.get(first.id)!.claims.timestamp).toBe(
+      first.claims.timestamp,
+    );
+    store.image = Uint8Array.of(0);
+    await expect(
+      admitSinglePeerTransfer(store, vector.peerId, {
+        offered: [second],
+        origin: { kind: "local" },
+        arrivedAt: vector.individual.at,
+        policyState: {},
+        guards: [],
+        isErasureCandidate: ordinary,
+        mode: "atomic",
+      }),
+    ).rejects.toThrow();
+  });
+
+  it("rejects a guard explanation with a non-text runtime value", async () => {
+    const store = new MemoryStore();
+    await openSinglePeer(store, vector.peerId);
+    await expect(
+      admitSinglePeerTransfer(store, vector.peerId, {
+        offered: [first],
+        origin: { kind: "local" },
+        arrivedAt: vector.local.at,
+        policyState: {},
+        guards: [() => ({ ok: false, reason: 7 }) as never],
+        isErasureCandidate: ordinary,
+        mode: "atomic",
+      }),
+    ).rejects.toThrow("candidate guard: refusal reason must be text");
   });
 
   it("refuses the entire atomic unit with the first guard reason, and individually admits the survivor", async () => {

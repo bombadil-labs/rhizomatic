@@ -1,11 +1,10 @@
 // Typed, permanent-posture single-peer admission over a host-supplied atomic image store.
-import { existsSync, readFileSync } from "node:fs";
 import type { Delta } from "../delta/types.js";
+import { DeltaSet } from "../delta/set.js";
 import {
   decodeDurablePeerState,
   emptyDurablePeerState,
   encodeDurablePeerState,
-  writeDurablePeerState,
   type DurablePeerState,
 } from "./durable-state.js";
 import { isCanonicalPeerId } from "./peer-identity.js";
@@ -47,13 +46,68 @@ export interface DurablePeerStore {
   ): Promise<PeerImageWrite>;
 }
 
+interface VerifiedImage {
+  readonly peerId: string;
+  readonly image: Uint8Array;
+  readonly state: DurablePeerState;
+}
+
+const verifiedImages = new WeakMap<DurablePeerStore, VerifiedImage>();
+
+function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
+  return a.length === b.length && a.every((byte, i) => byte === b[i]);
+}
+
+function copyState(state: DurablePeerState, cloneDeltas: boolean): DurablePeerState {
+  return {
+    ...state,
+    base: {
+      ...state.base,
+      admitted: cloneDeltas
+        ? DeltaSet.from([...state.base.admitted].map((delta) => structuredClone(delta)))
+        : state.base.admitted.copy(),
+      cursor: { ...state.base.cursor },
+      arrivals: state.base.arrivals.map((row) => ({ ...row })),
+      refusedIds: new Set(state.base.refusedIds),
+    },
+    events: state.events.map((row) => ({ ...row, orderIds: [...row.orderIds] })),
+    exclusions: state.exclusions.map((row) => ({ ...row })),
+    obligations: state.obligations.map((row) => ({ ...row })),
+  };
+}
+
+function rememberImage(
+  store: DurablePeerStore,
+  peerId: string,
+  image: Uint8Array,
+  state: DurablePeerState,
+): void {
+  verifiedImages.set(store, {
+    peerId,
+    image: Uint8Array.from(image),
+    state: copyState(state, false),
+  });
+}
+
+function verifiedState(
+  store: DurablePeerStore,
+  peerId: string,
+  image: Uint8Array,
+): DurablePeerState {
+  const cached = verifiedImages.get(store);
+  if (cached?.peerId === peerId && sameBytes(cached.image, image)) return cached.state;
+  const state = decodeDurablePeerState(image, peerId);
+  rememberImage(store, peerId, image, state);
+  return verifiedImages.get(store)!.state;
+}
+
 export type OpenSinglePeerResult =
   | { readonly status: "open"; readonly state: DurablePeerState; readonly image: Uint8Array }
   | { readonly status: "conflict" }
   | { readonly status: "rows-without-image" }
   | { readonly status: "committed-unconfirmed"; readonly fault: string };
 
-function canonicalPeerId(peerId: string): void {
+export function assertCanonicalPeerId(peerId: string): void {
   if (!isCanonicalPeerId(peerId)) throw new Error("single peer: invalid canonical peer id");
 }
 
@@ -62,21 +116,26 @@ export async function openSinglePeer(
   store: DurablePeerStore,
   peerId: string,
 ): Promise<OpenSinglePeerResult> {
-  canonicalPeerId(peerId);
+  assertCanonicalPeerId(peerId);
   const current = await store.readImage(peerId);
-  if (current.status === "rows-without-image") return current;
+  if (current.status === "rows-without-image") {
+    verifiedImages.delete(store);
+    return current;
+  }
   if (current.status === "image")
     return {
       status: "open",
-      state: decodeDurablePeerState(current.image, peerId),
+      state: copyState(verifiedState(store, peerId, current.image), true),
       image: current.image,
     };
+  verifiedImages.delete(store);
   const state = emptyDurablePeerState(peerId);
   const image = encodeDurablePeerState(state);
   const write = await store.compareAndSet(peerId, null, image, []);
   if (write.status === "conflict") return { status: "conflict" };
   if (write.status === "committed-unconfirmed") return write;
-  return { status: "open", state, image };
+  rememberImage(store, peerId, image, state);
+  return { status: "open", state: copyState(state, true), image };
 }
 
 export interface SinglePeerTransferInput<State> {
@@ -107,11 +166,21 @@ export type SinglePeerTransferResult =
   | { readonly status: "conflict" }
   | { readonly status: "committed-unconfirmed"; readonly fault: string };
 
-function sender(origin: ArrivalOrigin): string {
+function sender(origin: ArrivalOrigin, receivingPeerId: string): string {
   if (origin.kind === "local") return "local";
   if (origin.kind === "unattributed") return "unattributed";
-  canonicalPeerId(origin.peerId);
+  assertCanonicalPeerId(origin.peerId);
+  if (origin.peerId === receivingPeerId)
+    throw new Error("single peer: authenticated sender is receiving peer");
   return origin.peerId;
+}
+
+function plainDelta(delta: Delta): Delta {
+  return {
+    id: delta.id,
+    claims: structuredClone(delta.claims),
+    ...(delta.sig === undefined ? {} : { sig: delta.sig }),
+  };
 }
 
 /** Plan against exact prior bytes; CAS image and admitted rows as one backend transaction. */
@@ -120,13 +189,16 @@ export async function admitSinglePeerTransfer<State>(
   peerId: string,
   input: SinglePeerTransferInput<State>,
 ): Promise<SinglePeerTransferResult> {
-  canonicalPeerId(peerId);
+  assertCanonicalPeerId(peerId);
   const prior = await store.readImage(peerId);
-  if (prior.status !== "image") throw new Error("single peer: peer is not open");
-  const before = decodeDurablePeerState(prior.image, peerId);
+  if (prior.status !== "image") {
+    verifiedImages.delete(store);
+    throw new Error("single peer: peer is not open");
+  }
+  const before = verifiedState(store, peerId, prior.image);
   const plan = planSignedLooseOrdinaryTransfer(before, {
-    offered: input.offered,
-    sendingPeerId: sender(input.origin),
+    offered: input.offered.map(plainDelta),
+    sendingPeerId: sender(input.origin, peerId),
     arrivedAt: input.arrivedAt,
     capacity: input.capacity ?? Number.MAX_SAFE_INTEGER,
     policyState: input.policyState,
@@ -145,48 +217,24 @@ export async function admitSinglePeerTransfer<State>(
       };
   }
   const next = encodeDurablePeerState(plan.state);
-  const admitted = plan.admittedIds.map((id) => plan.state.base.admitted.get(id)!);
+  if (sameBytes(next, prior.image))
+    return {
+      status: "committed",
+      outcomes: plan.outcomes,
+      state: copyState(plan.state, true),
+      image: next,
+    };
+  const admitted = plan.admittedIds.map((id) => plainDelta(plan.state.base.admitted.get(id)!));
   const write = await store.compareAndSet(peerId, prior.image, next, admitted);
-  if (write.status !== "durable") return write;
-  return { status: "committed", outcomes: plan.outcomes, state: plan.state, image: next };
-}
-
-/** Single-writer file adapter. Multi-writer stores must supply an atomic backend CAS. */
-export class FileDurablePeerStore implements DurablePeerStore {
-  constructor(
-    readonly path: string,
-    readonly peerId: string,
-  ) {
-    canonicalPeerId(peerId);
+  if (write.status !== "durable") {
+    verifiedImages.delete(store);
+    return write;
   }
-
-  readImage(peerId: string): Promise<PeerImageRead> {
-    if (peerId !== this.peerId) throw new Error("single peer: wrong file peer id");
-    return Promise.resolve(
-      existsSync(this.path)
-        ? { status: "image", image: readFileSync(this.path) }
-        : { status: "empty" },
-    );
-  }
-
-  compareAndSet(
-    peerId: string,
-    expectedPrior: Uint8Array | null,
-    nextImage: Uint8Array,
-    _newlyAdmitted: readonly Delta[],
-  ): Promise<PeerImageWrite> {
-    void _newlyAdmitted; // The image itself holds all admitted delta bytes in the file adapter.
-    if (peerId !== this.peerId) throw new Error("single peer: wrong file peer id");
-    const state = decodeDurablePeerState(nextImage, peerId);
-    try {
-      return Promise.resolve(writeDurablePeerState(this.path, state, expectedPrior));
-    } catch (error) {
-      if (
-        error instanceof Error &&
-        error.message === "durable peer state: expected prior image changed"
-      )
-        return Promise.resolve({ status: "conflict" });
-      throw error;
-    }
-  }
+  rememberImage(store, peerId, next, plan.state);
+  return {
+    status: "committed",
+    outcomes: plan.outcomes,
+    state: copyState(plan.state, true),
+    image: next,
+  };
 }

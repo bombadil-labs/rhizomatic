@@ -125,7 +125,6 @@ export { isCanonicalPeerId, samePeerId } from "./federation/peer-identity.js";
 export {
   openSinglePeer,
   admitSinglePeerTransfer,
-  FileDurablePeerStore,
   type ArrivalOrigin,
   type DurablePeerStore,
   type PeerImageWrite,

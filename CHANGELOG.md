@@ -8,6 +8,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 
 ### ⚠️ Breaking
 
+- Rust candidate guards now return `GuardDecision` so a rejection can carry its reason.
 - TypeScript canonical CBOR encoding, `computeId`, and `signClaims` now reject text containing
   unpaired UTF-16 surrogates instead of replacing them with U+FFFD. Callers must supply valid
   Unicode text or replace malformed code units before computing an id or signature.
@@ -24,8 +25,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
   ordinary deltas through an atomic image-and-row storage seam. It supports atomic local append,
   per-candidate receive, refusal reasons, explicit local/authenticated/unattributed origins, and
   fail-closed detection of rows without an image. Shared vectors pin canonical empty and admitted
-  image bytes in both witnesses. This is an initial single-peer trial surface; bundle and erasure
+  image bytes in both witnesses. The pure API remains browser-bundleable; the single-writer file
+  adapter is available from the Node-only `@bombadil/rhizomatic/node` subpath. This is an initial
+  single-peer trial surface; bundle and erasure
   admission, scalable image storage, and durable handoff remain in progress.
+  Repeated admits on one store reuse a verified exact image and do not recheck held signatures;
+  a changed image is decoded and verified before it can be used. No-op offers skip the storage write.
 
 ### Internal structure
 

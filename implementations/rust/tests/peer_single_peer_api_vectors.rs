@@ -41,6 +41,7 @@ struct MemoryStore {
     image: Option<Vec<u8>>,
     rows: BTreeMap<String, Delta>,
     next_write: Option<PeerImageWrite>,
+    writes: usize,
 }
 
 impl DurablePeerStore for MemoryStore {
@@ -59,6 +60,7 @@ impl DurablePeerStore for MemoryStore {
         next_image: &[u8],
         newly_admitted: &[Delta],
     ) -> Result<PeerImageWrite, String> {
+        self.writes += 1;
         if self.image.as_deref() != expected_prior
             || (expected_prior.is_none() && !self.rows.is_empty())
             || self.next_write == Some(PeerImageWrite::Conflict)
@@ -272,4 +274,57 @@ fn conflict_uncertain_and_file_reopen_remain_distinct() {
         .unwrap(),
         OpenSinglePeerResult::Open { .. }
     ));
+}
+
+#[test]
+fn unchanged_offers_do_not_write_and_self_sender_is_rejected() {
+    let vector = read("peer/single-peer-api.json");
+    let named = fixtures();
+    let peer_id = vector["peerId"].as_str().unwrap();
+    let first = named[vector["firstName"].as_str().unwrap()].clone();
+    let origin = ArrivalOrigin::Local;
+    let own_origin = ArrivalOrigin::AuthenticatedPeer(peer_id.into());
+    let classifier = |_: &Delta| false;
+    let guards: [&CandidateGuard<()>; 0] = [];
+    let mut store = MemoryStore::default();
+    open_single_peer(&mut store, peer_id).unwrap();
+    let opened_writes = store.writes;
+    let empty: [Delta; 0] = [];
+    let input = |offered, origin| SinglePeerTransferInput {
+        offered,
+        origin,
+        arrived_at: vector["local"]["at"].as_f64().unwrap(),
+        policy_state: &(),
+        guards: &guards,
+        is_erasure_candidate: &classifier,
+        mode: TransferMode::Atomic,
+        capacity: None,
+    };
+    assert!(matches!(
+        admit_single_peer_transfer(&mut store, peer_id, &input(&empty, &origin)).unwrap(),
+        SinglePeerTransferResult::Committed { .. }
+    ));
+    assert_eq!(
+        store.writes - opened_writes,
+        vector["noOpWrites"].as_u64().unwrap() as usize
+    );
+    let offered = [first];
+    assert_eq!(
+        admit_single_peer_transfer(&mut store, peer_id, &input(&offered, &own_origin)).unwrap_err(),
+        vector["selfSenderError"].as_str().unwrap()
+    );
+    assert_eq!(store.writes, opened_writes);
+    assert!(matches!(
+        admit_single_peer_transfer(&mut store, peer_id, &input(&offered, &origin)).unwrap(),
+        SinglePeerTransferResult::Committed { .. }
+    ));
+    let after = store.writes;
+    assert!(matches!(
+        admit_single_peer_transfer(&mut store, peer_id, &input(&offered, &origin)).unwrap(),
+        SinglePeerTransferResult::Committed { .. }
+    ));
+    assert_eq!(
+        store.writes - after,
+        vector["noOpWrites"].as_u64().unwrap() as usize
+    );
 }

@@ -2,28 +2,20 @@
 // permanent refusals. This is not the complete SPEC-6 admission or handoff transaction: it has no
 // purge obligations, exclusion epochs, quota counters, re-entry acts, or handoff record.
 
-import {
-  closeSync,
-  existsSync,
-  fsyncSync,
-  openSync,
-  readFileSync,
-  renameSync,
-  unlinkSync,
-  writeSync,
-} from "node:fs";
-import { dirname } from "node:path";
-import { randomBytes } from "node:crypto";
 import { array, bstr, decode, encode, float, map, tstr, type CborValue } from "../delta/cbor.js";
 import { computeId } from "../delta/delta.js";
 import { DeltaSet } from "../delta/set.js";
 import { verifyDelta } from "../delta/sign.js";
 import { packSet, unpackSet } from "../storage/pack.js";
+import type { Delta } from "../delta/types.js";
 import type { ArrivalCursor, ArrivalRecord } from "./arrival.js";
 
 const VERSION = 1;
 const MAX_SEQUENCE = Number.MAX_SAFE_INTEGER;
 const DELTA_ID = /^1e20[0-9a-f]{64}$/;
+// Delta values are immutable by contract, as in DeltaSet.copy(). A validation of one object
+// therefore carries across the copies made while planning and encoding a peer image.
+const verifiedAdmitted = new WeakSet<Delta>();
 
 function wellFormed(text: string): boolean {
   for (let i = 0; i < text.length; i++) {
@@ -105,14 +97,17 @@ function validateState(state: PeerState): void {
   }
   for (const delta of state.admitted) {
     if (!activeEpochs.has(delta.id)) throw new Error("peer state: admitted id has no arrival");
-    if (computeId(delta.claims) !== delta.id)
-      throw new Error("peer state: invalid admitted content id");
-    if (delta.sig !== undefined && verifyDelta(delta) !== "verified")
-      throw new Error("peer state: invalid admitted signature");
+    if (!verifiedAdmitted.has(delta)) {
+      if (computeId(delta.claims) !== delta.id)
+        throw new Error("peer state: invalid admitted content id");
+      if (delta.sig !== undefined && verifyDelta(delta) !== "verified")
+        throw new Error("peer state: invalid admitted signature");
+      verifiedAdmitted.add(delta);
+    }
   }
 }
 
-function validateTransition(before: PeerState, after: PeerState): void {
+export function validatePeerStateTransition(before: PeerState, after: PeerState): void {
   if (after.arrivals.length < before.arrivals.length)
     throw new Error("peer state: arrival history cannot shrink");
   for (let i = 0; i < before.arrivals.length; i++) {
@@ -223,7 +218,8 @@ export function decodePeerState(bytes: Uint8Array, expectedPeerId: string): Peer
     refusedIds: new Set(refused),
   };
   validateState(state);
-  if (Buffer.compare(Buffer.from(encodePeerState(state)), Buffer.from(bytes)) !== 0)
+  const canonical = encodePeerState(state);
+  if (canonical.length !== bytes.length || canonical.some((byte, i) => byte !== bytes[i]))
     throw new Error("peer state: noncanonical image");
   return state;
 }
@@ -231,37 +227,3 @@ export function decodePeerState(bytes: Uint8Array, expectedPeerId: string): Peer
 export type PeerStateWriteOutcome =
   | { readonly status: "durable" }
   | { readonly status: "committed-unconfirmed"; readonly fault: string };
-
-/** Single-writer file backend. An uncertain post-rename sync is reported distinctly from failure. */
-export function writePeerState(path: string, state: PeerState): PeerStateWriteOutcome {
-  const bytes = encodePeerState(state);
-  const before = readPeerState(path, state.peerId);
-  if (before !== undefined) validateTransition(before, state);
-  const temp = `${path}.${process.pid}.${randomBytes(16).toString("hex")}.tmp`;
-  let fd: number | undefined;
-  const dirFd = openSync(dirname(path), "r");
-  try {
-    fd = openSync(temp, "wx", 0o600);
-    let offset = 0;
-    while (offset < bytes.length) offset += writeSync(fd, bytes, offset, bytes.length - offset);
-    fsyncSync(fd);
-    closeSync(fd);
-    fd = undefined;
-    renameSync(temp, path);
-    try {
-      fsyncSync(dirFd);
-      return { status: "durable" };
-    } catch (error) {
-      return { status: "committed-unconfirmed", fault: String(error) };
-    }
-  } finally {
-    if (fd !== undefined) closeSync(fd);
-    if (existsSync(temp)) unlinkSync(temp);
-    closeSync(dirFd);
-  }
-}
-
-export function readPeerState(path: string, expectedPeerId: string): PeerState | undefined {
-  if (!existsSync(path)) return undefined;
-  return decodePeerState(readFileSync(path), expectedPeerId);
-}

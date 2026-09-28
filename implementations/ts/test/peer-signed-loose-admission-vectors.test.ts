@@ -4,15 +4,10 @@ import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parseClaims } from "../src/delta/json-profile.js";
 import type { Delta } from "../src/delta/types.js";
-import {
-  decodeDurablePeerState,
-  encodeDurablePeerState,
-  writeDurablePeerState,
-} from "../src/federation/durable-state.js";
-import {
-  admitSignedLooseOrdinaryTransfer,
-  planSignedLooseOrdinaryTransfer,
-} from "../src/federation/signed-loose-admission.js";
+import { decodeDurablePeerState, encodeDurablePeerState } from "../src/federation/durable-state.js";
+import { writeDurablePeerState } from "../src/federation/file-durable-state.js";
+import { planSignedLooseOrdinaryTransfer } from "../src/federation/signed-loose-admission.js";
+import { admitSignedLooseOrdinaryTransfer } from "../src/federation/file-signed-loose-admission.js";
 
 interface Case {
   name: string;

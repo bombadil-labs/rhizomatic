@@ -55,8 +55,10 @@ writeFileSync(
     {
       spec: "SPEC-6 vNext §2-3 typed single-peer admission",
       description:
-        "No new image format: empty constructor, local atomic append, per-candidate receive, reason and origin markers over the canonical durable v2 image.",
+        "No new image format: empty constructor, local atomic append, per-candidate receive, reason and origin markers, self-sender refusal and no-op commit over the canonical durable v2 image.",
       peerId,
+      selfSenderError: "single peer: authenticated sender is receiving peer",
+      noOpWrites: 0,
       emptyHex: Buffer.from(encodeDurablePeerState(empty)).toString("hex"),
       firstName: "userRootDeclaration",
       secondName: "operatorRootDeclaration",

@@ -546,6 +546,8 @@ receiver-assigned transfer ordinal that also increases for the peer's lifetime, 
 epoch identified by that id's arrival sequence, and the sending peer id (or `local` for an
 append). When the receiver has no authenticated sending key, it MUST record `unattributed`
 rather than assert a `PeerId`; this marker cannot be used as authenticated sender provenance.
+An authenticated sending peer MUST be distinct from the receiving peer; an append originating
+at the receiving peer uses `local` instead.
 An epoch reference is (`PeerId`, arrival sequence); sequences from different peers are
 not one numeric order. The arrival time comes from the receiver's
 trusted clock, never from an author-signed field. This is local testimony by the receiver,

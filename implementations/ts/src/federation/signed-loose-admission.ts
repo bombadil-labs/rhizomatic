@@ -1,11 +1,6 @@
 // Internal ordinary-only admission path. A classifier keeps erasure candidates out of this path.
 import type { Delta } from "../delta/types.js";
-import {
-  decodeDurablePeerState,
-  planPermanentCommit,
-  writeDurablePeerState,
-  type DurablePeerState,
-} from "./durable-state.js";
+import { planPermanentCommit, type DurablePeerState } from "./durable-state.js";
 import { planOrdinaryQuota, type OrdinaryQuotaUnit } from "./ordinary-quota.js";
 import { preflightTransfer, type CandidateGuard } from "./preflight.js";
 
@@ -115,17 +110,4 @@ export function planSignedLooseOrdinaryTransfer<State>(
     sender: input.sendingPeerId,
   });
   return { state, outcomes, admittedIds: quota.admittedIds };
-}
-
-/** Single-writer file operation. The expected bytes are also the planning snapshot. */
-export function admitSignedLooseOrdinaryTransfer<State>(
-  path: string,
-  expectedPrior: Uint8Array,
-  peerId: string,
-  input: SignedLooseTransferInput<State>,
-) {
-  const before = decodeDurablePeerState(expectedPrior, peerId);
-  const plan = planSignedLooseOrdinaryTransfer(before, input);
-  const write = writeDurablePeerState(path, plan.state, expectedPrior);
-  return { ...plan, write };
 }

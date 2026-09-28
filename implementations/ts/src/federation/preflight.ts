@@ -123,6 +123,8 @@ export function preflightTransfer<State>(
         });
         if (decision === false) return { unit, status: "guard-rejected", freshIds: [] };
         if (decision !== true && !decision.ok) {
+          if (typeof decision.reason !== "string")
+            throw new Error("candidate guard: refusal reason must be text");
           return {
             unit,
             status: "guard-rejected",

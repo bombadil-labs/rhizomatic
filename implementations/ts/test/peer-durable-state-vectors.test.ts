@@ -10,11 +10,13 @@ import {
   decodeDurablePeerState,
   encodeDurablePeerState,
   planPermanentCommit,
-  readDurablePeerState,
-  writeDurablePeerState,
   type DurablePeerState,
   type PurgeObligation,
 } from "../src/federation/durable-state.js";
+import {
+  readDurablePeerState,
+  writeDurablePeerState,
+} from "../src/federation/file-durable-state.js";
 import type { PeerState } from "../src/federation/peer-state.js";
 
 interface BaseCase {

@@ -30,6 +30,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./node": {
+      "types": "./dist/federation/file-single-peer.d.ts",
+      "default": "./dist/federation/file-single-peer.js"
     }
   },
   "files": [
