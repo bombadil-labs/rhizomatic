@@ -1,0 +1,59 @@
+{
+  "spec": "SPEC-6 vNext §3",
+  "description": "Arrival assignment over final accepted ids, after admission; ids here are opaque labels because verification is an earlier gate.",
+  "initial": { "lastSequence": 0, "lastTransfer": 0 },
+  "steps": [
+    {
+      "name": "one foreign transfer sorts ids and coalesces repeats",
+      "active": [],
+      "accepted": ["c", "b", "b"],
+      "at": 100.0,
+      "sender": "peer-A",
+      "expected": {
+        "lastSequence": 2,
+        "lastTransfer": 1,
+        "arrivals": [
+          { "id": "b", "at": 100.0, "sequence": 1, "transfer": 1, "sender": "peer-A" },
+          { "id": "c", "at": 100.0, "sequence": 2, "transfer": 1, "sender": "peer-A" }
+        ]
+      }
+    },
+    {
+      "name": "duplicate offer consumes neither sequence nor transfer ordinal",
+      "active": ["b", "c"],
+      "accepted": ["c", "b"],
+      "at": 101.0,
+      "sender": "peer-A",
+      "expected": { "lastSequence": 2, "lastTransfer": 1, "arrivals": [] }
+    },
+    {
+      "name": "local append skips an already admitted id",
+      "active": ["b", "c"],
+      "accepted": ["d", "b"],
+      "at": 101.0,
+      "sender": "local",
+      "expected": {
+        "lastSequence": 3,
+        "lastTransfer": 2,
+        "arrivals": [
+          { "id": "d", "at": 101.0, "sequence": 3, "transfer": 2, "sender": "local" }
+        ]
+      }
+    },
+    {
+      "name": "the same trusted time does not merge transfers",
+      "active": ["b", "c", "d"],
+      "accepted": ["f", "e"],
+      "at": 101.0,
+      "sender": "peer-B",
+      "expected": {
+        "lastSequence": 5,
+        "lastTransfer": 3,
+        "arrivals": [
+          { "id": "e", "at": 101.0, "sequence": 4, "transfer": 3, "sender": "peer-B" },
+          { "id": "f", "at": 101.0, "sequence": 5, "transfer": 3, "sender": "peer-B" }
+        ]
+      }
+    }
+  ]
+}

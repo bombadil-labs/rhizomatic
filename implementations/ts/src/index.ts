@@ -92,6 +92,12 @@ export {
 } from "./lens-binding.js";
 export { packId, packSet, unpackSet } from "./pack.js";
 export { Peer, syncBoth, type SyncReport } from "./peer.js";
+export {
+  planArrivals,
+  type ArrivalCursor,
+  type ArrivalPlan,
+  type ArrivalRecord,
+} from "./federation/arrival.js";
 export { offerFor, pullFromUrl, servePeer } from "./http.js";
 export {
   resolvePrincipal,

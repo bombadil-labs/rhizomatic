@@ -2,6 +2,7 @@
 //! Module names mirror `../ts/src` to aid cross-reading. See the root CLAUDE.md.
 
 pub mod alias;
+pub mod arrival;
 pub mod b64u;
 pub mod cbor;
 pub mod delta;
@@ -34,6 +35,7 @@ pub mod types;
 pub mod wasm;
 
 pub use alias::{relation_signature, relation_signature_canonical_hex};
+pub use arrival::{plan_arrivals, ArrivalCursor, ArrivalPlan, ArrivalRecord};
 pub use delta::{canonical_bytes, canonical_hex, compute_id};
 pub use derivation::{verify_pure_derivation, BindingSpec, DerivationHost};
 pub use eval::{

@@ -405,7 +405,9 @@ append). An epoch reference is (`PeerId`, arrival sequence); sequences from diff
 not one numeric order. The arrival time comes from the receiver's
 trusted clock, never from an author-signed field. This is local testimony by the receiver,
 outside the delta's canonical bytes and
-content id. A relay records its own arrival when it admits a delta; it never copies the upstream
+content id. A transfer that admits no new id creates no arrival event and consumes no transfer
+ordinal. Repeated appearances of an id within one transfer create one event. A relay records its
+own arrival when it admits a delta; it never copies the upstream
 peer's arrival as its own. A duplicate delivery while the id is admitted creates no new arrival.
 Local appends also record arrival. All records for one atomic transfer have the same transfer
 ordinal and become visible together. Within it, sequence positions follow ascending delta id;
