@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parseClaims } from "../src/json-profile.js";
+import { computeId } from "../src/delta/delta.js";
 import { DeltaSet } from "../src/set.js";
 import { decodePeerState, encodePeerState, type PeerState } from "../src/federation/peer-state.js";
 import { readPeerState, writePeerState } from "../src/federation/file-peer-state.js";
@@ -63,6 +64,33 @@ describe("shared SPEC-6 peer state image vectors", () => {
       expect(() => decodePeerState(bytes, "another-peer")).toThrow("wrong peer id");
     });
   }
+
+  it("rechecks content and signature after runtime mutation of a previously verified delta", () => {
+    const image = Buffer.from(vector.cases[1]!.expectedHex, "hex");
+    const changedClaims = decodePeerState(image, "peer-A");
+    encodePeerState(changedClaims);
+    const delta = [...changedClaims.admitted][0]!;
+    (delta.claims as { timestamp: number }).timestamp += 1;
+    expect(() => encodePeerState(changedClaims)).toThrow("invalid admitted content id");
+
+    const changedSignature = decodePeerState(image, "peer-A");
+    encodePeerState(changedSignature);
+    ([...changedSignature.admitted][0]! as { sig: string }).sig = "00".repeat(64);
+    expect(() => encodePeerState(changedSignature)).toThrow("invalid admitted signature");
+
+    const changedId = decodePeerState(image, "peer-A");
+    encodePeerState(changedId);
+    const reidentified = [...changedId.admitted][0]!;
+    (reidentified.claims as { timestamp: number }).timestamp += 1;
+    (reidentified as { id: string }).id = computeId(reidentified.claims);
+    expect(() =>
+      encodePeerState({
+        ...changedId,
+        admitted: DeltaSet.from([reidentified]),
+        arrivals: [{ ...changedId.arrivals[0]!, id: reidentified.id }],
+      }),
+    ).toThrow("invalid admitted signature");
+  });
 
   for (const c of vector.invalidCases) {
     it(c.name, () => {

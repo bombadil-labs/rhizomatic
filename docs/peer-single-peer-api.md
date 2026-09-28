@@ -12,6 +12,8 @@ pre-transfer admitted set, applies the ordinary new-id count capacity, assigns r
 arrival testimony, and commits one canonical durable v2 image. Bundles, effective erasure
 orders, lens closure, re-entry, and handoff are not covered by this path. The classifier must
 identify erasure candidates so they receive `unsupported-erasure`, never ordinary admission.
+Consumers must not purge a delta's separate row through an older erasure path while its peer
+image still admits that delta; reopening from the image would restore it.
 
 `emptyDurablePeerState(peerId)` constructs a canonical empty image for a governing Ed25519 key.
 `openSinglePeer(store, peerId)` reads an existing image or atomically installs that empty image.
@@ -44,7 +46,8 @@ count effectively unbounded for the trial.
 The facade caches a verified state for each store object and reuses it only while `readImage`
 returns exactly the same bytes. It verifies a changed image before planning; callers must treat
 admitted Delta values as immutable, as required by `DeltaSet`. Returned states are separate copies
-from the cached state. The current v2 image rewrites the
+from the cached state. Keep one store object per peer during a trial. A cold read after restart
+verifies every held signature once. The current v2 image rewrites the
 full admitted set and arrival history on every commit. It is
 appropriate for an unmerged correctness trial on a fresh host store. A production merge on a
 large store needs a measured storage strategy that preserves the same atomic logical image and

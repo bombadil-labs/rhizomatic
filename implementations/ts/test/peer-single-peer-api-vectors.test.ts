@@ -171,7 +171,22 @@ describe("shared SPEC-6 typed single-peer API", () => {
   it("strips caller-only row fields and verifies a changed image before planning", async () => {
     const store = new MemoryStore();
     await openSinglePeer(store, vector.peerId);
-    const offered = { ...first, extra: "junk" };
+    const offered = {
+      ...first,
+      extra: "junk",
+      claims: {
+        ...first.claims,
+        junk: 1,
+        pointers: [
+          {
+            ...first.claims.pointers[0]!,
+            pjunk: 2,
+            target: { ...first.claims.pointers[0]!.target, tjunk: 3 },
+          },
+          ...first.claims.pointers.slice(1),
+        ],
+      },
+    };
     const result = await admitSinglePeerTransfer(store, vector.peerId, {
       offered: [offered],
       origin: { kind: "local" },
@@ -183,6 +198,7 @@ describe("shared SPEC-6 typed single-peer API", () => {
     });
     expect(result.status).toBe("committed");
     expect(Object.keys(store.rows.get(first.id)!)).toEqual(["id", "claims", "sig"]);
+    expect(store.rows.get(first.id)).toEqual(first);
     if (result.status !== "committed") throw new Error("expected commit");
     const exposed = result.state.base.admitted.get(first.id)! as unknown as {
       claims: { timestamp: number };

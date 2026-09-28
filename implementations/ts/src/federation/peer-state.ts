@@ -13,9 +13,10 @@ import type { ArrivalCursor, ArrivalRecord } from "./arrival.js";
 const VERSION = 1;
 const MAX_SEQUENCE = Number.MAX_SAFE_INTEGER;
 const DELTA_ID = /^1e20[0-9a-f]{64}$/;
-// Delta values are immutable by contract, as in DeltaSet.copy(). A validation of one object
-// therefore carries across the copies made while planning and encoding a peer image.
-const verifiedAdmitted = new WeakSet<Delta>();
+// Recompute the content id on every validation, so a runtime mutation cannot reuse a prior
+// result. Strict Ed25519 verification is reusable only while this object's id and signature
+// remain equal to the verified pair.
+const verifiedSignatures = new WeakMap<Delta, { id: string; sig: string }>();
 
 function wellFormed(text: string): boolean {
   for (let i = 0; i < text.length; i++) {
@@ -97,12 +98,13 @@ function validateState(state: PeerState): void {
   }
   for (const delta of state.admitted) {
     if (!activeEpochs.has(delta.id)) throw new Error("peer state: admitted id has no arrival");
-    if (!verifiedAdmitted.has(delta)) {
-      if (computeId(delta.claims) !== delta.id)
-        throw new Error("peer state: invalid admitted content id");
-      if (delta.sig !== undefined && verifyDelta(delta) !== "verified")
+    if (computeId(delta.claims) !== delta.id)
+      throw new Error("peer state: invalid admitted content id");
+    const verified = verifiedSignatures.get(delta);
+    if (delta.sig !== undefined && (verified?.id !== delta.id || verified.sig !== delta.sig)) {
+      if (verifyDelta(delta) !== "verified")
         throw new Error("peer state: invalid admitted signature");
-      verifiedAdmitted.add(delta);
+      verifiedSignatures.set(delta, { id: delta.id, sig: delta.sig });
     }
   }
 }

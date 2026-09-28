@@ -1,6 +1,7 @@
 // Typed, permanent-posture single-peer admission over a host-supplied atomic image store.
 import type { Delta } from "../delta/types.js";
 import { DeltaSet } from "../delta/set.js";
+import { claimsToJson, parseClaims } from "../delta/json-profile.js";
 import {
   decodeDurablePeerState,
   emptyDurablePeerState,
@@ -178,7 +179,7 @@ function sender(origin: ArrivalOrigin, receivingPeerId: string): string {
 function plainDelta(delta: Delta): Delta {
   return {
     id: delta.id,
-    claims: structuredClone(delta.claims),
+    claims: parseClaims(claimsToJson(delta.claims)),
     ...(delta.sig === undefined ? {} : { sig: delta.sig }),
   };
 }

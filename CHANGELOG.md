@@ -29,8 +29,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
   adapter is available from the Node-only `@bombadil/rhizomatic/node` subpath. This is an initial
   single-peer trial surface; bundle and erasure
   admission, scalable image storage, and durable handoff remain in progress.
-  Repeated admits on one store reuse a verified exact image and do not recheck held signatures;
-  a changed image is decoded and verified before it can be used. No-op offers skip the storage write.
+  The TypeScript backend-agnostic facade reuses a verified exact image on a long-lived store
+  object; it rechecks content ids but does not repeat Ed25519 checks for unchanged held deltas.
+  A changed image is decoded and verified before use. Rust and the Node file adapter still verify
+  the full image on each admit. No-op offers skip the storage write.
 
 ### Internal structure
 
