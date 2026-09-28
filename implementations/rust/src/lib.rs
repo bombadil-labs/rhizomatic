@@ -40,6 +40,8 @@ pub mod peer;
 pub mod peer_state;
 pub mod pred;
 pub mod preflight;
+#[doc(hidden)]
+pub mod prepared_handoff;
 pub mod principal;
 pub mod reactor;
 #[doc(hidden)]

@@ -94,6 +94,18 @@ old-peer-authoritative proof before assigning new-peer arrivals or opening any e
 No carried obligation may use the new peer's `PeerId` as its source identity: the new peer has
 not created local debt before the handoff, and reserving its source sequence space prevents a
 later local obligation from colliding with imported debt.
+Before a handoff can commit, the old peer MUST authenticate a prepared descriptor naming its
+`PeerId`, the distinct new `PeerId`, the old surface id, attempt id, old state version, trusted
+deadline, inherited-refusal snapshot digest, carried-state digest, and destination-policy digest.
+The v1 prepared claim signs canonical CBOR bytes with the old governing Ed25519 key under the
+`rhizomatic.peer.handoff.prepare.v1` domain. Both peer ids in this claim use the
+`ed25519:<lowercase-public-key-hex>` spelling. Its enclosing image carries the claim bytes and
+the detached signature. A receiver checks canonical encoding, strict Ed25519 verification,
+and equality of every descriptor field to its closed import and declared surface. This signed
+preparation authenticates what the old peer proposed; it does not prove the old peer durably
+prepared or committed it, that the old surface was fenced, or that the new peer acknowledged
+import. It never grants serving or transfers obligation ownership. A later authoritative CAS
+must still compare the same descriptor and both digests before commit.
 The v1 permanent-posture inherited-refusal snapshot binds every carried refusal event to its
 source `PeerId` and source sequence, and names exactly one current event for every event target.
 It retains earlier events for the same target; a current reference cannot point before a later

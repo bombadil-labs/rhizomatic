@@ -49,6 +49,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
   A v4 closed import image now durably stages the inherited-refusal image, verified holding
   inventory, active obligations, policy bytes, and old-peer attempt descriptor under separately
   pinned carried-state and policy digests. It remains closed pending authoritative commit proof.
+  A canonical old-peer signed prepared descriptor now binds the attempt, old surface, both peer
+  keys, state version, deadline, refusal snapshot, carried state, and destination policy. It is
+  authenticated preparation only; the durable CAS, acknowledgement, and ownership transfer are
+  still required.
 
 ## 0.11.0-next.1 — 2026-09-25
 
