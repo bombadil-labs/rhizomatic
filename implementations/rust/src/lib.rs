@@ -20,6 +20,7 @@ pub mod materialize;
 pub mod pack;
 pub mod parse_error;
 pub mod peer;
+pub mod peer_state;
 pub mod pred;
 pub mod preflight;
 pub mod principal;
@@ -53,6 +54,9 @@ pub use materialize::{is_root_anchored, MaterializationChange};
 pub use pack::{pack_id, pack_set, unpack_set};
 pub use parse_error::{ParseError, ParseErrorKind};
 pub use peer::{sync_both, Peer, SyncReport};
+pub use peer_state::{decode_peer_state, encode_peer_state, PeerState};
+#[cfg(not(target_arch = "wasm32"))]
+pub use peer_state::{read_peer_state, write_peer_state};
 pub use pred::{compare_primitives, eval_pred, Pred};
 pub use preflight::{
     preflight_transfer, CandidateGuard, GuardedUnit, GuardedUnitStatus, PreflightContext,

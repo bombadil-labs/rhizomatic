@@ -240,11 +240,19 @@ fn as_num(v: Option<&CborValue>, what: &str) -> Result<f64, String> {
     }
 }
 
+fn at<'a, T>(items: &'a [T], value: Option<&CborValue>, what: &str) -> Result<&'a T, String> {
+    let index = as_num(value, what)?;
+    if index < 0.0 || index.fract() != 0.0 || index >= items.len() as f64 {
+        return Err(format!("pack: {what} index out of range"));
+    }
+    items
+        .get(index as usize)
+        .ok_or_else(|| format!("pack: {what} index out of range"))
+}
+
 fn ptr_from_cbor(v: &CborValue, strings: &[String]) -> Result<Pointer, String> {
     let o = as_map(v, "pointer")?;
-    let s = |key: &str| -> Result<String, String> {
-        Ok(strings[as_num(o.get(key), key)? as usize].clone())
-    };
+    let s = |key: &str| -> Result<String, String> { Ok(at(strings, o.get(key), key)?.clone()) };
     let role = s("r")?;
     let context = if o.contains_key("c") {
         Some(s("c")?)
@@ -299,7 +307,7 @@ fn verified_delta(claims: Claims, sig: Option<String>, stored_id: &str) -> Resul
 fn hydrate_record(v: &CborValue, strings: &[String]) -> Result<Delta, String> {
     let o = as_map(v, "record")?;
     let claims = Claims {
-        author: strings[as_num(o.get("a"), "a")? as usize].clone(),
+        author: at(strings, o.get("a"), "a")?.clone(),
         timestamp: as_num(o.get("t"), "t")?,
         valid_from: as_num(o.get("f"), "f")?,
         valid_until: o.get("u").map(|v| as_num(Some(v), "u")).transpose()?,
@@ -309,11 +317,11 @@ fn hydrate_record(v: &CborValue, strings: &[String]) -> Result<Delta, String> {
             .collect::<Result<Vec<_>, _>>()?,
     };
     let sig = if o.contains_key("s") {
-        Some(strings[as_num(o.get("s"), "s")? as usize].clone())
+        Some(at(strings, o.get("s"), "s")?.clone())
     } else {
         None
     };
-    verified_delta(claims, sig, &strings[as_num(o.get("i"), "i")? as usize])
+    verified_delta(claims, sig, at(strings, o.get("i"), "i")?)
 }
 
 pub fn unpack_set(bytes: &[u8]) -> Result<DeltaSet, String> {
@@ -338,11 +346,9 @@ pub fn unpack_set(bytes: &[u8]) -> Result<DeltaSet, String> {
     }
     for rec in as_array(top.get("members"), "members")? {
         let o = as_map(rec, "member")?;
-        let manifest = envelopes
-            .get(as_num(o.get("m"), "m")? as usize)
-            .ok_or("pack: member references missing envelope")?;
+        let manifest = at(&envelopes, o.get("m"), "m")?;
         let author = if o.contains_key("a") {
-            strings[as_num(o.get("a"), "a")? as usize].clone()
+            at(&strings, o.get("a"), "a")?.clone()
         } else {
             manifest.claims.author.clone()
         };
@@ -362,15 +368,11 @@ pub fn unpack_set(bytes: &[u8]) -> Result<DeltaSet, String> {
                 .collect::<Result<Vec<_>, _>>()?,
         };
         let sig = if o.contains_key("s") {
-            Some(strings[as_num(o.get("s"), "s")? as usize].clone())
+            Some(at(&strings, o.get("s"), "s")?.clone())
         } else {
             None
         };
-        out.add(verified_delta(
-            claims,
-            sig,
-            &strings[as_num(o.get("i"), "i")? as usize],
-        )?)?;
+        out.add(verified_delta(claims, sig, at(&strings, o.get("i"), "i")?)?)?;
     }
     for rec in as_array(top.get("loose"), "loose")? {
         out.add(hydrate_record(rec, &strings)?)?;
