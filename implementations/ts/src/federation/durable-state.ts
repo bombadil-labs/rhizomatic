@@ -360,6 +360,18 @@ function validateTransition(before: DurablePeerState, after: DurablePeerState): 
     )
       throw new Error("durable peer state: prior refusal event changed");
   }
+  const newArrivals = after.base.arrivals.slice(before.base.arrivals.length);
+  const newIds = new Set(newArrivals.map((row) => row.id));
+  const newOrders = new Set<string>();
+  for (const event of after.events.slice(before.events.length)) {
+    for (const orderId of event.orderIds) {
+      if (!newIds.has(orderId))
+        throw new Error("durable peer state: new effective order lacks new arrival");
+      newOrders.add(orderId);
+    }
+  }
+  if (after.quotaUsed - before.quotaUsed !== newArrivals.length - newOrders.size)
+    throw new Error("durable peer state: quota growth must equal new ordinary arrivals");
   const exclusions = new Map(after.exclusions.map((row) => [row.orderId, row]));
   for (const row of before.exclusions) {
     const next = exclusions.get(row.orderId);
@@ -507,9 +519,21 @@ export function planPermanentCommit(
 export function writeDurablePeerState(
   path: string,
   state: DurablePeerState,
+  expectedPrior: Uint8Array | null,
 ): PeerStateWriteOutcome {
   const bytes = encodeDurablePeerState(state);
-  const before = readDurablePeerState(path, state.base.peerId);
+  if (expectedPrior === undefined)
+    throw new Error("durable peer state: expected prior image required");
+  const priorBytes = existsSync(path) ? readFileSync(path) : null;
+  const before =
+    priorBytes === null ? undefined : decodeDurablePeerState(priorBytes, state.base.peerId);
+  if (
+    (priorBytes === null) !== (expectedPrior === null) ||
+    (priorBytes !== null &&
+      expectedPrior !== null &&
+      !Buffer.from(priorBytes).equals(Buffer.from(expectedPrior)))
+  )
+    throw new Error("durable peer state: expected prior image changed");
   if (before !== undefined) validateTransition(before, state);
   const temp = `${path}.${process.pid}.${randomBytes(16).toString("hex")}.tmp`;
   const dirFd = openSync(dirname(path), "r");

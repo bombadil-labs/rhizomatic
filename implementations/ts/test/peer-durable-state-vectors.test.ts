@@ -77,6 +77,21 @@ interface CommitCase {
 const commits = JSON.parse(
   readFileSync(resolve(import.meta.dirname, "../../../vectors/peer/permanent-commit.json"), "utf8"),
 ) as { cases: CommitCase[]; invalidCases: CommitCase[] };
+const writerVectors = JSON.parse(
+  readFileSync(resolve(import.meta.dirname, "../../../vectors/peer/durable-writer.json"), "utf8"),
+) as {
+  cases: Array<{
+    name: string;
+    beforeCase?: number;
+    afterCase?: number;
+    actualCase?: number;
+    proposedCase?: number;
+    expectedCase?: number;
+    mutation?: string;
+    expected?: string;
+    outcome?: string;
+  }>;
+};
 function commitInput(c: CommitCase) {
   return {
     additions: c.additions.map((name) => named.get(name)!),
@@ -188,25 +203,27 @@ describe("shared SPEC-6 durable peer image vectors", () => {
     const path = join(dir, "peer.bin");
     try {
       expect(readDurablePeerState(path, "peer-A")).toBeUndefined();
+      let expected: Uint8Array | null = null;
       for (const c of vector.cases.slice(0, 4)) {
         const state = fromCase(c);
-        expect(writeDurablePeerState(path, state)).toEqual({ status: "durable" });
+        expect(writeDurablePeerState(path, state, expected)).toEqual({ status: "durable" });
         expect(readFileSync(path).toString("hex")).toBe(c.expectedHex);
         expect(readDurablePeerState(path, "peer-A")!.refusalCounter).toBe(c.refusalCounter);
+        expected = readFileSync(path);
       }
       const before = readFileSync(path);
       const rollback = fromCase(vector.cases[3]!);
-      expect(() => writeDurablePeerState(path, { ...rollback, quotaUsed: 0 })).toThrow(
+      expect(() => writeDurablePeerState(path, { ...rollback, quotaUsed: 0 }, before)).toThrow(
         "quota counter cannot shrink",
       );
       expect(readFileSync(path)).toEqual(before);
-      expect(() => writeDurablePeerState(path, fromCase(vector.cases[2]!))).toThrow(
+      expect(() => writeDurablePeerState(path, fromCase(vector.cases[2]!), before)).toThrow(
         "arrival history cannot shrink",
       );
       expect(readFileSync(path)).toEqual(before);
       writeFileSync(path, Uint8Array.of(0xff));
       expect(() => readDurablePeerState(path, "peer-A")).toThrow();
-      expect(() => writeDurablePeerState(path, rollback)).toThrow();
+      expect(() => writeDurablePeerState(path, rollback, before)).toThrow();
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -216,8 +233,8 @@ describe("shared SPEC-6 durable peer image vectors", () => {
     const dir = mkdtempSync(join(tmpdir(), "rhizomatic-purge-fault-"));
     const path = join(dir, "peer.bin");
     try {
-      writeDurablePeerState(path, fromCase(vector.cases[2]!));
-      writeDurablePeerState(path, fromCase(vector.cases[5]!));
+      writeDurablePeerState(path, fromCase(vector.cases[2]!), null);
+      writeDurablePeerState(path, fromCase(vector.cases[5]!), readFileSync(path));
       const restored = readDurablePeerState(path, "peer-A")!;
       expect(restored.obligations[0]).toMatchObject({ status: "failed", fault: "disk offline" });
       expect(restored.base.refusedIds.has(id("userRootDeclaration"))).toBe(true);
@@ -256,7 +273,7 @@ describe("shared SPEC-6 permanent commit transitions", () => {
     const path = join(dir, "peer.bin");
     try {
       const before = fromCase(vector.cases[2]!);
-      writeDurablePeerState(path, before);
+      writeDurablePeerState(path, before, null);
       const bytes = readFileSync(path);
       const invalid = commits.invalidCases[0]!;
       expect(() => planPermanentCommit(before, commitInput(invalid))).toThrow();
@@ -265,4 +282,63 @@ describe("shared SPEC-6 permanent commit transitions", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+});
+
+describe("shared SPEC-6 durable writer transition vectors", () => {
+  for (const c of writerVectors.cases) {
+    it(c.name, () => {
+      const dir = mkdtempSync(join(tmpdir(), "rhizomatic-writer-"));
+      const path = join(dir, "peer.bin");
+      try {
+        const actual = fromCase(vector.cases[c.actualCase ?? c.beforeCase!]!);
+        writeDurablePeerState(path, actual, null);
+        const onDisk = readFileSync(path);
+        if (c.outcome === "durable") {
+          expect(
+            writeDurablePeerState(path, fromCase(vector.cases[c.afterCase!]!), onDisk),
+          ).toEqual({ status: "durable" });
+          expect(readFileSync(path).toString("hex")).toBe(vector.cases[c.afterCase!]!.expectedHex);
+          return;
+        }
+        let proposed: DurablePeerState;
+        if (c.mutation === "quotaJump") proposed = { ...actual, quotaUsed: 5000 };
+        else if (c.mutation === "heldOrderErasesUserRoot") {
+          const targetId = id("userRootDeclaration");
+          const orderId = id("operatorRootDeclaration");
+          proposed = {
+            ...actual,
+            base: {
+              ...actual.base,
+              admitted: actual.base.admitted.filtered((d) => d.id !== targetId),
+              refusedIds: new Set([...actual.base.refusedIds, targetId]),
+            },
+            refusalCounter: 1,
+            obligationCounter: 1,
+            events: [{ sequence: 1, targetId, orderIds: [orderId], priorEpoch: 1 }],
+            exclusions: [{ orderId, targetId, eventSequence: 1, priorEpoch: 1 }],
+            obligations: [
+              {
+                sequence: 1,
+                targetId,
+                generation: 1,
+                eventSequence: 1,
+                priorEpoch: 1,
+                status: "pending",
+              },
+            ],
+          };
+        } else proposed = fromCase(vector.cases[c.proposedCase!]!);
+        const expected =
+          c.expectedCase === undefined
+            ? c.actualCase === 0 && c.beforeCase === undefined
+              ? null
+              : onDisk
+            : encodeDurablePeerState(fromCase(vector.cases[c.expectedCase]!));
+        expect(() => writeDurablePeerState(path, proposed, expected)).toThrow(c.expected);
+        expect(readFileSync(path)).toEqual(onDisk);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+  }
 });

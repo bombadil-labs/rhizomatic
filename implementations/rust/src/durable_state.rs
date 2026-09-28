@@ -441,6 +441,20 @@ fn validate_transition(before: &DurablePeerState, after: &DurablePeerState) -> R
     if after.events[..before.events.len()] != before.events {
         return Err("durable peer state: prior refusal event changed".into());
     }
+    let new_arrivals = &after.base.arrivals[before.base.arrivals.len()..];
+    let new_ids: BTreeSet<&str> = new_arrivals.iter().map(|row| row.id.as_str()).collect();
+    let mut new_orders = BTreeSet::new();
+    for event in &after.events[before.events.len()..] {
+        for order_id in &event.order_ids {
+            if !new_ids.contains(order_id.as_str()) {
+                return Err("durable peer state: new effective order lacks new arrival".into());
+            }
+            new_orders.insert(order_id.as_str());
+        }
+    }
+    if after.quota_used - before.quota_used != (new_arrivals.len() - new_orders.len()) as u64 {
+        return Err("durable peer state: quota growth must equal new ordinary arrivals".into());
+    }
     let exclusions: BTreeMap<&str, &ErasureExclusion> = after
         .exclusions
         .iter()
@@ -609,13 +623,26 @@ pub fn plan_permanent_commit(
 pub fn write_durable_peer_state(
     path: &std::path::Path,
     state: &DurablePeerState,
+    expected_prior: Option<&[u8]>,
 ) -> Result<PeerStateWriteOutcome, String> {
     use std::fs;
     use std::io::Write;
 
     let bytes = encode_durable_peer_state(state)?;
-    if let Some(before) = read_durable_peer_state(path, &state.base.peer_id)? {
-        validate_transition(&before, state)?;
+    let prior_bytes = match fs::read(path) {
+        Ok(bytes) => Some(bytes),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
+        Err(e) => return Err(e.to_string()),
+    };
+    let before = prior_bytes
+        .as_ref()
+        .map(|bytes| decode_durable_peer_state(bytes, &state.base.peer_id))
+        .transpose()?;
+    if prior_bytes.as_deref() != expected_prior {
+        return Err("durable peer state: expected prior image changed".into());
+    }
+    if let Some(before) = &before {
+        validate_transition(before, state)?;
     }
     let parent = path
         .parent()

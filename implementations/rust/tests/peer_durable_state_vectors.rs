@@ -280,16 +280,18 @@ fn single_writer_replaces_entire_image_and_reopens_it() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("peer.bin");
     assert!(read_durable_peer_state(&path, "peer-A").unwrap().is_none());
+    let mut expected: Option<Vec<u8>> = None;
     for case in vector["cases"].as_array().unwrap().iter().take(4) {
         let state = from_case(case, &bases, &named);
         assert_eq!(
-            write_durable_peer_state(&path, &state).unwrap(),
+            write_durable_peer_state(&path, &state, expected.as_deref()).unwrap(),
             PeerStateWriteOutcome::Durable
         );
         assert_eq!(
             hex::encode(std::fs::read(&path).unwrap()),
             case["expectedHex"].as_str().unwrap()
         );
+        expected = Some(std::fs::read(&path).unwrap());
         assert_eq!(
             read_durable_peer_state(&path, "peer-A")
                 .unwrap()
@@ -301,19 +303,21 @@ fn single_writer_replaces_entire_image_and_reopens_it() {
     let before = std::fs::read(&path).unwrap();
     let mut rollback = from_case(&vector["cases"][3], &bases, &named);
     rollback.quota_used = 0;
-    assert!(write_durable_peer_state(&path, &rollback)
+    assert!(write_durable_peer_state(&path, &rollback, Some(&before))
         .unwrap_err()
         .contains("quota counter cannot shrink"));
     assert_eq!(std::fs::read(&path).unwrap(), before);
-    assert!(
-        write_durable_peer_state(&path, &from_case(&vector["cases"][2], &bases, &named))
-            .unwrap_err()
-            .contains("arrival history cannot shrink")
-    );
+    assert!(write_durable_peer_state(
+        &path,
+        &from_case(&vector["cases"][2], &bases, &named),
+        Some(&before)
+    )
+    .unwrap_err()
+    .contains("arrival history cannot shrink"));
     assert_eq!(std::fs::read(&path).unwrap(), before);
     std::fs::write(&path, [0xff]).unwrap();
     assert!(read_durable_peer_state(&path, "peer-A").is_err());
-    assert!(write_durable_peer_state(&path, &rollback).is_err());
+    assert!(write_durable_peer_state(&path, &rollback, Some(&before)).is_err());
 }
 
 #[test]
@@ -323,8 +327,14 @@ fn failed_purge_fault_survives_restart() {
     let named = fixtures();
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("peer.bin");
-    write_durable_peer_state(&path, &from_case(&vector["cases"][2], &bases, &named)).unwrap();
-    write_durable_peer_state(&path, &from_case(&vector["cases"][5], &bases, &named)).unwrap();
+    write_durable_peer_state(&path, &from_case(&vector["cases"][2], &bases, &named), None).unwrap();
+    let expected = std::fs::read(&path).unwrap();
+    write_durable_peer_state(
+        &path,
+        &from_case(&vector["cases"][5], &bases, &named),
+        Some(&expected),
+    )
+    .unwrap();
     let restored = read_durable_peer_state(&path, "peer-A").unwrap().unwrap();
     assert_eq!(restored.obligations[0].status, "failed");
     assert_eq!(
@@ -339,4 +349,106 @@ fn failed_purge_fault_survives_restart() {
         hex::encode(std::fs::read(path).unwrap()),
         vector["cases"][5]["expectedHex"].as_str().unwrap()
     );
+}
+
+#[test]
+fn durable_writer_transitions_match_shared_vectors() {
+    let vector = read("peer/durable-state.json");
+    let writer = read("peer/durable-writer.json");
+    let bases = read("peer/state.json");
+    let named = fixtures();
+    for case in writer["cases"].as_array().unwrap() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("peer.bin");
+        let actual_index = case["actualCase"]
+            .as_u64()
+            .or(case["beforeCase"].as_u64())
+            .unwrap() as usize;
+        let actual = from_case(&vector["cases"][actual_index], &bases, &named);
+        write_durable_peer_state(&path, &actual, None).unwrap();
+        let on_disk = std::fs::read(&path).unwrap();
+        if case["outcome"] == "durable" {
+            let after = from_case(
+                &vector["cases"][case["afterCase"].as_u64().unwrap() as usize],
+                &bases,
+                &named,
+            );
+            assert_eq!(
+                write_durable_peer_state(&path, &after, Some(&on_disk)).unwrap(),
+                PeerStateWriteOutcome::Durable
+            );
+            assert_eq!(
+                hex::encode(std::fs::read(&path).unwrap()),
+                case["afterCase"]
+                    .as_u64()
+                    .map(|i| vector["cases"][i as usize]["expectedHex"].as_str().unwrap())
+                    .unwrap()
+            );
+            continue;
+        }
+        let mut proposed = if let Some(index) = case["proposedCase"].as_u64() {
+            from_case(&vector["cases"][index as usize], &bases, &named)
+        } else {
+            actual.clone()
+        };
+        match case["mutation"].as_str() {
+            Some("quotaJump") => proposed.quota_used = 5000,
+            Some("heldOrderErasesUserRoot") => {
+                let target_id = named["userRootDeclaration"].id.clone();
+                let order_id = named["operatorRootDeclaration"].id.clone();
+                proposed.base.admitted = DeltaSet::from_deltas(
+                    actual
+                        .base
+                        .admitted
+                        .iter()
+                        .filter(|d| d.id != target_id)
+                        .cloned(),
+                )
+                .unwrap();
+                proposed.base.refused_ids.insert(target_id.clone());
+                proposed.refusal_counter = 1;
+                proposed.obligation_counter = 1;
+                proposed.events = vec![RefusalEvent {
+                    sequence: 1,
+                    target_id: target_id.clone(),
+                    order_ids: vec![order_id.clone()],
+                    prior_epoch: Some(1),
+                }];
+                proposed.exclusions = vec![ErasureExclusion {
+                    order_id,
+                    target_id: target_id.clone(),
+                    event_sequence: 1,
+                    prior_epoch: Some(1),
+                }];
+                proposed.obligations = vec![PurgeObligation {
+                    sequence: 1,
+                    target_id,
+                    generation: 1,
+                    event_sequence: 1,
+                    prior_epoch: Some(1),
+                    status: "pending".into(),
+                    fault: None,
+                }];
+            }
+            _ => {}
+        }
+        let expected_bytes = case["expectedCase"].as_u64().map(|index| {
+            encode_durable_peer_state(&from_case(&vector["cases"][index as usize], &bases, &named))
+                .unwrap()
+        });
+        let expected_prior = if case["expectedCase"].as_u64().is_some() {
+            expected_bytes.as_deref()
+        } else if case["actualCase"] == 0 && case["beforeCase"].is_null() {
+            None
+        } else {
+            Some(on_disk.as_slice())
+        };
+        let error = write_durable_peer_state(&path, &proposed, expected_prior).unwrap_err();
+        assert!(
+            error.contains(case["expected"].as_str().unwrap()),
+            "{}: {error}",
+            case["name"]
+        );
+        assert_eq!(std::fs::read(path).unwrap(), on_disk);
+    }
 }

@@ -11,11 +11,18 @@ no purge obligation.
 `planPermanentCommit` / `plan_permanent_commit` accepts *already verified final* additions and
 effective erasure groups. Its caller must run candidate verification, guards, authority filtering,
 ordinary selection, and surface ownership checks before supplying those decisions. The planner
+does not interpret an order's claims to discover its target; the caller must verify the
+order-to-target binding before planning.
+The planner
 rejects duplicate or permanently refused additions, unsigned effective orders, repeated target
 groups, an ordinary quota charge that differs from the new non-order ids, and counter overflow.
 It assigns new arrival testimony and forms one image containing
 all changes. The file writer then replaces that complete image with a sync, rename, and directory
-sync. A post-rename directory sync failure means `committed-unconfirmed`; the caller must reload
+sync. Each write must supply the exact prior image bytes it planned against, or `null` when
+creating the file; a mismatch rejects the write. The writer also verifies that newly effective
+orders arrived in that transition and that quota growth equals new non-order arrivals. This
+expected-image check assumes the documented single writer; it does not implement a cross-process
+atomic compare-and-swap. A post-rename directory sync failure means `committed-unconfirmed`; the caller must reload
 and reconcile before acknowledging anything. A failed plan or pre-rename write leaves the prior
 image intact. An existing corrupt image blocks reads and writes.
 
@@ -30,3 +37,6 @@ obligation `removed` requires external proof of physical absence; the image alon
 that proof. No consumer should report byte removal from a planned event or a pending obligation.
 The file adapter does not coordinate multiple writers or provide the independent recovery copy
 required before an irreversible handoff commit.
+Existing v1 files are rejected by the v2 reader and writer. There is no automatic v1→v2
+migration yet; a future migration must establish refusal-event provenance and quota accounting
+before replacing a live v1 image.
