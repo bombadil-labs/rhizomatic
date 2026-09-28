@@ -81,12 +81,20 @@ fn signed_bundle_entry_matches_shared_vectors() {
             Some("duplicateFirst") => members = vec![first.clone(), first.clone()],
             Some("forgeManifest") => manifest.sig = Some("00".repeat(64)),
             Some("forgeSecondId") => members[1].id = format!("1e20{}", "00".repeat(32)),
+            Some("malformedManifest") => manifest.claims.valid_until = Some(2.0),
+            Some("malformedSecond") => members[1].claims.valid_until = Some(1.0),
+            Some("forgedDuplicateFirst") => {
+                let mut forged = first.clone();
+                forged.sig = Some("00".repeat(64));
+                members.push(forged);
+            }
             None => {}
             other => panic!("unknown mutation {other:?}"),
         }
         let active: BTreeSet<String> = match case["active"].as_str() {
             Some("all") => [manifest.id.clone(), first.id.clone(), second.id.clone()].into(),
             Some("first") => [first.id.clone()].into(),
+            Some("second") => [second.id.clone()].into(),
             None => BTreeSet::new(),
             other => panic!("unknown active {other:?}"),
         };

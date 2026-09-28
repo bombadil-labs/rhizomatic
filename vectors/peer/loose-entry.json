@@ -18,6 +18,14 @@
       "expected": "invalid"
     },
     {
+      "name": "malformed claims return invalid",
+      "candidate": "userRootDeclaration",
+      "mutation": "malformedValidity",
+      "active": [],
+      "refused": [],
+      "expected": "invalid"
+    },
+    {
       "name": "a forged signature is invalid before refusal",
       "candidate": "userRootDeclaration",
       "mutation": "changeSignature",

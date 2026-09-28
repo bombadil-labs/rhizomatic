@@ -5,6 +5,14 @@ import type { Delta } from "../delta/types.js";
 
 export type LooseEntryStatus = "invalid" | "refused" | "duplicate" | "eligible";
 
+function verificationOf(delta: Delta): ReturnType<typeof verifyDelta> {
+  try {
+    return verifyDelta(delta);
+  } catch {
+    return "invalid";
+  }
+}
+
 /**
  * SPEC-6 vNext §2 step 1 for a self-signed loose candidate. This is only the first gate: an
  * eligible delta still needs the lens, guards, conflict rules and quota before admission.
@@ -15,7 +23,7 @@ export function looseEntryStatus(
   activeIds: ReadonlySet<string>,
   refusedIds: ReadonlySet<string>,
 ): LooseEntryStatus {
-  if (verifyDelta(delta) !== "verified") return "invalid";
+  if (verificationOf(delta) !== "verified") return "invalid";
   try {
     new DeltaSet().add(delta);
   } catch {
@@ -33,7 +41,7 @@ export function bundleEntryStatus(
   activeIds: ReadonlySet<string>,
   refusedIds: ReadonlySet<string>,
 ): LooseEntryStatus {
-  if (verifyDelta(manifest) !== "verified") return "invalid";
+  if (verificationOf(manifest) !== "verified") return "invalid";
   const committed = manifestMemberIds(manifest);
   if (
     committed.length === 0 ||
@@ -43,7 +51,7 @@ export function bundleEntryStatus(
     return "invalid";
   const hasUnsigned = members.some((member) => member.sig === undefined);
   for (const member of members) {
-    const verification = verifyDelta(member);
+    const verification = verificationOf(member);
     if (verification === "invalid") return "invalid";
     if (hasUnsigned && member.claims.author !== manifest.claims.author) return "invalid";
   }

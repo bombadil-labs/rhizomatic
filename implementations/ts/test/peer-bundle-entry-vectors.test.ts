@@ -13,9 +13,16 @@ interface Case {
   firstUnsigned?: boolean;
   secondAuthor?: "other";
   secondSigned?: boolean;
-  active?: "all" | "first";
+  active?: "all" | "first" | "second";
   refused?: "second";
-  mutation?: "missingSecond" | "duplicateFirst" | "forgeManifest" | "forgeSecondId";
+  mutation?:
+    | "missingSecond"
+    | "duplicateFirst"
+    | "forgeManifest"
+    | "forgeSecondId"
+    | "malformedManifest"
+    | "malformedSecond"
+    | "forgedDuplicateFirst";
   expected: string;
 }
 const here = dirname(fileURLToPath(import.meta.url));
@@ -51,6 +58,12 @@ describe("shared SPEC-6 bundle entry vectors", () => {
       if (c.mutation === "missingSecond") members = [first];
       if (c.mutation === "duplicateFirst") members = [first, first];
       if (c.mutation === "forgeManifest") manifest = { ...manifest, sig: "00".repeat(64) };
+      if (c.mutation === "malformedManifest")
+        manifest = { ...manifest, claims: { ...manifest.claims, validUntil: 2 } };
+      if (c.mutation === "malformedSecond")
+        members = [first, { ...second, claims: { ...second.claims, validUntil: 1 } }];
+      if (c.mutation === "forgedDuplicateFirst")
+        members = [first, second, { ...first, sig: "00".repeat(64) }];
       if (c.mutation === "forgeSecondId")
         members = [first, { ...second, id: `1e20${"00".repeat(32)}` }];
       const active = new Set(
@@ -58,7 +71,9 @@ describe("shared SPEC-6 bundle entry vectors", () => {
           ? [manifest.id, first.id, second.id]
           : c.active === "first"
             ? [first.id]
-            : [],
+            : c.active === "second"
+              ? [second.id]
+              : [],
       );
       const refused = new Set(c.refused === "second" ? [second.id] : []);
       expect(bundleEntryStatus(manifest, members, active, refused)).toBe(c.expected);

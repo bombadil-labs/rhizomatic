@@ -184,6 +184,14 @@ The pipeline is:
    **every** member's claimed author MUST equal the verified manifest signer. Reject a bundle
    that mixes authors during verification, even when the foreign member was already admitted.
    Its self-signed members remain independently eligible as loose candidates.
+   For a bundle candidate in this transfer, "members" means the supplied covered deltas in
+   that candidate, including any already admitted id supplied again. A manifest reference to an
+   id absent from this transfer does not add that id to the candidate unit, even if the receiver
+   already holds it. Its absent author cannot be checked for this bundle's same-author rule, and
+   an absent refused id does not reject the unit. Manifest completeness remains separately
+   verifiable. A later bundle exclusion by erasure likewise applies to the supplied candidate
+   members, not to every id the manifest cites. Each supplied appearance still has to verify;
+   a forged repeated copy is invalid before deduplication.
 2. Apply the subscribed lens, when present, and its **declared** closure rule. That rule may add
    related candidates from the verified offer (for example, negations or manifest members), but
    never fabricate a delta or bypass **any** candidate-local guard. It states which selected ids

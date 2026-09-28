@@ -16,7 +16,7 @@ const vector = JSON.parse(
   cases: Array<{
     name: string;
     candidate: string;
-    mutation?: "dropSignature" | "changeSignature" | "changeId";
+    mutation?: "dropSignature" | "changeSignature" | "changeId" | "malformedValidity";
     active: string[];
     refused: string[];
     expected: string;
@@ -44,7 +44,12 @@ describe("shared SPEC-6 loose entry vectors", () => {
             ? { ...original, sig: "00".repeat(64) }
             : c.mutation === "changeId"
               ? { ...original, id: `1e20${"00".repeat(32)}` }
-              : original;
+              : c.mutation === "malformedValidity"
+                ? {
+                    ...original,
+                    claims: { ...original.claims, validUntil: original.claims.validFrom },
+                  }
+                : original;
       expect(
         looseEntryStatus(
           delta,

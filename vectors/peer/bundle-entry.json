@@ -11,7 +11,13 @@
     { "name": "all held ids are duplicate", "active": "all", "expected": "duplicate" },
     { "name": "one new id keeps unit eligible", "active": "first", "expected": "eligible" },
     { "name": "partial declared coverage remains eligible", "mutation": "missingSecond", "expected": "eligible" },
+    { "name": "absent foreign signed member already held does not veto", "secondAuthor": "other", "secondSigned": true, "mutation": "missingSecond", "active": "second", "expected": "eligible" },
+    { "name": "absent foreign unsigned member has unknown author and does not veto", "secondAuthor": "other", "mutation": "missingSecond", "expected": "eligible" },
+    { "name": "absent refused member does not reject supplied unit", "mutation": "missingSecond", "refused": "second", "expected": "eligible" },
     { "name": "duplicate supplied member is checked once for admission", "mutation": "duplicateFirst", "expected": "eligible" },
+    { "name": "malformed manifest returns invalid", "mutation": "malformedManifest", "expected": "invalid" },
+    { "name": "malformed member returns invalid", "mutation": "malformedSecond", "expected": "invalid" },
+    { "name": "forged repeated copy is invalid", "mutation": "forgedDuplicateFirst", "expected": "invalid" },
     { "name": "forged manifest signature is invalid before refusal", "mutation": "forgeManifest", "refused": "second", "expected": "invalid" },
     { "name": "forged member id is invalid before refusal", "mutation": "forgeSecondId", "refused": "second", "expected": "invalid" }
   ]

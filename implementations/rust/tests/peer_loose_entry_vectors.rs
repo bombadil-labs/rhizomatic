@@ -42,6 +42,7 @@ fn signed_loose_entry_verifies_before_refusal_and_duplicate() {
             Some("dropSignature") => delta.sig = None,
             Some("changeSignature") => delta.sig = Some("00".repeat(64)),
             Some("changeId") => delta.id = format!("1e20{}", "00".repeat(32)),
+            Some("malformedValidity") => delta.claims.valid_until = Some(delta.claims.valid_from),
             None => {}
             other => panic!("unknown mutation {other:?}"),
         }
