@@ -1,0 +1,18 @@
+{
+  "spec": "SPEC-6 vNext §2 step 1",
+  "description": "A signed manifest and its supplied covered members form one candidate. Manifest completeness is separately verifiable. Unsigned coverage requires one claimed author throughout.",
+  "cases": [
+    { "name": "unsigned same-author member is covered", "expected": "eligible" },
+    { "name": "mixed-author unsigned bundle is invalid", "secondAuthor": "other", "expected": "invalid" },
+    { "name": "signed other-author member is independently verified", "secondAuthor": "other", "secondSigned": true, "expected": "eligible" },
+    { "name": "signed other-author member cannot mix with an unsigned member", "firstUnsigned": true, "secondAuthor": "other", "secondSigned": true, "expected": "invalid" },
+    { "name": "refusal of a member rejects the whole unit", "refused": "second", "expected": "refused" },
+    { "name": "refusal precedes duplicate", "active": "all", "refused": "second", "expected": "refused" },
+    { "name": "all held ids are duplicate", "active": "all", "expected": "duplicate" },
+    { "name": "one new id keeps unit eligible", "active": "first", "expected": "eligible" },
+    { "name": "partial declared coverage remains eligible", "mutation": "missingSecond", "expected": "eligible" },
+    { "name": "duplicate supplied member is checked once for admission", "mutation": "duplicateFirst", "expected": "eligible" },
+    { "name": "forged manifest signature is invalid before refusal", "mutation": "forgeManifest", "refused": "second", "expected": "invalid" },
+    { "name": "forged member id is invalid before refusal", "mutation": "forgeSecondId", "refused": "second", "expected": "invalid" }
+  ]
+}

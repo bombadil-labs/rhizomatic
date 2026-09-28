@@ -92,7 +92,7 @@ export {
 } from "./lens-binding.js";
 export { packId, packSet, unpackSet } from "./pack.js";
 export { Peer, syncBoth, type SyncReport } from "./peer.js";
-export { looseEntryStatus, type LooseEntryStatus } from "./federation/entry.js";
+export { bundleEntryStatus, looseEntryStatus, type LooseEntryStatus } from "./federation/entry.js";
 export {
   planArrivals,
   type ArrivalCursor,
