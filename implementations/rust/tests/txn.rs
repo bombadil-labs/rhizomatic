@@ -82,6 +82,20 @@ fn atomic_bundle_dispatches_in_one_step() {
 }
 
 #[test]
+fn peer_final_set_dispatches_in_one_step() {
+    let (deltas, reg) = world();
+    let mut r = Reactor::new();
+    let body = reg.get("MovieDeep").unwrap().body.clone();
+    r.register("deep", body, &["movie:matrix".to_string()], Some(reg))
+        .unwrap();
+    assert_eq!(r.ingest_batch(&deltas), IngestResult::Accepted);
+    assert_eq!(r.changes_from_last_ingest().len(), 1);
+    assert!(r.changes_from_last_ingest()[0]
+        .responsible_delta_ids
+        .contains(&deltas[0].id));
+}
+
+#[test]
 fn invalid_member_rejects_the_whole_bundle() {
     let (deltas, _) = world();
     let mut r = Reactor::new();

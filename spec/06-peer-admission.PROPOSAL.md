@@ -289,6 +289,9 @@ The pipeline is:
    records, and **durable pending-purge obligations** in one atomic transaction. If the backend
    cannot commit that logical state together, reject the affected units without changing
    holdings. Physical byte removal and any shared-host reference release follow the commit.
+   The peer may hand the verified final additions to its reactor as one internal update, so
+   materializations observe the whole accepted transfer at once. That update is not a signed
+   transaction bundle and grants no admission or authorship authority of its own.
    Until declared storage surfaces prove physical absence, a byte-removal report says `pending`,
    `failed` with the fault, or `shared-held`; a release of this peer's reference is reported
    separately and never called byte removal. A host may disclose `shared-held` to its authorized

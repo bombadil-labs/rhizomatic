@@ -61,6 +61,22 @@ describe("transaction manifests + atomic bundles (SPEC-1 §9 / SPEC-4 §6)", () 
     expect(r.holdsAllMembers(manifest.id)).toBe(true);
   });
 
+  it("a peer's final accepted set becomes visible to materializations in one step", () => {
+    const r = new Reactor();
+    r.register(
+      "deep",
+      registry.get("MovieDeep")!.body,
+      ["movie:matrix"],
+      1_000_000_000_000_000,
+      registry,
+    );
+    const events: number[] = [];
+    r.subscribe("deep", () => events.push(1));
+    expect(r.ingestBatch(baseDeltas).status).toBe("accepted");
+    expect(events).toHaveLength(1);
+    expect(r.changesFromLastIngest()[0]!.responsibleDeltaIds).toContain(baseDeltas[0]!.id);
+  });
+
   it("a bundle with an invalid member is rejected wholesale, leaving no trace", () => {
     const r = new Reactor();
     const bad: Delta = { ...baseDeltas[1]!, id: `1e20${"00".repeat(32)}` };

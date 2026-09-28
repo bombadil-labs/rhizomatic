@@ -4190,6 +4190,43 @@
       else list.push(cb);
     }
     // --- atomic batch ingestion (SPEC-1 §9, SPEC-4 §6) ---
+    /**
+     * Install a peer admission decision as one reactor update (SPEC-6 vNext §2 step 6).
+     * The peer must choose its final set and coordinate this in-memory update with its
+     * durable admission transaction. This method still verifies every offered delta, including
+     * duplicates. It does not make a signed bundle; the peer enforces unsigned-member coverage.
+     */
+    ingestBatch(deltas) {
+      const fresh = [];
+      const seen = /* @__PURE__ */ new Set();
+      for (const d of deltas) {
+        if (d.sig !== void 0 && verifyDelta(d) !== "verified") {
+          return { status: "rejected", reason: `batch member ${d.id}: signature does not verify` };
+        }
+        try {
+          const probe = new DeltaSet();
+          probe.add(d);
+        } catch (e) {
+          return {
+            status: "rejected",
+            reason: `batch member ${d.id}: ${e instanceof Error ? e.message : String(e)}`
+          };
+        }
+        if (this.set.has(d.id) || seen.has(d.id)) continue;
+        seen.add(d.id);
+        fresh.push(d);
+      }
+      if (fresh.length === 0) return { status: "duplicate" };
+      for (const d of fresh) {
+        this.set.add(d);
+        this.log.push(d);
+        this.index(d);
+      }
+      this.membershipRevision += 1;
+      for (const d of fresh) for (const cb of this.rawSubscribers) cb(d);
+      this.lastChanges = this.dispatchAndUpdate(fresh);
+      return { status: "accepted" };
+    }
     // Manifest-keyed atomic ingestion: validate everything first; all members become visible to
     // dispatch in one step, or none do. The transaction vocabulary supplies the batch boundary;
     // the reactor supplies the courtesy.
