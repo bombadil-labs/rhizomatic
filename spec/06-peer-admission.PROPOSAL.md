@@ -314,6 +314,11 @@ The pipeline is:
    records, and **durable pending-purge obligations** in one atomic transaction. If the backend
    cannot commit that logical state together, reject the affected units without changing
    holdings. Physical byte removal and any shared-host reference release follow the commit.
+   A storage replacement MAY batch already-planned consecutive transfers without exposing an
+   intermediate state. It retains each receiver-local transfer ordinal. All orders in one new
+   refusal event share that ordinal, and one ordinal creates at most one refusal event for each
+   target, even when several orders name it. Batching does not merge arrival testimony or quota
+   accounting across those transfers.
    The peer may hand the verified final additions to its reactor as one internal update, so
    materializations observe the whole accepted transfer at once. That update is not a signed
    transaction bundle and grants no admission or authorship authority of its own.

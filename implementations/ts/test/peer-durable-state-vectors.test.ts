@@ -363,6 +363,98 @@ describe("shared SPEC-6 durable writer transition vectors", () => {
               },
             ],
           };
+        } else if (c.mutation === "splitSameTransferTarget") {
+          const targetId = id("userRootDeclaration");
+          const first = id("operatorRootDeclaration");
+          const second = id("bindingUserKey");
+          const planned = planArrivals(
+            actual.base.cursor,
+            new Set(actual.base.admitted.ids()),
+            [first, second],
+            101,
+            "peer-C",
+          );
+          proposed = {
+            ...actual,
+            base: {
+              ...actual.base,
+              admitted: DeltaSet.from([
+                named.get("operatorRootDeclaration")!,
+                named.get("bindingUserKey")!,
+              ]),
+              cursor: { lastSequence: planned.lastSequence, lastTransfer: planned.lastTransfer },
+              arrivals: [...actual.base.arrivals, ...planned.arrivals],
+              refusedIds: new Set([targetId]),
+            },
+            refusalCounter: 2,
+            obligationCounter: 1,
+            events: [
+              { sequence: 1, targetId, orderIds: [first], priorEpoch: 1 },
+              { sequence: 2, targetId, orderIds: [second], priorEpoch: 1 },
+            ],
+            exclusions: [
+              { orderId: first, targetId, eventSequence: 1, priorEpoch: 1 },
+              { orderId: second, targetId, eventSequence: 2, priorEpoch: 1 },
+            ],
+            obligations: [
+              {
+                sequence: 1,
+                targetId,
+                generation: 1,
+                eventSequence: 2,
+                priorEpoch: 1,
+                status: "pending",
+              },
+            ],
+          };
+        } else if (c.mutation === "mixedOrderTransfers") {
+          const targetId = id("userRootDeclaration");
+          const first = id("operatorRootDeclaration");
+          const second = id("bindingUserKey");
+          const a = planArrivals(
+            actual.base.cursor,
+            new Set(actual.base.admitted.ids()),
+            [first],
+            101,
+            "peer-C",
+          );
+          const b = planArrivals(
+            { lastSequence: a.lastSequence, lastTransfer: a.lastTransfer },
+            new Set([...actual.base.admitted.ids(), first]),
+            [second],
+            102,
+            "peer-C",
+          );
+          proposed = {
+            ...actual,
+            base: {
+              ...actual.base,
+              admitted: DeltaSet.from([
+                named.get("operatorRootDeclaration")!,
+                named.get("bindingUserKey")!,
+              ]),
+              cursor: { lastSequence: b.lastSequence, lastTransfer: b.lastTransfer },
+              arrivals: [...actual.base.arrivals, ...a.arrivals, ...b.arrivals],
+              refusedIds: new Set([targetId]),
+            },
+            refusalCounter: 1,
+            obligationCounter: 1,
+            events: [{ sequence: 1, targetId, orderIds: [first, second].sort(), priorEpoch: 1 }],
+            exclusions: [
+              { orderId: first, targetId, eventSequence: 1, priorEpoch: 1 },
+              { orderId: second, targetId, eventSequence: 1, priorEpoch: 1 },
+            ],
+            obligations: [
+              {
+                sequence: 1,
+                targetId,
+                generation: 1,
+                eventSequence: 1,
+                priorEpoch: 1,
+                status: "pending",
+              },
+            ],
+          };
         } else proposed = fromCase(vector.cases[c.proposedCase!]!);
         const expected =
           c.expectedCase === undefined

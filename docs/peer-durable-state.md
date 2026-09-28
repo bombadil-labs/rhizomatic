@@ -19,7 +19,9 @@ replaces that complete image with a sync, rename, and directory
 sync. Each write must supply the exact prior image bytes it planned against, or `null` when
 creating the file; a mismatch rejects the write. The writer also verifies that newly effective
 orders arrived in that transition, that quota growth equals new non-order arrivals, and that every
-new arrival remains admitted. The expected-image check assumes the documented single writer; it
+new arrival remains admitted. New events may batch consecutive transfers in one image, but all
+orders in an event share a transfer ordinal and a target has at most one event per ordinal. The
+expected-image check assumes the documented single writer; it
 does not implement a cross-process atomic compare-and-swap. A post-rename directory sync failure
 means `committed-unconfirmed`; the caller must reload
 and reconcile before acknowledging anything. A failed plan or pre-rename write leaves the prior

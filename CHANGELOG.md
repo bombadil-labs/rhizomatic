@@ -18,6 +18,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
   signed loose and bundle entry checks, candidate-local guard preflight against the pre-transfer
   admitted set, conservative erasure authority and target-budget filtering, set-level ordinary
   quota selection, and atomic in-memory Reactor batch ingestion.
+  An internal typed signed-loose ordinary transfer path now composes those stages with the
+  durable image and pins outcomes and bytes in shared vectors.
   These are staged helpers; the typed admission and handoff API is still in progress.
 
 ### Internal structure

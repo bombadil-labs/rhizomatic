@@ -449,13 +449,27 @@ fn validate_transition(before: &DurablePeerState, after: &DurablePeerState) -> R
         return Err("durable peer state: new arrival is not admitted".into());
     }
     let new_ids: BTreeSet<&str> = new_arrivals.iter().map(|row| row.id.as_str()).collect();
+    let transfer_of: BTreeMap<&str, u64> = new_arrivals
+        .iter()
+        .map(|row| (row.id.as_str(), row.transfer))
+        .collect();
     let mut new_orders = BTreeSet::new();
+    let mut targets_by_transfer = BTreeSet::new();
     for event in &after.events[before.events.len()..] {
+        let mut transfer = None;
         for order_id in &event.order_ids {
             if !new_ids.contains(order_id.as_str()) {
                 return Err("durable peer state: new effective order lacks new arrival".into());
             }
+            let order_transfer = transfer_of[order_id.as_str()];
+            if transfer.is_some_and(|prior| prior != order_transfer) {
+                return Err("durable peer state: event orders span transfers".into());
+            }
+            transfer = Some(order_transfer);
             new_orders.insert(order_id.as_str());
+        }
+        if !targets_by_transfer.insert((transfer, event.target_id.as_str())) {
+            return Err("durable peer state: target has two refusal events in one transfer".into());
         }
     }
     if after.quota_used - before.quota_used != (new_arrivals.len() - new_orders.len()) as u64 {

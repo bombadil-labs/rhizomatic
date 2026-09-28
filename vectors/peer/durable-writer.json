@@ -38,6 +38,24 @@
       "beforeCase": 0,
       "mutation": "coOfferedRefusedArrival",
       "expected": "new arrival is not admitted"
+    },
+    {
+      "name": "two orders for one target in one transfer need one event",
+      "beforeCase": 1,
+      "mutation": "splitSameTransferTarget",
+      "expected": "target has two refusal events in one transfer"
+    },
+    {
+      "name": "two planned transfers for one target may batch in one image",
+      "beforeCase": 1,
+      "afterCase": 3,
+      "outcome": "durable"
+    },
+    {
+      "name": "one refusal event cannot mix order transfers",
+      "beforeCase": 1,
+      "mutation": "mixedOrderTransfers",
+      "expected": "event orders span transfers"
     }
   ]
 }

@@ -480,6 +480,144 @@ fn durable_writer_transitions_match_shared_vectors() {
                     fault: None,
                 }];
             }
+            Some("splitSameTransferTarget") => {
+                let target_id = named["userRootDeclaration"].id.clone();
+                let first = named["operatorRootDeclaration"].id.clone();
+                let second = named["bindingUserKey"].id.clone();
+                let active: BTreeSet<String> =
+                    actual.base.admitted.iter().map(|d| d.id.clone()).collect();
+                let planned = plan_arrivals(
+                    actual.base.cursor,
+                    &active,
+                    &[first.clone(), second.clone()],
+                    101.0,
+                    "peer-C",
+                )
+                .unwrap();
+                proposed.base.admitted = DeltaSet::from_deltas([
+                    named["operatorRootDeclaration"].clone(),
+                    named["bindingUserKey"].clone(),
+                ])
+                .unwrap();
+                proposed.base.cursor = ArrivalCursor {
+                    last_sequence: planned.last_sequence,
+                    last_transfer: planned.last_transfer,
+                };
+                proposed.base.arrivals.extend(planned.arrivals);
+                proposed.base.refused_ids.insert(target_id.clone());
+                proposed.refusal_counter = 2;
+                proposed.obligation_counter = 1;
+                proposed.events = vec![
+                    RefusalEvent {
+                        sequence: 1,
+                        target_id: target_id.clone(),
+                        order_ids: vec![first.clone()],
+                        prior_epoch: Some(1),
+                    },
+                    RefusalEvent {
+                        sequence: 2,
+                        target_id: target_id.clone(),
+                        order_ids: vec![second.clone()],
+                        prior_epoch: Some(1),
+                    },
+                ];
+                proposed.exclusions = vec![
+                    ErasureExclusion {
+                        order_id: first,
+                        target_id: target_id.clone(),
+                        event_sequence: 1,
+                        prior_epoch: Some(1),
+                    },
+                    ErasureExclusion {
+                        order_id: second,
+                        target_id: target_id.clone(),
+                        event_sequence: 2,
+                        prior_epoch: Some(1),
+                    },
+                ];
+                proposed.obligations = vec![PurgeObligation {
+                    sequence: 1,
+                    target_id,
+                    generation: 1,
+                    event_sequence: 2,
+                    prior_epoch: Some(1),
+                    status: "pending".into(),
+                    fault: None,
+                }];
+            }
+            Some("mixedOrderTransfers") => {
+                let target_id = named["userRootDeclaration"].id.clone();
+                let first = named["operatorRootDeclaration"].id.clone();
+                let second = named["bindingUserKey"].id.clone();
+                let active: BTreeSet<String> =
+                    actual.base.admitted.iter().map(|d| d.id.clone()).collect();
+                let a = plan_arrivals(
+                    actual.base.cursor,
+                    &active,
+                    std::slice::from_ref(&first),
+                    101.0,
+                    "peer-C",
+                )
+                .unwrap();
+                let mut with_first = active;
+                with_first.insert(first.clone());
+                let b = plan_arrivals(
+                    ArrivalCursor {
+                        last_sequence: a.last_sequence,
+                        last_transfer: a.last_transfer,
+                    },
+                    &with_first,
+                    std::slice::from_ref(&second),
+                    102.0,
+                    "peer-C",
+                )
+                .unwrap();
+                proposed.base.admitted = DeltaSet::from_deltas([
+                    named["operatorRootDeclaration"].clone(),
+                    named["bindingUserKey"].clone(),
+                ])
+                .unwrap();
+                proposed.base.cursor = ArrivalCursor {
+                    last_sequence: b.last_sequence,
+                    last_transfer: b.last_transfer,
+                };
+                proposed.base.arrivals.extend(a.arrivals);
+                proposed.base.arrivals.extend(b.arrivals);
+                proposed.base.refused_ids.insert(target_id.clone());
+                proposed.refusal_counter = 1;
+                proposed.obligation_counter = 1;
+                let mut order_ids = vec![first.clone(), second.clone()];
+                order_ids.sort();
+                proposed.events = vec![RefusalEvent {
+                    sequence: 1,
+                    target_id: target_id.clone(),
+                    order_ids,
+                    prior_epoch: Some(1),
+                }];
+                proposed.exclusions = vec![
+                    ErasureExclusion {
+                        order_id: first,
+                        target_id: target_id.clone(),
+                        event_sequence: 1,
+                        prior_epoch: Some(1),
+                    },
+                    ErasureExclusion {
+                        order_id: second,
+                        target_id: target_id.clone(),
+                        event_sequence: 1,
+                        prior_epoch: Some(1),
+                    },
+                ];
+                proposed.obligations = vec![PurgeObligation {
+                    sequence: 1,
+                    target_id,
+                    generation: 1,
+                    event_sequence: 1,
+                    prior_epoch: Some(1),
+                    status: "pending".into(),
+                    fault: None,
+                }];
+            }
             _ => {}
         }
         let expected_bytes = case["expectedCase"].as_u64().map(|index| {

@@ -364,13 +364,24 @@ function validateTransition(before: DurablePeerState, after: DurablePeerState): 
   if (newArrivals.some((row) => !after.base.admitted.has(row.id)))
     throw new Error("durable peer state: new arrival is not admitted");
   const newIds = new Set(newArrivals.map((row) => row.id));
+  const transferOf = new Map(newArrivals.map((row) => [row.id, row.transfer]));
   const newOrders = new Set<string>();
+  const targetsByTransfer = new Set<string>();
   for (const event of after.events.slice(before.events.length)) {
+    let transfer: number | undefined;
     for (const orderId of event.orderIds) {
       if (!newIds.has(orderId))
         throw new Error("durable peer state: new effective order lacks new arrival");
+      const orderTransfer = transferOf.get(orderId)!;
+      if (transfer !== undefined && transfer !== orderTransfer)
+        throw new Error("durable peer state: event orders span transfers");
+      transfer = orderTransfer;
       newOrders.add(orderId);
     }
+    const key = `${transfer}:${event.targetId}`;
+    if (targetsByTransfer.has(key))
+      throw new Error("durable peer state: target has two refusal events in one transfer");
+    targetsByTransfer.add(key);
   }
   if (after.quotaUsed - before.quotaUsed !== newArrivals.length - newOrders.size)
     throw new Error("durable peer state: quota growth must equal new ordinary arrivals");

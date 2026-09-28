@@ -14,6 +14,8 @@ pub mod entry;
 pub mod erasure_filter;
 pub mod eval;
 pub mod hash;
+#[doc(hidden)]
+pub mod signed_loose_admission;
 // The HTTP binding is host-only (tiny_http/ureq do not build on wasm32).
 #[cfg(not(target_arch = "wasm32"))]
 pub mod http;
