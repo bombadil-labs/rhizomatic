@@ -6,11 +6,19 @@ export type TransferUnit =
   | { readonly kind: "loose"; readonly delta: Delta }
   | { readonly kind: "bundle"; readonly manifest: Delta; readonly members: readonly Delta[] };
 
+/** Membership and read access to the admitted set before this transfer. Returned deltas are copies. */
+export interface ReadonlyAdmittedSet extends Iterable<Delta> {
+  has(id: string): boolean;
+  get(id: string): Delta | undefined;
+  readonly size: number;
+  ids(): string[];
+}
+
 export interface GuardContext<State> {
   readonly candidate: Delta;
   readonly sendingPeerId: string;
   readonly receivingPeerId: string;
-  readonly admittedBefore: DeltaSet;
+  readonly admittedBefore: ReadonlyAdmittedSet;
   readonly arrivedAt: number;
   readonly policyState: Readonly<State>;
 }
@@ -24,7 +32,7 @@ export interface PreflightContext<State> {
   readonly sendingPeerId: string;
   readonly receivingPeerId: string;
   readonly arrivedAt: number;
-  /** A structured-cloneable snapshot; guards cannot mutate the caller's state. */
+  /** Application-owned state. Guards must treat it as read-only. */
   readonly policyState: Readonly<State>;
   readonly guards: readonly CandidateGuard<State>[];
 }
@@ -37,7 +45,7 @@ export interface GuardedUnit {
 
 /**
  * Stage steps 1 and 3 for a transfer without a subscribed lens. All units verify before any guard
- * runs; guards see only a copy of the same pre-transfer set. Conflict, erasure, quota, and durable
+ * runs; guards see one read-only view of the same pre-transfer set. Conflict, erasure, quota, and durable
  * commit stages must still decide what lands. This result is not an admission receipt.
  */
 export function preflightTransfer<State>(
@@ -56,11 +64,25 @@ export function preflightTransfer<State>(
   if (sendingPeerId.length === 0 || receivingPeerId.length === 0)
     throw new Error("peer ids must not be empty");
   if (!Number.isFinite(arrivedAt)) throw new Error("arrival time must be finite");
-  // Application guards are called after verification. Keep the candidates, admitted snapshot,
-  // and policy state independent of caller-owned objects and of one another's mutations.
+  // Application guards are called after verification. Keep candidates and the admitted snapshot
+  // independent of caller-owned objects. Policy state is supplied by the application, whose
+  // guards are required by the contract to treat it as read-only.
   const stableUnits = units.map((unit) => structuredClone(unit));
   const stableBefore = DeltaSet.from([...admittedBefore].map((delta) => structuredClone(delta)));
-  const stablePolicyState = structuredClone(policyState);
+  const admittedView: ReadonlyAdmittedSet = Object.freeze({
+    has: (id: string) => stableBefore.has(id),
+    get: (id: string) => {
+      const delta = stableBefore.get(id);
+      return delta === undefined ? undefined : structuredClone(delta);
+    },
+    get size() {
+      return stableBefore.size;
+    },
+    ids: () => stableBefore.ids(),
+    *[Symbol.iterator]() {
+      for (const delta of stableBefore) yield structuredClone(delta);
+    },
+  });
   const activeIds = new Set([...stableBefore].map((delta) => delta.id));
   const verified = stableUnits.map((unit) => {
     const status =
@@ -86,9 +108,9 @@ export function preflightTransfer<State>(
             candidate: structuredClone(candidate),
             sendingPeerId,
             receivingPeerId,
-            admittedBefore: DeltaSet.from([...stableBefore].map((delta) => structuredClone(delta))),
+            admittedBefore: admittedView,
             arrivedAt,
-            policyState: structuredClone(stablePolicyState),
+            policyState,
           })
         ) {
           return { unit, status: "guard-rejected", freshIds: [] };

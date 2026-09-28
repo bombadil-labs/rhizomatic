@@ -115,7 +115,7 @@ describe("shared SPEC-6 guarded transfer vectors", () => {
   }
 });
 
-it("isolates guard mutation from later guards, caller state, and returned candidates", () => {
+it("isolates guard mutation from later guards, caller deltas, and returned candidates", () => {
   const grant = named.get("grant")!;
   const act = named.get("act")!;
   const prior = DeltaSet.from([grant]);
@@ -128,10 +128,9 @@ it("isolates guard mutation from later guards, caller state, and returned candid
     arrivedAt: 100,
     policyState,
     guards: [
-      ({ candidate, admittedBefore, policyState: state }) => {
+      ({ candidate, admittedBefore }) => {
         (candidate.claims as { author: string }).author = "tampered";
         ([...admittedBefore][0]!.claims as { author: string }).author = "tampered";
-        (state as { allow: boolean }).allow = false;
         return true;
       },
       ({ candidate, admittedBefore, policyState: state }) =>
@@ -145,4 +144,24 @@ it("isolates guard mutation from later guards, caller state, and returned candid
   expect(act.claims.author).toBe(author);
   expect(grant.claims.author).toBe(author);
   expect(policyState.allow).toBe(true);
+});
+
+it("keeps application policy classes and their methods available to guards", () => {
+  class PolicyState {
+    constructor(readonly roster: DeltaSet) {}
+    allows(id: string): boolean {
+      return this.roster.has(id);
+    }
+  }
+  const policyState = new PolicyState(DeltaSet.from([named.get("grant")!]));
+  const result = preflightTransfer([{ kind: "loose", delta: named.get("act")! }], {
+    admittedBefore: new DeltaSet(),
+    refusedIds: new Set(),
+    sendingPeerId: "sender-A",
+    receivingPeerId: "receiver-B",
+    arrivedAt: 100,
+    policyState,
+    guards: [({ policyState: state }) => state.allows(named.get("grant")!.id)],
+  });
+  expect(result[0]?.status).toBe("eligible");
 });

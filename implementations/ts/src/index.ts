@@ -100,6 +100,7 @@ export {
   type GuardedUnit,
   type GuardedUnitStatus,
   type PreflightContext,
+  type ReadonlyAdmittedSet,
   type TransferUnit,
 } from "./federation/preflight.js";
 export {

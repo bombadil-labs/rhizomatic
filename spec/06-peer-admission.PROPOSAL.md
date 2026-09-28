@@ -223,7 +223,9 @@ The pipeline is:
    pre-transfer set, and explicit policy state; mutation cannot change another guard's inputs or
    the verified candidate that later stages receive. For each unit, the manifest runs first,
    followed by supplied members in their supplied order; every fresh candidate runs guards in
-   declared order. This call order carries no admission authority and does not make the unit's
+   declared order. Repeated appearances of one fresh id in a unit run its guards once. A unit
+   stops calling guards and is rejected after its first guard rejection. This call order carries
+   no admission authority and does not make the unit's
    set-level rank depend on wire order. No quota is charged at this stage; a
    candidate rejected later cannot consume capacity.
 4. Compute a **proposed** final set without changing holdings. Apply any declared, deterministic
