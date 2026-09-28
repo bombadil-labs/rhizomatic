@@ -33,6 +33,16 @@ A recovery copy is valid only when its bytes match the committed digest, never b
 host's later live set. To repair an unreadable snapshot, the new peer MAY restore a valid copy,
 without replaying the handoff or changing obligation ownership. It MUST verify that copy before
 resuming admission or serving.
+While closed for staging, a new peer may persist its local candidate state together with the
+canonical inherited refusal snapshot. Reopening that stage MUST preserve the inherited snapshot
+byte for byte, and a later handoff MUST carry the union of inherited and new local refusal events,
+using the new peer's current event for a target it also refused. A closed stage grants no right to
+admit or serve. It cannot become committed until the imported holdings, active obligations,
+policy, storage fence, and old-peer-authoritative acknowledgement and commit proof are bound in
+the required transaction.
+The closed stage's local arrival fields are only candidate state: the eventual import MUST assign
+new-peer testimony to verified inherited holdings and MUST NOT accept copied host arrival fields
+as that testimony. The stage also cannot establish unsigned covering-bundle evidence by itself.
 The v1 permanent-posture inherited-refusal snapshot binds every carried refusal event to its
 source `PeerId` and source sequence, and names exactly one current event for every event target.
 It retains earlier events for the same target; a current reference cannot point before a later

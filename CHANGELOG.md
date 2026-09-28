@@ -34,6 +34,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
   A canonical inherited-refusal snapshot now preserves source-qualified events and current
   targets, with a digest-checked independent recovery path in both witnesses. It remains an
   internal handoff component until obligations, holdings, policy, and commit proof are bound.
+  A closed v3 staging image now durably retains those inherited bytes beside a local peer image;
+  its full qualified refusal history survives a second handoff. It cannot admit or serve.
 
 ## 0.11.0-next.1 — 2026-09-25
 
