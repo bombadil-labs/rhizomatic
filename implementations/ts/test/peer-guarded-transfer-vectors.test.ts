@@ -114,3 +114,35 @@ describe("shared SPEC-6 guarded transfer vectors", () => {
     });
   }
 });
+
+it("isolates guard mutation from later guards, caller state, and returned candidates", () => {
+  const grant = named.get("grant")!;
+  const act = named.get("act")!;
+  const prior = DeltaSet.from([grant]);
+  const policyState = { allow: true };
+  const result = preflightTransfer([{ kind: "loose", delta: act }], {
+    admittedBefore: prior,
+    refusedIds: new Set(),
+    sendingPeerId: "sender-A",
+    receivingPeerId: "receiver-B",
+    arrivedAt: 100,
+    policyState,
+    guards: [
+      ({ candidate, admittedBefore, policyState: state }) => {
+        (candidate.claims as { author: string }).author = "tampered";
+        ([...admittedBefore][0]!.claims as { author: string }).author = "tampered";
+        (state as { allow: boolean }).allow = false;
+        return true;
+      },
+      ({ candidate, admittedBefore, policyState: state }) =>
+        candidate.claims.author === author &&
+        [...admittedBefore][0]!.claims.author === author &&
+        state.allow,
+    ],
+  });
+  expect(result[0]?.status).toBe("eligible");
+  expect(result[0]?.unit.kind === "loose" && result[0].unit.delta.claims.author).toBe(author);
+  expect(act.claims.author).toBe(author);
+  expect(grant.claims.author).toBe(author);
+  expect(policyState.allow).toBe(true);
+});

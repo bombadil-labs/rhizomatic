@@ -24,6 +24,7 @@ export interface PreflightContext<State> {
   readonly sendingPeerId: string;
   readonly receivingPeerId: string;
   readonly arrivedAt: number;
+  /** A structured-cloneable snapshot; guards cannot mutate the caller's state. */
   readonly policyState: Readonly<State>;
   readonly guards: readonly CandidateGuard<State>[];
 }
@@ -55,8 +56,13 @@ export function preflightTransfer<State>(
   if (sendingPeerId.length === 0 || receivingPeerId.length === 0)
     throw new Error("peer ids must not be empty");
   if (!Number.isFinite(arrivedAt)) throw new Error("arrival time must be finite");
-  const activeIds = new Set([...admittedBefore].map((delta) => delta.id));
-  const verified = units.map((unit) => {
+  // Application guards are called after verification. Keep the candidates, admitted snapshot,
+  // and policy state independent of caller-owned objects and of one another's mutations.
+  const stableUnits = units.map((unit) => structuredClone(unit));
+  const stableBefore = DeltaSet.from([...admittedBefore].map((delta) => structuredClone(delta)));
+  const stablePolicyState = structuredClone(policyState);
+  const activeIds = new Set([...stableBefore].map((delta) => delta.id));
+  const verified = stableUnits.map((unit) => {
     const status =
       unit.kind === "loose"
         ? looseEntryStatus(unit.delta, activeIds, refusedIds)
@@ -77,12 +83,12 @@ export function preflightTransfer<State>(
       for (const guard of guards) {
         if (
           !guard({
-            candidate,
+            candidate: structuredClone(candidate),
             sendingPeerId,
             receivingPeerId,
-            admittedBefore: admittedBefore.copy(),
+            admittedBefore: DeltaSet.from([...stableBefore].map((delta) => structuredClone(delta))),
             arrivedAt,
-            policyState,
+            policyState: structuredClone(stablePolicyState),
           })
         ) {
           return { unit, status: "guard-rejected", freshIds: [] };

@@ -219,7 +219,13 @@ The pipeline is:
    reports any mismatch as a binding discrepancy; under permanent refusal, that discrepancy does
    not silently remove the refusal. Target-author binding is not a closure requirement.
 3. Apply candidate-local guards in declared order, each against the same pre-transfer admitted
-   set. No quota is charged at this stage; a candidate rejected later cannot consume capacity.
+   set. A guard MUST be deterministic and side-effect-free with respect to its candidate,
+   pre-transfer set, and explicit policy state; mutation cannot change another guard's inputs or
+   the verified candidate that later stages receive. For each unit, the manifest runs first,
+   followed by supplied members in their supplied order; every fresh candidate runs guards in
+   declared order. This call order carries no admission authority and does not make the unit's
+   set-level rank depend on wire order. No quota is charged at this stage; a
+   candidate rejected later cannot consume capacity.
 4. Compute a **proposed** final set without changing holdings. Apply any declared, deterministic
    candidate-set conflict rule to candidates that passed steps 1–3, using the pre-transfer
    admitted set. First classify every erasure remaining after steps 1–3 by the receiver's declared

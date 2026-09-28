@@ -58,6 +58,43 @@
       "checked": ["act"]
     },
     {
+      "name": "already-held bundle member skips guards and fresh ids",
+      "prior": ["act"],
+      "units": [{ "bundle": ["act", "deny"] }],
+      "guards": ["expectedPeer"],
+      "expected": ["eligible"],
+      "fresh": [["manifest", "deny"]],
+      "checked": ["manifest", "deny"]
+    },
+    {
+      "name": "all held members leave only a fresh manifest",
+      "prior": ["act", "deny"],
+      "units": [{ "bundle": ["act", "deny"] }],
+      "guards": ["expectedPeer"],
+      "expected": ["eligible"],
+      "fresh": [["manifest"]],
+      "checked": ["manifest"]
+    },
+    {
+      "name": "repeated bundle member is guarded once",
+      "prior": [],
+      "units": [{ "bundle": ["act", "act"] }],
+      "guards": ["expectedPeer"],
+      "expected": ["eligible"],
+      "fresh": [["manifest", "act"]],
+      "checked": ["manifest", "act"]
+    },
+    {
+      "name": "each bundle candidate runs all guards before the next candidate",
+      "prior": ["grant"],
+      "units": [{ "bundle": ["act", "deny"] }],
+      "guards": ["expectedPeer", "requiresGrant"],
+      "expected": ["eligible"],
+      "fresh": [["manifest", "act", "deny"]],
+      "checked": ["manifest", "manifest", "act", "act", "deny", "deny"],
+      "checkedOrder": ["expectedPeer:manifest", "requiresGrant:manifest", "expectedPeer:act", "requiresGrant:act", "expectedPeer:deny", "requiresGrant:deny"]
+    },
+    {
       "name": "invalid loose input never reaches a guard",
       "prior": [],
       "units": [{ "loose": "act", "mutation": "forgeSignature" }],
