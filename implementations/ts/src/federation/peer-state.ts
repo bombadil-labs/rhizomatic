@@ -18,6 +18,11 @@ const DELTA_ID = /^1e20[0-9a-f]{64}$/;
 // remain equal to the verified pair.
 const verifiedSignatures = new WeakMap<Delta, { id: string; sig: string }>();
 
+/** Share a strict check already completed at another trusted peer-state boundary. */
+export function rememberVerifiedSignature(delta: Delta): void {
+  if (delta.sig !== undefined) verifiedSignatures.set(delta, { id: delta.id, sig: delta.sig });
+}
+
 function wellFormed(text: string): boolean {
   for (let i = 0; i < text.length; i++) {
     const ch = text.charCodeAt(i);
@@ -104,7 +109,7 @@ function validateState(state: PeerState): void {
     if (delta.sig !== undefined && (verified?.id !== delta.id || verified.sig !== delta.sig)) {
       if (verifyDelta(delta) !== "verified")
         throw new Error("peer state: invalid admitted signature");
-      verifiedSignatures.set(delta, { id: delta.id, sig: delta.sig });
+      rememberVerifiedSignature(delta);
     }
   }
 }

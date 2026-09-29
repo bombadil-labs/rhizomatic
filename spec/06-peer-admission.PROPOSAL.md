@@ -453,6 +453,17 @@ The pipeline is:
    of those bytes. Replay refuses a repeated admitted id, a broken prior link, a noncanonical
    frame or pack, or a head that differs from the last frame id. Each frame creates exactly one
    receiver-local transfer ordinal, even when its `at` equals the preceding frame's time.
+   A typed journal store supplies one consistent read of head and frames on open, a cheap head
+   read during a warm append, and an atomic compare-and-append of the expected head, next head,
+   frame, and newly admitted rows. Initialization compares an absent head and establishes the
+   empty head only when no rows exist. A conflict has no effect; an uncertain post-commit result
+   requires reopen before retry. The in-memory peer projection is private to the admission
+   facade and is valid only while the store reports the same exact head. A warm append that
+   admits no new id records no frame and requires no storage write. The receipt returns outcomes,
+   new arrivals, and the new head; a full state copy is available separately for readers.
+   The backend MUST keep committed frames immutable under that head and MUST return a consistent
+   head/frame snapshot on reopen. A head-only warm read is sound only under that storage
+   invariant; any backend that cannot preserve it must verify the chain again before admission.
    Until declared storage surfaces prove physical absence, a byte-removal report says `pending`,
    `failed` with the fault, or `shared-held`; a release of this peer's reference is reported
    separately and never called byte removal. A host may disclose `shared-held` to its authorized

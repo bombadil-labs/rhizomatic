@@ -75,6 +75,12 @@ writeFileSync(
       ],
       expectedImageHex: Buffer.from(encodeDurablePeerState(state)).toString("hex"),
       expectedArrivals: state.base.arrivals,
+      api: {
+        emptyHead: "",
+        noOpWrites: 0,
+        rowsWithoutJournal: "rows-without-journal",
+        guardReason: "no write grant",
+      },
       brokenChainError: "ordinary journal: broken frame chain",
       headMismatchError: "ordinary journal: head mismatch",
       repeatedIdError: "ordinary journal: repeated admitted id",

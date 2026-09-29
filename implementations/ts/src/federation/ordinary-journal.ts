@@ -12,6 +12,7 @@ import {
   type DurablePeerState,
 } from "./durable-state.js";
 import { isCanonicalPeerId } from "./peer-identity.js";
+import { rememberVerifiedSignature } from "./peer-state.js";
 
 const VERSION = 1;
 const FRAME_ID = /^1e20[0-9a-f]{64}$/;
@@ -42,6 +43,7 @@ function validFrame(frame: OrdinaryPeerFrame): void {
   for (const delta of frame.additions) {
     if (ids.has(delta.id) || delta.sig === undefined || verifyDelta(delta) !== "verified")
       throw new Error("ordinary journal: invalid signed addition");
+    rememberVerifiedSignature(delta);
     ids.add(delta.id);
   }
 }

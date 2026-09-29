@@ -38,7 +38,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
   without re-hashing them; only newly added members cross the set insertion check. The v2 image
   still grows with admitted history.
   Canonical v1 ordinary journal frames and digest-chain replay are now pinned in both witnesses
-  by shared bytes. This format slice does not yet expose a journal-backed store or admission API.
+  by shared bytes. A typed journal-backed single-peer admission facade exposes an atomic
+  head/frame/row storage seam, warm append, no-op receipts and fail-closed reopen. It covers
+  signed loose ordinary additions only; Loam integration and bounded checkpoints remain to be
+  reviewed.
 
 ### Internal structure
 

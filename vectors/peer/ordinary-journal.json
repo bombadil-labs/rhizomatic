@@ -37,6 +37,12 @@
       "sender": "unattributed"
     }
   ],
+  "api": {
+    "emptyHead": "",
+    "noOpWrites": 0,
+    "rowsWithoutJournal": "rows-without-journal",
+    "guardReason": "no write grant"
+  },
   "brokenChainError": "ordinary journal: broken frame chain",
   "headMismatchError": "ordinary journal: head mismatch",
   "repeatedIdError": "ordinary journal: repeated admitted id",

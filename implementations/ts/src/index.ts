@@ -134,6 +134,14 @@ export {
   type SinglePeerTransferResult,
 } from "./federation/single-peer.js";
 export {
+  OrdinaryJournalPeer,
+  type DurableOrdinaryJournalStore,
+  type OrdinaryJournalRead,
+  type OrdinaryJournalHead,
+  type OrdinaryJournalOpenResult,
+  type OrdinaryJournalAdmissionResult,
+} from "./federation/ordinary-journal-peer.js";
+export {
   planArrivals,
   type ArrivalCursor,
   type ArrivalPlan,
