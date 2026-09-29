@@ -651,12 +651,20 @@ impl OrdinaryJournalPeer {
                 guards: input.guards,
             },
         )?;
-        let offered_order_ids: BTreeSet<String> = guarded
+        let offered_erasure_ids: BTreeSet<String> = guarded
             .iter()
-            .take(input.orders.len())
             .filter(|row| row.status != GuardedUnitStatus::Invalid)
             .filter_map(|row| match &row.unit {
-                TransferUnit::Loose(delta) => Some(delta.id.clone()),
+                TransferUnit::Loose(delta)
+                    if delta
+                        .claims
+                        .pointers
+                        .iter()
+                        .any(|pointer| pointer.role == "erases") =>
+                {
+                    Some(delta.id.clone())
+                }
+                TransferUnit::Loose(_) => None,
                 TransferUnit::Bundle { .. } => None,
             })
             .collect();
@@ -757,14 +765,14 @@ impl OrdinaryJournalPeer {
             }
         }
         for (id, row) in by_id.clone() {
-            if offered_order_ids.contains(&row.target_id) {
+            if offered_erasure_ids.contains(&row.target_id) {
                 by_id.remove(&id);
                 for outcome in &mut outcomes {
                     if outcome.id == id
                         && outcome.status == SignedLooseOutcomeStatus::EffectiveErasure
                     {
                         outcome.status = SignedLooseOutcomeStatus::ErasureIneligible;
-                        outcome.reason = Some("erasure targets an order".into());
+                        outcome.reason = Some("erasure targets an erasure".into());
                     }
                 }
             }

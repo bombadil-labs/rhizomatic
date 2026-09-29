@@ -9,9 +9,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 ### Fixed
 
 - In individual journal admission, an erasure aimed at an already effective order, held erasure
-  testimony, or a verified co-offered order now receives a typed `erasure-ineligible` outcome.
-  Co-offered order identity survives later candidate filtering, and unrelated ordinary
-  candidates in the transfer can still commit.
+  testimony, or a verified co-offered erasure-shaped delta now receives a typed
+  `erasure-ineligible` outcome. Co-offered erasure identity survives later candidate filtering,
+  including ordinary testimony; a misclassified plain delta does not block another order.
+  Unrelated ordinary candidates in the transfer can still commit.
 
 ## 0.11.0-next.6 — 2026-09-29
 

@@ -71,6 +71,15 @@ const orderTargetingFilteredOrder = signClaims(
   },
   seed,
 );
+const orderTargetingPlain = signClaims(
+  {
+    timestamp: 107,
+    validFrom: 107,
+    author: peerId,
+    pointers: [{ role: "erases", target: { kind: "delta", deltaRef: { delta: unrelated.id } } }],
+  },
+  seed,
+);
 const ordinary = encodeOrdinaryPeerFrame({
   peerId,
   prior: "",
@@ -96,6 +105,25 @@ const afterIneligibleOrder = encodeOrdinaryPeerFrame({
   at: 105,
   sender: "local",
   additions: [unrelated],
+});
+const coofferedTestimony = encodeOrdinaryPeerFrame({
+  peerId,
+  prior: "",
+  at: 105,
+  sender: "local",
+  additions: [unrelated, order],
+});
+const afterPlainMisclassification = encodePermanentPeerFrame({
+  kind: "admission",
+  peerId,
+  prior: "",
+  at: 107,
+  sender: "local",
+  additions: [orderTargetingPlain],
+  erasures: [
+    { targetId: unrelated.id, orderIds: [orderTargetingPlain.id], surfaceHoldsBytes: false },
+  ],
+  quotaCharge: 0,
 });
 const falseHeld = encodePermanentPeerFrame({
   kind: "admission",
@@ -248,9 +276,26 @@ writeFileSync(
           claims: claimsToJson(orderTargetingFilteredOrder.claims),
         },
         expectedStatuses: ["erasure-ineligible", "erasure-ineligible", "admitted"],
-        reason: "erasure targets an order",
+        reason: "erasure targets an erasure",
         frameHex: Buffer.from(afterIneligibleOrder).toString("hex"),
         head: contentAddress(afterIneligibleOrder),
+      },
+      coofferedErasureTestimonyTarget: {
+        expectedStatuses: ["erasure-ineligible", "admitted", "admitted"],
+        reason: "erasure targets an erasure",
+        frameHex: Buffer.from(coofferedTestimony).toString("hex"),
+        head: contentAddress(coofferedTestimony),
+      },
+      plainMisclassifiedOrder: {
+        outerOrder: {
+          id: orderTargetingPlain.id,
+          sig: orderTargetingPlain.sig,
+          claims: claimsToJson(orderTargetingPlain.claims),
+        },
+        expectedStatuses: ["erasure-ineligible", "effective-erasure"],
+        reason: "signed target mismatch",
+        frameHex: Buffer.from(afterPlainMisclassification).toString("hex"),
+        head: contentAddress(afterPlainMisclassification),
       },
       heldTestimonyOrderTarget: {
         status: "erasure-ineligible",

@@ -27,9 +27,10 @@ pinned in [`permanent-journal.json`](../vectors/peer/permanent-journal.json).
 An order receipt of `effective-erasure` means the signed order itself was admitted and its
 peer-local target refusal committed; callers should count it as an admitted addition.
 An order aimed at an already effective order, held erasure testimony, or a verified co-offered
-order receives `erasure-ineligible` with a reason. Co-offered order identity is fixed before
-later filters remove ineligible candidates. In individual mode, unrelated ordinary candidates
-can still be admitted in that transfer.
+erasure-shaped delta receives `erasure-ineligible` with a reason. Co-offered erasure identity is
+fixed before later filters remove ineligible candidates, including when the target is offered
+as ordinary testimony. A plain delta misclassified as an order does not block another order.
+In individual mode, unrelated ordinary candidates can still be admitted in that transfer.
 
 TypeScript exports `OrdinaryJournalPeer.open` and `DurableOrdinaryJournalStore` from its barrel;
 Rust exposes `open_ordinary_journal_peer` and the matching store trait. The store returns one

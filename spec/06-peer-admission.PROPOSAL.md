@@ -150,8 +150,10 @@ The pipeline is:
    even if the target was already admitted. An erasure-bearing bundle may contain only its
    manifest and erasure members; mixing ordinary members into an effective erasure unit is
    rejected so they cannot bypass the ordinary quota. An erasure targeting an erasure is invalid,
-   including a verified co-offered order candidate even if that candidate fails a later gate,
-   an already effective order, and erasure-shaped testimony admitted earlier as ordinary data.
+   including a verified co-offered erasure-shaped delta even if it is offered as ordinary
+   testimony or fails a later gate, an already effective order, and erasure-shaped testimony
+   admitted earlier as ordinary data. A plain delta misclassified as an order candidate is not
+   an erasure target for this rule.
    An origin's assertion does not force a local effect.
    Conservatively filter local orders: for each E, remove the targets of
    **other** provisional orders from a copy of the pre-transfer admitted set, but retain E's own

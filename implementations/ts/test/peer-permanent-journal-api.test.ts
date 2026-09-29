@@ -36,6 +36,19 @@ const vector = JSON.parse(
     frameHex: string;
     head: string;
   };
+  coofferedErasureTestimonyTarget: {
+    expectedStatuses: string[];
+    reason: string;
+    frameHex: string;
+    head: string;
+  };
+  plainMisclassifiedOrder: {
+    outerOrder: { id: string; sig: string; claims: unknown };
+    expectedStatuses: string[];
+    reason: string;
+    frameHex: string;
+    head: string;
+  };
   heldTestimonyOrderTarget: { status: string; reason: string };
   conflictingSurfaceError: string;
   frames: Array<{ hex: string; head: string }>;
@@ -457,6 +470,80 @@ describe("typed permanent journal erasure boundary", () => {
     });
     expect(store.frames).toHaveLength(1);
     expect(peer.snapshot().base.refusedIds.has(order.id)).toBe(false);
+  });
+
+  it("recognizes co-offered erasure-shaped ordinary testimony before exclusion", async () => {
+    const store = new MemoryStore();
+    const opened = await OrdinaryJournalPeer.open(store, vector.peerId);
+    if (opened.status !== "open") throw new Error("expected open");
+    const peer = opened.peer;
+    const second = vector.priorEffectiveOrderTarget.order;
+    const result = await peer.admitErasures({
+      orders: [
+        {
+          delta: { id: second.id, sig: second.sig, claims: parseClaims(second.claims) },
+          targetId: order.id,
+          surfaceHoldsBytes: false,
+        },
+      ],
+      ordinary: [order, unrelated],
+      origin: { kind: "local" },
+      arrivedAt: 105,
+      policyState: {},
+      guards: [],
+      mode: "individual",
+      targetBudget: 1,
+      advanceRefusalCap: 1,
+      authorize: () => true,
+    });
+    expect(result.status).toBe("committed");
+    if (result.status !== "committed") throw new Error("expected commit");
+    expect(result.outcomes.map((row) => row.status)).toEqual(
+      vector.coofferedErasureTestimonyTarget.expectedStatuses,
+    );
+    expect(result.outcomes[0]?.reason).toBe(vector.coofferedErasureTestimonyTarget.reason);
+    expect(Buffer.from(store.frames[0]!).toString("hex")).toBe(
+      vector.coofferedErasureTestimonyTarget.frameHex,
+    );
+    expect(result.head).toBe(vector.coofferedErasureTestimonyTarget.head);
+    expect(peer.snapshot().base.refusedIds.has(order.id)).toBe(false);
+  });
+
+  it("does not treat a misclassified plain delta as an erasure target blocker", async () => {
+    const store = new MemoryStore();
+    const opened = await OrdinaryJournalPeer.open(store, vector.peerId);
+    if (opened.status !== "open") throw new Error("expected open");
+    const peer = opened.peer;
+    const outer = vector.plainMisclassifiedOrder.outerOrder;
+    const result = await peer.admitErasures({
+      orders: [
+        { delta: unrelated, targetId: held.id, surfaceHoldsBytes: false },
+        {
+          delta: { id: outer.id, sig: outer.sig, claims: parseClaims(outer.claims) },
+          targetId: unrelated.id,
+          surfaceHoldsBytes: false,
+        },
+      ],
+      origin: { kind: "local" },
+      arrivedAt: 107,
+      policyState: {},
+      guards: [],
+      mode: "individual",
+      targetBudget: 1,
+      advanceRefusalCap: 1,
+      authorize: () => true,
+    });
+    expect(result.status).toBe("committed");
+    if (result.status !== "committed") throw new Error("expected commit");
+    expect(result.outcomes.map((row) => row.status)).toEqual(
+      vector.plainMisclassifiedOrder.expectedStatuses,
+    );
+    expect(result.outcomes[0]?.reason).toBe(vector.plainMisclassifiedOrder.reason);
+    expect(Buffer.from(store.frames[0]!).toString("hex")).toBe(
+      vector.plainMisclassifiedOrder.frameHex,
+    );
+    expect(result.head).toBe(vector.plainMisclassifiedOrder.head);
+    expect(peer.snapshot().base.refusedIds.has(unrelated.id)).toBe(true);
   });
 
   it("keeps purge owed when the last rebase still carried the target", async () => {

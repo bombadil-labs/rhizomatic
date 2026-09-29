@@ -765,6 +765,183 @@ fn journal_api_does_not_erase_held_erasure_testimony() {
 }
 
 #[test]
+fn journal_api_recognizes_cooffered_erasure_testimony() {
+    let vector = read("peer/permanent-journal.json");
+    let peer_id = vector["peerId"].as_str().unwrap();
+    let testimony = Delta {
+        id: vector["order"]["id"].as_str().unwrap().into(),
+        claims: parse_claims(&vector["order"]["claims"]).unwrap(),
+        sig: Some(vector["order"]["sig"].as_str().unwrap().into()),
+    };
+    let second = Delta {
+        id: vector["priorEffectiveOrderTarget"]["order"]["id"]
+            .as_str()
+            .unwrap()
+            .into(),
+        claims: parse_claims(&vector["priorEffectiveOrderTarget"]["order"]["claims"]).unwrap(),
+        sig: Some(
+            vector["priorEffectiveOrderTarget"]["order"]["sig"]
+                .as_str()
+                .unwrap()
+                .into(),
+        ),
+    };
+    let unrelated = fixtures()["operatorRootDeclaration"].clone();
+    let authorize = |_: &rhizomatic::erasure_filter::ErasureOrderCandidate,
+                     _: &std::collections::BTreeSet<String>| true;
+    let mut store = MemoryJournal::default();
+    let OrdinaryJournalOpenResult::Open(mut peer) =
+        open_ordinary_journal_peer(&mut store, peer_id).unwrap()
+    else {
+        panic!("expected open")
+    };
+    let orders = [EffectiveErasureOrder {
+        delta: second,
+        target_id: testimony.id.clone(),
+        surface_holds_bytes: false,
+    }];
+    let ordinary = [testimony.clone(), unrelated];
+    let result = peer
+        .admit_erasures(
+            &mut store,
+            &EffectiveErasureTransferInput {
+                orders: &orders,
+                ordinary: &ordinary,
+                capacity: None,
+                origin: &ArrivalOrigin::Local,
+                arrived_at: 105.0,
+                policy_state: &(),
+                guards: &[],
+                mode: TransferMode::Individual,
+                target_budget: 1,
+                advance_refusal_cap: 1,
+                authorize: &authorize,
+            },
+        )
+        .unwrap();
+    let OrdinaryJournalAdmissionResult::Committed { outcomes, head, .. } = result else {
+        panic!("expected commit")
+    };
+    assert_eq!(
+        outcomes
+            .iter()
+            .map(|row| row.status.as_str())
+            .collect::<Vec<_>>(),
+        vector["coofferedErasureTestimonyTarget"]["expectedStatuses"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|row| row.as_str().unwrap())
+            .collect::<Vec<_>>()
+    );
+    assert_eq!(
+        outcomes[0].reason.as_deref(),
+        vector["coofferedErasureTestimonyTarget"]["reason"].as_str()
+    );
+    assert_eq!(
+        hex::encode(&store.frames[0]),
+        vector["coofferedErasureTestimonyTarget"]["frameHex"]
+    );
+    assert_eq!(head, vector["coofferedErasureTestimonyTarget"]["head"]);
+    assert!(!peer
+        .snapshot()
+        .unwrap()
+        .base
+        .refused_ids
+        .contains(&testimony.id));
+}
+
+#[test]
+fn journal_api_does_not_treat_plain_misclassified_delta_as_erasure() {
+    let vector = read("peer/permanent-journal.json");
+    let peer_id = vector["peerId"].as_str().unwrap();
+    let named = fixtures();
+    let plain = named["operatorRootDeclaration"].clone();
+    let held_id = named[vector["targetName"].as_str().unwrap()].id.clone();
+    let outer = Delta {
+        id: vector["plainMisclassifiedOrder"]["outerOrder"]["id"]
+            .as_str()
+            .unwrap()
+            .into(),
+        claims: parse_claims(&vector["plainMisclassifiedOrder"]["outerOrder"]["claims"]).unwrap(),
+        sig: Some(
+            vector["plainMisclassifiedOrder"]["outerOrder"]["sig"]
+                .as_str()
+                .unwrap()
+                .into(),
+        ),
+    };
+    let authorize = |_: &rhizomatic::erasure_filter::ErasureOrderCandidate,
+                     _: &std::collections::BTreeSet<String>| true;
+    let mut store = MemoryJournal::default();
+    let OrdinaryJournalOpenResult::Open(mut peer) =
+        open_ordinary_journal_peer(&mut store, peer_id).unwrap()
+    else {
+        panic!("expected open")
+    };
+    let orders = [
+        EffectiveErasureOrder {
+            delta: plain.clone(),
+            target_id: held_id,
+            surface_holds_bytes: false,
+        },
+        EffectiveErasureOrder {
+            delta: outer,
+            target_id: plain.id.clone(),
+            surface_holds_bytes: false,
+        },
+    ];
+    let result = peer
+        .admit_erasures(
+            &mut store,
+            &EffectiveErasureTransferInput {
+                orders: &orders,
+                ordinary: &[],
+                capacity: None,
+                origin: &ArrivalOrigin::Local,
+                arrived_at: 107.0,
+                policy_state: &(),
+                guards: &[],
+                mode: TransferMode::Individual,
+                target_budget: 1,
+                advance_refusal_cap: 1,
+                authorize: &authorize,
+            },
+        )
+        .unwrap();
+    let OrdinaryJournalAdmissionResult::Committed { outcomes, head, .. } = result else {
+        panic!("expected commit")
+    };
+    assert_eq!(
+        outcomes
+            .iter()
+            .map(|row| row.status.as_str())
+            .collect::<Vec<_>>(),
+        vector["plainMisclassifiedOrder"]["expectedStatuses"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|row| row.as_str().unwrap())
+            .collect::<Vec<_>>()
+    );
+    assert_eq!(
+        outcomes[0].reason.as_deref(),
+        vector["plainMisclassifiedOrder"]["reason"].as_str()
+    );
+    assert_eq!(
+        hex::encode(&store.frames[0]),
+        vector["plainMisclassifiedOrder"]["frameHex"]
+    );
+    assert_eq!(head, vector["plainMisclassifiedOrder"]["head"]);
+    assert!(peer
+        .snapshot()
+        .unwrap()
+        .base
+        .refused_ids
+        .contains(&plain.id));
+}
+
+#[test]
 fn journal_api_rebases_erased_payload_before_settlement() {
     let vector = read("peer/permanent-journal.json");
     let named = fixtures();

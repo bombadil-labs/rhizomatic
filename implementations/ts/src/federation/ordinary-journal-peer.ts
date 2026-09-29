@@ -523,11 +523,15 @@ export class OrdinaryJournalPeer {
         guards: input.guards,
       },
     );
-    const offeredOrderIds = new Set(
+    const offeredErasureIds = new Set(
       guarded
-        .slice(0, stableOrders.length)
         .filter((row) => row.status !== "invalid")
-        .map((row) => (row.unit.kind === "loose" ? row.unit.delta.id : "")),
+        .flatMap((row) =>
+          row.unit.kind === "loose" &&
+          row.unit.delta.claims.pointers.some((pointer) => pointer.role === "erases")
+            ? [row.unit.delta.id]
+            : [],
+        ),
     );
     const byId = new Map<string, EffectiveErasureOrder>();
     const outcomes: SignedLooseOutcome[] = guarded.slice(0, stableOrders.length).map((row, i) => {
@@ -586,11 +590,15 @@ export class OrdinaryJournalPeer {
       }
     }
     for (const [id, order] of byId) {
-      if (offeredOrderIds.has(order.targetId)) {
+      if (offeredErasureIds.has(order.targetId)) {
         byId.delete(id);
         for (let i = 0; i < outcomes.length; i++)
           if (outcomes[i]!.id === id && outcomes[i]!.status === "effective-erasure")
-            outcomes[i] = { id, status: "erasure-ineligible", reason: "erasure targets an order" };
+            outcomes[i] = {
+              id,
+              status: "erasure-ineligible",
+              reason: "erasure targets an erasure",
+            };
       }
     }
     const filtered = planErasureFilter(
