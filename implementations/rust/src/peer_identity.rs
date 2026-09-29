@@ -1,4 +1,4 @@
-//! Canonical v1 handoff spelling and conservative identity comparison for untrusted sources.
+//! Canonical Ed25519 peer spelling and conservative identity comparison for untrusted sources.
 
 pub fn is_canonical_peer_id(value: &str) -> bool {
     value.strip_prefix("ed25519:").is_some_and(|hex| {

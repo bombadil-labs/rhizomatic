@@ -1,6 +1,6 @@
 //! Internal single-writer image for current holdings, full first-epoch arrival history, and
-//! permanent refusals. Not a complete SPEC-6 admission or handoff transaction: no purge
-//! obligations, exclusion epochs, quota counters, re-entry acts, or handoff record.
+//! permanent refusals. Not a complete SPEC-6 admission transaction: no purge
+//! obligations, exclusion epochs, quota counters, or re-entry acts.
 
 use std::collections::{BTreeMap, BTreeSet};
 

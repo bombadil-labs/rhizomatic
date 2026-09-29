@@ -348,9 +348,18 @@ fn open_ordinary_journal_peer_inner<S: DurableOrdinaryJournalStore>(
             let unavailable = if allow_degraded {
                 classify_admitted_rows(&state, &store.read_admitted_rows_degraded(peer_id, &ids)?)?
             } else {
-                assert_admitted_rows(&state, &store.read_admitted_rows(peer_id, &ids)?)?;
+                let rows = store.read_admitted_rows(peer_id, &ids)?;
+                if store.read_head(peer_id)? != OrdinaryJournalHead::Head(head.clone()) {
+                    return Ok(OrdinaryJournalOpenResult::Conflict);
+                }
+                assert_admitted_rows(&state, &rows)?;
                 Vec::new()
             };
+            if allow_degraded
+                && store.read_head(peer_id)? != OrdinaryJournalHead::Head(head.clone())
+            {
+                return Ok(OrdinaryJournalOpenResult::Conflict);
+            }
             (state, head, unavailable, rebased_through)
         }
         OrdinaryJournalRead::Empty => {

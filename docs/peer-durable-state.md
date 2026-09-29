@@ -29,15 +29,15 @@ image intact. An existing corrupt image blocks reads and writes.
 
 This is an internal, single-writer permanent-posture format. It currently represents signed loose
 effective orders that remain admitted and first admission epochs; it is not the typed peer
-admission or handoff API. Erasing a held effective order requires retaining its historical order
+admission API. Erasing a held effective order requires retaining its historical order
 evidence in a later image version.
 It does not store imported qualified references, bundle coverage for unsigned deltas, refusal
-reason reports, lower-posture re-entry acts, incomplete-history markers, or durable handoff proof.
+reason reports, lower-posture re-entry acts, or incomplete-history markers.
 The `surfaceHoldsBytes` input is a fact supplied by the host storage layer. Marking a purge
 obligation `removed` requires external proof of physical absence; the image alone cannot verify
 that proof. No consumer should report byte removal from a planned event or a pending obligation.
-The file adapter does not coordinate multiple writers or provide the independent recovery copy
-required before an irreversible handoff commit.
+The file adapter does not coordinate multiple writers. The public journal facade instead uses
+an application-supplied atomic store with head comparison.
 Existing v1 files are rejected by the v2 reader and writer. There is no automatic v1→v2
 migration yet; a future migration must establish refusal-event provenance and quota accounting
 before replacing a live v1 image.

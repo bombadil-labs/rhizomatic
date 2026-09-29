@@ -1,4 +1,4 @@
-//! Shared key spelling and identity comparisons for handoff guards.
+//! Shared key spelling and identity comparisons for peer guards.
 
 use rhizomatic::peer_identity::{is_canonical_peer_id, same_peer_id};
 use serde_json::Value;

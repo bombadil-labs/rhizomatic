@@ -1,4 +1,4 @@
-/** Canonical v1 handoff spelling and conservative identity comparison for untrusted sources. */
+/** Canonical Ed25519 peer spelling and conservative identity comparison for untrusted sources. */
 const CANONICAL = /^ed25519:[0-9a-f]{64}$/;
 const KEY_HEX = /^[0-9a-f]{64}$/i;
 

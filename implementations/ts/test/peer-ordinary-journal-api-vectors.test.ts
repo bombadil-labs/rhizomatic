@@ -30,6 +30,7 @@ const vector = JSON.parse(
     rowsWithoutJournal: string;
     guardReason: string;
     rowMismatchError: string;
+    headRace: string;
   };
 };
 const evidence = JSON.parse(
@@ -54,6 +55,7 @@ class MemoryJournal implements DurableOrdinaryJournalStore {
   rows = new Map<string, Delta>();
   writes = 0;
   next: PeerImageWrite = { status: "durable" };
+  staleHead = false;
 
   async readJournal(): Promise<OrdinaryJournalRead> {
     if (this.head === null)
@@ -73,8 +75,15 @@ class MemoryJournal implements DurableOrdinaryJournalStore {
       return row === undefined ? [] : [structuredClone(row)];
     });
   }
+  async readAdmittedRowsDegraded(_peer: string, ids: readonly string[]) {
+    return ids.map((id) => ({
+      id,
+      ...(this.rows.has(id) ? { row: structuredClone(this.rows.get(id)!) } : {}),
+    }));
+  }
   async readHead(): Promise<OrdinaryJournalHead> {
-    return this.head === null ? { status: "missing" } : { status: "head", head: this.head };
+    if (this.head === null) return { status: "missing" };
+    return { status: "head", head: this.staleHead ? `1e20${"ff".repeat(32)}` : this.head };
   }
   async compareAndAppend(
     _peer: string,
@@ -114,6 +123,31 @@ const base = {
 };
 
 describe("shared SPEC-6 typed ordinary journal API", () => {
+  it("returns the shared conflict outcome when the head changes during serving open", async () => {
+    const store = new MemoryJournal();
+    const opened = await OrdinaryJournalPeer.open(store, vector.peerId);
+    if (opened.status !== "open") throw new Error("expected open");
+    expect(
+      (
+        await opened.peer.admit({
+          ...base,
+          offered: [first],
+          origin: { kind: "local" },
+          arrivedAt: vector.frames[0]!.at,
+        })
+      ).status,
+    ).toBe("committed");
+    store.staleHead = true;
+    expect((await OrdinaryJournalPeer.open(store, vector.peerId)).status).toBe(vector.api.headRace);
+    expect(
+      (await OrdinaryJournalPeer.open(store, vector.peerId, { allowDegraded: true })).status,
+    ).toBe(vector.api.headRace);
+    store.rows.delete(first.id);
+    expect((await OrdinaryJournalPeer.open(store, vector.peerId)).status).toBe(vector.api.headRace);
+    expect(
+      (await OrdinaryJournalPeer.open(store, vector.peerId, { allowDegraded: true })).status,
+    ).toBe(vector.api.headRace);
+  });
   it("initializes, appends, skips no-op, and reopens the same durable image", async () => {
     const store = new MemoryJournal();
     const opened = await OrdinaryJournalPeer.open(store, vector.peerId);

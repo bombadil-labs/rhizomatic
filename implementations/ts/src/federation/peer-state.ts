@@ -1,6 +1,6 @@
 // Internal single-writer image for the currently held set, full first-epoch arrival history, and
-// permanent refusals. This is not the complete SPEC-6 admission or handoff transaction: it has no
-// purge obligations, exclusion epochs, quota counters, re-entry acts, or handoff record.
+// permanent refusals. This is not the complete SPEC-6 admission transaction: it has no
+// purge obligations, exclusion epochs, quota counters, or re-entry acts.
 
 import { array, bstr, decode, encode, float, map, tstr, type CborValue } from "../delta/cbor.js";
 import { computeId } from "../delta/delta.js";

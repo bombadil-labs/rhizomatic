@@ -41,6 +41,7 @@ fn fixtures() -> BTreeMap<String, Delta> {
 #[derive(Default)]
 struct MemoryJournal {
     head: Option<String>,
+    stale_head: bool,
     frames: Vec<Vec<u8>>,
     checkpoint: Option<Vec<u8>>,
     rows: BTreeMap<String, Delta>,
@@ -81,6 +82,9 @@ impl DurableOrdinaryJournalStore for MemoryJournal {
     }
     fn read_head(&self, _peer_id: &str) -> Result<OrdinaryJournalHead, String> {
         Ok(match &self.head {
+            Some(_) if self.stale_head => {
+                OrdinaryJournalHead::Head(format!("1e20{}", "ff".repeat(32)))
+            }
             Some(head) => OrdinaryJournalHead::Head(head.clone()),
             None => OrdinaryJournalHead::Missing,
         })
@@ -188,6 +192,39 @@ impl DurableOrdinaryJournalStore for MemoryJournal {
         self.frames.push(frame.to_vec());
         Ok(ErasureJournalWrite::Durable)
     }
+}
+
+#[test]
+fn reopen_detects_head_change_during_row_read() {
+    let vector = read("peer/ordinary-journal.json");
+    let named = fixtures();
+    let peer_id = vector["peerId"].as_str().unwrap();
+    let first = named[vector["firstName"].as_str().unwrap()].clone();
+    let mut store = MemoryJournal {
+        head: Some(vector["frames"][0]["head"].as_str().unwrap().into()),
+        frames: vec![hex::decode(vector["frames"][0]["hex"].as_str().unwrap()).unwrap()],
+        ..Default::default()
+    };
+    store.rows.insert(first.id.clone(), first);
+    store.stale_head = true;
+    assert_eq!(vector["api"]["headRace"], "conflict");
+    assert!(matches!(
+        open_ordinary_journal_peer(&mut store, peer_id).unwrap(),
+        OrdinaryJournalOpenResult::Conflict
+    ));
+    assert!(matches!(
+        open_ordinary_journal_peer_degraded(&mut store, peer_id).unwrap(),
+        OrdinaryJournalOpenResult::Conflict
+    ));
+    store.rows.clear();
+    assert!(matches!(
+        open_ordinary_journal_peer(&mut store, peer_id).unwrap(),
+        OrdinaryJournalOpenResult::Conflict
+    ));
+    assert!(matches!(
+        open_ordinary_journal_peer_degraded(&mut store, peer_id).unwrap(),
+        OrdinaryJournalOpenResult::Conflict
+    ));
 }
 
 #[test]

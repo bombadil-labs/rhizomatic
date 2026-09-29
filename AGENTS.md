@@ -85,7 +85,7 @@ When implementation contradicts specification, **the contradiction is the delive
   strangers rewrite in five languages. Prefer obvious over clever. Save the cleverness for the
   reactor's dispatch (L4) and the pack format (L0), where it pays.
 - Prefer clarity and cross-implementation parity. Add persistence or transport only when the current
-  contract requires it; peer admission and handoff do require durable state.
+  contract requires it; peer admission requires durable state.
 - Match the surrounding code's idiom in each language; don't impose one language's conventions on the other.
 
 ## Current refactor
@@ -94,15 +94,18 @@ When implementation contradicts specification, **the contradiction is the delive
   completion in both. Do not start step 8 while pursuing this order.
 - The original M0–M5 build order is complete. [PROGRESS.md](PROGRESS.md) records that older arc;
   its July "RESUME HERE" notes are history, not the current task list.
-- Step 6 is peer admission and durable handoff. Its working contract is
+- Step 6 is greenfield peer admission with a durable ordinary journal. Its working contract is
   [spec/06-peer-admission.PROPOSAL.md](spec/06-peer-admission.PROPOSAL.md), and the implementation
   is on draft [PR #53](https://github.com/bombadil-labs/rhizomatic/pull/53). Check the PR's current
   head before acting; status in this file can age.
-- Shared peer arrival vectors, an atomic in-memory reactor batch update, and the signed loose-entry
-  gate exist in both TypeScript and Rust. The complete admission pipeline, durable peer state,
-  handoff import/ack/commit, and typed consumer API still need implementation.
-- Loam has completed its step-6 inventory and handoff design. Its pool constructors wait for a
-  reviewed typed peer API and a published prerelease. Do not present partial helpers as that API.
+- Myk's 2026-09-29 greenfield ruling excludes migration and handoff of existing pools. Each new
+  peer starts on empty storage under its own key. A backend with rows but no journal is refused
+  at boot; it is not replayed into peer state. No barrier, carry, import, acknowledgement or
+  cutover API is part of step 6.
+- The typed journal API, mixed signed-loose erasure admission, rebase, purge settlement, and
+  writable degraded open are implemented in both witnesses. Freeze them with shared vectors,
+  green gates, independent review, and a published prerelease before claiming Loam readiness.
+  Loam then runs its host and fresh pools through the journal and refuses old unjournaled pools.
 
 ## Independent T3 review
 

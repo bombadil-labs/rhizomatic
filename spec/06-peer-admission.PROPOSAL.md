@@ -1,247 +1,43 @@
 # SPEC-6 vNext proposal: peers, admission, and arrival
 
-**Status:** Proposed contract for plan step 6. Shared vectors and witness parity are required
-before this becomes normative. Plan step 7 adds publish/subscribe contracts and signed protocol
-messages.
+**Status:** Greenfield step-6 contract. The signed-loose permanent-refusal journal profile
+is pinned by shared vectors in TypeScript and Rust. Other proposed admission forms below require
+their own vectors before they are normative. Plan step 7 adds publish/subscribe and signed
+protocol messages.
 
-## 1. Peer boundary
+## 1. Peer boundary and greenfield scope
 
-A peer has a governing key, an admitted delta set, an admission policy, a sharing policy, and an
-erasure posture. Its delta set may be backed by its own storage or by a view over a host's storage.
-A shared backend does not collapse two peers into one: each peer keeps its own admission
-decisions, arrival records, governing key, sharing policy, refusal set, and erasure reports. A
-hosted container is a separate peer only when it has its own governing key and all those states.
-Since `PeerId` is the peer's public key, two logical peers MUST have different governing keys;
-reusing one key identifies one peer, not two. A shared-key container is a surface of that peer
-until it is given a distinct key and peer state; it cannot claim separate arrival or erasure
-testimony. Assigning a new key alone does not create a working peer: the container remains a
-surface of the original peer and MUST NOT serve or report as a separate peer until a durable
-state handoff completes. Every refusal in the old peer's set applied to every entry path into
-that surface, even for an id the surface never held. The handoff MUST therefore copy the entire
-refusal set and every active byte-removal obligation for bytes on that surface into the new
-peer's own state before it can admit or serve deltas. The new peer MUST NOT enumerate carried
-refusals for ids it never held or reveal their provenance in a public report; an attempted entry
-gets only a generic refusal. An immutable, pinned snapshot of the old refusal set with an
-exclusive new-peer reference satisfies the copy requirement only if the new peer can read it
-without the old peer remaining available. If that reference is unreadable, admission and serving
-reads fail closed; a live host view does not satisfy the requirement. The snapshot covers inherited
-refusals only. Active obligations MUST reside durably in the new peer's own state, independent of
-the old peer. The handoff MUST stage a verified recovery copy of the inherited refusal snapshot
-that remains readable independently of the primary and the old peer before it commits. The
-handoff record includes that snapshot's digest and is authenticated by the old governing key.
-A recovery copy is valid only when its bytes match the committed digest, never by evaluating the
-host's later live set. To repair an unreadable snapshot, the new peer MAY restore a valid copy,
-without replaying the handoff or changing obligation ownership. It MUST verify that copy before
-resuming admission or serving.
-While closed for staging, a new peer may persist its local candidate state together with the
-canonical inherited refusal snapshot. Reopening that stage MUST preserve the inherited snapshot
-byte for byte, and a later handoff MUST carry the union of inherited and new local refusal events,
-using the new peer's current event for a target it also refused. A closed stage grants no right to
-admit or serve. It cannot become committed until the imported holdings, active obligations,
-policy, storage fence, and old-peer-authoritative acknowledgement and commit proof are bound in
-the required transaction.
-The closed stage's local arrival fields are only candidate state: the eventual import MUST assign
-new-peer testimony to verified inherited holdings and MUST NOT accept copied host arrival fields
-as that testimony. The stage also cannot establish unsigned covering-bundle evidence by itself.
-The imported holding inventory names every id admitted by the old surface, including holdings
-currently hidden by validity or policy. Each imported holding MUST match its canonical claims
-bytes and content id and have either a valid own signature or a verified signed-manifest cover
-for that unsigned member. The cover remains evidence even when its manifest is not itself a
-holding. An admitted signed manifest also supplies its own cover evidence without a duplicate
-copy. A separately carried cover MUST support at least one imported unsigned holding and MUST
-NOT be currently refused. If an unsigned holding has no surviving unrefused cover, import stays
-closed rather than restoring erased manifest bytes. A signed manifest may name other signed ids
-from different authors; for an unsigned member, its own author must match the manifest author.
-The old peer's authenticated admission record, not cover syntax alone, proves that the old
-admission-time bundle rule was followed. A missing or invalid claimed holding blocks import. Extra raw storage rows are not
-admitted by replay. An inherited-current-refused id cannot enter the imported admitted set,
-even when its bytes remain on a surface awaiting purge; exclusion and active purge debt remain
-separate state. The import transaction MUST assign the new peer's own arrival sequence and
-trusted import time to the verified admitted inventory.
-Each staged active byte-removal obligation names its stable identity as a source `PeerId` and
-source obligation sequence, its target, declared storage surface and generation, its current
-source-qualified refusal-event reference, and its `pending` or `failed` status with a retryable
-fault for failure. A prior admission epoch, when present, remains source-qualified too and MUST
-match an event for that target and source in the carried refusal snapshot. It may be absent for
-bytes on a declared surface that were never admitted there, even when another source peer's
-event records a prior admission. At most one active obligation names a given target and surface.
-A second
-handoff keeps the obligation identities, surfaces, generations, and prior epochs. A later
-effective order for the same target advances the obligation's current refusal-event reference
-without changing its stable identity or storage generation. Staging this list
-does not move ownership: until the authoritative commit and durable new-peer proof, the old peer
-still reports and resumes each obligation.
-A carry-to-carry transition MUST retain every earlier active obligation under the same stable
-identity, target, surface, generation, and prior epoch until an authenticated terminal byte
-outcome is committed. Pending and failed status and its fault may change on retry, and a later
-effective order may advance the current event reference. The later snapshot retains every
-earlier qualified refusal event unchanged. Newly created obligations and refusal events in this
-transition belong to the intervening peer; they cannot be minted under an inherited source id.
-For every target refused by a new intervening-peer event, the later snapshot's current reference
-MUST name that peer's latest new event. Otherwise it retains the earlier current reference.
-An active-only transition with no terminal proof therefore rejects a missing earlier obligation.
-A combined closed import stage MAY persist these three already validated components together:
-the complete inherited-refusal snapshot, the verified admitted-holding inventory, and the active
-obligation carry. It MUST bind the new peer id, old peer id, attempt id, old state version, trusted
-old-peer deadline, and the destination policy's format and bytes. The carried-state digest covers
-the three canonical component images; the policy digest covers its format and bytes separately.
-The new peer's local candidate state is empty at this stage, so copied host arrivals cannot be
-mistaken for new-peer testimony. A one-shot stage verifies and syncs the independent refusal
-recovery copy before creating its own durable primary image. The stage alone cannot authenticate
-the old peer's record, interpret opaque policy bytes, transfer obligation ownership, admit
-holdings, or serve. The later commit compares both digests and the attempt descriptor against
-old-peer-authoritative proof before assigning new-peer arrivals or opening any entry path.
-No carried obligation may use the new peer's `PeerId` as its source identity: the new peer has
-not created local debt before the handoff, and reserving its source sequence space prevents a
-later local obligation from colliding with imported debt.
-Before a handoff can commit, the old peer MUST authenticate a prepared descriptor naming its
-`PeerId`, the distinct new `PeerId`, the old surface id, attempt id, old state version, trusted
-deadline, inherited-refusal snapshot digest, carried-state digest, and destination-policy digest.
-The v1 prepared claim signs canonical CBOR bytes with the old governing Ed25519 key under the
-`rhizomatic.peer.handoff.prepare.v1` domain. Both peer ids in this claim use the
-`ed25519:<lowercase-public-key-hex>` spelling. Its enclosing image carries the claim bytes and
-the detached signature. A receiver checks canonical encoding, strict Ed25519 verification,
-and equality of every descriptor field to its closed import and declared surface. This signed
-preparation authenticates what the old peer proposed; it does not prove the old peer durably
-prepared or committed it, that the old surface was fenced, or that the new peer acknowledged
-import. It never grants serving or transfers obligation ownership. A later authoritative CAS
-must still compare the same descriptor and both digests before commit.
-The authenticated v1 preparation requires that **every** source-qualified `PeerId` in its carried
-refusal snapshot and obligation carry use that same canonical `ed25519:<lowercase-hex>` spelling.
-An earlier internal stage may hold opaque peer identifiers, but it cannot pass v1 prepared
-verification with them. Before rejecting a source as different from a key-backed peer, the
-closed stage and carry transition compare recognized key spellings by public-key bytes,
-including uppercase and unprefixed hex aliases; aliases cannot mint new-peer debt or inherited
-new-peer history. The authoritative CAS must still compare the carried snapshot and obligations
-with the old peer's actual state at the named version; a signature over a self-consistent stage
-alone does not prove that its source claims were true.
-The v1 permanent-posture inherited-refusal snapshot binds every carried refusal event to its
-source `PeerId` and source sequence, and names exactly one current event for every event target.
-It retains earlier events for the same target; a current reference cannot point before a later
-event for that target from the same source. Re-entry in a lower posture needs a later snapshot
-version that can retain historical events without a current refusal. A source-qualified reference
-is compared as a pair, never by sequence alone. One signed order may have independent effects on
-different source peers, but it cannot name different targets or be applied twice by one source.
-An event target cannot itself be an effective erasure order. A target's prior admission epoch is
-stable within one source peer's events. Its
-canonical bytes and BLAKE3 content address are pinned by shared vectors. A reader MUST accept a
-primary or independent recovery copy only when its entire canonical image matches the committed
-digest. A valid recovery copy may restore the primary; neither copy alone proves that a handoff
-committed. Import, obligation ownership, and serving still require the durable handoff proof.
-If no such copy remains, ordinary admission and serving stay closed. The peer MAY use a
-receiver-authorized **decommission** operation outside delta admission: it permanently ends
-serving and admission under this `PeerId` and attempts to remove bytes on its declared surfaces
-without touching another peer's holdings. Its terminal marker and a removal obligation for every
-declared surface, including bytes with no prior erasure obligation, MUST commit durably before
-removal starts. Each surface reports `pending`, `failed` with a retryable fault, or
-`bytes-removed` only after proved physical absence. Decommission retains existing obligations
-and retries failed removals; it never reports complete merely because the peer stopped serving.
-Authorization uses the peer's local configuration rather than the missing snapshot.
-The decommissioned `PeerId` MUST NOT be reused as a fresh peer. A surface whose refusal history
-is unavailable MUST NOT be reassigned to the host or a successor peer under the same logical
-container identity. It can be governed again only after that history is restored and carried
-through a handoff; otherwise the surface remains retired. A new unrelated container needs a
-distinct logical identity and governing key and cannot claim continuity with the retired peer.
-Carried refusal-event and admission-epoch references retain their source `PeerId` and source
-identifier. The new peer uses those qualified references for re-entry acts, exclusions, and
-obligations, and starts a distinct local sequence for later admissions and refusal events. An
-imported host sequence is not a new-peer arrival claim. Cross-peer sequence numbers MUST NOT be
-compared as bare integers; the handoff itself establishes that imported history precedes new
-peer-local admissions, and an unproved comparison remains `unproven`.
+A peer has a distinct governing key (`PeerId`), its own admitted delta set, admission policy,
+sharing policy, erasure posture, refusal history, purge obligations, and arrival testimony.
+A shared backend does not merge two peers. The same canonical delta keeps its id and bytes
+across peers, and string-equal entity ids still refer to the same entity after a union.
+Each peer applies its own guards and serving rules. A combined read is a union of the member
+peers' authorized serving views, never a scan of their raw storage. A combined write reports
+which members actually committed; it cannot claim success for a member that refused.
 
-A handoff declares a finite deadline on the old peer's trusted clock and first closes the old
-surface entry path at a **barrier**. The attempt and deadline are durable. Commit and abort are
-competing compare-and-set transitions of the same old-peer-authoritative attempt record. A
-commit at or after the deadline fails; recovery commits abort when an uncommitted attempt reaches
-the deadline, including after the coordinator crashes. Neither transition can follow the other. An
-operation accepted into the old peer's queue before the barrier MUST finish there before cutover:
-an order commits and
-its refusal is copied, or it fails explicitly. An arrival at the transitioning surface after the
-barrier is held without admission until cutover commits or aborts. The path MUST durably queue a
-held arrival before acknowledging that it retained it. If it cannot, it returns retryable
-`handoff-pending`, which is not acceptance; the sender must retry. It never reports
-`peer-changed` while the outcome is unresolved. On abort, the old peer reopens the surface path
-and processes held arrivals through its own pipeline.
-The durable queue is a declared temporary storage surface of the old peer. Its bytes count in
-that peer's erasure and decommission reports until physical absence on the old queue surface is
-proved, whether the item is admitted, rejected, or copied to the new peer. A transfer MUST
-remove the old queue copy; the new peer accounts for its own copy. An order answered
-`peer-changed` is rejected from the old queue and its bytes are removed there. A queue item never
-becomes ownerless at cutover; its disposition and byte removal are recorded before either peer
-reports completion.
-On commit, an order bound to the old `PeerId`, or signed by the old governing key without a
-receiving `PeerId`, gets `peer-changed` naming the new `PeerId` and MUST NOT be routed as testimony
-to the new peer. Other held deltas may enter the new peer's own pipeline. The old endpoint MUST
-report the committed new `PeerId` on later `peer-changed` outcomes, so a sender can issue a new
-order; the new peer's local policy still decides whether that signer has authority. No old-peer
-order can silently lose its effect on the surface. The handoff then has one linearization point:
-admissions and purge work for the surface are stopped or fenced while state
-is copied. The durable new-peer import, worker-ownership transfer, acknowledgement, and old
-peer's release of responsibility commit as one effect. The old peer owns the authoritative
-handoff record. On separate backends, both peers MUST recover against one durable commit record
-and its attempt id; the new peer MUST possess durable proof of that record's committed state
-before it serves, even if the old backend later becomes unreachable. The old peer MUST continue
-reporting a carried pending obligation until that proof is durable at the new peer; the new peer
-then reports it, including after a host crash. A backend unable to make
-ownership transfer atomic or provide that shared durable commit proof MUST keep the surface
-under the old peer. A purge obligation keeps its stable identity and storage generation through
-the transfer. The storage fence MUST reject an old worker after ownership moves. Only the new
-peer may resume the obligation. The handoff attempt binds the new `PeerId`, old peer state
-version, and copied-state digest; its acknowledgement is one-shot and cannot complete a later
-attempt. If any part cannot commit or be fenced, the surface remains under the old peer. It
-retains reporting and purge responsibility, the barrier aborts and reopens, and the new peer MUST
-NOT serve. The new peer starts its own arrival history when it admits inherited holdings; it MUST
-NOT present copied host arrival
-testimony as its own. A host MAY offer a combined view or coordinated operations across peers for
-convenience,
-but that composition does not merge their PeerIds, keys, admission decisions, arrival histories,
-refusal sets, or erasure obligations and reports. When one peer erases an id, a shared backend
-MUST preserve bytes still held by another peer.
-An erasing peer may report that it released its own holding, but it MUST NOT report physical byte
-removal until removal is confirmed on its declared storage surfaces. A host-level report may say
-that bytes remain for another tenant, without naming that tenant; a peer MUST NOT reveal another
-peer's holdings through its public report. The physical layout and garbage collection are
-implementation choices, subject to that reporting distinction.
+Step 6 creates peers only from **empty** storage under their own distinct keys. A host is one
+peer; each new pool is another. A backend containing rows without a peer journal MUST be refused
+at boot with a clear error. Raw rows are never replayed to synthesize admission, refusal, or
+arrival history. A store with a journal reopens through that journal. Moving a pre-step-6
+host-key pool to another key is an old-data migration and is outside this contract. There is no
+handoff, carry, barrier, import, acknowledgement, or cutover protocol in step 6.
 
-A combined operation's effect is exactly the set of member peers whose own admission pipeline
-committed it. Its report MUST name each member result or assert a conjunction proved by all
-member reports; it cannot say an id was erased across the group while one member rejected or
-failed the order. The operation MUST fix its member PeerIds at commit against the current peer
-roster version; if a handoff changes that roster before commit, the operation returns
-`peer-changed` with every member result already committed and the new roster. It MUST NOT retry
-automatically with the old orders: each newly included peer needs its own separately authorized
-order naming that peer's `PeerId`. A later operation may use those new orders, but neither report
-may claim group completion until every current member has an effective result. A combined view
-is a union of each member's serving read under that member's audience rules. It MUST NOT read raw
-shared storage or expose a member's result to an audience
-that member would refuse.
+A peer MAY pin additional erasure governor keys in its own configuration, including a host
+operator key. A pinned key can authorize an order for that peer without becoming its `PeerId` or
+sharing its state. An order relying on an additional governor MUST sign the receiving `PeerId` in
+its canonical claims. Any order naming a receiver has erasure effect only at that peer. A
+receiver-mismatched order may be retained as testimony but cannot erase there. An order signed
+by the peer's own governing key MAY omit the receiver; it takes effect only at that peer.
+An order signed by an additional governor with no receiver is testimony. A non-governor order
+is authorized by neither the governing key nor a pinned key; the advance-refusal cap applies to
+those orders.
 
-The same canonical delta has the same id and bytes in every peer. String-equal entity ids refer to
-the same entity after union. The peer boundary does not qualify or rewrite entity ids. A peer
-decides which claims travel through its sharing policy; a governed read decides which authors'
-claims bind through an explicit author selection. Instance-local ids that must remain distinct
-need distinct strings at creation.
-
-For erasure authorization, a peer MAY pin additional governor keys in its own configuration,
-including a host operator key. Such a key can authorize orders under that peer's declared policy
-without becoming its `PeerId` or sharing its admission state. After handoff, that key must be
-pinned in the new peer's own configuration before it can authorize an order; pins are not copied
-as refusal state. The new peer's erasure-authority policy, including any pins, MUST be installed
-in the handoff commit before it serves. An order relying on an additional governor key MUST sign
-the receiving `PeerId` in its canonical claims. Any order that names a receiving `PeerId` has
-erasure effect only at that peer, regardless of its signer or delivery route. A different
-receiver may retain it as testimony but MUST NOT classify it as an order, even if that signer is
-its own governing key or an additional governor. At a peer that pins an
-additional governor, an order by that key with no receiving `PeerId` is testimony only; it cannot
-acquire an erasure effect from the pin. A peer's own governing key MAY issue an order without a
-receiving `PeerId`; that order can take effect only at the peer identified by that key. A
-handoff may copy the resulting peer-local refusal into the new peer's state; this is a transfer
-of state, not a new erasure effect of the original order at the new peer. `peer-changed` is a
-write-path routing outcome for an order submitted to the moved surface's endpoint or held at its
-barrier. Ordinary federation may retain an order addressed to the still-live host as testimony
-at the new peer, with no erasure effect there; it does not get a redirect. A
-**non-governor** order is one authorized by neither the peer's governing key nor a configured
-additional governor key; the advance-refusal cap below applies to those orders.
+A peer's erasure report distinguishes its own refusal from physical byte removal. It reports
+`removed` only after its declared storage surfaces prove the target payload absent. Another
+peer's holding does not grant this peer an absence claim, and public reports do not reveal the
+other peer's holdings. Refusal and purge records may still name the target id; that is not a
+payload-presence proof. If storage is shared, physical removal must preserve bytes another
+peer still holds and the report must reflect that limit.
 
 ## 2. Admission
 
@@ -452,7 +248,7 @@ The pipeline is:
    co-offered target excluded by an effective order receives no arrival and consumes no ordinary
    capacity; it is not an advance refusal for the finite-cap check. Atomic mode refuses the entire
    transfer if any appearance fails, including an excluded target. A mixed call with no effective
-   orders writes an ordinary v1 frame for any ordinary additions. Re-entry, bundles, and handoff
+   orders writes an ordinary v1 frame for any ordinary additions. Re-entry and bundles
    still need their own admission contracts.
    The ordinary frame v1 is a canonical CBOR map with exactly `version` = 1, `peer` (the
    receiving canonical `PeerId`), `prior` (empty text for the first frame, then the preceding
@@ -645,6 +441,36 @@ An admission decision never edits a delta. The author-signed `timestamp`, `valid
 them with its arrival time. There is no universal skew limit. An offered lens selects candidates;
 it does not confer authority to bypass admission.
 
+### Greenfield durable journal profile
+
+The signed-loose permanent-refusal profile persists each effective transfer as a canonical,
+content-addressed frame in a peer-local journal. An empty peer is created by an atomic
+absent-head compare-and-set that also rejects existing rows. Each later append atomically
+compares the expected head and writes the new head, frame, and admitted rows. A no-op transfer
+does not consume a frame or transfer ordinal. One frame may contain effective erasure orders
+and ordinary additions; excluded targets cannot enter through the ordinary part. Local atomic
+mode rejects the whole transfer on a failed candidate, while individual receive records each
+candidate outcome. The store serializes writers for a peer; a head conflict or uncertain commit
+requires reopen and replanning.
+
+An open reads one consistent head, checkpoint, and frame chain, verifies canonical bytes and
+the committed image, then checks the admitted rows against that image. Before returning a peer,
+it MUST recheck that the head has not changed during the row read; a changed head returns a
+retryable conflict. A strict open fails closed for a missing or changed admitted row. A degraded
+open MAY name unavailable rows and remain writable under the same head CAS, but MUST exclude
+those rows from its serving projection. Repairing a row with its original verified bytes makes
+it available on reopen. A genuinely admitted row is discarded only through signed erasure and
+purge. Rows outside the journal image never become admissions merely because they are present.
+
+An effective erasure durably records its refusal and any purge obligation. Before `removed`,
+the peer MUST rebase away a previously admitted target's payload-bearing frames, while keeping
+refusal and obligation history. The storage adapter MUST prove absence on every declared
+surface, including rows, frames, checkpoints, freed pages, and write-ahead logs. A refuted
+absence keeps the obligation owed and does not act like writer contention. An atomic rebase
+replaces the old chain with a canonical anchor and a head bound to it; cold open verifies the
+anchor and subsequent frames. These rules are pinned in the ordinary and permanent journal
+vectors and apply equally to both witnesses.
+
 ## 3. Arrival testimony
 
 For each newly accepted id, a peer records the receiver-supplied arrival time, a strictly
@@ -830,50 +656,8 @@ incompleteness remains after re-entry, so a later consumer cannot infer a false 
   `unproven`.
 - Two logical peers viewing one backend have different governing keys and refusal sets. Erasing
   D from one peer does not remove the other peer's held D or rewrite its arrival testimony.
-- A shared-key container with no distinct peer state is a surface of the host peer, so its bytes
-  belong in that peer's erasure report. Once it has its own key and state it is a separate peer.
-  The host refused D held by that surface and X that the surface never held; both refusals applied
-  there. A new key alone leaves both under the host. The handoff copies both refusals and D's
-  active purge obligation before the new peer serves. Neither id can enter by gossip afterward;
-  an offer of X gets a generic refusal and its provenance is not publicly listed. A failed handoff
-  keeps the host responsible and does not create a separate serving peer. If an effective host
-  order for Y entered the old surface queue before the barrier, it commits and Y's refusal is
-  carried or it explicitly fails; it cannot commit for the host only afterward. If that order
-  named the host `PeerId`, the new peer receives only the resulting refusal state, never a new
-  erasure effect of the order. A host-key order for Y submitted to the surface after the barrier
-  is held. If cutover commits, it gets
-  `peer-changed` naming the new `PeerId`, not testimony at the new peer; if cutover aborts, the
-  old peer processes it. An ordinary delta follows the same choice of pipeline. If the path
-  cannot hold either arrival, it returns retryable `handoff-pending`. A stale
-  acknowledgement for an earlier attempt cannot close this handoff, and a purge worker from the
-  host cannot run after transfer. A new-peer re-entry act names D's qualified host refusal
-  event; a new-peer arrival sequence equal to a numeric host sequence cannot collide with it.
-  With separate backends, the old peer keeps reporting D's pending obligation until the new peer
-  has durable commit proof; afterward the new peer reports it, even if the host backend fails.
-  A new-peer-owned pinned refusal snapshot may share physical backend storage with the old peer,
-  but remains readable when the old peer process stops; obligations live in the new peer's own
-  durable state, and a verified independent recovery copy exists before commit. If the primary
-  snapshot becomes unreadable, admission and serving reads close until that copy, checked against
-  the committed digest, restores it. If every copy is lost, the peer cannot accept a new erasure
-  order through admission; it may decommission. Before removing any bytes, it durably records a
-  terminal marker and a removal obligation for each declared surface, including a surface with
-  bytes no earlier order covered. A failed removal stays `failed` and retryable; only proved
-  absence yields `bytes-removed`. The surface cannot return to the host or another peer under
-  the same container identity unless its refusal history is restored and carried. A host-PeerId
-  order sent after commit to the former surface write path gets `peer-changed` with the new
-  `PeerId`; the same order arriving by ordinary gossip is testimony, not a new erasure there.
-  An uncommitted handoff whose coordinator crashes past its declared deadline aborts by
-  compare-and-set on the old peer's authoritative record; a simultaneous late commit loses and
-  cannot make the new peer serve. A durably held order returns to the old path, while an unqueued
-  arrival got retryable `handoff-pending` and no acceptance promise. The hold queue is a declared
-  old-peer surface: if D is copied to the new peer but remains in the old queue file, the old
-  peer cannot report `bytes-removed`. A held order answered `peer-changed` is removed from that
-  queue before the old peer reports completion.
-  A combined erase whose roster changes at cutover returns `peer-changed` with its committed
-  member results; a later operation needs a new order for the new peer.
-  A combined erase reports each member result; if B rejects while A commits, the combined report
-  cannot say both erased D. A combined read unions only A's and B's serving reads that its audience
-  may access, never raw backend bytes.
+- A new pool starts with an empty journal under its own key. A pre-step-6 pool with rows but
+  no journal is refused at boot; its rows are not reinterpreted as arrivals under a new key.
 - A installs an advance refusal for D while A has no D bytes and co-tenant B does. A creates no
   byte-removal obligation and reports no information about B's holding. If A's own declared
   surface independently holds unadmitted D bytes, A records a stable obligation linked to its

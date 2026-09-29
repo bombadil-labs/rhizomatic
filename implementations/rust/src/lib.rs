@@ -6,7 +6,6 @@ pub mod arrival;
 pub mod b64u;
 pub mod cbor;
 #[doc(hidden)]
-pub mod closed_import;
 pub mod delta;
 pub mod derivation;
 #[doc(hidden)]
@@ -17,11 +16,8 @@ pub mod erasure_filter;
 pub mod eval;
 pub mod hash;
 #[doc(hidden)]
-pub mod imported_holdings;
 #[doc(hidden)]
-pub mod imported_obligations;
 #[doc(hidden)]
-pub mod inherited_state;
 #[doc(hidden)]
 pub mod ordinary_journal;
 pub mod ordinary_journal_peer;
@@ -47,11 +43,9 @@ pub mod permanent_journal;
 pub mod pred;
 pub mod preflight;
 #[doc(hidden)]
-pub mod prepared_handoff;
 pub mod principal;
 pub mod reactor;
 #[doc(hidden)]
-pub mod refusal_snapshot;
 pub mod resolution;
 pub mod schema;
 pub mod schema_deltas;

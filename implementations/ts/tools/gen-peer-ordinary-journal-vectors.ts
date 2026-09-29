@@ -113,6 +113,7 @@ writeFileSync(
         rowsWithoutJournal: "rows-without-journal",
         guardReason: "no write grant",
         rowMismatchError: "ordinary journal: admitted row mismatch",
+        headRace: "conflict",
       },
       brokenChainError: "ordinary journal: broken frame chain",
       headMismatchError: "ordinary journal: head mismatch",

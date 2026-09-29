@@ -24,4 +24,4 @@ The file operation plans against the caller's exact prior v2 image bytes, then a
 writer to compare those bytes before replacement. A stale image rejects without changing the
 file. This assumes one writer per peer and does not make the path a cross-process transaction.
 This module is not exported from the TypeScript package barrel or the documented Rust surface.
-It is not yet the reviewed handoff API needed by Loam.
+The public greenfield journal facade composes this ordinary path with erasure admission.

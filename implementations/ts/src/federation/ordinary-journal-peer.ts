@@ -300,6 +300,9 @@ export class OrdinaryJournalPeer {
           state,
           await store.readAdmittedRowsDegraded(peerId, state.base.admitted.ids()),
         );
+        const verifiedHead = await store.readHead(peerId);
+        if (verifiedHead.status !== "head" || verifiedHead.head !== current.head)
+          return { status: "conflict" };
         const peer = new OrdinaryJournalPeer(
           store,
           peerId,
@@ -312,7 +315,11 @@ export class OrdinaryJournalPeer {
           ? { status: "degraded", peer, unavailable }
           : { status: "open", peer };
       }
-      assertAdmittedRows(state, await store.readAdmittedRows(peerId, state.base.admitted.ids()));
+      const rows = await store.readAdmittedRows(peerId, state.base.admitted.ids());
+      const verifiedHead = await store.readHead(peerId);
+      if (verifiedHead.status !== "head" || verifiedHead.head !== current.head)
+        return { status: "conflict" };
+      assertAdmittedRows(state, rows);
       return {
         status: "open",
         peer: new OrdinaryJournalPeer(

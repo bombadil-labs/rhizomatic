@@ -10,7 +10,7 @@ This first callable path is for one permanent-posture peer receiving **signed lo
 deltas. It checks signatures and permanent refusals, runs candidate-local guards against the
 pre-transfer admitted set, applies the ordinary new-id count capacity, assigns receiver-local
 arrival testimony, and commits one canonical durable v2 image. Bundles, effective erasure
-orders, lens closure, re-entry, and handoff are not covered by this path. The classifier must
+orders, lens closure, and re-entry are not covered by this path. The classifier must
 identify erasure candidates so they receive `unsupported-erasure`, never ordinary admission.
 Consumers must not purge a delta's separate row through an older erasure path while its peer
 image still admits that delta; reopening from the image would restore it.
@@ -55,8 +55,6 @@ validation during planning, and a no-op returns the prior image without re-encod
 permanent commit builder also copies already verified holdings without re-hashing them. The
 current v2 image still rewrites the
 full admitted set and arrival history on every commit. It is
-appropriate for an unmerged correctness trial on a fresh host store. A production merge on a
-large store needs a measured storage strategy that preserves the same atomic logical image and
-arrival counters without an O(history) write per append. Opening an existing populated host
-store also needs an explicit bootstrap contract; creating an empty image over it would lose
-refusals and invent no trustworthy prior arrivals.
+appropriate for a correctness trial on a fresh host store. The public journal facade provides
+append frames and rebase for scalable persistence. An existing store with rows but no peer
+journal is refused under the greenfield contract.

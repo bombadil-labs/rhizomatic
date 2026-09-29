@@ -3,7 +3,9 @@
 The append journal persists one signed-loose transfer at a time while preserving receiver-local
 arrival testimony. Both witnesses define canonical frame bytes, replay, and a typed admission
 facade over an application supplied atomic store. The facade admits ordinary deltas, effective
-erasure orders, and mixed signed-loose transfers. Bundles, re-entry acts, and handoffs remain open.
+erasure orders, and mixed signed-loose transfers. Bundles and re-entry acts remain open.
+Existing-pool handoff is outside the greenfield step-6 scope: a backend with rows but no journal
+is refused, while a fresh pool starts on an empty journal under its own key.
 
 A v1 frame contains exactly `version`, receiving `peer`, `prior` frame id, trusted receiver
 `at`, `sender`, and a canonical SPEC-8 `pack` of newly admitted signed deltas. The first
@@ -33,6 +35,8 @@ Committed frames must remain immutable under that head; a cheap head read relies
 On reopen the store also returns rows for the reconstructed admitted ids. The facade checks
 each row's id, content address and signature and fails closed on missing, duplicate or changed
 rows. Empty-store initialization compares an absent head and refuses a store with rows but no journal.
+After checking the rows, open rechecks the journal head. A changed head returns `conflict` so
+the caller reopens against one stable snapshot.
 A caller may opt into `OrdinaryJournalPeer.open(store, peerId, { allowDegraded: true })` or Rust
 `open_ordinary_journal_peer_degraded`. The adapter then returns one row or row-specific fault for
 each admitted id through `readAdmittedRowsDegraded`. The typed `degraded` result names the

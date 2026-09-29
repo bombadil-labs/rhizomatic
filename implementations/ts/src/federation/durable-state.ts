@@ -1,5 +1,5 @@
 // Internal permanent-posture image: the v1 holding/arrival base and erasure ledger commit together.
-// Handoff, imported qualified references, lower-posture re-entry, and storage proof are later work.
+// Lower-posture re-entry and storage proof belong outside this local image planner.
 
 import { array, bstr, decode, encode, float, map, tstr, type CborValue } from "../delta/cbor.js";
 import { DeltaSet } from "../delta/set.js";

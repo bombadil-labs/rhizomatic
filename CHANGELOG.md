@@ -31,9 +31,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
   per-candidate receive, refusal reasons, explicit local/authenticated/unattributed origins, and
   fail-closed detection of rows without an image. Shared vectors pin canonical empty and admitted
   image bytes in both witnesses. The pure API remains browser-bundleable; the single-writer file
-  adapter is available from the Node-only `@bombadil/rhizomatic/node` subpath. This is an initial
-  single-peer trial surface; bundle and erasure
-  admission, scalable image storage, and durable handoff remain in progress.
+  adapter is available from the Node-only `@bombadil/rhizomatic/node` subpath. This whole-image
+  surface handles ordinary deltas only; the journal facade below handles effective erasures.
+  New peers start on empty journals; stores with rows but no journal are refused under the
+  greenfield contract.
   The TypeScript backend-agnostic facade reuses a verified exact image on a long-lived store
   object; it rechecks content ids but does not repeat Ed25519 checks for unchanged held deltas.
   A changed image is decoded and verified before use. Rust and the Node file adapter still verify
@@ -53,7 +54,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
   that every admitted row is present with the frame-derived id and signature. Canonical ordinary
   checkpoints now bind a verified
   v2 image to an exact frame head and let a backend atomically prune that verified prefix;
-  retained frames replay from the boundary. Loam integration remains in trial.
+  retained frames replay from the boundary. Reopen rechecks the head after reading admitted
+  rows and returns a retryable conflict if it changed.
 
 ### Internal structure
 
@@ -61,34 +63,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
   first-epoch arrival testimony, counters, and permanent refusals across restart. An internal v2
   image and commit planner now bind verified final additions, erasure exclusions, refusal events,
   quota usage, and stable purge obligations in one local replacement. Writes require the expected
-  prior image and check newly arrived orders and ordinary quota growth. The image does not yet
-  supply handoff proof. CBOR and pack readers now
+  prior image and check newly arrived orders and ordinary quota growth. CBOR and pack readers
   reject malformed lengths, excessive nesting, and invalid table indices before admission.
-  A canonical inherited-refusal snapshot now preserves source-qualified events and current
-  targets, with a digest-checked independent recovery path in both witnesses. It remains an
-  internal handoff component until obligations, holdings, policy, and commit proof are bound.
-  A closed v3 staging image now durably retains those inherited bytes beside a local peer image;
-  its full qualified refusal history survives a second handoff. It cannot admit or serve.
-  An internal canonical active-obligation carry now preserves source-qualified purge identities,
-  storage generations, current refusal references, and retryable failure faults across a proposed
-  handoff. Its bytes and digest are pinned by shared vectors; staging alone does not transfer
-  obligation ownership.
-  A separate internal holding inventory now pins canonical admitted bytes and signed-manifest
-  evidence for unsigned members, checks signatures and inherited refusals, and binds the image
-  to the inherited-refusal snapshot. It does not assign arrival testimony or prove the handoff.
-  An active-only carry transition check now rejects dropped or renumbered purge debt and changed
-  historical refusal events across a later peer. Holding evidence accepts an admitted manifest
-  directly and rejects refused or unused separate covers.
-  A v4 closed import image now durably stages the inherited-refusal image, verified holding
-  inventory, active obligations, policy bytes, and old-peer attempt descriptor under separately
-  pinned carried-state and policy digests. It remains closed pending authoritative commit proof.
-  A canonical old-peer signed prepared descriptor now binds the attempt, old surface, both peer
-  keys, state version, deadline, refusal snapshot, carried state, and destination policy. It is
-  authenticated preparation only; the durable CAS, acknowledgement, and ownership transfer are
-  still required.
-  V1 preparation now requires canonical key-spelled source peer ids. Closed-stage identity guards
-  compare uppercase and raw-hex aliases by key so they cannot evade new-peer or intervening-peer
-  source checks.
 
 ## 0.11.0-next.1 — 2026-09-25
 
