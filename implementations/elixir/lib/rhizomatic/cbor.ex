@@ -197,10 +197,13 @@ defmodule Rhizomatic.Cbor do
   it never repairs).
   """
   @spec decode(binary()) :: {:ok, t(), binary()} | {:error, term()}
-  def decode(<<0xF5, rest::binary>>), do: {:ok, {:bool, true}, rest}
-  def decode(<<0xF4, rest::binary>>), do: {:ok, {:bool, false}, rest}
+  def decode(bin), do: decode_item(bin, 0)
 
-  def decode(<<0xF9, b16::16, rest::binary>>) do
+  defp decode_item(_bin, depth) when depth > 256, do: {:error, :nesting_depth_exceeded}
+  defp decode_item(<<0xF5, rest::binary>>, _depth), do: {:ok, {:bool, true}, rest}
+  defp decode_item(<<0xF4, rest::binary>>, _depth), do: {:ok, {:bool, false}, rest}
+
+  defp decode_item(<<0xF9, b16::16, rest::binary>>, _depth) do
     if (b16 >>> 10 &&& 0x1F) == 0x1F do
       {:error, :non_finite_float}
     else
@@ -208,10 +211,10 @@ defmodule Rhizomatic.Cbor do
     end
   end
 
-  def decode(<<0xFA, bits::32, _rest::binary>>) when (bits >>> 23 &&& 0xFF) == 0xFF,
+  defp decode_item(<<0xFA, bits::32, _rest::binary>>, _depth) when (bits >>> 23 &&& 0xFF) == 0xFF,
     do: {:error, :non_finite_float}
 
-  def decode(<<0xFA, bits::32, rest::binary>>) do
+  defp decode_item(<<0xFA, bits::32, rest::binary>>, _depth) do
     <<g::float-32>> = <<bits::32>>
     # canonical: an f32 that fits f16 exactly should have been f16
     case f16_bits(g) do
@@ -220,10 +223,11 @@ defmodule Rhizomatic.Cbor do
     end
   end
 
-  def decode(<<0xFB, bits::64, _rest::binary>>) when (bits >>> 52 &&& 0x7FF) == 0x7FF,
-    do: {:error, :non_finite_float}
+  defp decode_item(<<0xFB, bits::64, _rest::binary>>, _depth)
+       when (bits >>> 52 &&& 0x7FF) == 0x7FF,
+       do: {:error, :non_finite_float}
 
-  def decode(<<0xFB, bits::64, rest::binary>>) do
+  defp decode_item(<<0xFB, bits::64, rest::binary>>, _depth) do
     <<g::float-64>> = <<bits::64>>
 
     case f32_bits(g) do
@@ -232,21 +236,21 @@ defmodule Rhizomatic.Cbor do
     end
   end
 
-  def decode(<<b, _::binary>> = bin) when (b >>> 5) in [2, 3, 4, 5] do
+  defp decode_item(<<b, _::binary>> = bin, depth) when (b >>> 5) in [2, 3, 4, 5] do
     major = b >>> 5
 
     with {:ok, n, rest} <- decode_head(bin) do
       case major do
         2 -> take_bytes(n, rest, :bstr)
         3 -> take_bytes(n, rest, :tstr)
-        4 -> decode_items(n, rest, [])
-        5 -> decode_pairs(n, rest, [])
+        4 -> decode_items(n, rest, [], depth + 1)
+        5 -> decode_pairs(n, rest, [], depth + 1)
       end
     end
   end
 
-  def decode(<<b, _::binary>>), do: {:error, {:unsupported_initial_byte, b}}
-  def decode(<<>>), do: {:error, :truncated}
+  defp decode_item(<<b, _::binary>>, _depth), do: {:error, {:unsupported_initial_byte, b}}
+  defp decode_item(<<>>, _depth), do: {:error, :truncated}
 
   @doc "Decode exactly one item; error if trailing bytes remain."
   @spec decode_exact(binary()) :: {:ok, t()} | {:error, term()}
@@ -310,18 +314,19 @@ defmodule Rhizomatic.Cbor do
     end
   end
 
-  defp decode_items(0, rest, acc), do: {:ok, {:arr, Enum.reverse(acc)}, rest}
+  defp decode_items(0, rest, acc, _depth), do: {:ok, {:arr, Enum.reverse(acc)}, rest}
 
-  defp decode_items(n, bin, acc) do
-    with {:ok, v, rest} <- decode(bin), do: decode_items(n - 1, rest, [v | acc])
+  defp decode_items(n, bin, acc, depth) do
+    with {:ok, v, rest} <- decode_item(bin, depth),
+         do: decode_items(n - 1, rest, [v | acc], depth)
   end
 
-  defp decode_pairs(0, rest, acc), do: check_key_order(Enum.reverse(acc), rest)
+  defp decode_pairs(0, rest, acc, _depth), do: check_key_order(Enum.reverse(acc), rest)
 
-  defp decode_pairs(n, bin, acc) do
-    with {:ok, k, r1} <- decode(bin),
-         {:ok, v, r2} <- decode(r1) do
-      decode_pairs(n - 1, r2, [{k, v} | acc])
+  defp decode_pairs(n, bin, acc, depth) do
+    with {:ok, k, r1} <- decode_item(bin, depth),
+         {:ok, v, r2} <- decode_item(r1, depth) do
+      decode_pairs(n - 1, r2, [{k, v} | acc], depth)
     end
   end
 

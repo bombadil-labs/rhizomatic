@@ -43,6 +43,12 @@ defmodule PackTest do
     assert {:error, _} = Pack.unpack(corrupted)
   end
 
+  test "shared invalid index images reject without discarding signatures" do
+    for case_ <- Vectors.load!("l0-pack/invalid-index.json")["cases"] do
+      assert match?({:error, _}, Pack.unpack(Vectors.unhex(case_["hex"]))), case_["name"]
+    end
+  end
+
   defp parse_deltas(deltas_json) do
     Enum.map(deltas_json, fn d ->
       %{claims: Vectors.parse_claims!(d["claims"]), sig: Map.get(d, "sig")}

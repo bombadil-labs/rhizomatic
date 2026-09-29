@@ -1,0 +1,61 @@
+{
+  "spec": "SPEC-6 vNext \u00a72 step 6; single-writer image transition rules",
+  "description": "An expected prior image is required for every replacement. New event orders must arrive in that replacement, and quota growth equals new non-order arrivals. Status-only updates preserve admission counters.",
+  "cases": [
+    {
+      "name": "status failure commits without new arrival",
+      "beforeCase": 2,
+      "afterCase": 5,
+      "outcome": "durable"
+    },
+    {
+      "name": "stale planned image cannot discard a newer fault",
+      "expectedCase": 2,
+      "actualCase": 5,
+      "proposedCase": 3,
+      "expected": "expected prior image changed"
+    },
+    {
+      "name": "old held delta cannot become an effective order",
+      "beforeCase": 6,
+      "mutation": "heldOrderErasesUserRoot",
+      "expected": "new effective order lacks new arrival"
+    },
+    {
+      "name": "quota cannot jump without ordinary arrivals",
+      "beforeCase": 1,
+      "mutation": "quotaJump",
+      "expected": "quota growth must equal new ordinary arrivals"
+    },
+    {
+      "name": "initialization fails when image already exists",
+      "actualCase": 0,
+      "proposedCase": 0,
+      "expected": "expected prior image changed"
+    },
+    {
+      "name": "co-offered refused target cannot receive arrival",
+      "beforeCase": 0,
+      "mutation": "coOfferedRefusedArrival",
+      "expected": "new arrival is not admitted"
+    },
+    {
+      "name": "two orders for one target in one transfer need one event",
+      "beforeCase": 1,
+      "mutation": "splitSameTransferTarget",
+      "expected": "target has two refusal events in one transfer"
+    },
+    {
+      "name": "two planned transfers for one target may batch in one image",
+      "beforeCase": 1,
+      "afterCase": 3,
+      "outcome": "durable"
+    },
+    {
+      "name": "one refusal event cannot mix order transfers",
+      "beforeCase": 1,
+      "mutation": "mixedOrderTransfers",
+      "expected": "event orders span transfers"
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 //! The delta set and its algebra (SPEC-1 §8). Mirrors ../ts/src/set.ts.
 //! merge is union (grow-only set CRDT), fork is filter, federate is merge of a filtered fork.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::cbor::{encode, CborValue};
 use crate::delta::compute_id;
@@ -100,6 +100,13 @@ impl DeltaSet {
 
     pub fn iter(&self) -> impl Iterator<Item = &Delta> {
         self.by_id.values()
+    }
+
+    /// Internal peer-state copy: these members were verified when they entered this set.
+    pub(crate) fn without_verified_ids(&self, ids: &BTreeSet<&str>) -> Self {
+        let mut next = self.clone();
+        next.by_id.retain(|id, _| !ids.contains(id.as_str()));
+        next
     }
 
     /// Sorted lexicographically — the canonical enumeration order (BTreeMap key order).

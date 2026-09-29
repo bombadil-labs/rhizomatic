@@ -206,3 +206,12 @@ What byte-honesty buys and costs:
 
 D15 above remains as the record of the question; its resolution is D16 — the question was not
 answered but removed. No pinned Unicode version exists because nothing consults one.
+
+## D17 — v0 CBOR reader depth limit (2026-09, step-6 recovery)
+
+The v0 CBOR profile reader MUST reject an item nested more than 256 levels below the outermost
+item (depth 0). Arrays and maps each add one level for their contained items, including map keys.
+This is a decode resource boundary, not a change to the canonical encoding of accepted values.
+The same bound applies when CBOR appears inside a pack or peer-state image. Readers MUST reject
+before recursion can exhaust the host stack or an advertised container length can reserve memory
+far beyond the bytes present. Shared malformed-length and nesting vectors pin all four witnesses.

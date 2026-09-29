@@ -73,7 +73,7 @@ fn decode_canonical_point(bytes: &[u8; 32]) -> Option<curve25519_dalek::edwards:
 /// The SPEC-1 §5.1 strict criterion (ERRATA D13), implemented check by check — deliberately NOT
 /// a library default, because "strict" varies subtly between libraries and the spec text is the
 /// criterion. Pinned by vectors/l0-delta/deltas-sig-edge.json.
-fn verify_sig_strict(sig: &[u8], msg: &[u8], pubkey: &[u8]) -> bool {
+pub(crate) fn verify_sig_strict(sig: &[u8], msg: &[u8], pubkey: &[u8]) -> bool {
     if sig.len() != 64 || pubkey.len() != 32 {
         return false;
     }

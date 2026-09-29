@@ -45,7 +45,7 @@ schema-load  → resolve, schema, syntax, delta
 reactor      → resolve, resolve-kernel, algebra, schema, syntax, delta
 principal    → reactor, syntax, delta
 storage      → delta
-federation   → reactor, resolve, syntax, delta
+federation   → reactor, resolve, syntax, storage, delta
 derivation   → reactor, algebra, delta
 ```
 

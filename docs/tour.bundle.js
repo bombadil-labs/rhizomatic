@@ -103,9 +103,21 @@
     return a.length - b.length;
   }
   var utf8 = new TextEncoder();
+  function wellFormedUnicode(value) {
+    for (let i = 0; i < value.length; i++) {
+      const unit = value.charCodeAt(i);
+      if (unit >= 55296 && unit <= 56319) {
+        if (++i >= value.length) return false;
+        const low = value.charCodeAt(i);
+        if (low < 56320 || low > 57343) return false;
+      } else if (unit >= 56320 && unit <= 57343) return false;
+    }
+    return true;
+  }
   function encodeInto(sink, val) {
     switch (val.t) {
       case "tstr": {
+        if (!wellFormedUnicode(val.v)) throw new Error("cbor: text is not well-formed Unicode");
         const bytes = utf8.encode(val.v);
         writeHead(sink, 3, bytes.length);
         sink.pushBytes(bytes);
@@ -171,6 +183,9 @@
     done() {
       return this.pos === this.bytes.length;
     }
+    remaining() {
+      return this.bytes.length - this.pos;
+    }
   };
   function readLength(r, info) {
     if (info < 24) return info;
@@ -187,7 +202,9 @@
     if (exp === 31) throw new Error("cbor: non-finite f16 is not representable");
     return sign * (1 + mant / 1024) * 2 ** (exp - 15);
   }
-  function decodeItem(r) {
+  var MAX_DECODE_DEPTH = 256;
+  function decodeItem(r, depth) {
+    if (depth > MAX_DECODE_DEPTH) throw new Error("cbor: nesting depth exceeded");
     const head = r.u8();
     const major = head >> 5;
     const info = head & 31;
@@ -202,17 +219,19 @@
       }
       case 4: {
         const len = readLength(r, info);
+        if (len > r.remaining()) throw new Error("cbor: unexpected end of input");
         const items = [];
-        for (let i = 0; i < len; i++) items.push(decodeItem(r));
+        for (let i = 0; i < len; i++) items.push(decodeItem(r, depth + 1));
         return array(items);
       }
       case 5: {
         const len = readLength(r, info);
+        if (len > Math.floor(r.remaining() / 2)) throw new Error("cbor: unexpected end of input");
         const entries = [];
         for (let i = 0; i < len; i++) {
-          const key = decodeItem(r);
+          const key = decodeItem(r, depth + 1);
           if (key.t !== "tstr") throw new Error("cbor: map keys must be text strings");
-          entries.push([key.v, decodeItem(r)]);
+          entries.push([key.v, decodeItem(r, depth + 1)]);
         }
         return map(entries);
       }
@@ -245,7 +264,7 @@
   }
   function decode(bytes) {
     const r = new ByteReader(bytes);
-    const v = decodeItem(r);
+    const v = decodeItem(r, 0);
     if (!r.done()) throw new Error("cbor: trailing bytes after item");
     return v;
   }
@@ -4480,9 +4499,15 @@
     if (v === void 0 || v.t !== "float") throw new Error(`pack: expected number for ${what}`);
     return v.v;
   }
+  function at(items, value, what) {
+    const index = asNum(value, what);
+    if (!Number.isInteger(index) || index < 0 || index >= items.length)
+      throw new Error(`pack: ${what} index out of range`);
+    return items[index];
+  }
   function ptrFromCbor(v, strings) {
     const o = asMap(v, "pointer");
-    const str = (key) => strings[asNum(o.get(key), key)];
+    const str = (key) => at(strings, o.get(key), key);
     const role = str("r");
     const context = o.has("c") ? str("c") : void 0;
     let target;
@@ -4516,14 +4541,14 @@
   function hydrateRecord(v, strings) {
     const o = asMap(v, "record");
     const claims = {
-      author: strings[asNum(o.get("a"), "a")],
+      author: at(strings, o.get("a"), "a"),
       timestamp: asNum(o.get("t"), "t"),
       validFrom: asNum(o.get("f"), "f"),
       ...o.has("u") ? { validUntil: asNum(o.get("u"), "u") } : {},
       pointers: asArray(o.get("p"), "p").map((p) => ptrFromCbor(p, strings))
     };
-    const sig = o.has("s") ? strings[asNum(o.get("s"), "s")] : void 0;
-    return verifiedDelta(claims, sig, strings[asNum(o.get("i"), "i")]);
+    const sig = o.has("s") ? at(strings, o.get("s"), "s") : void 0;
+    return verifiedDelta(claims, sig, at(strings, o.get("i"), "i"));
   }
   function verifiedDelta(claims, sig, storedId) {
     const d = makeDelta(claims, sig);
@@ -4548,9 +4573,8 @@
     for (const m of envelopes) out.add(m);
     for (const rec of asArray(top.get("members"), "members")) {
       const o = asMap(rec, "member");
-      const manifest = envelopes[asNum(o.get("m"), "m")];
-      if (manifest === void 0) throw new Error("pack: member references missing envelope");
-      const author = o.has("a") ? strings[asNum(o.get("a"), "a")] : manifest.claims.author;
+      const manifest = at(envelopes, o.get("m"), "m");
+      const author = o.has("a") ? at(strings, o.get("a"), "a") : manifest.claims.author;
       const timestamp = manifest.claims.timestamp + (o.has("dt") ? asNum(o.get("dt"), "dt") : 0);
       const claims = {
         author,
@@ -4559,8 +4583,8 @@
         ...o.has("u") ? { validUntil: asNum(o.get("u"), "u") } : {},
         pointers: asArray(o.get("p"), "p").map((p) => ptrFromCbor(p, strings))
       };
-      const sig = o.has("s") ? strings[asNum(o.get("s"), "s")] : void 0;
-      out.add(verifiedDelta(claims, sig, strings[asNum(o.get("i"), "i")]));
+      const sig = o.has("s") ? at(strings, o.get("s"), "s") : void 0;
+      out.add(verifiedDelta(claims, sig, at(strings, o.get("i"), "i")));
     }
     for (const rec of asArray(top.get("loose"), "loose")) out.add(hydrateRecord(rec, strings));
     return out;
@@ -4745,8 +4769,8 @@
 
   // src/reactor/reactor.ts
   var height = (node) => node?.height ?? 0;
-  var boundaryNode = (at, left, right) => ({
-    at,
+  var boundaryNode = (at2, left, right) => ({
+    at: at2,
     ...left === void 0 ? {} : { left },
     ...right === void 0 ? {} : { right },
     height: 1 + Math.max(height(left), height(right))
@@ -4759,19 +4783,19 @@
     const right = node.right;
     return boundaryNode(right.at, boundaryNode(node.at, node.left, right.left), right.right);
   }
-  function insertBoundary(node, at) {
-    if (node === void 0) return boundaryNode(at);
-    if (at === node.at) return node;
-    const updated = at < node.at ? boundaryNode(node.at, insertBoundary(node.left, at), node.right) : boundaryNode(node.at, node.left, insertBoundary(node.right, at));
+  function insertBoundary(node, at2) {
+    if (node === void 0) return boundaryNode(at2);
+    if (at2 === node.at) return node;
+    const updated = at2 < node.at ? boundaryNode(node.at, insertBoundary(node.left, at2), node.right) : boundaryNode(node.at, node.left, insertBoundary(node.right, at2));
     const balance = height(updated.left) - height(updated.right);
     if (balance > 1) {
       return rotateRight(
-        at > updated.left.at ? boundaryNode(updated.at, rotateLeft(updated.left), updated.right) : updated
+        at2 > updated.left.at ? boundaryNode(updated.at, rotateLeft(updated.left), updated.right) : updated
       );
     }
     if (balance < -1) {
       return rotateLeft(
-        at < updated.right.at ? boundaryNode(updated.at, updated.left, rotateRight(updated.right)) : updated
+        at2 < updated.right.at ? boundaryNode(updated.at, updated.left, rotateRight(updated.right)) : updated
       );
     }
     return updated;
@@ -5149,6 +5173,43 @@
       else list.push(cb);
     }
     // --- atomic batch ingestion (SPEC-1 §9, SPEC-4 §6) ---
+    /**
+     * Install a peer admission decision as one reactor update (SPEC-6 vNext §2 step 6).
+     * The peer must choose its final set and coordinate this in-memory update with its
+     * durable admission transaction. This method still verifies every offered delta, including
+     * duplicates. It does not make a signed bundle; the peer enforces unsigned-member coverage.
+     */
+    ingestBatch(deltas) {
+      const fresh = [];
+      const seen = /* @__PURE__ */ new Set();
+      for (const d of deltas) {
+        if (d.sig !== void 0 && verifyDelta(d) !== "verified") {
+          return { status: "rejected", reason: `batch member ${d.id}: signature does not verify` };
+        }
+        try {
+          const probe = new DeltaSet();
+          probe.add(d);
+        } catch (e) {
+          return {
+            status: "rejected",
+            reason: `batch member ${d.id}: ${e instanceof Error ? e.message : String(e)}`
+          };
+        }
+        if (this.set.has(d.id) || seen.has(d.id)) continue;
+        seen.add(d.id);
+        fresh.push(d);
+      }
+      if (fresh.length === 0) return { status: "duplicate" };
+      for (const d of fresh) {
+        this.set.add(d);
+        this.log.push(d);
+        this.index(d);
+      }
+      this.membershipRevision += 1;
+      for (const d of fresh) for (const cb of this.rawSubscribers) cb(d);
+      this.lastChanges = this.dispatchAndUpdate(fresh);
+      return { status: "accepted" };
+    }
     // Manifest-keyed atomic ingestion: validate everything first; all members become visible to
     // dispatch in one step, or none do. The transaction vocabulary supplies the batch boundary;
     // the reactor supplies the courtesy.

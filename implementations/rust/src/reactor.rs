@@ -497,6 +497,40 @@ impl Reactor {
 
     // --- atomic batch ingestion (SPEC-1 §9, SPEC-4 §6) ---
 
+    /// Install final peer admissions as one reactor update (SPEC-6 vNext §2 step 6). The peer
+    /// coordinates this in-memory update with its durable admission transaction. Every offered
+    /// delta, including a duplicate, is verified here. Bundle coverage remains the caller's
+    /// admission obligation.
+    pub fn ingest_batch(&mut self, deltas: &[Delta]) -> IngestResult {
+        let mut fresh: Vec<Delta> = Vec::new();
+        let mut seen = BTreeSet::new();
+        for d in deltas {
+            if d.sig.is_some() && verify_delta(d) != Verification::Verified {
+                return IngestResult::Rejected(format!(
+                    "batch member {}: signature does not verify",
+                    d.id
+                ));
+            }
+            let mut probe = DeltaSet::new();
+            if let Err(e) = probe.add(d.clone()) {
+                return IngestResult::Rejected(format!("batch member {}: {e}", d.id));
+            }
+            if !self.set.contains(&d.id) && seen.insert(d.id.clone()) {
+                fresh.push(d.clone());
+            }
+        }
+        if fresh.is_empty() {
+            return IngestResult::Duplicate;
+        }
+        for d in &fresh {
+            self.set.add(d.clone()).expect("validated above");
+            self.index(d);
+            self.log.push(d.clone());
+        }
+        self.last_changes = self.dispatch_and_update(&fresh);
+        IngestResult::Accepted
+    }
+
     /// Manifest-keyed atomic ingestion: validate everything first; all members become visible to
     /// dispatch in one step, or none do.
     pub fn ingest_bundle(&mut self, manifest: Delta, members: &[Delta]) -> IngestResult {

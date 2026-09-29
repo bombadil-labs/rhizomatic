@@ -4,7 +4,70 @@ All notable changes to **`@bombadil/rhizomatic`**. This project is pre-1.0, so b
 land in **minor** bumps (see [CLAUDE.md → Releasing](CLAUDE.md#releasing-bombadilrhizomatic-to-npm)).
 Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 
-## Unreleased
+## 0.11.0-next.6 — forthcoming
+
+### ⚠️ Breaking
+
+- Rust candidate guards now return `GuardDecision` so a rejection can carry its reason.
+- TypeScript canonical CBOR encoding, `computeId`, and `signClaims` now reject text containing
+  unpaired UTF-16 surrogates instead of replacing them with U+FFFD. Callers must supply valid
+  Unicode text or replace malformed code units before computing an id or signature.
+- The new peer journal opens only a fresh empty store or an existing journal under the same
+  governing key. A store with rows but no journal is refused at boot; create a fresh peer store
+  rather than replaying legacy rows. Existing-pool handoff is outside this greenfield release.
+
+### Added
+
+- The step-6 journal now offers a writable degraded open that names damaged or missing admitted
+  rows and excludes them from its serving projection. A purge cannot report `removed` for a
+  previously arrived target until a v2 rebase after its refusal excludes its payload, and erasure-aware rebase stays
+  available after purge settlement to bound replay work. Shared TypeScript and Rust vectors and
+  store tests cover these contracts.
+- Step-6 admission building blocks in both TypeScript and Rust: shared arrival testimony vectors,
+  signed loose and bundle entry checks, candidate-local guard preflight against the pre-transfer
+  admitted set, conservative erasure authority and target-budget filtering, set-level ordinary
+  quota selection, and atomic in-memory Reactor batch ingestion.
+  An internal typed signed-loose ordinary transfer path now composes those stages with the
+  durable image and pins outcomes and bytes in shared vectors.
+  A public typed single-peer API now opens a fresh canonical peer image and commits signed loose
+  ordinary deltas through an atomic image-and-row storage seam. It supports atomic local append,
+  per-candidate receive, refusal reasons, explicit local/authenticated/unattributed origins, and
+  fail-closed detection of rows without an image. Shared vectors pin canonical empty and admitted
+  image bytes in both witnesses. The pure API remains browser-bundleable; the single-writer file
+  adapter is available from the Node-only `@bombadil/rhizomatic/node` subpath. This whole-image
+  surface handles ordinary deltas only; the journal facade below handles effective erasures.
+  New peers start on empty journals; stores with rows but no journal are refused under the
+  greenfield contract.
+  The TypeScript backend-agnostic facade reuses a verified exact image on a long-lived store
+  object; it rechecks content ids but does not repeat Ed25519 checks for unchanged held deltas.
+  A changed image is decoded and verified before use. Rust and the Node file adapter still verify
+  the full image on each admit. No-op offers skip the storage write and re-encoding. The verified
+  store path now avoids redundant full-state planner checks, and both witnesses reuse validated
+  base bytes during durable encoding. Permanent commits retain already verified set members
+  without re-hashing them; only newly added members cross the set insertion check. The v2 image
+  still grows with admitted history.
+  Canonical v1 ordinary journal frames and digest-chain replay are now pinned in both witnesses
+  by shared bytes. A typed journal-backed single-peer admission facade exposes an atomic
+  head/frame/row storage seam, warm append, no-op receipts and fail-closed reopen. It covers
+  signed loose ordinary additions, effective erasure orders and mixed transfers. An erasure CAS
+  checks asserted target absence; purge settlement requires a storage proof of physical absence.
+  A refuted proof is distinct from a head conflict. A durable rebase replaces payload-bearing
+  frames with a current-state checkpoint before a removed report can be truthful; storage must
+  still prove absence across rows, frames, checkpoints and physical remnants. Reopen also checks
+  that every admitted row is present with the frame-derived id and signature. Canonical ordinary
+  checkpoints now bind a verified
+  v2 image to an exact frame head and let a backend atomically prune that verified prefix;
+  retained frames replay from the boundary. Reopen rechecks the head after reading admitted
+  rows and returns a retryable conflict if it changed.
+
+### Internal structure
+
+- A canonical peer-local state image and single-writer file adapter preserve current holdings,
+  first-epoch arrival testimony, counters, and permanent refusals across restart. An internal v2
+  image and commit planner now bind verified final additions, erasure exclusions, refusal events,
+  quota usage, and stable purge obligations in one local replacement. Writes require the expected
+  prior image and check newly arrived orders and ordinary quota growth. CBOR and pack readers
+  reject malformed lengths, excessive nesting, and invalid table indices before admission.
 
 ## 0.11.0-next.1 — 2026-09-25
 

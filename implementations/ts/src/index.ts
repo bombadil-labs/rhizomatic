@@ -92,6 +92,67 @@ export {
 } from "./lens-binding.js";
 export { packId, packSet, unpackSet } from "./pack.js";
 export { Peer, syncBoth, type SyncReport } from "./peer.js";
+export { bundleEntryStatus, looseEntryStatus, type LooseEntryStatus } from "./federation/entry.js";
+export {
+  preflightTransfer,
+  type CandidateGuard,
+  type GuardDecision,
+  type GuardContext,
+  type GuardedUnit,
+  type GuardedUnitStatus,
+  type PreflightContext,
+  type ReadonlyAdmittedSet,
+  type TransferUnit,
+} from "./federation/preflight.js";
+export {
+  emptyDurablePeerState,
+  encodeDurablePeerState,
+  decodeDurablePeerState,
+  planPermanentCommit,
+  type DurablePeerState,
+  type RefusalEvent,
+  type ErasureExclusion,
+  type PurgeObligation,
+} from "./federation/durable-state.js";
+export { type PeerState } from "./federation/peer-state.js";
+export {
+  planSignedLooseOrdinaryTransfer,
+  type SignedLooseOutcome,
+  type SignedLooseOutcomeStatus,
+  type SignedLooseTransferInput,
+} from "./federation/signed-loose-admission.js";
+export { isCanonicalPeerId, samePeerId } from "./federation/peer-identity.js";
+export {
+  openSinglePeer,
+  admitSinglePeerTransfer,
+  type ArrivalOrigin,
+  type DurablePeerStore,
+  type PeerImageWrite,
+  type PeerImageRead,
+  type OpenSinglePeerResult,
+  type SinglePeerTransferInput,
+  type SinglePeerTransferResult,
+} from "./federation/single-peer.js";
+export {
+  OrdinaryJournalPeer,
+  type DurableOrdinaryJournalStore,
+  type OrdinaryJournalRead,
+  type OrdinaryJournalHead,
+  type AdmittedRowRead,
+  type UnavailableAdmittedRow,
+  type OrdinaryJournalOpenResult,
+  type OrdinaryJournalAdmissionResult,
+  type OrdinaryJournalPurgeResult,
+  type ErasureJournalWrite,
+  type EffectiveErasureOrder,
+  type EffectiveErasureTransferInput,
+} from "./federation/ordinary-journal-peer.js";
+export {
+  planArrivals,
+  type ArrivalCursor,
+  type ArrivalPlan,
+  type ArrivalRecord,
+} from "./federation/arrival.js";
 export { offerFor, pullFromUrl, servePeer } from "./http.js";
 export {
   resolvePrincipal,

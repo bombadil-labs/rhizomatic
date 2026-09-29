@@ -8,8 +8,8 @@ govern here. This file is only the TS-specific usage patterns.
 
 - **Node 22**, TypeScript, **ESM** (`"type": "module"`).
 - **vitest** as the test runner (handles TS via esbuild — no separate build step for tests).
-- **@noble/hashes** for BLAKE3 (pure JS, audited, zero native deps) and, later, Ed25519 via
-  `@noble/curves`. Crypto primitives we *consume*; everything else we write ourselves.
+- **@noble/hashes** for BLAKE3 and **@noble/curves** for Ed25519. Crypto primitives we
+  *consume*; the format, evaluator and peer rules are implemented here.
 - The canonical CBOR encoder is **hand-rolled** (`src/cbor.ts`), not a library — total control over
   determinism is the whole point, and it must match Rust byte-for-byte.
 

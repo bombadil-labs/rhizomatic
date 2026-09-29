@@ -178,9 +178,16 @@ function asNum(v: CborValue | undefined, what: string): number {
   return v.v;
 }
 
+function at<T>(items: readonly T[], value: CborValue | undefined, what: string): T {
+  const index = asNum(value, what);
+  if (!Number.isInteger(index) || index < 0 || index >= items.length)
+    throw new Error(`pack: ${what} index out of range`);
+  return items[index]!;
+}
+
 function ptrFromCbor(v: CborValue, strings: readonly string[]): Pointer {
   const o = asMap(v, "pointer");
-  const str = (key: string): string => strings[asNum(o.get(key), key)]!;
+  const str = (key: string): string => at(strings, o.get(key), key);
   const role = str("r");
   const context = o.has("c") ? str("c") : undefined;
   let target: Target;
@@ -216,14 +223,14 @@ function ptrFromCbor(v: CborValue, strings: readonly string[]): Pointer {
 function hydrateRecord(v: CborValue, strings: readonly string[]): Delta {
   const o = asMap(v, "record");
   const claims: Claims = {
-    author: strings[asNum(o.get("a"), "a")]!,
+    author: at(strings, o.get("a"), "a"),
     timestamp: asNum(o.get("t"), "t"),
     validFrom: asNum(o.get("f"), "f"),
     ...(o.has("u") ? { validUntil: asNum(o.get("u"), "u") } : {}),
     pointers: asArray(o.get("p"), "p").map((p) => ptrFromCbor(p, strings)),
   };
-  const sig = o.has("s") ? strings[asNum(o.get("s"), "s")]! : undefined;
-  return verifiedDelta(claims, sig, strings[asNum(o.get("i"), "i")]!);
+  const sig = o.has("s") ? at(strings, o.get("s"), "s") : undefined;
+  return verifiedDelta(claims, sig, at(strings, o.get("i"), "i"));
 }
 
 // SPEC-8 §4: hydrate -> canonical CBOR -> multihash MUST equal the stored id. Free fsck.
@@ -251,9 +258,8 @@ export function unpackSet(bytes: Uint8Array): DeltaSet {
   for (const m of envelopes) out.add(m);
   for (const rec of asArray(top.get("members"), "members")) {
     const o = asMap(rec, "member");
-    const manifest = envelopes[asNum(o.get("m"), "m")];
-    if (manifest === undefined) throw new Error("pack: member references missing envelope");
-    const author = o.has("a") ? strings[asNum(o.get("a"), "a")]! : manifest.claims.author;
+    const manifest = at(envelopes, o.get("m"), "m");
+    const author = o.has("a") ? at(strings, o.get("a"), "a") : manifest.claims.author;
     const timestamp = manifest.claims.timestamp + (o.has("dt") ? asNum(o.get("dt"), "dt") : 0);
     const claims: Claims = {
       author,
@@ -262,8 +268,8 @@ export function unpackSet(bytes: Uint8Array): DeltaSet {
       ...(o.has("u") ? { validUntil: asNum(o.get("u"), "u") } : {}),
       pointers: asArray(o.get("p"), "p").map((p) => ptrFromCbor(p, strings)),
     };
-    const sig = o.has("s") ? strings[asNum(o.get("s"), "s")]! : undefined;
-    out.add(verifiedDelta(claims, sig, strings[asNum(o.get("i"), "i")]!));
+    const sig = o.has("s") ? at(strings, o.get("s"), "s") : undefined;
+    out.add(verifiedDelta(claims, sig, at(strings, o.get("i"), "i")));
   }
   for (const rec of asArray(top.get("loose"), "loose")) out.add(hydrateRecord(rec, strings));
   return out;

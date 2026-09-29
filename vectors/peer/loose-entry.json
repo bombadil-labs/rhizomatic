@@ -1,0 +1,66 @@
+{
+  "spec": "SPEC-6 vNext §2 step 1",
+  "fixture": "vectors/principal/evidence.json",
+  "cases": [
+    {
+      "name": "a verified loose delta proceeds to later gates",
+      "candidate": "userRootDeclaration",
+      "active": [],
+      "refused": [],
+      "expected": "eligible"
+    },
+    {
+      "name": "an unsigned loose delta has no coverage",
+      "candidate": "userRootDeclaration",
+      "mutation": "dropSignature",
+      "active": [],
+      "refused": [],
+      "expected": "invalid"
+    },
+    {
+      "name": "malformed claims return invalid",
+      "candidate": "userRootDeclaration",
+      "mutation": "malformedValidity",
+      "active": [],
+      "refused": [],
+      "expected": "invalid"
+    },
+    {
+      "name": "a forged signature is invalid before refusal",
+      "candidate": "userRootDeclaration",
+      "mutation": "changeSignature",
+      "active": [],
+      "refused": ["userRootDeclaration"],
+      "expected": "invalid"
+    },
+    {
+      "name": "a forged id is invalid before deduplication",
+      "candidate": "userRootDeclaration",
+      "mutation": "changeId",
+      "active": ["userRootDeclaration"],
+      "refused": [],
+      "expected": "invalid"
+    },
+    {
+      "name": "a permanent refusal precedes a held duplicate",
+      "candidate": "userRootDeclaration",
+      "active": ["userRootDeclaration"],
+      "refused": ["userRootDeclaration"],
+      "expected": "refused"
+    },
+    {
+      "name": "a duplicate is not offered to later guards",
+      "candidate": "userRootDeclaration",
+      "active": ["userRootDeclaration"],
+      "refused": [],
+      "expected": "duplicate"
+    },
+    {
+      "name": "another signed claim remains eligible",
+      "candidate": "operatorRootDeclaration",
+      "active": ["userRootDeclaration"],
+      "refused": ["userRootDeclaration"],
+      "expected": "eligible"
+    }
+  ]
+}

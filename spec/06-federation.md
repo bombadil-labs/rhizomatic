@@ -4,6 +4,11 @@
 **Layer:** L6 — networking
 **Depends on:** SPEC-0 … SPEC-5
 
+**vNext work:** [Peer, admission, and arrival proposal](06-peer-admission.PROPOSAL.md)
+records the plan-step-6 contract under review. Sections 3–5 and 8 below describe the current
+v0 interface until that contract has shared vectors and witness parity. Plan step 7 will revise
+the publish/subscribe and signed-message binding.
+
 ---
 
 ## 1. Purpose

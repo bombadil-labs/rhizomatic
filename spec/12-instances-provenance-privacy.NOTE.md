@@ -10,6 +10,12 @@ inside the existing algebra. It is the companion to [Note 11](11-federation-as-q
 (federation as query): Note 11 says *what flows*; this note says *between whom, under what name, and
 at what exposure*.
 
+**vNext correction (2026-09):** §3(c), §6's non-merge bullet, and §7's proposed non-merge landing
+site are superseded by the approved N1 rule. String-equal entity ids always co-refer after union;
+what travels is controlled by each peer's sharing policy, and governed reads take an explicit
+author selection. See [the step-6 peer proposal](06-peer-admission.PROPOSAL.md). The optional
+key-qualified minting convention in §3(b) remains available when distinct names are wanted.
+
 ---
 
 ## 1. The claim

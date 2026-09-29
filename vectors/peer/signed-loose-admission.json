@@ -1,0 +1,223 @@
+{
+  "spec": "SPEC-6 vNext \u00a72 steps 1, 3, 5, 6; signed loose ordinary-only staging path",
+  "description": "No lens, conflict rule, bundle, or effective erasure is admitted by this internal path. The classifier marks order candidates unsupported. Expected image bytes come from durable-state cases. Outcomes follow offered appearance order.",
+  "cases": [
+    {
+      "name": "first ordinary admission",
+      "beforeCase": 0,
+      "afterCase": 1,
+      "offered": [
+        "userRootDeclaration"
+      ],
+      "capacity": 1,
+      "at": 100,
+      "sender": "peer-B",
+      "expected": [
+        "admitted"
+      ]
+    },
+    {
+      "name": "second ordinary admission",
+      "beforeCase": 1,
+      "afterCase": 6,
+      "offered": [
+        "operatorRootDeclaration"
+      ],
+      "capacity": 1,
+      "at": 101,
+      "sender": "peer-C",
+      "expected": [
+        "admitted"
+      ]
+    },
+    {
+      "name": "duplicate creates no arrival",
+      "beforeCase": 1,
+      "afterCase": 1,
+      "offered": [
+        "userRootDeclaration"
+      ],
+      "capacity": 1,
+      "at": 101,
+      "sender": "peer-C",
+      "expected": [
+        "duplicate"
+      ]
+    },
+    {
+      "name": "guard rejection creates no arrival",
+      "beforeCase": 1,
+      "afterCase": 1,
+      "offered": [
+        "operatorRootDeclaration"
+      ],
+      "guardReject": [
+        "operatorRootDeclaration"
+      ],
+      "capacity": 1,
+      "at": 101,
+      "sender": "peer-C",
+      "expected": [
+        "guard-rejected"
+      ]
+    },
+    {
+      "name": "classified order cannot enter ordinary path",
+      "beforeCase": 0,
+      "afterCase": 0,
+      "offered": [
+        "operatorRootDeclaration"
+      ],
+      "erasure": [
+        "operatorRootDeclaration"
+      ],
+      "capacity": 1,
+      "at": 100,
+      "sender": "peer-B",
+      "expected": [
+        "unsupported-erasure"
+      ]
+    },
+    {
+      "name": "negation skipped by quota prunes target",
+      "beforeCase": 0,
+      "afterCase": 0,
+      "offered": [
+        "userDelegation",
+        "negateUserDelegation"
+      ],
+      "capacity": 1,
+      "at": 100,
+      "sender": "peer-B",
+      "expected": [
+        "dependency-pruned",
+        "quota-skipped"
+      ]
+    },
+    {
+      "name": "target and eligible negation land together",
+      "beforeCase": 0,
+      "afterCase": 7,
+      "offered": [
+        "negateUserDelegation",
+        "userDelegation"
+      ],
+      "capacity": 2,
+      "at": 100,
+      "sender": "peer-B",
+      "expected": [
+        "admitted",
+        "admitted"
+      ]
+    },
+    {
+      "name": "rejected negation is not required",
+      "beforeCase": 0,
+      "afterCase": 8,
+      "offered": [
+        "userDelegation",
+        "negateUserDelegation"
+      ],
+      "guardReject": [
+        "negateUserDelegation"
+      ],
+      "capacity": 1,
+      "at": 100,
+      "sender": "peer-B",
+      "expected": [
+        "admitted",
+        "guard-rejected"
+      ]
+    },
+    {
+      "name": "empty offer consumes no transfer",
+      "beforeCase": 0,
+      "afterCase": 0,
+      "offered": [],
+      "capacity": 0,
+      "at": 100,
+      "sender": "peer-B",
+      "expected": []
+    },
+    {
+      "name": "invalid signature cannot enter",
+      "beforeCase": 0,
+      "afterCase": 0,
+      "offered": [
+        "userRootDeclaration"
+      ],
+      "corruptSignature": [
+        "userRootDeclaration"
+      ],
+      "capacity": 1,
+      "at": 100,
+      "sender": "peer-B",
+      "expected": [
+        "invalid"
+      ]
+    },
+    {
+      "name": "repeated appearance lands once",
+      "beforeCase": 0,
+      "afterCase": 1,
+      "offered": [
+        "userRootDeclaration",
+        "userRootDeclaration"
+      ],
+      "capacity": 1,
+      "at": 100,
+      "sender": "peer-B",
+      "expected": [
+        "admitted",
+        "admitted"
+      ]
+    },
+    {
+      "name": "permanent refusal blocks before guards",
+      "beforeCase": 2,
+      "afterCase": 2,
+      "offered": [
+        "userRootDeclaration"
+      ],
+      "capacity": 1,
+      "at": 102,
+      "sender": "peer-D",
+      "expected": [
+        "refused"
+      ]
+    },
+    {
+      "name": "quota skip charges nothing",
+      "beforeCase": 0,
+      "afterCase": 0,
+      "offered": [
+        "userRootDeclaration"
+      ],
+      "capacity": 0,
+      "at": 100,
+      "sender": "peer-B",
+      "expected": [
+        "quota-skipped"
+      ]
+    },
+    {
+      "name": "repeated id has one fixed erasure classification",
+      "beforeCase": 0,
+      "afterCase": 0,
+      "offered": [
+        "operatorRootDeclaration",
+        "operatorRootDeclaration"
+      ],
+      "erasureFirstOnly": [
+        "operatorRootDeclaration"
+      ],
+      "capacity": 1,
+      "at": 100,
+      "sender": "peer-B",
+      "expected": [
+        "unsupported-erasure",
+        "unsupported-erasure"
+      ]
+    }
+  ]
+}

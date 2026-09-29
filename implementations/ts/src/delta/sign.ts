@@ -44,7 +44,7 @@ function bytesToNumberLE(bytes: Uint8Array): bigint {
 // The SPEC-1 §5.1 strict criterion (ERRATA D13), implemented check by check — deliberately NOT a
 // library default, because "strict" varies subtly between libraries and the spec text is the
 // criterion. Pinned by vectors/l0-delta/deltas-sig-edge.json.
-function verifySigStrict(sig: Uint8Array, msg: Uint8Array, pub: Uint8Array): boolean {
+export function verifySigStrict(sig: Uint8Array, msg: Uint8Array, pub: Uint8Array): boolean {
   if (sig.length !== 64 || pub.length !== 32) return false;
   const rBytes = sig.subarray(0, 32);
   // 1. canonical scalar: S < L

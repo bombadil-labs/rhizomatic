@@ -3,7 +3,17 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { bytesToHex, hexToBytes } from "@noble/hashes/utils";
 import { describe, expect, it } from "vitest";
-import { array, bool, bstr, type CborValue, encode, float, map, tstr } from "../src/cbor.js";
+import {
+  array,
+  bool,
+  bstr,
+  type CborValue,
+  decode,
+  encode,
+  float,
+  map,
+  tstr,
+} from "../src/cbor.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const primsPath = resolve(here, "../../../vectors/l0-delta/cbor-primitives.json");
@@ -30,6 +40,34 @@ function build(p: Prim): CborValue {
 }
 
 const prims = JSON.parse(readFileSync(primsPath, "utf8")) as Prim[];
+const invalidLengths = JSON.parse(
+  readFileSync(resolve(here, "../../../vectors/l0-delta/cbor-invalid-length.json"), "utf8"),
+) as Array<{ name: string; hex: string; error: string }>;
+const nesting = JSON.parse(
+  readFileSync(resolve(here, "../../../vectors/l0-delta/cbor-nesting.json"), "utf8"),
+) as Array<{
+  name: string;
+  prefixHex: string;
+  repeat: number;
+  suffixHex: string;
+  expected: string;
+}>;
+
+describe("shared CBOR malformed-length vectors", () => {
+  for (const c of invalidLengths) {
+    it(c.name, () => expect(() => decode(hexToBytes(c.hex))).toThrow(c.error));
+  }
+});
+
+describe("shared CBOR nesting boundary vectors", () => {
+  for (const c of nesting) {
+    it(c.name, () => {
+      const bytes = hexToBytes(c.prefixHex.repeat(c.repeat) + c.suffixHex);
+      if (c.expected === "valid") expect(() => decode(bytes)).not.toThrow();
+      else expect(() => decode(bytes)).toThrow(c.expected);
+    });
+  }
+});
 
 describe("cbor primitive ground truth (RFC 8949 §4.2.1 / ERRATA D1–D3)", () => {
   for (const p of prims) {
@@ -67,6 +105,12 @@ describe("cbor composites", () => {
   it("rejects non-finite numbers", () => {
     expect(() => encode(float(Number.NaN))).toThrow();
     expect(() => encode(float(Number.POSITIVE_INFINITY))).toThrow();
+  });
+
+  it("rejects lone UTF-16 surrogates before they can change signed bytes", () => {
+    expect(() => encode(tstr("x\ud800"))).toThrow("not well-formed Unicode");
+    expect(() => encode(tstr("x\udc00"))).toThrow("not well-formed Unicode");
+    expect(() => encode(tstr("x😀"))).not.toThrow();
   });
 
   it("normalizes -0 to +0", () => {

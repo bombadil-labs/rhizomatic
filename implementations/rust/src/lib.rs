@@ -2,12 +2,27 @@
 //! Module names mirror `../ts/src` to aid cross-reading. See the root CLAUDE.md.
 
 pub mod alias;
+pub mod arrival;
 pub mod b64u;
 pub mod cbor;
+#[doc(hidden)]
 pub mod delta;
 pub mod derivation;
+#[doc(hidden)]
+pub mod durable_state;
+pub mod entry;
+#[doc(hidden)]
+pub mod erasure_filter;
 pub mod eval;
 pub mod hash;
+#[doc(hidden)]
+#[doc(hidden)]
+#[doc(hidden)]
+#[doc(hidden)]
+pub mod ordinary_journal;
+pub mod ordinary_journal_peer;
+#[doc(hidden)]
+pub mod signed_loose_admission;
 // The HTTP binding is host-only (tiny_http/ureq do not build on wasm32).
 #[cfg(not(target_arch = "wasm32"))]
 pub mod http;
@@ -15,17 +30,28 @@ pub mod hview;
 pub mod json_profile;
 pub mod lens_binding;
 pub mod materialize;
+#[doc(hidden)]
+pub mod ordinary_quota;
 pub mod pack;
 pub mod parse_error;
 pub mod peer;
+#[doc(hidden)]
+pub mod peer_identity;
+#[doc(hidden)]
+pub mod peer_state;
+pub mod permanent_journal;
 pub mod pred;
+pub mod preflight;
+#[doc(hidden)]
 pub mod principal;
 pub mod reactor;
+#[doc(hidden)]
 pub mod resolution;
 pub mod schema;
 pub mod schema_deltas;
 pub mod set;
 pub mod sign;
+pub mod single_peer;
 pub mod strict;
 pub mod term_io;
 pub mod term_json;
@@ -34,8 +60,10 @@ pub mod types;
 pub mod wasm;
 
 pub use alias::{relation_signature, relation_signature_canonical_hex};
+pub use arrival::{plan_arrivals, ArrivalCursor, ArrivalPlan, ArrivalRecord};
 pub use delta::{canonical_bytes, canonical_hex, compute_id};
 pub use derivation::{verify_pure_derivation, BindingSpec, DerivationHost};
+pub use entry::{bundle_entry_status, loose_entry_status, LooseEntryStatus};
 pub use eval::{
     alias_closure, eval_term, expand_aliased, governed_deltas, latest_by_key, result_canonical_hex,
     EvalResult, GroupKey, MaskPolicy, PruneKeep, Term,
@@ -49,6 +77,10 @@ pub use pack::{pack_id, pack_set, unpack_set};
 pub use parse_error::{ParseError, ParseErrorKind};
 pub use peer::{sync_both, Peer, SyncReport};
 pub use pred::{compare_primitives, eval_pred, Pred};
+pub use preflight::{
+    preflight_transfer, CandidateGuard, GuardDecision, GuardedUnit, GuardedUnitStatus,
+    PreflightContext, TransferUnit,
+};
 pub use principal::{
     associated_keys, authors_for_principal, eval_principal_term, lower_principal_registry,
     lower_principal_term, principal_resolver, principal_resolver_for_reactor,

@@ -1,0 +1,149 @@
+{
+  "spec": "SPEC-6 vNext \u00a72 step 6, permanent-posture internal commit transitions",
+  "description": "Inputs are preverified final additions and effective erasure groups. Each expected image is the canonical durable-state case, including arrivals, refusals, exclusions, quota counter, and obligations.",
+  "cases": [
+    {
+      "name": "first ordinary admission",
+      "beforeCase": 0,
+      "afterCase": 1,
+      "additions": [
+        "userRootDeclaration"
+      ],
+      "erasures": [],
+      "quotaCharge": 1,
+      "at": 100,
+      "sender": "peer-B"
+    },
+    {
+      "name": "held target erasure",
+      "beforeCase": 1,
+      "afterCase": 2,
+      "additions": [
+        "operatorRootDeclaration"
+      ],
+      "erasures": [
+        {
+          "target": "userRootDeclaration",
+          "orders": [
+            "operatorRootDeclaration"
+          ],
+          "surfaceHoldsBytes": true
+        }
+      ],
+      "quotaCharge": 0,
+      "at": 101,
+      "sender": "peer-C"
+    },
+    {
+      "name": "later order preserves obligation identity",
+      "beforeCase": 2,
+      "afterCase": 3,
+      "additions": [
+        "bindingUserKey"
+      ],
+      "erasures": [
+        {
+          "target": "userRootDeclaration",
+          "orders": [
+            "bindingUserKey"
+          ],
+          "surfaceHoldsBytes": false
+        }
+      ],
+      "quotaCharge": 0,
+      "at": 300,
+      "sender": "sender-C"
+    },
+    {
+      "name": "advance refusal creates no purge job",
+      "beforeCase": 1,
+      "afterCase": 4,
+      "additions": [
+        "operatorRootDeclaration"
+      ],
+      "erasures": [
+        {
+          "target": "bindingUserKey",
+          "orders": [
+            "operatorRootDeclaration"
+          ],
+          "surfaceHoldsBytes": false
+        }
+      ],
+      "quotaCharge": 0,
+      "at": 101,
+      "sender": "peer-C"
+    }
+  ],
+  "invalidCases": [
+    {
+      "name": "cannot readmit refused target",
+      "beforeCase": 2,
+      "additions": [
+        "userRootDeclaration"
+      ],
+      "erasures": [],
+      "quotaCharge": 0,
+      "at": 102,
+      "sender": "peer-D",
+      "expected": "addition is duplicate or refused"
+    },
+    {
+      "name": "effective order must be signed addition",
+      "beforeCase": 1,
+      "additions": [],
+      "erasures": [
+        {
+          "target": "userRootDeclaration",
+          "orders": [
+            "operatorRootDeclaration"
+          ],
+          "surfaceHoldsBytes": true
+        }
+      ],
+      "quotaCharge": 0,
+      "at": 101,
+      "sender": "peer-C",
+      "expected": "effective order must be a distinct signed addition"
+    },
+    {
+      "name": "duplicate erasure target is invalid",
+      "beforeCase": 1,
+      "additions": [
+        "operatorRootDeclaration"
+      ],
+      "erasures": [
+        {
+          "target": "userRootDeclaration",
+          "orders": [
+            "operatorRootDeclaration"
+          ],
+          "surfaceHoldsBytes": true
+        },
+        {
+          "target": "userRootDeclaration",
+          "orders": [
+            "operatorRootDeclaration"
+          ],
+          "surfaceHoldsBytes": true
+        }
+      ],
+      "quotaCharge": 0,
+      "at": 101,
+      "sender": "peer-C",
+      "expected": "invalid erasure group"
+    },
+    {
+      "name": "ordinary addition cannot evade quota charge",
+      "beforeCase": 0,
+      "additions": [
+        "userRootDeclaration"
+      ],
+      "erasures": [],
+      "quotaCharge": 0,
+      "at": 100,
+      "sender": "peer-B",
+      "expected": "quota charge must equal new ordinary ids"
+    }
+  ]
+}

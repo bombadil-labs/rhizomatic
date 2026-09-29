@@ -1,0 +1,67 @@
+{
+  "spec": "SPEC-6 vNext §2 step 6; SPEC-4 §6",
+  "description": "An internal reactor update for a final peer admission set; it confers no bundle authority.",
+  "deltas": [
+    {
+      "name": "one",
+      "claims": {
+        "timestamp": 1,
+        "validFrom": 1,
+        "author": "did:key:zPeer",
+        "pointers": [
+          { "role": "subject", "target": { "id": "peer:item", "context": "value" } },
+          { "role": "value", "target": "one" }
+        ]
+      }
+    },
+    {
+      "name": "two",
+      "claims": {
+        "timestamp": 2,
+        "validFrom": 2,
+        "author": "did:key:zPeer",
+        "pointers": [
+          { "role": "subject", "target": { "id": "peer:item", "context": "value" } },
+          { "role": "value", "target": "two" }
+        ]
+      }
+    }
+  ],
+  "cases": [
+    {
+      "name": "both final additions land together",
+      "before": [],
+      "offer": ["two", "one"],
+      "status": "accepted",
+      "after": ["two", "one"]
+    },
+    {
+      "name": "an already held id is not appended twice",
+      "before": ["one"],
+      "offer": ["one", "two", "two"],
+      "status": "accepted",
+      "after": ["one", "two"]
+    },
+    {
+      "name": "only duplicates change nothing",
+      "before": ["one"],
+      "offer": ["one", "one"],
+      "status": "duplicate",
+      "after": ["one"]
+    },
+    {
+      "name": "a forged second id rejects the whole update",
+      "before": [],
+      "offer": ["one", "forgedTwo"],
+      "status": "rejected",
+      "after": []
+    },
+    {
+      "name": "a forged duplicate is verified before deduplication",
+      "before": ["one"],
+      "offer": ["forgedOne"],
+      "status": "rejected",
+      "after": ["one"]
+    }
+  ]
+}

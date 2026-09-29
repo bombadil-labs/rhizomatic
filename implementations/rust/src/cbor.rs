@@ -39,7 +39,7 @@ impl<'a> Reader<'a> {
         Ok(b)
     }
     fn take(&mut self, n: usize) -> Result<&'a [u8], String> {
-        if self.pos + n > self.bytes.len() {
+        if n > self.bytes.len() - self.pos {
             return Err("cbor: unexpected end of input".to_string());
         }
         let out = &self.bytes[self.pos..self.pos + n];
@@ -69,7 +69,12 @@ fn f16_bits_to_f64(bits: u16) -> Result<f64, String> {
     }
 }
 
-fn decode_item(r: &mut Reader) -> Result<CborValue, String> {
+const MAX_DECODE_DEPTH: usize = 256;
+
+fn decode_item(r: &mut Reader, depth: usize) -> Result<CborValue, String> {
+    if depth > MAX_DECODE_DEPTH {
+        return Err("cbor: nesting depth exceeded".to_string());
+    }
     let head = r.u8()?;
     let major = head >> 5;
     let info = head & 0x1f;
@@ -86,21 +91,30 @@ fn decode_item(r: &mut Reader) -> Result<CborValue, String> {
         }
         4 => {
             let len = read_length(r, info)?;
-            let mut items = Vec::with_capacity(len);
+            // Every item consumes at least one byte. Check before reserving so a short hostile
+            // image cannot force an allocation based on an untrusted container length.
+            if len > r.bytes.len() - r.pos {
+                return Err("cbor: unexpected end of input".to_string());
+            }
+            let mut items = Vec::with_capacity(len.min(16));
             for _ in 0..len {
-                items.push(decode_item(r)?);
+                items.push(decode_item(r, depth + 1)?);
             }
             Ok(CborValue::Array(items))
         }
         5 => {
             let len = read_length(r, info)?;
-            let mut entries = Vec::with_capacity(len);
+            // A map entry contains at least a one-byte key and a one-byte value.
+            if len > (r.bytes.len() - r.pos) / 2 {
+                return Err("cbor: unexpected end of input".to_string());
+            }
+            let mut entries = Vec::with_capacity(len.min(16));
             for _ in 0..len {
-                let key = decode_item(r)?;
+                let key = decode_item(r, depth + 1)?;
                 let CborValue::Tstr(k) = key else {
                     return Err("cbor: map keys must be text strings".to_string());
                 };
-                entries.push((k, decode_item(r)?));
+                entries.push((k, decode_item(r, depth + 1)?));
             }
             Ok(CborValue::Map(entries))
         }
@@ -139,7 +153,7 @@ fn decode_item(r: &mut Reader) -> Result<CborValue, String> {
 
 pub fn decode(bytes: &[u8]) -> Result<CborValue, String> {
     let mut r = Reader { bytes, pos: 0 };
-    let v = decode_item(&mut r)?;
+    let v = decode_item(&mut r, 0)?;
     if r.pos != bytes.len() {
         return Err("cbor: trailing bytes after item".to_string());
     }
