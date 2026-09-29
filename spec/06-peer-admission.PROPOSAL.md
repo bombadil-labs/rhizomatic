@@ -432,6 +432,27 @@ The pipeline is:
    the others retain separate outcomes. Application batch checks run under the same admission
    lock before the atomic planner. Candidate-local guards may return a refusal reason; the
    outcome preserves the first rejecting guard's reason without rerunning the guard.
+   A single peer MAY use a canonical append journal instead of replacing the full v2 image on
+   every signed-loose ordinary transfer. In that representation, one committed frame contains
+   exactly one transfer's newly admitted signed deltas, receiver-supplied time and sender, and
+   the digest of the preceding frame. Its canonical bytes determine the next head digest. The
+   backend MUST compare the exact prior head and atomically append the frame, advance the head,
+   and persist the newly admitted rows. A no-op consumes no frame or head change. Fresh-store
+   initialization MUST check for existing rows. A reopen MUST verify the complete digest chain,
+   replay every frame into one peer-local state, validate the reconstructed state, and fail closed
+   on a missing, extra, malformed, or noncanonical frame or a missing admitted row. It MUST NOT
+   replay raw rows as admission. A checkpoint MAY replace a verified prefix only if its canonical
+   image and retained frame boundary prove the same state and chain head. This first journal
+   profile covers signed-loose ordinary additions only; erasure, re-entry, and handoff need
+   additional frame types before they can use it.
+   The ordinary frame v1 is a canonical CBOR map with exactly `version` = 1, `peer` (the
+   receiving canonical `PeerId`), `prior` (empty text for the first frame, then the preceding
+   frame's content address), `at` (finite receiver time), `sender` (`local`, `unattributed`, or a
+   distinct canonical authenticated `PeerId`), and `pack` (canonical SPEC-8 bytes for a
+   nonempty set of distinct verified signed additions). The frame id is the content address
+   of those bytes. Replay refuses a repeated admitted id, a broken prior link, a noncanonical
+   frame or pack, or a head that differs from the last frame id. Each frame creates exactly one
+   receiver-local transfer ordinal, even when its `at` equals the preceding frame's time.
    Until declared storage surfaces prove physical absence, a byte-removal report says `pending`,
    `failed` with the fault, or `shared-held`; a release of this peer's reference is reported
    separately and never called byte removal. A host may disclose `shared-held` to its authorized

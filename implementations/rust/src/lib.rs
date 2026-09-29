@@ -22,6 +22,7 @@ pub mod imported_holdings;
 pub mod imported_obligations;
 #[doc(hidden)]
 pub mod inherited_state;
+pub mod ordinary_journal;
 #[doc(hidden)]
 pub mod signed_loose_admission;
 // The HTTP binding is host-only (tiny_http/ureq do not build on wasm32).
