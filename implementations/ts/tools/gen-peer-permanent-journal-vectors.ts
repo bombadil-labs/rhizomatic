@@ -51,6 +51,15 @@ const conflictingOrder = signClaims(
   },
   seed,
 );
+const orderTargetingOrder = signClaims(
+  {
+    timestamp: 105,
+    validFrom: 105,
+    author: peerId,
+    pointers: [{ role: "erases", target: { kind: "delta", deltaRef: { delta: order.id } } }],
+  },
+  seed,
+);
 const ordinary = encodeOrdinaryPeerFrame({
   peerId,
   prior: "",
@@ -70,6 +79,13 @@ const erasure = encodePermanentPeerFrame({
   quotaCharge: 0,
 });
 const erasureHead = contentAddress(erasure);
+const afterIneligibleOrder = encodeOrdinaryPeerFrame({
+  peerId,
+  prior: erasureHead,
+  at: 105,
+  sender: "local",
+  additions: [unrelated],
+});
 const falseHeld = encodePermanentPeerFrame({
   kind: "admission",
   peerId,
@@ -202,6 +218,17 @@ writeFileSync(
         id: conflictingOrder.id,
         sig: conflictingOrder.sig,
         claims: claimsToJson(conflictingOrder.claims),
+      },
+      priorEffectiveOrderTarget: {
+        order: {
+          id: orderTargetingOrder.id,
+          sig: orderTargetingOrder.sig,
+          claims: claimsToJson(orderTargetingOrder.claims),
+        },
+        expectedStatuses: ["erasure-ineligible", "admitted"],
+        reason: "erasure targets an effective order",
+        frameHex: Buffer.from(afterIneligibleOrder).toString("hex"),
+        head: contentAddress(afterIneligibleOrder),
       },
       frames: [
         { kind: "ordinary", hex: Buffer.from(ordinary).toString("hex"), head: ordinaryHead },

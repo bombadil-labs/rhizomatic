@@ -26,6 +26,8 @@ record a failed byte removal or its verified settlement. The canonical bytes and
 pinned in [`permanent-journal.json`](../vectors/peer/permanent-journal.json).
 An order receipt of `effective-erasure` means the signed order itself was admitted and its
 peer-local target refusal committed; callers should count it as an admitted addition.
+An order aimed at an already effective order receives `erasure-ineligible` with a reason. In
+individual mode, unrelated ordinary candidates can still be admitted in that transfer.
 
 TypeScript exports `OrdinaryJournalPeer.open` and `DurableOrdinaryJournalStore` from its barrel;
 Rust exposes `open_ordinary_journal_peer` and the matching store trait. The store returns one

@@ -439,6 +439,134 @@ fn journal_api_commits_erasure_and_requires_absence_before_settlement() {
 }
 
 #[test]
+fn journal_api_refuses_erasure_of_effective_order_but_admits_unrelated() {
+    let vector = read("peer/permanent-journal.json");
+    let named = fixtures();
+    let peer_id = vector["peerId"].as_str().unwrap();
+    let held = named[vector["targetName"].as_str().unwrap()].clone();
+    let unrelated = named["operatorRootDeclaration"].clone();
+    let parse_order = |row: &Value| Delta {
+        id: row["id"].as_str().unwrap().into(),
+        claims: parse_claims(&row["claims"]).unwrap(),
+        sig: Some(row["sig"].as_str().unwrap().into()),
+    };
+    let first_order = parse_order(&vector["order"]);
+    let second_order = parse_order(&vector["priorEffectiveOrderTarget"]["order"]);
+    let authorize = |_: &rhizomatic::erasure_filter::ErasureOrderCandidate,
+                     _: &std::collections::BTreeSet<String>| true;
+    let classifier = |_: &Delta| false;
+    let mut store = MemoryJournal::default();
+    let OrdinaryJournalOpenResult::Open(mut peer) =
+        open_ordinary_journal_peer(&mut store, peer_id).unwrap()
+    else {
+        panic!("expected open")
+    };
+    peer.admit(
+        &mut store,
+        &SinglePeerTransferInput {
+            offered: std::slice::from_ref(&held),
+            origin: &ArrivalOrigin::Local,
+            arrived_at: 100.0,
+            policy_state: &(),
+            guards: &[],
+            is_erasure_candidate: &classifier,
+            mode: TransferMode::Atomic,
+            capacity: None,
+        },
+    )
+    .unwrap();
+    peer.admit_erasures(
+        &mut store,
+        &EffectiveErasureTransferInput {
+            orders: &[EffectiveErasureOrder {
+                delta: first_order.clone(),
+                target_id: held.id.clone(),
+                surface_holds_bytes: true,
+            }],
+            ordinary: &[],
+            capacity: None,
+            origin: &ArrivalOrigin::Local,
+            arrived_at: 101.0,
+            policy_state: &(),
+            guards: &[],
+            mode: TransferMode::Atomic,
+            target_budget: 1,
+            advance_refusal_cap: 0,
+            authorize: &authorize,
+        },
+    )
+    .unwrap();
+    let result = peer
+        .admit_erasures(
+            &mut store,
+            &EffectiveErasureTransferInput {
+                orders: &[EffectiveErasureOrder {
+                    delta: second_order,
+                    target_id: first_order.id.clone(),
+                    surface_holds_bytes: true,
+                }],
+                ordinary: std::slice::from_ref(&unrelated),
+                capacity: None,
+                origin: &ArrivalOrigin::Local,
+                arrived_at: 105.0,
+                policy_state: &(),
+                guards: &[],
+                mode: TransferMode::Individual,
+                target_budget: 1,
+                advance_refusal_cap: 0,
+                authorize: &authorize,
+            },
+        )
+        .unwrap();
+    let OrdinaryJournalAdmissionResult::Committed {
+        outcomes,
+        arrivals,
+        head,
+    } = result
+    else {
+        panic!("expected commit")
+    };
+    assert_eq!(
+        outcomes
+            .iter()
+            .map(|row| row.status.as_str())
+            .collect::<Vec<_>>(),
+        vector["priorEffectiveOrderTarget"]["expectedStatuses"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|row| row.as_str().unwrap())
+            .collect::<Vec<_>>()
+    );
+    assert_eq!(
+        outcomes[0].reason.as_deref(),
+        vector["priorEffectiveOrderTarget"]["reason"].as_str()
+    );
+    assert_eq!(
+        arrivals
+            .iter()
+            .map(|row| row.id.as_str())
+            .collect::<Vec<_>>(),
+        vec![unrelated.id.as_str()]
+    );
+    assert_eq!(
+        hex::encode(&store.frames[2]),
+        vector["priorEffectiveOrderTarget"]["frameHex"]
+    );
+    assert_eq!(head, vector["priorEffectiveOrderTarget"]["head"]);
+    assert!(!peer
+        .snapshot()
+        .unwrap()
+        .base
+        .refused_ids
+        .contains(&first_order.id));
+    assert!(matches!(
+        open_ordinary_journal_peer(&mut store, peer_id).unwrap(),
+        OrdinaryJournalOpenResult::Open(_)
+    ));
+}
+
+#[test]
 fn journal_api_rebases_erased_payload_before_settlement() {
     let vector = read("peer/permanent-journal.json");
     let named = fixtures();

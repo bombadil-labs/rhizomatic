@@ -190,7 +190,10 @@ The pipeline is:
    under the receiver's policy. That candidate passes steps 1–6, including authorization, budget,
    exclusion, and durable purge obligation; merely pointing to the held testimony does not bypass
    any gate. The duplicate outcome says `held-as-testimony` and makes no erasure promise. Only
-   effective orders exclude and refuse their targets. They may target a separate co-offered candidate: that
+   effective orders exclude and refuse their targets. An order that targets an already effective
+   erasure order is `erasure-ineligible`: the earlier order must remain held as evidence for its
+   permanent refusal event. This is a per-order outcome in individual mode, so unrelated
+   candidates may still land. They may target a separate co-offered candidate: that
    target is refused, the erasure lands, and unrelated candidates remain eligible. If that target
    is a member of another signed bundle, that whole bundle is rejected as
    `bundle-excluded-by-erasure`; its other unsigned members need independent coverage or a later

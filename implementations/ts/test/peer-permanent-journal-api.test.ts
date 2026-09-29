@@ -22,6 +22,13 @@ const vector = JSON.parse(
   peerId: string;
   order: { id: string; sig: string; claims: unknown };
   conflictingOrder: { id: string; sig: string; claims: unknown };
+  priorEffectiveOrderTarget: {
+    order: { id: string; sig: string; claims: unknown };
+    expectedStatuses: string[];
+    reason: string;
+    frameHex: string;
+    head: string;
+  };
   conflictingSurfaceError: string;
   frames: Array<{ hex: string; head: string }>;
   pendingImageHex: string;
@@ -265,6 +272,73 @@ describe("typed permanent journal erasure boundary", () => {
     expect(await opened.peer.rebase()).toEqual({ status: "durable" });
     expect(Buffer.from(store.checkpoint!).toString("hex")).toBe(vector.rebase.settledHex);
     expect(opened.peer.currentHead()).toBe(vector.rebase.settledHead);
+    expect((await OrdinaryJournalPeer.open(store, vector.peerId)).status).toBe("open");
+  });
+
+  it("refuses an erasure of an effective order while admitting an unrelated delta", async () => {
+    const store = new MemoryStore();
+    const opened = await OrdinaryJournalPeer.open(store, vector.peerId);
+    if (opened.status !== "open") throw new Error("expected open");
+    const peer = opened.peer;
+    expect(
+      (
+        await peer.admit({
+          offered: [held],
+          origin: { kind: "local" },
+          arrivedAt: 100,
+          policyState: {},
+          guards: [],
+          mode: "atomic",
+          isErasureCandidate: () => false,
+        })
+      ).status,
+    ).toBe("committed");
+    expect(
+      (
+        await peer.admitErasures({
+          orders: [{ delta: order, targetId: held.id, surfaceHoldsBytes: true }],
+          origin: { kind: "local" },
+          arrivedAt: 101,
+          policyState: {},
+          guards: [],
+          mode: "atomic",
+          targetBudget: 1,
+          advanceRefusalCap: 0,
+          authorize: () => true,
+        })
+      ).status,
+    ).toBe("committed");
+    const second = vector.priorEffectiveOrderTarget.order;
+    const result = await peer.admitErasures({
+      orders: [
+        {
+          delta: { id: second.id, sig: second.sig, claims: parseClaims(second.claims) },
+          targetId: order.id,
+          surfaceHoldsBytes: true,
+        },
+      ],
+      ordinary: [unrelated],
+      origin: { kind: "local" },
+      arrivedAt: 105,
+      policyState: {},
+      guards: [],
+      mode: "individual",
+      targetBudget: 1,
+      advanceRefusalCap: 0,
+      authorize: () => true,
+    });
+    expect(result.status).toBe("committed");
+    if (result.status !== "committed") throw new Error("expected commit");
+    expect(result.outcomes.map((row) => row.status)).toEqual(
+      vector.priorEffectiveOrderTarget.expectedStatuses,
+    );
+    expect(result.outcomes[0]?.reason).toBe(vector.priorEffectiveOrderTarget.reason);
+    expect(result.arrivals.map((row) => row.id)).toEqual([unrelated.id]);
+    expect(Buffer.from(store.frames[2]!).toString("hex")).toBe(
+      vector.priorEffectiveOrderTarget.frameHex,
+    );
+    expect(result.head).toBe(vector.priorEffectiveOrderTarget.head);
+    expect(peer.snapshot().base.refusedIds.has(order.id)).toBe(false);
     expect((await OrdinaryJournalPeer.open(store, vector.peerId)).status).toBe("open");
   });
 

@@ -710,15 +710,30 @@ impl OrdinaryJournalPeer {
                 }
             }
         }
+        let prior_effective_orders: BTreeSet<&str> = self
+            .state
+            .exclusions
+            .iter()
+            .map(|row| row.order_id.as_str())
+            .collect();
         for (id, order) in by_id.clone() {
-            if !order.surface_holds_bytes && self.state.base.admitted.contains(&order.target_id) {
+            let reason = if prior_effective_orders.contains(order.target_id.as_str()) {
+                Some("erasure targets an effective order")
+            } else if !order.surface_holds_bytes
+                && self.state.base.admitted.contains(&order.target_id)
+            {
+                Some("held target has bytes")
+            } else {
+                None
+            };
+            if let Some(reason) = reason {
                 by_id.remove(&id);
                 for outcome in &mut outcomes {
                     if outcome.id == id
                         && outcome.status == SignedLooseOutcomeStatus::EffectiveErasure
                     {
                         outcome.status = SignedLooseOutcomeStatus::ErasureIneligible;
-                        outcome.reason = Some("held target has bytes".into());
+                        outcome.reason = Some(reason.into());
                     }
                 }
             }
