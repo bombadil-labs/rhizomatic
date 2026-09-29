@@ -651,6 +651,15 @@ impl OrdinaryJournalPeer {
                 guards: input.guards,
             },
         )?;
+        let offered_order_ids: BTreeSet<String> = guarded
+            .iter()
+            .take(input.orders.len())
+            .filter(|row| row.status != GuardedUnitStatus::Invalid)
+            .filter_map(|row| match &row.unit {
+                TransferUnit::Loose(delta) => Some(delta.id.clone()),
+                TransferUnit::Bundle { .. } => None,
+            })
+            .collect();
         let mut by_id: BTreeMap<String, EffectiveErasureOrder> = BTreeMap::new();
         let mut outcomes = Vec::new();
         for (row, original) in guarded.iter().take(input.orders.len()).zip(input.orders) {
@@ -717,8 +726,17 @@ impl OrdinaryJournalPeer {
             .map(|row| row.order_id.as_str())
             .collect();
         for (id, order) in by_id.clone() {
+            let held_target = self.state.base.admitted.get(&order.target_id);
             let reason = if prior_effective_orders.contains(order.target_id.as_str()) {
                 Some("erasure targets an effective order")
+            } else if held_target.is_some_and(|target| {
+                target
+                    .claims
+                    .pointers
+                    .iter()
+                    .any(|pointer| pointer.role == "erases")
+            }) {
+                Some("erasure targets held erasure testimony")
             } else if !order.surface_holds_bytes
                 && self.state.base.admitted.contains(&order.target_id)
             {
@@ -738,7 +756,6 @@ impl OrdinaryJournalPeer {
                 }
             }
         }
-        let offered_order_ids: BTreeSet<String> = by_id.keys().cloned().collect();
         for (id, row) in by_id.clone() {
             if offered_order_ids.contains(&row.target_id) {
                 by_id.remove(&id);

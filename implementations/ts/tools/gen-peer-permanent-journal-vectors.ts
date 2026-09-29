@@ -60,6 +60,17 @@ const orderTargetingOrder = signClaims(
   },
   seed,
 );
+const orderTargetingFilteredOrder = signClaims(
+  {
+    timestamp: 105,
+    validFrom: 105,
+    author: peerId,
+    pointers: [
+      { role: "erases", target: { kind: "delta", deltaRef: { delta: orderTargetingOrder.id } } },
+    ],
+  },
+  seed,
+);
 const ordinary = encodeOrdinaryPeerFrame({
   peerId,
   prior: "",
@@ -229,6 +240,21 @@ writeFileSync(
         reason: "erasure targets an effective order",
         frameHex: Buffer.from(afterIneligibleOrder).toString("hex"),
         head: contentAddress(afterIneligibleOrder),
+      },
+      coofferedFilteredOrderTarget: {
+        outerOrder: {
+          id: orderTargetingFilteredOrder.id,
+          sig: orderTargetingFilteredOrder.sig,
+          claims: claimsToJson(orderTargetingFilteredOrder.claims),
+        },
+        expectedStatuses: ["erasure-ineligible", "erasure-ineligible", "admitted"],
+        reason: "erasure targets an order",
+        frameHex: Buffer.from(afterIneligibleOrder).toString("hex"),
+        head: contentAddress(afterIneligibleOrder),
+      },
+      heldTestimonyOrderTarget: {
+        status: "erasure-ineligible",
+        reason: "erasure targets held erasure testimony",
       },
       frames: [
         { kind: "ordinary", hex: Buffer.from(ordinary).toString("hex"), head: ordinaryHead },

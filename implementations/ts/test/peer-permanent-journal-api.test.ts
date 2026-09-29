@@ -29,6 +29,14 @@ const vector = JSON.parse(
     frameHex: string;
     head: string;
   };
+  coofferedFilteredOrderTarget: {
+    outerOrder: { id: string; sig: string; claims: unknown };
+    expectedStatuses: string[];
+    reason: string;
+    frameHex: string;
+    head: string;
+  };
+  heldTestimonyOrderTarget: { status: string; reason: string };
   conflictingSurfaceError: string;
   frames: Array<{ hex: string; head: string }>;
   pendingImageHex: string;
@@ -340,6 +348,115 @@ describe("typed permanent journal erasure boundary", () => {
     expect(result.head).toBe(vector.priorEffectiveOrderTarget.head);
     expect(peer.snapshot().base.refusedIds.has(order.id)).toBe(false);
     expect((await OrdinaryJournalPeer.open(store, vector.peerId)).status).toBe("open");
+  });
+
+  it("recognizes a co-offered order even after an earlier filter removes it", async () => {
+    const store = new MemoryStore();
+    const opened = await OrdinaryJournalPeer.open(store, vector.peerId);
+    if (opened.status !== "open") throw new Error("expected open");
+    const peer = opened.peer;
+    await peer.admit({
+      offered: [held],
+      origin: { kind: "local" },
+      arrivedAt: 100,
+      policyState: {},
+      guards: [],
+      mode: "atomic",
+      isErasureCandidate: () => false,
+    });
+    await peer.admitErasures({
+      orders: [{ delta: order, targetId: held.id, surfaceHoldsBytes: true }],
+      origin: { kind: "local" },
+      arrivedAt: 101,
+      policyState: {},
+      guards: [],
+      mode: "atomic",
+      targetBudget: 1,
+      advanceRefusalCap: 0,
+      authorize: () => true,
+    });
+    const inner = vector.priorEffectiveOrderTarget.order;
+    const outer = vector.coofferedFilteredOrderTarget.outerOrder;
+    const result = await peer.admitErasures({
+      orders: [
+        {
+          delta: { id: inner.id, sig: inner.sig, claims: parseClaims(inner.claims) },
+          targetId: order.id,
+          surfaceHoldsBytes: true,
+        },
+        {
+          delta: { id: outer.id, sig: outer.sig, claims: parseClaims(outer.claims) },
+          targetId: inner.id,
+          surfaceHoldsBytes: false,
+        },
+      ],
+      ordinary: [unrelated],
+      origin: { kind: "local" },
+      arrivedAt: 105,
+      policyState: {},
+      guards: [],
+      mode: "individual",
+      targetBudget: 1,
+      advanceRefusalCap: 1,
+      authorize: () => true,
+    });
+    expect(result.status).toBe("committed");
+    if (result.status !== "committed") throw new Error("expected commit");
+    expect(result.outcomes.map((row) => row.status)).toEqual(
+      vector.coofferedFilteredOrderTarget.expectedStatuses,
+    );
+    expect(result.outcomes[1]?.reason).toBe(vector.coofferedFilteredOrderTarget.reason);
+    expect(Buffer.from(store.frames[2]!).toString("hex")).toBe(
+      vector.coofferedFilteredOrderTarget.frameHex,
+    );
+    expect(result.head).toBe(vector.coofferedFilteredOrderTarget.head);
+    expect(peer.snapshot().base.refusedIds.has(inner.id)).toBe(false);
+  });
+
+  it("does not erase an already held erasure-shaped testimony delta", async () => {
+    const store = new MemoryStore();
+    const opened = await OrdinaryJournalPeer.open(store, vector.peerId);
+    if (opened.status !== "open") throw new Error("expected open");
+    const peer = opened.peer;
+    expect(
+      (
+        await peer.admit({
+          offered: [order],
+          origin: { kind: "local" },
+          arrivedAt: 101,
+          policyState: {},
+          guards: [],
+          mode: "atomic",
+          isErasureCandidate: () => false,
+        })
+      ).status,
+    ).toBe("committed");
+    const second = vector.priorEffectiveOrderTarget.order;
+    const result = await peer.admitErasures({
+      orders: [
+        {
+          delta: { id: second.id, sig: second.sig, claims: parseClaims(second.claims) },
+          targetId: order.id,
+          surfaceHoldsBytes: true,
+        },
+      ],
+      origin: { kind: "local" },
+      arrivedAt: 105,
+      policyState: {},
+      guards: [],
+      mode: "individual",
+      targetBudget: 1,
+      advanceRefusalCap: 0,
+      authorize: () => true,
+    });
+    expect(result.status).toBe("committed");
+    if (result.status !== "committed") throw new Error("expected no-op receipt");
+    expect(result.outcomes[0]).toEqual({
+      id: second.id,
+      ...vector.heldTestimonyOrderTarget,
+    });
+    expect(store.frames).toHaveLength(1);
+    expect(peer.snapshot().base.refusedIds.has(order.id)).toBe(false);
   });
 
   it("keeps purge owed when the last rebase still carried the target", async () => {

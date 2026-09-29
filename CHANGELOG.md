@@ -8,9 +8,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 
 ### Fixed
 
-- In individual journal admission, an erasure aimed at an already effective erasure order now
-  receives a typed `erasure-ineligible` outcome. Unrelated ordinary candidates in that transfer
-  can still commit.
+- In individual journal admission, an erasure aimed at an already effective order, held erasure
+  testimony, or a verified co-offered order now receives a typed `erasure-ineligible` outcome.
+  Co-offered order identity survives later candidate filtering, and unrelated ordinary
+  candidates in the transfer can still commit.
 
 ## 0.11.0-next.6 — 2026-09-29
 
