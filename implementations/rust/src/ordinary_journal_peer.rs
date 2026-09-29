@@ -94,6 +94,7 @@ pub trait DurableOrdinaryJournalStore {
         Err("ordinary journal: degraded row read unsupported by store".into())
     }
     fn read_head(&self, peer_id: &str) -> Result<OrdinaryJournalHead, String>;
+    /// On empty create (expected_head = None), compare both absent head and absence of rows.
     fn compare_and_append(
         &mut self,
         peer_id: &str,
@@ -220,6 +221,7 @@ pub struct OrdinaryJournalPeer {
     live: bool,
     unavailable_ids: BTreeSet<String>,
     rebased_through: u64,
+    rebased_refused_ids: BTreeSet<String>,
 }
 
 fn sender(origin: &ArrivalOrigin, receiving_peer_id: &str) -> Result<String, String> {
@@ -323,7 +325,9 @@ fn open_ordinary_journal_peer_inner<S: DurableOrdinaryJournalStore>(
     if !is_canonical_peer_id(peer_id) {
         return Err("ordinary journal: invalid peer id".into());
     }
-    let (state, head, unavailable, rebased_through) = match store.read_journal(peer_id)? {
+    let (state, head, unavailable, rebased_through, rebased_refused_ids) = match store
+        .read_journal(peer_id)?
+    {
         OrdinaryJournalRead::RowsWithoutJournal => {
             return Ok(OrdinaryJournalOpenResult::RowsWithoutJournal)
         }
@@ -334,10 +338,14 @@ fn open_ordinary_journal_peer_inner<S: DurableOrdinaryJournalStore>(
         } => {
             let state =
                 replay_permanent_peer_frames(peer_id, &frames, &head, checkpoint.as_deref())?;
-            let rebased_through = checkpoint
+            let rebase = checkpoint
                 .as_deref()
-                .and_then(|bytes| decode_permanent_journal_rebase(bytes).ok())
+                .and_then(|bytes| decode_permanent_journal_rebase(bytes).ok());
+            let rebased_through = rebase
+                .as_ref()
                 .map_or(0, |anchor| anchor.state.base.cursor.last_sequence);
+            let rebased_refused_ids =
+                rebase.map_or_else(BTreeSet::new, |anchor| anchor.state.base.refused_ids);
             let ids = state
                 .base
                 .admitted
@@ -360,7 +368,13 @@ fn open_ordinary_journal_peer_inner<S: DurableOrdinaryJournalStore>(
             {
                 return Ok(OrdinaryJournalOpenResult::Conflict);
             }
-            (state, head, unavailable, rebased_through)
+            (
+                state,
+                head,
+                unavailable,
+                rebased_through,
+                rebased_refused_ids,
+            )
         }
         OrdinaryJournalRead::Empty => {
             match store.compare_and_append(peer_id, None, "", None, &[])? {
@@ -375,6 +389,7 @@ fn open_ordinary_journal_peer_inner<S: DurableOrdinaryJournalStore>(
                 String::new(),
                 Vec::new(),
                 0,
+                BTreeSet::new(),
             )
         }
     };
@@ -385,6 +400,7 @@ fn open_ordinary_journal_peer_inner<S: DurableOrdinaryJournalStore>(
         live: true,
         unavailable_ids: unavailable.iter().map(|row| row.id.clone()).collect(),
         rebased_through,
+        rebased_refused_ids,
     });
     if unavailable.is_empty() {
         Ok(OrdinaryJournalOpenResult::Open(peer))
@@ -473,6 +489,7 @@ impl OrdinaryJournalPeer {
         if result == PeerImageWrite::Durable {
             self.head = next_head;
             self.rebased_through = self.state.base.cursor.last_sequence;
+            self.rebased_refused_ids = self.state.base.refused_ids.clone();
         } else {
             self.live = false;
         }
@@ -1062,12 +1079,11 @@ impl OrdinaryJournalPeer {
         };
         let state = apply_permanent_peer_frame(&self.state, &frame)?;
         if status == "removed"
-            && self
-                .state
-                .base
-                .arrivals
-                .iter()
-                .any(|row| row.id == target_id && row.sequence > self.rebased_through)
+            && self.state.base.arrivals.iter().any(|row| {
+                row.id == target_id
+                    && (row.sequence > self.rebased_through
+                        || !self.rebased_refused_ids.contains(target_id))
+            })
         {
             return Ok(OrdinaryJournalPurgeResult::AbsenceRefuted {
                 target_id: target_id.into(),

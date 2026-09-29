@@ -72,6 +72,7 @@ export interface DurableOrdinaryJournalStore {
     ids: readonly string[],
   ): Promise<readonly AdmittedRowRead[]>;
   readHead(peerId: string): Promise<OrdinaryJournalHead>;
+  /** On empty create (expectedHead = null), compare both absent head and absence of existing rows. */
   compareAndAppend(
     peerId: string,
     expectedHead: string | null,
@@ -265,6 +266,7 @@ export class OrdinaryJournalPeer {
     private head: string,
     private unavailableIds: Set<string>,
     private rebasedThrough: number,
+    private rebasedRefusedIds: Set<string>,
   ) {}
 
   static async open(
@@ -282,17 +284,17 @@ export class OrdinaryJournalPeer {
         current.head,
         current.checkpoint,
       );
-      const rebasedThrough =
-        current.checkpoint === undefined
-          ? 0
-          : ((): number => {
-              try {
-                return decodePermanentJournalRebase(current.checkpoint!).state.base.cursor
-                  .lastSequence;
-              } catch {
-                return 0;
-              } // A verified v1 checkpoint still contains old payloads.
-            })();
+      let rebasedThrough = 0;
+      let rebasedRefusedIds = new Set<string>();
+      if (current.checkpoint !== undefined) {
+        try {
+          const anchor = decodePermanentJournalRebase(current.checkpoint);
+          rebasedThrough = anchor.state.base.cursor.lastSequence;
+          rebasedRefusedIds = new Set(anchor.state.base.refusedIds);
+        } catch {
+          // A verified v1 checkpoint still contains old payloads.
+        }
+      }
       if (options.allowDegraded) {
         if (store.readAdmittedRowsDegraded === undefined)
           throw new Error("ordinary journal: degraded row read unsupported by store");
@@ -310,6 +312,7 @@ export class OrdinaryJournalPeer {
           current.head,
           new Set(unavailable.map((row) => row.id)),
           rebasedThrough,
+          rebasedRefusedIds,
         );
         return unavailable.length
           ? { status: "degraded", peer, unavailable }
@@ -329,6 +332,7 @@ export class OrdinaryJournalPeer {
           current.head,
           new Set(),
           rebasedThrough,
+          rebasedRefusedIds,
         ),
       };
     }
@@ -336,7 +340,15 @@ export class OrdinaryJournalPeer {
     if (write.status !== "durable") return write;
     return {
       status: "open",
-      peer: new OrdinaryJournalPeer(store, peerId, emptyDurablePeerState(peerId), "", new Set(), 0),
+      peer: new OrdinaryJournalPeer(
+        store,
+        peerId,
+        emptyDurablePeerState(peerId),
+        "",
+        new Set(),
+        0,
+        new Set(),
+      ),
     };
   }
 
@@ -394,6 +406,7 @@ export class OrdinaryJournalPeer {
     else {
       this.head = nextHead;
       this.rebasedThrough = this.state.base.cursor.lastSequence;
+      this.rebasedRefusedIds = new Set(this.state.base.refusedIds);
     }
     return result;
   }
@@ -809,7 +822,7 @@ export class OrdinaryJournalPeer {
     if (
       report.status === "removed" &&
       arrival !== undefined &&
-      arrival.sequence > this.rebasedThrough
+      (arrival.sequence > this.rebasedThrough || !this.rebasedRefusedIds.has(targetId))
     )
       return { status: "absence-refuted", targetId };
     const nextHead = contentAddress(frame);

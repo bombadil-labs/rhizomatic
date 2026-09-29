@@ -549,6 +549,146 @@ fn journal_api_rebases_erased_payload_before_settlement() {
 }
 
 #[test]
+fn purge_waits_for_rebase_that_excludes_target_payload() {
+    let vector = read("peer/permanent-journal.json");
+    let named = fixtures();
+    let peer_id = vector["peerId"].as_str().unwrap();
+    let held = &named[vector["targetName"].as_str().unwrap()];
+    let parse = |row: &Value| Delta {
+        id: row["id"].as_str().unwrap().into(),
+        claims: parse_claims(&row["claims"]).unwrap(),
+        sig: Some(row["sig"].as_str().unwrap().into()),
+    };
+    let early_order = parse(&vector["order"]);
+    let secret = parse(&vector["payloadProbe"]["secret"]);
+    let secret_order = parse(&vector["payloadProbe"]["order"]);
+    let mut store = MemoryJournal::default();
+    let OrdinaryJournalOpenResult::Open(mut peer) =
+        open_ordinary_journal_peer(&mut store, peer_id).unwrap()
+    else {
+        panic!("expected open")
+    };
+    let classifier = |_: &Delta| false;
+    let authorize = |_: &rhizomatic::erasure_filter::ErasureOrderCandidate,
+                     _: &std::collections::BTreeSet<String>| true;
+    assert!(matches!(
+        peer.admit(
+            &mut store,
+            &SinglePeerTransferInput {
+                offered: std::slice::from_ref(&secret),
+                origin: &ArrivalOrigin::Local,
+                arrived_at: 100.0,
+                policy_state: &(),
+                guards: &[],
+                is_erasure_candidate: &classifier,
+                mode: TransferMode::Atomic,
+                capacity: None,
+            }
+        )
+        .unwrap(),
+        OrdinaryJournalAdmissionResult::Committed { .. }
+    ));
+    let early = [EffectiveErasureOrder {
+        delta: early_order,
+        target_id: held.id.clone(),
+        surface_holds_bytes: false,
+    }];
+    assert!(matches!(
+        peer.admit_erasures(
+            &mut store,
+            &EffectiveErasureTransferInput {
+                orders: &early,
+                ordinary: &[],
+                capacity: None,
+                origin: &ArrivalOrigin::Local,
+                arrived_at: 101.0,
+                policy_state: &(),
+                guards: &[],
+                mode: TransferMode::Atomic,
+                target_budget: 1,
+                advance_refusal_cap: 1,
+                authorize: &authorize,
+            }
+        )
+        .unwrap(),
+        OrdinaryJournalAdmissionResult::Committed { .. }
+    ));
+    assert_eq!(peer.rebase(&mut store).unwrap(), PeerImageWrite::Durable);
+    let marker_hex = hex::encode(vector["payloadProbe"]["marker"].as_str().unwrap());
+    assert!(hex::encode(store.checkpoint.as_ref().unwrap()).contains(&marker_hex));
+    let late = [EffectiveErasureOrder {
+        delta: secret_order,
+        target_id: secret.id.clone(),
+        surface_holds_bytes: true,
+    }];
+    assert!(matches!(
+        peer.admit_erasures(
+            &mut store,
+            &EffectiveErasureTransferInput {
+                orders: &late,
+                ordinary: &[],
+                capacity: None,
+                origin: &ArrivalOrigin::Local,
+                arrived_at: 111.0,
+                policy_state: &(),
+                guards: &[],
+                mode: TransferMode::Atomic,
+                target_budget: 1,
+                advance_refusal_cap: 0,
+                authorize: &authorize,
+            }
+        )
+        .unwrap(),
+        OrdinaryJournalAdmissionResult::Committed { .. }
+    ));
+    store.rows.remove(&secret.id);
+    assert_eq!(
+        vector["payloadProbe"]["preErasureRebase"]["beforeSecondRebase"],
+        "absence-refuted"
+    );
+    assert_eq!(
+        peer.report_purge(&mut store, &secret.id, 1, "removed", None)
+            .unwrap(),
+        OrdinaryJournalPurgeResult::AbsenceRefuted {
+            target_id: secret.id.clone()
+        }
+    );
+    let OrdinaryJournalOpenResult::Open(mut reopened) =
+        open_ordinary_journal_peer(&mut store, peer_id).unwrap()
+    else {
+        panic!("expected reopen")
+    };
+    assert_eq!(
+        reopened
+            .report_purge(&mut store, &secret.id, 1, "removed", None)
+            .unwrap(),
+        OrdinaryJournalPurgeResult::AbsenceRefuted {
+            target_id: secret.id.clone()
+        }
+    );
+    assert_eq!(
+        reopened.rebase(&mut store).unwrap(),
+        PeerImageWrite::Durable
+    );
+    assert!(!hex::encode(store.checkpoint.as_ref().unwrap()).contains(&marker_hex));
+    assert_eq!(
+        vector["payloadProbe"]["preErasureRebase"]["afterSecondRebase"],
+        "committed"
+    );
+    let OrdinaryJournalOpenResult::Open(mut after_second_rebase) =
+        open_ordinary_journal_peer(&mut store, peer_id).unwrap()
+    else {
+        panic!("expected second reopen")
+    };
+    assert!(matches!(
+        after_second_rebase
+            .report_purge(&mut store, &secret.id, 1, "removed", None)
+            .unwrap(),
+        OrdinaryJournalPurgeResult::Committed { .. }
+    ));
+}
+
+#[test]
 fn journal_api_degraded_open_keeps_writes_and_isolates_damaged_row() {
     let vector = read("peer/permanent-journal.json");
     let named = fixtures();

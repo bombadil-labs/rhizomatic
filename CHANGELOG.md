@@ -12,12 +12,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 - TypeScript canonical CBOR encoding, `computeId`, and `signClaims` now reject text containing
   unpaired UTF-16 surrogates instead of replacing them with U+FFFD. Callers must supply valid
   Unicode text or replace malformed code units before computing an id or signature.
+- The new peer journal opens only a fresh empty store or an existing journal under the same
+  governing key. A store with rows but no journal is refused at boot; create a fresh peer store
+  rather than replaying legacy rows. Existing-pool handoff is outside this greenfield release.
 
 ### Added
 
 - The step-6 journal now offers a writable degraded open that names damaged or missing admitted
   rows and excludes them from its serving projection. A purge cannot report `removed` for a
-  previously arrived target until a v2 rebase covers its arrival, and erasure-aware rebase stays
+  previously arrived target until a v2 rebase after its refusal excludes its payload, and erasure-aware rebase stays
   available after purge settlement to bound replay work. Shared TypeScript and Rust vectors and
   store tests cover these contracts.
 - Step-6 admission building blocks in both TypeScript and Rust: shared arrival testimony vectors,

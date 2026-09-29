@@ -24,7 +24,9 @@ handoff, carry, barrier, import, acknowledgement, or cutover protocol in step 6.
 
 A peer MAY pin additional erasure governor keys in its own configuration, including a host
 operator key. A pinned key can authorize an order for that peer without becoming its `PeerId` or
-sharing its state. An order relying on an additional governor MUST sign the receiving `PeerId` in
+sharing its state. In the published signed-loose profile, the application supplies this policy
+through the `authorize` callback; the facade verifies the signed target binding but does not
+interpret or persist governor pins. An order relying on an additional governor MUST sign the receiving `PeerId` in
 its canonical claims. Any order naming a receiver has erasure effect only at that peer. A
 receiver-mismatched order may be retained as testimony but cannot erase there. An order signed
 by the peer's own governing key MAY omit the receiver; it takes effect only at that peer.
@@ -40,6 +42,12 @@ payload-presence proof. If storage is shared, physical removal must preserve byt
 peer still holds and the report must reflect that limit.
 
 ## 2. Admission
+
+The general pipeline in this section is a **proposal** where it discusses signed bundles,
+subscribed lenses, lower-posture re-entry, and built-in governor-pin interpretation. Those
+forms are outside `0.11.0-next.6`. The implemented, vector-pinned subset is the signed-loose
+permanent-refusal journal profile below; `MUST` statements about the proposed forms describe
+their future contract, not current witness behavior.
 
 Admission is a local, ordered pipeline over a proposed transfer. The implementation supplies the
 guards; federation does not import an application's rules. A candidate-local guard receives the
@@ -63,13 +71,18 @@ The pipeline is:
    effective only for an earlier refusal event or admission epoch; dedup never silently upgrades
    testimony or re-applies an
    old exclusion. A permanent-posture peer reports its refusal for an erased id even while a
-   purge is active; `purge-pending` is an internal storage outcome, never a replacement for that refusal.
-   An erased id outside the permanent refusal posture is also refused on every entry
-   path until step 6's explicit local re-entry act commits, even if its purge obligation is
+   purge is active. A private `purge-pending` re-offer outcome is proposed, not emitted by the
+   published journal facade.
+
+   **Proposed lower-posture extension — not in `0.11.0-next.6`:** An erased id outside the
+   permanent refusal posture is also refused on every entry path until a future explicit local
+   re-entry act commits, even if its purge obligation is
    terminal or it was never held. While an obligation is **active**, a re-offer gets `purge-pending`;
    after the gate completes but before that act commits, it gets `reentry-required`. Neither is a
-   silent duplicate. The gate and terminal transition in step 6 decide when a lower-posture peer
-   may re-admit it. Preserve each verified bundle's coverage and any self-signed loose copy as
+   silent duplicate. The gate and terminal transition decide when a lower-posture peer
+   may re-admit it.
+
+   **Proposed signed-bundle extension — not in `0.11.0-next.6`:** Preserve each verified bundle's coverage and any self-signed loose copy as
    separate candidate units until bundle selection; coalesce an id only when it lands. Invalid or refused
    candidates cannot serve as evidence for others. In a bundle covering any unsigned member,
    **every** member's claimed author MUST equal the verified manifest signer. Reject a bundle
@@ -282,8 +295,9 @@ The pipeline is:
    commit until the backend proves absence across **all** declared storage surfaces, including
    current rows, frames, checkpoints, old frame remnants, and write-ahead or compaction debt.
    Rebase removes the payload from the logical journal but does not by itself settle physical debt.
-   The facade also refuses a `removed` report for a previously arrived target until a v2 rebase
-   covers that arrival sequence. A v1 checkpoint can still retain the payload and does not count.
+   The facade also refuses a `removed` report for a previously arrived target until the latest
+   v2 rebase was committed after that target became refused. A rebase taken while the target was
+   still admitted retains its payload and does not count; neither does a v1 checkpoint.
    The backend remains responsible for proving absence from physical remnants and other surfaces.
    Refusal, arrival, and purge testimony may still name the target id; the absence proof concerns
    its payload bytes on surfaces capable of holding them, not every occurrence of that id.
@@ -339,7 +353,9 @@ The pipeline is:
    `failed` with the fault, or `shared-held`; a release of this peer's reference is reported
    separately and never called byte removal. A host may disclose `shared-held` to its authorized
    auditor without naming another peer; the peer's public report says only `not removed`. A
-   per-peer release can complete while host bytes remain for another peer. The peer's declared
+   per-peer release can complete while host bytes remain for another peer.
+
+   **Proposed lower-posture extension — not in `0.11.0-next.6`:** The peer's declared
    erasure posture MUST name its re-entry gate: `peer-released` (its reference is verifiably
    absent) or `bytes-removed` (physical absence is proved on its declared surfaces). An obligation
    for bytes this peer held cannot pass the latter gate while the same physical bytes remain
@@ -397,8 +413,9 @@ The pipeline is:
    policies. A permanent refusal never permits re-entry. A rejected or duplicate id creates no
    arrival event.
    Quota capacity may remain unused after dependency pruning, but an id that did not land is
-   never charged. An internal `purge-pending` outcome reveals that the peer held and erased this
-   id; a public endpoint MAY map it to a generic refusal, while preserving the private reason.
+   never charged. In the proposed lower-posture extension, an internal `purge-pending` outcome
+   reveals that the peer held and erased this id; a public endpoint MAY map it to a generic
+   refusal, while preserving the private reason.
    Later acceptance can still reveal when a re-entry gate completed. A host that keeps
    co-tenant holdings confidential MUST restrict that retry visibility or choose a gate whose
    completion does not depend on another peer's holdings.
@@ -512,8 +529,10 @@ annotation delta. The portable contract is the receiver's observable testimony, 
 layout. A shared host MUST keep one arrival history per peer, even when their delta sets view the
 same underlying bytes. An erasure removes bytes from one peer's holdings and does not change
 another peer's arrival history. Whether the erasing peer retains old arrival metadata is part of
-its declared erasure posture (plan step 9). Under permanent refusal, that id never re-enters. If
-a lower posture permits re-entry after its declared re-entry gate is complete, the peer
+its declared erasure posture (plan step 9). Under permanent refusal, that id never re-enters.
+
+**Proposed lower-posture extension — not in `0.11.0-next.6`:** If a lower posture permits
+re-entry after its declared re-entry gate is complete, the peer
 assigns a later lifetime sequence and transfer ordinal. That sequence names the id's new
 admission epoch. The peer MUST persist both counters even if it purges earlier arrival metadata.
 If the earlier metadata was purged, the new record is described as the first arrival **in that
@@ -521,6 +540,10 @@ epoch**, never the first arrival in the peer's lifetime. The marker or whole-his
 incompleteness remains after re-entry, so a later consumer cannot infer a false first arrival.
 
 ## 4. Conformance cases to freeze
+
+These cases describe the larger proposal. Only cases represented in shared vectors for the
+signed-loose permanent-refusal profile are part of `0.11.0-next.6`. The bundle, subscribed-lens,
+lower-posture re-entry, and co-tenant cases remain proposed.
 
 - Two peers view one host storage. Each admits one id at a different time and each reports its own
   arrival. The second peer never inherits the first peer's arrival.

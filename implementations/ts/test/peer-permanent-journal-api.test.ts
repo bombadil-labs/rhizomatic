@@ -43,6 +43,13 @@ const vector = JSON.parse(
     settledHex: string;
     settledHead: string;
   };
+  payloadProbe: {
+    marker: string;
+    targetId: string;
+    secret: { id: string; sig: string; claims: unknown };
+    order: { id: string; sig: string; claims: unknown };
+    preErasureRebase: { beforeSecondRebase: string; afterSecondRebase: string };
+  };
   degraded: { unavailableId: string; availableId: string; reason: string };
   expected: { refusedTarget: string };
 };
@@ -83,7 +90,8 @@ class MemoryStore implements DurableOrdinaryJournalStore {
   checkpoint: Uint8Array | undefined;
   rows = new Map<string, Delta>();
   async readJournal(): Promise<OrdinaryJournalRead> {
-    if (this.head === null) return { status: "empty" };
+    if (this.head === null)
+      return this.rows.size === 0 ? { status: "empty" } : { status: "rows-without-journal" };
     return {
       status: "journal",
       head: this.head,
@@ -112,7 +120,8 @@ class MemoryStore implements DurableOrdinaryJournalStore {
     frame: Uint8Array | null,
     rows: readonly Delta[],
   ): Promise<PeerImageWrite> {
-    if (this.head !== expected) return { status: "conflict" };
+    if (this.head !== expected || (expected === null && this.rows.size > 0))
+      return { status: "conflict" };
     this.head = next;
     if (frame !== null) this.frames.push(Uint8Array.from(frame));
     for (const row of rows) this.rows.set(row.id, structuredClone(row));
@@ -257,6 +266,68 @@ describe("typed permanent journal erasure boundary", () => {
     expect(Buffer.from(store.checkpoint!).toString("hex")).toBe(vector.rebase.settledHex);
     expect(opened.peer.currentHead()).toBe(vector.rebase.settledHead);
     expect((await OrdinaryJournalPeer.open(store, vector.peerId)).status).toBe("open");
+  });
+
+  it("keeps purge owed when the last rebase still carried the target", async () => {
+    const store = new MemoryStore();
+    const opened = await OrdinaryJournalPeer.open(store, vector.peerId);
+    if (opened.status !== "open") throw new Error("expected open");
+    const peer = opened.peer;
+    const secret: Delta = {
+      id: vector.payloadProbe.secret.id,
+      sig: vector.payloadProbe.secret.sig,
+      claims: parseClaims(vector.payloadProbe.secret.claims),
+    };
+    const secretOrder: Delta = {
+      id: vector.payloadProbe.order.id,
+      sig: vector.payloadProbe.order.sig,
+      claims: parseClaims(vector.payloadProbe.order.claims),
+    };
+    expect(
+      (
+        await peer.admit({
+          offered: [secret],
+          origin: { kind: "local" },
+          arrivedAt: 100,
+          policyState: {},
+          guards: [],
+          mode: "atomic",
+          isErasureCandidate: () => false,
+        })
+      ).status,
+    ).toBe("committed");
+    const erasure = (delta: Delta, targetId: string, surfaceHoldsBytes: boolean, at: number) =>
+      peer.admitErasures({
+        orders: [{ delta, targetId, surfaceHoldsBytes }],
+        origin: { kind: "local" },
+        arrivedAt: at,
+        policyState: {},
+        guards: [],
+        mode: "atomic" as const,
+        targetBudget: 1,
+        advanceRefusalCap: 1,
+        authorize: () => true,
+      });
+    expect((await erasure(order, held.id, false, 101)).status).toBe("committed");
+    expect(await peer.rebase()).toEqual({ status: "durable" });
+    expect(Buffer.from(store.checkpoint!).includes(vector.payloadProbe.marker)).toBe(true);
+    expect((await erasure(secretOrder, secret.id, true, 111)).status).toBe("committed");
+    store.rows.delete(secret.id);
+    expect((await peer.reportPurge(secret.id, 1, { status: "removed" })).status).toBe(
+      vector.payloadProbe.preErasureRebase.beforeSecondRebase,
+    );
+    const reopened = await OrdinaryJournalPeer.open(store, vector.peerId);
+    if (reopened.status !== "open") throw new Error("expected reopen");
+    expect((await reopened.peer.reportPurge(secret.id, 1, { status: "removed" })).status).toBe(
+      vector.payloadProbe.preErasureRebase.beforeSecondRebase,
+    );
+    expect(await reopened.peer.rebase()).toEqual({ status: "durable" });
+    expect(Buffer.from(store.checkpoint!).includes(vector.payloadProbe.marker)).toBe(false);
+    const afterSecondRebase = await OrdinaryJournalPeer.open(store, vector.peerId);
+    if (afterSecondRebase.status !== "open") throw new Error("expected second reopen");
+    expect(
+      (await afterSecondRebase.peer.reportPurge(secret.id, 1, { status: "removed" })).status,
+    ).toBe(vector.payloadProbe.preErasureRebase.afterSecondRebase);
   });
 
   it("rejects conflicting facts for one target before budget accounting", async () => {

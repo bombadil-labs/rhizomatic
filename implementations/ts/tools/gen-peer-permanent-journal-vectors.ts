@@ -240,6 +240,16 @@ writeFileSync(
       payloadProbe: {
         marker,
         targetId: secret.id,
+        secret: { id: secret.id, sig: secret.sig, claims: claimsToJson(secret.claims) },
+        order: {
+          id: secretOrder.id,
+          sig: secretOrder.sig,
+          claims: claimsToJson(secretOrder.claims),
+        },
+        preErasureRebase: {
+          beforeSecondRebase: "absence-refuted",
+          afterSecondRebase: "committed",
+        },
         ordinaryHex: Buffer.from(secretFrame).toString("hex"),
         erasureHex: Buffer.from(secretErasureFrame).toString("hex"),
         rebaseHex: Buffer.from(secretRebase).toString("hex"),

@@ -31,6 +31,8 @@ TypeScript exports `OrdinaryJournalPeer.open` and `DurableOrdinaryJournalStore` 
 Rust exposes `open_ordinary_journal_peer` and the matching store trait. The store returns one
 consistent head-and-frame snapshot on open, answers a cheap head read during append, and
 atomically compares the prior head while writing the next head, frame and newly admitted rows.
+For empty creation (`expectedHead` is `null`), that same transaction must also verify that no
+rows already exist; a head-only check can create a false fresh peer over old rows.
 Committed frames must remain immutable under that head; a cheap head read relies on this.
 On reopen the store also returns rows for the reconstructed admitted ids. The facade checks
 each row's id, content address and signature and fails closed on missing, duplicate or changed
@@ -73,8 +75,9 @@ The adapter must remove the old frames from its logical store in the same transa
 remnants, including SQLite free pages and WAL debt, remain purge debt until the store proves their
 absence. `compareAndSettlePurge` must check rows, frames, checkpoints and these remnants before
 recording `removed`. Reopen validates the rebase image, anchor head and retained suffix frames.
-The facade refuses `removed` for a target that arrived after the last v2 rebase, even if a lax
-adapter reports the row absent. A v1 checkpoint does not qualify because it may hold that payload.
+The facade refuses `removed` for a previously arrived target unless the latest v2 rebase was
+committed after that target became refused. A rebase while the target was still admitted retains
+its payload, even if a later erasure removes its row. A v1 checkpoint does not qualify either.
 Rebase remains available after purge settlement to bound later replay work.
 Refusal and purge records may still name the erased target id; the proof checks for target
 **payload bytes** on surfaces that can hold them, not for every occurrence of its id.
