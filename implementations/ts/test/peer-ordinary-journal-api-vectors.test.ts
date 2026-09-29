@@ -23,7 +23,13 @@ const vector = JSON.parse(
   secondName: string;
   frames: Array<{ at: number; sender: string; prior: string; hex: string; head: string }>;
   expectedImageHex: string;
-  api: { emptyHead: string; noOpWrites: number; rowsWithoutJournal: string; guardReason: string };
+  api: {
+    emptyHead: string;
+    noOpWrites: number;
+    rowsWithoutJournal: string;
+    guardReason: string;
+    rowMismatchError: string;
+  };
 };
 const evidence = JSON.parse(
   readFileSync(
@@ -55,6 +61,12 @@ class MemoryJournal implements DurableOrdinaryJournalStore {
       head: this.head,
       frames: this.frames.map((f) => Uint8Array.from(f)),
     };
+  }
+  async readAdmittedRows(_peer: string, ids: readonly string[]): Promise<readonly Delta[]> {
+    return ids.flatMap((id) => {
+      const row = this.rows.get(id);
+      return row === undefined ? [] : [structuredClone(row)];
+    });
   }
   async readHead(): Promise<OrdinaryJournalHead> {
     return this.head === null ? { status: "missing" } : { status: "head", head: this.head };
@@ -176,6 +188,21 @@ describe("shared SPEC-6 typed ordinary journal API", () => {
     expect(recovered.status).toBe("open");
     if (recovered.status !== "open") throw new Error("expected recovery");
     expect(recovered.peer.snapshot().base.admitted.has(first.id)).toBe(true);
+    uncertain.rows.delete(first.id);
+    await expect(OrdinaryJournalPeer.open(uncertain, vector.peerId)).rejects.toThrow(
+      vector.api.rowMismatchError,
+    );
+    uncertain.rows.set(first.id, {
+      ...first,
+      claims: { ...first.claims, timestamp: first.claims.timestamp + 1 },
+    });
+    await expect(OrdinaryJournalPeer.open(uncertain, vector.peerId)).rejects.toThrow(
+      vector.api.rowMismatchError,
+    );
+    uncertain.rows.set(first.id, { ...first, sig: "00" });
+    await expect(OrdinaryJournalPeer.open(uncertain, vector.peerId)).rejects.toThrow(
+      vector.api.rowMismatchError,
+    );
   });
 
   it("keeps atomic rejection and individual refusal reasons out of the journal", async () => {

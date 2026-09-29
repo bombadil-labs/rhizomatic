@@ -1,5 +1,6 @@
 // Typed signed-loose ordinary admission over an atomic append journal.
 import type { Delta } from "../delta/types.js";
+import { computeId } from "../delta/delta.js";
 import { DeltaSet } from "../delta/set.js";
 import { contentAddress } from "../delta/hash.js";
 import { claimsToJson, parseClaims } from "../delta/json-profile.js";
@@ -25,6 +26,8 @@ export type OrdinaryJournalHead =
 /** Consistent open, immutable committed frames, cheap head read, atomic head/frame/row CAS. */
 export interface DurableOrdinaryJournalStore {
   readJournal(peerId: string): Promise<OrdinaryJournalRead>;
+  /** Return exactly the stored rows for these admitted ids; extras outside the list stay external. */
+  readAdmittedRows(peerId: string, ids: readonly string[]): Promise<readonly Delta[]>;
   readHead(peerId: string): Promise<OrdinaryJournalHead>;
   compareAndAppend(
     peerId: string,
@@ -89,6 +92,24 @@ function copyState(state: DurablePeerState): DurablePeerState {
   };
 }
 
+function assertAdmittedRows(state: DurablePeerState, rows: readonly Delta[]): void {
+  if (rows.length !== state.base.admitted.size)
+    throw new Error("ordinary journal: admitted row mismatch");
+  const seen = new Set<string>();
+  for (const row of rows) {
+    const expected = state.base.admitted.get(row.id);
+    if (expected === undefined || seen.has(row.id) || row.sig !== expected.sig)
+      throw new Error("ordinary journal: admitted row mismatch");
+    try {
+      if (computeId(row.claims) !== row.id)
+        throw new Error("ordinary journal: admitted row mismatch");
+    } catch {
+      throw new Error("ordinary journal: admitted row mismatch");
+    }
+    seen.add(row.id);
+  }
+}
+
 /** A verified in-memory projection of one durable ordinary journal head. */
 export class OrdinaryJournalPeer {
   private live = true;
@@ -108,6 +129,7 @@ export class OrdinaryJournalPeer {
     if (current.status === "rows-without-journal") return current;
     if (current.status === "journal") {
       const state = replayOrdinaryPeerFrames(peerId, current.frames, current.head);
+      assertAdmittedRows(state, await store.readAdmittedRows(peerId, state.base.admitted.ids()));
       return { status: "open", peer: new OrdinaryJournalPeer(store, peerId, state, current.head) };
     }
     const write = await store.compareAndAppend(peerId, null, "", null, []);
@@ -162,6 +184,21 @@ export class OrdinaryJournalPeer {
     }
     if (plan.admittedIds.length === 0)
       return { status: "committed", outcomes: plan.outcomes, arrivals: [], head: this.head };
+    const arrivals = plan.state.base.arrivals.slice(this.state.base.arrivals.length);
+    const ids = [...plan.admittedIds].sort();
+    if (
+      arrivals.length !== ids.length ||
+      arrivals.some(
+        (row, i) =>
+          row.id !== ids[i] ||
+          row.sequence !== this.state.base.cursor.lastSequence + i + 1 ||
+          row.transfer !== this.state.base.cursor.lastTransfer + 1 ||
+          row.sender !== origin ||
+          row.at !== input.arrivedAt,
+      ) ||
+      plan.state.quotaUsed !== this.state.quotaUsed + ids.length
+    )
+      throw new Error("ordinary journal: planned transition cannot be replayed");
     const additions = plan.admittedIds.map((id) => plainDelta(plan.state.base.admitted.get(id)!));
     const frame = encodeOrdinaryPeerFrame({
       peerId: this.peerId,
@@ -182,11 +219,13 @@ export class OrdinaryJournalPeer {
       this.live = false;
       return write;
     }
-    const arrivals = plan.state.base.arrivals
-      .slice(this.state.base.arrivals.length)
-      .map((row) => ({ ...row }));
     this.state = plan.state;
     this.head = nextHead;
-    return { status: "committed", outcomes: plan.outcomes, arrivals, head: nextHead };
+    return {
+      status: "committed",
+      outcomes: plan.outcomes,
+      arrivals: arrivals.map((row) => ({ ...row })),
+      head: nextHead,
+    };
   }
 }

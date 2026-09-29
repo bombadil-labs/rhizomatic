@@ -23,12 +23,13 @@ Rust exposes `open_ordinary_journal_peer` and the matching store trait. The stor
 consistent head-and-frame snapshot on open, answers a cheap head read during append, and
 atomically compares the prior head while writing the next head, frame and newly admitted rows.
 Committed frames must remain immutable under that head; a cheap head read relies on this.
-Empty-store initialization compares an absent head and refuses a store with rows but no journal.
+On reopen the store also returns rows for the reconstructed admitted ids. The facade checks
+each row's id, content address and signature and fails closed on missing, duplicate or changed
+rows. Empty-store initialization compares an absent head and refuses a store with rows but no journal.
 A conflict or uncertain commit closes that in-memory peer until it reopens from the journal.
 The admission receipt gives outcomes, new arrivals and the new head; `snapshot()` copies the
 full admitted state only when a reader asks for it.
 
-The adapter must fail closed if a frame or admitted row is missing; raw rows never become
-admission records by replay. Checkpoints and non-ordinary frame kinds need separate contracts.
-The adapter's row check is outside the portable journal codec: compare rows to admitted ids
-before serving, as with the full-image trial.
+Raw rows never become admission records by replay. Rows outside the admitted id list remain
+visible to an application's quarantine/reporting path but grant no admission. Checkpoints and
+non-ordinary frame kinds need separate contracts.

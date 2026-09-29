@@ -8,10 +8,11 @@ describe("typed peer API browser entry", () => {
         contents: `import {
           openSinglePeer, admitSinglePeerTransfer, emptyDurablePeerState,
           encodeDurablePeerState, decodeDurablePeerState,
-          planSignedLooseOrdinaryTransfer
+          planSignedLooseOrdinaryTransfer, OrdinaryJournalPeer
         } from "./src/index.ts";
         console.log(openSinglePeer, admitSinglePeerTransfer, emptyDurablePeerState,
-          encodeDurablePeerState, decodeDurablePeerState, planSignedLooseOrdinaryTransfer);`,
+          encodeDurablePeerState, decodeDurablePeerState, planSignedLooseOrdinaryTransfer,
+          OrdinaryJournalPeer);`,
         resolveDir: process.cwd(),
         sourcefile: "peer-browser-entry.ts",
       },
@@ -24,5 +25,6 @@ describe("typed peer API browser entry", () => {
     const javascript = result.outputFiles[0]!.text;
     expect(javascript).not.toMatch(/node:(?:fs|crypto|path)/);
     expect(javascript).toContain("openSinglePeer");
+    expect(javascript).toContain("OrdinaryJournalPeer");
   });
 });

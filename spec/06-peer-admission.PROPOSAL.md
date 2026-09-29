@@ -464,6 +464,10 @@ The pipeline is:
    The backend MUST keep committed frames immutable under that head and MUST return a consistent
    head/frame snapshot on reopen. A head-only warm read is sound only under that storage
    invariant; any backend that cannot preserve it must verify the chain again before admission.
+   On reopen the adapter MUST supply the stored rows for every reconstructed admitted id. The
+   facade MUST compare their ids, content addresses and signatures to the frame-derived state;
+   a missing, duplicated, or mismatched admitted row fails closed. Rows outside that admitted
+   id list remain an application reporting concern and grant no admission.
    Until declared storage surfaces prove physical absence, a byte-removal report says `pending`,
    `failed` with the fault, or `shared-held`; a release of this peer's reference is reported
    separately and never called byte removal. A host may disclose `shared-held` to its authorized

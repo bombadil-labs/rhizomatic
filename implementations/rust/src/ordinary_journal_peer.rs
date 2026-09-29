@@ -1,6 +1,9 @@
 //! Typed signed-loose ordinary admission over an atomic append journal.
 
+use std::collections::BTreeSet;
+
 use crate::arrival::ArrivalRecord;
+use crate::delta::compute_id;
 use crate::durable_state::{empty_durable_peer_state, DurablePeerState};
 use crate::hash::content_address;
 use crate::ordinary_journal::{
@@ -29,6 +32,8 @@ pub enum OrdinaryJournalHead {
 /// Consistent open, immutable committed frames, cheap head read, atomic head/frame/row CAS.
 pub trait DurableOrdinaryJournalStore {
     fn read_journal(&self, peer_id: &str) -> Result<OrdinaryJournalRead, String>;
+    /// Return exactly the stored rows for these admitted ids; extras outside the list stay external.
+    fn read_admitted_rows(&self, peer_id: &str, ids: &[String]) -> Result<Vec<Delta>, String>;
     fn read_head(&self, peer_id: &str) -> Result<OrdinaryJournalHead, String>;
     fn compare_and_append(
         &mut self,
@@ -67,7 +72,7 @@ pub enum OrdinaryJournalAdmissionResult {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct OrdinaryJournalPeer {
-    pub peer_id: String,
+    peer_id: String,
     state: DurablePeerState,
     head: String,
     live: bool,
@@ -89,6 +94,23 @@ fn sender(origin: &ArrivalOrigin, receiving_peer_id: &str) -> Result<String, Str
     }
 }
 
+fn assert_admitted_rows(state: &DurablePeerState, rows: &[Delta]) -> Result<(), String> {
+    if rows.len() != state.base.admitted.len() {
+        return Err("ordinary journal: admitted row mismatch".into());
+    }
+    let mut seen = BTreeSet::new();
+    for row in rows {
+        let expected = state.base.admitted.get(&row.id);
+        if !seen.insert(&row.id)
+            || !expected.is_some_and(|expected| expected.sig == row.sig)
+            || compute_id(&row.claims).ok().as_deref() != Some(row.id.as_str())
+        {
+            return Err("ordinary journal: admitted row mismatch".into());
+        }
+    }
+    Ok(())
+}
+
 pub fn open_ordinary_journal_peer<S: DurableOrdinaryJournalStore>(
     store: &mut S,
     peer_id: &str,
@@ -101,7 +123,16 @@ pub fn open_ordinary_journal_peer<S: DurableOrdinaryJournalStore>(
             return Ok(OrdinaryJournalOpenResult::RowsWithoutJournal)
         }
         OrdinaryJournalRead::Journal { head, frames } => {
-            (replay_ordinary_peer_frames(peer_id, &frames, &head)?, head)
+            let state = replay_ordinary_peer_frames(peer_id, &frames, &head)?;
+            let ids = state
+                .base
+                .admitted
+                .ids()
+                .into_iter()
+                .map(str::to_string)
+                .collect::<Vec<_>>();
+            assert_admitted_rows(&state, &store.read_admitted_rows(peer_id, &ids)?)?;
+            (state, head)
         }
         OrdinaryJournalRead::Empty => {
             match store.compare_and_append(peer_id, None, "", None, &[])? {
@@ -125,6 +156,10 @@ pub fn open_ordinary_journal_peer<S: DurableOrdinaryJournalStore>(
 }
 
 impl OrdinaryJournalPeer {
+    pub fn peer_id(&self) -> &str {
+        &self.peer_id
+    }
+
     /// Copy the verified projection for a reader; append receipts avoid this O(history) copy.
     pub fn snapshot(&self) -> Result<DurablePeerState, String> {
         if !self.live {
@@ -190,6 +225,33 @@ impl OrdinaryJournalPeer {
                 head: self.head.clone(),
             });
         }
+        let arrivals = plan
+            .state
+            .base
+            .arrivals
+            .get(self.state.base.arrivals.len()..)
+            .ok_or("ordinary journal: planned transition cannot be replayed")?
+            .to_vec();
+        let mut ids = plan.admitted_ids.clone();
+        ids.sort();
+        if arrivals.len() != ids.len()
+            || arrivals.iter().enumerate().any(|(i, row)| {
+                row.id != ids[i]
+                    || self
+                        .state
+                        .base
+                        .cursor
+                        .last_sequence
+                        .checked_add(i as u64 + 1)
+                        != Some(row.sequence)
+                    || self.state.base.cursor.last_transfer.checked_add(1) != Some(row.transfer)
+                    || row.sender != sender
+                    || row.at != input.arrived_at
+            })
+            || self.state.quota_used.checked_add(ids.len() as u64) != Some(plan.state.quota_used)
+        {
+            return Err("ordinary journal: planned transition cannot be replayed".into());
+        }
         let additions: Vec<Delta> = plan
             .admitted_ids
             .iter()
@@ -227,7 +289,6 @@ impl OrdinaryJournalPeer {
                 PeerImageWrite::Durable => unreachable!(),
             });
         }
-        let arrivals = plan.state.base.arrivals[self.state.base.arrivals.len()..].to_vec();
         self.state = plan.state;
         self.head = next_head.clone();
         Ok(OrdinaryJournalAdmissionResult::Committed {

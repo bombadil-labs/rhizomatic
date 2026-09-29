@@ -40,8 +40,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
   Canonical v1 ordinary journal frames and digest-chain replay are now pinned in both witnesses
   by shared bytes. A typed journal-backed single-peer admission facade exposes an atomic
   head/frame/row storage seam, warm append, no-op receipts and fail-closed reopen. It covers
-  signed loose ordinary additions only; Loam integration and bounded checkpoints remain to be
-  reviewed.
+  signed loose ordinary additions only. Reopen also checks that every admitted row is present
+  with the frame-derived id and signature. Loam integration and bounded checkpoints remain to
+  be reviewed.
 
 ### Internal structure
 

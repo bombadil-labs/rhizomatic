@@ -55,6 +55,12 @@ impl DurableOrdinaryJournalStore for MemoryJournal {
             None => OrdinaryJournalRead::RowsWithoutJournal,
         })
     }
+    fn read_admitted_rows(&self, _peer_id: &str, ids: &[String]) -> Result<Vec<Delta>, String> {
+        Ok(ids
+            .iter()
+            .filter_map(|id| self.rows.get(id).cloned())
+            .collect())
+    }
     fn read_head(&self, _peer_id: &str) -> Result<OrdinaryJournalHead, String> {
         Ok(match &self.head {
             Some(head) => OrdinaryJournalHead::Head(head.clone()),
@@ -100,6 +106,7 @@ fn journal_api_matches_shared_frames_and_reopen() {
     else {
         panic!("expected open")
     };
+    assert_eq!(peer.peer_id(), peer_id);
     assert_eq!(
         peer.current_head().unwrap(),
         vector["api"]["emptyHead"].as_str().unwrap()
@@ -253,6 +260,26 @@ fn journal_api_fails_closed_on_legacy_conflict_and_uncertain_write() {
         .base
         .admitted
         .contains(&first.id));
+    uncertain.rows.remove(&first.id);
+    assert!(open_ordinary_journal_peer(&mut uncertain, peer_id)
+        .unwrap_err()
+        .contains(vector["api"]["rowMismatchError"].as_str().unwrap()));
+    let mut changed = first.clone();
+    changed.claims.timestamp += 1.0;
+    uncertain.rows.insert(first.id.clone(), changed);
+    assert!(open_ordinary_journal_peer(&mut uncertain, peer_id)
+        .unwrap_err()
+        .contains(vector["api"]["rowMismatchError"].as_str().unwrap()));
+    uncertain.rows.insert(
+        first.id.clone(),
+        Delta {
+            sig: Some("00".into()),
+            ..first.clone()
+        },
+    );
+    assert!(open_ordinary_journal_peer(&mut uncertain, peer_id)
+        .unwrap_err()
+        .contains(vector["api"]["rowMismatchError"].as_str().unwrap()));
 }
 
 #[test]
