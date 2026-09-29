@@ -104,8 +104,8 @@ pub struct PermanentErasure {
     pub surface_holds_bytes: bool,
 }
 
-fn validate(state: &DurablePeerState) -> Result<(), String> {
-    encode_peer_state(&state.base)?;
+fn validate(state: &DurablePeerState) -> Result<Vec<u8>, String> {
+    let base_bytes = encode_peer_state(&state.base)?;
     if state.refusal_counter > MAX_COUNTER
         || state.obligation_counter > MAX_COUNTER
         || state.quota_used > MAX_COUNTER
@@ -198,7 +198,7 @@ fn validate(state: &DurablePeerState) -> Result<(), String> {
             return Err("durable peer state: held refusal lacks purge obligation".into());
         }
     }
-    Ok(())
+    Ok(base_bytes)
 }
 
 fn field_map(value: &CborValue, label: &str) -> Result<BTreeMap<String, CborValue>, String> {
@@ -246,7 +246,7 @@ fn optional_epoch(row: &BTreeMap<String, CborValue>) -> Result<Option<u64>, Stri
 
 /// Canonical local image; it embeds the complete v1 base as bytes.
 pub fn encode_durable_peer_state(state: &DurablePeerState) -> Result<Vec<u8>, String> {
-    validate(state)?;
+    let base_bytes = validate(state)?;
     let events = state
         .events
         .iter()
@@ -323,10 +323,7 @@ pub fn encode_durable_peer_state(state: &DurablePeerState) -> Result<Vec<u8>, St
     Ok(encode(&CborValue::Map(vec![
         ("version".into(), CborValue::Float(VERSION)),
         ("peer".into(), CborValue::Tstr(state.base.peer_id.clone())),
-        (
-            "base".into(),
-            CborValue::Bstr(encode_peer_state(&state.base)?),
-        ),
+        ("base".into(), CborValue::Bstr(base_bytes)),
         (
             "refusalCounter".into(),
             CborValue::Float(state.refusal_counter as f64),
@@ -525,11 +522,14 @@ fn validate_transition(before: &DurablePeerState, after: &DurablePeerState) -> R
 }
 
 /// Form one atomic permanent-posture image from already verified admission decisions.
-pub fn plan_permanent_commit(
+fn build_permanent_commit(
     before: &DurablePeerState,
     input: &PermanentCommitInput,
+    verified_before: bool,
 ) -> Result<DurablePeerState, String> {
-    validate(before)?;
+    if !verified_before {
+        validate(before)?;
+    }
     if input.quota_charge > input.additions.len() as u64
         || before
             .quota_used
@@ -659,9 +659,27 @@ pub fn plan_permanent_commit(
     after.refusal_counter = after.events.len() as u64;
     after.obligation_counter = after.obligations.len() as u64;
     after.quota_used += input.quota_charge;
-    validate(&after)?;
-    validate_transition(before, &after)?;
+    if !verified_before {
+        validate(&after)?;
+        validate_transition(before, &after)?;
+    }
     Ok(after)
+}
+
+/// Form one atomic permanent-posture image from already verified admission decisions.
+pub fn plan_permanent_commit(
+    before: &DurablePeerState,
+    input: &PermanentCommitInput,
+) -> Result<DurablePeerState, String> {
+    build_permanent_commit(before, input, false)
+}
+
+/// Internal fast path for a private state already verified against exact durable bytes.
+pub(crate) fn plan_permanent_commit_from_verified(
+    before: &DurablePeerState,
+    input: &PermanentCommitInput,
+) -> Result<DurablePeerState, String> {
+    build_permanent_commit(before, input, true)
 }
 
 /// Single-writer replacement for the complete local permanent-posture image.

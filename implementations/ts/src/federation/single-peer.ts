@@ -11,7 +11,7 @@ import {
 import { isCanonicalPeerId } from "./peer-identity.js";
 import type { CandidateGuard } from "./preflight.js";
 import {
-  planSignedLooseOrdinaryTransfer,
+  planSignedLooseOrdinaryTransferFromVerified,
   type SignedLooseOutcome,
 } from "./signed-loose-admission.js";
 
@@ -197,7 +197,7 @@ export async function admitSinglePeerTransfer<State>(
     throw new Error("single peer: peer is not open");
   }
   const before = verifiedState(store, peerId, prior.image);
-  const plan = planSignedLooseOrdinaryTransfer(before, {
+  const plan = planSignedLooseOrdinaryTransferFromVerified(before, {
     offered: input.offered,
     sendingPeerId: sender(input.origin, peerId),
     arrivedAt: input.arrivedAt,
@@ -217,14 +217,14 @@ export async function admitSinglePeerTransfer<State>(
         outcomes: plan.outcomes,
       };
   }
-  const next = encodeDurablePeerState(plan.state);
-  if (sameBytes(next, prior.image))
+  if (plan.admittedIds.length === 0)
     return {
       status: "committed",
       outcomes: plan.outcomes,
-      state: copyState(plan.state, true),
-      image: next,
+      state: copyState(before, true),
+      image: prior.image,
     };
+  const next = encodeDurablePeerState(plan.state);
   const admitted = plan.admittedIds.map((id) => plainDelta(plan.state.base.admitted.get(id)!));
   const write = await store.compareAndSet(peerId, prior.image, next, admitted);
   if (write.status !== "durable") {

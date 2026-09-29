@@ -54,6 +54,35 @@
           { "id": "f", "at": 101.0, "sequence": 5, "transfer": 3, "sender": "peer-B" }
         ]
       }
+    },
+    {
+      "name": "co-offered dependency has no offered-order precedence",
+      "active": ["b", "c", "d", "e", "f"],
+      "accepted": ["z-manifest", "a-recovery"],
+      "at": 102.0,
+      "sender": "local",
+      "expected": {
+        "lastSequence": 7,
+        "lastTransfer": 4,
+        "arrivals": [
+          { "id": "a-recovery", "at": 102.0, "sequence": 6, "transfer": 4, "sender": "local" },
+          { "id": "z-manifest", "at": 102.0, "sequence": 7, "transfer": 4, "sender": "local" }
+        ]
+      }
+    },
+    {
+      "name": "earlier transfer establishes precedence despite equal trusted time",
+      "active": ["b", "c", "d", "e", "f", "a-recovery", "z-manifest"],
+      "accepted": ["later-recovery"],
+      "at": 102.0,
+      "sender": "local",
+      "expected": {
+        "lastSequence": 8,
+        "lastTransfer": 5,
+        "arrivals": [
+          { "id": "later-recovery", "at": 102.0, "sequence": 8, "transfer": 5, "sender": "local" }
+        ]
+      }
     }
   ]
 }

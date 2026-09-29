@@ -6,7 +6,7 @@ use crate::durable_state::{
 use crate::peer_identity::is_canonical_peer_id;
 use crate::preflight::CandidateGuard;
 use crate::signed_loose_admission::{
-    plan_signed_loose_ordinary_transfer, SignedLooseTransferInput,
+    plan_signed_loose_ordinary_transfer_from_verified, SignedLooseTransferInput,
 };
 use crate::types::Delta;
 
@@ -162,7 +162,7 @@ pub fn admit_single_peer_transfer<S: DurablePeerStore, P>(
     };
     let before = decode_durable_peer_state(&prior, peer_id)?;
     let sender = sender(input.origin, peer_id)?;
-    let plan = plan_signed_loose_ordinary_transfer(
+    let plan = plan_signed_loose_ordinary_transfer_from_verified(
         &before,
         &SignedLooseTransferInput {
             offered: input.offered,
@@ -191,14 +191,14 @@ pub fn admit_single_peer_transfer<S: DurablePeerStore, P>(
             });
         }
     }
-    let next = encode_durable_peer_state(&plan.state)?;
-    if next == prior {
+    if plan.admitted_ids.is_empty() {
         return Ok(SinglePeerTransferResult::Committed {
             outcomes: plan.outcomes,
-            state: Box::new(plan.state),
-            image: next,
+            state: Box::new(before),
+            image: prior,
         });
     }
+    let next = encode_durable_peer_state(&plan.state)?;
     let admitted: Vec<Delta> = plan
         .admitted_ids
         .iter()

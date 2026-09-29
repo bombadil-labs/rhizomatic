@@ -2,7 +2,10 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::durable_state::{plan_permanent_commit, DurablePeerState, PermanentCommitInput};
+use crate::durable_state::{
+    plan_permanent_commit, plan_permanent_commit_from_verified, DurablePeerState,
+    PermanentCommitInput,
+};
 use crate::ordinary_quota::{plan_ordinary_quota, OrdinaryQuotaUnit};
 use crate::preflight::{
     preflight_transfer, CandidateGuard, GuardedUnitStatus, PreflightContext, TransferUnit,
@@ -69,9 +72,10 @@ fn negates(delta: &Delta, id: &str) -> bool {
 }
 
 /// Steps 1, 3, 5, and 6 for signed loose ordinary candidates, with no lens or conflict rule.
-pub fn plan_signed_loose_ordinary_transfer<S>(
+fn build_signed_loose_ordinary_transfer<S>(
     before: &DurablePeerState,
     input: &SignedLooseTransferInput<'_, S>,
+    verified_before: bool,
 ) -> Result<SignedLooseTransferPlan, String> {
     let active: BTreeSet<String> = before.base.admitted.iter().map(|d| d.id.clone()).collect();
     let units: Vec<TransferUnit> = input
@@ -177,7 +181,12 @@ pub fn plan_signed_loose_ordinary_transfer<S>(
         .iter()
         .map(|id| candidates[id].clone())
         .collect();
-    let state = plan_permanent_commit(
+    let commit = if verified_before {
+        plan_permanent_commit_from_verified
+    } else {
+        plan_permanent_commit
+    };
+    let state = commit(
         before,
         &PermanentCommitInput {
             additions,
@@ -192,6 +201,22 @@ pub fn plan_signed_loose_ordinary_transfer<S>(
         outcomes,
         admitted_ids: quota.admitted_ids,
     })
+}
+
+/// Steps 1, 3, 5, and 6 for signed loose ordinary candidates, with no lens or conflict rule.
+pub fn plan_signed_loose_ordinary_transfer<S>(
+    before: &DurablePeerState,
+    input: &SignedLooseTransferInput<'_, S>,
+) -> Result<SignedLooseTransferPlan, String> {
+    build_signed_loose_ordinary_transfer(before, input, false)
+}
+
+/// Internal fast path; caller must own the verified pre-transfer state.
+pub(crate) fn plan_signed_loose_ordinary_transfer_from_verified<S>(
+    before: &DurablePeerState,
+    input: &SignedLooseTransferInput<'_, S>,
+) -> Result<SignedLooseTransferPlan, String> {
+    build_signed_loose_ordinary_transfer(before, input, true)
 }
 
 /// Single-writer file operation. The expected bytes are also the planning snapshot.

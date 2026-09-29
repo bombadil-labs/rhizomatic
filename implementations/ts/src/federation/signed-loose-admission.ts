@@ -1,6 +1,10 @@
 // Internal ordinary-only admission path. A classifier keeps erasure candidates out of this path.
 import type { Delta } from "../delta/types.js";
-import { planPermanentCommit, type DurablePeerState } from "./durable-state.js";
+import {
+  planPermanentCommit,
+  planPermanentCommitFromVerified,
+  type DurablePeerState,
+} from "./durable-state.js";
 import { planOrdinaryQuota, type OrdinaryQuotaUnit } from "./ordinary-quota.js";
 import { preflightTransfer, type CandidateGuard } from "./preflight.js";
 
@@ -47,9 +51,10 @@ function negates(delta: Delta, id: string): boolean {
 }
 
 /** Steps 1, 3, 5, and 6 for signed loose ordinary candidates, with no lens or conflict rule. */
-export function planSignedLooseOrdinaryTransfer<State>(
+function buildSignedLooseOrdinaryTransfer<State>(
   before: DurablePeerState,
   input: SignedLooseTransferInput<State>,
+  verifiedBefore: boolean,
 ): SignedLooseTransferPlan {
   const active = new Set(before.base.admitted.ids());
   const guarded = preflightTransfer(
@@ -102,7 +107,8 @@ export function planSignedLooseOrdinaryTransfer<State>(
     status: statuses[i] === "admitted" ? quotaStatus(delta.id) : statuses[i]!,
     ...(guarded[i]!.reason === undefined ? {} : { reason: guarded[i]!.reason }),
   }));
-  const state = planPermanentCommit(before, {
+  const commit = verifiedBefore ? planPermanentCommitFromVerified : planPermanentCommit;
+  const state = commit(before, {
     additions: quota.admittedIds.map((id) => candidates.get(id)!),
     erasures: [],
     quotaCharge: quota.charged,
@@ -110,4 +116,19 @@ export function planSignedLooseOrdinaryTransfer<State>(
     sender: input.sendingPeerId,
   });
   return { state, outcomes, admittedIds: quota.admittedIds };
+}
+
+export function planSignedLooseOrdinaryTransfer<State>(
+  before: DurablePeerState,
+  input: SignedLooseTransferInput<State>,
+): SignedLooseTransferPlan {
+  return buildSignedLooseOrdinaryTransfer(before, input, false);
+}
+
+/** Internal fast path; callers must own the verified pre-transfer state. */
+export function planSignedLooseOrdinaryTransferFromVerified<State>(
+  before: DurablePeerState,
+  input: SignedLooseTransferInput<State>,
+): SignedLooseTransferPlan {
+  return buildSignedLooseOrdinaryTransfer(before, input, true);
 }

@@ -87,8 +87,8 @@ function counter(value: number, label: string): void {
     throw new Error(`durable peer state: invalid ${label}`);
 }
 
-function validate(state: DurablePeerState): void {
-  encodePeerState(state.base);
+function validate(state: DurablePeerState): Uint8Array {
+  const baseBytes = encodePeerState(state.base);
   counter(state.refusalCounter, "refusal counter");
   counter(state.obligationCounter, "obligation counter");
   counter(state.quotaUsed, "quota counter");
@@ -166,6 +166,7 @@ function validate(state: DurablePeerState): void {
     if (event.priorEpoch !== undefined && !obligationTargets.has(event.targetId))
       throw new Error("durable peer state: held refusal lacks purge obligation");
   }
+  return baseBytes;
 }
 
 function object(value: CborValue, label: string): Map<string, CborValue> {
@@ -194,12 +195,12 @@ function epochField(epoch: number | undefined): Array<[string, CborValue]> {
 
 /** Canonical local image; it embeds the complete v1 base as bytes. */
 export function encodeDurablePeerState(state: DurablePeerState): Uint8Array {
-  validate(state);
+  const baseBytes = validate(state);
   return encode(
     map([
       ["version", float(VERSION)],
       ["peer", tstr(state.base.peerId)],
-      ["base", bstr(encodePeerState(state.base))],
+      ["base", bstr(baseBytes)],
       ["refusalCounter", float(state.refusalCounter)],
       ["obligationCounter", float(state.obligationCounter)],
       ["quotaUsed", float(state.quotaUsed)],
@@ -423,11 +424,12 @@ export function validateDurablePeerStateTransition(
 }
 
 /** Form one atomic permanent-posture image from already verified admission decisions. */
-export function planPermanentCommit(
+function buildPermanentCommit(
   before: DurablePeerState,
   input: PermanentCommitInput,
+  verifiedBefore: boolean,
 ): DurablePeerState {
-  validate(before);
+  if (!verifiedBefore) validate(before);
   counter(input.quotaCharge, "quota charge");
   if (
     input.quotaCharge > input.additions.length ||
@@ -536,7 +538,24 @@ export function planPermanentCommit(
     exclusions,
     obligations,
   };
-  validate(after);
-  validateDurablePeerStateTransition(before, after);
+  if (!verifiedBefore) {
+    validate(after);
+    validateDurablePeerStateTransition(before, after);
+  }
   return after;
+}
+
+export function planPermanentCommit(
+  before: DurablePeerState,
+  input: PermanentCommitInput,
+): DurablePeerState {
+  return buildPermanentCommit(before, input, false);
+}
+
+/** Internal fast path for a private state already verified against exact durable bytes. */
+export function planPermanentCommitFromVerified(
+  before: DurablePeerState,
+  input: PermanentCommitInput,
+): DurablePeerState {
+  return buildPermanentCommit(before, input, true);
 }

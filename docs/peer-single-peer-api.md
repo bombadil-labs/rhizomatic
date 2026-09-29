@@ -39,6 +39,9 @@ returning the first failure and its guard reason without writing. Application ch
 whole batch run once under the same admission lock before this call. For a received transfer,
 `mode: "individual"` commits the eligible subset and returns an outcome per offered delta.
 An offer that changes no image bytes returns its outcomes without a store write.
+All newly admitted IDs in one transfer share a transfer ordinal and receive sequences in
+ascending ID order, regardless of offered order. Dependencies that require temporal precedence
+must commit in an earlier transfer; compare transfer ordinals, not sequences within one transfer.
 The substrate capacity counts new ordinary IDs; an application's per-author byte or volume
 budget belongs in its own check or guard. Pass `Number.MAX_SAFE_INTEGER` to leave the substrate
 count effectively unbounded for the trial.
@@ -47,7 +50,9 @@ The facade caches a verified state for each store object and reuses it only whil
 returns exactly the same bytes. It verifies a changed image before planning; callers must treat
 admitted Delta values as immutable, as required by `DeltaSet`. Returned states are separate copies
 from the cached state. Keep one store object per peer during a trial. A cold read after restart
-verifies every held signature once. The current v2 image rewrites the
+verifies every held signature once. The store-owned warm path skips redundant whole-state
+validation during planning, and a no-op returns the prior image without re-encoding it. The
+current v2 image still rewrites the
 full admitted set and arrival history on every commit. It is
 appropriate for an unmerged correctness trial on a fresh host store. A production merge on a
 large store needs a measured storage strategy that preserves the same atomic logical image and
