@@ -54,14 +54,15 @@ pub fn encode_ordinary_journal_checkpoint(
     if checkpoint.head.is_empty() != checkpoint.state.base.admitted.is_empty() {
         return Err("ordinary journal: checkpoint head/state mismatch".into());
     }
+    let image = encode_durable_peer_state(&checkpoint.state)?;
+    if reconstructed_checkpoint_head(&checkpoint.state)? != checkpoint.head {
+        return Err("ordinary journal: checkpoint head mismatch".into());
+    }
     Ok(encode(&CborValue::Map(vec![
         ("version".into(), CborValue::Float(VERSION)),
         ("peer".into(), CborValue::Tstr(checkpoint.peer_id.clone())),
         ("head".into(), CborValue::Tstr(checkpoint.head.clone())),
-        (
-            "image".into(),
-            CborValue::Bstr(encode_durable_peer_state(&checkpoint.state)?),
-        ),
+        ("image".into(), CborValue::Bstr(image)),
     ])))
 }
 
@@ -113,7 +114,7 @@ fn valid_frame_id(id: &str) -> bool {
             .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(b))
 }
 
-fn validate(frame: &OrdinaryPeerFrame) -> Result<(), String> {
+fn validate(frame: &OrdinaryPeerFrame, signatures_verified: bool) -> Result<(), String> {
     if !is_canonical_peer_id(&frame.peer_id) {
         return Err("ordinary journal: invalid peer id".into());
     }
@@ -134,7 +135,10 @@ fn validate(frame: &OrdinaryPeerFrame) -> Result<(), String> {
     }
     let mut ids = BTreeSet::new();
     for delta in &frame.additions {
-        if !ids.insert(&delta.id) || verify_delta(delta) != Verification::Verified {
+        if !ids.insert(&delta.id)
+            || (!signatures_verified && verify_delta(delta) != Verification::Verified)
+            || delta.sig.is_none()
+        {
             return Err("ordinary journal: invalid signed addition".into());
         }
     }
@@ -143,7 +147,14 @@ fn validate(frame: &OrdinaryPeerFrame) -> Result<(), String> {
 
 /// Canonical one-transfer append bytes; a frame never records a no-op.
 pub fn encode_ordinary_peer_frame(frame: &OrdinaryPeerFrame) -> Result<Vec<u8>, String> {
-    validate(frame)?;
+    encode_ordinary_peer_frame_known_verified(frame, false)
+}
+
+fn encode_ordinary_peer_frame_known_verified(
+    frame: &OrdinaryPeerFrame,
+    signatures_verified: bool,
+) -> Result<Vec<u8>, String> {
+    validate(frame, signatures_verified)?;
     let set = DeltaSet::from_deltas(frame.additions.iter().cloned())?;
     Ok(encode(&CborValue::Map(vec![
         ("version".into(), CborValue::Float(VERSION)),
@@ -198,6 +209,61 @@ pub fn decode_ordinary_peer_frame(bytes: &[u8]) -> Result<OrdinaryPeerFrame, Str
 pub fn ordinary_peer_frame_id(bytes: &[u8]) -> Result<String, String> {
     decode_ordinary_peer_frame(bytes)?;
     Ok(content_address(bytes))
+}
+
+fn reconstructed_checkpoint_head(state: &DurablePeerState) -> Result<String, String> {
+    let mut head = String::new();
+    let mut cursor = ArrivalCursor {
+        last_sequence: 0,
+        last_transfer: 0,
+    };
+    let rows = &state.base.arrivals;
+    let mut i = 0;
+    while i < rows.len() {
+        let first = &rows[i];
+        if first.transfer != cursor.last_transfer + 1 {
+            return Err("ordinary journal: invalid checkpoint arrivals".into());
+        }
+        let start = i;
+        while i < rows.len() && rows[i].transfer == first.transfer {
+            i += 1;
+        }
+        let group = &rows[start..i];
+        let ids: Vec<String> = group.iter().map(|row| row.id.clone()).collect();
+        let expected = plan_arrivals(cursor, &BTreeSet::new(), &ids, first.at, &first.sender)?;
+        if expected.arrivals.as_slice() != group {
+            return Err("ordinary journal: invalid checkpoint arrivals".into());
+        }
+        let additions = ids
+            .iter()
+            .map(|id| {
+                state
+                    .base
+                    .admitted
+                    .get(id)
+                    .cloned()
+                    .ok_or_else(|| "ordinary journal: invalid checkpoint arrivals".to_string())
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        head = content_address(&encode_ordinary_peer_frame_known_verified(
+            &OrdinaryPeerFrame {
+                peer_id: state.base.peer_id.clone(),
+                prior: head,
+                at: first.at,
+                sender: first.sender.clone(),
+                additions,
+            },
+            true,
+        )?);
+        cursor = ArrivalCursor {
+            last_sequence: expected.last_sequence,
+            last_transfer: expected.last_transfer,
+        };
+    }
+    if cursor != state.base.cursor {
+        return Err("ordinary journal: invalid checkpoint arrivals".into());
+    }
+    Ok(head)
 }
 
 /// Reconstruct and validate one ordinary-only peer from its complete committed frame chain.

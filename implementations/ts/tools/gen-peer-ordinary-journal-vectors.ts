@@ -1,6 +1,7 @@
 /** Pin canonical ordinary journal frames, their digest chain, and reconstructed image. */
 import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { bstr, encode, float, map, tstr } from "../src/delta/cbor.js";
 import { parseClaims } from "../src/delta/json-profile.js";
 import type { Delta } from "../src/delta/types.js";
 import { encodeDurablePeerState } from "../src/federation/durable-state.js";
@@ -48,6 +49,21 @@ const secondBytes = encodeOrdinaryPeerFrame({
 const secondHead = ordinaryPeerFrameId(secondBytes);
 const firstState = replayOrdinaryPeerFrames(peerId, [firstBytes], firstHead);
 const checkpoint = encodeOrdinaryJournalCheckpoint({ peerId, head: firstHead, state: firstState });
+const forgedState = {
+  ...firstState,
+  base: {
+    ...firstState.base,
+    arrivals: firstState.base.arrivals.map((row) => ({ ...row, sender: "unattributed" })),
+  },
+};
+const forgedCheckpoint = encode(
+  map([
+    ["version", float(1)],
+    ["peer", tstr(peerId)],
+    ["head", tstr(firstHead)],
+    ["image", bstr(encodeDurablePeerState(forgedState))],
+  ]),
+);
 const state = replayOrdinaryPeerFrames(peerId, [firstBytes, secondBytes], secondHead);
 const file = fileURLToPath(new URL("../../../vectors/peer/ordinary-journal.json", import.meta.url));
 writeFileSync(
@@ -87,6 +103,8 @@ writeFileSync(
           ),
         ).toString("hex"),
         brokenBoundaryError: "ordinary journal: broken frame chain",
+        forgedSenderHex: Buffer.from(forgedCheckpoint).toString("hex"),
+        forgedHeadError: "ordinary journal: checkpoint head mismatch",
       },
       expectedArrivals: state.base.arrivals,
       api: {

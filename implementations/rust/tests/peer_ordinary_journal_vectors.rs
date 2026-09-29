@@ -163,6 +163,19 @@ fn canonical_checkpoint_and_retained_suffix_match_shared_vectors() {
         hex::encode(encode_durable_peer_state(&state).unwrap()),
         vector["checkpoint"]["expectedImageHex"]
     );
+    let forged = hex::decode(vector["checkpoint"]["forgedSenderHex"].as_str().unwrap()).unwrap();
+    let error = vector["checkpoint"]["forgedHeadError"].as_str().unwrap();
+    assert!(decode_ordinary_journal_checkpoint(&forged)
+        .unwrap_err()
+        .contains(error));
+    assert!(replay_ordinary_peer_frames_from_checkpoint(
+        peer,
+        std::slice::from_ref(&second),
+        second_head,
+        Some(&forged)
+    )
+    .unwrap_err()
+    .contains(error));
     assert!(replay_ordinary_peer_frames_from_checkpoint(
         peer,
         &[first, second],

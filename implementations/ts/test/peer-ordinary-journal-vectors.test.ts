@@ -30,6 +30,8 @@ const vector = JSON.parse(
     retainedFrameHex: string;
     expectedImageHex: string;
     brokenBoundaryError: string;
+    forgedSenderHex: string;
+    forgedHeadError: string;
   };
   expectedArrivals: unknown[];
   brokenChainError: string;
@@ -133,5 +135,12 @@ describe("shared SPEC-6 ordinary journal vectors", () => {
     expect(() =>
       replayOrdinaryPeerFrames(vector.peerId, [], vector.frames[1]!.head, checkpoint),
     ).toThrow(vector.headMismatchError);
+    const forged = Uint8Array.from(Buffer.from(vector.checkpoint.forgedSenderHex, "hex"));
+    expect(() => decodeOrdinaryJournalCheckpoint(forged)).toThrow(
+      vector.checkpoint.forgedHeadError,
+    );
+    expect(() =>
+      replayOrdinaryPeerFrames(vector.peerId, bytes.slice(1), vector.frames[1]!.head, forged),
+    ).toThrow(vector.checkpoint.forgedHeadError);
   });
 });

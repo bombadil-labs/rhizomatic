@@ -34,6 +34,9 @@ canonical checkpoint containing the durable v2 image and the exact boundary head
 store method `compareAndCheckpoint` compares that head and installs the checkpoint while pruning
 the prefix in one transaction; it does not change the head or admitted rows. Reopen validates the
 image, checks its ordinary-only counters, and replays any retained frames from the boundary.
+It first reconstructs every pruned frame from the image's admissions and arrival records and
+requires the recomputed prefix head to equal the checkpoint boundary. A canonical but altered
+image under a genuine head therefore fails closed.
 It still verifies every admitted signature and row on cold open, so a checkpoint reduces frame
 replay work but does not make cold open constant time. A conflict or uncertain checkpoint result
 closes the facade until reopen. A store without the optional checkpoint method continues to work.

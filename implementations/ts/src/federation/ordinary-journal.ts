@@ -45,12 +45,15 @@ export function encodeOrdinaryJournalCheckpoint(checkpoint: OrdinaryJournalCheck
   ordinaryCheckpointState(checkpoint.state);
   if ((checkpoint.head === "") !== (checkpoint.state.base.admitted.size === 0))
     throw new Error("ordinary journal: checkpoint head/state mismatch");
+  const image = encodeDurablePeerState(checkpoint.state);
+  if (reconstructedCheckpointHead(checkpoint.state) !== checkpoint.head)
+    throw new Error("ordinary journal: checkpoint head mismatch");
   return encode(
     map([
       ["version", float(VERSION)],
       ["peer", tstr(checkpoint.peerId)],
       ["head", tstr(checkpoint.head)],
-      ["image", bstr(encodeDurablePeerState(checkpoint.state))],
+      ["image", bstr(image)],
     ]),
   );
 }
@@ -86,7 +89,7 @@ export interface OrdinaryPeerFrame {
   readonly additions: readonly Delta[];
 }
 
-function validFrame(frame: OrdinaryPeerFrame): void {
+function validFrame(frame: OrdinaryPeerFrame, signaturesVerified = false): void {
   if (!isCanonicalPeerId(frame.peerId)) throw new Error("ordinary journal: invalid peer id");
   if (frame.prior !== "" && !FRAME_ID.test(frame.prior))
     throw new Error("ordinary journal: invalid prior head");
@@ -100,16 +103,27 @@ function validFrame(frame: OrdinaryPeerFrame): void {
   if (frame.additions.length === 0) throw new Error("ordinary journal: empty transfer");
   const ids = new Set<string>();
   for (const delta of frame.additions) {
-    if (ids.has(delta.id) || delta.sig === undefined || verifyDelta(delta) !== "verified")
+    if (
+      ids.has(delta.id) ||
+      delta.sig === undefined ||
+      (!signaturesVerified && verifyDelta(delta) !== "verified")
+    )
       throw new Error("ordinary journal: invalid signed addition");
-    rememberVerifiedSignature(delta);
+    if (!signaturesVerified) rememberVerifiedSignature(delta);
     ids.add(delta.id);
   }
 }
 
 /** Canonical one-transfer append bytes; a frame never records a no-op. */
 export function encodeOrdinaryPeerFrame(frame: OrdinaryPeerFrame): Uint8Array {
-  validFrame(frame);
+  return encodeOrdinaryPeerFrameKnownVerified(frame, false);
+}
+
+function encodeOrdinaryPeerFrameKnownVerified(
+  frame: OrdinaryPeerFrame,
+  signaturesVerified: boolean,
+): Uint8Array {
+  validFrame(frame, signaturesVerified);
   return encode(
     map([
       ["version", float(VERSION)],
@@ -157,6 +171,58 @@ export function decodeOrdinaryPeerFrame(bytes: Uint8Array): OrdinaryPeerFrame {
 export function ordinaryPeerFrameId(bytes: Uint8Array): string {
   decodeOrdinaryPeerFrame(bytes);
   return contentAddress(bytes);
+}
+
+function reconstructedCheckpointHead(state: DurablePeerState): string {
+  let head = "";
+  let cursor = { lastSequence: 0, lastTransfer: 0 };
+  const rows = state.base.arrivals;
+  for (let i = 0; i < rows.length; ) {
+    const first = rows[i]!;
+    if (first.transfer !== cursor.lastTransfer + 1)
+      throw new Error("ordinary journal: invalid checkpoint arrivals");
+    const group = [] as (typeof rows)[number][];
+    while (i < rows.length && rows[i]!.transfer === first.transfer) group.push(rows[i++]!);
+    const ids = group.map((row) => row.id);
+    const expected = planArrivals(cursor, new Set(), ids, first.at, first.sender);
+    if (
+      expected.arrivals.some((row, index) => {
+        const actual = group[index]!;
+        return (
+          row.id !== actual.id ||
+          row.at !== actual.at ||
+          row.sender !== actual.sender ||
+          row.sequence !== actual.sequence ||
+          row.transfer !== actual.transfer
+        );
+      })
+    )
+      throw new Error("ordinary journal: invalid checkpoint arrivals");
+    const additions = ids.map((id) => {
+      const delta = state.base.admitted.get(id);
+      if (delta === undefined) throw new Error("ordinary journal: invalid checkpoint arrivals");
+      return delta;
+    });
+    head = contentAddress(
+      encodeOrdinaryPeerFrameKnownVerified(
+        {
+          peerId: state.base.peerId,
+          prior: head,
+          at: first.at,
+          sender: first.sender,
+          additions,
+        },
+        true,
+      ),
+    );
+    cursor = { lastSequence: expected.lastSequence, lastTransfer: expected.lastTransfer };
+  }
+  if (
+    cursor.lastSequence !== state.base.cursor.lastSequence ||
+    cursor.lastTransfer !== state.base.cursor.lastTransfer
+  )
+    throw new Error("ordinary journal: invalid checkpoint arrivals");
+  return head;
 }
 
 /** Reconstruct and validate one ordinary-only peer from its complete committed frame chain. */

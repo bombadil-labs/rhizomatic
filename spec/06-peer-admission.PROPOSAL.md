@@ -475,7 +475,10 @@ The pipeline is:
    the backend durably installs that image and its exact boundary head while pruning the prefix
    in the same transaction. A conflict changes nothing and an uncertain result requires reopen.
    Reopen decodes and validates the checkpoint image, requires the peer and ordinary-only state
-   counters to agree, then replays retained frames starting at its boundary head. The boundary
+   counters to agree, reconstructs the pruned ordinary frames from every admission and arrival
+   record in the image, and requires their recomputed final head to equal the checkpoint head.
+   The image MUST preserve contiguous transfer and sequence ordinals, the id-sorted members of
+   each nonempty transfer, and one sender and trusted time per transfer. The boundary
    remains the prior link for the first retained frame; a checkpoint with no retained frames
    must name the stored head. Reopen still checks all admitted rows against the resulting state.
    Until declared storage surfaces prove physical absence, a byte-removal report says `pending`,
