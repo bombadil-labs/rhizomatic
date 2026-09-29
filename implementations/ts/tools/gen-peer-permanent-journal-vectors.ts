@@ -8,6 +8,7 @@ import type { Delta } from "../src/delta/types.js";
 import { encodeDurablePeerState } from "../src/federation/durable-state.js";
 import { encodeOrdinaryPeerFrame } from "../src/federation/ordinary-journal.js";
 import {
+  encodePermanentJournalRebase,
   encodePermanentPeerFrame,
   replayPermanentPeerFrames,
 } from "../src/federation/permanent-journal.js";
@@ -24,12 +25,27 @@ const first: Delta = {
   claims: parseClaims(firstRow.claims),
   sig: firstRow.sig!,
 };
+const unrelatedRow = evidence.deltas.find((row) => row.name === "operatorRootDeclaration")!;
+const unrelated: Delta = {
+  id: unrelatedRow.id,
+  claims: parseClaims(unrelatedRow.claims),
+  sig: unrelatedRow.sig!,
+};
 const seed = "01".repeat(32);
 const peerId = authorForSeed(seed);
 const order = signClaims(
   {
     timestamp: 101,
     validFrom: 101,
+    author: peerId,
+    pointers: [{ role: "erases", target: { kind: "delta", deltaRef: { delta: first.id } } }],
+  },
+  seed,
+);
+const conflictingOrder = signClaims(
+  {
+    timestamp: 103,
+    validFrom: 103,
     author: peerId,
     pointers: [{ role: "erases", target: { kind: "delta", deltaRef: { delta: first.id } } }],
   },
@@ -54,6 +70,16 @@ const erasure = encodePermanentPeerFrame({
   quotaCharge: 0,
 });
 const erasureHead = contentAddress(erasure);
+const falseHeld = encodePermanentPeerFrame({
+  kind: "admission",
+  peerId,
+  prior: ordinaryHead,
+  at: 101,
+  sender: "local",
+  additions: [order],
+  erasures: [{ targetId: first.id, orderIds: [order.id], surfaceHoldsBytes: false }],
+  quotaCharge: 0,
+});
 const purge = encodePermanentPeerFrame({
   kind: "purge",
   peerId,
@@ -75,7 +101,78 @@ const advance = encodePermanentPeerFrame({
 });
 const advanceHead = contentAddress(advance);
 const advanceState = replayPermanentPeerFrames(peerId, [advance], advanceHead);
+const mixed = encodePermanentPeerFrame({
+  kind: "admission",
+  peerId,
+  prior: "",
+  at: 102,
+  sender: "unattributed",
+  additions: [order, unrelated],
+  erasures: [{ targetId: first.id, orderIds: [order.id], surfaceHoldsBytes: false }],
+  quotaCharge: 1,
+});
+const mixedHead = contentAddress(mixed);
+const mixedState = replayPermanentPeerFrames(peerId, [mixed], mixedHead);
+const marker = "CONDEMNED-SECRET-MARKER";
+const secret = signClaims(
+  {
+    timestamp: 110,
+    validFrom: 110,
+    author: peerId,
+    pointers: [{ role: "value", target: { kind: "primitive", value: marker } }],
+  },
+  seed,
+);
+const secretOrder = signClaims(
+  {
+    timestamp: 111,
+    validFrom: 111,
+    author: peerId,
+    pointers: [{ role: "erases", target: { kind: "delta", deltaRef: { delta: secret.id } } }],
+  },
+  seed,
+);
+const secretFrame = encodeOrdinaryPeerFrame({
+  peerId,
+  prior: "",
+  at: 110,
+  sender: "local",
+  additions: [secret],
+});
+const secretFrameHead = contentAddress(secretFrame);
+const secretErasureFrame = encodePermanentPeerFrame({
+  kind: "admission",
+  peerId,
+  prior: secretFrameHead,
+  at: 111,
+  sender: "local",
+  additions: [secretOrder],
+  erasures: [{ targetId: secret.id, orderIds: [secretOrder.id], surfaceHoldsBytes: true }],
+  quotaCharge: 0,
+});
+const secretErasureHead = contentAddress(secretErasureFrame);
+const secretPending = replayPermanentPeerFrames(
+  peerId,
+  [secretFrame, secretErasureFrame],
+  secretErasureHead,
+);
+const secretRebase = encodePermanentJournalRebase({
+  peerId,
+  prior: secretErasureHead,
+  state: secretPending,
+});
 const pending = replayPermanentPeerFrames(peerId, [ordinary, erasure], erasureHead);
+const rebase = encodePermanentJournalRebase({ peerId, prior: erasureHead, state: pending });
+const rebaseHead = contentAddress(rebase);
+const purgedAfterRebase = encodePermanentPeerFrame({
+  kind: "purge",
+  peerId,
+  prior: rebaseHead,
+  targetId: first.id,
+  generation: 1,
+  status: "removed",
+});
+const purgedAfterRebaseHead = contentAddress(purgedAfterRebase);
 const removed = replayPermanentPeerFrames(peerId, [ordinary, erasure, purge], purgeHead);
 const file = fileURLToPath(
   new URL("../../../vectors/peer/permanent-journal.json", import.meta.url),
@@ -90,6 +187,11 @@ writeFileSync(
       peerId,
       targetName: "userRootDeclaration",
       order: { id: order.id, sig: order.sig, claims: claimsToJson(order.claims) },
+      conflictingOrder: {
+        id: conflictingOrder.id,
+        sig: conflictingOrder.sig,
+        claims: claimsToJson(conflictingOrder.claims),
+      },
       frames: [
         { kind: "ordinary", hex: Buffer.from(ordinary).toString("hex"), head: ordinaryHead },
         { kind: "admission", hex: Buffer.from(erasure).toString("hex"), head: erasureHead },
@@ -103,6 +205,33 @@ writeFileSync(
         imageHex: Buffer.from(encodeDurablePeerState(advanceState)).toString("hex"),
         limitedStatus: "erasure-limit",
       },
+      mixed: {
+        targetName: "userRootDeclaration",
+        unrelatedName: "operatorRootDeclaration",
+        hex: Buffer.from(mixed).toString("hex"),
+        head: mixedHead,
+        imageHex: Buffer.from(encodeDurablePeerState(mixedState)).toString("hex"),
+        expectedStatuses: ["effective-erasure", "refused", "admitted"],
+      },
+      falseHeld: {
+        hex: Buffer.from(falseHeld).toString("hex"),
+        head: contentAddress(falseHeld),
+        error: "permanent journal: held target cannot assert absence",
+      },
+      rebase: {
+        hex: Buffer.from(rebase).toString("hex"),
+        head: rebaseHead,
+        purgedHex: Buffer.from(purgedAfterRebase).toString("hex"),
+        purgedHead: purgedAfterRebaseHead,
+      },
+      payloadProbe: {
+        marker,
+        targetId: secret.id,
+        ordinaryHex: Buffer.from(secretFrame).toString("hex"),
+        erasureHex: Buffer.from(secretErasureFrame).toString("hex"),
+        rebaseHex: Buffer.from(secretRebase).toString("hex"),
+        rebaseHead: contentAddress(secretRebase),
+      },
       expected: {
         refusedTarget: first.id,
         orderId: order.id,
@@ -113,6 +242,7 @@ writeFileSync(
       brokenChainError: "permanent journal: broken frame chain",
       missingObligationError: "permanent journal: no live purge obligation",
       signedTargetError: "permanent journal: effective order target is not signed",
+      conflictingSurfaceError: "permanent journal: inconsistent surface fact",
     },
     null,
     2,

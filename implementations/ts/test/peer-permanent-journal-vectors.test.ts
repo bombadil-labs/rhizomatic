@@ -33,6 +33,15 @@ const vector = JSON.parse(
   brokenChainError: string;
   missingObligationError: string;
   signedTargetError: string;
+  falseHeld: { hex: string; head: string; error: string };
+  payloadProbe: {
+    marker: string;
+    targetId: string;
+    ordinaryHex: string;
+    erasureHex: string;
+    rebaseHex: string;
+    rebaseHead: string;
+  };
 };
 
 const images = vector.frames.map((row) => Uint8Array.from(Buffer.from(row.hex, "hex")));
@@ -43,6 +52,26 @@ const order: Delta = {
 };
 
 describe("shared SPEC-6 permanent journal", () => {
+  it("omits an erased payload from the replacement anchor", () => {
+    const probe = vector.payloadProbe;
+    const marker = Buffer.from(probe.marker);
+    expect(Buffer.from(probe.ordinaryHex, "hex").includes(marker)).toBe(true);
+    expect(Buffer.from(probe.rebaseHex, "hex").includes(marker)).toBe(false);
+    const rebased = replayPermanentPeerFrames(
+      vector.peerId,
+      [],
+      probe.rebaseHead,
+      Buffer.from(probe.rebaseHex, "hex"),
+    );
+    expect(rebased.base.refusedIds.has(probe.targetId)).toBe(true);
+    expect(rebased.base.admitted.has(probe.targetId)).toBe(false);
+  });
+  it("rejects a replay frame claiming a held target has no bytes", () => {
+    const forged = Uint8Array.from(Buffer.from(vector.falseHeld.hex, "hex"));
+    expect(() =>
+      replayPermanentPeerFrames(vector.peerId, [images[0]!, forged], vector.falseHeld.head),
+    ).toThrow(vector.falseHeld.error);
+  });
   it("replays a signed order, permanent refusal, pending debt, and physical-absence report", () => {
     for (let i = 0; i < images.length; i++)
       expect(contentAddress(images[i]!)).toBe(vector.frames[i]!.head);

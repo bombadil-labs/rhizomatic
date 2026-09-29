@@ -40,8 +40,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
   Canonical v1 ordinary journal frames and digest-chain replay are now pinned in both witnesses
   by shared bytes. A typed journal-backed single-peer admission facade exposes an atomic
   head/frame/row storage seam, warm append, no-op receipts and fail-closed reopen. It covers
-  signed loose ordinary additions only. Reopen also checks that every admitted row is present
-  with the frame-derived id and signature. Canonical ordinary checkpoints now bind a verified
+  signed loose ordinary additions, effective erasure orders and mixed transfers. An erasure CAS
+  checks asserted target absence; purge settlement requires a storage proof of physical absence.
+  A refuted proof is distinct from a head conflict. A durable rebase replaces payload-bearing
+  frames with a current-state checkpoint before a removed report can be truthful; storage must
+  still prove absence across rows, frames, checkpoints and physical remnants. Reopen also checks
+  that every admitted row is present with the frame-derived id and signature. Canonical ordinary
+  checkpoints now bind a verified
   v2 image to an exact frame head and let a backend atomically prune that verified prefix;
   retained frames replay from the boundary. Loam integration remains in trial.
 
@@ -52,7 +57,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
   image and commit planner now bind verified final additions, erasure exclusions, refusal events,
   quota usage, and stable purge obligations in one local replacement. Writes require the expected
   prior image and check newly arrived orders and ordinary quota growth. The image does not yet
-  supply a typed admission API, physical removal proof, or handoff proof. CBOR and pack readers now
+  supply handoff proof. CBOR and pack readers now
   reject malformed lengths, excessive nesting, and invalid table indices before admission.
   A canonical inherited-refusal snapshot now preserves source-qualified events and current
   targets, with a digest-checked independent recovery path in both witnesses. It remains an

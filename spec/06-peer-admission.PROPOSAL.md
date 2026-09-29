@@ -444,8 +444,16 @@ The pipeline is:
    replay raw rows as admission. A checkpoint MAY replace a verified prefix only if its canonical
    image and retained frame boundary prove the same state and chain head. This first journal
    profile began with signed-loose ordinary additions. A v2 frame now records effective signed
-   loose erasure orders and their final target groups, or one purge report. Re-entry, bundles,
-   mixed ordinary/erasure transfers, and handoff still need their own admission contracts.
+   loose erasure orders and their final target groups, optionally with ordinary additions in the
+   same transfer, or one purge report. The typed mixed signed-loose input lists order appearances
+   before ordinary appearances for guard and receipt order. It preflights all appearances against
+   the same pre-transfer state, fixes effective orders and excludes their co-offered targets before
+   ordinary quota, then commits the accepted ordinary additions and orders in one v2 frame. A
+   co-offered target excluded by an effective order receives no arrival and consumes no ordinary
+   capacity; it is not an advance refusal for the finite-cap check. Atomic mode refuses the entire
+   transfer if any appearance fails, including an excluded target. A mixed call with no effective
+   orders writes an ordinary v1 frame for any ordinary additions. Re-entry, bundles, and handoff
+   still need their own admission contracts.
    The ordinary frame v1 is a canonical CBOR map with exactly `version` = 1, `peer` (the
    receiving canonical `PeerId`), `prior` (empty text for the first frame, then the preceding
    frame's content address), `at` (finite receiver time), `sender` (`local`, `unattributed`, or a
@@ -465,13 +473,30 @@ The pipeline is:
    The backend MUST keep committed frames immutable under that head and MUST return a consistent
    head/frame snapshot on reopen. A head-only warm read is sound only under that storage
    invariant; any backend that cannot preserve it must verify the chain again before admission.
+   An effective erasure leaves its target's old payload in an earlier ordinary frame until a
+   durable **rebase** removes it. The rebase is a new canonical v2 checkpoint containing the
+   verified current peer image (which excludes refused payloads) and the prior head. Its content
+   address becomes the new head. The adapter MUST compare the old head and atomically replace all
+   old frames and any prior checkpoint with this new anchor and new head; a conflict changes
+   nothing. Reopen verifies the canonical image, the rebase head, and each retained suffix frame
+   from that head. The rebase is allowed only while purge debt is active. Its `prior` field records
+   the CAS boundary but is not an independent proof of the discarded frame preimages; the trusted
+   atomic store operation is the authority for the transition. A `removed` purge report MUST NOT
+   commit until the backend proves absence across **all** declared storage surfaces, including
+   current rows, frames, checkpoints, old frame remnants, and write-ahead or compaction debt.
+   Rebase removes the payload from the logical journal but does not by itself settle physical debt.
    A v2 admission frame includes the v1 peer, prior, time, sender, and packed additions, plus
    `kind = admission`, ordinary quota charge, and sorted erasure groups. Each group names the
    target id, the effective order ids, and whether this peer's declared surface held bytes.
    The dedicated erasure append CAS receives the asserted-absent target ids and MUST reject the
    commit unless their absence holds under the same transaction across that surface. The ordinary
    append seam cannot commit an erasure frame. When absence is uncertain the receiver uses `true`
-   and owes a purge check, even if the worker later finds no bytes.
+   and owes a purge check, even if the worker later finds no bytes. A target still admitted in the
+   verified image cannot be asserted absent. If two orders for one target supply conflicting
+   surface facts, the transfer is invalid before budget accounting. A backend refutation of an
+   absence claim returns `absence-refuted` with the target id, distinct from a head conflict;
+   it changes no bytes or head and leaves the facade usable for a corrected attempt. The same
+   result applies when a `removed` purge report is refuted by physical bytes still present.
    Every order is a newly admitted verified signed delta with exactly one delta-kind `erases`
    pointer to its group's target. The receiver's authorized decision is final at commit; reopen
    verifies those signed target bindings and reconstructs the same refusal, exclusion, arrival,

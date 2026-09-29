@@ -113,3 +113,43 @@ fn broken_chain_and_wrong_signed_target_fail_closed() {
         .unwrap_err()
         .contains(vector["signedTargetError"].as_str().unwrap()));
 }
+
+#[test]
+fn held_target_false_absence_fails_replay() {
+    let vector = vector();
+    let peer = vector["peerId"].as_str().unwrap();
+    let first = hex::decode(vector["frames"][0]["hex"].as_str().unwrap()).unwrap();
+    let forged = hex::decode(vector["falseHeld"]["hex"].as_str().unwrap()).unwrap();
+    let error = replay_permanent_peer_frames(
+        peer,
+        &[first, forged],
+        vector["falseHeld"]["head"].as_str().unwrap(),
+        None,
+    )
+    .unwrap_err();
+    assert!(error.contains(vector["falseHeld"]["error"].as_str().unwrap()));
+}
+
+#[test]
+fn rebase_omits_erased_payload_from_anchor() {
+    let vector = vector();
+    let peer = vector["peerId"].as_str().unwrap();
+    let probe = &vector["payloadProbe"];
+    let marker = probe["marker"].as_str().unwrap().as_bytes();
+    let ordinary = hex::decode(probe["ordinaryHex"].as_str().unwrap()).unwrap();
+    let rebase = hex::decode(probe["rebaseHex"].as_str().unwrap()).unwrap();
+    assert!(ordinary
+        .windows(marker.len())
+        .any(|window| window == marker));
+    assert!(!rebase.windows(marker.len()).any(|window| window == marker));
+    let state = replay_permanent_peer_frames(
+        peer,
+        &[],
+        probe["rebaseHead"].as_str().unwrap(),
+        Some(&rebase),
+    )
+    .unwrap();
+    let target = probe["targetId"].as_str().unwrap();
+    assert!(state.base.refused_ids.contains(target));
+    assert!(!state.base.admitted.contains(target));
+}

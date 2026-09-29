@@ -141,6 +141,7 @@ export {
   type OrdinaryJournalOpenResult,
   type OrdinaryJournalAdmissionResult,
   type OrdinaryJournalPurgeResult,
+  type ErasureJournalWrite,
   type EffectiveErasureOrder,
   type EffectiveErasureTransferInput,
 } from "./federation/ordinary-journal-peer.js";

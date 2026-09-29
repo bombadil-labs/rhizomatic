@@ -7,6 +7,7 @@ import { encodeDurablePeerState } from "../src/federation/durable-state.js";
 import {
   OrdinaryJournalPeer,
   type DurableOrdinaryJournalStore,
+  type ErasureJournalWrite,
   type OrdinaryJournalHead,
   type OrdinaryJournalRead,
 } from "../src/federation/ordinary-journal-peer.js";
@@ -20,10 +21,21 @@ const vector = JSON.parse(
 ) as {
   peerId: string;
   order: { id: string; sig: string; claims: unknown };
+  conflictingOrder: { id: string; sig: string; claims: unknown };
+  conflictingSurfaceError: string;
   frames: Array<{ hex: string; head: string }>;
   pendingImageHex: string;
   removedImageHex: string;
   advance: { hex: string; head: string; imageHex: string; limitedStatus: string };
+  mixed: {
+    targetName: string;
+    unrelatedName: string;
+    hex: string;
+    head: string;
+    imageHex: string;
+    expectedStatuses: string[];
+  };
+  rebase: { hex: string; head: string; purgedHex: string; purgedHead: string };
   expected: { refusedTarget: string };
 };
 const evidence = JSON.parse(
@@ -39,10 +51,22 @@ const order: Delta = {
   sig: vector.order.sig,
   claims: parseClaims(vector.order.claims),
 };
+const conflictingOrder: Delta = {
+  id: vector.conflictingOrder.id,
+  sig: vector.conflictingOrder.sig,
+  claims: parseClaims(vector.conflictingOrder.claims),
+};
+const unrelatedRow = evidence.deltas.find((row) => row.name === vector.mixed.unrelatedName)!;
+const unrelated: Delta = {
+  id: unrelatedRow.id,
+  sig: unrelatedRow.sig!,
+  claims: parseClaims(unrelatedRow.claims),
+};
 
 class MemoryStore implements DurableOrdinaryJournalStore {
   head: string | null = null;
   frames: Uint8Array[] = [];
+  checkpoint: Uint8Array | undefined;
   rows = new Map<string, Delta>();
   async readJournal(): Promise<OrdinaryJournalRead> {
     if (this.head === null) return { status: "empty" };
@@ -50,6 +74,7 @@ class MemoryStore implements DurableOrdinaryJournalStore {
       status: "journal",
       head: this.head,
       frames: this.frames.map((row) => Uint8Array.from(row)),
+      ...(this.checkpoint === undefined ? {} : { checkpoint: Uint8Array.from(this.checkpoint) }),
     };
   }
   async readAdmittedRows(_peer: string, ids: readonly string[]): Promise<readonly Delta[]> {
@@ -78,9 +103,22 @@ class MemoryStore implements DurableOrdinaryJournalStore {
     frame: Uint8Array,
     rows: readonly Delta[],
     absentTargets: readonly string[],
-  ): Promise<PeerImageWrite> {
-    if (absentTargets.some((id) => this.rows.has(id))) return { status: "conflict" };
+  ): Promise<ErasureJournalWrite> {
+    const refuted = absentTargets.find((id) => this.rows.has(id));
+    if (refuted !== undefined) return { status: "absence-refuted", targetId: refuted };
     return this.compareAndAppend(peer, expected, next, frame, rows);
+  }
+  async compareAndRebase(
+    _peer: string,
+    expected: string,
+    next: string,
+    checkpoint: Uint8Array,
+  ): Promise<PeerImageWrite> {
+    if (this.head !== expected) return { status: "conflict" };
+    this.head = next;
+    this.frames = [];
+    this.checkpoint = Uint8Array.from(checkpoint);
+    return { status: "durable" };
   }
   async compareAndSettlePurge(
     _peer: string,
@@ -88,8 +126,9 @@ class MemoryStore implements DurableOrdinaryJournalStore {
     next: string,
     frame: Uint8Array,
     target: string,
-  ): Promise<PeerImageWrite> {
-    if (this.head !== expected || this.rows.has(target)) return { status: "conflict" };
+  ): Promise<ErasureJournalWrite> {
+    if (this.head !== expected) return { status: "conflict" };
+    if (this.rows.has(target)) return { status: "absence-refuted", targetId: target };
     this.head = next;
     this.frames.push(Uint8Array.from(frame));
     return { status: "durable" };
@@ -97,6 +136,120 @@ class MemoryStore implements DurableOrdinaryJournalStore {
 }
 
 describe("typed permanent journal erasure boundary", () => {
+  it("rebases away an erased payload before a purge can settle", async () => {
+    const store = new MemoryStore();
+    const opened = await OrdinaryJournalPeer.open(store, vector.peerId);
+    if (opened.status !== "open") throw new Error("expected open");
+    await opened.peer.admit({
+      offered: [held],
+      origin: { kind: "local" },
+      arrivedAt: 100,
+      policyState: {},
+      guards: [],
+      mode: "atomic",
+      isErasureCandidate: () => false,
+    });
+    await opened.peer.admitErasures({
+      orders: [{ delta: order, targetId: held.id, surfaceHoldsBytes: true }],
+      origin: { kind: "local" },
+      arrivedAt: 101,
+      policyState: {},
+      guards: [],
+      mode: "atomic",
+      targetBudget: 1,
+      advanceRefusalCap: 0,
+      authorize: () => true,
+    });
+    expect(await opened.peer.rebase()).toEqual({ status: "durable" });
+    expect(store.frames).toHaveLength(0);
+    expect(Buffer.from(store.checkpoint!).toString("hex")).toBe(vector.rebase.hex);
+    expect(opened.peer.currentHead()).toBe(vector.rebase.head);
+    expect((await OrdinaryJournalPeer.open(store, vector.peerId)).status).toBe("open");
+    expect(await opened.peer.reportPurge(held.id, 1, { status: "removed" })).toEqual({
+      status: "absence-refuted",
+      targetId: held.id,
+    });
+    store.rows.delete(held.id);
+    expect(await opened.peer.reportPurge(held.id, 1, { status: "removed" })).toEqual({
+      status: "committed",
+      head: vector.rebase.purgedHead,
+    });
+    expect(Buffer.from(store.frames[0]!).toString("hex")).toBe(vector.rebase.purgedHex);
+    expect((await OrdinaryJournalPeer.open(store, vector.peerId)).status).toBe("open");
+  });
+
+  it("rejects conflicting facts for one target before budget accounting", async () => {
+    const store = new MemoryStore();
+    const opened = await OrdinaryJournalPeer.open(store, vector.peerId);
+    if (opened.status !== "open") throw new Error("expected open");
+    await expect(
+      opened.peer.admitErasures({
+        orders: [
+          { delta: order, targetId: held.id, surfaceHoldsBytes: false },
+          { delta: conflictingOrder, targetId: held.id, surfaceHoldsBytes: true },
+        ],
+        origin: { kind: "local" },
+        arrivedAt: 104,
+        policyState: {},
+        guards: [],
+        mode: "individual",
+        targetBudget: 1,
+        advanceRefusalCap: 0,
+        authorize: () => true,
+      }),
+    ).rejects.toThrow(vector.conflictingSurfaceError);
+    expect(store.frames).toHaveLength(0);
+  });
+
+  it("distinguishes a storage-refuted absence from a head conflict", async () => {
+    const store = new MemoryStore();
+    const opened = await OrdinaryJournalPeer.open(store, vector.peerId);
+    if (opened.status !== "open") throw new Error("expected open");
+    store.rows.set(held.id, held); // A physical row outside the peer image.
+    const result = await opened.peer.admitErasures({
+      orders: [{ delta: order, targetId: held.id, surfaceHoldsBytes: false }],
+      origin: { kind: "local" },
+      arrivedAt: 101,
+      policyState: {},
+      guards: [],
+      mode: "atomic",
+      targetBudget: 1,
+      advanceRefusalCap: 1,
+      authorize: () => true,
+    });
+    expect(result).toEqual({ status: "absence-refuted", targetId: held.id });
+    expect(opened.peer.currentHead()).toBe("");
+    expect(store.frames).toHaveLength(0);
+  });
+
+  it("excludes a co-offered target before ordinary quota in one individual transfer", async () => {
+    const store = new MemoryStore();
+    const opened = await OrdinaryJournalPeer.open(store, vector.peerId);
+    if (opened.status !== "open") throw new Error("expected open");
+    const result = await opened.peer.admitErasures({
+      orders: [{ delta: order, targetId: held.id, surfaceHoldsBytes: false }],
+      ordinary: [held, unrelated],
+      capacity: 1,
+      origin: { kind: "unattributed" },
+      arrivedAt: 102,
+      policyState: {},
+      guards: [],
+      mode: "individual",
+      targetBudget: 1,
+      advanceRefusalCap: 0,
+      authorize: () => true,
+    });
+    expect(result.status).toBe("committed");
+    if (result.status !== "committed") throw new Error("expected commit");
+    expect(result.outcomes.map((row) => row.status)).toEqual(vector.mixed.expectedStatuses);
+    expect(result.arrivals.map((row) => row.id)).toEqual([order.id, unrelated.id].sort());
+    expect(Buffer.from(store.frames[0]!).toString("hex")).toBe(vector.mixed.hex);
+    expect(Buffer.from(encodeDurablePeerState(opened.peer.snapshot())).toString("hex")).toBe(
+      vector.mixed.imageHex,
+    );
+    expect((await OrdinaryJournalPeer.open(store, vector.peerId)).status).toBe("open");
+  });
+
   it("commits refusal and debt, reopens without erased row, then settles only after physical absence", async () => {
     const store = new MemoryStore();
     const opened = await OrdinaryJournalPeer.open(store, vector.peerId);
@@ -135,9 +288,10 @@ describe("typed permanent journal erasure boundary", () => {
     if (reopened.status !== "open") throw new Error("expected reopen");
     expect(reopened.peer.snapshot().obligations[0]?.status).toBe("pending");
     expect(await reopened.peer.reportPurge(held.id, 1, { status: "removed" })).toEqual({
-      status: "conflict",
+      status: "absence-refuted",
+      targetId: held.id,
     });
-    expect(() => reopened.peer.snapshot()).toThrow("reopen required");
+    expect(reopened.peer.snapshot().obligations[0]?.status).toBe("pending");
     store.rows.delete(held.id);
     const recovered = await OrdinaryJournalPeer.open(store, vector.peerId);
     if (recovered.status !== "open") throw new Error("expected reopen");
@@ -225,8 +379,8 @@ describe("typed permanent journal erasure boundary", () => {
       advanceRefusalCap: 0,
       authorize: () => true,
     });
-    expect(result.status).toBe("conflict");
+    expect(result.status).toBe("rejected");
     expect(store.frames).toHaveLength(1);
-    expect(() => opened.peer.snapshot()).toThrow("reopen required");
+    expect(opened.peer.snapshot().base.admitted.has(held.id)).toBe(true);
   });
 });

@@ -4,8 +4,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use crate::cbor::{decode, encode, CborValue};
 use crate::durable_state::{
-    empty_durable_peer_state, encode_durable_peer_state, plan_permanent_commit_from_verified,
-    DurablePeerState, PermanentCommitInput, PermanentErasure,
+    decode_durable_peer_state, empty_durable_peer_state, encode_durable_peer_state,
+    plan_permanent_commit_from_verified, DurablePeerState, PermanentCommitInput, PermanentErasure,
 };
 use crate::hash::content_address;
 use crate::ordinary_journal::{decode_ordinary_journal_checkpoint, decode_ordinary_peer_frame};
@@ -17,6 +17,58 @@ use crate::types::Target;
 
 const VERSION: f64 = 2.0;
 const MAX_COUNTER: u64 = (1_u64 << 53) - 1;
+
+#[derive(Debug, Clone)]
+pub struct PermanentJournalRebase {
+    pub peer_id: String,
+    pub prior: String,
+    pub state: DurablePeerState,
+}
+
+pub fn encode_permanent_journal_rebase(value: &PermanentJournalRebase) -> Result<Vec<u8>, String> {
+    if !is_canonical_peer_id(&value.peer_id)
+        || value.state.base.peer_id != value.peer_id
+        || !valid_id(&value.prior)
+    {
+        return Err("permanent journal: invalid rebase peer or prior".into());
+    }
+    if !value
+        .state
+        .obligations
+        .iter()
+        .any(|row| row.status != "removed")
+    {
+        return Err("permanent journal: rebase requires purge debt".into());
+    }
+    Ok(encode(&CborValue::Map(vec![
+        ("version".into(), CborValue::Float(VERSION)),
+        ("kind".into(), CborValue::Tstr("rebase".into())),
+        ("peer".into(), CborValue::Tstr(value.peer_id.clone())),
+        ("prior".into(), CborValue::Tstr(value.prior.clone())),
+        (
+            "image".into(),
+            CborValue::Bstr(encode_durable_peer_state(&value.state)?),
+        ),
+    ])))
+}
+
+pub fn decode_permanent_journal_rebase(image: &[u8]) -> Result<PermanentJournalRebase, String> {
+    let raw = decode(image)?;
+    let row = fields(&raw, 5)?;
+    if number(row.get("version"))? != VERSION || text(row.get("kind"))? != "rebase" {
+        return Err("permanent journal: invalid rebase".into());
+    }
+    let peer_id = text(row.get("peer"))?;
+    let value = PermanentJournalRebase {
+        state: decode_durable_peer_state(bytes(row.get("image"))?, &peer_id)?,
+        peer_id,
+        prior: text(row.get("prior"))?,
+    };
+    if encode_permanent_journal_rebase(&value)? != image {
+        return Err("permanent journal: noncanonical rebase".into());
+    }
+    Ok(value)
+}
 
 #[derive(Debug, Clone)]
 pub enum PermanentPeerFrame {
@@ -344,6 +396,11 @@ pub fn apply_permanent_peer_frame(
     }
     match frame {
         PermanentPeerFrame::Admission { input, .. } => {
+            if input.erasures.iter().any(|group| {
+                !group.surface_holds_bytes && before.base.admitted.contains(&group.target_id)
+            }) {
+                return Err("permanent journal: held target cannot assert absence".into());
+            }
             plan_permanent_commit_from_verified(before, input)
         }
         PermanentPeerFrame::Purge {
@@ -377,18 +434,34 @@ pub fn replay_permanent_peer_frames(
     expected_head: &str,
     checkpoint_bytes: Option<&[u8]>,
 ) -> Result<DurablePeerState, String> {
-    let checkpoint = checkpoint_bytes
-        .map(decode_ordinary_journal_checkpoint)
-        .transpose()?;
-    if checkpoint
-        .as_ref()
-        .is_some_and(|row| row.peer_id != peer_id)
-    {
-        return Err("permanent journal: checkpoint peer mismatch".into());
-    }
-    let (mut state, mut head) = match checkpoint {
-        Some(row) => (row.state, row.head),
-        None => (empty_durable_peer_state(peer_id)?, String::new()),
+    let (mut state, mut head) = if let Some(checkpoint_bytes) = checkpoint_bytes {
+        let raw = decode(checkpoint_bytes)?;
+        let CborValue::Map(entries) = raw else {
+            return Err("permanent journal: invalid checkpoint".into());
+        };
+        let version = number(
+            entries
+                .iter()
+                .find(|(key, _)| key == "version")
+                .map(|(_, v)| v),
+        )?;
+        if version == 1.0 {
+            let row = decode_ordinary_journal_checkpoint(checkpoint_bytes)?;
+            if row.peer_id != peer_id {
+                return Err("permanent journal: checkpoint peer mismatch".into());
+            }
+            (row.state, row.head)
+        } else if version == VERSION {
+            let row = decode_permanent_journal_rebase(checkpoint_bytes)?;
+            if row.peer_id != peer_id {
+                return Err("permanent journal: checkpoint peer mismatch".into());
+            }
+            (row.state, content_address(checkpoint_bytes))
+        } else {
+            return Err("permanent journal: unsupported checkpoint".into());
+        }
+    } else {
+        (empty_durable_peer_state(peer_id)?, String::new())
     };
     for image in frames {
         let raw = decode(image)?;

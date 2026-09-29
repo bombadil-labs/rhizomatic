@@ -14,10 +14,11 @@ use crate::ordinary_journal::{
     encode_ordinary_journal_checkpoint, encode_ordinary_peer_frame, OrdinaryJournalCheckpoint,
     OrdinaryPeerFrame,
 };
+use crate::ordinary_quota::{plan_ordinary_quota, OrdinaryQuotaUnit};
 use crate::peer_identity::is_canonical_peer_id;
 use crate::permanent_journal::{
-    apply_permanent_peer_frame, encode_permanent_peer_frame, replay_permanent_peer_frames,
-    PermanentPeerFrame,
+    apply_permanent_peer_frame, encode_permanent_journal_rebase, encode_permanent_peer_frame,
+    replay_permanent_peer_frames, PermanentJournalRebase, PermanentPeerFrame,
 };
 use crate::preflight::{
     preflight_transfer, CandidateGuard, GuardedUnitStatus, PreflightContext, TransferUnit,
@@ -46,6 +47,24 @@ pub enum OrdinaryJournalHead {
     Missing,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ErasureJournalWrite {
+    Durable,
+    Conflict,
+    CommittedUnconfirmed { fault: String },
+    AbsenceRefuted { target_id: String },
+}
+
+impl From<PeerImageWrite> for ErasureJournalWrite {
+    fn from(value: PeerImageWrite) -> Self {
+        match value {
+            PeerImageWrite::Durable => Self::Durable,
+            PeerImageWrite::Conflict => Self::Conflict,
+            PeerImageWrite::CommittedUnconfirmed { fault } => Self::CommittedUnconfirmed { fault },
+        }
+    }
+}
+
 /// Consistent open, immutable committed frames, cheap head read, atomic head/frame/row CAS.
 pub trait DurableOrdinaryJournalStore {
     fn read_journal(&self, peer_id: &str) -> Result<OrdinaryJournalRead, String>;
@@ -70,7 +89,7 @@ pub trait DurableOrdinaryJournalStore {
         _frame: &[u8],
         _newly_admitted: &[Delta],
         _asserted_absent_target_ids: &[String],
-    ) -> Result<PeerImageWrite, String> {
+    ) -> Result<ErasureJournalWrite, String> {
         Err("permanent journal: erasure CAS unsupported by store".into())
     }
     /// Atomically replace a verified frame prefix at expected_head; keep rows and head.
@@ -82,6 +101,16 @@ pub trait DurableOrdinaryJournalStore {
     ) -> Result<PeerImageWrite, String> {
         Err("ordinary journal: checkpoint unsupported by store".into())
     }
+    /// Replace payload-bearing history with a canonical current-state anchor under head CAS.
+    fn compare_and_rebase(
+        &mut self,
+        _peer_id: &str,
+        _expected_head: &str,
+        _next_head: &str,
+        _checkpoint: &[u8],
+    ) -> Result<PeerImageWrite, String> {
+        Err("permanent journal: rebase unsupported by store".into())
+    }
     /// Atomically prove absence on this peer's declared surface and append the purge report.
     fn compare_and_settle_purge(
         &mut self,
@@ -91,7 +120,7 @@ pub trait DurableOrdinaryJournalStore {
         _frame: &[u8],
         _target_id: &str,
         _generation: u64,
-    ) -> Result<PeerImageWrite, String> {
+    ) -> Result<ErasureJournalWrite, String> {
         Err("permanent journal: physical absence proof unsupported by store".into())
     }
 }
@@ -105,6 +134,9 @@ pub struct EffectiveErasureOrder {
 
 pub struct EffectiveErasureTransferInput<'a, S> {
     pub orders: &'a [EffectiveErasureOrder],
+    /// Loose ordinary appearances in this transfer, considered after the order appearances.
+    pub ordinary: &'a [Delta],
+    pub capacity: Option<usize>,
     pub origin: &'a ArrivalOrigin,
     pub arrived_at: f64,
     pub policy_state: &'a S,
@@ -135,6 +167,9 @@ pub enum OrdinaryJournalAdmissionResult {
         outcomes: Vec<SignedLooseOutcome>,
     },
     Conflict,
+    AbsenceRefuted {
+        target_id: String,
+    },
     CommittedUnconfirmed {
         fault: String,
     },
@@ -144,6 +179,7 @@ pub enum OrdinaryJournalAdmissionResult {
 pub enum OrdinaryJournalPurgeResult {
     Committed { head: String },
     Conflict,
+    AbsenceRefuted { target_id: String },
     CommittedUnconfirmed { fault: String },
 }
 
@@ -272,6 +308,41 @@ impl OrdinaryJournalPeer {
         })?;
         let result = store.compare_and_checkpoint(&self.peer_id, &self.head, &bytes)?;
         if result != PeerImageWrite::Durable {
+            self.live = false;
+        }
+        Ok(result)
+    }
+
+    /// Replace payload-bearing history with a current-state anchor after erasure.
+    pub fn rebase<S: DurableOrdinaryJournalStore>(
+        &mut self,
+        store: &mut S,
+    ) -> Result<PeerImageWrite, String> {
+        if !self.live {
+            return Err("ordinary journal: reopen required".into());
+        }
+        if !self
+            .state
+            .obligations
+            .iter()
+            .any(|row| row.status != "removed")
+        {
+            return Err("permanent journal: rebase requires purge debt".into());
+        }
+        if self.head.is_empty() {
+            return Err("permanent journal: rebase unsupported by store".into());
+        }
+        let checkpoint = encode_permanent_journal_rebase(&PermanentJournalRebase {
+            peer_id: self.peer_id.clone(),
+            prior: self.head.clone(),
+            state: self.state.clone(),
+        })?;
+        let next_head = content_address(&checkpoint);
+        let result =
+            store.compare_and_rebase(&self.peer_id, &self.head, &next_head, &checkpoint)?;
+        if result == PeerImageWrite::Durable {
+            self.head = next_head;
+        } else {
             self.live = false;
         }
         Ok(result)
@@ -414,11 +485,12 @@ impl OrdinaryJournalPeer {
             return Ok(OrdinaryJournalAdmissionResult::Conflict);
         }
         let origin = sender(input.origin, &self.peer_id)?;
-        let units: Vec<TransferUnit> = input
+        let mut units: Vec<TransferUnit> = input
             .orders
             .iter()
             .map(|row| TransferUnit::Loose(row.delta.clone()))
             .collect();
+        units.extend(input.ordinary.iter().cloned().map(TransferUnit::Loose));
         let guarded = preflight_transfer(
             &units,
             &PreflightContext {
@@ -433,7 +505,7 @@ impl OrdinaryJournalPeer {
         )?;
         let mut by_id: BTreeMap<String, EffectiveErasureOrder> = BTreeMap::new();
         let mut outcomes = Vec::new();
-        for (row, original) in guarded.iter().zip(input.orders) {
+        for (row, original) in guarded.iter().take(input.orders.len()).zip(input.orders) {
             let delta = match &row.unit {
                 TransferUnit::Loose(delta) => delta,
                 TransferUnit::Bundle { .. } => unreachable!(),
@@ -479,6 +551,29 @@ impl OrdinaryJournalPeer {
                 }
             };
             outcomes.push(SignedLooseOutcome { id, status, reason });
+        }
+        let mut surface_by_target: BTreeMap<String, bool> = BTreeMap::new();
+        for order in by_id.values() {
+            if let Some(prior) =
+                surface_by_target.insert(order.target_id.clone(), order.surface_holds_bytes)
+            {
+                if prior != order.surface_holds_bytes {
+                    return Err("permanent journal: inconsistent surface fact".into());
+                }
+            }
+        }
+        for (id, order) in by_id.clone() {
+            if !order.surface_holds_bytes && self.state.base.admitted.contains(&order.target_id) {
+                by_id.remove(&id);
+                for outcome in &mut outcomes {
+                    if outcome.id == id
+                        && outcome.status == SignedLooseOutcomeStatus::EffectiveErasure
+                    {
+                        outcome.status = SignedLooseOutcomeStatus::ErasureIneligible;
+                        outcome.reason = Some("held target has bytes".into());
+                    }
+                }
+            }
         }
         let offered_order_ids: BTreeSet<String> = by_id.keys().cloned().collect();
         for (id, row) in by_id.clone() {
@@ -532,6 +627,14 @@ impl OrdinaryJournalPeer {
             })
             .map(|event| event.target_id.as_str())
             .collect();
+        let cooffered_ordinary_ids: BTreeSet<String> = guarded
+            .iter()
+            .skip(input.orders.len())
+            .filter_map(|row| match (&row.status, &row.unit) {
+                (GuardedUnitStatus::Eligible, TransferUnit::Loose(delta)) => Some(delta.id.clone()),
+                _ => None,
+            })
+            .collect();
         let mut new_advance = 0_usize;
         for target_id in &filtered.selected_targets {
             if !by_id
@@ -545,6 +648,7 @@ impl OrdinaryJournalPeer {
                 .find(|row| &row.target_id == target_id)
                 .unwrap();
             let is_advance = !self.state.base.admitted.contains(target_id)
+                && !cooffered_ordinary_ids.contains(target_id)
                 && !self.state.base.refused_ids.contains(target_id)
                 && !row.surface_holds_bytes;
             if is_advance && existing_advance.len() + new_advance >= input.advance_refusal_cap {
@@ -586,9 +690,92 @@ impl OrdinaryJournalPeer {
                 SignedLooseOutcomeStatus::ErasureIneligible
             };
         }
+        let excluded_targets: BTreeSet<String> = effective
+            .iter()
+            .map(|id| by_id[id].target_id.clone())
+            .collect();
+        let mut ordinary_candidates: BTreeMap<String, Delta> = BTreeMap::new();
+        let mut ordinary_outcomes = Vec::new();
+        for (row, delta) in guarded.iter().skip(input.orders.len()).zip(input.ordinary) {
+            let id = delta.id.clone();
+            let (status, reason) = match row.status {
+                GuardedUnitStatus::Invalid => (SignedLooseOutcomeStatus::Invalid, None),
+                GuardedUnitStatus::Refused => (SignedLooseOutcomeStatus::Refused, None),
+                GuardedUnitStatus::Duplicate => (SignedLooseOutcomeStatus::Duplicate, None),
+                GuardedUnitStatus::GuardRejected => {
+                    (SignedLooseOutcomeStatus::GuardRejected, row.reason.clone())
+                }
+                GuardedUnitStatus::Eligible if by_id.contains_key(&id) => (
+                    SignedLooseOutcomeStatus::Invalid,
+                    Some("order also offered as ordinary".into()),
+                ),
+                GuardedUnitStatus::Eligible if excluded_targets.contains(&id) => (
+                    SignedLooseOutcomeStatus::Refused,
+                    Some("erased in transfer".into()),
+                ),
+                GuardedUnitStatus::Eligible => {
+                    ordinary_candidates.insert(id.clone(), delta.clone());
+                    (SignedLooseOutcomeStatus::Admitted, None)
+                }
+            };
+            ordinary_outcomes.push(SignedLooseOutcome { id, status, reason });
+        }
+        let ordinary_units: Vec<OrdinaryQuotaUnit> = ordinary_candidates
+            .values()
+            .map(|delta| {
+                let requires = ordinary_candidates
+                    .values()
+                    .filter(|other| {
+                        other
+                            .claims
+                            .pointers
+                            .iter()
+                            .any(|pointer| match &pointer.target {
+                                Target::Delta(reference) => {
+                                    pointer.role == "negates" && reference.delta == delta.id
+                                }
+                                _ => false,
+                            })
+                    })
+                    .map(|other| other.id.clone())
+                    .collect();
+                OrdinaryQuotaUnit {
+                    key: delta.id.clone(),
+                    rank: delta.id.clone(),
+                    fresh_ids: vec![delta.id.clone()],
+                    requires,
+                }
+            })
+            .collect();
+        let quota = plan_ordinary_quota(
+            &ordinary_units,
+            &admitted_before,
+            &excluded_targets,
+            &effective,
+            input.capacity.unwrap_or(usize::MAX),
+        )?;
+        let admitted_ordinary: BTreeSet<&String> = quota.admitted_ids.iter().collect();
+        let skipped_ordinary: BTreeSet<&String> = quota.skipped_keys.iter().collect();
+        let pruned_ordinary: BTreeSet<&String> = quota.pruned_keys.iter().collect();
+        for outcome in &mut ordinary_outcomes {
+            if outcome.status != SignedLooseOutcomeStatus::Admitted {
+                continue;
+            }
+            outcome.status = if admitted_ordinary.contains(&outcome.id) {
+                SignedLooseOutcomeStatus::Admitted
+            } else if skipped_ordinary.contains(&outcome.id) {
+                SignedLooseOutcomeStatus::QuotaSkipped
+            } else if pruned_ordinary.contains(&outcome.id) {
+                SignedLooseOutcomeStatus::DependencyPruned
+            } else {
+                SignedLooseOutcomeStatus::Invalid
+            };
+        }
+        outcomes.extend(ordinary_outcomes);
         if input.mode == TransferMode::Atomic {
             if let Some(failed) = outcomes.iter().find(|row| {
                 row.status != SignedLooseOutcomeStatus::EffectiveErasure
+                    && row.status != SignedLooseOutcomeStatus::Admitted
                     && row.status != SignedLooseOutcomeStatus::Duplicate
             }) {
                 return Ok(OrdinaryJournalAdmissionResult::Rejected {
@@ -600,7 +787,7 @@ impl OrdinaryJournalPeer {
                 });
             }
         }
-        if effective.is_empty() {
+        if effective.is_empty() && quota.admitted_ids.is_empty() {
             return Ok(OrdinaryJournalAdmissionResult::Committed {
                 outcomes,
                 arrivals: Vec::new(),
@@ -626,11 +813,20 @@ impl OrdinaryJournalPeer {
                 );
             }
         }
-        let additions: Vec<Delta> = effective.iter().map(|id| by_id[id].delta.clone()).collect();
+        let additions: Vec<Delta> = effective
+            .iter()
+            .map(|id| by_id[id].delta.clone())
+            .chain(
+                quota
+                    .admitted_ids
+                    .iter()
+                    .map(|id| ordinary_candidates[id].clone()),
+            )
+            .collect();
         let commit = PermanentCommitInput {
             additions: additions.clone(),
             erasures: groups.into_values().collect(),
-            quota_charge: 0,
+            quota_charge: quota.charged as u64,
             at: input.arrived_at,
             sender: origin,
         };
@@ -643,28 +839,57 @@ impl OrdinaryJournalPeer {
         let state = plan_permanent_commit_from_verified(&self.state, &commit)?;
         encode_durable_peer_state(&state)?;
         validate_transition(&self.state, &state)?;
-        let frame = encode_permanent_peer_frame(&PermanentPeerFrame::Admission {
-            peer_id: self.peer_id.clone(),
-            prior: self.head.clone(),
-            input: commit,
-        })?;
+        let frame = if effective.is_empty() {
+            encode_ordinary_peer_frame(&OrdinaryPeerFrame {
+                peer_id: self.peer_id.clone(),
+                prior: self.head.clone(),
+                at: input.arrived_at,
+                sender: commit.sender.clone(),
+                additions: additions.clone(),
+            })?
+        } else {
+            encode_permanent_peer_frame(&PermanentPeerFrame::Admission {
+                peer_id: self.peer_id.clone(),
+                prior: self.head.clone(),
+                input: commit,
+            })?
+        };
         let next_head = content_address(&frame);
-        let write = store.compare_and_append_erasure(
-            &self.peer_id,
-            &self.head,
-            &next_head,
-            &frame,
-            &additions,
-            &asserted_absent_target_ids,
-        )?;
-        if write != PeerImageWrite::Durable {
+        let write = if effective.is_empty() {
+            store
+                .compare_and_append(
+                    &self.peer_id,
+                    Some(&self.head),
+                    &next_head,
+                    Some(&frame),
+                    &additions,
+                )?
+                .into()
+        } else {
+            store.compare_and_append_erasure(
+                &self.peer_id,
+                &self.head,
+                &next_head,
+                &frame,
+                &additions,
+                &asserted_absent_target_ids,
+            )?
+        };
+        if let ErasureJournalWrite::AbsenceRefuted { target_id } = write {
+            if !asserted_absent_target_ids.contains(&target_id) {
+                self.live = false;
+                return Err("permanent journal: invalid absence refutation".into());
+            }
+            return Ok(OrdinaryJournalAdmissionResult::AbsenceRefuted { target_id });
+        }
+        if write != ErasureJournalWrite::Durable {
             self.live = false;
             return Ok(match write {
-                PeerImageWrite::Conflict => OrdinaryJournalAdmissionResult::Conflict,
-                PeerImageWrite::CommittedUnconfirmed { fault } => {
+                ErasureJournalWrite::Conflict => OrdinaryJournalAdmissionResult::Conflict,
+                ErasureJournalWrite::CommittedUnconfirmed { fault } => {
                     OrdinaryJournalAdmissionResult::CommittedUnconfirmed { fault }
                 }
-                PeerImageWrite::Durable => unreachable!(),
+                _ => unreachable!(),
             });
         }
         let arrivals = state.base.arrivals[self.state.base.arrivals.len()..].to_vec();
@@ -714,22 +939,36 @@ impl OrdinaryJournalPeer {
                 generation,
             )?
         } else {
-            store.compare_and_append(
-                &self.peer_id,
-                Some(&self.head),
-                &next_head,
-                Some(&bytes),
-                &[],
-            )?
+            store
+                .compare_and_append(
+                    &self.peer_id,
+                    Some(&self.head),
+                    &next_head,
+                    Some(&bytes),
+                    &[],
+                )?
+                .into()
         };
-        if write != PeerImageWrite::Durable {
+        if let ErasureJournalWrite::AbsenceRefuted {
+            target_id: refuted_target_id,
+        } = write
+        {
+            if status != "removed" || refuted_target_id != target_id {
+                self.live = false;
+                return Err("permanent journal: invalid absence refutation".into());
+            }
+            return Ok(OrdinaryJournalPurgeResult::AbsenceRefuted {
+                target_id: refuted_target_id,
+            });
+        }
+        if write != ErasureJournalWrite::Durable {
             self.live = false;
             return Ok(match write {
-                PeerImageWrite::Conflict => OrdinaryJournalPurgeResult::Conflict,
-                PeerImageWrite::CommittedUnconfirmed { fault } => {
+                ErasureJournalWrite::Conflict => OrdinaryJournalPurgeResult::Conflict,
+                ErasureJournalWrite::CommittedUnconfirmed { fault } => {
                     OrdinaryJournalPurgeResult::CommittedUnconfirmed { fault }
                 }
-                PeerImageWrite::Durable => unreachable!(),
+                _ => unreachable!(),
             });
         }
         self.state = state;

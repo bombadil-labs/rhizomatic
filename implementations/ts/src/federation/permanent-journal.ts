@@ -8,6 +8,7 @@ import { packSet, unpackSet } from "../storage/pack.js";
 import { decodeOrdinaryJournalCheckpoint, decodeOrdinaryPeerFrame } from "./ordinary-journal.js";
 import {
   emptyDurablePeerState,
+  decodeDurablePeerState,
   encodeDurablePeerState,
   planPermanentCommitFromVerified,
   validateDurablePeerStateTransition,
@@ -18,6 +19,50 @@ import { isCanonicalPeerId } from "./peer-identity.js";
 
 const VERSION = 2;
 const DIGEST = /^1e20[0-9a-f]{64}$/;
+
+export interface PermanentJournalRebase {
+  readonly peerId: string;
+  /** Head that the store must compare before atomically replacing the old payload frames. */
+  readonly prior: string;
+  readonly state: DurablePeerState;
+}
+
+/** A new content-addressed anchor whose canonical image omits already refused payloads. */
+export function encodePermanentJournalRebase(value: PermanentJournalRebase): Uint8Array {
+  if (
+    !isCanonicalPeerId(value.peerId) ||
+    value.state.base.peerId !== value.peerId ||
+    !DIGEST.test(value.prior)
+  )
+    throw new Error("permanent journal: invalid rebase peer or prior");
+  if (!value.state.obligations.some((row) => row.status !== "removed"))
+    throw new Error("permanent journal: rebase requires purge debt");
+  return encode(
+    map([
+      ["version", float(VERSION)],
+      ["kind", tstr("rebase")],
+      ["peer", tstr(value.peerId)],
+      ["prior", tstr(value.prior)],
+      ["image", bstr(encodeDurablePeerState(value.state))],
+    ]),
+  );
+}
+
+export function decodePermanentJournalRebase(bytesValue: Uint8Array): PermanentJournalRebase {
+  const row = fields(decode(bytesValue), 5);
+  if (number(row.get("version")) !== VERSION || text(row.get("kind")) !== "rebase")
+    throw new Error("permanent journal: invalid rebase");
+  const peerId = text(row.get("peer"));
+  const value: PermanentJournalRebase = {
+    peerId,
+    prior: text(row.get("prior")),
+    state: decodeDurablePeerState(bytes(row.get("image")), peerId),
+  };
+  const canonical = encodePermanentJournalRebase(value);
+  if (canonical.length !== bytesValue.length || canonical.some((byte, i) => byte !== bytesValue[i]))
+    throw new Error("permanent journal: noncanonical rebase");
+  return value;
+}
 
 export type PermanentPeerFrame =
   | ({
@@ -220,7 +265,15 @@ export function applyPermanentPeerFrame(
 ): DurablePeerState {
   validateFrame(frame);
   if (frame.peerId !== before.base.peerId) throw new Error("permanent journal: wrong peer");
-  if (frame.kind === "admission") return planPermanentCommitFromVerified(before, frame);
+  if (frame.kind === "admission") {
+    if (
+      frame.erasures.some(
+        (group) => !group.surfaceHoldsBytes && before.base.admitted.has(group.targetId),
+      )
+    )
+      throw new Error("permanent journal: held target cannot assert absence");
+    return planPermanentCommitFromVerified(before, frame);
+  }
   const prior = before.obligations.find(
     (row) => row.targetId === frame.targetId && row.generation === frame.generation,
   );
@@ -254,7 +307,24 @@ export function replayPermanentPeerFrames(
   checkpointBytes?: Uint8Array,
 ): DurablePeerState {
   const checkpoint =
-    checkpointBytes === undefined ? undefined : decodeOrdinaryJournalCheckpoint(checkpointBytes);
+    checkpointBytes === undefined
+      ? undefined
+      : (() => {
+          const raw = decode(checkpointBytes);
+          if (raw.t !== "map") throw new Error("permanent journal: invalid checkpoint");
+          const version = new Map(raw.v).get("version");
+          if (version?.t !== "float") throw new Error("permanent journal: invalid checkpoint");
+          if (version.v === 1) return decodeOrdinaryJournalCheckpoint(checkpointBytes);
+          if (version.v === VERSION) {
+            const rebased = decodePermanentJournalRebase(checkpointBytes);
+            return {
+              peerId: rebased.peerId,
+              head: contentAddress(checkpointBytes),
+              state: rebased.state,
+            };
+          }
+          throw new Error("permanent journal: unsupported checkpoint");
+        })();
   if (checkpoint !== undefined && checkpoint.peerId !== peerId)
     throw new Error("permanent journal: checkpoint peer mismatch");
   let state = checkpoint?.state ?? emptyDurablePeerState(peerId);

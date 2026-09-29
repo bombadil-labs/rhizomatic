@@ -12,12 +12,14 @@ import {
   type DurablePeerState,
 } from "./durable-state.js";
 import { planErasureFilter, type ErasureOrderCandidate } from "./erasure-filter.js";
+import { planOrdinaryQuota, type OrdinaryQuotaUnit } from "./ordinary-quota.js";
 import { preflightTransfer, type CandidateGuard } from "./preflight.js";
 import { isCanonicalPeerId } from "./peer-identity.js";
 import { encodeOrdinaryJournalCheckpoint, encodeOrdinaryPeerFrame } from "./ordinary-journal.js";
 import {
   applyPermanentPeerFrame,
   decodePermanentPeerFrame,
+  encodePermanentJournalRebase,
   encodePermanentPeerFrame,
   replayPermanentPeerFrames,
 } from "./permanent-journal.js";
@@ -42,6 +44,11 @@ export type OrdinaryJournalHead =
   | { readonly status: "head"; readonly head: string }
   | { readonly status: "missing" };
 
+/** A verified absence claim can fail without changing the head. This is not writer contention. */
+export type ErasureJournalWrite =
+  | PeerImageWrite
+  | { readonly status: "absence-refuted"; readonly targetId: string };
+
 /** Consistent open, immutable committed frames, cheap head read, atomic head/frame/row CAS. */
 export interface DurableOrdinaryJournalStore {
   readJournal(peerId: string): Promise<OrdinaryJournalRead>;
@@ -65,11 +72,20 @@ export interface DurableOrdinaryJournalStore {
     frame: Uint8Array,
     newlyAdmitted: readonly Delta[],
     assertedAbsentTargetIds: readonly string[],
-  ): Promise<PeerImageWrite>;
+  ): Promise<ErasureJournalWrite>;
   /** Atomically replace a verified frame prefix at expectedHead; keep admitted rows and head. */
   compareAndCheckpoint?(
     peerId: string,
     expectedHead: string,
+    checkpoint: Uint8Array,
+  ): Promise<PeerImageWrite>;
+  /** Atomically replace all prior frames/checkpoint with a new current-state anchor and head.
+   * The adapter must ensure old frame payloads are removed from its declared storage surface;
+   * physical remanence remains purge debt until `compareAndSettlePurge` proves absence. */
+  compareAndRebase?(
+    peerId: string,
+    expectedHead: string,
+    nextHead: string,
     checkpoint: Uint8Array,
   ): Promise<PeerImageWrite>;
   /** Atomically prove all bytes for target are absent from this peer's declared surface and append the report. */
@@ -80,7 +96,7 @@ export interface DurableOrdinaryJournalStore {
     frame: Uint8Array,
     targetId: string,
     generation: number,
-  ): Promise<PeerImageWrite>;
+  ): Promise<ErasureJournalWrite>;
 }
 
 export interface EffectiveErasureOrder {
@@ -91,6 +107,10 @@ export interface EffectiveErasureOrder {
 
 export interface EffectiveErasureTransferInput<State> {
   readonly orders: readonly EffectiveErasureOrder[];
+  /** Loose ordinary appearances in this same transfer, considered after the order appearances. */
+  readonly ordinary?: readonly Delta[];
+  /** Capacity for ordinary additions only. */
+  readonly capacity?: number;
   readonly origin: ArrivalOrigin;
   readonly arrivedAt: number;
   readonly policyState: Readonly<State>;
@@ -124,11 +144,13 @@ export type OrdinaryJournalAdmissionResult =
       readonly outcomes: readonly SignedLooseOutcome[];
     }
   | { readonly status: "conflict" }
+  | { readonly status: "absence-refuted"; readonly targetId: string }
   | { readonly status: "committed-unconfirmed"; readonly fault: string };
 
 export type OrdinaryJournalPurgeResult =
   | { readonly status: "committed"; readonly head: string }
   | { readonly status: "conflict" }
+  | { readonly status: "absence-refuted"; readonly targetId: string }
   | { readonly status: "committed-unconfirmed"; readonly fault: string };
 
 function sender(origin: ArrivalOrigin, receivingPeerId: string): string {
@@ -243,6 +265,25 @@ export class OrdinaryJournalPeer {
     return result;
   }
 
+  /** Compact through erasure by replacing payload-bearing history with the current image. */
+  async rebase(): Promise<PeerImageWrite> {
+    if (!this.live) throw new Error("ordinary journal: reopen required");
+    if (!this.state.obligations.some((row) => row.status !== "removed"))
+      throw new Error("permanent journal: rebase requires purge debt");
+    if (this.head === "" || this.store.compareAndRebase === undefined)
+      throw new Error("permanent journal: rebase unsupported by store");
+    const checkpoint = encodePermanentJournalRebase({
+      peerId: this.peerId,
+      prior: this.head,
+      state: this.state,
+    });
+    const nextHead = contentAddress(checkpoint);
+    const result = await this.store.compareAndRebase(this.peerId, this.head, nextHead, checkpoint);
+    if (result.status !== "durable") this.live = false;
+    else this.head = nextHead;
+    return result;
+  }
+
   /** Caller serializes writers for this peer. Conflicts and uncertain commits require reopen. */
   async admit<State>(
     input: SinglePeerTransferInput<State>,
@@ -339,8 +380,12 @@ export class OrdinaryJournalPeer {
       targetId: row.targetId,
       surfaceHoldsBytes: row.surfaceHoldsBytes,
     }));
+    const stableOrdinary = (input.ordinary ?? []).map((delta) => structuredClone(delta));
     const guarded = preflightTransfer(
-      stableOrders.map((row) => ({ kind: "loose" as const, delta: row.delta })),
+      [
+        ...stableOrders.map((row) => ({ kind: "loose" as const, delta: row.delta })),
+        ...stableOrdinary.map((delta) => ({ kind: "loose" as const, delta })),
+      ],
       {
         admittedBefore: this.state.base.admitted,
         refusedIds: this.state.base.refusedIds,
@@ -352,7 +397,7 @@ export class OrdinaryJournalPeer {
       },
     );
     const byId = new Map<string, EffectiveErasureOrder>();
-    const outcomes: SignedLooseOutcome[] = guarded.map((row, i) => {
+    const outcomes: SignedLooseOutcome[] = guarded.slice(0, stableOrders.length).map((row, i) => {
       const order = stableOrders[i]!;
       if (row.status !== "eligible")
         return {
@@ -379,6 +424,25 @@ export class OrdinaryJournalPeer {
       byId.set(order.delta.id, order);
       return { id: order.delta.id, status: "effective-erasure" };
     });
+    const surfaceByTarget = new Map<string, boolean>();
+    for (const order of byId.values()) {
+      const prior = surfaceByTarget.get(order.targetId);
+      if (prior !== undefined && prior !== order.surfaceHoldsBytes)
+        throw new Error("permanent journal: inconsistent surface fact");
+      surfaceByTarget.set(order.targetId, order.surfaceHoldsBytes);
+    }
+    for (const [id, order] of byId) {
+      if (!order.surfaceHoldsBytes && this.state.base.admitted.has(order.targetId)) {
+        byId.delete(id);
+        for (let i = 0; i < outcomes.length; i++)
+          if (outcomes[i]!.id === id && outcomes[i]!.status === "effective-erasure")
+            outcomes[i] = {
+              id,
+              status: "erasure-ineligible",
+              reason: "held target has bytes",
+            };
+      }
+    }
     const offeredOrderIds = new Set(byId.keys());
     for (const [id, order] of byId) {
       if (offeredOrderIds.has(order.targetId)) {
@@ -405,6 +469,13 @@ export class OrdinaryJournalPeer {
         )
         .map((event) => event.targetId),
     ).size;
+    const coofferedOrdinaryIds = new Set(
+      guarded
+        .slice(stableOrders.length)
+        .flatMap((row) =>
+          row.status === "eligible" && row.unit.kind === "loose" ? [row.unit.delta.id] : [],
+        ),
+    );
     let newAdvance = 0;
     for (const targetId of filtered.selectedTargets) {
       if (
@@ -414,6 +485,7 @@ export class OrdinaryJournalPeer {
       const order = [...byId.values()].find((row) => row.targetId === targetId)!;
       const isAdvance =
         !this.state.base.admitted.has(targetId) &&
+        !coofferedOrdinaryIds.has(targetId) &&
         !this.state.base.refusedIds.has(targetId) &&
         !order.surfaceHoldsBytes;
       if (isAdvance && existingAdvance + newAdvance >= input.advanceRefusalCap) {
@@ -444,14 +516,72 @@ export class OrdinaryJournalPeer {
           : "erasure-ineligible";
       outcomes[i] = { id: prior.id, status };
     }
+    const excludedTargets = new Set([...effective].map((id) => byId.get(id)!.targetId));
+    const ordinaryCandidates = new Map<string, Delta>();
+    const ordinaryPreflight = guarded.slice(stableOrders.length);
+    const ordinaryOutcomes: SignedLooseOutcome[] = ordinaryPreflight.map((row, i) => {
+      const delta = stableOrdinary[i]!;
+      if (row.status !== "eligible")
+        return {
+          id: delta.id,
+          status: row.status,
+          ...(row.reason === undefined ? {} : { reason: row.reason }),
+        };
+      if (byId.has(delta.id))
+        return { id: delta.id, status: "invalid", reason: "order also offered as ordinary" };
+      if (excludedTargets.has(delta.id))
+        return { id: delta.id, status: "refused", reason: "erased in transfer" };
+      ordinaryCandidates.set(delta.id, delta);
+      return { id: delta.id, status: "admitted" };
+    });
+    const ordinaryUnits: OrdinaryQuotaUnit[] = [...ordinaryCandidates.values()].map((delta) => ({
+      key: delta.id,
+      rank: delta.id,
+      freshIds: [delta.id],
+      requires: [...ordinaryCandidates.values()]
+        .filter((other) =>
+          other.claims.pointers.some(
+            (pointer) =>
+              pointer.role === "negates" &&
+              pointer.target.kind === "delta" &&
+              pointer.target.deltaRef.delta === delta.id,
+          ),
+        )
+        .map((other) => other.id),
+    }));
+    const quota = planOrdinaryQuota(
+      ordinaryUnits,
+      new Set(this.state.base.admitted.ids()),
+      excludedTargets,
+      effective,
+      input.capacity ?? Number.MAX_SAFE_INTEGER,
+    );
+    const admittedOrdinary = new Set(quota.admittedIds);
+    const skippedOrdinary = new Set(quota.skippedKeys);
+    const prunedOrdinary = new Set(quota.prunedKeys);
+    for (let i = 0; i < ordinaryOutcomes.length; i++) {
+      const prior = ordinaryOutcomes[i]!;
+      if (prior.status !== "admitted") continue;
+      ordinaryOutcomes[i] = {
+        id: prior.id,
+        status: admittedOrdinary.has(prior.id)
+          ? "admitted"
+          : skippedOrdinary.has(prior.id)
+            ? "quota-skipped"
+            : prunedOrdinary.has(prior.id)
+              ? "dependency-pruned"
+              : "invalid",
+      };
+    }
+    outcomes.push(...ordinaryOutcomes);
     if (input.mode === "atomic") {
       const failed = outcomes.find(
-        (outcome) => !["effective-erasure", "duplicate"].includes(outcome.status),
+        (outcome) => !["effective-erasure", "admitted", "duplicate"].includes(outcome.status),
       );
       if (failed !== undefined)
         return { status: "rejected", reason: failed.reason ?? failed.status, outcomes };
     }
-    if (effective.size === 0)
+    if (effective.size === 0 && quota.admittedIds.length === 0)
       return { status: "committed", outcomes, arrivals: [], head: this.head };
     const groups = new Map<string, { orderIds: string[]; surfaceHoldsBytes: boolean }>();
     for (const id of effective) {
@@ -464,44 +594,69 @@ export class OrdinaryJournalPeer {
       } else
         groups.set(order.targetId, { orderIds: [id], surfaceHoldsBytes: order.surfaceHoldsBytes });
     }
-    const additions = [...effective].sort().map((id) => plainDelta(byId.get(id)!.delta));
+    const additions = [
+      ...[...effective].map((id) => plainDelta(byId.get(id)!.delta)),
+      ...quota.admittedIds.map((id) => plainDelta(ordinaryCandidates.get(id)!)),
+    ];
     const erasures = [...groups].map(([targetId, group]) => ({ targetId, ...group }));
     const state = planPermanentCommitFromVerified(this.state, {
       additions,
       erasures,
-      quotaCharge: 0,
+      quotaCharge: quota.charged,
       at: input.arrivedAt,
       sender: origin,
     });
     encodeDurablePeerState(state);
     validateDurablePeerStateTransition(this.state, state);
-    const frame = encodePermanentPeerFrame({
-      kind: "admission",
-      peerId: this.peerId,
-      prior: this.head,
-      additions,
-      erasures,
-      quotaCharge: 0,
-      at: input.arrivedAt,
-      sender: origin,
-    });
-    const replayed = applyPermanentPeerFrame(this.state, decodePermanentPeerFrame(frame));
+    const frame =
+      effective.size === 0
+        ? encodeOrdinaryPeerFrame({
+            peerId: this.peerId,
+            prior: this.head,
+            additions,
+            at: input.arrivedAt,
+            sender: origin,
+          })
+        : encodePermanentPeerFrame({
+            kind: "admission",
+            peerId: this.peerId,
+            prior: this.head,
+            additions,
+            erasures,
+            quotaCharge: quota.charged,
+            at: input.arrivedAt,
+            sender: origin,
+          });
+    const replayed =
+      effective.size === 0
+        ? state
+        : applyPermanentPeerFrame(this.state, decodePermanentPeerFrame(frame));
     if (replayed.base.cursor.lastSequence !== state.base.cursor.lastSequence)
       throw new Error("permanent journal: planned transition cannot be replayed");
     const nextHead = contentAddress(frame);
-    if (this.store.compareAndAppendErasure === undefined)
+    if (effective.size > 0 && this.store.compareAndAppendErasure === undefined)
       throw new Error("permanent journal: erasure CAS unsupported by store");
     const assertedAbsentTargetIds = erasures
       .filter((group) => !group.surfaceHoldsBytes)
       .map((group) => group.targetId);
-    const write = await this.store.compareAndAppendErasure(
-      this.peerId,
-      this.head,
-      nextHead,
-      frame,
-      additions,
-      assertedAbsentTargetIds,
-    );
+    const write =
+      effective.size === 0
+        ? await this.store.compareAndAppend(this.peerId, this.head, nextHead, frame, additions)
+        : await this.store.compareAndAppendErasure!(
+            this.peerId,
+            this.head,
+            nextHead,
+            frame,
+            additions,
+            assertedAbsentTargetIds,
+          );
+    if (write.status === "absence-refuted") {
+      if (!assertedAbsentTargetIds.includes(write.targetId)) {
+        this.live = false;
+        throw new Error("permanent journal: invalid absence refutation");
+      }
+      return write;
+    }
     if (write.status !== "durable") {
       this.live = false;
       return write;
@@ -549,6 +704,13 @@ export class OrdinaryJournalPeer {
             generation,
           )
         : await this.store.compareAndAppend(this.peerId, this.head, nextHead, frame, []);
+    if (write.status === "absence-refuted") {
+      if (report.status !== "removed" || write.targetId !== targetId) {
+        this.live = false;
+        throw new Error("permanent journal: invalid absence refutation");
+      }
+      return write;
+    }
     if (write.status !== "durable") {
       this.live = false;
       return write;

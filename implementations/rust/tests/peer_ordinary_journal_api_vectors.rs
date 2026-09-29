@@ -6,8 +6,9 @@ use rhizomatic::durable_state::encode_durable_peer_state;
 use rhizomatic::json_profile::parse_claims;
 use rhizomatic::ordinary_journal_peer::{
     open_ordinary_journal_peer, DurableOrdinaryJournalStore, EffectiveErasureOrder,
-    EffectiveErasureTransferInput, OrdinaryJournalAdmissionResult, OrdinaryJournalHead,
-    OrdinaryJournalOpenResult, OrdinaryJournalPurgeResult, OrdinaryJournalRead,
+    EffectiveErasureTransferInput, ErasureJournalWrite, OrdinaryJournalAdmissionResult,
+    OrdinaryJournalHead, OrdinaryJournalOpenResult, OrdinaryJournalPurgeResult,
+    OrdinaryJournalRead,
 };
 use rhizomatic::single_peer::{
     ArrivalOrigin, PeerImageWrite, SinglePeerTransferInput, TransferMode,
@@ -102,12 +103,18 @@ impl DurableOrdinaryJournalStore for MemoryJournal {
         frame: &[u8],
         newly_admitted: &[Delta],
         asserted_absent_target_ids: &[String],
-    ) -> Result<PeerImageWrite, String> {
+    ) -> Result<ErasureJournalWrite, String> {
         if asserted_absent_target_ids
             .iter()
             .any(|id| self.rows.contains_key(id))
         {
-            return Ok(PeerImageWrite::Conflict);
+            return Ok(ErasureJournalWrite::AbsenceRefuted {
+                target_id: asserted_absent_target_ids
+                    .iter()
+                    .find(|id| self.rows.contains_key(*id))
+                    .unwrap()
+                    .clone(),
+            });
         }
         self.compare_and_append(
             peer_id,
@@ -116,6 +123,7 @@ impl DurableOrdinaryJournalStore for MemoryJournal {
             Some(frame),
             newly_admitted,
         )
+        .map(Into::into)
     }
     fn compare_and_checkpoint(
         &mut self,
@@ -130,6 +138,21 @@ impl DurableOrdinaryJournalStore for MemoryJournal {
         self.frames.clear();
         Ok(self.next.clone().unwrap_or(PeerImageWrite::Durable))
     }
+    fn compare_and_rebase(
+        &mut self,
+        _peer_id: &str,
+        expected: &str,
+        next: &str,
+        checkpoint: &[u8],
+    ) -> Result<PeerImageWrite, String> {
+        if self.head.as_deref() != Some(expected) {
+            return Ok(PeerImageWrite::Conflict);
+        }
+        self.head = Some(next.into());
+        self.frames.clear();
+        self.checkpoint = Some(checkpoint.to_vec());
+        Ok(PeerImageWrite::Durable)
+    }
     fn compare_and_settle_purge(
         &mut self,
         _peer_id: &str,
@@ -138,13 +161,18 @@ impl DurableOrdinaryJournalStore for MemoryJournal {
         frame: &[u8],
         target_id: &str,
         _generation: u64,
-    ) -> Result<PeerImageWrite, String> {
-        if self.head.as_deref() != Some(expected) || self.rows.contains_key(target_id) {
-            return Ok(PeerImageWrite::Conflict);
+    ) -> Result<ErasureJournalWrite, String> {
+        if self.head.as_deref() != Some(expected) {
+            return Ok(ErasureJournalWrite::Conflict);
+        }
+        if self.rows.contains_key(target_id) {
+            return Ok(ErasureJournalWrite::AbsenceRefuted {
+                target_id: target_id.into(),
+            });
         }
         self.head = Some(next.into());
         self.frames.push(frame.to_vec());
-        Ok(PeerImageWrite::Durable)
+        Ok(ErasureJournalWrite::Durable)
     }
 }
 
@@ -295,6 +323,8 @@ fn journal_api_commits_erasure_and_requires_absence_before_settlement() {
             &mut store,
             &EffectiveErasureTransferInput {
                 orders: &erasure_orders,
+                ordinary: &[],
+                capacity: None,
                 origin: &ArrivalOrigin::Local,
                 arrived_at: 101.0,
                 policy_state: &(),
@@ -328,9 +358,14 @@ fn journal_api_commits_erasure_and_requires_absence_before_settlement() {
         reopened
             .report_purge(&mut store, &held.id, 1, "removed", None)
             .unwrap(),
-        OrdinaryJournalPurgeResult::Conflict
+        OrdinaryJournalPurgeResult::AbsenceRefuted {
+            target_id: held.id.clone()
+        }
     );
-    assert!(reopened.snapshot().is_err());
+    assert_eq!(
+        reopened.snapshot().unwrap().obligations[0].status,
+        "pending"
+    );
     store.rows.remove(&held.id);
     let OrdinaryJournalOpenResult::Open(mut recovered) =
         open_ordinary_journal_peer(&mut store, peer_id).unwrap()
@@ -350,6 +385,278 @@ fn journal_api_commits_erasure_and_requires_absence_before_settlement() {
         hex::encode(encode_durable_peer_state(&recovered.snapshot().unwrap()).unwrap()),
         vector["removedImageHex"]
     );
+}
+
+#[test]
+fn journal_api_rebases_erased_payload_before_settlement() {
+    let vector = read("peer/permanent-journal.json");
+    let named = fixtures();
+    let peer_id = vector["peerId"].as_str().unwrap();
+    let held = named[vector["targetName"].as_str().unwrap()].clone();
+    let order = Delta {
+        id: vector["order"]["id"].as_str().unwrap().into(),
+        claims: parse_claims(&vector["order"]["claims"]).unwrap(),
+        sig: Some(vector["order"]["sig"].as_str().unwrap().into()),
+    };
+    let mut store = MemoryJournal::default();
+    let OrdinaryJournalOpenResult::Open(mut peer) =
+        open_ordinary_journal_peer(&mut store, peer_id).unwrap()
+    else {
+        panic!("expected open")
+    };
+    let classifier = |_: &Delta| false;
+    peer.admit(
+        &mut store,
+        &SinglePeerTransferInput {
+            offered: std::slice::from_ref(&held),
+            origin: &ArrivalOrigin::Local,
+            arrived_at: 100.0,
+            policy_state: &(),
+            guards: &[],
+            is_erasure_candidate: &classifier,
+            mode: TransferMode::Atomic,
+            capacity: None,
+        },
+    )
+    .unwrap();
+    let orders = [EffectiveErasureOrder {
+        delta: order,
+        target_id: held.id.clone(),
+        surface_holds_bytes: true,
+    }];
+    let authorize = |_: &rhizomatic::erasure_filter::ErasureOrderCandidate,
+                     _: &std::collections::BTreeSet<String>| true;
+    peer.admit_erasures(
+        &mut store,
+        &EffectiveErasureTransferInput {
+            orders: &orders,
+            ordinary: &[],
+            capacity: None,
+            origin: &ArrivalOrigin::Local,
+            arrived_at: 101.0,
+            policy_state: &(),
+            guards: &[],
+            mode: TransferMode::Atomic,
+            target_budget: 1,
+            advance_refusal_cap: 0,
+            authorize: &authorize,
+        },
+    )
+    .unwrap();
+    assert_eq!(peer.rebase(&mut store).unwrap(), PeerImageWrite::Durable);
+    assert!(store.frames.is_empty());
+    assert_eq!(
+        hex::encode(store.checkpoint.as_ref().unwrap()),
+        vector["rebase"]["hex"]
+    );
+    assert_eq!(
+        peer.current_head().unwrap(),
+        vector["rebase"]["head"].as_str().unwrap()
+    );
+    assert!(matches!(
+        open_ordinary_journal_peer(&mut store, peer_id).unwrap(),
+        OrdinaryJournalOpenResult::Open(_)
+    ));
+    assert_eq!(
+        peer.report_purge(&mut store, &held.id, 1, "removed", None)
+            .unwrap(),
+        OrdinaryJournalPurgeResult::AbsenceRefuted {
+            target_id: held.id.clone()
+        }
+    );
+    store.rows.remove(&held.id);
+    assert_eq!(
+        peer.report_purge(&mut store, &held.id, 1, "removed", None)
+            .unwrap(),
+        OrdinaryJournalPurgeResult::Committed {
+            head: vector["rebase"]["purgedHead"].as_str().unwrap().into(),
+        }
+    );
+    assert_eq!(hex::encode(&store.frames[0]), vector["rebase"]["purgedHex"]);
+    assert!(matches!(
+        open_ordinary_journal_peer(&mut store, peer_id).unwrap(),
+        OrdinaryJournalOpenResult::Open(_)
+    ));
+}
+
+#[test]
+fn journal_api_excludes_cooffered_target_before_ordinary_quota() {
+    let vector = read("peer/permanent-journal.json");
+    let named = fixtures();
+    let peer_id = vector["peerId"].as_str().unwrap();
+    let held = named[vector["mixed"]["targetName"].as_str().unwrap()].clone();
+    let unrelated = named[vector["mixed"]["unrelatedName"].as_str().unwrap()].clone();
+    let order = Delta {
+        id: vector["order"]["id"].as_str().unwrap().into(),
+        claims: parse_claims(&vector["order"]["claims"]).unwrap(),
+        sig: Some(vector["order"]["sig"].as_str().unwrap().into()),
+    };
+    let orders = [EffectiveErasureOrder {
+        delta: order.clone(),
+        target_id: held.id.clone(),
+        surface_holds_bytes: false,
+    }];
+    let ordinary = [held.clone(), unrelated.clone()];
+    let authorize = |_: &rhizomatic::erasure_filter::ErasureOrderCandidate,
+                     _: &std::collections::BTreeSet<String>| true;
+    let mut store = MemoryJournal::default();
+    let OrdinaryJournalOpenResult::Open(mut peer) =
+        open_ordinary_journal_peer(&mut store, peer_id).unwrap()
+    else {
+        panic!("expected open")
+    };
+    let result = peer
+        .admit_erasures(
+            &mut store,
+            &EffectiveErasureTransferInput {
+                orders: &orders,
+                ordinary: &ordinary,
+                capacity: Some(1),
+                origin: &ArrivalOrigin::Unattributed,
+                arrived_at: 102.0,
+                policy_state: &(),
+                guards: &[],
+                mode: TransferMode::Individual,
+                target_budget: 1,
+                advance_refusal_cap: 0,
+                authorize: &authorize,
+            },
+        )
+        .unwrap();
+    let OrdinaryJournalAdmissionResult::Committed {
+        outcomes, arrivals, ..
+    } = result
+    else {
+        panic!("expected commit")
+    };
+    let actual: Vec<&str> = outcomes.iter().map(|row| row.status.as_str()).collect();
+    let expected: Vec<&str> = vector["mixed"]["expectedStatuses"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|row| row.as_str().unwrap())
+        .collect();
+    assert_eq!(actual, expected);
+    let mut ids = [order.id, unrelated.id];
+    ids.sort();
+    assert_eq!(
+        arrivals
+            .iter()
+            .map(|row| row.id.as_str())
+            .collect::<Vec<_>>(),
+        ids.iter().map(String::as_str).collect::<Vec<_>>()
+    );
+    assert_eq!(hex::encode(&store.frames[0]), vector["mixed"]["hex"]);
+    assert_eq!(
+        hex::encode(encode_durable_peer_state(&peer.snapshot().unwrap()).unwrap()),
+        vector["mixed"]["imageHex"]
+    );
+    assert!(matches!(
+        open_ordinary_journal_peer(&mut store, peer_id).unwrap(),
+        OrdinaryJournalOpenResult::Open(_)
+    ));
+}
+
+#[test]
+fn journal_api_rejects_conflicting_surface_facts_before_budget() {
+    let vector = read("peer/permanent-journal.json");
+    let peer_id = vector["peerId"].as_str().unwrap();
+    let target_id = vector["expected"]["refusedTarget"].as_str().unwrap();
+    let parse_order = |row: &Value| Delta {
+        id: row["id"].as_str().unwrap().into(),
+        claims: parse_claims(&row["claims"]).unwrap(),
+        sig: Some(row["sig"].as_str().unwrap().into()),
+    };
+    let orders = [
+        EffectiveErasureOrder {
+            delta: parse_order(&vector["order"]),
+            target_id: target_id.into(),
+            surface_holds_bytes: false,
+        },
+        EffectiveErasureOrder {
+            delta: parse_order(&vector["conflictingOrder"]),
+            target_id: target_id.into(),
+            surface_holds_bytes: true,
+        },
+    ];
+    let authorize = |_: &rhizomatic::erasure_filter::ErasureOrderCandidate,
+                     _: &std::collections::BTreeSet<String>| true;
+    let mut store = MemoryJournal::default();
+    let OrdinaryJournalOpenResult::Open(mut peer) =
+        open_ordinary_journal_peer(&mut store, peer_id).unwrap()
+    else {
+        panic!("expected open")
+    };
+    let error = peer
+        .admit_erasures(
+            &mut store,
+            &EffectiveErasureTransferInput {
+                orders: &orders,
+                ordinary: &[],
+                capacity: None,
+                origin: &ArrivalOrigin::Local,
+                arrived_at: 104.0,
+                policy_state: &(),
+                guards: &[],
+                mode: TransferMode::Individual,
+                target_budget: 1,
+                advance_refusal_cap: 0,
+                authorize: &authorize,
+            },
+        )
+        .unwrap_err();
+    assert_eq!(error, vector["conflictingSurfaceError"].as_str().unwrap());
+    assert!(store.frames.is_empty());
+}
+
+#[test]
+fn journal_api_reports_storage_refuted_absence_without_closing() {
+    let vector = read("peer/permanent-journal.json");
+    let peer_id = vector["peerId"].as_str().unwrap();
+    let held = fixtures()[vector["targetName"].as_str().unwrap()].clone();
+    let order = Delta {
+        id: vector["order"]["id"].as_str().unwrap().into(),
+        claims: parse_claims(&vector["order"]["claims"]).unwrap(),
+        sig: Some(vector["order"]["sig"].as_str().unwrap().into()),
+    };
+    let orders = [EffectiveErasureOrder {
+        delta: order,
+        target_id: held.id.clone(),
+        surface_holds_bytes: false,
+    }];
+    let authorize = |_: &rhizomatic::erasure_filter::ErasureOrderCandidate,
+                     _: &std::collections::BTreeSet<String>| true;
+    let mut store = MemoryJournal::default();
+    let OrdinaryJournalOpenResult::Open(mut peer) =
+        open_ordinary_journal_peer(&mut store, peer_id).unwrap()
+    else {
+        panic!("expected open")
+    };
+    store.rows.insert(held.id.clone(), held.clone());
+    let result = peer
+        .admit_erasures(
+            &mut store,
+            &EffectiveErasureTransferInput {
+                orders: &orders,
+                ordinary: &[],
+                capacity: None,
+                origin: &ArrivalOrigin::Local,
+                arrived_at: 101.0,
+                policy_state: &(),
+                guards: &[],
+                mode: TransferMode::Atomic,
+                target_budget: 1,
+                advance_refusal_cap: 1,
+                authorize: &authorize,
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        result,
+        OrdinaryJournalAdmissionResult::AbsenceRefuted { target_id: held.id }
+    );
+    assert_eq!(peer.current_head().unwrap(), "");
+    assert!(store.frames.is_empty());
 }
 
 #[test]
@@ -380,6 +687,8 @@ fn journal_api_bounds_advance_refusals() {
             &mut store,
             &EffectiveErasureTransferInput {
                 orders: &orders,
+                ordinary: &[],
+                capacity: None,
                 origin: &ArrivalOrigin::Local,
                 arrived_at: 101.0,
                 policy_state: &(),
@@ -404,6 +713,8 @@ fn journal_api_bounds_advance_refusals() {
             &mut store,
             &EffectiveErasureTransferInput {
                 orders: &orders,
+                ordinary: &[],
+                capacity: None,
                 origin: &ArrivalOrigin::Local,
                 arrived_at: 101.0,
                 policy_state: &(),
@@ -470,6 +781,8 @@ fn journal_api_rejects_false_surface_absence_at_cas() {
             &mut store,
             &EffectiveErasureTransferInput {
                 orders: &orders,
+                ordinary: &[],
+                capacity: None,
                 origin: &ArrivalOrigin::Local,
                 arrived_at: 101.0,
                 policy_state: &(),
@@ -481,9 +794,17 @@ fn journal_api_rejects_false_surface_absence_at_cas() {
             },
         )
         .unwrap();
-    assert_eq!(result, OrdinaryJournalAdmissionResult::Conflict);
+    assert!(matches!(
+        result,
+        OrdinaryJournalAdmissionResult::Rejected { .. }
+    ));
     assert_eq!(store.frames.len(), 1);
-    assert!(peer.snapshot().is_err());
+    assert!(peer
+        .snapshot()
+        .unwrap()
+        .base
+        .admitted
+        .contains(&orders[0].target_id));
 }
 
 #[test]
