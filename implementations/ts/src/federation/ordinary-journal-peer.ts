@@ -523,8 +523,9 @@ export class OrdinaryJournalPeer {
         guards: input.guards,
       },
     );
-    const offeredErasureIds = new Set(
+    const offeredOrderIds = new Set(
       guarded
+        .slice(0, stableOrders.length)
         .filter((row) => row.status !== "invalid")
         .flatMap((row) =>
           row.unit.kind === "loose" &&
@@ -570,14 +571,11 @@ export class OrdinaryJournalPeer {
     }
     const priorEffectiveOrders = new Set(this.state.exclusions.map((row) => row.orderId));
     for (const [id, order] of byId) {
-      const heldTarget = this.state.base.admitted.get(order.targetId);
       const reason = priorEffectiveOrders.has(order.targetId)
         ? "erasure targets an effective order"
-        : heldTarget?.claims.pointers.some((pointer) => pointer.role === "erases")
-          ? "erasure targets held erasure testimony"
-          : !order.surfaceHoldsBytes && this.state.base.admitted.has(order.targetId)
-            ? "held target has bytes"
-            : undefined;
+        : !order.surfaceHoldsBytes && this.state.base.admitted.has(order.targetId)
+          ? "held target has bytes"
+          : undefined;
       if (reason !== undefined) {
         byId.delete(id);
         for (let i = 0; i < outcomes.length; i++)
@@ -590,14 +588,14 @@ export class OrdinaryJournalPeer {
       }
     }
     for (const [id, order] of byId) {
-      if (offeredErasureIds.has(order.targetId)) {
+      if (offeredOrderIds.has(order.targetId)) {
         byId.delete(id);
         for (let i = 0; i < outcomes.length; i++)
           if (outcomes[i]!.id === id && outcomes[i]!.status === "effective-erasure")
             outcomes[i] = {
               id,
               status: "erasure-ineligible",
-              reason: "erasure targets an erasure",
+              reason: "erasure targets an order",
             };
       }
     }

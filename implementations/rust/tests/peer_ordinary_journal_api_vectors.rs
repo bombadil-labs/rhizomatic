@@ -688,7 +688,7 @@ fn journal_api_recognizes_a_filtered_cooffered_order_target() {
 }
 
 #[test]
-fn journal_api_does_not_erase_held_erasure_testimony() {
+fn journal_api_erases_held_erasure_testimony() {
     let vector = read("peer/permanent-journal.json");
     let peer_id = vector["peerId"].as_str().unwrap();
     let parse_order = |row: &Value| Delta {
@@ -743,8 +743,8 @@ fn journal_api_does_not_erase_held_erasure_testimony() {
             },
         )
         .unwrap();
-    let OrdinaryJournalAdmissionResult::Committed { outcomes, .. } = result else {
-        panic!("expected no-op receipt")
+    let OrdinaryJournalAdmissionResult::Committed { outcomes, head, .. } = result else {
+        panic!("expected erasure commit")
     };
     assert_eq!(outcomes[0].id, second.id);
     assert_eq!(
@@ -752,20 +752,24 @@ fn journal_api_does_not_erase_held_erasure_testimony() {
         vector["heldTestimonyOrderTarget"]["status"]
     );
     assert_eq!(
-        outcomes[0].reason.as_deref(),
-        vector["heldTestimonyOrderTarget"]["reason"].as_str()
+        hex::encode(&store.frames[1]),
+        vector["heldTestimonyOrderTarget"]["frameHex"]
     );
-    assert_eq!(store.frames.len(), 1);
-    assert!(!peer
+    assert_eq!(head, vector["heldTestimonyOrderTarget"]["head"]);
+    assert!(peer
         .snapshot()
         .unwrap()
         .base
         .refused_ids
         .contains(&testimony.id));
+    assert_eq!(
+        peer.snapshot().unwrap().obligations[0].target_id,
+        testimony.id
+    );
 }
 
 #[test]
-fn journal_api_recognizes_cooffered_erasure_testimony() {
+fn journal_api_erases_cooffered_erasure_testimony() {
     let vector = read("peer/permanent-journal.json");
     let peer_id = vector["peerId"].as_str().unwrap();
     let testimony = Delta {
@@ -835,19 +839,21 @@ fn journal_api_recognizes_cooffered_erasure_testimony() {
             .collect::<Vec<_>>()
     );
     assert_eq!(
-        outcomes[0].reason.as_deref(),
-        vector["coofferedErasureTestimonyTarget"]["reason"].as_str()
-    );
-    assert_eq!(
         hex::encode(&store.frames[0]),
         vector["coofferedErasureTestimonyTarget"]["frameHex"]
     );
     assert_eq!(head, vector["coofferedErasureTestimonyTarget"]["head"]);
-    assert!(!peer
+    assert!(peer
         .snapshot()
         .unwrap()
         .base
         .refused_ids
+        .contains(&testimony.id));
+    assert!(!peer
+        .snapshot()
+        .unwrap()
+        .base
+        .admitted
         .contains(&testimony.id));
 }
 

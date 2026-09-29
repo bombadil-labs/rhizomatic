@@ -149,11 +149,12 @@ The pipeline is:
    containing both an erasure and its target is rejected based on its verified member list,
    even if the target was already admitted. An erasure-bearing bundle may contain only its
    manifest and erasure members; mixing ordinary members into an effective erasure unit is
-   rejected so they cannot bypass the ordinary quota. An erasure targeting an erasure is invalid,
-   including a verified co-offered erasure-shaped delta even if it is offered as ordinary
-   testimony or fails a later gate, an already effective order, and erasure-shaped testimony
-   admitted earlier as ordinary data. A plain delta misclassified as an order candidate is not
-   an erasure target for this rule.
+   rejected so they cannot bypass the ordinary quota. An erasure targeting a verified order
+   candidate in the same transfer is invalid even if that candidate fails a later gate. An
+   erasure targeting an already effective order is also invalid because that order must remain
+   held as evidence for its refusal event. Erasure-shaped testimony offered or held as ordinary
+   data remains erasable. A plain delta misclassified as an order candidate does not block an
+   erasure of that delta.
    An origin's assertion does not force a local effect.
    Conservatively filter local orders: for each E, remove the targets of
    **other** provisional orders from a copy of the pre-transfer admitted set, but retain E's own
@@ -196,7 +197,8 @@ The pipeline is:
    any gate. The duplicate outcome says `held-as-testimony` and makes no erasure promise. Only
    effective orders exclude and refuse their targets. An order that targets an already effective
    erasure order is `erasure-ineligible`: the earlier order must remain held as evidence for its
-   permanent refusal event. This is a per-order outcome in individual mode, so unrelated
+   permanent refusal event. Ordinary erasure-shaped testimony does not carry that invariant and
+   may be refused. This is a per-order outcome in individual mode, so unrelated
    candidates may still land. They may target a separate co-offered candidate: that
    target is refused, the erasure lands, and unrelated candidates remain eligible. If that target
    is a member of another signed bundle, that whole bundle is rejected as

@@ -106,12 +106,32 @@ const afterIneligibleOrder = encodeOrdinaryPeerFrame({
   sender: "local",
   additions: [unrelated],
 });
-const coofferedTestimony = encodeOrdinaryPeerFrame({
+const heldTestimony = encodeOrdinaryPeerFrame({
+  peerId,
+  prior: "",
+  at: 101,
+  sender: "local",
+  additions: [order],
+});
+const afterHeldTestimonyErasure = encodePermanentPeerFrame({
+  kind: "admission",
+  peerId,
+  prior: contentAddress(heldTestimony),
+  at: 105,
+  sender: "local",
+  additions: [orderTargetingOrder],
+  erasures: [{ targetId: order.id, orderIds: [orderTargetingOrder.id], surfaceHoldsBytes: true }],
+  quotaCharge: 0,
+});
+const coofferedTestimony = encodePermanentPeerFrame({
+  kind: "admission",
   peerId,
   prior: "",
   at: 105,
   sender: "local",
-  additions: [unrelated, order],
+  additions: [orderTargetingOrder, unrelated],
+  erasures: [{ targetId: order.id, orderIds: [orderTargetingOrder.id], surfaceHoldsBytes: false }],
+  quotaCharge: 1,
 });
 const afterPlainMisclassification = encodePermanentPeerFrame({
   kind: "admission",
@@ -276,13 +296,12 @@ writeFileSync(
           claims: claimsToJson(orderTargetingFilteredOrder.claims),
         },
         expectedStatuses: ["erasure-ineligible", "erasure-ineligible", "admitted"],
-        reason: "erasure targets an erasure",
+        reason: "erasure targets an order",
         frameHex: Buffer.from(afterIneligibleOrder).toString("hex"),
         head: contentAddress(afterIneligibleOrder),
       },
       coofferedErasureTestimonyTarget: {
-        expectedStatuses: ["erasure-ineligible", "admitted", "admitted"],
-        reason: "erasure targets an erasure",
+        expectedStatuses: ["effective-erasure", "refused", "admitted"],
         frameHex: Buffer.from(coofferedTestimony).toString("hex"),
         head: contentAddress(coofferedTestimony),
       },
@@ -298,8 +317,9 @@ writeFileSync(
         head: contentAddress(afterPlainMisclassification),
       },
       heldTestimonyOrderTarget: {
-        status: "erasure-ineligible",
-        reason: "erasure targets held erasure testimony",
+        status: "effective-erasure",
+        frameHex: Buffer.from(afterHeldTestimonyErasure).toString("hex"),
+        head: contentAddress(afterHeldTestimonyErasure),
       },
       frames: [
         { kind: "ordinary", hex: Buffer.from(ordinary).toString("hex"), head: ordinaryHead },

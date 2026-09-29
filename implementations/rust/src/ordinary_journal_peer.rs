@@ -651,8 +651,9 @@ impl OrdinaryJournalPeer {
                 guards: input.guards,
             },
         )?;
-        let offered_erasure_ids: BTreeSet<String> = guarded
+        let offered_order_ids: BTreeSet<String> = guarded
             .iter()
+            .take(input.orders.len())
             .filter(|row| row.status != GuardedUnitStatus::Invalid)
             .filter_map(|row| match &row.unit {
                 TransferUnit::Loose(delta)
@@ -734,17 +735,8 @@ impl OrdinaryJournalPeer {
             .map(|row| row.order_id.as_str())
             .collect();
         for (id, order) in by_id.clone() {
-            let held_target = self.state.base.admitted.get(&order.target_id);
             let reason = if prior_effective_orders.contains(order.target_id.as_str()) {
                 Some("erasure targets an effective order")
-            } else if held_target.is_some_and(|target| {
-                target
-                    .claims
-                    .pointers
-                    .iter()
-                    .any(|pointer| pointer.role == "erases")
-            }) {
-                Some("erasure targets held erasure testimony")
             } else if !order.surface_holds_bytes
                 && self.state.base.admitted.contains(&order.target_id)
             {
@@ -765,14 +757,14 @@ impl OrdinaryJournalPeer {
             }
         }
         for (id, row) in by_id.clone() {
-            if offered_erasure_ids.contains(&row.target_id) {
+            if offered_order_ids.contains(&row.target_id) {
                 by_id.remove(&id);
                 for outcome in &mut outcomes {
                     if outcome.id == id
                         && outcome.status == SignedLooseOutcomeStatus::EffectiveErasure
                     {
                         outcome.status = SignedLooseOutcomeStatus::ErasureIneligible;
-                        outcome.reason = Some("erasure targets an erasure".into());
+                        outcome.reason = Some("erasure targets an order".into());
                     }
                 }
             }
