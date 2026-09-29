@@ -138,6 +138,8 @@ export {
   type DurableOrdinaryJournalStore,
   type OrdinaryJournalRead,
   type OrdinaryJournalHead,
+  type AdmittedRowRead,
+  type UnavailableAdmittedRow,
   type OrdinaryJournalOpenResult,
   type OrdinaryJournalAdmissionResult,
   type OrdinaryJournalPurgeResult,

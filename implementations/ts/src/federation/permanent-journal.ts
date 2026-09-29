@@ -35,8 +35,8 @@ export function encodePermanentJournalRebase(value: PermanentJournalRebase): Uin
     !DIGEST.test(value.prior)
   )
     throw new Error("permanent journal: invalid rebase peer or prior");
-  if (!value.state.obligations.some((row) => row.status !== "removed"))
-    throw new Error("permanent journal: rebase requires purge debt");
+  if (value.state.events.length === 0)
+    throw new Error("permanent journal: rebase requires refusal history");
   return encode(
     map([
       ["version", float(VERSION)],

@@ -18,6 +18,7 @@ import { isCanonicalPeerId } from "./peer-identity.js";
 import { encodeOrdinaryJournalCheckpoint, encodeOrdinaryPeerFrame } from "./ordinary-journal.js";
 import {
   applyPermanentPeerFrame,
+  decodePermanentJournalRebase,
   decodePermanentPeerFrame,
   encodePermanentJournalRebase,
   encodePermanentPeerFrame,
@@ -44,6 +45,17 @@ export type OrdinaryJournalHead =
   | { readonly status: "head"; readonly head: string }
   | { readonly status: "missing" };
 
+export interface AdmittedRowRead {
+  readonly id: string;
+  readonly row?: Delta;
+  readonly fault?: string;
+}
+
+export interface UnavailableAdmittedRow {
+  readonly id: string;
+  readonly reason: string;
+}
+
 /** A verified absence claim can fail without changing the head. This is not writer contention. */
 export type ErasureJournalWrite =
   | PeerImageWrite
@@ -54,6 +66,11 @@ export interface DurableOrdinaryJournalStore {
   readJournal(peerId: string): Promise<OrdinaryJournalRead>;
   /** Return exactly the stored rows for these admitted ids; extras outside the list stay external. */
   readAdmittedRows(peerId: string, ids: readonly string[]): Promise<readonly Delta[]>;
+  /** Isolate per-row read faults for a writable degraded open. Return one result per requested id. */
+  readAdmittedRowsDegraded?(
+    peerId: string,
+    ids: readonly string[],
+  ): Promise<readonly AdmittedRowRead[]>;
   readHead(peerId: string): Promise<OrdinaryJournalHead>;
   compareAndAppend(
     peerId: string,
@@ -127,6 +144,11 @@ export interface EffectiveErasureTransferInput<State> {
 
 export type OrdinaryJournalOpenResult =
   | { readonly status: "open"; readonly peer: OrdinaryJournalPeer }
+  | {
+      readonly status: "degraded";
+      readonly peer: OrdinaryJournalPeer;
+      readonly unavailable: readonly UnavailableAdmittedRow[];
+    }
   | { readonly status: "rows-without-journal" }
   | { readonly status: "conflict" }
   | { readonly status: "committed-unconfirmed"; readonly fault: string };
@@ -204,6 +226,35 @@ function assertAdmittedRows(state: DurablePeerState, rows: readonly Delta[]): vo
   }
 }
 
+function classifyAdmittedRows(
+  state: DurablePeerState,
+  reads: readonly AdmittedRowRead[],
+): UnavailableAdmittedRow[] {
+  const ids = state.base.admitted.ids();
+  if (reads.length !== ids.length)
+    throw new Error("ordinary journal: incomplete degraded row read");
+  const byId = new Map<string, AdmittedRowRead>();
+  for (const read of reads) {
+    if (!state.base.admitted.has(read.id) || byId.has(read.id))
+      throw new Error("ordinary journal: invalid degraded row read");
+    byId.set(read.id, read);
+  }
+  return ids.flatMap((id) => {
+    const read = byId.get(id);
+    if (read === undefined) throw new Error("ordinary journal: incomplete degraded row read");
+    if (read.fault !== undefined) return [{ id, reason: read.fault }];
+    const row = read.row;
+    if (row === undefined) return [{ id, reason: read.fault ?? "missing row" }];
+    const expected = state.base.admitted.get(id)!;
+    try {
+      if (row.id === id && row.sig === expected.sig && computeId(row.claims) === id) return [];
+    } catch {
+      /* The bad row is isolated below. */
+    }
+    return [{ id, reason: read.fault ?? "admitted row mismatch" }];
+  });
+}
+
 /** A verified in-memory projection of one durable ordinary journal head. */
 export class OrdinaryJournalPeer {
   private live = true;
@@ -212,11 +263,14 @@ export class OrdinaryJournalPeer {
     readonly peerId: string,
     private state: DurablePeerState,
     private head: string,
+    private unavailableIds: Set<string>,
+    private rebasedThrough: number,
   ) {}
 
   static async open(
     store: DurableOrdinaryJournalStore,
     peerId: string,
+    options: { readonly allowDegraded?: boolean } = {},
   ): Promise<OrdinaryJournalOpenResult> {
     if (!isCanonicalPeerId(peerId)) throw new Error("ordinary journal: invalid peer id");
     const current = await store.readJournal(peerId);
@@ -228,14 +282,54 @@ export class OrdinaryJournalPeer {
         current.head,
         current.checkpoint,
       );
+      const rebasedThrough =
+        current.checkpoint === undefined
+          ? 0
+          : ((): number => {
+              try {
+                return decodePermanentJournalRebase(current.checkpoint!).state.base.cursor
+                  .lastSequence;
+              } catch {
+                return 0;
+              } // A verified v1 checkpoint still contains old payloads.
+            })();
+      if (options.allowDegraded) {
+        if (store.readAdmittedRowsDegraded === undefined)
+          throw new Error("ordinary journal: degraded row read unsupported by store");
+        const unavailable = classifyAdmittedRows(
+          state,
+          await store.readAdmittedRowsDegraded(peerId, state.base.admitted.ids()),
+        );
+        const peer = new OrdinaryJournalPeer(
+          store,
+          peerId,
+          state,
+          current.head,
+          new Set(unavailable.map((row) => row.id)),
+          rebasedThrough,
+        );
+        return unavailable.length
+          ? { status: "degraded", peer, unavailable }
+          : { status: "open", peer };
+      }
       assertAdmittedRows(state, await store.readAdmittedRows(peerId, state.base.admitted.ids()));
-      return { status: "open", peer: new OrdinaryJournalPeer(store, peerId, state, current.head) };
+      return {
+        status: "open",
+        peer: new OrdinaryJournalPeer(
+          store,
+          peerId,
+          state,
+          current.head,
+          new Set(),
+          rebasedThrough,
+        ),
+      };
     }
     const write = await store.compareAndAppend(peerId, null, "", null, []);
     if (write.status !== "durable") return write;
     return {
       status: "open",
-      peer: new OrdinaryJournalPeer(store, peerId, emptyDurablePeerState(peerId), ""),
+      peer: new OrdinaryJournalPeer(store, peerId, emptyDurablePeerState(peerId), "", new Set(), 0),
     };
   }
 
@@ -243,6 +337,16 @@ export class OrdinaryJournalPeer {
   snapshot(): DurablePeerState {
     if (!this.live) throw new Error("ordinary journal: reopen required");
     return copyState(this.state);
+  }
+
+  /** The signed rows safe to serve; unavailable physical rows stay out of product views. */
+  availableDeltas(): DeltaSet {
+    if (!this.live) throw new Error("ordinary journal: reopen required");
+    return DeltaSet.from(
+      [...this.state.base.admitted]
+        .filter((row) => !this.unavailableIds.has(row.id))
+        .map((row) => structuredClone(row)),
+    );
   }
 
   currentHead(): string {
@@ -268,8 +372,8 @@ export class OrdinaryJournalPeer {
   /** Compact through erasure by replacing payload-bearing history with the current image. */
   async rebase(): Promise<PeerImageWrite> {
     if (!this.live) throw new Error("ordinary journal: reopen required");
-    if (!this.state.obligations.some((row) => row.status !== "removed"))
-      throw new Error("permanent journal: rebase requires purge debt");
+    if (this.state.events.length === 0)
+      throw new Error("permanent journal: rebase requires refusal history");
     if (this.head === "" || this.store.compareAndRebase === undefined)
       throw new Error("permanent journal: rebase unsupported by store");
     const checkpoint = encodePermanentJournalRebase({
@@ -280,7 +384,10 @@ export class OrdinaryJournalPeer {
     const nextHead = contentAddress(checkpoint);
     const result = await this.store.compareAndRebase(this.peerId, this.head, nextHead, checkpoint);
     if (result.status !== "durable") this.live = false;
-    else this.head = nextHead;
+    else {
+      this.head = nextHead;
+      this.rebasedThrough = this.state.base.cursor.lastSequence;
+    }
     return result;
   }
 
@@ -666,6 +773,7 @@ export class OrdinaryJournalPeer {
       .map((row) => ({ ...row }));
     this.state = state;
     this.head = nextHead;
+    for (const targetId of excludedTargets) this.unavailableIds.delete(targetId);
     return { status: "committed", outcomes, arrivals, head: nextHead };
   }
 
@@ -690,6 +798,13 @@ export class OrdinaryJournalPeer {
       ...report,
     });
     const state = applyPermanentPeerFrame(this.state, decodePermanentPeerFrame(frame));
+    const arrival = this.state.base.arrivals.find((row) => row.id === targetId);
+    if (
+      report.status === "removed" &&
+      arrival !== undefined &&
+      arrival.sequence > this.rebasedThrough
+    )
+      return { status: "absence-refuted", targetId };
     const nextHead = contentAddress(frame);
     if (report.status === "removed" && this.store.compareAndSettlePurge === undefined)
       throw new Error("permanent journal: physical absence proof unsupported by store");

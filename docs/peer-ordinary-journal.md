@@ -33,6 +33,15 @@ Committed frames must remain immutable under that head; a cheap head read relies
 On reopen the store also returns rows for the reconstructed admitted ids. The facade checks
 each row's id, content address and signature and fails closed on missing, duplicate or changed
 rows. Empty-store initialization compares an absent head and refuses a store with rows but no journal.
+A caller may opt into `OrdinaryJournalPeer.open(store, peerId, { allowDegraded: true })` or Rust
+`open_ordinary_journal_peer_degraded`. The adapter then returns one row or row-specific fault for
+each admitted id through `readAdmittedRowsDegraded`. The typed `degraded` result names the
+unavailable ids and reasons. `peer.availableDeltas()` (Rust `available_deltas`) excludes those
+ids from serving views while the journal image still governs admission and refusal. The peer
+remains writable under the normal head CAS. Reopening after the original row is physically
+repaired restores it to the available projection; discarding a genuinely admitted row requires
+a signed erasure and purge. The application decides whether an unavailable constitutional record
+requires a stricter boot response. The default open remains strict.
 A conflict or uncertain commit closes that in-memory peer until it reopens from the journal.
 Erasure appends use `compareAndAppendErasure`, which atomically checks any claim that target bytes
 are absent. A `removed` purge report uses `compareAndSettlePurge`, which proves absence before it
@@ -52,7 +61,7 @@ It first reconstructs every pruned frame from the image's admissions and arrival
 requires the recomputed prefix head to equal the checkpoint boundary. A canonical but altered
 image under a genuine head therefore fails closed.
 This checkpoint is ordinary-only. Once the peer has committed an erasure, `checkpoint()` rejects
-the state. `peer.rebase()` is the erasure-aware compaction operation: while purge debt is active,
+the state. `peer.rebase()` is the erasure-aware compaction operation: whenever refusal history exists,
 it asks `compareAndRebase` to atomically replace all old frames/checkpoint with a canonical
 current-state anchor and a new head bound to that anchor's bytes. The current image omits refused
 payloads; a shared vector checks that a marker in an old frame is absent from the replacement.
@@ -60,6 +69,11 @@ The adapter must remove the old frames from its logical store in the same transa
 remnants, including SQLite free pages and WAL debt, remain purge debt until the store proves their
 absence. `compareAndSettlePurge` must check rows, frames, checkpoints and these remnants before
 recording `removed`. Reopen validates the rebase image, anchor head and retained suffix frames.
+The facade refuses `removed` for a target that arrived after the last v2 rebase, even if a lax
+adapter reports the row absent. A v1 checkpoint does not qualify because it may hold that payload.
+Rebase remains available after purge settlement to bound later replay work.
+Refusal and purge records may still name the erased target id; the proof checks for target
+**payload bytes** on surfaces that can hold them, not for every occurrence of its id.
 It still verifies every admitted signature and row on cold open, so a checkpoint reduces frame
 replay work but does not make cold open constant time. A conflict or uncertain checkpoint result
 closes the facade until reopen. A store without the optional checkpoint method continues to work.

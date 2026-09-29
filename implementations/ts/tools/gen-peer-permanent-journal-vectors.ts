@@ -173,6 +173,17 @@ const purgedAfterRebase = encodePermanentPeerFrame({
   status: "removed",
 });
 const purgedAfterRebaseHead = contentAddress(purgedAfterRebase);
+const settledAfterRebase = replayPermanentPeerFrames(
+  peerId,
+  [purgedAfterRebase],
+  purgedAfterRebaseHead,
+  rebase,
+);
+const settledRebase = encodePermanentJournalRebase({
+  peerId,
+  prior: purgedAfterRebaseHead,
+  state: settledAfterRebase,
+});
 const removed = replayPermanentPeerFrames(peerId, [ordinary, erasure, purge], purgeHead);
 const file = fileURLToPath(
   new URL("../../../vectors/peer/permanent-journal.json", import.meta.url),
@@ -223,6 +234,8 @@ writeFileSync(
         head: rebaseHead,
         purgedHex: Buffer.from(purgedAfterRebase).toString("hex"),
         purgedHead: purgedAfterRebaseHead,
+        settledHex: Buffer.from(settledRebase).toString("hex"),
+        settledHead: contentAddress(settledRebase),
       },
       payloadProbe: {
         marker,
@@ -231,6 +244,11 @@ writeFileSync(
         erasureHex: Buffer.from(secretErasureFrame).toString("hex"),
         rebaseHex: Buffer.from(secretRebase).toString("hex"),
         rebaseHead: contentAddress(secretRebase),
+      },
+      degraded: {
+        unavailableId: first.id,
+        availableId: unrelated.id,
+        reason: "admitted row mismatch",
       },
       expected: {
         refusedTarget: first.id,

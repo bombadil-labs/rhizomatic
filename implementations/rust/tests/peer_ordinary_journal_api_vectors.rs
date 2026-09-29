@@ -5,10 +5,10 @@ use std::collections::BTreeMap;
 use rhizomatic::durable_state::encode_durable_peer_state;
 use rhizomatic::json_profile::parse_claims;
 use rhizomatic::ordinary_journal_peer::{
-    open_ordinary_journal_peer, DurableOrdinaryJournalStore, EffectiveErasureOrder,
-    EffectiveErasureTransferInput, ErasureJournalWrite, OrdinaryJournalAdmissionResult,
-    OrdinaryJournalHead, OrdinaryJournalOpenResult, OrdinaryJournalPurgeResult,
-    OrdinaryJournalRead,
+    open_ordinary_journal_peer, open_ordinary_journal_peer_degraded, AdmittedRowRead,
+    DurableOrdinaryJournalStore, EffectiveErasureOrder, EffectiveErasureTransferInput,
+    ErasureJournalWrite, OrdinaryJournalAdmissionResult, OrdinaryJournalHead,
+    OrdinaryJournalOpenResult, OrdinaryJournalPurgeResult, OrdinaryJournalRead,
 };
 use rhizomatic::single_peer::{
     ArrivalOrigin, PeerImageWrite, SinglePeerTransferInput, TransferMode,
@@ -63,6 +63,20 @@ impl DurableOrdinaryJournalStore for MemoryJournal {
         Ok(ids
             .iter()
             .filter_map(|id| self.rows.get(id).cloned())
+            .collect())
+    }
+    fn read_admitted_rows_degraded(
+        &self,
+        _peer_id: &str,
+        ids: &[String],
+    ) -> Result<Vec<AdmittedRowRead>, String> {
+        Ok(ids
+            .iter()
+            .map(|id| AdmittedRowRead {
+                id: id.clone(),
+                row: self.rows.get(id).cloned(),
+                fault: None,
+            })
             .collect())
     }
     fn read_head(&self, _peer_id: &str) -> Result<OrdinaryJournalHead, String> {
@@ -376,14 +390,14 @@ fn journal_api_commits_erasure_and_requires_absence_before_settlement() {
         recovered
             .report_purge(&mut store, &held.id, 1, "removed", None)
             .unwrap(),
-        OrdinaryJournalPurgeResult::Committed {
-            head: vector["frames"][2]["head"].as_str().unwrap().into(),
+        OrdinaryJournalPurgeResult::AbsenceRefuted {
+            target_id: held.id.clone(),
         }
     );
-    assert_eq!(hex::encode(&store.frames[2]), vector["frames"][2]["hex"]);
+    assert_eq!(store.frames.len(), 2);
     assert_eq!(
         hex::encode(encode_durable_peer_state(&recovered.snapshot().unwrap()).unwrap()),
-        vector["removedImageHex"]
+        vector["pendingImageHex"]
     );
 }
 
@@ -443,6 +457,15 @@ fn journal_api_rebases_erased_payload_before_settlement() {
         },
     )
     .unwrap();
+    store.rows.remove(&held.id);
+    assert_eq!(
+        peer.report_purge(&mut store, &held.id, 1, "removed", None)
+            .unwrap(),
+        OrdinaryJournalPurgeResult::AbsenceRefuted {
+            target_id: held.id.clone()
+        }
+    );
+    store.rows.insert(held.id.clone(), held.clone());
     assert_eq!(peer.rebase(&mut store).unwrap(), PeerImageWrite::Durable);
     assert!(store.frames.is_empty());
     assert_eq!(
@@ -473,8 +496,102 @@ fn journal_api_rebases_erased_payload_before_settlement() {
         }
     );
     assert_eq!(hex::encode(&store.frames[0]), vector["rebase"]["purgedHex"]);
+    assert_eq!(peer.rebase(&mut store).unwrap(), PeerImageWrite::Durable);
+    assert_eq!(
+        hex::encode(store.checkpoint.as_ref().unwrap()),
+        vector["rebase"]["settledHex"]
+    );
+    assert_eq!(
+        peer.current_head().unwrap(),
+        vector["rebase"]["settledHead"].as_str().unwrap()
+    );
     assert!(matches!(
         open_ordinary_journal_peer(&mut store, peer_id).unwrap(),
+        OrdinaryJournalOpenResult::Open(_)
+    ));
+}
+
+#[test]
+fn journal_api_degraded_open_keeps_writes_and_isolates_damaged_row() {
+    let vector = read("peer/permanent-journal.json");
+    let named = fixtures();
+    let peer_id = vector["peerId"].as_str().unwrap();
+    let held = named["userRootDeclaration"].clone();
+    let unrelated = named["operatorRootDeclaration"].clone();
+    let third = named["bindingUserKey"].clone();
+    let mut store = MemoryJournal::default();
+    let OrdinaryJournalOpenResult::Open(mut peer) =
+        open_ordinary_journal_peer(&mut store, peer_id).unwrap()
+    else {
+        panic!("expected open")
+    };
+    let classifier = |_: &Delta| false;
+    peer.admit(
+        &mut store,
+        &SinglePeerTransferInput {
+            offered: &[held.clone(), unrelated.clone()],
+            origin: &ArrivalOrigin::Local,
+            arrived_at: 100.0,
+            policy_state: &(),
+            guards: &[],
+            is_erasure_candidate: &classifier,
+            mode: TransferMode::Atomic,
+            capacity: None,
+        },
+    )
+    .unwrap();
+    let mut damaged = held.clone();
+    damaged.claims = unrelated.claims.clone();
+    store.rows.insert(held.id.clone(), damaged);
+    assert!(open_ordinary_journal_peer(&mut store, peer_id)
+        .unwrap_err()
+        .contains("admitted row mismatch"));
+    let OrdinaryJournalOpenResult::Degraded {
+        mut peer,
+        unavailable,
+    } = open_ordinary_journal_peer_degraded(&mut store, peer_id).unwrap()
+    else {
+        panic!("expected degraded")
+    };
+    assert_eq!(
+        unavailable
+            .iter()
+            .map(|row| row.id.as_str())
+            .collect::<Vec<_>>(),
+        vec![vector["degraded"]["unavailableId"].as_str().unwrap()]
+    );
+    assert_eq!(
+        unavailable[0].reason,
+        vector["degraded"]["reason"].as_str().unwrap()
+    );
+    assert_eq!(
+        peer.available_deltas().unwrap().ids(),
+        vec![vector["degraded"]["availableId"].as_str().unwrap()]
+    );
+    assert!(peer.snapshot().unwrap().base.admitted.contains(&held.id));
+    assert!(matches!(
+        peer.admit(
+            &mut store,
+            &SinglePeerTransferInput {
+                offered: std::slice::from_ref(&third),
+                origin: &ArrivalOrigin::Local,
+                arrived_at: 102.0,
+                policy_state: &(),
+                guards: &[],
+                is_erasure_candidate: &classifier,
+                mode: TransferMode::Atomic,
+                capacity: None,
+            }
+        )
+        .unwrap(),
+        OrdinaryJournalAdmissionResult::Committed { .. }
+    ));
+    let mut available = vec![unrelated.id.as_str(), third.id.as_str()];
+    available.sort();
+    assert_eq!(peer.available_deltas().unwrap().ids(), available);
+    store.rows.insert(held.id.clone(), held);
+    assert!(matches!(
+        open_ordinary_journal_peer_degraded(&mut store, peer_id).unwrap(),
         OrdinaryJournalOpenResult::Open(_)
     ));
 }

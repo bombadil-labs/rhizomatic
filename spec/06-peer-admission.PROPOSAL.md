@@ -479,12 +479,18 @@ The pipeline is:
    address becomes the new head. The adapter MUST compare the old head and atomically replace all
    old frames and any prior checkpoint with this new anchor and new head; a conflict changes
    nothing. Reopen verifies the canonical image, the rebase head, and each retained suffix frame
-   from that head. The rebase is allowed only while purge debt is active. Its `prior` field records
+   from that head. The rebase is allowed whenever refusal history exists, including after all
+   purge debt has settled, so an active peer can continue compacting. Its `prior` field records
    the CAS boundary but is not an independent proof of the discarded frame preimages; the trusted
    atomic store operation is the authority for the transition. A `removed` purge report MUST NOT
    commit until the backend proves absence across **all** declared storage surfaces, including
    current rows, frames, checkpoints, old frame remnants, and write-ahead or compaction debt.
    Rebase removes the payload from the logical journal but does not by itself settle physical debt.
+   The facade also refuses a `removed` report for a previously arrived target until a v2 rebase
+   covers that arrival sequence. A v1 checkpoint can still retain the payload and does not count.
+   The backend remains responsible for proving absence from physical remnants and other surfaces.
+   Refusal, arrival, and purge testimony may still name the target id; the absence proof concerns
+   its payload bytes on surfaces capable of holding them, not every occurrence of that id.
    A v2 admission frame includes the v1 peer, prior, time, sender, and packed additions, plus
    `kind = admission`, ordinary quota charge, and sorted erasure groups. Each group names the
    target id, the effective order ids, and whether this peer's declared surface held bytes.
@@ -512,6 +518,14 @@ The pipeline is:
    facade MUST compare their ids, content addresses and signatures to the frame-derived state;
    a missing, duplicated, or mismatched admitted row fails closed. Rows outside that admitted
    id list remain an application reporting concern and grant no admission.
+   The typed degraded-open variant MAY isolate row-specific read faults and mismatches instead of
+   failing the whole open. Its store read MUST return exactly one result per admitted id, and its
+   result MUST name every unavailable id. The durable image remains authoritative for refusal,
+   duplicate and arrival decisions; an unavailable id MUST be excluded from the serving
+   projection, even if the signed journal still contains its original bytes. The facade remains
+   writable under the same head CAS. A later verified physical repair may restore availability on
+   reopen; permanent discard of a genuinely admitted row requires a signed erasure and purge.
+   Damage to an application-defined constitutional core remains an application boot decision.
    An ordinary journal checkpoint is a canonical CBOR map with exactly `version` = 1, `peer`,
    `head`, and `image` (canonical v2 durable peer-image bytes). It may replace the entire
    verified frame prefix only through an atomic compare-and-checkpoint against the current head.

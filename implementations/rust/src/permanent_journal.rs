@@ -32,13 +32,8 @@ pub fn encode_permanent_journal_rebase(value: &PermanentJournalRebase) -> Result
     {
         return Err("permanent journal: invalid rebase peer or prior".into());
     }
-    if !value
-        .state
-        .obligations
-        .iter()
-        .any(|row| row.status != "removed")
-    {
-        return Err("permanent journal: rebase requires purge debt".into());
+    if value.state.events.is_empty() {
+        return Err("permanent journal: rebase requires refusal history".into());
     }
     Ok(encode(&CborValue::Map(vec![
         ("version".into(), CborValue::Float(VERSION)),

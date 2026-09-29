@@ -17,12 +17,14 @@ use crate::ordinary_journal::{
 use crate::ordinary_quota::{plan_ordinary_quota, OrdinaryQuotaUnit};
 use crate::peer_identity::is_canonical_peer_id;
 use crate::permanent_journal::{
-    apply_permanent_peer_frame, encode_permanent_journal_rebase, encode_permanent_peer_frame,
-    replay_permanent_peer_frames, PermanentJournalRebase, PermanentPeerFrame,
+    apply_permanent_peer_frame, decode_permanent_journal_rebase, encode_permanent_journal_rebase,
+    encode_permanent_peer_frame, replay_permanent_peer_frames, PermanentJournalRebase,
+    PermanentPeerFrame,
 };
 use crate::preflight::{
     preflight_transfer, CandidateGuard, GuardedUnitStatus, PreflightContext, TransferUnit,
 };
+use crate::set::DeltaSet;
 use crate::signed_loose_admission::{
     plan_signed_loose_ordinary_transfer_from_verified, SignedLooseOutcome,
     SignedLooseOutcomeStatus, SignedLooseTransferInput,
@@ -45,6 +47,19 @@ pub enum OrdinaryJournalRead {
 pub enum OrdinaryJournalHead {
     Head(String),
     Missing,
+}
+
+#[derive(Debug, Clone)]
+pub struct AdmittedRowRead {
+    pub id: String,
+    pub row: Option<Delta>,
+    pub fault: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UnavailableAdmittedRow {
+    pub id: String,
+    pub reason: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -70,6 +85,14 @@ pub trait DurableOrdinaryJournalStore {
     fn read_journal(&self, peer_id: &str) -> Result<OrdinaryJournalRead, String>;
     /// Return exactly the stored rows for these admitted ids; extras outside the list stay external.
     fn read_admitted_rows(&self, peer_id: &str, ids: &[String]) -> Result<Vec<Delta>, String>;
+    /// Isolate per-row faults for a writable degraded open; return one result per requested id.
+    fn read_admitted_rows_degraded(
+        &self,
+        _peer_id: &str,
+        _ids: &[String],
+    ) -> Result<Vec<AdmittedRowRead>, String> {
+        Err("ordinary journal: degraded row read unsupported by store".into())
+    }
     fn read_head(&self, peer_id: &str) -> Result<OrdinaryJournalHead, String>;
     fn compare_and_append(
         &mut self,
@@ -150,9 +173,15 @@ pub struct EffectiveErasureTransferInput<'a, S> {
 #[derive(Debug, Clone, PartialEq)]
 pub enum OrdinaryJournalOpenResult {
     Open(Box<OrdinaryJournalPeer>),
+    Degraded {
+        peer: Box<OrdinaryJournalPeer>,
+        unavailable: Vec<UnavailableAdmittedRow>,
+    },
     RowsWithoutJournal,
     Conflict,
-    CommittedUnconfirmed { fault: String },
+    CommittedUnconfirmed {
+        fault: String,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -189,6 +218,8 @@ pub struct OrdinaryJournalPeer {
     state: DurablePeerState,
     head: String,
     live: bool,
+    unavailable_ids: BTreeSet<String>,
+    rebased_through: u64,
 }
 
 fn sender(origin: &ArrivalOrigin, receiving_peer_id: &str) -> Result<String, String> {
@@ -224,14 +255,75 @@ fn assert_admitted_rows(state: &DurablePeerState, rows: &[Delta]) -> Result<(), 
     Ok(())
 }
 
+fn classify_admitted_rows(
+    state: &DurablePeerState,
+    reads: &[AdmittedRowRead],
+) -> Result<Vec<UnavailableAdmittedRow>, String> {
+    let ids = state.base.admitted.ids();
+    if reads.len() != ids.len() {
+        return Err("ordinary journal: incomplete degraded row read".into());
+    }
+    let mut by_id: BTreeMap<&str, &AdmittedRowRead> = BTreeMap::new();
+    for read in reads {
+        if !state.base.admitted.contains(&read.id) || by_id.insert(read.id.as_str(), read).is_some()
+        {
+            return Err("ordinary journal: invalid degraded row read".into());
+        }
+    }
+    let mut unavailable = Vec::new();
+    for id in ids {
+        let read = by_id
+            .get(id)
+            .ok_or("ordinary journal: incomplete degraded row read")?;
+        let sound = read.fault.is_none()
+            && read.row.as_ref().is_some_and(|row| {
+                row.id == id
+                    && state
+                        .base
+                        .admitted
+                        .get(id)
+                        .is_some_and(|expected| expected.sig == row.sig)
+                    && compute_id(&row.claims).ok().as_deref() == Some(id)
+            });
+        if !sound {
+            unavailable.push(UnavailableAdmittedRow {
+                id: id.to_string(),
+                reason: read.fault.clone().unwrap_or_else(|| {
+                    if read.row.is_none() {
+                        "missing row".into()
+                    } else {
+                        "admitted row mismatch".into()
+                    }
+                }),
+            });
+        }
+    }
+    Ok(unavailable)
+}
+
 pub fn open_ordinary_journal_peer<S: DurableOrdinaryJournalStore>(
     store: &mut S,
     peer_id: &str,
 ) -> Result<OrdinaryJournalOpenResult, String> {
+    open_ordinary_journal_peer_inner(store, peer_id, false)
+}
+
+pub fn open_ordinary_journal_peer_degraded<S: DurableOrdinaryJournalStore>(
+    store: &mut S,
+    peer_id: &str,
+) -> Result<OrdinaryJournalOpenResult, String> {
+    open_ordinary_journal_peer_inner(store, peer_id, true)
+}
+
+fn open_ordinary_journal_peer_inner<S: DurableOrdinaryJournalStore>(
+    store: &mut S,
+    peer_id: &str,
+    allow_degraded: bool,
+) -> Result<OrdinaryJournalOpenResult, String> {
     if !is_canonical_peer_id(peer_id) {
         return Err("ordinary journal: invalid peer id".into());
     }
-    let (state, head) = match store.read_journal(peer_id)? {
+    let (state, head, unavailable, rebased_through) = match store.read_journal(peer_id)? {
         OrdinaryJournalRead::RowsWithoutJournal => {
             return Ok(OrdinaryJournalOpenResult::RowsWithoutJournal)
         }
@@ -242,6 +334,10 @@ pub fn open_ordinary_journal_peer<S: DurableOrdinaryJournalStore>(
         } => {
             let state =
                 replay_permanent_peer_frames(peer_id, &frames, &head, checkpoint.as_deref())?;
+            let rebased_through = checkpoint
+                .as_deref()
+                .and_then(|bytes| decode_permanent_journal_rebase(bytes).ok())
+                .map_or(0, |anchor| anchor.state.base.cursor.last_sequence);
             let ids = state
                 .base
                 .admitted
@@ -249,8 +345,13 @@ pub fn open_ordinary_journal_peer<S: DurableOrdinaryJournalStore>(
                 .into_iter()
                 .map(str::to_string)
                 .collect::<Vec<_>>();
-            assert_admitted_rows(&state, &store.read_admitted_rows(peer_id, &ids)?)?;
-            (state, head)
+            let unavailable = if allow_degraded {
+                classify_admitted_rows(&state, &store.read_admitted_rows_degraded(peer_id, &ids)?)?
+            } else {
+                assert_admitted_rows(&state, &store.read_admitted_rows(peer_id, &ids)?)?;
+                Vec::new()
+            };
+            (state, head, unavailable, rebased_through)
         }
         OrdinaryJournalRead::Empty => {
             match store.compare_and_append(peer_id, None, "", None, &[])? {
@@ -260,17 +361,27 @@ pub fn open_ordinary_journal_peer<S: DurableOrdinaryJournalStore>(
                     return Ok(OrdinaryJournalOpenResult::CommittedUnconfirmed { fault });
                 }
             }
-            (empty_durable_peer_state(peer_id)?, String::new())
+            (
+                empty_durable_peer_state(peer_id)?,
+                String::new(),
+                Vec::new(),
+                0,
+            )
         }
     };
-    Ok(OrdinaryJournalOpenResult::Open(Box::new(
-        OrdinaryJournalPeer {
-            peer_id: peer_id.into(),
-            state,
-            head,
-            live: true,
-        },
-    )))
+    let peer = Box::new(OrdinaryJournalPeer {
+        peer_id: peer_id.into(),
+        state,
+        head,
+        live: true,
+        unavailable_ids: unavailable.iter().map(|row| row.id.clone()).collect(),
+        rebased_through,
+    });
+    if unavailable.is_empty() {
+        Ok(OrdinaryJournalOpenResult::Open(peer))
+    } else {
+        Ok(OrdinaryJournalOpenResult::Degraded { peer, unavailable })
+    }
 }
 
 impl OrdinaryJournalPeer {
@@ -284,6 +395,21 @@ impl OrdinaryJournalPeer {
             return Err("ordinary journal: reopen required".into());
         }
         Ok(self.state.clone())
+    }
+
+    /// Signed rows safe to serve; damaged physical rows remain outside product views.
+    pub fn available_deltas(&self) -> Result<DeltaSet, String> {
+        if !self.live {
+            return Err("ordinary journal: reopen required".into());
+        }
+        DeltaSet::from_deltas(
+            self.state
+                .base
+                .admitted
+                .iter()
+                .filter(|row| !self.unavailable_ids.contains(&row.id))
+                .cloned(),
+        )
     }
 
     pub fn current_head(&self) -> Result<&str, String> {
@@ -321,13 +447,8 @@ impl OrdinaryJournalPeer {
         if !self.live {
             return Err("ordinary journal: reopen required".into());
         }
-        if !self
-            .state
-            .obligations
-            .iter()
-            .any(|row| row.status != "removed")
-        {
-            return Err("permanent journal: rebase requires purge debt".into());
+        if self.state.events.is_empty() {
+            return Err("permanent journal: rebase requires refusal history".into());
         }
         if self.head.is_empty() {
             return Err("permanent journal: rebase unsupported by store".into());
@@ -342,6 +463,7 @@ impl OrdinaryJournalPeer {
             store.compare_and_rebase(&self.peer_id, &self.head, &next_head, &checkpoint)?;
         if result == PeerImageWrite::Durable {
             self.head = next_head;
+            self.rebased_through = self.state.base.cursor.last_sequence;
         } else {
             self.live = false;
         }
@@ -895,6 +1017,9 @@ impl OrdinaryJournalPeer {
         let arrivals = state.base.arrivals[self.state.base.arrivals.len()..].to_vec();
         self.state = state;
         self.head = next_head.clone();
+        for target_id in &excluded_targets {
+            self.unavailable_ids.remove(target_id);
+        }
         Ok(OrdinaryJournalAdmissionResult::Committed {
             outcomes,
             arrivals,
@@ -927,6 +1052,18 @@ impl OrdinaryJournalPeer {
             fault: fault.map(str::to_string),
         };
         let state = apply_permanent_peer_frame(&self.state, &frame)?;
+        if status == "removed"
+            && self
+                .state
+                .base
+                .arrivals
+                .iter()
+                .any(|row| row.id == target_id && row.sequence > self.rebased_through)
+        {
+            return Ok(OrdinaryJournalPurgeResult::AbsenceRefuted {
+                target_id: target_id.into(),
+            });
+        }
         let bytes = encode_permanent_peer_frame(&frame)?;
         let next_head = content_address(&bytes);
         let write = if status == "removed" {

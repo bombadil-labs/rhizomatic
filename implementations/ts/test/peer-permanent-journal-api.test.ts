@@ -35,7 +35,15 @@ const vector = JSON.parse(
     imageHex: string;
     expectedStatuses: string[];
   };
-  rebase: { hex: string; head: string; purgedHex: string; purgedHead: string };
+  rebase: {
+    hex: string;
+    head: string;
+    purgedHex: string;
+    purgedHead: string;
+    settledHex: string;
+    settledHead: string;
+  };
+  degraded: { unavailableId: string; availableId: string; reason: string };
   expected: { refusedTarget: string };
 };
 const evidence = JSON.parse(
@@ -62,6 +70,12 @@ const unrelated: Delta = {
   sig: unrelatedRow.sig!,
   claims: parseClaims(unrelatedRow.claims),
 };
+const thirdRow = evidence.deltas.find((row) => row.name === "bindingUserKey")!;
+const third: Delta = {
+  id: thirdRow.id,
+  sig: thirdRow.sig!,
+  claims: parseClaims(thirdRow.claims),
+};
 
 class MemoryStore implements DurableOrdinaryJournalStore {
   head: string | null = null;
@@ -79,6 +93,14 @@ class MemoryStore implements DurableOrdinaryJournalStore {
   }
   async readAdmittedRows(_peer: string, ids: readonly string[]): Promise<readonly Delta[]> {
     return ids.flatMap((id) => (this.rows.has(id) ? [structuredClone(this.rows.get(id)!)] : []));
+  }
+  async readAdmittedRowsDegraded(_peer: string, ids: readonly string[]) {
+    return ids.map((id) => ({
+      id,
+      ...(this.rows.has(id)
+        ? { row: structuredClone(this.rows.get(id)!) }
+        : { fault: "missing row" }),
+    }));
   }
   async readHead(): Promise<OrdinaryJournalHead> {
     return this.head === null ? { status: "missing" } : { status: "head", head: this.head };
@@ -136,6 +158,56 @@ class MemoryStore implements DurableOrdinaryJournalStore {
 }
 
 describe("typed permanent journal erasure boundary", () => {
+  it("keeps writes live while isolating one damaged admitted row from serving", async () => {
+    const store = new MemoryStore();
+    const opened = await OrdinaryJournalPeer.open(store, vector.peerId);
+    if (opened.status !== "open") throw new Error("expected open");
+    await opened.peer.admit({
+      offered: [held, unrelated],
+      origin: { kind: "local" },
+      arrivedAt: 100,
+      policyState: {},
+      guards: [],
+      mode: "atomic",
+      isErasureCandidate: () => false,
+    });
+    store.rows.set(held.id, { ...held, claims: unrelated.claims });
+    await expect(OrdinaryJournalPeer.open(store, vector.peerId)).rejects.toThrow(
+      "admitted row mismatch",
+    );
+    const degraded = await OrdinaryJournalPeer.open(store, vector.peerId, {
+      allowDegraded: true,
+    });
+    if (degraded.status !== "degraded") throw new Error("expected degraded open");
+    expect(degraded.unavailable).toEqual([
+      {
+        id: vector.degraded.unavailableId,
+        reason: vector.degraded.reason,
+      },
+    ]);
+    expect(degraded.peer.availableDeltas().ids()).toEqual([vector.degraded.availableId]);
+    expect(degraded.peer.snapshot().base.admitted.has(held.id)).toBe(true);
+    expect(
+      (
+        await degraded.peer.admit({
+          offered: [third],
+          origin: { kind: "local" },
+          arrivedAt: 102,
+          policyState: {},
+          guards: [],
+          mode: "atomic",
+          isErasureCandidate: () => false,
+        })
+      ).status,
+    ).toBe("committed");
+    expect(degraded.peer.availableDeltas().ids()).toEqual([unrelated.id, third.id].sort());
+    store.rows.set(held.id, held);
+    const repaired = await OrdinaryJournalPeer.open(store, vector.peerId, {
+      allowDegraded: true,
+    });
+    expect(repaired.status).toBe("open");
+  });
+
   it("rebases away an erased payload before a purge can settle", async () => {
     const store = new MemoryStore();
     const opened = await OrdinaryJournalPeer.open(store, vector.peerId);
@@ -160,6 +232,12 @@ describe("typed permanent journal erasure boundary", () => {
       advanceRefusalCap: 0,
       authorize: () => true,
     });
+    store.rows.delete(held.id);
+    expect(await opened.peer.reportPurge(held.id, 1, { status: "removed" })).toEqual({
+      status: "absence-refuted",
+      targetId: held.id,
+    });
+    store.rows.set(held.id, held);
     expect(await opened.peer.rebase()).toEqual({ status: "durable" });
     expect(store.frames).toHaveLength(0);
     expect(Buffer.from(store.checkpoint!).toString("hex")).toBe(vector.rebase.hex);
@@ -175,6 +253,9 @@ describe("typed permanent journal erasure boundary", () => {
       head: vector.rebase.purgedHead,
     });
     expect(Buffer.from(store.frames[0]!).toString("hex")).toBe(vector.rebase.purgedHex);
+    expect(await opened.peer.rebase()).toEqual({ status: "durable" });
+    expect(Buffer.from(store.checkpoint!).toString("hex")).toBe(vector.rebase.settledHex);
+    expect(opened.peer.currentHead()).toBe(vector.rebase.settledHead);
     expect((await OrdinaryJournalPeer.open(store, vector.peerId)).status).toBe("open");
   });
 
@@ -250,7 +331,7 @@ describe("typed permanent journal erasure boundary", () => {
     expect((await OrdinaryJournalPeer.open(store, vector.peerId)).status).toBe("open");
   });
 
-  it("commits refusal and debt, reopens without erased row, then settles only after physical absence", async () => {
+  it("keeps purge debt pending when the row is gone but the old frame still holds payload", async () => {
     const store = new MemoryStore();
     const opened = await OrdinaryJournalPeer.open(store, vector.peerId);
     if (opened.status !== "open") throw new Error("expected open");
@@ -296,12 +377,12 @@ describe("typed permanent journal erasure boundary", () => {
     const recovered = await OrdinaryJournalPeer.open(store, vector.peerId);
     if (recovered.status !== "open") throw new Error("expected reopen");
     expect(await recovered.peer.reportPurge(held.id, 1, { status: "removed" })).toEqual({
-      status: "committed",
-      head: vector.frames[2]!.head,
+      status: "absence-refuted",
+      targetId: held.id,
     });
-    expect(Buffer.from(store.frames[2]!).toString("hex")).toBe(vector.frames[2]!.hex);
+    expect(store.frames).toHaveLength(2);
     expect(Buffer.from(encodeDurablePeerState(recovered.peer.snapshot())).toString("hex")).toBe(
-      vector.removedImageHex,
+      vector.pendingImageHex,
     );
   });
 

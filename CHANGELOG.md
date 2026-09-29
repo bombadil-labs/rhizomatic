@@ -15,6 +15,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 
 ### Added
 
+- The step-6 journal now offers a writable degraded open that names damaged or missing admitted
+  rows and excludes them from its serving projection. A purge cannot report `removed` for a
+  previously arrived target until a v2 rebase covers its arrival, and erasure-aware rebase stays
+  available after purge settlement to bound replay work. Shared TypeScript and Rust vectors and
+  store tests cover these contracts.
 - Step-6 admission building blocks in both TypeScript and Rust: shared arrival testimony vectors,
   signed loose and bundle entry checks, candidate-local guard preflight against the pre-transfer
   admitted set, conservative erasure authority and target-budget filtering, set-level ordinary
