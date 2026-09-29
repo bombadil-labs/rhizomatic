@@ -7,7 +7,8 @@ use crate::delta::compute_id;
 use crate::durable_state::{empty_durable_peer_state, DurablePeerState};
 use crate::hash::content_address;
 use crate::ordinary_journal::{
-    encode_ordinary_peer_frame, replay_ordinary_peer_frames, OrdinaryPeerFrame,
+    encode_ordinary_journal_checkpoint, encode_ordinary_peer_frame,
+    replay_ordinary_peer_frames_from_checkpoint, OrdinaryJournalCheckpoint, OrdinaryPeerFrame,
 };
 use crate::peer_identity::is_canonical_peer_id;
 use crate::signed_loose_admission::{
@@ -20,7 +21,11 @@ use crate::types::Delta;
 pub enum OrdinaryJournalRead {
     Empty,
     RowsWithoutJournal,
-    Journal { head: String, frames: Vec<Vec<u8>> },
+    Journal {
+        head: String,
+        frames: Vec<Vec<u8>>,
+        checkpoint: Option<Vec<u8>>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -43,6 +48,15 @@ pub trait DurableOrdinaryJournalStore {
         frame: Option<&[u8]>,
         newly_admitted: &[Delta],
     ) -> Result<PeerImageWrite, String>;
+    /// Atomically replace a verified frame prefix at expected_head; keep rows and head.
+    fn compare_and_checkpoint(
+        &mut self,
+        _peer_id: &str,
+        _expected_head: &str,
+        _checkpoint: &[u8],
+    ) -> Result<PeerImageWrite, String> {
+        Err("ordinary journal: checkpoint unsupported by store".into())
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -122,8 +136,17 @@ pub fn open_ordinary_journal_peer<S: DurableOrdinaryJournalStore>(
         OrdinaryJournalRead::RowsWithoutJournal => {
             return Ok(OrdinaryJournalOpenResult::RowsWithoutJournal)
         }
-        OrdinaryJournalRead::Journal { head, frames } => {
-            let state = replay_ordinary_peer_frames(peer_id, &frames, &head)?;
+        OrdinaryJournalRead::Journal {
+            head,
+            frames,
+            checkpoint,
+        } => {
+            let state = replay_ordinary_peer_frames_from_checkpoint(
+                peer_id,
+                &frames,
+                &head,
+                checkpoint.as_deref(),
+            )?;
             let ids = state
                 .base
                 .admitted
@@ -173,6 +196,26 @@ impl OrdinaryJournalPeer {
             return Err("ordinary journal: reopen required".into());
         }
         Ok(&self.head)
+    }
+
+    /// Compact a verified prefix; conflict or uncertain durability requires reopen.
+    pub fn checkpoint<S: DurableOrdinaryJournalStore>(
+        &mut self,
+        store: &mut S,
+    ) -> Result<PeerImageWrite, String> {
+        if !self.live {
+            return Err("ordinary journal: reopen required".into());
+        }
+        let bytes = encode_ordinary_journal_checkpoint(&OrdinaryJournalCheckpoint {
+            peer_id: self.peer_id.clone(),
+            head: self.head.clone(),
+            state: self.state.clone(),
+        })?;
+        let result = store.compare_and_checkpoint(&self.peer_id, &self.head, &bytes)?;
+        if result != PeerImageWrite::Durable {
+            self.live = false;
+        }
+        Ok(result)
     }
 
     /// Caller serializes writers for this peer. Conflicts and uncertain commits require reopen.

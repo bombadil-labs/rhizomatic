@@ -8,6 +8,7 @@ import { packSet, unpackSet } from "../storage/pack.js";
 import { planArrivals } from "./arrival.js";
 import {
   emptyDurablePeerState,
+  decodeDurablePeerState,
   encodeDurablePeerState,
   type DurablePeerState,
 } from "./durable-state.js";
@@ -16,6 +17,64 @@ import { rememberVerifiedSignature } from "./peer-state.js";
 
 const VERSION = 1;
 const FRAME_ID = /^1e20[0-9a-f]{64}$/;
+
+export interface OrdinaryJournalCheckpoint {
+  readonly peerId: string;
+  readonly head: string;
+  readonly state: DurablePeerState;
+}
+
+function ordinaryCheckpointState(state: DurablePeerState): void {
+  if (
+    state.events.length !== 0 ||
+    state.exclusions.length !== 0 ||
+    state.obligations.length !== 0 ||
+    state.base.refusedIds.size !== 0 ||
+    state.quotaUsed !== state.base.admitted.size ||
+    state.base.cursor.lastSequence !== state.base.admitted.size
+  )
+    throw new Error("ordinary journal: checkpoint is not ordinary-only");
+}
+
+/** Canonical verified prefix and its exact frame-chain boundary. */
+export function encodeOrdinaryJournalCheckpoint(checkpoint: OrdinaryJournalCheckpoint): Uint8Array {
+  if (!isCanonicalPeerId(checkpoint.peerId) || checkpoint.state.base.peerId !== checkpoint.peerId)
+    throw new Error("ordinary journal: checkpoint peer mismatch");
+  if (checkpoint.head !== "" && !FRAME_ID.test(checkpoint.head))
+    throw new Error("ordinary journal: invalid checkpoint head");
+  ordinaryCheckpointState(checkpoint.state);
+  if ((checkpoint.head === "") !== (checkpoint.state.base.admitted.size === 0))
+    throw new Error("ordinary journal: checkpoint head/state mismatch");
+  return encode(
+    map([
+      ["version", float(VERSION)],
+      ["peer", tstr(checkpoint.peerId)],
+      ["head", tstr(checkpoint.head)],
+      ["image", bstr(encodeDurablePeerState(checkpoint.state))],
+    ]),
+  );
+}
+
+export function decodeOrdinaryJournalCheckpoint(bytes: Uint8Array): OrdinaryJournalCheckpoint {
+  const value = decode(bytes);
+  if (value.t !== "map" || value.v.length !== 4)
+    throw new Error("ordinary journal: invalid checkpoint fields");
+  const row = new Map(value.v);
+  if (row.size !== 4 || row.get("version")?.t !== "float" || row.get("version")?.v !== VERSION)
+    throw new Error("ordinary journal: invalid checkpoint fields");
+  const image = row.get("image");
+  if (image?.t !== "bstr") throw new Error("ordinary journal: invalid checkpoint image");
+  const peerId = string(row.get("peer"));
+  const checkpoint = {
+    peerId,
+    head: string(row.get("head")),
+    state: decodeDurablePeerState(image.v, peerId),
+  };
+  const canonical = encodeOrdinaryJournalCheckpoint(checkpoint);
+  if (canonical.length !== bytes.length || canonical.some((byte, i) => byte !== bytes[i]))
+    throw new Error("ordinary journal: noncanonical checkpoint");
+  return checkpoint;
+}
 
 export interface OrdinaryPeerFrame {
   readonly peerId: string;
@@ -105,13 +164,18 @@ export function replayOrdinaryPeerFrames(
   peerId: string,
   frames: readonly Uint8Array[],
   expectedHead: string,
+  checkpointBytes?: Uint8Array,
 ): DurablePeerState {
-  const empty = emptyDurablePeerState(peerId);
-  const admitted = new DeltaSet();
-  const arrivals = [] as Array<(typeof empty.base.arrivals)[number]>;
-  let cursor = empty.base.cursor;
-  let quotaUsed = 0;
-  let head = "";
+  const initial =
+    checkpointBytes === undefined ? undefined : decodeOrdinaryJournalCheckpoint(checkpointBytes);
+  if (initial !== undefined && initial.peerId !== peerId)
+    throw new Error("ordinary journal: checkpoint peer mismatch");
+  const base = initial?.state ?? emptyDurablePeerState(peerId);
+  const admitted = DeltaSet.from(base.base.admitted);
+  const arrivals = [...base.base.arrivals];
+  let cursor = base.base.cursor;
+  let quotaUsed = base.quotaUsed;
+  let head = initial?.head ?? "";
   for (const bytes of frames) {
     const frame = decodeOrdinaryPeerFrame(bytes);
     if (frame.peerId !== peerId || frame.prior !== head)
@@ -136,8 +200,8 @@ export function replayOrdinaryPeerFrames(
   }
   if (head !== expectedHead) throw new Error("ordinary journal: head mismatch");
   const state: DurablePeerState = {
-    ...empty,
-    base: { ...empty.base, admitted, cursor, arrivals },
+    ...base,
+    base: { ...base.base, admitted, cursor, arrivals },
     quotaUsed,
   };
   encodeDurablePeerState(state);

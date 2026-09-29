@@ -40,6 +40,7 @@ fn fixtures() -> BTreeMap<String, Delta> {
 struct MemoryJournal {
     head: Option<String>,
     frames: Vec<Vec<u8>>,
+    checkpoint: Option<Vec<u8>>,
     rows: BTreeMap<String, Delta>,
     writes: usize,
     next: Option<PeerImageWrite>,
@@ -50,6 +51,7 @@ impl DurableOrdinaryJournalStore for MemoryJournal {
             Some(head) => OrdinaryJournalRead::Journal {
                 head: head.clone(),
                 frames: self.frames.clone(),
+                checkpoint: self.checkpoint.clone(),
             },
             None if self.rows.is_empty() => OrdinaryJournalRead::Empty,
             None => OrdinaryJournalRead::RowsWithoutJournal,
@@ -89,6 +91,19 @@ impl DurableOrdinaryJournalStore for MemoryJournal {
         for row in rows {
             self.rows.insert(row.id.clone(), row.clone());
         }
+        Ok(self.next.clone().unwrap_or(PeerImageWrite::Durable))
+    }
+    fn compare_and_checkpoint(
+        &mut self,
+        _peer_id: &str,
+        expected: &str,
+        checkpoint: &[u8],
+    ) -> Result<PeerImageWrite, String> {
+        if self.head.as_deref() != Some(expected) || self.next == Some(PeerImageWrite::Conflict) {
+            return Ok(PeerImageWrite::Conflict);
+        }
+        self.checkpoint = Some(checkpoint.to_vec());
+        self.frames.clear();
         Ok(self.next.clone().unwrap_or(PeerImageWrite::Durable))
     }
 }
@@ -193,6 +208,75 @@ fn journal_api_matches_shared_frames_and_reopen() {
         vector["expectedImageHex"]
     );
     assert_eq!(store.rows.len(), 2);
+}
+
+#[test]
+fn journal_api_checkpoints_verified_prefix_and_reopens_suffix() {
+    let vector = read("peer/ordinary-journal.json");
+    let named = fixtures();
+    let peer_id = vector["peerId"].as_str().unwrap();
+    let first = named[vector["firstName"].as_str().unwrap()].clone();
+    let second = named[vector["secondName"].as_str().unwrap()].clone();
+    let mut store = MemoryJournal::default();
+    let OrdinaryJournalOpenResult::Open(mut peer) =
+        open_ordinary_journal_peer(&mut store, peer_id).unwrap()
+    else {
+        panic!("expected open")
+    };
+    let classifier = |_: &Delta| false;
+    peer.admit(
+        &mut store,
+        &SinglePeerTransferInput {
+            offered: &[first],
+            origin: &ArrivalOrigin::Local,
+            arrived_at: 100.0,
+            policy_state: &(),
+            guards: &[],
+            is_erasure_candidate: &classifier,
+            mode: TransferMode::Atomic,
+            capacity: None,
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        peer.checkpoint(&mut store).unwrap(),
+        PeerImageWrite::Durable
+    );
+    assert!(store.frames.is_empty());
+    assert_eq!(
+        hex::encode(store.checkpoint.as_ref().unwrap()),
+        vector["checkpoint"]["hex"]
+    );
+    peer.admit(
+        &mut store,
+        &SinglePeerTransferInput {
+            offered: &[second],
+            origin: &ArrivalOrigin::Unattributed,
+            arrived_at: 100.0,
+            policy_state: &(),
+            guards: &[],
+            is_erasure_candidate: &classifier,
+            mode: TransferMode::Atomic,
+            capacity: None,
+        },
+    )
+    .unwrap();
+    assert_eq!(store.frames.len(), 1);
+    let OrdinaryJournalOpenResult::Open(reopened) =
+        open_ordinary_journal_peer(&mut store, peer_id).unwrap()
+    else {
+        panic!("expected reopen")
+    };
+    assert_eq!(
+        hex::encode(encode_durable_peer_state(&reopened.snapshot().unwrap()).unwrap()),
+        vector["expectedImageHex"]
+    );
+    store.head = Some(vector["frames"][0]["head"].as_str().unwrap().into());
+    assert_eq!(
+        peer.checkpoint(&mut store).unwrap(),
+        PeerImageWrite::Conflict
+    );
+    assert!(peer.snapshot().is_err());
 }
 
 #[test]

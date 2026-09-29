@@ -5,6 +5,7 @@ import { parseClaims } from "../src/delta/json-profile.js";
 import type { Delta } from "../src/delta/types.js";
 import { encodeDurablePeerState } from "../src/federation/durable-state.js";
 import {
+  encodeOrdinaryJournalCheckpoint,
   encodeOrdinaryPeerFrame,
   ordinaryPeerFrameId,
   replayOrdinaryPeerFrames,
@@ -45,6 +46,8 @@ const secondBytes = encodeOrdinaryPeerFrame({
   additions: [second],
 });
 const secondHead = ordinaryPeerFrameId(secondBytes);
+const firstState = replayOrdinaryPeerFrames(peerId, [firstBytes], firstHead);
+const checkpoint = encodeOrdinaryJournalCheckpoint({ peerId, head: firstHead, state: firstState });
 const state = replayOrdinaryPeerFrames(peerId, [firstBytes, secondBytes], secondHead);
 const file = fileURLToPath(new URL("../../../vectors/peer/ordinary-journal.json", import.meta.url));
 writeFileSync(
@@ -74,6 +77,17 @@ writeFileSync(
         },
       ],
       expectedImageHex: Buffer.from(encodeDurablePeerState(state)).toString("hex"),
+      checkpoint: {
+        head: firstHead,
+        hex: Buffer.from(checkpoint).toString("hex"),
+        retainedFrameHex: Buffer.from(secondBytes).toString("hex"),
+        expectedImageHex: Buffer.from(
+          encodeDurablePeerState(
+            replayOrdinaryPeerFrames(peerId, [secondBytes], secondHead, checkpoint),
+          ),
+        ).toString("hex"),
+        brokenBoundaryError: "ordinary journal: broken frame chain",
+      },
       expectedArrivals: state.base.arrivals,
       api: {
         emptyHead: "",

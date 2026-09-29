@@ -5,6 +5,8 @@ import { parseClaims } from "../src/delta/json-profile.js";
 import type { Delta } from "../src/delta/types.js";
 import { encodeDurablePeerState } from "../src/federation/durable-state.js";
 import {
+  decodeOrdinaryJournalCheckpoint,
+  encodeOrdinaryJournalCheckpoint,
   decodeOrdinaryPeerFrame,
   encodeOrdinaryPeerFrame,
   ordinaryPeerFrameId,
@@ -22,6 +24,13 @@ const vector = JSON.parse(
   secondName: string;
   frames: Array<{ at: number; sender: string; prior: string; hex: string; head: string }>;
   expectedImageHex: string;
+  checkpoint: {
+    head: string;
+    hex: string;
+    retainedFrameHex: string;
+    expectedImageHex: string;
+    brokenBoundaryError: string;
+  };
   expectedArrivals: unknown[];
   brokenChainError: string;
   headMismatchError: string;
@@ -93,5 +102,36 @@ describe("shared SPEC-6 ordinary journal vectors", () => {
     const corrupt = Uint8Array.from(bytes[0]!);
     corrupt[corrupt.length - 1] = corrupt[corrupt.length - 1]! ^ 1;
     expect(() => decodeOrdinaryPeerFrame(corrupt)).toThrow();
+  });
+
+  it("pins a canonical checkpoint boundary and replays only its retained suffix", () => {
+    const firstState = replayOrdinaryPeerFrames(
+      vector.peerId,
+      bytes.slice(0, 1),
+      vector.checkpoint.head,
+    );
+    const checkpoint = encodeOrdinaryJournalCheckpoint({
+      peerId: vector.peerId,
+      head: vector.checkpoint.head,
+      state: firstState,
+    });
+    expect(Buffer.from(checkpoint).toString("hex")).toBe(vector.checkpoint.hex);
+    expect(decodeOrdinaryJournalCheckpoint(checkpoint).head).toBe(vector.checkpoint.head);
+    expect(Buffer.from(bytes[1]!).toString("hex")).toBe(vector.checkpoint.retainedFrameHex);
+    const state = replayOrdinaryPeerFrames(
+      vector.peerId,
+      bytes.slice(1),
+      vector.frames[1]!.head,
+      checkpoint,
+    );
+    expect(Buffer.from(encodeDurablePeerState(state)).toString("hex")).toBe(
+      vector.checkpoint.expectedImageHex,
+    );
+    expect(() =>
+      replayOrdinaryPeerFrames(vector.peerId, bytes, vector.frames[1]!.head, checkpoint),
+    ).toThrow(vector.checkpoint.brokenBoundaryError);
+    expect(() =>
+      replayOrdinaryPeerFrames(vector.peerId, [], vector.frames[1]!.head, checkpoint),
+    ).toThrow(vector.headMismatchError);
   });
 });

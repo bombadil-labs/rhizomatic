@@ -468,6 +468,16 @@ The pipeline is:
    facade MUST compare their ids, content addresses and signatures to the frame-derived state;
    a missing, duplicated, or mismatched admitted row fails closed. Rows outside that admitted
    id list remain an application reporting concern and grant no admission.
+   An ordinary journal checkpoint is a canonical CBOR map with exactly `version` = 1, `peer`,
+   `head`, and `image` (canonical v2 durable peer-image bytes). It may replace the entire
+   verified frame prefix only through an atomic compare-and-checkpoint against the current head.
+   The checkpoint operation obtains its image from the facade's verified in-memory projection;
+   the backend durably installs that image and its exact boundary head while pruning the prefix
+   in the same transaction. A conflict changes nothing and an uncertain result requires reopen.
+   Reopen decodes and validates the checkpoint image, requires the peer and ordinary-only state
+   counters to agree, then replays retained frames starting at its boundary head. The boundary
+   remains the prior link for the first retained frame; a checkpoint with no retained frames
+   must name the stored head. Reopen still checks all admitted rows against the resulting state.
    Until declared storage surfaces prove physical absence, a byte-removal report says `pending`,
    `failed` with the fault, or `shared-held`; a release of this peer's reference is reported
    separately and never called byte removal. A host may disclose `shared-held` to its authorized

@@ -4,7 +4,10 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use crate::arrival::{plan_arrivals, ArrivalCursor};
 use crate::cbor::{decode, encode, CborValue};
-use crate::durable_state::{empty_durable_peer_state, encode_durable_peer_state, DurablePeerState};
+use crate::durable_state::{
+    decode_durable_peer_state, empty_durable_peer_state, encode_durable_peer_state,
+    DurablePeerState,
+};
 use crate::hash::content_address;
 use crate::pack::{pack_set, unpack_set};
 use crate::peer_identity::is_canonical_peer_id;
@@ -14,6 +17,82 @@ use crate::types::Delta;
 
 const VERSION: f64 = 1.0;
 const MAX_COUNTER: u64 = (1_u64 << 53) - 1;
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct OrdinaryJournalCheckpoint {
+    pub peer_id: String,
+    pub head: String,
+    pub state: DurablePeerState,
+}
+
+fn ordinary_checkpoint_state(state: &DurablePeerState) -> Result<(), String> {
+    if !state.events.is_empty()
+        || !state.exclusions.is_empty()
+        || !state.obligations.is_empty()
+        || !state.base.refused_ids.is_empty()
+        || state.quota_used as usize != state.base.admitted.len()
+        || state.base.cursor.last_sequence as usize != state.base.admitted.len()
+    {
+        return Err("ordinary journal: checkpoint is not ordinary-only".into());
+    }
+    Ok(())
+}
+
+/// Canonical verified prefix and its exact frame-chain boundary.
+pub fn encode_ordinary_journal_checkpoint(
+    checkpoint: &OrdinaryJournalCheckpoint,
+) -> Result<Vec<u8>, String> {
+    if !is_canonical_peer_id(&checkpoint.peer_id)
+        || checkpoint.state.base.peer_id != checkpoint.peer_id
+    {
+        return Err("ordinary journal: checkpoint peer mismatch".into());
+    }
+    if !checkpoint.head.is_empty() && !valid_frame_id(&checkpoint.head) {
+        return Err("ordinary journal: invalid checkpoint head".into());
+    }
+    ordinary_checkpoint_state(&checkpoint.state)?;
+    if checkpoint.head.is_empty() != checkpoint.state.base.admitted.is_empty() {
+        return Err("ordinary journal: checkpoint head/state mismatch".into());
+    }
+    Ok(encode(&CborValue::Map(vec![
+        ("version".into(), CborValue::Float(VERSION)),
+        ("peer".into(), CborValue::Tstr(checkpoint.peer_id.clone())),
+        ("head".into(), CborValue::Tstr(checkpoint.head.clone())),
+        (
+            "image".into(),
+            CborValue::Bstr(encode_durable_peer_state(&checkpoint.state)?),
+        ),
+    ])))
+}
+
+pub fn decode_ordinary_journal_checkpoint(
+    bytes: &[u8],
+) -> Result<OrdinaryJournalCheckpoint, String> {
+    let CborValue::Map(entries) = decode(bytes)? else {
+        return Err("ordinary journal: invalid checkpoint fields".into());
+    };
+    if entries.len() != 4 {
+        return Err("ordinary journal: invalid checkpoint fields".into());
+    }
+    let row: BTreeMap<String, CborValue> = entries.into_iter().collect();
+    if row.len() != 4 || row.get("version") != Some(&CborValue::Float(VERSION)) {
+        return Err("ordinary journal: invalid checkpoint fields".into());
+    }
+    let (Some(CborValue::Tstr(peer_id)), Some(CborValue::Tstr(head)), Some(CborValue::Bstr(image))) =
+        (row.get("peer"), row.get("head"), row.get("image"))
+    else {
+        return Err("ordinary journal: invalid checkpoint fields".into());
+    };
+    let checkpoint = OrdinaryJournalCheckpoint {
+        peer_id: peer_id.clone(),
+        head: head.clone(),
+        state: decode_durable_peer_state(image, peer_id)?,
+    };
+    if encode_ordinary_journal_checkpoint(&checkpoint)? != bytes {
+        return Err("ordinary journal: noncanonical checkpoint".into());
+    }
+    Ok(checkpoint)
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct OrdinaryPeerFrame {
@@ -127,8 +206,28 @@ pub fn replay_ordinary_peer_frames(
     frames: &[Vec<u8>],
     expected_head: &str,
 ) -> Result<DurablePeerState, String> {
-    let mut state = empty_durable_peer_state(peer_id)?;
-    let mut head = String::new();
+    replay_ordinary_peer_frames_from_checkpoint(peer_id, frames, expected_head, None)
+}
+
+pub fn replay_ordinary_peer_frames_from_checkpoint(
+    peer_id: &str,
+    frames: &[Vec<u8>],
+    expected_head: &str,
+    checkpoint_bytes: Option<&[u8]>,
+) -> Result<DurablePeerState, String> {
+    let checkpoint = checkpoint_bytes
+        .map(decode_ordinary_journal_checkpoint)
+        .transpose()?;
+    if checkpoint
+        .as_ref()
+        .is_some_and(|checkpoint| checkpoint.peer_id != peer_id)
+    {
+        return Err("ordinary journal: checkpoint peer mismatch".into());
+    }
+    let (mut state, mut head) = match checkpoint {
+        Some(checkpoint) => (checkpoint.state, checkpoint.head),
+        None => (empty_durable_peer_state(peer_id)?, String::new()),
+    };
     for bytes in frames {
         let frame = decode_ordinary_peer_frame(bytes)?;
         if frame.peer_id != peer_id || frame.prior != head {

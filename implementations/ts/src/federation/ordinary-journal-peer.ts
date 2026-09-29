@@ -6,7 +6,11 @@ import { contentAddress } from "../delta/hash.js";
 import { claimsToJson, parseClaims } from "../delta/json-profile.js";
 import { emptyDurablePeerState, type DurablePeerState } from "./durable-state.js";
 import { isCanonicalPeerId } from "./peer-identity.js";
-import { encodeOrdinaryPeerFrame, replayOrdinaryPeerFrames } from "./ordinary-journal.js";
+import {
+  encodeOrdinaryJournalCheckpoint,
+  encodeOrdinaryPeerFrame,
+  replayOrdinaryPeerFrames,
+} from "./ordinary-journal.js";
 import {
   planSignedLooseOrdinaryTransferFromVerified,
   type SignedLooseOutcome,
@@ -17,7 +21,12 @@ import type { ArrivalRecord } from "./arrival.js";
 export type OrdinaryJournalRead =
   | { readonly status: "empty" }
   | { readonly status: "rows-without-journal" }
-  | { readonly status: "journal"; readonly head: string; readonly frames: readonly Uint8Array[] };
+  | {
+      readonly status: "journal";
+      readonly head: string;
+      readonly frames: readonly Uint8Array[];
+      readonly checkpoint?: Uint8Array;
+    };
 
 export type OrdinaryJournalHead =
   | { readonly status: "head"; readonly head: string }
@@ -35,6 +44,12 @@ export interface DurableOrdinaryJournalStore {
     nextHead: string,
     frame: Uint8Array | null,
     newlyAdmitted: readonly Delta[],
+  ): Promise<PeerImageWrite>;
+  /** Atomically replace a verified frame prefix at expectedHead; keep admitted rows and head. */
+  compareAndCheckpoint?(
+    peerId: string,
+    expectedHead: string,
+    checkpoint: Uint8Array,
   ): Promise<PeerImageWrite>;
 }
 
@@ -128,7 +143,12 @@ export class OrdinaryJournalPeer {
     const current = await store.readJournal(peerId);
     if (current.status === "rows-without-journal") return current;
     if (current.status === "journal") {
-      const state = replayOrdinaryPeerFrames(peerId, current.frames, current.head);
+      const state = replayOrdinaryPeerFrames(
+        peerId,
+        current.frames,
+        current.head,
+        current.checkpoint,
+      );
       assertAdmittedRows(state, await store.readAdmittedRows(peerId, state.base.admitted.ids()));
       return { status: "open", peer: new OrdinaryJournalPeer(store, peerId, state, current.head) };
     }
@@ -149,6 +169,21 @@ export class OrdinaryJournalPeer {
   currentHead(): string {
     if (!this.live) throw new Error("ordinary journal: reopen required");
     return this.head;
+  }
+
+  /** Compact a verified prefix; conflict or uncertain durability requires reopen. */
+  async checkpoint(): Promise<PeerImageWrite> {
+    if (!this.live) throw new Error("ordinary journal: reopen required");
+    if (this.store.compareAndCheckpoint === undefined)
+      throw new Error("ordinary journal: checkpoint unsupported by store");
+    const checkpoint = encodeOrdinaryJournalCheckpoint({
+      peerId: this.peerId,
+      head: this.head,
+      state: this.state,
+    });
+    const result = await this.store.compareAndCheckpoint(this.peerId, this.head, checkpoint);
+    if (result.status !== "durable") this.live = false;
+    return result;
   }
 
   /** Caller serializes writers for this peer. Conflicts and uncertain commits require reopen. */

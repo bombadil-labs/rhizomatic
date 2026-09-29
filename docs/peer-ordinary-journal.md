@@ -1,7 +1,6 @@
 # Ordinary peer append journal (step 6 format slice)
 
-The current single-peer trial writes the full durable v2 image on every append. An ordinary
-append journal persists one signed-loose transfer at a time while preserving the same
+An ordinary append journal persists one signed-loose transfer at a time while preserving the same
 receiver-local arrival testimony. Both witnesses define canonical frame bytes, replay, and a
 typed admission facade over an application supplied atomic store. It does not admit erasures,
 bundles, re-entry acts, or handoffs.
@@ -30,6 +29,15 @@ A conflict or uncertain commit closes that in-memory peer until it reopens from 
 The admission receipt gives outcomes, new arrivals and the new head; `snapshot()` copies the
 full admitted state only when a reader asks for it.
 
+`peer.checkpoint()` asks the store to atomically replace the verified frame prefix with a
+canonical checkpoint containing the durable v2 image and the exact boundary head. The optional
+store method `compareAndCheckpoint` compares that head and installs the checkpoint while pruning
+the prefix in one transaction; it does not change the head or admitted rows. Reopen validates the
+image, checks its ordinary-only counters, and replays any retained frames from the boundary.
+It still verifies every admitted signature and row on cold open, so a checkpoint reduces frame
+replay work but does not make cold open constant time. A conflict or uncertain checkpoint result
+closes the facade until reopen. A store without the optional checkpoint method continues to work.
+
 Raw rows never become admission records by replay. Rows outside the admitted id list remain
-visible to an application's quarantine/reporting path but grant no admission. Checkpoints and
-non-ordinary frame kinds need separate contracts.
+visible to an application's quarantine/reporting path but grant no admission. Non-ordinary
+frame kinds need separate contracts.

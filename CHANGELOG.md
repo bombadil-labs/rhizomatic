@@ -41,8 +41,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
   by shared bytes. A typed journal-backed single-peer admission facade exposes an atomic
   head/frame/row storage seam, warm append, no-op receipts and fail-closed reopen. It covers
   signed loose ordinary additions only. Reopen also checks that every admitted row is present
-  with the frame-derived id and signature. Loam integration and bounded checkpoints remain to
-  be reviewed.
+  with the frame-derived id and signature. Canonical ordinary checkpoints now bind a verified
+  v2 image to an exact frame head and let a backend atomically prune that verified prefix;
+  retained frames replay from the boundary. Loam integration remains in trial.
 
 ### Internal structure
 

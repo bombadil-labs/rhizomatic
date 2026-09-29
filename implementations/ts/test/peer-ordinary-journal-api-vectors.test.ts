@@ -23,6 +23,7 @@ const vector = JSON.parse(
   secondName: string;
   frames: Array<{ at: number; sender: string; prior: string; hex: string; head: string }>;
   expectedImageHex: string;
+  checkpoint: { hex: string };
   api: {
     emptyHead: string;
     noOpWrites: number;
@@ -49,6 +50,7 @@ const second = named.get(vector.secondName)!;
 class MemoryJournal implements DurableOrdinaryJournalStore {
   head: string | null = null;
   frames: Uint8Array[] = [];
+  checkpointBytes?: Uint8Array;
   rows = new Map<string, Delta>();
   writes = 0;
   next: PeerImageWrite = { status: "durable" };
@@ -60,6 +62,9 @@ class MemoryJournal implements DurableOrdinaryJournalStore {
       status: "journal",
       head: this.head,
       frames: this.frames.map((f) => Uint8Array.from(f)),
+      ...(this.checkpointBytes === undefined
+        ? {}
+        : { checkpoint: Uint8Array.from(this.checkpointBytes) }),
     };
   }
   async readAdmittedRows(_peer: string, ids: readonly string[]): Promise<readonly Delta[]> {
@@ -88,6 +93,16 @@ class MemoryJournal implements DurableOrdinaryJournalStore {
     this.head = next;
     if (frame !== null) this.frames.push(Uint8Array.from(frame));
     for (const row of rows) this.rows.set(row.id, structuredClone(row));
+    return this.next;
+  }
+  async compareAndCheckpoint(
+    _peer: string,
+    expected: string,
+    checkpoint: Uint8Array,
+  ): Promise<PeerImageWrite> {
+    if (this.head !== expected || this.next.status === "conflict") return { status: "conflict" };
+    this.checkpointBytes = Uint8Array.from(checkpoint);
+    this.frames = [];
     return this.next;
   }
 }
@@ -146,6 +161,32 @@ describe("shared SPEC-6 typed ordinary journal API", () => {
       vector.expectedImageHex,
     );
     expect(store.rows.size).toBe(2);
+  });
+
+  it("atomically checkpoints a verified prefix and reopens from the boundary", async () => {
+    const store = new MemoryJournal();
+    const opened = await OrdinaryJournalPeer.open(store, vector.peerId);
+    if (opened.status !== "open") throw new Error("expected open");
+    const peer = opened.peer;
+    await peer.admit({ ...base, offered: [first], origin: { kind: "local" }, arrivedAt: 100 });
+    expect(await peer.checkpoint()).toEqual({ status: "durable" });
+    expect(store.frames).toHaveLength(0);
+    expect(Buffer.from(store.checkpointBytes!).toString("hex")).toBe(vector.checkpoint.hex);
+    await peer.admit({
+      ...base,
+      offered: [second],
+      origin: { kind: "unattributed" },
+      arrivedAt: 100,
+    });
+    expect(store.frames).toHaveLength(1);
+    const reopened = await OrdinaryJournalPeer.open(store, vector.peerId);
+    if (reopened.status !== "open") throw new Error("expected reopen");
+    expect(Buffer.from(encodeDurablePeerState(reopened.peer.snapshot())).toString("hex")).toBe(
+      vector.expectedImageHex,
+    );
+    store.head = vector.frames[0]!.head;
+    expect(await peer.checkpoint()).toEqual({ status: "conflict" });
+    expect(() => peer.snapshot()).toThrow("ordinary journal: reopen required");
   });
 
   it("fails closed on rows without a journal, conflict, and uncertain commit", async () => {

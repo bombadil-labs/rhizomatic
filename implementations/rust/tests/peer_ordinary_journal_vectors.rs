@@ -5,8 +5,10 @@ use std::collections::BTreeMap;
 use rhizomatic::durable_state::encode_durable_peer_state;
 use rhizomatic::json_profile::parse_claims;
 use rhizomatic::ordinary_journal::{
-    decode_ordinary_peer_frame, encode_ordinary_peer_frame, ordinary_peer_frame_id,
-    replay_ordinary_peer_frames, OrdinaryPeerFrame,
+    decode_ordinary_journal_checkpoint, decode_ordinary_peer_frame,
+    encode_ordinary_journal_checkpoint, encode_ordinary_peer_frame, ordinary_peer_frame_id,
+    replay_ordinary_peer_frames, replay_ordinary_peer_frames_from_checkpoint,
+    OrdinaryJournalCheckpoint, OrdinaryPeerFrame,
 };
 use rhizomatic::Delta;
 use serde_json::Value;
@@ -121,4 +123,61 @@ fn malformed_history_fails_closed() {
     let mut corrupt = bytes[0].clone();
     *corrupt.last_mut().unwrap() ^= 1;
     assert!(decode_ordinary_peer_frame(&corrupt).is_err());
+}
+
+#[test]
+fn canonical_checkpoint_and_retained_suffix_match_shared_vectors() {
+    let vector = read("peer/ordinary-journal.json");
+    let peer = vector["peerId"].as_str().unwrap();
+    let first = hex::decode(vector["frames"][0]["hex"].as_str().unwrap()).unwrap();
+    let second = hex::decode(vector["frames"][1]["hex"].as_str().unwrap()).unwrap();
+    let first_head = vector["checkpoint"]["head"].as_str().unwrap();
+    let second_head = vector["frames"][1]["head"].as_str().unwrap();
+    let first_state =
+        replay_ordinary_peer_frames(peer, std::slice::from_ref(&first), first_head).unwrap();
+    let checkpoint = encode_ordinary_journal_checkpoint(&OrdinaryJournalCheckpoint {
+        peer_id: peer.into(),
+        head: first_head.into(),
+        state: first_state,
+    })
+    .unwrap();
+    assert_eq!(hex::encode(&checkpoint), vector["checkpoint"]["hex"]);
+    assert_eq!(
+        decode_ordinary_journal_checkpoint(&checkpoint)
+            .unwrap()
+            .head,
+        first_head
+    );
+    assert_eq!(
+        hex::encode(&second),
+        vector["checkpoint"]["retainedFrameHex"]
+    );
+    let state = replay_ordinary_peer_frames_from_checkpoint(
+        peer,
+        std::slice::from_ref(&second),
+        second_head,
+        Some(&checkpoint),
+    )
+    .unwrap();
+    assert_eq!(
+        hex::encode(encode_durable_peer_state(&state).unwrap()),
+        vector["checkpoint"]["expectedImageHex"]
+    );
+    assert!(replay_ordinary_peer_frames_from_checkpoint(
+        peer,
+        &[first, second],
+        second_head,
+        Some(&checkpoint)
+    )
+    .unwrap_err()
+    .contains(
+        vector["checkpoint"]["brokenBoundaryError"]
+            .as_str()
+            .unwrap()
+    ));
+    assert!(
+        replay_ordinary_peer_frames_from_checkpoint(peer, &[], second_head, Some(&checkpoint))
+            .unwrap_err()
+            .contains(vector["headMismatchError"].as_str().unwrap())
+    );
 }
