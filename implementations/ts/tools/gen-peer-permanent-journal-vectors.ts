@@ -51,6 +51,35 @@ const conflictingOrder = signClaims(
   },
   seed,
 );
+const orderTargetingOrder = signClaims(
+  {
+    timestamp: 105,
+    validFrom: 105,
+    author: peerId,
+    pointers: [{ role: "erases", target: { kind: "delta", deltaRef: { delta: order.id } } }],
+  },
+  seed,
+);
+const orderTargetingFilteredOrder = signClaims(
+  {
+    timestamp: 105,
+    validFrom: 105,
+    author: peerId,
+    pointers: [
+      { role: "erases", target: { kind: "delta", deltaRef: { delta: orderTargetingOrder.id } } },
+    ],
+  },
+  seed,
+);
+const orderTargetingPlain = signClaims(
+  {
+    timestamp: 107,
+    validFrom: 107,
+    author: peerId,
+    pointers: [{ role: "erases", target: { kind: "delta", deltaRef: { delta: unrelated.id } } }],
+  },
+  seed,
+);
 const ordinary = encodeOrdinaryPeerFrame({
   peerId,
   prior: "",
@@ -70,6 +99,52 @@ const erasure = encodePermanentPeerFrame({
   quotaCharge: 0,
 });
 const erasureHead = contentAddress(erasure);
+const afterIneligibleOrder = encodeOrdinaryPeerFrame({
+  peerId,
+  prior: erasureHead,
+  at: 105,
+  sender: "local",
+  additions: [unrelated],
+});
+const heldTestimony = encodeOrdinaryPeerFrame({
+  peerId,
+  prior: "",
+  at: 101,
+  sender: "local",
+  additions: [order],
+});
+const afterHeldTestimonyErasure = encodePermanentPeerFrame({
+  kind: "admission",
+  peerId,
+  prior: contentAddress(heldTestimony),
+  at: 105,
+  sender: "local",
+  additions: [orderTargetingOrder],
+  erasures: [{ targetId: order.id, orderIds: [orderTargetingOrder.id], surfaceHoldsBytes: true }],
+  quotaCharge: 0,
+});
+const coofferedTestimony = encodePermanentPeerFrame({
+  kind: "admission",
+  peerId,
+  prior: "",
+  at: 105,
+  sender: "local",
+  additions: [orderTargetingOrder, unrelated],
+  erasures: [{ targetId: order.id, orderIds: [orderTargetingOrder.id], surfaceHoldsBytes: false }],
+  quotaCharge: 1,
+});
+const afterPlainMisclassification = encodePermanentPeerFrame({
+  kind: "admission",
+  peerId,
+  prior: "",
+  at: 107,
+  sender: "local",
+  additions: [orderTargetingPlain],
+  erasures: [
+    { targetId: unrelated.id, orderIds: [orderTargetingPlain.id], surfaceHoldsBytes: false },
+  ],
+  quotaCharge: 0,
+});
 const falseHeld = encodePermanentPeerFrame({
   kind: "admission",
   peerId,
@@ -202,6 +277,49 @@ writeFileSync(
         id: conflictingOrder.id,
         sig: conflictingOrder.sig,
         claims: claimsToJson(conflictingOrder.claims),
+      },
+      priorEffectiveOrderTarget: {
+        order: {
+          id: orderTargetingOrder.id,
+          sig: orderTargetingOrder.sig,
+          claims: claimsToJson(orderTargetingOrder.claims),
+        },
+        expectedStatuses: ["erasure-ineligible", "admitted"],
+        reason: "erasure targets an effective order",
+        frameHex: Buffer.from(afterIneligibleOrder).toString("hex"),
+        head: contentAddress(afterIneligibleOrder),
+      },
+      coofferedFilteredOrderTarget: {
+        outerOrder: {
+          id: orderTargetingFilteredOrder.id,
+          sig: orderTargetingFilteredOrder.sig,
+          claims: claimsToJson(orderTargetingFilteredOrder.claims),
+        },
+        expectedStatuses: ["erasure-ineligible", "erasure-ineligible", "admitted"],
+        reason: "erasure targets an order",
+        frameHex: Buffer.from(afterIneligibleOrder).toString("hex"),
+        head: contentAddress(afterIneligibleOrder),
+      },
+      coofferedErasureTestimonyTarget: {
+        expectedStatuses: ["effective-erasure", "refused", "admitted"],
+        frameHex: Buffer.from(coofferedTestimony).toString("hex"),
+        head: contentAddress(coofferedTestimony),
+      },
+      plainMisclassifiedOrder: {
+        outerOrder: {
+          id: orderTargetingPlain.id,
+          sig: orderTargetingPlain.sig,
+          claims: claimsToJson(orderTargetingPlain.claims),
+        },
+        expectedStatuses: ["erasure-ineligible", "effective-erasure"],
+        reason: "signed target mismatch",
+        frameHex: Buffer.from(afterPlainMisclassification).toString("hex"),
+        head: contentAddress(afterPlainMisclassification),
+      },
+      heldTestimonyOrderTarget: {
+        status: "effective-erasure",
+        frameHex: Buffer.from(afterHeldTestimonyErasure).toString("hex"),
+        head: contentAddress(afterHeldTestimonyErasure),
       },
       frames: [
         { kind: "ordinary", hex: Buffer.from(ordinary).toString("hex"), head: ordinaryHead },

@@ -523,6 +523,17 @@ export class OrdinaryJournalPeer {
         guards: input.guards,
       },
     );
+    const offeredOrderIds = new Set(
+      guarded
+        .slice(0, stableOrders.length)
+        .filter((row) => row.status !== "invalid")
+        .flatMap((row) =>
+          row.unit.kind === "loose" &&
+          row.unit.delta.claims.pointers.some((pointer) => pointer.role === "erases")
+            ? [row.unit.delta.id]
+            : [],
+        ),
+    );
     const byId = new Map<string, EffectiveErasureOrder>();
     const outcomes: SignedLooseOutcome[] = guarded.slice(0, stableOrders.length).map((row, i) => {
       const order = stableOrders[i]!;
@@ -558,25 +569,34 @@ export class OrdinaryJournalPeer {
         throw new Error("permanent journal: inconsistent surface fact");
       surfaceByTarget.set(order.targetId, order.surfaceHoldsBytes);
     }
+    const priorEffectiveOrders = new Set(this.state.exclusions.map((row) => row.orderId));
     for (const [id, order] of byId) {
-      if (!order.surfaceHoldsBytes && this.state.base.admitted.has(order.targetId)) {
+      const reason = priorEffectiveOrders.has(order.targetId)
+        ? "erasure targets an effective order"
+        : !order.surfaceHoldsBytes && this.state.base.admitted.has(order.targetId)
+          ? "held target has bytes"
+          : undefined;
+      if (reason !== undefined) {
         byId.delete(id);
         for (let i = 0; i < outcomes.length; i++)
           if (outcomes[i]!.id === id && outcomes[i]!.status === "effective-erasure")
             outcomes[i] = {
               id,
               status: "erasure-ineligible",
-              reason: "held target has bytes",
+              reason,
             };
       }
     }
-    const offeredOrderIds = new Set(byId.keys());
     for (const [id, order] of byId) {
       if (offeredOrderIds.has(order.targetId)) {
         byId.delete(id);
         for (let i = 0; i < outcomes.length; i++)
           if (outcomes[i]!.id === id && outcomes[i]!.status === "effective-erasure")
-            outcomes[i] = { id, status: "erasure-ineligible", reason: "erasure targets an order" };
+            outcomes[i] = {
+              id,
+              status: "erasure-ineligible",
+              reason: "erasure targets an order",
+            };
       }
     }
     const filtered = planErasureFilter(
