@@ -34,7 +34,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
   A changed image is decoded and verified before use. Rust and the Node file adapter still verify
   the full image on each admit. No-op offers skip the storage write and re-encoding. The verified
   store path now avoids redundant full-state planner checks, and both witnesses reuse validated
-  base bytes during durable encoding. The v2 image still grows with admitted history.
+  base bytes during durable encoding. Permanent commits retain already verified set members
+  without re-hashing them; only newly added members cross the set insertion check. The v2 image
+  still grows with admitted history.
 
 ### Internal structure
 

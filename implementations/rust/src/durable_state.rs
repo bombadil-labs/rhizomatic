@@ -584,15 +584,10 @@ fn build_permanent_commit(
         &input.sender,
     )?;
     let targets: BTreeSet<&str> = groups.iter().map(|g| g.target_id.as_str()).collect();
-    let admitted = DeltaSet::from_deltas(
-        before
-            .base
-            .admitted
-            .iter()
-            .filter(|delta| !targets.contains(delta.id.as_str()))
-            .cloned()
-            .chain(additions.values().cloned()),
-    )?;
+    let mut admitted = before.base.admitted.without_verified_ids(&targets);
+    for delta in additions.values() {
+        admitted.add(delta.clone())?;
+    }
     let mut after = before.clone();
     after.base.admitted = admitted;
     after.base.cursor = ArrivalCursor {

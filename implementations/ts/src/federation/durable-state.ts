@@ -476,10 +476,8 @@ function buildPermanentCommit(
     input.sender,
   );
   const targets = new Set(groups.map((group) => group.targetId));
-  const admitted = DeltaSet.from([
-    ...before.base.admitted.filtered((delta) => !targets.has(delta.id)),
-    ...additions.values(),
-  ]);
+  const admitted = before.base.admitted.filtered((delta) => !targets.has(delta.id));
+  for (const delta of additions.values()) admitted.add(delta);
   const events = [...before.events];
   const exclusions = [...before.exclusions];
   const obligations = before.obligations.map((row) => ({ ...row }));

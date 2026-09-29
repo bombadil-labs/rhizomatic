@@ -52,6 +52,7 @@ admitted Delta values as immutable, as required by `DeltaSet`. Returned states a
 from the cached state. Keep one store object per peer during a trial. A cold read after restart
 verifies every held signature once. The store-owned warm path skips redundant whole-state
 validation during planning, and a no-op returns the prior image without re-encoding it. The
+permanent commit builder also copies already verified holdings without re-hashing them. The
 current v2 image still rewrites the
 full admitted set and arrival history on every commit. It is
 appropriate for an unmerged correctness trial on a fresh host store. A production merge on a
