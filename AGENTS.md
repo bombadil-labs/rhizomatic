@@ -90,6 +90,8 @@ When implementation contradicts specification, **the contradiction is the delive
 
 ## Current refactor
 
+- Myk's current order is step 6 to completion in both Rhizomatic and Loam, then step 7 to
+  completion in both. Do not start step 8 while pursuing this order.
 - The original M0–M5 build order is complete. [PROGRESS.md](PROGRESS.md) records that older arc;
   its July "RESUME HERE" notes are history, not the current task list.
 - Step 6 is peer admission and durable handoff. Its working contract is
@@ -104,20 +106,22 @@ When implementation contradicts specification, **the contradiction is the delive
 
 ## Independent T3 review
 
-- Sol builds Rhizomatic and requests a fresh Claude Opus review thread for each frozen, reviewable
-  head. Opus builds Loam and requests a fresh Codex Sol review thread on the same basis.
-- Create the reviewer thread in the relevant T3 project with the opposite model. Give it the exact
+- Sol builds Rhizomatic and uses the existing dedicated Claude Opus review thread for every frozen,
+  reviewable head. Opus builds Loam and uses its existing dedicated Codex Sol review thread.
+  Keep both reviewers at high effort with full access; do not create a replacement thread or
+  archive the dedicated thread between rounds.
+- Give the reviewer the exact
   commit, PR, applicable spec and vectors, and the behavioral question. Do not copy the builder's
   conversation, conclusions, or proposed proof into the review prompt.
 - The reviewer reads a pinned commit in a separate checkout and makes no edits or pushes. It
   reports concrete findings with file/line, reproducer or counterexample, expected behavior, and
   uncertainty. A clean review says what it checked and what it did not check.
-- The builder verifies findings, makes fixes, and requests a new fresh-context review of the new
-  head when the change warrants it. Green checks and an independent review precede a consumer
+- The builder verifies findings, makes fixes, and requests another review of the new head in the
+  same dedicated thread when the change warrants it. Green checks and an independent review precede a consumer
   trial or a claim that an API is ready. The Loam trial also checks integration against a pinned
   Rhizomatic build; it does not replace either repository's own review.
-- Wait for the reviewer to finish, collect its report, then settle and archive its T3 thread.
-  Keep work threads separate. Use PRs, spec, vectors, and review reports as the durable handoff.
+- Wait for the reviewer to finish and collect its report. Keep work threads separate. Use PRs,
+  spec, vectors, and review reports as the durable handoff.
 
 ## Naming
 

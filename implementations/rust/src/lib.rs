@@ -43,6 +43,7 @@ pub mod peer;
 pub mod peer_identity;
 #[doc(hidden)]
 pub mod peer_state;
+pub mod permanent_journal;
 pub mod pred;
 pub mod preflight;
 #[doc(hidden)]

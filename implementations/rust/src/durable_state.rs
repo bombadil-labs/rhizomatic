@@ -432,7 +432,10 @@ pub fn decode_durable_peer_state(
     Ok(state)
 }
 
-fn validate_transition(before: &DurablePeerState, after: &DurablePeerState) -> Result<(), String> {
+pub(crate) fn validate_transition(
+    before: &DurablePeerState,
+    after: &DurablePeerState,
+) -> Result<(), String> {
     if after.quota_used < before.quota_used {
         return Err("durable peer state: quota counter cannot shrink".into());
     }

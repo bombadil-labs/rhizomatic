@@ -14,6 +14,9 @@ export type SignedLooseOutcomeStatus =
   | "duplicate"
   | "guard-rejected"
   | "unsupported-erasure"
+  | "effective-erasure"
+  | "erasure-ineligible"
+  | "erasure-limit"
   | "admitted"
   | "quota-skipped"
   | "dependency-pruned";

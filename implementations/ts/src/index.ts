@@ -140,6 +140,9 @@ export {
   type OrdinaryJournalHead,
   type OrdinaryJournalOpenResult,
   type OrdinaryJournalAdmissionResult,
+  type OrdinaryJournalPurgeResult,
+  type EffectiveErasureOrder,
+  type EffectiveErasureTransferInput,
 } from "./federation/ordinary-journal-peer.js";
 export {
   planArrivals,

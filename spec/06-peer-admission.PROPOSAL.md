@@ -443,8 +443,9 @@ The pipeline is:
    on a missing, extra, malformed, or noncanonical frame or a missing admitted row. It MUST NOT
    replay raw rows as admission. A checkpoint MAY replace a verified prefix only if its canonical
    image and retained frame boundary prove the same state and chain head. This first journal
-   profile covers signed-loose ordinary additions only; erasure, re-entry, and handoff need
-   additional frame types before they can use it.
+   profile began with signed-loose ordinary additions. A v2 frame now records effective signed
+   loose erasure orders and their final target groups, or one purge report. Re-entry, bundles,
+   mixed ordinary/erasure transfers, and handoff still need their own admission contracts.
    The ordinary frame v1 is a canonical CBOR map with exactly `version` = 1, `peer` (the
    receiving canonical `PeerId`), `prior` (empty text for the first frame, then the preceding
    frame's content address), `at` (finite receiver time), `sender` (`local`, `unattributed`, or a
@@ -464,6 +465,24 @@ The pipeline is:
    The backend MUST keep committed frames immutable under that head and MUST return a consistent
    head/frame snapshot on reopen. A head-only warm read is sound only under that storage
    invariant; any backend that cannot preserve it must verify the chain again before admission.
+   A v2 admission frame includes the v1 peer, prior, time, sender, and packed additions, plus
+   `kind = admission`, ordinary quota charge, and sorted erasure groups. Each group names the
+   target id, the effective order ids, and whether this peer's declared surface held bytes.
+   The dedicated erasure append CAS receives the asserted-absent target ids and MUST reject the
+   commit unless their absence holds under the same transaction across that surface. The ordinary
+   append seam cannot commit an erasure frame. When absence is uncertain the receiver uses `true`
+   and owes a purge check, even if the worker later finds no bytes.
+   Every order is a newly admitted verified signed delta with exactly one delta-kind `erases`
+   pointer to its group's target. The receiver's authorized decision is final at commit; reopen
+   verifies those signed target bindings and reconstructs the same refusal, exclusion, arrival,
+   and pending obligation. A v2 `kind = purge` frame names the stable target and storage
+   generation and reports `failed` with a fault or `removed`. A `removed` report requires a
+   backend operation that atomically proves physical absence across the peer's declared surface
+   while appending the report and advancing the head. A mere application assertion of absence
+   cannot settle the debt. Failed reports may append without absence proof and may later retry.
+   An erasure-only signed-loose facade uses the same pre-transfer guards, receiver-declared
+   authorization fixed point, target budget, advance-refusal cap, atomic/individual modes, and
+   head CAS. It does not make the ordinary-only facade silently accept an erasure candidate.
    On reopen the adapter MUST supply the stored rows for every reconstructed admitted id. The
    facade MUST compare their ids, content addresses and signatures to the frame-derived state;
    a missing, duplicated, or mismatched admitted row fails closed. Rows outside that admitted
