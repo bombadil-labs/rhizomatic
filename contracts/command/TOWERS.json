@@ -31,7 +31,7 @@
       ],
       "contract": "rhizomatic.command/1/request-construction",
       "effect": "fixture-only signing",
-      "output": "Exact signed request/support descriptions under R-06\u2013R-10/R-20, in existing Delta JSON debug profile; explicit entryId is framing.",
+      "output": "Exact signed request/support descriptions under R-06–R-10/R-20, in existing Delta JSON debug profile; explicit entryId is framing.",
       "requires": [
         "request_writer",
         "delta_signing"
@@ -142,5 +142,8 @@
       "reason": "Artifact, installation and reactive application contract remains outside first-profile scope."
     }
   ],
-  "claim_limit": "Initial tower tests composition at four first-profile stages, not arbitrary substitution of all twelve internal libraries. Add finer executable ports as their bindings become complete."
+  "claim_limit": "Initial tower tests composition at four first-profile stages, not arbitrary substitution of all twelve internal libraries. Add finer executable ports as their bindings become complete.",
+  "required_peer_comparisons": [
+    "same-value-different-receiver"
+  ]
 }
