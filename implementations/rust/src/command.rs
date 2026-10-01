@@ -428,8 +428,8 @@ impl CommandEndpoint {
             RequestArguments::Retain(ids) => {
                 self.retain(store, &request, ids, &supplied, at, diagnostics)
             }
-            RequestArguments::Evaluate(_) => {
-                Err(AttemptError::Fault("evaluate unavailable before M3".into()))
+            RequestArguments::Evaluate(arguments) => {
+                self.evaluate(store, &request, arguments, &supplied, diagnostics)
             }
         }
     }
@@ -528,6 +528,165 @@ impl CommandEndpoint {
                 Err(AttemptError::Refused("admission-rejected"))
             }
         }
+    }
+
+    fn evaluate<S: DurableOrdinaryJournalStore>(
+        &self,
+        store: &mut S,
+        request: &Request,
+        arguments: &crate::command_data::EvaluateArguments,
+        supplied: &BTreeMap<String, Delta>,
+        diagnostics: &mut Vec<String>,
+    ) -> Result<OutcomeBody, AttemptError> {
+        let (source, head) = if arguments.source == "catalog" {
+            (self.catalog.clone(), None)
+        } else {
+            match capture_existing_ordinary_source(store, &self.receiver) {
+                OrdinarySourceCapture::Captured { peer, deltas } => (
+                    deltas,
+                    Some(
+                        peer.current_head()
+                            .map_err(AttemptError::Fault)?
+                            .to_string(),
+                    ),
+                ),
+                OrdinarySourceCapture::SourceChanged => {
+                    return Err(AttemptError::Refused("source-changed"))
+                }
+                OrdinarySourceCapture::SourceUnavailable { diagnostic } => {
+                    diagnostics.push(diagnostic);
+                    return Err(AttemptError::Refused("source-unavailable"));
+                }
+            }
+        };
+        let digest = source.digest();
+        if request
+            .common
+            .expected_head
+            .as_ref()
+            .is_some_and(|expected| head.as_ref() != Some(expected))
+            || arguments
+                .expected_digest
+                .as_ref()
+                .is_some_and(|expected| expected != &digest)
+        {
+            return Err(AttemptError::Refused("precondition-failed"));
+        }
+        let definitions = crate::set::DeltaSet::from_deltas(
+            std::iter::once(&arguments.hyperschema)
+                .chain(std::iter::once(&arguments.schema))
+                .chain(arguments.definitions.iter())
+                .map(|id| supplied[id].clone()),
+        )
+        .map_err(AttemptError::Fault)?;
+        let mut gathers = Vec::new();
+        let mut readings = Vec::new();
+        for d in definitions.iter() {
+            match crate::schema_deltas::read_exact_definition(d, arguments.at).map_err(
+                |diagnostic| {
+                    diagnostics.push(diagnostic);
+                    AttemptError::Refused("invalid-definition")
+                },
+            )? {
+                crate::schema_deltas::ExactDefinition::Gather(s) => gathers.push((d.id.clone(), s)),
+                crate::schema_deltas::ExactDefinition::Reading(s) => {
+                    readings.push((d.id.clone(), s))
+                }
+            }
+        }
+        let mut program = crate::schema::select_program(
+            gathers,
+            readings,
+            crate::schema::ProgramSelection {
+                top_gather: &arguments.hyperschema,
+                top_reading: &arguments.schema,
+                gather_pin: &arguments.hyperschema_pin,
+                reading_pin: &arguments.schema_pin,
+                bindings: &arguments.bindings,
+                allow_principal: arguments.interpretation != "core/1",
+            },
+        )
+        .map_err(|e| {
+            use crate::schema::ProgramSelectionError as E;
+            AttemptError::Refused(match e {
+                E::PinMismatch => "pin-mismatch",
+                E::AmbiguousDefinition => "ambiguous-definition",
+                E::DefinitionClosure => "definition-closure",
+                E::DefinitionCycle => "definition-cycle",
+                E::InvalidProgram => "invalid-program",
+            })
+        })?;
+        if arguments.interpretation != "core/1" {
+            let suppression = if arguments.interpretation == "principal-sameAuthor/1" {
+                crate::principal::PrincipalSuppression::SameAuthor
+            } else {
+                crate::principal::PrincipalSuppression::RootOrSameAuthor
+            };
+            let resolver = crate::principal::principal_resolver(suppression);
+            program.gather.body = crate::principal::lower_principal_term(
+                &program.gather.body,
+                &source,
+                arguments.at,
+                &resolver,
+            )
+            .map_err(|e| {
+                diagnostics.push(e);
+                AttemptError::Refused("invalid-program")
+            })?;
+            program.reading = crate::principal::lower_principal_reading(
+                &program.reading,
+                &source,
+                arguments.at,
+                &resolver,
+            )
+            .map_err(|e| {
+                diagnostics.push(e);
+                AttemptError::Refused("invalid-program")
+            })?;
+            program.registry = crate::principal::lower_principal_registry(
+                &program.registry,
+                &source,
+                arguments.at,
+                &resolver,
+            )
+            .map_err(|e| {
+                diagnostics.push(e);
+                AttemptError::Refused("invalid-program")
+            })?;
+        }
+        let gathered = crate::eval::eval_term_at(
+            &program.gather.body,
+            &source,
+            arguments.at,
+            Some(&arguments.root),
+            Some(&program.registry),
+            Some(&arguments.bindings),
+        )
+        .map_err(|e| {
+            diagnostics.push(e);
+            AttemptError::Refused("invalid-program")
+        })?;
+        // The gather's sort was validated independently of whether any source facts exist.
+        let crate::eval::EvalResult::HView(hview) = gathered else {
+            return Err(AttemptError::Refused("invalid-program"));
+        };
+        let view = crate::resolution::resolve_view(&program.reading, &hview).map_err(|e| {
+            diagnostics.push(e);
+            AttemptError::Refused("invalid-program")
+        })?;
+        let value = hex::decode(crate::resolution::view_canonical_hex(&view))
+            .map_err(|e| AttemptError::Fault(e.to_string()))?;
+        Ok(OutcomeBody::Evaluate {
+            source: arguments.source.clone(),
+            digest,
+            definition_digest: definitions.digest(),
+            head,
+            at: arguments.at,
+            interpretation: arguments.interpretation.clone(),
+            hyperschema_pin: arguments.hyperschema_pin.clone(),
+            schema_pin: arguments.schema_pin.clone(),
+            value,
+        })
     }
 }
 enum AttemptError {

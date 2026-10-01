@@ -282,3 +282,36 @@ fn every_shared_retained_description_stays_inert() {
         "command-case:configuration_not_self_installing:command_durable::all_shared_descriptions"
     );
 }
+
+#[test]
+fn shared_evaluation_descriptions_cross_public_transport_and_strict_readback() {
+    let vectors: Value = serde_json::from_slice(
+        &std::fs::read(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../vectors/command/execution.json"),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    let fixture = &vectors["fixtures"];
+    let directory = tempfile::tempdir().unwrap();
+    let request = &fixture["evaluation"];
+    let mut input = json!({"mode":"execute","context":vectors["cases"][0]["context"],"artifact":{"format":"rhizomatic-command-artifact/1","entryId":request["id"],"deltas":[request,fixture["gather"],fixture["reading"]]}});
+    input["context"]["storePath"] = json!(directory.path().join("evaluate.json"));
+    input["context"]["initialDeltas"] = json!([fixture["height"]]);
+    input["context"]["initialArrivedAt"] = json!(3);
+    let out = successful(&input);
+    let rhizomatic::command_data::OutcomeBody::Evaluate { head, value, .. } = result(&out) else {
+        panic!("evaluate")
+    };
+    assert_eq!(hex::encode(value), "a166686569676874f95140");
+    assert_eq!(head.as_deref(), out["observed"]["head"].as_str());
+    assert_eq!(out["observed"]["ids"], json!([fixture["height"]["id"]]));
+    assert_eq!(out["observed"]["arrivals"].as_array().unwrap().len(), 1);
+    input["mode"] = json!("read-result");
+    input["outcome"] = out["outcome"].clone();
+    let read = successful(&input);
+    assert_eq!(read["status"], "completed");
+    assert_eq!(read["valueHex"], "a166686569676874f95140");
+    println!("command-case:query_ephemeral:command_durable::shared_evaluation");
+    println!("command-case:outcome_provenance:command_durable::shared_evaluation");
+}

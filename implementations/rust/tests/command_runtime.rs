@@ -751,3 +751,6 @@ fn json_input_is_owned_and_malformed_debug_appearance_is_a_signed_refusal() {
     // Rust's borrow rules exclude concurrent mutation through the supplied immutable slice.
     evidence("input_mutation");
 }
+
+#[path = "support/command_query.rs"]
+mod query;

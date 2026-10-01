@@ -275,3 +275,387 @@ impl SchemaRegistry {
         })
     }
 }
+
+/// Complete executable reference discovery for explicit definition selection. Legacy registry
+/// construction keeps its established compatibility behavior; this walk includes predicates,
+/// orders, aliased trust predicates and anonymous resolution Schemas.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProgramSort {
+    DSet,
+    HView,
+    View,
+}
+#[derive(Debug, Clone)]
+pub struct ProgramReference {
+    pub reference: SchemaRef,
+    pub reading: bool,
+    pub bindings: crate::pred::Bindings,
+}
+#[derive(Debug, Clone, Default)]
+pub struct ProgramInspection {
+    pub references: Vec<ProgramReference>,
+    pub acts_for: bool,
+    pub invalid: bool,
+}
+impl ProgramInspection {
+    fn reference(
+        &mut self,
+        reference: &SchemaRef,
+        reading: bool,
+        bindings: &crate::pred::Bindings,
+    ) {
+        self.references.push(ProgramReference {
+            reference: reference.clone(),
+            reading,
+            bindings: bindings.clone(),
+        });
+    }
+    fn string_match(&mut self, m: &crate::pred::StrMatch, b: &crate::pred::Bindings) {
+        if let crate::pred::StrMatch::Aliased(a) = m {
+            if let Some(p) = &a.trust {
+                self.predicate(p, b);
+            }
+        }
+    }
+    fn predicate(&mut self, p: &crate::pred::Pred, b: &crate::pred::Bindings) {
+        use crate::pred::{EntityMatch, MatchConst, Param, Pred, ValMatch};
+        match p {
+            Pred::ActsFor { .. } => self.acts_for = true,
+            Pred::Match {
+                constant: MatchConst::Hole(h),
+                ..
+            } => self.invalid |= !b.contains_key(h),
+            Pred::HasPointer(p) => {
+                if let Some(EntityMatch::Hole(h)) = &p.target_entity {
+                    self.invalid |= !matches!(b.get(h), Some(crate::types::Primitive::Str(_)));
+                }
+                if let Some(ValMatch::Vcmp {
+                    value: Param::Hole(h),
+                    ..
+                }) = &p.target_value
+                {
+                    self.invalid |= !b.contains_key(h);
+                }
+                for m in [&p.role, &p.context].into_iter().flatten() {
+                    self.string_match(m, b);
+                }
+            }
+            Pred::And(l, r) | Pred::Or(l, r) => {
+                self.predicate(l, b);
+                self.predicate(r, b);
+            }
+            Pred::Not(p) => self.predicate(p, b),
+            Pred::InView { term, .. } => {
+                self.invalid |= self.term(term, b) != Some(ProgramSort::DSet)
+            }
+            _ => {}
+        }
+    }
+    fn order(&mut self, o: &crate::resolution::Order, b: &crate::pred::Bindings) {
+        use crate::resolution::Order;
+        match o {
+            Order::ByPred { pred, then } => {
+                self.predicate(pred, b);
+                self.order(then, b);
+            }
+            Order::Chain(xs) => {
+                for x in xs {
+                    self.order(x, b);
+                }
+            }
+            _ => {}
+        }
+    }
+    fn policy(&mut self, p: &crate::resolution::Policy, b: &crate::pred::Bindings) {
+        use crate::resolution::Policy;
+        match p {
+            Policy::Pick(o) | Policy::All(o, _) | Policy::Conflicts(o) => self.order(o, b),
+            Policy::AbsentAs { then, .. } => self.policy(then, b),
+            _ => {}
+        }
+    }
+    fn reading(&mut self, s: &Schema, b: &crate::pred::Bindings) {
+        for p in s.props.values() {
+            self.policy(p, b);
+        }
+        self.policy(&s.default, b);
+    }
+    fn term(&mut self, t: &Term, b: &crate::pred::Bindings) -> Option<ProgramSort> {
+        use crate::eval::{MaskPolicy, PruneKeep};
+        let result = match t {
+            Term::Input => Some(ProgramSort::DSet),
+            Term::Select { pred, of } => {
+                self.predicate(pred, b);
+                (self.term(of, b) == Some(ProgramSort::DSet)).then_some(ProgramSort::DSet)
+            }
+            Term::Mask { policy, of } => {
+                if let MaskPolicy::Trust(p) = policy {
+                    self.predicate(p, b);
+                }
+                (self.term(of, b) == Some(ProgramSort::DSet)).then_some(ProgramSort::DSet)
+            }
+            Term::Union { left, right } | Term::Intersect { left, right } => {
+                let l = self.term(left, b);
+                let r = self.term(right, b);
+                (l == Some(ProgramSort::DSet) && r == Some(ProgramSort::DSet))
+                    .then_some(ProgramSort::DSet)
+            }
+            Term::Difference { of, without } => {
+                let l = self.term(of, b);
+                let r = self.term(without, b);
+                (l == Some(ProgramSort::DSet) && r == Some(ProgramSort::DSet))
+                    .then_some(ProgramSort::DSet)
+            }
+            Term::Group { of, .. } => {
+                (self.term(of, b) == Some(ProgramSort::DSet)).then_some(ProgramSort::HView)
+            }
+            Term::Prune { keep, of } => {
+                if let PruneKeep::Match(m) = keep {
+                    self.string_match(m, b);
+                }
+                (self.term(of, b) == Some(ProgramSort::HView)).then_some(ProgramSort::HView)
+            }
+            Term::Expand {
+                role,
+                schema,
+                reading,
+                of,
+            } => {
+                self.string_match(role, b);
+                self.reference(schema, false, b);
+                if let Some(r) = reading {
+                    self.reference(r, true, b);
+                } else {
+                    self.invalid = true;
+                }
+                (self.term(of, b) == Some(ProgramSort::HView)).then_some(ProgramSort::HView)
+            }
+            Term::Fix {
+                schema, bindings, ..
+            } => {
+                self.reference(schema, false, bindings.as_ref().unwrap_or(b));
+                Some(ProgramSort::HView)
+            }
+            Term::Resolve { schema, of } => {
+                self.reading(schema, b);
+                (self.term(of, b) == Some(ProgramSort::HView)).then_some(ProgramSort::View)
+            }
+        };
+        self.invalid |= result.is_none();
+        result
+    }
+}
+pub fn inspect_program_term(
+    term: &Term,
+    bindings: &crate::pred::Bindings,
+) -> (ProgramInspection, Option<ProgramSort>) {
+    let mut inspection = ProgramInspection::default();
+    let sort = inspection.term(term, bindings);
+    (inspection, sort)
+}
+pub fn inspect_program_reading(
+    reading: &Schema,
+    bindings: &crate::pred::Bindings,
+) -> ProgramInspection {
+    let mut inspection = ProgramInspection::default();
+    inspection.reading(reading, bindings);
+    inspection
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProgramSelectionError {
+    PinMismatch,
+    AmbiguousDefinition,
+    DefinitionClosure,
+    DefinitionCycle,
+    InvalidProgram,
+}
+#[derive(Debug, Clone)]
+pub struct SelectedProgram {
+    pub gather: HyperSchema,
+    pub reading: Schema,
+    pub registry: SchemaRegistry,
+}
+pub struct ProgramSelection<'a> {
+    pub top_gather: &'a str,
+    pub top_reading: &'a str,
+    pub gather_pin: &'a str,
+    pub reading_pin: &'a str,
+    pub bindings: &'a crate::pred::Bindings,
+    pub allow_principal: bool,
+}
+/// Validate the exact supplied closure in stable category order. Inputs are in signed-ID order;
+/// names and content pins resolve solely within this registry, preserving first-content rules.
+pub fn select_program(
+    gathers: Vec<(String, HyperSchema)>,
+    readings: Vec<(String, Schema)>,
+    selection: ProgramSelection<'_>,
+) -> Result<SelectedProgram, ProgramSelectionError> {
+    let ProgramSelection {
+        top_gather,
+        top_reading,
+        gather_pin,
+        reading_pin,
+        bindings,
+        allow_principal,
+    } = selection;
+    use ProgramSelectionError as E;
+    #[derive(Clone)]
+    enum Body {
+        Gather(HyperSchema),
+        Reading(Schema),
+    }
+    let mut bodies: Vec<(String, Body)> = gathers
+        .into_iter()
+        .map(|(id, s)| (id, Body::Gather(s)))
+        .chain(readings.into_iter().map(|(id, s)| (id, Body::Reading(s))))
+        .collect();
+    bodies.sort_by(|a, b| a.0.cmp(&b.0));
+    let gather_index = bodies
+        .iter()
+        .position(|(id, b)| id == top_gather && matches!(b, Body::Gather(_)))
+        .ok_or(E::InvalidProgram)?;
+    let reading_index = bodies
+        .iter()
+        .position(|(id, b)| id == top_reading && matches!(b, Body::Reading(_)))
+        .ok_or(E::InvalidProgram)?;
+    let hash = |body: &Body| match body {
+        Body::Gather(s) => term_hash(&s.body),
+        Body::Reading(s) => crate::term_io::schema_hash(s),
+    };
+    if hash(&bodies[gather_index].1).map_err(|_| E::InvalidProgram)? != gather_pin
+        || hash(&bodies[reading_index].1).map_err(|_| E::InvalidProgram)? != reading_pin
+    {
+        return Err(E::PinMismatch);
+    }
+    let mut names: HashMap<(bool, String), usize> = HashMap::new();
+    let mut hashes: HashMap<(bool, String), usize> = HashMap::new();
+    for (i, (_, body)) in bodies.iter().enumerate() {
+        let (reading, name) = match body {
+            Body::Gather(s) => (false, s.name.clone()),
+            Body::Reading(s) => (true, s.name.clone().ok_or(E::InvalidProgram)?),
+        };
+        if names.insert((reading, name), i).is_some() {
+            return Err(E::AmbiguousDefinition);
+        }
+        hashes
+            .entry((reading, hash(body).map_err(|_| E::InvalidProgram)?))
+            .or_insert(i);
+    }
+    let resolve = |r: &ProgramReference| {
+        match &r.reference {
+            SchemaRef::Name(n) => names.get(&(r.reading, n.clone())),
+            SchemaRef::Pinned(h) => hashes.get(&(r.reading, h.clone())),
+        }
+        .copied()
+        .ok_or(E::DefinitionClosure)
+    };
+    let inspect = |body: &Body, b: &crate::pred::Bindings| match body {
+        Body::Gather(s) => {
+            let (mut a, sort) = inspect_program_term(&s.body, b);
+            a.invalid |= sort != Some(ProgramSort::HView);
+            a
+        }
+        Body::Reading(s) => inspect_program_reading(s, b),
+    };
+    let edges = bodies
+        .iter()
+        .map(|(_, body)| {
+            inspect(body, bindings)
+                .references
+                .iter()
+                .map(&resolve)
+                .collect::<Result<Vec<_>, E>>()
+        })
+        .collect::<Result<Vec<_>, E>>()?;
+    fn reach(i: usize, edges: &[Vec<usize>], seen: &mut std::collections::BTreeSet<usize>) {
+        if seen.insert(i) {
+            for j in &edges[i] {
+                reach(*j, edges, seen);
+            }
+        }
+    }
+    let mut seen = std::collections::BTreeSet::new();
+    reach(gather_index, &edges, &mut seen);
+    reach(reading_index, &edges, &mut seen);
+    if seen.len() != bodies.len() {
+        return Err(E::DefinitionClosure);
+    }
+    fn cycle(i: usize, edges: &[Vec<usize>], states: &mut [u8]) -> bool {
+        if states[i] == 1 {
+            return true;
+        }
+        if states[i] == 2 {
+            return false;
+        }
+        states[i] = 1;
+        for j in &edges[i] {
+            if cycle(*j, edges, states) {
+                return true;
+            }
+        }
+        states[i] = 2;
+        false
+    }
+    let mut states = vec![0; bodies.len()];
+    for i in 0..bodies.len() {
+        if cycle(i, &edges, &mut states) {
+            return Err(E::DefinitionCycle);
+        }
+    }
+    // Walk each invocation environment after the DAG is known. Fix's explicit bindings shadow
+    // the request environment; an unrelated branch cannot supply another branch's holes.
+    let mut pending = vec![
+        (gather_index, bindings.clone()),
+        (reading_index, bindings.clone()),
+    ];
+    let mut checked = Vec::new();
+    while let Some((i, b)) = pending.pop() {
+        if checked
+            .iter()
+            .any(|(index, environment)| *index == i && environment == &b)
+        {
+            continue;
+        }
+        checked.push((i, b.clone()));
+        let a = inspect(&bodies[i].1, &b);
+        if a.invalid || (!allow_principal && a.acts_for) {
+            return Err(E::InvalidProgram);
+        }
+        for r in a.references {
+            pending.push((resolve(&r)?, r.bindings));
+        }
+    }
+    let gathers = bodies
+        .iter()
+        .filter_map(|(_, b)| {
+            if let Body::Gather(s) = b {
+                Some(s.clone())
+            } else {
+                None
+            }
+        })
+        .collect();
+    let readings = bodies
+        .iter()
+        .filter_map(|(_, b)| {
+            if let Body::Reading(s) = b {
+                Some(s.clone())
+            } else {
+                None
+            }
+        })
+        .collect();
+    let registry = SchemaRegistry::build(gathers, readings).map_err(|_| E::InvalidProgram)?;
+    let Body::Gather(gather) = &bodies[gather_index].1 else {
+        unreachable!()
+    };
+    let Body::Reading(reading) = &bodies[reading_index].1 else {
+        unreachable!()
+    };
+    Ok(SelectedProgram {
+        gather: gather.clone(),
+        reading: reading.clone(),
+        registry,
+    })
+}
