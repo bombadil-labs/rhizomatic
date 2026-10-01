@@ -215,3 +215,10 @@ export {
   captureOrdinaryJournalSource,
   type OrdinaryJournalCapture,
 } from "./federation/ordinary-journal-peer.js";
+export { readCommandDefinition } from "./schema-load/command-definitions.js";
+export {
+  validateCommandProgram,
+  CommandProgramError,
+  type CommandProgramCode,
+  type CommandProgramDefinition,
+} from "./schema/command-program.js";

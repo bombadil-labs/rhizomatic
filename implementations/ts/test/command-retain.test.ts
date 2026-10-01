@@ -31,7 +31,7 @@ const vector = JSON.parse(
   readFileSync(new URL("../../../vectors/command/execution.json", import.meta.url), "utf8"),
 ) as {
   fixtures: Record<string, unknown>;
-  cases: { id: string; driver: string; context: Context }[];
+  cases: { id: string; driver: string; milestone: string; context: Context }[];
 };
 const context = vector.cases[0]!.context;
 const native = (key: string) => parseCommandDelta(vector.fixtures[key]);
@@ -72,7 +72,7 @@ async function state(store: CommandFixtureStore) {
   return { peer: opened.peer, image: opened.peer.snapshot() };
 }
 describe("shared command durable retain scenarios", () => {
-  for (const c of vector.cases)
+  for (const c of vector.cases.filter((c) => c.milestone === "M2"))
     it(`M2:${c.id}`, async () => {
       const directory = mkdtempSync(join(tmpdir(), "command-retain-"));
       try {
@@ -294,7 +294,6 @@ describe("shared command durable retain scenarios", () => {
                 await endpoint.invoke(request.id, [serializeCommandDelta(request), uppercase]),
               ).code,
             ).toBe("invalid-appearance");
-
             const config = patch(
               boot.configuration,
               "max-deltas",
@@ -407,7 +406,6 @@ describe("shared command durable retain scenarios", () => {
               ).duplicate,
             ).toEqual([first.id]);
             expect((await state(store)).image.base.admitted.get(first.id)!.sig).toBe(first.sig);
-
             break;
           }
           case "retain_only_payload": {

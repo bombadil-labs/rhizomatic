@@ -4613,6 +4613,56 @@
       "semantics": "Reexports OrdinaryJournalCapture from implementations/ts/src/federation/ordinary-journal-peer.ts; interpretation remains with federation."
     },
     {
+      "id": "ts:index.ts:readCommandDefinition",
+      "owner": "schema-load",
+      "symbol": "readCommandDefinition",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/schema-load/command-definitions.ts",
+      "contract": "rhizomatic.schema-load/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Reexports readCommandDefinition from implementations/ts/src/schema-load/command-definitions.ts; interpretation remains with schema-load."
+    },
+    {
+      "id": "ts:index.ts:validateCommandProgram",
+      "owner": "schema",
+      "symbol": "validateCommandProgram",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/schema/command-program.ts",
+      "contract": "rhizomatic.schema/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Reexports validateCommandProgram from implementations/ts/src/schema/command-program.ts; interpretation remains with schema."
+    },
+    {
+      "id": "ts:index.ts:CommandProgramError",
+      "owner": "schema",
+      "symbol": "CommandProgramError",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/schema/command-program.ts",
+      "contract": "rhizomatic.schema/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Reexports CommandProgramError from implementations/ts/src/schema/command-program.ts; interpretation remains with schema."
+    },
+    {
+      "id": "ts:index.ts:CommandProgramCode",
+      "owner": "schema",
+      "symbol": "CommandProgramCode",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/schema/command-program.ts",
+      "contract": "rhizomatic.schema/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Reexports CommandProgramCode from implementations/ts/src/schema/command-program.ts; interpretation remains with schema."
+    },
+    {
+      "id": "ts:index.ts:CommandProgramDefinition",
+      "owner": "schema",
+      "symbol": "CommandProgramDefinition",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/schema/command-program.ts",
+      "contract": "rhizomatic.schema/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Reexports CommandProgramDefinition from implementations/ts/src/schema/command-program.ts; interpretation remains with schema."
+    },
+    {
       "id": "ts:json-profile.ts:claimsToJson",
       "owner": "delta",
       "symbol": "claimsToJson",
@@ -6153,6 +6203,16 @@
       "semantics": "Reexports SCHEMA_SCHEMA from implementations/ts/src/schema-load/schema-deltas.ts; interpretation remains with schema-load."
     },
     {
+      "id": "ts:schema-load/command-definitions.ts:readCommandDefinition",
+      "owner": "schema-load",
+      "symbol": "readCommandDefinition",
+      "source": "implementations/ts/src/schema-load/command-definitions.ts",
+      "definition": "implementations/ts/src/schema-load/command-definitions.ts",
+      "contract": "rhizomatic.schema-load/native-api/1",
+      "classification": "declared_intrinsic",
+      "semantics": "Existing schema-load API readCommandDefinition; native arguments select its documented SPEC behavior. Its existence does not advertise command or later ecosystem portability."
+    },
+    {
       "id": "ts:schema-load/lens-binding.ts:publishLensBindingClaims",
       "owner": "schema-load",
       "symbol": "publishLensBindingClaims",
@@ -6331,6 +6391,46 @@
       "contract": "rhizomatic.schema/native-api/1",
       "classification": "compatibility_reexport",
       "semantics": "Reexports SchemaRegistry from implementations/ts/src/schema/schema.ts; interpretation remains with schema."
+    },
+    {
+      "id": "ts:schema/command-program.ts:validateCommandProgram",
+      "owner": "schema",
+      "symbol": "validateCommandProgram",
+      "source": "implementations/ts/src/schema/command-program.ts",
+      "definition": "implementations/ts/src/schema/command-program.ts",
+      "contract": "rhizomatic.schema/native-api/1",
+      "classification": "declared_intrinsic",
+      "semantics": "Existing schema API validateCommandProgram; native arguments select its documented SPEC behavior. Its existence does not advertise command or later ecosystem portability."
+    },
+    {
+      "id": "ts:schema/command-program.ts:CommandProgramDefinition",
+      "owner": "schema",
+      "symbol": "CommandProgramDefinition",
+      "source": "implementations/ts/src/schema/command-program.ts",
+      "definition": "implementations/ts/src/schema/command-program.ts",
+      "contract": "rhizomatic.schema/native-api/1",
+      "classification": "declared_intrinsic",
+      "semantics": "Existing schema API CommandProgramDefinition; native arguments select its documented SPEC behavior. Its existence does not advertise command or later ecosystem portability."
+    },
+    {
+      "id": "ts:schema/command-program.ts:CommandProgramCode",
+      "owner": "schema",
+      "symbol": "CommandProgramCode",
+      "source": "implementations/ts/src/schema/command-program.ts",
+      "definition": "implementations/ts/src/schema/command-program.ts",
+      "contract": "rhizomatic.schema/native-api/1",
+      "classification": "declared_intrinsic",
+      "semantics": "Existing schema API CommandProgramCode; native arguments select its documented SPEC behavior. Its existence does not advertise command or later ecosystem portability."
+    },
+    {
+      "id": "ts:schema/command-program.ts:CommandProgramError",
+      "owner": "schema",
+      "symbol": "CommandProgramError",
+      "source": "implementations/ts/src/schema/command-program.ts",
+      "definition": "implementations/ts/src/schema/command-program.ts",
+      "contract": "rhizomatic.schema/native-api/1",
+      "classification": "declared_intrinsic",
+      "semantics": "Existing schema API CommandProgramError; native arguments select its documented SPEC behavior. Its existence does not advertise command or later ecosystem portability."
     },
     {
       "id": "ts:schema/schema.ts:collectRefs",

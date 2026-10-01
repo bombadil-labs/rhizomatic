@@ -1,5 +1,5 @@
 // SPEC-15 orchestration: boot explicitly grants effects; signed descriptions never self-install.
-import { array, encode, map, tstr, type CborValue } from "../delta/cbor.js";
+import { array, encode, map, tstr, bstr, float, type CborValue } from "../delta/cbor.js";
 import { authorForSeed } from "../delta/sign.js";
 import { canonicalBytes } from "../delta/delta.js";
 import { DeltaSet } from "../delta/set.js";
@@ -14,6 +14,8 @@ import {
   commandNumber,
   commandRef,
   commandText,
+  commandBytes,
+  decodeBindings,
   isCommandId,
   parseCommandDelta,
   readConfiguration,
@@ -24,6 +26,15 @@ import {
   writeCommandDescription,
   type CommandFields,
 } from "../command-data/codec.js";
+import { readCommandDefinition } from "../schema-load/command-definitions.js";
+import { validateCommandProgram, CommandProgramError } from "../schema/command-program.js";
+import { evalTerm } from "../resolve/eval.js";
+import { resolveView, viewCanonicalHex } from "../resolve-kernel/resolution.js";
+import {
+  lowerPrincipalTerm,
+  lowerPrincipalRegistry,
+  principalResolver,
+} from "../principal/term.js";
 export class CommandTransportError extends Error {}
 export interface CommandBoot {
   readonly seed: string;
@@ -200,8 +211,100 @@ export class CommandEndpoint {
       },
     });
     if (operation.kind === "evaluate") {
-      // M2 development endpoints explicitly refuse unfinished execution; no capability is advertised.
-      return refuse("unsupported-operation");
+      const sourceKind = commandText(fields, "source");
+      let source: DeltaSet, head: string | undefined;
+      if (sourceKind === "catalog") source = this.catalog();
+      else {
+        const captured = await captureOrdinaryJournalSource(
+          this.boot.store,
+          this.receiver,
+          this.boot.diagnostic,
+        );
+        if (captured.status !== "captured") return refuse(captured.status);
+        source = captured.source;
+        head = captured.head;
+      }
+      if (
+        (fields["expected-head"] && commandText(fields, "expected-head") !== head) ||
+        (fields["expected-digest"] && commandText(fields, "expected-digest") !== source.digest())
+      )
+        return refuse("precondition-failed");
+      const evaluationAt = commandNumber(fields, "at"),
+        interpretation = commandText(fields, "interpretation");
+      let definitions;
+      try {
+        definitions = [...new Set(named)]
+          .sort()
+          .map((id) => readCommandDefinition(supplied.get(id)!, evaluationAt));
+      } catch {
+        return refuse("invalid-definition");
+      }
+      let selected;
+      const bindings = new Map(Object.entries(decodeBindings(commandBytes(fields, "bindings"))));
+      try {
+        selected = validateCommandProgram(
+          definitions,
+          commandRef(fields, "hyperschema"),
+          commandRef(fields, "schema"),
+          commandText(fields, "hyperschema-pin"),
+          commandText(fields, "schema-pin"),
+          bindings,
+          interpretation !== "core/1",
+        );
+      } catch (fault) {
+        if (fault instanceof CommandProgramError) return refuse(fault.code);
+        throw fault;
+      }
+      let value;
+      try {
+        let term = selected.hyper.body,
+          reading = selected.reading,
+          registry = selected.registry;
+        if (interpretation !== "core/1") {
+          const resolver = principalResolver(
+            interpretation === "principal-sameAuthor/1" ? "sameAuthor" : "rootOrSameAuthor",
+          );
+          term = lowerPrincipalTerm(term, source, evaluationAt, resolver);
+          const wrapper = lowerPrincipalTerm(
+            { kind: "resolve", schema: reading, of: { kind: "input" } },
+            source,
+            evaluationAt,
+            resolver,
+          );
+          if (wrapper.kind !== "resolve") throw new Error("reading lowering failed");
+          reading = wrapper.schema;
+          registry = lowerPrincipalRegistry(registry, source, evaluationAt, resolver);
+        }
+        const gathered = evalTerm(
+          term,
+          source,
+          evaluationAt,
+          commandEntity(fields, "root"),
+          registry,
+          bindings,
+        );
+        if (gathered.sort !== "hview") return refuse("invalid-program");
+        value = viewCanonicalHex(resolveView(reading, gathered.hview));
+      } catch {
+        return refuse("invalid-program");
+      }
+      return this.outcome(
+        entryId,
+        at,
+        "completed",
+        map([
+          ["kind", tstr("evaluate")],
+          ["source", tstr(sourceKind)],
+          ["digest", tstr(source.digest())],
+          ["definitionDigest", tstr(DeltaSet.from(named.map((id) => supplied.get(id)!)).digest())],
+          ["at", float(evaluationAt)],
+          ["interpretation", tstr(interpretation)],
+          ["hyperschemaPin", tstr(commandText(fields, "hyperschema-pin"))],
+          ["schemaPin", tstr(commandText(fields, "schema-pin"))],
+          ["value", bstr(Uint8Array.from(value.match(/../g)!.map((h) => Number.parseInt(h, 16))))],
+          ...(head === undefined ? [] : [["head", tstr(head)] as const]),
+        ]),
+      );
     }
     const captured = await captureOrdinaryJournalSource(
       tracked,
