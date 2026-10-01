@@ -190,3 +190,35 @@ export {
   type MaterializationChange,
   type Suppression,
 } from "./reactor.js";
+export { decodeView } from "./resolve-kernel/resolution.js";
+export {
+  COMMAND_PROFILE,
+  COMMAND_PREFIX,
+  encodeBindings,
+  decodeBindings,
+  parseCommandDelta,
+  serializeCommandDelta,
+  verifyCommandAppearance,
+  readConfiguration,
+  readOperation,
+  readRequestCommon,
+  readRequestArguments,
+  readOutcome,
+  writeCommandDescription,
+  type CommandFields,
+  type Interpretation,
+  type ReadOutcome,
+} from "./command-data/codec.js";
+export { readCommandResult } from "./command/read-result.js";
+export { CommandEndpoint, CommandTransportError, type CommandBoot } from "./command/endpoint.js";
+export {
+  captureOrdinaryJournalSource,
+  type OrdinaryJournalCapture,
+} from "./federation/ordinary-journal-peer.js";
+export { readCommandDefinition } from "./schema-load/command-definitions.js";
+export {
+  validateCommandProgram,
+  CommandProgramError,
+  type CommandProgramCode,
+  type CommandProgramDefinition,
+} from "./schema/command-program.js";

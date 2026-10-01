@@ -10,7 +10,8 @@ use crate::pred::{
     eval_pred, pred_contains_in_view, str_match, substitute_holes, Bindings, Cmp, InViewExtract,
     MatchConst, Pred, StrMatch,
 };
-use crate::resolution::{resolve_view, view_canonical_hex, Schema, View};
+pub use crate::resolution::first_by_order;
+use crate::resolution::{resolve_view, view_canonical_hex, Order, Schema, View};
 use crate::schema::SchemaRegistry;
 use crate::schema_deltas::VOCAB_PREFIX;
 use crate::set::{fork, merge, DeltaSet};
@@ -342,6 +343,7 @@ fn resolve_reflective(
     root: Option<&str>,
     registry: Option<&SchemaRegistry>,
     bindings: Option<&Bindings>,
+    bind_readings: bool,
 ) -> Result<Pred, String> {
     Ok(match pred {
         Pred::InView {
@@ -349,7 +351,7 @@ fn resolve_reflective(
             field,
             extract,
         } => {
-            let set = match eval_term(term, input, root, registry, bindings)? {
+            let set = match eval_term_inner(term, input, root, registry, bindings, bind_readings)? {
                 EvalResult::DSet { set, .. } => set,
                 _ => return Err("inView.term must evaluate to a DSet (E9)".to_string()),
             };
@@ -360,15 +362,48 @@ fn resolve_reflective(
             }
         }
         Pred::And(l, r) => Pred::And(
-            Box::new(resolve_reflective(l, input, root, registry, bindings)?),
-            Box::new(resolve_reflective(r, input, root, registry, bindings)?),
+            Box::new(resolve_reflective(
+                l,
+                input,
+                root,
+                registry,
+                bindings,
+                bind_readings,
+            )?),
+            Box::new(resolve_reflective(
+                r,
+                input,
+                root,
+                registry,
+                bindings,
+                bind_readings,
+            )?),
         ),
         Pred::Or(l, r) => Pred::Or(
-            Box::new(resolve_reflective(l, input, root, registry, bindings)?),
-            Box::new(resolve_reflective(r, input, root, registry, bindings)?),
+            Box::new(resolve_reflective(
+                l,
+                input,
+                root,
+                registry,
+                bindings,
+                bind_readings,
+            )?),
+            Box::new(resolve_reflective(
+                r,
+                input,
+                root,
+                registry,
+                bindings,
+                bind_readings,
+            )?),
         ),
         Pred::Not(p) => Pred::Not(Box::new(resolve_reflective(
-            p, input, root, registry, bindings,
+            p,
+            input,
+            root,
+            registry,
+            bindings,
+            bind_readings,
         )?)),
         Pred::ActsFor { .. } => {
             return Err("actsFor requires an explicit principal resolver (SPEC-14)".to_string())
@@ -461,6 +496,7 @@ fn eval_schema(
     root: &str,
     registry: Option<&SchemaRegistry>,
     bindings: Option<&Bindings>,
+    bind_readings: bool,
 ) -> Result<HView, String> {
     let label = match schema_ref {
         SchemaRef::Name(n) => n.clone(),
@@ -472,7 +508,14 @@ fn eval_schema(
     let schema = registry
         .resolve(schema_ref)
         .ok_or(format!("unknown schema: {label} (E10/E13)"))?;
-    match eval_term(&schema.body, input, Some(root), Some(registry), bindings)? {
+    match eval_term_inner(
+        &schema.body,
+        input,
+        Some(root),
+        Some(registry),
+        bindings,
+        bind_readings,
+    )? {
         EvalResult::HView(h) => Ok(h),
         _ => Err(format!(
             "schema {label} body must be an HView-sort term (E10)"
@@ -551,6 +594,17 @@ pub fn eval_term(
     registry: Option<&SchemaRegistry>,
     bindings: Option<&Bindings>,
 ) -> Result<EvalResult, String> {
+    eval_term_inner(term, input, root, registry, bindings, false)
+}
+
+fn eval_term_inner(
+    term: &Term,
+    input: &DeltaSet,
+    root: Option<&str>,
+    registry: Option<&SchemaRegistry>,
+    bindings: Option<&Bindings>,
+    bind_readings: bool,
+) -> Result<EvalResult, String> {
     fn expect_dset(r: EvalResult, op: &str) -> Result<(DeltaSet, BTreeSet<String>), String> {
         match r {
             EvalResult::DSet { set, negated, .. } => Ok((set, negated)),
@@ -566,32 +620,42 @@ pub fn eval_term(
     match term {
         Term::Input => Ok(dset_result(input.clone())),
         Term::Select { pred, of } => {
-            let (set, _) = expect_dset(eval_term(of, input, root, registry, bindings)?, "select")?;
+            let (set, _) = expect_dset(
+                eval_term_inner(of, input, root, registry, bindings, bind_readings)?,
+                "select",
+            )?;
             let pred = resolve_reflective(
                 &expand_aliased(&substitute_holes(pred, bindings)?, input, root),
                 input,
                 root,
                 registry,
                 bindings,
+                bind_readings,
             )?;
             Ok(dset_result(fork(&set, |d: &Delta| {
                 eval_pred(&pred, d, root)
             })))
         }
         Term::Union { left, right } => {
-            let (l, _) = expect_dset(eval_term(left, input, root, registry, bindings)?, "union")?;
-            let (r, _) = expect_dset(eval_term(right, input, root, registry, bindings)?, "union")?;
+            let (l, _) = expect_dset(
+                eval_term_inner(left, input, root, registry, bindings, bind_readings)?,
+                "union",
+            )?;
+            let (r, _) = expect_dset(
+                eval_term_inner(right, input, root, registry, bindings, bind_readings)?,
+                "union",
+            )?;
             Ok(dset_result(merge(&l, &r)))
         }
         Term::Intersect { left, right } => {
             // left ∩ right, keyed by content-addressed id (SPEC-2 §4.9). Plain DSet result: any
             // mask(annotate) tag channel on an operand is dropped, like select/union (E14).
             let (l, _) = expect_dset(
-                eval_term(left, input, root, registry, bindings)?,
+                eval_term_inner(left, input, root, registry, bindings, bind_readings)?,
                 "intersect",
             )?;
             let (r, _) = expect_dset(
-                eval_term(right, input, root, registry, bindings)?,
+                eval_term_inner(right, input, root, registry, bindings, bind_readings)?,
                 "intersect",
             )?;
             Ok(dset_result(fork(&l, |d: &Delta| r.contains(&d.id))))
@@ -599,17 +663,20 @@ pub fn eval_term(
         Term::Difference { of, without } => {
             // of ∖ without, keyed by id (SPEC-2 §4.9). Asymmetric operands `of`/`without`.
             let (o, _) = expect_dset(
-                eval_term(of, input, root, registry, bindings)?,
+                eval_term_inner(of, input, root, registry, bindings, bind_readings)?,
                 "difference",
             )?;
             let (w, _) = expect_dset(
-                eval_term(without, input, root, registry, bindings)?,
+                eval_term_inner(without, input, root, registry, bindings, bind_readings)?,
                 "difference",
             )?;
             Ok(dset_result(fork(&o, |d: &Delta| !w.contains(&d.id))))
         }
         Term::Mask { policy, of } => {
-            let (set, _) = expect_dset(eval_term(of, input, root, registry, bindings)?, "mask")?;
+            let (set, _) = expect_dset(
+                eval_term_inner(of, input, root, registry, bindings, bind_readings)?,
+                "mask",
+            )?;
             Ok(match policy {
                 MaskPolicy::Drop => {
                     let negated = compute_negated(&set, None, root);
@@ -630,6 +697,7 @@ pub fn eval_term(
                         root,
                         registry,
                         bindings,
+                        bind_readings,
                     )?;
                     let negated = compute_negated(&set, Some(&pred), root);
                     dset_result(fork(&set, |d: &Delta| !negated.contains(&d.id)))
@@ -639,13 +707,16 @@ pub fn eval_term(
         Term::Group { key, of } => {
             let root = root.ok_or("group requires an ambient root entity (E9)")?;
             let (set, negated) = expect_dset(
-                eval_term(of, input, Some(root), registry, bindings)?,
+                eval_term_inner(of, input, Some(root), registry, bindings, bind_readings)?,
                 "group",
             )?;
             Ok(EvalResult::HView(eval_group(key, &set, &negated, root)))
         }
         Term::Prune { keep, of } => {
-            let h = expect_hview(eval_term(of, input, root, registry, bindings)?, "prune")?;
+            let h = expect_hview(
+                eval_term_inner(of, input, root, registry, bindings, bind_readings)?,
+                "prune",
+            )?;
             Ok(EvalResult::HView(match keep {
                 PruneKeep::All => h,
                 PruneKeep::Match(m) => {
@@ -667,13 +738,23 @@ pub fn eval_term(
             reading,
             of,
         } => {
-            let h = expect_hview(eval_term(of, input, root, registry, bindings)?, "expand")?;
+            let h = expect_hview(
+                eval_term_inner(of, input, root, registry, bindings, bind_readings)?,
+                "expand",
+            )?;
             let role = expand_str_match(role, input, root);
             // Resolve the child's reading once, up front — an unknown reading fails the whole
             // evaluation loudly, exactly as an unknown gather schema does (issue #23).
             let reading = match reading {
                 None => None,
-                Some(r) => Some(lookup_reading(r, registry)?),
+                Some(r) => {
+                    let reading = lookup_reading(r, registry)?;
+                    Some(if bind_readings {
+                        bind_program_reading(&reading, bindings)?
+                    } else {
+                        reading
+                    })
+                }
             };
             let mut props: BTreeMap<String, Vec<HVEntry>> = BTreeMap::new();
             for (prop, entries) in h.props {
@@ -688,7 +769,8 @@ pub fn eval_term(
                         if !str_match(&role, &ptr.role) {
                             continue;
                         }
-                        let nested = eval_schema(schema, input, &er.id, registry, bindings)?;
+                        let nested =
+                            eval_schema(schema, input, &er.id, registry, bindings, bind_readings)?;
                         e.expanded.insert(i, nested);
                         if let Some(r) = &reading {
                             e.readings.insert(i, r.clone());
@@ -713,11 +795,20 @@ pub fn eval_term(
                 entity,
                 registry,
                 fix_bindings.as_ref().or(bindings),
+                bind_readings,
             )?))
         }
         Term::Resolve { schema, of } => {
-            let h = expect_hview(eval_term(of, input, root, registry, bindings)?, "resolve")?;
-            Ok(EvalResult::View(resolve_view(schema, &h)?))
+            let h = expect_hview(
+                eval_term_inner(of, input, root, registry, bindings, bind_readings)?,
+                "resolve",
+            )?;
+            let bound = if bind_readings {
+                bind_program_reading(schema, bindings)?
+            } else {
+                schema.clone()
+            };
+            Ok(EvalResult::View(resolve_view(&bound, &h)?))
         }
     }
 }
@@ -739,6 +830,175 @@ pub fn eval_term_at(
         d.claims.valid_from <= now && d.claims.valid_until.is_none_or(|end| now < end)
     });
     eval_term(term, &valid, root, registry, bindings)
+}
+
+/// Explicit program invocation additionally binds variables in every executed reading. The
+/// legacy evaluator remains available with its established native optional-binding behavior.
+pub fn eval_bound_program_at(
+    term: &Term,
+    input: &DeltaSet,
+    at: f64,
+    root: Option<&str>,
+    registry: Option<&SchemaRegistry>,
+    bindings: &Bindings,
+) -> Result<EvalResult, String> {
+    if !at.is_finite() {
+        return Err("evaluation time must be finite".into());
+    }
+    let valid = fork(input, |d: &Delta| {
+        d.claims.valid_from <= at && d.claims.valid_until.is_none_or(|end| at < end)
+    });
+    eval_term_inner(term, &valid, root, registry, Some(bindings), true)
+}
+
+fn bind_string_match(m: &StrMatch, b: &Bindings) -> Result<StrMatch, String> {
+    Ok(match m {
+        StrMatch::Aliased(a) => {
+            let mut a = (**a).clone();
+            a.trust = a
+                .trust
+                .as_ref()
+                .map(|p| bind_program_predicate(p, b))
+                .transpose()?;
+            StrMatch::Aliased(Box::new(a))
+        }
+        _ => m.clone(),
+    })
+}
+fn bind_program_predicate(p: &Pred, b: &Bindings) -> Result<Pred, String> {
+    let p = substitute_holes(p, Some(b))?;
+    Ok(match p {
+        Pred::And(l, r) => Pred::And(
+            Box::new(bind_program_predicate(&l, b)?),
+            Box::new(bind_program_predicate(&r, b)?),
+        ),
+        Pred::Or(l, r) => Pred::Or(
+            Box::new(bind_program_predicate(&l, b)?),
+            Box::new(bind_program_predicate(&r, b)?),
+        ),
+        Pred::Not(p) => Pred::Not(Box::new(bind_program_predicate(&p, b)?)),
+        Pred::InView {
+            term,
+            field,
+            extract,
+        } => Pred::InView {
+            term: Box::new(bind_program_term(&term, b)?),
+            field,
+            extract,
+        },
+        Pred::HasPointer(mut p) => {
+            p.role = p
+                .role
+                .as_ref()
+                .map(|m| bind_string_match(m, b))
+                .transpose()?;
+            p.context = p
+                .context
+                .as_ref()
+                .map(|m| bind_string_match(m, b))
+                .transpose()?;
+            Pred::HasPointer(p)
+        }
+        _ => p,
+    })
+}
+fn bind_program_term(t: &Term, b: &Bindings) -> Result<Term, String> {
+    Ok(match t {
+        Term::Input | Term::Fix { .. } => t.clone(),
+        Term::Select { pred, of } => Term::Select {
+            pred: bind_program_predicate(pred, b)?,
+            of: Box::new(bind_program_term(of, b)?),
+        },
+        Term::Union { left, right } => Term::Union {
+            left: Box::new(bind_program_term(left, b)?),
+            right: Box::new(bind_program_term(right, b)?),
+        },
+        Term::Intersect { left, right } => Term::Intersect {
+            left: Box::new(bind_program_term(left, b)?),
+            right: Box::new(bind_program_term(right, b)?),
+        },
+        Term::Difference { of, without } => Term::Difference {
+            of: Box::new(bind_program_term(of, b)?),
+            without: Box::new(bind_program_term(without, b)?),
+        },
+        Term::Mask { policy, of } => Term::Mask {
+            policy: match policy {
+                MaskPolicy::Trust(p) => MaskPolicy::Trust(bind_program_predicate(p, b)?),
+                _ => policy.clone(),
+            },
+            of: Box::new(bind_program_term(of, b)?),
+        },
+        Term::Group { key, of } => Term::Group {
+            key: key.clone(),
+            of: Box::new(bind_program_term(of, b)?),
+        },
+        Term::Prune { keep, of } => Term::Prune {
+            keep: match keep {
+                PruneKeep::All => keep.clone(),
+                PruneKeep::Match(m) => PruneKeep::Match(bind_string_match(m, b)?),
+            },
+            of: Box::new(bind_program_term(of, b)?),
+        },
+        Term::Expand {
+            role,
+            schema,
+            reading,
+            of,
+        } => Term::Expand {
+            role: bind_string_match(role, b)?,
+            schema: schema.clone(),
+            reading: reading.clone(),
+            of: Box::new(bind_program_term(of, b)?),
+        },
+        Term::Resolve { schema, of } => Term::Resolve {
+            schema: bind_program_reading(schema, Some(b))?,
+            of: Box::new(bind_program_term(of, b)?),
+        },
+    })
+}
+/// Substitute a reading's explicit environment without changing its registered signed pin.
+/// No source or host observation is needed to bind a variable to its supplied primitive.
+pub fn bind_program_reading(s: &Schema, bindings: Option<&Bindings>) -> Result<Schema, String> {
+    use crate::resolution::Policy;
+    let Some(b) = bindings else {
+        return Ok(s.clone());
+    };
+    fn order(
+        o: &crate::resolution::Order,
+        b: &Bindings,
+    ) -> Result<crate::resolution::Order, String> {
+        use crate::resolution::Order;
+        Ok(match o {
+            Order::ByPred { pred, then } => Order::ByPred {
+                pred: bind_program_predicate(pred, b)?,
+                then: Box::new(order(then, b)?),
+            },
+            Order::Chain(xs) => {
+                Order::Chain(xs.iter().map(|o| order(o, b)).collect::<Result<_, _>>()?)
+            }
+            _ => o.clone(),
+        })
+    }
+    fn policy(p: &Policy, b: &Bindings) -> Result<Policy, String> {
+        Ok(match p {
+            Policy::Pick(o) => Policy::Pick(order(o, b)?),
+            Policy::All(o, distinct) => Policy::All(order(o, b)?, *distinct),
+            Policy::Conflicts(o) => Policy::Conflicts(order(o, b)?),
+            Policy::AbsentAs { constant, then } => Policy::AbsentAs {
+                constant: constant.clone(),
+                then: Box::new(policy(then, b)?),
+            },
+            _ => p.clone(),
+        })
+    }
+    let mut s = s.clone();
+    s.props = s
+        .props
+        .iter()
+        .map(|(name, p)| Ok((name.clone(), policy(p, b)?)))
+        .collect::<Result<_, String>>()?;
+    s.default = policy(&s.default, b)?;
+    Ok(s)
 }
 
 /// Canonical serialization of an evaluation result (ERRATA-2 E2, E7).
@@ -771,4 +1031,29 @@ pub fn result_canonical_hex(result: &EvalResult) -> String {
             hex::encode(bytes)
         }
     }
+}
+
+/// Select one supplied definition through explicit gather, author selection and ordering.
+pub(crate) fn selected_definition(
+    body: &Term,
+    dset: &DeltaSet,
+    schema_entity: &str,
+    now: f64,
+    admits_author: impl Fn(&str) -> bool,
+    order: &Order,
+) -> Result<HVEntry, String> {
+    // Filter authors before mask: a foreign negation cannot suppress governing law.
+    let governed = governed_deltas(dset, now, admits_author)?;
+    let result = eval_term_at(body, &governed, now, Some(schema_entity), None, None)?;
+    let EvalResult::HView(h) = result else {
+        return Err("bootstrap body must yield an HView".to_string());
+    };
+    let empty = Vec::new();
+    let defs = h.props.get("definition").unwrap_or(&empty);
+    if defs.is_empty() {
+        return Err(format!(
+            "no surviving schema definition for {schema_entity}"
+        ));
+    }
+    Ok(first_by_order(order, defs).unwrap().clone())
 }

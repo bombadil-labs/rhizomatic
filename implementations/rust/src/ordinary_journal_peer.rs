@@ -307,20 +307,60 @@ pub fn open_ordinary_journal_peer<S: DurableOrdinaryJournalStore>(
     store: &mut S,
     peer_id: &str,
 ) -> Result<OrdinaryJournalOpenResult, String> {
-    open_ordinary_journal_peer_inner(store, peer_id, false)
+    open_ordinary_journal_peer_inner(store, peer_id, false, true)
 }
 
 pub fn open_ordinary_journal_peer_degraded<S: DurableOrdinaryJournalStore>(
     store: &mut S,
     peer_id: &str,
 ) -> Result<OrdinaryJournalOpenResult, String> {
-    open_ordinary_journal_peer_inner(store, peer_id, true)
+    open_ordinary_journal_peer_inner(store, peer_id, true, true)
+}
+
+/// A complete source captured at one journal basis. This reader never initializes storage.
+#[derive(Debug, Clone, PartialEq)]
+pub enum OrdinarySourceCapture {
+    Captured {
+        peer: Box<OrdinaryJournalPeer>,
+        deltas: DeltaSet,
+    },
+    SourceChanged,
+    SourceUnavailable {
+        diagnostic: String,
+    },
+}
+
+pub fn capture_existing_ordinary_source<S: DurableOrdinaryJournalStore>(
+    store: &mut S,
+    peer_id: &str,
+) -> OrdinarySourceCapture {
+    match open_ordinary_journal_peer_inner(store, peer_id, false, false) {
+        Ok(OrdinaryJournalOpenResult::Open(peer)) => match peer.available_deltas() {
+            Ok(deltas)
+                if deltas.iter().all(|d| {
+                    crate::sign::verify_canonical_delta(d) == crate::sign::Verification::Verified
+                }) =>
+            {
+                OrdinarySourceCapture::Captured { peer, deltas }
+            }
+            Ok(_) => OrdinarySourceCapture::SourceUnavailable {
+                diagnostic: "ordinary journal: invalid signed source".into(),
+            },
+            Err(diagnostic) => OrdinarySourceCapture::SourceUnavailable { diagnostic },
+        },
+        Ok(OrdinaryJournalOpenResult::Conflict) => OrdinarySourceCapture::SourceChanged,
+        Ok(_) => OrdinarySourceCapture::SourceUnavailable {
+            diagnostic: "ordinary journal: complete existing source unavailable".into(),
+        },
+        Err(diagnostic) => OrdinarySourceCapture::SourceUnavailable { diagnostic },
+    }
 }
 
 fn open_ordinary_journal_peer_inner<S: DurableOrdinaryJournalStore>(
     store: &mut S,
     peer_id: &str,
     allow_degraded: bool,
+    initialize_empty: bool,
 ) -> Result<OrdinaryJournalOpenResult, String> {
     if !is_canonical_peer_id(peer_id) {
         return Err("ordinary journal: invalid peer id".into());
@@ -377,6 +417,9 @@ fn open_ordinary_journal_peer_inner<S: DurableOrdinaryJournalStore>(
             )
         }
         OrdinaryJournalRead::Empty => {
+            if !initialize_empty {
+                return Err("ordinary journal: existing journal missing".into());
+            }
             match store.compare_and_append(peer_id, None, "", None, &[])? {
                 PeerImageWrite::Durable => {}
                 PeerImageWrite::Conflict => return Ok(OrdinaryJournalOpenResult::Conflict),
@@ -593,13 +636,19 @@ impl OrdinaryJournalPeer {
             additions: additions.clone(),
         })?;
         let next_head = content_address(&frame);
-        let write = store.compare_and_append(
+        let write = match store.compare_and_append(
             &self.peer_id,
             Some(&self.head),
             &next_head,
             Some(&frame),
             &additions,
-        )?;
+        ) {
+            Ok(write) => write,
+            Err(fault) => {
+                self.live = false;
+                return Ok(OrdinaryJournalAdmissionResult::CommittedUnconfirmed { fault });
+            }
+        };
         if write != PeerImageWrite::Durable {
             self.live = false;
             return Ok(match write {

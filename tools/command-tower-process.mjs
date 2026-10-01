@@ -1,0 +1,120 @@
+import { spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { readFileSync, readdirSync, lstatSync } from 'node:fs';
+import { join, delimiter } from 'node:path';
+import { homedir } from 'node:os';
+import { fingerprint } from './command-tower-plan.mjs';
+
+const requireThat = (ok, message) => { if (!ok) throw new Error(message); };
+const digest = bytes => createHash('sha256').update(bytes).digest('hex');
+const environment = () => ({ ...process.env, PATH: join(homedir(), '.cargo/bin') + delimiter + process.env.PATH });
+
+export function processOutput(command, args, { cwd, input, timeout = 120000 } = {}) {
+  return new Promise((resolve, reject) => {
+    // CI currently runs these adapters on POSIX. Refuse an unsupported process
+    // isolation model instead of allowing descendants to outlive a timeout.
+    requireThat(process.platform !== 'win32', 'tower process isolation requires a POSIX host');
+    const child = spawn(command, args, { cwd, env: environment(), detached: true, stdio: ['pipe', 'pipe', 'pipe'] });
+    child.stdout.setEncoding('utf8');
+    child.stderr.setEncoding('utf8');
+    let stdout = '', stderr = '', settled = false;
+    const finish = error => { if (!settled) { settled = true; clearTimeout(timer); error ? reject(error) : resolve(stdout); } };
+    const cancel = () => {
+      if (child.pid) try { process.kill(-child.pid, 'SIGKILL'); } catch (error) { if (error.code !== 'ESRCH') throw error; }
+    };
+    const timer = setTimeout(() => { cancel(); finish(Error(`process timeout: ${command} ${args.join(' ')}`)); }, timeout);
+    child.stdout.on('data', bytes => { stdout += bytes; if (stdout.length > 64 * 1024 * 1024) { cancel(); finish(Error('adapter stdout limit')); } });
+    child.stderr.on('data', bytes => { stderr = (stderr + bytes).slice(-65536); });
+    child.on('error', finish);
+    // 'close' can be delayed by descendants inheriting stdout/stderr. Cancel at
+    // parent exit, then let buffered output drain before resolving on close.
+    child.on('exit', cancel);
+    child.on('close', (code, signal) => {
+      cancel(); // Successful adapters must not leave background effects either.
+      finish(code === 0 ? null : Error(`${command} exited ${code ?? signal}: ${stderr}`));
+    });
+    child.stdin.on('error', error => { if (error.code !== 'EPIPE') finish(error); });
+    child.stdin.end(input);
+  });
+}
+
+function directoryDigest(directory) {
+  const files = [];
+  const visit = (path, relative) => {
+    for (const name of readdirSync(path).sort()) {
+      const full = join(path, name), key = relative ? relative + '/' + name : name, stat = lstatSync(full);
+      // npm's .bin symlinks are launch conveniences. Invocation below uses the
+      // actual pinned package file; hash every real installed dependency file.
+      if (stat.isSymbolicLink()) {
+        requireThat(key.split('/').includes('.bin'), `unpinned symlink dependency: ${key}`);
+        continue;
+      }
+      if (stat.isDirectory()) visit(full, key);
+      else if (stat.isFile()) files.push([key, digest(readFileSync(full))]);
+      else throw Error(`unsupported installed dependency entry: ${key}`);
+    }
+  };
+  visit(directory, '');
+  return fingerprint(files);
+}
+
+export async function prepareWitnesses(root) {
+  const git = async args => (await processOutput('git', args, { cwd: root })).trim();
+  requireThat(await git(['status', '--porcelain', '--untracked-files=normal']) === '', 'tower evidence requires a clean committed source tree');
+  const commit = await git(['rev-parse', 'HEAD']);
+  const tree = await git(['rev-parse', 'HEAD^{tree}']);
+  const tsDirectory = join(root, 'implementations/ts'), rustDirectory = join(root, 'implementations/rust');
+  const nodeVersion = (await processOutput(process.execPath, ['--version'])).trim();
+  const rustVersion = (await processOutput('rustc', ['--version', '--verbose'])).trim();
+  const host = /^host: (.+)$/m.exec(rustVersion)?.[1];
+  requireThat(host, 'rustc did not identify the executable host target');
+  const cargoVersion = (await processOutput('cargo', ['--version'])).trim();
+  const buildOutput = await processOutput('cargo', ['build', '--locked', '--quiet', '--target', host, '--example', 'command_fixture', '--message-format=json'], { cwd: rustDirectory, timeout: 600000 });
+  const binary = rustExecutableFromMessages(buildOutput);
+  const metadata = {
+    commit, tree, platform: process.platform, architecture: process.arch,
+    ts: { nodeVersion, installedDependencies: directoryDigest(join(tsDirectory, 'node_modules')) },
+    rust: { rustVersion, cargoVersion, binary: digest(readFileSync(binary)) },
+  };
+  const builds = Object.fromEntries(['ts', 'rust'].map(id => [id, fingerprint({ commit, tree, platform: metadata.platform, architecture: metadata.architecture, witness: id, artifact: metadata[id] })]));
+  const adapter = async (witness, input) => {
+    requireThat(witness === 'ts' || witness === 'rust', `unavailable adapter: ${witness}`);
+    const command = witness === 'ts' ? process.execPath : binary;
+    const args = witness === 'ts' ? ['--import', join(tsDirectory, 'node_modules/tsx/dist/loader.mjs'), join(tsDirectory, 'tools/command-fixture.ts')] : [];
+    const stdout = await processOutput(command, args, { cwd: root, input: JSON.stringify(input) + '\n' });
+    try { return JSON.parse(stdout); } catch { throw Error(`${witness} adapter emitted invalid JSON`); }
+  };
+  return { commit, builds, metadata, adapter };
+}
+
+export function rustExecutableFromMessages(output) {
+  const messages = output.trim().split('\n').filter(Boolean).map(line => JSON.parse(line));
+  const artifacts = messages.filter(m => m.reason === 'compiler-artifact' && m.target?.name === 'command_fixture' && m.target.kind?.includes('example') && typeof m.executable === 'string');
+  requireThat(artifacts.length === 1, 'Cargo must report exactly one command fixture executable');
+  return artifacts[0].executable;
+}
+
+// This verifies exact reported execution identities. CI controls report creation;
+// metadata cannot prove assertion quality, which remains an independent review.
+export function bindStageEvidence({ report, commit, fixtures, spec, capabilities, builds }) {
+  requireThat(report?.format === 'rhizomatic-command-stage-evidence/1' && report.commit === commit, 'stage evidence must name the exact implementation commit');
+  requireThat(Array.isArray(report.witnesses) && new Set(report.witnesses.map(w => w.id)).size === report.witnesses.length, 'duplicate or missing evidence witness');
+  const snapshot = structuredClone(capabilities);
+  for (const id of ['ts', 'rust']) {
+    const witness = snapshot.witnesses.find(w => w.id === id), evidence = report.witnesses.find(w => w.id === id);
+    requireThat(witness && evidence?.stages && builds[id], `missing executed ${id} evidence/build`);
+    requireThat(witness.state === 'supported', `unadvertised ${id} stage support`);
+    witness.buildId = builds[id]; witness.stage_evidence = {};
+    for (const stage of spec.stages) {
+      requireThat(witness.stages.includes(stage.contract), `unadvertised ${id}/${stage.contract}`);
+      const expected = fixtures.cases.filter(f => f.tower === true && spec.required_scenarios.includes(f.scenario))
+        .flatMap(f => (f.steps ?? [{ id: 'command' }]).map(s => `${f.id}/${s.id}/${stage.id}`)).sort();
+      const actual = evidence.stages[stage.contract];
+      requireThat(expected.length > 0 && Array.isArray(actual) && actual.every(c => c.status === 'passed'), `missing/nonpassing stage cases: ${id}/${stage.id}`);
+      requireThat(fingerprint(actual.map(c => c.id).sort()) === fingerprint(expected), `executed stage identity mismatch: ${id}/${stage.id}`);
+      witness.stage_evidence[stage.contract] = expected;
+    }
+    requireThat(fingerprint(Object.keys(evidence.stages).sort()) === fingerprint(spec.stages.map(s => s.contract).sort()), 'unknown evidence stage');
+  }
+  return snapshot;
+}

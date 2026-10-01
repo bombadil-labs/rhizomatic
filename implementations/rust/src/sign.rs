@@ -60,6 +60,28 @@ pub enum Verification {
     Invalid,
 }
 
+/// Signed portable descriptions additionally require the canonical lowercase debug spelling.
+/// Legacy native verification continues accepting its existing hexadecimal representations.
+pub fn verify_canonical_delta(delta: &Delta) -> Verification {
+    let lower_hex = |s: &str, len: usize| {
+        s.len() == len
+            && s.bytes()
+                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    };
+    if !delta
+        .claims
+        .author
+        .strip_prefix(AUTHOR_PREFIX)
+        .is_some_and(|s| lower_hex(s, 64))
+    {
+        return Verification::Invalid;
+    }
+    if delta.sig.as_ref().is_some_and(|s| !lower_hex(s, 128)) {
+        return Verification::Invalid;
+    }
+    verify_delta(delta)
+}
+
 /// Decompress a 32-byte point encoding, accepting only the canonical spelling: the bytes must
 /// decompress to a curve point AND recompress to the identical bytes (SPEC-1 §5.1 checks 2/3).
 fn decode_canonical_point(bytes: &[u8; 32]) -> Option<curve25519_dalek::edwards::EdwardsPoint> {

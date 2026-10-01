@@ -4,7 +4,7 @@ import { Reactor } from "../reactor/reactor.js";
 import type { DeltaSet } from "../delta/set.js";
 import type { SchemaRegistry } from "../schema/schema.js";
 import type { Order, Policy, Schema, Term } from "../syntax/model.js";
-import type { Bindings, Pred } from "../syntax/pred.js";
+import type { Bindings, Pred, StrMatch } from "../syntax/pred.js";
 import { authorsForPrincipal, type PrincipalSuppression } from "./read.js";
 
 export type PrincipalResolver = (
@@ -64,6 +64,8 @@ export function lowerPrincipalTerm(
 ): Term {
   if (!Number.isFinite(at)) throw new Error("now must be a finite number");
   const cache = new Map<string, readonly string[]>();
+  const lowerMatch = (match: StrMatch): StrMatch =>
+    match.kind === "aliased" && match.trust ? { ...match, trust: lowerPred(match.trust) } : match;
   const lowerPred = (pred: Pred): Pred => {
     switch (pred.kind) {
       case "actsFor": {
@@ -82,6 +84,15 @@ export function lowerPrincipalTerm(
         return { ...pred, pred: lowerPred(pred.pred) };
       case "inView":
         return { ...pred, term: lowerTerm(pred.term) };
+      case "hasPointer":
+        return {
+          ...pred,
+          ppred: {
+            ...pred.ppred,
+            ...(pred.ppred.role ? { role: lowerMatch(pred.ppred.role) } : {}),
+            ...(pred.ppred.context ? { context: lowerMatch(pred.ppred.context) } : {}),
+          },
+        };
       default:
         return pred;
     }
@@ -136,6 +147,14 @@ export function lowerPrincipalTerm(
         };
       case "resolve":
         return { ...node, schema: lowerSchema(node.schema), of: lowerTerm(node.of) };
+      case "expand":
+        return { ...node, role: lowerMatch(node.role), of: lowerTerm(node.of) };
+      case "prune":
+        return {
+          ...node,
+          keep: node.keep === "all" ? "all" : lowerMatch(node.keep),
+          of: lowerTerm(node.of),
+        };
       default:
         return { ...node, of: lowerTerm(node.of) };
     }

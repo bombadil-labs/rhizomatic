@@ -5,6 +5,8 @@ pub mod alias;
 pub mod arrival;
 pub mod b64u;
 pub mod cbor;
+pub mod command;
+pub mod command_data;
 #[doc(hidden)]
 pub mod delta;
 pub mod derivation;
@@ -92,8 +94,8 @@ pub use reactor::{
     make_manifest_claims, manifest_member_ids, IngestResult, NegationReader, Reactor,
 };
 pub use resolution::{
-    apply_policy, first_by_order, resolve_view, view_canonical_hex, MergeFn, Order, Policy, Schema,
-    View,
+    apply_policy, decode_view, first_by_order, resolve_view, view_canonical_hex, MergeFn, Order,
+    Policy, Schema, View,
 };
 pub use schema::{collect_reading_refs, collect_refs, HyperSchema, SchemaRegistry};
 pub use schema_deltas::{

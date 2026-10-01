@@ -3,7 +3,7 @@
 
 use crate::b64u;
 use crate::strict::as_object;
-use crate::types::{Claims, DeltaRef, EntityRef, Pointer, Primitive, Target};
+use crate::types::{Claims, Delta, DeltaRef, EntityRef, Pointer, Primitive, Target};
 use serde_json::Value;
 
 const TARGET_SHAPES: &str =
@@ -154,6 +154,27 @@ pub fn parse_claims(v: &Value) -> Result<Claims, String> {
         valid_until,
         author,
         pointers,
+    })
+}
+
+/// Strict existing Delta JSON debug framing. Authentication remains a separate delta operation.
+pub fn parse_delta(v: &Value) -> Result<Delta, String> {
+    let o = as_object(v, "delta", &["id", "claims", "sig"])?;
+    Ok(Delta {
+        id: o
+            .get("id")
+            .and_then(Value::as_str)
+            .ok_or("delta.id must be text")?
+            .into(),
+        claims: parse_claims(o.get("claims").ok_or("delta.claims is required")?)?,
+        sig: o
+            .get("sig")
+            .map(|v| {
+                v.as_str()
+                    .map(str::to_string)
+                    .ok_or("delta.sig must be text")
+            })
+            .transpose()?,
     })
 }
 

@@ -1,0 +1,155 @@
+{
+  "format": "rhizomatic-tower-plan-spec/1",
+  "status": "implemented_unverified",
+  "requirement": "R-34",
+  "assignments_per_scenario": 3,
+  "target_languages": [
+    "ts",
+    "rust",
+    "elixir",
+    "haskell"
+  ],
+  "initial_required_languages": [
+    "ts",
+    "rust"
+  ],
+  "selection": {
+    "seed_required": true,
+    "planner_version_required": true,
+    "exact_plan_replay_required": true,
+    "prefer_distinct_assignments": true,
+    "minimum_language_switches_when_feasible": 1,
+    "missing_required_mixed_route": "fail",
+    "capability_basis": "exact contract ID/version, with passing evidence"
+  },
+  "stages": [
+    {
+      "id": "construct",
+      "owners": [
+        "command-data",
+        "delta"
+      ],
+      "contract": "rhizomatic.command/1/request-construction",
+      "effect": "fixture-only signing",
+      "output": "Exact signed request/support descriptions under R-06–R-10/R-20, in existing Delta JSON debug profile; explicit entryId is framing.",
+      "requires": [
+        "request_writer",
+        "delta_signing"
+      ]
+    },
+    {
+      "id": "validate",
+      "owners": [
+        "command-data",
+        "delta"
+      ],
+      "contract": "rhizomatic.command/1/description-validation",
+      "effect": "none",
+      "input_from": "construct",
+      "output": "Original serialized descriptions and a shape/signature verdict; no authority or execution grant and no private parsed object.",
+      "requires": [
+        "request_reader",
+        "delta_verification"
+      ]
+    },
+    {
+      "id": "execute",
+      "owners": [
+        "command",
+        "schema-load",
+        "schema",
+        "syntax",
+        "resolve",
+        "resolve-kernel",
+        "algebra",
+        "principal",
+        "reactor",
+        "federation",
+        "storage",
+        "delta"
+      ],
+      "contract": "rhizomatic.command/1",
+      "effect": "declared command effects against isolated fixture state",
+      "input_from": "validate",
+      "output": "Signed outcome delta under R-25/R-26 plus separately observed durable test state.",
+      "requires": [
+        "endpoint_configuration",
+        "retain",
+        "evaluate",
+        "principal_profiles",
+        "durable_store"
+      ],
+      "unsplit_internal_region": true
+    },
+    {
+      "id": "read-result",
+      "owners": [
+        "command",
+        "command-data",
+        "resolve-kernel",
+        "delta"
+      ],
+      "contract": "rhizomatic.command/1/outcome-readback",
+      "effect": "none",
+      "input_from": "execute",
+      "output": "Validated outcome with strict decoded View and context; expected canonical artifact/value assertions.",
+      "requires": [
+        "outcome_reader",
+        "view_decoder",
+        "delta_verification"
+      ]
+    }
+  ],
+  "required_scenarios": [
+    "write_then_query",
+    "catalog_discovery",
+    "definition_closure",
+    "principal_profiles",
+    "outcome_provenance",
+    "definition_pin_mismatch"
+  ],
+  "scenario_variant_rule": "For staged invalid-input cases, choose a valid request description whose runtime program validation refuses. Validator rejection is a distinct branch fixture, not a silent skip of execution.",
+  "replay_bundle_fields": [
+    "implementation_builds",
+    "toolchain_versions",
+    "planner_version",
+    "seed",
+    "concrete_graph",
+    "capability_manifest",
+    "fixture_ids",
+    "input_artifacts",
+    "initial_durable_state",
+    "observation_schedule",
+    "intermediate_artifacts",
+    "expected_outputs",
+    "actual_outputs"
+  ],
+  "comparison": "Each tower versus fixed expected result, then compatible intermediate/final canonical outcomes; equal keys/time/state/context for exact signed-byte equality.",
+  "current_internal_gaps": [
+    {
+      "owner": "algebra",
+      "ledger_family": "V1",
+      "reason": "Full HView reconstruction across evaluator-to-resolution boundary is not established by the current output serializer."
+    },
+    {
+      "owner": "reactor",
+      "ledger_family": "E2",
+      "reason": "Portable materialization registration/lifecycle binding remains outside first-profile scope."
+    },
+    {
+      "owner": "derivation",
+      "ledger_family": "D1",
+      "reason": "Artifact, installation and reactive application contract remains outside first-profile scope."
+    }
+  ],
+  "claim_limit": "Initial tower tests composition at four first-profile stages, not arbitrary substitution of all twelve internal libraries. Add finer executable ports as their bindings become complete.",
+  "required_peer_comparisons": [
+    "same-value-different-receiver"
+  ],
+  "required_execution_regressions": [
+    "reading_order_variables",
+    "fix_local_reading_variables",
+    "wrong_definition_kind_pin",
+    "wrong_definition_kind_closure"
+  ]
+}

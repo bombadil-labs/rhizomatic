@@ -4,7 +4,7 @@
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::cbor::{encode, CborValue};
+use crate::cbor::{decode, encode, CborValue};
 use crate::hview::{HVEntry, HView};
 use crate::pred::{compare_primitives, eval_pred, Pred};
 use crate::types::{Primitive, Target};
@@ -218,6 +218,57 @@ pub fn view_to_cbor(v: &View) -> CborValue {
 
 pub fn view_canonical_hex(v: &View) -> String {
     hex::encode(encode(&view_to_cbor(v)))
+}
+
+/// Read the existing canonical View representation without going through JSON.
+/// Bare byte strings are legal only as the value of an exact bytes leaf.
+pub fn decode_view(bytes: &[u8]) -> Result<View, String> {
+    fn read(value: CborValue) -> Result<View, String> {
+        Ok(match value {
+            CborValue::Tstr(s) => View::Prim(Primitive::Str(s)),
+            CborValue::Float(n) => View::Prim(Primitive::Num(n)),
+            CborValue::Bool(b) => View::Prim(Primitive::Bool(b)),
+            CborValue::Array(values) => {
+                View::Arr(values.into_iter().map(read).collect::<Result<_, _>>()?)
+            }
+            CborValue::Map(entries) => {
+                let mut fields = BTreeMap::new();
+                for (key, value) in entries {
+                    if fields.insert(key, value).is_some() {
+                        return Err("view: duplicate map key".into());
+                    }
+                }
+                if matches!(fields.get("value"), Some(CborValue::Bstr(_))) {
+                    if fields.len() != 2 {
+                        return Err("view: malformed bytes leaf".into());
+                    }
+                    let Some(CborValue::Tstr(mime)) = fields.remove("mime") else {
+                        return Err("view: bytes leaf requires text mime".into());
+                    };
+                    if mime.is_empty() {
+                        return Err("view: bytes leaf requires nonempty mime".into());
+                    }
+                    let Some(CborValue::Bstr(value)) = fields.remove("value") else {
+                        unreachable!("bytes discriminator checked");
+                    };
+                    View::Bytes { mime, value }
+                } else {
+                    View::Obj(
+                        fields
+                            .into_iter()
+                            .map(|(k, v)| Ok((k, read(v)?)))
+                            .collect::<Result<_, String>>()?,
+                    )
+                }
+            }
+            CborValue::Bstr(_) => return Err("view: bare byte string".into()),
+        })
+    }
+    let view = read(decode(bytes)?)?;
+    if encode(&view_to_cbor(&view)) != bytes {
+        return Err("view: noncanonical representation".into());
+    }
+    Ok(view)
 }
 
 // --- resolution ------------------------------------------------------------------------------------

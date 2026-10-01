@@ -1,0 +1,1972 @@
+{
+  "format": "rhizomatic-command-coverage/1",
+  "scenarios": [
+    {
+      "id": "bootstrap_inventory",
+      "milestone": "M0",
+      "requirements": [
+        "R-01",
+        "R-04",
+        "R-29"
+      ],
+      "owners": [
+        "delta",
+        "syntax",
+        "algebra",
+        "schema-load",
+        "reactor",
+        "derivation",
+        "command-data",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "node-test:check-command-bootstrap.test.mjs"
+      ]
+    },
+    {
+      "id": "package_ownership",
+      "milestone": "M0",
+      "requirements": [
+        "R-28",
+        "R-29",
+        "R-32"
+      ],
+      "owners": [
+        "algebra",
+        "reactor",
+        "derivation"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "command-inventory:compiler public interface",
+        "rust-command-boundaries:live syn owner graph"
+      ]
+    },
+    {
+      "id": "profile_capabilities",
+      "milestone": "M0",
+      "requirements": [
+        "R-02",
+        "R-30",
+        "R-33"
+      ],
+      "owners": [
+        "derivation",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "command-contract-case:missing stage",
+        "command-contract-case:duplicate stage case",
+        "command-execution:exact stage oracles"
+      ]
+    },
+    {
+      "id": "coverage_missing_case",
+      "milestone": "M0",
+      "requirements": [
+        "R-30",
+        "R-32"
+      ],
+      "owners": [
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "command-contract-case:missing case",
+        "command-contract-case:duplicate coverage"
+      ]
+    },
+    {
+      "id": "dependency_forbidden",
+      "milestone": "M0",
+      "requirements": [
+        "R-28",
+        "R-32"
+      ],
+      "owners": [
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "ts-boundary-cases:42 assertions",
+        "rust-boundary-cases:31 tests"
+      ]
+    },
+    {
+      "id": "contract_missing_export",
+      "milestone": "M0",
+      "requirements": [
+        "R-01",
+        "R-29",
+        "R-32"
+      ],
+      "owners": [
+        "algebra",
+        "reactor",
+        "derivation",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "command-inventory-case:missing export",
+        "rust-boundary-cases:public interface drift"
+      ]
+    },
+    {
+      "id": "description_roundtrip",
+      "milestone": "M1",
+      "requirements": [
+        "R-06",
+        "R-07",
+        "R-09",
+        "R-10",
+        "R-25",
+        "R-26"
+      ],
+      "owners": [
+        "delta",
+        "resolve-kernel",
+        "command-data",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "command-description-vectors:configuration-valid-0",
+        "command-description-vectors:operation-valid-1",
+        "command-description-vectors:request-valid-2",
+        "command-description-vectors:outcome-valid-3",
+        "command-description-vectors:operation-valid-4",
+        "command-description-vectors:request-valid-5",
+        "command-description-vectors:outcome-valid-6",
+        "command-description-vectors:outcome-valid-7",
+        "command-description-vectors:outcome-valid-8",
+        "command-description-vectors:outcome-valid-9"
+      ]
+    },
+    {
+      "id": "strict_argument_shapes",
+      "milestone": "M1",
+      "requirements": [
+        "R-06",
+        "R-07",
+        "R-10",
+        "R-13"
+      ],
+      "owners": [
+        "delta",
+        "command-data",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "command-description-vectors:request-invalid-retain-duplicate-payload",
+        "command-description-vectors:request-invalid-retain-context",
+        "command-description-vectors:request-invalid-retain-unknown",
+        "command-description-vectors:request-invalid-evaluate-duplicate-payload",
+        "command-description-vectors:request-invalid-evaluate-context",
+        "command-description-vectors:request-invalid-evaluate-unknown",
+        "command-description-vectors:configuration-shape-missing-kind-35",
+        "command-description-vectors:configuration-duplicate-kind-36",
+        "command-description-vectors:configuration-shape-missing-receiver-37",
+        "command-description-vectors:configuration-duplicate-receiver-38",
+        "command-description-vectors:configuration-shape-missing-caller-39",
+        "command-description-vectors:configuration-duplicate-caller-40",
+        "command-description-vectors:configuration-shape-missing-installed-41",
+        "command-description-vectors:configuration-duplicate-installed-42",
+        "command-description-vectors:configuration-shape-missing-quota-43",
+        "command-description-vectors:configuration-duplicate-quota-44",
+        "command-description-vectors:configuration-shape-missing-max-deltas-45",
+        "command-description-vectors:configuration-duplicate-max-deltas-46",
+        "command-description-vectors:configuration-shape-missing-max-bytes-47",
+        "command-description-vectors:configuration-duplicate-max-bytes-48",
+        "command-description-vectors:operation-shape-missing-kind-49",
+        "command-description-vectors:operation-duplicate-kind-50",
+        "command-description-vectors:operation-shape-missing-name-51",
+        "command-description-vectors:operation-duplicate-name-52",
+        "command-description-vectors:operation-shape-missing-interpreter-53",
+        "command-description-vectors:operation-duplicate-interpreter-54",
+        "command-description-vectors:operation-shape-missing-input-contract-55",
+        "command-description-vectors:operation-duplicate-input-contract-56",
+        "command-description-vectors:operation-shape-missing-output-contract-57",
+        "command-description-vectors:operation-duplicate-output-contract-58",
+        "command-description-vectors:operation-shape-missing-effect-59",
+        "command-description-vectors:operation-duplicate-effect-60",
+        "command-description-vectors:operation-shape-missing-replay-61",
+        "command-description-vectors:operation-duplicate-replay-62",
+        "command-description-vectors:operation-shape-missing-dependencies-63",
+        "command-description-vectors:operation-duplicate-dependencies-64",
+        "command-description-vectors:request-retain-missing-kind-65",
+        "command-description-vectors:request-duplicate-kind-66",
+        "command-description-vectors:request-retain-missing-receiver-67",
+        "command-description-vectors:request-duplicate-receiver-68",
+        "command-description-vectors:request-retain-missing-configuration-69",
+        "command-description-vectors:request-duplicate-configuration-70",
+        "command-description-vectors:request-retain-missing-operation-71",
+        "command-description-vectors:request-duplicate-operation-72",
+        "command-description-vectors:request-duplicate-expected-head-73",
+        "command-description-vectors:request-retain-missing-payload-74",
+        "command-description-vectors:request-duplicate-payload-75",
+        "command-description-vectors:operation-shape-missing-kind-88",
+        "command-description-vectors:operation-duplicate-kind-89",
+        "command-description-vectors:operation-shape-missing-name-90",
+        "command-description-vectors:operation-duplicate-name-91",
+        "command-description-vectors:operation-shape-missing-interpreter-92",
+        "command-description-vectors:operation-duplicate-interpreter-93",
+        "command-description-vectors:operation-shape-missing-input-contract-94",
+        "command-description-vectors:operation-duplicate-input-contract-95",
+        "command-description-vectors:operation-shape-missing-output-contract-96",
+        "command-description-vectors:operation-duplicate-output-contract-97",
+        "command-description-vectors:operation-shape-missing-effect-98",
+        "command-description-vectors:operation-duplicate-effect-99",
+        "command-description-vectors:operation-shape-missing-replay-100",
+        "command-description-vectors:operation-duplicate-replay-101",
+        "command-description-vectors:operation-shape-missing-dependencies-102",
+        "command-description-vectors:operation-duplicate-dependencies-103",
+        "command-description-vectors:request-evaluate-missing-kind-104",
+        "command-description-vectors:request-duplicate-kind-105",
+        "command-description-vectors:request-evaluate-missing-receiver-106",
+        "command-description-vectors:request-duplicate-receiver-107",
+        "command-description-vectors:request-evaluate-missing-configuration-108",
+        "command-description-vectors:request-duplicate-configuration-109",
+        "command-description-vectors:request-evaluate-missing-operation-110",
+        "command-description-vectors:request-duplicate-operation-111",
+        "command-description-vectors:request-evaluate-missing-source-112",
+        "command-description-vectors:request-duplicate-source-113",
+        "command-description-vectors:request-evaluate-missing-root-114",
+        "command-description-vectors:request-duplicate-root-115",
+        "command-description-vectors:request-evaluate-missing-at-116",
+        "command-description-vectors:request-duplicate-at-117",
+        "command-description-vectors:request-evaluate-missing-interpretation-118",
+        "command-description-vectors:request-duplicate-interpretation-119",
+        "command-description-vectors:request-evaluate-missing-hyperschema-120",
+        "command-description-vectors:request-duplicate-hyperschema-121",
+        "command-description-vectors:request-evaluate-missing-hyperschema-pin-122",
+        "command-description-vectors:request-duplicate-hyperschema-pin-123",
+        "command-description-vectors:request-evaluate-missing-schema-124",
+        "command-description-vectors:request-duplicate-schema-125",
+        "command-description-vectors:request-evaluate-missing-schema-pin-126",
+        "command-description-vectors:request-duplicate-schema-pin-127",
+        "command-description-vectors:request-evaluate-missing-bindings-128",
+        "command-description-vectors:request-duplicate-bindings-129",
+        "command-description-vectors:catalog-expected-head-invalid",
+        "command-description-vectors:native-target-property-order-duplicate"
+      ]
+    },
+    {
+      "id": "canonical_writer_order",
+      "milestone": "M1",
+      "requirements": [
+        "R-09"
+      ],
+      "owners": [
+        "delta",
+        "command-data"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "command-description-vectors:writer-table-order-retain",
+        "command-description-vectors:writer-table-order-evaluate",
+        "command-description-vectors:writer-repeated-target-reverse",
+        "command-description-vectors:writer-pointer-permutation"
+      ]
+    },
+    {
+      "id": "view_all_sorts",
+      "milestone": "M1",
+      "requirements": [
+        "R-26",
+        "R-27"
+      ],
+      "owners": [
+        "resolve-kernel",
+        "command-data",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "command-description-vectors:view-nested",
+        "command-description-vectors:reserved-keys"
+      ]
+    },
+    {
+      "id": "view_object_bytes_distinction",
+      "milestone": "M1",
+      "requirements": [
+        "R-27"
+      ],
+      "owners": [
+        "resolve-kernel"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "command-description-vectors:ordinary-bytes-looking-object"
+      ]
+    },
+    {
+      "id": "view_malformed",
+      "milestone": "M1",
+      "requirements": [
+        "R-27"
+      ],
+      "owners": [
+        "resolve-kernel"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "command-description-vectors:view-invalid-null",
+        "command-description-vectors:view-invalid-empty-mime",
+        "command-description-vectors:view-invalid-integer",
+        "command-description-vectors:view-invalid-bare-bytes",
+        "command-description-vectors:view-invalid-duplicate-key",
+        "command-description-vectors:view-invalid-noncanonical-float",
+        "command-description-vectors:view-invalid-nan",
+        "command-description-vectors:view-invalid-bad-bytes-leaf",
+        "command-description-vectors:view-invalid-extra-bytes-leaf"
+      ]
+    },
+    {
+      "id": "outcome_body_strict",
+      "milestone": "M1",
+      "requirements": [
+        "R-25",
+        "R-26"
+      ],
+      "owners": [
+        "resolve-kernel",
+        "command-data",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "command-description-vectors:outcome-invalid-33",
+        "command-description-vectors:outcome-invalid-34",
+        "command-description-vectors:outcome-shape-missing-kind-76",
+        "command-description-vectors:outcome-duplicate-kind-77",
+        "command-description-vectors:outcome-shape-missing-receiver-78",
+        "command-description-vectors:outcome-duplicate-receiver-79",
+        "command-description-vectors:outcome-shape-missing-configuration-80",
+        "command-description-vectors:outcome-duplicate-configuration-81",
+        "command-description-vectors:outcome-shape-missing-request-82",
+        "command-description-vectors:outcome-duplicate-request-83",
+        "command-description-vectors:outcome-shape-missing-status-84",
+        "command-description-vectors:outcome-duplicate-status-85",
+        "command-description-vectors:outcome-shape-missing-result-86",
+        "command-description-vectors:outcome-duplicate-result-87",
+        "command-description-vectors:outcome-shape-missing-kind-130",
+        "command-description-vectors:outcome-duplicate-kind-131",
+        "command-description-vectors:outcome-shape-missing-receiver-132",
+        "command-description-vectors:outcome-duplicate-receiver-133",
+        "command-description-vectors:outcome-shape-missing-configuration-134",
+        "command-description-vectors:outcome-duplicate-configuration-135",
+        "command-description-vectors:outcome-shape-missing-request-136",
+        "command-description-vectors:outcome-duplicate-request-137",
+        "command-description-vectors:outcome-shape-missing-status-138",
+        "command-description-vectors:outcome-duplicate-status-139",
+        "command-description-vectors:outcome-shape-missing-result-140",
+        "command-description-vectors:outcome-duplicate-result-141",
+        "command-description-vectors:outcome-shape-missing-kind-142",
+        "command-description-vectors:outcome-duplicate-kind-143",
+        "command-description-vectors:outcome-shape-missing-receiver-144",
+        "command-description-vectors:outcome-duplicate-receiver-145",
+        "command-description-vectors:outcome-shape-missing-configuration-146",
+        "command-description-vectors:outcome-duplicate-configuration-147",
+        "command-description-vectors:outcome-shape-missing-request-148",
+        "command-description-vectors:outcome-duplicate-request-149",
+        "command-description-vectors:outcome-shape-missing-status-150",
+        "command-description-vectors:outcome-duplicate-status-151",
+        "command-description-vectors:outcome-shape-missing-result-152",
+        "command-description-vectors:outcome-duplicate-result-153",
+        "command-description-vectors:outcome-shape-missing-kind-154",
+        "command-description-vectors:outcome-duplicate-kind-155",
+        "command-description-vectors:outcome-shape-missing-receiver-156",
+        "command-description-vectors:outcome-duplicate-receiver-157",
+        "command-description-vectors:outcome-shape-missing-configuration-158",
+        "command-description-vectors:outcome-duplicate-configuration-159",
+        "command-description-vectors:outcome-shape-missing-request-160",
+        "command-description-vectors:outcome-duplicate-request-161",
+        "command-description-vectors:outcome-shape-missing-status-162",
+        "command-description-vectors:outcome-duplicate-status-163",
+        "command-description-vectors:outcome-shape-missing-result-164",
+        "command-description-vectors:outcome-duplicate-result-165",
+        "command-description-vectors:outcome-shape-missing-kind-166",
+        "command-description-vectors:outcome-duplicate-kind-167",
+        "command-description-vectors:outcome-shape-missing-receiver-168",
+        "command-description-vectors:outcome-duplicate-receiver-169",
+        "command-description-vectors:outcome-shape-missing-configuration-170",
+        "command-description-vectors:outcome-duplicate-configuration-171",
+        "command-description-vectors:outcome-shape-missing-request-172",
+        "command-description-vectors:outcome-duplicate-request-173",
+        "command-description-vectors:outcome-shape-missing-status-174",
+        "command-description-vectors:outcome-duplicate-status-175",
+        "command-description-vectors:outcome-shape-missing-result-176",
+        "command-description-vectors:outcome-duplicate-result-177",
+        "command-description-vectors:outcome-claims-validFrom",
+        "command-description-vectors:outcome-claims-validUntil",
+        "command-description-vectors:outcome-duplicate-CBOR-key"
+      ]
+    },
+    {
+      "id": "bindings_strict",
+      "milestone": "M1",
+      "requirements": [
+        "R-20"
+      ],
+      "owners": [
+        "resolve",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "command-description-vectors:bindings-valid",
+        "command-description-vectors:bindings-invalid-root",
+        "command-description-vectors:bindings-invalid-nested",
+        "command-description-vectors:bindings-duplicate-CBOR-key"
+      ]
+    },
+    {
+      "id": "endpoint_boot",
+      "milestone": "M2",
+      "requirements": [
+        "R-04",
+        "R-05",
+        "R-10"
+      ],
+      "owners": [
+        "delta",
+        "syntax",
+        "schema-load",
+        "command-data",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "vitest:M2:endpoint_boot",
+        "cargo:command-case:endpoint_boot:post-assert proof"
+      ]
+    },
+    {
+      "id": "configuration_not_self_installing",
+      "milestone": "M2",
+      "requirements": [
+        "R-05",
+        "R-07",
+        "R-10"
+      ],
+      "owners": [
+        "command-data",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "vitest:M2:configuration_not_self_installing",
+        "cargo:command-case:configuration_not_self_installing:post-assert proof"
+      ]
+    },
+    {
+      "id": "caller_authorization",
+      "milestone": "M2",
+      "requirements": [
+        "R-05",
+        "R-12",
+        "R-13"
+      ],
+      "owners": [
+        "principal",
+        "federation",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "vitest:M2:caller_authorization",
+        "cargo:command-case:caller_authorization:post-assert proof"
+      ]
+    },
+    {
+      "id": "request_validity",
+      "milestone": "M2",
+      "requirements": [
+        "R-12",
+        "R-13",
+        "R-15"
+      ],
+      "owners": [
+        "principal",
+        "federation",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "vitest:M2:request_validity",
+        "cargo:command-case:request_validity:post-assert proof"
+      ]
+    },
+    {
+      "id": "addressed_entry",
+      "milestone": "M2",
+      "requirements": [
+        "R-07",
+        "R-13"
+      ],
+      "owners": [
+        "command-data",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "vitest:M2:addressed_entry",
+        "cargo:command-case:addressed_entry:post-assert proof"
+      ]
+    },
+    {
+      "id": "invalid_duplicate_appearance",
+      "milestone": "M2",
+      "requirements": [
+        "R-08",
+        "R-13"
+      ],
+      "owners": [
+        "delta",
+        "storage",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "vitest:M2:invalid_duplicate_appearance",
+        "cargo:command-case:invalid_duplicate_appearance:post-assert proof"
+      ]
+    },
+    {
+      "id": "valid_duplicate_appearance",
+      "milestone": "M2",
+      "requirements": [
+        "R-07",
+        "R-08"
+      ],
+      "owners": [
+        "delta",
+        "storage",
+        "command-data",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "vitest:M2:valid_duplicate_appearance",
+        "cargo:command-case:valid_duplicate_appearance:post-assert proof"
+      ]
+    },
+    {
+      "id": "limits",
+      "milestone": "M2",
+      "requirements": [
+        "R-05",
+        "R-08",
+        "R-13"
+      ],
+      "owners": [
+        "delta",
+        "storage",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "vitest:M2:limits",
+        "cargo:command-case:limits:post-assert proof"
+      ]
+    },
+    {
+      "id": "input_mutation",
+      "milestone": "M2",
+      "requirements": [
+        "R-08"
+      ],
+      "owners": [
+        "delta",
+        "storage",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "vitest:M2:input_mutation",
+        "cargo:command-case:input_mutation:post-assert proof"
+      ]
+    },
+    {
+      "id": "missing_and_extra_support",
+      "milestone": "M2",
+      "requirements": [
+        "R-07",
+        "R-08",
+        "R-13"
+      ],
+      "owners": [
+        "delta",
+        "storage",
+        "command-data",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "vitest:M2:missing_and_extra_support",
+        "cargo:command-case:missing_and_extra_support:post-assert proof"
+      ]
+    },
+    {
+      "id": "delivery_permutation",
+      "milestone": "M2",
+      "requirements": [
+        "R-07",
+        "R-08",
+        "R-09"
+      ],
+      "owners": [
+        "delta",
+        "storage",
+        "command-data",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "vitest:M2:delivery_permutation",
+        "cargo:command-case:delivery_permutation:post-assert proof"
+      ]
+    },
+    {
+      "id": "retain_only_payload",
+      "milestone": "M2",
+      "requirements": [
+        "R-07",
+        "R-16",
+        "R-17"
+      ],
+      "owners": [
+        "storage",
+        "federation",
+        "command-data",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "vitest:M2:retain_only_payload",
+        "cargo:command-case:retain_only_payload:post-assert proof"
+      ]
+    },
+    {
+      "id": "retained_request_inert",
+      "milestone": "M2",
+      "requirements": [
+        "R-01",
+        "R-07",
+        "R-16"
+      ],
+      "owners": [
+        "federation",
+        "derivation",
+        "command-data",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "vitest:M2:retained_request_inert",
+        "cargo:command-case:retained_request_inert:post-assert proof"
+      ]
+    },
+    {
+      "id": "unsigned_payload",
+      "milestone": "M2",
+      "requirements": [
+        "R-08",
+        "R-16"
+      ],
+      "owners": [
+        "delta",
+        "storage",
+        "federation",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "vitest:M2:unsigned_payload",
+        "cargo:command-case:unsigned_payload:post-assert proof"
+      ]
+    },
+    {
+      "id": "retain_atomic_quota",
+      "milestone": "M2",
+      "requirements": [
+        "R-16",
+        "R-17"
+      ],
+      "owners": [
+        "storage",
+        "federation",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "vitest:M2:retain_atomic_quota",
+        "cargo:command-case:retain_atomic_quota:post-assert proof"
+      ]
+    },
+    {
+      "id": "retain_duplicates",
+      "milestone": "M2",
+      "requirements": [
+        "R-03",
+        "R-15",
+        "R-16",
+        "R-17"
+      ],
+      "owners": [
+        "storage",
+        "federation",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "vitest:M2:retain_duplicates",
+        "cargo:command-case:retain_duplicates:post-assert proof"
+      ]
+    },
+    {
+      "id": "retain_refused_id",
+      "milestone": "M2",
+      "requirements": [
+        "R-15",
+        "R-16",
+        "R-17"
+      ],
+      "owners": [
+        "storage",
+        "federation",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "vitest:M2:retain_refused_id",
+        "cargo:command-case:retain_refused_id:post-assert proof"
+      ]
+    },
+    {
+      "id": "expected_head_write",
+      "milestone": "M2",
+      "requirements": [
+        "R-17",
+        "R-19"
+      ],
+      "owners": [
+        "storage",
+        "federation",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "vitest:M2:expected_head_write",
+        "cargo:command-case:expected_head_write:post-assert proof"
+      ]
+    },
+    {
+      "id": "write_conflict",
+      "milestone": "M2",
+      "requirements": [
+        "R-14",
+        "R-17",
+        "R-18",
+        "R-19"
+      ],
+      "owners": [
+        "reactor",
+        "storage",
+        "federation",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "vitest:M2:write_conflict",
+        "cargo:command-case:write_conflict:post-assert proof"
+      ]
+    },
+    {
+      "id": "crash_before_append",
+      "milestone": "M2",
+      "requirements": [
+        "R-14",
+        "R-17"
+      ],
+      "owners": [
+        "storage",
+        "federation",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "vitest:M2:crash_before_append",
+        "cargo:command-case:crash_before_append:post-assert proof"
+      ]
+    },
+    {
+      "id": "crash_after_append",
+      "milestone": "M2",
+      "requirements": [
+        "R-14",
+        "R-15",
+        "R-17"
+      ],
+      "owners": [
+        "storage",
+        "federation",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "vitest:M2:crash_after_append",
+        "cargo:command-case:crash_after_append:post-assert proof"
+      ]
+    },
+    {
+      "id": "commit_unconfirmed",
+      "milestone": "M2",
+      "requirements": [
+        "R-14",
+        "R-17"
+      ],
+      "owners": [
+        "storage",
+        "federation",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "vitest:M2:commit_unconfirmed",
+        "cargo:command-case:commit_unconfirmed:post-assert proof"
+      ]
+    },
+    {
+      "id": "response_delivery_failure",
+      "milestone": "M2",
+      "requirements": [
+        "R-14",
+        "R-17"
+      ],
+      "owners": [
+        "storage",
+        "federation",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "vitest:M2:response_delivery_failure",
+        "cargo:command-case:response_delivery_failure:post-assert proof"
+      ]
+    },
+    {
+      "id": "rows_without_journal",
+      "milestone": "M2",
+      "requirements": [
+        "R-17",
+        "R-33"
+      ],
+      "owners": [
+        "storage",
+        "federation",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "vitest:M2:rows_without_journal",
+        "cargo:command-case:rows_without_journal:post-assert proof"
+      ]
+    },
+    {
+      "id": "retain_outcome_partition",
+      "milestone": "M2",
+      "requirements": [
+        "R-17",
+        "R-25",
+        "R-26"
+      ],
+      "owners": [
+        "resolve-kernel",
+        "storage",
+        "federation",
+        "command-data",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "vitest:M2:retain_outcome_partition",
+        "cargo:command-case:retain_outcome_partition:post-assert proof"
+      ]
+    },
+    {
+      "id": "query_ephemeral",
+      "milestone": "M3",
+      "requirements": [
+        "R-18",
+        "R-20",
+        "R-24"
+      ],
+      "owners": [
+        "algebra",
+        "resolve-kernel",
+        "resolve",
+        "reactor",
+        "storage",
+        "federation",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "vitest:M3:query_ephemeral",
+        "cargo:command-case:query_ephemeral:post-assert proof"
+      ]
+    },
+    {
+      "id": "catalog_discovery",
+      "milestone": "M3",
+      "requirements": [
+        "R-05",
+        "R-10",
+        "R-11"
+      ],
+      "owners": [
+        "command-data",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "vitest:M3:catalog_discovery",
+        "cargo:command-case:catalog_discovery:post-assert proof"
+      ]
+    },
+    {
+      "id": "catalog_with_unavailable_store",
+      "milestone": "M3",
+      "requirements": [
+        "R-11",
+        "R-18"
+      ],
+      "owners": [
+        "reactor",
+        "storage",
+        "federation",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "vitest:M3:catalog_with_unavailable_store",
+        "cargo:command-case:catalog_with_unavailable_store:post-assert proof"
+      ]
+    },
+    {
+      "id": "coherent_external_change",
+      "milestone": "M3",
+      "requirements": [
+        "R-18"
+      ],
+      "owners": [
+        "reactor",
+        "storage",
+        "federation",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "vitest:M3:coherent_external_change",
+        "cargo:command-case:coherent_external_change:post-assert proof"
+      ]
+    },
+    {
+      "id": "source_changes_during_capture",
+      "milestone": "M3",
+      "requirements": [
+        "R-18",
+        "R-19"
+      ],
+      "owners": [
+        "reactor",
+        "storage",
+        "federation",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "vitest:M3:source_changes_during_capture",
+        "cargo:command-case:source_changes_during_capture:post-assert proof"
+      ]
+    },
+    {
+      "id": "query_snapshot_after_capture",
+      "milestone": "M3",
+      "requirements": [
+        "R-18"
+      ],
+      "owners": [
+        "reactor",
+        "storage",
+        "federation",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "vitest:M3:query_snapshot_after_capture",
+        "cargo:command-case:query_snapshot_after_capture:post-assert proof"
+      ]
+    },
+    {
+      "id": "degraded_source",
+      "milestone": "M3",
+      "requirements": [
+        "R-18"
+      ],
+      "owners": [
+        "reactor",
+        "storage",
+        "federation",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "vitest:M3:degraded_source",
+        "cargo:command-case:degraded_source:post-assert proof"
+      ]
+    },
+    {
+      "id": "write_then_query",
+      "milestone": "M3",
+      "requirements": [
+        "R-03",
+        "R-19"
+      ],
+      "owners": [
+        "federation",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "vitest:M3:write_then_query",
+        "cargo:command-case:write_then_query:post-assert proof"
+      ]
+    },
+    {
+      "id": "source_digest_precondition",
+      "milestone": "M3",
+      "requirements": [
+        "R-19",
+        "R-21"
+      ],
+      "owners": [
+        "delta",
+        "federation",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "vitest:M3:source_digest_precondition",
+        "cargo:command-case:source_digest_precondition:post-assert proof"
+      ]
+    },
+    {
+      "id": "query_repeat_current",
+      "milestone": "M3",
+      "requirements": [
+        "R-03",
+        "R-15",
+        "R-20",
+        "R-21"
+      ],
+      "owners": [
+        "delta",
+        "resolve",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "vitest:M3:query_repeat_current",
+        "cargo:command-case:query_repeat_current:post-assert proof"
+      ]
+    },
+    {
+      "id": "explicit_time",
+      "milestone": "M3",
+      "requirements": [
+        "R-12",
+        "R-20",
+        "R-24"
+      ],
+      "owners": [
+        "algebra",
+        "resolve-kernel",
+        "resolve",
+        "reactor",
+        "principal",
+        "federation",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "vitest:M3:explicit_time",
+        "cargo:command-case:explicit_time:post-assert proof"
+      ]
+    },
+    {
+      "id": "exact_definition_act",
+      "milestone": "M3",
+      "requirements": [
+        "R-20",
+        "R-22"
+      ],
+      "owners": [
+        "syntax",
+        "schema",
+        "resolve",
+        "schema-load",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "vitest:M3:exact_definition_act",
+        "cargo:command-case:exact_definition_act:post-assert proof"
+      ]
+    },
+    {
+      "id": "definition_pin_mismatch",
+      "milestone": "M3",
+      "requirements": [
+        "R-22"
+      ],
+      "owners": [
+        "syntax",
+        "schema",
+        "resolve",
+        "schema-load",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "vitest:M3:definition_pin_mismatch",
+        "cargo:command-case:definition_pin_mismatch:post-assert proof"
+      ]
+    },
+    {
+      "id": "definition_validity_and_version",
+      "milestone": "M3",
+      "requirements": [
+        "R-22"
+      ],
+      "owners": [
+        "syntax",
+        "schema",
+        "resolve",
+        "schema-load",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "vitest:M3:definition_validity_and_version",
+        "cargo:command-case:definition_validity_and_version:post-assert proof"
+      ]
+    },
+    {
+      "id": "definition_name_conflict",
+      "milestone": "M3",
+      "requirements": [
+        "R-22"
+      ],
+      "owners": [
+        "syntax",
+        "schema",
+        "resolve",
+        "schema-load",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "vitest:M3:definition_name_conflict",
+        "cargo:command-case:definition_name_conflict:post-assert proof"
+      ]
+    },
+    {
+      "id": "definition_closure",
+      "milestone": "M3",
+      "requirements": [
+        "R-22"
+      ],
+      "owners": [
+        "syntax",
+        "schema",
+        "resolve",
+        "schema-load",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "vitest:M3:definition_closure",
+        "cargo:command-case:definition_closure:post-assert proof"
+      ]
+    },
+    {
+      "id": "definition_cycle",
+      "milestone": "M3",
+      "requirements": [
+        "R-22"
+      ],
+      "owners": [
+        "syntax",
+        "schema",
+        "resolve",
+        "schema-load",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "vitest:M3:definition_cycle",
+        "cargo:command-case:definition_cycle:post-assert proof"
+      ]
+    },
+    {
+      "id": "nested_reference_analysis",
+      "milestone": "M3",
+      "requirements": [
+        "R-22",
+        "R-23"
+      ],
+      "owners": [
+        "syntax",
+        "schema",
+        "resolve",
+        "schema-load",
+        "reactor",
+        "principal",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "vitest:M3:nested_reference_analysis",
+        "cargo:command-case:nested_reference_analysis:post-assert proof"
+      ]
+    },
+    {
+      "id": "variables",
+      "milestone": "M3",
+      "requirements": [
+        "R-20",
+        "R-22",
+        "R-24"
+      ],
+      "owners": [
+        "syntax",
+        "schema",
+        "algebra",
+        "resolve-kernel",
+        "resolve",
+        "schema-load",
+        "reactor",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "vitest:M3:variables",
+        "cargo:command-case:variables:post-assert proof"
+      ]
+    },
+    {
+      "id": "core_principal_refusal",
+      "milestone": "M3",
+      "requirements": [
+        "R-23"
+      ],
+      "owners": [
+        "syntax",
+        "schema",
+        "resolve",
+        "reactor",
+        "principal",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "vitest:M3:core_principal_refusal",
+        "cargo:command-case:core_principal_refusal:post-assert proof"
+      ]
+    },
+    {
+      "id": "principal_profiles",
+      "milestone": "M3",
+      "requirements": [
+        "R-23"
+      ],
+      "owners": [
+        "syntax",
+        "schema",
+        "resolve",
+        "reactor",
+        "principal",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "vitest:M3:principal_profiles",
+        "cargo:command-case:principal_profiles:post-assert proof"
+      ]
+    },
+    {
+      "id": "principal_pins_and_source",
+      "milestone": "M3",
+      "requirements": [
+        "R-21",
+        "R-23"
+      ],
+      "owners": [
+        "delta",
+        "syntax",
+        "schema",
+        "resolve",
+        "reactor",
+        "principal",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "vitest:M3:principal_pins_and_source",
+        "cargo:command-case:principal_pins_and_source:post-assert proof"
+      ]
+    },
+    {
+      "id": "outcome_provenance",
+      "milestone": "M3",
+      "requirements": [
+        "R-21",
+        "R-25",
+        "R-26",
+        "R-27"
+      ],
+      "owners": [
+        "delta",
+        "resolve-kernel",
+        "command-data",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "vitest:M3:outcome_provenance",
+        "cargo:command-case:outcome_provenance:post-assert proof"
+      ]
+    },
+    {
+      "id": "no_hidden_observations",
+      "milestone": "M3",
+      "requirements": [
+        "R-01",
+        "R-12",
+        "R-24"
+      ],
+      "owners": [
+        "algebra",
+        "resolve-kernel",
+        "resolve",
+        "reactor",
+        "principal",
+        "federation",
+        "derivation",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "vitest:M3:no_hidden_observations",
+        "cargo:command-case:no_hidden_observations:post-assert proof"
+      ]
+    },
+    {
+      "id": "error_priority",
+      "milestone": "M3",
+      "requirements": [
+        "R-13",
+        "R-22"
+      ],
+      "owners": [
+        "syntax",
+        "schema",
+        "resolve",
+        "schema-load",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "vitest:M3:error_priority",
+        "cargo:command-case:error_priority:post-assert proof"
+      ]
+    },
+    {
+      "id": "mixed_ts_to_rust",
+      "milestone": "M4",
+      "requirements": [
+        "R-30",
+        "R-31"
+      ],
+      "owners": [
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "command-description-transport:ts-to-rust",
+        "command-towers:fixed-ts-rust"
+      ]
+    },
+    {
+      "id": "mixed_rust_to_ts",
+      "milestone": "M4",
+      "requirements": [
+        "R-30",
+        "R-31"
+      ],
+      "owners": [
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "command-description-transport:rust-to-ts",
+        "command-towers:fixed-rust-ts"
+      ]
+    },
+    {
+      "id": "different_peer_signers",
+      "milestone": "M4",
+      "requirements": [
+        "R-25",
+        "R-31"
+      ],
+      "owners": [
+        "command-data",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "command-towers:same-value-different-receiver"
+      ]
+    },
+    {
+      "id": "existing_conformance",
+      "milestone": "M4",
+      "requirements": [
+        "R-02",
+        "R-24",
+        "R-27",
+        "R-30",
+        "R-33"
+      ],
+      "owners": [
+        "algebra",
+        "resolve-kernel",
+        "resolve",
+        "reactor",
+        "derivation",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "CI:typescript,rust,elixir,haskell"
+      ]
+    },
+    {
+      "id": "ci_fault_execution",
+      "milestone": "M4",
+      "requirements": [
+        "R-17",
+        "R-30",
+        "R-32"
+      ],
+      "owners": [
+        "storage",
+        "federation",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "vitest:M2 durable subprocess tests",
+        "cargo:M2 durable subprocess tests"
+      ]
+    },
+    {
+      "id": "independent_boundary_review",
+      "milestone": "M4",
+      "requirements": [
+        "R-01",
+        "R-04",
+        "R-28",
+        "R-29",
+        "R-32",
+        "R-33"
+      ],
+      "owners": [
+        "delta",
+        "syntax",
+        "algebra",
+        "schema-load",
+        "reactor",
+        "derivation",
+        "command-data",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": [
+        "exact-head independent review record: all M0-M4 scopes"
+      ]
+    },
+    {
+      "id": "tower_port_inventory",
+      "milestone": "M0",
+      "requirements": [
+        "R-01",
+        "R-29",
+        "R-34"
+      ],
+      "owners": [
+        "algebra",
+        "reactor",
+        "derivation",
+        "command-data",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "command-contracts:exact stages",
+        "command-tower-plan:capability selection"
+      ]
+    },
+    {
+      "id": "tower_seeded_planning",
+      "milestone": "M4",
+      "requirements": [
+        "R-32",
+        "R-34"
+      ],
+      "owners": [
+        "command-data",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "node-test:command-tower-plan.test.mjs"
+      ]
+    },
+    {
+      "id": "tower_capability_refusal",
+      "milestone": "M4",
+      "requirements": [
+        "R-02",
+        "R-32",
+        "R-34"
+      ],
+      "owners": [
+        "derivation",
+        "command-data",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "node-test:command-tower-plan.test.mjs"
+      ]
+    },
+    {
+      "id": "three_randomized_towers",
+      "milestone": "M4",
+      "requirements": [
+        "R-30",
+        "R-31",
+        "R-34"
+      ],
+      "owners": [
+        "command-data",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "command-towers:three mixed plans per selected scenario"
+      ]
+    },
+    {
+      "id": "tower_state_isolation",
+      "milestone": "M4",
+      "requirements": [
+        "R-17",
+        "R-34"
+      ],
+      "owners": [
+        "storage",
+        "federation",
+        "command-data",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "command-towers:fresh durable state per route"
+      ]
+    },
+    {
+      "id": "tower_exact_replay",
+      "milestone": "M4",
+      "requirements": [
+        "R-32",
+        "R-34"
+      ],
+      "owners": [
+        "command-data",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "command-towers:retained exact plan replay"
+      ]
+    },
+    {
+      "id": "tower_shared_wrong_answer",
+      "milestone": "M4",
+      "requirements": [
+        "R-30",
+        "R-34"
+      ],
+      "owners": [
+        "command-data",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "node-test:command-towers.test.mjs:shared wrong answer"
+      ]
+    },
+    {
+      "id": "tower_fault_localization",
+      "milestone": "M4",
+      "requirements": [
+        "R-29",
+        "R-32",
+        "R-34"
+      ],
+      "owners": [
+        "algebra",
+        "reactor",
+        "derivation",
+        "command-data",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "implemented_unverified",
+      "tests": [
+        "node-test:command-towers.test.mjs:stage fault"
+      ]
+    }
+  ]
+}

@@ -3,9 +3,8 @@
 use serde_json::json;
 
 use crate::cbor::decode;
-use crate::eval::{eval_term_at, governed_deltas, EvalResult, Term};
-use crate::hview::HVEntry;
-use crate::resolution::{first_by_order, Order, Schema};
+use crate::eval::selected_definition;
+use crate::resolution::{Order, Schema};
 use crate::schema::HyperSchema;
 use crate::set::DeltaSet;
 use crate::term_io::{cbor_to_json, schema_canonical_hex, term_canonical_hex};
@@ -13,7 +12,7 @@ use crate::term_json::{parse_schema, parse_term};
 use crate::types::{Claims, Pointer, Primitive, Target};
 
 /// The vocabulary prefix is one constant pending the naming decision tracked in CLAUDE.md (S4).
-pub const VOCAB_PREFIX: &str = "rhizomatic";
+pub use crate::types::VOCAB_PREFIX;
 
 fn role(suffix: &str) -> String {
     format!("{VOCAB_PREFIX}.hyperschema.{suffix}")
@@ -87,30 +86,6 @@ fn primitive_of(claims: &Claims, want_role: &str) -> Option<Primitive> {
 
 /// Load a schema definition from the rhizome (S3): evaluate the bootstrap at the schema entity,
 /// take the latest surviving definition, decode the term, verify canonicality by re-encoding.
-fn selected_definition(
-    body: &Term,
-    dset: &DeltaSet,
-    schema_entity: &str,
-    now: f64,
-    admits_author: impl Fn(&str) -> bool,
-    order: &Order,
-) -> Result<HVEntry, String> {
-    // Filter authors before mask: a foreign negation cannot suppress governing law.
-    let governed = governed_deltas(dset, now, admits_author)?;
-    let result = eval_term_at(body, &governed, now, Some(schema_entity), None, None)?;
-    let EvalResult::HView(h) = result else {
-        return Err("bootstrap body must yield an HView".to_string());
-    };
-    let empty = Vec::new();
-    let defs = h.props.get("definition").unwrap_or(&empty);
-    if defs.is_empty() {
-        return Err(format!(
-            "no surviving schema definition for {schema_entity}"
-        ));
-    }
-    Ok(first_by_order(order, defs).unwrap().clone())
-}
-
 /// Load under a caller-selected governing author predicate and Pick order.
 pub fn load_governed_hyper_schema(
     dset: &DeltaSet,
@@ -293,4 +268,75 @@ pub fn load_schema(dset: &DeltaSet, schema_entity: &str, now: f64) -> Result<Sch
         |_| true,
         &Order::ByTimestamp { desc: true },
     )
+}
+
+/// An exact signed definition act. This reader never chooses a newer ambient publication.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ExactDefinition {
+    Gather(HyperSchema),
+    Reading(Schema),
+}
+pub fn read_exact_definition(
+    delta: &crate::types::Delta,
+    at: f64,
+) -> Result<ExactDefinition, String> {
+    use crate::sign::{verify_canonical_delta, Verification};
+    if !at.is_finite()
+        || verify_canonical_delta(delta) != Verification::Verified
+        || delta.claims.valid_from > at
+        || delta.claims.valid_until.is_some_and(|end| at >= end)
+        || delta.claims.pointers.len() != 4
+    {
+        return Err("invalid signed definition validity or shape".into());
+    }
+    let fields: std::collections::BTreeMap<&str, &Target> = delta
+        .claims
+        .pointers
+        .iter()
+        .map(|p| (p.role.as_str(), &p.target))
+        .collect();
+    if fields.len() != 4 {
+        return Err("duplicate definition field".into());
+    }
+    let prefix = if fields.contains_key(&*role("defines")) {
+        format!("{VOCAB_PREFIX}.hyperschema")
+    } else {
+        format!("{VOCAB_PREFIX}.schema")
+    };
+    let keys = ["defines", "name", "alg", "term"].map(|s| format!("{prefix}.{s}"));
+    if keys.iter().any(|k| !fields.contains_key(k.as_str())) {
+        return Err("definition fields".into());
+    }
+    match fields[keys[0].as_str()] {
+        Target::Entity(r) if r.context.as_deref() == Some("definition") => {}
+        _ => return Err("definition entity required".into()),
+    }
+    let name = match fields[keys[1].as_str()] {
+        Target::Primitive(Primitive::Str(s)) => s.clone(),
+        _ => return Err("definition name".into()),
+    };
+    if fields[keys[2].as_str()] != &Target::Primitive(Primitive::Num(1.0)) {
+        return Err("definition algebra must be 1".into());
+    }
+    let blob = match fields[keys[3].as_str()] {
+        Target::Primitive(Primitive::Str(s)) => s,
+        _ => return Err("definition blob".into()),
+    };
+    let bytes = hex::decode(blob).map_err(|e| e.to_string())?;
+    let value = cbor_to_json(&decode(&bytes)?);
+    if prefix.ends_with("hyperschema") {
+        let body = parse_term(&value)?;
+        if term_canonical_hex(&body)? != *blob {
+            return Err("noncanonical definition term".into());
+        }
+        Ok(ExactDefinition::Gather(HyperSchema { name, alg: 1, body }))
+    } else {
+        let mut reading = parse_schema(&value)?;
+        if schema_canonical_hex(&reading)? != *blob {
+            return Err("noncanonical definition reading".into());
+        }
+        reading.name = Some(name);
+        reading.alg = Some(1.0);
+        Ok(ExactDefinition::Reading(reading))
+    }
 }

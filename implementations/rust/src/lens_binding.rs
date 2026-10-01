@@ -1,7 +1,7 @@
 //! Named lens bindings: one gather pin and one resolution Schema pin, read under explicit trust.
 
-use crate::eval::{eval_term_at, governed_deltas, EvalResult};
-use crate::resolution::{first_by_order, Order, Schema};
+use crate::eval::{eval_term_at, first_by_order, governed_deltas, EvalResult};
+use crate::resolution::{Order, Schema};
 use crate::schema::HyperSchema;
 use crate::schema_deltas::{hyper_schema_schema, VOCAB_PREFIX};
 use crate::set::DeltaSet;

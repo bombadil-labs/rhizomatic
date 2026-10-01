@@ -33,7 +33,9 @@ jobs:
       - name: vectors are fresh (generator output == committed bytes)
         run: |
           npm run gen-vectors
+          npm run gen-command-vectors
           git diff --exit-code ../../vectors
+          git diff --exit-code ../../contracts/command/coverage.json ../../contracts/command/TOWERS.json
 
   rust:
     name: Rust witness
@@ -96,3 +98,56 @@ jobs:
         run: |
           mix format --check-formatted
           mix test
+
+  command:
+    name: Command profile and mixed towers
+    needs: [typescript, rust, haskell, elixir]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: implementations/ts/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: implementations/rust
+      - run: npm ci --prefix implementations/ts
+      - name: Acceptance harness, boundary negatives and planning regressions
+        run: |
+          node --test tools/command-tower*.test.mjs tools/check-rust-command-boundaries.test.mjs tools/check-command-bootstrap.test.mjs tools/check-command-acceptance.test.mjs
+      - name: Record exact checked-out existing witness results
+        env:
+          CI_COMMIT: ${{ github.sha }}
+          CI_RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          CI_TS: ${{ needs.typescript.result }}
+          CI_RUST: ${{ needs.rust.result }}
+          CI_HASKELL: ${{ needs.haskell.result }}
+          CI_ELIXIR: ${{ needs.elixir.result }}
+          CI_EVIDENCE: ${{ runner.temp }}/command-existing-conformance.json
+        run: |
+          node --input-type=module <<'JS'
+          import {writeFileSync} from 'node:fs';
+          import {execFileSync} from 'node:child_process';
+          const commit=execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim();
+          if(commit!==process.env.CI_COMMIT)throw Error('CI checkout does not match witness SHA');
+          const jobs={ts:'TypeScript witness',rust:'Rust witness',haskell:'Haskell witness (L0)',elixir:'Elixir witness (L0)'};
+          const witnesses=Object.entries(jobs).map(([id,job])=>{
+            if(process.env['CI_'+id.toUpperCase()]!=='success')throw Error('required existing witness failed: '+id);
+            return {id,job,status:'passed'};
+          });
+          writeFileSync(process.env.CI_EVIDENCE,JSON.stringify({format:'rhizomatic-existing-conformance/1',commit,runUrl:process.env.CI_RUN_URL,witnesses},null,2)+'\n');
+          JS
+      - name: Execute all technical cases, faults, fixed routes, three towers and exact replay
+        run: node tools/check-command-acceptance.mjs --out "$RUNNER_TEMP/command-acceptance" --seed "command-profile-1:${GITHUB_RUN_ID}:${GITHUB_RUN_ATTEMPT}:${GITHUB_SHA}" --conformance "$RUNNER_TEMP/command-existing-conformance.json"
+      - name: Retain concrete plans, stage artifacts, faults and exact-head coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: command-profile-evidence
+          path: |
+            ${{ runner.temp }}/command-acceptance
+            ${{ runner.temp }}/command-existing-conformance.json
+          if-no-files-found: error

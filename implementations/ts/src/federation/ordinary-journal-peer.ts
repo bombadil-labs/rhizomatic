@@ -3,6 +3,7 @@ import type { Delta } from "../delta/types.js";
 import { computeId } from "../delta/delta.js";
 import { DeltaSet } from "../delta/set.js";
 import { contentAddress } from "../delta/hash.js";
+import { verifyCanonicalDelta } from "../delta/sign.js";
 import { claimsToJson, parseClaims } from "../delta/json-profile.js";
 import {
   emptyDurablePeerState,
@@ -272,7 +273,7 @@ export class OrdinaryJournalPeer {
   static async open(
     store: DurableOrdinaryJournalStore,
     peerId: string,
-    options: { readonly allowDegraded?: boolean } = {},
+    options: { readonly allowDegraded?: boolean; readonly requireExisting?: boolean } = {},
   ): Promise<OrdinaryJournalOpenResult> {
     if (!isCanonicalPeerId(peerId)) throw new Error("ordinary journal: invalid peer id");
     const current = await store.readJournal(peerId);
@@ -336,6 +337,7 @@ export class OrdinaryJournalPeer {
         ),
       };
     }
+    if (options.requireExisting) return { status: "conflict" };
     const write = await store.compareAndAppend(peerId, null, "", null, []);
     if (write.status !== "durable") return write;
     return {
@@ -873,5 +875,50 @@ export class OrdinaryJournalPeer {
     this.state = state;
     this.head = nextHead;
     return { status: "committed", head: nextHead };
+  }
+}
+
+export type OrdinaryJournalCapture =
+  | {
+      readonly status: "captured";
+      readonly peer: OrdinaryJournalPeer;
+      readonly state: DurablePeerState;
+      readonly source: DeltaSet;
+      readonly head: string;
+    }
+  | { readonly status: "source-changed" | "source-unavailable" };
+/** Complete existing journal capture. Missing storage never initializes a peer. */
+export async function captureOrdinaryJournalSource(
+  store: DurableOrdinaryJournalStore,
+  peerId: string,
+  diagnostic: (fault: unknown) => void,
+): Promise<OrdinaryJournalCapture> {
+  try {
+    const existing = await store.readJournal(peerId);
+    if (existing.status !== "journal") return { status: "source-unavailable" };
+    // Reuse this exact bracket's initial journal observation, then read rows and final head.
+    const capturedStore = new Proxy(store, {
+      get(target, key) {
+        if (key === "readJournal") return () => Promise.resolve(existing);
+        const member = Reflect.get(target, key);
+        return typeof member === "function" ? member.bind(target) : member;
+      },
+    });
+    const opened = await OrdinaryJournalPeer.open(capturedStore, peerId, { requireExisting: true });
+    if (opened.status !== "open")
+      return { status: opened.status === "conflict" ? "source-changed" : "source-unavailable" };
+    const state = opened.peer.snapshot();
+    if ([...state.base.admitted].some((delta) => verifyCanonicalDelta(delta) !== "verified"))
+      return { status: "source-unavailable" };
+    return {
+      status: "captured",
+      peer: opened.peer,
+      state,
+      source: opened.peer.availableDeltas(),
+      head: opened.peer.currentHead(),
+    };
+  } catch (fault) {
+    diagnostic(fault);
+    return { status: "source-unavailable" };
   }
 }

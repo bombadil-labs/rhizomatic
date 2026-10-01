@@ -574,7 +574,41 @@ fn lower_pred(
             field: *field,
             extract: extract.clone(),
         },
+        Pred::HasPointer(p) => {
+            let mut p = p.clone();
+            p.role = p
+                .role
+                .as_ref()
+                .map(|m| lower_string_match(m, input, at, resolver))
+                .transpose()?;
+            p.context = p
+                .context
+                .as_ref()
+                .map(|m| lower_string_match(m, input, at, resolver))
+                .transpose()?;
+            Pred::HasPointer(p)
+        }
         _ => pred.clone(),
+    })
+}
+
+fn lower_string_match(
+    m: &crate::pred::StrMatch,
+    input: &DeltaSet,
+    at: f64,
+    resolver: &PrincipalResolver<'_>,
+) -> Result<crate::pred::StrMatch, String> {
+    Ok(match m {
+        crate::pred::StrMatch::Aliased(a) => {
+            let mut a = (**a).clone();
+            a.trust = a
+                .trust
+                .as_ref()
+                .map(|p| lower_pred(p, input, at, resolver))
+                .transpose()?;
+            crate::pred::StrMatch::Aliased(Box::new(a))
+        }
+        _ => m.clone(),
     })
 }
 
@@ -619,7 +653,7 @@ fn lower_policy(
     })
 }
 
-fn lower_schema(
+pub fn lower_principal_reading(
     schema: &Schema,
     input: &DeltaSet,
     at: f64,
@@ -677,7 +711,12 @@ pub fn lower_principal_term(
             of: Box::new(lower_principal_term(of, input, at, resolver)?),
         },
         Term::Prune { keep, of } => Term::Prune {
-            keep: keep.clone(),
+            keep: match keep {
+                crate::eval::PruneKeep::All => keep.clone(),
+                crate::eval::PruneKeep::Match(m) => {
+                    crate::eval::PruneKeep::Match(lower_string_match(m, input, at, resolver)?)
+                }
+            },
             of: Box::new(lower_principal_term(of, input, at, resolver)?),
         },
         Term::Expand {
@@ -686,13 +725,13 @@ pub fn lower_principal_term(
             reading,
             of,
         } => Term::Expand {
-            role: role.clone(),
+            role: lower_string_match(role, input, at, resolver)?,
             schema: schema.clone(),
             reading: reading.clone(),
             of: Box::new(lower_principal_term(of, input, at, resolver)?),
         },
         Term::Resolve { schema, of } => Term::Resolve {
-            schema: lower_schema(schema, input, at, resolver)?,
+            schema: lower_principal_reading(schema, input, at, resolver)?,
             of: Box::new(lower_principal_term(of, input, at, resolver)?),
         },
     })
@@ -707,7 +746,7 @@ pub fn lower_principal_registry(
 ) -> Result<SchemaRegistry, String> {
     registry.map_evaluation_bodies(
         |body| lower_principal_term(body, input, at, resolver),
-        |reading| lower_schema(reading, input, at, resolver),
+        |reading| lower_principal_reading(reading, input, at, resolver),
     )
 }
 

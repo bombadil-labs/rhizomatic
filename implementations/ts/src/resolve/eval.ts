@@ -23,6 +23,7 @@ import {
   type StrMatch,
 } from "../syntax/pred.js";
 import { VOCAB_PREFIX } from "../delta/vocab.js";
+import { bindReadingVariables } from "../syntax/bind-reading.js";
 import { SchemaRegistry } from "../schema/schema.js";
 import { DeltaSet, fork, merge } from "../delta/set.js";
 import type { Delta } from "../delta/types.js";
@@ -448,7 +449,7 @@ export function evalTermRaw(
       // Resolve the child's reading once, up front — an unknown reading fails the whole
       // evaluation loudly, exactly as an unknown gather schema does (issue #23).
       const reading =
-        term.reading === undefined ? undefined : lookupReading(term.reading, registry);
+        term.reading === undefined ? undefined : lookupReading(term.reading, registry, bindings);
       const props = new Map<string, readonly HVEntry[]>();
       for (const [prop, entries] of of.hview.props) {
         props.set(
@@ -489,7 +490,10 @@ export function evalTermRaw(
       };
     case "resolve": {
       const of = expectHView(evalTermRaw(term.of, input, root, registry, bindings), "resolve");
-      return { sort: "view", view: resolveView(term.schema, of.hview) };
+      return {
+        sort: "view",
+        view: resolveView(bindReadingVariables(term.schema, bindings), of.hview),
+      };
     }
   }
 }
@@ -537,13 +541,17 @@ function evalSchema(
 
 // Look up an expand's reading — the child's resolution Schema (issue #23). Mirrors evalSchema's
 // error discipline: unknown references fail loudly, never fall back.
-function lookupReading(ref: SchemaRefT, registry: SchemaRegistry | undefined): Schema {
+function lookupReading(
+  ref: SchemaRefT,
+  registry: SchemaRegistry | undefined,
+  bindings?: Bindings,
+): Schema {
   const label = ref.kind === "name" ? ref.name : `pinned:${ref.hash.slice(0, 12)}…`;
   if (registry === undefined)
     throw new Error(`reading ${label} referenced but no registry supplied (issue #23)`);
   const schema = registry.resolveReading(ref);
   if (schema === undefined) throw new Error(`unknown reading: ${label} (issue #23)`);
-  return schema;
+  return bindReadingVariables(schema, bindings);
 }
 
 // Canonical serialization of an evaluation result (ERRATA-2 E2, E7).

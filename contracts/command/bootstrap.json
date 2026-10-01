@@ -1,0 +1,101 @@
+{
+  "format": "rhizomatic-bootstrap/1",
+  "intrinsics": [
+    {
+      "id": "delta-codecs",
+      "owner": "delta",
+      "semantics": "Canonical CBOR and strict Delta JSON debug profile"
+    },
+    {
+      "id": "content-address-signature",
+      "owner": "delta",
+      "semantics": "BLAKE3 content-address and Ed25519 identity/signature"
+    },
+    {
+      "id": "command-decode-dispatch",
+      "owner": "command-data",
+      "semantics": "Closed SPEC-15 grammar"
+    },
+    {
+      "id": "installed-dispatch",
+      "owner": "command",
+      "semantics": "Exact configured intrinsic declaration identity"
+    },
+    {
+      "id": "algebra",
+      "owner": "resolve",
+      "semantics": "SPEC-2 finite operator algebra"
+    },
+    {
+      "id": "resolution",
+      "owner": "resolve-kernel",
+      "semantics": "SPEC-5 policies and lossless canonical View reader"
+    },
+    {
+      "id": "definition-decode",
+      "owner": "schema-load",
+      "semantics": "SPEC-3 exact signed definition decoding"
+    },
+    {
+      "id": "registry",
+      "owner": "schema",
+      "semantics": "Complete supplied name/pin closure and acyclic references"
+    },
+    {
+      "id": "core",
+      "owner": "command",
+      "semantics": "core/1 refuses actsFor"
+    },
+    {
+      "id": "principal-sameAuthor",
+      "owner": "principal",
+      "semantics": "principal-sameAuthor/1 explicit source/time"
+    },
+    {
+      "id": "principal-rootOrSameAuthor",
+      "owner": "principal",
+      "semantics": "principal-rootOrSameAuthor/1 explicit source/time"
+    },
+    {
+      "id": "journal-admission",
+      "owner": "federation",
+      "semantics": "Atomic inert signed-loose retain"
+    },
+    {
+      "id": "coherent-source",
+      "owner": "federation",
+      "semantics": "Complete admitted rows under stable observed head"
+    },
+    {
+      "id": "response-signing",
+      "owner": "delta",
+      "semantics": "Endpoint testimony with receivedAt"
+    }
+  ],
+  "host_capabilities": [
+    {
+      "id": "boot",
+      "semantics": "Select peer key, exact signed configuration and durable peer initialization"
+    },
+    {
+      "id": "clock",
+      "semantics": "One finite receivedAt observation per attempt"
+    },
+    {
+      "id": "durable-store",
+      "semantics": "Paths, locks, CAS, recovery and consistent authorized rows"
+    },
+    {
+      "id": "key-custody",
+      "semantics": "Private endpoint signing material"
+    },
+    {
+      "id": "diagnostics",
+      "semantics": "Visible host faults; no native text in canonical refusal"
+    }
+  ],
+  "canonical_pins": {
+    "HyperSchemaSchema": "1e20b8c3b0b1d28a76edfc06506215f95ecde58869faae53afc75c3b7c1b5fe87360",
+    "SchemaSchema": "1e20b8c3b0b1d28a76edfc06506215f95ecde58869faae53afc75c3b7c1b5fe87360"
+  }
+}
