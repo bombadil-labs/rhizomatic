@@ -337,6 +337,14 @@ fn exact_signed_definition_act_and_all_individual_shape_failures() {
     std::mem::swap(&mut wrong.hyperschema, &mut wrong.schema);
     let (_, out) = query(&mut r, &extra, wrong, None, 10.0);
     refusal(&out, "invalid-definition");
+    // Correct definition kind with a DSet body remains a later executable-program error.
+    let wrong_sort = program(Term::Input);
+    let (_, out) = query(&mut r, &wrong_sort, arguments(&wrong_sort), None, 10.0);
+    refusal(&out, "invalid-program");
+    let mut wrong = arguments(&wrong_sort);
+    wrong.hyperschema_pin = format!("1e20{}", "00".repeat(32));
+    let (_, out) = query(&mut r, &wrong_sort, wrong, None, 10.0);
+    refusal(&out, "pin-mismatch");
     evidence("exact_definition_act");
     evidence("definition_pin_mismatch");
     evidence("definition_validity_and_version");
