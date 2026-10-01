@@ -17,6 +17,14 @@ const fixture = async files => {
 };
 const check = actual => validateRustBoundaries(actual, null, boundaries, { compareInventory: false });
 const negatives = [
+  ["custom derive expansion", {"delta": "#[derive(hidden::Injected)] pub struct Example;"}, /unsupported.*(attribute|derive|cfg|allow)/],
+  ["custom attribute expansion", {"delta": "#[hidden::inject] pub fn ordinary() {}"}, /unsupported.*(attribute|derive|cfg|allow)/],
+  ["conditional attribute expansion", {"delta": "#[cfg_attr(any(), hidden::inject)] pub fn ordinary() {}"}, /unsupported.*(attribute|derive|cfg|allow)/],
+  ["conditional derive expansion", {"delta": "#[cfg_attr(any(), derive(hidden::Injected))] pub struct Example;"}, /unsupported.*(attribute|derive|cfg|allow)/],
+  ["nonliteral documentation expansion", {"delta": "#[doc = include_str!(\"unread\")] pub fn ordinary() {}"}, /unsupported.*(attribute|derive|cfg|allow)/],
+  ["inner attribute expansion", {"delta": "#![hidden::inject]\npub fn ordinary() {}"}, /unsupported.*(attribute|derive|cfg|allow)/],
+  ["nonliteral cfg expansion", {"delta": "#[cfg(target_arch = concat!(\"wasm\", \"32\"))] pub fn ordinary() {}"}, /unsupported.*(attribute|derive|cfg|allow)/],
+  ["nonliteral allow expansion", {"delta": "#[allow(dead_code, reason = concat!(\"a\", \"b\"))] pub fn ordinary() {}"}, /unsupported.*(attribute|derive|cfg|allow)/],
   ['extern crate alias', { delta: 'extern crate std as ambient; pub fn bad() { let _ = ambient::env::var("x"); }' }, /ambient capability|unsupported.*extern/],
   ['matches pattern upward dependency', { delta: 'pub fn bad() { let value = None; let _ = matches!(value, Some(crate::command::Kind::A)); }', command: 'pub enum Kind { A }' }, /forbidden Rust dependency/],
   ['redirected production module', { lib: '#[path="../../../external.rs"] pub mod command;', '../../../external': 'pub fn hidden() { let _ = std::env::var("x"); }' }, /unsupported.*path|module.*path|redirect/],
@@ -45,6 +53,9 @@ for (const [name, files, error] of negatives) test(`real Rust source rejects ${n
   await assert.rejects(async () => check(await fixture(files)), error);
 });
 for (const [name, files] of [
+  ["builtin derives", {"delta": "#[derive(Debug,Clone,Copy,Default,PartialEq,Eq,PartialOrd,Ord,Hash)] pub struct Example { pub value: u32 }"}],
+  ["nested builtin attributes", {"delta": "#[cfg_attr(not(target_arch=\"wasm32\"), allow(dead_code, reason=\"fixture\"))] #[doc=\"fixture\"] pub fn ordinary() {}"}],
+  ["builtin inner attribute", {"delta": "#![allow(dead_code)]\npub fn ordinary() {}"}],
   ['ordinary intrinsic', { delta: 'pub fn pure() { let _ = std::collections::BTreeSet::<u8>::new(); }' }],
   ['declared file function', { durable_state: 'pub fn write_durable_peer_state() { use std::fs; let _ = fs::read("explicit"); }' }],
   ['local downward alias', { command_data: 'fn pure() { use crate::delta::canonical_bytes as bytes; bytes(); }' }],

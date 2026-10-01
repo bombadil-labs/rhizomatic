@@ -44,7 +44,18 @@ export const requiredCheckerCases = {
     "live structural inventory detects missing, stale, duplicate, invalid and removed classifications",
     "named API contracts must declare the actual semantic owner",
     "new public associated constants cannot pass an unchanged export inventory",
-    "a public union is inventoried or refused as unsupported syntax"
+    "a public union is inventoried or refused as unsupported syntax",
+    "real Rust source rejects custom derive expansion",
+    "real Rust source rejects custom attribute expansion",
+    "real Rust source rejects conditional attribute expansion",
+    "real Rust source rejects conditional derive expansion",
+    "real Rust source rejects nonliteral documentation expansion",
+    "real Rust source rejects inner attribute expansion",
+    "real Rust source rejects nonliteral cfg expansion",
+    "real Rust source rejects nonliteral allow expansion",
+    "real Rust source permits builtin derives",
+    "real Rust source permits nested builtin attributes",
+    "real Rust source permits builtin inner attribute"
   ],
   "bootstrap": [
     "actual exported bootstrap programs match declared and shared byte/pin contracts"

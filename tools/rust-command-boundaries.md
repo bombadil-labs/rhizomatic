@@ -30,4 +30,4 @@ This is source AST enforcement. It does not prove compiler trait resolution,
 method-dispatch purity, foreign dependency internals, or arbitrary transitive
 purity. In particular, permitted containers may use internal randomized hashing;
 canonical output and ingestion-order conformance remain separate obligations.
-Unknown production modules and unsupported macro/import forms fail closed.
+Unknown production modules, redirected module files, foreign interfaces and unsupported macro/import forms fail closed. Procedural attributes and derives are rejected; only the explicitly supported built-in forms are accepted, including recursively checked cfg_attr branches.
