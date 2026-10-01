@@ -14,7 +14,7 @@ const location = d => `${sourceName(d)}::${d.symbol}`;
 const fileHosts = new Set(['durable_state::write_durable_peer_state', 'durable_state::read_durable_peer_state', 'peer_state::write_peer_state', 'peer_state::read_peer_state', 'single_peer::FileDurablePeerStore', 'single_peer::FileDurablePeerStore::new', 'single_peer::FileDurablePeerStore::read_image', 'single_peer::FileDurablePeerStore::compare_and_set']);
 const httpHosts = new Set(['http::serve_peer', 'http::ServerHandle', 'http::ServerHandle::drop', 'http::pull_from_url']);
 const host = d => fileHosts.has(location(d)) || httpHosts.has(location(d)) || location(d) === 'signed_loose_admission::admit_signed_loose_ordinary_transfer';
-const pureStd = ['std::collections', 'std::cmp', 'std::fmt', 'std::error', 'std::iter', 'std::mem', 'std::slice', 'std::str', 'std::option', 'std::result', 'std::convert', 'std::borrow', 'std::marker', 'std::ops', 'std::num', 'std::boxed', 'std::vec', 'std::string', 'std::clone', 'std::default', 'std::sync::Arc', 'std::io::ErrorKind'];
+const pureStd = ['std::primitive', 'std::collections', 'std::cmp', 'std::fmt', 'std::error', 'std::iter', 'std::mem', 'std::slice', 'std::str', 'std::option', 'std::result', 'std::convert', 'std::borrow', 'std::marker', 'std::ops', 'std::num', 'std::boxed', 'std::vec', 'std::string', 'std::clone', 'std::default', 'std::sync::Arc', 'std::io::ErrorKind'];
 const crypto = { blake3: ['hash'], curve25519_dalek: ['sign'], ed25519_dalek: ['sign'], sha2: ['sign'] };
 function externalAllowed(d) {
   const path = d.target, module = sourceName(d), external = path.split('::')[0];

@@ -17,6 +17,11 @@ const fixture = async files => {
 };
 const check = actual => validateRustBoundaries(actual, null, boundaries, { compareInventory: false });
 const negatives = [
+  ['extern crate alias', { delta: 'extern crate std as ambient; pub fn bad() { let _ = ambient::env::var("x"); }' }, /ambient capability|unsupported.*extern/],
+  ['matches pattern upward dependency', { delta: 'pub fn bad() { let value = None; let _ = matches!(value, Some(crate::command::Kind::A)); }', command: 'pub enum Kind { A }' }, /forbidden Rust dependency/],
+  ['redirected production module', { lib: '#[path="../../../external.rs"] pub mod command;', '../../../external': 'pub fn hidden() { let _ = std::env::var("x"); }' }, /unsupported.*path|module.*path|redirect/],
+  ['conditional redirected production module', { lib: '#[cfg_attr(not(target_arch="wasm32"), path="../../../external.rs")] pub mod command;', '../../../external': 'pub fn hidden() { let _ = std::env::var("x"); }', command: 'pub fn ordinary() {}' }, /unsupported.*path|module.*path|redirect/],
+  ['foreign host interface', { delta: 'extern "C" { pub fn hidden_host_read() -> u32; }' }, /unsupported.*foreign|unsupported.*extern|host/],
   ['upward function', { delta: 'pub fn bad() { crate::command::call(); }' }, /forbidden Rust dependency/],
   ['local upward alias', { delta: 'fn bad() { use crate::command::call as hidden; hidden(); }' }, /forbidden Rust dependency/],
   ['relative upward path', { delta: 'fn bad() { super::command::call(); }' }, /forbidden Rust dependency|unsupported/],
@@ -65,4 +70,17 @@ test('named API contracts must declare the actual semantic owner', async () => {
   validateRustBoundaries(actual, inventory, boundaries, { api });
   assert.throws(() => validateRustBoundaries(actual, inventory, boundaries, { api: [{ ...api[0], owners: ['command'] }] }), /invalid Rust export/);
   assert.throws(() => validateRustBoundaries(actual, inventory, boundaries, { api: [...api, ...api] }), /invalid named/);
+});
+
+test('new public associated constants cannot pass an unchanged export inventory', async () => {
+  const before = await fixture({ delta: 'pub struct Example; impl Example {}' });
+  const after = await fixture({ delta: 'pub struct Example; impl Example { pub const CALLBACK: fn() = || {}; }' });
+  assert(after.exports.some(e => e.symbol === 'Example::CALLBACK'));
+  assert.throws(() => validateRustBoundaries(after, before, boundaries), /unclassified public Rust export/);
+});
+test('a public union is inventoried or refused as unsupported syntax', async () => {
+  let actual;
+  try { actual = await fixture({ delta: 'pub union Example { pub value: u32, pub other: i32 }' }); }
+  catch (error) { assert.match(String(error), /unsupported.*union/); return; }
+  assert(actual.exports.some(e => e.symbol === 'Example' && e.definition === 'union'));
 });
