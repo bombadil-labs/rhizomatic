@@ -13,7 +13,17 @@ pub struct CommandResult {
 }
 /// Complete strict readback: signed outer description, status/body grammar, and the
 /// existing typed View. A supplied request also establishes argument/partition context.
-pub fn read_result(delta: &Delta, request: Option<&Delta>) -> Result<CommandResult, String> {
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReadResultContext {
+    pub receiver: String,
+    pub configuration: String,
+    pub request: String,
+}
+pub fn read_result(
+    delta: &Delta,
+    expected: &ReadResultContext,
+    request: Option<&Delta>,
+) -> Result<CommandResult, String> {
     if verify_delta(delta) != Verification::Verified || !is_author(&delta.claims.author) {
         return Err("command: invalid outcome signature".into());
     }
@@ -24,11 +34,25 @@ pub fn read_result(delta: &Delta, request: Option<&Delta>) -> Result<CommandResu
     {
         return Err("command: invalid outcome attribution or claims time".into());
     }
+    if !is_author(&expected.receiver)
+        || !crate::command_data::is_content_id(&expected.configuration)
+        || !crate::command_data::is_content_id(&expected.request)
+        || outcome.receiver != expected.receiver
+        || outcome.configuration != expected.configuration
+        || outcome.request != expected.request
+    {
+        return Err("command: outcome does not match expected endpoint/invocation".into());
+    }
     let value = match &outcome.body {
         OutcomeBody::Evaluate { value, .. } => Some(decode_view(value)?),
         _ => None,
     };
-    if let Some(request) = request {
+    if let Some(request) = request.filter(|_| {
+        matches!(
+            &outcome.body,
+            OutcomeBody::Retain { .. } | OutcomeBody::Evaluate { .. }
+        )
+    }) {
         if verify_delta(request) != Verification::Verified || request.id != outcome.request {
             return Err("command: request attribution mismatch".into());
         }

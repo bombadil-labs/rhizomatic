@@ -62,7 +62,13 @@ fn shared_command_description_vectors() {
                     read_request(&d, kind)?;
                 }
                 "outcome" => {
-                    let o = rhizomatic::command::read_result(&d, None)?.outcome;
+                    let decoded = read_outcome(&d)?;
+                    let expected = rhizomatic::command::ReadResultContext {
+                        receiver: decoded.receiver.clone(),
+                        configuration: decoded.configuration.clone(),
+                        request: decoded.request.clone(),
+                    };
+                    let o = rhizomatic::command::read_result(&d, &expected, None)?.outcome;
                     if let OutcomeBody::Evaluate { value, .. } = &o.body {
                         decode_view(value)?;
                     }
@@ -176,4 +182,58 @@ fn outcome_claims_time_and_catalog_head_are_strict() {
         target: rhizomatic::Target::Primitive(rhizomatic::Primitive::Str(String::new())),
     });
     assert!(read_request(&delta, OperationKind::Evaluate).is_err());
+}
+
+#[test]
+fn hostile_duplicate_maps_return_errors_and_bytes_mime_is_nonempty() {
+    for bytes in ["a26161f46161f5", "a16161a26162f46162f5"] {
+        assert!(read_bindings(&hex::decode(bytes).unwrap()).is_err());
+    }
+    let duplicate_code =
+        hex::decode("a264636f64656c756e617574686f72697a656464636f64656c756e617574686f72697a6564")
+            .unwrap();
+    assert!(read_outcome_body("refused", &duplicate_code).is_err());
+    assert!(decode_view(&hex::decode("a2646d696d65606576616c756540").unwrap()).is_err());
+}
+#[test]
+fn refusal_readback_uses_expected_context_without_authenticating_bad_request() {
+    let seed = "01".repeat(32);
+    let receiver = rhizomatic::sign::author_for_seed(&seed).unwrap();
+    let configuration = format!("1e20{}", "11".repeat(32));
+    let request = format!("1e20{}", "22".repeat(32));
+    let described = Outcome {
+        receiver: receiver.clone(),
+        configuration: configuration.clone(),
+        request: request.clone(),
+        body: OutcomeBody::Refused {
+            code: "invalid-appearance".into(),
+        },
+    };
+    let signed = rhizomatic::sign::sign_claims(
+        &rhizomatic::Claims {
+            author: receiver.clone(),
+            timestamp: 10.0,
+            valid_from: 10.0,
+            valid_until: None,
+            pointers: outcome_pointers(&described).unwrap(),
+        },
+        &seed,
+    )
+    .unwrap();
+    let mut expected = rhizomatic::command::ReadResultContext {
+        receiver,
+        configuration,
+        request,
+    };
+    let invalid_request = Delta {
+        id: expected.request.clone(),
+        claims: signed.claims.clone(),
+        sig: None,
+    };
+    assert!(rhizomatic::command::read_result(&signed, &expected, Some(&invalid_request)).is_ok());
+    expected.request = format!("1e20{}", "33".repeat(32));
+    assert!(rhizomatic::command::read_result(&signed, &expected, None).is_err());
+    expected.request = described.request;
+    expected.configuration = format!("1e20{}", "44".repeat(32));
+    assert!(rhizomatic::command::read_result(&signed, &expected, None).is_err());
 }

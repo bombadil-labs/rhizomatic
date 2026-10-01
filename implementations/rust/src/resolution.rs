@@ -245,6 +245,9 @@ pub fn decode_view(bytes: &[u8]) -> Result<View, String> {
                     let Some(CborValue::Tstr(mime)) = fields.remove("mime") else {
                         return Err("view: bytes leaf requires text mime".into());
                     };
+                    if mime.is_empty() {
+                        return Err("view: bytes leaf requires nonempty mime".into());
+                    }
                     let Some(CborValue::Bstr(value)) = fields.remove("value") else {
                         unreachable!("bytes discriminator checked");
                     };

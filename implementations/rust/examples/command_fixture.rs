@@ -105,7 +105,19 @@ fn run(input: &Value) -> Result<Value, String> {
                 .and_then(|xs| xs.iter().find(|v| v["id"] == input["artifact"]["entryId"]))
                 .map(delta)
                 .transpose()?;
-            let result = rhizomatic::command::read_result(&outcome, request.as_ref())?;
+            let boot = delta(&context["boot"]["configuration"])?;
+            let expected = rhizomatic::command::ReadResultContext {
+                receiver: rhizomatic::command_data::read_configuration(&boot)?.receiver,
+                configuration: boot.id,
+                request: input["artifact"]["entryId"]
+                    .as_str()
+                    .ok_or("expected addressed entry required")?
+                    .into(),
+            };
+            let result = rhizomatic::command::read_result(&outcome, &expected, request.as_ref())?;
+            if result.outcome.body.status() == "completed" && request.is_none() {
+                return Err("completed outcome requires the addressed fixture request".into());
+            }
             let body = rhizomatic::command_data::write_outcome_body(&result.outcome.body)?;
             let mut out =
                 json!({"status":result.outcome.body.status(),"bodyHex":hex::encode(body)});

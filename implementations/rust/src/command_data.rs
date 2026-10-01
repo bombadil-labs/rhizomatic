@@ -370,7 +370,25 @@ pub fn valid_interpretation(s: &str) -> bool {
 
 fn canonical_map(bytes: &[u8]) -> Result<BTreeMap<String, CborValue>, String> {
     let value = decode(bytes)?;
-    require(encode(&value) == bytes)?;
+    fn check_keys(value: &CborValue) -> Result<(), String> {
+        match value {
+            CborValue::Map(entries) => {
+                let mut keys = BTreeSet::new();
+                for (key, value) in entries {
+                    require(keys.insert(key))?;
+                    check_keys(value)?;
+                }
+            }
+            CborValue::Array(values) => {
+                for value in values {
+                    check_keys(value)?;
+                }
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+    check_keys(&value)?;
     let CborValue::Map(entries) = value else {
         return Err("command-data: map required".into());
     };
@@ -378,6 +396,11 @@ fn canonical_map(bytes: &[u8]) -> Result<BTreeMap<String, CborValue>, String> {
     for (k, v) in entries {
         require(out.insert(k, v).is_none())?;
     }
+    require(
+        encode(&CborValue::Map(
+            out.iter().map(|(k, v)| (k.clone(), v.clone())).collect(),
+        )) == bytes,
+    )?;
     Ok(out)
 }
 fn prim_cbor(p: &Primitive) -> CborValue {
