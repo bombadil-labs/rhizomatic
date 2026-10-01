@@ -141,8 +141,13 @@
         "ts",
         "rust"
       ],
-      "state": "specified",
-      "tests": []
+      "state": "implemented_unverified",
+      "tests": [
+        "command-description-vectors:configuration-valid",
+        "command-description-vectors:operation-valid",
+        "command-description-vectors:request-valid",
+        "command-description-vectors:outcome-valid"
+      ]
     },
     {
       "id": "strict_argument_shapes",
@@ -162,8 +167,12 @@
         "ts",
         "rust"
       ],
-      "state": "specified",
-      "tests": []
+      "state": "implemented_unverified",
+      "tests": [
+        "command-description-vectors:request-invalid-duplicate-payload",
+        "command-description-vectors:request-invalid-context",
+        "command-description-vectors:request-invalid-unknown"
+      ]
     },
     {
       "id": "canonical_writer_order",
@@ -179,8 +188,10 @@
         "ts",
         "rust"
       ],
-      "state": "specified",
-      "tests": []
+      "state": "implemented_unverified",
+      "tests": [
+        "command-description-vectors:writer-table-order"
+      ]
     },
     {
       "id": "view_all_sorts",
@@ -198,8 +209,11 @@
         "ts",
         "rust"
       ],
-      "state": "specified",
-      "tests": []
+      "state": "implemented_unverified",
+      "tests": [
+        "command-description-vectors:view-nested",
+        "command-description-vectors:reserved-keys"
+      ]
     },
     {
       "id": "view_object_bytes_distinction",
@@ -214,8 +228,10 @@
         "ts",
         "rust"
       ],
-      "state": "specified",
-      "tests": []
+      "state": "implemented_unverified",
+      "tests": [
+        "command-description-vectors:ordinary-bytes-looking-object"
+      ]
     },
     {
       "id": "view_malformed",
@@ -230,8 +246,17 @@
         "ts",
         "rust"
       ],
-      "state": "specified",
-      "tests": []
+      "state": "implemented_unverified",
+      "tests": [
+        "command-description-vectors:view-invalid-null",
+        "command-description-vectors:view-invalid-integer",
+        "command-description-vectors:view-invalid-bare-bytes",
+        "command-description-vectors:view-invalid-duplicate-key",
+        "command-description-vectors:view-invalid-noncanonical-float",
+        "command-description-vectors:view-invalid-nan",
+        "command-description-vectors:view-invalid-bad-bytes-leaf",
+        "command-description-vectors:view-invalid-extra-bytes-leaf"
+      ]
     },
     {
       "id": "outcome_body_strict",
@@ -249,8 +274,11 @@
         "ts",
         "rust"
       ],
-      "state": "specified",
-      "tests": []
+      "state": "implemented_unverified",
+      "tests": [
+        "command-description-vectors:outcome-invalid-22",
+        "command-description-vectors:outcome-invalid-23"
+      ]
     },
     {
       "id": "bindings_strict",
@@ -266,8 +294,12 @@
         "ts",
         "rust"
       ],
-      "state": "specified",
-      "tests": []
+      "state": "implemented_unverified",
+      "tests": [
+        "command-description-vectors:bindings-valid",
+        "command-description-vectors:bindings-invalid-root",
+        "command-description-vectors:bindings-invalid-nested"
+      ]
     },
     {
       "id": "endpoint_boot",

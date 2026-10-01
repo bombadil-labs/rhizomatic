@@ -183,6 +183,296 @@
       "semantics": "Reexports map from implementations/ts/src/delta/cbor.ts; interpretation remains with delta."
     },
     {
+      "id": "ts:command-data/codec.ts:canonicalCommandCbor",
+      "owner": "command-data",
+      "symbol": "canonicalCommandCbor",
+      "source": "implementations/ts/src/command-data/codec.ts",
+      "definition": "implementations/ts/src/command-data/codec.ts",
+      "contract": "rhizomatic.command-data/native-api/1",
+      "classification": "declared_intrinsic",
+      "semantics": "Existing command-data API canonicalCommandCbor; native arguments select its documented SPEC behavior. Its existence does not advertise command or later ecosystem portability."
+    },
+    {
+      "id": "ts:command-data/codec.ts:encodeBindings",
+      "owner": "command-data",
+      "symbol": "encodeBindings",
+      "source": "implementations/ts/src/command-data/codec.ts",
+      "definition": "implementations/ts/src/command-data/codec.ts",
+      "contract": "rhizomatic.command-data/native-api/1",
+      "classification": "declared_intrinsic",
+      "semantics": "Existing command-data API encodeBindings; native arguments select its documented SPEC behavior. Its existence does not advertise command or later ecosystem portability."
+    },
+    {
+      "id": "ts:command-data/codec.ts:decodeBindings",
+      "owner": "command-data",
+      "symbol": "decodeBindings",
+      "source": "implementations/ts/src/command-data/codec.ts",
+      "definition": "implementations/ts/src/command-data/codec.ts",
+      "contract": "rhizomatic.command-data/native-api/1",
+      "classification": "declared_intrinsic",
+      "semantics": "Existing command-data API decodeBindings; native arguments select its documented SPEC behavior. Its existence does not advertise command or later ecosystem portability."
+    },
+    {
+      "id": "ts:command-data/codec.ts:serializeCommandDelta",
+      "owner": "command-data",
+      "symbol": "serializeCommandDelta",
+      "source": "implementations/ts/src/command-data/codec.ts",
+      "definition": "implementations/ts/src/command-data/codec.ts",
+      "contract": "rhizomatic.command-data/native-api/1",
+      "classification": "declared_intrinsic",
+      "semantics": "Existing command-data API serializeCommandDelta; native arguments select its documented SPEC behavior. Its existence does not advertise command or later ecosystem portability."
+    },
+    {
+      "id": "ts:command-data/codec.ts:parseCommandDelta",
+      "owner": "command-data",
+      "symbol": "parseCommandDelta",
+      "source": "implementations/ts/src/command-data/codec.ts",
+      "definition": "implementations/ts/src/command-data/codec.ts",
+      "contract": "rhizomatic.command-data/native-api/1",
+      "classification": "declared_intrinsic",
+      "semantics": "Existing command-data API parseCommandDelta; native arguments select its documented SPEC behavior. Its existence does not advertise command or later ecosystem portability."
+    },
+    {
+      "id": "ts:command-data/codec.ts:verifyCommandAppearance",
+      "owner": "command-data",
+      "symbol": "verifyCommandAppearance",
+      "source": "implementations/ts/src/command-data/codec.ts",
+      "definition": "implementations/ts/src/command-data/codec.ts",
+      "contract": "rhizomatic.command-data/native-api/1",
+      "classification": "declared_intrinsic",
+      "semantics": "Existing command-data API verifyCommandAppearance; native arguments select its documented SPEC behavior. Its existence does not advertise command or later ecosystem portability."
+    },
+    {
+      "id": "ts:command-data/codec.ts:commandFields",
+      "owner": "command-data",
+      "symbol": "commandFields",
+      "source": "implementations/ts/src/command-data/codec.ts",
+      "definition": "implementations/ts/src/command-data/codec.ts",
+      "contract": "rhizomatic.command-data/native-api/1",
+      "classification": "declared_intrinsic",
+      "semantics": "Existing command-data API commandFields; native arguments select its documented SPEC behavior. Its existence does not advertise command or later ecosystem portability."
+    },
+    {
+      "id": "ts:command-data/codec.ts:commandText",
+      "owner": "command-data",
+      "symbol": "commandText",
+      "source": "implementations/ts/src/command-data/codec.ts",
+      "definition": "implementations/ts/src/command-data/codec.ts",
+      "contract": "rhizomatic.command-data/native-api/1",
+      "classification": "declared_intrinsic",
+      "semantics": "Existing command-data API commandText; native arguments select its documented SPEC behavior. Its existence does not advertise command or later ecosystem portability."
+    },
+    {
+      "id": "ts:command-data/codec.ts:commandEntity",
+      "owner": "command-data",
+      "symbol": "commandEntity",
+      "source": "implementations/ts/src/command-data/codec.ts",
+      "definition": "implementations/ts/src/command-data/codec.ts",
+      "contract": "rhizomatic.command-data/native-api/1",
+      "classification": "declared_intrinsic",
+      "semantics": "Existing command-data API commandEntity; native arguments select its documented SPEC behavior. Its existence does not advertise command or later ecosystem portability."
+    },
+    {
+      "id": "ts:command-data/codec.ts:commandRef",
+      "owner": "command-data",
+      "symbol": "commandRef",
+      "source": "implementations/ts/src/command-data/codec.ts",
+      "definition": "implementations/ts/src/command-data/codec.ts",
+      "contract": "rhizomatic.command-data/native-api/1",
+      "classification": "declared_intrinsic",
+      "semantics": "Existing command-data API commandRef; native arguments select its documented SPEC behavior. Its existence does not advertise command or later ecosystem portability."
+    },
+    {
+      "id": "ts:command-data/codec.ts:commandNumber",
+      "owner": "command-data",
+      "symbol": "commandNumber",
+      "source": "implementations/ts/src/command-data/codec.ts",
+      "definition": "implementations/ts/src/command-data/codec.ts",
+      "contract": "rhizomatic.command-data/native-api/1",
+      "classification": "declared_intrinsic",
+      "semantics": "Existing command-data API commandNumber; native arguments select its documented SPEC behavior. Its existence does not advertise command or later ecosystem portability."
+    },
+    {
+      "id": "ts:command-data/codec.ts:commandBytes",
+      "owner": "command-data",
+      "symbol": "commandBytes",
+      "source": "implementations/ts/src/command-data/codec.ts",
+      "definition": "implementations/ts/src/command-data/codec.ts",
+      "contract": "rhizomatic.command-data/native-api/1",
+      "classification": "declared_intrinsic",
+      "semantics": "Existing command-data API commandBytes; native arguments select its documented SPEC behavior. Its existence does not advertise command or later ecosystem portability."
+    },
+    {
+      "id": "ts:command-data/codec.ts:readConfiguration",
+      "owner": "command-data",
+      "symbol": "readConfiguration",
+      "source": "implementations/ts/src/command-data/codec.ts",
+      "definition": "implementations/ts/src/command-data/codec.ts",
+      "contract": "rhizomatic.command-data/native-api/1",
+      "classification": "declared_intrinsic",
+      "semantics": "Existing command-data API readConfiguration; native arguments select its documented SPEC behavior. Its existence does not advertise command or later ecosystem portability."
+    },
+    {
+      "id": "ts:command-data/codec.ts:readOperation",
+      "owner": "command-data",
+      "symbol": "readOperation",
+      "source": "implementations/ts/src/command-data/codec.ts",
+      "definition": "implementations/ts/src/command-data/codec.ts",
+      "contract": "rhizomatic.command-data/native-api/1",
+      "classification": "declared_intrinsic",
+      "semantics": "Existing command-data API readOperation; native arguments select its documented SPEC behavior. Its existence does not advertise command or later ecosystem portability."
+    },
+    {
+      "id": "ts:command-data/codec.ts:readRequestCommon",
+      "owner": "command-data",
+      "symbol": "readRequestCommon",
+      "source": "implementations/ts/src/command-data/codec.ts",
+      "definition": "implementations/ts/src/command-data/codec.ts",
+      "contract": "rhizomatic.command-data/native-api/1",
+      "classification": "declared_intrinsic",
+      "semantics": "Existing command-data API readRequestCommon; native arguments select its documented SPEC behavior. Its existence does not advertise command or later ecosystem portability."
+    },
+    {
+      "id": "ts:command-data/codec.ts:readRequestArguments",
+      "owner": "command-data",
+      "symbol": "readRequestArguments",
+      "source": "implementations/ts/src/command-data/codec.ts",
+      "definition": "implementations/ts/src/command-data/codec.ts",
+      "contract": "rhizomatic.command-data/native-api/1",
+      "classification": "declared_intrinsic",
+      "semantics": "Existing command-data API readRequestArguments; native arguments select its documented SPEC behavior. Its existence does not advertise command or later ecosystem portability."
+    },
+    {
+      "id": "ts:command-data/codec.ts:writeCommandDescription",
+      "owner": "command-data",
+      "symbol": "writeCommandDescription",
+      "source": "implementations/ts/src/command-data/codec.ts",
+      "definition": "implementations/ts/src/command-data/codec.ts",
+      "contract": "rhizomatic.command-data/native-api/1",
+      "classification": "declared_intrinsic",
+      "semantics": "Existing command-data API writeCommandDescription; native arguments select its documented SPEC behavior. Its existence does not advertise command or later ecosystem portability."
+    },
+    {
+      "id": "ts:command-data/codec.ts:readOutcome",
+      "owner": "command-data",
+      "symbol": "readOutcome",
+      "source": "implementations/ts/src/command-data/codec.ts",
+      "definition": "implementations/ts/src/command-data/codec.ts",
+      "contract": "rhizomatic.command-data/native-api/1",
+      "classification": "declared_intrinsic",
+      "semantics": "Existing command-data API readOutcome; native arguments select its documented SPEC behavior. Its existence does not advertise command or later ecosystem portability."
+    },
+    {
+      "id": "ts:command-data/codec.ts:COMMAND_PREFIX",
+      "owner": "command-data",
+      "symbol": "COMMAND_PREFIX",
+      "source": "implementations/ts/src/command-data/codec.ts",
+      "definition": "implementations/ts/src/command-data/codec.ts",
+      "contract": "rhizomatic.command-data/native-api/1",
+      "classification": "declared_intrinsic",
+      "semantics": "Existing command-data API COMMAND_PREFIX; native arguments select its documented SPEC behavior. Its existence does not advertise command or later ecosystem portability."
+    },
+    {
+      "id": "ts:command-data/codec.ts:COMMAND_PROFILE",
+      "owner": "command-data",
+      "symbol": "COMMAND_PROFILE",
+      "source": "implementations/ts/src/command-data/codec.ts",
+      "definition": "implementations/ts/src/command-data/codec.ts",
+      "contract": "rhizomatic.command-data/native-api/1",
+      "classification": "declared_intrinsic",
+      "semantics": "Existing command-data API COMMAND_PROFILE; native arguments select its documented SPEC behavior. Its existence does not advertise command or later ecosystem portability."
+    },
+    {
+      "id": "ts:command-data/codec.ts:Interpretation",
+      "owner": "command-data",
+      "symbol": "Interpretation",
+      "source": "implementations/ts/src/command-data/codec.ts",
+      "definition": "implementations/ts/src/command-data/codec.ts",
+      "contract": "rhizomatic.command-data/native-api/1",
+      "classification": "declared_intrinsic",
+      "semantics": "Existing command-data API Interpretation; native arguments select its documented SPEC behavior. Its existence does not advertise command or later ecosystem portability."
+    },
+    {
+      "id": "ts:command-data/codec.ts:CommandFields",
+      "owner": "command-data",
+      "symbol": "CommandFields",
+      "source": "implementations/ts/src/command-data/codec.ts",
+      "definition": "implementations/ts/src/command-data/codec.ts",
+      "contract": "rhizomatic.command-data/native-api/1",
+      "classification": "declared_intrinsic",
+      "semantics": "Existing command-data API CommandFields; native arguments select its documented SPEC behavior. Its existence does not advertise command or later ecosystem portability."
+    },
+    {
+      "id": "ts:command-data/codec.ts:DescriptionKind",
+      "owner": "command-data",
+      "symbol": "DescriptionKind",
+      "source": "implementations/ts/src/command-data/codec.ts",
+      "definition": "implementations/ts/src/command-data/codec.ts",
+      "contract": "rhizomatic.command-data/native-api/1",
+      "classification": "declared_intrinsic",
+      "semantics": "Existing command-data API DescriptionKind; native arguments select its documented SPEC behavior. Its existence does not advertise command or later ecosystem portability."
+    },
+    {
+      "id": "ts:command-data/codec.ts:isCommandId",
+      "owner": "command-data",
+      "symbol": "isCommandId",
+      "source": "implementations/ts/src/command-data/codec.ts",
+      "definition": "implementations/ts/src/command-data/codec.ts",
+      "contract": "rhizomatic.command-data/native-api/1",
+      "classification": "declared_intrinsic",
+      "semantics": "Existing command-data API isCommandId; native arguments select its documented SPEC behavior. Its existence does not advertise command or later ecosystem portability."
+    },
+    {
+      "id": "ts:command-data/codec.ts:isCommandKey",
+      "owner": "command-data",
+      "symbol": "isCommandKey",
+      "source": "implementations/ts/src/command-data/codec.ts",
+      "definition": "implementations/ts/src/command-data/codec.ts",
+      "contract": "rhizomatic.command-data/native-api/1",
+      "classification": "declared_intrinsic",
+      "semantics": "Existing command-data API isCommandKey; native arguments select its documented SPEC behavior. Its existence does not advertise command or later ecosystem portability."
+    },
+    {
+      "id": "ts:command-data/codec.ts:EVALUATE_FIELDS",
+      "owner": "command-data",
+      "symbol": "EVALUATE_FIELDS",
+      "source": "implementations/ts/src/command-data/codec.ts",
+      "definition": "implementations/ts/src/command-data/codec.ts",
+      "contract": "rhizomatic.command-data/native-api/1",
+      "classification": "declared_intrinsic",
+      "semantics": "Existing command-data API EVALUATE_FIELDS; native arguments select its documented SPEC behavior. Its existence does not advertise command or later ecosystem portability."
+    },
+    {
+      "id": "ts:command-data/codec.ts:COMMAND_REFUSALS",
+      "owner": "command-data",
+      "symbol": "COMMAND_REFUSALS",
+      "source": "implementations/ts/src/command-data/codec.ts",
+      "definition": "implementations/ts/src/command-data/codec.ts",
+      "contract": "rhizomatic.command-data/native-api/1",
+      "classification": "declared_intrinsic",
+      "semantics": "Existing command-data API COMMAND_REFUSALS; native arguments select its documented SPEC behavior. Its existence does not advertise command or later ecosystem portability."
+    },
+    {
+      "id": "ts:command-data/codec.ts:ReadOutcome",
+      "owner": "command-data",
+      "symbol": "ReadOutcome",
+      "source": "implementations/ts/src/command-data/codec.ts",
+      "definition": "implementations/ts/src/command-data/codec.ts",
+      "contract": "rhizomatic.command-data/native-api/1",
+      "classification": "declared_intrinsic",
+      "semantics": "Existing command-data API ReadOutcome; native arguments select its documented SPEC behavior. Its existence does not advertise command or later ecosystem portability."
+    },
+    {
+      "id": "ts:command/read-result.ts:readCommandResult",
+      "owner": "command",
+      "symbol": "readCommandResult",
+      "source": "implementations/ts/src/command/read-result.ts",
+      "definition": "implementations/ts/src/command/read-result.ts",
+      "contract": "rhizomatic.command/native-api/1",
+      "classification": "declared_intrinsic",
+      "semantics": "Existing command API readCommandResult; native arguments select its documented SPEC behavior. Its existence does not advertise command or later ecosystem portability."
+    },
+    {
       "id": "ts:delta.ts:claimsToCbor",
       "owner": "delta",
       "symbol": "claimsToCbor",
@@ -4033,6 +4323,186 @@
       "semantics": "Reexports Suppression from implementations/ts/src/reactor/reactor.ts; interpretation remains with reactor."
     },
     {
+      "id": "ts:index.ts:decodeView",
+      "owner": "resolve-kernel",
+      "symbol": "decodeView",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/resolve-kernel/resolution.ts",
+      "contract": "rhizomatic.resolve-kernel/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Reexports decodeView from implementations/ts/src/resolve-kernel/resolution.ts; interpretation remains with resolve-kernel."
+    },
+    {
+      "id": "ts:index.ts:COMMAND_PROFILE",
+      "owner": "command-data",
+      "symbol": "COMMAND_PROFILE",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/command-data/codec.ts",
+      "contract": "rhizomatic.command-data/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Reexports COMMAND_PROFILE from implementations/ts/src/command-data/codec.ts; interpretation remains with command-data."
+    },
+    {
+      "id": "ts:index.ts:COMMAND_PREFIX",
+      "owner": "command-data",
+      "symbol": "COMMAND_PREFIX",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/command-data/codec.ts",
+      "contract": "rhizomatic.command-data/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Reexports COMMAND_PREFIX from implementations/ts/src/command-data/codec.ts; interpretation remains with command-data."
+    },
+    {
+      "id": "ts:index.ts:encodeBindings",
+      "owner": "command-data",
+      "symbol": "encodeBindings",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/command-data/codec.ts",
+      "contract": "rhizomatic.command-data/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Reexports encodeBindings from implementations/ts/src/command-data/codec.ts; interpretation remains with command-data."
+    },
+    {
+      "id": "ts:index.ts:decodeBindings",
+      "owner": "command-data",
+      "symbol": "decodeBindings",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/command-data/codec.ts",
+      "contract": "rhizomatic.command-data/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Reexports decodeBindings from implementations/ts/src/command-data/codec.ts; interpretation remains with command-data."
+    },
+    {
+      "id": "ts:index.ts:parseCommandDelta",
+      "owner": "command-data",
+      "symbol": "parseCommandDelta",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/command-data/codec.ts",
+      "contract": "rhizomatic.command-data/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Reexports parseCommandDelta from implementations/ts/src/command-data/codec.ts; interpretation remains with command-data."
+    },
+    {
+      "id": "ts:index.ts:serializeCommandDelta",
+      "owner": "command-data",
+      "symbol": "serializeCommandDelta",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/command-data/codec.ts",
+      "contract": "rhizomatic.command-data/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Reexports serializeCommandDelta from implementations/ts/src/command-data/codec.ts; interpretation remains with command-data."
+    },
+    {
+      "id": "ts:index.ts:verifyCommandAppearance",
+      "owner": "command-data",
+      "symbol": "verifyCommandAppearance",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/command-data/codec.ts",
+      "contract": "rhizomatic.command-data/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Reexports verifyCommandAppearance from implementations/ts/src/command-data/codec.ts; interpretation remains with command-data."
+    },
+    {
+      "id": "ts:index.ts:readConfiguration",
+      "owner": "command-data",
+      "symbol": "readConfiguration",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/command-data/codec.ts",
+      "contract": "rhizomatic.command-data/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Reexports readConfiguration from implementations/ts/src/command-data/codec.ts; interpretation remains with command-data."
+    },
+    {
+      "id": "ts:index.ts:readOperation",
+      "owner": "command-data",
+      "symbol": "readOperation",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/command-data/codec.ts",
+      "contract": "rhizomatic.command-data/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Reexports readOperation from implementations/ts/src/command-data/codec.ts; interpretation remains with command-data."
+    },
+    {
+      "id": "ts:index.ts:readRequestCommon",
+      "owner": "command-data",
+      "symbol": "readRequestCommon",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/command-data/codec.ts",
+      "contract": "rhizomatic.command-data/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Reexports readRequestCommon from implementations/ts/src/command-data/codec.ts; interpretation remains with command-data."
+    },
+    {
+      "id": "ts:index.ts:readRequestArguments",
+      "owner": "command-data",
+      "symbol": "readRequestArguments",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/command-data/codec.ts",
+      "contract": "rhizomatic.command-data/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Reexports readRequestArguments from implementations/ts/src/command-data/codec.ts; interpretation remains with command-data."
+    },
+    {
+      "id": "ts:index.ts:readOutcome",
+      "owner": "command-data",
+      "symbol": "readOutcome",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/command-data/codec.ts",
+      "contract": "rhizomatic.command-data/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Reexports readOutcome from implementations/ts/src/command-data/codec.ts; interpretation remains with command-data."
+    },
+    {
+      "id": "ts:index.ts:writeCommandDescription",
+      "owner": "command-data",
+      "symbol": "writeCommandDescription",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/command-data/codec.ts",
+      "contract": "rhizomatic.command-data/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Reexports writeCommandDescription from implementations/ts/src/command-data/codec.ts; interpretation remains with command-data."
+    },
+    {
+      "id": "ts:index.ts:CommandFields",
+      "owner": "command-data",
+      "symbol": "CommandFields",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/command-data/codec.ts",
+      "contract": "rhizomatic.command-data/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Reexports CommandFields from implementations/ts/src/command-data/codec.ts; interpretation remains with command-data."
+    },
+    {
+      "id": "ts:index.ts:Interpretation",
+      "owner": "command-data",
+      "symbol": "Interpretation",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/command-data/codec.ts",
+      "contract": "rhizomatic.command-data/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Reexports Interpretation from implementations/ts/src/command-data/codec.ts; interpretation remains with command-data."
+    },
+    {
+      "id": "ts:index.ts:ReadOutcome",
+      "owner": "command-data",
+      "symbol": "ReadOutcome",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/command-data/codec.ts",
+      "contract": "rhizomatic.command-data/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Reexports ReadOutcome from implementations/ts/src/command-data/codec.ts; interpretation remains with command-data."
+    },
+    {
+      "id": "ts:index.ts:readCommandResult",
+      "owner": "command",
+      "symbol": "readCommandResult",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/command/read-result.ts",
+      "contract": "rhizomatic.command/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Reexports readCommandResult from implementations/ts/src/command/read-result.ts; interpretation remains with command."
+    },
+    {
       "id": "ts:json-profile.ts:claimsToJson",
       "owner": "delta",
       "symbol": "claimsToJson",
@@ -5073,6 +5543,16 @@
       "semantics": "Reexports viewToCbor from implementations/ts/src/resolve-kernel/resolution.ts; interpretation remains with resolve-kernel."
     },
     {
+      "id": "ts:resolution.ts:decodeView",
+      "owner": "resolve-kernel",
+      "symbol": "decodeView",
+      "source": "implementations/ts/src/resolution.ts",
+      "definition": "implementations/ts/src/resolve-kernel/resolution.ts",
+      "contract": "rhizomatic.resolve-kernel/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Reexports decodeView from implementations/ts/src/resolve-kernel/resolution.ts; interpretation remains with resolve-kernel."
+    },
+    {
       "id": "ts:resolution.ts:viewCanonicalHex",
       "owner": "resolve-kernel",
       "symbol": "viewCanonicalHex",
@@ -5191,6 +5671,16 @@
       "contract": "rhizomatic.resolve-kernel/native-api/1",
       "classification": "declared_intrinsic",
       "semantics": "Existing resolve-kernel API viewToCbor; native arguments select its documented SPEC behavior. Its existence does not advertise command or later ecosystem portability."
+    },
+    {
+      "id": "ts:resolve-kernel/resolution.ts:decodeView",
+      "owner": "resolve-kernel",
+      "symbol": "decodeView",
+      "source": "implementations/ts/src/resolve-kernel/resolution.ts",
+      "definition": "implementations/ts/src/resolve-kernel/resolution.ts",
+      "contract": "rhizomatic.resolve-kernel/native-api/1",
+      "classification": "declared_intrinsic",
+      "semantics": "Existing resolve-kernel API decodeView; native arguments select its documented SPEC behavior. Its existence does not advertise command or later ecosystem portability."
     },
     {
       "id": "ts:resolve-kernel/resolution.ts:viewCanonicalHex",

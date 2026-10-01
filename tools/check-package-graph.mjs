@@ -13,6 +13,8 @@ const require = createRequire(join(root, "implementations", "ts", "package.json"
 const ts = require("typescript");
 const report = process.argv.includes("--report");
 const allowedDependencies = {
+  "command-data": ["delta"],
+  command: ["command-data", "schema-load", "schema", "resolve", "resolve-kernel", "principal", "syntax", "delta", "federation"],
   delta: [],
   syntax: ["delta"],
   schema: ["syntax", "delta"],

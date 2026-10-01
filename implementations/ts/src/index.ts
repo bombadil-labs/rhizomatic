@@ -190,3 +190,23 @@ export {
   type MaterializationChange,
   type Suppression,
 } from "./reactor.js";
+export { decodeView } from "./resolve-kernel/resolution.js";
+export {
+  COMMAND_PROFILE,
+  COMMAND_PREFIX,
+  encodeBindings,
+  decodeBindings,
+  parseCommandDelta,
+  serializeCommandDelta,
+  verifyCommandAppearance,
+  readConfiguration,
+  readOperation,
+  readRequestCommon,
+  readRequestArguments,
+  readOutcome,
+  writeCommandDescription,
+  type CommandFields,
+  type Interpretation,
+  type ReadOutcome,
+} from "./command-data/codec.js";
+export { readCommandResult } from "./command/read-result.js";

@@ -3,7 +3,17 @@
 // into application space; all pluralism is schema choice (P5).
 
 import { b64uEncode } from "../delta/b64u.js";
-import { type CborValue, array, bool, bstr, encode, float, map, tstr } from "../delta/cbor.js";
+import {
+  type CborValue,
+  array,
+  bool,
+  bstr,
+  decode,
+  encode,
+  float,
+  map,
+  tstr,
+} from "../delta/cbor.js";
 import { bytesToHex } from "../delta/hash.js";
 import type { HVEntry, HView } from "../algebra/hview.js";
 import { comparePrimitives, evalPred } from "../syntax/pred.js";
@@ -139,6 +149,39 @@ export function viewToCbor(v: View): CborValue {
     ([k, x]): readonly [string, CborValue] => [k, viewToCbor(x)],
   );
   return map(entries);
+}
+
+/** Decode exactly the existing canonical View format, including nested bytes leaves. */
+export function decodeView(bytes: Uint8Array): View {
+  const read = (v: CborValue): View => {
+    switch (v.t) {
+      case "tstr":
+      case "bool":
+      case "float":
+        return v.v;
+      case "array":
+        return v.v.map(read);
+      case "bstr":
+        throw new Error("View: bare bytes are not a value");
+      case "map": {
+        const entries = new Map(v.v);
+        if (entries.size !== v.v.length) throw new Error("View: duplicate map key");
+        const value = entries.get("value");
+        if (value?.t === "bstr") {
+          const mime = entries.get("mime");
+          if (entries.size !== 2 || mime?.t !== "tstr" || mime.v.length === 0)
+            throw new Error("View: malformed bytes leaf");
+          return { mime: mime.v, value: value.v };
+        }
+        return Object.fromEntries(v.v.map(([key, item]) => [key, read(item)]));
+      }
+    }
+  };
+  const result = read(decode(bytes));
+  const canonical = encode(viewToCbor(result));
+  if (canonical.length !== bytes.length || canonical.some((v, i) => v !== bytes[i]))
+    throw new Error("View: noncanonical encoding");
+  return result;
 }
 
 export function viewCanonicalHex(v: View): string {
