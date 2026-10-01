@@ -276,6 +276,25 @@ describe("shared command durable retain scenarios", () => {
                 ]),
               ).code,
             ).toBe(missingSig.expectedCode);
+            const uppercase = {
+              ...(serializeCommandDelta(first) as object),
+              sig: first.sig!.toUpperCase(),
+            };
+            expect(
+              outcome(
+                await endpoint.invoke(parseCommandDelta(missingSig.request).id, [
+                  missingSig.request,
+                  uppercase,
+                ]),
+              ).code,
+            ).toBe("resource-limit");
+            endpoint = await CommandEndpoint.boot(boot);
+            expect(
+              outcome(
+                await endpoint.invoke(request.id, [serializeCommandDelta(request), uppercase]),
+              ).code,
+            ).toBe("invalid-appearance");
+
             const config = patch(
               boot.configuration,
               "max-deltas",

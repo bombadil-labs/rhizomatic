@@ -80,6 +80,7 @@ export function verifyCommandAppearance(delta: Delta): void {
     !isCommandId(delta.id) ||
     !isCommandKey(delta.claims.author) ||
     delta.sig === undefined ||
+    !/^[0-9a-f]{128}$/.test(delta.sig) ||
     verifyDelta(delta) !== "verified"
   )
     fail();

@@ -748,6 +748,28 @@
         ]
       },
       "sig": "dca7158b5271e70b48f552550b5044008b0d61ba3776c11b296a9d97456f6b0644bf48d58449f417c40156299b0c641c6dc19d87aa5007a4ed292ec5ddf08106"
+    },
+    "uppercaseSignature": {
+      "id": "1e207f7a46b2e017b0ce473807c04ad280e6e95961ce3f8641ca4317b7eb4ae4bea7",
+      "claims": {
+        "timestamp": 1,
+        "validFrom": 1,
+        "author": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1",
+        "pointers": [
+          {
+            "role": "about",
+            "target": {
+              "id": "subject",
+              "context": "name"
+            }
+          },
+          {
+            "role": "value",
+            "target": "Ada"
+          }
+        ]
+      },
+      "sig": "F7634FFE49EF0E25FEFC862227025E2E513E5A9750B42012DE32F0945A5445C907AD4CF75BF872B4E47454267EEEDB0900928B0EA2E4B31D2A405D955D8D570D"
     }
   },
   "cases": [

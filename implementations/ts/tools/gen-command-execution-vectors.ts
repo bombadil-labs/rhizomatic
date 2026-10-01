@@ -143,6 +143,7 @@ const context = {
   construction: construction(baseRequest, [first]),
 };
 const fixtures = {
+  uppercaseSignature: {...serializeCommandDelta(first) as object,sig:first.sig!.toUpperCase()},
   missingSignatureByteLimit: {
     configuration: serializeCommandDelta(limitedConfiguration),
     request: serializeCommandDelta(limitedRequest),
