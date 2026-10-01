@@ -169,18 +169,28 @@ describe("shared command exact evaluation scenarios", () => {
           }
           case "catalog_discovery":
           case "catalog_with_unavailable_store": {
-            const q = query(gather, reading, {
+            const catalogGather = publishTerm(
+              { ...HYPER_SCHEMA_SCHEMA.body, key: { kind: "byRole" } } as Term,
+              "fixture.Catalog",
+            );
+            const q = query(catalogGather, reading, {
               source: t("catalog"),
               root: [{ kind: "entity", entity: { id: authorForSeed(context.receiverSeed) } }],
             });
             const before = store.observed();
             if (c.driver === "catalog_with_unavailable_store") store.fault = "source-unavailable";
-            const answer = await evaluate(q);
+            const answer = await evaluate(q, [catalogGather, reading]);
             expect(answer.status).toBe("completed");
             expect(answer.body.has("head")).toBe(false);
             expect(answer.body.get("digest")).toEqual({
               t: "tstr",
               v: endpoint.catalog().digest(),
+            });
+            expect(answer.view).toMatchObject({
+              "rhizomatic.command.receiver": {
+                "rhizomatic.command.kind": "endpoint/1",
+                "rhizomatic.command.installed": boot.declarations.map((d) => d.id).sort(),
+              },
             });
             if (c.driver === "catalog_discovery") {
               const lookalike = signClaims(
@@ -188,7 +198,7 @@ describe("shared command exact evaluation scenarios", () => {
                 context.receiverSeed,
               );
               await retain([lookalike]);
-              expect((await evaluate(q)).view).toEqual(answer.view);
+              expect((await evaluate(q, [catalogGather, reading])).view).toEqual(answer.view);
               expect(endpoint.catalog().size).toBe(3);
             } else {
               expect((await evaluate()).code).toBe("source-unavailable");
@@ -624,6 +634,22 @@ describe("shared command exact evaluation scenarios", () => {
               ],
             });
             expect((await evaluate(q, [variable, reading])).view).toEqual({ height: 42 });
+            expect(
+              (
+                await evaluate(
+                  query(variable, reading, {
+                    bindings: [
+                      {
+                        kind: "bytes",
+                        mime: "application/cbor",
+                        value: encodeBindings({ target: 42 }),
+                      },
+                    ],
+                  }),
+                  [variable, reading],
+                )
+              ).code,
+            ).toBe("invalid-program");
             expect((await evaluate(query(variable), [variable, reading])).code).toBe(
               "invalid-program",
             );

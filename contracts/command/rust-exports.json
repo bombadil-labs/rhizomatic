@@ -1251,6 +1251,15 @@
       "source": "implementations/rust/src/command.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "CommandEndpoint",
+      "target": "crate::command_data::EvaluateArguments",
+      "targetOwner": "command-data"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "command",
+      "source": "implementations/rust/src/command.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "CommandEndpoint",
       "target": "crate::command_data::Outcome",
       "targetOwner": "command-data"
     },
@@ -1261,6 +1270,15 @@
       "sourceRegion": "semantic-owner",
       "symbol": "CommandEndpoint",
       "target": "crate::command_data::OutcomeBody",
+      "targetOwner": "command-data"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "command",
+      "source": "implementations/rust/src/command.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "CommandEndpoint",
+      "target": "crate::command_data::OutcomeBody::Evaluate",
       "targetOwner": "command-data"
     },
     {
@@ -1395,6 +1413,24 @@
       "source": "implementations/rust/src/command.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "CommandEndpoint",
+      "target": "crate::eval::EvalResult::HView",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "command",
+      "source": "implementations/rust/src/command.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "CommandEndpoint",
+      "target": "crate::eval::eval_term_at",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "command",
+      "source": "implementations/rust/src/command.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "CommandEndpoint",
       "target": "crate::json_profile::parse_delta",
       "targetOwner": "delta"
     },
@@ -1514,6 +1550,123 @@
       "symbol": "CommandEndpoint",
       "target": "crate::ordinary_journal_peer::open_ordinary_journal_peer_degraded",
       "targetOwner": "federation"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "command",
+      "source": "implementations/rust/src/command.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "CommandEndpoint",
+      "target": "crate::principal::PrincipalSuppression::RootOrSameAuthor",
+      "targetOwner": "principal"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "command",
+      "source": "implementations/rust/src/command.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "CommandEndpoint",
+      "target": "crate::principal::PrincipalSuppression::SameAuthor",
+      "targetOwner": "principal"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "command",
+      "source": "implementations/rust/src/command.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "CommandEndpoint",
+      "target": "crate::principal::lower_principal_reading",
+      "targetOwner": "principal"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "command",
+      "source": "implementations/rust/src/command.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "CommandEndpoint",
+      "target": "crate::principal::lower_principal_registry",
+      "targetOwner": "principal"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "command",
+      "source": "implementations/rust/src/command.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "CommandEndpoint",
+      "target": "crate::principal::lower_principal_term",
+      "targetOwner": "principal"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "command",
+      "source": "implementations/rust/src/command.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "CommandEndpoint",
+      "target": "crate::principal::principal_resolver",
+      "targetOwner": "principal"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "command",
+      "source": "implementations/rust/src/command.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "CommandEndpoint",
+      "target": "crate::resolution::resolve_view",
+      "targetOwner": "resolve-kernel"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "command",
+      "source": "implementations/rust/src/command.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "CommandEndpoint",
+      "target": "crate::resolution::view_canonical_hex",
+      "targetOwner": "resolve-kernel"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "command",
+      "source": "implementations/rust/src/command.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "CommandEndpoint",
+      "target": "crate::schema::ProgramSelection",
+      "targetOwner": "schema"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "command",
+      "source": "implementations/rust/src/command.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "CommandEndpoint",
+      "target": "crate::schema::select_program",
+      "targetOwner": "schema"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "command",
+      "source": "implementations/rust/src/command.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "CommandEndpoint",
+      "target": "crate::schema_deltas::ExactDefinition::Gather",
+      "targetOwner": "schema-load"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "command",
+      "source": "implementations/rust/src/command.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "CommandEndpoint",
+      "target": "crate::schema_deltas::ExactDefinition::Reading",
+      "targetOwner": "schema-load"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "command",
+      "source": "implementations/rust/src/command.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "CommandEndpoint",
+      "target": "crate::schema_deltas::read_exact_definition",
+      "targetOwner": "schema-load"
     },
     {
       "form": "syn-resolved-path",
@@ -22631,6 +22784,15 @@
       "source": "implementations/rust/src/principal.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "lower_pred",
+      "target": "crate::pred::Pred::HasPointer",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "principal",
+      "source": "implementations/rust/src/principal.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "lower_pred",
       "target": "crate::pred::Pred::InView",
       "targetOwner": "syntax"
     },
@@ -22694,6 +22856,15 @@
       "source": "implementations/rust/src/principal.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "lower_pred",
+      "target": "crate::principal::lower_string_match",
+      "targetOwner": "principal"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "principal",
+      "source": "implementations/rust/src/principal.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "lower_pred",
       "target": "crate::set::DeltaSet",
       "targetOwner": "delta"
     },
@@ -22704,6 +22875,51 @@
       "sourceRegion": "semantic-owner",
       "symbol": "lower_pred",
       "target": "crate::types::Primitive::Str",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "principal",
+      "source": "implementations/rust/src/principal.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "lower_string_match",
+      "target": "crate::pred::StrMatch",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "principal",
+      "source": "implementations/rust/src/principal.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "lower_string_match",
+      "target": "crate::pred::StrMatch::Aliased",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "principal",
+      "source": "implementations/rust/src/principal.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "lower_string_match",
+      "target": "crate::principal::PrincipalResolver",
+      "targetOwner": "principal"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "principal",
+      "source": "implementations/rust/src/principal.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "lower_string_match",
+      "target": "crate::principal::lower_pred",
+      "targetOwner": "principal"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "principal",
+      "source": "implementations/rust/src/principal.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "lower_string_match",
+      "target": "crate::set::DeltaSet",
       "targetOwner": "delta"
     },
     {
@@ -22855,7 +23071,7 @@
       "owner": "principal",
       "source": "implementations/rust/src/principal.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "lower_schema",
+      "symbol": "lower_principal_reading",
       "target": "crate::principal::PrincipalResolver",
       "targetOwner": "principal"
     },
@@ -22864,7 +23080,7 @@
       "owner": "principal",
       "source": "implementations/rust/src/principal.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "lower_schema",
+      "symbol": "lower_principal_reading",
       "target": "crate::principal::lower_policy",
       "targetOwner": "principal"
     },
@@ -22873,7 +23089,7 @@
       "owner": "principal",
       "source": "implementations/rust/src/principal.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "lower_schema",
+      "symbol": "lower_principal_reading",
       "target": "crate::resolution::Schema",
       "targetOwner": "syntax"
     },
@@ -22882,7 +23098,7 @@
       "owner": "principal",
       "source": "implementations/rust/src/principal.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "lower_schema",
+      "symbol": "lower_principal_reading",
       "target": "crate::set::DeltaSet",
       "targetOwner": "delta"
     },
@@ -22891,7 +23107,7 @@
       "owner": "principal",
       "source": "implementations/rust/src/principal.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "lower_schema",
+      "symbol": "lower_principal_reading",
       "target": "std::collections::BTreeMap"
     },
     {
@@ -22901,6 +23117,24 @@
       "sourceRegion": "semantic-owner",
       "symbol": "lower_principal_term",
       "target": "crate::eval::MaskPolicy::Trust",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "principal",
+      "source": "implementations/rust/src/principal.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "lower_principal_term",
+      "target": "crate::eval::PruneKeep::All",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "principal",
+      "source": "implementations/rust/src/principal.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "lower_principal_term",
+      "target": "crate::eval::PruneKeep::Match",
       "targetOwner": "syntax"
     },
     {
@@ -23035,6 +23269,15 @@
       "source": "implementations/rust/src/principal.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "lower_principal_term",
+      "target": "crate::principal::lower_principal_reading",
+      "targetOwner": "principal"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "principal",
+      "source": "implementations/rust/src/principal.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "lower_principal_term",
       "target": "crate::principal::lower_principal_term",
       "targetOwner": "principal"
     },
@@ -23044,7 +23287,7 @@
       "source": "implementations/rust/src/principal.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "lower_principal_term",
-      "target": "crate::principal::lower_schema",
+      "target": "crate::principal::lower_string_match",
       "targetOwner": "principal"
     },
     {
@@ -23071,7 +23314,7 @@
       "source": "implementations/rust/src/principal.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "lower_principal_registry",
-      "target": "crate::principal::lower_principal_term",
+      "target": "crate::principal::lower_principal_reading",
       "targetOwner": "principal"
     },
     {
@@ -23080,7 +23323,7 @@
       "source": "implementations/rust/src/principal.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "lower_principal_registry",
-      "target": "crate::principal::lower_schema",
+      "target": "crate::principal::lower_principal_term",
       "targetOwner": "principal"
     },
     {
@@ -25886,6 +26129,573 @@
       "symbol": "SchemaRegistry"
     },
     {
+      "form": "syn-resolved-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "ProgramReference",
+      "target": "crate::eval::SchemaRef",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "ProgramReference",
+      "target": "crate::pred::Bindings",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "ProgramInspection",
+      "target": "crate::schema::ProgramReference",
+      "targetOwner": "schema"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "ProgramInspection",
+      "target": "crate::eval::SchemaRef",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "ProgramInspection",
+      "target": "crate::eval::Term",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "ProgramInspection",
+      "target": "crate::eval::Term::Difference",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "ProgramInspection",
+      "target": "crate::eval::Term::Expand",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "ProgramInspection",
+      "target": "crate::eval::Term::Fix",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "ProgramInspection",
+      "target": "crate::eval::Term::Group",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "ProgramInspection",
+      "target": "crate::eval::Term::Input",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "ProgramInspection",
+      "target": "crate::eval::Term::Intersect",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "ProgramInspection",
+      "target": "crate::eval::Term::Mask",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "ProgramInspection",
+      "target": "crate::eval::Term::Prune",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "ProgramInspection",
+      "target": "crate::eval::Term::Resolve",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "ProgramInspection",
+      "target": "crate::eval::Term::Select",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "ProgramInspection",
+      "target": "crate::eval::Term::Union",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "ProgramInspection",
+      "target": "crate::pred::Bindings",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "ProgramInspection",
+      "target": "crate::pred::Pred",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "ProgramInspection",
+      "target": "crate::pred::StrMatch",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "ProgramInspection",
+      "target": "crate::pred::StrMatch::Aliased",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "ProgramInspection",
+      "target": "crate::resolution::Order",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "ProgramInspection",
+      "target": "crate::resolution::Policy",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "ProgramInspection",
+      "target": "crate::resolution::Schema",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "ProgramInspection",
+      "target": "crate::schema::ProgramInspection",
+      "targetOwner": "schema"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "ProgramInspection",
+      "target": "crate::schema::ProgramReference",
+      "targetOwner": "schema"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "ProgramInspection",
+      "target": "crate::schema::ProgramSort",
+      "targetOwner": "schema"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "ProgramInspection",
+      "target": "crate::schema::ProgramSort::DSet",
+      "targetOwner": "schema"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "ProgramInspection",
+      "target": "crate::schema::ProgramSort::HView",
+      "targetOwner": "schema"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "ProgramInspection",
+      "target": "crate::schema::ProgramSort::View",
+      "targetOwner": "schema"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "matches"
+      ],
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "ProgramInspection"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "inspect_program_term",
+      "target": "crate::eval::Term",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "inspect_program_term",
+      "target": "crate::pred::Bindings",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "inspect_program_term",
+      "target": "crate::schema::ProgramInspection",
+      "targetOwner": "schema"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "inspect_program_term",
+      "target": "crate::schema::ProgramInspection::default",
+      "targetOwner": "schema"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "inspect_program_term",
+      "target": "crate::schema::ProgramSort",
+      "targetOwner": "schema"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "inspect_program_reading",
+      "target": "crate::pred::Bindings",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "inspect_program_reading",
+      "target": "crate::resolution::Schema",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "inspect_program_reading",
+      "target": "crate::schema::ProgramInspection",
+      "targetOwner": "schema"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "inspect_program_reading",
+      "target": "crate::schema::ProgramInspection::default",
+      "targetOwner": "schema"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "SelectedProgram",
+      "target": "crate::resolution::Schema",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "SelectedProgram",
+      "target": "crate::schema::HyperSchema",
+      "targetOwner": "schema"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "SelectedProgram",
+      "target": "crate::schema::SchemaRegistry",
+      "targetOwner": "schema"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "ProgramSelection",
+      "target": "crate::pred::Bindings",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "select_program",
+      "target": "crate::eval::SchemaRef::Name",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "select_program",
+      "target": "crate::eval::SchemaRef::Pinned",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "select_program",
+      "target": "crate::pred::Bindings",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "select_program",
+      "target": "crate::resolution::Schema",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "select_program",
+      "target": "crate::schema::HyperSchema",
+      "targetOwner": "schema"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "select_program",
+      "target": "crate::schema::ProgramReference",
+      "targetOwner": "schema"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "select_program",
+      "target": "crate::schema::ProgramSelection",
+      "targetOwner": "schema"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "select_program",
+      "target": "crate::schema::ProgramSelectionError",
+      "targetOwner": "schema"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "select_program",
+      "target": "crate::schema::ProgramSort::HView",
+      "targetOwner": "schema"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "select_program",
+      "target": "crate::schema::SchemaRegistry::build",
+      "targetOwner": "schema"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "select_program",
+      "target": "crate::schema::SelectedProgram",
+      "targetOwner": "schema"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "select_program",
+      "target": "crate::schema::inspect_program_reading",
+      "targetOwner": "schema"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "select_program",
+      "target": "crate::schema::inspect_program_term",
+      "targetOwner": "schema"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "select_program",
+      "target": "crate::term_io::schema_hash",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "select_program",
+      "target": "crate::term_io::term_hash",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "select_program",
+      "target": "std::collections::BTreeSet"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "select_program",
+      "target": "std::collections::BTreeSet::new"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "select_program",
+      "target": "std::collections::HashMap"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "select_program",
+      "target": "std::collections::HashMap::new"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "matches",
+        "unreachable",
+        "vec"
+      ],
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "select_program"
+    },
+    {
       "form": "syn-external-import",
       "owner": "schema-load",
       "source": "implementations/rust/src/schema_deltas.rs",
@@ -26690,6 +27500,203 @@
       "symbol": "load_schema",
       "target": "crate::set::DeltaSet",
       "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema-load",
+      "source": "implementations/rust/src/schema_deltas.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "ExactDefinition",
+      "target": "crate::resolution::Schema",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema-load",
+      "source": "implementations/rust/src/schema_deltas.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "ExactDefinition",
+      "target": "crate::schema::HyperSchema",
+      "targetOwner": "schema"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema-load",
+      "source": "implementations/rust/src/schema_deltas.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_exact_definition",
+      "target": "crate::cbor::decode",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema-load",
+      "source": "implementations/rust/src/schema_deltas.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_exact_definition",
+      "target": "crate::schema::HyperSchema",
+      "targetOwner": "schema"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema-load",
+      "source": "implementations/rust/src/schema_deltas.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_exact_definition",
+      "target": "crate::schema_deltas::ExactDefinition",
+      "targetOwner": "schema-load"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema-load",
+      "source": "implementations/rust/src/schema_deltas.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_exact_definition",
+      "target": "crate::schema_deltas::ExactDefinition::Gather",
+      "targetOwner": "schema-load"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema-load",
+      "source": "implementations/rust/src/schema_deltas.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_exact_definition",
+      "target": "crate::schema_deltas::ExactDefinition::Reading",
+      "targetOwner": "schema-load"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema-load",
+      "source": "implementations/rust/src/schema_deltas.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_exact_definition",
+      "target": "crate::schema_deltas::role",
+      "targetOwner": "schema-load"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema-load",
+      "source": "implementations/rust/src/schema_deltas.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_exact_definition",
+      "target": "crate::term_io::cbor_to_json",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema-load",
+      "source": "implementations/rust/src/schema_deltas.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_exact_definition",
+      "target": "crate::term_io::schema_canonical_hex",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema-load",
+      "source": "implementations/rust/src/schema_deltas.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_exact_definition",
+      "target": "crate::term_io::term_canonical_hex",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema-load",
+      "source": "implementations/rust/src/schema_deltas.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_exact_definition",
+      "target": "crate::term_json::parse_schema",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema-load",
+      "source": "implementations/rust/src/schema_deltas.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_exact_definition",
+      "target": "crate::term_json::parse_term",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema-load",
+      "source": "implementations/rust/src/schema_deltas.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_exact_definition",
+      "target": "crate::types::Delta",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema-load",
+      "source": "implementations/rust/src/schema_deltas.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_exact_definition",
+      "target": "crate::types::Primitive::Num",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema-load",
+      "source": "implementations/rust/src/schema_deltas.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_exact_definition",
+      "target": "crate::types::Primitive::Str",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema-load",
+      "source": "implementations/rust/src/schema_deltas.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_exact_definition",
+      "target": "crate::types::Target",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema-load",
+      "source": "implementations/rust/src/schema_deltas.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_exact_definition",
+      "target": "crate::types::Target::Entity",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema-load",
+      "source": "implementations/rust/src/schema_deltas.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_exact_definition",
+      "target": "crate::types::Target::Primitive",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "schema-load",
+      "source": "implementations/rust/src/schema_deltas.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_exact_definition",
+      "target": "hex::decode"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "schema-load",
+      "source": "implementations/rust/src/schema_deltas.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_exact_definition",
+      "target": "std::collections::BTreeMap"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "format"
+      ],
+      "owner": "schema-load",
+      "source": "implementations/rust/src/schema_deltas.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "read_exact_definition"
     },
     {
       "form": "syn-external-import",
@@ -38430,6 +39437,17 @@
       "classification": "native_extension",
       "contract": "rhizomatic.principal/native-api/1",
       "definition": "function",
+      "id": "rust:principal:lower_principal_reading",
+      "owner": "principal",
+      "semantics": "principal owns the existing principal::lower_principal_reading function; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "source": "implementations/rust/src/principal.rs",
+      "symbol": "lower_principal_reading"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.principal/native-api/1",
+      "definition": "function",
       "id": "rust:principal:lower_principal_registry",
       "owner": "principal",
       "semantics": "principal owns the existing principal::lower_principal_registry function; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
@@ -39046,6 +40064,61 @@
       "classification": "native_extension",
       "contract": "rhizomatic.schema/native-api/1",
       "definition": "struct",
+      "id": "rust:schema:ProgramInspection",
+      "owner": "schema",
+      "semantics": "schema owns the existing schema::ProgramInspection struct; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "source": "implementations/rust/src/schema.rs",
+      "symbol": "ProgramInspection"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.schema/native-api/1",
+      "definition": "struct",
+      "id": "rust:schema:ProgramReference",
+      "owner": "schema",
+      "semantics": "schema owns the existing schema::ProgramReference struct; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "source": "implementations/rust/src/schema.rs",
+      "symbol": "ProgramReference"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.schema/native-api/1",
+      "definition": "struct",
+      "id": "rust:schema:ProgramSelection",
+      "owner": "schema",
+      "semantics": "schema owns the existing schema::ProgramSelection struct; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "source": "implementations/rust/src/schema.rs",
+      "symbol": "ProgramSelection"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.schema/native-api/1",
+      "definition": "enum",
+      "id": "rust:schema:ProgramSelectionError",
+      "owner": "schema",
+      "semantics": "schema owns the existing schema::ProgramSelectionError enum; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "source": "implementations/rust/src/schema.rs",
+      "symbol": "ProgramSelectionError"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.schema/native-api/1",
+      "definition": "enum",
+      "id": "rust:schema:ProgramSort",
+      "owner": "schema",
+      "semantics": "schema owns the existing schema::ProgramSort enum; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "source": "implementations/rust/src/schema.rs",
+      "symbol": "ProgramSort"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.schema/native-api/1",
+      "definition": "struct",
       "id": "rust:schema:SchemaRegistry",
       "owner": "schema",
       "semantics": "schema owns the existing schema::SchemaRegistry struct; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
@@ -39133,6 +40206,17 @@
       "cfg": [],
       "classification": "native_extension",
       "contract": "rhizomatic.schema/native-api/1",
+      "definition": "struct",
+      "id": "rust:schema:SelectedProgram",
+      "owner": "schema",
+      "semantics": "schema owns the existing schema::SelectedProgram struct; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "source": "implementations/rust/src/schema.rs",
+      "symbol": "SelectedProgram"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.schema/native-api/1",
       "definition": "function",
       "id": "rust:schema:collect_reading_refs",
       "owner": "schema",
@@ -39155,12 +40239,56 @@
       "cfg": [],
       "classification": "native_extension",
       "contract": "rhizomatic.schema/native-api/1",
+      "definition": "function",
+      "id": "rust:schema:inspect_program_reading",
+      "owner": "schema",
+      "semantics": "schema owns the existing schema::inspect_program_reading function; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "source": "implementations/rust/src/schema.rs",
+      "symbol": "inspect_program_reading"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.schema/native-api/1",
+      "definition": "function",
+      "id": "rust:schema:inspect_program_term",
+      "owner": "schema",
+      "semantics": "schema owns the existing schema::inspect_program_term function; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "source": "implementations/rust/src/schema.rs",
+      "symbol": "inspect_program_term"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.schema/native-api/1",
       "definition": "module",
       "id": "rust:schema:schema",
       "owner": "schema",
       "semantics": "schema owns the existing schema::schema module; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "schema"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.schema/native-api/1",
+      "definition": "function",
+      "id": "rust:schema:select_program",
+      "owner": "schema",
+      "semantics": "schema owns the existing schema::select_program function; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "source": "implementations/rust/src/schema.rs",
+      "symbol": "select_program"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.schema-load/native-api/1",
+      "definition": "enum",
+      "id": "rust:schema_deltas:ExactDefinition",
+      "owner": "schema-load",
+      "semantics": "schema-load owns the existing schema_deltas::ExactDefinition enum; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "source": "implementations/rust/src/schema_deltas.rs",
+      "symbol": "ExactDefinition"
     },
     {
       "cfg": [],
@@ -39250,6 +40378,17 @@
       "semantics": "schema-load owns the existing schema_deltas::publish_schema_claims function; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/schema_deltas.rs",
       "symbol": "publish_schema_claims"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.schema-load/native-api/1",
+      "definition": "function",
+      "id": "rust:schema_deltas:read_exact_definition",
+      "owner": "schema-load",
+      "semantics": "schema-load owns the existing schema_deltas::read_exact_definition function; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "source": "implementations/rust/src/schema_deltas.rs",
+      "symbol": "read_exact_definition"
     },
     {
       "cfg": [],

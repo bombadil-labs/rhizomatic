@@ -25,11 +25,18 @@ interface Edge {
 interface Features {
   edges: Edge[];
   holes: Set<string>;
+  entityHoles: Set<string>;
   actsFor: boolean;
   badSort: boolean;
 }
 function features(definition: CommandProgramDefinition): Features {
-  const result: Features = { edges: [], holes: new Set(), actsFor: false, badSort: false };
+  const result: Features = {
+    edges: [],
+    holes: new Set(),
+    entityHoles: new Set(),
+    actsFor: false,
+    badSort: false,
+  };
   const hole = (v: unknown) => {
     if (typeof v === "object" && v !== null && "kind" in v && v.kind === "hole" && "name" in v)
       result.holes.add(v.name as string);
@@ -60,6 +67,8 @@ function features(definition: CommandProgramDefinition): Features {
         str(p.ppred.role);
         str(p.ppred.context);
         hole(p.ppred.targetEntity);
+        if (p.ppred.targetEntity?.kind === "hole")
+          result.entityHoles.add(p.ppred.targetEntity.name);
         if (p.ppred.targetValue?.kind === "vcmp") hole(p.ppred.targetValue.value);
         return;
       }
@@ -201,12 +210,20 @@ export function validateCommandProgram(
   };
   visit(hyperId);
   visit(readingId);
+  const checked = new Set<string>();
   const check = (id: string, environment: Bindings): void => {
+    const key = JSON.stringify([
+      id,
+      [...environment].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
+    ]);
+    if (checked.has(key)) return;
+    checked.add(key);
     const f = scans.get(id)!;
     if (
       f.badSort ||
       (!allowPrincipal && f.actsFor) ||
-      [...f.holes].some((h) => !environment.has(h))
+      [...f.holes].some((h) => !environment.has(h)) ||
+      [...f.entityHoles].some((h) => typeof environment.get(h) !== "string")
     )
       fail("invalid-program");
     edges.get(id)!.forEach((e) => check(e.id, e.bindings ?? environment));
