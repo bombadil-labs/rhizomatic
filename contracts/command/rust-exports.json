@@ -204,6 +204,14 @@
       "targetOwner": "federation"
     },
     {
+      "form": "syn-external-path",
+      "owner": "federation",
+      "source": "implementations/rust/src/arrival.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "plan_arrivals",
+      "target": "core::primitive::u64::try_from"
+    },
+    {
       "form": "syn-resolved-path",
       "owner": "federation",
       "rawTarget": "crate::arrival::ArrivalCursor",
@@ -256,6 +264,22 @@
       "target": "std::collections::BTreeSet"
     },
     {
+      "form": "syn-external-path",
+      "owner": "federation",
+      "source": "implementations/rust/src/arrival.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "plan_arrivals",
+      "target": "std::string::String::as_str"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "federation",
+      "source": "implementations/rust/src/arrival.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "plan_arrivals",
+      "target": "std::vec::Vec::new"
+    },
+    {
       "form": "syn-resolved-path",
       "owner": "delta",
       "rawTarget": "crate::b64u::ALPHABET",
@@ -265,6 +289,14 @@
       "symbol": "encode",
       "target": "crate::b64u::ALPHABET",
       "targetOwner": "delta"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "delta",
+      "source": "implementations/rust/src/b64u.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "encode",
+      "target": "std::string::String::with_capacity"
     },
     {
       "form": "macro-region",
@@ -286,6 +318,14 @@
       "symbol": "decode",
       "target": "crate::b64u::sextet",
       "targetOwner": "delta"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "delta",
+      "source": "implementations/rust/src/b64u.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "decode",
+      "target": "std::vec::Vec::with_capacity"
     },
     {
       "form": "macro-region",
@@ -331,6 +371,14 @@
       "targetOwner": "delta"
     },
     {
+      "form": "syn-external-path",
+      "owner": "delta",
+      "source": "implementations/rust/src/cbor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "encode",
+      "target": "std::vec::Vec::new"
+    },
+    {
       "form": "syn-resolved-path",
       "owner": "delta",
       "rawTarget": "crate::cbor::Reader",
@@ -364,6 +412,22 @@
       "targetOwner": "delta"
     },
     {
+      "form": "syn-external-path",
+      "owner": "delta",
+      "source": "implementations/rust/src/cbor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_length",
+      "target": "core::primitive::u16::from_be_bytes"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "delta",
+      "source": "implementations/rust/src/cbor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_length",
+      "target": "core::primitive::u32::from_be_bytes"
+    },
+    {
       "form": "syn-resolved-path",
       "owner": "delta",
       "rawTarget": "crate::cbor::Reader",
@@ -383,6 +447,30 @@
       "source": "implementations/rust/src/cbor.rs",
       "status": "parsed-known-macro-arguments",
       "symbol": "read_length"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "delta",
+      "source": "implementations/rust/src/cbor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "decode_item",
+      "target": "core::primitive::f32::from_be_bytes"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "delta",
+      "source": "implementations/rust/src/cbor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "decode_item",
+      "target": "core::primitive::f64::from_be_bytes"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "delta",
+      "source": "implementations/rust/src/cbor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "decode_item",
+      "target": "core::primitive::u16::from_be_bytes"
     },
     {
       "form": "syn-resolved-path",
@@ -523,6 +611,14 @@
       "sourceRegion": "semantic-owner",
       "symbol": "decode_item",
       "target": "std::str::from_utf8"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "delta",
+      "source": "implementations/rust/src/cbor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "decode_item",
+      "target": "std::vec::Vec::with_capacity"
     },
     {
       "form": "macro-region",
@@ -697,6 +793,14 @@
       "symbol": "encode_into",
       "target": "crate::cbor::write_head",
       "targetOwner": "delta"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "delta",
+      "source": "implementations/rust/src/cbor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "encode_into",
+      "target": "std::vec::Vec::new"
     },
     {
       "form": "macro-region",
@@ -1334,7 +1438,7 @@
       "resolvedTarget": "crate::types::Claims",
       "source": "implementations/rust/src/command.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "",
+      "symbol": "ResponseSigner",
       "target": "crate::types::Claims",
       "targetOwner": "delta"
     },
@@ -1345,7 +1449,7 @@
       "resolvedTarget": "crate::types::Delta",
       "source": "implementations/rust/src/command.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "",
+      "symbol": "ResponseSigner",
       "target": "crate::types::Delta",
       "targetOwner": "delta"
     },
@@ -2066,6 +2170,14 @@
       "target": "std::iter::once"
     },
     {
+      "form": "syn-external-path",
+      "owner": "command",
+      "source": "implementations/rust/src/command.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "CommandEndpoint::evaluate",
+      "target": "std::vec::Vec::new"
+    },
+    {
       "form": "syn-resolved-path",
       "owner": "command",
       "rawTarget": "crate::command::AttemptError::Fault",
@@ -2198,6 +2310,14 @@
       "targetOwner": "delta"
     },
     {
+      "form": "syn-external-path",
+      "owner": "command",
+      "source": "implementations/rust/src/command.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "CommandEndpoint::invoke",
+      "target": "std::vec::Vec::new"
+    },
+    {
       "form": "syn-resolved-path",
       "owner": "command",
       "rawTarget": "crate::command::CommandEndpoint",
@@ -2316,6 +2436,14 @@
       "target": "serde_json::Value"
     },
     {
+      "form": "syn-external-path",
+      "owner": "command",
+      "source": "implementations/rust/src/command.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "CommandEndpoint::invoke_json",
+      "target": "std::vec::Vec::new"
+    },
+    {
       "form": "syn-resolved-path",
       "owner": "command",
       "rawTarget": "crate::command::CommandEndpoint",
@@ -2325,6 +2453,22 @@
       "symbol": "CommandEndpoint::receiver",
       "target": "crate::command::CommandEndpoint",
       "targetOwner": "command"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "command",
+      "source": "implementations/rust/src/command.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "CommandEndpoint::retain",
+      "target": "core::primitive::usize::MAX"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "command",
+      "source": "implementations/rust/src/command.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "CommandEndpoint::retain",
+      "target": "core::primitive::usize::try_from"
     },
     {
       "form": "syn-resolved-path",
@@ -2599,6 +2743,14 @@
       "target": "std::collections::BTreeMap"
     },
     {
+      "form": "syn-external-path",
+      "owner": "command",
+      "source": "implementations/rust/src/command.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "CommandEndpoint::retain",
+      "target": "std::vec::Vec::new"
+    },
+    {
       "form": "syn-resolved-path",
       "owner": "command",
       "rawTarget": "crate::command::AttemptError",
@@ -2802,6 +2954,14 @@
       "sourceRegion": "semantic-owner",
       "symbol": "CommandEndpoint::run",
       "target": "std::iter::once"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "command",
+      "source": "implementations/rust/src/command.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "CommandEndpoint::run",
+      "target": "std::string::String::as_str"
     },
     {
       "form": "syn-resolved-path",
@@ -3436,6 +3596,14 @@
       "target": "std::collections::BTreeMap::new"
     },
     {
+      "form": "syn-external-path",
+      "owner": "command-data",
+      "source": "implementations/rust/src/command_data.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Fields::new",
+      "target": "std::vec::Vec::new"
+    },
+    {
       "form": "syn-resolved-path",
       "owner": "command-data",
       "rawTarget": "crate::command_data::Fields",
@@ -3673,6 +3841,14 @@
       "sourceRegion": "semantic-owner",
       "symbol": "Fields::set",
       "target": "std::collections::BTreeSet"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "command-data",
+      "source": "implementations/rust/src/command_data.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Fields::set",
+      "target": "std::vec::Vec::new"
     },
     {
       "form": "syn-resolved-path",
@@ -4068,6 +4244,14 @@
       "symbol": "read_request",
       "target": "crate::types::Delta",
       "targetOwner": "delta"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "command-data",
+      "source": "implementations/rust/src/command_data.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_request",
+      "target": "std::boxed::Box::new"
     },
     {
       "form": "macro-region",
@@ -4482,6 +4666,17 @@
       "sourceRegion": "semantic-owner",
       "symbol": "write_bindings",
       "target": "crate::types::Primitive",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "command-data",
+      "rawTarget": "crate::types::Primitive::Num",
+      "resolvedTarget": "crate::types::Primitive::Num",
+      "source": "implementations/rust/src/command_data.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "write_bindings",
+      "target": "crate::types::Primitive::Num",
       "targetOwner": "delta"
     },
     {
@@ -5135,6 +5330,14 @@
       "symbol": "validate_pointers",
       "target": "crate::types::Target::Entity",
       "targetOwner": "delta"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "command-data",
+      "source": "implementations/rust/src/command_data.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "validate_pointers",
+      "target": "std::string::String::new"
     },
     {
       "form": "syn-resolved-path",
@@ -6603,7 +6806,7 @@
       "resolvedTarget": "crate::hview::HView",
       "source": "implementations/rust/src/derivation.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "",
+      "symbol": "DerivedFn",
       "target": "crate::hview::HView",
       "targetOwner": "algebra"
     },
@@ -6614,7 +6817,7 @@
       "resolvedTarget": "crate::types::Pointer",
       "source": "implementations/rust/src/derivation.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "",
+      "symbol": "DerivedFn",
       "target": "crate::types::Pointer",
       "targetOwner": "delta"
     },
@@ -6907,6 +7110,14 @@
       "targetOwner": "reactor"
     },
     {
+      "form": "syn-external-path",
+      "owner": "derivation",
+      "source": "implementations/rust/src/derivation.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DerivationHost::drain",
+      "target": "std::vec::Vec::new"
+    },
+    {
       "form": "syn-resolved-path",
       "owner": "derivation",
       "rawTarget": "crate::derivation::DerivationHost",
@@ -6982,6 +7193,14 @@
       "symbol": "DerivationHost::emit_signed",
       "target": "crate::types::Claims",
       "targetOwner": "delta"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "derivation",
+      "source": "implementations/rust/src/derivation.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DerivationHost::emit_signed",
+      "target": "std::vec::Vec::new"
     },
     {
       "form": "syn-resolved-path",
@@ -7382,6 +7601,22 @@
       "target": "std::mem::take"
     },
     {
+      "form": "syn-external-path",
+      "owner": "derivation",
+      "source": "implementations/rust/src/derivation.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DerivationHost::trigger",
+      "target": "std::string::String::new"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "derivation",
+      "source": "implementations/rust/src/derivation.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DerivationHost::trigger",
+      "target": "std::vec::Vec::new"
+    },
+    {
       "form": "macro-region",
       "macros": [
         "panic"
@@ -7528,6 +7763,28 @@
       "sourceRegion": "semantic-owner",
       "symbol": "verify_pure_derivation",
       "target": "crate::types::Pointer",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "derivation",
+      "rawTarget": "crate::types::Primitive::Str",
+      "resolvedTarget": "crate::types::Primitive::Str",
+      "source": "implementations/rust/src/derivation.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "verify_pure_derivation",
+      "target": "crate::types::Primitive::Str",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "derivation",
+      "rawTarget": "crate::types::Target::Primitive",
+      "resolvedTarget": "crate::types::Target::Primitive",
+      "source": "implementations/rust/src/derivation.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "verify_pure_derivation",
+      "target": "crate::types::Target::Primitive",
       "targetOwner": "delta"
     },
     {
@@ -7794,6 +8051,14 @@
       "sourceRegion": "semantic-owner",
       "symbol": "empty_durable_peer_state",
       "target": "std::collections::BTreeSet::new"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "federation",
+      "source": "implementations/rust/src/durable_state.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "empty_durable_peer_state",
+      "target": "std::vec::Vec::new"
     },
     {
       "form": "syn-resolved-path",
@@ -8244,6 +8509,14 @@
       "symbol": "encode_durable_peer_state"
     },
     {
+      "form": "syn-external-path",
+      "owner": "federation",
+      "source": "implementations/rust/src/durable_state.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "decode_durable_peer_state",
+      "target": "core::primitive::usize::from"
+    },
+    {
       "form": "syn-resolved-path",
       "owner": "federation",
       "rawTarget": "crate::cbor::CborValue::Bstr",
@@ -8453,6 +8726,14 @@
       "sourceRegion": "semantic-owner",
       "symbol": "validate_transition",
       "target": "std::collections::BTreeSet::new"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "federation",
+      "source": "implementations/rust/src/durable_state.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "build_permanent_commit",
+      "target": "core::primitive::u64::try_from"
     },
     {
       "form": "syn-resolved-path",
@@ -9190,7 +9471,7 @@
       "resolvedTarget": "crate::erasure_filter::ErasureOrderCandidate",
       "source": "implementations/rust/src/erasure_filter.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "",
+      "symbol": "ErasureAuthority",
       "target": "crate::erasure_filter::ErasureOrderCandidate",
       "targetOwner": "federation"
     },
@@ -9199,7 +9480,7 @@
       "owner": "federation",
       "source": "implementations/rust/src/erasure_filter.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "",
+      "symbol": "ErasureAuthority",
       "target": "std::collections::BTreeSet"
     },
     {
@@ -9307,6 +9588,14 @@
       "sourceRegion": "semantic-owner",
       "symbol": "plan_erasure_filter",
       "target": "std::collections::BTreeSet::new"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "federation",
+      "source": "implementations/rust/src/erasure_filter.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "plan_erasure_filter",
+      "target": "std::string::String::as_str"
     },
     {
       "form": "syn-external-import",
@@ -10062,6 +10351,14 @@
       "target": "std::collections::HashMap::new"
     },
     {
+      "form": "syn-external-path",
+      "owner": "resolve",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "alias_closure",
+      "target": "std::vec::Vec::new"
+    },
+    {
       "form": "macro-region",
       "macros": [
         "format"
@@ -10268,6 +10565,14 @@
       "symbol": "expand_aliased",
       "target": "crate::set::DeltaSet",
       "targetOwner": "delta"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "resolve",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "expand_aliased",
+      "target": "std::boxed::Box::new"
     },
     {
       "form": "syn-resolved-path",
@@ -10581,6 +10886,14 @@
       "symbol": "resolve_reflective",
       "target": "crate::set::DeltaSet",
       "targetOwner": "delta"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "resolve",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "resolve_reflective",
+      "target": "std::boxed::Box::new"
     },
     {
       "form": "syn-resolved-path",
@@ -11714,6 +12027,14 @@
       "target": "std::collections::BTreeMap::new"
     },
     {
+      "form": "syn-external-path",
+      "owner": "resolve",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "eval_term_inner",
+      "target": "std::vec::Vec::with_capacity"
+    },
+    {
       "form": "syn-resolved-path",
       "owner": "resolve",
       "rawTarget": "crate::eval::EvalResult",
@@ -12028,6 +12349,14 @@
       "targetOwner": "syntax"
     },
     {
+      "form": "syn-external-path",
+      "owner": "resolve",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "bind_string_match",
+      "target": "std::boxed::Box::new"
+    },
+    {
       "form": "syn-resolved-path",
       "owner": "resolve",
       "rawTarget": "crate::eval::bind_program_predicate",
@@ -12147,6 +12476,14 @@
       "symbol": "bind_program_predicate",
       "target": "crate::pred::substitute_holes",
       "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "resolve",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "bind_program_predicate",
+      "target": "std::boxed::Box::new"
     },
     {
       "form": "syn-resolved-path",
@@ -12369,6 +12706,14 @@
       "targetOwner": "syntax"
     },
     {
+      "form": "syn-external-path",
+      "owner": "resolve",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "bind_program_term",
+      "target": "std::boxed::Box::new"
+    },
+    {
       "form": "syn-import",
       "owner": "resolve",
       "rawTarget": "crate::resolution::Policy",
@@ -12490,6 +12835,14 @@
       "targetOwner": "syntax"
     },
     {
+      "form": "syn-external-path",
+      "owner": "resolve",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "order",
+      "target": "std::boxed::Box::new"
+    },
+    {
       "form": "syn-resolved-path",
       "owner": "resolve",
       "rawTarget": "crate::eval::order",
@@ -12576,6 +12929,14 @@
       "symbol": "policy",
       "target": "crate::resolution::Policy::Pick",
       "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "resolve",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "policy",
+      "target": "std::boxed::Box::new"
     },
     {
       "form": "syn-resolved-path",
@@ -12805,6 +13166,14 @@
       "targetOwner": "delta"
     },
     {
+      "form": "syn-external-path",
+      "owner": "resolve",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "selected_definition",
+      "target": "std::vec::Vec::new"
+    },
+    {
       "form": "macro-region",
       "macros": [
         "format"
@@ -12840,6 +13209,14 @@
       "sourceRegion": "semantic-owner",
       "symbol": "content_address",
       "target": "hex::encode"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "delta",
+      "source": "implementations/rust/src/hash.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "content_address",
+      "target": "std::vec::Vec::with_capacity"
     },
     {
       "form": "syn-external-import",
@@ -13029,6 +13406,14 @@
       "symbol": "to_wire"
     },
     {
+      "form": "syn-external-path",
+      "owner": "federation",
+      "source": "implementations/rust/src/http.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "from_wire",
+      "target": "core::primitive::str::to_string"
+    },
+    {
       "form": "syn-resolved-path",
       "owner": "federation",
       "rawTarget": "crate::json_profile::parse_claims",
@@ -13176,6 +13561,14 @@
       "target": "std::collections::BTreeSet::new"
     },
     {
+      "form": "syn-external-path",
+      "owner": "federation",
+      "source": "implementations/rust/src/http.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "offer_for",
+      "target": "std::vec::Vec::new"
+    },
+    {
       "form": "macro-region",
       "macros": [
         "json"
@@ -13184,6 +13577,14 @@
       "source": "implementations/rust/src/http.rs",
       "status": "parsed-known-macro-arguments",
       "symbol": "offer_for"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "federation",
+      "source": "implementations/rust/src/http.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "serve_peer",
+      "target": "core::primitive::str::to_string"
     },
     {
       "form": "syn-resolved-path",
@@ -13257,6 +13658,14 @@
       "sourceRegion": "semantic-owner",
       "symbol": "serve_peer",
       "target": "std::collections::BTreeSet"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "federation",
+      "source": "implementations/rust/src/http.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "serve_peer",
+      "target": "std::string::String::new"
     },
     {
       "form": "syn-external-path",
@@ -13505,6 +13914,14 @@
       "sourceRegion": "semantic-owner",
       "symbol": "pull_from_url",
       "target": "serde_json::json"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "federation",
+      "source": "implementations/rust/src/http.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "pull_from_url",
+      "target": "std::vec::Vec::new"
     },
     {
       "form": "syn-external-path",
@@ -14572,6 +14989,30 @@
       "source": "implementations/rust/src/json_profile.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "parse_target",
+      "target": "serde_json::Value::Bool"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "delta",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "parse_target",
+      "target": "serde_json::Value::Number"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "delta",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "parse_target",
+      "target": "serde_json::Value::String"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "delta",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "parse_target",
       "target": "serde_json::Value::as_str"
     },
     {
@@ -14707,6 +15148,14 @@
       "sourceRegion": "semantic-owner",
       "symbol": "parse_claims",
       "target": "serde_json::Value::as_str"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "delta",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "parse_delta",
+      "target": "core::primitive::str::to_string"
     },
     {
       "form": "syn-resolved-path",
@@ -15304,6 +15753,17 @@
       "sourceRegion": "semantic-owner",
       "symbol": "read_binding",
       "target": "crate::types::Delta",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema-load",
+      "rawTarget": "crate::types::Target::Entity",
+      "resolvedTarget": "crate::types::Target::Entity",
+      "source": "implementations/rust/src/lens_binding.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_binding",
+      "target": "crate::types::Target::Entity",
       "targetOwner": "delta"
     },
     {
@@ -17118,7 +17578,7 @@
       "resolvedTarget": "crate::eval::Term",
       "source": "implementations/rust/src/materialize.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "",
+      "symbol": "TermLowerer",
       "target": "crate::eval::Term",
       "targetOwner": "syntax"
     },
@@ -17129,7 +17589,7 @@
       "resolvedTarget": "crate::schema::SchemaRegistry",
       "source": "implementations/rust/src/materialize.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "",
+      "symbol": "TermLowerer",
       "target": "crate::schema::SchemaRegistry",
       "targetOwner": "schema"
     },
@@ -17140,7 +17600,7 @@
       "resolvedTarget": "crate::set::DeltaSet",
       "source": "implementations/rust/src/materialize.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "",
+      "symbol": "TermLowerer",
       "target": "crate::set::DeltaSet",
       "targetOwner": "delta"
     },
@@ -17473,6 +17933,17 @@
       "targetOwner": "delta"
     },
     {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::types::Target::Entity",
+      "resolvedTarget": "crate::types::Target::Entity",
+      "source": "implementations/rust/src/materialize.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "targets_support",
+      "target": "crate::types::Target::Entity",
+      "targetOwner": "delta"
+    },
+    {
       "form": "syn-external-path",
       "owner": "reactor",
       "source": "implementations/rust/src/materialize.rs",
@@ -17582,6 +18053,17 @@
       "symbol": "pred_requires_root",
       "target": "crate::materialize::pred_requires_root",
       "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::pred::EntityMatch::Root",
+      "resolvedTarget": "crate::pred::EntityMatch::Root",
+      "source": "implementations/rust/src/materialize.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "pred_requires_root",
+      "target": "crate::pred::EntityMatch::Root",
+      "targetOwner": "syntax"
     },
     {
       "form": "syn-resolved-path",
@@ -18938,6 +19420,14 @@
       "target": "std::collections::BTreeSet::new"
     },
     {
+      "form": "syn-external-path",
+      "owner": "federation",
+      "source": "implementations/rust/src/ordinary_journal.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "reconstructed_checkpoint_head",
+      "target": "std::string::String::new"
+    },
+    {
       "form": "syn-resolved-path",
       "owner": "federation",
       "rawTarget": "crate::durable_state::DurablePeerState",
@@ -19065,6 +19555,14 @@
       "sourceRegion": "semantic-owner",
       "symbol": "replay_ordinary_peer_frames_from_checkpoint",
       "target": "std::collections::BTreeSet::new"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "federation",
+      "source": "implementations/rust/src/ordinary_journal.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "replay_ordinary_peer_frames_from_checkpoint",
+      "target": "std::string::String::new"
     },
     {
       "form": "syn-external-import",
@@ -20094,6 +20592,14 @@
       "target": "std::collections::BTreeMap::new"
     },
     {
+      "form": "syn-external-path",
+      "owner": "federation",
+      "source": "implementations/rust/src/ordinary_journal_peer.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "classify_admitted_rows",
+      "target": "std::vec::Vec::new"
+    },
+    {
       "form": "syn-resolved-path",
       "owner": "federation",
       "rawTarget": "crate::ordinary_journal_peer::DurableOrdinaryJournalStore",
@@ -20290,6 +20796,14 @@
       "symbol": "capture_existing_ordinary_source",
       "target": "crate::sign::verify_canonical_delta",
       "targetOwner": "delta"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "federation",
+      "source": "implementations/rust/src/ordinary_journal_peer.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "open_ordinary_journal_peer_inner",
+      "target": "core::primitive::str::to_string"
     },
     {
       "form": "syn-resolved-path",
@@ -20528,7 +21042,31 @@
       "source": "implementations/rust/src/ordinary_journal_peer.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "open_ordinary_journal_peer_inner",
+      "target": "std::boxed::Box::new"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "federation",
+      "source": "implementations/rust/src/ordinary_journal_peer.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "open_ordinary_journal_peer_inner",
       "target": "std::collections::BTreeSet::new"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "federation",
+      "source": "implementations/rust/src/ordinary_journal_peer.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "open_ordinary_journal_peer_inner",
+      "target": "std::string::String::new"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "federation",
+      "source": "implementations/rust/src/ordinary_journal_peer.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "open_ordinary_journal_peer_inner",
+      "target": "std::vec::Vec::new"
     },
     {
       "form": "syn-resolved-path",
@@ -20540,6 +21078,14 @@
       "symbol": "OrdinaryJournalPeer",
       "target": "crate::ordinary_journal_peer::OrdinaryJournalPeer",
       "targetOwner": "federation"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "federation",
+      "source": "implementations/rust/src/ordinary_journal_peer.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "OrdinaryJournalPeer::admit",
+      "target": "core::primitive::usize::MAX"
     },
     {
       "form": "syn-resolved-path",
@@ -20676,6 +21222,28 @@
     {
       "form": "syn-resolved-path",
       "owner": "federation",
+      "rawTarget": "crate::signed_loose_admission::SignedLooseOutcomeStatus::Admitted",
+      "resolvedTarget": "crate::signed_loose_admission::SignedLooseOutcomeStatus::Admitted",
+      "source": "implementations/rust/src/ordinary_journal_peer.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "OrdinaryJournalPeer::admit",
+      "target": "crate::signed_loose_admission::SignedLooseOutcomeStatus::Admitted",
+      "targetOwner": "federation"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::signed_loose_admission::SignedLooseOutcomeStatus::Duplicate",
+      "resolvedTarget": "crate::signed_loose_admission::SignedLooseOutcomeStatus::Duplicate",
+      "source": "implementations/rust/src/ordinary_journal_peer.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "OrdinaryJournalPeer::admit",
+      "target": "crate::signed_loose_admission::SignedLooseOutcomeStatus::Duplicate",
+      "targetOwner": "federation"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
       "rawTarget": "crate::signed_loose_admission::SignedLooseTransferInput",
       "resolvedTarget": "crate::signed_loose_admission::SignedLooseTransferInput",
       "source": "implementations/rust/src/ordinary_journal_peer.rs",
@@ -20760,6 +21328,30 @@
       "symbol": "OrdinaryJournalPeer::admit",
       "target": "crate::types::Delta",
       "targetOwner": "delta"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "federation",
+      "source": "implementations/rust/src/ordinary_journal_peer.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "OrdinaryJournalPeer::admit",
+      "target": "std::vec::Vec::new"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "federation",
+      "source": "implementations/rust/src/ordinary_journal_peer.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "OrdinaryJournalPeer::admit_erasures",
+      "target": "core::primitive::str::to_string"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "federation",
+      "source": "implementations/rust/src/ordinary_journal_peer.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "OrdinaryJournalPeer::admit_erasures",
+      "target": "core::primitive::usize::MAX"
     },
     {
       "form": "syn-resolved-path",
@@ -21380,6 +21972,14 @@
       "target": "std::collections::BTreeSet"
     },
     {
+      "form": "syn-external-path",
+      "owner": "federation",
+      "source": "implementations/rust/src/ordinary_journal_peer.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "OrdinaryJournalPeer::admit_erasures",
+      "target": "std::vec::Vec::new"
+    },
+    {
       "form": "syn-resolved-path",
       "owner": "federation",
       "rawTarget": "crate::ordinary_journal_peer::OrdinaryJournalPeer",
@@ -21576,6 +22176,14 @@
       "symbol": "OrdinaryJournalPeer::rebase",
       "target": "crate::single_peer::PeerImageWrite::Durable",
       "targetOwner": "federation"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "federation",
+      "source": "implementations/rust/src/ordinary_journal_peer.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "OrdinaryJournalPeer::report_purge",
+      "target": "core::primitive::str::to_string"
     },
     {
       "form": "syn-resolved-path",
@@ -23519,6 +24127,14 @@
       "symbol": "at"
     },
     {
+      "form": "syn-external-path",
+      "owner": "delta",
+      "source": "implementations/rust/src/parse_error.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "fault",
+      "target": "core::primitive::str::to_owned"
+    },
+    {
       "form": "syn-resolved-path",
       "owner": "delta",
       "rawTarget": "crate::parse_error::ParseError",
@@ -23539,6 +24155,14 @@
       "symbol": "fault",
       "target": "crate::parse_error::ParseErrorKind",
       "targetOwner": "delta"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "delta",
+      "source": "implementations/rust/src/parse_error.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "fault",
+      "target": "std::string::String::new"
     },
     {
       "form": "syn-resolved-path",
@@ -24329,6 +24953,14 @@
       "targetOwner": "delta"
     },
     {
+      "form": "syn-external-path",
+      "owner": "delta",
+      "source": "implementations/rust/src/parse_error.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "invalid",
+      "target": "std::string::String::new"
+    },
+    {
       "form": "syn-external-import",
       "owner": "federation",
       "source": "implementations/rust/src/peer.rs",
@@ -24857,6 +25489,22 @@
       "sourceRegion": "semantic-owner",
       "symbol": "Peer::pull_from",
       "target": "std::collections::BTreeSet::new"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "federation",
+      "source": "implementations/rust/src/peer.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Peer::pull_from",
+      "target": "std::default::Default::default"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "federation",
+      "source": "implementations/rust/src/peer.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Peer::pull_from",
+      "target": "std::vec::Vec::new"
     },
     {
       "form": "macro-region",
@@ -26467,6 +27115,14 @@
       "target": "std::collections::BTreeSet::new"
     },
     {
+      "form": "syn-external-path",
+      "owner": "federation",
+      "source": "implementations/rust/src/permanent_journal.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "validate",
+      "target": "std::string::String::is_empty"
+    },
+    {
       "form": "syn-resolved-path",
       "owner": "federation",
       "rawTarget": "crate::cbor::CborValue",
@@ -27153,6 +27809,22 @@
       "targetOwner": "federation"
     },
     {
+      "form": "syn-external-path",
+      "owner": "federation",
+      "source": "implementations/rust/src/permanent_journal.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "replay_permanent_peer_frames",
+      "target": "std::string::String::new"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "federation",
+      "source": "implementations/rust/src/permanent_journal.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "replay_permanent_peer_frames",
+      "target": "std::vec::Vec::new"
+    },
+    {
       "form": "syn-external-import",
       "owner": "syntax",
       "source": "implementations/rust/src/pred.rs",
@@ -27255,7 +27927,7 @@
       "resolvedTarget": "crate::types::Primitive",
       "source": "implementations/rust/src/pred.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "",
+      "symbol": "Bindings",
       "target": "crate::types::Primitive",
       "targetOwner": "delta"
     },
@@ -27264,7 +27936,7 @@
       "owner": "syntax",
       "source": "implementations/rust/src/pred.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "",
+      "symbol": "Bindings",
       "target": "std::collections::BTreeMap"
     },
     {
@@ -28670,6 +29342,14 @@
       "targetOwner": "delta"
     },
     {
+      "form": "syn-external-path",
+      "owner": "syntax",
+      "source": "implementations/rust/src/pred.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "substitute_holes",
+      "target": "std::boxed::Box::new"
+    },
+    {
       "form": "macro-region",
       "macros": [
         "format"
@@ -28914,7 +29594,7 @@
       "resolvedTarget": "crate::preflight::GuardDecision",
       "source": "implementations/rust/src/preflight.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "",
+      "symbol": "CandidateGuard",
       "target": "crate::preflight::GuardDecision",
       "targetOwner": "federation"
     },
@@ -28925,7 +29605,7 @@
       "resolvedTarget": "crate::set::DeltaSet",
       "source": "implementations/rust/src/preflight.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "",
+      "symbol": "CandidateGuard",
       "target": "crate::set::DeltaSet",
       "targetOwner": "delta"
     },
@@ -28936,7 +29616,7 @@
       "resolvedTarget": "crate::types::Delta",
       "source": "implementations/rust/src/preflight.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "",
+      "symbol": "CandidateGuard",
       "target": "crate::types::Delta",
       "targetOwner": "delta"
     },
@@ -29136,6 +29816,14 @@
       "sourceRegion": "semantic-owner",
       "symbol": "preflight_transfer",
       "target": "std::iter::once"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "federation",
+      "source": "implementations/rust/src/preflight.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "preflight_transfer",
+      "target": "std::vec::Vec::new"
     },
     {
       "form": "macro-region",
@@ -29998,6 +30686,14 @@
       "targetOwner": "principal"
     },
     {
+      "form": "syn-external-path",
+      "owner": "principal",
+      "source": "implementations/rust/src/principal.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "association_paths",
+      "target": "std::vec::Vec::new"
+    },
+    {
       "form": "macro-region",
       "macros": [
         "matches"
@@ -30071,6 +30767,14 @@
       "symbol": "authority_paths",
       "target": "crate::principal::permits",
       "targetOwner": "principal"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "principal",
+      "source": "implementations/rust/src/principal.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "authority_paths",
+      "target": "std::vec::Vec::new"
     },
     {
       "form": "macro-region",
@@ -30424,7 +31128,7 @@
       "resolvedTarget": "crate::pred::PrincipalPolicy",
       "source": "implementations/rust/src/principal.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "",
+      "symbol": "PrincipalResolver",
       "target": "crate::pred::PrincipalPolicy",
       "targetOwner": "syntax"
     },
@@ -30435,7 +31139,7 @@
       "resolvedTarget": "crate::set::DeltaSet",
       "source": "implementations/rust/src/principal.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "",
+      "symbol": "PrincipalResolver",
       "target": "crate::set::DeltaSet",
       "targetOwner": "delta"
     },
@@ -30858,6 +31562,14 @@
       "targetOwner": "delta"
     },
     {
+      "form": "syn-external-path",
+      "owner": "principal",
+      "source": "implementations/rust/src/principal.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "lower_pred",
+      "target": "std::boxed::Box::new"
+    },
+    {
       "form": "syn-resolved-path",
       "owner": "principal",
       "rawTarget": "crate::pred::StrMatch",
@@ -30911,6 +31623,14 @@
       "symbol": "lower_string_match",
       "target": "crate::set::DeltaSet",
       "targetOwner": "delta"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "principal",
+      "source": "implementations/rust/src/principal.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "lower_string_match",
+      "target": "std::boxed::Box::new"
     },
     {
       "form": "syn-resolved-path",
@@ -30988,6 +31708,14 @@
       "symbol": "lower_order",
       "target": "crate::set::DeltaSet",
       "targetOwner": "delta"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "principal",
+      "source": "implementations/rust/src/principal.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "lower_order",
+      "target": "std::boxed::Box::new"
     },
     {
       "form": "syn-resolved-path",
@@ -31087,6 +31815,14 @@
       "symbol": "lower_policy",
       "target": "crate::set::DeltaSet",
       "targetOwner": "delta"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "principal",
+      "source": "implementations/rust/src/principal.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "lower_policy",
+      "target": "std::boxed::Box::new"
     },
     {
       "form": "syn-resolved-path",
@@ -31370,6 +32106,14 @@
       "symbol": "lower_principal_term",
       "target": "crate::set::DeltaSet",
       "targetOwner": "delta"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "principal",
+      "source": "implementations/rust/src/principal.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "lower_principal_term",
+      "target": "std::boxed::Box::new"
     },
     {
       "form": "syn-resolved-path",
@@ -31814,6 +32558,14 @@
       "targetOwner": "delta"
     },
     {
+      "form": "syn-external-path",
+      "owner": "reactor",
+      "source": "implementations/rust/src/reactor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "boundary_value",
+      "target": "core::primitive::f64::from_bits"
+    },
+    {
       "form": "syn-resolved-path",
       "owner": "reactor",
       "rawTarget": "crate::materialize::Materialization",
@@ -31978,6 +32730,14 @@
       "targetOwner": "delta"
     },
     {
+      "form": "syn-external-path",
+      "owner": "reactor",
+      "source": "implementations/rust/src/reactor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "NegationReader::witnesses",
+      "target": "std::vec::Vec::new"
+    },
+    {
       "form": "syn-resolved-path",
       "owner": "reactor",
       "rawTarget": "crate::materialize::Materialization",
@@ -32103,6 +32863,14 @@
       "target": "std::ops::Bound::Included"
     },
     {
+      "form": "syn-external-path",
+      "owner": "reactor",
+      "source": "implementations/rust/src/reactor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Reactor::advance_time",
+      "target": "std::vec::Vec::new"
+    },
+    {
       "form": "syn-resolved-path",
       "owner": "reactor",
       "rawTarget": "crate::reactor::Reactor",
@@ -32156,6 +32924,14 @@
       "symbol": "Reactor::by_value",
       "target": "crate::types::Primitive",
       "targetOwner": "delta"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "reactor",
+      "source": "implementations/rust/src/reactor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Reactor::by_value",
+      "target": "std::vec::Vec::new"
     },
     {
       "form": "syn-resolved-path",
@@ -32293,6 +33069,14 @@
       "symbol": "Reactor::dispatch_and_update",
       "target": "crate::types::Delta",
       "targetOwner": "delta"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "reactor",
+      "source": "implementations/rust/src/reactor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Reactor::dispatch_and_update",
+      "target": "std::vec::Vec::new"
     },
     {
       "form": "syn-resolved-path",
@@ -32770,6 +33554,14 @@
       "target": "std::collections::BTreeSet::new"
     },
     {
+      "form": "syn-external-path",
+      "owner": "reactor",
+      "source": "implementations/rust/src/reactor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Reactor::ingest_batch",
+      "target": "std::vec::Vec::new"
+    },
+    {
       "form": "syn-resolved-path",
       "owner": "reactor",
       "rawTarget": "crate::reactor::IngestResult",
@@ -32888,6 +33680,14 @@
       "target": "std::iter::once"
     },
     {
+      "form": "syn-external-path",
+      "owner": "reactor",
+      "source": "implementations/rust/src/reactor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Reactor::ingest_bundle",
+      "target": "std::vec::Vec::new"
+    },
+    {
       "form": "syn-resolved-path",
       "owner": "reactor",
       "rawTarget": "crate::reactor::Reactor",
@@ -32919,6 +33719,14 @@
       "symbol": "Reactor::materialized_hex",
       "target": "crate::reactor::Reactor",
       "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "reactor",
+      "source": "implementations/rust/src/reactor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Reactor::materialized_hex",
+      "target": "std::string::String::as_str"
     },
     {
       "form": "syn-resolved-path",
@@ -34108,6 +34916,17 @@
       "targetOwner": "delta"
     },
     {
+      "form": "syn-resolved-path",
+      "owner": "resolve-kernel",
+      "rawTarget": "crate::types::Target::Entity",
+      "resolvedTarget": "crate::types::Target::Entity",
+      "source": "implementations/rust/src/resolution.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "candidate_value",
+      "target": "crate::types::Target::Entity",
+      "targetOwner": "delta"
+    },
+    {
       "form": "syn-external-path",
       "owner": "resolve-kernel",
       "source": "implementations/rust/src/resolution.rs",
@@ -34122,6 +34941,14 @@
       "sourceRegion": "semantic-owner",
       "symbol": "candidate_value",
       "target": "std::collections::BTreeMap::new"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "resolve-kernel",
+      "source": "implementations/rust/src/resolution.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "candidate_value",
+      "target": "std::vec::Vec::new"
     },
     {
       "form": "macro-region",
@@ -34899,6 +35726,14 @@
       "target": "std::cmp::Ordering::Less"
     },
     {
+      "form": "syn-external-path",
+      "owner": "resolve-kernel",
+      "source": "implementations/rust/src/resolution.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "apply_merge",
+      "target": "std::vec::Vec::new"
+    },
+    {
       "form": "macro-region",
       "macros": [
         "unreachable"
@@ -35090,6 +35925,22 @@
       "target": "std::collections::BTreeSet::new"
     },
     {
+      "form": "syn-external-path",
+      "owner": "resolve-kernel",
+      "source": "implementations/rust/src/resolution.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "apply_policy",
+      "target": "std::vec::Vec::new"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "resolve-kernel",
+      "source": "implementations/rust/src/resolution.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "apply_policy",
+      "target": "std::vec::Vec::with_capacity"
+    },
+    {
       "form": "syn-resolved-path",
       "owner": "resolve-kernel",
       "rawTarget": "crate::hview::HVEntry",
@@ -35178,6 +36029,14 @@
       "sourceRegion": "semantic-owner",
       "symbol": "resolve_view",
       "target": "std::collections::BTreeSet"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "resolve-kernel",
+      "source": "implementations/rust/src/resolution.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "resolve_view",
+      "target": "std::vec::Vec::new"
     },
     {
       "form": "syn-external-import",
@@ -35285,6 +36144,14 @@
       "symbol": "collect_refs",
       "target": "crate::schema::walk",
       "targetOwner": "schema"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "collect_refs",
+      "target": "std::vec::Vec::new"
     },
     {
       "form": "syn-resolved-path",
@@ -35472,6 +36339,14 @@
       "symbol": "collect_reading_refs",
       "target": "crate::schema::walk",
       "targetOwner": "schema"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "collect_reading_refs",
+      "target": "std::vec::Vec::new"
     },
     {
       "form": "syn-resolved-path",
@@ -35804,6 +36679,14 @@
       "sourceRegion": "semantic-owner",
       "symbol": "SchemaRegistry::build",
       "target": "std::collections::HashMap::new"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "SchemaRegistry::build",
+      "target": "std::vec::Vec::new"
     },
     {
       "form": "syn-resolved-path",
@@ -36544,6 +37427,17 @@
       "symbol": "ProgramInspection::predicate",
       "target": "crate::schema::ProgramSort::DSet",
       "targetOwner": "schema"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "schema",
+      "rawTarget": "crate::types::Primitive::Str",
+      "resolvedTarget": "crate::types::Primitive::Str",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "ProgramInspection::predicate",
+      "target": "crate::types::Primitive::Str",
+      "targetOwner": "delta"
     },
     {
       "form": "syn-resolved-path",
@@ -37380,6 +38274,14 @@
       "target": "std::collections::HashMap::new"
     },
     {
+      "form": "syn-external-path",
+      "owner": "schema",
+      "source": "implementations/rust/src/schema.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "select_program",
+      "target": "std::vec::Vec::new"
+    },
+    {
       "form": "macro-region",
       "macros": [
         "matches"
@@ -37652,6 +38554,14 @@
       "source": "implementations/rust/src/schema_deltas.rs",
       "status": "parsed-known-macro-arguments",
       "symbol": "hyper_schema_schema"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "schema-load",
+      "source": "implementations/rust/src/schema_deltas.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "publish_hyper_schema_claims",
+      "target": "core::primitive::f64::from"
     },
     {
       "form": "syn-resolved-path",
@@ -39088,6 +39998,14 @@
       "targetOwner": "delta"
     },
     {
+      "form": "syn-external-path",
+      "owner": "delta",
+      "source": "implementations/rust/src/set.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DeltaSet::ids",
+      "target": "std::string::String::as_str"
+    },
+    {
       "form": "syn-resolved-path",
       "owner": "delta",
       "rawTarget": "crate::set::DeltaSet",
@@ -39637,6 +40555,14 @@
       "target": "sha2::Sha512::new"
     },
     {
+      "form": "syn-external-path",
+      "owner": "delta",
+      "source": "implementations/rust/src/sign.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "verify_sig_strict",
+      "target": "std::option::Option::from"
+    },
+    {
       "form": "syn-resolved-path",
       "owner": "delta",
       "rawTarget": "crate::delta::compute_id",
@@ -40101,6 +41027,17 @@
       "targetOwner": "delta"
     },
     {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::types::Target::Delta",
+      "resolvedTarget": "crate::types::Target::Delta",
+      "source": "implementations/rust/src/signed_loose_admission.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "negates",
+      "target": "crate::types::Target::Delta",
+      "targetOwner": "delta"
+    },
+    {
       "form": "macro-region",
       "macros": [
         "matches"
@@ -40463,6 +41400,22 @@
       "sourceRegion": "semantic-owner",
       "symbol": "build_signed_loose_ordinary_transfer",
       "target": "std::collections::BTreeSet::new"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "federation",
+      "source": "implementations/rust/src/signed_loose_admission.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "build_signed_loose_ordinary_transfer",
+      "target": "std::string::String::as_str"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "federation",
+      "source": "implementations/rust/src/signed_loose_admission.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "build_signed_loose_ordinary_transfer",
+      "target": "std::vec::Vec::new"
     },
     {
       "form": "macro-region",
@@ -41010,6 +41963,14 @@
       "targetOwner": "federation"
     },
     {
+      "form": "syn-external-path",
+      "owner": "federation",
+      "source": "implementations/rust/src/single_peer.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "open_single_peer",
+      "target": "std::boxed::Box::new"
+    },
+    {
       "form": "syn-resolved-path",
       "owner": "federation",
       "rawTarget": "crate::preflight::CandidateGuard",
@@ -41131,6 +42092,14 @@
       "targetOwner": "federation"
     },
     {
+      "form": "syn-external-path",
+      "owner": "federation",
+      "source": "implementations/rust/src/single_peer.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "admit_single_peer_transfer",
+      "target": "core::primitive::usize::MAX"
+    },
+    {
       "form": "syn-resolved-path",
       "owner": "federation",
       "rawTarget": "crate::durable_state::decode_durable_peer_state",
@@ -41150,6 +42119,28 @@
       "sourceRegion": "semantic-owner",
       "symbol": "admit_single_peer_transfer",
       "target": "crate::durable_state::encode_durable_peer_state",
+      "targetOwner": "federation"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::signed_loose_admission::SignedLooseOutcomeStatus::Admitted",
+      "resolvedTarget": "crate::signed_loose_admission::SignedLooseOutcomeStatus::Admitted",
+      "source": "implementations/rust/src/single_peer.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "admit_single_peer_transfer",
+      "target": "crate::signed_loose_admission::SignedLooseOutcomeStatus::Admitted",
+      "targetOwner": "federation"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::signed_loose_admission::SignedLooseOutcomeStatus::Duplicate",
+      "resolvedTarget": "crate::signed_loose_admission::SignedLooseOutcomeStatus::Duplicate",
+      "source": "implementations/rust/src/single_peer.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "admit_single_peer_transfer",
+      "target": "crate::signed_loose_admission::SignedLooseOutcomeStatus::Duplicate",
       "targetOwner": "federation"
     },
     {
@@ -41338,6 +42329,14 @@
       "symbol": "admit_single_peer_transfer",
       "target": "crate::types::Delta",
       "targetOwner": "delta"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "federation",
+      "source": "implementations/rust/src/single_peer.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "admit_single_peer_transfer",
+      "target": "std::boxed::Box::new"
     },
     {
       "form": "macro-region",
@@ -41627,6 +42626,14 @@
       "sourceRegion": "semantic-owner",
       "symbol": "<import>",
       "target": "serde_json::Value"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "delta",
+      "source": "implementations/rust/src/strict.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "edit_distance",
+      "target": "core::primitive::usize::from"
     },
     {
       "form": "macro-region",
@@ -44741,6 +45748,14 @@
       "target": "serde_json::Value"
     },
     {
+      "form": "syn-external-path",
+      "owner": "syntax",
+      "source": "implementations/rust/src/term_json.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "parse_term_diagnostic",
+      "target": "std::string::String::new"
+    },
+    {
       "form": "syn-resolved-path",
       "owner": "syntax",
       "rawTarget": "crate::parse_error::ParseError",
@@ -44813,6 +45828,14 @@
       "sourceRegion": "semantic-owner",
       "symbol": "parse_pred_diagnostic",
       "target": "serde_json::Value"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "syntax",
+      "source": "implementations/rust/src/term_json.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "parse_pred_diagnostic",
+      "target": "std::string::String::new"
     },
     {
       "form": "syn-resolved-path",
@@ -45177,6 +46200,14 @@
       "target": "serde_json::Value::as_str"
     },
     {
+      "form": "syn-external-path",
+      "owner": "syntax",
+      "source": "implementations/rust/src/term_json.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "parse_str_match",
+      "target": "std::boxed::Box::new"
+    },
+    {
       "form": "macro-region",
       "macros": [
         "format"
@@ -45189,12 +46220,34 @@
     {
       "form": "syn-resolved-path",
       "owner": "syntax",
+      "rawTarget": "crate::pred::EntityMatch::Hole",
+      "resolvedTarget": "crate::pred::EntityMatch::Hole",
+      "source": "implementations/rust/src/term_json.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "assert_closed_trust_pred",
+      "target": "crate::pred::EntityMatch::Hole",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "syntax",
       "rawTarget": "crate::pred::MatchConst::Hole",
       "resolvedTarget": "crate::pred::MatchConst::Hole",
       "source": "implementations/rust/src/term_json.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "assert_closed_trust_pred",
       "target": "crate::pred::MatchConst::Hole",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "syntax",
+      "rawTarget": "crate::pred::Param::Hole",
+      "resolvedTarget": "crate::pred::Param::Hole",
+      "source": "implementations/rust/src/term_json.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "assert_closed_trust_pred",
+      "target": "crate::pred::Param::Hole",
       "targetOwner": "syntax"
     },
     {
@@ -45305,6 +46358,28 @@
       "sourceRegion": "semantic-owner",
       "symbol": "assert_closed_trust_pred",
       "target": "crate::pred::Pred::True",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "syntax",
+      "rawTarget": "crate::pred::StrMatch::Aliased",
+      "resolvedTarget": "crate::pred::StrMatch::Aliased",
+      "source": "implementations/rust/src/term_json.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "assert_closed_trust_pred",
+      "target": "crate::pred::StrMatch::Aliased",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "syntax",
+      "rawTarget": "crate::pred::ValMatch::Vcmp",
+      "resolvedTarget": "crate::pred::ValMatch::Vcmp",
+      "source": "implementations/rust/src/term_json.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "assert_closed_trust_pred",
+      "target": "crate::pred::ValMatch::Vcmp",
       "targetOwner": "syntax"
     },
     {
@@ -45493,6 +46568,17 @@
       "targetOwner": "syntax"
     },
     {
+      "form": "syn-resolved-path",
+      "owner": "syntax",
+      "rawTarget": "crate::types::Primitive::Str",
+      "resolvedTarget": "crate::types::Primitive::Str",
+      "source": "implementations/rust/src/term_json.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "parse_val_match",
+      "target": "crate::types::Primitive::Str",
+      "targetOwner": "delta"
+    },
+    {
       "form": "syn-external-path",
       "owner": "syntax",
       "source": "implementations/rust/src/term_json.rs",
@@ -45653,6 +46739,50 @@
       "sourceRegion": "semantic-owner",
       "symbol": "parse_ppred",
       "target": "serde_json::Value::as_str"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "syntax",
+      "rawTarget": "crate::eval::Term::Input",
+      "resolvedTarget": "crate::eval::Term::Input",
+      "source": "implementations/rust/src/term_json.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "parse_pred",
+      "target": "crate::eval::Term::Input",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "syntax",
+      "rawTarget": "crate::eval::Term::Mask",
+      "resolvedTarget": "crate::eval::Term::Mask",
+      "source": "implementations/rust/src/term_json.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "parse_pred",
+      "target": "crate::eval::Term::Mask",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "syntax",
+      "rawTarget": "crate::eval::Term::Select",
+      "resolvedTarget": "crate::eval::Term::Select",
+      "source": "implementations/rust/src/term_json.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "parse_pred",
+      "target": "crate::eval::Term::Select",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "syntax",
+      "rawTarget": "crate::eval::Term::Union",
+      "resolvedTarget": "crate::eval::Term::Union",
+      "source": "implementations/rust/src/term_json.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "parse_pred",
+      "target": "crate::eval::Term::Union",
+      "targetOwner": "syntax"
     },
     {
       "form": "syn-resolved-path",
@@ -46007,6 +47137,17 @@
       "targetOwner": "syntax"
     },
     {
+      "form": "syn-resolved-path",
+      "owner": "syntax",
+      "rawTarget": "crate::types::Primitive::Str",
+      "resolvedTarget": "crate::types::Primitive::Str",
+      "source": "implementations/rust/src/term_json.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "parse_pred",
+      "target": "crate::types::Primitive::Str",
+      "targetOwner": "delta"
+    },
+    {
       "form": "syn-external-path",
       "owner": "syntax",
       "source": "implementations/rust/src/term_json.rs",
@@ -46029,6 +47170,14 @@
       "sourceRegion": "semantic-owner",
       "symbol": "parse_pred",
       "target": "serde_json::Value::as_str"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "syntax",
+      "source": "implementations/rust/src/term_json.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "parse_pred",
+      "target": "std::boxed::Box::new"
     },
     {
       "form": "macro-region",
@@ -46380,6 +47529,14 @@
       "target": "serde_json::Value::Null"
     },
     {
+      "form": "syn-external-path",
+      "owner": "syntax",
+      "source": "implementations/rust/src/term_json.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "parse_order",
+      "target": "std::boxed::Box::new"
+    },
+    {
       "form": "syn-resolved-path",
       "owner": "syntax",
       "rawTarget": "crate::resolution::MergeFn::And",
@@ -46611,6 +47768,14 @@
       "sourceRegion": "semantic-owner",
       "symbol": "parse_policy",
       "target": "serde_json::Value::Null"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "syntax",
+      "source": "implementations/rust/src/term_json.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "parse_policy",
+      "target": "std::boxed::Box::new"
     },
     {
       "form": "macro-region",
@@ -47160,6 +48325,14 @@
       "target": "serde_json::Value::as_str"
     },
     {
+      "form": "syn-external-path",
+      "owner": "syntax",
+      "source": "implementations/rust/src/term_json.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "parse_term",
+      "target": "std::boxed::Box::new"
+    },
+    {
       "form": "macro-region",
       "macros": [
         "format"
@@ -47469,6 +48642,14 @@
       "target": "serde_json::Value"
     },
     {
+      "form": "syn-external-path",
+      "owner": "federation",
+      "source": "implementations/rust/src/wasm.rs",
+      "sourceRegion": "host-adapter",
+      "symbol": "set_from",
+      "target": "std::vec::Vec::with_capacity"
+    },
+    {
       "form": "syn-resolved-path",
       "owner": "federation",
       "rawTarget": "crate::delta::canonical_hex",
@@ -47544,6 +48725,28 @@
       "symbol": "handle",
       "target": "crate::schema::SchemaRegistry::build",
       "targetOwner": "schema"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::sign::Verification::Invalid",
+      "resolvedTarget": "crate::sign::Verification::Invalid",
+      "source": "implementations/rust/src/wasm.rs",
+      "sourceRegion": "host-adapter",
+      "symbol": "handle",
+      "target": "crate::sign::Verification::Invalid",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::sign::Verification::Verified",
+      "resolvedTarget": "crate::sign::Verification::Verified",
+      "source": "implementations/rust/src/wasm.rs",
+      "sourceRegion": "host-adapter",
+      "symbol": "handle",
+      "target": "crate::sign::Verification::Verified",
+      "targetOwner": "delta"
     },
     {
       "form": "syn-resolved-path",
@@ -47634,6 +48837,22 @@
       "sourceRegion": "host-adapter",
       "symbol": "handle",
       "target": "serde_json::json"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "federation",
+      "source": "implementations/rust/src/wasm.rs",
+      "sourceRegion": "host-adapter",
+      "symbol": "handle",
+      "target": "std::vec::Vec::new"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "federation",
+      "source": "implementations/rust/src/wasm.rs",
+      "sourceRegion": "host-adapter",
+      "symbol": "handle",
+      "target": "std::vec::Vec::with_capacity"
     },
     {
       "form": "macro-region",
@@ -47727,6 +48946,14 @@
       "source": "implementations/rust/src/wasm.rs",
       "status": "parsed-known-macro-arguments",
       "symbol": "rhz_alloc"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "federation",
+      "source": "implementations/rust/src/wasm.rs",
+      "sourceRegion": "host-adapter",
+      "symbol": "rhz_dealloc",
+      "target": "std::vec::Vec::from_raw_parts"
     },
     {
       "form": "syn-resolved-path",

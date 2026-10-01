@@ -2,7 +2,7 @@
 
 Implement the bounded profile in [SPEC.md](SPEC.md), with the library acceptance framework in [BOUNDARIES.json](BOUNDARIES.json), scenarios in [ACCEPTANCE.json](ACCEPTANCE.json), and enforcement in [CI.md](CI.md). This packet is intended for the requested GPT-6.1 Sol instance at High effort. It is a specification, not a claim about model performance or a completed implementation.
 
-The result is one delta-described command interface supporting durable retain and evaluation, portable descriptions and results, and reproducible composition across TS and Rust. Every current library gets an explicit boundary card and an inventory of its semantic surface. Completing this assignment establishes profile 1; it does not close every item in the broader gap ledger. [DECISIONS.md](DECISIONS.md) records the rationale and scope; [START.md](START.md) supplies the kickoff prompt. [MILESTONES.json](MILESTONES.json) freezes the required case identities and milestone allocation independently of their descriptions.
+The result is one delta-described command interface supporting durable retain and evaluation, portable descriptions and results, and reproducible composition across TS and Rust. Every current library gets an explicit boundary card and an inventory of its semantic surface. Completing this assignment establishes profile 1; it does not close every item in the broader gap ledger. [DECISIONS.md](DECISIONS.md) records the rationale and scope; The adopted normative source is [spec/15-command.md](../../spec/15-command.md). [MILESTONES.json](MILESTONES.json) freezes the required case identities and milestone allocation independently of their descriptions.
 
 ## Working scope
 

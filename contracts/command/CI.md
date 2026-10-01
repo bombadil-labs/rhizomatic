@@ -2,7 +2,7 @@
 
 CI should reject mechanical boundary violations and observable semantic regressions. Independent review assesses whether the declared boundary is the right one. Neither replaces the other.
 
-This file specifies repository work to implement. The accompanying `check-spec.mjs` runs now against this packet and the read-only snapshot; it checks specification consistency only. It does not certify the code or install a CI workflow.
+The checkout-relative tools and `.github/workflows/ci.yml` implement these gates. No production or CI tool imports the originating audit workspace. The aggregate runner records executed evidence; independent review remains a separate exact-commit gate.
 
 ## Existing enforcement to retain
 
@@ -124,3 +124,13 @@ node /home/mykola/bombadil-labs/refactor-audit/implementation-spec/check-spec.mj
 ```
 
 That local check validates references, card dependencies/source paths, coverage of R-IDs, links and manifest consistency, with deliberately broken manifest fixtures. It compares exact case identities and milestone allocation with [MILESTONES.json](MILESTONES.json), so a same-count rename or a move to a later milestone fails. It never reports specified scenarios as executed. The only existing executable intake evidence remains the earlier 18-case draft probe, which does not conform to the revised retry/composition profile.
+
+## Executed evidence in this checkout
+
+The `command` CI job depends on all four existing witness jobs. It records their actual result and checked-out SHA, runs `tools/check-command-acceptance.mjs`, and uploads logs, discovered test IDs, signed artifacts, isolated journal observations, seeded plans and exact replay. A successful automated job proves 77 technical cases and records `independent_boundary_review` as pending. It cannot issue independent acceptance itself.
+
+Run the aggregate with `--out` outside the checkout, `--conformance` containing actual four-witness CI facts, and an explicit `--seed`. A supervisor may supply `--review` with an independently authored exact-commit acceptance record and `--require-review` to require all 78 cases. The runner refuses dirty source, source drift, missing post-assert test identities, stale builds and changed replay artifacts.
+
+`capabilities.json` advertises four serialized stages for TS/Rust only. Its `stage_evidence` names the exact independently-oracled tower cases; the runner binds those declarations to newly executed case reports and measured build identities. Conformance level does not infer command capability. Full profile advertisement remains absent until the complete acceptance record is available.
+
+`API.json`, the TS compiler inventory and Rust syn inventory classify public declarations and member interfaces, including compatibility exports and explicit host capabilities. Rust analysis limits are recorded in [rust-command-boundaries.md](../../tools/rust-command-boundaries.md). Graph checks direct owner dependencies and ambient observations, without claiming proof of transitive implementation purity. Bootstrap pins are compared against actual native exports in both witnesses and shared canonical vectors.

@@ -5,7 +5,7 @@ import { spawnSync } from 'node:child_process';
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const base=join(root,'contracts/command');
 const read=name=>JSON.parse(readFileSync(join(base,name+'.json'),'utf8'));
-function validate({cards,scenarios,plan,coverage,capabilities,bootstrap}){
+function validate({cards,scenarios,plan,coverage,capabilities,bootstrap,towers,execution,api}){
  const unique=(items,label)=>{if(new Set(items).size!==items.length)throw Error(`duplicate ${label}`);};
  unique(cards.map(c=>c.id),'owner');const owners=new Set(cards.map(c=>c.id)); if(owners.size!==14)throw Error('missing semantic owner');
  for(const c of cards){for(const k of ['responsibility','lower_binding','upper_affordance','bootstrap_and_capabilities','observable_state_and_reconstruction','forbidden_semantics','first_delivery_success','later_portability_success'])if(typeof c[k]!=='string'||!c[k])throw Error(`missing contract ${c.id}.${k}`);for(const d of c.allowed_dependencies)if(!owners.has(d))throw Error('unknown dependency');for(const r of c.requirements)if(!/^R-(0[1-9]|[12][0-9]|3[0-4])$/.test(r))throw Error('unknown spec reference');}
@@ -15,9 +15,24 @@ function validate({cards,scenarios,plan,coverage,capabilities,bootstrap}){
  if(coverage.length!==frozen.size||coverage.some(c=>frozen.get(c.id)!==c.milestone||!c.owners.length||c.owners.some(o=>!owners.has(o))))throw Error('missing coverage owner/case');
  for(const name of ['HyperSchemaSchema','SchemaSchema'])if(!/^1e20[0-9a-f]{64}$/.test(bootstrap.canonical_pins[name]))throw Error('invalid bootstrap pin');
  unique(capabilities.witnesses.map(w=>w.id),'witness');if(capabilities.witnesses.length!==4||['ts','rust','elixir','haskell'].some(id=>!capabilities.witnesses.some(w=>w.id===id)))throw Error('missing required witness');
- for(const w of capabilities.witnesses){if(w.profiles.length||w.stages.length)throw Error('capability needs executed evidence before advertisement');if(['elixir','haskell'].includes(w.id)&&w.conformance_level!==0)throw Error('lower witness level changed');}
+ const stageContracts=towers.stages.map(s=>s.contract);unique(stageContracts,'stage contract');
+ const selected=execution.cases.filter(f=>f.tower===true);unique(selected.map(f=>f.scenario),'tower scenario');
+ if(JSON.stringify(selected.map(f=>f.scenario).sort())!==JSON.stringify([...towers.required_scenarios].sort()))throw Error('missing tower scenario');
+ const equalSet=(a,b)=>Array.isArray(a)&&a.length===b.length&&new Set(a).size===a.length&&JSON.stringify([...a].sort())===JSON.stringify([...b].sort());
+ for(const w of capabilities.witnesses){
+  if(w.profiles.length)throw Error('profile needs executed evidence and independent review before advertisement');
+  if(!['supported','not_implemented'].includes(w.state))throw Error('unknown capability state');
+  if(['elixir','haskell'].includes(w.id)&&(w.conformance_level!==0||w.stages.length||w.state!=='not_implemented'))throw Error('lower witness capability changed');
+  if(w.state==='not_implemented'&&(w.stages.length||Object.keys(w.stage_evidence??{}).length))throw Error('unsupported stage advertisement');
+  if(w.state==='supported'){
+   if(!equalSet(w.stages,stageContracts)||!equalSet(Object.keys(w.stage_evidence??{}),stageContracts))throw Error('missing or unknown stage capability');
+   for(const stage of towers.stages){const expected=selected.flatMap(f=>f.steps.map(step=>`${f.id}/${step.id??'command'}/${stage.id}`));if(!equalSet(w.stage_evidence[stage.contract],expected))throw Error('missing or duplicate executed stage case');}
+  }
+ }
+ unique(api.contracts.map(c=>c.id),'API contract');
+ for(const c of api.contracts)if(!c.id||!c.semantics||!c.owners.length||c.owners.some(o=>!owners.has(o))||!c.requirements.length||c.requirements.some(r=>!/^R-(0[1-9]|[12][0-9]|3[0-4])$/.test(r)))throw Error('invalid API semantic contract');
 }
-const data={cards:read('BOUNDARIES').cards,scenarios:read('ACCEPTANCE').scenarios,plan:read('MILESTONES').milestones,coverage:read('coverage').scenarios,capabilities:read('capabilities'),bootstrap:read('bootstrap')};
+const data={cards:read('BOUNDARIES').cards,scenarios:read('ACCEPTANCE').scenarios,plan:read('MILESTONES').milestones,coverage:read('coverage').scenarios,capabilities:read('capabilities'),bootstrap:read('bootstrap'),towers:read('TOWERS'),execution:JSON.parse(readFileSync(join(root,'vectors/command/execution.json'),'utf8')),api:read('API')};
 validate(data);
 if(process.argv.includes('--self-test'))for(const [name,mutate,pattern] of [
  ['duplicate coverage',d=>d.coverage[1]=d.coverage[0],/duplicate coverage/],
@@ -29,9 +44,17 @@ if(process.argv.includes('--self-test'))for(const [name,mutate,pattern] of [
  ['unknown requirement',d=>d.cards[0].requirements.push('R-99'),/unknown spec/],
  ['missing case',d=>d.scenarios.pop(),/missing required case/],
  ['false capability',d=>d.capabilities.witnesses[0].profiles.push('rhizomatic.command/1'),/executed evidence/],
-]){const broken=structuredClone(data);mutate(broken);let refused=false;try{validate(broken)}catch(e){if(!pattern.test(e.message))throw e;refused=true;}if(!refused)throw Error(`negative checker fixture accepted: ${name}`);}
+ ['missing stage',d=>d.capabilities.witnesses[0].stages.pop(),/stage capability/],
+ ['unknown stage',d=>d.capabilities.witnesses[0].stages[0]='unknown/1',/stage capability/],
+ ['duplicate stage case',d=>{const v=Object.values(d.capabilities.witnesses[0].stage_evidence)[0];v[1]=v[0]},/executed stage case/],
+ ['missing stage case',d=>Object.values(d.capabilities.witnesses[0].stage_evidence)[0].pop(),/executed stage case/],
+ ['unsupported stage',d=>d.capabilities.witnesses[0].state='not_implemented',/unsupported stage/],
+ ['unknown capability state',d=>d.capabilities.witnesses[0].state='unknown',/unknown capability state/],
+ ['missing API semantics',d=>delete d.api.contracts[0].semantics,/API semantic/],
+ ['unknown API owner',d=>d.api.contracts[0].owners.push('unknown'),/API semantic/],
+]){const broken=structuredClone(data);mutate(broken);let refused=false;try{validate(broken)}catch(e){if(!pattern.test(e.message))throw e;refused=true;}if(!refused)throw Error(`negative checker fixture accepted: ${name}`);console.log(`command-contract-case:${name}`);}
 const inventory=spawnSync(process.execPath,[join(root,'tools/command-inventory.mjs'),...(process.argv.includes('--self-test')?['--self-test']:[])],{encoding:'utf8'});if(inventory.status!==0)throw Error(inventory.stderr);process.stdout.write(inventory.stdout);
-console.log(`Command M0 contracts: ${data.cards.length} owners; ${data.scenarios.length} frozen cases; no runtime capability claim.`);
+console.log(`Command M0 contracts: ${data.cards.length} owners; ${data.scenarios.length} frozen cases; four stage capabilities; full profile remains unadvertised.`);
 
 const vectors=JSON.parse(readFileSync(join(root,'vectors/command/descriptions.json'),'utf8'));
 const fixtureIds=new Set(vectors.cases.map(c=>c.id));if(fixtureIds.size!==vectors.cases.length)throw Error('duplicate fixture ID');

@@ -6,6 +6,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 
 ## Unreleased
 
+### Added
+
+- TS/Rust signed description codecs, strict canonical View readback, explicit receiver configuration and durable retain/evaluate endpoints with attributed outcomes.
+- Coherent admitted/catalog sources, exact foreign definition closure and pins, explicit time/bindings and both principal suppression profiles; retained descriptions stay ordinary inert data.
+- Shared golden vectors, real crash/reopen and uncertain-commit tests, both mixed directions, seeded four-stage towers and exact replay. CI records 77 technical cases and leaves the independent exact-commit review gate explicit.
+- Public API and owner inventories, direct dependency/ambient-observation checks and native bootstrap pin equality. Elixir/Haskell remain at Level 0; full HView, reactor lifecycle and derivation portability remain deferred.
+
 ### Fixed
 
 - In individual journal admission, an erasure aimed at an already effective order or verified

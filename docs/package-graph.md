@@ -61,3 +61,11 @@ The graph check treats type-only imports and inline `import()` types as package 
 internal source cycles within a package but rejects cycles and undeclared edges across packages.
 The aggregate public barrel is excluded as an entry point and cannot be imported by an internal
 package.
+
+## Command profile boundaries
+
+Command descriptions belong to `command-data`, which depends only on `delta`; pure reading does not grant execution authority. `command` composes declared semantic owners and explicit host capabilities. Complete definition closure belongs to `schema`, exact signed definition parsing to `schema-load`, reading variable substitution to `syntax`, canonical View decoding to `resolve-kernel`, and coherent durable source capture to `federation`.
+
+The checked owner cards are [BOUNDARIES.json](../contracts/command/BOUNDARIES.json). Compiler/syn inventories include public types and member interfaces, with semantic contracts from [API.json](../contracts/command/API.json). TS and Rust gates reject undeclared owner edges, unresolved source forms and direct hidden host observations; exact file/network/native host adapters are separately declared. This is a direct source-boundary check, not a proof of transitive purity.
+
+Executable composition currently has four ports; execution remains an explicitly unsplit region. Full HView interchange, portable reactor lifecycle and derivation installation remain deferred. The [tower specification](../contracts/command/TOWERS.json) records these limits, while CI retains exercised stage edges and artifacts.

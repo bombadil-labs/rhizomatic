@@ -1,6 +1,6 @@
 {
   "format": "rhizomatic-tower-plan-spec/1",
-  "status": "specified_not_implemented",
+  "status": "implemented_unverified",
   "requirement": "R-34",
   "assignments_per_scenario": 3,
   "target_languages": [

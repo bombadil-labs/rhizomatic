@@ -5,15 +5,127 @@
       "id": "ts",
       "conformance_level": 4,
       "profiles": [],
-      "stages": [],
-      "state": "not_implemented"
+      "stages": [
+        "rhizomatic.command/1/request-construction",
+        "rhizomatic.command/1/description-validation",
+        "rhizomatic.command/1",
+        "rhizomatic.command/1/outcome-readback"
+      ],
+      "state": "supported",
+      "stage_evidence": {
+        "rhizomatic.command/1/request-construction": [
+          "tower_write_then_query/retain/construct",
+          "tower_write_then_query/query/construct",
+          "tower_catalog_discovery/configuration/construct",
+          "tower_catalog_discovery/retain/construct",
+          "tower_catalog_discovery/evaluate/construct",
+          "tower_definition_closure/command/construct",
+          "tower_principal_profiles/same-author/construct",
+          "tower_principal_profiles/root-or-same-author/construct",
+          "tower_outcome_provenance/command/construct",
+          "tower_definition_pin_mismatch/command/construct"
+        ],
+        "rhizomatic.command/1/description-validation": [
+          "tower_write_then_query/retain/validate",
+          "tower_write_then_query/query/validate",
+          "tower_catalog_discovery/configuration/validate",
+          "tower_catalog_discovery/retain/validate",
+          "tower_catalog_discovery/evaluate/validate",
+          "tower_definition_closure/command/validate",
+          "tower_principal_profiles/same-author/validate",
+          "tower_principal_profiles/root-or-same-author/validate",
+          "tower_outcome_provenance/command/validate",
+          "tower_definition_pin_mismatch/command/validate"
+        ],
+        "rhizomatic.command/1": [
+          "tower_write_then_query/retain/execute",
+          "tower_write_then_query/query/execute",
+          "tower_catalog_discovery/configuration/execute",
+          "tower_catalog_discovery/retain/execute",
+          "tower_catalog_discovery/evaluate/execute",
+          "tower_definition_closure/command/execute",
+          "tower_principal_profiles/same-author/execute",
+          "tower_principal_profiles/root-or-same-author/execute",
+          "tower_outcome_provenance/command/execute",
+          "tower_definition_pin_mismatch/command/execute"
+        ],
+        "rhizomatic.command/1/outcome-readback": [
+          "tower_write_then_query/retain/read-result",
+          "tower_write_then_query/query/read-result",
+          "tower_catalog_discovery/configuration/read-result",
+          "tower_catalog_discovery/retain/read-result",
+          "tower_catalog_discovery/evaluate/read-result",
+          "tower_definition_closure/command/read-result",
+          "tower_principal_profiles/same-author/read-result",
+          "tower_principal_profiles/root-or-same-author/read-result",
+          "tower_outcome_provenance/command/read-result",
+          "tower_definition_pin_mismatch/command/read-result"
+        ]
+      },
+      "claim_limit": "Four serialized command stages, verified against independent signed artifacts by the executed-stage runner. Full profile advertisement requires all 78 acceptance cases including independent review."
     },
     {
       "id": "rust",
       "conformance_level": 4,
       "profiles": [],
-      "stages": [],
-      "state": "not_implemented"
+      "stages": [
+        "rhizomatic.command/1/request-construction",
+        "rhizomatic.command/1/description-validation",
+        "rhizomatic.command/1",
+        "rhizomatic.command/1/outcome-readback"
+      ],
+      "state": "supported",
+      "stage_evidence": {
+        "rhizomatic.command/1/request-construction": [
+          "tower_write_then_query/retain/construct",
+          "tower_write_then_query/query/construct",
+          "tower_catalog_discovery/configuration/construct",
+          "tower_catalog_discovery/retain/construct",
+          "tower_catalog_discovery/evaluate/construct",
+          "tower_definition_closure/command/construct",
+          "tower_principal_profiles/same-author/construct",
+          "tower_principal_profiles/root-or-same-author/construct",
+          "tower_outcome_provenance/command/construct",
+          "tower_definition_pin_mismatch/command/construct"
+        ],
+        "rhizomatic.command/1/description-validation": [
+          "tower_write_then_query/retain/validate",
+          "tower_write_then_query/query/validate",
+          "tower_catalog_discovery/configuration/validate",
+          "tower_catalog_discovery/retain/validate",
+          "tower_catalog_discovery/evaluate/validate",
+          "tower_definition_closure/command/validate",
+          "tower_principal_profiles/same-author/validate",
+          "tower_principal_profiles/root-or-same-author/validate",
+          "tower_outcome_provenance/command/validate",
+          "tower_definition_pin_mismatch/command/validate"
+        ],
+        "rhizomatic.command/1": [
+          "tower_write_then_query/retain/execute",
+          "tower_write_then_query/query/execute",
+          "tower_catalog_discovery/configuration/execute",
+          "tower_catalog_discovery/retain/execute",
+          "tower_catalog_discovery/evaluate/execute",
+          "tower_definition_closure/command/execute",
+          "tower_principal_profiles/same-author/execute",
+          "tower_principal_profiles/root-or-same-author/execute",
+          "tower_outcome_provenance/command/execute",
+          "tower_definition_pin_mismatch/command/execute"
+        ],
+        "rhizomatic.command/1/outcome-readback": [
+          "tower_write_then_query/retain/read-result",
+          "tower_write_then_query/query/read-result",
+          "tower_catalog_discovery/configuration/read-result",
+          "tower_catalog_discovery/retain/read-result",
+          "tower_catalog_discovery/evaluate/read-result",
+          "tower_definition_closure/command/read-result",
+          "tower_principal_profiles/same-author/read-result",
+          "tower_principal_profiles/root-or-same-author/read-result",
+          "tower_outcome_provenance/command/read-result",
+          "tower_definition_pin_mismatch/command/read-result"
+        ]
+      },
+      "claim_limit": "Four serialized command stages, verified against independent signed artifacts by the executed-stage runner. Full profile advertisement requires all 78 acceptance cases including independent review."
     },
     {
       "id": "elixir",

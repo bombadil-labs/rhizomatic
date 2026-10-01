@@ -71,5 +71,10 @@ for(const e of actual){const k=known.get(e.id);if(!k)throw Error(`unclassified p
 if(known.size)throw Error(`removed or changed exports: ${[...known.keys()].join(', ')}`);
 }
 validateInventory(inventory);
-if(process.argv.includes("--self-test"))for(const mutate of [es=>es.pop(),es=>delete es[0].classification,es=>delete es[0].contract,es=>es[0].contract="unknown",es=>es[1]=es[0]]){const broken=structuredClone(inventory);mutate(broken);let failed=false;try{validateInventory(broken)}catch{failed=true;}if(!failed)throw Error("inventory negative accepted");}
+if(process.argv.includes("--self-test"))for(const [name,mutate] of [
+ ['missing export',es=>es.pop()],['missing classification',es=>delete es[0].classification],
+ ['missing contract',es=>delete es[0].contract],['unknown contract',es=>es[0].contract="unknown"],
+ ['duplicate export',es=>es[1]=es[0]],['wrong contract owner',es=>es[0].contract='rhizomatic.command/1'],
+ ['missing semantics',es=>delete es[0].semantics],
+]){const broken=structuredClone(inventory);mutate(broken);let failed=false;try{validateInventory(broken)}catch{failed=true;}if(!failed)throw Error(`inventory negative accepted: ${name}`);console.log(`command-inventory-case:${name}`);}
 console.log(`TS semantic inventory: ${actual.length} classified exported symbols (compiler-resolved aliases included).`);

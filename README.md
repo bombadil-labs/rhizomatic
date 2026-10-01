@@ -11,6 +11,8 @@ Level 0 — complete citizens at their declared level (issue #19's model). See
 [PROGRESS.md](PROGRESS.md) for the full build log and [§ For the Implementer](#for-the-implementer)
 for the rules of engagement.
 
+The TS/Rust witnesses also implement [command profile 1](spec/15-command.md): signed portable descriptions for durable retain and explicit evaluation, attributed signed outcomes, and four serialized construction/validation/execution/readback ports. [Command CI](contracts/command/CI.md) checks independent golden artifacts, real durable fault recovery, both mixed directions, seeded towers and exact replay. Elixir/Haskell retain their declared Level 0 scope. Full command acceptance additionally requires independent review of the exact source commit.
+
 > **Applications live in their own repos.** The substrate is published as
 > [`@bombadil/rhizomatic`](https://www.npmjs.com/package/@bombadil/rhizomatic); products consume it
 > as a dependency. Chorus (agent memory built on the format) was extracted from this repo and is
