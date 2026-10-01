@@ -57,6 +57,9 @@ export const requiredCheckerCases = {
     "real Rust source permits nested builtin attributes",
     "real Rust source permits builtin inner attribute"
   ],
+  "ts-inventory": [
+    "public type aliases expose base and every variant member to inventory freshness"
+  ],
   "bootstrap": [
     "actual exported bootstrap programs match declared and shared byte/pin contracts"
   ],
@@ -231,7 +234,7 @@ export function assembleAcceptance({ scenarios, commit, tree, native, gates, tow
   validateConformance(conformance, commit, tree);
   if (review) validateReview(review, commit);
   const requirements = {
-    bootstrap_inventory: ['bootstrap'], package_ownership: ['contracts', 'rust-boundaries', 'ts-boundaries'],
+    bootstrap_inventory: ['bootstrap'], package_ownership: ['contracts', 'rust-boundaries', 'ts-boundaries', 'ts-inventory'],
     profile_capabilities: ['contracts', 'execution', 'towers'], coverage_missing_case: ['contracts'],
     dependency_forbidden: ['ts-negatives', 'rust-negatives'], contract_missing_export: ['contracts', 'rust-negatives'],
     tower_port_inventory: ['contracts', 'tower-tests', 'execution'],
@@ -293,6 +296,7 @@ export async function runAcceptance({ out, conformanceFile, reviewFile, requireR
   const native = nativeScenarioEvidence({ scenarios, descriptions: read(join(repository, 'vectors/command/descriptions.json')), ts: read(tsPath), rust });
   const contractOutput = await node('contracts', 'tools/check-command-contracts.mjs', ['--self-test']);
   requireCheckerCases('contracts', new Set([...contractOutput.matchAll(/^command-(contract|inventory)-case:(.+)$/gm)].map(m => `${m[1]}:${m[2]}`)));
+  requireCheckerCases('ts-inventory', passedTapNames(await gate('ts-inventory', process.execPath, ['--test', '--test-reporter=tap', join(repository, 'tools/command-inventory.test.mjs')])));
   await node('ts-boundaries', 'tools/check-package-graph.mjs');
   const tsNegatives = await node('ts-negatives', 'tools/check-command-boundary-negatives.mjs');
   requireCheckerCases('ts-negatives', new Set([...tsNegatives.matchAll(/^command-boundary-case:(.+)$/gm)].map(m => m[1])));

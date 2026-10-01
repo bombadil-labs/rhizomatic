@@ -4,7 +4,7 @@ import { canonicalBytes, assertValidClaims } from "../delta/delta.js";
 import { claimsToJson, parseClaims } from "../delta/json-profile.js";
 import { signClaims, verifyDelta, authorForSeed } from "../delta/sign.js";
 import { VOCAB_PREFIX } from "../delta/vocab.js";
-import type { Delta, Pointer, Primitive, Target } from "../delta/types.js";
+import type { Claims, Delta, Pointer, Primitive, Target } from "../delta/types.js";
 
 export const COMMAND_PREFIX = `${VOCAB_PREFIX}.command.`;
 export const COMMAND_PROFILE = `${VOCAB_PREFIX}.command/1`;
@@ -267,12 +267,13 @@ export function readRequestArguments(delta: Delta, kind: "retain" | "evaluate"):
   }
   return f;
 }
-export function writeCommandDescription(
-  seed: string,
+export function commandDescriptionClaims(
+  author: string,
   at: number,
   kind: DescriptionKind,
   fields: CommandFields,
-): Delta {
+): Claims {
+  if (!isCommandKey(author)) fail();
   const f: CommandFields = { ...fields, kind: [{ kind: "primitive" as const, value: kind }] };
   const pointers: Pointer[] = [];
   for (const key of ORDERS[kind]) {
@@ -286,7 +287,18 @@ export function writeCommandDescription(
     for (const target of targets) pointers.push({ role: COMMAND_PREFIX + key, target });
   }
   if (Object.keys(f).some((k) => !ORDERS[kind].includes(k))) fail();
-  return signClaims({ timestamp: at, validFrom: at, author: authorForSeed(seed), pointers }, seed);
+  const claims = { timestamp: at, validFrom: at, author, pointers };
+  assertValidClaims(claims);
+  return claims;
+}
+/** Seed convenience; explicit signer users sign commandDescriptionClaims themselves. */
+export function writeCommandDescription(
+  seed: string,
+  at: number,
+  kind: DescriptionKind,
+  fields: CommandFields,
+): Delta {
+  return signClaims(commandDescriptionClaims(authorForSeed(seed), at, kind, fields), seed);
 }
 export const COMMAND_REFUSALS = [
   "invalid-appearance",
