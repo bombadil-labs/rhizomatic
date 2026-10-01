@@ -234,6 +234,40 @@ fn record(
 }
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let root = env::args().nth(1).unwrap_or_else(|| "../..".into());
+    let metadata = std::process::Command::new(env!("CARGO"))
+        .args([
+            "metadata",
+            "--format-version",
+            "1",
+            "--no-deps",
+            "--manifest-path",
+        ])
+        .arg(Path::new(&root).join("implementations/rust/Cargo.toml"))
+        .output()?;
+    if !metadata.status.success() {
+        return Err("Cargo dependency metadata failed".into());
+    }
+    let metadata: Value = serde_json::from_slice(&metadata.stdout)?;
+    let package = metadata["packages"]
+        .as_array()
+        .ok_or("Cargo packages missing")?
+        .iter()
+        .find(|p| p["name"] == "rhizomatic")
+        .ok_or("Rust witness Cargo package missing")?;
+    let mut external_crates: BTreeSet<String> = ["std", "core", "alloc"]
+        .into_iter()
+        .map(str::to_string)
+        .collect();
+    for dependency in package["dependencies"]
+        .as_array()
+        .ok_or("Cargo dependencies missing")?
+    {
+        let name = dependency["rename"]
+            .as_str()
+            .or_else(|| dependency["name"].as_str())
+            .ok_or("Cargo dependency name missing")?;
+        external_crates.insert(name.replace('-', "_"));
+    }
     let dir = Path::new(&root).join("implementations/rust/src");
     let mut files = fs::read_dir(dir)?
         .map(|e| e.map(|e| e.path()))
@@ -480,6 +514,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let m = parts.next().unwrap_or("");
                     let s = parts.next().unwrap_or("");
                     dependencies.push(json!({"source":source,"symbol":symbol,"owner":owner(module,&symbol),"target":path,"targetOwner":owner(m,s),"form":"syn-resolved-path","sourceRegion":if module=="wasm" {"host-adapter"} else {"semantic-owner"}}));
+                } else if path
+                    .split("::")
+                    .next()
+                    .is_some_and(|prefix| external_crates.contains(prefix))
+                {
+                    dependencies.push(json!({"source":source,"symbol":symbol,"owner":owner(module,&symbol),"target":path,"form":"syn-external-path","sourceRegion":if module=="wasm" {"host-adapter"} else {"semantic-owner"}}));
                 }
             }
             if !visitor.macros.is_empty() {
