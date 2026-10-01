@@ -97,3 +97,15 @@ test('successful adapter exit also closes background descendants', async t => {
   await new Promise(resolve => setTimeout(resolve, 700));
   assert.equal(existsSync(marker), false);
 });
+
+test('parent exit stops descendants with inherited pipes before waiting for close', async t => {
+  const dir = mkdtempSync(join(tmpdir(), 'tower-inherited-pipes-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const marker = join(dir, 'late-write');
+  const worker = `setTimeout(()=>require('node:fs').writeFileSync(${JSON.stringify(marker)},'late'),500);`;
+  const parent = `require('node:child_process').spawn(process.execPath,['-e',${JSON.stringify(worker)}],{stdio:'inherit'}); process.stdout.write('done'); process.exit(0);`;
+  assert.equal(await processOutput(process.execPath, ['-e', parent], { input: '' }), 'done');
+  assert.equal(existsSync(marker), false);
+  await new Promise(resolve => setTimeout(resolve, 600));
+  assert.equal(existsSync(marker), false);
+});
