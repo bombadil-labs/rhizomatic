@@ -10,7 +10,8 @@ use crate::pred::{
     eval_pred, pred_contains_in_view, str_match, substitute_holes, Bindings, Cmp, InViewExtract,
     MatchConst, Pred, StrMatch,
 };
-use crate::resolution::{resolve_view, view_canonical_hex, Schema, View};
+pub use crate::resolution::first_by_order;
+use crate::resolution::{resolve_view, view_canonical_hex, Order, Schema, View};
 use crate::schema::SchemaRegistry;
 use crate::schema_deltas::VOCAB_PREFIX;
 use crate::set::{fork, merge, DeltaSet};
@@ -771,4 +772,29 @@ pub fn result_canonical_hex(result: &EvalResult) -> String {
             hex::encode(bytes)
         }
     }
+}
+
+/// Select one supplied definition through explicit gather, author selection and ordering.
+pub(crate) fn selected_definition(
+    body: &Term,
+    dset: &DeltaSet,
+    schema_entity: &str,
+    now: f64,
+    admits_author: impl Fn(&str) -> bool,
+    order: &Order,
+) -> Result<HVEntry, String> {
+    // Filter authors before mask: a foreign negation cannot suppress governing law.
+    let governed = governed_deltas(dset, now, admits_author)?;
+    let result = eval_term_at(body, &governed, now, Some(schema_entity), None, None)?;
+    let EvalResult::HView(h) = result else {
+        return Err("bootstrap body must yield an HView".to_string());
+    };
+    let empty = Vec::new();
+    let defs = h.props.get("definition").unwrap_or(&empty);
+    if defs.is_empty() {
+        return Err(format!(
+            "no surviving schema definition for {schema_entity}"
+        ));
+    }
+    Ok(first_by_order(order, defs).unwrap().clone())
 }

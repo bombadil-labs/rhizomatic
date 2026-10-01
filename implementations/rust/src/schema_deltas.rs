@@ -3,9 +3,8 @@
 use serde_json::json;
 
 use crate::cbor::decode;
-use crate::eval::{eval_term_at, governed_deltas, EvalResult, Term};
-use crate::hview::HVEntry;
-use crate::resolution::{first_by_order, Order, Schema};
+use crate::eval::selected_definition;
+use crate::resolution::{Order, Schema};
 use crate::schema::HyperSchema;
 use crate::set::DeltaSet;
 use crate::term_io::{cbor_to_json, schema_canonical_hex, term_canonical_hex};
@@ -87,30 +86,6 @@ fn primitive_of(claims: &Claims, want_role: &str) -> Option<Primitive> {
 
 /// Load a schema definition from the rhizome (S3): evaluate the bootstrap at the schema entity,
 /// take the latest surviving definition, decode the term, verify canonicality by re-encoding.
-fn selected_definition(
-    body: &Term,
-    dset: &DeltaSet,
-    schema_entity: &str,
-    now: f64,
-    admits_author: impl Fn(&str) -> bool,
-    order: &Order,
-) -> Result<HVEntry, String> {
-    // Filter authors before mask: a foreign negation cannot suppress governing law.
-    let governed = governed_deltas(dset, now, admits_author)?;
-    let result = eval_term_at(body, &governed, now, Some(schema_entity), None, None)?;
-    let EvalResult::HView(h) = result else {
-        return Err("bootstrap body must yield an HView".to_string());
-    };
-    let empty = Vec::new();
-    let defs = h.props.get("definition").unwrap_or(&empty);
-    if defs.is_empty() {
-        return Err(format!(
-            "no surviving schema definition for {schema_entity}"
-        ));
-    }
-    Ok(first_by_order(order, defs).unwrap().clone())
-}
-
 /// Load under a caller-selected governing author predicate and Pick order.
 pub fn load_governed_hyper_schema(
     dset: &DeltaSet,

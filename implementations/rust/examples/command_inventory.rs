@@ -1,10 +1,12 @@
 //! Language-aware public symbol and dependency inventory for host and WASM source.
-//! This examines every source AST, including cfg-gated nodes. Macro bodies are explicitly
-//! recorded as opaque regions; they are not advertised as fully resolved dependency evidence.
+//! This examines every source AST, including cfg-gated nodes and known macro arguments.
+//! Unknown macro/import forms fail closed; this is not compiler trait-resolution evidence.
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, BTreeSet};
 use std::{env, fs, path::Path};
+use syn::parse::{Parse, ParseStream, Parser};
 use syn::visit::{self, Visit};
+use syn::{Expr, Token};
 use syn::{Item, UseTree, Visibility};
 
 fn uses(tree: &UseTree, prefix: String, out: &mut Vec<(String, String)>) {
@@ -25,28 +27,37 @@ fn owner(module: &str, symbol: &str) -> &'static str {
         "command_data" => "command-data",
         "command" => "command",
         "types" | "cbor" | "delta" | "hash" | "sign" | "json_profile" | "b64u" | "set" => "delta",
-        "pred" | "term_io" | "term_json" | "parse_error" | "strict" => "syntax",
+        "pred" | "term_io" | "term_json" => "syntax",
+        "parse_error" if symbol.starts_with("diagnose_") => "syntax",
+        "parse_error" | "strict" => "delta",
         "schema" => "schema",
+        "schema_deltas" if symbol == "VOCAB_PREFIX" => "delta",
         "schema_deltas" | "lens_binding" => "schema-load",
         "eval" => {
             if matches!(
                 symbol,
-                "Term" | "SchemaRef" | "MaskPolicy" | "PruneKeep" | "GroupKey"
+                "Term"
+                    | "SchemaRef"
+                    | "MaskPolicy"
+                    | "PruneKeep"
+                    | "GroupKey"
+                    | "term_contains_in_view"
             ) {
                 "syntax"
             } else {
-                "algebra"
+                "resolve"
             }
         }
         "resolution" => {
-            if matches!(symbol, "resolve_view" | "candidate_value" | "render_target") {
-                "resolve"
+            if matches!(symbol, "View" | "MergeFn" | "Order" | "Policy" | "Schema") {
+                "syntax"
             } else {
                 "resolve-kernel"
             }
         }
         "hview" => "algebra",
         "alias" => "delta",
+        "reactor" if matches!(symbol, "manifest_member_ids" | "make_manifest_claims") => "delta",
         "reactor" | "materialize" => "reactor",
         "principal" => "principal",
         "pack" => "storage",
@@ -81,10 +92,90 @@ fn cfg(attrs: &[syn::Attribute]) -> Vec<String> {
         .map(|a| format!("{:?}", a.meta))
         .collect()
 }
+struct JsonMacroExpressions(Vec<Expr>);
+impl Parse for JsonMacroExpressions {
+    fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
+        fn value(input: ParseStream<'_>, out: &mut Vec<Expr>) -> syn::Result<()> {
+            if input.peek(syn::token::Brace) {
+                let inner;
+                syn::braced!(inner in input);
+                while !inner.is_empty() {
+                    out.push(inner.parse::<Expr>()?);
+                    inner.parse::<Token![:]>()?;
+                    value(&inner, out)?;
+                    if inner.is_empty() {
+                        break;
+                    }
+                    inner.parse::<Token![,]>()?;
+                }
+            } else if input.peek(syn::token::Bracket) {
+                let inner;
+                syn::bracketed!(inner in input);
+                while !inner.is_empty() {
+                    value(&inner, out)?;
+                    if inner.is_empty() {
+                        break;
+                    }
+                    inner.parse::<Token![,]>()?;
+                }
+            } else {
+                out.push(input.parse::<Expr>()?);
+            }
+            Ok(())
+        }
+        let mut out = Vec::new();
+        value(input, &mut out)?;
+        Ok(Self(out))
+    }
+}
+fn macro_expressions(m: &syn::Macro) -> Result<Vec<Expr>, String> {
+    let name = m
+        .path
+        .segments
+        .last()
+        .ok_or("empty macro path")?
+        .ident
+        .to_string();
+    let args = m.tokens.to_string();
+    match name.as_str() {
+        "json" => syn::parse2::<JsonMacroExpressions>(m.tokens.clone())
+            .map(|v| v.0)
+            .map_err(|e| e.to_string()),
+        "vec" => syn::parse_str::<Expr>(&format!("[{args}]"))
+            .map(|e| vec![e])
+            .map_err(|e| e.to_string()),
+        "matches" => {
+            // Parse the expression and pattern independently; the guard remains a Rust expression.
+            let parser = |input: ParseStream<'_>| -> syn::Result<Vec<Expr>> {
+                let expr: Expr = input.parse()?;
+                input.parse::<Token![,]>()?;
+                let _: syn::Pat = input.call(syn::Pat::parse_multi)?;
+                let mut out = vec![expr];
+                if input.peek(Token![if]) {
+                    input.parse::<Token![if]>()?;
+                    out.push(input.parse::<Expr>()?);
+                }
+                if input.peek(Token![,]) {
+                    input.parse::<Token![,]>()?;
+                }
+                Ok(out)
+            };
+            parser.parse2(m.tokens.clone()).map_err(|e| e.to_string())
+        }
+        "format" | "assert" | "assert_eq" | "assert_ne" | "panic" | "unreachable" => {
+            syn::punctuated::Punctuated::<Expr, Token![,]>::parse_terminated
+                .parse2(m.tokens.clone())
+                .map(|v| v.into_iter().collect())
+                .map_err(|e| e.to_string())
+        }
+        _ => Err(format!("unsupported production macro {name}")),
+    }
+}
 struct Paths {
     aliases: BTreeMap<String, String>,
     paths: BTreeSet<String>,
     macros: BTreeSet<String>,
+    unsupported: Vec<String>,
 }
 impl<'ast> Visit<'ast> for Paths {
     fn visit_path(&mut self, p: &'ast syn::Path) {
@@ -118,6 +209,14 @@ impl<'ast> Visit<'ast> for Paths {
                 .collect::<Vec<_>>()
                 .join("::"),
         );
+        match macro_expressions(m) {
+            Ok(expressions) => {
+                for expr in expressions {
+                    self.visit_expr(&expr);
+                }
+            }
+            Err(error) => self.unsupported.push(error),
+        }
         visit::visit_macro(self, m);
     }
 }
@@ -140,16 +239,56 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .map(|e| e.map(|e| e.path()))
         .collect::<Result<Vec<_>, _>>()?;
     files.sort();
+    let root_ast = syn::parse_file(&fs::read_to_string(
+        Path::new(&root).join("implementations/rust/src/lib.rs"),
+    )?)?;
+    let mut aggregate_aliases = BTreeMap::new();
+    for item in &root_ast.items {
+        if let Item::Use(u) = item {
+            if public(&u.vis) {
+                let mut names = Vec::new();
+                uses(&u.tree, String::new(), &mut names);
+                for (name, path) in names {
+                    aggregate_aliases.insert(name, path);
+                }
+            }
+        }
+    }
     let mut exports = Vec::new();
     let mut dependencies = Vec::new();
     for file in files {
+        if file.is_dir() {
+            return Err(format!(
+                "unsupported nested production module directory {}",
+                file.display()
+            )
+            .into());
+        }
         if file.extension().is_none_or(|e| e != "rs") {
             continue;
         }
         let module = file.file_stem().unwrap().to_str().unwrap();
         let source = format!("implementations/rust/src/{module}.rs");
+        if owner(module, "") == "unclassified" {
+            return Err(format!("unclassified production module {source}").into());
+        }
         let ast = syn::parse_file(&fs::read_to_string(&file)?)?;
         let mut aliases = BTreeMap::new();
+        let mut imports = Vec::new();
+        for item in &ast.items {
+            let name = match item {
+                Item::Fn(i) => Some(i.sig.ident.to_string()),
+                Item::Struct(i) => Some(i.ident.to_string()),
+                Item::Enum(i) => Some(i.ident.to_string()),
+                Item::Trait(i) => Some(i.ident.to_string()),
+                Item::Type(i) => Some(i.ident.to_string()),
+                Item::Const(i) => Some(i.ident.to_string()),
+                _ => None,
+            };
+            if let Some(name) = name {
+                aliases.insert(name.clone(), format!("crate::{module}::{name}"));
+            }
+        }
         for item in &ast.items {
             if let Item::Use(u) = item {
                 let mut paths = Vec::new();
@@ -158,12 +297,44 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     if a == "*" {
                         return Err(format!("unsupported glob import in {source}").into());
                     }
+                    imports.push(p.clone());
                     aliases.insert(a, p);
                 }
             }
         }
+        for path in imports {
+            if path.starts_with("crate::") {
+                let parts: Vec<_> = path.split("::").skip(1).collect();
+                let resolved = parts
+                    .first()
+                    .and_then(|name| aggregate_aliases.get(*name))
+                    .cloned()
+                    .unwrap_or_else(|| parts.join("::"));
+                let target_parts: Vec<_> = resolved.split("::").collect();
+                dependencies.push(json!({"source":source,"symbol":"<import>","owner":owner(module,""),"target":path,"targetOwner":owner(target_parts.first().copied().unwrap_or(""),target_parts.get(1).copied().unwrap_or("")),"form":"syn-import","sourceRegion":if module=="wasm" {"host-adapter"} else if module=="lib" {"compatibility-aggregate"} else {"semantic-owner"}}));
+            } else {
+                dependencies.push(json!({"source":source,"symbol":"<import>","owner":owner(module,""),"target":path,"form":"syn-external-import","sourceRegion":if module=="wasm" {"host-adapter"} else {"semantic-owner"}}));
+            }
+        }
         for item in &ast.items {
             match item {
+                Item::Mod(x) => {
+                    if x.content.is_some() {
+                        return Err(
+                            format!("unsupported inline production module in {source}").into()
+                        );
+                    }
+                    if public(&x.vis) {
+                        record(
+                            &mut exports,
+                            &x.ident.to_string(),
+                            &x.ident.to_string(),
+                            &source,
+                            "module",
+                            &x.attrs,
+                        );
+                    }
+                }
                 Item::Fn(x) if public(&x.vis) => record(
                     &mut exports,
                     module,
@@ -202,6 +373,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     &x.ident.to_string(),
                     &source,
                     "constant",
+                    &x.attrs,
+                ),
+                Item::Static(x) if public(&x.vis) => record(
+                    &mut exports,
+                    module,
+                    &x.ident.to_string(),
+                    &source,
+                    "static",
                     &x.attrs,
                 ),
                 Item::Type(x) if public(&x.vis) => record(
@@ -262,8 +441,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 aliases: aliases.clone(),
                 paths: BTreeSet::new(),
                 macros: BTreeSet::new(),
+                unsupported: Vec::new(),
             };
             visitor.visit_item(item);
+            if !visitor.unsupported.is_empty() {
+                return Err(format!("{source}: {}", visitor.unsupported.join("; ")).into());
+            }
             let symbol = match item {
                 Item::Fn(x) => x.sig.ident.to_string(),
                 Item::Struct(x) => x.ident.to_string(),
@@ -276,15 +459,31 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             };
             for path in visitor.paths {
                 if path.starts_with("crate::") {
-                    let mut parts = path.split("::");
-                    parts.next();
+                    let segments: Vec<_> = path.split("::").skip(1).collect();
+                    let resolved = if let Some(target) = segments
+                        .first()
+                        .and_then(|name| aggregate_aliases.get(*name))
+                    {
+                        format!(
+                            "{}{}",
+                            target,
+                            if segments.len() > 1 {
+                                format!("::{}", segments[1..].join("::"))
+                            } else {
+                                String::new()
+                            }
+                        )
+                    } else {
+                        segments.join("::")
+                    };
+                    let mut parts = resolved.split("::");
                     let m = parts.next().unwrap_or("");
                     let s = parts.next().unwrap_or("");
-                    dependencies.push(json!({"source":source,"symbol":symbol,"owner":owner(module,&symbol),"target":path,"targetOwner":owner(m,s),"form":"syn-resolved-path"}));
+                    dependencies.push(json!({"source":source,"symbol":symbol,"owner":owner(module,&symbol),"target":path,"targetOwner":owner(m,s),"form":"syn-resolved-path","sourceRegion":if module=="wasm" {"host-adapter"} else {"semantic-owner"}}));
                 }
             }
             if !visitor.macros.is_empty() {
-                dependencies.push(json!({"source":source,"symbol":symbol,"owner":owner(module,&symbol),"form":"macro-region","macros":visitor.macros,"status":"explicitly-unexamined-token-bodies"}));
+                dependencies.push(json!({"source":source,"symbol":symbol,"owner":owner(module,&symbol),"form":"macro-region","macros":visitor.macros,"status":"parsed-known-macro-arguments"}));
             }
         }
     }
@@ -292,7 +491,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!(
         "{}",
         serde_json::to_string_pretty(
-            &json!({"format":"rhizomatic-semantic-api-inventory/1","witness":"rust","analysis":"syn-2 AST; all source cfg regions; crate paths and imported aliases; macro token bodies explicitly enumerated, not claimed as resolved","exports":exports,"dependencies":dependencies})
+            &json!({"format":"rhizomatic-semantic-api-inventory/1","witness":"rust","analysis":"syn-2 AST; all source cfg regions; crate paths and imported aliases; known macro arguments parsed as Rust/JSON syntax; unknown macro/import forms fail closed; no compiler trait-resolution proof","exports":exports,"dependencies":dependencies})
         )?
     );
     Ok(())
