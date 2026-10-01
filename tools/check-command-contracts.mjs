@@ -27,10 +27,17 @@ function validate({cards,scenarios,plan,coverage,capabilities,bootstrap,towers,e
  if(JSON.stringify(selected.map(f=>f.scenario).sort())!==JSON.stringify([...towers.required_scenarios].sort()))throw Error('missing tower scenario');
  const equalSet=(a,b)=>Array.isArray(a)&&a.length===b.length&&new Set(a).size===a.length&&JSON.stringify([...a].sort())===JSON.stringify([...b].sort());
  for(const w of capabilities.witnesses){
-  if(w.profiles.length)throw Error('profile needs executed evidence and independent review before advertisement');
   if(!['supported','not_implemented'].includes(w.state))throw Error('unknown capability state');
-  if(['elixir','haskell'].includes(w.id)&&(w.conformance_level!==0||w.stages.length||w.state!=='not_implemented'))throw Error('lower witness capability changed');
   if(w.state==='not_implemented'&&(w.stages.length||Object.keys(w.stage_evidence??{}).length))throw Error('unsupported stage advertisement');
+  if(!Array.isArray(w.profiles)||new Set(w.profiles).size!==w.profiles.length||w.profiles.some(id=>id!=='rhizomatic.command/1'))throw Error('unsupported profile capability');
+  if(!equalSet(Object.keys(w.profile_evidence??{}),w.profiles))throw Error('profile needs external executed evidence requirements');
+  for(const profile of w.profiles){
+   const evidence=w.profile_evidence[profile];
+   if(w.state!=='supported'||evidence.format!=='rhizomatic-command-acceptance-evidence/1'||!equalSet(evidence.required_cases,[...frozen.keys()]))throw Error('missing profile acceptance case inventory');
+   if(evidence.requires_exact_commit!==true||evidence.requires_independent_review!==true||!equalSet(evidence.requires_existing_conformance,['ts','rust','elixir','haskell']))throw Error('missing external profile acceptance condition');
+   if(!equalSet(Object.keys(evidence),['format','required_cases','requires_exact_commit','requires_independent_review','requires_existing_conformance']))throw Error('static profile self-certification is forbidden');
+  }
+  if(['elixir','haskell'].includes(w.id)&&(w.conformance_level!==0||w.stages.length||w.state!=='not_implemented'))throw Error('lower witness capability changed');
   if(w.state==='supported'){
    if(!equalSet(w.stages,stageContracts)||!equalSet(Object.keys(w.stage_evidence??{}),stageContracts))throw Error('missing or unknown stage capability');
    for(const stage of towers.stages){const expected=selected.flatMap(f=>f.steps.map(step=>`${f.id}/${step.id??'command'}/${stage.id}`));if(!equalSet(w.stage_evidence[stage.contract],expected))throw Error('missing or duplicate executed stage case');}
@@ -51,7 +58,7 @@ if(process.argv.includes('--self-test'))for(const [name,mutate,pattern] of [
  ['missing contract',d=>delete d.cards[0].responsibility,/missing contract/],
  ['unknown requirement',d=>d.cards[0].requirements.push('R-99'),/unknown spec/],
  ['missing case',d=>d.scenarios.pop(),/missing required case/],
- ['false capability',d=>d.capabilities.witnesses[0].profiles.push('rhizomatic.command/1'),/executed evidence/],
+ ['false capability',d=>d.capabilities.witnesses[0].profiles=['rhizomatic.command/999'],/unsupported profile/],
  ['missing stage',d=>d.capabilities.witnesses[0].stages.pop(),/stage capability/],
  ['unknown stage',d=>d.capabilities.witnesses[0].stages[0]='unknown/1',/stage capability/],
  ['duplicate stage case',d=>{const v=Object.values(d.capabilities.witnesses[0].stage_evidence)[0];v[1]=v[0]},/executed stage case/],
@@ -65,9 +72,16 @@ if(process.argv.includes('--self-test'))for(const [name,mutate,pattern] of [
  ['unknown coverage requirement',d=>d.coverage[0].requirements.push('R-99'),/coverage requirement/],
  ['missing API contract',d=>d.api.contracts.shift(),/missing API stage contract/],
  ['duplicate API contract',d=>d.api.contracts.push(d.api.contracts[0]),/duplicate API contract/],
+ ['missing profile evidence contract',d=>delete d.capabilities.witnesses[0].profile_evidence,/external executed evidence/],
+ ['missing profile acceptance case',d=>d.capabilities.witnesses[0].profile_evidence['rhizomatic.command/1'].required_cases.pop(),/acceptance case inventory/],
+ ['duplicate profile acceptance case',d=>{const ids=d.capabilities.witnesses[0].profile_evidence['rhizomatic.command/1'].required_cases;ids[1]=ids[0]},/acceptance case inventory/],
+ ['missing exact commit requirement',d=>d.capabilities.witnesses[0].profile_evidence['rhizomatic.command/1'].requires_exact_commit=false,/external profile acceptance condition/],
+ ['missing independent review requirement',d=>d.capabilities.witnesses[0].profile_evidence['rhizomatic.command/1'].requires_independent_review=false,/external profile acceptance condition/],
+ ['missing existing conformance requirement',d=>d.capabilities.witnesses[0].profile_evidence['rhizomatic.command/1'].requires_existing_conformance.pop(),/external profile acceptance condition/],
+ ['static profile pass claim',d=>d.capabilities.witnesses[0].profile_evidence['rhizomatic.command/1'].status='passed',/self-certification/],
 ]){const broken=structuredClone(data);mutate(broken);let refused=false;try{validate(broken)}catch(e){if(!pattern.test(e.message))throw e;refused=true;}if(!refused)throw Error(`negative checker fixture accepted: ${name}`);console.log(`command-contract-case:${name}`);}
 const inventory=spawnSync(process.execPath,[join(root,'tools/command-inventory.mjs'),...(process.argv.includes('--self-test')?['--self-test']:[])],{encoding:'utf8'});if(inventory.status!==0)throw Error(inventory.stderr);process.stdout.write(inventory.stdout);
-console.log(`Command M0 contracts: ${data.cards.length} owners; ${data.scenarios.length} frozen cases; four stage capabilities; full profile remains unadvertised.`);
+console.log(`Command M0 contracts: ${data.cards.length} owners; ${data.scenarios.length} frozen cases; four stage capabilities; prospective profile requires external exact-source acceptance.`);
 
 const vectors=JSON.parse(readFileSync(join(root,'vectors/command/descriptions.json'),'utf8'));
 const fixtureIds=new Set(vectors.cases.map(c=>c.id));if(fixtureIds.size!==vectors.cases.length)throw Error('duplicate fixture ID');

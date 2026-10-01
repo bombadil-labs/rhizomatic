@@ -133,7 +133,14 @@ export const requiredCheckerCases = {
     "contract:missing required witness",
     "contract:unknown coverage requirement",
     "contract:missing API contract",
-    "contract:duplicate API contract"
+    "contract:duplicate API contract",
+    "contract:missing profile evidence contract",
+    "contract:missing profile acceptance case",
+    "contract:duplicate profile acceptance case",
+    "contract:missing exact commit requirement",
+    "contract:missing independent review requirement",
+    "contract:missing existing conformance requirement",
+    "contract:static profile pass claim"
   ]
 };
 export function requireCheckerCases(gate, observed) {

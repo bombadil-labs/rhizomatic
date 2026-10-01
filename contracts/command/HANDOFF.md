@@ -1,8 +1,8 @@
 # Implementation handoff: Rhizomatic command profile 1
 
-Implement the bounded profile in [SPEC.md](SPEC.md), with the library acceptance framework in [BOUNDARIES.json](BOUNDARIES.json), scenarios in [ACCEPTANCE.json](ACCEPTANCE.json), and enforcement in [CI.md](CI.md). This packet is intended for the requested GPT-6.1 Sol instance at High effort. It is a specification, not a claim about model performance or a completed implementation.
+Implement the bounded profile in [SPEC.md](SPEC.md), with the library acceptance framework in [BOUNDARIES.json](BOUNDARIES.json), scenarios in [ACCEPTANCE.json](ACCEPTANCE.json), and enforcement in [CI.md](CI.md). The originating audit packet targeted a requested implementation worker. This adopted handoff records the implementation contract and provenance; acceptance is established by executed evidence and independent review.
 
-The result is one delta-described command interface supporting durable retain and evaluation, portable descriptions and results, and reproducible composition across TS and Rust. Every current library gets an explicit boundary card and an inventory of its semantic surface. Completing this assignment establishes profile 1; it does not close every item in the broader gap ledger. [DECISIONS.md](DECISIONS.md) records the rationale and scope; The adopted normative source is [spec/15-command.md](../../spec/15-command.md). [MILESTONES.json](MILESTONES.json) freezes the required case identities and milestone allocation independently of their descriptions.
+The result is one delta-described command interface supporting durable retain and evaluation, portable descriptions and results, and reproducible composition across TS and Rust. Every current library gets an explicit boundary card and an inventory of its semantic surface. Completing this assignment establishes profile 1; it does not close every item in the broader gap ledger. [DECISIONS.md](DECISIONS.md) records the rationale and scope. The adopted normative source is [spec/15-command.md](../../spec/15-command.md). [MILESTONES.json](MILESTONES.json) freezes the required case identities and milestone allocation independently of their descriptions.
 
 ## Working scope
 
@@ -19,14 +19,14 @@ The result is one delta-described command interface supporting durable retain an
 2. [SPEC.md](SPEC.md), especially R-01–R-03 and R-28–R-34, then [DECISIONS.md](DECISIONS.md).
 3. [BOUNDARIES.json](BOUNDARIES.json), [ACCEPTANCE.json](ACCEPTANCE.json), [CI.md](CI.md), [TOWERS.json](TOWERS.json).
 4. Existing specs and implementation evidence named by the affected cards: Delta, syntax, Schema/registry, resolution, principal, durable peer admission.
-5. [Gap ledger](../RHIZOMATIC-GAP-LEDGER.json) for outstanding work outside the first delivery.
-6. [Earlier proposal](../intake/PROPOSAL.md) and [probe](../intake/probe.ts) for design history only. Do not copy its untyped shortcuts, draft vocabulary, volatile admission or cached-response semantics into production.
+5. Historical external audit resource: `refactor-audit/RHIZOMATIC-GAP-LEDGER.json` records outstanding ecosystem work outside this delivery. It is outside the repository; the relevant deferred boundaries are retained in [TOWERS.json](TOWERS.json).
+6. Historical external audit resources: `refactor-audit/intake/PROPOSAL.md` and `refactor-audit/intake/probe.ts` contain earlier design history. They are not repository-local dependencies or executable conformance evidence. Do not copy their draft vocabulary, volatile admission or cached-response semantics into production.
 
 ## Milestones
 
 Keep the two witnesses within one milestone of each other. Each milestone ends with concrete source/vector changes and evidence tied to a frozen head. Independent review follows the repository's established process; no new approval ceremony is implied. Do not report “done” after implementing only TypeScript.
 
-The no-messages constraint still applies. Finish the implementation and a concrete review packet even if reviewer coordination is unavailable; distinguish implementation complete from independently reviewed completion as described in DECISIONS.md.
+Coordinate implementation and independent review within the user’s explicit authorization. The delivery authorization permits supervised TS/Rust workers and fresh independent review; earlier audit-thread restrictions do not override it. If review coordination is unavailable, finish the concrete implementation packet and report review as pending, as described in DECISIONS.md.
 
 | Milestone | Deliverables | Acceptance and stopping boundary |
 | --- | --- | --- |

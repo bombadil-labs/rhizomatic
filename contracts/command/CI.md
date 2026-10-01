@@ -117,13 +117,17 @@ Pin each milestone's required case set as all scenarios up to that milestone. Ea
 
 In disposable fixture trees, prove rejection of: a type-only upward dependency; a runtime upward dependency; an aggregate import; an unresolved dynamic import; an unclassified public export; an unknown spec reference; a missing required case; a skipped required case; a falsely advertised profile; and a deliberately altered canonical result. Verify each fails for the intended reason. This checks the checker, not production implementation behavior.
 
-For the audit packet itself run:
+Run the checkout-relative checks:
 
 ```sh
-node /home/mykola/bombadil-labs/refactor-audit/implementation-spec/check-spec.mjs --self-test
+node tools/check-command-contracts.mjs --self-test
+node tools/check-package-graph.mjs
+node tools/check-command-boundary-negatives.mjs
+node tools/check-rust-command-boundaries.mjs
+node --test tools/check-rust-command-boundaries.test.mjs tools/check-command-bootstrap.test.mjs
 ```
 
-That local check validates references, card dependencies/source paths, coverage of R-IDs, links and manifest consistency, with deliberately broken manifest fixtures. It compares exact case identities and milestone allocation with [MILESTONES.json](MILESTONES.json), so a same-count rename or a move to a later milestone fails. It never reports specified scenarios as executed. The only existing executable intake evidence remains the earlier 18-case draft probe, which does not conform to the revised retry/composition profile.
+These checks compare live exports, dependencies, bootstrap bytes, exact scenario identities and milestone allocation with the adopted manifests. They emit named evidence only after actual assertions. Static coverage references describe executable tests; the aggregate report determines which tests actually passed on the measured source.
 
 ## Executed evidence in this checkout
 
@@ -131,6 +135,6 @@ The `command` CI job depends on all four existing witness jobs. It records their
 
 Run the aggregate with `--out` outside the checkout, `--conformance` containing actual four-witness CI facts, and an explicit `--seed`. A supervisor may supply `--review` with an independently authored exact-commit acceptance record and `--require-review` to require all 78 cases. The runner refuses dirty source, source drift, missing post-assert test identities, stale builds and changed replay artifacts.
 
-`capabilities.json` advertises four serialized stages for TS/Rust only. Its `stage_evidence` names the exact independently-oracled tower cases; the runner binds those declarations to newly executed case reports and measured build identities. Conformance level does not infer command capability. Full profile advertisement remains absent until the complete acceptance record is available.
+`capabilities.json` advertises four serialized stages for TS/Rust only. Its `stage_evidence` names the exact independently-oracled tower cases; the runner binds those declarations to newly executed case reports and measured build identities. Conformance level does not infer command capability. The prospective `rhizomatic.command/1` declaration includes an external acceptance-evidence contract and the exact 78-case inventory. It embeds no source commit or passing status. Acceptance requires a fresh report binding the actual source commit, all existing witnesses and independent exact-commit review; CI alone continues to report that review as pending.
 
 `API.json`, the TS compiler inventory and Rust syn inventory classify public declarations and member interfaces, including compatibility exports and explicit host capabilities. Rust analysis limits are recorded in [rust-command-boundaries.md](../../tools/rust-command-boundaries.md). Graph checks direct owner dependencies and ambient observations, without claiming proof of transitive implementation purity. Bootstrap pins are compared against actual native exports in both witnesses and shared canonical vectors.
