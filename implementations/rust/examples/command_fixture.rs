@@ -249,6 +249,32 @@ fn main() {
 mod tests {
     use super::*;
     #[test]
+    fn shared_unsigned_appearance_byte_limit_precedes_signature_rejection() {
+        let vectors: Value = serde_json::from_slice(
+            &std::fs::read(
+                std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                    .join("../../vectors/command/execution.json"),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let fixture = &vectors["fixtures"]["missingSignatureByteLimit"];
+        let directory = tempfile::tempdir().unwrap();
+        let mut input = json!({"mode":"execute","context":vectors["cases"][0]["context"],"artifact":{"format":"rhizomatic-command-artifact/1","entryId":fixture["request"]["id"],"deltas":[fixture["request"],fixture["payload"]]}});
+        input["context"]["boot"]["configuration"] = fixture["configuration"].clone();
+        input["context"]["storePath"] = json!(directory.path().join("byte-limit.json"));
+        let out = run(&input).unwrap();
+        assert_eq!(
+            rhizomatic::command_data::read_outcome(&delta(&out["outcome"]).unwrap())
+                .unwrap()
+                .body,
+            rhizomatic::command_data::OutcomeBody::Refused {
+                code: fixture["expectedCode"].as_str().unwrap().into()
+            }
+        );
+        assert!(out["observed"]["ids"].as_array().unwrap().is_empty());
+    }
+    #[test]
     fn seeded_source_requires_explicit_local_arrival_and_confirmed_admission() {
         let vectors: Value = serde_json::from_slice(
             &std::fs::read(
