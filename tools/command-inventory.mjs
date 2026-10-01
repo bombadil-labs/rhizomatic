@@ -27,7 +27,8 @@ for(const file of files){
    for(const member of members){
     const memberDeclaration=member.declarations?.find(d=>d.getSourceFile().fileName.startsWith(src));
     if(!memberDeclaration || memberDeclaration.modifiers?.some(m=>[ts.SyntaxKind.PrivateKeyword,ts.SyntaxKind.ProtectedKeyword].includes(m.kind)))continue;
-    actual.push({id:`ts:${relative(src,file)}:${symbol.name}#${member.name}`,owner:ownerFile.includes('/')?owner:'aggregate',symbol:`${symbol.name}.${member.name}`,source:relative(root,file),definition:relative(root,memberDeclaration.getSourceFile().fileName)});
+    const name=memberDeclaration.name&&ts.isComputedPropertyName(memberDeclaration.name)?memberDeclaration.name.getText():member.name;
+    actual.push({id:`ts:${relative(src,file)}:${symbol.name}#${name}`,owner:ownerFile.includes('/')?owner:'aggregate',symbol:`${symbol.name}.${name}`,source:relative(root,file),definition:relative(root,memberDeclaration.getSourceFile().fileName)});
    }
    if(ts.isClassDeclaration(declaration))for(const member of declaration.members){
     if(!member.name || !member.modifiers?.some(m=>m.kind===ts.SyntaxKind.StaticKeyword) || member.modifiers?.some(m=>[ts.SyntaxKind.PrivateKeyword,ts.SyntaxKind.ProtectedKeyword].includes(m.kind)))continue;
