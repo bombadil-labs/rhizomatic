@@ -128,7 +128,12 @@ export const requiredCheckerCases = {
     "inventory:unknown contract",
     "inventory:duplicate export",
     "inventory:wrong contract owner",
-    "inventory:missing semantics"
+    "inventory:missing semantics",
+    "contract:unknown coverage state",
+    "contract:missing required witness",
+    "contract:unknown coverage requirement",
+    "contract:missing API contract",
+    "contract:duplicate API contract"
   ]
 };
 export function requireCheckerCases(gate, observed) {
