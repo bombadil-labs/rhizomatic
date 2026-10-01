@@ -540,7 +540,13 @@ fn validate_pointers(
         id: String::new(),
         sig: None,
         claims: Claims {
-            author: String::new(),
+            author: p
+                .iter()
+                .find_map(|pointer| match &pointer.target {
+                    Target::Entity(e) if pointer.role == role("receiver") => Some(e.id.clone()),
+                    _ => None,
+                })
+                .unwrap_or_default(),
             timestamp: 0.0,
             valid_from: 0.0,
             valid_until: None,
@@ -787,7 +793,12 @@ pub fn read_outcome(d: &Delta) -> Result<Outcome, String> {
     ])?;
     f.kind("outcome/1")?;
     let receiver = f.entity("receiver")?;
-    require(is_author(&receiver))?;
+    require(
+        is_author(&receiver)
+            && d.claims.author == receiver
+            && d.claims.timestamp == d.claims.valid_from
+            && d.claims.valid_until.is_none(),
+    )?;
     Ok(Outcome {
         receiver,
         configuration: f.reference("configuration")?,

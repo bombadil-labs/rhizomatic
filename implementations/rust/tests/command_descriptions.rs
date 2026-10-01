@@ -107,10 +107,19 @@ fn shared_command_description_vectors() {
             claims.pointers = pointers;
             let written =
                 rhizomatic::sign::sign_claims(&claims, fixtures["seed"].as_str().unwrap()).unwrap();
-            assert_eq!(
-                written, delta,
-                "{id}: full writer claims/id/signature roundtrip"
-            );
+            if let Some(expected) = case["expected"]["writerCanonicalHex"].as_str() {
+                assert_eq!(
+                    rhizomatic::canonical_hex(&written.claims).unwrap(),
+                    expected,
+                    "{id}: canonical writer ordering"
+                );
+                assert_eq!(verify_delta(&written), Verification::Verified);
+            } else {
+                assert_eq!(
+                    written, delta,
+                    "{id}: full writer claims/id/signature roundtrip"
+                );
+            }
         }
         println!("command-case:{}:{}", case["scenario"].as_str().unwrap(), id);
     }
@@ -125,4 +134,46 @@ fn strict_view_duplicate_keys_and_byte_object() {
     let bytes = encode(&object);
     assert_eq!(encode(&view_to_cbor(&decode_view(&bytes).unwrap())), bytes);
     assert!(decode_view(&hex::decode("f98000").unwrap()).is_err());
+}
+
+#[test]
+fn outcome_claims_time_and_catalog_head_are_strict() {
+    let fixtures: Value = serde_json::from_str(
+        &fs::read_to_string(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("../../vectors/command/descriptions.json"),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    let cases = fixtures["cases"].as_array().unwrap();
+    let outcome = cases
+        .iter()
+        .find(|c| c["kind"] == "outcome" && c["expected"]["valid"] == true)
+        .unwrap();
+    let mut delta = input_delta(&outcome["input"]).unwrap();
+    delta.claims.valid_from += 1.0;
+    assert!(read_outcome(&delta).is_err());
+    delta.claims.valid_from = delta.claims.timestamp;
+    delta.claims.valid_until = Some(delta.claims.timestamp + 1.0);
+    assert!(read_outcome(&delta).is_err());
+    let evaluation = cases
+        .iter()
+        .find(|c| {
+            c["operationKind"] == "evaluate"
+                && c["kind"] == "request"
+                && c["expected"]["valid"] == true
+        })
+        .unwrap();
+    let mut delta = input_delta(&evaluation["input"]).unwrap();
+    for p in &mut delta.claims.pointers {
+        if p.role == role("source") {
+            p.target = rhizomatic::Target::Primitive(rhizomatic::Primitive::Str("catalog".into()));
+        }
+    }
+    delta.claims.pointers.push(rhizomatic::Pointer {
+        role: role("expected-head"),
+        target: rhizomatic::Target::Primitive(rhizomatic::Primitive::Str(String::new())),
+    });
+    assert!(read_request(&delta, OperationKind::Evaluate).is_err());
 }
