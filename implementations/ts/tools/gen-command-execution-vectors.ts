@@ -13,8 +13,12 @@ const receiverSeed = "01".repeat(32),
 const receiver = authorForSeed(receiverSeed),
   caller = authorForSeed(callerSeed),
   foreign = authorForSeed(definitionSeed);
-const t = (value: string | number): readonly Target[] => [{ kind: "primitive", value }];
-const e = (id: string): readonly Target[] => [{ kind: "entity", entity: { id } }];
+const t = (value: string | number): readonly Target[] => [
+  { kind: "primitive", value },
+];
+const e = (id: string): readonly Target[] => [
+  { kind: "entity", entity: { id } },
+];
 const refs = (ids: string[]): readonly Target[] =>
   ids.map((delta) => ({ kind: "delta", deltaRef: { delta } }));
 const declarations = (["retain", "evaluate"] as const).map((kind) =>
@@ -43,7 +47,13 @@ const fact = (value: string, at: number) =>
       validFrom: at,
       author: foreign,
       pointers: [
-        { role: "about", target: { kind: "entity", entity: { id: "subject", context: "name" } } },
+        {
+          role: "about",
+          target: {
+            kind: "entity",
+            entity: { id: "subject", context: "name" },
+          },
+        },
         { role: "value", target: { kind: "primitive", value } },
       ],
     },
@@ -82,17 +92,11 @@ const inert: Delta[] = [
       timestamp: 1,
       validFrom: 1,
       author: foreign,
-      pointers: [{ role: "erases", target: { kind: "delta", deltaRef: { delta: first.id } } }],
-    },
-    definitionSeed,
-  ),
-  signClaims(
-    {
-      timestamp: 1,
-      validFrom: 1,
-      author: foreign,
       pointers: [
-        { role: "rhizomatic.txn.member", target: { kind: "delta", deltaRef: { delta: first.id } } },
+        {
+          role: "erases",
+          target: { kind: "delta", deltaRef: { delta: first.id } },
+        },
       ],
     },
     definitionSeed,
@@ -103,7 +107,24 @@ const inert: Delta[] = [
       validFrom: 1,
       author: foreign,
       pointers: [
-        { role: "rhizomatic.derivation.binding", target: { kind: "primitive", value: "inert" } },
+        {
+          role: "rhizomatic.txn.member",
+          target: { kind: "delta", deltaRef: { delta: first.id } },
+        },
+      ],
+    },
+    definitionSeed,
+  ),
+  signClaims(
+    {
+      timestamp: 1,
+      validFrom: 1,
+      author: foreign,
+      pointers: [
+        {
+          role: "rhizomatic.derivation.binding",
+          target: { kind: "primitive", value: "inert" },
+        },
       ],
     },
     definitionSeed,
@@ -121,15 +142,22 @@ const construction = (d: Delta, payload: Delta[], seed = callerSeed) => ({
           : definitionSeed,
   })),
 });
-const limitedConfiguration = writeCommandDescription(receiverSeed, 0, "endpoint/1", {
-  receiver: e(receiver),
-  caller: t(caller),
-  installed: refs(declarations.map((d) => d.id)),
-  quota: t(10),
-  "max-deltas": t(20),
-  "max-bytes": t(1),
+const limitedConfiguration = writeCommandDescription(
+  receiverSeed,
+  0,
+  "endpoint/1",
+  {
+    receiver: e(receiver),
+    caller: t(caller),
+    installed: refs(declarations.map((d) => d.id)),
+    quota: t(10),
+    "max-deltas": t(20),
+    "max-bytes": t(1),
+  },
+);
+const limitedRequest = request([first], {
+  configuration: refs([limitedConfiguration.id]),
 });
-const limitedRequest = request([first], { configuration: refs([limitedConfiguration.id]) });
 const context = {
   receiverSeed,
   callerSeed,
@@ -143,7 +171,10 @@ const context = {
   construction: construction(baseRequest, [first]),
 };
 const fixtures = {
-  uppercaseSignature: {...serializeCommandDelta(first) as object,sig:first.sig!.toUpperCase()},
+  uppercaseSignature: {
+    ...(serializeCommandDelta(first) as object),
+    sig: first.sig!.toUpperCase(),
+  },
   missingSignatureByteLimit: {
     configuration: serializeCommandDelta(limitedConfiguration),
     request: serializeCommandDelta(limitedRequest),
@@ -159,11 +190,15 @@ const fixtures = {
   inertRequest: serializeCommandDelta(request(inert)),
   inert: inert.map(serializeCommandDelta),
   wrongCaller: serializeCommandDelta(request([first], {}, definitionSeed)),
-  wrongReceiver: serializeCommandDelta(request([first], { receiver: e(foreign) })),
+  wrongReceiver: serializeCommandDelta(
+    request([first], { receiver: e(foreign) }),
+  ),
   wrongConfiguration: serializeCommandDelta(
     request([first], { configuration: refs([otherConfig.id]) }),
   ),
-  oldHeadRequest: serializeCommandDelta(request([second], { "expected-head": t("") })),
+  oldHeadRequest: serializeCommandDelta(
+    request([second], { "expected-head": t("") }),
+  ),
   unresolved: serializeCommandDelta(
     signClaims(
       {
@@ -173,7 +208,10 @@ const fixtures = {
         pointers: [
           {
             role: "unresolved",
-            target: { kind: "delta", deltaRef: { delta: "1e20" + "77".repeat(32) } },
+            target: {
+              kind: "delta",
+              deltaRef: { delta: "1e20" + "77".repeat(32) },
+            },
           },
         ],
       },
@@ -182,13 +220,25 @@ const fixtures = {
   ),
 };
 const m2 = JSON.parse(
-  readFileSync(new URL("../../../contracts/command/ACCEPTANCE.json", import.meta.url), "utf8"),
+  readFileSync(
+    new URL("../../../contracts/command/ACCEPTANCE.json", import.meta.url),
+    "utf8",
+  ),
 ) as { scenarios: { id: string; milestone: string; expected: string }[] };
 const cases = m2.scenarios
   .filter((c) => c.milestone === "M2")
-  .map((c) => ({ id: c.id, scenario: c.id, context, oracle: c.expected, driver: c.id }));
+  .map((c) => ({
+    id: c.id,
+    scenario: c.id,
+    context,
+    oracle: c.expected,
+    driver: c.id,
+  }));
 writeFileSync(
   new URL("../../../vectors/command/execution.json", import.meta.url),
-  JSON.stringify({ format: "rhizomatic-command-execution-vectors/1", fixtures, cases }, null, 2) +
-    "\n",
+  JSON.stringify(
+    { format: "rhizomatic-command-execution-vectors/1", fixtures, cases },
+    null,
+    2,
+  ) + "\n",
 );
