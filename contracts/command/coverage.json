@@ -1,0 +1,1578 @@
+{
+  "format": "rhizomatic-command-coverage/1",
+  "scenarios": [
+    {
+      "id": "bootstrap_inventory",
+      "milestone": "M0",
+      "requirements": [
+        "R-01",
+        "R-04",
+        "R-29"
+      ],
+      "owners": [
+        "delta",
+        "syntax",
+        "algebra",
+        "schema-load",
+        "reactor",
+        "derivation",
+        "command-data",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "package_ownership",
+      "milestone": "M0",
+      "requirements": [
+        "R-28",
+        "R-29",
+        "R-32"
+      ],
+      "owners": [
+        "algebra",
+        "reactor",
+        "derivation"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "profile_capabilities",
+      "milestone": "M0",
+      "requirements": [
+        "R-02",
+        "R-30",
+        "R-33"
+      ],
+      "owners": [
+        "derivation",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "coverage_missing_case",
+      "milestone": "M0",
+      "requirements": [
+        "R-30",
+        "R-32"
+      ],
+      "owners": [
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "dependency_forbidden",
+      "milestone": "M0",
+      "requirements": [
+        "R-28",
+        "R-32"
+      ],
+      "owners": [
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "contract_missing_export",
+      "milestone": "M0",
+      "requirements": [
+        "R-01",
+        "R-29",
+        "R-32"
+      ],
+      "owners": [
+        "algebra",
+        "reactor",
+        "derivation",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "description_roundtrip",
+      "milestone": "M1",
+      "requirements": [
+        "R-06",
+        "R-07",
+        "R-09",
+        "R-10",
+        "R-25",
+        "R-26"
+      ],
+      "owners": [
+        "delta",
+        "resolve-kernel",
+        "command-data",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "strict_argument_shapes",
+      "milestone": "M1",
+      "requirements": [
+        "R-06",
+        "R-07",
+        "R-10",
+        "R-13"
+      ],
+      "owners": [
+        "delta",
+        "command-data",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "canonical_writer_order",
+      "milestone": "M1",
+      "requirements": [
+        "R-09"
+      ],
+      "owners": [
+        "delta",
+        "command-data"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "view_all_sorts",
+      "milestone": "M1",
+      "requirements": [
+        "R-26",
+        "R-27"
+      ],
+      "owners": [
+        "resolve-kernel",
+        "command-data",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "view_object_bytes_distinction",
+      "milestone": "M1",
+      "requirements": [
+        "R-27"
+      ],
+      "owners": [
+        "resolve-kernel"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "view_malformed",
+      "milestone": "M1",
+      "requirements": [
+        "R-27"
+      ],
+      "owners": [
+        "resolve-kernel"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "outcome_body_strict",
+      "milestone": "M1",
+      "requirements": [
+        "R-25",
+        "R-26"
+      ],
+      "owners": [
+        "resolve-kernel",
+        "command-data",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "bindings_strict",
+      "milestone": "M1",
+      "requirements": [
+        "R-20"
+      ],
+      "owners": [
+        "resolve",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "endpoint_boot",
+      "milestone": "M2",
+      "requirements": [
+        "R-04",
+        "R-05",
+        "R-10"
+      ],
+      "owners": [
+        "delta",
+        "syntax",
+        "schema-load",
+        "command-data",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "configuration_not_self_installing",
+      "milestone": "M2",
+      "requirements": [
+        "R-05",
+        "R-07",
+        "R-10"
+      ],
+      "owners": [
+        "command-data",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "caller_authorization",
+      "milestone": "M2",
+      "requirements": [
+        "R-05",
+        "R-12",
+        "R-13"
+      ],
+      "owners": [
+        "principal",
+        "federation",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "request_validity",
+      "milestone": "M2",
+      "requirements": [
+        "R-12",
+        "R-13",
+        "R-15"
+      ],
+      "owners": [
+        "principal",
+        "federation",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "addressed_entry",
+      "milestone": "M2",
+      "requirements": [
+        "R-07",
+        "R-13"
+      ],
+      "owners": [
+        "command-data",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "invalid_duplicate_appearance",
+      "milestone": "M2",
+      "requirements": [
+        "R-08",
+        "R-13"
+      ],
+      "owners": [
+        "delta",
+        "storage",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "valid_duplicate_appearance",
+      "milestone": "M2",
+      "requirements": [
+        "R-07",
+        "R-08"
+      ],
+      "owners": [
+        "delta",
+        "storage",
+        "command-data",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "limits",
+      "milestone": "M2",
+      "requirements": [
+        "R-05",
+        "R-08",
+        "R-13"
+      ],
+      "owners": [
+        "delta",
+        "storage",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "input_mutation",
+      "milestone": "M2",
+      "requirements": [
+        "R-08"
+      ],
+      "owners": [
+        "delta",
+        "storage",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "missing_and_extra_support",
+      "milestone": "M2",
+      "requirements": [
+        "R-07",
+        "R-08",
+        "R-13"
+      ],
+      "owners": [
+        "delta",
+        "storage",
+        "command-data",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "delivery_permutation",
+      "milestone": "M2",
+      "requirements": [
+        "R-07",
+        "R-08",
+        "R-09"
+      ],
+      "owners": [
+        "delta",
+        "storage",
+        "command-data",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "retain_only_payload",
+      "milestone": "M2",
+      "requirements": [
+        "R-07",
+        "R-16",
+        "R-17"
+      ],
+      "owners": [
+        "storage",
+        "federation",
+        "command-data",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "retained_request_inert",
+      "milestone": "M2",
+      "requirements": [
+        "R-01",
+        "R-07",
+        "R-16"
+      ],
+      "owners": [
+        "federation",
+        "derivation",
+        "command-data",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "unsigned_payload",
+      "milestone": "M2",
+      "requirements": [
+        "R-08",
+        "R-16"
+      ],
+      "owners": [
+        "delta",
+        "storage",
+        "federation",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "retain_atomic_quota",
+      "milestone": "M2",
+      "requirements": [
+        "R-16",
+        "R-17"
+      ],
+      "owners": [
+        "storage",
+        "federation",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "retain_duplicates",
+      "milestone": "M2",
+      "requirements": [
+        "R-03",
+        "R-15",
+        "R-16",
+        "R-17"
+      ],
+      "owners": [
+        "storage",
+        "federation",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "retain_refused_id",
+      "milestone": "M2",
+      "requirements": [
+        "R-15",
+        "R-16",
+        "R-17"
+      ],
+      "owners": [
+        "storage",
+        "federation",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "expected_head_write",
+      "milestone": "M2",
+      "requirements": [
+        "R-17",
+        "R-19"
+      ],
+      "owners": [
+        "storage",
+        "federation",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "write_conflict",
+      "milestone": "M2",
+      "requirements": [
+        "R-14",
+        "R-17",
+        "R-18",
+        "R-19"
+      ],
+      "owners": [
+        "reactor",
+        "storage",
+        "federation",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "crash_before_append",
+      "milestone": "M2",
+      "requirements": [
+        "R-14",
+        "R-17"
+      ],
+      "owners": [
+        "storage",
+        "federation",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "crash_after_append",
+      "milestone": "M2",
+      "requirements": [
+        "R-14",
+        "R-15",
+        "R-17"
+      ],
+      "owners": [
+        "storage",
+        "federation",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "commit_unconfirmed",
+      "milestone": "M2",
+      "requirements": [
+        "R-14",
+        "R-17"
+      ],
+      "owners": [
+        "storage",
+        "federation",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "response_delivery_failure",
+      "milestone": "M2",
+      "requirements": [
+        "R-14",
+        "R-17"
+      ],
+      "owners": [
+        "storage",
+        "federation",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "rows_without_journal",
+      "milestone": "M2",
+      "requirements": [
+        "R-17",
+        "R-33"
+      ],
+      "owners": [
+        "storage",
+        "federation",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "retain_outcome_partition",
+      "milestone": "M2",
+      "requirements": [
+        "R-17",
+        "R-25",
+        "R-26"
+      ],
+      "owners": [
+        "resolve-kernel",
+        "storage",
+        "federation",
+        "command-data",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "query_ephemeral",
+      "milestone": "M3",
+      "requirements": [
+        "R-18",
+        "R-20",
+        "R-24"
+      ],
+      "owners": [
+        "algebra",
+        "resolve-kernel",
+        "resolve",
+        "reactor",
+        "storage",
+        "federation",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "catalog_discovery",
+      "milestone": "M3",
+      "requirements": [
+        "R-05",
+        "R-10",
+        "R-11"
+      ],
+      "owners": [
+        "command-data",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "catalog_with_unavailable_store",
+      "milestone": "M3",
+      "requirements": [
+        "R-11",
+        "R-18"
+      ],
+      "owners": [
+        "reactor",
+        "storage",
+        "federation",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "coherent_external_change",
+      "milestone": "M3",
+      "requirements": [
+        "R-18"
+      ],
+      "owners": [
+        "reactor",
+        "storage",
+        "federation",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "source_changes_during_capture",
+      "milestone": "M3",
+      "requirements": [
+        "R-18",
+        "R-19"
+      ],
+      "owners": [
+        "reactor",
+        "storage",
+        "federation",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "query_snapshot_after_capture",
+      "milestone": "M3",
+      "requirements": [
+        "R-18"
+      ],
+      "owners": [
+        "reactor",
+        "storage",
+        "federation",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "degraded_source",
+      "milestone": "M3",
+      "requirements": [
+        "R-18"
+      ],
+      "owners": [
+        "reactor",
+        "storage",
+        "federation",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "write_then_query",
+      "milestone": "M3",
+      "requirements": [
+        "R-03",
+        "R-19"
+      ],
+      "owners": [
+        "federation",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "source_digest_precondition",
+      "milestone": "M3",
+      "requirements": [
+        "R-19",
+        "R-21"
+      ],
+      "owners": [
+        "delta",
+        "federation",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "query_repeat_current",
+      "milestone": "M3",
+      "requirements": [
+        "R-03",
+        "R-15",
+        "R-20",
+        "R-21"
+      ],
+      "owners": [
+        "delta",
+        "resolve",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "explicit_time",
+      "milestone": "M3",
+      "requirements": [
+        "R-12",
+        "R-20",
+        "R-24"
+      ],
+      "owners": [
+        "algebra",
+        "resolve-kernel",
+        "resolve",
+        "reactor",
+        "principal",
+        "federation",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "exact_definition_act",
+      "milestone": "M3",
+      "requirements": [
+        "R-20",
+        "R-22"
+      ],
+      "owners": [
+        "syntax",
+        "schema",
+        "resolve",
+        "schema-load",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "definition_pin_mismatch",
+      "milestone": "M3",
+      "requirements": [
+        "R-22"
+      ],
+      "owners": [
+        "syntax",
+        "schema",
+        "resolve",
+        "schema-load",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "definition_validity_and_version",
+      "milestone": "M3",
+      "requirements": [
+        "R-22"
+      ],
+      "owners": [
+        "syntax",
+        "schema",
+        "resolve",
+        "schema-load",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "definition_name_conflict",
+      "milestone": "M3",
+      "requirements": [
+        "R-22"
+      ],
+      "owners": [
+        "syntax",
+        "schema",
+        "resolve",
+        "schema-load",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "definition_closure",
+      "milestone": "M3",
+      "requirements": [
+        "R-22"
+      ],
+      "owners": [
+        "syntax",
+        "schema",
+        "resolve",
+        "schema-load",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "definition_cycle",
+      "milestone": "M3",
+      "requirements": [
+        "R-22"
+      ],
+      "owners": [
+        "syntax",
+        "schema",
+        "resolve",
+        "schema-load",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "nested_reference_analysis",
+      "milestone": "M3",
+      "requirements": [
+        "R-22",
+        "R-23"
+      ],
+      "owners": [
+        "syntax",
+        "schema",
+        "resolve",
+        "schema-load",
+        "reactor",
+        "principal",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "variables",
+      "milestone": "M3",
+      "requirements": [
+        "R-20",
+        "R-22",
+        "R-24"
+      ],
+      "owners": [
+        "syntax",
+        "schema",
+        "algebra",
+        "resolve-kernel",
+        "resolve",
+        "schema-load",
+        "reactor",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "core_principal_refusal",
+      "milestone": "M3",
+      "requirements": [
+        "R-23"
+      ],
+      "owners": [
+        "syntax",
+        "schema",
+        "resolve",
+        "reactor",
+        "principal",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "principal_profiles",
+      "milestone": "M3",
+      "requirements": [
+        "R-23"
+      ],
+      "owners": [
+        "syntax",
+        "schema",
+        "resolve",
+        "reactor",
+        "principal",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "principal_pins_and_source",
+      "milestone": "M3",
+      "requirements": [
+        "R-21",
+        "R-23"
+      ],
+      "owners": [
+        "delta",
+        "syntax",
+        "schema",
+        "resolve",
+        "reactor",
+        "principal",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "outcome_provenance",
+      "milestone": "M3",
+      "requirements": [
+        "R-21",
+        "R-25",
+        "R-26",
+        "R-27"
+      ],
+      "owners": [
+        "delta",
+        "resolve-kernel",
+        "command-data",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "no_hidden_observations",
+      "milestone": "M3",
+      "requirements": [
+        "R-01",
+        "R-12",
+        "R-24"
+      ],
+      "owners": [
+        "algebra",
+        "resolve-kernel",
+        "resolve",
+        "reactor",
+        "principal",
+        "federation",
+        "derivation",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "error_priority",
+      "milestone": "M3",
+      "requirements": [
+        "R-13",
+        "R-22"
+      ],
+      "owners": [
+        "syntax",
+        "schema",
+        "resolve",
+        "schema-load",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "mixed_ts_to_rust",
+      "milestone": "M4",
+      "requirements": [
+        "R-30",
+        "R-31"
+      ],
+      "owners": [
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "mixed_rust_to_ts",
+      "milestone": "M4",
+      "requirements": [
+        "R-30",
+        "R-31"
+      ],
+      "owners": [
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "different_peer_signers",
+      "milestone": "M4",
+      "requirements": [
+        "R-25",
+        "R-31"
+      ],
+      "owners": [
+        "command-data",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "existing_conformance",
+      "milestone": "M4",
+      "requirements": [
+        "R-02",
+        "R-24",
+        "R-27",
+        "R-30",
+        "R-33"
+      ],
+      "owners": [
+        "algebra",
+        "resolve-kernel",
+        "resolve",
+        "reactor",
+        "derivation",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "ci_fault_execution",
+      "milestone": "M4",
+      "requirements": [
+        "R-17",
+        "R-30",
+        "R-32"
+      ],
+      "owners": [
+        "storage",
+        "federation",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "independent_boundary_review",
+      "milestone": "M4",
+      "requirements": [
+        "R-01",
+        "R-04",
+        "R-28",
+        "R-29",
+        "R-32",
+        "R-33"
+      ],
+      "owners": [
+        "delta",
+        "syntax",
+        "algebra",
+        "schema-load",
+        "reactor",
+        "derivation",
+        "command-data",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "tower_port_inventory",
+      "milestone": "M0",
+      "requirements": [
+        "R-01",
+        "R-29",
+        "R-34"
+      ],
+      "owners": [
+        "algebra",
+        "reactor",
+        "derivation",
+        "command-data",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "tower_seeded_planning",
+      "milestone": "M4",
+      "requirements": [
+        "R-32",
+        "R-34"
+      ],
+      "owners": [
+        "command-data",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "tower_capability_refusal",
+      "milestone": "M4",
+      "requirements": [
+        "R-02",
+        "R-32",
+        "R-34"
+      ],
+      "owners": [
+        "derivation",
+        "command-data",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "three_randomized_towers",
+      "milestone": "M4",
+      "requirements": [
+        "R-30",
+        "R-31",
+        "R-34"
+      ],
+      "owners": [
+        "command-data",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "tower_state_isolation",
+      "milestone": "M4",
+      "requirements": [
+        "R-17",
+        "R-34"
+      ],
+      "owners": [
+        "storage",
+        "federation",
+        "command-data",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "tower_exact_replay",
+      "milestone": "M4",
+      "requirements": [
+        "R-32",
+        "R-34"
+      ],
+      "owners": [
+        "command-data",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "tower_shared_wrong_answer",
+      "milestone": "M4",
+      "requirements": [
+        "R-30",
+        "R-34"
+      ],
+      "owners": [
+        "command-data",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    },
+    {
+      "id": "tower_fault_localization",
+      "milestone": "M4",
+      "requirements": [
+        "R-29",
+        "R-32",
+        "R-34"
+      ],
+      "owners": [
+        "algebra",
+        "reactor",
+        "derivation",
+        "command-data",
+        "command"
+      ],
+      "required_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "state": "specified",
+      "tests": []
+    }
+  ]
+}

@@ -1,0 +1,128 @@
+{
+  "format": "rhizomatic-milestone-plan/1",
+  "scope": "M0-M4 command profile 1 only; deferred ledger work is not part of this assignment.",
+  "case_index_rule": "This versioned allocation is independent of ACCEPTANCE descriptions. Dropping, renaming or moving a case requires an explicit synchronized plan amendment.",
+  "milestones": [
+    {
+      "id": "M0",
+      "title": "Contract adoption and inventory",
+      "depends_on": [],
+      "required_cases": [
+        "bootstrap_inventory",
+        "contract_missing_export",
+        "coverage_missing_case",
+        "dependency_forbidden",
+        "package_ownership",
+        "profile_capabilities",
+        "tower_port_inventory"
+      ]
+    },
+    {
+      "id": "M1",
+      "title": "Portable descriptions",
+      "depends_on": [
+        "M0"
+      ],
+      "required_cases": [
+        "bindings_strict",
+        "canonical_writer_order",
+        "description_roundtrip",
+        "outcome_body_strict",
+        "strict_argument_shapes",
+        "view_all_sorts",
+        "view_malformed",
+        "view_object_bytes_distinction"
+      ]
+    },
+    {
+      "id": "M2",
+      "title": "Durable retain",
+      "depends_on": [
+        "M1"
+      ],
+      "required_cases": [
+        "addressed_entry",
+        "caller_authorization",
+        "commit_unconfirmed",
+        "configuration_not_self_installing",
+        "crash_after_append",
+        "crash_before_append",
+        "delivery_permutation",
+        "endpoint_boot",
+        "expected_head_write",
+        "input_mutation",
+        "invalid_duplicate_appearance",
+        "limits",
+        "missing_and_extra_support",
+        "request_validity",
+        "response_delivery_failure",
+        "retain_atomic_quota",
+        "retain_duplicates",
+        "retain_only_payload",
+        "retain_outcome_partition",
+        "retain_refused_id",
+        "retained_request_inert",
+        "rows_without_journal",
+        "unsigned_payload",
+        "valid_duplicate_appearance",
+        "write_conflict"
+      ]
+    },
+    {
+      "id": "M3",
+      "title": "Evaluation and composition",
+      "depends_on": [
+        "M2"
+      ],
+      "required_cases": [
+        "catalog_discovery",
+        "catalog_with_unavailable_store",
+        "coherent_external_change",
+        "core_principal_refusal",
+        "definition_closure",
+        "definition_cycle",
+        "definition_name_conflict",
+        "definition_pin_mismatch",
+        "definition_validity_and_version",
+        "degraded_source",
+        "error_priority",
+        "exact_definition_act",
+        "explicit_time",
+        "nested_reference_analysis",
+        "no_hidden_observations",
+        "outcome_provenance",
+        "principal_pins_and_source",
+        "principal_profiles",
+        "query_ephemeral",
+        "query_repeat_current",
+        "query_snapshot_after_capture",
+        "source_changes_during_capture",
+        "source_digest_precondition",
+        "variables",
+        "write_then_query"
+      ]
+    },
+    {
+      "id": "M4",
+      "title": "Interoperability and enforcement",
+      "depends_on": [
+        "M3"
+      ],
+      "required_cases": [
+        "ci_fault_execution",
+        "different_peer_signers",
+        "existing_conformance",
+        "independent_boundary_review",
+        "mixed_rust_to_ts",
+        "mixed_ts_to_rust",
+        "three_randomized_towers",
+        "tower_capability_refusal",
+        "tower_exact_replay",
+        "tower_fault_localization",
+        "tower_seeded_planning",
+        "tower_shared_wrong_answer",
+        "tower_state_isolation"
+      ]
+    }
+  ]
+}

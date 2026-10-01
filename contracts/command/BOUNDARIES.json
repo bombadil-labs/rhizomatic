@@ -1,0 +1,712 @@
+{
+  "format": "rhizomatic-boundary-spec/1",
+  "baseline": "454e7ac",
+  "scope": "First command profile and all-library acceptance inventory; not a certification of current code.",
+  "witnesses_required": [
+    "ts",
+    "rust"
+  ],
+  "lower_level_witnesses_preserved": [
+    "elixir",
+    "haskell"
+  ],
+  "source_mapping_note": "Rust entries are candidate ownership evidence, not a disjoint import map. M0 must classify symbols in shared files (notably types.rs) and root reexports. New command modules are to be assigned during implementation.",
+  "gate_dimensions": [
+    "dependency_rules",
+    "contract_inventory",
+    "portable_binding",
+    "behavioral_conformance",
+    "mixed_witness"
+  ],
+  "export_classifications": [
+    "portable_contract",
+    "declared_intrinsic",
+    "host_capability",
+    "native_extension",
+    "compatibility_reexport",
+    "implementation_helper"
+  ],
+  "cards": [
+    {
+      "id": "delta",
+      "status": "specified_not_certified",
+      "responsibility": "Own signed atoms, canonical bytes, content identity, and set membership.",
+      "allowed_dependencies": [],
+      "source_mapping": {
+        "ts": "implementations/ts/src/delta",
+        "rust_candidate_modules": [
+          "types.rs",
+          "cbor.rs",
+          "delta.rs",
+          "sign.rs",
+          "hash.rs",
+          "set.rs",
+          "alias.rs",
+          "b64u.rs",
+          "json_profile.rs",
+          "parse_error.rs",
+          "strict.rs"
+        ]
+      },
+      "lower_binding": "Bind explicit claims/signatures to the existing canonical Delta and set contracts.",
+      "upper_affordance": "Expose strict codecs, verification, immutable set operations and vocabulary without receiver policy.",
+      "bootstrap_and_capabilities": "Canonical codecs, hashes and signature verification are declared intrinsics; no I/O or implicit trust selection.",
+      "observable_state_and_reconstruction": "Reconstruct a set from verified deltas; admission, authority and effect are not implied by set insertion.",
+      "forbidden_semantics": "No caller accounts, active operation registry, admission policy or upper-layer imports.",
+      "existing_vector_families": [
+        "l0-delta",
+        "keys"
+      ],
+      "ledger_families": [
+        "B0"
+      ],
+      "requirements": [
+        "R-04",
+        "R-06",
+        "R-08",
+        "R-09",
+        "R-21"
+      ],
+      "first_delivery_success": "Malformed duplicate appearances are checked at the intake boundary even when set insertion deduplicates early.",
+      "later_portability_success": "All existing Delta codecs and set laws remain portable; key custody remains a declared host capability.",
+      "evidence_state": {
+        "dependency_rules": "existing",
+        "contract_inventory": "specified",
+        "portable_binding": "not_certified_by_this_spec",
+        "behavioral_conformance": "not_run",
+        "mixed_witness": "not_run"
+      },
+      "composition_target": "Eligible for randomized language assignment only at a declared reconstructible contract port; report native unsplit regions until such a port exists."
+    },
+    {
+      "id": "syntax",
+      "status": "specified_not_certified",
+      "responsibility": "Own term/policy syntax, canonical program encodings and structural analysis.",
+      "allowed_dependencies": [
+        "delta"
+      ],
+      "source_mapping": {
+        "ts": "implementations/ts/src/syntax",
+        "rust_candidate_modules": [
+          "types.rs",
+          "term_json.rs",
+          "term_io.rs",
+          "pred.rs"
+        ]
+      },
+      "lower_binding": "Bind canonical term/Schema blobs to syntax with exact kind/version validation.",
+      "upper_affordance": "Expose parsed syntax, hashes and complete reference/feature discovery without reading application state.",
+      "bootstrap_and_capabilities": "Program grammar and canonical encoding are explicit intrinsics; no registry, principal or clock discovery.",
+      "observable_state_and_reconstruction": "Recreate equivalent syntax from its canonical blob; do not persist compiler caches.",
+      "forbidden_semantics": "No evaluator dispatch or private predicate rewriting in syntax.",
+      "existing_vector_families": [
+        "l1-eval"
+      ],
+      "ledger_families": [
+        "P1",
+        "P3"
+      ],
+      "requirements": [
+        "R-04",
+        "R-22",
+        "R-23"
+      ],
+      "first_delivery_success": "Reference and actsFor discovery visits nested predicates, orders, embedded Schemas and referenced programs.",
+      "later_portability_success": "General structural program queryability remains deferred; canonical portable encoding is already a binding.",
+      "evidence_state": {
+        "dependency_rules": "existing",
+        "contract_inventory": "specified",
+        "portable_binding": "not_certified_by_this_spec",
+        "behavioral_conformance": "not_run",
+        "mixed_witness": "not_run"
+      },
+      "composition_target": "Eligible for randomized language assignment only at a declared reconstructible contract port; report native unsplit regions until such a port exists."
+    },
+    {
+      "id": "schema",
+      "status": "specified_not_certified",
+      "responsibility": "Own explicit registry construction and reference resolution.",
+      "allowed_dependencies": [
+        "syntax",
+        "delta"
+      ],
+      "source_mapping": {
+        "ts": "implementations/ts/src/schema",
+        "rust_candidate_modules": [
+          "schema.rs"
+        ]
+      },
+      "lower_binding": "Bind declared named/pinned definitions into a closed validated registry.",
+      "upper_affordance": "Expose deterministic name/hash lookup, closure validation and pin-preserving evaluation overlays.",
+      "bootstrap_and_capabilities": "Registry validation is pure; no ambient global definition registry or implicit retrieval.",
+      "observable_state_and_reconstruction": "Discard registry and rebuild from the exact supplied definition acts and parsing contracts.",
+      "forbidden_semantics": "No choosing packet-order winners or changing original pins during lowering.",
+      "existing_vector_families": [
+        "l1-eval",
+        "l3-schema"
+      ],
+      "ledger_families": [
+        "P2",
+        "P3",
+        "P4",
+        "E1"
+      ],
+      "requirements": [
+        "R-22",
+        "R-23"
+      ],
+      "first_delivery_success": "Conflict, missing reference and cycle cases agree across witnesses; lowered overlays preserve signed pins.",
+      "later_portability_success": "Any new lookup/selection policy requires a declared profile and evidence.",
+      "evidence_state": {
+        "dependency_rules": "existing",
+        "contract_inventory": "specified",
+        "portable_binding": "not_certified_by_this_spec",
+        "behavioral_conformance": "not_run",
+        "mixed_witness": "not_run"
+      },
+      "composition_target": "Eligible for randomized language assignment only at a declared reconstructible contract port; report native unsplit regions until such a port exists."
+    },
+    {
+      "id": "algebra",
+      "status": "specified_not_certified",
+      "responsibility": "Own HView evidence structure and its existing canonical output encoding.",
+      "allowed_dependencies": [
+        "syntax",
+        "delta"
+      ],
+      "source_mapping": {
+        "ts": "implementations/ts/src/algebra",
+        "rust_candidate_modules": [
+          "hview.rs"
+        ]
+      },
+      "lower_binding": "Bind source deltas, pointer-indexed expansions, annotations and resolution pins to HView structure.",
+      "upper_affordance": "Expose evidence-preserving HViews consumed by resolution; preserve source claims and authored pointer positions.",
+      "bootstrap_and_capabilities": "Pure structural semantics; no authority, storage or current-time lookup.",
+      "observable_state_and_reconstruction": "For this delivery reconstruct HViews by reevaluating declared source and programs; full transport remains deferred.",
+      "forbidden_semantics": "Never rewrite source claims or treat expanded canonical output as original signed claims.",
+      "existing_vector_families": [
+        "l1-eval"
+      ],
+      "ledger_families": [
+        "V1"
+      ],
+      "requirements": [
+        "R-24",
+        "R-29"
+      ],
+      "first_delivery_success": "Existing HView canonical bytes remain unchanged and query composition resolves equivalent evidence.",
+      "later_portability_success": "Later gate: a lossless HView binding must round-trip source deltas including validity/signatures, pointer indexes, annotations and child Schema dependencies across witnesses.",
+      "evidence_state": {
+        "dependency_rules": "existing",
+        "contract_inventory": "specified",
+        "portable_binding": "not_certified_by_this_spec",
+        "behavioral_conformance": "not_run",
+        "mixed_witness": "not_run"
+      },
+      "composition_target": "Eligible for randomized language assignment only at a declared reconstructible contract port; report native unsplit regions until such a port exists."
+    },
+    {
+      "id": "resolve-kernel",
+      "status": "specified_not_certified",
+      "responsibility": "Own pure View policy evaluation and canonical View encoding/decoding.",
+      "allowed_dependencies": [
+        "algebra",
+        "syntax",
+        "delta"
+      ],
+      "source_mapping": {
+        "ts": "implementations/ts/src/resolve-kernel",
+        "rust_candidate_modules": [
+          "resolution.rs"
+        ]
+      },
+      "lower_binding": "Bind a resolution Schema and complete HView to a resolved typed View.",
+      "upper_affordance": "Expose resolution, strict View readback and stable canonical bytes, including nested bytes leaves.",
+      "bootstrap_and_capabilities": "Policy primitives are explicit intrinsic semantics; no store, registry discovery or caller identity.",
+      "observable_state_and_reconstruction": "Reconstruct View exactly from canonical bytes; source evidence remains separately attributed.",
+      "forbidden_semantics": "No intake/peer policy or application-specific candidate-value rules.",
+      "existing_vector_families": [
+        "l1-eval"
+      ],
+      "ledger_families": [
+        "V2",
+        "P3"
+      ],
+      "requirements": [
+        "R-24",
+        "R-26",
+        "R-27"
+      ],
+      "first_delivery_success": "Add strict existing-format View decoder; cross-language round trips cover all value sorts and malformed encodings.",
+      "later_portability_success": "Structural querying of result interiors remains deferred; this delivery establishes lossless canonical transport.",
+      "evidence_state": {
+        "dependency_rules": "existing",
+        "contract_inventory": "specified",
+        "portable_binding": "not_certified_by_this_spec",
+        "behavioral_conformance": "not_run",
+        "mixed_witness": "not_run"
+      },
+      "composition_target": "Eligible for randomized language assignment only at a declared reconstructible contract port; report native unsplit regions until such a port exists."
+    },
+    {
+      "id": "resolve",
+      "status": "specified_not_certified",
+      "responsibility": "Own term execution and terminal resolution composition.",
+      "allowed_dependencies": [
+        "resolve-kernel",
+        "algebra",
+        "schema",
+        "syntax",
+        "delta"
+      ],
+      "source_mapping": {
+        "ts": "implementations/ts/src/resolve",
+        "rust_candidate_modules": [
+          "eval.rs"
+        ]
+      },
+      "lower_binding": "Bind term, complete input set, root, time, registry and variables to a deterministic result sort.",
+      "upper_affordance": "Expose evaluation with all semantic context explicit and typed failures.",
+      "bootstrap_and_capabilities": "Closed algebra semantics are intrinsic; clock observations and principal interpretation are supplied explicitly.",
+      "observable_state_and_reconstruction": "Same explicit context gives same canonical result; native evaluation state is disposable.",
+      "forbidden_semantics": "No principal/package import from above, hidden current time, database reads or private application policy.",
+      "existing_vector_families": [
+        "l1-eval"
+      ],
+      "ledger_families": [
+        "E1"
+      ],
+      "requirements": [
+        "R-20",
+        "R-22",
+        "R-23",
+        "R-24"
+      ],
+      "first_delivery_success": "Portable request execution matches direct evaluation; unbound variables and unsupported profile features refuse.",
+      "later_portability_success": "Additional evaluation modes need complete declared context and result sorts.",
+      "evidence_state": {
+        "dependency_rules": "existing",
+        "contract_inventory": "specified",
+        "portable_binding": "not_certified_by_this_spec",
+        "behavioral_conformance": "not_run",
+        "mixed_witness": "not_run"
+      },
+      "composition_target": "Eligible for randomized language assignment only at a declared reconstructible contract port; report native unsplit regions until such a port exists."
+    },
+    {
+      "id": "schema-load",
+      "status": "specified_not_certified",
+      "responsibility": "Own the binding between signed definition acts and native schema/lens descriptions.",
+      "allowed_dependencies": [
+        "resolve",
+        "schema",
+        "syntax",
+        "delta"
+      ],
+      "source_mapping": {
+        "ts": "implementations/ts/src/schema-load",
+        "rust_candidate_modules": [
+          "schema_deltas.rs",
+          "lens_binding.rs"
+        ]
+      },
+      "lower_binding": "Bind existing definition vocabulary, bootstrap gathers, explicit selection and canonical decoders.",
+      "upper_affordance": "Expose publish/read functions that preserve original authorship, canonical pins and explicit governor/time choices.",
+      "bootstrap_and_capabilities": "Gather, selection and native decoding are separately named stages; trust is an input, not inferred from publication.",
+      "observable_state_and_reconstruction": "Round-trip definitions; rebuild invocation registry from exact selected acts rather than ambient latest names.",
+      "forbidden_semantics": "No adoption by re-signing, hidden current-time selection or application catalog discovery.",
+      "existing_vector_families": [
+        "l1-eval",
+        "l3-schema"
+      ],
+      "ledger_families": [
+        "P2",
+        "P3",
+        "P4",
+        "B0"
+      ],
+      "requirements": [
+        "R-04",
+        "R-22"
+      ],
+      "first_delivery_success": "Exact-act loading validates required fields, version, validity and canonical bytes; generic existing loaders retain behavior.",
+      "later_portability_success": "Existing lens binding needs a separate named-selection/retrieval profile before it can stand in for complete evaluation context.",
+      "evidence_state": {
+        "dependency_rules": "existing",
+        "contract_inventory": "specified",
+        "portable_binding": "not_certified_by_this_spec",
+        "behavioral_conformance": "not_run",
+        "mixed_witness": "not_run"
+      },
+      "composition_target": "Eligible for randomized language assignment only at a declared reconstructible contract port; report native unsplit regions until such a port exists."
+    },
+    {
+      "id": "reactor",
+      "status": "specified_not_certified",
+      "responsibility": "Own indexes and incremental materialization over explicitly selected input.",
+      "allowed_dependencies": [
+        "resolve",
+        "resolve-kernel",
+        "algebra",
+        "schema",
+        "syntax",
+        "delta"
+      ],
+      "source_mapping": {
+        "ts": "implementations/ts/src/reactor",
+        "rust_candidate_modules": [
+          "reactor.rs",
+          "materialize.rs"
+        ]
+      },
+      "lower_binding": "Bind registration term, roots, registry, evaluation time and declared lowering profile to maintained results.",
+      "upper_affordance": "Expose registration/read/update behavior equivalent to batch evaluation.",
+      "bootstrap_and_capabilities": "Index maintenance is native; time and lowering semantics are explicit inputs.",
+      "observable_state_and_reconstruction": "Discard indexes and reproduce batch results; intake reads never infer current journal membership from an old reactor.",
+      "forbidden_semantics": "No persistence authority or application account resolution through an opaque lowering callback in portable profiles.",
+      "existing_vector_families": [
+        "l2-reactor"
+      ],
+      "ledger_families": [
+        "E2"
+      ],
+      "requirements": [
+        "R-18",
+        "R-23",
+        "R-24",
+        "R-29"
+      ],
+      "first_delivery_success": "Existing incremental/batch equivalence remains green; principal adapter uses only captured source and explicit profile.",
+      "later_portability_success": "Later gate: a delta-described registration survives loss of all native registrations and reproduces answers across ingest/time changes; no materialize command is part of this delivery.",
+      "evidence_state": {
+        "dependency_rules": "existing",
+        "contract_inventory": "specified",
+        "portable_binding": "not_certified_by_this_spec",
+        "behavioral_conformance": "not_run",
+        "mixed_witness": "not_run"
+      },
+      "composition_target": "Eligible for randomized language assignment only at a declared reconstructible contract port; report native unsplit regions until such a port exists."
+    },
+    {
+      "id": "principal",
+      "status": "specified_not_certified",
+      "responsibility": "Own interpretation of principal evidence and the named actsFor adapters.",
+      "allowed_dependencies": [
+        "reactor",
+        "resolve",
+        "schema",
+        "syntax",
+        "delta"
+      ],
+      "source_mapping": {
+        "ts": "implementations/ts/src/principal",
+        "rust_candidate_modules": [
+          "principal.rs"
+        ]
+      },
+      "lower_binding": "Bind signed evidence, explicit root/scope/times and suppression to authority results or predicate lowering.",
+      "upper_affordance": "Expose portable named suppression profiles while preserving original program identity.",
+      "bootstrap_and_capabilities": "Trust roots and suppression policy are explicit; no username-to-root application mapping.",
+      "observable_state_and_reconstruction": "Reconstruct evidence result or lowering from captured input and profile; no ambient reactor evidence.",
+      "forbidden_semantics": "Do not reinterpret standard literal predicates using accounts or infer endpoint permissions from evaluation evidence.",
+      "existing_vector_families": [
+        "principal",
+        "l1-eval",
+        "l2-reactor"
+      ],
+      "ledger_families": [
+        "I1",
+        "I2"
+      ],
+      "requirements": [
+        "R-12",
+        "R-23"
+      ],
+      "first_delivery_success": "Both named principal command profiles work through nested closure and top resolution policies in both witnesses.",
+      "later_portability_success": "Later general principal-query/result bindings must describe separate at/now, root, scope, suppression and path provenance.",
+      "evidence_state": {
+        "dependency_rules": "existing",
+        "contract_inventory": "specified",
+        "portable_binding": "not_certified_by_this_spec",
+        "behavioral_conformance": "not_run",
+        "mixed_witness": "not_run"
+      },
+      "composition_target": "Eligible for randomized language assignment only at a declared reconstructible contract port; report native unsplit regions until such a port exists."
+    },
+    {
+      "id": "storage",
+      "status": "specified_not_certified",
+      "responsibility": "Own pack bytes, indexes and verified rehydration.",
+      "allowed_dependencies": [
+        "delta"
+      ],
+      "source_mapping": {
+        "ts": "implementations/ts/src/storage",
+        "rust_candidate_modules": [
+          "pack.rs"
+        ]
+      },
+      "lower_binding": "Bind stored canonical deltas to the specified pack representation and reverse reader.",
+      "upper_affordance": "Expose lossless verified storage primitives; callers retain responsibility for admission membership.",
+      "bootstrap_and_capabilities": "Physical storage/pack optimization may be native; no semantic clock or peer selection.",
+      "observable_state_and_reconstruction": "Rehydrate unchanged claims, signature, bytes targets and validity; rebuilt indexes preserve answers.",
+      "forbidden_semantics": "Raw stored rows do not establish admitted membership, authority or invocation.",
+      "existing_vector_families": [
+        "l0-pack"
+      ],
+      "ledger_families": [
+        "B0",
+        "F2"
+      ],
+      "requirements": [
+        "R-08",
+        "R-17",
+        "R-18"
+      ],
+      "first_delivery_success": "Existing pack vectors remain green; command source uses journal-authorized rows only.",
+      "later_portability_success": "Any observable testimony projection remains a federation contract; pack format need not become delta-native storage.",
+      "evidence_state": {
+        "dependency_rules": "existing",
+        "contract_inventory": "specified",
+        "portable_binding": "not_certified_by_this_spec",
+        "behavioral_conformance": "not_run",
+        "mixed_witness": "not_run"
+      },
+      "composition_target": "Eligible for randomized language assignment only at a declared reconstructible contract port; report native unsplit regions until such a port exists."
+    },
+    {
+      "id": "federation",
+      "status": "specified_not_certified",
+      "responsibility": "Own peer admission, journal authority, arrivals, permanent refusal and consistent serving basis.",
+      "allowed_dependencies": [
+        "reactor",
+        "resolve",
+        "syntax",
+        "storage",
+        "delta"
+      ],
+      "source_mapping": {
+        "ts": "implementations/ts/src/federation",
+        "rust_candidate_modules": [
+          "arrival.rs",
+          "durable_state.rs",
+          "entry.rs",
+          "erasure_filter.rs",
+          "http.rs",
+          "ordinary_journal.rs",
+          "ordinary_journal_peer.rs",
+          "ordinary_quota.rs",
+          "peer.rs",
+          "peer_identity.rs",
+          "peer_state.rs",
+          "permanent_journal.rs",
+          "preflight.rs",
+          "signed_loose_admission.rs",
+          "single_peer.rs"
+        ]
+      },
+      "lower_binding": "Bind verified payload, explicit policy, time, peer identity and atomic store capabilities to durable transition outcomes.",
+      "upper_affordance": "Expose durable outcomes and complete coherent snapshots; distinguish conflict, refusal and uncertain commitment.",
+      "bootstrap_and_capabilities": "Persistence, locking and physical absence are host capabilities; policy inputs and sender provenance are explicit.",
+      "observable_state_and_reconstruction": "Reopen journal preserves membership/refusal/arrivals; raw storage and stale indexes cannot replace it.",
+      "forbidden_semantics": "No arbitrary command dispatch or application-specific guard hidden inside the first portable profile.",
+      "existing_vector_families": [
+        "peer"
+      ],
+      "ledger_families": [
+        "F1",
+        "F2"
+      ],
+      "requirements": [
+        "R-12",
+        "R-14",
+        "R-16",
+        "R-17",
+        "R-18",
+        "R-19"
+      ],
+      "first_delivery_success": "Bind inert signed-loose retain with declared quota; source capture rejects degraded or changing snapshots; fault and contention tests cover restart.",
+      "later_portability_success": "Later gate: delta projection of observable testimony and richer portable admission policies; no automatic closure of general F1/F2.",
+      "evidence_state": {
+        "dependency_rules": "existing",
+        "contract_inventory": "specified",
+        "portable_binding": "not_certified_by_this_spec",
+        "behavioral_conformance": "not_run",
+        "mixed_witness": "not_run"
+      },
+      "composition_target": "Eligible for randomized language assignment only at a declared reconstructible contract port; report native unsplit regions until such a port exists."
+    },
+    {
+      "id": "derivation",
+      "status": "specified_not_certified",
+      "responsibility": "Own function installation/lifecycle and attributed derived emissions.",
+      "allowed_dependencies": [
+        "reactor",
+        "algebra",
+        "delta"
+      ],
+      "source_mapping": {
+        "ts": "implementations/ts/src/derivation",
+        "rust_candidate_modules": [
+          "derivation.rs"
+        ]
+      },
+      "lower_binding": "Bind function/artifact identity, materialization input and explicit host capabilities to applications and outputs.",
+      "upper_affordance": "Expose existing lifecycle and provenance behavior without making stored function descriptions self-executing.",
+      "bootstrap_and_capabilities": "Executable capability, purity, budget and emission mode must be named; existing native extension remains classified.",
+      "observable_state_and_reconstruction": "Current native BindingSpec does not yet have a complete portable reconstruction binding.",
+      "forbidden_semantics": "No implicit installation on admission or undeclared runtime effects.",
+      "existing_vector_families": [],
+      "ledger_families": [
+        "D1"
+      ],
+      "requirements": [
+        "R-01",
+        "R-02",
+        "R-29"
+      ],
+      "first_delivery_success": "Maintain existing behavior/vectors and document the portability gap; intake never activates stored bindings.",
+      "later_portability_success": "Later gate: restore artifact, imports, materialization, purity, budget and emission mode from declarations; specify trigger/input basis/output routing/replay and feedback limits before reactive conformance.",
+      "evidence_state": {
+        "dependency_rules": "existing",
+        "contract_inventory": "specified",
+        "portable_binding": "not_certified_by_this_spec",
+        "behavioral_conformance": "not_run",
+        "mixed_witness": "not_run"
+      },
+      "existing_test_note": "Native derivation lifecycle tests exist in both witnesses; no separate shared derivation vector directory was found at the baseline.",
+      "composition_target": "Eligible for randomized language assignment only at a declared reconstructible contract port; report native unsplit regions until such a port exists."
+    },
+    {
+      "id": "command-data",
+      "status": "specified_not_certified",
+      "responsibility": "Own portable command/configuration/declaration/outcome shape codecs.",
+      "allowed_dependencies": [
+        "delta"
+      ],
+      "source_mapping": {
+        "ts": null,
+        "rust_candidate_modules": []
+      },
+      "lower_binding": "Bind strict signed delta descriptions and canonical outcome/bindings CBOR to typed descriptions.",
+      "upper_affordance": "Expose pure construction/reading and explicit shape errors, without dispatching commands.",
+      "bootstrap_and_capabilities": "Grammar versions and CBOR reading are named intrinsics; signature checking uses delta.",
+      "observable_state_and_reconstruction": "Round-trip every description; preserve signed request identity and distinguish parseability from authorization.",
+      "forbidden_semantics": "No interpreter registry, journal, evaluator, clock or installation effect.",
+      "existing_vector_families": [],
+      "ledger_families": [
+        "B0",
+        "E0",
+        "V2"
+      ],
+      "requirements": [
+        "R-04",
+        "R-06",
+        "R-07",
+        "R-09",
+        "R-10",
+        "R-25",
+        "R-26",
+        "R-34"
+      ],
+      "first_delivery_success": "New package; both witnesses read/write descriptions and pass strict grammar cases.",
+      "later_portability_success": "Any future command kind extends a declared profile rather than adding hidden side-channel arguments.",
+      "evidence_state": {
+        "dependency_rules": "planned",
+        "contract_inventory": "specified",
+        "portable_binding": "not_certified_by_this_spec",
+        "behavioral_conformance": "not_run",
+        "mixed_witness": "not_run"
+      },
+      "composition_target": "Eligible for randomized language assignment only at a declared reconstructible contract port; report native unsplit regions until such a port exists."
+    },
+    {
+      "id": "command",
+      "status": "specified_not_certified",
+      "responsibility": "Compose installed operation bindings with admission/evaluation capabilities.",
+      "allowed_dependencies": [
+        "command-data",
+        "schema-load",
+        "schema",
+        "resolve",
+        "resolve-kernel",
+        "principal",
+        "syntax",
+        "delta",
+        "federation"
+      ],
+      "source_mapping": {
+        "ts": null,
+        "rust_candidate_modules": []
+      },
+      "lower_binding": "Bind addressed invocation, selected configuration and explicit observations to outcomes and declared effects.",
+      "upper_affordance": "Expose retain/evaluate through one intake; catalog is ordinary queryable data.",
+      "bootstrap_and_capabilities": "Boot selection, clock, journal I/O and signing are granted capabilities; semantic profiles are data-described.",
+      "observable_state_and_reconstruction": "Reopen reconstructs state from configuration and journal; no invocation-ID cache promise.",
+      "forbidden_semantics": "No evaluator/peer algorithm duplication, lower-package back imports, application model or arbitrary execution.",
+      "existing_vector_families": [],
+      "ledger_families": [
+        "B0",
+        "E0",
+        "E1",
+        "I2",
+        "F1",
+        "V2"
+      ],
+      "requirements": [
+        "R-01",
+        "R-03",
+        "R-05",
+        "R-07",
+        "R-08",
+        "R-10",
+        "R-11",
+        "R-12",
+        "R-13",
+        "R-14",
+        "R-15",
+        "R-16",
+        "R-17",
+        "R-18",
+        "R-19",
+        "R-20",
+        "R-21",
+        "R-22",
+        "R-23",
+        "R-24",
+        "R-25",
+        "R-26",
+        "R-30",
+        "R-31",
+        "R-34"
+      ],
+      "first_delivery_success": "New composition package; shared semantics, durable behavior and mixed-witness execution all pass.",
+      "later_portability_success": "Materialization, artifacts and reactive profiles require further explicit contracts; this package must not become an application Gateway.",
+      "evidence_state": {
+        "dependency_rules": "planned",
+        "contract_inventory": "specified",
+        "portable_binding": "not_certified_by_this_spec",
+        "behavioral_conformance": "not_run",
+        "mixed_witness": "not_run"
+      },
+      "composition_target": "Eligible for randomized language assignment only at a declared reconstructible contract port; report native unsplit regions until such a port exists."
+    }
+  ],
+  "randomized_composition": {
+    "configuration": "TOWERS.json",
+    "assignments_per_scenario": 3,
+    "status": "specified_not_implemented",
+    "target_languages": [
+      "ts",
+      "rust",
+      "elixir",
+      "haskell"
+    ],
+    "initial_required_languages": [
+      "ts",
+      "rust"
+    ],
+    "capability_rule": "Per-contract/version, never inferred from conformance level. Deferred internal transport gaps remain visible."
+  }
+}

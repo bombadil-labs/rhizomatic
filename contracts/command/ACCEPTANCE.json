@@ -1,0 +1,1070 @@
+{
+  "format": "rhizomatic-acceptance-spec/1",
+  "status": "Scenario specifications only; not executable vectors or recorded passing tests.",
+  "fixture_conventions": {
+    "receiver_seed_hex": "0303030303030303030303030303030303030303030303030303030303030303",
+    "allowed_caller_seed_hex": "0404040404040404040404040404040404040404040404040404040404040404",
+    "foreign_author_seed_hex": "0505050505050505050505050505050505050505050505050505050505050505",
+    "seeds_are_public_test_only": true,
+    "receivedAt": 1000,
+    "description_timestamp": 0,
+    "description_validFrom": 0,
+    "default_at": 1000,
+    "default_quota": 100,
+    "default_max_deltas": 100,
+    "default_max_bytes": 1048576,
+    "root": "item:fern",
+    "basic_fact": "height=42; later height=87; explicit timestamps/validity per case",
+    "schema": "Existing generic mask(drop) -> select(root) -> group(byTargetContext), resolved by pick(byTimestamp desc) with existing tie rules. Use existing SPEC-3 publishers for definition acts.",
+    "expected_bytes": "M0/M1 implementation work must materialize concrete canonical fixtures; scenario prose and prior draft examples are not those fixtures."
+  },
+  "evidence_rule": "A milestone is complete only when each applicable scenario has concrete evidence in both required witnesses, or the declared checker/review evidence kind. No scenario is marked passed by this planning artifact.",
+  "scenarios": [
+    {
+      "id": "bootstrap_inventory",
+      "milestone": "M0",
+      "evidence_kind": "contract_check",
+      "requirements": [
+        "R-01",
+        "R-04",
+        "R-29"
+      ],
+      "setup_and_action": "All native interpretation stages and public semantic exports are enumerated.",
+      "expected": "Every entry has an owner, downward binding, upward affordance and explicit intrinsic/capability/native-extension classification; portable execution uses no unclassified policy.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "package_ownership",
+      "milestone": "M0",
+      "evidence_kind": "contract_check",
+      "requirements": [
+        "R-28",
+        "R-29",
+        "R-32"
+      ],
+      "setup_and_action": "Use current TS source graph and Rust modules, including shared types.rs and reexports.",
+      "expected": "Each semantic owner and cross-owner dependency is mapped; all 12 current packages plus two planned boundaries have cards; compatibility exports are not mistaken for semantic owners.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "profile_capabilities",
+      "milestone": "M0",
+      "evidence_kind": "contract_check",
+      "requirements": [
+        "R-02",
+        "R-30",
+        "R-33"
+      ],
+      "setup_and_action": "Existing witness manifests include L0 and L4 witnesses.",
+      "expected": "New profile capability is explicit and separate from level; TS/Rust are required; lower-level witnesses are preserved and do not falsely claim intake support.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "coverage_missing_case",
+      "milestone": "M0",
+      "evidence_kind": "checker_negative",
+      "requirements": [
+        "R-30",
+        "R-32"
+      ],
+      "setup_and_action": "Remove or rename a required scenario result from one witness report.",
+      "expected": "CI fails even if all remaining tests pass; skip/xfail/empty discovery cannot count as coverage.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "dependency_forbidden",
+      "milestone": "M0",
+      "evidence_kind": "checker_negative",
+      "requirements": [
+        "R-28",
+        "R-32"
+      ],
+      "setup_and_action": "Inject lower-to-command import, type-only upward edge, aggregate self-import, dynamic literal import and an unmapped external dependency in disposable fixtures.",
+      "expected": "Checker rejects each independently; it does not silently omit unsupported import forms.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "contract_missing_export",
+      "milestone": "M0",
+      "evidence_kind": "checker_negative",
+      "requirements": [
+        "R-01",
+        "R-29",
+        "R-32"
+      ],
+      "setup_and_action": "Add an exported semantic callback/API without a contract classification.",
+      "expected": "Contract inventory checker fails; declaring it native-only cannot allow its undeclared use in a portable profile.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "description_roundtrip",
+      "milestone": "M1",
+      "evidence_kind": "shared_vector",
+      "requirements": [
+        "R-06",
+        "R-07",
+        "R-09",
+        "R-10",
+        "R-25",
+        "R-26"
+      ],
+      "setup_and_action": "Construct configuration, both operation declarations, retain/evaluate requests and each outcome status with fixed fixtures.",
+      "expected": "Both witnesses construct equal canonical claims/IDs/signatures and decode/re-encode identically without installation or execution.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "strict_argument_shapes",
+      "milestone": "M1",
+      "evidence_kind": "shared_vector",
+      "requirements": [
+        "R-06",
+        "R-07",
+        "R-10",
+        "R-13"
+      ],
+      "setup_and_action": "Independently omit each required role; duplicate a singleton or repeated set member; add unknown roles, kinds, contexts and enum values.",
+      "expected": "Pure readers reject each malformed description; runtime maps the appropriate common or operation-specific category without native exception text.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "canonical_writer_order",
+      "milestone": "M1",
+      "evidence_kind": "shared_vector",
+      "requirements": [
+        "R-09"
+      ],
+      "setup_and_action": "Supply repeatable refs/keys in several input orders to writers.",
+      "expected": "Writers use specified table and UTF-8 order; readers accept pointer permutations but preserve original signed IDs.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "view_all_sorts",
+      "milestone": "M1",
+      "evidence_kind": "shared_vector",
+      "requirements": [
+        "R-26",
+        "R-27"
+      ],
+      "setup_and_action": "Use strings, finite numeric edge cases, booleans, nested arrays/maps, empty collections and nested bytes leaves.",
+      "expected": "Strict View decoder preserves every typed value and reproduces existing canonical bytes in TS/Rust.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "view_object_bytes_distinction",
+      "milestone": "M1",
+      "evidence_kind": "shared_vector",
+      "requirements": [
+        "R-27"
+      ],
+      "setup_and_action": "Compare object {mime: text, value: text} with bytes leaf {mime: text, value: bstr}; include reserved-looking property names.",
+      "expected": "Readers distinguish them, handle keys as data and preserve both byte encodings; JSON debug rendering is not used as the decoder.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "view_malformed",
+      "milestone": "M1",
+      "evidence_kind": "shared_vector",
+      "requirements": [
+        "R-27"
+      ],
+      "setup_and_action": "Try null, noncanonical numeric encoding, duplicate keys, malformed bytes leaves, unsupported CBOR values and trailing bytes.",
+      "expected": "Strict reader rejects all; negative zero follows existing canonicalization rather than an invented numeric rule.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "outcome_body_strict",
+      "milestone": "M1",
+      "evidence_kind": "shared_vector",
+      "requirements": [
+        "R-25",
+        "R-26"
+      ],
+      "setup_and_action": "Change status/body combinations, add head to catalog evaluate, omit required fields, insert unsorted/overlapping retain result IDs or unknown codes.",
+      "expected": "Reader rejects illegal combinations and validates nested View bytes; refused/indeterminate cannot masquerade as completed admissions.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "bindings_strict",
+      "milestone": "M1",
+      "evidence_kind": "shared_vector",
+      "requirements": [
+        "R-20"
+      ],
+      "setup_and_action": "Encode empty and nonempty canonical primitive bindings; use null, array, duplicate key, root variable or noncanonical bytes.",
+      "expected": "Legal bindings round-trip; malformed bindings and reserved root collision are refused.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "endpoint_boot",
+      "milestone": "M2",
+      "evidence_kind": "integration",
+      "requirements": [
+        "R-04",
+        "R-05",
+        "R-10"
+      ],
+      "setup_and_action": "Boot with a peer-signed configuration, two peer-signed operation declarations and allowed caller set.",
+      "expected": "Endpoint uses exact selected configuration; boot rejects wrong peer/signers, missing/duplicate operation kinds or invalid declaration effect/handler/replay combinations.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "configuration_not_self_installing",
+      "milestone": "M2",
+      "evidence_kind": "integration",
+      "requirements": [
+        "R-05",
+        "R-07",
+        "R-10"
+      ],
+      "setup_and_action": "Caller supplies or retains a signed replacement configuration or operation declaration.",
+      "expected": "Stored description stays inert; supplied but unreferenced descriptions are unexpected-support; selected runtime configuration/catalog do not change.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "caller_authorization",
+      "milestone": "M2",
+      "evidence_kind": "shared_vector",
+      "requirements": [
+        "R-05",
+        "R-12",
+        "R-13"
+      ],
+      "setup_and_action": "Use valid requests signed by allowed and disallowed keys, wrong receiver, wrong config ID and an expired config/declaration.",
+      "expected": "Only allowed caller under matching valid configuration executes; failures use unauthorized or configuration-mismatch; a prior success does not bypass checks.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "request_validity",
+      "milestone": "M2",
+      "evidence_kind": "shared_vector",
+      "requirements": [
+        "R-12",
+        "R-13",
+        "R-15"
+      ],
+      "setup_and_action": "Use before validFrom, exactly validFrom, just before validUntil and exactly validUntil; retry after expiry.",
+      "expected": "Half-open validity is enforced at receivedAt, including repeated request IDs; historical evaluation at does not change it.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "addressed_entry",
+      "milestone": "M2",
+      "evidence_kind": "shared_vector",
+      "requirements": [
+        "R-07",
+        "R-13"
+      ],
+      "setup_and_action": "Deliver two request-shaped deltas, but name only one as entry and the other as its payload.",
+      "expected": "Only the addressed root invokes; missing canonical root gives entry-missing; malformed entryId is a local transport error.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "invalid_duplicate_appearance",
+      "milestone": "M2",
+      "evidence_kind": "shared_vector",
+      "requirements": [
+        "R-08",
+        "R-13"
+      ],
+      "setup_and_action": "Offer valid and invalid appearances with the same ID, including an already admitted ID, in both orders.",
+      "expected": "Entire delivery is invalid-appearance before any effect; deduplication cannot hide invalid bytes or signatures.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "valid_duplicate_appearance",
+      "milestone": "M2",
+      "evidence_kind": "shared_vector",
+      "requirements": [
+        "R-07",
+        "R-08"
+      ],
+      "setup_and_action": "Repeat a byte-identical valid supplied delta while naming it once as support.",
+      "expected": "One support object after validation; every appearance counts toward limits; duplicate request payload pointers remain malformed.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "limits",
+      "milestone": "M2",
+      "evidence_kind": "shared_vector",
+      "requirements": [
+        "R-05",
+        "R-08",
+        "R-13"
+      ],
+      "setup_and_action": "Reach and exceed count/byte limits with duplicate appearances; combine a determinable exceeded limit with invalid signature.",
+      "expected": "At-limit valid input proceeds; over-limit returns resource-limit before handler invocation and signature diagnostics.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "input_mutation",
+      "milestone": "M2",
+      "evidence_kind": "integration",
+      "requirements": [
+        "R-08"
+      ],
+      "setup_and_action": "Mutate caller-owned native objects during an awaited store operation after submitting a request.",
+      "expected": "The captured verified invocation/payload retains its original meaning or mutation is rejected; no unchecked changed content commits.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "missing_and_extra_support",
+      "milestone": "M2",
+      "evidence_kind": "shared_vector",
+      "requirements": [
+        "R-07",
+        "R-08",
+        "R-13"
+      ],
+      "setup_and_action": "Omit named payload/definition; add an unrelated valid delta; reference an absent ordinary entity from inside payload.",
+      "expected": "Missing support and extraneous support refuse; unresolved ordinary data references do not trigger implicit dependency fetching.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "delivery_permutation",
+      "milestone": "M2",
+      "evidence_kind": "property",
+      "requirements": [
+        "R-07",
+        "R-08",
+        "R-09"
+      ],
+      "setup_and_action": "Permute appearances without changing signed request/definitions, source, receiver key or observations.",
+      "expected": "Canonical result and response are equal for each permutation; changing signed pointer order is tested by semantic comparison with request IDs accounted for.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "retain_only_payload",
+      "milestone": "M2",
+      "evidence_kind": "integration",
+      "requirements": [
+        "R-07",
+        "R-16",
+        "R-17"
+      ],
+      "setup_and_action": "Retain one foreign-authored signed fact with request authored by an allowed different key.",
+      "expected": "Only payload commits; original author/claims/ID/signature survive; request and response are not admitted; one durable arrival records unattributed origin.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "retained_request_inert",
+      "milestone": "M2",
+      "evidence_kind": "integration",
+      "requirements": [
+        "R-01",
+        "R-07",
+        "R-16"
+      ],
+      "setup_and_action": "Retain a request, function/binding description, signed manifest-shaped testimony and erasure-shaped testimony as ordinary payload.",
+      "expected": "Only retain dispatch occurs; no nested invocation, installation, bundle authorization or physical erasure; already refused payload IDs still cannot re-enter.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "unsigned_payload",
+      "milestone": "M2",
+      "evidence_kind": "shared_vector",
+      "requirements": [
+        "R-08",
+        "R-16"
+      ],
+      "setup_and_action": "Name unsigned payload, including a purported member of a valid signed manifest.",
+      "expected": "Delivery refuses; request/manifest signatures do not authorize unsigned members in this profile.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "retain_atomic_quota",
+      "milestone": "M2",
+      "evidence_kind": "integration",
+      "requirements": [
+        "R-16",
+        "R-17"
+      ],
+      "setup_and_action": "Two fresh IDs exceed remaining declared quota; mix duplicates and fresh IDs; include competing negation closure.",
+      "expected": "Existing quota/closure planner rules apply; a rejected atomic offer commits no fresh IDs and reports no prospective admitted IDs as completed.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "retain_duplicates",
+      "milestone": "M2",
+      "evidence_kind": "integration",
+      "requirements": [
+        "R-03",
+        "R-15",
+        "R-16",
+        "R-17"
+      ],
+      "setup_and_action": "Repeat a completed retain against unchanged admitted membership, including after journal reopen.",
+      "expected": "Duplicate-only completion adds no frame/arrival and returns duplicate IDs; it is not the cached original response.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "retain_refused_id",
+      "milestone": "M2",
+      "evidence_kind": "integration",
+      "requirements": [
+        "R-15",
+        "R-16",
+        "R-17"
+      ],
+      "setup_and_action": "Use existing peer operations to establish permanent refusal, then retain the same signed payload.",
+      "expected": "Atomic offer is refused; an earlier command success or negated erasure testimony cannot restore it.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "expected_head_write",
+      "milestone": "M2",
+      "evidence_kind": "integration",
+      "requirements": [
+        "R-17",
+        "R-19"
+      ],
+      "setup_and_action": "Retain at matching expected-head; then retry with that prior head after state changes.",
+      "expected": "First can commit under CAS; later attempt refuses precondition-failed without a silent retry against new state.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "write_conflict",
+      "milestone": "M2",
+      "evidence_kind": "fault_test",
+      "requirements": [
+        "R-14",
+        "R-17",
+        "R-18",
+        "R-19"
+      ],
+      "setup_and_action": "External writer wins between captured state and compare-and-append.",
+      "expected": "Current attempt returns write-conflict without claiming its payload committed; facade is reopened before a later attempt.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "crash_before_append",
+      "milestone": "M2",
+      "evidence_kind": "fault_test",
+      "requirements": [
+        "R-14",
+        "R-17"
+      ],
+      "setup_and_action": "Terminate the executor before atomic append; reopen and retry.",
+      "expected": "No partial membership/frame/arrival from the interrupted attempt; retry can commit normally.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "crash_after_append",
+      "milestone": "M2",
+      "evidence_kind": "fault_test",
+      "requirements": [
+        "R-14",
+        "R-15",
+        "R-17"
+      ],
+      "setup_and_action": "Durable append succeeds; terminate before signing/delivering response; reopen and retry.",
+      "expected": "Payload remains admitted with original arrival; retry returns duplicates, not an invented durable response-cache record.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "commit_unconfirmed",
+      "milestone": "M2",
+      "evidence_kind": "fault_test",
+      "requirements": [
+        "R-14",
+        "R-17"
+      ],
+      "setup_and_action": "Inject storage acknowledgment uncertainty both when the append persisted and when it did not.",
+      "expected": "Outcome is indeterminate commit-unconfirmed; reopen establishes actual state; no known-refusal or premature success claim.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "response_delivery_failure",
+      "milestone": "M2",
+      "evidence_kind": "fault_test",
+      "requirements": [
+        "R-14",
+        "R-17"
+      ],
+      "setup_and_action": "Fail signer or transport after confirmed append.",
+      "expected": "No rollback or false refusal; caller may receive no outcome; a fresh attempt follows ordinary journal duplicate rules.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "rows_without_journal",
+      "milestone": "M2",
+      "evidence_kind": "integration",
+      "requirements": [
+        "R-17",
+        "R-33"
+      ],
+      "setup_and_action": "Boot on rows without a peer journal.",
+      "expected": "Existing refusal remains; no raw-row import or fabricated arrival history.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "retain_outcome_partition",
+      "milestone": "M2",
+      "evidence_kind": "shared_vector",
+      "requirements": [
+        "R-17",
+        "R-25",
+        "R-26"
+      ],
+      "setup_and_action": "Offer a mixture of fresh/duplicate payload with fixed before state and time.",
+      "expected": "Completed result arrays form the sorted disjoint offered-ID partition and before/after heads/digests match verified journal states.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "query_ephemeral",
+      "milestone": "M3",
+      "evidence_kind": "integration",
+      "requirements": [
+        "R-18",
+        "R-20",
+        "R-24"
+      ],
+      "setup_and_action": "Evaluate a supplied gather/Schema over height=42 without admitting those definitions.",
+      "expected": "Result is height=42; requests/definitions/outcomes remain unpersisted; journal, arrivals and active registrations are unchanged.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "catalog_discovery",
+      "milestone": "M3",
+      "evidence_kind": "integration",
+      "requirements": [
+        "R-05",
+        "R-10",
+        "R-11"
+      ],
+      "setup_and_action": "Use ordinary generic gather/resolve over the installed catalog, also after retaining a lookalike operation declaration.",
+      "expected": "Queries recover installed contracts and configuration; retained lookalike does not enter catalog; no special discovery endpoint needed.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "catalog_with_unavailable_store",
+      "milestone": "M3",
+      "evidence_kind": "integration",
+      "requirements": [
+        "R-11",
+        "R-18"
+      ],
+      "setup_and_action": "Make the admitted peer store unavailable while a valid installed catalog is present.",
+      "expected": "Catalog query can still complete; admitted query refuses source-unavailable; expected-head on catalog is invalid-arguments.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "coherent_external_change",
+      "milestone": "M3",
+      "evidence_kind": "integration",
+      "requirements": [
+        "R-18"
+      ],
+      "setup_and_action": "Use a second process/facade to exclude an admitted row, then query through the first endpoint.",
+      "expected": "Query captures current journal-authorized membership; no stale reactor/raw row appears; source digest/head correspond to one verified basis.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "source_changes_during_capture",
+      "milestone": "M3",
+      "evidence_kind": "fault_test",
+      "requirements": [
+        "R-18",
+        "R-19"
+      ],
+      "setup_and_action": "Change head between bracketed state/row capture checks.",
+      "expected": "Attempt refuses source-changed; no mixed snapshot or hidden retry is used.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "query_snapshot_after_capture",
+      "milestone": "M3",
+      "evidence_kind": "integration",
+      "requirements": [
+        "R-18"
+      ],
+      "setup_and_action": "Commit another write after a successful read capture but before evaluation response.",
+      "expected": "Reading consistently uses its captured basis; response names that basis rather than the later head.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "degraded_source",
+      "milestone": "M3",
+      "evidence_kind": "integration",
+      "requirements": [
+        "R-18"
+      ],
+      "setup_and_action": "Journal admits a row whose physical payload is missing or corrupt.",
+      "expected": "Admitted-source query refuses source-unavailable; it never returns a complete-looking answer over only available rows.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "write_then_query",
+      "milestone": "M3",
+      "evidence_kind": "integration",
+      "requirements": [
+        "R-03",
+        "R-19"
+      ],
+      "setup_and_action": "Retain height=42 at H, then query with expected-head=H; repeat with an intervening write/rebase.",
+      "expected": "Without intervention query reads committed value; with changed head it refuses precondition-failed; no local predecessor receipt cache is required.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "source_digest_precondition",
+      "milestone": "M3",
+      "evidence_kind": "shared_vector",
+      "requirements": [
+        "R-19",
+        "R-21"
+      ],
+      "setup_and_action": "Use correct and incorrect delta-membership/1 digest for admitted and catalog sources.",
+      "expected": "Correct digest proceeds; mismatch refuses; a correct membership digest does not excuse invalid source signatures.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "query_repeat_current",
+      "milestone": "M3",
+      "evidence_kind": "integration",
+      "requirements": [
+        "R-03",
+        "R-15",
+        "R-20",
+        "R-21"
+      ],
+      "setup_and_action": "Execute same query ID without head/digest precondition, admit a newer fact, then execute again at same explicit at.",
+      "expected": "Second result reflects new captured source; response digest changes; no cached success answer is used.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "explicit_time",
+      "milestone": "M3",
+      "evidence_kind": "shared_vector",
+      "requirements": [
+        "R-12",
+        "R-20",
+        "R-24"
+      ],
+      "setup_and_action": "Fact valid in [50,100); evaluate at 49,50,99,100 while receivedAt is fixed at 1000.",
+      "expected": "Visibility follows requested evaluation time and half-open bounds; request validity/response time/arrival clock still use receivedAt.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "exact_definition_act",
+      "milestone": "M3",
+      "evidence_kind": "shared_vector",
+      "requirements": [
+        "R-20",
+        "R-22"
+      ],
+      "setup_and_action": "Persist a newer conflicting definition at the same entity while the request selects an older valid signed act and its pin.",
+      "expected": "Execution uses the selected act, not ambient latest; foreign definition authorship survives and grants no unrelated authority.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "definition_pin_mismatch",
+      "milestone": "M3",
+      "evidence_kind": "shared_vector",
+      "requirements": [
+        "R-22"
+      ],
+      "setup_and_action": "Supply valid canonical definition act with a request pin for different canonical content.",
+      "expected": "Refuse pin-mismatch before evaluation; no rewriting to match the requested hash.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "definition_validity_and_version",
+      "milestone": "M3",
+      "evidence_kind": "shared_vector",
+      "requirements": [
+        "R-22"
+      ],
+      "setup_and_action": "Supply unsupported alg, missing/extra definition fields, noncanonical blob, invalid-at-evaluation definition or wrong top sort.",
+      "expected": "Stable invalid-definition/invalid-program category as specified; no first-field-wins ambiguity or assumed current version.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "definition_name_conflict",
+      "milestone": "M3",
+      "evidence_kind": "shared_vector",
+      "requirements": [
+        "R-22"
+      ],
+      "setup_and_action": "Supply two distinct selected acts with the same name, including equal-content duplicate publications; permute delivery.",
+      "expected": "Refuse ambiguous-definition consistently; distinct names sharing content remain legal where existing registry rules permit.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "definition_closure",
+      "milestone": "M3",
+      "evidence_kind": "shared_vector",
+      "requirements": [
+        "R-22"
+      ],
+      "setup_and_action": "Use two-level expansion via named and pinned refs; omit an inner gather/Schema; add unreachable extra definition.",
+      "expected": "Complete closure resolves identically; omitted and extra dependencies refuse definition-closure; no ambient global registry lookup.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "definition_cycle",
+      "milestone": "M3",
+      "evidence_kind": "shared_vector",
+      "requirements": [
+        "R-22"
+      ],
+      "setup_and_action": "Supply an otherwise closed cyclic program-reference graph and a separate data graph with cycles.",
+      "expected": "Program cycle is definition-cycle; data cycles retain existing supported semantics and are not confused with program dependency cycles.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "nested_reference_analysis",
+      "milestone": "M3",
+      "evidence_kind": "shared_vector",
+      "requirements": [
+        "R-22",
+        "R-23"
+      ],
+      "setup_and_action": "Place references and actsFor inside inView predicates, order predicates, embedded resolution Schemas and expanded child definitions.",
+      "expected": "Discovery/validation/lowering visits all executable positions; no native unbound dependency or principal predicate escapes the selected profile.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "variables",
+      "milestone": "M3",
+      "evidence_kind": "shared_vector",
+      "requirements": [
+        "R-20",
+        "R-22",
+        "R-24"
+      ],
+      "setup_and_action": "Evaluate with explicit variables, absent required variable, and an attempted root override.",
+      "expected": "Bound evaluation is reproducible; missing variable is invalid-program; root override is invalid-arguments.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "core_principal_refusal",
+      "milestone": "M3",
+      "evidence_kind": "shared_vector",
+      "requirements": [
+        "R-23"
+      ],
+      "setup_and_action": "Use core/1 for a program closure containing actsFor, including top resolution order and nested child Schema.",
+      "expected": "Refuse invalid-program rather than privately choosing a principal resolver.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "principal_profiles",
+      "milestone": "M3",
+      "evidence_kind": "shared_vector",
+      "requirements": [
+        "R-23"
+      ],
+      "setup_and_action": "Same explicit evidence set with root-authored negation of another author evidence under both supported suppression policies.",
+      "expected": "Both witnesses agree with current SPEC-14 semantics and produce the independently established different results; at and now both equal request at.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "principal_pins_and_source",
+      "milestone": "M3",
+      "evidence_kind": "shared_vector",
+      "requirements": [
+        "R-21",
+        "R-23"
+      ],
+      "setup_and_action": "Lower a referenced program using captured source, with conflicting ambient principal evidence and ordinary literal-author predicates.",
+      "expected": "Original canonical pins remain identity; ambient evidence is ignored; ordinary predicates keep standard meaning; named principal interpretation is recorded.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "outcome_provenance",
+      "milestone": "M3",
+      "evidence_kind": "shared_vector",
+      "requirements": [
+        "R-21",
+        "R-25",
+        "R-26",
+        "R-27"
+      ],
+      "setup_and_action": "Read a completed bytes-valued evaluation outcome with the originating request/config/definitions.",
+      "expected": "Verify receiver attribution and reconstruct value/context exactly; output does not claim to be the original authors fact; invalid nested View bytes refuse.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "no_hidden_observations",
+      "milestone": "M3",
+      "evidence_kind": "integration",
+      "requirements": [
+        "R-01",
+        "R-12",
+        "R-24"
+      ],
+      "setup_and_action": "Execute with a fixed captured source/config/time while varying process clocks, environment, cache order and unrelated host state.",
+      "expected": "Pure interpretation stays equal; instrumented core performs no extra clock/network/store reads. Host resource exhaustion can refuse explicitly but not change a successful answer.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "error_priority",
+      "milestone": "M3",
+      "evidence_kind": "shared_vector",
+      "requirements": [
+        "R-13",
+        "R-22"
+      ],
+      "setup_and_action": "Combine faults across validation stages and permute multiple failures within a stage.",
+      "expected": "Documented earliest category is stable; source precondition is checked before program validation; no enumeration-dependent native text enters outcomes.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "mixed_ts_to_rust",
+      "milestone": "M4",
+      "evidence_kind": "mixed_witness",
+      "requirements": [
+        "R-30",
+        "R-31"
+      ],
+      "setup_and_action": "TS produces actual serialized configuration/request/support deltas; Rust executes; TS verifies and reads response.",
+      "expected": "Retain/evaluate, catalog, nested closure, principal profile, bytes and refusal cases pass with no shared native fixtures.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "mixed_rust_to_ts",
+      "milestone": "M4",
+      "evidence_kind": "mixed_witness",
+      "requirements": [
+        "R-30",
+        "R-31"
+      ],
+      "setup_and_action": "Reverse construction/execution/readback roles using the same profile.",
+      "expected": "Equivalent semantics and canonical bytes under equal explicit context; signed attribution is checked rather than erased for comparison.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "different_peer_signers",
+      "milestone": "M4",
+      "evidence_kind": "mixed_witness",
+      "requirements": [
+        "R-25",
+        "R-31"
+      ],
+      "setup_and_action": "Two valid receivers with distinct keys execute equivalent authorized requests over equivalent inputs.",
+      "expected": "Compare validated semantic value and context mapping; do not require equality of distinct receiver/request/config signatures or IDs.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "existing_conformance",
+      "milestone": "M4",
+      "evidence_kind": "regression",
+      "requirements": [
+        "R-02",
+        "R-24",
+        "R-27",
+        "R-30",
+        "R-33"
+      ],
+      "setup_and_action": "Run all existing witness gates, canonical shared vectors, docs/vector freshness and relevant WASM build.",
+      "expected": "No existing canonical bytes or lower-level witness capability changes silently; failures cannot be waived by new intake success.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "ci_fault_execution",
+      "milestone": "M4",
+      "evidence_kind": "contract_check",
+      "requirements": [
+        "R-17",
+        "R-30",
+        "R-32"
+      ],
+      "setup_and_action": "Inspect CI and run required fault/coverage/mixed-witness jobs on the exact candidate head.",
+      "expected": "Crash and retry scenarios actually execute; result artifacts include head/toolchain/witness/profile and exact passed scenario IDs; TODOs are not passing evidence.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "independent_boundary_review",
+      "milestone": "M4",
+      "evidence_kind": "review",
+      "requirements": [
+        "R-01",
+        "R-04",
+        "R-28",
+        "R-29",
+        "R-32",
+        "R-33"
+      ],
+      "setup_and_action": "Independent reviewer inspects frozen head and source-based contracts without adopting builder conclusions.",
+      "expected": "Review assesses bootstrap sufficiency, hidden policy, portability classifications, duplication and remaining gaps; clean result states scope and limits.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "tower_port_inventory",
+      "milestone": "M0",
+      "evidence_kind": "contract_check",
+      "requirements": [
+        "R-01",
+        "R-29",
+        "R-34"
+      ],
+      "setup_and_action": "Describe each tower stage, semantic owners, effect class, portable port versions and required capabilities; identify unsplit command execution.",
+      "expected": "Every crossed edge has a reconstructible contract; deferred HView/registry/etc. ports are reported as gaps, not private serialized native objects.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "tower_seeded_planning",
+      "milestone": "M4",
+      "evidence_kind": "shared_vector",
+      "requirements": [
+        "R-32",
+        "R-34"
+      ],
+      "setup_and_action": "Use fixed planner seeds and capability manifests, including a fixture with only one or two distinct eligible mixed assignments.",
+      "expected": "Planner produces reproducible concrete graphs; three runs prefer distinct plans, explicitly report repeats when necessary, and include a language switch whenever supported.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "tower_capability_refusal",
+      "milestone": "M4",
+      "evidence_kind": "checker_negative",
+      "requirements": [
+        "R-02",
+        "R-32",
+        "R-34"
+      ],
+      "setup_and_action": "Advertise only L0 for a witness, remove an execution port capability, or insert a boundary lacking lossless encoding.",
+      "expected": "Ineligible assignment is rejected; missing required mixed route fails CI; no same-language fallback, inferred L4/intake support or silently omitted stage.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "three_randomized_towers",
+      "milestone": "M4",
+      "evidence_kind": "mixed_witness",
+      "requirements": [
+        "R-30",
+        "R-31",
+        "R-34"
+      ],
+      "setup_and_action": "For each selected scenario run three eligible seeded language assignments with the same fixture and observations.",
+      "expected": "Each result matches the fixed oracle and compatible intermediate artifacts match their contracts; exercised edges and unsplit regions are reported.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "tower_state_isolation",
+      "milestone": "M4",
+      "evidence_kind": "integration",
+      "requirements": [
+        "R-17",
+        "R-34"
+      ],
+      "setup_and_action": "Use a retain/query scenario where sharing state would make later towers see duplicate admissions rather than the same fresh admission.",
+      "expected": "Every tower starts from an isolated identical initial journal/state; all observe the specified admissions and arrivals, with no cache/registration/state leakage.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "tower_exact_replay",
+      "milestone": "M4",
+      "evidence_kind": "integration",
+      "requirements": [
+        "R-32",
+        "R-34"
+      ],
+      "setup_and_action": "Capture a failing concrete plan, then change the default planner seed or available capability manifest.",
+      "expected": "Replay uses retained plan/builds/artifacts and reproduces the failure without rerolling; unavailable pinned build fails clearly rather than substituting newer code.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "tower_shared_wrong_answer",
+      "milestone": "M4",
+      "evidence_kind": "checker_negative",
+      "requirements": [
+        "R-30",
+        "R-34"
+      ],
+      "setup_and_action": "Make all three test adapters return the same incorrect canonical result.",
+      "expected": "Gate fails against the independently specified expected outcome; agreement alone cannot pass.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "tower_fault_localization",
+      "milestone": "M4",
+      "evidence_kind": "checker_negative",
+      "requirements": [
+        "R-29",
+        "R-32",
+        "R-34"
+      ],
+      "setup_and_action": "Corrupt one intermediate serialized artifact or drop a required context/definition reference.",
+      "expected": "Contract validation identifies the failing producer/consumer stage and stores the exact plan/input/output; a private shared registry cannot repair the missing input.",
+      "state": "specified",
+      "execution_evidence": []
+    }
+  ]
+}

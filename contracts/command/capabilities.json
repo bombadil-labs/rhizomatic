@@ -1,0 +1,33 @@
+{
+  "format": "rhizomatic-command-capabilities/1",
+  "witnesses": [
+    {
+      "id": "ts",
+      "conformance_level": 4,
+      "profiles": [],
+      "stages": [],
+      "state": "not_implemented"
+    },
+    {
+      "id": "rust",
+      "conformance_level": 4,
+      "profiles": [],
+      "stages": [],
+      "state": "not_implemented"
+    },
+    {
+      "id": "elixir",
+      "conformance_level": 0,
+      "profiles": [],
+      "stages": [],
+      "state": "not_implemented"
+    },
+    {
+      "id": "haskell",
+      "conformance_level": 0,
+      "profiles": [],
+      "stages": [],
+      "state": "not_implemented"
+    }
+  ]
+}
