@@ -4,7 +4,7 @@ import { signClaims, authorForSeed } from "../src/delta/sign.js";
 import { claimsToJson } from "../src/delta/json-profile.js";
 import { encode, map, float, tstr, bstr, array, type CborValue } from "../src/delta/cbor.js";
 import { contentAddress, bytesToHex } from "../src/delta/hash.js";
-import type { Delta, Target } from "../src/delta/types.js";
+import type { Delta, Target, Primitive } from "../src/delta/types.js";
 import { DeltaSet } from "../src/delta/set.js";
 import { packSet } from "../src/storage/pack.js";
 import {
@@ -132,6 +132,7 @@ function evaluationRequest(
     definitions?: Delta[];
     head?: string;
     pin?: string;
+    bindings?: Readonly<Record<string, Primitive>>;
   } = {},
   b = installed,
 ): Delta {
@@ -157,7 +158,10 @@ function evaluationRequest(
           .sort()
           .map(ref),
       ],
-      ["bindings", { kind: "bytes", mime: "application/cbor", value: encodeBindings({}) }],
+      [
+        "bindings",
+        { kind: "bytes", mime: "application/cbor", value: encodeBindings(options.bindings ?? {}) },
+      ],
     ],
     callerSeed,
     1,
@@ -351,6 +355,7 @@ const cases: {
   id: string;
   scenario: string;
   tower?: boolean;
+  execution?: boolean;
   peerComparison?: string;
   steps: unknown[];
 }[] = [
@@ -632,9 +637,123 @@ for (const [name, receiverSeed] of [
     ],
   });
 }
+// Bound-reading regressions use independent author selection and effective fix-local variables.
+const preferredSchema: Schema = {
+  props: new Map(),
+  default: {
+    kind: "pick",
+    order: {
+      kind: "byPred",
+      pred: {
+        kind: "match",
+        field: "author",
+        cmp: "eq",
+        constant: { kind: "hole", name: "preferred" },
+      },
+      then: { kind: "byTimestamp", dir: "desc" },
+    },
+  },
+};
+const preferredReading = resolution(preferredSchema, "fixture.Preferred");
+const newerSeed = "07".repeat(32),
+  newerAuthor = authorForSeed(newerSeed);
+const newerHeight = fact("subject", "height", "value", p(87), newerSeed, 2);
+const bound = evaluationRequest(
+  gather,
+  preferredReading,
+  HYPER_SCHEMA_SCHEMA.body,
+  preferredSchema,
+  { bindings: { preferred: foreign } },
+);
+cases.push({
+  id: "reading_order_variables",
+  scenario: "variables",
+  execution: true,
+  steps: [
+    evaluateStep(
+      "command",
+      bound,
+      [gather, preferredReading],
+      [height, newerHeight],
+      { height: 42 },
+      "The ordinary author predicate's preferred hole is explicitly bound to the older42 author's key. That predicate orders older42 before newer87. Execute the bound reading while reporting its original canonical hole-containing schema pin.",
+    ),
+  ],
+});
+const localParentBody: Term = {
+  kind: "expand",
+  role: { kind: "exact", value: "link" },
+  schema: { kind: "name", name: "fixture.Generic" },
+  reading: { kind: "name", name: "fixture.Preferred" },
+  of: HYPER_SCHEMA_SCHEMA.body,
+};
+const localParent = hyper(localParentBody, "fixture.Parent"),
+  localBody: Term = {
+    kind: "fix",
+    schema: { kind: "name", name: "fixture.Parent" },
+    entity: "subject",
+    bindings: new Map([["preferred", foreign]]),
+  },
+  local = hyper(localBody, "fixture.Fixed");
+const localRows = [
+  fact("subject", "branch", "link", entity("child")),
+  fact("child", "height", "value", p(42)),
+  fact("child", "height", "value", p(87), newerSeed, 2),
+];
+const localQuery = evaluationRequest(local, reading, localBody, latest, {
+  definitions: [localParent, gather, preferredReading],
+  bindings: { preferred: newerAuthor },
+});
+cases.push({
+  id: "fix_local_reading_variables",
+  scenario: "variables",
+  execution: true,
+  steps: [
+    evaluateStep(
+      "command",
+      localQuery,
+      [local, reading, localParent, gather, preferredReading],
+      localRows,
+      { branch: { height: 42 } },
+      "Request preferred names newer87, but the signed fix overrides preferred with older42 author. The expanded child's reading executes under that effective local environment, so branch.height42 wins. Global substitution would incorrectly produce87.",
+    ),
+  ],
+});
+const unused = hyper(HYPER_SCHEMA_SCHEMA.body, "fixture.Unused");
+for (const [id, definitions] of [
+  ["wrong_definition_kind_pin", []],
+  ["wrong_definition_kind_closure", [unused]],
+] as const) {
+  const q = evaluationRequest(reading, gather, HYPER_SCHEMA_SCHEMA.body, latest, {
+    pin: "1e20" + "00".repeat(32),
+    definitions: [...definitions],
+  });
+  const support = [reading, gather, ...definitions],
+    body = map([["code", tstr("invalid-definition")]]);
+  cases.push({
+    id,
+    scenario: "error_priority",
+    execution: true,
+    steps: [
+      {
+        id: "command",
+        context: context(q, support, []),
+        expected: {
+          oracle:
+            "Valid resolution act is selected in hyperschema and valid HyperSchema act in schema. Wrong top definition kind is invalid-definition before the deliberately mismatched pin and any unreachable dependency. Descriptions validate; no evaluation or mutation occurs.",
+          artifact: artifact(q, support),
+          outcome: serializeCommandDelta(outcome(q, body, "refused")),
+          result: result(body, "refused"),
+          observed: observation([]),
+        },
+      },
+    ],
+  });
+}
 execution.cases = [
   ...execution.cases.filter(
-    (c: { tower?: boolean; peerComparison?: string }) => !c.tower && !c.peerComparison,
+    (c: { tower?: boolean; peerComparison?: string; execution?: boolean }) =>
+      !c.tower && !c.peerComparison && !c.execution,
   ),
   ...cases,
 ];
@@ -642,4 +761,10 @@ writeFileSync(executionPath, JSON.stringify(execution, null, 2) + "\n");
 const towersPath = new URL("../../../contracts/command/TOWERS.json", import.meta.url),
   towers = JSON.parse(readFileSync(towersPath, "utf8"));
 towers.required_peer_comparisons = ["same-value-different-receiver"];
+towers.required_execution_regressions = [
+  "reading_order_variables",
+  "fix_local_reading_variables",
+  "wrong_definition_kind_pin",
+  "wrong_definition_kind_closure",
+];
 writeFileSync(towersPath, JSON.stringify(towers, null, 2) + "\n");

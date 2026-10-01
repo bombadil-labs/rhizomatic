@@ -29,6 +29,7 @@ import {
 import { readCommandDefinition } from "../schema-load/command-definitions.js";
 import { validateCommandProgram, CommandProgramError } from "../schema/command-program.js";
 import { evalTerm } from "../resolve/eval.js";
+import { bindReadingVariables } from "../syntax/bind-reading.js";
 import { resolveView, viewCanonicalHex } from "../resolve-kernel/resolution.js";
 import {
   lowerPrincipalTerm,
@@ -239,6 +240,11 @@ export class CommandEndpoint {
       } catch {
         return refuse("invalid-definition");
       }
+      if (
+        definitions.find((d) => d.id === commandRef(fields, "hyperschema"))?.kind !== "hyper" ||
+        definitions.find((d) => d.id === commandRef(fields, "schema"))?.kind !== "reading"
+      )
+        return refuse("invalid-definition");
       let selected;
       const bindings = new Map(Object.entries(decodeBindings(commandBytes(fields, "bindings"))));
       try {
@@ -284,7 +290,9 @@ export class CommandEndpoint {
           bindings,
         );
         if (gathered.sort !== "hview") return refuse("invalid-program");
-        value = viewCanonicalHex(resolveView(reading, gathered.hview));
+        value = viewCanonicalHex(
+          resolveView(bindReadingVariables(reading, bindings), gathered.hview),
+        );
       } catch {
         return refuse("invalid-program");
       }

@@ -23,6 +23,8 @@ import {
 } from "../src/schema-load/schema-deltas.js";
 import { decodeView, viewCanonicalHex } from "../src/resolve-kernel/resolution.js";
 import { OrdinaryJournalPeer } from "../src/federation/ordinary-journal-peer.js";
+import { evalTerm } from "../src/resolve/eval.js";
+import { DeltaSet } from "../src/delta/set.js";
 import { readCommandResult } from "../src/command/read-result.js";
 const vector = JSON.parse(
   readFileSync(new URL("../../../vectors/command/execution.json", import.meta.url), "utf8"),
@@ -634,6 +636,144 @@ describe("shared command exact evaluation scenarios", () => {
               ],
             });
             expect((await evaluate(q, [variable, reading])).view).toEqual({ height: 42 });
+            const preferred = authorForSeed(context.definitionSeed);
+            const ordered: Schema = {
+              props: new Map(),
+              default: {
+                kind: "pick",
+                order: {
+                  kind: "byPred",
+                  pred: {
+                    kind: "match",
+                    field: "author",
+                    cmp: "eq",
+                    constant: { kind: "hole", name: "preferred" },
+                  },
+                  then: { kind: "byTimestamp", dir: "desc" },
+                },
+              },
+            };
+            const orderedReading = publishReading(ordered, "fixture.Preferred");
+            const newer = changedHeight(87, 2, "07".repeat(32));
+            await retain([newer]);
+            const environment = [
+              {
+                kind: "bytes" as const,
+                mime: "application/cbor",
+                value: encodeBindings({ preferred }),
+              },
+            ];
+            const bound = query(gather, orderedReading, { bindings: environment });
+            const answer = await evaluate(bound, [gather, orderedReading]);
+            expect(answer.view).toEqual({ height: 42 });
+            expect(answer.body.get("schemaPin")).toEqual({ t: "tstr", v: schemaHash(ordered) });
+            const embedded = evalTerm(
+              { kind: "resolve", schema: ordered, of: HYPER_SCHEMA_SCHEMA.body },
+              DeltaSet.from([height, newer]),
+              10,
+              "subject",
+              undefined,
+              new Map([["preferred", preferred]]),
+            );
+            expect(embedded).toMatchObject({ sort: "view", view: { height: 42 } });
+            const childHeight = signClaims(
+              {
+                ...height.claims,
+                pointers: height.claims.pointers.map((p) =>
+                  p.role === "about"
+                    ? {
+                        ...p,
+                        target: {
+                          kind: "entity" as const,
+                          entity: { id: "child", context: "height" },
+                        },
+                      }
+                    : p,
+                ),
+              },
+              context.definitionSeed,
+            );
+            const newerChild = signClaims(
+              {
+                ...newer.claims,
+                pointers: newer.claims.pointers.map((p) =>
+                  p.role === "about"
+                    ? {
+                        ...p,
+                        target: {
+                          kind: "entity" as const,
+                          entity: { id: "child", context: "height" },
+                        },
+                      }
+                    : p,
+                ),
+              },
+              "07".repeat(32),
+            );
+            const link = signClaims(
+              {
+                timestamp: 2,
+                validFrom: 2,
+                author: preferred,
+                pointers: [
+                  {
+                    role: "about",
+                    target: { kind: "entity", entity: { id: "subject", context: "child" } },
+                  },
+                  { role: "link", target: { kind: "entity", entity: { id: "child" } } },
+                ],
+              },
+              context.definitionSeed,
+            );
+            await retain([childHeight, newerChild, link]);
+            const parent = publishTerm(
+              {
+                kind: "expand",
+                role: { kind: "exact", value: "link" },
+                schema: { kind: "name", name: "fixture.Generic" },
+                reading: { kind: "name", name: "fixture.Preferred" },
+                of: HYPER_SCHEMA_SCHEMA.body,
+              },
+              "fixture.Parent",
+            );
+            expect(
+              (
+                await evaluate(
+                  query(parent, reading, {
+                    definition: refs([gather.id, orderedReading.id]),
+                    bindings: environment,
+                  }),
+                  [parent, reading, gather, orderedReading],
+                )
+              ).view,
+            ).toEqual({ height: 87, child: { height: 42 } });
+            const fixed = publishTerm(
+              {
+                kind: "fix",
+                schema: { kind: "name", name: "fixture.Parent" },
+                entity: "subject",
+                bindings: new Map([["preferred", preferred]]),
+              },
+              "fixture.Fixed",
+            );
+            const globalNewer = [
+              {
+                kind: "bytes" as const,
+                mime: "application/cbor",
+                value: encodeBindings({ preferred: authorForSeed("07".repeat(32)) }),
+              },
+            ];
+            expect(
+              (
+                await evaluate(
+                  query(fixed, reading, {
+                    definition: refs([parent.id, gather.id, orderedReading.id]),
+                    bindings: globalNewer,
+                  }),
+                  [fixed, reading, parent, gather, orderedReading],
+                )
+              ).view,
+            ).toEqual({ height: 87, child: { height: 42 } });
             expect(
               (
                 await evaluate(
@@ -837,6 +977,31 @@ describe("shared command exact evaluation scenarios", () => {
             break;
           }
           case "error_priority": {
+            const wrongKind: Record<string, readonly Target[]> = {
+              ...commandFields(request),
+              hyperschema: refs([reading.id]),
+              schema: refs([gather.id]),
+              "hyperschema-pin": t("1e20" + "00".repeat(32)),
+            };
+            delete wrongKind.kind;
+            expect(
+              (
+                await evaluate(
+                  writeCommandDescription(context.callerSeed, 1, "request/1", wrongKind),
+                  [reading, gather],
+                )
+              ).code,
+            ).toBe("invalid-definition");
+            const unused = publishTerm(HYPER_SCHEMA_SCHEMA.body, "fixture.Unused");
+            wrongKind.definition = refs([unused.id]);
+            expect(
+              (
+                await evaluate(
+                  writeCommandDescription(context.callerSeed, 1, "request/1", wrongKind),
+                  [reading, gather, unused],
+                )
+              ).code,
+            ).toBe("invalid-definition");
             const bad = signClaims({ ...gather.claims, validFrom: 11 }, context.definitionSeed);
             const fields: Record<string, readonly Target[]> = {
               ...commandFields(request),

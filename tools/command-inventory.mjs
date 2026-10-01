@@ -19,24 +19,54 @@ for(const file of files){
   const ownerFile=declaration?relative(src,declaration.getSourceFile().fileName):relative(src,file);
   const owner=ownerFile.split('/')[0];
   actual.push({id:`ts:${relative(src,file)}:${symbol.name}`,owner:ownerFile.includes('/')?owner:'aggregate',symbol:symbol.name,source:relative(root,file),definition:declaration?relative(root,declaration.getSourceFile().fileName):relative(root,file)});
+  if(declaration && (ts.isClassDeclaration(declaration) || ts.isInterfaceDeclaration(declaration))) {
+   const members=checker.getTypeAtLocation(declaration).getProperties();
+   for(const member of members){
+    const memberDeclaration=member.declarations?.find(d=>d.getSourceFile().fileName.startsWith(src));
+    if(!memberDeclaration || memberDeclaration.modifiers?.some(m=>[ts.SyntaxKind.PrivateKeyword,ts.SyntaxKind.ProtectedKeyword].includes(m.kind)))continue;
+    actual.push({id:`ts:${relative(src,file)}:${symbol.name}#${member.name}`,owner:ownerFile.includes('/')?owner:'aggregate',symbol:`${symbol.name}.${member.name}`,source:relative(root,file),definition:relative(root,memberDeclaration.getSourceFile().fileName)});
+   }
+   if(ts.isClassDeclaration(declaration))for(const member of declaration.members){
+    if(!member.name || !member.modifiers?.some(m=>m.kind===ts.SyntaxKind.StaticKeyword) || member.modifiers?.some(m=>[ts.SyntaxKind.PrivateKeyword,ts.SyntaxKind.ProtectedKeyword].includes(m.kind)))continue;
+    const name=member.name.getText();
+    actual.push({id:`ts:${relative(src,file)}:${symbol.name}#static:${name}`,owner:ownerFile.includes('/')?owner:'aggregate',symbol:`${symbol.name}.${name}`,source:relative(root,file),definition:relative(root,declaration.getSourceFile().fileName)});
+   }
+  }
  }
 }
 const path=join(root,'contracts/command/ts-exports.json');
+const api=JSON.parse(readFileSync(join(root,'contracts/command/API.json'),'utf8')).contracts;
+const documents={delta:'SPEC-1 Delta identity/JSON/CBOR; SPEC-8 container-neutral membership',syntax:'SPEC-2 serializable grammar and explicit binding rules',algebra:'SPEC-2 HView algebra',schema:'SPEC-3 registry name/hash lookup',resolve:'SPEC-2 evaluation and explicit governance', 'resolve-kernel':'SPEC-5 resolution policies and canonical View', 'schema-load':'SPEC-3 self-hosted definition loading',reactor:'SPEC-4 explicit reactor/materialization lifecycle',principal:'SPEC-14 explicit principal evidence/suppression',federation:'SPEC-6 explicit admission/durability/transport capabilities',storage:'SPEC-8 physical pack representation',derivation:'SPEC-13 caller-selected derivation/binding functions','command-data':'SPEC-15 closed signed description grammar',command:'SPEC-15 selected endpoint invocation'};
+function classification(e){
+ let contract;
+ if(e.definition.endsWith('/command-data/codec.ts'))contract=e.symbol==='writeCommandDescription'?'rhizomatic.command/1/request-construction':'rhizomatic.command/1/description-validation';
+ if(e.definition.endsWith('/command/read-result.ts'))contract='rhizomatic.command/1/outcome-readback';
+ if(e.definition.endsWith('/command/endpoint.ts'))contract=e.symbol.startsWith('CommandBoot')?'rhizomatic.command/1/host-boot':'rhizomatic.command/1';
+ if(e.symbol==='decodeView')contract='rhizomatic.resolve-kernel/view-codec/1';
+ if(e.symbol==='verifyCanonicalDelta')contract='rhizomatic.delta/canonical-appearance/1';
+ if(e.definition.endsWith('/schema-load/command-definitions.ts'))contract='rhizomatic.schema-load/exact-definition/1';
+ if(e.definition.endsWith('/schema/command-program.ts'))contract='rhizomatic.schema/selected-program/1';
+ if(['captureOrdinaryJournalSource','OrdinaryJournalCapture'].includes(e.symbol))contract='rhizomatic.federation/coherent-source/1';
+ const reexport=e.source!==e.definition;
+ const named=api.find(c=>c.id===contract);
+ return {...e,contract:contract??`rhizomatic.${e.owner}/native-api/1`,classification:reexport?'compatibility_reexport':contract==='rhizomatic.command/1/host-boot'?'host_capability':named?'portable_contract':'native_extension',semantics:named?`${e.symbol}: ${named.semantics} ${named.requirements.join(', ')}; definition ${e.definition}.`:`Native ${e.owner} API ${e.symbol} implements ${documents[e.owner]??'aggregate owner-preserving exports'} at ${e.definition}. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract.${reexport?' Reexport preserves the defining owner.':''}`};
+}
 if(process.argv.includes('--adopt')){
  const old=(()=>{try{return JSON.parse(readFileSync(path,'utf8')).exports}catch{return[]}})();
  const known=new Map(old.map(e=>[e.id,e]));
- const exports=actual.map(e=>known.get(e.id)??({...e,contract:`rhizomatic.${e.owner}/native-api/1`,classification:e.source!==e.definition?'compatibility_reexport':['federation','principal','derivation','reactor'].includes(e.owner)?'native_extension':'declared_intrinsic',semantics:e.source!==e.definition?`Reexports ${e.symbol} from ${e.definition}; interpretation remains with ${e.owner}.`:`Existing ${e.owner} API ${e.symbol}; native arguments select its documented SPEC behavior. Its existence does not advertise command or later ecosystem portability.`}));
+ const exports=actual.map(classification);
  writeFileSync(path,JSON.stringify({format:'rhizomatic-semantic-api-inventory/1',witness:'ts',exports},null,2)+'\n');
 }
 const cards=JSON.parse(readFileSync(join(root,'contracts/command/BOUNDARIES.json'),'utf8'));
 const owners=new Set(cards.cards.map(c=>c.id));
 const contracts=new Set(cards.cards.map(c=>`rhizomatic.${c.id}/native-api/1`));
 contracts.add('rhizomatic.aggregate/native-api/1');
+for(const c of api)contracts.add(c.id);
 const inventory=JSON.parse(readFileSync(path,'utf8')).exports;
 function validateInventory(entries){
 const known=new Map(entries.map(e=>[e.id,e]));
 if(known.size!==entries.length)throw Error('duplicate export inventory entry');
-for(const e of entries)if(!contracts.has(e.contract)||!cards.export_classifications.includes(e.classification)||!e.semantics||(!owners.has(e.owner)&&e.owner!=='aggregate'))throw Error(`invalid export contract/classification: ${e.id}`);
+for(const e of entries)if(!contracts.has(e.contract)||!cards.export_classifications.includes(e.classification)||!e.semantics||(!owners.has(e.owner)&&e.owner!=='aggregate')|| (e.contract!==`rhizomatic.${e.owner}/native-api/1`&&!api.find(c=>c.id===e.contract)?.owners.includes(e.owner)))throw Error(`invalid export contract/classification: ${e.id}`);
 for(const e of actual){const k=known.get(e.id);if(!k)throw Error(`unclassified public export: ${e.id}`);if(!k.semantics||k.owner!==e.owner||k.definition!==e.definition)throw Error(`invalid export classification: ${e.id}`);known.delete(e.id);}
 if(known.size)throw Error(`removed or changed exports: ${[...known.keys()].join(', ')}`);
 }

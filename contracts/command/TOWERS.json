@@ -145,5 +145,11 @@
   "claim_limit": "Initial tower tests composition at four first-profile stages, not arbitrary substitution of all twelve internal libraries. Add finer executable ports as their bindings become complete.",
   "required_peer_comparisons": [
     "same-value-different-receiver"
+  ],
+  "required_execution_regressions": [
+    "reading_order_variables",
+    "fix_local_reading_variables",
+    "wrong_definition_kind_pin",
+    "wrong_definition_kind_closure"
   ]
 }

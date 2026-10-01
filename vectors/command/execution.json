@@ -18587,6 +18587,2452 @@
           }
         }
       ]
+    },
+    {
+      "id": "reading_order_variables",
+      "scenario": "variables",
+      "execution": true,
+      "steps": [
+        {
+          "id": "command",
+          "context": {
+            "receiverSeed": "0101010101010101010101010101010101010101010101010101010101010101",
+            "callerSeed": "0202020202020202020202020202020202020202020202020202020202020202",
+            "definitionSeed": "0303030303030303030303030303030303030303030303030303030303030303",
+            "receivedAt": 10,
+            "boot": {
+              "configuration": {
+                "id": "1e207778aea62fecfdbce9940a72844ca78c50ce77f0f630255ba54d70c70fdead56",
+                "claims": {
+                  "timestamp": 0,
+                  "validFrom": 0,
+                  "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+                  "pointers": [
+                    {
+                      "role": "rhizomatic.command.kind",
+                      "target": "endpoint/1"
+                    },
+                    {
+                      "role": "rhizomatic.command.receiver",
+                      "target": {
+                        "id": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c"
+                      }
+                    },
+                    {
+                      "role": "rhizomatic.command.caller",
+                      "target": "ed25519:8139770ea87d175f56a35466c34c7ecccb8d8a91b4ee37a25df60f5b8fc9b394"
+                    },
+                    {
+                      "role": "rhizomatic.command.installed",
+                      "target": {
+                        "delta": "1e200299888fa1cc274c039762c624d385858705fceada49e78c7106ddf1226e085f"
+                      }
+                    },
+                    {
+                      "role": "rhizomatic.command.installed",
+                      "target": {
+                        "delta": "1e205202a5256eb474480af6f347f5ca8cb1c711692e67839dcfec5cfe538e9a20b5"
+                      }
+                    },
+                    {
+                      "role": "rhizomatic.command.quota",
+                      "target": 10
+                    },
+                    {
+                      "role": "rhizomatic.command.max-deltas",
+                      "target": 20
+                    },
+                    {
+                      "role": "rhizomatic.command.max-bytes",
+                      "target": 100000
+                    }
+                  ]
+                },
+                "sig": "a096846274bb02a1eacbd320d7f86ebcafa66adc4602cce5ccff6f984a749d15108daf4c3583c48ade85b5a670af9b13960e8c8b550492aabd2f68d86f04a203"
+              },
+              "declarations": [
+                {
+                  "id": "1e200299888fa1cc274c039762c624d385858705fceada49e78c7106ddf1226e085f",
+                  "claims": {
+                    "timestamp": 0,
+                    "validFrom": 0,
+                    "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+                    "pointers": [
+                      {
+                        "role": "rhizomatic.command.kind",
+                        "target": "operation/1"
+                      },
+                      {
+                        "role": "rhizomatic.command.name",
+                        "target": {
+                          "id": "rhizomatic.command.retain"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.command.interpreter",
+                        "target": "rhizomatic.command.retain/1"
+                      },
+                      {
+                        "role": "rhizomatic.command.input-contract",
+                        "target": "rhizomatic.command.retain/1"
+                      },
+                      {
+                        "role": "rhizomatic.command.output-contract",
+                        "target": "rhizomatic.command.outcome/1"
+                      },
+                      {
+                        "role": "rhizomatic.command.effect",
+                        "target": "admission"
+                      },
+                      {
+                        "role": "rhizomatic.command.replay",
+                        "target": "re-evaluate/1"
+                      },
+                      {
+                        "role": "rhizomatic.command.dependencies",
+                        "target": "explicit-support/1"
+                      }
+                    ]
+                  },
+                  "sig": "187123d4664e2384b2e021c3705e9b8c0f8c87787608655fb17a2887965ee5fce7948734bb233bae0d2745f729c00f62964f593f562c2e2229101bf30887290e"
+                },
+                {
+                  "id": "1e205202a5256eb474480af6f347f5ca8cb1c711692e67839dcfec5cfe538e9a20b5",
+                  "claims": {
+                    "timestamp": 0,
+                    "validFrom": 0,
+                    "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+                    "pointers": [
+                      {
+                        "role": "rhizomatic.command.kind",
+                        "target": "operation/1"
+                      },
+                      {
+                        "role": "rhizomatic.command.name",
+                        "target": {
+                          "id": "rhizomatic.command.evaluate"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.command.interpreter",
+                        "target": "rhizomatic.command.evaluate/1"
+                      },
+                      {
+                        "role": "rhizomatic.command.input-contract",
+                        "target": "rhizomatic.command.evaluate/1"
+                      },
+                      {
+                        "role": "rhizomatic.command.output-contract",
+                        "target": "rhizomatic.command.outcome/1"
+                      },
+                      {
+                        "role": "rhizomatic.command.effect",
+                        "target": "none"
+                      },
+                      {
+                        "role": "rhizomatic.command.replay",
+                        "target": "re-evaluate/1"
+                      },
+                      {
+                        "role": "rhizomatic.command.dependencies",
+                        "target": "explicit-support/1"
+                      }
+                    ]
+                  },
+                  "sig": "897a7d08434f506c47039f69e78909069c8b81a6d4a13ef82f603f5250ac9a5e0a5a842ff8b3180a5ff48d22d0d40c7cb2c61c33b0d78345f6ac559a495ec500"
+                }
+              ]
+            },
+            "initialDeltas": [
+              {
+                "id": "1e20ae35583628833ba0c894f233b6b2f921e4144871bd4bac8d0fe7625d59988c47",
+                "claims": {
+                  "timestamp": 1,
+                  "validFrom": 1,
+                  "author": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1",
+                  "pointers": [
+                    {
+                      "role": "about",
+                      "target": {
+                        "id": "subject",
+                        "context": "height"
+                      }
+                    },
+                    {
+                      "role": "value",
+                      "target": 42
+                    }
+                  ]
+                },
+                "sig": "3d7c1fb27d0b35f47043e12d94e446aba829354ae4d302e6246e374c857da4eac827dbfb4cb7f6ef7e3680c7647c4468d194ba742e41b98b66a8b76e5cdf7801"
+              },
+              {
+                "id": "1e20a7a1404a100c5692dafd3bf5a831381a840aa5b89f88f0ab3455c17afdf4150b",
+                "claims": {
+                  "timestamp": 2,
+                  "validFrom": 2,
+                  "author": "ed25519:ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c",
+                  "pointers": [
+                    {
+                      "role": "about",
+                      "target": {
+                        "id": "subject",
+                        "context": "height"
+                      }
+                    },
+                    {
+                      "role": "value",
+                      "target": 87
+                    }
+                  ]
+                },
+                "sig": "91eb5ffd67e41e86a07e9e493d65991320e1d453b389836c36e35635e6c6739e8734fee827f86e21ad9e7d952bad6a67c0362483a42c86218500d895a5d2f50f"
+              }
+            ],
+            "initialArrivedAt": 3,
+            "construction": {
+              "request": {
+                "claims": {
+                  "timestamp": 1,
+                  "validFrom": 1,
+                  "author": "ed25519:8139770ea87d175f56a35466c34c7ecccb8d8a91b4ee37a25df60f5b8fc9b394",
+                  "pointers": [
+                    {
+                      "role": "rhizomatic.command.kind",
+                      "target": "request/1"
+                    },
+                    {
+                      "role": "rhizomatic.command.receiver",
+                      "target": {
+                        "id": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c"
+                      }
+                    },
+                    {
+                      "role": "rhizomatic.command.configuration",
+                      "target": {
+                        "delta": "1e207778aea62fecfdbce9940a72844ca78c50ce77f0f630255ba54d70c70fdead56"
+                      }
+                    },
+                    {
+                      "role": "rhizomatic.command.operation",
+                      "target": {
+                        "delta": "1e205202a5256eb474480af6f347f5ca8cb1c711692e67839dcfec5cfe538e9a20b5"
+                      }
+                    },
+                    {
+                      "role": "rhizomatic.command.source",
+                      "target": "admitted"
+                    },
+                    {
+                      "role": "rhizomatic.command.root",
+                      "target": {
+                        "id": "subject"
+                      }
+                    },
+                    {
+                      "role": "rhizomatic.command.at",
+                      "target": 10
+                    },
+                    {
+                      "role": "rhizomatic.command.interpretation",
+                      "target": "core/1"
+                    },
+                    {
+                      "role": "rhizomatic.command.hyperschema",
+                      "target": {
+                        "delta": "1e204bf84cd114bd9c20c27c53d61cb79daf420abb03954d7fe2730321cda5ca6e7f"
+                      }
+                    },
+                    {
+                      "role": "rhizomatic.command.hyperschema-pin",
+                      "target": "1e20b8c3b0b1d28a76edfc06506215f95ecde58869faae53afc75c3b7c1b5fe87360"
+                    },
+                    {
+                      "role": "rhizomatic.command.schema",
+                      "target": {
+                        "delta": "1e20ac19f9531a4fe852c436c6be4d539e3016020648228fb5930f94118bea797947"
+                      }
+                    },
+                    {
+                      "role": "rhizomatic.command.schema-pin",
+                      "target": "1e2063de7942fa173e1b743d5788e0b90472f20cff5135f8d24b0b708feaf191b6ec"
+                    },
+                    {
+                      "role": "rhizomatic.command.bindings",
+                      "target": {
+                        "mime": "application/cbor",
+                        "value": "oWlwcmVmZXJyZWR4SGVkMjU1MTk6ZWQ0OTI4YzYyOGQxYzJjNmVhZTkwMzM4OTA1OTk1NjEyOTU5MjczYTVjNjNmOTM2MzZjMTQ2MTRhYzg3MzdkMQ"
+                      }
+                    }
+                  ]
+                },
+                "seed": "0202020202020202020202020202020202020202020202020202020202020202"
+              },
+              "support": [
+                {
+                  "claims": {
+                    "timestamp": 1,
+                    "validFrom": 1,
+                    "author": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1",
+                    "pointers": [
+                      {
+                        "role": "rhizomatic.hyperschema.defines",
+                        "target": {
+                          "id": "fixture-gather",
+                          "context": "definition"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.hyperschema.name",
+                        "target": "fixture.Generic"
+                      },
+                      {
+                        "role": "rhizomatic.hyperschema.alg",
+                        "target": 1
+                      },
+                      {
+                        "role": "rhizomatic.hyperschema.term",
+                        "target": "a362696ea362696ea362696e65696e707574626f70646d61736b66706f6c6963796464726f70626f706673656c6563746470726564a16a686173506f696e746572a16c746172676574456e74697479a16376617264726f6f74626f706567726f7570636b65796f6279546172676574436f6e74657874"
+                      }
+                    ]
+                  },
+                  "seed": "0303030303030303030303030303030303030303030303030303030303030303"
+                },
+                {
+                  "claims": {
+                    "timestamp": 1,
+                    "validFrom": 1,
+                    "author": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1",
+                    "pointers": [
+                      {
+                        "role": "rhizomatic.schema.defines",
+                        "target": {
+                          "id": "fixture-reading",
+                          "context": "definition"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.schema.name",
+                        "target": "fixture.Preferred"
+                      },
+                      {
+                        "role": "rhizomatic.schema.alg",
+                        "target": 1
+                      },
+                      {
+                        "role": "rhizomatic.schema.term",
+                        "target": "a26570726f7073a06764656661756c74a1647069636ba1656f72646572a166627950726564a26470726564a1656d61746368a363636d7062657165636f6e7374a164686f6c6569707265666572726564656669656c6466617574686f72647468656ea16b627954696d657374616d706464657363"
+                      }
+                    ]
+                  },
+                  "seed": "0303030303030303030303030303030303030303030303030303030303030303"
+                }
+              ]
+            }
+          },
+          "expected": {
+            "oracle": "The ordinary author predicate's preferred hole is explicitly bound to the older42 author's key. That predicate orders older42 before newer87. Execute the bound reading while reporting its original canonical hole-containing schema pin.",
+            "artifact": {
+              "format": "rhizomatic-command-artifact/1",
+              "entryId": "1e208a480fd7b9cb0206d3062109238d018b78aad241555280c8e6be4b95ec431883",
+              "deltas": [
+                {
+                  "id": "1e208a480fd7b9cb0206d3062109238d018b78aad241555280c8e6be4b95ec431883",
+                  "claims": {
+                    "timestamp": 1,
+                    "validFrom": 1,
+                    "author": "ed25519:8139770ea87d175f56a35466c34c7ecccb8d8a91b4ee37a25df60f5b8fc9b394",
+                    "pointers": [
+                      {
+                        "role": "rhizomatic.command.kind",
+                        "target": "request/1"
+                      },
+                      {
+                        "role": "rhizomatic.command.receiver",
+                        "target": {
+                          "id": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.command.configuration",
+                        "target": {
+                          "delta": "1e207778aea62fecfdbce9940a72844ca78c50ce77f0f630255ba54d70c70fdead56"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.command.operation",
+                        "target": {
+                          "delta": "1e205202a5256eb474480af6f347f5ca8cb1c711692e67839dcfec5cfe538e9a20b5"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.command.source",
+                        "target": "admitted"
+                      },
+                      {
+                        "role": "rhizomatic.command.root",
+                        "target": {
+                          "id": "subject"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.command.at",
+                        "target": 10
+                      },
+                      {
+                        "role": "rhizomatic.command.interpretation",
+                        "target": "core/1"
+                      },
+                      {
+                        "role": "rhizomatic.command.hyperschema",
+                        "target": {
+                          "delta": "1e204bf84cd114bd9c20c27c53d61cb79daf420abb03954d7fe2730321cda5ca6e7f"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.command.hyperschema-pin",
+                        "target": "1e20b8c3b0b1d28a76edfc06506215f95ecde58869faae53afc75c3b7c1b5fe87360"
+                      },
+                      {
+                        "role": "rhizomatic.command.schema",
+                        "target": {
+                          "delta": "1e20ac19f9531a4fe852c436c6be4d539e3016020648228fb5930f94118bea797947"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.command.schema-pin",
+                        "target": "1e2063de7942fa173e1b743d5788e0b90472f20cff5135f8d24b0b708feaf191b6ec"
+                      },
+                      {
+                        "role": "rhizomatic.command.bindings",
+                        "target": {
+                          "mime": "application/cbor",
+                          "value": "oWlwcmVmZXJyZWR4SGVkMjU1MTk6ZWQ0OTI4YzYyOGQxYzJjNmVhZTkwMzM4OTA1OTk1NjEyOTU5MjczYTVjNjNmOTM2MzZjMTQ2MTRhYzg3MzdkMQ"
+                        }
+                      }
+                    ]
+                  },
+                  "sig": "4c2812cf38f34369504d86e860eb44cf2459e359b011a0fc2e3d5dcfe4ecf92b8e4ff8ae064a1f79c47d33dcb66d2e3092957fdde6d3cbea941d69bd6736e70c"
+                },
+                {
+                  "id": "1e204bf84cd114bd9c20c27c53d61cb79daf420abb03954d7fe2730321cda5ca6e7f",
+                  "claims": {
+                    "timestamp": 1,
+                    "validFrom": 1,
+                    "author": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1",
+                    "pointers": [
+                      {
+                        "role": "rhizomatic.hyperschema.defines",
+                        "target": {
+                          "id": "fixture-gather",
+                          "context": "definition"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.hyperschema.name",
+                        "target": "fixture.Generic"
+                      },
+                      {
+                        "role": "rhizomatic.hyperschema.alg",
+                        "target": 1
+                      },
+                      {
+                        "role": "rhizomatic.hyperschema.term",
+                        "target": "a362696ea362696ea362696e65696e707574626f70646d61736b66706f6c6963796464726f70626f706673656c6563746470726564a16a686173506f696e746572a16c746172676574456e74697479a16376617264726f6f74626f706567726f7570636b65796f6279546172676574436f6e74657874"
+                      }
+                    ]
+                  },
+                  "sig": "74c1de05e0ac6e277cec8141924634215f4eda5fb8a8d91283e5a9937dad8373f977722134dc07828c273207c3a57fb680ca25baf090c76da163623f87255c00"
+                },
+                {
+                  "id": "1e20ac19f9531a4fe852c436c6be4d539e3016020648228fb5930f94118bea797947",
+                  "claims": {
+                    "timestamp": 1,
+                    "validFrom": 1,
+                    "author": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1",
+                    "pointers": [
+                      {
+                        "role": "rhizomatic.schema.defines",
+                        "target": {
+                          "id": "fixture-reading",
+                          "context": "definition"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.schema.name",
+                        "target": "fixture.Preferred"
+                      },
+                      {
+                        "role": "rhizomatic.schema.alg",
+                        "target": 1
+                      },
+                      {
+                        "role": "rhizomatic.schema.term",
+                        "target": "a26570726f7073a06764656661756c74a1647069636ba1656f72646572a166627950726564a26470726564a1656d61746368a363636d7062657165636f6e7374a164686f6c6569707265666572726564656669656c6466617574686f72647468656ea16b627954696d657374616d706464657363"
+                      }
+                    ]
+                  },
+                  "sig": "4955fb857c9f27bf5fc480bcf5de9561c6d7371c866daf8d6e1479471e4e1252acc1a26aa38c8383578e0003f9830d682416929d53614f7a56f2254989b3690b"
+                }
+              ]
+            },
+            "outcome": {
+              "id": "1e20c1dda0be5330a19716cc391a7bb27a822f40f14e0a48a739b711c16d746a3403",
+              "claims": {
+                "timestamp": 10,
+                "validFrom": 10,
+                "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+                "pointers": [
+                  {
+                    "role": "rhizomatic.command.kind",
+                    "target": "outcome/1"
+                  },
+                  {
+                    "role": "rhizomatic.command.receiver",
+                    "target": {
+                      "id": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c"
+                    }
+                  },
+                  {
+                    "role": "rhizomatic.command.configuration",
+                    "target": {
+                      "delta": "1e207778aea62fecfdbce9940a72844ca78c50ce77f0f630255ba54d70c70fdead56"
+                    }
+                  },
+                  {
+                    "role": "rhizomatic.command.request",
+                    "target": {
+                      "delta": "1e208a480fd7b9cb0206d3062109238d018b78aad241555280c8e6be4b95ec431883"
+                    }
+                  },
+                  {
+                    "role": "rhizomatic.command.status",
+                    "target": "completed"
+                  },
+                  {
+                    "role": "rhizomatic.command.result",
+                    "target": {
+                      "mime": "application/cbor",
+                      "value": "qmJhdPlJAGRoZWFkeEQxZTIwZTU4MDg1ZjVhYmRhZjdjOTg1ODFjZGIzZjZhNmZlY2VjYzgwNTkzYWI4NzdhNmVmMDBiMjY4MDkxYTRmZmFkMWRraW5kaGV2YWx1YXRlZXZhbHVlS6FmaGVpZ2h0-VFAZmRpZ2VzdHhEMWUyMDVmMmM1OThkZGQzOTVjYWZhZTlkODk0NmZiZGI5Y2Y0NjliZTA5YzAzNjIyNGU4ZGFlNzcyNGU4ZjRlYzI2MDBmc291cmNlaGFkbWl0dGVkaXNjaGVtYVBpbnhEMWUyMDYzZGU3OTQyZmExNzNlMWI3NDNkNTc4OGUwYjkwNDcyZjIwY2ZmNTEzNWY4ZDI0YjBiNzA4ZmVhZjE5MWI2ZWNuaHlwZXJzY2hlbWFQaW54RDFlMjBiOGMzYjBiMWQyOGE3NmVkZmMwNjUwNjIxNWY5NWVjZGU1ODg2OWZhYWU1M2FmYzc1YzNiN2MxYjVmZTg3MzYwbmludGVycHJldGF0aW9uZmNvcmUvMXBkZWZpbml0aW9uRGlnZXN0eEQxZTIwZDk0NmJlNTU1YjNjYjkwNzdkOGE5ZjhmN2RmZmEzMDYxZTYxM2RkNjk2MGU5MjUyZGRiYjAyNTI0NDlkNjhiMg"
+                    }
+                  }
+                ]
+              },
+              "sig": "95e34e27c97d23fce2c8d7196dc7f596a195b4d53789702287f38889c813ceb6b2d5dd06b2a82ec1497e8f48a754349db722ca1f1e824151e8bc5647e5c6380c"
+            },
+            "result": {
+              "status": "completed",
+              "bodyHex": "aa626174f94900646865616478443165323065353830383566356162646166376339383538316364623366366136666563656363383035393361623837376136656630306232363830393161346666616431646b696e64686576616c756174656576616c75654ba166686569676874f95140666469676573747844316532303566326335393864646433393563616661653964383934366662646239636634363962653039633033363232346538646165373732346538663465633236303066736f757263656861646d697474656469736368656d6150696e784431653230363364653739343266613137336531623734336435373838653062393034373266323063666635313335663864323462306237303866656166313931623665636e6879706572736368656d6150696e784431653230623863336230623164323861373665646663303635303632313566393565636465353838363966616165353361666337356333623763316235666538373336306e696e746572707265746174696f6e66636f72652f3170646566696e6974696f6e44696765737478443165323064393436626535353562336362393037376438613966386637646666613330363165363133646436393630653932353264646262303235323434396436386232",
+              "valueHex": "a166686569676874f95140"
+            },
+            "observed": {
+              "head": "1e20e58085f5abdaf7c98581cdb3f6a6fececc80593ab877a6ef00b268091a4ffad1",
+              "ids": [
+                "1e20a7a1404a100c5692dafd3bf5a831381a840aa5b89f88f0ab3455c17afdf4150b",
+                "1e20ae35583628833ba0c894f233b6b2f921e4144871bd4bac8d0fe7625d59988c47"
+              ],
+              "arrivals": [
+                {
+                  "id": "1e20a7a1404a100c5692dafd3bf5a831381a840aa5b89f88f0ab3455c17afdf4150b",
+                  "at": 3,
+                  "sequence": 1,
+                  "transfer": 1,
+                  "sender": "local"
+                },
+                {
+                  "id": "1e20ae35583628833ba0c894f233b6b2f921e4144871bd4bac8d0fe7625d59988c47",
+                  "at": 3,
+                  "sequence": 2,
+                  "transfer": 1,
+                  "sender": "local"
+                }
+              ],
+              "quotaUsed": 2
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "fix_local_reading_variables",
+      "scenario": "variables",
+      "execution": true,
+      "steps": [
+        {
+          "id": "command",
+          "context": {
+            "receiverSeed": "0101010101010101010101010101010101010101010101010101010101010101",
+            "callerSeed": "0202020202020202020202020202020202020202020202020202020202020202",
+            "definitionSeed": "0303030303030303030303030303030303030303030303030303030303030303",
+            "receivedAt": 10,
+            "boot": {
+              "configuration": {
+                "id": "1e207778aea62fecfdbce9940a72844ca78c50ce77f0f630255ba54d70c70fdead56",
+                "claims": {
+                  "timestamp": 0,
+                  "validFrom": 0,
+                  "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+                  "pointers": [
+                    {
+                      "role": "rhizomatic.command.kind",
+                      "target": "endpoint/1"
+                    },
+                    {
+                      "role": "rhizomatic.command.receiver",
+                      "target": {
+                        "id": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c"
+                      }
+                    },
+                    {
+                      "role": "rhizomatic.command.caller",
+                      "target": "ed25519:8139770ea87d175f56a35466c34c7ecccb8d8a91b4ee37a25df60f5b8fc9b394"
+                    },
+                    {
+                      "role": "rhizomatic.command.installed",
+                      "target": {
+                        "delta": "1e200299888fa1cc274c039762c624d385858705fceada49e78c7106ddf1226e085f"
+                      }
+                    },
+                    {
+                      "role": "rhizomatic.command.installed",
+                      "target": {
+                        "delta": "1e205202a5256eb474480af6f347f5ca8cb1c711692e67839dcfec5cfe538e9a20b5"
+                      }
+                    },
+                    {
+                      "role": "rhizomatic.command.quota",
+                      "target": 10
+                    },
+                    {
+                      "role": "rhizomatic.command.max-deltas",
+                      "target": 20
+                    },
+                    {
+                      "role": "rhizomatic.command.max-bytes",
+                      "target": 100000
+                    }
+                  ]
+                },
+                "sig": "a096846274bb02a1eacbd320d7f86ebcafa66adc4602cce5ccff6f984a749d15108daf4c3583c48ade85b5a670af9b13960e8c8b550492aabd2f68d86f04a203"
+              },
+              "declarations": [
+                {
+                  "id": "1e200299888fa1cc274c039762c624d385858705fceada49e78c7106ddf1226e085f",
+                  "claims": {
+                    "timestamp": 0,
+                    "validFrom": 0,
+                    "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+                    "pointers": [
+                      {
+                        "role": "rhizomatic.command.kind",
+                        "target": "operation/1"
+                      },
+                      {
+                        "role": "rhizomatic.command.name",
+                        "target": {
+                          "id": "rhizomatic.command.retain"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.command.interpreter",
+                        "target": "rhizomatic.command.retain/1"
+                      },
+                      {
+                        "role": "rhizomatic.command.input-contract",
+                        "target": "rhizomatic.command.retain/1"
+                      },
+                      {
+                        "role": "rhizomatic.command.output-contract",
+                        "target": "rhizomatic.command.outcome/1"
+                      },
+                      {
+                        "role": "rhizomatic.command.effect",
+                        "target": "admission"
+                      },
+                      {
+                        "role": "rhizomatic.command.replay",
+                        "target": "re-evaluate/1"
+                      },
+                      {
+                        "role": "rhizomatic.command.dependencies",
+                        "target": "explicit-support/1"
+                      }
+                    ]
+                  },
+                  "sig": "187123d4664e2384b2e021c3705e9b8c0f8c87787608655fb17a2887965ee5fce7948734bb233bae0d2745f729c00f62964f593f562c2e2229101bf30887290e"
+                },
+                {
+                  "id": "1e205202a5256eb474480af6f347f5ca8cb1c711692e67839dcfec5cfe538e9a20b5",
+                  "claims": {
+                    "timestamp": 0,
+                    "validFrom": 0,
+                    "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+                    "pointers": [
+                      {
+                        "role": "rhizomatic.command.kind",
+                        "target": "operation/1"
+                      },
+                      {
+                        "role": "rhizomatic.command.name",
+                        "target": {
+                          "id": "rhizomatic.command.evaluate"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.command.interpreter",
+                        "target": "rhizomatic.command.evaluate/1"
+                      },
+                      {
+                        "role": "rhizomatic.command.input-contract",
+                        "target": "rhizomatic.command.evaluate/1"
+                      },
+                      {
+                        "role": "rhizomatic.command.output-contract",
+                        "target": "rhizomatic.command.outcome/1"
+                      },
+                      {
+                        "role": "rhizomatic.command.effect",
+                        "target": "none"
+                      },
+                      {
+                        "role": "rhizomatic.command.replay",
+                        "target": "re-evaluate/1"
+                      },
+                      {
+                        "role": "rhizomatic.command.dependencies",
+                        "target": "explicit-support/1"
+                      }
+                    ]
+                  },
+                  "sig": "897a7d08434f506c47039f69e78909069c8b81a6d4a13ef82f603f5250ac9a5e0a5a842ff8b3180a5ff48d22d0d40c7cb2c61c33b0d78345f6ac559a495ec500"
+                }
+              ]
+            },
+            "initialDeltas": [
+              {
+                "id": "1e2087decc9f06134967e1142a53fb7ec2c08d898c879595623d0ff6c6c77db065ed",
+                "claims": {
+                  "timestamp": 1,
+                  "validFrom": 1,
+                  "author": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1",
+                  "pointers": [
+                    {
+                      "role": "about",
+                      "target": {
+                        "id": "subject",
+                        "context": "branch"
+                      }
+                    },
+                    {
+                      "role": "link",
+                      "target": {
+                        "id": "child"
+                      }
+                    }
+                  ]
+                },
+                "sig": "4f9b4c7421ad167e0bfe2adce037cb9676a760991c77927bf1fbbff8117918b5fe000a3444cc9fe36062ef5e4a1c4249eaed4fa201d55c4a3b70438e70968c06"
+              },
+              {
+                "id": "1e20b463dbf9ef86d58fb833d453181b2a9d7880c0b479b8a9e2cae25aa0f38f82a8",
+                "claims": {
+                  "timestamp": 1,
+                  "validFrom": 1,
+                  "author": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1",
+                  "pointers": [
+                    {
+                      "role": "about",
+                      "target": {
+                        "id": "child",
+                        "context": "height"
+                      }
+                    },
+                    {
+                      "role": "value",
+                      "target": 42
+                    }
+                  ]
+                },
+                "sig": "0949f1484201e53345c4663ef97ac922d281a1ccc90b514414a90db44d23e1ca2d196f6be16ee47574e6554f01e8da500b4ccae7d0775a882f81bc36e4d7910b"
+              },
+              {
+                "id": "1e207b1092d3e5290bbfdfa2a883b2a3526abd9fb360d8601ba0109fe8acb9bf2cbb",
+                "claims": {
+                  "timestamp": 2,
+                  "validFrom": 2,
+                  "author": "ed25519:ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c",
+                  "pointers": [
+                    {
+                      "role": "about",
+                      "target": {
+                        "id": "child",
+                        "context": "height"
+                      }
+                    },
+                    {
+                      "role": "value",
+                      "target": 87
+                    }
+                  ]
+                },
+                "sig": "8aacd1bf1fc83bdca27288780cf00b71d4ca2a1372bd435ee416569e0f9e2b919c8786dc98cade8d9e11ec274fd14f69b62be9e082b1f757b7f1d94c6887ad01"
+              }
+            ],
+            "initialArrivedAt": 3,
+            "construction": {
+              "request": {
+                "claims": {
+                  "timestamp": 1,
+                  "validFrom": 1,
+                  "author": "ed25519:8139770ea87d175f56a35466c34c7ecccb8d8a91b4ee37a25df60f5b8fc9b394",
+                  "pointers": [
+                    {
+                      "role": "rhizomatic.command.kind",
+                      "target": "request/1"
+                    },
+                    {
+                      "role": "rhizomatic.command.receiver",
+                      "target": {
+                        "id": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c"
+                      }
+                    },
+                    {
+                      "role": "rhizomatic.command.configuration",
+                      "target": {
+                        "delta": "1e207778aea62fecfdbce9940a72844ca78c50ce77f0f630255ba54d70c70fdead56"
+                      }
+                    },
+                    {
+                      "role": "rhizomatic.command.operation",
+                      "target": {
+                        "delta": "1e205202a5256eb474480af6f347f5ca8cb1c711692e67839dcfec5cfe538e9a20b5"
+                      }
+                    },
+                    {
+                      "role": "rhizomatic.command.source",
+                      "target": "admitted"
+                    },
+                    {
+                      "role": "rhizomatic.command.root",
+                      "target": {
+                        "id": "subject"
+                      }
+                    },
+                    {
+                      "role": "rhizomatic.command.at",
+                      "target": 10
+                    },
+                    {
+                      "role": "rhizomatic.command.interpretation",
+                      "target": "core/1"
+                    },
+                    {
+                      "role": "rhizomatic.command.hyperschema",
+                      "target": {
+                        "delta": "1e20aaccab6ab0332db471e7e4f534a2b6ed3df17d7c1250198d9d14715ca23a0f92"
+                      }
+                    },
+                    {
+                      "role": "rhizomatic.command.hyperschema-pin",
+                      "target": "1e204ce0761867f5e48f16a91537343d4efe5f571214bc21fb0a5bc4ca993d58f40b"
+                    },
+                    {
+                      "role": "rhizomatic.command.schema",
+                      "target": {
+                        "delta": "1e203eb583aa429d961d5c92de86668035289816faa5edccfba41d360afc6cbd51a7"
+                      }
+                    },
+                    {
+                      "role": "rhizomatic.command.schema-pin",
+                      "target": "1e2027afdd0a8a7fe6137b2c3247fce2cda15c20483739324577df784487044f3388"
+                    },
+                    {
+                      "role": "rhizomatic.command.definition",
+                      "target": {
+                        "delta": "1e2004f059102bc1beda59401ff87333dca1bc9a42c8282eeea5615234e4040a2df6"
+                      }
+                    },
+                    {
+                      "role": "rhizomatic.command.definition",
+                      "target": {
+                        "delta": "1e204bf84cd114bd9c20c27c53d61cb79daf420abb03954d7fe2730321cda5ca6e7f"
+                      }
+                    },
+                    {
+                      "role": "rhizomatic.command.definition",
+                      "target": {
+                        "delta": "1e20ac19f9531a4fe852c436c6be4d539e3016020648228fb5930f94118bea797947"
+                      }
+                    },
+                    {
+                      "role": "rhizomatic.command.bindings",
+                      "target": {
+                        "mime": "application/cbor",
+                        "value": "oWlwcmVmZXJyZWR4SGVkMjU1MTk6ZWE0YTZjNjNlMjljNTIwYWJlZjU1MDdiMTMyZWM1Zjk5NTQ3NzZhZWJlYmU3YjkyNDIxZWVhNjkxNDQ2ZDIyYw"
+                      }
+                    }
+                  ]
+                },
+                "seed": "0202020202020202020202020202020202020202020202020202020202020202"
+              },
+              "support": [
+                {
+                  "claims": {
+                    "timestamp": 1,
+                    "validFrom": 1,
+                    "author": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1",
+                    "pointers": [
+                      {
+                        "role": "rhizomatic.hyperschema.defines",
+                        "target": {
+                          "id": "fixture-gather",
+                          "context": "definition"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.hyperschema.name",
+                        "target": "fixture.Fixed"
+                      },
+                      {
+                        "role": "rhizomatic.hyperschema.alg",
+                        "target": 1
+                      },
+                      {
+                        "role": "rhizomatic.hyperschema.term",
+                        "target": "a4626f706366697866656e74697479677375626a65637466736368656d616e666978747572652e506172656e746862696e64696e6773a1697072656665727265647848656432353531393a65643439323863363238643163326336656165393033333839303539393536313239353932373361356336336639333633366331343631346163383733376431"
+                      }
+                    ]
+                  },
+                  "seed": "0303030303030303030303030303030303030303030303030303030303030303"
+                },
+                {
+                  "claims": {
+                    "timestamp": 1,
+                    "validFrom": 1,
+                    "author": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1",
+                    "pointers": [
+                      {
+                        "role": "rhizomatic.schema.defines",
+                        "target": {
+                          "id": "fixture-reading",
+                          "context": "definition"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.schema.name",
+                        "target": "fixture.Latest"
+                      },
+                      {
+                        "role": "rhizomatic.schema.alg",
+                        "target": 1
+                      },
+                      {
+                        "role": "rhizomatic.schema.term",
+                        "target": "a26570726f7073a06764656661756c74a1647069636ba1656f72646572a16b627954696d657374616d706464657363"
+                      }
+                    ]
+                  },
+                  "seed": "0303030303030303030303030303030303030303030303030303030303030303"
+                },
+                {
+                  "claims": {
+                    "timestamp": 1,
+                    "validFrom": 1,
+                    "author": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1",
+                    "pointers": [
+                      {
+                        "role": "rhizomatic.hyperschema.defines",
+                        "target": {
+                          "id": "fixture-gather",
+                          "context": "definition"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.hyperschema.name",
+                        "target": "fixture.Parent"
+                      },
+                      {
+                        "role": "rhizomatic.hyperschema.alg",
+                        "target": 1
+                      },
+                      {
+                        "role": "rhizomatic.hyperschema.term",
+                        "target": "a562696ea362696ea362696ea362696e65696e707574626f70646d61736b66706f6c6963796464726f70626f706673656c6563746470726564a16a686173506f696e746572a16c746172676574456e74697479a16376617264726f6f74626f706567726f7570636b65796f6279546172676574436f6e74657874626f7066657870616e6464726f6c65a1656578616374646c696e6b66736368656d616f666978747572652e47656e657269636772656164696e6771666978747572652e507265666572726564"
+                      }
+                    ]
+                  },
+                  "seed": "0303030303030303030303030303030303030303030303030303030303030303"
+                },
+                {
+                  "claims": {
+                    "timestamp": 1,
+                    "validFrom": 1,
+                    "author": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1",
+                    "pointers": [
+                      {
+                        "role": "rhizomatic.hyperschema.defines",
+                        "target": {
+                          "id": "fixture-gather",
+                          "context": "definition"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.hyperschema.name",
+                        "target": "fixture.Generic"
+                      },
+                      {
+                        "role": "rhizomatic.hyperschema.alg",
+                        "target": 1
+                      },
+                      {
+                        "role": "rhizomatic.hyperschema.term",
+                        "target": "a362696ea362696ea362696e65696e707574626f70646d61736b66706f6c6963796464726f70626f706673656c6563746470726564a16a686173506f696e746572a16c746172676574456e74697479a16376617264726f6f74626f706567726f7570636b65796f6279546172676574436f6e74657874"
+                      }
+                    ]
+                  },
+                  "seed": "0303030303030303030303030303030303030303030303030303030303030303"
+                },
+                {
+                  "claims": {
+                    "timestamp": 1,
+                    "validFrom": 1,
+                    "author": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1",
+                    "pointers": [
+                      {
+                        "role": "rhizomatic.schema.defines",
+                        "target": {
+                          "id": "fixture-reading",
+                          "context": "definition"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.schema.name",
+                        "target": "fixture.Preferred"
+                      },
+                      {
+                        "role": "rhizomatic.schema.alg",
+                        "target": 1
+                      },
+                      {
+                        "role": "rhizomatic.schema.term",
+                        "target": "a26570726f7073a06764656661756c74a1647069636ba1656f72646572a166627950726564a26470726564a1656d61746368a363636d7062657165636f6e7374a164686f6c6569707265666572726564656669656c6466617574686f72647468656ea16b627954696d657374616d706464657363"
+                      }
+                    ]
+                  },
+                  "seed": "0303030303030303030303030303030303030303030303030303030303030303"
+                }
+              ]
+            }
+          },
+          "expected": {
+            "oracle": "Request preferred names newer87, but the signed fix overrides preferred with older42 author. The expanded child's reading executes under that effective local environment, so branch.height42 wins. Global substitution would incorrectly produce87.",
+            "artifact": {
+              "format": "rhizomatic-command-artifact/1",
+              "entryId": "1e2055626718c28abe22b28a58802775e7d6a7435352f65dacaf3088f8c66e62c153",
+              "deltas": [
+                {
+                  "id": "1e2055626718c28abe22b28a58802775e7d6a7435352f65dacaf3088f8c66e62c153",
+                  "claims": {
+                    "timestamp": 1,
+                    "validFrom": 1,
+                    "author": "ed25519:8139770ea87d175f56a35466c34c7ecccb8d8a91b4ee37a25df60f5b8fc9b394",
+                    "pointers": [
+                      {
+                        "role": "rhizomatic.command.kind",
+                        "target": "request/1"
+                      },
+                      {
+                        "role": "rhizomatic.command.receiver",
+                        "target": {
+                          "id": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.command.configuration",
+                        "target": {
+                          "delta": "1e207778aea62fecfdbce9940a72844ca78c50ce77f0f630255ba54d70c70fdead56"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.command.operation",
+                        "target": {
+                          "delta": "1e205202a5256eb474480af6f347f5ca8cb1c711692e67839dcfec5cfe538e9a20b5"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.command.source",
+                        "target": "admitted"
+                      },
+                      {
+                        "role": "rhizomatic.command.root",
+                        "target": {
+                          "id": "subject"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.command.at",
+                        "target": 10
+                      },
+                      {
+                        "role": "rhizomatic.command.interpretation",
+                        "target": "core/1"
+                      },
+                      {
+                        "role": "rhizomatic.command.hyperschema",
+                        "target": {
+                          "delta": "1e20aaccab6ab0332db471e7e4f534a2b6ed3df17d7c1250198d9d14715ca23a0f92"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.command.hyperschema-pin",
+                        "target": "1e204ce0761867f5e48f16a91537343d4efe5f571214bc21fb0a5bc4ca993d58f40b"
+                      },
+                      {
+                        "role": "rhizomatic.command.schema",
+                        "target": {
+                          "delta": "1e203eb583aa429d961d5c92de86668035289816faa5edccfba41d360afc6cbd51a7"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.command.schema-pin",
+                        "target": "1e2027afdd0a8a7fe6137b2c3247fce2cda15c20483739324577df784487044f3388"
+                      },
+                      {
+                        "role": "rhizomatic.command.definition",
+                        "target": {
+                          "delta": "1e2004f059102bc1beda59401ff87333dca1bc9a42c8282eeea5615234e4040a2df6"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.command.definition",
+                        "target": {
+                          "delta": "1e204bf84cd114bd9c20c27c53d61cb79daf420abb03954d7fe2730321cda5ca6e7f"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.command.definition",
+                        "target": {
+                          "delta": "1e20ac19f9531a4fe852c436c6be4d539e3016020648228fb5930f94118bea797947"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.command.bindings",
+                        "target": {
+                          "mime": "application/cbor",
+                          "value": "oWlwcmVmZXJyZWR4SGVkMjU1MTk6ZWE0YTZjNjNlMjljNTIwYWJlZjU1MDdiMTMyZWM1Zjk5NTQ3NzZhZWJlYmU3YjkyNDIxZWVhNjkxNDQ2ZDIyYw"
+                        }
+                      }
+                    ]
+                  },
+                  "sig": "58f8a205d89b6818a36e4a0863171b5fe6078d012aff7bed2dff4cb754f342793354da0dbb80eee1fc0fe15bc9b21a8ad7452b89597ae95c16f9324beb1f8304"
+                },
+                {
+                  "id": "1e20aaccab6ab0332db471e7e4f534a2b6ed3df17d7c1250198d9d14715ca23a0f92",
+                  "claims": {
+                    "timestamp": 1,
+                    "validFrom": 1,
+                    "author": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1",
+                    "pointers": [
+                      {
+                        "role": "rhizomatic.hyperschema.defines",
+                        "target": {
+                          "id": "fixture-gather",
+                          "context": "definition"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.hyperschema.name",
+                        "target": "fixture.Fixed"
+                      },
+                      {
+                        "role": "rhizomatic.hyperschema.alg",
+                        "target": 1
+                      },
+                      {
+                        "role": "rhizomatic.hyperschema.term",
+                        "target": "a4626f706366697866656e74697479677375626a65637466736368656d616e666978747572652e506172656e746862696e64696e6773a1697072656665727265647848656432353531393a65643439323863363238643163326336656165393033333839303539393536313239353932373361356336336639333633366331343631346163383733376431"
+                      }
+                    ]
+                  },
+                  "sig": "e2e15259619809743c7e46871aef68c3dd0ac2e839283c31bd5fef51d5db8ef3332e7d5111b4cf32bd20352688805b1d9d9fd307ed88462dac5745df14e06e04"
+                },
+                {
+                  "id": "1e203eb583aa429d961d5c92de86668035289816faa5edccfba41d360afc6cbd51a7",
+                  "claims": {
+                    "timestamp": 1,
+                    "validFrom": 1,
+                    "author": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1",
+                    "pointers": [
+                      {
+                        "role": "rhizomatic.schema.defines",
+                        "target": {
+                          "id": "fixture-reading",
+                          "context": "definition"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.schema.name",
+                        "target": "fixture.Latest"
+                      },
+                      {
+                        "role": "rhizomatic.schema.alg",
+                        "target": 1
+                      },
+                      {
+                        "role": "rhizomatic.schema.term",
+                        "target": "a26570726f7073a06764656661756c74a1647069636ba1656f72646572a16b627954696d657374616d706464657363"
+                      }
+                    ]
+                  },
+                  "sig": "49cb9f520c3fb6605201552f21b04406fc87d3fb2df627e5ba97c67a725c0574fcded86d5b04f0264351a2804be70f1540ecc2bf5f16d81dd0b1e961a80fb30c"
+                },
+                {
+                  "id": "1e2004f059102bc1beda59401ff87333dca1bc9a42c8282eeea5615234e4040a2df6",
+                  "claims": {
+                    "timestamp": 1,
+                    "validFrom": 1,
+                    "author": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1",
+                    "pointers": [
+                      {
+                        "role": "rhizomatic.hyperschema.defines",
+                        "target": {
+                          "id": "fixture-gather",
+                          "context": "definition"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.hyperschema.name",
+                        "target": "fixture.Parent"
+                      },
+                      {
+                        "role": "rhizomatic.hyperschema.alg",
+                        "target": 1
+                      },
+                      {
+                        "role": "rhizomatic.hyperschema.term",
+                        "target": "a562696ea362696ea362696ea362696e65696e707574626f70646d61736b66706f6c6963796464726f70626f706673656c6563746470726564a16a686173506f696e746572a16c746172676574456e74697479a16376617264726f6f74626f706567726f7570636b65796f6279546172676574436f6e74657874626f7066657870616e6464726f6c65a1656578616374646c696e6b66736368656d616f666978747572652e47656e657269636772656164696e6771666978747572652e507265666572726564"
+                      }
+                    ]
+                  },
+                  "sig": "aa397a36848453baf6d9166b21a0879195aec53ba542be5eae758d79a12ac9477e469c69b9c51797b47db6c9dfc3c60c1f68a0bc8626568f91bab4dc44de300e"
+                },
+                {
+                  "id": "1e204bf84cd114bd9c20c27c53d61cb79daf420abb03954d7fe2730321cda5ca6e7f",
+                  "claims": {
+                    "timestamp": 1,
+                    "validFrom": 1,
+                    "author": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1",
+                    "pointers": [
+                      {
+                        "role": "rhizomatic.hyperschema.defines",
+                        "target": {
+                          "id": "fixture-gather",
+                          "context": "definition"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.hyperschema.name",
+                        "target": "fixture.Generic"
+                      },
+                      {
+                        "role": "rhizomatic.hyperschema.alg",
+                        "target": 1
+                      },
+                      {
+                        "role": "rhizomatic.hyperschema.term",
+                        "target": "a362696ea362696ea362696e65696e707574626f70646d61736b66706f6c6963796464726f70626f706673656c6563746470726564a16a686173506f696e746572a16c746172676574456e74697479a16376617264726f6f74626f706567726f7570636b65796f6279546172676574436f6e74657874"
+                      }
+                    ]
+                  },
+                  "sig": "74c1de05e0ac6e277cec8141924634215f4eda5fb8a8d91283e5a9937dad8373f977722134dc07828c273207c3a57fb680ca25baf090c76da163623f87255c00"
+                },
+                {
+                  "id": "1e20ac19f9531a4fe852c436c6be4d539e3016020648228fb5930f94118bea797947",
+                  "claims": {
+                    "timestamp": 1,
+                    "validFrom": 1,
+                    "author": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1",
+                    "pointers": [
+                      {
+                        "role": "rhizomatic.schema.defines",
+                        "target": {
+                          "id": "fixture-reading",
+                          "context": "definition"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.schema.name",
+                        "target": "fixture.Preferred"
+                      },
+                      {
+                        "role": "rhizomatic.schema.alg",
+                        "target": 1
+                      },
+                      {
+                        "role": "rhizomatic.schema.term",
+                        "target": "a26570726f7073a06764656661756c74a1647069636ba1656f72646572a166627950726564a26470726564a1656d61746368a363636d7062657165636f6e7374a164686f6c6569707265666572726564656669656c6466617574686f72647468656ea16b627954696d657374616d706464657363"
+                      }
+                    ]
+                  },
+                  "sig": "4955fb857c9f27bf5fc480bcf5de9561c6d7371c866daf8d6e1479471e4e1252acc1a26aa38c8383578e0003f9830d682416929d53614f7a56f2254989b3690b"
+                }
+              ]
+            },
+            "outcome": {
+              "id": "1e2055edca9b64469ed637a5fc594f45314362e0e1e00c53e0fa6954811eae423d83",
+              "claims": {
+                "timestamp": 10,
+                "validFrom": 10,
+                "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+                "pointers": [
+                  {
+                    "role": "rhizomatic.command.kind",
+                    "target": "outcome/1"
+                  },
+                  {
+                    "role": "rhizomatic.command.receiver",
+                    "target": {
+                      "id": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c"
+                    }
+                  },
+                  {
+                    "role": "rhizomatic.command.configuration",
+                    "target": {
+                      "delta": "1e207778aea62fecfdbce9940a72844ca78c50ce77f0f630255ba54d70c70fdead56"
+                    }
+                  },
+                  {
+                    "role": "rhizomatic.command.request",
+                    "target": {
+                      "delta": "1e2055626718c28abe22b28a58802775e7d6a7435352f65dacaf3088f8c66e62c153"
+                    }
+                  },
+                  {
+                    "role": "rhizomatic.command.status",
+                    "target": "completed"
+                  },
+                  {
+                    "role": "rhizomatic.command.result",
+                    "target": {
+                      "mime": "application/cbor",
+                      "value": "qmJhdPlJAGRoZWFkeEQxZTIwZTE1MjQ2OGQwNTI3ZGY1OWI5NGRmMmI3OTM3YmViZDdmOTM1Mzc1ZDc0MmFjN2FjM2ViMjMwYmJkYjU0NGM0MWRraW5kaGV2YWx1YXRlZXZhbHVlU6FmYnJhbmNooWZoZWlnaHT5UUBmZGlnZXN0eEQxZTIwMWZhNDExMTEwMzIzOGM4NGY3YTE0NGIwZWQzM2FlY2E5NTI2ZmYxZjQyODU4MzFjZGIyZTdkNWVmODVkNWM5NmZzb3VyY2VoYWRtaXR0ZWRpc2NoZW1hUGlueEQxZTIwMjdhZmRkMGE4YTdmZTYxMzdiMmMzMjQ3ZmNlMmNkYTE1YzIwNDgzNzM5MzI0NTc3ZGY3ODQ0ODcwNDRmMzM4OG5oeXBlcnNjaGVtYVBpbnhEMWUyMDRjZTA3NjE4NjdmNWU0OGYxNmE5MTUzNzM0M2Q0ZWZlNWY1NzEyMTRiYzIxZmIwYTViYzRjYTk5M2Q1OGY0MGJuaW50ZXJwcmV0YXRpb25mY29yZS8xcGRlZmluaXRpb25EaWdlc3R4RDFlMjAyY2Q3N2FkMWQ5ODJmMDE3MWJmZDAyMGM5YWI3ZjMxNDk2NGE1MjczZmJhMDY4OTY3YThmNzA0Y2Y3Mjc3Zjdh"
+                    }
+                  }
+                ]
+              },
+              "sig": "07261a7a60825a0c22b184978643de5689439c83fd000f0e926ed592f6faf0f8bca4088bf55fa3ce1b37952bf1bdafdaed82fecbc03ce82bb11815bebf11180b"
+            },
+            "result": {
+              "status": "completed",
+              "bodyHex": "aa626174f94900646865616478443165323065313532343638643035323764663539623934646632623739333762656264376639333533373564373432616337616333656232333062626462353434633431646b696e64686576616c756174656576616c756553a1666272616e6368a166686569676874f95140666469676573747844316532303166613431313131303332333863383466376131343462306564333361656361393532366666316634323835383331636462326537643565663835643563393666736f757263656861646d697474656469736368656d6150696e784431653230323761666464306138613766653631333762326333323437666365326364613135633230343833373339333234353737646637383434383730343466333338386e6879706572736368656d6150696e784431653230346365303736313836376635653438663136613931353337333433643465666535663537313231346263323166623061356263346361393933643538663430626e696e746572707265746174696f6e66636f72652f3170646566696e6974696f6e44696765737478443165323032636437376164316439383266303137316266643032306339616237663331343936346135323733666261303638393637613866373034636637323737663761",
+              "valueHex": "a1666272616e6368a166686569676874f95140"
+            },
+            "observed": {
+              "head": "1e20e152468d0527df59b94df2b7937bebd7f935375d742ac7ac3eb230bbdb544c41",
+              "ids": [
+                "1e207b1092d3e5290bbfdfa2a883b2a3526abd9fb360d8601ba0109fe8acb9bf2cbb",
+                "1e2087decc9f06134967e1142a53fb7ec2c08d898c879595623d0ff6c6c77db065ed",
+                "1e20b463dbf9ef86d58fb833d453181b2a9d7880c0b479b8a9e2cae25aa0f38f82a8"
+              ],
+              "arrivals": [
+                {
+                  "id": "1e207b1092d3e5290bbfdfa2a883b2a3526abd9fb360d8601ba0109fe8acb9bf2cbb",
+                  "at": 3,
+                  "sequence": 1,
+                  "transfer": 1,
+                  "sender": "local"
+                },
+                {
+                  "id": "1e2087decc9f06134967e1142a53fb7ec2c08d898c879595623d0ff6c6c77db065ed",
+                  "at": 3,
+                  "sequence": 2,
+                  "transfer": 1,
+                  "sender": "local"
+                },
+                {
+                  "id": "1e20b463dbf9ef86d58fb833d453181b2a9d7880c0b479b8a9e2cae25aa0f38f82a8",
+                  "at": 3,
+                  "sequence": 3,
+                  "transfer": 1,
+                  "sender": "local"
+                }
+              ],
+              "quotaUsed": 3
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "wrong_definition_kind_pin",
+      "scenario": "error_priority",
+      "execution": true,
+      "steps": [
+        {
+          "id": "command",
+          "context": {
+            "receiverSeed": "0101010101010101010101010101010101010101010101010101010101010101",
+            "callerSeed": "0202020202020202020202020202020202020202020202020202020202020202",
+            "definitionSeed": "0303030303030303030303030303030303030303030303030303030303030303",
+            "receivedAt": 10,
+            "boot": {
+              "configuration": {
+                "id": "1e207778aea62fecfdbce9940a72844ca78c50ce77f0f630255ba54d70c70fdead56",
+                "claims": {
+                  "timestamp": 0,
+                  "validFrom": 0,
+                  "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+                  "pointers": [
+                    {
+                      "role": "rhizomatic.command.kind",
+                      "target": "endpoint/1"
+                    },
+                    {
+                      "role": "rhizomatic.command.receiver",
+                      "target": {
+                        "id": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c"
+                      }
+                    },
+                    {
+                      "role": "rhizomatic.command.caller",
+                      "target": "ed25519:8139770ea87d175f56a35466c34c7ecccb8d8a91b4ee37a25df60f5b8fc9b394"
+                    },
+                    {
+                      "role": "rhizomatic.command.installed",
+                      "target": {
+                        "delta": "1e200299888fa1cc274c039762c624d385858705fceada49e78c7106ddf1226e085f"
+                      }
+                    },
+                    {
+                      "role": "rhizomatic.command.installed",
+                      "target": {
+                        "delta": "1e205202a5256eb474480af6f347f5ca8cb1c711692e67839dcfec5cfe538e9a20b5"
+                      }
+                    },
+                    {
+                      "role": "rhizomatic.command.quota",
+                      "target": 10
+                    },
+                    {
+                      "role": "rhizomatic.command.max-deltas",
+                      "target": 20
+                    },
+                    {
+                      "role": "rhizomatic.command.max-bytes",
+                      "target": 100000
+                    }
+                  ]
+                },
+                "sig": "a096846274bb02a1eacbd320d7f86ebcafa66adc4602cce5ccff6f984a749d15108daf4c3583c48ade85b5a670af9b13960e8c8b550492aabd2f68d86f04a203"
+              },
+              "declarations": [
+                {
+                  "id": "1e200299888fa1cc274c039762c624d385858705fceada49e78c7106ddf1226e085f",
+                  "claims": {
+                    "timestamp": 0,
+                    "validFrom": 0,
+                    "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+                    "pointers": [
+                      {
+                        "role": "rhizomatic.command.kind",
+                        "target": "operation/1"
+                      },
+                      {
+                        "role": "rhizomatic.command.name",
+                        "target": {
+                          "id": "rhizomatic.command.retain"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.command.interpreter",
+                        "target": "rhizomatic.command.retain/1"
+                      },
+                      {
+                        "role": "rhizomatic.command.input-contract",
+                        "target": "rhizomatic.command.retain/1"
+                      },
+                      {
+                        "role": "rhizomatic.command.output-contract",
+                        "target": "rhizomatic.command.outcome/1"
+                      },
+                      {
+                        "role": "rhizomatic.command.effect",
+                        "target": "admission"
+                      },
+                      {
+                        "role": "rhizomatic.command.replay",
+                        "target": "re-evaluate/1"
+                      },
+                      {
+                        "role": "rhizomatic.command.dependencies",
+                        "target": "explicit-support/1"
+                      }
+                    ]
+                  },
+                  "sig": "187123d4664e2384b2e021c3705e9b8c0f8c87787608655fb17a2887965ee5fce7948734bb233bae0d2745f729c00f62964f593f562c2e2229101bf30887290e"
+                },
+                {
+                  "id": "1e205202a5256eb474480af6f347f5ca8cb1c711692e67839dcfec5cfe538e9a20b5",
+                  "claims": {
+                    "timestamp": 0,
+                    "validFrom": 0,
+                    "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+                    "pointers": [
+                      {
+                        "role": "rhizomatic.command.kind",
+                        "target": "operation/1"
+                      },
+                      {
+                        "role": "rhizomatic.command.name",
+                        "target": {
+                          "id": "rhizomatic.command.evaluate"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.command.interpreter",
+                        "target": "rhizomatic.command.evaluate/1"
+                      },
+                      {
+                        "role": "rhizomatic.command.input-contract",
+                        "target": "rhizomatic.command.evaluate/1"
+                      },
+                      {
+                        "role": "rhizomatic.command.output-contract",
+                        "target": "rhizomatic.command.outcome/1"
+                      },
+                      {
+                        "role": "rhizomatic.command.effect",
+                        "target": "none"
+                      },
+                      {
+                        "role": "rhizomatic.command.replay",
+                        "target": "re-evaluate/1"
+                      },
+                      {
+                        "role": "rhizomatic.command.dependencies",
+                        "target": "explicit-support/1"
+                      }
+                    ]
+                  },
+                  "sig": "897a7d08434f506c47039f69e78909069c8b81a6d4a13ef82f603f5250ac9a5e0a5a842ff8b3180a5ff48d22d0d40c7cb2c61c33b0d78345f6ac559a495ec500"
+                }
+              ]
+            },
+            "initialDeltas": [],
+            "construction": {
+              "request": {
+                "claims": {
+                  "timestamp": 1,
+                  "validFrom": 1,
+                  "author": "ed25519:8139770ea87d175f56a35466c34c7ecccb8d8a91b4ee37a25df60f5b8fc9b394",
+                  "pointers": [
+                    {
+                      "role": "rhizomatic.command.kind",
+                      "target": "request/1"
+                    },
+                    {
+                      "role": "rhizomatic.command.receiver",
+                      "target": {
+                        "id": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c"
+                      }
+                    },
+                    {
+                      "role": "rhizomatic.command.configuration",
+                      "target": {
+                        "delta": "1e207778aea62fecfdbce9940a72844ca78c50ce77f0f630255ba54d70c70fdead56"
+                      }
+                    },
+                    {
+                      "role": "rhizomatic.command.operation",
+                      "target": {
+                        "delta": "1e205202a5256eb474480af6f347f5ca8cb1c711692e67839dcfec5cfe538e9a20b5"
+                      }
+                    },
+                    {
+                      "role": "rhizomatic.command.source",
+                      "target": "admitted"
+                    },
+                    {
+                      "role": "rhizomatic.command.root",
+                      "target": {
+                        "id": "subject"
+                      }
+                    },
+                    {
+                      "role": "rhizomatic.command.at",
+                      "target": 10
+                    },
+                    {
+                      "role": "rhizomatic.command.interpretation",
+                      "target": "core/1"
+                    },
+                    {
+                      "role": "rhizomatic.command.hyperschema",
+                      "target": {
+                        "delta": "1e203eb583aa429d961d5c92de86668035289816faa5edccfba41d360afc6cbd51a7"
+                      }
+                    },
+                    {
+                      "role": "rhizomatic.command.hyperschema-pin",
+                      "target": "1e200000000000000000000000000000000000000000000000000000000000000000"
+                    },
+                    {
+                      "role": "rhizomatic.command.schema",
+                      "target": {
+                        "delta": "1e204bf84cd114bd9c20c27c53d61cb79daf420abb03954d7fe2730321cda5ca6e7f"
+                      }
+                    },
+                    {
+                      "role": "rhizomatic.command.schema-pin",
+                      "target": "1e2027afdd0a8a7fe6137b2c3247fce2cda15c20483739324577df784487044f3388"
+                    },
+                    {
+                      "role": "rhizomatic.command.bindings",
+                      "target": {
+                        "mime": "application/cbor",
+                        "value": "oA"
+                      }
+                    }
+                  ]
+                },
+                "seed": "0202020202020202020202020202020202020202020202020202020202020202"
+              },
+              "support": [
+                {
+                  "claims": {
+                    "timestamp": 1,
+                    "validFrom": 1,
+                    "author": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1",
+                    "pointers": [
+                      {
+                        "role": "rhizomatic.schema.defines",
+                        "target": {
+                          "id": "fixture-reading",
+                          "context": "definition"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.schema.name",
+                        "target": "fixture.Latest"
+                      },
+                      {
+                        "role": "rhizomatic.schema.alg",
+                        "target": 1
+                      },
+                      {
+                        "role": "rhizomatic.schema.term",
+                        "target": "a26570726f7073a06764656661756c74a1647069636ba1656f72646572a16b627954696d657374616d706464657363"
+                      }
+                    ]
+                  },
+                  "seed": "0303030303030303030303030303030303030303030303030303030303030303"
+                },
+                {
+                  "claims": {
+                    "timestamp": 1,
+                    "validFrom": 1,
+                    "author": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1",
+                    "pointers": [
+                      {
+                        "role": "rhizomatic.hyperschema.defines",
+                        "target": {
+                          "id": "fixture-gather",
+                          "context": "definition"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.hyperschema.name",
+                        "target": "fixture.Generic"
+                      },
+                      {
+                        "role": "rhizomatic.hyperschema.alg",
+                        "target": 1
+                      },
+                      {
+                        "role": "rhizomatic.hyperschema.term",
+                        "target": "a362696ea362696ea362696e65696e707574626f70646d61736b66706f6c6963796464726f70626f706673656c6563746470726564a16a686173506f696e746572a16c746172676574456e74697479a16376617264726f6f74626f706567726f7570636b65796f6279546172676574436f6e74657874"
+                      }
+                    ]
+                  },
+                  "seed": "0303030303030303030303030303030303030303030303030303030303030303"
+                }
+              ]
+            }
+          },
+          "expected": {
+            "oracle": "Valid resolution act is selected in hyperschema and valid HyperSchema act in schema. Wrong top definition kind is invalid-definition before the deliberately mismatched pin and any unreachable dependency. Descriptions validate; no evaluation or mutation occurs.",
+            "artifact": {
+              "format": "rhizomatic-command-artifact/1",
+              "entryId": "1e2058ead557a3e54a3974a371279c8f8cc60365541db1b7d7ae03c9fb53f18c6c80",
+              "deltas": [
+                {
+                  "id": "1e2058ead557a3e54a3974a371279c8f8cc60365541db1b7d7ae03c9fb53f18c6c80",
+                  "claims": {
+                    "timestamp": 1,
+                    "validFrom": 1,
+                    "author": "ed25519:8139770ea87d175f56a35466c34c7ecccb8d8a91b4ee37a25df60f5b8fc9b394",
+                    "pointers": [
+                      {
+                        "role": "rhizomatic.command.kind",
+                        "target": "request/1"
+                      },
+                      {
+                        "role": "rhizomatic.command.receiver",
+                        "target": {
+                          "id": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.command.configuration",
+                        "target": {
+                          "delta": "1e207778aea62fecfdbce9940a72844ca78c50ce77f0f630255ba54d70c70fdead56"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.command.operation",
+                        "target": {
+                          "delta": "1e205202a5256eb474480af6f347f5ca8cb1c711692e67839dcfec5cfe538e9a20b5"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.command.source",
+                        "target": "admitted"
+                      },
+                      {
+                        "role": "rhizomatic.command.root",
+                        "target": {
+                          "id": "subject"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.command.at",
+                        "target": 10
+                      },
+                      {
+                        "role": "rhizomatic.command.interpretation",
+                        "target": "core/1"
+                      },
+                      {
+                        "role": "rhizomatic.command.hyperschema",
+                        "target": {
+                          "delta": "1e203eb583aa429d961d5c92de86668035289816faa5edccfba41d360afc6cbd51a7"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.command.hyperschema-pin",
+                        "target": "1e200000000000000000000000000000000000000000000000000000000000000000"
+                      },
+                      {
+                        "role": "rhizomatic.command.schema",
+                        "target": {
+                          "delta": "1e204bf84cd114bd9c20c27c53d61cb79daf420abb03954d7fe2730321cda5ca6e7f"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.command.schema-pin",
+                        "target": "1e2027afdd0a8a7fe6137b2c3247fce2cda15c20483739324577df784487044f3388"
+                      },
+                      {
+                        "role": "rhizomatic.command.bindings",
+                        "target": {
+                          "mime": "application/cbor",
+                          "value": "oA"
+                        }
+                      }
+                    ]
+                  },
+                  "sig": "d487bd5eca3844a198fb8dea768e115dec5ca5fa901143e9fead48da096da1e61134402dd7566e78851864ef4c83d7fc39e6160bd28c48eef232239314a7a604"
+                },
+                {
+                  "id": "1e203eb583aa429d961d5c92de86668035289816faa5edccfba41d360afc6cbd51a7",
+                  "claims": {
+                    "timestamp": 1,
+                    "validFrom": 1,
+                    "author": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1",
+                    "pointers": [
+                      {
+                        "role": "rhizomatic.schema.defines",
+                        "target": {
+                          "id": "fixture-reading",
+                          "context": "definition"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.schema.name",
+                        "target": "fixture.Latest"
+                      },
+                      {
+                        "role": "rhizomatic.schema.alg",
+                        "target": 1
+                      },
+                      {
+                        "role": "rhizomatic.schema.term",
+                        "target": "a26570726f7073a06764656661756c74a1647069636ba1656f72646572a16b627954696d657374616d706464657363"
+                      }
+                    ]
+                  },
+                  "sig": "49cb9f520c3fb6605201552f21b04406fc87d3fb2df627e5ba97c67a725c0574fcded86d5b04f0264351a2804be70f1540ecc2bf5f16d81dd0b1e961a80fb30c"
+                },
+                {
+                  "id": "1e204bf84cd114bd9c20c27c53d61cb79daf420abb03954d7fe2730321cda5ca6e7f",
+                  "claims": {
+                    "timestamp": 1,
+                    "validFrom": 1,
+                    "author": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1",
+                    "pointers": [
+                      {
+                        "role": "rhizomatic.hyperschema.defines",
+                        "target": {
+                          "id": "fixture-gather",
+                          "context": "definition"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.hyperschema.name",
+                        "target": "fixture.Generic"
+                      },
+                      {
+                        "role": "rhizomatic.hyperschema.alg",
+                        "target": 1
+                      },
+                      {
+                        "role": "rhizomatic.hyperschema.term",
+                        "target": "a362696ea362696ea362696e65696e707574626f70646d61736b66706f6c6963796464726f70626f706673656c6563746470726564a16a686173506f696e746572a16c746172676574456e74697479a16376617264726f6f74626f706567726f7570636b65796f6279546172676574436f6e74657874"
+                      }
+                    ]
+                  },
+                  "sig": "74c1de05e0ac6e277cec8141924634215f4eda5fb8a8d91283e5a9937dad8373f977722134dc07828c273207c3a57fb680ca25baf090c76da163623f87255c00"
+                }
+              ]
+            },
+            "outcome": {
+              "id": "1e205d25d105e0154c2f942e0f975bb45fac429e30046257ff137409df563b6c8783",
+              "claims": {
+                "timestamp": 10,
+                "validFrom": 10,
+                "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+                "pointers": [
+                  {
+                    "role": "rhizomatic.command.kind",
+                    "target": "outcome/1"
+                  },
+                  {
+                    "role": "rhizomatic.command.receiver",
+                    "target": {
+                      "id": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c"
+                    }
+                  },
+                  {
+                    "role": "rhizomatic.command.configuration",
+                    "target": {
+                      "delta": "1e207778aea62fecfdbce9940a72844ca78c50ce77f0f630255ba54d70c70fdead56"
+                    }
+                  },
+                  {
+                    "role": "rhizomatic.command.request",
+                    "target": {
+                      "delta": "1e2058ead557a3e54a3974a371279c8f8cc60365541db1b7d7ae03c9fb53f18c6c80"
+                    }
+                  },
+                  {
+                    "role": "rhizomatic.command.status",
+                    "target": "refused"
+                  },
+                  {
+                    "role": "rhizomatic.command.result",
+                    "target": {
+                      "mime": "application/cbor",
+                      "value": "oWRjb2RlcmludmFsaWQtZGVmaW5pdGlvbg"
+                    }
+                  }
+                ]
+              },
+              "sig": "a4ab3062316a8fbee3eda6810ee7a3edb192f1aff87dd8dc0fe0eb81b631d5cd3af74f52ee3e3d92bb5f59ff8adf2c15421573311153a5379ea6d20d6a187303"
+            },
+            "result": {
+              "status": "refused",
+              "bodyHex": "a164636f646572696e76616c69642d646566696e6974696f6e"
+            },
+            "observed": {
+              "head": "",
+              "ids": [],
+              "arrivals": [],
+              "quotaUsed": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "wrong_definition_kind_closure",
+      "scenario": "error_priority",
+      "execution": true,
+      "steps": [
+        {
+          "id": "command",
+          "context": {
+            "receiverSeed": "0101010101010101010101010101010101010101010101010101010101010101",
+            "callerSeed": "0202020202020202020202020202020202020202020202020202020202020202",
+            "definitionSeed": "0303030303030303030303030303030303030303030303030303030303030303",
+            "receivedAt": 10,
+            "boot": {
+              "configuration": {
+                "id": "1e207778aea62fecfdbce9940a72844ca78c50ce77f0f630255ba54d70c70fdead56",
+                "claims": {
+                  "timestamp": 0,
+                  "validFrom": 0,
+                  "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+                  "pointers": [
+                    {
+                      "role": "rhizomatic.command.kind",
+                      "target": "endpoint/1"
+                    },
+                    {
+                      "role": "rhizomatic.command.receiver",
+                      "target": {
+                        "id": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c"
+                      }
+                    },
+                    {
+                      "role": "rhizomatic.command.caller",
+                      "target": "ed25519:8139770ea87d175f56a35466c34c7ecccb8d8a91b4ee37a25df60f5b8fc9b394"
+                    },
+                    {
+                      "role": "rhizomatic.command.installed",
+                      "target": {
+                        "delta": "1e200299888fa1cc274c039762c624d385858705fceada49e78c7106ddf1226e085f"
+                      }
+                    },
+                    {
+                      "role": "rhizomatic.command.installed",
+                      "target": {
+                        "delta": "1e205202a5256eb474480af6f347f5ca8cb1c711692e67839dcfec5cfe538e9a20b5"
+                      }
+                    },
+                    {
+                      "role": "rhizomatic.command.quota",
+                      "target": 10
+                    },
+                    {
+                      "role": "rhizomatic.command.max-deltas",
+                      "target": 20
+                    },
+                    {
+                      "role": "rhizomatic.command.max-bytes",
+                      "target": 100000
+                    }
+                  ]
+                },
+                "sig": "a096846274bb02a1eacbd320d7f86ebcafa66adc4602cce5ccff6f984a749d15108daf4c3583c48ade85b5a670af9b13960e8c8b550492aabd2f68d86f04a203"
+              },
+              "declarations": [
+                {
+                  "id": "1e200299888fa1cc274c039762c624d385858705fceada49e78c7106ddf1226e085f",
+                  "claims": {
+                    "timestamp": 0,
+                    "validFrom": 0,
+                    "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+                    "pointers": [
+                      {
+                        "role": "rhizomatic.command.kind",
+                        "target": "operation/1"
+                      },
+                      {
+                        "role": "rhizomatic.command.name",
+                        "target": {
+                          "id": "rhizomatic.command.retain"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.command.interpreter",
+                        "target": "rhizomatic.command.retain/1"
+                      },
+                      {
+                        "role": "rhizomatic.command.input-contract",
+                        "target": "rhizomatic.command.retain/1"
+                      },
+                      {
+                        "role": "rhizomatic.command.output-contract",
+                        "target": "rhizomatic.command.outcome/1"
+                      },
+                      {
+                        "role": "rhizomatic.command.effect",
+                        "target": "admission"
+                      },
+                      {
+                        "role": "rhizomatic.command.replay",
+                        "target": "re-evaluate/1"
+                      },
+                      {
+                        "role": "rhizomatic.command.dependencies",
+                        "target": "explicit-support/1"
+                      }
+                    ]
+                  },
+                  "sig": "187123d4664e2384b2e021c3705e9b8c0f8c87787608655fb17a2887965ee5fce7948734bb233bae0d2745f729c00f62964f593f562c2e2229101bf30887290e"
+                },
+                {
+                  "id": "1e205202a5256eb474480af6f347f5ca8cb1c711692e67839dcfec5cfe538e9a20b5",
+                  "claims": {
+                    "timestamp": 0,
+                    "validFrom": 0,
+                    "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+                    "pointers": [
+                      {
+                        "role": "rhizomatic.command.kind",
+                        "target": "operation/1"
+                      },
+                      {
+                        "role": "rhizomatic.command.name",
+                        "target": {
+                          "id": "rhizomatic.command.evaluate"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.command.interpreter",
+                        "target": "rhizomatic.command.evaluate/1"
+                      },
+                      {
+                        "role": "rhizomatic.command.input-contract",
+                        "target": "rhizomatic.command.evaluate/1"
+                      },
+                      {
+                        "role": "rhizomatic.command.output-contract",
+                        "target": "rhizomatic.command.outcome/1"
+                      },
+                      {
+                        "role": "rhizomatic.command.effect",
+                        "target": "none"
+                      },
+                      {
+                        "role": "rhizomatic.command.replay",
+                        "target": "re-evaluate/1"
+                      },
+                      {
+                        "role": "rhizomatic.command.dependencies",
+                        "target": "explicit-support/1"
+                      }
+                    ]
+                  },
+                  "sig": "897a7d08434f506c47039f69e78909069c8b81a6d4a13ef82f603f5250ac9a5e0a5a842ff8b3180a5ff48d22d0d40c7cb2c61c33b0d78345f6ac559a495ec500"
+                }
+              ]
+            },
+            "initialDeltas": [],
+            "construction": {
+              "request": {
+                "claims": {
+                  "timestamp": 1,
+                  "validFrom": 1,
+                  "author": "ed25519:8139770ea87d175f56a35466c34c7ecccb8d8a91b4ee37a25df60f5b8fc9b394",
+                  "pointers": [
+                    {
+                      "role": "rhizomatic.command.kind",
+                      "target": "request/1"
+                    },
+                    {
+                      "role": "rhizomatic.command.receiver",
+                      "target": {
+                        "id": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c"
+                      }
+                    },
+                    {
+                      "role": "rhizomatic.command.configuration",
+                      "target": {
+                        "delta": "1e207778aea62fecfdbce9940a72844ca78c50ce77f0f630255ba54d70c70fdead56"
+                      }
+                    },
+                    {
+                      "role": "rhizomatic.command.operation",
+                      "target": {
+                        "delta": "1e205202a5256eb474480af6f347f5ca8cb1c711692e67839dcfec5cfe538e9a20b5"
+                      }
+                    },
+                    {
+                      "role": "rhizomatic.command.source",
+                      "target": "admitted"
+                    },
+                    {
+                      "role": "rhizomatic.command.root",
+                      "target": {
+                        "id": "subject"
+                      }
+                    },
+                    {
+                      "role": "rhizomatic.command.at",
+                      "target": 10
+                    },
+                    {
+                      "role": "rhizomatic.command.interpretation",
+                      "target": "core/1"
+                    },
+                    {
+                      "role": "rhizomatic.command.hyperschema",
+                      "target": {
+                        "delta": "1e203eb583aa429d961d5c92de86668035289816faa5edccfba41d360afc6cbd51a7"
+                      }
+                    },
+                    {
+                      "role": "rhizomatic.command.hyperschema-pin",
+                      "target": "1e200000000000000000000000000000000000000000000000000000000000000000"
+                    },
+                    {
+                      "role": "rhizomatic.command.schema",
+                      "target": {
+                        "delta": "1e204bf84cd114bd9c20c27c53d61cb79daf420abb03954d7fe2730321cda5ca6e7f"
+                      }
+                    },
+                    {
+                      "role": "rhizomatic.command.schema-pin",
+                      "target": "1e2027afdd0a8a7fe6137b2c3247fce2cda15c20483739324577df784487044f3388"
+                    },
+                    {
+                      "role": "rhizomatic.command.definition",
+                      "target": {
+                        "delta": "1e20bad88d921007e0965c4ecddca619171be55a4babf78d6e182006eecc00f94b60"
+                      }
+                    },
+                    {
+                      "role": "rhizomatic.command.bindings",
+                      "target": {
+                        "mime": "application/cbor",
+                        "value": "oA"
+                      }
+                    }
+                  ]
+                },
+                "seed": "0202020202020202020202020202020202020202020202020202020202020202"
+              },
+              "support": [
+                {
+                  "claims": {
+                    "timestamp": 1,
+                    "validFrom": 1,
+                    "author": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1",
+                    "pointers": [
+                      {
+                        "role": "rhizomatic.schema.defines",
+                        "target": {
+                          "id": "fixture-reading",
+                          "context": "definition"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.schema.name",
+                        "target": "fixture.Latest"
+                      },
+                      {
+                        "role": "rhizomatic.schema.alg",
+                        "target": 1
+                      },
+                      {
+                        "role": "rhizomatic.schema.term",
+                        "target": "a26570726f7073a06764656661756c74a1647069636ba1656f72646572a16b627954696d657374616d706464657363"
+                      }
+                    ]
+                  },
+                  "seed": "0303030303030303030303030303030303030303030303030303030303030303"
+                },
+                {
+                  "claims": {
+                    "timestamp": 1,
+                    "validFrom": 1,
+                    "author": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1",
+                    "pointers": [
+                      {
+                        "role": "rhizomatic.hyperschema.defines",
+                        "target": {
+                          "id": "fixture-gather",
+                          "context": "definition"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.hyperschema.name",
+                        "target": "fixture.Generic"
+                      },
+                      {
+                        "role": "rhizomatic.hyperschema.alg",
+                        "target": 1
+                      },
+                      {
+                        "role": "rhizomatic.hyperschema.term",
+                        "target": "a362696ea362696ea362696e65696e707574626f70646d61736b66706f6c6963796464726f70626f706673656c6563746470726564a16a686173506f696e746572a16c746172676574456e74697479a16376617264726f6f74626f706567726f7570636b65796f6279546172676574436f6e74657874"
+                      }
+                    ]
+                  },
+                  "seed": "0303030303030303030303030303030303030303030303030303030303030303"
+                },
+                {
+                  "claims": {
+                    "timestamp": 1,
+                    "validFrom": 1,
+                    "author": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1",
+                    "pointers": [
+                      {
+                        "role": "rhizomatic.hyperschema.defines",
+                        "target": {
+                          "id": "fixture-gather",
+                          "context": "definition"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.hyperschema.name",
+                        "target": "fixture.Unused"
+                      },
+                      {
+                        "role": "rhizomatic.hyperschema.alg",
+                        "target": 1
+                      },
+                      {
+                        "role": "rhizomatic.hyperschema.term",
+                        "target": "a362696ea362696ea362696e65696e707574626f70646d61736b66706f6c6963796464726f70626f706673656c6563746470726564a16a686173506f696e746572a16c746172676574456e74697479a16376617264726f6f74626f706567726f7570636b65796f6279546172676574436f6e74657874"
+                      }
+                    ]
+                  },
+                  "seed": "0303030303030303030303030303030303030303030303030303030303030303"
+                }
+              ]
+            }
+          },
+          "expected": {
+            "oracle": "Valid resolution act is selected in hyperschema and valid HyperSchema act in schema. Wrong top definition kind is invalid-definition before the deliberately mismatched pin and any unreachable dependency. Descriptions validate; no evaluation or mutation occurs.",
+            "artifact": {
+              "format": "rhizomatic-command-artifact/1",
+              "entryId": "1e2000b6c87ac699c26ff764e8814953a2db34092af398deafc591e4c54ceefaafd2",
+              "deltas": [
+                {
+                  "id": "1e2000b6c87ac699c26ff764e8814953a2db34092af398deafc591e4c54ceefaafd2",
+                  "claims": {
+                    "timestamp": 1,
+                    "validFrom": 1,
+                    "author": "ed25519:8139770ea87d175f56a35466c34c7ecccb8d8a91b4ee37a25df60f5b8fc9b394",
+                    "pointers": [
+                      {
+                        "role": "rhizomatic.command.kind",
+                        "target": "request/1"
+                      },
+                      {
+                        "role": "rhizomatic.command.receiver",
+                        "target": {
+                          "id": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.command.configuration",
+                        "target": {
+                          "delta": "1e207778aea62fecfdbce9940a72844ca78c50ce77f0f630255ba54d70c70fdead56"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.command.operation",
+                        "target": {
+                          "delta": "1e205202a5256eb474480af6f347f5ca8cb1c711692e67839dcfec5cfe538e9a20b5"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.command.source",
+                        "target": "admitted"
+                      },
+                      {
+                        "role": "rhizomatic.command.root",
+                        "target": {
+                          "id": "subject"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.command.at",
+                        "target": 10
+                      },
+                      {
+                        "role": "rhizomatic.command.interpretation",
+                        "target": "core/1"
+                      },
+                      {
+                        "role": "rhizomatic.command.hyperschema",
+                        "target": {
+                          "delta": "1e203eb583aa429d961d5c92de86668035289816faa5edccfba41d360afc6cbd51a7"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.command.hyperschema-pin",
+                        "target": "1e200000000000000000000000000000000000000000000000000000000000000000"
+                      },
+                      {
+                        "role": "rhizomatic.command.schema",
+                        "target": {
+                          "delta": "1e204bf84cd114bd9c20c27c53d61cb79daf420abb03954d7fe2730321cda5ca6e7f"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.command.schema-pin",
+                        "target": "1e2027afdd0a8a7fe6137b2c3247fce2cda15c20483739324577df784487044f3388"
+                      },
+                      {
+                        "role": "rhizomatic.command.definition",
+                        "target": {
+                          "delta": "1e20bad88d921007e0965c4ecddca619171be55a4babf78d6e182006eecc00f94b60"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.command.bindings",
+                        "target": {
+                          "mime": "application/cbor",
+                          "value": "oA"
+                        }
+                      }
+                    ]
+                  },
+                  "sig": "0f24698288379e4f62428816a5be037fec3d12556d584c1d80bf3e0e5040b2d21822593667a2451e24646b2fd1130a39f7e92a40bce9a5f084b57ef5ff73a20d"
+                },
+                {
+                  "id": "1e203eb583aa429d961d5c92de86668035289816faa5edccfba41d360afc6cbd51a7",
+                  "claims": {
+                    "timestamp": 1,
+                    "validFrom": 1,
+                    "author": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1",
+                    "pointers": [
+                      {
+                        "role": "rhizomatic.schema.defines",
+                        "target": {
+                          "id": "fixture-reading",
+                          "context": "definition"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.schema.name",
+                        "target": "fixture.Latest"
+                      },
+                      {
+                        "role": "rhizomatic.schema.alg",
+                        "target": 1
+                      },
+                      {
+                        "role": "rhizomatic.schema.term",
+                        "target": "a26570726f7073a06764656661756c74a1647069636ba1656f72646572a16b627954696d657374616d706464657363"
+                      }
+                    ]
+                  },
+                  "sig": "49cb9f520c3fb6605201552f21b04406fc87d3fb2df627e5ba97c67a725c0574fcded86d5b04f0264351a2804be70f1540ecc2bf5f16d81dd0b1e961a80fb30c"
+                },
+                {
+                  "id": "1e204bf84cd114bd9c20c27c53d61cb79daf420abb03954d7fe2730321cda5ca6e7f",
+                  "claims": {
+                    "timestamp": 1,
+                    "validFrom": 1,
+                    "author": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1",
+                    "pointers": [
+                      {
+                        "role": "rhizomatic.hyperschema.defines",
+                        "target": {
+                          "id": "fixture-gather",
+                          "context": "definition"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.hyperschema.name",
+                        "target": "fixture.Generic"
+                      },
+                      {
+                        "role": "rhizomatic.hyperschema.alg",
+                        "target": 1
+                      },
+                      {
+                        "role": "rhizomatic.hyperschema.term",
+                        "target": "a362696ea362696ea362696e65696e707574626f70646d61736b66706f6c6963796464726f70626f706673656c6563746470726564a16a686173506f696e746572a16c746172676574456e74697479a16376617264726f6f74626f706567726f7570636b65796f6279546172676574436f6e74657874"
+                      }
+                    ]
+                  },
+                  "sig": "74c1de05e0ac6e277cec8141924634215f4eda5fb8a8d91283e5a9937dad8373f977722134dc07828c273207c3a57fb680ca25baf090c76da163623f87255c00"
+                },
+                {
+                  "id": "1e20bad88d921007e0965c4ecddca619171be55a4babf78d6e182006eecc00f94b60",
+                  "claims": {
+                    "timestamp": 1,
+                    "validFrom": 1,
+                    "author": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1",
+                    "pointers": [
+                      {
+                        "role": "rhizomatic.hyperschema.defines",
+                        "target": {
+                          "id": "fixture-gather",
+                          "context": "definition"
+                        }
+                      },
+                      {
+                        "role": "rhizomatic.hyperschema.name",
+                        "target": "fixture.Unused"
+                      },
+                      {
+                        "role": "rhizomatic.hyperschema.alg",
+                        "target": 1
+                      },
+                      {
+                        "role": "rhizomatic.hyperschema.term",
+                        "target": "a362696ea362696ea362696e65696e707574626f70646d61736b66706f6c6963796464726f70626f706673656c6563746470726564a16a686173506f696e746572a16c746172676574456e74697479a16376617264726f6f74626f706567726f7570636b65796f6279546172676574436f6e74657874"
+                      }
+                    ]
+                  },
+                  "sig": "4ce9a4c5cad706fb5b971b8d5f76d3fdc0f7602d707f22bd746850e869d4bc958cfe8f8062a651a9960a5d83d0b4706ca78c4859412aac032fd4e385e09a2b00"
+                }
+              ]
+            },
+            "outcome": {
+              "id": "1e20855324a7cc2ce49db6793458d247a646525d8c7f48d7cdbb69df82f281473a7a",
+              "claims": {
+                "timestamp": 10,
+                "validFrom": 10,
+                "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+                "pointers": [
+                  {
+                    "role": "rhizomatic.command.kind",
+                    "target": "outcome/1"
+                  },
+                  {
+                    "role": "rhizomatic.command.receiver",
+                    "target": {
+                      "id": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c"
+                    }
+                  },
+                  {
+                    "role": "rhizomatic.command.configuration",
+                    "target": {
+                      "delta": "1e207778aea62fecfdbce9940a72844ca78c50ce77f0f630255ba54d70c70fdead56"
+                    }
+                  },
+                  {
+                    "role": "rhizomatic.command.request",
+                    "target": {
+                      "delta": "1e2000b6c87ac699c26ff764e8814953a2db34092af398deafc591e4c54ceefaafd2"
+                    }
+                  },
+                  {
+                    "role": "rhizomatic.command.status",
+                    "target": "refused"
+                  },
+                  {
+                    "role": "rhizomatic.command.result",
+                    "target": {
+                      "mime": "application/cbor",
+                      "value": "oWRjb2RlcmludmFsaWQtZGVmaW5pdGlvbg"
+                    }
+                  }
+                ]
+              },
+              "sig": "592ecc1b4c7c356a225a2e0ca1122cd7e86e63dc5ada900c40111cf86d7aac852ad64128e79cadb103f6b0fef2fe1ba090334f8970cbd6a4bd72b21ea819ca0b"
+            },
+            "result": {
+              "status": "refused",
+              "bodyHex": "a164636f646572696e76616c69642d646566696e6974696f6e"
+            },
+            "observed": {
+              "head": "",
+              "ids": [],
+              "arrivals": [],
+              "quotaUsed": 0
+            }
+          }
+        }
+      ]
     }
   ]
 }

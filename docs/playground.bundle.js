@@ -1504,6 +1504,28 @@
   // src/delta/vocab.ts
   var VOCAB_PREFIX = "rhizomatic";
 
+  // src/syntax/bind-reading.ts
+  function bindReadingVariables(schema, bindings) {
+    if (bindings === void 0) return schema;
+    const order = (value) => {
+      if (value.kind === "byPred")
+        return { ...value, pred: substituteHoles(value.pred, bindings), then: order(value.then) };
+      if (value.kind === "chain") return { ...value, orders: value.orders.map(order) };
+      return value;
+    };
+    const policy = (value) => {
+      if (value.kind === "pick" || value.kind === "all" || value.kind === "conflicts")
+        return { ...value, order: order(value.order) };
+      if (value.kind === "absentAs") return { ...value, then: policy(value.then) };
+      return value;
+    };
+    return {
+      ...schema,
+      props: new Map([...schema.props].map(([name, value]) => [name, policy(value)])),
+      default: policy(schema.default)
+    };
+  }
+
   // src/delta/delta.ts
   function targetToCbor(t) {
     switch (t.kind) {
@@ -1984,7 +2006,7 @@
       case "expand": {
         const of = expectHView(evalTermRaw(term.of, input, root, registry, bindings), "expand");
         const role = expandStrMatch(term.role, input, root);
-        const reading = term.reading === void 0 ? void 0 : lookupReading(term.reading, registry);
+        const reading = term.reading === void 0 ? void 0 : lookupReading(term.reading, registry, bindings);
         const props = /* @__PURE__ */ new Map();
         for (const [prop, entries] of of.hview.props) {
           props.set(
@@ -2021,7 +2043,10 @@
         };
       case "resolve": {
         const of = expectHView(evalTermRaw(term.of, input, root, registry, bindings), "resolve");
-        return { sort: "view", view: resolveView(term.schema, of.hview) };
+        return {
+          sort: "view",
+          view: resolveView(bindReadingVariables(term.schema, bindings), of.hview)
+        };
       }
     }
   }
@@ -2045,13 +2070,13 @@
     }
     return result.hview;
   }
-  function lookupReading(ref, registry) {
+  function lookupReading(ref, registry, bindings) {
     const label = ref.kind === "name" ? ref.name : `pinned:${ref.hash.slice(0, 12)}\u2026`;
     if (registry === void 0)
       throw new Error(`reading ${label} referenced but no registry supplied (issue #23)`);
     const schema = registry.resolveReading(ref);
     if (schema === void 0) throw new Error(`unknown reading: ${label} (issue #23)`);
-    return schema;
+    return bindReadingVariables(schema, bindings);
   }
 
   // src/schema/schema.ts
