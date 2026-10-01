@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { runTowerSuite, validateRunBundle } from './command-towers.mjs';
 import { fingerprint } from './command-tower-plan.mjs';
@@ -86,7 +86,8 @@ test('each route gets a fresh durable directory, preserved only across its own s
   const options = environment(t), directories = [];
   options.adapter = (w, input) => {
     if (input.mode === 'execute') {
-      const marker = join(input.context.storePath, 'written');
+      const marker = join(dirname(input.context.storePath), 'written');
+      assert.equal(existsSync(input.context.storePath), false, 'adapter receives a fresh journal file path');
       assert.equal(existsSync(marker), false);
       writeFileSync(marker, w); directories.push(input.context.storePath);
     }

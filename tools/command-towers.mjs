@@ -1,5 +1,5 @@
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
-import { resolve, join } from 'node:path';
+import { resolve, join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { randomBytes } from 'node:crypto';
@@ -152,8 +152,8 @@ export async function runTowerSuite({ fixtures, spec, capabilities, builds, buil
       for (const route of [...routes, ...plan.plans]) {
         const runId = String(route.index), run = { id: runId, stages: [], status: 'running' };
         scenario.runs.push(run);
-        const statePath = join(resolve(outDir), 'states', fixture.id, runId);
-        mkdirSync(statePath, { recursive: true });
+        const statePath = join(resolve(outDir), 'states', fixture.id, runId, 'journal.json');
+        mkdirSync(dirname(statePath), { recursive: true });
         const observations = new Map();
         const steps = stepsOf(fixture);
         for (let si = 0; si < steps.length; si++) {
