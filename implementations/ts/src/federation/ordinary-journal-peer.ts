@@ -3,6 +3,7 @@ import type { Delta } from "../delta/types.js";
 import { computeId } from "../delta/delta.js";
 import { DeltaSet } from "../delta/set.js";
 import { contentAddress } from "../delta/hash.js";
+import { verifyCanonicalDelta } from "../delta/sign.js";
 import { claimsToJson, parseClaims } from "../delta/json-profile.js";
 import {
   emptyDurablePeerState,
@@ -895,10 +896,20 @@ export async function captureOrdinaryJournalSource(
   try {
     const existing = await store.readJournal(peerId);
     if (existing.status !== "journal") return { status: "source-unavailable" };
-    const opened = await OrdinaryJournalPeer.open(store, peerId, { requireExisting: true });
+    // Reuse this exact bracket's initial journal observation, then read rows and final head.
+    const capturedStore = new Proxy(store, {
+      get(target, key) {
+        if (key === "readJournal") return () => Promise.resolve(existing);
+        const member = Reflect.get(target, key);
+        return typeof member === "function" ? member.bind(target) : member;
+      },
+    });
+    const opened = await OrdinaryJournalPeer.open(capturedStore, peerId, { requireExisting: true });
     if (opened.status !== "open")
       return { status: opened.status === "conflict" ? "source-changed" : "source-unavailable" };
     const state = opened.peer.snapshot();
+    if ([...state.base.admitted].some((delta) => verifyCanonicalDelta(delta) !== "verified"))
+      return { status: "source-unavailable" };
     return {
       status: "captured",
       peer: opened.peer,

@@ -770,6 +770,54 @@
         ]
       },
       "sig": "F7634FFE49EF0E25FEFC862227025E2E513E5A9750B42012DE32F0945A5445C907AD4CF75BF872B4E47454267EEEDB0900928B0EA2E4B31D2A405D955D8D570D"
+    },
+    "signatureVariants": {
+      "original": {
+        "id": "1e207f7a46b2e017b0ce473807c04ad280e6e95961ce3f8641ca4317b7eb4ae4bea7",
+        "claims": {
+          "timestamp": 1,
+          "validFrom": 1,
+          "author": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1",
+          "pointers": [
+            {
+              "role": "about",
+              "target": {
+                "id": "subject",
+                "context": "name"
+              }
+            },
+            {
+              "role": "value",
+              "target": "Ada"
+            }
+          ]
+        },
+        "sig": "f7634ffe49ef0e25fefc862227025e2e513e5a9750b42012de32f0945a5445c907ad4cf75bf872b4e47454267eeedb0900928b0ea2e4b31d2a405d955d8d570d"
+      },
+      "alternate": {
+        "id": "1e207f7a46b2e017b0ce473807c04ad280e6e95961ce3f8641ca4317b7eb4ae4bea7",
+        "claims": {
+          "timestamp": 1,
+          "validFrom": 1,
+          "author": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1",
+          "pointers": [
+            {
+              "role": "about",
+              "target": {
+                "id": "subject",
+                "context": "name"
+              }
+            },
+            {
+              "role": "value",
+              "target": "Ada"
+            }
+          ]
+        },
+        "sig": "58666666666666666666666666666666666666666666666666666666666666669ec87b884b7593be1b27d9d51be875f60df2967df9ac58fb9d53b3af25647a03"
+      },
+      "selectedSignature": "58666666666666666666666666666666666666666666666666666666666666669ec87b884b7593be1b27d9d51be875f60df2967df9ac58fb9d53b3af25647a03",
+      "oracle": "Independent Ed25519 nonce r=1: R=B; a=clamp(SHA512(seed03)); k=LE(SHA512(R||A||rawMultihashID)) mod L; S=(1+k*a) mod L. Both supplied signatures verify. Select minimum signature bytes after verifying all appearances; never replace an already admitted row."
     }
   },
   "cases": [

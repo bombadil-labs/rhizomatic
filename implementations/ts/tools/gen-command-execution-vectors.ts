@@ -1,5 +1,5 @@
 import { writeFileSync, readFileSync } from "node:fs";
-import { authorForSeed, signClaims } from "../src/delta/sign.js";
+import { authorForSeed, signClaims, verifyDelta } from "../src/delta/sign.js";
 import { claimsToJson } from "../src/delta/json-profile.js";
 import {
   COMMAND_PREFIX,
@@ -61,6 +61,15 @@ const fact = (value: string, at: number) =>
   );
 const first = fact("Ada", 1),
   second = fact("Grace", 2);
+// Independent reviewer nonce r=1 oracle, not the normal deterministic writer's signature.
+const alternate = {
+  ...first,
+  sig: "58666666666666666666666666666666666666666666666666666666666666669ec87b884b7593be1b27d9d51be875f60df2967df9ac58fb9d53b3af25647a03",
+};
+if (verifyDelta(alternate) !== "verified")
+  throw Error(
+    "alternate signature oracle no longer binds the fixed first claims",
+  );
 const request = (
   payload: Delta[],
   extra: Record<string, readonly Target[]> = {},
@@ -171,6 +180,14 @@ const context = {
   construction: construction(baseRequest, [first]),
 };
 const fixtures = {
+  signatureVariants: {
+    original: serializeCommandDelta(first),
+    alternate: serializeCommandDelta(alternate),
+    selectedSignature: [first.sig!, alternate.sig].sort()[0],
+    oracle:
+      "Independent Ed25519 nonce r=1: R=B; a=clamp(SHA512(seed03)); k=LE(SHA512(R||A||rawMultihashID)) mod L; S=(1+k*a) mod L. Both supplied signatures verify. Select minimum signature bytes after verifying all appearances; never replace an already admitted row.",
+  },
+
   uppercaseSignature: {
     ...(serializeCommandDelta(first) as object),
     sig: first.sig!.toUpperCase(),

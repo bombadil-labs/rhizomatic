@@ -144,7 +144,11 @@ export class CommandEndpoint {
     } catch {
       return refuse("invalid-appearance");
     }
-    const supplied = new Map(deltas.map((d) => [d.id, d]));
+    const supplied = new Map<string, Delta>();
+    for (const delta of deltas) {
+      const previous = supplied.get(delta.id);
+      if (!previous || delta.sig! < previous.sig!) supplied.set(delta.id, delta);
+    }
     const entry = supplied.get(entryId);
     if (!entry) return refuse("entry-missing");
     let common: CommandFields;

@@ -923,6 +923,16 @@
       "semantics": "Existing delta API verifyDelta; native arguments select its documented SPEC behavior. Its existence does not advertise command or later ecosystem portability."
     },
     {
+      "id": "ts:delta/sign.ts:verifyCanonicalDelta",
+      "owner": "delta",
+      "symbol": "verifyCanonicalDelta",
+      "source": "implementations/ts/src/delta/sign.ts",
+      "definition": "implementations/ts/src/delta/sign.ts",
+      "contract": "rhizomatic.delta/native-api/1",
+      "classification": "declared_intrinsic",
+      "semantics": "Existing delta API verifyCanonicalDelta; native arguments select its documented SPEC behavior. Its existence does not advertise command or later ecosystem portability."
+    },
+    {
       "id": "ts:delta/sign.ts:AUTHOR_PREFIX",
       "owner": "delta",
       "symbol": "AUTHOR_PREFIX",
@@ -6471,6 +6481,16 @@
       "contract": "rhizomatic.delta/native-api/1",
       "classification": "compatibility_reexport",
       "semantics": "Reexports verifyDelta from implementations/ts/src/delta/sign.ts; interpretation remains with delta."
+    },
+    {
+      "id": "ts:sign.ts:verifyCanonicalDelta",
+      "owner": "delta",
+      "symbol": "verifyCanonicalDelta",
+      "source": "implementations/ts/src/sign.ts",
+      "definition": "implementations/ts/src/delta/sign.ts",
+      "contract": "rhizomatic.delta/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Reexports verifyCanonicalDelta from implementations/ts/src/delta/sign.ts; interpretation remains with delta."
     },
     {
       "id": "ts:sign.ts:AUTHOR_PREFIX",

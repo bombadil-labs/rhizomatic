@@ -372,6 +372,42 @@ describe("shared command durable retain scenarios", () => {
             const other = await CommandEndpoint.boot({ ...boot, store: fresh });
             const b = await other.invoke(request.id, [first, request].map(serializeCommandDelta));
             expect(serializeCommandDelta(a)).toEqual(serializeCommandDelta(b));
+            const variant = vector.fixtures.signatureVariants as {
+              original: unknown;
+              alternate: unknown;
+              selectedSignature: string;
+            };
+            const answers: unknown[] = [];
+            for (const [i, rows] of [
+              [variant.original, variant.alternate],
+              [variant.alternate, variant.original],
+              [variant.original, variant.alternate, variant.alternate],
+            ].entries()) {
+              const isolated = new CommandFixtureStore(join(directory, `variants-${i}.json`));
+              const target = await CommandEndpoint.boot({ ...boot, store: isolated });
+              answers.push(
+                serializeCommandDelta(
+                  await target.invoke(request.id, [serializeCommandDelta(request), ...rows]),
+                ),
+              );
+              expect((await state(isolated)).image.base.admitted.get(first.id)!.sig).toBe(
+                variant.selectedSignature,
+              );
+            }
+            expect(answers[0]).toEqual(answers[1]);
+            expect(answers[0]).toEqual(answers[2]);
+            // Existing membership retains its authenticated appearance rather than being rewritten.
+            expect((await state(store)).image.base.admitted.get(first.id)!.sig).toBe(first.sig);
+            expect(
+              outcome(
+                await endpoint.invoke(request.id, [
+                  serializeCommandDelta(request),
+                  variant.alternate,
+                ]),
+              ).duplicate,
+            ).toEqual([first.id]);
+            expect((await state(store)).image.base.admitted.get(first.id)!.sig).toBe(first.sig);
+
             break;
           }
           case "retain_only_payload": {

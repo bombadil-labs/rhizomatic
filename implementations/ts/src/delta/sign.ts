@@ -83,3 +83,13 @@ export function verifyDelta(delta: Delta): Verification {
     return "invalid";
   }
 }
+
+/** Strict debug-profile appearance verification; preserves the legacy byte verifier API. */
+export function verifyCanonicalDelta(delta: Delta): Verification {
+  if (
+    !/^ed25519:[0-9a-f]{64}$/.test(delta.claims.author) ||
+    (delta.sig !== undefined && !/^[0-9a-f]{128}$/.test(delta.sig))
+  )
+    return "invalid";
+  return verifyDelta(delta);
+}

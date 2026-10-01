@@ -676,7 +676,7 @@
       "source": "implementations/rust/src/command.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "<import>",
-      "target": "crate::sign::verify_delta",
+      "target": "crate::sign::verify_canonical_delta",
       "targetOwner": "delta"
     },
     {
@@ -1052,7 +1052,7 @@
       "source": "implementations/rust/src/command.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "read_result",
-      "target": "crate::sign::verify_delta",
+      "target": "crate::sign::verify_canonical_delta",
       "targetOwner": "delta"
     },
     {
@@ -1548,7 +1548,7 @@
       "source": "implementations/rust/src/command.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "CommandEndpoint",
-      "target": "crate::sign::verify_delta",
+      "target": "crate::sign::verify_canonical_delta",
       "targetOwner": "delta"
     },
     {
@@ -14565,7 +14565,7 @@
       "source": "implementations/rust/src/ordinary_journal_peer.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "capture_existing_ordinary_source",
-      "target": "crate::sign::verify_delta",
+      "target": "crate::sign::verify_canonical_delta",
       "targetOwner": "delta"
     },
     {
@@ -27283,6 +27283,51 @@
       "symbol": "sign_claims"
     },
     {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "source": "implementations/rust/src/sign.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "verify_canonical_delta",
+      "target": "crate::sign::AUTHOR_PREFIX",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "source": "implementations/rust/src/sign.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "verify_canonical_delta",
+      "target": "crate::sign::Verification",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "source": "implementations/rust/src/sign.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "verify_canonical_delta",
+      "target": "crate::sign::Verification::Invalid",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "source": "implementations/rust/src/sign.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "verify_canonical_delta",
+      "target": "crate::sign::verify_delta",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "source": "implementations/rust/src/sign.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "verify_canonical_delta",
+      "target": "crate::types::Delta",
+      "targetOwner": "delta"
+    },
+    {
       "form": "syn-external-path",
       "owner": "delta",
       "source": "implementations/rust/src/sign.rs",
@@ -39480,6 +39525,17 @@
       "semantics": "delta owns the existing sign::sign_claims function; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
       "source": "implementations/rust/src/sign.rs",
       "symbol": "sign_claims"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.delta/native-api/1",
+      "definition": "function",
+      "id": "rust:sign:verify_canonical_delta",
+      "owner": "delta",
+      "semantics": "delta owns the existing sign::verify_canonical_delta function; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export.",
+      "source": "implementations/rust/src/sign.rs",
+      "symbol": "verify_canonical_delta"
     },
     {
       "cfg": [],
