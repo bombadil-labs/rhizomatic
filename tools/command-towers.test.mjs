@@ -135,7 +135,20 @@ test('requires exactly one declared fixture and complete independent oracle per 
   const options = environment(t); options.fixtures.cases[0].tower = false;
   await assert.rejects(runTowerSuite(options), /expected one explicit tower fixture/);
   options.fixtures.cases[0].tower = true; delete options.fixtures.cases[0].expected.result;
-  await assert.rejects(runTowerSuite(options), /incomplete artifact\/result\/state oracle/);
+  await assert.rejects(runTowerSuite(options), /incomplete artifact\/result\/state\/outcome oracle/);
+});
+
+test('shared executor/reader error cannot hide incorrect signed outcome bytes', async t => {
+  const options = environment(t);
+  options.adapter = (w, input) => input.mode === 'execute' ? { outcome: { arbitrary: 'unsigned wrong bytes' }, observed } : fakeAdapter(w, input);
+  await assert.rejects(runTowerSuite(options), /signed outcome oracle/);
+  const missing = environment(t); delete missing.fixtures.cases[0].expected.outcome;
+  await assert.rejects(runTowerSuite(missing), /incomplete.*outcome oracle/);
+});
+
+test('runner refuses a changed DAG rather than misapplying topological assignments', async t => {
+  const options = environment(t); options.spec.stages[2].input_from = 'construct';
+  await assert.rejects(runTowerSuite(options), /explicit initial chain/);
 });
 
 test('signed head binding uses only a named earlier verified observation', async t => {

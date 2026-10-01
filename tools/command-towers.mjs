@@ -34,7 +34,7 @@ function stepsOf(fixture) {
     requireThat(typeof step.id === 'string' && step.id.length > 0, 'missing step identity');
     requireThat(step && step.context && step.expected, `missing explicit step context/oracle: ${fixture.id}/${i}`);
     requireThat(typeof step.expected.oracle === 'string' && step.expected.oracle.length > 0, `missing independent oracle explanation: ${fixture.id}/${i}`);
-    requireThat(step.expected.artifact && step.expected.result && step.expected.observed, `incomplete artifact/result/state oracle: ${fixture.id}/${i}`);
+    requireThat(step.expected.artifact && step.expected.result && step.expected.observed && step.expected.outcome, `incomplete artifact/result/state/outcome oracle: ${fixture.id}/${i}`);
     return copy(step);
   });
 }
@@ -71,7 +71,7 @@ function checkPort(stage, output, expected, artifact) {
   } else if (stage === 'execute') {
     requireThat(output?.outcome && output.observed, 'execution framing');
     assertSame(output.observed, expected.observed, 'durable state oracle');
-    if (expected.outcome !== undefined) assertSame(output.outcome, expected.outcome, 'signed outcome oracle');
+    assertSame(output.outcome, expected.outcome, 'signed outcome oracle');
   } else {
     assertSame(output, expected.result, 'complete readback oracle');
   }
@@ -125,6 +125,7 @@ export async function runTowerSuite({ fixtures, spec, capabilities, builds, buil
   requireThat(!existsSync(outDir), 'output directory already exists; each run needs isolated state');
   const selected = selectFixtures(fixtures, spec);
   requireThat(isDeepStrictEqual(spec.stages.map(s => s.id), STAGES), 'runner supports only the four declared initial ports');
+  requireThat(spec.stages.every((stage, i) => stage.depends_on === undefined && stage.input_from === (i === 0 ? undefined : STAGES[i - 1])), 'runner supports only the explicit initial chain');
   for (const fixture of selected) stepsOf(fixture);
   if (replayBundle) {
     const retained = validateRunBundle(replayBundle, builds);
