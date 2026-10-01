@@ -3,6 +3,7 @@ import { encode, map, tstr, bstr, float, array, bool, type CborValue } from "../
 import { authorForSeed, signClaims } from "../src/delta/sign.js";
 import { claimsToJson } from "../src/delta/json-profile.js";
 import { canonicalHex } from "../src/delta/delta.js";
+import { contentAddress } from "../src/delta/hash.js";
 import { bytesToHex } from "../src/delta/hash.js";
 import type { Target, Delta } from "../src/delta/types.js";
 const seed = "01".repeat(32),
@@ -507,6 +508,167 @@ const transportOutcome = act(
       ] as const,
   ),
 );
+const retainBody = map([
+  ["kind", tstr("retain")],
+  ["beforeHead", tstr("")],
+  ["head", tstr(id)],
+  ["beforeDigest", tstr(id)],
+  ["digest", tstr(id2)],
+  ["admitted", array([tstr(payload.id)])],
+  ["duplicate", array([])],
+]);
+const outcomeWithBody = (request: Delta, body: CborValue, status = "completed") =>
+  act(
+    descriptions[3]![1].map(
+      ([k, t]) =>
+        [
+          k,
+          k === "configuration"
+            ? ref(bootConfiguration.id)
+            : k === "request"
+              ? ref(request.id)
+              : k === "status"
+                ? text(status)
+                : k === "result"
+                  ? bytes(encode(body))
+                  : t,
+        ] as const,
+    ),
+  );
+const retainOutcome = outcomeWithBody(transportRequest, retainBody);
+const evalFields = descriptions
+  .find(([kind, , op]) => kind === "request" && op === "evaluate")![1]
+  .map(
+    ([k, t]) =>
+      [
+        k,
+        k === "configuration"
+          ? ref(bootConfiguration.id)
+          : k === "operation"
+            ? ref(evaluateOperation.id)
+            : t,
+      ] as const,
+  );
+const evalRequest = act(evalFields);
+const definitionDigest = contentAddress(encode(array([id, id2].map(tstr))));
+const evalBody = map([
+  ["kind", tstr("evaluate")],
+  ["source", tstr("catalog")],
+  ["digest", tstr(id)],
+  ["definitionDigest", tstr(definitionDigest)],
+  ["at", float(10)],
+  ["interpretation", tstr("core/1")],
+  ["hyperschemaPin", tstr(id)],
+  ["schemaPin", tstr(id2)],
+  ["value", bstr(encode(map([["hello", tstr("world")]])))],
+]);
+const artifactFor = (request: Delta) => ({
+  format: "rhizomatic-command-artifact/1",
+  entryId: request.id,
+  deltas: [debug(request), debug(payload)],
+});
+const readResults: unknown[] = [
+  {
+    id: "retained-offered-partition-valid",
+    scenario: "outcome_body_strict",
+    artifact: artifactFor(transportRequest),
+    outcome: debug(retainOutcome),
+    expected: {
+      valid: true,
+      result: { status: "completed", bodyHex: bytesToHex(encode(retainBody)) },
+    },
+    oracle:
+      "All distinct offered payload IDs occur once in the sorted disjoint completed partition.",
+  },
+  {
+    id: "foreign-offered-partition-invalid",
+    scenario: "outcome_body_strict",
+    artifact: artifactFor(transportRequest),
+    outcome: debug(
+      outcomeWithBody(
+        transportRequest,
+        map([
+          ["kind", tstr("retain")],
+          ["beforeHead", tstr("")],
+          ["head", tstr(id)],
+          ["beforeDigest", tstr(id)],
+          ["digest", tstr(id2)],
+          ["admitted", array([tstr(id)])],
+          ["duplicate", array([tstr(id2)])],
+        ]),
+      ),
+    ),
+    expected: { valid: false },
+    oracle:
+      "Given originating request, unrelated IDs cannot substitute for its offered payload partition.",
+  },
+  {
+    id: "malformed-request-refusal-valid",
+    scenario: "outcome_body_strict",
+    artifact: {
+      format: "rhizomatic-command-artifact/1",
+      entryId: transportRequest.id,
+      deltas: [{ id: transportRequest.id, claims: {}, sig: "broken" }],
+    },
+    outcome: debug(
+      outcomeWithBody(transportRequest, map([["code", tstr("invalid-appearance")]]), "refused"),
+    ),
+    expected: {
+      valid: true,
+      result: {
+        status: "refused",
+        bodyHex: bytesToHex(encode(map([["code", tstr("invalid-appearance")]]))),
+      },
+    },
+    oracle:
+      "Receiver-signed invalid-appearance refusal does not authenticate malformed addressed claims.",
+  },
+  {
+    id: "completed-request-missing-invalid",
+    scenario: "outcome_body_strict",
+    artifact: { format: "rhizomatic-command-artifact/1", entryId: transportRequest.id, deltas: [] },
+    outcome: debug(retainOutcome),
+    expected: { valid: false },
+    oracle:
+      "Complete adapter readback has the request framing and must not silently fall back to partial validation.",
+  },
+  {
+    id: "evaluation-context-valid",
+    scenario: "outcome_body_strict",
+    artifact: artifactFor(evalRequest),
+    outcome: debug(outcomeWithBody(evalRequest, evalBody)),
+    expected: {
+      valid: true,
+      result: {
+        status: "completed",
+        bodyHex: bytesToHex(encode(evalBody)),
+        valueHex: bytesToHex(encode(map([["hello", tstr("world")]]))),
+      },
+    },
+    oracle:
+      "Signed outcome source/time/interpretation/pins and exact supplied definition membership bind to the originating signed request.",
+  },
+];
+if (evalBody.t !== "map") throw new Error("expected map");
+for (const [key, value] of [
+  ["at", float(11)],
+  ["interpretation", tstr("principal-sameAuthor/1")],
+  ["hyperschemaPin", tstr(id2)],
+  ["schemaPin", tstr(id)],
+  ["definitionDigest", tstr(id2)],
+] as const) {
+  const wrong = map(evalBody.v.map(([k, v]) => [k, k === key ? value : v] as const));
+  readResults.push({
+    id: "evaluation-context-wrong-" + key,
+    scenario: "outcome_body_strict",
+    artifact: artifactFor(evalRequest),
+    outcome: debug(outcomeWithBody(evalRequest, wrong)),
+    expected: { valid: false },
+    oracle:
+      "Receiver attribution alone cannot excuse inconsistent originating evaluation context: " +
+      key,
+  });
+}
 writeFileSync(
   new URL("../../../vectors/command/transport.json", import.meta.url),
   JSON.stringify(
@@ -522,16 +684,13 @@ writeFileSync(
           support: [{ claims: claimsToJson(payload.claims), seed }],
         },
       },
-      expectedArtifact: {
-        format: "rhizomatic-command-artifact/1",
-        entryId: transportRequest.id,
-        deltas: [debug(transportRequest), debug(payload)],
-      },
+      expectedArtifact: artifactFor(transportRequest),
       outcome: debug(transportOutcome),
       expectedResult: {
         status: "refused",
         bodyHex: bytesToHex(encode(map([["code", tstr("unauthorized")]]))),
       },
+      readResults,
     },
     null,
     2,

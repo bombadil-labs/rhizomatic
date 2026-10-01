@@ -9,6 +9,7 @@ import {
   parseCommandDelta,
   serializeCommandDelta,
   readOperation,
+  readOutcome,
   readRequestCommon,
   readRequestArguments,
   verifyCommandAppearance,
@@ -93,11 +94,26 @@ function run(input: Input): unknown {
     case "read-result": {
       const configuration = parseCommandDelta(input.context.boot.configuration);
       const outcome = parseCommandDelta(input.outcome);
-      const result = readCommandResult(outcome, {
-        receiver: configuration.claims.author,
-        configuration: configuration.id,
-        request: input.artifact!.entryId,
-      });
+      let request: Delta | undefined;
+      if (readOutcome(outcome).status === "completed") {
+        const raw = input.artifact!.deltas.find(
+          (raw) =>
+            typeof raw === "object" &&
+            raw !== null &&
+            (raw as { id?: unknown }).id === input.artifact!.entryId,
+        );
+        if (raw === undefined) throw new Error("completed outcome requires originating request");
+        request = parseCommandDelta(raw);
+      }
+      const result = readCommandResult(
+        outcome,
+        {
+          receiver: configuration.claims.author,
+          configuration: configuration.id,
+          request: input.artifact!.entryId,
+        },
+        request,
+      );
       const bodyHex = Buffer.from(
         result.fields.result![0]!.kind === "bytes" ? result.fields.result![0]!.value : [],
       ).toString("hex");
