@@ -3,7 +3,7 @@ use rhizomatic::command_data::{
     read_common_request, read_operation, read_request, request_pointers,
 };
 use rhizomatic::json_profile::{claims_to_json, parse_claims};
-use rhizomatic::sign::{sign_claims, verify_delta, Verification};
+use rhizomatic::sign::{sign_claims, verify_canonical_delta, Verification};
 use rhizomatic::types::Delta;
 use serde_json::{json, Value};
 #[path = "support/command_store.rs"]
@@ -50,7 +50,7 @@ fn validate(artifact: &Value, context: &Value) -> Result<(), String> {
         .collect::<Result<Vec<_>, _>>()?;
     if deltas
         .iter()
-        .any(|d| verify_delta(d) != Verification::Verified)
+        .any(|d| verify_canonical_delta(d) != Verification::Verified)
     {
         return Err("invalid signed appearance".into());
     }
@@ -248,6 +248,57 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn uppercase_signature_is_invalid_after_resource_accounting_and_in_boot_and_result() {
+        let vectors: Value = serde_json::from_slice(
+            &std::fs::read(
+                std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                    .join("../../vectors/command/execution.json"),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let directory = tempfile::tempdir().unwrap();
+        let request = &vectors["fixtures"]["request"];
+        let mut payload = vectors["fixtures"]["first"].clone();
+        payload["sig"] = json!(payload["sig"].as_str().unwrap().to_uppercase());
+        let mut input = json!({"mode":"execute","context":vectors["cases"][0]["context"],"artifact":{"format":"rhizomatic-command-artifact/1","entryId":request["id"],"deltas":[request,payload]}});
+        input["context"]["storePath"] = json!(directory.path().join("uppercase.json"));
+        let answer = run(&input).unwrap();
+        assert_eq!(
+            rhizomatic::command_data::read_outcome(&delta(&answer["outcome"]).unwrap())
+                .unwrap()
+                .body,
+            rhizomatic::command_data::OutcomeBody::Refused {
+                code: "invalid-appearance".into()
+            }
+        );
+        assert!(answer["observed"]["ids"].as_array().unwrap().is_empty());
+        let mut read = input.clone();
+        read["mode"] = json!("read-result");
+        read["outcome"] = answer["outcome"].clone();
+        read["outcome"]["sig"] = json!(read["outcome"]["sig"].as_str().unwrap().to_uppercase());
+        assert!(run(&read).is_err());
+        let limited = &vectors["fixtures"]["missingSignatureByteLimit"];
+        input["context"]["boot"]["configuration"] = limited["configuration"].clone();
+        input["artifact"]["entryId"] = limited["request"]["id"].clone();
+        input["artifact"]["deltas"][0] = limited["request"].clone();
+        let answer = run(&input).unwrap();
+        assert_eq!(
+            rhizomatic::command_data::read_outcome(&delta(&answer["outcome"]).unwrap())
+                .unwrap()
+                .body,
+            rhizomatic::command_data::OutcomeBody::Refused {
+                code: "resource-limit".into()
+            }
+        );
+        input["context"]["boot"]["configuration"]["sig"] = json!(input["context"]["boot"]
+            ["configuration"]["sig"]
+            .as_str()
+            .unwrap()
+            .to_uppercase());
+        assert!(run(&input).is_err());
+    }
     #[test]
     fn shared_unsigned_appearance_byte_limit_precedes_signature_rejection() {
         let vectors: Value = serde_json::from_slice(

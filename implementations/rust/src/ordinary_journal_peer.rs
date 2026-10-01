@@ -338,7 +338,7 @@ pub fn capture_existing_ordinary_source<S: DurableOrdinaryJournalStore>(
         Ok(OrdinaryJournalOpenResult::Open(peer)) => match peer.available_deltas() {
             Ok(deltas)
                 if deltas.iter().all(|d| {
-                    crate::sign::verify_delta(d) == crate::sign::Verification::Verified
+                    crate::sign::verify_canonical_delta(d) == crate::sign::Verification::Verified
                 }) =>
             {
                 OrdinarySourceCapture::Captured { peer, deltas }

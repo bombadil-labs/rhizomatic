@@ -4,7 +4,7 @@ use crate::command_data::{
     RequestArguments,
 };
 use crate::resolution::{decode_view, View};
-use crate::sign::{verify_delta, Verification};
+use crate::sign::{verify_canonical_delta, Verification};
 use crate::types::Delta;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -25,7 +25,7 @@ pub fn read_result(
     expected: &ReadResultContext,
     request: Option<&Delta>,
 ) -> Result<CommandResult, String> {
-    if verify_delta(delta) != Verification::Verified || !is_author(&delta.claims.author) {
+    if verify_canonical_delta(delta) != Verification::Verified || !is_author(&delta.claims.author) {
         return Err("command: invalid outcome signature".into());
     }
     let outcome = read_outcome(delta)?;
@@ -54,7 +54,9 @@ pub fn read_result(
             OutcomeBody::Retain { .. } | OutcomeBody::Evaluate { .. }
         )
     }) {
-        if verify_delta(request) != Verification::Verified || request.id != outcome.request {
+        if verify_canonical_delta(request) != Verification::Verified
+            || request.id != outcome.request
+        {
             return Err("command: request attribution mismatch".into());
         }
         let common = crate::command_data::read_common_request(request)?;
@@ -170,7 +172,7 @@ impl CommandEndpoint {
         if !is_author(receiver)
             || receiver != configuration.receiver
             || configuration_delta.claims.author != receiver
-            || verify_delta(configuration_delta) != Verification::Verified
+            || verify_canonical_delta(configuration_delta) != Verification::Verified
         {
             return Err(CommandHostError::Fault(
                 "invalid governing endpoint configuration".into(),
@@ -179,7 +181,7 @@ impl CommandEndpoint {
         let mut operations = BTreeMap::new();
         let mut kinds = BTreeSet::new();
         for d in declarations {
-            if d.claims.author != receiver || verify_delta(d) != Verification::Verified {
+            if d.claims.author != receiver || verify_canonical_delta(d) != Verification::Verified {
                 return Err(CommandHostError::Fault(
                     "invalid governing operation declaration".into(),
                 ));
@@ -251,7 +253,7 @@ impl CommandEndpoint {
             .map_err(CommandHostError::Fault)?,
         };
         let outcome = signer(&claims).map_err(CommandHostError::Fault)?;
-        if outcome.claims != claims || verify_delta(&outcome) != Verification::Verified {
+        if outcome.claims != claims || verify_canonical_delta(&outcome) != Verification::Verified {
             return Err(CommandHostError::Fault(
                 "response signing capability returned invalid testimony".into(),
             ));
@@ -365,10 +367,9 @@ impl CommandEndpoint {
         if size > self.configuration.max_bytes {
             return Err(AttemptError::Refused("resource-limit"));
         }
-        if appearances
-            .iter()
-            .any(|d| !is_author(&d.claims.author) || verify_delta(d) != Verification::Verified)
-        {
+        if appearances.iter().any(|d| {
+            !is_author(&d.claims.author) || verify_canonical_delta(d) != Verification::Verified
+        }) {
             return Err(AttemptError::Refused("invalid-appearance"));
         }
         let supplied: BTreeMap<String, Delta> = appearances
