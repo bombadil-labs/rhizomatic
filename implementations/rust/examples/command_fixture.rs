@@ -6,19 +6,13 @@ use rhizomatic::json_profile::{claims_to_json, parse_claims};
 use rhizomatic::sign::{sign_claims, verify_delta, Verification};
 use rhizomatic::types::Delta;
 use serde_json::{json, Value};
+#[path = "support/command_store.rs"]
+mod command_store;
 use std::io::{self, Read};
 fn delta(v: &Value) -> Result<Delta, String> {
-    let o = v.as_object().ok_or("delta object required")?;
-    if o.len() != 3 || !o.contains_key("id") || !o.contains_key("claims") || !o.contains_key("sig")
-    {
-        return Err("strict debug delta shape".into());
-    }
-    Ok(Delta {
-        id: v["id"].as_str().ok_or("delta id required")?.into(),
-        claims: parse_claims(&v["claims"])?,
-        sig: Some(v["sig"].as_str().ok_or("signature required")?.into()),
-    })
+    rhizomatic::json_profile::parse_delta(v)
 }
+
 fn debug(d: &Delta) -> Value {
     json!({"id":d.id,"claims":claims_to_json(&d.claims),"sig":d.sig})
 }
@@ -134,9 +128,98 @@ fn run(input: &Value) -> Result<Value, String> {
             }
             Ok(out)
         }
-        "execute" => Err("command profile execution unavailable before M2".into()),
+        "execute" => execute(input),
         _ => Err("unknown mode".into()),
     }
+}
+fn execute(input: &Value) -> Result<Value, String> {
+    use rhizomatic::ordinary_journal_peer::{
+        open_ordinary_journal_peer, DurableOrdinaryJournalStore, OrdinaryJournalOpenResult,
+    };
+    let context = &input["context"];
+    let seed = context["receiverSeed"]
+        .as_str()
+        .ok_or("receiverSeed required")?;
+    let receiver = rhizomatic::sign::author_for_seed(seed)?;
+    let configuration = delta(&context["boot"]["configuration"])?;
+    let declarations = context["boot"]["declarations"]
+        .as_array()
+        .ok_or("declarations required")?
+        .iter()
+        .map(delta)
+        .collect::<Result<Vec<_>, _>>()?;
+    let fault = context["fault"].as_str().map(str::to_string);
+    let mut store = command_store::DiskJournal::new(
+        context["storePath"].as_str().ok_or("storePath required")?,
+        None,
+    );
+    let endpoint = rhizomatic::command::CommandEndpoint::boot(
+        &receiver,
+        &configuration,
+        &declarations,
+        &mut store,
+    )
+    .map_err(|e| format!("{e:?}"))?;
+    let received_at = context["receivedAt"]
+        .as_f64()
+        .ok_or("receivedAt required")?;
+    let initial = context["initialDeltas"]
+        .as_array()
+        .map(|xs| xs.iter().map(delta).collect::<Result<Vec<_>, _>>())
+        .transpose()?
+        .unwrap_or_default();
+    if !initial.is_empty() {
+        let OrdinaryJournalOpenResult::Open(mut peer) =
+            open_ordinary_journal_peer(&mut store, &receiver)?
+        else {
+            return Err("fixture initial source unavailable".into());
+        };
+        peer.admit(
+            &mut store,
+            &rhizomatic::single_peer::SinglePeerTransferInput {
+                offered: &initial,
+                origin: &rhizomatic::single_peer::ArrivalOrigin::Unattributed,
+                arrived_at: context["initialAt"].as_f64().unwrap_or(received_at),
+                policy_state: &(),
+                guards: &[],
+                is_erasure_candidate: &|_| false,
+                mode: rhizomatic::single_peer::TransferMode::Atomic,
+                capacity: None,
+            },
+        )?;
+    }
+    store.fault = fault.clone();
+    let appearances = input["artifact"]["deltas"]
+        .as_array()
+        .ok_or("artifact deltas required")?;
+    let entry_id = input["artifact"]["entryId"]
+        .as_str()
+        .ok_or("entryId required")?;
+    let signer = |claims: &rhizomatic::Claims| {
+        if fault.as_deref() == Some("signing-failure") {
+            Err("injected response signing failure".into())
+        } else {
+            sign_claims(claims, seed)
+        }
+    };
+    let result = endpoint
+        .invoke_json(&mut store, entry_id, appearances, received_at, &signer)
+        .map_err(|e| format!("{e:?}"))?;
+    if fault.as_deref() == Some("transport-failure") {
+        std::process::exit(78);
+    }
+    store.fault = None;
+    let observed = match rhizomatic::ordinary_journal_peer::capture_existing_ordinary_source(
+        &mut store, &receiver,
+    ) {
+        rhizomatic::ordinary_journal_peer::OrdinarySourceCapture::Captured { peer, .. } => {
+            let state = peer.snapshot()?;
+            json!({"head":peer.current_head()?,"ids":peer.available_deltas()?.ids(),"quotaUsed":state.quota_used,"arrivals":state.base.arrivals.iter().map(|a|json!({"id":a.id,"at":a.at,"sequence":a.sequence,"transfer":a.transfer,"sender":a.sender})).collect::<Vec<_>>()})
+        }
+        _ => json!({"unavailable":true}),
+    };
+    let _ = store.read_head(&receiver)?;
+    Ok(json!({"outcome":debug(&result.outcome),"observed":observed}))
 }
 fn main() {
     let mut bytes = String::new();
