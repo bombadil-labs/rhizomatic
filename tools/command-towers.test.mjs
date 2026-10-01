@@ -180,3 +180,55 @@ test('failure in first scenario retains plans for later scenarios for exact repl
   assert.equal(replay.status, 'passed');
   assert.deepEqual(replay.scenarios.map(s => s.plan), bundle.scenarios.map(s => s.plan));
 });
+
+function peerOptions(options) {
+  options.spec.required_peer_comparisons = ['same-value-different-receiver'];
+  for (const receiver of ['peer-a', 'peer-b']) {
+    const fixture = structuredClone(fixtures.cases[0]);
+    fixture.id = receiver; fixture.scenario = 'different_peer_signers'; fixture.tower = false;
+    fixture.peerComparison = 'same-value-different-receiver';
+    fixture.context.boot = { configuration: { claims: { author: receiver } } };
+    fixture.expected.outcome.claims.author = receiver;
+    fixture.expected.result.valueHex = '182a';
+    options.fixtures.cases.push(fixture);
+  }
+  options.adapter = (w, input) => {
+    const output = fakeAdapter(w, input);
+    if (input.scenario === 'different_peer_signers') {
+      if (input.mode === 'execute') output.outcome.claims.author = input.context.boot.configuration.claims.author;
+      if (input.mode === 'read-result') output.valueHex = '182a';
+    }
+    return output;
+  };
+  return options;
+}
+
+test('different signing peers compare validated semantic values, preserving distinct outcome oracles', async t => {
+  const options = peerOptions(environment(t));
+  const bundle = await runTowerSuite(options);
+  assert.equal(bundle.scenarios.length, 3);
+  assert.equal(bundle.peerComparisons.length, 1);
+  assert.deepEqual(bundle.peerComparisons[0].peers.map(p => p.receiver), ['peer-a', 'peer-b']);
+  assert.ok(bundle.peerComparisons[0].peers.every(p => p.valueHex === '182a'));
+  validateRunBundle(bundle, builds);
+});
+
+test('peer comparison refuses missing variants and falsely identical peer identity', async t => {
+  const missing = peerOptions(environment(t)); missing.fixtures.cases.pop();
+  await assert.rejects(runTowerSuite(missing), /expected two attributed peer fixtures/);
+  const same = peerOptions(environment(t));
+  const second = same.fixtures.cases.at(-1);
+  second.context.boot.configuration.claims.author = 'peer-a'; second.expected.outcome.claims.author = 'peer-a';
+  await assert.rejects(runTowerSuite(same), /requires distinct signing peers/);
+});
+
+test('different-peer semantic disagreement fails even when each separate oracle passes', async t => {
+  const options = peerOptions(environment(t)), base = options.adapter;
+  options.fixtures.cases.at(-1).expected.result.valueHex = '182b';
+  options.adapter = (w, input) => {
+    const output = base(w, input);
+    if (input.mode === 'read-result' && input.context.boot?.configuration.claims.author === 'peer-b') output.valueHex = '182b';
+    return output;
+  };
+  await assert.rejects(runTowerSuite(options), /different-peer semantic value/);
+});

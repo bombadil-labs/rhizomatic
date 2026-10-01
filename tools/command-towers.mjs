@@ -17,13 +17,23 @@ function selectFixtures(fixtures, spec) {
   requireThat(fixtures.format === 'rhizomatic-command-execution-vectors/1' && Array.isArray(fixtures.cases), 'execution fixture format');
   requireThat(new Set(fixtures.cases.map(c => c.id)).size === fixtures.cases.length, 'duplicate fixture identity');
   requireThat(Array.isArray(spec.required_scenarios) && new Set(spec.required_scenarios).size === spec.required_scenarios.length, 'required scenario inventory');
-  return spec.required_scenarios.map(scenario => {
+  requireThat(fixtures.cases.every(c => c.tower !== true || spec.required_scenarios.includes(c.scenario)), 'undeclared tower scenario');
+  const selected = spec.required_scenarios.map(scenario => {
     const selected = fixtures.cases.filter(c => c.scenario === scenario && c.tower === true);
     requireThat(selected.length === 1, `expected one explicit tower fixture for ${scenario}`);
     const fixture = selected[0];
     requireThat(typeof fixture.id === 'string' && /^[a-zA-Z0-9_-]+$/.test(fixture.id), 'invalid fixture ID');
     return copy(fixture);
   });
+  const comparisons = spec.required_peer_comparisons ?? [];
+  requireThat(Array.isArray(comparisons) && comparisons.every(id => typeof id === 'string' && id.length > 0) && new Set(comparisons).size === comparisons.length, 'invalid peer comparison inventory');
+  requireThat(fixtures.cases.every(c => c.peerComparison === undefined || comparisons.includes(c.peerComparison)), 'undeclared peer comparison');
+  for (const comparison of comparisons) {
+    const pair = fixtures.cases.filter(c => c.peerComparison === comparison);
+    requireThat(pair.length === 2 && pair.every(c => c.scenario === 'different_peer_signers' && c.tower !== true && /^[a-zA-Z0-9_-]+$/.test(c.id)), `expected two attributed peer fixtures: ${comparison}`);
+    selected.push(...pair.map(copy));
+  }
+  return selected;
 }
 
 function stepsOf(fixture) {
@@ -135,7 +145,7 @@ export async function runTowerSuite({ fixtures, spec, capabilities, builds, buil
   const bundle = {
     format: FORMAT, seed, builds: copy(builds), buildMetadata: copy(buildMetadata),
     capabilities: digestRecord(capabilities), spec: digestRecord(spec), fixtures: digestRecord(fixtures),
-    scenarios: selected.map((fixture, i) => ({
+    peerComparisons: [], scenarios: selected.map((fixture, i) => ({
       fixtureId: fixture.id, scenario: fixture.scenario,
       plan: replayBundle ? copy(replayBundle.scenarios[i].plan) : planTowers({ stages: spec.stages, capabilities, seed, scenario: fixture.scenario }),
       fixedRoutes: replayBundle ? copy(replayBundle.scenarios[i].fixedRoutes) : fixedRoutes(spec.stages, capabilities, builds), runs: [], edges: [],
@@ -193,6 +203,24 @@ export async function runTowerSuite({ fixtures, spec, capabilities, builds, buil
         }
         run.status = 'passed'; save();
       }
+    }
+    for (const id of spec.required_peer_comparisons ?? []) {
+      const fixtures = selected.filter(f => f.peerComparison === id);
+      const peers = fixtures.map(fixture => {
+        const scenario = bundle.scenarios.find(s => s.fixtureId === fixture.id);
+        const finalContext = stepsOf(fixture).at(-1).context;
+        const receiver = finalContext.boot?.configuration?.claims?.author;
+        requireThat(typeof receiver === 'string' && receiver.length > 0, 'peer comparison missing explicit receiver');
+        const last = scenario.runs[0].stages;
+        const result = last.at(-1).output.value;
+        const execution = last.findLast(s => s.stage === 'execute').output.value;
+        requireThat(result.status === 'completed' && typeof result.valueHex === 'string' && /^(?:[0-9a-f]{2})+$/.test(result.valueHex), 'peer comparison requires a complete evaluated View');
+        requireThat(execution.outcome.claims.author === receiver, 'peer comparison outcome attribution mismatch');
+        return { fixtureId: fixture.id, receiver, valueHex: result.valueHex };
+      });
+      requireThat(peers[0].receiver !== peers[1].receiver, 'peer comparison requires distinct signing peers');
+      assertSame(peers[0].valueHex, peers[1].valueHex, 'different-peer semantic value');
+      bundle.peerComparisons.push({ id, status: 'passed', peers });
     }
     bundle.status = 'passed'; save();
     return JSON.parse(readFileSync(join(outDir, 'run.json'), 'utf8'));
