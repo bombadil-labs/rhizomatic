@@ -92,6 +92,32 @@ export const requiredCheckerCases = {
     "positive:explicit crypto primitives",
     "positive:declared host operation",
     "positive:allowed type and runtime edges"
+  ],
+  "contracts": [
+    "contract:duplicate coverage",
+    "contract:duplicate scenario",
+    "contract:unknown owner",
+    "contract:garbage pin",
+    "contract:missing rust",
+    "contract:missing contract",
+    "contract:unknown requirement",
+    "contract:missing case",
+    "contract:false capability",
+    "contract:missing stage",
+    "contract:unknown stage",
+    "contract:duplicate stage case",
+    "contract:missing stage case",
+    "contract:unsupported stage",
+    "contract:unknown capability state",
+    "contract:missing API semantics",
+    "contract:unknown API owner",
+    "inventory:missing export",
+    "inventory:missing classification",
+    "inventory:missing contract",
+    "inventory:unknown contract",
+    "inventory:duplicate export",
+    "inventory:wrong contract owner",
+    "inventory:missing semantics"
   ]
 };
 export function requireCheckerCases(gate, observed) {
@@ -242,7 +268,8 @@ export async function runAcceptance({ out, conformanceFile, reviewFile, requireR
   const rust = await gate('rust-native', 'cargo', ['test', '--locked', '--all-targets', '--', '--nocapture', '--test-threads=1'], rustDir);
   const scenarios = read(join(repository, 'contracts/command/ACCEPTANCE.json')).scenarios;
   const native = nativeScenarioEvidence({ scenarios, descriptions: read(join(repository, 'vectors/command/descriptions.json')), ts: read(tsPath), rust });
-  await node('contracts', 'tools/check-command-contracts.mjs', ['--self-test']);
+  const contractOutput = await node('contracts', 'tools/check-command-contracts.mjs', ['--self-test']);
+  requireCheckerCases('contracts', new Set([...contractOutput.matchAll(/^command-(contract|inventory)-case:(.+)$/gm)].map(m => `${m[1]}:${m[2]}`)));
   await node('ts-boundaries', 'tools/check-package-graph.mjs');
   const tsNegatives = await node('ts-negatives', 'tools/check-command-boundary-negatives.mjs');
   requireCheckerCases('ts-negatives', new Set([...tsNegatives.matchAll(/^command-boundary-case:(.+)$/gm)].map(m => m[1])));
