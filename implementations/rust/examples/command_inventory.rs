@@ -123,6 +123,115 @@ fn module_path_attribute(attrs: &[syn::Attribute]) -> bool {
     }
     attrs.iter().any(|a| path(&a.meta))
 }
+// Attribute expansion is intentionally unsupported. Only these inert built-in forms
+// participate in the source inventory; conditional branches are all visited.
+fn attribute_meta(meta: &syn::Meta) -> Result<(), String> {
+    fn members(list: &syn::MetaList) -> Result<Vec<syn::Meta>, String> {
+        syn::punctuated::Punctuated::<syn::Meta, Token![,]>::parse_terminated
+            .parse2(list.tokens.clone())
+            .map(|v| v.into_iter().collect())
+            .map_err(|e| format!("unsupported attribute tokens: {e}"))
+    }
+    fn literal(value: &syn::Expr) -> bool {
+        matches!(value, Expr::Lit(_))
+    }
+    fn predicate(meta: &syn::Meta) -> Result<(), String> {
+        match meta {
+            syn::Meta::Path(p) if p.get_ident().is_some() => Ok(()),
+            syn::Meta::NameValue(v) if v.path.get_ident().is_some() && literal(&v.value) => Ok(()),
+            syn::Meta::List(l) if ["all", "any", "not"].iter().any(|n| l.path.is_ident(n)) => {
+                for p in members(l)? {
+                    predicate(&p)?;
+                }
+                Ok(())
+            }
+            _ => Err("unsupported nonliteral cfg predicate".into()),
+        }
+    }
+    if meta.path().is_ident("cfg") {
+        let syn::Meta::List(l) = meta else {
+            return Err("unsupported cfg attribute shape".into());
+        };
+        let ps = members(l)?;
+        if ps.len() != 1 {
+            return Err("unsupported cfg attribute shape".into());
+        }
+        return predicate(&ps[0]);
+    }
+    if meta.path().is_ident("cfg_attr") {
+        let syn::Meta::List(l) = meta else {
+            return Err("unsupported cfg_attr shape".into());
+        };
+        let ps = members(l)?;
+        if ps.len() < 2 {
+            return Err("unsupported cfg_attr shape".into());
+        }
+        predicate(&ps[0])?;
+        for a in &ps[1..] {
+            attribute_meta(a)?;
+        }
+        return Ok(());
+    }
+    if meta.path().is_ident("derive") {
+        let syn::Meta::List(l) = meta else {
+            return Err("unsupported derive shape".into());
+        };
+        let paths = syn::punctuated::Punctuated::<syn::Path, Token![,]>::parse_terminated
+            .parse2(l.tokens.clone())
+            .map_err(|e| format!("unsupported derive tokens: {e}"))?;
+        for p in paths {
+            if ![
+                "Debug",
+                "Clone",
+                "Copy",
+                "Default",
+                "PartialEq",
+                "Eq",
+                "PartialOrd",
+                "Ord",
+                "Hash",
+            ]
+            .iter()
+            .any(|n| p.is_ident(n))
+            {
+                return Err("unsupported procedural derive macro".into());
+            }
+        }
+        return Ok(());
+    }
+    if meta.path().is_ident("doc") {
+        return match meta {
+            syn::Meta::NameValue(v) if matches!(&v.value, Expr::Lit(l) if matches!(l.lit, syn::Lit::Str(_))) => {
+                Ok(())
+            }
+            syn::Meta::List(l)
+                if members(l)?
+                    .iter()
+                    .all(|m| matches!(m, syn::Meta::Path(p) if p.is_ident("hidden"))) =>
+            {
+                Ok(())
+            }
+            _ => Err("unsupported nonliteral doc attribute".into()),
+        };
+    }
+    if meta.path().is_ident("allow") {
+        let syn::Meta::List(l) = meta else {
+            return Err("unsupported allow shape".into());
+        };
+        for m in members(l)? {
+            if !matches!(&m, syn::Meta::Path(_))
+                && !matches!(&m, syn::Meta::NameValue(v) if v.path.is_ident("reason") && literal(&v.value))
+            {
+                return Err("unsupported nonliteral allow attribute".into());
+            }
+        }
+        return Ok(());
+    }
+    if matches!(meta, syn::Meta::Path(p) if p.is_ident("no_mangle")) {
+        return Ok(());
+    }
+    Err("unsupported procedural or unknown production attribute macro".into())
+}
 struct JsonMacroExpressions(Vec<Expr>);
 impl Parse for JsonMacroExpressions {
     fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
@@ -304,6 +413,11 @@ impl Paths {
     }
 }
 impl<'ast> Visit<'ast> for Paths {
+    fn visit_attribute(&mut self, a: &'ast syn::Attribute) {
+        if let Err(e) = attribute_meta(&a.meta) {
+            self.unsupported.push(e);
+        }
+    }
     fn visit_path(&mut self, p: &'ast syn::Path) {
         let parts: Vec<String> = p.segments.iter().map(|s| s.ident.to_string()).collect();
         if let Some(first) = parts.first() {
@@ -608,6 +722,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             return Err(format!("unclassified production module {source}").into());
         }
         let ast = syn::parse_file(&fs::read_to_string(&file)?)?;
+        for attribute in &ast.attrs {
+            attribute_meta(&attribute.meta)?;
+        }
         let mut aliases = BTreeMap::new();
         for item in &ast.items {
             let name = match item {
