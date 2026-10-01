@@ -86,3 +86,14 @@ test('Rust executable comes from Cargo artifact messages including target overri
   assert.throws(() => rustExecutableFromMessages(JSON.stringify(message) + '\n' + JSON.stringify(message)), /exactly one/);
   assert.throws(() => rustExecutableFromMessages(JSON.stringify({ ...message, executable: null })), /exactly one/);
 });
+
+test('successful adapter exit also closes background descendants', async t => {
+  const dir = mkdtempSync(join(tmpdir(), 'tower-process-success-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const marker = join(dir, 'late-write');
+  const worker = `setTimeout(()=>require('node:fs').writeFileSync(${JSON.stringify(marker)},'late'),600);`;
+  const parent = `const child=require('node:child_process').spawn(process.execPath,['-e',${JSON.stringify(worker)}],{stdio:'ignore'}); child.unref(); setTimeout(()=>process.stdout.write('done'),150);`;
+  assert.equal(await processOutput(process.execPath, ['-e', parent], { input: '' }), 'done');
+  await new Promise(resolve => setTimeout(resolve, 700));
+  assert.equal(existsSync(marker), false);
+});

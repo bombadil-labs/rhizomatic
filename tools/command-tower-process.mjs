@@ -26,7 +26,10 @@ export function processOutput(command, args, { cwd, input, timeout = 120000 } = 
     child.stdout.on('data', bytes => { stdout += bytes; if (stdout.length > 64 * 1024 * 1024) { cancel(); finish(Error('adapter stdout limit')); } });
     child.stderr.on('data', bytes => { stderr = (stderr + bytes).slice(-65536); });
     child.on('error', finish);
-    child.on('close', (code, signal) => finish(code === 0 ? null : Error(`${command} exited ${code ?? signal}: ${stderr}`)));
+    child.on('close', (code, signal) => {
+      cancel(); // Successful adapters must not leave background effects either.
+      finish(code === 0 ? null : Error(`${command} exited ${code ?? signal}: ${stderr}`));
+    });
     child.stdin.on('error', error => { if (error.code !== 'EPIPE') finish(error); });
     child.stdin.end(input);
   });
