@@ -155,7 +155,13 @@ function shapes(
   for (const k of allowed) {
     const list = fields[k] ?? [];
     if (sets.includes(k)) {
-      const keys = list.map((v) => JSON.stringify(v));
+      const keys = list.map((v) =>
+        k === "caller" && v.kind === "primitive"
+          ? `${typeof v.value}:${String(v.value)}`
+          : v.kind === "delta"
+            ? v.deltaRef.delta
+            : fail(),
+      );
       if (new Set(keys).size !== keys.length) fail();
     } else if (list.length !== (optional.includes(k) ? Math.min(list.length, 1) : 1)) fail();
   }
@@ -237,6 +243,7 @@ export function readRequestArguments(delta: Delta, kind: "retain" | "evaluate"):
       )
     )
       fail();
+    if (commandText(f, "source") === "catalog" && f["expected-head"]) fail();
     commandEntity(f, "root");
     commandNumber(f, "at");
     for (const k of ["hyperschema", "schema"]) commandRef(f, k);
@@ -308,10 +315,13 @@ export interface ReadOutcome {
   readonly value?: Uint8Array;
 }
 export function readOutcome(delta: Delta): ReadOutcome {
+  if (delta.claims.timestamp !== delta.claims.validFrom || delta.claims.validUntil !== undefined)
+    fail();
   const f = commandFields(delta);
   shapes(f, ORDERS["outcome/1"]);
   if (commandText(f, "kind") !== "outcome/1" || !isCommandKey(commandEntity(f, "receiver"))) fail();
   commandRef(f, "configuration");
+  if (delta.claims.author !== commandEntity(f, "receiver")) fail();
   commandRef(f, "request");
   const status = commandText(f, "status");
   if (!["completed", "refused", "indeterminate"].includes(status)) fail();

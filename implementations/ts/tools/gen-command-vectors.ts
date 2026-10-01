@@ -1,4 +1,4 @@
-import { writeFileSync } from "node:fs";
+import { writeFileSync, readFileSync } from "node:fs";
 import { encode, map, tstr, bstr, float, array, bool, type CborValue } from "../src/delta/cbor.js";
 import { authorForSeed, signClaims } from "../src/delta/sign.js";
 import { claimsToJson } from "../src/delta/json-profile.js";
@@ -71,6 +71,7 @@ view(
 );
 for (const [name, hex] of [
   ["null", "f6"],
+  ["empty-mime", "a2646d696d65606576616c756540"],
   ["integer", "01"],
   ["bare-bytes", "4100"],
   ["duplicate-key", "a26161f46161f5"],
@@ -340,7 +341,199 @@ for (const [kind, fields, operationKind] of descriptions) {
     });
   }
 }
+const catalogFields = descriptions.find(
+  ([kind, , op]) => kind === "request" && op === "evaluate",
+)![1];
+cases.push({
+  id: "catalog-expected-head-invalid",
+  scenario: "strict_argument_shapes",
+  kind: "request",
+  operationKind: "evaluate",
+  input: debug(act([...catalogFields, ["expected-head", text("")]])),
+  expected: { valid: false },
+  oracle: "Catalog has no journal head, so expected-head is invalid-arguments even when empty.",
+});
+for (const [name, changes] of [
+  ["validFrom", { validFrom: 9 }],
+  ["validUntil", { validUntil: 11 }],
+] as const) {
+  const outcome = act(descriptions[3]![1]);
+  cases.push({
+    id: "outcome-claims-" + name,
+    scenario: "outcome_body_strict",
+    kind: "outcome",
+    input: debug(signClaims({ ...outcome.claims, ...changes }, seed)),
+    expected: { valid: false },
+    oracle: "Outcome testimony must have equal timestamp/validFrom and absent validUntil.",
+  });
+}
+const retainFields = descriptions.find(([kind, , op]) => kind === "request" && op === "retain")![1];
+const canonicalMulti = [...retainFields, ["payload", ref(id2)] as const];
+const authoredMulti = act(canonicalMulti);
+for (const [name, fields] of [
+  [
+    "repeated-target-reverse",
+    [...retainFields.filter(([k]) => k !== "payload"), ["payload", ref(id2)], ["payload", ref(id)]],
+  ],
+  ["pointer-permutation", [...canonicalMulti].reverse()],
+] as readonly (readonly [string, readonly (readonly [string, Target])[]])[])
+  cases.push({
+    id: "writer-" + name,
+    scenario: "canonical_writer_order",
+    kind: "request",
+    operationKind: "retain",
+    input: debug(act(fields)),
+    expected: {
+      valid: true,
+      canonicalHex: canonicalHex(act(fields).claims),
+      writerCanonicalHex: canonicalHex(authoredMulti.claims),
+    },
+    oracle:
+      "Reader accepts any pointer order; canonical writer emits table order and sorts distinct payload IDs.",
+  });
+const reorderedTarget = { deltaRef: { delta: id }, kind: "delta" as const };
+cases.push({
+  id: "native-target-property-order-duplicate",
+  scenario: "strict_argument_shapes",
+  kind: "request",
+  operationKind: "retain",
+  input: debug(act([...retainFields, ["payload", reorderedTarget]])),
+  expected: { valid: false },
+  oracle: "Duplicate semantic ID is invalid regardless of native target-object key order.",
+});
+cases.push({
+  id: "bindings-duplicate-CBOR-key",
+  scenario: "bindings_strict",
+  kind: "bindings",
+  input: "a26161f46161f5",
+  expected: { valid: false },
+  oracle: "Duplicate map keys are rejected before canonical reencoding.",
+});
+cases.push({
+  id: "outcome-duplicate-CBOR-key",
+  scenario: "outcome_body_strict",
+  kind: "outcome",
+  input: debug(
+    act(
+      descriptions[3]![1].map(
+        ([k, t]) =>
+          [
+            k,
+            k === "result"
+              ? bytes(
+                  Uint8Array.from(
+                    Buffer.from(
+                      "a264636f64656c756e617574686f72697a656464636f64656c756e617574686f72697a6564",
+                      "hex",
+                    ),
+                  ),
+                )
+              : t,
+          ] as const,
+      ),
+    ),
+  ),
+  expected: { valid: false },
+  oracle: "Duplicate outcome keys are malformed and must refuse without a panic.",
+});
 writeFileSync(
   new URL("../../../vectors/command/descriptions.json", import.meta.url),
   JSON.stringify({ format: "rhizomatic-command-vectors/1", seed, cases }, null, 2) + "\n",
+);
+
+const coverageUrl = new URL("../../../contracts/command/coverage.json", import.meta.url);
+const coverage = JSON.parse(readFileSync(coverageUrl, "utf8")) as {
+  scenarios: { id: string; milestone: string; tests: string[]; state: string }[];
+};
+for (const scenario of coverage.scenarios)
+  if (scenario.milestone === "M1") {
+    scenario.tests = (cases as { id: string; scenario: string }[])
+      .filter((c) => c.scenario === scenario.id)
+      .map((c) => "command-description-vectors:" + c.id);
+    scenario.state = "implemented_unverified";
+  }
+writeFileSync(coverageUrl, JSON.stringify(coverage, null, 2) + "\n");
+
+const retainOperation = act(descriptions[1]![1]);
+const evaluateOperation = act(descriptions[4]![1]);
+const operationIds = [retainOperation.id, evaluateOperation.id].sort();
+const bootConfiguration = act(
+  descriptions[0]![1]
+    .filter(([k]) => k !== "installed")
+    .flatMap(([k, t]) =>
+      k === "quota"
+        ? ([
+            ["installed", ref(operationIds[0]!)],
+            ["installed", ref(operationIds[1]!)],
+            [k, t],
+          ] as (readonly [string, Target])[])
+        : [[k, t]],
+    ),
+);
+const payload = signClaims(
+  {
+    timestamp: 1,
+    validFrom: 1,
+    author: receiver,
+    pointers: [{ role: "fact", target: text("inert") }],
+  },
+  seed,
+);
+const transportRequest = act(
+  retainFields.map(
+    ([k, t]) =>
+      [
+        k,
+        k === "configuration"
+          ? ref(bootConfiguration.id)
+          : k === "operation"
+            ? ref(retainOperation.id)
+            : k === "payload"
+              ? ref(payload.id)
+              : t,
+      ] as const,
+  ),
+);
+const transportOutcome = act(
+  descriptions[3]![1].map(
+    ([k, t]) =>
+      [
+        k,
+        k === "configuration"
+          ? ref(bootConfiguration.id)
+          : k === "request"
+            ? ref(transportRequest.id)
+            : t,
+      ] as const,
+  ),
+);
+writeFileSync(
+  new URL("../../../vectors/command/transport.json", import.meta.url),
+  JSON.stringify(
+    {
+      format: "rhizomatic-command-transport-vectors/1",
+      context: {
+        boot: {
+          configuration: debug(bootConfiguration),
+          declarations: [debug(retainOperation), debug(evaluateOperation)],
+        },
+        construction: {
+          request: { claims: claimsToJson(transportRequest.claims), seed },
+          support: [{ claims: claimsToJson(payload.claims), seed }],
+        },
+      },
+      expectedArtifact: {
+        format: "rhizomatic-command-artifact/1",
+        entryId: transportRequest.id,
+        deltas: [debug(transportRequest), debug(payload)],
+      },
+      outcome: debug(transportOutcome),
+      expectedResult: {
+        status: "refused",
+        bodyHex: bytesToHex(encode(map([["code", tstr("unauthorized")]]))),
+      },
+    },
+    null,
+    2,
+  ) + "\n",
 );

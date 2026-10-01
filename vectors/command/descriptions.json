@@ -67,6 +67,16 @@
       "oracle": "Not canonical View: null"
     },
     {
+      "id": "view-invalid-empty-mime",
+      "scenario": "view_malformed",
+      "kind": "view",
+      "input": "a2646d696d65606576616c756540",
+      "expected": {
+        "valid": false
+      },
+      "oracle": "Not canonical View: empty-mime"
+    },
+    {
       "id": "view-invalid-integer",
       "scenario": "view_malformed",
       "kind": "view",
@@ -1343,7 +1353,7 @@
       "oracle": "Directly authored normative table-order claims signed by the existing Delta primitive, not command writer output."
     },
     {
-      "id": "outcome-invalid-32",
+      "id": "outcome-invalid-33",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -1396,7 +1406,7 @@
       "oracle": "Refusals contain exactly one stable code."
     },
     {
-      "id": "outcome-invalid-33",
+      "id": "outcome-invalid-34",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -1449,7 +1459,7 @@
       "oracle": "Refusals contain exactly one stable code."
     },
     {
-      "id": "configuration-shape-missing-kind-34",
+      "id": "configuration-shape-missing-kind-35",
       "scenario": "strict_argument_shapes",
       "kind": "configuration",
       "input": {
@@ -1503,7 +1513,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "configuration-duplicate-kind-35",
+      "id": "configuration-duplicate-kind-36",
       "scenario": "strict_argument_shapes",
       "kind": "configuration",
       "input": {
@@ -1565,7 +1575,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "configuration-shape-missing-receiver-36",
+      "id": "configuration-shape-missing-receiver-37",
       "scenario": "strict_argument_shapes",
       "kind": "configuration",
       "input": {
@@ -1617,7 +1627,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "configuration-duplicate-receiver-37",
+      "id": "configuration-duplicate-receiver-38",
       "scenario": "strict_argument_shapes",
       "kind": "configuration",
       "input": {
@@ -1681,7 +1691,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "configuration-shape-missing-caller-38",
+      "id": "configuration-shape-missing-caller-39",
       "scenario": "strict_argument_shapes",
       "kind": "configuration",
       "input": {
@@ -1735,7 +1745,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "configuration-duplicate-caller-39",
+      "id": "configuration-duplicate-caller-40",
       "scenario": "strict_argument_shapes",
       "kind": "configuration",
       "input": {
@@ -1797,7 +1807,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "configuration-shape-missing-installed-40",
+      "id": "configuration-shape-missing-installed-41",
       "scenario": "strict_argument_shapes",
       "kind": "configuration",
       "input": {
@@ -1843,7 +1853,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "configuration-duplicate-installed-41",
+      "id": "configuration-duplicate-installed-42",
       "scenario": "strict_argument_shapes",
       "kind": "configuration",
       "input": {
@@ -1907,7 +1917,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "configuration-shape-missing-quota-42",
+      "id": "configuration-shape-missing-quota-43",
       "scenario": "strict_argument_shapes",
       "kind": "configuration",
       "input": {
@@ -1961,7 +1971,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "configuration-duplicate-quota-43",
+      "id": "configuration-duplicate-quota-44",
       "scenario": "strict_argument_shapes",
       "kind": "configuration",
       "input": {
@@ -2023,7 +2033,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "configuration-shape-missing-max-deltas-44",
+      "id": "configuration-shape-missing-max-deltas-45",
       "scenario": "strict_argument_shapes",
       "kind": "configuration",
       "input": {
@@ -2077,7 +2087,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "configuration-duplicate-max-deltas-45",
+      "id": "configuration-duplicate-max-deltas-46",
       "scenario": "strict_argument_shapes",
       "kind": "configuration",
       "input": {
@@ -2139,7 +2149,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "configuration-shape-missing-max-bytes-46",
+      "id": "configuration-shape-missing-max-bytes-47",
       "scenario": "strict_argument_shapes",
       "kind": "configuration",
       "input": {
@@ -2193,7 +2203,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "configuration-duplicate-max-bytes-47",
+      "id": "configuration-duplicate-max-bytes-48",
       "scenario": "strict_argument_shapes",
       "kind": "configuration",
       "input": {
@@ -2255,7 +2265,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "operation-shape-missing-kind-48",
+      "id": "operation-shape-missing-kind-49",
       "scenario": "strict_argument_shapes",
       "kind": "operation",
       "input": {
@@ -2305,7 +2315,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "operation-duplicate-kind-49",
+      "id": "operation-duplicate-kind-50",
       "scenario": "strict_argument_shapes",
       "kind": "operation",
       "input": {
@@ -2363,7 +2373,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "operation-shape-missing-name-50",
+      "id": "operation-shape-missing-name-51",
       "scenario": "strict_argument_shapes",
       "kind": "operation",
       "input": {
@@ -2411,7 +2421,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "operation-duplicate-name-51",
+      "id": "operation-duplicate-name-52",
       "scenario": "strict_argument_shapes",
       "kind": "operation",
       "input": {
@@ -2471,7 +2481,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "operation-shape-missing-interpreter-52",
+      "id": "operation-shape-missing-interpreter-53",
       "scenario": "strict_argument_shapes",
       "kind": "operation",
       "input": {
@@ -2521,7 +2531,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "operation-duplicate-interpreter-53",
+      "id": "operation-duplicate-interpreter-54",
       "scenario": "strict_argument_shapes",
       "kind": "operation",
       "input": {
@@ -2579,7 +2589,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "operation-shape-missing-input-contract-54",
+      "id": "operation-shape-missing-input-contract-55",
       "scenario": "strict_argument_shapes",
       "kind": "operation",
       "input": {
@@ -2629,7 +2639,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "operation-duplicate-input-contract-55",
+      "id": "operation-duplicate-input-contract-56",
       "scenario": "strict_argument_shapes",
       "kind": "operation",
       "input": {
@@ -2687,7 +2697,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "operation-shape-missing-output-contract-56",
+      "id": "operation-shape-missing-output-contract-57",
       "scenario": "strict_argument_shapes",
       "kind": "operation",
       "input": {
@@ -2737,7 +2747,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "operation-duplicate-output-contract-57",
+      "id": "operation-duplicate-output-contract-58",
       "scenario": "strict_argument_shapes",
       "kind": "operation",
       "input": {
@@ -2795,7 +2805,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "operation-shape-missing-effect-58",
+      "id": "operation-shape-missing-effect-59",
       "scenario": "strict_argument_shapes",
       "kind": "operation",
       "input": {
@@ -2845,7 +2855,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "operation-duplicate-effect-59",
+      "id": "operation-duplicate-effect-60",
       "scenario": "strict_argument_shapes",
       "kind": "operation",
       "input": {
@@ -2903,7 +2913,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "operation-shape-missing-replay-60",
+      "id": "operation-shape-missing-replay-61",
       "scenario": "strict_argument_shapes",
       "kind": "operation",
       "input": {
@@ -2953,7 +2963,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "operation-duplicate-replay-61",
+      "id": "operation-duplicate-replay-62",
       "scenario": "strict_argument_shapes",
       "kind": "operation",
       "input": {
@@ -3011,7 +3021,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "operation-shape-missing-dependencies-62",
+      "id": "operation-shape-missing-dependencies-63",
       "scenario": "strict_argument_shapes",
       "kind": "operation",
       "input": {
@@ -3061,7 +3071,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "operation-duplicate-dependencies-63",
+      "id": "operation-duplicate-dependencies-64",
       "scenario": "strict_argument_shapes",
       "kind": "operation",
       "input": {
@@ -3119,7 +3129,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "request-retain-missing-kind-64",
+      "id": "request-retain-missing-kind-65",
       "scenario": "strict_argument_shapes",
       "kind": "request",
       "input": {
@@ -3168,7 +3178,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "request-duplicate-kind-65",
+      "id": "request-duplicate-kind-66",
       "scenario": "strict_argument_shapes",
       "kind": "request",
       "input": {
@@ -3225,7 +3235,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "request-retain-missing-receiver-66",
+      "id": "request-retain-missing-receiver-67",
       "scenario": "strict_argument_shapes",
       "kind": "request",
       "input": {
@@ -3272,7 +3282,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "request-duplicate-receiver-67",
+      "id": "request-duplicate-receiver-68",
       "scenario": "strict_argument_shapes",
       "kind": "request",
       "input": {
@@ -3331,7 +3341,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "request-retain-missing-configuration-68",
+      "id": "request-retain-missing-configuration-69",
       "scenario": "strict_argument_shapes",
       "kind": "request",
       "input": {
@@ -3378,7 +3388,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "request-duplicate-configuration-69",
+      "id": "request-duplicate-configuration-70",
       "scenario": "strict_argument_shapes",
       "kind": "request",
       "input": {
@@ -3437,7 +3447,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "request-retain-missing-operation-70",
+      "id": "request-retain-missing-operation-71",
       "scenario": "strict_argument_shapes",
       "kind": "request",
       "input": {
@@ -3484,7 +3494,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "request-duplicate-operation-71",
+      "id": "request-duplicate-operation-72",
       "scenario": "strict_argument_shapes",
       "kind": "request",
       "input": {
@@ -3543,7 +3553,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "request-duplicate-expected-head-72",
+      "id": "request-duplicate-expected-head-73",
       "scenario": "strict_argument_shapes",
       "kind": "request",
       "input": {
@@ -3600,7 +3610,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "request-retain-missing-payload-73",
+      "id": "request-retain-missing-payload-74",
       "scenario": "strict_argument_shapes",
       "kind": "request",
       "input": {
@@ -3647,7 +3657,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "request-duplicate-payload-74",
+      "id": "request-duplicate-payload-75",
       "scenario": "strict_argument_shapes",
       "kind": "request",
       "input": {
@@ -3706,7 +3716,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "outcome-shape-missing-kind-75",
+      "id": "outcome-shape-missing-kind-76",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -3755,7 +3765,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "outcome-duplicate-kind-76",
+      "id": "outcome-duplicate-kind-77",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -3812,7 +3822,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "outcome-shape-missing-receiver-77",
+      "id": "outcome-shape-missing-receiver-78",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -3859,7 +3869,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "outcome-duplicate-receiver-78",
+      "id": "outcome-duplicate-receiver-79",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -3918,7 +3928,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "outcome-shape-missing-configuration-79",
+      "id": "outcome-shape-missing-configuration-80",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -3965,7 +3975,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "outcome-duplicate-configuration-80",
+      "id": "outcome-duplicate-configuration-81",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -4024,7 +4034,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "outcome-shape-missing-request-81",
+      "id": "outcome-shape-missing-request-82",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -4071,7 +4081,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "outcome-duplicate-request-82",
+      "id": "outcome-duplicate-request-83",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -4130,7 +4140,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "outcome-shape-missing-status-83",
+      "id": "outcome-shape-missing-status-84",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -4179,7 +4189,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "outcome-duplicate-status-84",
+      "id": "outcome-duplicate-status-85",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -4236,7 +4246,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "outcome-shape-missing-result-85",
+      "id": "outcome-shape-missing-result-86",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -4282,7 +4292,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "outcome-duplicate-result-86",
+      "id": "outcome-duplicate-result-87",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -4342,7 +4352,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "operation-shape-missing-kind-87",
+      "id": "operation-shape-missing-kind-88",
       "scenario": "strict_argument_shapes",
       "kind": "operation",
       "input": {
@@ -4392,7 +4402,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "operation-duplicate-kind-88",
+      "id": "operation-duplicate-kind-89",
       "scenario": "strict_argument_shapes",
       "kind": "operation",
       "input": {
@@ -4450,7 +4460,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "operation-shape-missing-name-89",
+      "id": "operation-shape-missing-name-90",
       "scenario": "strict_argument_shapes",
       "kind": "operation",
       "input": {
@@ -4498,7 +4508,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "operation-duplicate-name-90",
+      "id": "operation-duplicate-name-91",
       "scenario": "strict_argument_shapes",
       "kind": "operation",
       "input": {
@@ -4558,7 +4568,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "operation-shape-missing-interpreter-91",
+      "id": "operation-shape-missing-interpreter-92",
       "scenario": "strict_argument_shapes",
       "kind": "operation",
       "input": {
@@ -4608,7 +4618,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "operation-duplicate-interpreter-92",
+      "id": "operation-duplicate-interpreter-93",
       "scenario": "strict_argument_shapes",
       "kind": "operation",
       "input": {
@@ -4666,7 +4676,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "operation-shape-missing-input-contract-93",
+      "id": "operation-shape-missing-input-contract-94",
       "scenario": "strict_argument_shapes",
       "kind": "operation",
       "input": {
@@ -4716,7 +4726,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "operation-duplicate-input-contract-94",
+      "id": "operation-duplicate-input-contract-95",
       "scenario": "strict_argument_shapes",
       "kind": "operation",
       "input": {
@@ -4774,7 +4784,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "operation-shape-missing-output-contract-95",
+      "id": "operation-shape-missing-output-contract-96",
       "scenario": "strict_argument_shapes",
       "kind": "operation",
       "input": {
@@ -4824,7 +4834,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "operation-duplicate-output-contract-96",
+      "id": "operation-duplicate-output-contract-97",
       "scenario": "strict_argument_shapes",
       "kind": "operation",
       "input": {
@@ -4882,7 +4892,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "operation-shape-missing-effect-97",
+      "id": "operation-shape-missing-effect-98",
       "scenario": "strict_argument_shapes",
       "kind": "operation",
       "input": {
@@ -4932,7 +4942,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "operation-duplicate-effect-98",
+      "id": "operation-duplicate-effect-99",
       "scenario": "strict_argument_shapes",
       "kind": "operation",
       "input": {
@@ -4990,7 +5000,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "operation-shape-missing-replay-99",
+      "id": "operation-shape-missing-replay-100",
       "scenario": "strict_argument_shapes",
       "kind": "operation",
       "input": {
@@ -5040,7 +5050,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "operation-duplicate-replay-100",
+      "id": "operation-duplicate-replay-101",
       "scenario": "strict_argument_shapes",
       "kind": "operation",
       "input": {
@@ -5098,7 +5108,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "operation-shape-missing-dependencies-101",
+      "id": "operation-shape-missing-dependencies-102",
       "scenario": "strict_argument_shapes",
       "kind": "operation",
       "input": {
@@ -5148,7 +5158,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "operation-duplicate-dependencies-102",
+      "id": "operation-duplicate-dependencies-103",
       "scenario": "strict_argument_shapes",
       "kind": "operation",
       "input": {
@@ -5206,7 +5216,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "request-evaluate-missing-kind-103",
+      "id": "request-evaluate-missing-kind-104",
       "scenario": "strict_argument_shapes",
       "kind": "request",
       "input": {
@@ -5290,7 +5300,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "request-duplicate-kind-104",
+      "id": "request-duplicate-kind-105",
       "scenario": "strict_argument_shapes",
       "kind": "request",
       "input": {
@@ -5382,7 +5392,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "request-evaluate-missing-receiver-105",
+      "id": "request-evaluate-missing-receiver-106",
       "scenario": "strict_argument_shapes",
       "kind": "request",
       "input": {
@@ -5464,7 +5474,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "request-duplicate-receiver-106",
+      "id": "request-duplicate-receiver-107",
       "scenario": "strict_argument_shapes",
       "kind": "request",
       "input": {
@@ -5558,7 +5568,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "request-evaluate-missing-configuration-107",
+      "id": "request-evaluate-missing-configuration-108",
       "scenario": "strict_argument_shapes",
       "kind": "request",
       "input": {
@@ -5640,7 +5650,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "request-duplicate-configuration-108",
+      "id": "request-duplicate-configuration-109",
       "scenario": "strict_argument_shapes",
       "kind": "request",
       "input": {
@@ -5734,7 +5744,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "request-evaluate-missing-operation-109",
+      "id": "request-evaluate-missing-operation-110",
       "scenario": "strict_argument_shapes",
       "kind": "request",
       "input": {
@@ -5816,7 +5826,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "request-duplicate-operation-110",
+      "id": "request-duplicate-operation-111",
       "scenario": "strict_argument_shapes",
       "kind": "request",
       "input": {
@@ -5910,7 +5920,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "request-evaluate-missing-source-111",
+      "id": "request-evaluate-missing-source-112",
       "scenario": "strict_argument_shapes",
       "kind": "request",
       "input": {
@@ -5994,7 +6004,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "request-duplicate-source-112",
+      "id": "request-duplicate-source-113",
       "scenario": "strict_argument_shapes",
       "kind": "request",
       "input": {
@@ -6086,7 +6096,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "request-evaluate-missing-root-113",
+      "id": "request-evaluate-missing-root-114",
       "scenario": "strict_argument_shapes",
       "kind": "request",
       "input": {
@@ -6168,7 +6178,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "request-duplicate-root-114",
+      "id": "request-duplicate-root-115",
       "scenario": "strict_argument_shapes",
       "kind": "request",
       "input": {
@@ -6262,7 +6272,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "request-evaluate-missing-at-115",
+      "id": "request-evaluate-missing-at-116",
       "scenario": "strict_argument_shapes",
       "kind": "request",
       "input": {
@@ -6346,7 +6356,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "request-duplicate-at-116",
+      "id": "request-duplicate-at-117",
       "scenario": "strict_argument_shapes",
       "kind": "request",
       "input": {
@@ -6438,7 +6448,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "request-evaluate-missing-interpretation-117",
+      "id": "request-evaluate-missing-interpretation-118",
       "scenario": "strict_argument_shapes",
       "kind": "request",
       "input": {
@@ -6522,7 +6532,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "request-duplicate-interpretation-118",
+      "id": "request-duplicate-interpretation-119",
       "scenario": "strict_argument_shapes",
       "kind": "request",
       "input": {
@@ -6614,7 +6624,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "request-evaluate-missing-hyperschema-119",
+      "id": "request-evaluate-missing-hyperschema-120",
       "scenario": "strict_argument_shapes",
       "kind": "request",
       "input": {
@@ -6696,7 +6706,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "request-duplicate-hyperschema-120",
+      "id": "request-duplicate-hyperschema-121",
       "scenario": "strict_argument_shapes",
       "kind": "request",
       "input": {
@@ -6790,7 +6800,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "request-evaluate-missing-hyperschema-pin-121",
+      "id": "request-evaluate-missing-hyperschema-pin-122",
       "scenario": "strict_argument_shapes",
       "kind": "request",
       "input": {
@@ -6874,7 +6884,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "request-duplicate-hyperschema-pin-122",
+      "id": "request-duplicate-hyperschema-pin-123",
       "scenario": "strict_argument_shapes",
       "kind": "request",
       "input": {
@@ -6966,7 +6976,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "request-evaluate-missing-schema-123",
+      "id": "request-evaluate-missing-schema-124",
       "scenario": "strict_argument_shapes",
       "kind": "request",
       "input": {
@@ -7048,7 +7058,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "request-duplicate-schema-124",
+      "id": "request-duplicate-schema-125",
       "scenario": "strict_argument_shapes",
       "kind": "request",
       "input": {
@@ -7142,7 +7152,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "request-evaluate-missing-schema-pin-125",
+      "id": "request-evaluate-missing-schema-pin-126",
       "scenario": "strict_argument_shapes",
       "kind": "request",
       "input": {
@@ -7226,7 +7236,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "request-duplicate-schema-pin-126",
+      "id": "request-duplicate-schema-pin-127",
       "scenario": "strict_argument_shapes",
       "kind": "request",
       "input": {
@@ -7318,7 +7328,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "request-evaluate-missing-bindings-127",
+      "id": "request-evaluate-missing-bindings-128",
       "scenario": "strict_argument_shapes",
       "kind": "request",
       "input": {
@@ -7399,7 +7409,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "request-duplicate-bindings-128",
+      "id": "request-duplicate-bindings-129",
       "scenario": "strict_argument_shapes",
       "kind": "request",
       "input": {
@@ -7494,7 +7504,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "outcome-shape-missing-kind-129",
+      "id": "outcome-shape-missing-kind-130",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -7543,7 +7553,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "outcome-duplicate-kind-130",
+      "id": "outcome-duplicate-kind-131",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -7600,7 +7610,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "outcome-shape-missing-receiver-131",
+      "id": "outcome-shape-missing-receiver-132",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -7647,7 +7657,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "outcome-duplicate-receiver-132",
+      "id": "outcome-duplicate-receiver-133",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -7706,7 +7716,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "outcome-shape-missing-configuration-133",
+      "id": "outcome-shape-missing-configuration-134",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -7753,7 +7763,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "outcome-duplicate-configuration-134",
+      "id": "outcome-duplicate-configuration-135",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -7812,7 +7822,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "outcome-shape-missing-request-135",
+      "id": "outcome-shape-missing-request-136",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -7859,7 +7869,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "outcome-duplicate-request-136",
+      "id": "outcome-duplicate-request-137",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -7918,7 +7928,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "outcome-shape-missing-status-137",
+      "id": "outcome-shape-missing-status-138",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -7967,7 +7977,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "outcome-duplicate-status-138",
+      "id": "outcome-duplicate-status-139",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -8024,7 +8034,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "outcome-shape-missing-result-139",
+      "id": "outcome-shape-missing-result-140",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -8070,7 +8080,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "outcome-duplicate-result-140",
+      "id": "outcome-duplicate-result-141",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -8130,7 +8140,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "outcome-shape-missing-kind-141",
+      "id": "outcome-shape-missing-kind-142",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -8179,7 +8189,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "outcome-duplicate-kind-142",
+      "id": "outcome-duplicate-kind-143",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -8236,7 +8246,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "outcome-shape-missing-receiver-143",
+      "id": "outcome-shape-missing-receiver-144",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -8283,7 +8293,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "outcome-duplicate-receiver-144",
+      "id": "outcome-duplicate-receiver-145",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -8342,7 +8352,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "outcome-shape-missing-configuration-145",
+      "id": "outcome-shape-missing-configuration-146",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -8389,7 +8399,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "outcome-duplicate-configuration-146",
+      "id": "outcome-duplicate-configuration-147",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -8448,7 +8458,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "outcome-shape-missing-request-147",
+      "id": "outcome-shape-missing-request-148",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -8495,7 +8505,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "outcome-duplicate-request-148",
+      "id": "outcome-duplicate-request-149",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -8554,7 +8564,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "outcome-shape-missing-status-149",
+      "id": "outcome-shape-missing-status-150",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -8603,7 +8613,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "outcome-duplicate-status-150",
+      "id": "outcome-duplicate-status-151",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -8660,7 +8670,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "outcome-shape-missing-result-151",
+      "id": "outcome-shape-missing-result-152",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -8706,7 +8716,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "outcome-duplicate-result-152",
+      "id": "outcome-duplicate-result-153",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -8766,7 +8776,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "outcome-shape-missing-kind-153",
+      "id": "outcome-shape-missing-kind-154",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -8815,7 +8825,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "outcome-duplicate-kind-154",
+      "id": "outcome-duplicate-kind-155",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -8872,7 +8882,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "outcome-shape-missing-receiver-155",
+      "id": "outcome-shape-missing-receiver-156",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -8919,7 +8929,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "outcome-duplicate-receiver-156",
+      "id": "outcome-duplicate-receiver-157",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -8978,7 +8988,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "outcome-shape-missing-configuration-157",
+      "id": "outcome-shape-missing-configuration-158",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -9025,7 +9035,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "outcome-duplicate-configuration-158",
+      "id": "outcome-duplicate-configuration-159",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -9084,7 +9094,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "outcome-shape-missing-request-159",
+      "id": "outcome-shape-missing-request-160",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -9131,7 +9141,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "outcome-duplicate-request-160",
+      "id": "outcome-duplicate-request-161",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -9190,7 +9200,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "outcome-shape-missing-status-161",
+      "id": "outcome-shape-missing-status-162",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -9239,7 +9249,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "outcome-duplicate-status-162",
+      "id": "outcome-duplicate-status-163",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -9296,7 +9306,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "outcome-shape-missing-result-163",
+      "id": "outcome-shape-missing-result-164",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -9342,7 +9352,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "outcome-duplicate-result-164",
+      "id": "outcome-duplicate-result-165",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -9402,7 +9412,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "outcome-shape-missing-kind-165",
+      "id": "outcome-shape-missing-kind-166",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -9451,7 +9461,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "outcome-duplicate-kind-166",
+      "id": "outcome-duplicate-kind-167",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -9508,7 +9518,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "outcome-shape-missing-receiver-167",
+      "id": "outcome-shape-missing-receiver-168",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -9555,7 +9565,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "outcome-duplicate-receiver-168",
+      "id": "outcome-duplicate-receiver-169",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -9614,7 +9624,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "outcome-shape-missing-configuration-169",
+      "id": "outcome-shape-missing-configuration-170",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -9661,7 +9671,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "outcome-duplicate-configuration-170",
+      "id": "outcome-duplicate-configuration-171",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -9720,7 +9730,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "outcome-shape-missing-request-171",
+      "id": "outcome-shape-missing-request-172",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -9767,7 +9777,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "outcome-duplicate-request-172",
+      "id": "outcome-duplicate-request-173",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -9826,7 +9836,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "outcome-shape-missing-status-173",
+      "id": "outcome-shape-missing-status-174",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -9875,7 +9885,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "outcome-duplicate-status-174",
+      "id": "outcome-duplicate-status-175",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -9932,7 +9942,7 @@
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
     },
     {
-      "id": "outcome-shape-missing-result-175",
+      "id": "outcome-shape-missing-result-176",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -9978,7 +9988,7 @@
       "oracle": "Every required role must be present."
     },
     {
-      "id": "outcome-duplicate-result-176",
+      "id": "outcome-duplicate-result-177",
       "scenario": "outcome_body_strict",
       "kind": "outcome",
       "input": {
@@ -10036,6 +10046,449 @@
         "valid": false
       },
       "oracle": "Singleton roles occur exactly once; set roles cannot repeat a target."
+    },
+    {
+      "id": "catalog-expected-head-invalid",
+      "scenario": "strict_argument_shapes",
+      "kind": "request",
+      "operationKind": "evaluate",
+      "input": {
+        "id": "1e207baa051379b5f1b1ef07af8e988956526755a6409ddbc642996bdd8fd6407739",
+        "claims": {
+          "timestamp": 10,
+          "validFrom": 10,
+          "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+          "pointers": [
+            {
+              "role": "rhizomatic.command.kind",
+              "target": "request/1"
+            },
+            {
+              "role": "rhizomatic.command.receiver",
+              "target": {
+                "id": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c"
+              }
+            },
+            {
+              "role": "rhizomatic.command.configuration",
+              "target": {
+                "delta": "1e201111111111111111111111111111111111111111111111111111111111111111"
+              }
+            },
+            {
+              "role": "rhizomatic.command.operation",
+              "target": {
+                "delta": "1e202222222222222222222222222222222222222222222222222222222222222222"
+              }
+            },
+            {
+              "role": "rhizomatic.command.source",
+              "target": "catalog"
+            },
+            {
+              "role": "rhizomatic.command.root",
+              "target": {
+                "id": "root"
+              }
+            },
+            {
+              "role": "rhizomatic.command.at",
+              "target": 10
+            },
+            {
+              "role": "rhizomatic.command.interpretation",
+              "target": "core/1"
+            },
+            {
+              "role": "rhizomatic.command.hyperschema",
+              "target": {
+                "delta": "1e201111111111111111111111111111111111111111111111111111111111111111"
+              }
+            },
+            {
+              "role": "rhizomatic.command.hyperschema-pin",
+              "target": "1e201111111111111111111111111111111111111111111111111111111111111111"
+            },
+            {
+              "role": "rhizomatic.command.schema",
+              "target": {
+                "delta": "1e202222222222222222222222222222222222222222222222222222222222222222"
+              }
+            },
+            {
+              "role": "rhizomatic.command.schema-pin",
+              "target": "1e202222222222222222222222222222222222222222222222222222222222222222"
+            },
+            {
+              "role": "rhizomatic.command.bindings",
+              "target": {
+                "mime": "application/cbor",
+                "value": "oA"
+              }
+            },
+            {
+              "role": "rhizomatic.command.expected-head",
+              "target": ""
+            }
+          ]
+        },
+        "sig": "8da4b4c73f2b82c22cf279fe6bf45228817eaa3c1b18643d209f18cb0716c69567017079cc2b5ae852ceaa7d24df686346294c67c62f94a523e8fda6bf61720b"
+      },
+      "expected": {
+        "valid": false
+      },
+      "oracle": "Catalog has no journal head, so expected-head is invalid-arguments even when empty."
+    },
+    {
+      "id": "outcome-claims-validFrom",
+      "scenario": "outcome_body_strict",
+      "kind": "outcome",
+      "input": {
+        "id": "1e20c70014e925167a8bce06167ee8e30a3ffe5728c674ad0693dff2d877485e3c67",
+        "claims": {
+          "timestamp": 10,
+          "validFrom": 9,
+          "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+          "pointers": [
+            {
+              "role": "rhizomatic.command.kind",
+              "target": "outcome/1"
+            },
+            {
+              "role": "rhizomatic.command.receiver",
+              "target": {
+                "id": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c"
+              }
+            },
+            {
+              "role": "rhizomatic.command.configuration",
+              "target": {
+                "delta": "1e201111111111111111111111111111111111111111111111111111111111111111"
+              }
+            },
+            {
+              "role": "rhizomatic.command.request",
+              "target": {
+                "delta": "1e202222222222222222222222222222222222222222222222222222222222222222"
+              }
+            },
+            {
+              "role": "rhizomatic.command.status",
+              "target": "refused"
+            },
+            {
+              "role": "rhizomatic.command.result",
+              "target": {
+                "mime": "application/cbor",
+                "value": "oWRjb2RlbHVuYXV0aG9yaXplZA"
+              }
+            }
+          ]
+        },
+        "sig": "5d15bacb947a5f2e9bf25883614b886a13028b400b850299f8e75c32ea459e5493bc0916120a877c871d5fe987ae7a675979ead5b90c89d6313ff11bcf962c08"
+      },
+      "expected": {
+        "valid": false
+      },
+      "oracle": "Outcome testimony must have equal timestamp/validFrom and absent validUntil."
+    },
+    {
+      "id": "outcome-claims-validUntil",
+      "scenario": "outcome_body_strict",
+      "kind": "outcome",
+      "input": {
+        "id": "1e201acc8eeeb3f91b6a4b1a662c95d07957ad96f4eccd299449b7037704f371963b",
+        "claims": {
+          "timestamp": 10,
+          "validFrom": 10,
+          "validUntil": 11,
+          "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+          "pointers": [
+            {
+              "role": "rhizomatic.command.kind",
+              "target": "outcome/1"
+            },
+            {
+              "role": "rhizomatic.command.receiver",
+              "target": {
+                "id": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c"
+              }
+            },
+            {
+              "role": "rhizomatic.command.configuration",
+              "target": {
+                "delta": "1e201111111111111111111111111111111111111111111111111111111111111111"
+              }
+            },
+            {
+              "role": "rhizomatic.command.request",
+              "target": {
+                "delta": "1e202222222222222222222222222222222222222222222222222222222222222222"
+              }
+            },
+            {
+              "role": "rhizomatic.command.status",
+              "target": "refused"
+            },
+            {
+              "role": "rhizomatic.command.result",
+              "target": {
+                "mime": "application/cbor",
+                "value": "oWRjb2RlbHVuYXV0aG9yaXplZA"
+              }
+            }
+          ]
+        },
+        "sig": "dcb7ba271290726963c28427dad9ab28f13dcda373477a93521b4ddf30dc29dbace52a5da72746374c12b9c5fef0524f9f89613e975834bc935b22fc3c677209"
+      },
+      "expected": {
+        "valid": false
+      },
+      "oracle": "Outcome testimony must have equal timestamp/validFrom and absent validUntil."
+    },
+    {
+      "id": "writer-repeated-target-reverse",
+      "scenario": "canonical_writer_order",
+      "kind": "request",
+      "operationKind": "retain",
+      "input": {
+        "id": "1e20d1def1426c2660ede030c5d2009146b8d2fe46fb981bd317c26ca29537a8cc0d",
+        "claims": {
+          "timestamp": 10,
+          "validFrom": 10,
+          "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+          "pointers": [
+            {
+              "role": "rhizomatic.command.kind",
+              "target": "request/1"
+            },
+            {
+              "role": "rhizomatic.command.receiver",
+              "target": {
+                "id": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c"
+              }
+            },
+            {
+              "role": "rhizomatic.command.configuration",
+              "target": {
+                "delta": "1e201111111111111111111111111111111111111111111111111111111111111111"
+              }
+            },
+            {
+              "role": "rhizomatic.command.operation",
+              "target": {
+                "delta": "1e202222222222222222222222222222222222222222222222222222222222222222"
+              }
+            },
+            {
+              "role": "rhizomatic.command.expected-head",
+              "target": ""
+            },
+            {
+              "role": "rhizomatic.command.payload",
+              "target": {
+                "delta": "1e202222222222222222222222222222222222222222222222222222222222222222"
+              }
+            },
+            {
+              "role": "rhizomatic.command.payload",
+              "target": {
+                "delta": "1e201111111111111111111111111111111111111111111111111111111111111111"
+              }
+            }
+          ]
+        },
+        "sig": "588c3fd1081e004ae724c38ba6ee85c59b8ea90599a7c81637165445da98211fba66957c91b00689a4c0b786db0ca388d5218a96b89be12bbef4f909fc949602"
+      },
+      "expected": {
+        "valid": true,
+        "canonicalHex": "a466617574686f727848656432353531393a3861383865336464373430396631393566643532646232643363626135643732636136373039626631643934313231626633373438383031623430663666356368706f696e7465727387a264726f6c65777268697a6f6d617469632e636f6d6d616e642e6b696e646674617267657469726571756573742f31a264726f6c65781b7268697a6f6d617469632e636f6d6d616e642e726563656976657266746172676574a16269647848656432353531393a38613838653364643734303966313935666435326462326433636261356437326361363730396266316439343132316266333734383830316234306636663563a264726f6c6578207268697a6f6d617469632e636f6d6d616e642e636f6e66696775726174696f6e66746172676574a16564656c746178443165323031313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131a264726f6c65781c7268697a6f6d617469632e636f6d6d616e642e6f7065726174696f6e66746172676574a16564656c746178443165323032323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232a264726f6c6578207268697a6f6d617469632e636f6d6d616e642e65787065637465642d686561646674617267657460a264726f6c65781a7268697a6f6d617469632e636f6d6d616e642e7061796c6f616466746172676574a16564656c746178443165323032323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232a264726f6c65781a7268697a6f6d617469632e636f6d6d616e642e7061796c6f616466746172676574a16564656c7461784431653230313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131316974696d657374616d70f949006976616c696446726f6df94900",
+        "writerCanonicalHex": "a466617574686f727848656432353531393a3861383865336464373430396631393566643532646232643363626135643732636136373039626631643934313231626633373438383031623430663666356368706f696e7465727387a264726f6c65777268697a6f6d617469632e636f6d6d616e642e6b696e646674617267657469726571756573742f31a264726f6c65781b7268697a6f6d617469632e636f6d6d616e642e726563656976657266746172676574a16269647848656432353531393a38613838653364643734303966313935666435326462326433636261356437326361363730396266316439343132316266333734383830316234306636663563a264726f6c6578207268697a6f6d617469632e636f6d6d616e642e636f6e66696775726174696f6e66746172676574a16564656c746178443165323031313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131a264726f6c65781c7268697a6f6d617469632e636f6d6d616e642e6f7065726174696f6e66746172676574a16564656c746178443165323032323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232a264726f6c6578207268697a6f6d617469632e636f6d6d616e642e65787065637465642d686561646674617267657460a264726f6c65781a7268697a6f6d617469632e636f6d6d616e642e7061796c6f616466746172676574a16564656c746178443165323031313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131a264726f6c65781a7268697a6f6d617469632e636f6d6d616e642e7061796c6f616466746172676574a16564656c7461784431653230323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232326974696d657374616d70f949006976616c696446726f6df94900"
+      },
+      "oracle": "Reader accepts any pointer order; canonical writer emits table order and sorts distinct payload IDs."
+    },
+    {
+      "id": "writer-pointer-permutation",
+      "scenario": "canonical_writer_order",
+      "kind": "request",
+      "operationKind": "retain",
+      "input": {
+        "id": "1e20b44ef933e03126caf138e65ab8ca5e609378c6b733ad4aabbd79f58e9b3fc4d8",
+        "claims": {
+          "timestamp": 10,
+          "validFrom": 10,
+          "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+          "pointers": [
+            {
+              "role": "rhizomatic.command.payload",
+              "target": {
+                "delta": "1e202222222222222222222222222222222222222222222222222222222222222222"
+              }
+            },
+            {
+              "role": "rhizomatic.command.payload",
+              "target": {
+                "delta": "1e201111111111111111111111111111111111111111111111111111111111111111"
+              }
+            },
+            {
+              "role": "rhizomatic.command.expected-head",
+              "target": ""
+            },
+            {
+              "role": "rhizomatic.command.operation",
+              "target": {
+                "delta": "1e202222222222222222222222222222222222222222222222222222222222222222"
+              }
+            },
+            {
+              "role": "rhizomatic.command.configuration",
+              "target": {
+                "delta": "1e201111111111111111111111111111111111111111111111111111111111111111"
+              }
+            },
+            {
+              "role": "rhizomatic.command.receiver",
+              "target": {
+                "id": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c"
+              }
+            },
+            {
+              "role": "rhizomatic.command.kind",
+              "target": "request/1"
+            }
+          ]
+        },
+        "sig": "41e17d3c330ab80b309a25a65b88de9a9a6515f2c206300f11b971953a3f920a5584d10343910607194f656da775739186b3dd1948f8db2d0ebe48773b6b6205"
+      },
+      "expected": {
+        "valid": true,
+        "canonicalHex": "a466617574686f727848656432353531393a3861383865336464373430396631393566643532646232643363626135643732636136373039626631643934313231626633373438383031623430663666356368706f696e7465727387a264726f6c65781a7268697a6f6d617469632e636f6d6d616e642e7061796c6f616466746172676574a16564656c746178443165323032323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232a264726f6c65781a7268697a6f6d617469632e636f6d6d616e642e7061796c6f616466746172676574a16564656c746178443165323031313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131a264726f6c6578207268697a6f6d617469632e636f6d6d616e642e65787065637465642d686561646674617267657460a264726f6c65781c7268697a6f6d617469632e636f6d6d616e642e6f7065726174696f6e66746172676574a16564656c746178443165323032323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232a264726f6c6578207268697a6f6d617469632e636f6d6d616e642e636f6e66696775726174696f6e66746172676574a16564656c746178443165323031313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131a264726f6c65781b7268697a6f6d617469632e636f6d6d616e642e726563656976657266746172676574a16269647848656432353531393a38613838653364643734303966313935666435326462326433636261356437326361363730396266316439343132316266333734383830316234306636663563a264726f6c65777268697a6f6d617469632e636f6d6d616e642e6b696e646674617267657469726571756573742f316974696d657374616d70f949006976616c696446726f6df94900",
+        "writerCanonicalHex": "a466617574686f727848656432353531393a3861383865336464373430396631393566643532646232643363626135643732636136373039626631643934313231626633373438383031623430663666356368706f696e7465727387a264726f6c65777268697a6f6d617469632e636f6d6d616e642e6b696e646674617267657469726571756573742f31a264726f6c65781b7268697a6f6d617469632e636f6d6d616e642e726563656976657266746172676574a16269647848656432353531393a38613838653364643734303966313935666435326462326433636261356437326361363730396266316439343132316266333734383830316234306636663563a264726f6c6578207268697a6f6d617469632e636f6d6d616e642e636f6e66696775726174696f6e66746172676574a16564656c746178443165323031313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131a264726f6c65781c7268697a6f6d617469632e636f6d6d616e642e6f7065726174696f6e66746172676574a16564656c746178443165323032323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232a264726f6c6578207268697a6f6d617469632e636f6d6d616e642e65787065637465642d686561646674617267657460a264726f6c65781a7268697a6f6d617469632e636f6d6d616e642e7061796c6f616466746172676574a16564656c746178443165323031313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131a264726f6c65781a7268697a6f6d617469632e636f6d6d616e642e7061796c6f616466746172676574a16564656c7461784431653230323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232326974696d657374616d70f949006976616c696446726f6df94900"
+      },
+      "oracle": "Reader accepts any pointer order; canonical writer emits table order and sorts distinct payload IDs."
+    },
+    {
+      "id": "native-target-property-order-duplicate",
+      "scenario": "strict_argument_shapes",
+      "kind": "request",
+      "operationKind": "retain",
+      "input": {
+        "id": "1e2047b46fd24165f12a7d94713fc5efc196432b1263d5fca1023d132e3ed845c8c3",
+        "claims": {
+          "timestamp": 10,
+          "validFrom": 10,
+          "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+          "pointers": [
+            {
+              "role": "rhizomatic.command.kind",
+              "target": "request/1"
+            },
+            {
+              "role": "rhizomatic.command.receiver",
+              "target": {
+                "id": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c"
+              }
+            },
+            {
+              "role": "rhizomatic.command.configuration",
+              "target": {
+                "delta": "1e201111111111111111111111111111111111111111111111111111111111111111"
+              }
+            },
+            {
+              "role": "rhizomatic.command.operation",
+              "target": {
+                "delta": "1e202222222222222222222222222222222222222222222222222222222222222222"
+              }
+            },
+            {
+              "role": "rhizomatic.command.expected-head",
+              "target": ""
+            },
+            {
+              "role": "rhizomatic.command.payload",
+              "target": {
+                "delta": "1e201111111111111111111111111111111111111111111111111111111111111111"
+              }
+            },
+            {
+              "role": "rhizomatic.command.payload",
+              "target": {
+                "delta": "1e201111111111111111111111111111111111111111111111111111111111111111"
+              }
+            }
+          ]
+        },
+        "sig": "e7b4901ad2e1f8fa6b61611c8e6f5cc4cf03c0556b1c048a255ad3bf5490a529d8de534091b128c67f59b6bd8cefc153e384b7d91183ed234c051c0cf6b93808"
+      },
+      "expected": {
+        "valid": false
+      },
+      "oracle": "Duplicate semantic ID is invalid regardless of native target-object key order."
+    },
+    {
+      "id": "bindings-duplicate-CBOR-key",
+      "scenario": "bindings_strict",
+      "kind": "bindings",
+      "input": "a26161f46161f5",
+      "expected": {
+        "valid": false
+      },
+      "oracle": "Duplicate map keys are rejected before canonical reencoding."
+    },
+    {
+      "id": "outcome-duplicate-CBOR-key",
+      "scenario": "outcome_body_strict",
+      "kind": "outcome",
+      "input": {
+        "id": "1e20816d06b716d459d33fb6ef67a747743751ce3cb07d4cf222c52b42cda6a1bf6d",
+        "claims": {
+          "timestamp": 10,
+          "validFrom": 10,
+          "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+          "pointers": [
+            {
+              "role": "rhizomatic.command.kind",
+              "target": "outcome/1"
+            },
+            {
+              "role": "rhizomatic.command.receiver",
+              "target": {
+                "id": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c"
+              }
+            },
+            {
+              "role": "rhizomatic.command.configuration",
+              "target": {
+                "delta": "1e201111111111111111111111111111111111111111111111111111111111111111"
+              }
+            },
+            {
+              "role": "rhizomatic.command.request",
+              "target": {
+                "delta": "1e202222222222222222222222222222222222222222222222222222222222222222"
+              }
+            },
+            {
+              "role": "rhizomatic.command.status",
+              "target": "refused"
+            },
+            {
+              "role": "rhizomatic.command.result",
+              "target": {
+                "mime": "application/cbor",
+                "value": "omRjb2RlbHVuYXV0aG9yaXplZGRjb2RlbHVuYXV0aG9yaXplZA"
+              }
+            }
+          ]
+        },
+        "sig": "2d67cf07f7ae53ce86db8adbef2a696367a4195b05aaa30ce48de37b8ff2c032704447a4a73c4242025dd5efec3196da7688f3270c8ce15bffb5035115ae3f0f"
+      },
+      "expected": {
+        "valid": false
+      },
+      "oracle": "Duplicate outcome keys are malformed and must refuse without a panic."
     }
   ]
 }

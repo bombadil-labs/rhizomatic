@@ -32,3 +32,10 @@ if(process.argv.includes('--self-test'))for(const [name,mutate,pattern] of [
 ]){const broken=structuredClone(data);mutate(broken);let refused=false;try{validate(broken)}catch(e){if(!pattern.test(e.message))throw e;refused=true;}if(!refused)throw Error(`negative checker fixture accepted: ${name}`);}
 const inventory=spawnSync(process.execPath,[join(root,'tools/command-inventory.mjs'),...(process.argv.includes('--self-test')?['--self-test']:[])],{encoding:'utf8'});if(inventory.status!==0)throw Error(inventory.stderr);process.stdout.write(inventory.stdout);
 console.log(`Command M0 contracts: ${data.cards.length} owners; ${data.scenarios.length} frozen cases; no runtime capability claim.`);
+
+const vectors=JSON.parse(readFileSync(join(root,'vectors/command/descriptions.json'),'utf8'));
+const fixtureIds=new Set(vectors.cases.map(c=>c.id));if(fixtureIds.size!==vectors.cases.length)throw Error('duplicate fixture ID');
+for(const scenario of data.coverage.filter(c=>c.milestone==='M1')){
+ const expected=vectors.cases.filter(c=>c.scenario===scenario.id).map(c=>'command-description-vectors:'+c.id).sort();
+ if(!expected.length||JSON.stringify([...scenario.tests].sort())!==JSON.stringify(expected))throw Error(`dangling or missing executable fixture reference: ${scenario.id}`);
+}
