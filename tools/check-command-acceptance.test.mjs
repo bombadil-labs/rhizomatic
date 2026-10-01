@@ -58,7 +58,7 @@ test('actual tower evidence requires complete routes, isolated state and identic
   assert.throws(() => checkTowerEvidence(first, first, commit));
 });
 function aggregateInput() {
-  const gateIds = ['bootstrap','contracts','rust-boundaries','ts-boundaries','execution','towers','ts-negatives','rust-negatives','tower-tests','transport','ts-native','rust-native','replay','oracle-sensitivity'];
+  const gateIds = ['ts-inventory','bootstrap','contracts','rust-boundaries','ts-boundaries','execution','towers','ts-negatives','rust-negatives','tower-tests','transport','ts-native','rust-native','replay','oracle-sensitivity'];
   const gates = Object.fromEntries(gateIds.map(id => [id, { status: 'passed', artifact: `${id}.log`, sha256: 'proof' }]));
   const towerTests = new Set(['three deterministic, distinct mixed assignments, preserving the unsplit region','unknown version, missing required port, and homogeneous fallback are refused','each route gets a fresh durable directory, preserved only across its own steps','recorded replay uses exact plans and retained inputs in fresh state','same wrong answer from both witnesses fails before parity can pass','stage crash retains its input and identifies the exact owner and port']);
   return { scenarios, commit, tree, native: nativeScenarioEvidence(nativeInput()), gates, towerTests, conformance };

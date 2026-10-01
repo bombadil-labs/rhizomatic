@@ -147,11 +147,11 @@ export class CommandEndpoint {
       result: [{ kind: "bytes", mime: "application/cbor", value: encode(body) }],
     });
     const expected = JSON.stringify(claimsToJson(claims));
-    const signed = this.signer.sign(structuredClone(claims));
+    const signed = structuredClone(this.signer.sign(structuredClone(claims)));
     verifyCommandAppearance(signed);
     if (JSON.stringify(claimsToJson(signed.claims)) !== expected)
       throw new Error("response signing capability returned invalid testimony");
-    return structuredClone(signed);
+    return signed;
   }
   private async attempt(
     entryId: string,

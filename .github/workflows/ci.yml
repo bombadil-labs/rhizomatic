@@ -117,7 +117,7 @@ jobs:
       - run: npm ci --prefix implementations/ts
       - name: Acceptance harness, boundary negatives and planning regressions
         run: |
-          node --test tools/command-tower*.test.mjs tools/check-rust-command-boundaries.test.mjs tools/check-command-bootstrap.test.mjs tools/check-command-acceptance.test.mjs
+          node --test tools/command-tower*.test.mjs tools/check-rust-command-boundaries.test.mjs tools/check-command-bootstrap.test.mjs tools/check-command-acceptance.test.mjs tools/command-inventory.test.mjs
       - name: Record exact checked-out existing witness results
         env:
           CI_COMMIT: ${{ github.sha }}

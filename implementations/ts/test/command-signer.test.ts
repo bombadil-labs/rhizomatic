@@ -10,6 +10,7 @@ import {
   serializeCommandDelta,
   writeCommandDescription,
   readOutcome,
+  verifyCommandAppearance,
 } from "../src/command-data/codec.js";
 import { signClaims, authorForSeed } from "../src/delta/sign.js";
 import { OrdinaryJournalPeer } from "../src/federation/ordinary-journal-peer.js";
@@ -76,6 +77,33 @@ describe("explicit command signing capability", () => {
       };
       const result = await invoke(endpoint);
       expect(result.claims.author).toBe(receiver);
+      expect(readOutcome(result).status).toBe("completed");
+      expect([...(await held(store)).ids()]).toEqual([payload.id]);
+    }));
+  it("snapshots accessor-backed testimony before validation and delivery", async () =>
+    fixture(async (store, boot) => {
+      let idReads = 0;
+      let signedId = "";
+      const endpoint = await CommandEndpoint.boot({
+        ...boot,
+        signer: {
+          author: receiver,
+          sign: (claims) => {
+            const delta = signClaims(claims, context.receiverSeed);
+            signedId = delta.id;
+            return {
+              ...delta,
+              get id() {
+                return ++idReads <= 3 ? delta.id : "1e20" + "00".repeat(32);
+              },
+            };
+          },
+        },
+      });
+      const result = await invoke(endpoint);
+      expect(idReads).toBe(1);
+      expect(result.id).toBe(signedId);
+      expect(() => verifyCommandAppearance(result)).not.toThrow();
       expect(readOutcome(result).status).toBe("completed");
       expect([...(await held(store)).ids()]).toEqual([payload.id]);
     }));

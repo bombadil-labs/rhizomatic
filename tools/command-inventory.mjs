@@ -19,8 +19,11 @@ for(const file of files){
   const ownerFile=declaration?relative(src,declaration.getSourceFile().fileName):relative(src,file);
   const owner=ownerFile.split('/')[0];
   actual.push({id:`ts:${relative(src,file)}:${symbol.name}`,owner:ownerFile.includes('/')?owner:'aggregate',symbol:symbol.name,source:relative(root,file),definition:declaration?relative(root,declaration.getSourceFile().fileName):relative(root,file)});
-  if(declaration && (ts.isClassDeclaration(declaration) || ts.isInterfaceDeclaration(declaration))) {
-   const members=checker.getTypeAtLocation(declaration).getProperties();
+  if(declaration && (ts.isClassDeclaration(declaration) || ts.isInterfaceDeclaration(declaration) || ts.isTypeAliasDeclaration(declaration))) {
+   // getProperties on a union returns only common members. Every branch is public API.
+   const properties=type=>type.isUnionOrIntersection()?type.types.flatMap(properties):type.getProperties();
+   const type=checker.getTypeAtLocation(declaration);
+   const members=ts.isTypeAliasDeclaration(declaration)?[...new Map(properties(type).map(m=>[m.name,m])).values()]:type.getProperties();
    for(const member of members){
     const memberDeclaration=member.declarations?.find(d=>d.getSourceFile().fileName.startsWith(src));
     if(!memberDeclaration || memberDeclaration.modifiers?.some(m=>[ts.SyntaxKind.PrivateKeyword,ts.SyntaxKind.ProtectedKeyword].includes(m.kind)))continue;
@@ -54,7 +57,9 @@ function classification(e){
 if(process.argv.includes('--adopt')){
  const old=(()=>{try{return JSON.parse(readFileSync(path,'utf8')).exports}catch{return[]}})();
  const known=new Map(old.map(e=>[e.id,e]));
- const exports=actual.map(classification);
+ const live=new Map(actual.map(e=>[e.id,e]));
+ const ordered=[...old.filter(e=>live.has(e.id)).map(e=>live.get(e.id)),...actual.filter(e=>!known.has(e.id))];
+ const exports=ordered.map(classification);
  writeFileSync(path,JSON.stringify({format:'rhizomatic-semantic-api-inventory/1',witness:'ts',exports},null,2)+'\n');
 }
 const cards=JSON.parse(readFileSync(join(root,'contracts/command/BOUNDARIES.json'),'utf8'));
