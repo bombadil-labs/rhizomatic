@@ -204,13 +204,19 @@ export {
   readRequestCommon,
   readRequestArguments,
   readOutcome,
+  commandDescriptionClaims,
   writeCommandDescription,
   type CommandFields,
   type Interpretation,
   type ReadOutcome,
 } from "./command-data/codec.js";
 export { readCommandResult } from "./command/read-result.js";
-export { CommandEndpoint, CommandTransportError, type CommandBoot } from "./command/endpoint.js";
+export {
+  CommandEndpoint,
+  CommandTransportError,
+  type CommandBoot,
+  type CommandSigner,
+} from "./command/endpoint.js";
 export {
   captureOrdinaryJournalSource,
   type OrdinaryJournalCapture,

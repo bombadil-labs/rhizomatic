@@ -10,6 +10,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 
 ### Added
 
+- TS command endpoints accept an explicit author/sign capability. A pure Claims constructor supports hosts that keep seeds private. Seed convenience APIs remain compatible; altered response testimony fails visibly after any durable effect.
+
 - TS/Rust signed description codecs, strict canonical View readback, explicit receiver configuration and durable retain/evaluate endpoints with attributed outcomes.
 - Coherent admitted/catalog sources, exact foreign definition closure and pins, explicit time/bindings and both principal suppression profiles; retained descriptions stay ordinary inert data.
 - Shared golden vectors, real crash/reopen and uncertain-commit tests, both mixed directions, seeded four-stage towers and exact replay. CI records 77 technical cases and leaves the independent exact-commit review gate explicit.

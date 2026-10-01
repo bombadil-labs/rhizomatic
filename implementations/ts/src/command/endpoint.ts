@@ -1,9 +1,10 @@
 // SPEC-15 orchestration: boot explicitly grants effects; signed descriptions never self-install.
 import { array, encode, map, tstr, bstr, float, type CborValue } from "../delta/cbor.js";
-import { authorForSeed } from "../delta/sign.js";
+import { authorForSeed, signClaims } from "../delta/sign.js";
+import { claimsToJson } from "../delta/json-profile.js";
 import { canonicalBytes } from "../delta/delta.js";
 import { DeltaSet } from "../delta/set.js";
-import type { Delta, Target } from "../delta/types.js";
+import type { Claims, Delta, Target } from "../delta/types.js";
 import {
   OrdinaryJournalPeer,
   captureOrdinaryJournalSource,
@@ -17,13 +18,14 @@ import {
   commandBytes,
   decodeBindings,
   isCommandId,
+  isCommandKey,
   parseCommandDelta,
   readConfiguration,
   readOperation,
   readRequestArguments,
   readRequestCommon,
   verifyCommandAppearance,
-  writeCommandDescription,
+  commandDescriptionClaims,
   type CommandFields,
 } from "../command-data/codec.js";
 import { readCommandDefinition } from "../schema-load/command-definitions.js";
@@ -37,14 +39,23 @@ import {
   principalResolver,
 } from "../principal/term.js";
 export class CommandTransportError extends Error {}
-export interface CommandBoot {
-  readonly seed: string;
+/** One governing author and an explicit signing capability; no seed retrieval port. */
+export interface CommandSigner {
+  readonly author: string;
+  sign(claims: Claims): Delta;
+}
+interface CommandBootInputs {
   readonly configuration: Delta;
   readonly declarations: readonly Delta[];
   readonly store: DurableOrdinaryJournalStore;
   readonly clock: () => number;
   readonly diagnostic: (fault: unknown) => void;
 }
+export type CommandBoot = CommandBootInputs &
+  (
+    | { readonly seed: string; readonly signer?: never }
+    | { readonly seed?: never; readonly signer: CommandSigner }
+  );
 const valid = (delta: Delta, at: number): boolean =>
   delta.claims.validFrom <= at &&
   (delta.claims.validUntil === undefined || at < delta.claims.validUntil);
@@ -53,11 +64,23 @@ const reference = (id: string): readonly Target[] => [{ kind: "delta", deltaRef:
 export class CommandEndpoint {
   private tail: Promise<void> = Promise.resolve();
   private readonly receiver: string;
+  private readonly signer: CommandSigner;
   private readonly configuration: Delta;
   private readonly config: CommandFields;
   private readonly operations: ReadonlyMap<string, { delta: Delta; kind: "retain" | "evaluate" }>;
   private constructor(private readonly boot: CommandBoot) {
-    this.receiver = authorForSeed(boot.seed);
+    if ((boot.seed !== undefined) === (boot.signer !== undefined))
+      throw new Error("select exactly one command signing capability");
+    if (boot.signer !== undefined) {
+      const { author, sign } = boot.signer;
+      if (!isCommandKey(author) || typeof sign !== "function")
+        throw new Error("invalid command signing capability");
+      this.signer = { author, sign: sign.bind(boot.signer) };
+    } else {
+      const seed = boot.seed!;
+      this.signer = { author: authorForSeed(seed), sign: (claims) => signClaims(claims, seed) };
+    }
+    this.receiver = this.signer.author;
     this.configuration = structuredClone(boot.configuration);
     verifyCommandAppearance(this.configuration);
     this.config = readConfiguration(this.configuration);
@@ -116,13 +139,19 @@ export class CommandEndpoint {
     status: "completed" | "refused" | "indeterminate",
     body: CborValue,
   ): Delta {
-    return writeCommandDescription(this.boot.seed, at, "outcome/1", {
+    const claims = commandDescriptionClaims(this.receiver, at, "outcome/1", {
       receiver: [{ kind: "entity", entity: { id: this.receiver } }],
       configuration: reference(this.configuration.id),
       request: reference(entryId),
       status: text(status),
       result: [{ kind: "bytes", mime: "application/cbor", value: encode(body) }],
     });
+    const expected = JSON.stringify(claimsToJson(claims));
+    const signed = this.signer.sign(structuredClone(claims));
+    verifyCommandAppearance(signed);
+    if (JSON.stringify(claimsToJson(signed.claims)) !== expected)
+      throw new Error("response signing capability returned invalid testimony");
+    return structuredClone(signed);
   }
   private async attempt(
     entryId: string,
@@ -289,7 +318,7 @@ export class CommandEndpoint {
           registry,
           bindings,
         );
-        if (gathered.sort !== "hview") return refuse("invalid-program");
+        if (gathered.sort !== "hview") throw new Error("gather did not return a hyperview");
         value = viewCanonicalHex(
           resolveView(bindReadingVariables(reading, bindings), gathered.hview),
         );

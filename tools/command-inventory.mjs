@@ -39,9 +39,9 @@ const api=JSON.parse(readFileSync(join(root,'contracts/command/API.json'),'utf8'
 const documents={delta:'SPEC-1 Delta identity/JSON/CBOR; SPEC-8 container-neutral membership',syntax:'SPEC-2 serializable grammar and explicit binding rules',algebra:'SPEC-2 HView algebra',schema:'SPEC-3 registry name/hash lookup',resolve:'SPEC-2 evaluation and explicit governance', 'resolve-kernel':'SPEC-5 resolution policies and canonical View', 'schema-load':'SPEC-3 self-hosted definition loading',reactor:'SPEC-4 explicit reactor/materialization lifecycle',principal:'SPEC-14 explicit principal evidence/suppression',federation:'SPEC-6 explicit admission/durability/transport capabilities',storage:'SPEC-8 physical pack representation',derivation:'SPEC-13 caller-selected derivation/binding functions','command-data':'SPEC-15 closed signed description grammar',command:'SPEC-15 selected endpoint invocation'};
 function classification(e){
  let contract;
- if(e.definition.endsWith('/command-data/codec.ts'))contract=e.symbol==='writeCommandDescription'?'rhizomatic.command/1/request-construction':'rhizomatic.command/1/description-validation';
+ if(e.definition.endsWith('/command-data/codec.ts'))contract=['writeCommandDescription','commandDescriptionClaims'].includes(e.symbol)?'rhizomatic.command/1/request-construction':'rhizomatic.command/1/description-validation';
  if(e.definition.endsWith('/command/read-result.ts'))contract='rhizomatic.command/1/outcome-readback';
- if(e.definition.endsWith('/command/endpoint.ts'))contract=e.symbol.startsWith('CommandBoot')?'rhizomatic.command/1/host-boot':'rhizomatic.command/1';
+ if(e.definition.endsWith('/command/endpoint.ts'))contract=(e.symbol.startsWith('CommandBoot')||e.symbol.startsWith('CommandSigner'))?'rhizomatic.command/1/host-boot':'rhizomatic.command/1';
  if(e.symbol==='decodeView')contract='rhizomatic.resolve-kernel/view-codec/1';
  if(e.symbol==='verifyCanonicalDelta')contract='rhizomatic.delta/canonical-appearance/1';
  if(e.definition.endsWith('/schema-load/command-definitions.ts'))contract='rhizomatic.schema-load/exact-definition/1';

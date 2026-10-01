@@ -403,6 +403,16 @@
       "semantics": "readRequestArguments: Closed shape codecs and canonical bindings plus separate strict appearance verification. Pure shape readers alone do not authenticate; native parse accepts missing signature so size-before-verification priority can be enforced. R-06, R-08, R-09, R-10, R-20, R-25, R-26; definition implementations/ts/src/command-data/codec.ts."
     },
     {
+      "id": "ts:command-data/codec.ts:commandDescriptionClaims",
+      "owner": "command-data",
+      "symbol": "commandDescriptionClaims",
+      "source": "implementations/ts/src/command-data/codec.ts",
+      "definition": "implementations/ts/src/command-data/codec.ts",
+      "contract": "rhizomatic.command/1/request-construction",
+      "classification": "portable_contract",
+      "semantics": "commandDescriptionClaims: Construct unsigned canonical table-ordered Claims under explicit author/time, with sorted repeatable fields. The seed writer remains a signing convenience; hosts may use their own author/sign capability. Never repair incoming signed descriptions. R-06, R-09, R-10, R-20; definition implementations/ts/src/command-data/codec.ts."
+    },
+    {
       "id": "ts:command-data/codec.ts:writeCommandDescription",
       "owner": "command-data",
       "symbol": "writeCommandDescription",
@@ -410,7 +420,7 @@
       "definition": "implementations/ts/src/command-data/codec.ts",
       "contract": "rhizomatic.command/1/request-construction",
       "classification": "portable_contract",
-      "semantics": "writeCommandDescription: Construct canonical table-ordered description pointers and sorted repeatable fields under an explicitly supplied signing seed/time. Never repair an incoming signed description. R-06, R-09, R-10, R-20; definition implementations/ts/src/command-data/codec.ts."
+      "semantics": "writeCommandDescription: Construct unsigned canonical table-ordered Claims under explicit author/time, with sorted repeatable fields. The seed writer remains a signing convenience; hosts may use their own author/sign capability. Never repair incoming signed descriptions. R-06, R-09, R-10, R-20; definition implementations/ts/src/command-data/codec.ts."
     },
     {
       "id": "ts:command-data/codec.ts:readOutcome",
@@ -573,6 +583,36 @@
       "semantics": "CommandTransportError: Invocation snapshots every supplied debug appearance, verifies before minimum-signature deduplication, authorizes the exact installed operation, captures explicit source/time and emits receiver-signed outcome testimony. R-05, R-07, R-08, R-12, R-13, R-15, R-18, R-20, R-24, R-25; definition implementations/ts/src/command/endpoint.ts."
     },
     {
+      "id": "ts:command/endpoint.ts:CommandSigner",
+      "owner": "command",
+      "symbol": "CommandSigner",
+      "source": "implementations/ts/src/command/endpoint.ts",
+      "definition": "implementations/ts/src/command/endpoint.ts",
+      "contract": "rhizomatic.command/1/host-boot",
+      "classification": "host_capability",
+      "semantics": "CommandSigner: Explicit host capabilities provide key custody, finite receivedAt, durable journal operations and diagnostics. Boot snapshots signed configuration/declarations and exactly one seed convenience or author/sign selection. Returned outcome testimony must preserve exact requested claims and verify canonically; a signing failure after commit is a host fault, never known non-commit. R-01, R-05, R-12, R-14, R-24; definition implementations/ts/src/command/endpoint.ts."
+    },
+    {
+      "id": "ts:command/endpoint.ts:CommandSigner#author",
+      "owner": "command",
+      "symbol": "CommandSigner.author",
+      "source": "implementations/ts/src/command/endpoint.ts",
+      "definition": "implementations/ts/src/command/endpoint.ts",
+      "contract": "rhizomatic.command/1/host-boot",
+      "classification": "host_capability",
+      "semantics": "CommandSigner.author: Explicit host capabilities provide key custody, finite receivedAt, durable journal operations and diagnostics. Boot snapshots signed configuration/declarations and exactly one seed convenience or author/sign selection. Returned outcome testimony must preserve exact requested claims and verify canonically; a signing failure after commit is a host fault, never known non-commit. R-01, R-05, R-12, R-14, R-24; definition implementations/ts/src/command/endpoint.ts."
+    },
+    {
+      "id": "ts:command/endpoint.ts:CommandSigner#sign",
+      "owner": "command",
+      "symbol": "CommandSigner.sign",
+      "source": "implementations/ts/src/command/endpoint.ts",
+      "definition": "implementations/ts/src/command/endpoint.ts",
+      "contract": "rhizomatic.command/1/host-boot",
+      "classification": "host_capability",
+      "semantics": "CommandSigner.sign: Explicit host capabilities provide key custody, finite receivedAt, durable journal operations and diagnostics. Boot snapshots signed configuration/declarations and exactly one seed convenience or author/sign selection. Returned outcome testimony must preserve exact requested claims and verify canonically; a signing failure after commit is a host fault, never known non-commit. R-01, R-05, R-12, R-14, R-24; definition implementations/ts/src/command/endpoint.ts."
+    },
+    {
       "id": "ts:command/endpoint.ts:CommandBoot",
       "owner": "command",
       "symbol": "CommandBoot",
@@ -580,67 +620,7 @@
       "definition": "implementations/ts/src/command/endpoint.ts",
       "contract": "rhizomatic.command/1/host-boot",
       "classification": "host_capability",
-      "semantics": "CommandBoot: Explicit host capabilities provide key custody, finite receivedAt, durable journal operations and visible diagnostics. Boot snapshots selected signed configuration/declarations and seed. Callback implementations are host observations, not hidden portable inputs. R-01, R-05, R-12, R-14, R-24; definition implementations/ts/src/command/endpoint.ts."
-    },
-    {
-      "id": "ts:command/endpoint.ts:CommandBoot#seed",
-      "owner": "command",
-      "symbol": "CommandBoot.seed",
-      "source": "implementations/ts/src/command/endpoint.ts",
-      "definition": "implementations/ts/src/command/endpoint.ts",
-      "contract": "rhizomatic.command/1/host-boot",
-      "classification": "host_capability",
-      "semantics": "CommandBoot.seed: Explicit host capabilities provide key custody, finite receivedAt, durable journal operations and visible diagnostics. Boot snapshots selected signed configuration/declarations and seed. Callback implementations are host observations, not hidden portable inputs. R-01, R-05, R-12, R-14, R-24; definition implementations/ts/src/command/endpoint.ts."
-    },
-    {
-      "id": "ts:command/endpoint.ts:CommandBoot#configuration",
-      "owner": "command",
-      "symbol": "CommandBoot.configuration",
-      "source": "implementations/ts/src/command/endpoint.ts",
-      "definition": "implementations/ts/src/command/endpoint.ts",
-      "contract": "rhizomatic.command/1/host-boot",
-      "classification": "host_capability",
-      "semantics": "CommandBoot.configuration: Explicit host capabilities provide key custody, finite receivedAt, durable journal operations and visible diagnostics. Boot snapshots selected signed configuration/declarations and seed. Callback implementations are host observations, not hidden portable inputs. R-01, R-05, R-12, R-14, R-24; definition implementations/ts/src/command/endpoint.ts."
-    },
-    {
-      "id": "ts:command/endpoint.ts:CommandBoot#declarations",
-      "owner": "command",
-      "symbol": "CommandBoot.declarations",
-      "source": "implementations/ts/src/command/endpoint.ts",
-      "definition": "implementations/ts/src/command/endpoint.ts",
-      "contract": "rhizomatic.command/1/host-boot",
-      "classification": "host_capability",
-      "semantics": "CommandBoot.declarations: Explicit host capabilities provide key custody, finite receivedAt, durable journal operations and visible diagnostics. Boot snapshots selected signed configuration/declarations and seed. Callback implementations are host observations, not hidden portable inputs. R-01, R-05, R-12, R-14, R-24; definition implementations/ts/src/command/endpoint.ts."
-    },
-    {
-      "id": "ts:command/endpoint.ts:CommandBoot#store",
-      "owner": "command",
-      "symbol": "CommandBoot.store",
-      "source": "implementations/ts/src/command/endpoint.ts",
-      "definition": "implementations/ts/src/command/endpoint.ts",
-      "contract": "rhizomatic.command/1/host-boot",
-      "classification": "host_capability",
-      "semantics": "CommandBoot.store: Explicit host capabilities provide key custody, finite receivedAt, durable journal operations and visible diagnostics. Boot snapshots selected signed configuration/declarations and seed. Callback implementations are host observations, not hidden portable inputs. R-01, R-05, R-12, R-14, R-24; definition implementations/ts/src/command/endpoint.ts."
-    },
-    {
-      "id": "ts:command/endpoint.ts:CommandBoot#clock",
-      "owner": "command",
-      "symbol": "CommandBoot.clock",
-      "source": "implementations/ts/src/command/endpoint.ts",
-      "definition": "implementations/ts/src/command/endpoint.ts",
-      "contract": "rhizomatic.command/1/host-boot",
-      "classification": "host_capability",
-      "semantics": "CommandBoot.clock: Explicit host capabilities provide key custody, finite receivedAt, durable journal operations and visible diagnostics. Boot snapshots selected signed configuration/declarations and seed. Callback implementations are host observations, not hidden portable inputs. R-01, R-05, R-12, R-14, R-24; definition implementations/ts/src/command/endpoint.ts."
-    },
-    {
-      "id": "ts:command/endpoint.ts:CommandBoot#diagnostic",
-      "owner": "command",
-      "symbol": "CommandBoot.diagnostic",
-      "source": "implementations/ts/src/command/endpoint.ts",
-      "definition": "implementations/ts/src/command/endpoint.ts",
-      "contract": "rhizomatic.command/1/host-boot",
-      "classification": "host_capability",
-      "semantics": "CommandBoot.diagnostic: Explicit host capabilities provide key custody, finite receivedAt, durable journal operations and visible diagnostics. Boot snapshots selected signed configuration/declarations and seed. Callback implementations are host observations, not hidden portable inputs. R-01, R-05, R-12, R-14, R-24; definition implementations/ts/src/command/endpoint.ts."
+      "semantics": "CommandBoot: Explicit host capabilities provide key custody, finite receivedAt, durable journal operations and diagnostics. Boot snapshots signed configuration/declarations and exactly one seed convenience or author/sign selection. Returned outcome testimony must preserve exact requested claims and verify canonically; a signing failure after commit is a host fault, never known non-commit. R-01, R-05, R-12, R-14, R-24; definition implementations/ts/src/command/endpoint.ts."
     },
     {
       "id": "ts:command/endpoint.ts:CommandEndpoint",
@@ -9503,6 +9483,16 @@
       "semantics": "readOutcome: Closed shape codecs and canonical bindings plus separate strict appearance verification. Pure shape readers alone do not authenticate; native parse accepts missing signature so size-before-verification priority can be enforced. R-06, R-08, R-09, R-10, R-20, R-25, R-26; definition implementations/ts/src/command-data/codec.ts."
     },
     {
+      "id": "ts:index.ts:commandDescriptionClaims",
+      "owner": "command-data",
+      "symbol": "commandDescriptionClaims",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/command-data/codec.ts",
+      "contract": "rhizomatic.command/1/request-construction",
+      "classification": "compatibility_reexport",
+      "semantics": "commandDescriptionClaims: Construct unsigned canonical table-ordered Claims under explicit author/time, with sorted repeatable fields. The seed writer remains a signing convenience; hosts may use their own author/sign capability. Never repair incoming signed descriptions. R-06, R-09, R-10, R-20; definition implementations/ts/src/command-data/codec.ts."
+    },
+    {
       "id": "ts:index.ts:writeCommandDescription",
       "owner": "command-data",
       "symbol": "writeCommandDescription",
@@ -9510,7 +9500,7 @@
       "definition": "implementations/ts/src/command-data/codec.ts",
       "contract": "rhizomatic.command/1/request-construction",
       "classification": "compatibility_reexport",
-      "semantics": "writeCommandDescription: Construct canonical table-ordered description pointers and sorted repeatable fields under an explicitly supplied signing seed/time. Never repair an incoming signed description. R-06, R-09, R-10, R-20; definition implementations/ts/src/command-data/codec.ts."
+      "semantics": "writeCommandDescription: Construct unsigned canonical table-ordered Claims under explicit author/time, with sorted repeatable fields. The seed writer remains a signing convenience; hosts may use their own author/sign capability. Never repair incoming signed descriptions. R-06, R-09, R-10, R-20; definition implementations/ts/src/command-data/codec.ts."
     },
     {
       "id": "ts:index.ts:CommandFields",
@@ -9650,67 +9640,37 @@
       "definition": "implementations/ts/src/command/endpoint.ts",
       "contract": "rhizomatic.command/1/host-boot",
       "classification": "compatibility_reexport",
-      "semantics": "CommandBoot: Explicit host capabilities provide key custody, finite receivedAt, durable journal operations and visible diagnostics. Boot snapshots selected signed configuration/declarations and seed. Callback implementations are host observations, not hidden portable inputs. R-01, R-05, R-12, R-14, R-24; definition implementations/ts/src/command/endpoint.ts."
+      "semantics": "CommandBoot: Explicit host capabilities provide key custody, finite receivedAt, durable journal operations and diagnostics. Boot snapshots signed configuration/declarations and exactly one seed convenience or author/sign selection. Returned outcome testimony must preserve exact requested claims and verify canonically; a signing failure after commit is a host fault, never known non-commit. R-01, R-05, R-12, R-14, R-24; definition implementations/ts/src/command/endpoint.ts."
     },
     {
-      "id": "ts:index.ts:CommandBoot#seed",
+      "id": "ts:index.ts:CommandSigner",
       "owner": "command",
-      "symbol": "CommandBoot.seed",
+      "symbol": "CommandSigner",
       "source": "implementations/ts/src/index.ts",
       "definition": "implementations/ts/src/command/endpoint.ts",
       "contract": "rhizomatic.command/1/host-boot",
       "classification": "compatibility_reexport",
-      "semantics": "CommandBoot.seed: Explicit host capabilities provide key custody, finite receivedAt, durable journal operations and visible diagnostics. Boot snapshots selected signed configuration/declarations and seed. Callback implementations are host observations, not hidden portable inputs. R-01, R-05, R-12, R-14, R-24; definition implementations/ts/src/command/endpoint.ts."
+      "semantics": "CommandSigner: Explicit host capabilities provide key custody, finite receivedAt, durable journal operations and diagnostics. Boot snapshots signed configuration/declarations and exactly one seed convenience or author/sign selection. Returned outcome testimony must preserve exact requested claims and verify canonically; a signing failure after commit is a host fault, never known non-commit. R-01, R-05, R-12, R-14, R-24; definition implementations/ts/src/command/endpoint.ts."
     },
     {
-      "id": "ts:index.ts:CommandBoot#configuration",
+      "id": "ts:index.ts:CommandSigner#author",
       "owner": "command",
-      "symbol": "CommandBoot.configuration",
+      "symbol": "CommandSigner.author",
       "source": "implementations/ts/src/index.ts",
       "definition": "implementations/ts/src/command/endpoint.ts",
       "contract": "rhizomatic.command/1/host-boot",
       "classification": "compatibility_reexport",
-      "semantics": "CommandBoot.configuration: Explicit host capabilities provide key custody, finite receivedAt, durable journal operations and visible diagnostics. Boot snapshots selected signed configuration/declarations and seed. Callback implementations are host observations, not hidden portable inputs. R-01, R-05, R-12, R-14, R-24; definition implementations/ts/src/command/endpoint.ts."
+      "semantics": "CommandSigner.author: Explicit host capabilities provide key custody, finite receivedAt, durable journal operations and diagnostics. Boot snapshots signed configuration/declarations and exactly one seed convenience or author/sign selection. Returned outcome testimony must preserve exact requested claims and verify canonically; a signing failure after commit is a host fault, never known non-commit. R-01, R-05, R-12, R-14, R-24; definition implementations/ts/src/command/endpoint.ts."
     },
     {
-      "id": "ts:index.ts:CommandBoot#declarations",
+      "id": "ts:index.ts:CommandSigner#sign",
       "owner": "command",
-      "symbol": "CommandBoot.declarations",
+      "symbol": "CommandSigner.sign",
       "source": "implementations/ts/src/index.ts",
       "definition": "implementations/ts/src/command/endpoint.ts",
       "contract": "rhizomatic.command/1/host-boot",
       "classification": "compatibility_reexport",
-      "semantics": "CommandBoot.declarations: Explicit host capabilities provide key custody, finite receivedAt, durable journal operations and visible diagnostics. Boot snapshots selected signed configuration/declarations and seed. Callback implementations are host observations, not hidden portable inputs. R-01, R-05, R-12, R-14, R-24; definition implementations/ts/src/command/endpoint.ts."
-    },
-    {
-      "id": "ts:index.ts:CommandBoot#store",
-      "owner": "command",
-      "symbol": "CommandBoot.store",
-      "source": "implementations/ts/src/index.ts",
-      "definition": "implementations/ts/src/command/endpoint.ts",
-      "contract": "rhizomatic.command/1/host-boot",
-      "classification": "compatibility_reexport",
-      "semantics": "CommandBoot.store: Explicit host capabilities provide key custody, finite receivedAt, durable journal operations and visible diagnostics. Boot snapshots selected signed configuration/declarations and seed. Callback implementations are host observations, not hidden portable inputs. R-01, R-05, R-12, R-14, R-24; definition implementations/ts/src/command/endpoint.ts."
-    },
-    {
-      "id": "ts:index.ts:CommandBoot#clock",
-      "owner": "command",
-      "symbol": "CommandBoot.clock",
-      "source": "implementations/ts/src/index.ts",
-      "definition": "implementations/ts/src/command/endpoint.ts",
-      "contract": "rhizomatic.command/1/host-boot",
-      "classification": "compatibility_reexport",
-      "semantics": "CommandBoot.clock: Explicit host capabilities provide key custody, finite receivedAt, durable journal operations and visible diagnostics. Boot snapshots selected signed configuration/declarations and seed. Callback implementations are host observations, not hidden portable inputs. R-01, R-05, R-12, R-14, R-24; definition implementations/ts/src/command/endpoint.ts."
-    },
-    {
-      "id": "ts:index.ts:CommandBoot#diagnostic",
-      "owner": "command",
-      "symbol": "CommandBoot.diagnostic",
-      "source": "implementations/ts/src/index.ts",
-      "definition": "implementations/ts/src/command/endpoint.ts",
-      "contract": "rhizomatic.command/1/host-boot",
-      "classification": "compatibility_reexport",
-      "semantics": "CommandBoot.diagnostic: Explicit host capabilities provide key custody, finite receivedAt, durable journal operations and visible diagnostics. Boot snapshots selected signed configuration/declarations and seed. Callback implementations are host observations, not hidden portable inputs. R-01, R-05, R-12, R-14, R-24; definition implementations/ts/src/command/endpoint.ts."
+      "semantics": "CommandSigner.sign: Explicit host capabilities provide key custody, finite receivedAt, durable journal operations and diagnostics. Boot snapshots signed configuration/declarations and exactly one seed convenience or author/sign selection. Returned outcome testimony must preserve exact requested claims and verify canonically; a signing failure after commit is a host fault, never known non-commit. R-01, R-05, R-12, R-14, R-24; definition implementations/ts/src/command/endpoint.ts."
     },
     {
       "id": "ts:index.ts:captureOrdinaryJournalSource",

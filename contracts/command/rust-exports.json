@@ -49314,7 +49314,7 @@
       "definition": "type",
       "id": "rust:command:ResponseSigner",
       "owner": "command",
-      "semantics": "command::ResponseSigner: Explicit host capabilities provide key custody, finite receivedAt, durable journal operations and visible diagnostics. Boot snapshots selected signed configuration/declarations and seed. Callback implementations are host observations, not hidden portable inputs. R-01, R-05, R-12, R-14, R-24.",
+      "semantics": "command::ResponseSigner: Explicit host capabilities provide key custody, finite receivedAt, durable journal operations and diagnostics. Boot snapshots signed configuration/declarations and exactly one seed convenience or author/sign selection. Returned outcome testimony must preserve exact requested claims and verify canonically; a signing failure after commit is a host fault, never known non-commit. R-01, R-05, R-12, R-14, R-24.",
       "source": "implementations/rust/src/command.rs",
       "symbol": "ResponseSigner"
     },
@@ -49479,7 +49479,7 @@
       "definition": "function",
       "id": "rust:command_data:configuration_pointers",
       "owner": "command-data",
-      "semantics": "command_data::configuration_pointers: Construct canonical table-ordered description pointers and sorted repeatable fields under an explicitly supplied signing seed/time. Never repair an incoming signed description. R-06, R-09, R-10, R-20.",
+      "semantics": "command_data::configuration_pointers: Construct unsigned canonical table-ordered Claims under explicit author/time, with sorted repeatable fields. The seed writer remains a signing convenience; hosts may use their own author/sign capability. Never repair incoming signed descriptions. R-06, R-09, R-10, R-20.",
       "source": "implementations/rust/src/command_data.rs",
       "symbol": "configuration_pointers"
     },
@@ -49523,7 +49523,7 @@
       "definition": "function",
       "id": "rust:command_data:operation_pointers",
       "owner": "command-data",
-      "semantics": "command_data::operation_pointers: Construct canonical table-ordered description pointers and sorted repeatable fields under an explicitly supplied signing seed/time. Never repair an incoming signed description. R-06, R-09, R-10, R-20.",
+      "semantics": "command_data::operation_pointers: Construct unsigned canonical table-ordered Claims under explicit author/time, with sorted repeatable fields. The seed writer remains a signing convenience; hosts may use their own author/sign capability. Never repair incoming signed descriptions. R-06, R-09, R-10, R-20.",
       "source": "implementations/rust/src/command_data.rs",
       "symbol": "operation_pointers"
     },
@@ -49534,7 +49534,7 @@
       "definition": "function",
       "id": "rust:command_data:outcome_pointers",
       "owner": "command-data",
-      "semantics": "command_data::outcome_pointers: Construct canonical table-ordered description pointers and sorted repeatable fields under an explicitly supplied signing seed/time. Never repair an incoming signed description. R-06, R-09, R-10, R-20.",
+      "semantics": "command_data::outcome_pointers: Construct unsigned canonical table-ordered Claims under explicit author/time, with sorted repeatable fields. The seed writer remains a signing convenience; hosts may use their own author/sign capability. Never repair incoming signed descriptions. R-06, R-09, R-10, R-20.",
       "source": "implementations/rust/src/command_data.rs",
       "symbol": "outcome_pointers"
     },
@@ -49622,7 +49622,7 @@
       "definition": "function",
       "id": "rust:command_data:request_pointers",
       "owner": "command-data",
-      "semantics": "command_data::request_pointers: Construct canonical table-ordered description pointers and sorted repeatable fields under an explicitly supplied signing seed/time. Never repair an incoming signed description. R-06, R-09, R-10, R-20.",
+      "semantics": "command_data::request_pointers: Construct unsigned canonical table-ordered Claims under explicit author/time, with sorted repeatable fields. The seed writer remains a signing convenience; hosts may use their own author/sign capability. Never repair incoming signed descriptions. R-06, R-09, R-10, R-20.",
       "source": "implementations/rust/src/command_data.rs",
       "symbol": "request_pointers"
     },
@@ -49655,7 +49655,7 @@
       "definition": "function",
       "id": "rust:command_data:write_bindings",
       "owner": "command-data",
-      "semantics": "command_data::write_bindings: Construct canonical table-ordered description pointers and sorted repeatable fields under an explicitly supplied signing seed/time. Never repair an incoming signed description. R-06, R-09, R-10, R-20.",
+      "semantics": "command_data::write_bindings: Construct unsigned canonical table-ordered Claims under explicit author/time, with sorted repeatable fields. The seed writer remains a signing convenience; hosts may use their own author/sign capability. Never repair incoming signed descriptions. R-06, R-09, R-10, R-20.",
       "source": "implementations/rust/src/command_data.rs",
       "symbol": "write_bindings"
     },
@@ -49666,7 +49666,7 @@
       "definition": "function",
       "id": "rust:command_data:write_outcome_body",
       "owner": "command-data",
-      "semantics": "command_data::write_outcome_body: Construct canonical table-ordered description pointers and sorted repeatable fields under an explicitly supplied signing seed/time. Never repair an incoming signed description. R-06, R-09, R-10, R-20.",
+      "semantics": "command_data::write_outcome_body: Construct unsigned canonical table-ordered Claims under explicit author/time, with sorted repeatable fields. The seed writer remains a signing convenience; hosts may use their own author/sign capability. Never repair incoming signed descriptions. R-06, R-09, R-10, R-20.",
       "source": "implementations/rust/src/command_data.rs",
       "symbol": "write_outcome_body"
     },
