@@ -6,6 +6,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 
 ## Unreleased
 
+## 0.11.0-next.7 — 2026-10-01
+
 ### Added
 
 - TS/Rust signed description codecs, strict canonical View readback, explicit receiver configuration and durable retain/evaluate endpoints with attributed outcomes.
