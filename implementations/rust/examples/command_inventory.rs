@@ -106,6 +106,23 @@ fn cfg(attrs: &[syn::Attribute]) -> Vec<String> {
         .map(|a| format!("{:?}", a.meta))
         .collect()
 }
+fn module_path_attribute(attrs: &[syn::Attribute]) -> bool {
+    fn path(meta: &syn::Meta) -> bool {
+        if meta.path().is_ident("path") {
+            return true;
+        }
+        if let syn::Meta::List(list) = meta {
+            if list.path.is_ident("cfg_attr") {
+                return syn::punctuated::Punctuated::<syn::Meta, Token![,]>::parse_terminated
+                    .parse2(list.tokens.clone())
+                    .map(|items| items.iter().any(path))
+                    .unwrap_or(true);
+            }
+        }
+        false
+    }
+    attrs.iter().any(|a| path(&a.meta))
+}
 struct JsonMacroExpressions(Vec<Expr>);
 impl Parse for JsonMacroExpressions {
     fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
@@ -163,16 +180,23 @@ fn macro_expressions(m: &syn::Macro) -> Result<Vec<Expr>, String> {
             let parser = |input: ParseStream<'_>| -> syn::Result<Vec<Expr>> {
                 let expr: Expr = input.parse()?;
                 input.parse::<Token![,]>()?;
-                let _: syn::Pat = input.call(syn::Pat::parse_multi)?;
-                let mut out = vec![expr];
+                let pattern: syn::Pat = input.call(syn::Pat::parse_multi)?;
+                let mut node: syn::ExprMatch = match syn::parse_str::<Expr>("match () { _ => () }")?
+                {
+                    Expr::Match(m) => m,
+                    _ => unreachable!(),
+                };
+                node.expr = Box::new(expr);
+                node.arms[0].pat = pattern;
                 if input.peek(Token![if]) {
                     input.parse::<Token![if]>()?;
-                    out.push(input.parse::<Expr>()?);
+                    node.arms[0].guard =
+                        Some((Default::default(), Box::new(input.parse::<Expr>()?)));
                 }
                 if input.peek(Token![,]) {
                     input.parse::<Token![,]>()?;
                 }
-                Ok(out)
+                Ok(vec![Expr::Match(node)])
             };
             parser.parse2(m.tokens.clone()).map_err(|e| e.to_string())
         }
@@ -205,10 +229,50 @@ fn module_path(path: &str, module: &str, modules: &BTreeSet<String>) -> Result<S
         }
         "super" => Ok(format!("crate::{}", parts[1..].join("::"))),
         first if modules.contains(first) => Ok(format!("crate::{path}")),
-        _ => Ok(path.to_string()),
+        first => {
+            let prelude = match first {
+                "Vec" => Some("std::vec::Vec"),
+                "Box" => Some("std::boxed::Box"),
+                "String" => Some("std::string::String"),
+                "Default" => Some("std::default::Default"),
+                "Option" => Some("std::option::Option"),
+                "Result" => Some("std::result::Result"),
+                "str" | "bool" | "char" | "u8" | "u16" | "u32" | "u64" | "u128" | "usize"
+                | "i8" | "i16" | "i32" | "i64" | "i128" | "isize" | "f32" | "f64" => {
+                    return Ok(format!("core::primitive::{path}"));
+                }
+                _ => None,
+            };
+            Ok(prelude
+                .map(|p| {
+                    format!(
+                        "{p}{}",
+                        if parts.len() > 1 {
+                            format!("::{}", parts[1..].join("::"))
+                        } else {
+                            String::new()
+                        }
+                    )
+                })
+                .unwrap_or_else(|| path.to_string()))
+        }
     }
 }
 impl Paths {
+    fn extern_crate(&mut self, x: &syn::ItemExternCrate) {
+        if public(&x.vis) {
+            self.unsupported
+                .push("unsupported public extern crate reexport".into());
+        }
+        let target = x.ident.to_string();
+        let alias = x
+            .rename
+            .as_ref()
+            .map(|(_, n)| n.to_string())
+            .unwrap_or_else(|| target.clone());
+        self.imports.insert((self.symbol.clone(), target.clone()));
+        self.aliases.insert(alias, target);
+    }
     fn import(&mut self, u: &syn::ItemUse) {
         let mut imports = Vec::new();
         uses(&u.tree, String::new(), &mut imports);
@@ -287,6 +351,13 @@ impl<'ast> Visit<'ast> for Paths {
         }
         visit::visit_macro(self, m);
     }
+    fn visit_item_extern_crate(&mut self, x: &'ast syn::ItemExternCrate) {
+        self.extern_crate(x);
+    }
+    fn visit_item_foreign_mod(&mut self, _: &'ast syn::ItemForeignMod) {
+        self.unsupported
+            .push("unsupported foreign production interface".into());
+    }
     fn visit_item_use(&mut self, u: &'ast syn::ItemUse) {
         self.import(u);
         visit::visit_item_use(self, u);
@@ -299,10 +370,14 @@ impl<'ast> Visit<'ast> for Paths {
                 if let Item::Use(u) = item {
                     self.import(u);
                 }
+                if let Item::ExternCrate(x) = item {
+                    self.extern_crate(x);
+                }
                 let name = match item {
                     Item::Fn(i) => Some(i.sig.ident.to_string()),
                     Item::Struct(i) => Some(i.ident.to_string()),
                     Item::Enum(i) => Some(i.ident.to_string()),
+                    Item::Union(i) => Some(i.ident.to_string()),
                     Item::Type(i) => Some(i.ident.to_string()),
                     _ => None,
                 };
@@ -342,6 +417,12 @@ impl<'ast> Visit<'ast> for Paths {
         visit::visit_impl_item_fn(self, f);
         self.symbol = saved;
     }
+    fn visit_impl_item_const(&mut self, c: &'ast syn::ImplItemConst) {
+        let name = self.impl_name.as_deref().unwrap_or("<impl>");
+        let saved = std::mem::replace(&mut self.symbol, format!("{name}::{}", c.ident));
+        visit::visit_impl_item_const(self, c);
+        self.symbol = saved;
+    }
     fn visit_item_trait(&mut self, t: &'ast syn::ItemTrait) {
         let saved = self.impl_name.replace(t.ident.to_string());
         visit::visit_item_trait(self, t);
@@ -354,6 +435,10 @@ impl<'ast> Visit<'ast> for Paths {
         self.symbol = saved;
     }
     fn visit_item_mod(&mut self, m: &'ast syn::ItemMod) {
+        if module_path_attribute(&m.attrs) {
+            self.unsupported
+                .push("unsupported production module path attribute".into());
+        }
         if m.content.is_some() {
             self.unsupported
                 .push("unsupported inline production module".into());
@@ -424,6 +509,10 @@ fn dependency_record(
     } else if import {
         return Err(format!(
             "unsupported unresolved import {source}: {symbol} -> {path}"
+        ));
+    } else {
+        return Err(format!(
+            "unsupported unresolved qualified path {source}: {symbol} -> {path}"
         ));
     }
     Ok(())
@@ -535,6 +624,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
         for item in &ast.items {
+            if let Item::ExternCrate(x) = item {
+                let target = x.ident.to_string();
+                let alias = x
+                    .rename
+                    .as_ref()
+                    .map(|(_, n)| n.to_string())
+                    .unwrap_or_else(|| target.clone());
+                aliases.insert(alias, target);
+            }
             if let Item::Use(u) = item {
                 let mut paths = Vec::new();
                 uses(&u.tree, String::new(), &mut paths);
@@ -549,6 +647,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         for item in &ast.items {
             match item {
                 Item::Mod(x) => {
+                    if module_path_attribute(&x.attrs) {
+                        return Err(format!(
+                            "unsupported production module path attribute in {source}"
+                        )
+                        .into());
+                    }
                     if x.content.is_some() {
                         return Err(
                             format!("unsupported inline production module in {source}").into()
@@ -587,6 +691,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     &x.ident.to_string(),
                     &source,
                     "enum",
+                    &x.attrs,
+                ),
+                Item::Union(x) if public(&x.vis) => record(
+                    &mut exports,
+                    module,
+                    &x.ident.to_string(),
+                    &source,
+                    "union",
                     &x.attrs,
                 ),
                 Item::Trait(x) if public(&x.vis) => {
@@ -676,17 +788,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         _ => return Err(format!("unsupported impl type in {source}").into()),
                     };
                     for i in &x.items {
-                        if let syn::ImplItem::Fn(f) = i {
-                            if public(&f.vis) {
-                                record(
-                                    &mut exports,
-                                    module,
-                                    &format!("{name}::{}", f.sig.ident),
-                                    &source,
-                                    "method",
-                                    &f.attrs,
-                                );
+                        let (member, kind, attrs, vis) = match i {
+                            syn::ImplItem::Fn(f) => {
+                                (f.sig.ident.to_string(), "method", &f.attrs, &f.vis)
                             }
+                            syn::ImplItem::Const(c) => {
+                                (c.ident.to_string(), "associated-constant", &c.attrs, &c.vis)
+                            }
+                            syn::ImplItem::Type(t) => {
+                                (t.ident.to_string(), "associated-type", &t.attrs, &t.vis)
+                            }
+                            _ => continue,
+                        };
+                        if public(vis) {
+                            record(
+                                &mut exports,
+                                module,
+                                &format!("{name}::{member}"),
+                                &source,
+                                kind,
+                                attrs,
+                            );
                         }
                     }
                 }
@@ -696,6 +818,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Item::Fn(x) => x.sig.ident.to_string(),
                 Item::Struct(x) => x.ident.to_string(),
                 Item::Enum(x) => x.ident.to_string(),
+                Item::Union(x) => x.ident.to_string(),
+                Item::Const(x) => x.ident.to_string(),
+                Item::Static(x) => x.ident.to_string(),
+                Item::Type(x) => x.ident.to_string(),
                 Item::Impl(x) => match x.self_ty.as_ref() {
                     syn::Type::Path(p) => p.path.segments.last().unwrap().ident.to_string(),
                     _ => String::new(),
