@@ -85,6 +85,14 @@ export function scanBoundarySource(ts, ast, file, owner) {
   };
   const staticName = (node, computed = false) => {
     if (!node) return undefined;
+    if (
+      ts.isParenthesizedExpression(node) ||
+      ts.isAsExpression(node) ||
+      ts.isTypeAssertionExpression(node) ||
+      ts.isSatisfiesExpression(node) ||
+      ts.isNonNullExpression(node)
+    )
+      return staticName(node.expression, computed);
     if (ts.isIdentifier(node)) return computed ? undefined : node.text;
     if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node))
       return node.text;

@@ -8,6 +8,51 @@ const dir = mkdtempSync(join(tmpdir(), "command-boundary-"));
 try {
   for (const [name, files, pattern] of [
     [
+      "parenthesized static random member",
+      {
+        "delta/a.ts":
+          'import {ed25519} from "@noble/curves/ed25519"; export const key=ed25519.utils[("randomPrivateKey")]();',
+      },
+      /computed randomness/,
+    ],
+    [
+      "parenthesized computed binding",
+      { "delta/a.ts": 'const {[("random")]:r}=Math; export const value=r();' },
+      /destructured randomness/,
+    ],
+    [
+      "as-const static random member",
+      {
+        "delta/a.ts":
+          'import {ed25519} from "@noble/curves/ed25519"; export const key=ed25519.utils["randomPrivateKey" as const]();',
+      },
+      /computed randomness/,
+    ],
+    [
+      "asserted static random member",
+      {
+        "delta/a.ts":
+          'import {ed25519} from "@noble/curves/ed25519"; export const key=ed25519.utils[<string>"randomPrivateKey"]();',
+      },
+      /computed randomness/,
+    ],
+    [
+      "satisfies static random member",
+      {
+        "delta/a.ts":
+          'import {ed25519} from "@noble/curves/ed25519"; export const key=ed25519.utils["randomPrivateKey" satisfies string]();',
+      },
+      /computed randomness/,
+    ],
+    [
+      "nonnull static random member",
+      {
+        "delta/a.ts":
+          'import {ed25519} from "@noble/curves/ed25519"; export const key=ed25519.utils["randomPrivateKey"!]();',
+      },
+      /computed randomness/,
+    ],
+    [
       "template randomness member",
       {
         "delta/a.ts":
