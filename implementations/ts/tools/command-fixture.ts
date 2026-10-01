@@ -1,4 +1,7 @@
 // Fixed test transport; diagnostics are stderr, signed semantic artifacts are stdout JSON.
+import { CommandEndpoint } from "../src/command/endpoint.js";
+import { CommandFixtureStore, type CommandStoreFault } from "./command-store.js";
+import { OrdinaryJournalPeer } from "../src/federation/ordinary-journal-peer.js";
 import { readFileSync } from "node:fs";
 import { parseClaims } from "../src/delta/json-profile.js";
 import { signClaims } from "../src/delta/sign.js";
@@ -28,6 +31,12 @@ interface Artifact {
   deltas: unknown[];
 }
 interface Context {
+  receiverSeed?: string;
+  receivedAt?: number;
+  storePath?: string;
+  initialDeltas?: unknown[];
+  initialArrivedAt?: number;
+  fault?: CommandStoreFault;
   boot: { configuration: unknown; declarations: unknown[] };
   construction?: { request: DebugSign; support: DebugSign[] };
 }
@@ -54,7 +63,7 @@ function validate(artifact: Artifact, context: Context): Delta {
   readRequestArguments(entry, operation(context, commandRef(common, "operation")));
   return entry;
 }
-function run(input: Input): unknown {
+async function run(input: Input): Promise<unknown> {
   switch (input.mode) {
     case "construct": {
       const construction = input.context.construction;
@@ -123,12 +132,69 @@ function run(input: Input): unknown {
         ...(result.value ? { valueHex: Buffer.from(result.value).toString("hex") } : {}),
       };
     }
+    case "execute": {
+      const context = input.context;
+      if (
+        context.receiverSeed === undefined ||
+        context.receivedAt === undefined ||
+        context.storePath === undefined
+      )
+        throw new Error("explicit execution host context missing");
+      const store = new CommandFixtureStore(context.storePath);
+      const endpoint = await CommandEndpoint.boot({
+        seed: context.receiverSeed,
+        configuration: parseCommandDelta(context.boot.configuration),
+        declarations: context.boot.declarations.map(parseCommandDelta),
+        store,
+        clock: () => context.receivedAt!,
+        diagnostic: (fault) => process.stderr.write(String(fault) + "\n"),
+      });
+      if (context.initialDeltas?.length) {
+        if (context.initialArrivedAt === undefined)
+          throw new Error("initial arrival observation missing");
+        const opened = await OrdinaryJournalPeer.open(
+          store,
+          parseCommandDelta(context.boot.configuration).claims.author,
+        );
+        if (opened.status !== "open") throw new Error("initial journal unavailable");
+        const admission = await opened.peer.admit({
+          offered: context.initialDeltas.map(parseCommandDelta),
+          origin: { kind: "local" },
+          arrivedAt: context.initialArrivedAt,
+          policyState: {},
+          guards: [],
+          isErasureCandidate: () => false,
+          mode: "atomic",
+        });
+        if (admission.status !== "committed") throw new Error("initial fixture admission refused");
+      }
+      store.fault = context.fault;
+      const outcome = await endpoint.invoke(input.artifact!.entryId, input.artifact!.deltas);
+      store.fault = undefined;
+      const reopened = await OrdinaryJournalPeer.open(
+        store,
+        parseCommandDelta(context.boot.configuration).claims.author,
+      );
+      if (reopened.status !== "open") throw new Error("observed journal unavailable");
+      const state = reopened.peer.snapshot();
+      return {
+        outcome: serializeCommandDelta(outcome),
+        observed: {
+          head: reopened.peer.currentHead(),
+          ids: state.base.admitted.ids().sort(),
+          arrivals: state.base.arrivals,
+          quotaUsed: state.quotaUsed,
+        },
+      };
+    }
     default:
-      throw new Error("execution is unavailable before M2");
+      throw new Error("unknown fixture stage");
   }
 }
 try {
-  process.stdout.write(JSON.stringify(run(JSON.parse(readFileSync(0, "utf8")) as Input)) + "\n");
+  process.stdout.write(
+    JSON.stringify(await run(JSON.parse(readFileSync(0, "utf8")) as Input)) + "\n",
+  );
 } catch (fault) {
   process.stderr.write(String(fault) + "\n");
   process.exitCode = 1;

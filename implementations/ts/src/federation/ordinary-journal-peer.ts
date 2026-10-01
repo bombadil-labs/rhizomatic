@@ -272,7 +272,7 @@ export class OrdinaryJournalPeer {
   static async open(
     store: DurableOrdinaryJournalStore,
     peerId: string,
-    options: { readonly allowDegraded?: boolean } = {},
+    options: { readonly allowDegraded?: boolean; readonly requireExisting?: boolean } = {},
   ): Promise<OrdinaryJournalOpenResult> {
     if (!isCanonicalPeerId(peerId)) throw new Error("ordinary journal: invalid peer id");
     const current = await store.readJournal(peerId);
@@ -336,6 +336,7 @@ export class OrdinaryJournalPeer {
         ),
       };
     }
+    if (options.requireExisting) return { status: "conflict" };
     const write = await store.compareAndAppend(peerId, null, "", null, []);
     if (write.status !== "durable") return write;
     return {
@@ -873,5 +874,40 @@ export class OrdinaryJournalPeer {
     this.state = state;
     this.head = nextHead;
     return { status: "committed", head: nextHead };
+  }
+}
+
+export type OrdinaryJournalCapture =
+  | {
+      readonly status: "captured";
+      readonly peer: OrdinaryJournalPeer;
+      readonly state: DurablePeerState;
+      readonly source: DeltaSet;
+      readonly head: string;
+    }
+  | { readonly status: "source-changed" | "source-unavailable" };
+/** Complete existing journal capture. Missing storage never initializes a peer. */
+export async function captureOrdinaryJournalSource(
+  store: DurableOrdinaryJournalStore,
+  peerId: string,
+  diagnostic: (fault: unknown) => void,
+): Promise<OrdinaryJournalCapture> {
+  try {
+    const existing = await store.readJournal(peerId);
+    if (existing.status !== "journal") return { status: "source-unavailable" };
+    const opened = await OrdinaryJournalPeer.open(store, peerId, { requireExisting: true });
+    if (opened.status !== "open")
+      return { status: opened.status === "conflict" ? "source-changed" : "source-unavailable" };
+    const state = opened.peer.snapshot();
+    return {
+      status: "captured",
+      peer: opened.peer,
+      state,
+      source: opened.peer.availableDeltas(),
+      head: opened.peer.currentHead(),
+    };
+  } catch (fault) {
+    diagnostic(fault);
+    return { status: "source-unavailable" };
   }
 }

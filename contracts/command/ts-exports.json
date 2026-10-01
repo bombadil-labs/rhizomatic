@@ -463,6 +463,36 @@
       "semantics": "Existing command-data API ReadOutcome; native arguments select its documented SPEC behavior. Its existence does not advertise command or later ecosystem portability."
     },
     {
+      "id": "ts:command/endpoint.ts:CommandTransportError",
+      "owner": "command",
+      "symbol": "CommandTransportError",
+      "source": "implementations/ts/src/command/endpoint.ts",
+      "definition": "implementations/ts/src/command/endpoint.ts",
+      "contract": "rhizomatic.command/native-api/1",
+      "classification": "declared_intrinsic",
+      "semantics": "Existing command API CommandTransportError; native arguments select its documented SPEC behavior. Its existence does not advertise command or later ecosystem portability."
+    },
+    {
+      "id": "ts:command/endpoint.ts:CommandBoot",
+      "owner": "command",
+      "symbol": "CommandBoot",
+      "source": "implementations/ts/src/command/endpoint.ts",
+      "definition": "implementations/ts/src/command/endpoint.ts",
+      "contract": "rhizomatic.command/native-api/1",
+      "classification": "declared_intrinsic",
+      "semantics": "Existing command API CommandBoot; native arguments select its documented SPEC behavior. Its existence does not advertise command or later ecosystem portability."
+    },
+    {
+      "id": "ts:command/endpoint.ts:CommandEndpoint",
+      "owner": "command",
+      "symbol": "CommandEndpoint",
+      "source": "implementations/ts/src/command/endpoint.ts",
+      "definition": "implementations/ts/src/command/endpoint.ts",
+      "contract": "rhizomatic.command/native-api/1",
+      "classification": "declared_intrinsic",
+      "semantics": "Existing command API CommandEndpoint; native arguments select its documented SPEC behavior. Its existence does not advertise command or later ecosystem portability."
+    },
+    {
       "id": "ts:command/read-result.ts:readCommandResult",
       "owner": "command",
       "symbol": "readCommandResult",
@@ -1603,6 +1633,16 @@
       "semantics": "Existing federation API pullFromUrl; native arguments select its documented SPEC behavior. Its existence does not advertise command or later ecosystem portability."
     },
     {
+      "id": "ts:federation/ordinary-journal-peer.ts:captureOrdinaryJournalSource",
+      "owner": "federation",
+      "symbol": "captureOrdinaryJournalSource",
+      "source": "implementations/ts/src/federation/ordinary-journal-peer.ts",
+      "definition": "implementations/ts/src/federation/ordinary-journal-peer.ts",
+      "contract": "rhizomatic.federation/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Existing federation API captureOrdinaryJournalSource; native arguments select its documented SPEC behavior. Its existence does not advertise command or later ecosystem portability."
+    },
+    {
       "id": "ts:federation/ordinary-journal-peer.ts:OrdinaryJournalRead",
       "owner": "federation",
       "symbol": "OrdinaryJournalRead",
@@ -1721,6 +1761,16 @@
       "contract": "rhizomatic.federation/native-api/1",
       "classification": "native_extension",
       "semantics": "Existing federation API OrdinaryJournalPeer; native arguments select its documented SPEC behavior. Its existence does not advertise command or later ecosystem portability."
+    },
+    {
+      "id": "ts:federation/ordinary-journal-peer.ts:OrdinaryJournalCapture",
+      "owner": "federation",
+      "symbol": "OrdinaryJournalCapture",
+      "source": "implementations/ts/src/federation/ordinary-journal-peer.ts",
+      "definition": "implementations/ts/src/federation/ordinary-journal-peer.ts",
+      "contract": "rhizomatic.federation/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Existing federation API OrdinaryJournalCapture; native arguments select its documented SPEC behavior. Its existence does not advertise command or later ecosystem portability."
     },
     {
       "id": "ts:federation/ordinary-journal.ts:encodeOrdinaryJournalCheckpoint",
@@ -4501,6 +4551,56 @@
       "contract": "rhizomatic.command/native-api/1",
       "classification": "compatibility_reexport",
       "semantics": "Reexports readCommandResult from implementations/ts/src/command/read-result.ts; interpretation remains with command."
+    },
+    {
+      "id": "ts:index.ts:CommandEndpoint",
+      "owner": "command",
+      "symbol": "CommandEndpoint",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/command/endpoint.ts",
+      "contract": "rhizomatic.command/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Reexports CommandEndpoint from implementations/ts/src/command/endpoint.ts; interpretation remains with command."
+    },
+    {
+      "id": "ts:index.ts:CommandTransportError",
+      "owner": "command",
+      "symbol": "CommandTransportError",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/command/endpoint.ts",
+      "contract": "rhizomatic.command/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Reexports CommandTransportError from implementations/ts/src/command/endpoint.ts; interpretation remains with command."
+    },
+    {
+      "id": "ts:index.ts:CommandBoot",
+      "owner": "command",
+      "symbol": "CommandBoot",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/command/endpoint.ts",
+      "contract": "rhizomatic.command/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Reexports CommandBoot from implementations/ts/src/command/endpoint.ts; interpretation remains with command."
+    },
+    {
+      "id": "ts:index.ts:captureOrdinaryJournalSource",
+      "owner": "federation",
+      "symbol": "captureOrdinaryJournalSource",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/federation/ordinary-journal-peer.ts",
+      "contract": "rhizomatic.federation/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Reexports captureOrdinaryJournalSource from implementations/ts/src/federation/ordinary-journal-peer.ts; interpretation remains with federation."
+    },
+    {
+      "id": "ts:index.ts:OrdinaryJournalCapture",
+      "owner": "federation",
+      "symbol": "OrdinaryJournalCapture",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/federation/ordinary-journal-peer.ts",
+      "contract": "rhizomatic.federation/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Reexports OrdinaryJournalCapture from implementations/ts/src/federation/ordinary-journal-peer.ts; interpretation remains with federation."
     },
     {
       "id": "ts:json-profile.ts:claimsToJson",
