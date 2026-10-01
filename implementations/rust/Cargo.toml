@@ -47,3 +47,7 @@ syn = { version = "2", features = ["full", "visit", "extra-traits"] }
 # Keep the WASM witness small; the host build doesn't care.
 opt-level = "s"
 lto = true
+
+[[example]]
+name = "command_fixture"
+test = true

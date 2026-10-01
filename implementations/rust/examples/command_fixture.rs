@@ -100,11 +100,19 @@ fn run(input: &Value) -> Result<Value, String> {
         }
         "read-result" => {
             let outcome = delta(&input["outcome"])?;
-            let request = input["artifact"]["deltas"]
-                .as_array()
-                .and_then(|xs| xs.iter().find(|v| v["id"] == input["artifact"]["entryId"]))
-                .map(delta)
-                .transpose()?;
+            let completed = rhizomatic::command_data::read_outcome(&outcome)?
+                .body
+                .status()
+                == "completed";
+            let request = if completed {
+                input["artifact"]["deltas"]
+                    .as_array()
+                    .and_then(|xs| xs.iter().find(|v| v["id"] == input["artifact"]["entryId"]))
+                    .map(delta)
+                    .transpose()?
+            } else {
+                None
+            };
             let boot = delta(&context["boot"]["configuration"])?;
             let expected = rhizomatic::command::ReadResultContext {
                 receiver: rhizomatic::command_data::read_configuration(&boot)?.receiver,
@@ -143,5 +151,33 @@ fn main() {
             eprintln!("{error}");
             std::process::exit(1);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn refusal_reads_undecodable_request_with_explicit_context() {
+        let mut fixture: Value = serde_json::from_str(
+            &std::fs::read_to_string(
+                std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                    .join("../../vectors/command/transport.json"),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let mut outcome = delta(&fixture["outcome"]).unwrap();
+        let mut decoded = rhizomatic::command_data::read_outcome(&outcome).unwrap();
+        decoded.body = rhizomatic::command_data::OutcomeBody::Refused {
+            code: "invalid-appearance".into(),
+        };
+        outcome.claims.pointers = rhizomatic::command_data::outcome_pointers(&decoded).unwrap();
+        outcome = sign_claims(&outcome.claims, &"01".repeat(32)).unwrap();
+        fixture["expectedArtifact"]["deltas"][0]["claims"] = json!({});
+        let mut invocation = json!({"mode":"read-result", "context":fixture["context"], "artifact":fixture["expectedArtifact"], "outcome":debug(&outcome)});
+        assert_eq!(run(&invocation).unwrap()["status"], "refused");
+        invocation["artifact"]["entryId"] = json!(format!("1e20{}", "ff".repeat(32)));
+        assert!(run(&invocation).is_err());
     }
 }
