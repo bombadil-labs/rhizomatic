@@ -15,6 +15,13 @@ function validate({cards,scenarios,plan,coverage,capabilities,bootstrap,towers,e
  if(coverage.length!==frozen.size||coverage.some(c=>frozen.get(c.id)!==c.milestone||!c.owners.length||c.owners.some(o=>!owners.has(o))))throw Error('missing coverage owner/case');
  for(const name of ['HyperSchemaSchema','SchemaSchema'])if(!/^1e20[0-9a-f]{64}$/.test(bootstrap.canonical_pins[name]))throw Error('invalid bootstrap pin');
  unique(capabilities.witnesses.map(w=>w.id),'witness');if(capabilities.witnesses.length!==4||['ts','rust','elixir','haskell'].some(id=>!capabilities.witnesses.some(w=>w.id===id)))throw Error('missing required witness');
+ for(const c of coverage){
+  const scenario=scenarios.find(s=>s.id===c.id);
+  if(!['specified','implemented_unverified'].includes(c.state))throw Error('unknown coverage state');
+  if(JSON.stringify([...c.required_witnesses].sort())!==JSON.stringify(['rust','ts']))throw Error('missing required coverage witness');
+  if(new Set(c.requirements).size!==c.requirements.length||JSON.stringify([...c.requirements].sort())!==JSON.stringify([...scenario.requirements].sort()))throw Error('unknown or missing coverage requirement');
+  if(!Array.isArray(c.tests)||c.tests.some(t=>typeof t!=='string'||!t)||new Set(c.tests).size!==c.tests.length)throw Error('invalid executable evidence references');
+ }
  const stageContracts=towers.stages.map(s=>s.contract);unique(stageContracts,'stage contract');
  const selected=execution.cases.filter(f=>f.tower===true);unique(selected.map(f=>f.scenario),'tower scenario');
  if(JSON.stringify(selected.map(f=>f.scenario).sort())!==JSON.stringify([...towers.required_scenarios].sort()))throw Error('missing tower scenario');
@@ -30,6 +37,7 @@ function validate({cards,scenarios,plan,coverage,capabilities,bootstrap,towers,e
   }
  }
  unique(api.contracts.map(c=>c.id),'API contract');
+ if(stageContracts.some(id=>!api.contracts.some(c=>c.id===id)))throw Error('missing API stage contract');
  for(const c of api.contracts)if(!c.id||!c.semantics||!c.owners.length||c.owners.some(o=>!owners.has(o))||!c.requirements.length||c.requirements.some(r=>!/^R-(0[1-9]|[12][0-9]|3[0-4])$/.test(r)))throw Error('invalid API semantic contract');
 }
 const data={cards:read('BOUNDARIES').cards,scenarios:read('ACCEPTANCE').scenarios,plan:read('MILESTONES').milestones,coverage:read('coverage').scenarios,capabilities:read('capabilities'),bootstrap:read('bootstrap'),towers:read('TOWERS'),execution:JSON.parse(readFileSync(join(root,'vectors/command/execution.json'),'utf8')),api:read('API')};
@@ -52,6 +60,11 @@ if(process.argv.includes('--self-test'))for(const [name,mutate,pattern] of [
  ['unknown capability state',d=>d.capabilities.witnesses[0].state='unknown',/unknown capability state/],
  ['missing API semantics',d=>delete d.api.contracts[0].semantics,/API semantic/],
  ['unknown API owner',d=>d.api.contracts[0].owners.push('unknown'),/API semantic/],
+ ['unknown coverage state',d=>d.coverage[0].state='unknown',/coverage state/],
+ ['missing required witness',d=>d.coverage[0].required_witnesses.pop(),/coverage witness/],
+ ['unknown coverage requirement',d=>d.coverage[0].requirements.push('R-99'),/coverage requirement/],
+ ['missing API contract',d=>d.api.contracts.shift(),/missing API stage contract/],
+ ['duplicate API contract',d=>d.api.contracts.push(d.api.contracts[0]),/duplicate API contract/],
 ]){const broken=structuredClone(data);mutate(broken);let refused=false;try{validate(broken)}catch(e){if(!pattern.test(e.message))throw e;refused=true;}if(!refused)throw Error(`negative checker fixture accepted: ${name}`);console.log(`command-contract-case:${name}`);}
 const inventory=spawnSync(process.execPath,[join(root,'tools/command-inventory.mjs'),...(process.argv.includes('--self-test')?['--self-test']:[])],{encoding:'utf8'});if(inventory.status!==0)throw Error(inventory.stderr);process.stdout.write(inventory.stdout);
 console.log(`Command M0 contracts: ${data.cards.length} owners; ${data.scenarios.length} frozen cases; four stage capabilities; full profile remains unadvertised.`);
