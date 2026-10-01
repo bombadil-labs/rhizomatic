@@ -174,12 +174,14 @@ fn execute(input: &Value) -> Result<Value, String> {
         else {
             return Err("fixture initial source unavailable".into());
         };
-        peer.admit(
+        let initialized = peer.admit(
             &mut store,
             &rhizomatic::single_peer::SinglePeerTransferInput {
                 offered: &initial,
-                origin: &rhizomatic::single_peer::ArrivalOrigin::Unattributed,
-                arrived_at: context["initialAt"].as_f64().unwrap_or(received_at),
+                origin: &rhizomatic::single_peer::ArrivalOrigin::Local,
+                arrived_at: context["initialArrivedAt"]
+                    .as_f64()
+                    .ok_or("nonempty initialDeltas requires explicit initialArrivedAt")?,
                 policy_state: &(),
                 guards: &[],
                 is_erasure_candidate: &|_| false,
@@ -187,6 +189,12 @@ fn execute(input: &Value) -> Result<Value, String> {
                 capacity: None,
             },
         )?;
+        if !matches!(
+            initialized,
+            rhizomatic::ordinary_journal_peer::OrdinaryJournalAdmissionResult::Committed { .. }
+        ) {
+            return Err("fixture initial admission was not confirmed committed".into());
+        }
     }
     store.fault = fault.clone();
     let appearances = input["artifact"]["deltas"]
@@ -240,6 +248,50 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn seeded_source_requires_explicit_local_arrival_and_confirmed_admission() {
+        let vectors: Value = serde_json::from_slice(
+            &std::fs::read(
+                std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                    .join("../../vectors/command/execution.json"),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let directory = tempfile::tempdir().unwrap();
+        let request = &vectors["fixtures"]["request"];
+        let payload = &vectors["fixtures"]["first"];
+        let mut input = json!({"mode":"execute","context":vectors["cases"][0]["context"],"artifact":{"format":"rhizomatic-command-artifact/1","entryId":request["id"],"deltas":[request,payload]}});
+        input["context"]["storePath"] = json!(directory.path().join("missing-time.json"));
+        input["context"]["initialDeltas"] = json!([payload]);
+        assert!(run(&input).unwrap_err().contains("initialArrivedAt"));
+        input["context"]["storePath"] = json!(directory.path().join("seeded.json"));
+        input["context"]["initialArrivedAt"] = json!(3);
+        let seeded = run(&input).unwrap();
+        let body = rhizomatic::command_data::read_outcome(&delta(&seeded["outcome"]).unwrap())
+            .unwrap()
+            .body;
+        let rhizomatic::command_data::OutcomeBody::Retain {
+            admitted,
+            duplicate,
+            ..
+        } = body
+        else {
+            panic!("retain")
+        };
+        assert!(admitted.is_empty());
+        assert_eq!(duplicate, vec![payload["id"].as_str().unwrap()]);
+        assert_eq!(seeded["observed"]["arrivals"].as_array().unwrap().len(), 1);
+        assert_eq!(seeded["observed"]["arrivals"][0]["at"].as_f64(), Some(3.0));
+        assert_eq!(seeded["observed"]["arrivals"][0]["sender"], "local");
+        let mut rejected = input.clone();
+        rejected["context"]["storePath"] = json!(directory.path().join("unsigned-init.json"));
+        rejected["context"]["initialDeltas"][0]
+            .as_object_mut()
+            .unwrap()
+            .remove("sig");
+        assert!(run(&rejected).is_err());
+    }
     #[test]
     fn refusal_reads_undecodable_request_with_explicit_context() {
         let mut fixture: Value = serde_json::from_str(
