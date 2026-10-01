@@ -252,6 +252,7 @@ try {
       throw Error(
         `boundary negative accepted or wrong reason: ${name}: ${result.stderr}`,
       );
+    console.log(`command-boundary-case:negative:${name}`);
   }
   for (const [name, files] of [
     [
@@ -304,6 +305,7 @@ try {
     );
     if (result.status !== 0)
       throw Error(`valid boundary fixture refused: ${name}: ${result.stderr}`);
+    console.log(`command-boundary-case:positive:${name}`);
   }
   console.log(
     "Disposable TypeScript AST boundary/observation negative fixtures rejected for their intended reasons.",

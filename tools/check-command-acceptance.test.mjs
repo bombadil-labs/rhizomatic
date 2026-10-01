@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { nativeScenarioEvidence, validateConformance, validateReview, passedTapNames, checkTowerEvidence, assembleAcceptance } from './check-command-acceptance.mjs';
+import { requiredCheckerCases, requireCheckerCases, nativeScenarioEvidence, validateConformance, validateReview, passedTapNames, checkTowerEvidence, assembleAcceptance } from './check-command-acceptance.mjs';
 import { fingerprint } from './command-tower-plan.mjs';
 const commit = '1'.repeat(40), tree = '2'.repeat(40);
 const conformance = { format: 'rhizomatic-existing-conformance/1', commit, runUrl: 'https://github.com/bombadil-labs/rhizomatic/actions/runs/123', witnesses: ['ts','rust','elixir','haskell'].map(id => ({ id, status: 'passed', job: id })) };
@@ -21,6 +21,7 @@ test('native evidence requires every executed fixture and scenario in both witne
     v => { v.ts.numTodoTests = 1; }, v => { v.ts.success = false; },
     v => { v.rust = v.rust.replace(/command-case:[^\n]+\n/, ''); },
     v => { v.rust += 'command-case:invented:proof\n'; },
+    v => { v.rust = v.rust.replace(/command-case:definition_closure:[^\n]+/, 'command-case:definition_closure: '); },
     v => { v.rust = v.rust.replace('0 ignored', '1 ignored'); },
   ]) { const altered = structuredClone(input); mutate(altered); assert.throws(() => nativeScenarioEvidence(altered)); }
 });
@@ -70,4 +71,12 @@ test('all 78 case identities are retained and manual review is never inferred fr
   assert.throws(() => assembleAcceptance({ ...input, scenarios: scenarios.slice(1) }));
   for (const gate of Object.keys(input.gates)) { const gates = structuredClone(input.gates); delete gates[gate]; assert.throws(() => assembleAcceptance({ ...input, gates }), gate); }
   assert.throws(() => assembleAcceptance({ ...input, towerTests: new Set() }));
+});
+
+test('each M0 checker requires its named executed regressions, not an unrelated passing TAP run', () => {
+  for (const [gate, names] of Object.entries(requiredCheckerCases)) {
+    requireCheckerCases(gate, new Set(names));
+    assert.throws(() => requireCheckerCases(gate, new Set(['unrelated positive'])), /unexecuted/);
+    for (const name of names) { const missing = new Set(names); missing.delete(name); assert.throws(() => requireCheckerCases(gate, missing), /unexecuted/); }
+  }
 });

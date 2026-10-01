@@ -12,6 +12,92 @@ const assert = (ok, message) => { if (!ok) throw Error(message); };
 const digest = bytes => createHash('sha256').update(bytes).digest('hex');
 const json = (file, value) => writeFileSync(file, JSON.stringify(value, null, 2) + '\n');
 
+export const requiredCheckerCases = {
+  "rust-negatives": [
+    "real Rust source rejects extern crate alias",
+    "real Rust source rejects matches pattern upward dependency",
+    "real Rust source rejects redirected production module",
+    "real Rust source rejects conditional redirected production module",
+    "real Rust source rejects foreign host interface",
+    "real Rust source rejects upward function",
+    "real Rust source rejects local upward alias",
+    "real Rust source rejects relative upward path",
+    "real Rust source rejects upward type",
+    "real Rust source rejects path observation",
+    "real Rust source rejects qualified environment",
+    "real Rust source rejects local filesystem alias",
+    "real Rust source rejects local clock alias",
+    "real Rust source rejects macro hidden environment",
+    "real Rust source rejects cfg hidden host",
+    "real Rust source rejects pure federation filesystem",
+    "real Rust source rejects pure call to host adapter",
+    "real Rust source rejects aggregate host alias",
+    "real Rust source rejects unknown external import",
+    "real Rust source rejects crypto outside intrinsic",
+    "real Rust source rejects glob import",
+    "real Rust source rejects unknown macro",
+    "real Rust source rejects unmapped source",
+    "real Rust source permits ordinary intrinsic",
+    "real Rust source permits declared file function",
+    "real Rust source permits local downward alias",
+    "real Rust source permits root compatibility reexport",
+    "live structural inventory detects missing, stale, duplicate, invalid and removed classifications",
+    "named API contracts must declare the actual semantic owner",
+    "new public associated constants cannot pass an unchanged export inventory",
+    "a public union is inventoried or refused as unsupported syntax"
+  ],
+  "bootstrap": [
+    "actual exported bootstrap programs match declared and shared byte/pin contracts"
+  ],
+  "ts-negatives": [
+    "negative:parenthesized static random member",
+    "negative:parenthesized computed binding",
+    "negative:as-const static random member",
+    "negative:asserted static random member",
+    "negative:satisfies static random member",
+    "negative:nonnull static random member",
+    "negative:template randomness member",
+    "negative:computed randomness destructuring",
+    "negative:template randomness destructuring",
+    "negative:file adapter undeclared network global",
+    "negative:file adapter undeclared environment",
+    "negative:file adapter dynamic process member",
+    "negative:type-only upward",
+    "negative:runtime upward",
+    "negative:aggregate import",
+    "negative:dynamic unresolved",
+    "negative:external host dependency",
+    "negative:inline type upward",
+    "negative:type reexport upward",
+    "negative:dynamic literal upward",
+    "negative:external dynamic aggregate",
+    "negative:import equals unresolved",
+    "negative:crypto random alias",
+    "negative:crypto namespace import",
+    "negative:core federation host import",
+    "negative:core federation indirect host",
+    "negative:core federation clock",
+    "negative:computed ambient clock",
+    "negative:random function capture",
+    "negative:computed random member",
+    "negative:unknown computed Math member",
+    "negative:undeclared file adapter network",
+    "negative:destructured randomness",
+    "negative:hidden module location",
+    "negative:host unresolved require",
+    "negative:direct hidden clock",
+    "positive:declared process ID",
+    "positive:declared HTTP fetch",
+    "positive:benign property names",
+    "positive:explicit crypto primitives",
+    "positive:declared host operation",
+    "positive:allowed type and runtime edges"
+  ]
+};
+export function requireCheckerCases(gate, observed) {
+  for (const name of requiredCheckerCases[gate]) assert(observed.has(name), `unexecuted ${gate} checker case: ${name}`);
+}
+
 export function nativeScenarioEvidence({ scenarios, descriptions, ts, rust }) {
   assert(ts.success === true && ts.numFailedTests === 0 && ts.numPendingTests === 0 && ts.numTodoTests === 0, 'TS native run failed or skipped tests');
   const assertions = ts.testResults.flatMap(s => s.assertionResults);
@@ -23,7 +109,9 @@ export function nativeScenarioEvidence({ scenarios, descriptions, ts, rust }) {
     const [_, id, proof] = match;
     assert(scenarios.some(s => s.id === id), `unknown executed Rust scenario: ${id}`);
     if (!markers.has(id)) markers.set(id, new Set());
-    markers.get(id).add(proof.trim());
+    const identity = proof.trim();
+    assert(/^[A-Za-z0-9_][A-Za-z0-9_:.-]*$/.test(identity), `invalid executed Rust test identity: ${id}`);
+    markers.get(id).add(identity);
   }
   const result = { ts: new Map(), rust: new Map() };
   for (const s of scenarios.filter(s => ['M1', 'M2', 'M3'].includes(s.milestone))) {
@@ -156,10 +244,11 @@ export async function runAcceptance({ out, conformanceFile, reviewFile, requireR
   const native = nativeScenarioEvidence({ scenarios, descriptions: read(join(repository, 'vectors/command/descriptions.json')), ts: read(tsPath), rust });
   await node('contracts', 'tools/check-command-contracts.mjs', ['--self-test']);
   await node('ts-boundaries', 'tools/check-package-graph.mjs');
-  await node('ts-negatives', 'tools/check-command-boundary-negatives.mjs');
+  const tsNegatives = await node('ts-negatives', 'tools/check-command-boundary-negatives.mjs');
+  requireCheckerCases('ts-negatives', new Set([...tsNegatives.matchAll(/^command-boundary-case:(.+)$/gm)].map(m => m[1])));
   await node('rust-boundaries', 'tools/check-rust-command-boundaries.mjs');
-  passedTapNames(await gate('rust-negatives', process.execPath, ['--test', '--test-reporter=tap', join(repository, 'tools/check-rust-command-boundaries.test.mjs')]));
-  passedTapNames(await gate('bootstrap', process.execPath, ['--test', '--test-reporter=tap', join(repository, 'tools/check-command-bootstrap.test.mjs')]));
+  requireCheckerCases('rust-negatives', passedTapNames(await gate('rust-negatives', process.execPath, ['--test', '--test-reporter=tap', join(repository, 'tools/check-rust-command-boundaries.test.mjs')])));
+  requireCheckerCases('bootstrap', passedTapNames(await gate('bootstrap', process.execPath, ['--test', '--test-reporter=tap', join(repository, 'tools/check-command-bootstrap.test.mjs')])));
   await node('oracle-sensitivity', 'tools/check-command-oracle.mjs');
   await node('transport', 'tools/check-command-description-transport.mjs');
   const towerTests = passedTapNames(await gate('tower-tests', process.execPath, ['--test', '--test-reporter=tap', ...['plan', 'process'].map(n => join(repository, `tools/command-tower-${n}.test.mjs`)), join(repository, 'tools/command-towers.test.mjs')]));
