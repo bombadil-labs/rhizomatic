@@ -137,6 +137,7 @@ export async function runAcceptance({ out, conformanceFile, reviewFile, requireR
   const conformance = read(conformanceFile), review = reviewFile ? read(reviewFile) : undefined;
   validateConformance(conformance, commit, tree); if (review) validateReview(review, commit);
   assert(!requireReview || review, 'final acceptance requires independent review');
+  assert(!resolve(out).startsWith(resolve(repository) + '/') && resolve(out) !== resolve(repository), 'acceptance artifacts must be outside source checkout');
   assert(!existsSync(out), 'acceptance output directory must be new'); mkdirSync(out, { recursive: true });
   const gates = {};
   async function gate(id, command, args, cwd = repository) {
@@ -167,6 +168,7 @@ export async function runAcceptance({ out, conformanceFile, reviewFile, requireR
   await node('towers', 'tools/command-towers.mjs', ['--evidence', stageEvidence, '--seed', seed, '--out', join(out, 'towers')]);
   await node('replay', 'tools/command-towers.mjs', ['--replay', join(out, 'towers/run.json'), '--out', join(out, 'replay')]);
   checkTowerEvidence(read(join(out, 'towers/run.json')), read(join(out, 'replay/run.json')), commit);
+  assert(await git(['rev-parse', 'HEAD']) === commit && await git(['status', '--porcelain', '--untracked-files=normal']) === '', 'source changed during acceptance execution');
   const report = assembleAcceptance({ scenarios, commit, tree, native, gates, towerTests, conformance, review });
   report.seed = seed; report.nativeArtifacts = { vitest: { path: tsPath, sha256: digest(readFileSync(tsPath)) }, cargo: gates['rust-native'] };
   json(join(out, 'acceptance.json'), report); return report;
