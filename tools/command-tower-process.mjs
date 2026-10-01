@@ -12,6 +12,8 @@ const environment = () => ({ ...process.env, PATH: join(homedir(), '.cargo/bin')
 export function processOutput(command, args, { cwd, input, timeout = 120000 } = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, { cwd, env: environment(), stdio: ['pipe', 'pipe', 'pipe'] });
+    child.stdout.setEncoding('utf8');
+    child.stderr.setEncoding('utf8');
     let stdout = '', stderr = '', settled = false;
     const finish = error => { if (!settled) { settled = true; clearTimeout(timer); error ? reject(error) : resolve(stdout); } };
     const timer = setTimeout(() => { child.kill('SIGKILL'); finish(Error(`process timeout: ${command} ${args.join(' ')}`)); }, timeout);

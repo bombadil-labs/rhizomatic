@@ -52,3 +52,10 @@ test('real process framing preserves stdin, isolates diagnostics and rejects cra
 test('hung adapter is terminated with an explicit timeout', async () => {
   await assert.rejects(processOutput(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { timeout: 100, input: '' }), /process timeout/);
 });
+
+test('split UTF-8 pipe chunks preserve signed debug strings and diagnostics', async () => {
+  const code = "process.stdout.write(Buffer.from([123,34,110,97,109,101,34,58,34,206])); setTimeout(() => process.stdout.write(Buffer.from([187,34,125])), 40);";
+  assert.equal(await processOutput(process.execPath, ['-e', code], { input: '' }), '{"name":"λ"}');
+  const failure = "process.stderr.write(Buffer.from([206])); setTimeout(() => { process.stderr.write(Buffer.from([187])); process.exitCode=1; }, 40);";
+  await assert.rejects(processOutput(process.execPath, ['-e', failure], { input: '' }), /exited 1: λ/);
+});
