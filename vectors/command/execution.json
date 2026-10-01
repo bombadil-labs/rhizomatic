@@ -1,6 +1,118 @@
 {
   "format": "rhizomatic-command-execution-vectors/1",
   "fixtures": {
+    "missingSignatureByteLimit": {
+      "configuration": {
+        "id": "1e20d23dcd8364c8cd9f8f282152dfc78bca119c8be19517d5394ff1c32c2e617223",
+        "claims": {
+          "timestamp": 0,
+          "validFrom": 0,
+          "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+          "pointers": [
+            {
+              "role": "rhizomatic.command.kind",
+              "target": "endpoint/1"
+            },
+            {
+              "role": "rhizomatic.command.receiver",
+              "target": {
+                "id": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c"
+              }
+            },
+            {
+              "role": "rhizomatic.command.caller",
+              "target": "ed25519:8139770ea87d175f56a35466c34c7ecccb8d8a91b4ee37a25df60f5b8fc9b394"
+            },
+            {
+              "role": "rhizomatic.command.installed",
+              "target": {
+                "delta": "1e200299888fa1cc274c039762c624d385858705fceada49e78c7106ddf1226e085f"
+              }
+            },
+            {
+              "role": "rhizomatic.command.installed",
+              "target": {
+                "delta": "1e205202a5256eb474480af6f347f5ca8cb1c711692e67839dcfec5cfe538e9a20b5"
+              }
+            },
+            {
+              "role": "rhizomatic.command.quota",
+              "target": 10
+            },
+            {
+              "role": "rhizomatic.command.max-deltas",
+              "target": 20
+            },
+            {
+              "role": "rhizomatic.command.max-bytes",
+              "target": 1
+            }
+          ]
+        },
+        "sig": "cd8b131d0d86a462de81996dc6670b367858115a7f38be546f072a418a74c355b695854c46aa2fa22a22ac1be064a33a8d296498a0d926fdde44d8ee33e6020e"
+      },
+      "request": {
+        "id": "1e209a68b1f9efdc84f574526af32839b9cfcc2d561f353bbedcbfb0fbd894237017",
+        "claims": {
+          "timestamp": 1,
+          "validFrom": 1,
+          "author": "ed25519:8139770ea87d175f56a35466c34c7ecccb8d8a91b4ee37a25df60f5b8fc9b394",
+          "pointers": [
+            {
+              "role": "rhizomatic.command.kind",
+              "target": "request/1"
+            },
+            {
+              "role": "rhizomatic.command.receiver",
+              "target": {
+                "id": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c"
+              }
+            },
+            {
+              "role": "rhizomatic.command.configuration",
+              "target": {
+                "delta": "1e20d23dcd8364c8cd9f8f282152dfc78bca119c8be19517d5394ff1c32c2e617223"
+              }
+            },
+            {
+              "role": "rhizomatic.command.operation",
+              "target": {
+                "delta": "1e200299888fa1cc274c039762c624d385858705fceada49e78c7106ddf1226e085f"
+              }
+            },
+            {
+              "role": "rhizomatic.command.payload",
+              "target": {
+                "delta": "1e207f7a46b2e017b0ce473807c04ad280e6e95961ce3f8641ca4317b7eb4ae4bea7"
+              }
+            }
+          ]
+        },
+        "sig": "3a49707622e9bedf60055e8d9dd37bc3d3feccb18d8dc7d35fb1faea8a34210a55899620bb3fa5316309d59ea7dca77edda6f620e658af09e047189567ea1602"
+      },
+      "payload": {
+        "id": "1e207f7a46b2e017b0ce473807c04ad280e6e95961ce3f8641ca4317b7eb4ae4bea7",
+        "claims": {
+          "timestamp": 1,
+          "validFrom": 1,
+          "author": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1",
+          "pointers": [
+            {
+              "role": "about",
+              "target": {
+                "id": "subject",
+                "context": "name"
+              }
+            },
+            {
+              "role": "value",
+              "target": "Ada"
+            }
+          ]
+        }
+      },
+      "expectedCode": "resource-limit"
+    },
     "first": {
       "id": "1e207f7a46b2e017b0ce473807c04ad280e6e95961ce3f8641ca4317b7eb4ae4bea7",
       "claims": {

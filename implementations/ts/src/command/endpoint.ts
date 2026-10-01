@@ -131,9 +131,9 @@ export class CommandEndpoint {
     let size = 0;
     try {
       for (const d of deltas) {
-        if (d.sig === undefined || d.sig.length % 2 !== 0 || !/^[0-9a-fA-F]*$/.test(d.sig))
+        if (d.sig !== undefined && (d.sig.length % 2 !== 0 || !/^[0-9a-fA-F]*$/.test(d.sig)))
           throw new Error("signature bytes");
-        size += canonicalBytes(d.claims).length + d.sig.length / 2;
+        size += canonicalBytes(d.claims).length + (d.sig?.length ?? 0) / 2;
       }
     } catch {
       return refuse("invalid-appearance");

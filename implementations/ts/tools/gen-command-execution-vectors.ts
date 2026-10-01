@@ -121,6 +121,15 @@ const construction = (d: Delta, payload: Delta[], seed = callerSeed) => ({
           : definitionSeed,
   })),
 });
+const limitedConfiguration = writeCommandDescription(receiverSeed, 0, "endpoint/1", {
+  receiver: e(receiver),
+  caller: t(caller),
+  installed: refs(declarations.map((d) => d.id)),
+  quota: t(10),
+  "max-deltas": t(20),
+  "max-bytes": t(1),
+});
+const limitedRequest = request([first], { configuration: refs([limitedConfiguration.id]) });
 const context = {
   receiverSeed,
   callerSeed,
@@ -134,6 +143,12 @@ const context = {
   construction: construction(baseRequest, [first]),
 };
 const fixtures = {
+  missingSignatureByteLimit: {
+    configuration: serializeCommandDelta(limitedConfiguration),
+    request: serializeCommandDelta(limitedRequest),
+    payload: { id: first.id, claims: claimsToJson(first.claims) },
+    expectedCode: "resource-limit",
+  },
   first: serializeCommandDelta(first),
   second: serializeCommandDelta(second),
   request: serializeCommandDelta(baseRequest),

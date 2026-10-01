@@ -258,6 +258,24 @@ describe("shared command durable retain scenarios", () => {
             break;
           }
           case "limits": {
+            const missingSig = vector.fixtures.missingSignatureByteLimit as {
+              configuration: unknown;
+              request: unknown;
+              payload: unknown;
+              expectedCode: string;
+            };
+            endpoint = await CommandEndpoint.boot({
+              ...boot,
+              configuration: parseCommandDelta(missingSig.configuration),
+            });
+            expect(
+              outcome(
+                await endpoint.invoke(parseCommandDelta(missingSig.request).id, [
+                  missingSig.request,
+                  missingSig.payload,
+                ]),
+              ).code,
+            ).toBe(missingSig.expectedCode);
             const config = patch(
               boot.configuration,
               "max-deltas",

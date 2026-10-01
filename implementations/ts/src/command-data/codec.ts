@@ -64,10 +64,14 @@ export function parseCommandDelta(raw: unknown): Delta {
   if (
     Object.keys(o).some((k) => !["id", "claims", "sig"].includes(k)) ||
     typeof o.id !== "string" ||
-    typeof o.sig !== "string"
+    (o.sig !== undefined && typeof o.sig !== "string")
   )
     fail();
-  const d = { id: o.id, claims: parseClaims(o.claims), sig: o.sig };
+  const d = {
+    id: o.id,
+    claims: parseClaims(o.claims),
+    ...(o.sig === undefined ? {} : { sig: o.sig }),
+  };
   assertValidClaims(d.claims);
   return d;
 }
