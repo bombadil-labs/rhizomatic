@@ -614,6 +614,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Item::Fn(i) => Some(i.sig.ident.to_string()),
                 Item::Struct(i) => Some(i.ident.to_string()),
                 Item::Enum(i) => Some(i.ident.to_string()),
+                Item::Union(i) => Some(i.ident.to_string()),
                 Item::Trait(i) => Some(i.ident.to_string()),
                 Item::Type(i) => Some(i.ident.to_string()),
                 Item::Const(i) => Some(i.ident.to_string()),
