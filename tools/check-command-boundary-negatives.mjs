@@ -8,6 +8,48 @@ const dir = mkdtempSync(join(tmpdir(), "command-boundary-"));
 try {
   for (const [name, files, pattern] of [
     [
+      "template randomness member",
+      {
+        "delta/a.ts":
+          'import {ed25519} from "@noble/curves/ed25519"; export const key=ed25519.utils[`randomPrivateKey`]();',
+      },
+      /computed randomness/,
+    ],
+    [
+      "computed randomness destructuring",
+      { "delta/a.ts": 'const {["random"]:r}=Math; export const x=r();' },
+      /destructured randomness/,
+    ],
+    [
+      "template randomness destructuring",
+      {
+        "delta/a.ts":
+          'import {ed25519} from "@noble/curves/ed25519"; const {[`randomPrivateKey`]:r}=ed25519.utils; export const key=r();',
+      },
+      /destructured randomness/,
+    ],
+    [
+      "file adapter undeclared network global",
+      {
+        "federation/file-peer-state.ts":
+          'export const x=fetch("https://unused.invalid");',
+      },
+      /undeclared ambient observation fetch/,
+    ],
+    [
+      "file adapter undeclared environment",
+      { "federation/file-peer-state.ts": "export const x=process.env;" },
+      /undeclared ambient observation process/,
+    ],
+    [
+      "file adapter dynamic process member",
+      {
+        "federation/file-peer-state.ts":
+          'const pid="env"; export const x=process[pid];',
+      },
+      /undeclared ambient observation process/,
+    ],
+    [
       "type-only upward",
       {
         "delta/a.ts": 'import type { X } from "../syntax/b.js";',
@@ -167,6 +209,14 @@ try {
       );
   }
   for (const [name, files] of [
+    [
+      "declared process ID",
+      { "federation/file-peer-state.ts": "export const x=process.pid;" },
+    ],
+    [
+      "declared HTTP fetch",
+      { "federation/http.ts": "export const run=(url:string)=>fetch(url);" },
+    ],
     [
       "benign property names",
       {

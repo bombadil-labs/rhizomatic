@@ -3,11 +3,13 @@
 export const hostModules = {
   "federation/file-peer-state.ts": {
     modules: ["node:fs", "node:crypto", "node:path"],
+    globals: { process: ["pid"] },
     reason:
       "Atomic peer-state file adapter; filesystem and random temporary names.",
   },
   "federation/file-durable-state.ts": {
     modules: ["node:fs", "node:crypto", "node:path"],
+    globals: { process: ["pid"] },
     reason:
       "Atomic durable-state file adapter; filesystem and random temporary names.",
   },
@@ -21,6 +23,7 @@ export const hostModules = {
   },
   "federation/http.ts": {
     modules: ["node:http"],
+    globals: { fetch: true },
     reason: "Explicit HTTP transport capability.",
   },
 };
@@ -79,6 +82,27 @@ export function scanBoundarySource(ts, ast, file, owner) {
     host = hostModules[file];
   const fail = (message) => {
     throw Error(`${file}: ${message}`);
+  };
+  const staticName = (node, computed = false) => {
+    if (!node) return undefined;
+    if (ts.isIdentifier(node)) return computed ? undefined : node.text;
+    if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node))
+      return node.text;
+    if (ts.isComputedPropertyName(node))
+      return staticName(node.expression, true);
+    return undefined;
+  };
+  const permittedGlobal = (node) => {
+    const permitted = host?.globals?.[node.text];
+    if (permitted === true) return true;
+    const parent = node.parent;
+    if (!Array.isArray(permitted) || parent.expression !== node) return false;
+    return (
+      (ts.isPropertyAccessExpression(parent) &&
+        permitted.includes(parent.name.text)) ||
+      (ts.isElementAccessExpression(parent) &&
+        permitted.includes(staticName(parent.argumentExpression, true)))
+    );
   };
   const add = (specifier, kind, bindings) => {
     if (specifier.startsWith("@bombadil/rhizomatic"))
@@ -188,17 +212,22 @@ export function scanBoundarySource(ts, ast, file, owner) {
         fail("unresolved dynamic import");
       add(arg.text, "runtime", undefined);
     }
-    if (!host) {
+    {
       if (
         ts.isMetaProperty(node) &&
         node.keywordToken === ts.SyntaxKind.ImportKeyword
       )
         fail("undeclared module location observation");
-      if (ts.isIdentifier(node) && ambient.has(node.text) && reference(node))
+      if (
+        ts.isIdentifier(node) &&
+        ambient.has(node.text) &&
+        reference(node) &&
+        !permittedGlobal(node)
+      )
         fail(`undeclared ambient observation ${node.text}`);
       if (
         ts.isBindingElement(node) &&
-        randomMembers.has((node.propertyName ?? node.name).text)
+        randomMembers.has(staticName(node.propertyName ?? node.name))
       )
         fail("undeclared destructured randomness capability");
       if (
@@ -209,10 +238,12 @@ export function scanBoundarySource(ts, ast, file, owner) {
       if (ts.isElementAccessExpression(node)) {
         const arg = node.argumentExpression;
         if (
-          (ts.isStringLiteral(arg) && randomMembers.has(arg.text)) ||
+          randomMembers.has(staticName(arg, true)) ||
           (ts.isIdentifier(node.expression) &&
             node.expression.text === "Math" &&
-            !ts.isStringLiteral(arg))
+            !(
+              ts.isStringLiteral(arg) || ts.isNoSubstitutionTemplateLiteral(arg)
+            ))
         )
           fail("undeclared computed randomness capability");
       }
