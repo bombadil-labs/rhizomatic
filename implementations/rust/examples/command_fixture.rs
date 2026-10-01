@@ -249,6 +249,84 @@ fn main() {
 mod tests {
     use super::*;
     #[test]
+    fn alternate_valid_signatures_select_supplied_minimum_independent_of_packet_order() {
+        use curve25519_dalek::{constants::ED25519_BASEPOINT_POINT, scalar::Scalar};
+        use sha2::{Digest, Sha512};
+        let vectors: Value = serde_json::from_slice(
+            &std::fs::read(
+                std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                    .join("../../vectors/command/execution.json"),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let first = &vectors["fixtures"]["first"];
+        let mut alternative = delta(first).unwrap();
+        let seed = hex::decode(
+            vectors["cases"][0]["context"]["definitionSeed"]
+                .as_str()
+                .unwrap(),
+        )
+        .unwrap();
+        let hash = Sha512::digest(seed);
+        let mut scalar: [u8; 32] = hash[..32].try_into().unwrap();
+        scalar[0] &= 248;
+        scalar[31] &= 63;
+        scalar[31] |= 64;
+        let secret = Scalar::from_bytes_mod_order(scalar);
+        let r = Scalar::ONE;
+        let encoded_r = (r * ED25519_BASEPOINT_POINT).compress().to_bytes();
+        let public = (secret * ED25519_BASEPOINT_POINT).compress().to_bytes();
+        let mut challenge = Sha512::new();
+        challenge.update(encoded_r);
+        challenge.update(public);
+        challenge.update(hex::decode(&alternative.id).unwrap());
+        let wide: [u8; 64] = challenge.finalize().into();
+        let k = Scalar::from_bytes_mod_order_wide(&wide);
+        let mut sig = encoded_r.to_vec();
+        sig.extend((r + k * secret).to_bytes());
+        alternative.sig = Some(hex::encode(sig));
+        assert_eq!(verify_canonical_delta(&alternative), Verification::Verified);
+        assert_ne!(alternative.sig, delta(first).unwrap().sig);
+        let canonical = delta(first).unwrap();
+        let selected = if alternative.sig < canonical.sig {
+            alternative.clone()
+        } else {
+            canonical
+        };
+        let directory = tempfile::tempdir().unwrap();
+        let request = &vectors["fixtures"]["request"];
+        let mut answers = Vec::new();
+        for (i, appearances) in [
+            vec![request.clone(), first.clone(), debug(&alternative)],
+            vec![debug(&alternative), request.clone(), first.clone()],
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let mut input = json!({"mode":"execute","context":vectors["cases"][0]["context"],"artifact":{"format":"rhizomatic-command-artifact/1","entryId":request["id"],"deltas":appearances}});
+            input["context"]["storePath"] =
+                json!(directory.path().join(format!("signature-{i}.json")));
+            let answer = run(&input).unwrap();
+            let image: Value = serde_json::from_slice(
+                &std::fs::read(input["context"]["storePath"].as_str().unwrap()).unwrap(),
+            )
+            .unwrap();
+            assert_eq!(delta(&image["rows"][0]).unwrap(), selected);
+            answers.push(answer.clone());
+            // A later duplicate carrying a different valid supplied signature cannot rewrite it.
+            input["artifact"]["deltas"] = json!([request, first]);
+            let repeated = run(&input).unwrap();
+            assert_eq!(repeated["observed"], answer["observed"]);
+            let image: Value = serde_json::from_slice(
+                &std::fs::read(input["context"]["storePath"].as_str().unwrap()).unwrap(),
+            )
+            .unwrap();
+            assert_eq!(delta(&image["rows"][0]).unwrap(), selected);
+        }
+        assert_eq!(answers[0], answers[1]);
+    }
+    #[test]
     fn uppercase_signature_is_invalid_after_resource_accounting_and_in_boot_and_result() {
         let vectors: Value = serde_json::from_slice(
             &std::fs::read(

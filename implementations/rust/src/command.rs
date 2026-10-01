@@ -372,10 +372,18 @@ impl CommandEndpoint {
         }) {
             return Err(AttemptError::Refused("invalid-appearance"));
         }
-        let supplied: BTreeMap<String, Delta> = appearances
-            .iter()
-            .map(|d| (d.id.clone(), d.clone()))
-            .collect();
+        let mut supplied: BTreeMap<String, Delta> = BTreeMap::new();
+        for appearance in appearances {
+            supplied
+                .entry(appearance.id.clone())
+                .and_modify(|selected| {
+                    // Canonical lowercase hex has the same order as the decoded signature bytes.
+                    if appearance.sig < selected.sig {
+                        *selected = appearance.clone();
+                    }
+                })
+                .or_insert_with(|| appearance.clone());
+        }
         let entry = supplied
             .get(entry_id)
             .ok_or(AttemptError::Refused("entry-missing"))?;
