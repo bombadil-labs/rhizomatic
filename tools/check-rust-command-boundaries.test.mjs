@@ -56,3 +56,13 @@ test('live structural inventory detects missing, stale, duplicate, invalid and r
     j => j.dependencies.push({ form: 'stale' }),
   ]) { const changed = structuredClone(actual); mutate(changed); assert.throws(() => validateRustBoundaries(actual, changed, boundaries)); }
 });
+
+test('named API contracts must declare the actual semantic owner', async () => {
+  const actual = await fixture({ delta: 'pub fn pure() {}' });
+  const inventory = structuredClone(actual);
+  inventory.exports[0].contract = 'rhizomatic.test/1';
+  const api = [{ id: 'rhizomatic.test/1', owners: ['delta'], semantics: 'Explicit input canonicalization.' }];
+  validateRustBoundaries(actual, inventory, boundaries, { api });
+  assert.throws(() => validateRustBoundaries(actual, inventory, boundaries, { api: [{ ...api[0], owners: ['command'] }] }), /invalid Rust export/);
+  assert.throws(() => validateRustBoundaries(actual, inventory, boundaries, { api: [...api, ...api] }), /invalid named/);
+});

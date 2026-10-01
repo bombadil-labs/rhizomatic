@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Source-level enforcement, not compiler trait resolution or a transitive purity proof.
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { dirname, resolve, basename, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { processOutput } from './command-tower-process.mjs';
@@ -40,7 +40,7 @@ function hostTarget(path) {
   const key = parts.slice(0, 2).join('::');
   return key === 'signed_loose_admission::admit_signed_loose_ordinary_transfer' || key === 'single_peer::FileDurablePeerStore' || fileHosts.has(key) || httpHosts.has(key);
 }
-export function validateRustBoundaries(actual, inventory, boundaries, { compareInventory = true } = {}) {
+export function validateRustBoundaries(actual, inventory, boundaries, { compareInventory = true, api = [] } = {}) {
   assert(actual?.format === 'rhizomatic-semantic-api-inventory/1' && actual.witness === 'rust', 'invalid live Rust inventory');
   const cards = new Map(boundaries.cards.map(c => [c.id, c]));
   assert(cards.size === boundaries.cards.length, 'duplicate boundary card');
@@ -70,13 +70,18 @@ export function validateRustBoundaries(actual, inventory, boundaries, { compareI
   for (const id of cards.keys()) visit(id);
   if (!compareInventory) return;
   assert(inventory?.format === actual.format && inventory.witness === 'rust', 'invalid recorded Rust inventory');
+  const contracts = new Map([...cards.keys()].map(owner => [`rhizomatic.${owner}/native-api/1`, [owner]]));
+  for (const contract of api) {
+    assert(typeof contract.id === 'string' && !contracts.has(contract.id) && Array.isArray(contract.owners) && contract.owners.length > 0 && contract.owners.every(owner => cards.has(owner)) && typeof contract.semantics === 'string' && contract.semantics.trim(), `invalid named Rust API contract: ${contract.id}`);
+    contracts.set(contract.id, contract.owners);
+  }
   const recorded = new Map(inventory.exports.map(e => [e.id, e]));
   assert(recorded.size === inventory.exports.length, 'duplicate Rust export classification');
   for (const e of actual.exports) {
     const known = recorded.get(e.id);
     assert(known, `unclassified public Rust export: ${e.id}`);
     for (const key of ['id', 'source', 'symbol', 'owner', 'definition', 'target', 'cfg']) assert(stable(known[key] ?? null) === stable(e[key] ?? null), `stale Rust export ${e.id}: ${key}`);
-    assert(known.contract === `rhizomatic.${known.owner}/native-api/1` && boundaries.export_classifications.includes(known.classification) && typeof known.semantics === 'string' && known.semantics.trim(), `invalid Rust export contract/classification: ${e.id}`);
+    assert(contracts.get(known.contract)?.includes(known.owner) && boundaries.export_classifications.includes(known.classification) && typeof known.semantics === 'string' && known.semantics.trim(), `invalid Rust export contract/classification: ${e.id}`);
     recorded.delete(e.id);
   }
   assert(recorded.size === 0, `removed Rust exports remain classified: ${[...recorded.keys()].join(', ')}`);
@@ -96,6 +101,6 @@ export async function generateRustInventory(binary, repository = root) { return 
 if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {
   const binary = await buildRustInventoryGenerator();
   const actual = await generateRustInventory(binary);
-  validateRustBoundaries(actual, read(join(root, 'contracts/command/rust-exports.json')), read(join(root, 'contracts/command/BOUNDARIES.json')));
+  validateRustBoundaries(actual, read(join(root, 'contracts/command/rust-exports.json')), read(join(root, 'contracts/command/BOUNDARIES.json')), { api: existsSync(join(root, 'contracts/command/API.json')) ? read(join(root, 'contracts/command/API.json')).contracts : [] });
   console.log(`Rust boundaries: ${actual.exports.length} classified exports and ${actual.dependencies.length} AST dependency records checked against live source.`);
 }
