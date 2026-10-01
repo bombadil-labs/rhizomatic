@@ -21,39 +21,25 @@ const require = createRequire(
 );
 const ts = require("typescript");
 const report = process.argv.includes("--report");
-const allowedDependencies = {
-  "command-data": ["delta"],
-  command: [
-    "command-data",
-    "schema-load",
-    "schema",
-    "resolve",
-    "resolve-kernel",
-    "principal",
-    "syntax",
-    "delta",
-    "federation",
-  ],
-  delta: [],
-  syntax: ["delta"],
-  schema: ["syntax", "delta"],
-  algebra: ["syntax", "delta"],
-  "resolve-kernel": ["algebra", "syntax", "delta"],
-  resolve: ["resolve-kernel", "algebra", "schema", "syntax", "delta"],
-  "schema-load": ["resolve", "schema", "syntax", "delta"],
-  reactor: [
-    "resolve",
-    "resolve-kernel",
-    "algebra",
-    "schema",
-    "syntax",
-    "delta",
-  ],
-  principal: ["reactor", "resolve", "schema", "syntax", "delta"],
-  storage: ["delta"],
-  federation: ["reactor", "resolve", "syntax", "storage", "delta"],
-  derivation: ["reactor", "algebra", "delta"],
-};
+const cards = JSON.parse(
+  readFileSync(join(root, "contracts/command/BOUNDARIES.json"), "utf8"),
+).cards;
+if (
+  !Array.isArray(cards) ||
+  new Set(cards.map((c) => c.id)).size !== cards.length
+)
+  throw new Error("invalid boundary owner inventory");
+const owners = new Set(cards.map((c) => c.id));
+for (const card of cards) {
+  if (
+    !Array.isArray(card.allowed_dependencies) ||
+    card.allowed_dependencies.some((id) => !owners.has(id))
+  )
+    throw new Error(`invalid declared dependencies: ${card.id}`);
+}
+const allowedDependencies = Object.fromEntries(
+  cards.map((c) => [c.id, c.allowed_dependencies]),
+);
 
 function sourceFiles(dir) {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
