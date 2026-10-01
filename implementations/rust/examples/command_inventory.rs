@@ -12,8 +12,22 @@ use syn::{Item, UseTree, Visibility};
 fn uses(tree: &UseTree, prefix: String, out: &mut Vec<(String, String)>) {
     match tree {
         UseTree::Path(p) => uses(&p.tree, format!("{prefix}{}::", p.ident), out),
+        UseTree::Name(n) if n.ident == "self" => {
+            let path = prefix.trim_end_matches("::");
+            out.push((
+                path.rsplit("::").next().unwrap_or("self").to_string(),
+                path.to_string(),
+            ));
+        }
         UseTree::Name(n) => out.push((n.ident.to_string(), format!("{prefix}{}", n.ident))),
-        UseTree::Rename(n) => out.push((n.rename.to_string(), format!("{prefix}{}", n.ident))),
+        UseTree::Rename(n) => out.push((
+            n.rename.to_string(),
+            if n.ident == "self" {
+                prefix.trim_end_matches("::").to_string()
+            } else {
+                format!("{prefix}{}", n.ident)
+            },
+        )),
         UseTree::Glob(_) => out.push(("*".into(), format!("{prefix}*"))),
         UseTree::Group(g) => {
             for t in &g.items {
@@ -173,9 +187,57 @@ fn macro_expressions(m: &syn::Macro) -> Result<Vec<Expr>, String> {
 }
 struct Paths {
     aliases: BTreeMap<String, String>,
-    paths: BTreeSet<String>,
-    macros: BTreeSet<String>,
+    module: String,
+    modules: BTreeSet<String>,
+    symbol: String,
+    impl_name: Option<String>,
+    paths: BTreeSet<(String, String)>,
+    imports: BTreeSet<(String, String)>,
+    macros: BTreeSet<(String, String)>,
     unsupported: Vec<String>,
+}
+fn module_path(path: &str, module: &str, modules: &BTreeSet<String>) -> Result<String, String> {
+    let parts: Vec<_> = path.split("::").collect();
+    match parts.first().copied().unwrap_or("") {
+        "self" => Ok(format!("crate::{module}::{}", parts[1..].join("::"))),
+        "super" if parts.get(1) == Some(&"super") => {
+            Err(format!("unsupported relative path {path}"))
+        }
+        "super" => Ok(format!("crate::{}", parts[1..].join("::"))),
+        first if modules.contains(first) => Ok(format!("crate::{path}")),
+        _ => Ok(path.to_string()),
+    }
+}
+impl Paths {
+    fn import(&mut self, u: &syn::ItemUse) {
+        let mut imports = Vec::new();
+        uses(&u.tree, String::new(), &mut imports);
+        for (alias, path) in imports {
+            if alias == "*" {
+                self.unsupported.push("unsupported glob import".into());
+                continue;
+            }
+            let mut segments = path.split("::");
+            let first = segments.next().unwrap_or("");
+            let tail = segments.collect::<Vec<_>>().join("::");
+            let path = if let Some(target) = self.aliases.get(first) {
+                if tail.is_empty() {
+                    target.clone()
+                } else {
+                    format!("{target}::{tail}")
+                }
+            } else {
+                path
+            };
+            match module_path(&path, &self.module, &self.modules) {
+                Ok(path) => {
+                    self.imports.insert((self.symbol.clone(), path.clone()));
+                    self.aliases.insert(alias, path);
+                }
+                Err(e) => self.unsupported.push(e),
+            }
+        }
+    }
 }
 impl<'ast> Visit<'ast> for Paths {
     fn visit_path(&mut self, p: &'ast syn::Path) {
@@ -195,20 +257,26 @@ impl<'ast> Visit<'ast> for Paths {
                 parts.join("::")
             };
             if parts.len() > 1 || self.aliases.contains_key(first) {
-                self.paths.insert(path);
+                match module_path(&path, &self.module, &self.modules) {
+                    Ok(path) => {
+                        self.paths.insert((self.symbol.clone(), path));
+                    }
+                    Err(e) => self.unsupported.push(e),
+                }
             }
         }
         visit::visit_path(self, p);
     }
     fn visit_macro(&mut self, m: &'ast syn::Macro) {
-        self.macros.insert(
+        self.macros.insert((
+            self.symbol.clone(),
             m.path
                 .segments
                 .iter()
                 .map(|s| s.ident.to_string())
                 .collect::<Vec<_>>()
                 .join("::"),
-        );
+        ));
         match macro_expressions(m) {
             Ok(expressions) => {
                 for expr in expressions {
@@ -218,6 +286,79 @@ impl<'ast> Visit<'ast> for Paths {
             Err(error) => self.unsupported.push(error),
         }
         visit::visit_macro(self, m);
+    }
+    fn visit_item_use(&mut self, u: &'ast syn::ItemUse) {
+        self.import(u);
+        visit::visit_item_use(self, u);
+    }
+    fn visit_block(&mut self, b: &'ast syn::Block) {
+        let saved = self.aliases.clone();
+        // Rust block items, including use declarations, are in scope throughout the block.
+        for statement in &b.stmts {
+            if let syn::Stmt::Item(item) = statement {
+                if let Item::Use(u) = item {
+                    self.import(u);
+                }
+                let name = match item {
+                    Item::Fn(i) => Some(i.sig.ident.to_string()),
+                    Item::Struct(i) => Some(i.ident.to_string()),
+                    Item::Enum(i) => Some(i.ident.to_string()),
+                    Item::Type(i) => Some(i.ident.to_string()),
+                    _ => None,
+                };
+                if let Some(name) = name {
+                    self.aliases
+                        .insert(name.clone(), format!("crate::{}::{name}", self.module));
+                }
+            }
+        }
+        visit::visit_block(self, b);
+        self.aliases = saved;
+    }
+    fn visit_item_fn(&mut self, f: &'ast syn::ItemFn) {
+        let saved = std::mem::replace(&mut self.symbol, f.sig.ident.to_string());
+        visit::visit_item_fn(self, f);
+        self.symbol = saved;
+    }
+    fn visit_item_impl(&mut self, i: &'ast syn::ItemImpl) {
+        let saved = self.impl_name.clone();
+        let aliases = self.aliases.clone();
+        if let syn::Type::Path(p) = i.self_ty.as_ref() {
+            if let Some(name) = p.path.segments.last() {
+                self.impl_name = Some(name.ident.to_string());
+                self.aliases.insert(
+                    "Self".into(),
+                    format!("crate::{}::{}", self.module, name.ident),
+                );
+            }
+        }
+        visit::visit_item_impl(self, i);
+        self.impl_name = saved;
+        self.aliases = aliases;
+    }
+    fn visit_impl_item_fn(&mut self, f: &'ast syn::ImplItemFn) {
+        let name = self.impl_name.as_deref().unwrap_or("<impl>");
+        let saved = std::mem::replace(&mut self.symbol, format!("{name}::{}", f.sig.ident));
+        visit::visit_impl_item_fn(self, f);
+        self.symbol = saved;
+    }
+    fn visit_item_trait(&mut self, t: &'ast syn::ItemTrait) {
+        let saved = self.impl_name.replace(t.ident.to_string());
+        visit::visit_item_trait(self, t);
+        self.impl_name = saved;
+    }
+    fn visit_trait_item_fn(&mut self, f: &'ast syn::TraitItemFn) {
+        let name = self.impl_name.as_deref().unwrap_or("<trait>");
+        let saved = std::mem::replace(&mut self.symbol, format!("{name}::{}", f.sig.ident));
+        visit::visit_trait_item_fn(self, f);
+        self.symbol = saved;
+    }
+    fn visit_item_mod(&mut self, m: &'ast syn::ItemMod) {
+        if m.content.is_some() {
+            self.unsupported
+                .push("unsupported inline production module".into());
+        }
+        visit::visit_item_mod(self, m);
     }
 }
 fn record(
@@ -231,6 +372,61 @@ fn record(
     let o = owner(module, symbol);
     let portable = matches!(module, "command_data" | "command") || symbol == "decode_view";
     exports.push(json!({"id":format!("rust:{module}:{symbol}"),"owner":o,"symbol":symbol,"source":source,"definition":kind,"contract":format!("rhizomatic.{o}/native-api/1"),"classification":if portable{"portable_contract"}else{"native_extension"},"semantics":format!("{o} owns the existing {module}::{symbol} {kind}; native callers supply the declared inputs and policy parameters. No command-profile capability is inferred from this export."),"cfg":cfg(attrs)}));
+}
+fn dependency_record(
+    dependencies: &mut Vec<Value>,
+    position: (&str, &str, &str),
+    path: &str,
+    import: bool,
+    aggregate: &BTreeMap<String, String>,
+    external: &BTreeSet<String>,
+) -> Result<(), String> {
+    let (source, module, symbol) = position;
+    let region = if module == "wasm" {
+        "host-adapter"
+    } else if module == "lib" {
+        "compatibility-aggregate"
+    } else {
+        "semantic-owner"
+    };
+    if let Some(path_tail) = path.strip_prefix("crate::") {
+        let parts: Vec<_> = path_tail.split("::").collect();
+        let resolved = if let Some(target) = parts.first().and_then(|first| aggregate.get(*first)) {
+            format!(
+                "{}{}",
+                target,
+                if parts.len() > 1 {
+                    format!("::{}", parts[1..].join("::"))
+                } else {
+                    String::new()
+                }
+            )
+        } else {
+            path_tail.to_string()
+        };
+        let parts: Vec<_> = resolved.trim_start_matches("crate::").split("::").collect();
+        let target_owner = owner(
+            parts.first().copied().unwrap_or(""),
+            parts.get(1).copied().unwrap_or(""),
+        );
+        if target_owner == "unclassified" {
+            return Err(format!(
+                "unclassified internal dependency {source}: {symbol} -> {path}"
+            ));
+        }
+        dependencies.push(json!({"source":source,"symbol":symbol,"owner":owner(module,symbol),"target":format!("crate::{resolved}"),"rawTarget":path,"resolvedTarget":format!("crate::{resolved}"),"targetOwner":target_owner,"form":if import {"syn-import"}else{"syn-resolved-path"},"sourceRegion":region}));
+    } else if path
+        .split("::")
+        .next()
+        .is_some_and(|prefix| external.contains(prefix))
+    {
+        dependencies.push(json!({"source":source,"symbol":symbol,"owner":owner(module,symbol),"target":path,"form":if import {"syn-external-import"}else{"syn-external-path"},"sourceRegion":region}));
+    } else if import {
+        return Err(format!(
+            "unsupported unresolved import {source}: {symbol} -> {path}"
+        ));
+    }
+    Ok(())
 }
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let root = env::args().nth(1).unwrap_or_else(|| "../..".into());
@@ -276,6 +472,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let root_ast = syn::parse_file(&fs::read_to_string(
         Path::new(&root).join("implementations/rust/src/lib.rs"),
     )?)?;
+    let modules: BTreeSet<String> = root_ast
+        .items
+        .iter()
+        .filter_map(|i| {
+            if let Item::Mod(m) = i {
+                Some(m.ident.to_string())
+            } else {
+                None
+            }
+        })
+        .collect();
     let mut aggregate_aliases = BTreeMap::new();
     for item in &root_ast.items {
         if let Item::Use(u) = item {
@@ -283,7 +490,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let mut names = Vec::new();
                 uses(&u.tree, String::new(), &mut names);
                 for (name, path) in names {
-                    aggregate_aliases.insert(name, path);
+                    aggregate_aliases.insert(
+                        name,
+                        module_path(&path, "lib", &modules)?
+                            .trim_start_matches("crate::")
+                            .to_string(),
+                    );
                 }
             }
         }
@@ -308,7 +520,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         let ast = syn::parse_file(&fs::read_to_string(&file)?)?;
         let mut aliases = BTreeMap::new();
-        let mut imports = Vec::new();
         for item in &ast.items {
             let name = match item {
                 Item::Fn(i) => Some(i.sig.ident.to_string()),
@@ -331,23 +542,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     if a == "*" {
                         return Err(format!("unsupported glob import in {source}").into());
                     }
-                    imports.push(p.clone());
-                    aliases.insert(a, p);
+                    aliases.insert(a, module_path(&p, module, &modules)?);
                 }
-            }
-        }
-        for path in imports {
-            if path.starts_with("crate::") {
-                let parts: Vec<_> = path.split("::").skip(1).collect();
-                let resolved = parts
-                    .first()
-                    .and_then(|name| aggregate_aliases.get(*name))
-                    .cloned()
-                    .unwrap_or_else(|| parts.join("::"));
-                let target_parts: Vec<_> = resolved.split("::").collect();
-                dependencies.push(json!({"source":source,"symbol":"<import>","owner":owner(module,""),"target":path,"targetOwner":owner(target_parts.first().copied().unwrap_or(""),target_parts.get(1).copied().unwrap_or("")),"form":"syn-import","sourceRegion":if module=="wasm" {"host-adapter"} else if module=="lib" {"compatibility-aggregate"} else {"semantic-owner"}}));
-            } else {
-                dependencies.push(json!({"source":source,"symbol":"<import>","owner":owner(module,""),"target":path,"form":"syn-external-import","sourceRegion":if module=="wasm" {"host-adapter"} else {"semantic-owner"}}));
             }
         }
         for item in &ast.items {
@@ -393,14 +589,38 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     "enum",
                     &x.attrs,
                 ),
-                Item::Trait(x) if public(&x.vis) => record(
-                    &mut exports,
-                    module,
-                    &x.ident.to_string(),
-                    &source,
-                    "trait",
-                    &x.attrs,
-                ),
+                Item::Trait(x) if public(&x.vis) => {
+                    record(
+                        &mut exports,
+                        module,
+                        &x.ident.to_string(),
+                        &source,
+                        "trait",
+                        &x.attrs,
+                    );
+                    for item in &x.items {
+                        let (name, kind, attrs) = match item {
+                            syn::TraitItem::Fn(f) => {
+                                (f.sig.ident.to_string(), "trait-method", &f.attrs)
+                            }
+                            syn::TraitItem::Type(t) => {
+                                (t.ident.to_string(), "trait-type", &t.attrs)
+                            }
+                            syn::TraitItem::Const(c) => {
+                                (c.ident.to_string(), "trait-constant", &c.attrs)
+                            }
+                            _ => continue,
+                        };
+                        record(
+                            &mut exports,
+                            module,
+                            &format!("{}::{name}", x.ident),
+                            &source,
+                            kind,
+                            attrs,
+                        );
+                    }
+                }
                 Item::Const(x) if public(&x.vis) => record(
                     &mut exports,
                     module,
@@ -431,6 +651,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     for (a, p) in paths {
                         record(&mut exports, module, &a, &source, "reexport", &x.attrs);
                         if let Some(e) = exports.last_mut() {
+                            let p = module_path(&p, module, &modules)?;
                             let parts: Vec<_> = p.split("::").filter(|v| *v != "crate").collect();
                             let target_owner = owner(
                                 parts.first().copied().unwrap_or(""),
@@ -440,7 +661,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             e["contract"] =
                                 json!(format!("rhizomatic.{target_owner}/native-api/1"));
                             e["target"] = json!(p);
-                            e["classification"] = json!("compatibility");
+                            e["classification"] = json!("compatibility_reexport");
                         }
                     }
                 }
@@ -471,16 +692,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
                 _ => {}
             }
-            let mut visitor = Paths {
-                aliases: aliases.clone(),
-                paths: BTreeSet::new(),
-                macros: BTreeSet::new(),
-                unsupported: Vec::new(),
-            };
-            visitor.visit_item(item);
-            if !visitor.unsupported.is_empty() {
-                return Err(format!("{source}: {}", visitor.unsupported.join("; ")).into());
-            }
             let symbol = match item {
                 Item::Fn(x) => x.sig.ident.to_string(),
                 Item::Struct(x) => x.ident.to_string(),
@@ -489,41 +700,46 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     syn::Type::Path(p) => p.path.segments.last().unwrap().ident.to_string(),
                     _ => String::new(),
                 },
+                Item::Use(_) => "<import>".into(),
                 _ => String::new(),
             };
-            for path in visitor.paths {
-                if path.starts_with("crate::") {
-                    let segments: Vec<_> = path.split("::").skip(1).collect();
-                    let resolved = if let Some(target) = segments
-                        .first()
-                        .and_then(|name| aggregate_aliases.get(*name))
-                    {
-                        format!(
-                            "{}{}",
-                            target,
-                            if segments.len() > 1 {
-                                format!("::{}", segments[1..].join("::"))
-                            } else {
-                                String::new()
-                            }
-                        )
-                    } else {
-                        segments.join("::")
-                    };
-                    let mut parts = resolved.split("::");
-                    let m = parts.next().unwrap_or("");
-                    let s = parts.next().unwrap_or("");
-                    dependencies.push(json!({"source":source,"symbol":symbol,"owner":owner(module,&symbol),"target":path,"targetOwner":owner(m,s),"form":"syn-resolved-path","sourceRegion":if module=="wasm" {"host-adapter"} else {"semantic-owner"}}));
-                } else if path
-                    .split("::")
-                    .next()
-                    .is_some_and(|prefix| external_crates.contains(prefix))
-                {
-                    dependencies.push(json!({"source":source,"symbol":symbol,"owner":owner(module,&symbol),"target":path,"form":"syn-external-path","sourceRegion":if module=="wasm" {"host-adapter"} else {"semantic-owner"}}));
-                }
+            let mut visitor = Paths {
+                aliases: aliases.clone(),
+                module: module.into(),
+                modules: modules.clone(),
+                symbol,
+                impl_name: None,
+                paths: BTreeSet::new(),
+                imports: BTreeSet::new(),
+                macros: BTreeSet::new(),
+                unsupported: Vec::new(),
+            };
+            visitor.visit_item(item);
+            if !visitor.unsupported.is_empty() {
+                return Err(format!("{source}: {}", visitor.unsupported.join("; ")).into());
             }
-            if !visitor.macros.is_empty() {
-                dependencies.push(json!({"source":source,"symbol":symbol,"owner":owner(module,&symbol),"form":"macro-region","macros":visitor.macros,"status":"parsed-known-macro-arguments"}));
+            for (symbol, path) in visitor.imports {
+                dependency_record(
+                    &mut dependencies,
+                    (&source, module, &symbol),
+                    &path,
+                    true,
+                    &aggregate_aliases,
+                    &external_crates,
+                )?;
+            }
+            for (symbol, path) in visitor.paths {
+                dependency_record(
+                    &mut dependencies,
+                    (&source, module, &symbol),
+                    &path,
+                    false,
+                    &aggregate_aliases,
+                    &external_crates,
+                )?;
+            }
+            for (symbol, name) in visitor.macros {
+                dependencies.push(json!({"source":source,"symbol":symbol,"owner":owner(module,&symbol),"form":"macro-region","macros":[name],"status":"parsed-known-macro-arguments"}));
             }
         }
     }
