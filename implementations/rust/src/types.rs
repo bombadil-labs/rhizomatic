@@ -1,5 +1,8 @@
 //! The delta data model (SPEC-1 §2). Mirrors ../ts/src/types.ts.
 
+/// Configurable reserved vocabulary prefix, shared by all semantic owners.
+pub const VOCAB_PREFIX: &str = "rhizomatic";
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Primitive {
     Str(String),

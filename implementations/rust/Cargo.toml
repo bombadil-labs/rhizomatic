@@ -41,6 +41,7 @@ tempfile = "3"
 
 [dev-dependencies]
 proptest = "1"
+syn = { version = "2", features = ["full", "visit", "extra-traits"] }
 
 [profile.release]
 # Keep the WASM witness small; the host build doesn't care.

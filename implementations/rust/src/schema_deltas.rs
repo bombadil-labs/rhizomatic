@@ -13,7 +13,7 @@ use crate::term_json::{parse_schema, parse_term};
 use crate::types::{Claims, Pointer, Primitive, Target};
 
 /// The vocabulary prefix is one constant pending the naming decision tracked in CLAUDE.md (S4).
-pub const VOCAB_PREFIX: &str = "rhizomatic";
+pub use crate::types::VOCAB_PREFIX;
 
 fn role(suffix: &str) -> String {
     format!("{VOCAB_PREFIX}.hyperschema.{suffix}")
