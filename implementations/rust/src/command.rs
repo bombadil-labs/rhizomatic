@@ -588,8 +588,16 @@ impl CommandEndpoint {
                     AttemptError::Refused("invalid-definition")
                 },
             )? {
-                crate::schema_deltas::ExactDefinition::Gather(s) => gathers.push((d.id.clone(), s)),
+                crate::schema_deltas::ExactDefinition::Gather(s) => {
+                    if d.id == arguments.schema {
+                        return Err(AttemptError::Refused("invalid-definition"));
+                    }
+                    gathers.push((d.id.clone(), s))
+                }
                 crate::schema_deltas::ExactDefinition::Reading(s) => {
+                    if d.id == arguments.hyperschema {
+                        return Err(AttemptError::Refused("invalid-definition"));
+                    }
                     readings.push((d.id.clone(), s))
                 }
             }
@@ -654,13 +662,19 @@ impl CommandEndpoint {
                 AttemptError::Refused("invalid-program")
             })?;
         }
-        let gathered = crate::eval::eval_term_at(
+        program.reading =
+            crate::eval::bind_program_reading(&program.reading, Some(&arguments.bindings))
+                .map_err(|e| {
+                    diagnostics.push(e);
+                    AttemptError::Refused("invalid-program")
+                })?;
+        let gathered = crate::eval::eval_bound_program_at(
             &program.gather.body,
             &source,
             arguments.at,
             Some(&arguments.root),
             Some(&program.registry),
-            Some(&arguments.bindings),
+            &arguments.bindings,
         )
         .map_err(|e| {
             diagnostics.push(e);

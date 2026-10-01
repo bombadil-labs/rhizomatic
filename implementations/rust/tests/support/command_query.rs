@@ -326,8 +326,17 @@ fn exact_signed_definition_act_and_all_individual_shape_failures() {
     }
     let mut wrong = arguments(&p);
     std::mem::swap(&mut wrong.hyperschema, &mut wrong.schema);
+    let (_, out) = query(&mut r, &p, wrong.clone(), None, 10.0);
+    refusal(&out, "invalid-definition");
+    wrong.hyperschema_pin = format!("1e20{}", "00".repeat(32));
     let (_, out) = query(&mut r, &p, wrong, None, 10.0);
-    refusal(&out, "invalid-program");
+    refusal(&out, "invalid-definition");
+    let mut extra = p.clone();
+    extra.extra.push(gather(gather_body(), "unreachable"));
+    let mut wrong = arguments(&extra);
+    std::mem::swap(&mut wrong.hyperschema, &mut wrong.schema);
+    let (_, out) = query(&mut r, &extra, wrong, None, 10.0);
+    refusal(&out, "invalid-definition");
     evidence("exact_definition_act");
     evidence("definition_pin_mismatch");
     evidence("definition_validity_and_version");
@@ -890,4 +899,146 @@ fn actual_two_level_named_and_pinned_expansion_uses_only_explicit_complete_closu
     refusal(&out, "definition-closure");
     evidence("nested_reference_analysis");
     evidence("definition_closure");
+}
+
+#[test]
+fn reading_variables_bind_top_embedded_referenced_and_fix_local_environments() {
+    use rhizomatic::pred::{Field, MatchConst, StrMatch};
+    let mut r = Rig::new(20);
+    let older = fact(42.0);
+    let preferred = older.claims.author.clone();
+    let mut newer = fact(87.0);
+    newer.claims.timestamp = 2.0;
+    newer.claims.author = author_for_seed(&"06".repeat(32)).unwrap();
+    newer = sign_claims(&newer.claims, &"06".repeat(32)).unwrap();
+    let other = newer.claims.author.clone();
+    r.offer(&[older.clone(), newer.clone()], None, 9.0);
+    let mut s = reading_body();
+    s.default = Policy::Pick(Order::ByPred {
+        pred: Pred::Match {
+            field: Field::Author,
+            cmp: Cmp::Eq,
+            constant: MatchConst::Hole("preferred".into()),
+        },
+        then: Box::new(Order::ByTimestamp { desc: true }),
+    });
+    let mut p = program(gather_body());
+    p.reading_pin = schema_hash(&s).unwrap();
+    p.reading = reading(s.clone());
+    let original = p.reading.clone();
+    let mut a = arguments(&p);
+    a.bindings
+        .insert("preferred".into(), Primitive::Str(preferred.clone()));
+    let (_, out) = query(&mut r, &p, a.clone(), None, 10.0);
+    assert_eq!(value(&out), height(42.0));
+    let OutcomeBody::Evaluate { schema_pin, .. } = read_outcome(&out).unwrap().body else {
+        unreachable!()
+    };
+    assert_eq!(schema_pin, p.reading_pin);
+    assert_eq!(p.reading, original);
+    let source = rhizomatic::set::DeltaSet::from_deltas([older, newer]).unwrap();
+    let embedded = Term::Resolve {
+        schema: s.clone(),
+        of: Box::new(gather_body()),
+    };
+    assert_eq!(
+        rhizomatic::eval::eval_bound_program_at(
+            &embedded,
+            &source,
+            10.0,
+            Some("tree"),
+            None,
+            &a.bindings
+        )
+        .unwrap(),
+        rhizomatic::eval::EvalResult::View(height(42.0))
+    );
+    // Ordinary native calls retain their previous optional-binding reading behavior.
+    assert_eq!(
+        rhizomatic::eval::eval_term_at(
+            &embedded,
+            &source,
+            10.0,
+            Some("tree"),
+            None,
+            Some(&a.bindings)
+        )
+        .unwrap(),
+        rhizomatic::eval::EvalResult::View(height(87.0))
+    );
+    let mut r = Rig::new(20);
+    let link = signed(
+        &"05".repeat(32),
+        vec![
+            Pointer {
+                role: "entity".into(),
+                target: Target::Entity(EntityRef {
+                    id: "tree".into(),
+                    context: Some("branch".into()),
+                }),
+            },
+            Pointer {
+                role: "toChild".into(),
+                target: Target::Entity(EntityRef {
+                    id: "child.root".into(),
+                    context: None,
+                }),
+            },
+        ],
+        1.0,
+    );
+    let child_fact = |n: f64, seed: &str, timestamp: f64| {
+        let mut d = fact(n);
+        let Target::Entity(e) = &mut d.claims.pointers[0].target else {
+            unreachable!()
+        };
+        e.id = "child.root".into();
+        d.claims.timestamp = timestamp;
+        d.claims.author = author_for_seed(seed).unwrap();
+        sign_claims(&d.claims, seed).unwrap()
+    };
+    r.offer(
+        &[
+            link,
+            child_fact(42.0, &"05".repeat(32), 1.0),
+            child_fact(87.0, &"06".repeat(32), 2.0),
+        ],
+        None,
+        9.0,
+    );
+    s.name = Some("child.reading".into());
+    let child_reading = reading(s.clone());
+    let child_pin = schema_hash(&s).unwrap();
+    let child_gather = gather(gather_body(), "child");
+    let expanded = Term::Expand {
+        role: StrMatch::Exact("toChild".into()),
+        schema: SchemaRef::Name("child".into()),
+        reading: Some(SchemaRef::Pinned(child_pin.clone())),
+        of: Box::new(gather_body()),
+    };
+    let mut p = program(expanded.clone());
+    p.extra = vec![child_gather.clone(), child_reading.clone()];
+    let mut a = arguments(&p);
+    a.bindings
+        .insert("preferred".into(), Primitive::Str(preferred.clone()));
+    let (_, out) = query(&mut r, &p, a, None, 10.0);
+    let expected = View::Obj(BTreeMap::from([("branch".into(), height(42.0))]));
+    assert_eq!(value(&out), expected);
+    let expansion_definition = gather(expanded, "local.expansion");
+    let mut p = program(Term::Fix {
+        schema: SchemaRef::Name("local.expansion".into()),
+        entity: "tree".into(),
+        bindings: Some(Bindings::from([(
+            "preferred".into(),
+            Primitive::Str(preferred),
+        )])),
+    });
+    p.extra = vec![expansion_definition, child_gather, child_reading];
+    let mut a = arguments(&p);
+    a.bindings.insert("preferred".into(), Primitive::Str(other));
+    let (_, out) = query(&mut r, &p, a, None, 10.0);
+    assert_eq!(value(&out), expected);
+    assert_eq!(schema_hash(&s).unwrap(), child_pin);
+    evidence("variables");
+    evidence("nested_reference_analysis");
 }
