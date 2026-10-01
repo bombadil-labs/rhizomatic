@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { bindStageEvidence, processOutput } from './command-tower-process.mjs';
+import { mkdtempSync, existsSync, readFileSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { bindStageEvidence, processOutput, rustExecutableFromMessages } from './command-tower-process.mjs';
 
 function inputs() {
   return {
@@ -58,4 +61,28 @@ test('split UTF-8 pipe chunks preserve signed debug strings and diagnostics', as
   assert.equal(await processOutput(process.execPath, ['-e', code], { input: '' }), '{"name":"λ"}');
   const failure = "process.stderr.write(Buffer.from([206])); setTimeout(() => { process.stderr.write(Buffer.from([187])); process.exitCode=1; }, 40);";
   await assert.rejects(processOutput(process.execPath, ['-e', failure], { input: '' }), /exited 1: λ/);
+});
+
+test('timeout terminates descendants before they can write durable state', async t => {
+  const dir = mkdtempSync(join(tmpdir(), 'tower-process-group-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const pid = join(dir, 'pid'), marker = join(dir, 'late-write');
+  const worker = `const fs=require('node:fs'); fs.writeFileSync(${JSON.stringify(pid)},String(process.pid)); setTimeout(()=>fs.writeFileSync(${JSON.stringify(marker)},'late'),1400);`;
+  const parent = `require('node:child_process').spawn(process.execPath,['-e',${JSON.stringify(worker)}],{stdio:'inherit'});`;
+  await assert.rejects(processOutput(process.execPath, ['-e', parent], { timeout: 700, input: '' }), /process timeout/);
+  assert.ok(existsSync(pid), 'descendant actually started before timeout');
+  await new Promise(resolve => setTimeout(resolve, 900));
+  assert.equal(existsSync(marker), false, 'timed-out descendant must not keep executing');
+  // A killed descendant may briefly be a zombie awaiting its parent/reaper, so
+  // the portable assertion is cessation of its scheduled durable effect.
+  assert.match(readFileSync(pid, 'utf8'), /^\d+$/);
+});
+
+test('Rust executable comes from Cargo artifact messages including target overrides', () => {
+  const message = { reason: 'compiler-artifact', target: { name: 'command_fixture', kind: ['example'] }, executable: '/custom-target/host/debug/examples/command_fixture' };
+  const output = JSON.stringify({ reason: 'compiler-artifact', target: { name: 'library', kind: ['lib'] } }) + '\n' + JSON.stringify(message) + '\n';
+  assert.equal(rustExecutableFromMessages(output), message.executable);
+  assert.throws(() => rustExecutableFromMessages(''), /exactly one/);
+  assert.throws(() => rustExecutableFromMessages(JSON.stringify(message) + '\n' + JSON.stringify(message)), /exactly one/);
+  assert.throws(() => rustExecutableFromMessages(JSON.stringify({ ...message, executable: null })), /exactly one/);
 });

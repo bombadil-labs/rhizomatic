@@ -11,13 +11,19 @@ const environment = () => ({ ...process.env, PATH: join(homedir(), '.cargo/bin')
 
 export function processOutput(command, args, { cwd, input, timeout = 120000 } = {}) {
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { cwd, env: environment(), stdio: ['pipe', 'pipe', 'pipe'] });
+    // CI currently runs these adapters on POSIX. Refuse an unsupported process
+    // isolation model instead of allowing descendants to outlive a timeout.
+    requireThat(process.platform !== 'win32', 'tower process isolation requires a POSIX host');
+    const child = spawn(command, args, { cwd, env: environment(), detached: true, stdio: ['pipe', 'pipe', 'pipe'] });
     child.stdout.setEncoding('utf8');
     child.stderr.setEncoding('utf8');
     let stdout = '', stderr = '', settled = false;
     const finish = error => { if (!settled) { settled = true; clearTimeout(timer); error ? reject(error) : resolve(stdout); } };
-    const timer = setTimeout(() => { child.kill('SIGKILL'); finish(Error(`process timeout: ${command} ${args.join(' ')}`)); }, timeout);
-    child.stdout.on('data', bytes => { stdout += bytes; if (stdout.length > 64 * 1024 * 1024) { child.kill('SIGKILL'); finish(Error('adapter stdout limit')); } });
+    const cancel = () => {
+      if (child.pid) try { process.kill(-child.pid, 'SIGKILL'); } catch (error) { if (error.code !== 'ESRCH') throw error; }
+    };
+    const timer = setTimeout(() => { cancel(); finish(Error(`process timeout: ${command} ${args.join(' ')}`)); }, timeout);
+    child.stdout.on('data', bytes => { stdout += bytes; if (stdout.length > 64 * 1024 * 1024) { cancel(); finish(Error('adapter stdout limit')); } });
     child.stderr.on('data', bytes => { stderr = (stderr + bytes).slice(-65536); });
     child.on('error', finish);
     child.on('close', (code, signal) => finish(code === 0 ? null : Error(`${command} exited ${code ?? signal}: ${stderr}`)));
@@ -53,10 +59,12 @@ export async function prepareWitnesses(root) {
   const tree = await git(['rev-parse', 'HEAD^{tree}']);
   const tsDirectory = join(root, 'implementations/ts'), rustDirectory = join(root, 'implementations/rust');
   const nodeVersion = (await processOutput(process.execPath, ['--version'])).trim();
-  const rustVersion = (await processOutput('rustc', ['--version'])).trim();
+  const rustVersion = (await processOutput('rustc', ['--version', '--verbose'])).trim();
+  const host = /^host: (.+)$/m.exec(rustVersion)?.[1];
+  requireThat(host, 'rustc did not identify the executable host target');
   const cargoVersion = (await processOutput('cargo', ['--version'])).trim();
-  await processOutput('cargo', ['build', '--locked', '--quiet', '--example', 'command_fixture'], { cwd: rustDirectory, timeout: 600000 });
-  const binary = join(rustDirectory, 'target/debug/examples/command_fixture' + (process.platform === 'win32' ? '.exe' : ''));
+  const buildOutput = await processOutput('cargo', ['build', '--locked', '--quiet', '--target', host, '--example', 'command_fixture', '--message-format=json'], { cwd: rustDirectory, timeout: 600000 });
+  const binary = rustExecutableFromMessages(buildOutput);
   const metadata = {
     commit, tree, platform: process.platform, architecture: process.arch,
     ts: { nodeVersion, installedDependencies: directoryDigest(join(tsDirectory, 'node_modules')) },
@@ -66,11 +74,18 @@ export async function prepareWitnesses(root) {
   const adapter = async (witness, input) => {
     requireThat(witness === 'ts' || witness === 'rust', `unavailable adapter: ${witness}`);
     const command = witness === 'ts' ? process.execPath : binary;
-    const args = witness === 'ts' ? [join(tsDirectory, 'node_modules/tsx/dist/cli.mjs'), join(tsDirectory, 'tools/command-fixture.ts')] : [];
+    const args = witness === 'ts' ? ['--import', join(tsDirectory, 'node_modules/tsx/dist/loader.mjs'), join(tsDirectory, 'tools/command-fixture.ts')] : [];
     const stdout = await processOutput(command, args, { cwd: root, input: JSON.stringify(input) + '\n' });
     try { return JSON.parse(stdout); } catch { throw Error(`${witness} adapter emitted invalid JSON`); }
   };
   return { commit, builds, metadata, adapter };
+}
+
+export function rustExecutableFromMessages(output) {
+  const messages = output.trim().split('\n').filter(Boolean).map(line => JSON.parse(line));
+  const artifacts = messages.filter(m => m.reason === 'compiler-artifact' && m.target?.name === 'command_fixture' && m.target.kind?.includes('example') && typeof m.executable === 'string');
+  requireThat(artifacts.length === 1, 'Cargo must report exactly one command fixture executable');
+  return artifacts[0].executable;
 }
 
 // This verifies exact reported execution identities. CI controls report creation;
