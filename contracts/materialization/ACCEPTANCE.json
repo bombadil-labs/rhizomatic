@@ -832,9 +832,9 @@
         "Capture same full source at1000 and1100 using SAME original authority act U.",
         "At1100 use C0 original snapshot with a freshly signed carrier and current check.",
         "At2000 attempt current gather/read using expired U even if old capture was valid at1000.",
-        "Give capture validUntil equal its observation validFrom; separately change authority interval/epoch/context while rows stay same."
+        "Deliver an appearance claiming capture validUntil equal its observation validFrom; separately change authority interval/epoch/context while rows stay same."
       ],
-      "expected": "Unchanged authority ID/component revisions/source revision stay equal across captures; capture IDs/observations differ. C0 validates at its original1000 even expired by1100, so can serve only if fresh current checks succeed. Authority expiry at2000 and malformed capture interval invalid-source stage6. New authority interval/epoch/context changes authority/source revision; no fresh capture timestamp masquerades as new authority basis.",
+      "expected": "Unchanged authority ID/component revisions/source revision stay equal across captures; capture IDs/observations differ. C0 validates at its original1000 even expired by1100, so can serve only if fresh current checks succeed. Authority expiry at2000 is invalid-source stage6. The delivered malformed capture interval is invalid-appearance stage1 under existing Delta claims validation, before source checks. New authority interval/epoch/context changes authority/source revision; no fresh capture timestamp masquerades as new authority basis.",
       "state": "specified",
       "execution_evidence": []
     },
@@ -1321,9 +1321,10 @@
       "schedule": [
         "Mutate receiver/config/revision; entry/transition agreement; generations; duplicate IDs; unreachable support; capture metadata; definitionAt; original signatures.",
         "For retired-only image omit all original descriptor/definition payload; then inject extra unreachable old support.",
-        "Change retired scalar pins/definitionAt without changing receiver-signed terminal transition."
+        "Change retired scalar pins/definitionAt without changing receiver-signed terminal transition.",
+        "Put a malformed authority/capture claim interval in control; separately supply a canonical snapshot with the correct format and an unknown top-level key alongside wrong expected-control, then correct expected-control."
       ],
-      "expected": "Invalid-control for structural/selection inconsistency before preconditions; no activation of forged/mismatched image. Expired descriptor alone is not image corruption; read checks serving validity. Minimal retired image validates; extra old payload or changed terminal scalars invalid-control; active missing closure remains invalid-control.",
+      "expected": "Invalid-control for structural/selection inconsistency before preconditions; no activation of forged/mismatched image. Expired descriptor alone is not image corruption; read checks serving validity. Minimal retired image validates; extra old payload or changed terminal scalars invalid-control; active missing closure remains invalid-control. Malformed embedded claim interval is invalid-control stage5. Snapshot unknown key is deferred until stage6: wrong expected-control wins as precondition-failed stage5; with correct expected-control the unknown key is invalid-source stage6.",
       "state": "specified",
       "execution_evidence": []
     },

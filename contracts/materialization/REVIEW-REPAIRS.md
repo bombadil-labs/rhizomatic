@@ -6,6 +6,17 @@ This records builder changes, **not reviewer acceptance or runtime evidence**. N
 semantics remain in SPEC; cases/allocation remain in ACCEPTANCE/MILESTONES. No production
 implementation or profile-1 changes are part of this repair.
 
+## Follow-up N1/N2 at a07fb25
+
+- N1: malformed authority/capture claim intervals fail existing Delta validation at stage 1
+  (delivered invalid-appearance) or stage 5 (embedded invalid-control). Only interval containment
+  and expiry reach stage 6. Cases: `cmd_authority_capture_validity`, `ctl_control_strict`.
+- N2: stage-4 snapshot decoding checks byte bounds, canonical CBOR well-formedness and format
+  text only; map shape/counts/digests wait until stage 6. `ctl_control_strict` pairs an unknown
+  snapshot key with wrong expected-control, then correct expected-control, to pin the priority.
+
+These are the supervisor's bounded follow-up changes, pending Fable's exact diff check.
+
 ## Blocking findings
 
 | Finding | Disposition in repaired packet | Exact acceptance evidence to build |

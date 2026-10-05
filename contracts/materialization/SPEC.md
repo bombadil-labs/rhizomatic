@@ -294,8 +294,8 @@ are finite host-selected epoch times, validUntil is absent or finite and greater
 These claims, including timestamp and validity, remain byte-for-byte stable across captures of
 an unchanged authority basis. Reuse that original act; do not stamp it at each observation.
 Changed epoch, context, or claim interval requires a new authority ID and source revision.
-Current source use validates authority at the invocation servingAt: expiry or a malformed
-interval is invalid-source at stage 6; revoked host permission is unauthorized. An authority valid at original
+Current source use validates authority at the invocation servingAt: expiry is invalid-source
+at stage 6; revoked host permission is unauthorized. An authority valid at original
 capture that is expired now cannot authorize a current read. This representation
 is inert attributed context, not a portable execution of account law or a self-grant.
 basis is C of the snapshot map below with appearances omitted, format replaced by
@@ -308,7 +308,9 @@ H(snapshotBytes) must agree exactly. Control stores only capture/1, never the sn
 Its author MUST be the installed binding's capturer; claims timestamp/validFrom equal the
 capture observation servingAt; validUntil is absent or finite and greater than validFrom.
 Validate capture testimony at that ORIGINAL observation, not the new invocation time:
-outside its interval or malformed interval is invalid-source at stage 6. On a later read a
+outside its interval is invalid-source at stage 6. Malformed claim intervals instead fail existing
+Delta validation: invalid-appearance at stage 1 for delivered acts, or invalid-control at stage 5
+for acts embedded in a control image. On a later read a
 capture may be past its interval now and still validate its original observation, but current
 binding, authority and host permission checks remain mandatory. A fresh snapshot carrier is
 inert data support; its signature/shape is checked, not used as a current source grant.
@@ -704,7 +706,8 @@ resource-exhausted. No blanket native exception catch can substitute either.
    missing-support, unexpected-support. Next bound-check and decode resolve's outer evidence body
    or the supplied snapshot carrier's data bytes: resource-limit before invalid-evidence or
    invalid-source when size is known. Embedded definition acts/envelopes wait until stages 7/8;
-   detailed snapshot structure waits until stage 6. Resolve requires no separately delivered
+   snapshot decoding here checks only the byte bound, canonical CBOR well-formedness and format
+   text. Snapshot map shape, counts and digests wait until stage 6. Resolve requires no separately delivered
    definitions. Bad arguments beat expired source bindings and missing embedded closure.
 5. Required control read, image byte/count limits and decode, preconditions, registration state,
    then proposed entry-count/generation bounds: control-unavailable; resource-limit or
