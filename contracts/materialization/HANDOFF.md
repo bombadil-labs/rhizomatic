@@ -2,17 +2,17 @@
 
 ## Current assignment
 
-Myk approved the span; the supervisor assigns this builder **M0 only** in isolated
-`rhizomatic-materialization-work/contract`, branch `codex/portable-read-contract` from
-`21b209ed1b14e749a5e7cf84fd9eef4f8e592fb0`. Original repos/worktrees stay untouched. ADLC is
-suspended. One builder, no extra workers. No production code, push, PR, release or worker
-messages beyond the supervisor. Supervisor owns independent Fable review, integration and merges.
+The supervisor accepted M0 independently at 2c07fc1343ec0c9a929833dec39496ba3c9cd721 and
+assigned this builder **M1 only** in isolated `rhizomatic-materialization-work/implementation`,
+branch `codex/portable-evidence-envelope`. Original/contract/review worktrees stay untouched.
+ADLC remains suspended. One builder, no workers, pushes, PRs, merges or releases. Supervisor
+owns independent Fable review and integration. [M1.md](M1.md) names callable ports, vectors,
+executed evidence and replay commands; later milestone cards remain prospective.
 
-Freeze a reviewable local commit, run this packet's structural consistency/negative checks and
-existing unaffected contract/graph checks, report exact SHA/files/checks/blockers to supervisor.
-Fable receives the frozen source and question independently; do not send builder conclusions.
-Subsequent work begins against accepted contract plus explicit supervisor handoff, without an
-invented extra user permission gate. Nothing here claims implemented upper capabilities.
+Freeze a clean reviewable local commit after both witness gates, owner/inventory checks,
+shared cases, crossing/replay and docs/vector freshness. Report exact SHA and evidence to the
+supervisor and stop for pinned independent review. Subsequent work follows an explicit scoped
+supervisor handoff without an extra user-permission ceremony.
 
 ## Read order and semantic owners
 

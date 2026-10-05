@@ -203,7 +203,7 @@
     return sign * (1 + mant / 1024) * 2 ** (exp - 15);
   }
   var MAX_DECODE_DEPTH = 256;
-  function decodeItem(r, depth) {
+  function decodeItem(r, depth, guard, path = []) {
     if (depth > MAX_DECODE_DEPTH) throw new Error("cbor: nesting depth exceeded");
     const head = r.u8();
     const major = head >> 5;
@@ -219,19 +219,25 @@
       }
       case 4: {
         const len = readLength(r, info);
+        guard?.(path, "array", len);
         if (len > r.remaining()) throw new Error("cbor: unexpected end of input");
         const items = [];
-        for (let i = 0; i < len; i++) items.push(decodeItem(r, depth + 1));
+        for (let i = 0; i < len; i++)
+          items.push(decodeItem(r, depth + 1, guard, guard === void 0 ? [] : [...path, i]));
         return array(items);
       }
       case 5: {
         const len = readLength(r, info);
+        guard?.(path, "map", len);
         if (len > Math.floor(r.remaining() / 2)) throw new Error("cbor: unexpected end of input");
         const entries = [];
         for (let i = 0; i < len; i++) {
           const key = decodeItem(r, depth + 1);
           if (key.t !== "tstr") throw new Error("cbor: map keys must be text strings");
-          entries.push([key.v, decodeItem(r, depth + 1)]);
+          entries.push([
+            key.v,
+            decodeItem(r, depth + 1, guard, guard === void 0 ? [] : [...path, key.v])
+          ]);
         }
         return map(entries);
       }
@@ -3166,8 +3172,9 @@
     }
   }
   function schemaToJson(p) {
-    const props = {};
-    for (const [k, v] of p.props) props[k] = policyToJson(v);
+    const props = Object.fromEntries(
+      [...p.props].map(([key, policy]) => [key, policyToJson(policy)])
+    );
     const out = { props, default: policyToJson(p.default) };
     if (p.name !== void 0) out.name = p.name;
     if (p.alg !== void 0) out.alg = p.alg;
@@ -3216,10 +3223,9 @@
           entity: term.entity
         };
         if (term.bindings !== void 0 && term.bindings.size > 0) {
-          const bindings = {};
-          for (const key of [...term.bindings.keys()].sort()) {
-            bindings[key] = term.bindings.get(key);
-          }
+          const bindings = Object.fromEntries(
+            [...term.bindings].sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)
+          );
           out["bindings"] = bindings;
         }
         return out;

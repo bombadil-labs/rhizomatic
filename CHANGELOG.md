@@ -6,6 +6,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 
 ## Unreleased
 
+### Added
+
+- TS/Rust lossless HView envelope and full reading appearance codecs (SPEC-16 M1), with strict
+  canonical decoding, original validity/signatures, reading metadata, finite semantic AST budgets,
+  shared independent golden fixtures and serialized mixed codec towers. Later materialization
+  commands and durable lifecycle remain unimplemented.
+
+### Fixed
+
+- TS schema props, fix bindings and CBOR JSON bridges now preserve legal `__proto__` keys as own
+  properties. Previously lossy inputs may change their broken prior hashes; all unaffected hashes
+  and existing profile1 behavior remain unchanged.
+
 ## 0.11.0-next.7 — 2026-10-01
 
 ### Added

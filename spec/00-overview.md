@@ -160,3 +160,9 @@ The key words MUST, MUST NOT, SHOULD, SHOULD NOT, and MAY are to be interpreted 
 - **Hard deletion semantics.** Negation suppresses; it does not erase. Retention/erasure for regulatory compliance is an instance-level storage policy, addressed (incompletely) in SPEC-6 §7.
 - **A query language.** SPEC-2 defines the target an eventual DSL compiles to; surface syntax is out of scope for v1.
 - **Access control.** Selective *sharing* is federation policy (SPEC-6); enforcement within an instance is an application concern.
+
+### Portable evidence and materialization
+
+[SPEC-16](16-materialization.md) defines lossless HView/reading evidence and the accepted portable
+read/control contract. Only its M1 codecs are implemented by this slice; the later command,
+control lifecycle and Loam trial milestones require their own implementation evidence.

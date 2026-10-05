@@ -139,8 +139,9 @@ function policyToJson(pp: Policy): unknown {
 }
 
 export function schemaToJson(p: Schema): unknown {
-  const props: Record<string, unknown> = {};
-  for (const [k, v] of p.props) props[k] = policyToJson(v);
+  const props = Object.fromEntries(
+    [...p.props].map(([key, policy]) => [key, policyToJson(policy)]),
+  );
   const out: Record<string, unknown> = { props, default: policyToJson(p.default) };
   // name/alg emitted only when present (SPEC-3 ERRATA S6); canonical CBOR sorts keys (D4).
   if (p.name !== undefined) out.name = p.name;
@@ -193,10 +194,9 @@ export function termToJson(term: Term): unknown {
         entity: term.entity,
       };
       if (term.bindings !== undefined && term.bindings.size > 0) {
-        const bindings: Record<string, Primitive> = {};
-        for (const key of [...term.bindings.keys()].sort()) {
-          bindings[key] = term.bindings.get(key)!;
-        }
+        const bindings = Object.fromEntries(
+          [...term.bindings].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
+        );
         out["bindings"] = bindings;
       }
       return out;
@@ -241,9 +241,7 @@ export function cborToJson(v: CborValue): unknown {
     case "array":
       return v.v.map(cborToJson);
     case "map": {
-      const out: Record<string, unknown> = {};
-      for (const [k, x] of v.v) out[k] = cborToJson(x);
-      return out;
+      return Object.fromEntries(v.v.map(([key, child]) => [key, cborToJson(child)]));
     }
   }
 }

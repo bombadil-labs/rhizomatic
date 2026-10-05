@@ -19101,6 +19101,676 @@
       "contract": "rhizomatic.delta/native-api/1",
       "classification": "compatibility_reexport",
       "semantics": "Native delta API DeltaSet.[Symbol.iterator] implements SPEC-1 Delta identity/JSON/CBOR; SPEC-8 container-neutral membership at implementations/ts/src/delta/set.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:algebra/hview-envelope.ts:encodeHViewEnvelope",
+      "owner": "algebra",
+      "symbol": "encodeHViewEnvelope",
+      "source": "implementations/ts/src/algebra/hview-envelope.ts",
+      "definition": "implementations/ts/src/algebra/hview-envelope.ts",
+      "contract": "rhizomatic.hview-envelope/1/encode",
+      "classification": "portable_contract",
+      "semantics": "encodeHViewEnvelope: Encode native HView occurrences with authored pointer slots, original signed or legal unsigned evidence, exact reachable sorted tables, explicit entry order/annotation/legacy reading absence and finite limits. MR-04, MR-05, MR-06, MR-07; definition implementations/ts/src/algebra/hview-envelope.ts."
+    },
+    {
+      "id": "ts:algebra/hview-envelope.ts:decodeHViewEnvelope",
+      "owner": "algebra",
+      "symbol": "decodeHViewEnvelope",
+      "source": "implementations/ts/src/algebra/hview-envelope.ts",
+      "definition": "implementations/ts/src/algebra/hview-envelope.ts",
+      "contract": "rhizomatic.hview-envelope/1/decode",
+      "classification": "portable_contract",
+      "semantics": "decodeHViewEnvelope: Strict receiving codec requires exact canonical wire and support closure, validates signatures without choosing another same-ID appearance, rejects malformed/cyclic/bounded evidence; returns native evidence, not execution proof. MR-04, MR-05, MR-06, MR-07; definition implementations/ts/src/algebra/hview-envelope.ts."
+    },
+    {
+      "id": "ts:algebra/hview-envelope.ts:HViewEnvelopeLimits",
+      "owner": "algebra",
+      "symbol": "HViewEnvelopeLimits",
+      "source": "implementations/ts/src/algebra/hview-envelope.ts",
+      "definition": "implementations/ts/src/algebra/hview-envelope.ts",
+      "contract": "rhizomatic.hview-envelope/1",
+      "classification": "portable_contract",
+      "semantics": "HViewEnvelopeLimits: SPEC-16 bounded pure lossless HView envelope helpers; full original appearance keys and reading metadata are distinct from DeltaID/schemaHash/existing HView identity. No command or authorization dependency. MR-04, MR-05, MR-06, MR-07; definition implementations/ts/src/algebra/hview-envelope.ts."
+    },
+    {
+      "id": "ts:algebra/hview-envelope.ts:HViewEnvelopeLimits#appearances",
+      "owner": "algebra",
+      "symbol": "HViewEnvelopeLimits.appearances",
+      "source": "implementations/ts/src/algebra/hview-envelope.ts",
+      "definition": "implementations/ts/src/algebra/hview-envelope.ts",
+      "contract": "rhizomatic.hview-envelope/1",
+      "classification": "portable_contract",
+      "semantics": "HViewEnvelopeLimits.appearances: SPEC-16 bounded pure lossless HView envelope helpers; full original appearance keys and reading metadata are distinct from DeltaID/schemaHash/existing HView identity. No command or authorization dependency. MR-04, MR-05, MR-06, MR-07; definition implementations/ts/src/algebra/hview-envelope.ts."
+    },
+    {
+      "id": "ts:algebra/hview-envelope.ts:HViewEnvelopeLimits#entries",
+      "owner": "algebra",
+      "symbol": "HViewEnvelopeLimits.entries",
+      "source": "implementations/ts/src/algebra/hview-envelope.ts",
+      "definition": "implementations/ts/src/algebra/hview-envelope.ts",
+      "contract": "rhizomatic.hview-envelope/1",
+      "classification": "portable_contract",
+      "semantics": "HViewEnvelopeLimits.entries: SPEC-16 bounded pure lossless HView envelope helpers; full original appearance keys and reading metadata are distinct from DeltaID/schemaHash/existing HView identity. No command or authorization dependency. MR-04, MR-05, MR-06, MR-07; definition implementations/ts/src/algebra/hview-envelope.ts."
+    },
+    {
+      "id": "ts:algebra/hview-envelope.ts:HViewEnvelopeLimits#nodes",
+      "owner": "algebra",
+      "symbol": "HViewEnvelopeLimits.nodes",
+      "source": "implementations/ts/src/algebra/hview-envelope.ts",
+      "definition": "implementations/ts/src/algebra/hview-envelope.ts",
+      "contract": "rhizomatic.hview-envelope/1",
+      "classification": "portable_contract",
+      "semantics": "HViewEnvelopeLimits.nodes: SPEC-16 bounded pure lossless HView envelope helpers; full original appearance keys and reading metadata are distinct from DeltaID/schemaHash/existing HView identity. No command or authorization dependency. MR-04, MR-05, MR-06, MR-07; definition implementations/ts/src/algebra/hview-envelope.ts."
+    },
+    {
+      "id": "ts:algebra/hview-envelope.ts:HViewEnvelopeLimits#depth",
+      "owner": "algebra",
+      "symbol": "HViewEnvelopeLimits.depth",
+      "source": "implementations/ts/src/algebra/hview-envelope.ts",
+      "definition": "implementations/ts/src/algebra/hview-envelope.ts",
+      "contract": "rhizomatic.hview-envelope/1",
+      "classification": "portable_contract",
+      "semantics": "HViewEnvelopeLimits.depth: SPEC-16 bounded pure lossless HView envelope helpers; full original appearance keys and reading metadata are distinct from DeltaID/schemaHash/existing HView identity. No command or authorization dependency. MR-04, MR-05, MR-06, MR-07; definition implementations/ts/src/algebra/hview-envelope.ts."
+    },
+    {
+      "id": "ts:algebra/hview-envelope.ts:HViewEnvelopeLimits#pointers",
+      "owner": "algebra",
+      "symbol": "HViewEnvelopeLimits.pointers",
+      "source": "implementations/ts/src/algebra/hview-envelope.ts",
+      "definition": "implementations/ts/src/algebra/hview-envelope.ts",
+      "contract": "rhizomatic.hview-envelope/1",
+      "classification": "portable_contract",
+      "semantics": "HViewEnvelopeLimits.pointers: SPEC-16 bounded pure lossless HView envelope helpers; full original appearance keys and reading metadata are distinct from DeltaID/schemaHash/existing HView identity. No command or authorization dependency. MR-04, MR-05, MR-06, MR-07; definition implementations/ts/src/algebra/hview-envelope.ts."
+    },
+    {
+      "id": "ts:algebra/hview-envelope.ts:HViewEnvelopeLimits#buckets",
+      "owner": "algebra",
+      "symbol": "HViewEnvelopeLimits.buckets",
+      "source": "implementations/ts/src/algebra/hview-envelope.ts",
+      "definition": "implementations/ts/src/algebra/hview-envelope.ts",
+      "contract": "rhizomatic.hview-envelope/1",
+      "classification": "portable_contract",
+      "semantics": "HViewEnvelopeLimits.buckets: SPEC-16 bounded pure lossless HView envelope helpers; full original appearance keys and reading metadata are distinct from DeltaID/schemaHash/existing HView identity. No command or authorization dependency. MR-04, MR-05, MR-06, MR-07; definition implementations/ts/src/algebra/hview-envelope.ts."
+    },
+    {
+      "id": "ts:algebra/hview-envelope.ts:HViewEnvelopeLimits#readings",
+      "owner": "algebra",
+      "symbol": "HViewEnvelopeLimits.readings",
+      "source": "implementations/ts/src/algebra/hview-envelope.ts",
+      "definition": "implementations/ts/src/algebra/hview-envelope.ts",
+      "contract": "rhizomatic.hview-envelope/1",
+      "classification": "portable_contract",
+      "semantics": "HViewEnvelopeLimits.readings: SPEC-16 bounded pure lossless HView envelope helpers; full original appearance keys and reading metadata are distinct from DeltaID/schemaHash/existing HView identity. No command or authorization dependency. MR-04, MR-05, MR-06, MR-07; definition implementations/ts/src/algebra/hview-envelope.ts."
+    },
+    {
+      "id": "ts:algebra/hview-envelope.ts:HViewEnvelopeLimits#artifactBytes",
+      "owner": "algebra",
+      "symbol": "HViewEnvelopeLimits.artifactBytes",
+      "source": "implementations/ts/src/algebra/hview-envelope.ts",
+      "definition": "implementations/ts/src/syntax/evidence-codec.ts",
+      "contract": "rhizomatic.algebra/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native algebra API HViewEnvelopeLimits.artifactBytes implements SPEC-2 HView algebra at implementations/ts/src/syntax/evidence-codec.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:algebra/hview-envelope.ts:HViewEnvelopeLimits#syntaxDepth",
+      "owner": "algebra",
+      "symbol": "HViewEnvelopeLimits.syntaxDepth",
+      "source": "implementations/ts/src/algebra/hview-envelope.ts",
+      "definition": "implementations/ts/src/syntax/evidence-codec.ts",
+      "contract": "rhizomatic.algebra/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native algebra API HViewEnvelopeLimits.syntaxDepth implements SPEC-2 HView algebra at implementations/ts/src/syntax/evidence-codec.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:algebra/hview-envelope.ts:HViewEnvelopeLimits#syntaxNodes",
+      "owner": "algebra",
+      "symbol": "HViewEnvelopeLimits.syntaxNodes",
+      "source": "implementations/ts/src/algebra/hview-envelope.ts",
+      "definition": "implementations/ts/src/syntax/evidence-codec.ts",
+      "contract": "rhizomatic.algebra/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native algebra API HViewEnvelopeLimits.syntaxNodes implements SPEC-2 HView algebra at implementations/ts/src/syntax/evidence-codec.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:algebra/hview-envelope.ts:DEFAULT_HVIEW_ENVELOPE_LIMITS",
+      "owner": "algebra",
+      "symbol": "DEFAULT_HVIEW_ENVELOPE_LIMITS",
+      "source": "implementations/ts/src/algebra/hview-envelope.ts",
+      "definition": "implementations/ts/src/algebra/hview-envelope.ts",
+      "contract": "rhizomatic.hview-envelope/1",
+      "classification": "portable_contract",
+      "semantics": "DEFAULT_HVIEW_ENVELOPE_LIMITS: SPEC-16 bounded pure lossless HView envelope helpers; full original appearance keys and reading metadata are distinct from DeltaID/schemaHash/existing HView identity. No command or authorization dependency. MR-04, MR-05, MR-06, MR-07; definition implementations/ts/src/algebra/hview-envelope.ts."
+    },
+    {
+      "id": "ts:cbor.ts:decodeWithGuard",
+      "owner": "delta",
+      "symbol": "decodeWithGuard",
+      "source": "implementations/ts/src/cbor.ts",
+      "definition": "implementations/ts/src/delta/cbor.ts",
+      "contract": "rhizomatic.delta/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native delta API decodeWithGuard implements SPEC-1 Delta identity/JSON/CBOR; SPEC-8 container-neutral membership at implementations/ts/src/delta/cbor.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:cbor.ts:CborContainerGuard",
+      "owner": "delta",
+      "symbol": "CborContainerGuard",
+      "source": "implementations/ts/src/cbor.ts",
+      "definition": "implementations/ts/src/delta/cbor.ts",
+      "contract": "rhizomatic.delta/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native delta API CborContainerGuard implements SPEC-1 Delta identity/JSON/CBOR; SPEC-8 container-neutral membership at implementations/ts/src/delta/cbor.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:delta/cbor.ts:decodeWithGuard",
+      "owner": "delta",
+      "symbol": "decodeWithGuard",
+      "source": "implementations/ts/src/delta/cbor.ts",
+      "definition": "implementations/ts/src/delta/cbor.ts",
+      "contract": "rhizomatic.delta/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native delta API decodeWithGuard implements SPEC-1 Delta identity/JSON/CBOR; SPEC-8 container-neutral membership at implementations/ts/src/delta/cbor.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:delta/cbor.ts:CborContainerGuard",
+      "owner": "delta",
+      "symbol": "CborContainerGuard",
+      "source": "implementations/ts/src/delta/cbor.ts",
+      "definition": "implementations/ts/src/delta/cbor.ts",
+      "contract": "rhizomatic.delta/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native delta API CborContainerGuard implements SPEC-1 Delta identity/JSON/CBOR; SPEC-8 container-neutral membership at implementations/ts/src/delta/cbor.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:index.ts:EvidenceCodecError",
+      "owner": "syntax",
+      "symbol": "EvidenceCodecError",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/syntax/evidence-codec.ts",
+      "contract": "rhizomatic.syntax/reading-appearance/1",
+      "classification": "compatibility_reexport",
+      "semantics": "EvidenceCodecError: SPEC-16 lossless canonical full Schema appearances preserve optional name/alg separately from unchanged props/default schemaHash. Strict receiving decode, explicit semantic AST budgets and fixed error categories. Pure evidence codec, no execution/source permission claim. MR-04, MR-05, MR-07; definition implementations/ts/src/syntax/evidence-codec.ts."
+    },
+    {
+      "id": "ts:index.ts:EvidenceCodecError#code",
+      "owner": "syntax",
+      "symbol": "EvidenceCodecError.code",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/syntax/evidence-codec.ts",
+      "contract": "rhizomatic.syntax/reading-appearance/1",
+      "classification": "compatibility_reexport",
+      "semantics": "EvidenceCodecError.code: SPEC-16 lossless canonical full Schema appearances preserve optional name/alg separately from unchanged props/default schemaHash. Strict receiving decode, explicit semantic AST budgets and fixed error categories. Pure evidence codec, no execution/source permission claim. MR-04, MR-05, MR-07; definition implementations/ts/src/syntax/evidence-codec.ts."
+    },
+    {
+      "id": "ts:index.ts:DEFAULT_READING_APPEARANCE_LIMITS",
+      "owner": "syntax",
+      "symbol": "DEFAULT_READING_APPEARANCE_LIMITS",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/syntax/evidence-codec.ts",
+      "contract": "rhizomatic.syntax/reading-appearance/1",
+      "classification": "compatibility_reexport",
+      "semantics": "DEFAULT_READING_APPEARANCE_LIMITS: SPEC-16 lossless canonical full Schema appearances preserve optional name/alg separately from unchanged props/default schemaHash. Strict receiving decode, explicit semantic AST budgets and fixed error categories. Pure evidence codec, no execution/source permission claim. MR-04, MR-05, MR-07; definition implementations/ts/src/syntax/evidence-codec.ts."
+    },
+    {
+      "id": "ts:index.ts:ReadingAppearanceLimits",
+      "owner": "syntax",
+      "symbol": "ReadingAppearanceLimits",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/syntax/evidence-codec.ts",
+      "contract": "rhizomatic.syntax/reading-appearance/1",
+      "classification": "compatibility_reexport",
+      "semantics": "ReadingAppearanceLimits: SPEC-16 lossless canonical full Schema appearances preserve optional name/alg separately from unchanged props/default schemaHash. Strict receiving decode, explicit semantic AST budgets and fixed error categories. Pure evidence codec, no execution/source permission claim. MR-04, MR-05, MR-07; definition implementations/ts/src/syntax/evidence-codec.ts."
+    },
+    {
+      "id": "ts:index.ts:ReadingAppearanceLimits#artifactBytes",
+      "owner": "syntax",
+      "symbol": "ReadingAppearanceLimits.artifactBytes",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/syntax/evidence-codec.ts",
+      "contract": "rhizomatic.syntax/reading-appearance/1",
+      "classification": "compatibility_reexport",
+      "semantics": "ReadingAppearanceLimits.artifactBytes: SPEC-16 lossless canonical full Schema appearances preserve optional name/alg separately from unchanged props/default schemaHash. Strict receiving decode, explicit semantic AST budgets and fixed error categories. Pure evidence codec, no execution/source permission claim. MR-04, MR-05, MR-07; definition implementations/ts/src/syntax/evidence-codec.ts."
+    },
+    {
+      "id": "ts:index.ts:ReadingAppearanceLimits#syntaxDepth",
+      "owner": "syntax",
+      "symbol": "ReadingAppearanceLimits.syntaxDepth",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/syntax/evidence-codec.ts",
+      "contract": "rhizomatic.syntax/reading-appearance/1",
+      "classification": "compatibility_reexport",
+      "semantics": "ReadingAppearanceLimits.syntaxDepth: SPEC-16 lossless canonical full Schema appearances preserve optional name/alg separately from unchanged props/default schemaHash. Strict receiving decode, explicit semantic AST budgets and fixed error categories. Pure evidence codec, no execution/source permission claim. MR-04, MR-05, MR-07; definition implementations/ts/src/syntax/evidence-codec.ts."
+    },
+    {
+      "id": "ts:index.ts:ReadingAppearanceLimits#syntaxNodes",
+      "owner": "syntax",
+      "symbol": "ReadingAppearanceLimits.syntaxNodes",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/syntax/evidence-codec.ts",
+      "contract": "rhizomatic.syntax/reading-appearance/1",
+      "classification": "compatibility_reexport",
+      "semantics": "ReadingAppearanceLimits.syntaxNodes: SPEC-16 lossless canonical full Schema appearances preserve optional name/alg separately from unchanged props/default schemaHash. Strict receiving decode, explicit semantic AST budgets and fixed error categories. Pure evidence codec, no execution/source permission claim. MR-04, MR-05, MR-07; definition implementations/ts/src/syntax/evidence-codec.ts."
+    },
+    {
+      "id": "ts:index.ts:encodeReadingAppearance",
+      "owner": "syntax",
+      "symbol": "encodeReadingAppearance",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/syntax/reading-appearance.ts",
+      "contract": "rhizomatic.syntax/reading-appearance/1",
+      "classification": "compatibility_reexport",
+      "semantics": "encodeReadingAppearance: SPEC-16 lossless canonical full Schema appearances preserve optional name/alg separately from unchanged props/default schemaHash. Strict receiving decode, explicit semantic AST budgets and fixed error categories. Pure evidence codec, no execution/source permission claim. MR-04, MR-05, MR-07; definition implementations/ts/src/syntax/reading-appearance.ts."
+    },
+    {
+      "id": "ts:index.ts:decodeReadingAppearance",
+      "owner": "syntax",
+      "symbol": "decodeReadingAppearance",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/syntax/reading-appearance.ts",
+      "contract": "rhizomatic.syntax/reading-appearance/1",
+      "classification": "compatibility_reexport",
+      "semantics": "decodeReadingAppearance: SPEC-16 lossless canonical full Schema appearances preserve optional name/alg separately from unchanged props/default schemaHash. Strict receiving decode, explicit semantic AST budgets and fixed error categories. Pure evidence codec, no execution/source permission claim. MR-04, MR-05, MR-07; definition implementations/ts/src/syntax/reading-appearance.ts."
+    },
+    {
+      "id": "ts:index.ts:encodeHViewEnvelope",
+      "owner": "algebra",
+      "symbol": "encodeHViewEnvelope",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/algebra/hview-envelope.ts",
+      "contract": "rhizomatic.hview-envelope/1/encode",
+      "classification": "compatibility_reexport",
+      "semantics": "encodeHViewEnvelope: Encode native HView occurrences with authored pointer slots, original signed or legal unsigned evidence, exact reachable sorted tables, explicit entry order/annotation/legacy reading absence and finite limits. MR-04, MR-05, MR-06, MR-07; definition implementations/ts/src/algebra/hview-envelope.ts."
+    },
+    {
+      "id": "ts:index.ts:decodeHViewEnvelope",
+      "owner": "algebra",
+      "symbol": "decodeHViewEnvelope",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/algebra/hview-envelope.ts",
+      "contract": "rhizomatic.hview-envelope/1/decode",
+      "classification": "compatibility_reexport",
+      "semantics": "decodeHViewEnvelope: Strict receiving codec requires exact canonical wire and support closure, validates signatures without choosing another same-ID appearance, rejects malformed/cyclic/bounded evidence; returns native evidence, not execution proof. MR-04, MR-05, MR-06, MR-07; definition implementations/ts/src/algebra/hview-envelope.ts."
+    },
+    {
+      "id": "ts:index.ts:DEFAULT_HVIEW_ENVELOPE_LIMITS",
+      "owner": "algebra",
+      "symbol": "DEFAULT_HVIEW_ENVELOPE_LIMITS",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/algebra/hview-envelope.ts",
+      "contract": "rhizomatic.hview-envelope/1",
+      "classification": "compatibility_reexport",
+      "semantics": "DEFAULT_HVIEW_ENVELOPE_LIMITS: SPEC-16 bounded pure lossless HView envelope helpers; full original appearance keys and reading metadata are distinct from DeltaID/schemaHash/existing HView identity. No command or authorization dependency. MR-04, MR-05, MR-06, MR-07; definition implementations/ts/src/algebra/hview-envelope.ts."
+    },
+    {
+      "id": "ts:index.ts:HViewEnvelopeLimits",
+      "owner": "algebra",
+      "symbol": "HViewEnvelopeLimits",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/algebra/hview-envelope.ts",
+      "contract": "rhizomatic.hview-envelope/1",
+      "classification": "compatibility_reexport",
+      "semantics": "HViewEnvelopeLimits: SPEC-16 bounded pure lossless HView envelope helpers; full original appearance keys and reading metadata are distinct from DeltaID/schemaHash/existing HView identity. No command or authorization dependency. MR-04, MR-05, MR-06, MR-07; definition implementations/ts/src/algebra/hview-envelope.ts."
+    },
+    {
+      "id": "ts:index.ts:HViewEnvelopeLimits#appearances",
+      "owner": "algebra",
+      "symbol": "HViewEnvelopeLimits.appearances",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/algebra/hview-envelope.ts",
+      "contract": "rhizomatic.hview-envelope/1",
+      "classification": "compatibility_reexport",
+      "semantics": "HViewEnvelopeLimits.appearances: SPEC-16 bounded pure lossless HView envelope helpers; full original appearance keys and reading metadata are distinct from DeltaID/schemaHash/existing HView identity. No command or authorization dependency. MR-04, MR-05, MR-06, MR-07; definition implementations/ts/src/algebra/hview-envelope.ts."
+    },
+    {
+      "id": "ts:index.ts:HViewEnvelopeLimits#entries",
+      "owner": "algebra",
+      "symbol": "HViewEnvelopeLimits.entries",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/algebra/hview-envelope.ts",
+      "contract": "rhizomatic.hview-envelope/1",
+      "classification": "compatibility_reexport",
+      "semantics": "HViewEnvelopeLimits.entries: SPEC-16 bounded pure lossless HView envelope helpers; full original appearance keys and reading metadata are distinct from DeltaID/schemaHash/existing HView identity. No command or authorization dependency. MR-04, MR-05, MR-06, MR-07; definition implementations/ts/src/algebra/hview-envelope.ts."
+    },
+    {
+      "id": "ts:index.ts:HViewEnvelopeLimits#nodes",
+      "owner": "algebra",
+      "symbol": "HViewEnvelopeLimits.nodes",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/algebra/hview-envelope.ts",
+      "contract": "rhizomatic.hview-envelope/1",
+      "classification": "compatibility_reexport",
+      "semantics": "HViewEnvelopeLimits.nodes: SPEC-16 bounded pure lossless HView envelope helpers; full original appearance keys and reading metadata are distinct from DeltaID/schemaHash/existing HView identity. No command or authorization dependency. MR-04, MR-05, MR-06, MR-07; definition implementations/ts/src/algebra/hview-envelope.ts."
+    },
+    {
+      "id": "ts:index.ts:HViewEnvelopeLimits#depth",
+      "owner": "algebra",
+      "symbol": "HViewEnvelopeLimits.depth",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/algebra/hview-envelope.ts",
+      "contract": "rhizomatic.hview-envelope/1",
+      "classification": "compatibility_reexport",
+      "semantics": "HViewEnvelopeLimits.depth: SPEC-16 bounded pure lossless HView envelope helpers; full original appearance keys and reading metadata are distinct from DeltaID/schemaHash/existing HView identity. No command or authorization dependency. MR-04, MR-05, MR-06, MR-07; definition implementations/ts/src/algebra/hview-envelope.ts."
+    },
+    {
+      "id": "ts:index.ts:HViewEnvelopeLimits#pointers",
+      "owner": "algebra",
+      "symbol": "HViewEnvelopeLimits.pointers",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/algebra/hview-envelope.ts",
+      "contract": "rhizomatic.hview-envelope/1",
+      "classification": "compatibility_reexport",
+      "semantics": "HViewEnvelopeLimits.pointers: SPEC-16 bounded pure lossless HView envelope helpers; full original appearance keys and reading metadata are distinct from DeltaID/schemaHash/existing HView identity. No command or authorization dependency. MR-04, MR-05, MR-06, MR-07; definition implementations/ts/src/algebra/hview-envelope.ts."
+    },
+    {
+      "id": "ts:index.ts:HViewEnvelopeLimits#buckets",
+      "owner": "algebra",
+      "symbol": "HViewEnvelopeLimits.buckets",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/algebra/hview-envelope.ts",
+      "contract": "rhizomatic.hview-envelope/1",
+      "classification": "compatibility_reexport",
+      "semantics": "HViewEnvelopeLimits.buckets: SPEC-16 bounded pure lossless HView envelope helpers; full original appearance keys and reading metadata are distinct from DeltaID/schemaHash/existing HView identity. No command or authorization dependency. MR-04, MR-05, MR-06, MR-07; definition implementations/ts/src/algebra/hview-envelope.ts."
+    },
+    {
+      "id": "ts:index.ts:HViewEnvelopeLimits#readings",
+      "owner": "algebra",
+      "symbol": "HViewEnvelopeLimits.readings",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/algebra/hview-envelope.ts",
+      "contract": "rhizomatic.hview-envelope/1",
+      "classification": "compatibility_reexport",
+      "semantics": "HViewEnvelopeLimits.readings: SPEC-16 bounded pure lossless HView envelope helpers; full original appearance keys and reading metadata are distinct from DeltaID/schemaHash/existing HView identity. No command or authorization dependency. MR-04, MR-05, MR-06, MR-07; definition implementations/ts/src/algebra/hview-envelope.ts."
+    },
+    {
+      "id": "ts:index.ts:HViewEnvelopeLimits#artifactBytes",
+      "owner": "algebra",
+      "symbol": "HViewEnvelopeLimits.artifactBytes",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/syntax/evidence-codec.ts",
+      "contract": "rhizomatic.algebra/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native algebra API HViewEnvelopeLimits.artifactBytes implements SPEC-2 HView algebra at implementations/ts/src/syntax/evidence-codec.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:HViewEnvelopeLimits#syntaxDepth",
+      "owner": "algebra",
+      "symbol": "HViewEnvelopeLimits.syntaxDepth",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/syntax/evidence-codec.ts",
+      "contract": "rhizomatic.algebra/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native algebra API HViewEnvelopeLimits.syntaxDepth implements SPEC-2 HView algebra at implementations/ts/src/syntax/evidence-codec.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:HViewEnvelopeLimits#syntaxNodes",
+      "owner": "algebra",
+      "symbol": "HViewEnvelopeLimits.syntaxNodes",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/syntax/evidence-codec.ts",
+      "contract": "rhizomatic.algebra/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native algebra API HViewEnvelopeLimits.syntaxNodes implements SPEC-2 HView algebra at implementations/ts/src/syntax/evidence-codec.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:syntax/evidence-codec.ts:codecLimit",
+      "owner": "syntax",
+      "symbol": "codecLimit",
+      "source": "implementations/ts/src/syntax/evidence-codec.ts",
+      "definition": "implementations/ts/src/syntax/evidence-codec.ts",
+      "contract": "rhizomatic.syntax/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native syntax API codecLimit implements SPEC-2 serializable grammar and explicit binding rules at implementations/ts/src/syntax/evidence-codec.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:syntax/evidence-codec.ts:codecBoundary",
+      "owner": "syntax",
+      "symbol": "codecBoundary",
+      "source": "implementations/ts/src/syntax/evidence-codec.ts",
+      "definition": "implementations/ts/src/syntax/evidence-codec.ts",
+      "contract": "rhizomatic.syntax/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native syntax API codecBoundary implements SPEC-2 serializable grammar and explicit binding rules at implementations/ts/src/syntax/evidence-codec.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:syntax/evidence-codec.ts:codecMap",
+      "owner": "syntax",
+      "symbol": "codecMap",
+      "source": "implementations/ts/src/syntax/evidence-codec.ts",
+      "definition": "implementations/ts/src/syntax/evidence-codec.ts",
+      "contract": "rhizomatic.syntax/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native syntax API codecMap implements SPEC-2 serializable grammar and explicit binding rules at implementations/ts/src/syntax/evidence-codec.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:syntax/evidence-codec.ts:codecText",
+      "owner": "syntax",
+      "symbol": "codecText",
+      "source": "implementations/ts/src/syntax/evidence-codec.ts",
+      "definition": "implementations/ts/src/syntax/evidence-codec.ts",
+      "contract": "rhizomatic.syntax/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native syntax API codecText implements SPEC-2 serializable grammar and explicit binding rules at implementations/ts/src/syntax/evidence-codec.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:syntax/evidence-codec.ts:codecBytes",
+      "owner": "syntax",
+      "symbol": "codecBytes",
+      "source": "implementations/ts/src/syntax/evidence-codec.ts",
+      "definition": "implementations/ts/src/syntax/evidence-codec.ts",
+      "contract": "rhizomatic.syntax/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native syntax API codecBytes implements SPEC-2 serializable grammar and explicit binding rules at implementations/ts/src/syntax/evidence-codec.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:syntax/evidence-codec.ts:codecLimits",
+      "owner": "syntax",
+      "symbol": "codecLimits",
+      "source": "implementations/ts/src/syntax/evidence-codec.ts",
+      "definition": "implementations/ts/src/syntax/evidence-codec.ts",
+      "contract": "rhizomatic.syntax/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native syntax API codecLimits implements SPEC-2 serializable grammar and explicit binding rules at implementations/ts/src/syntax/evidence-codec.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:syntax/evidence-codec.ts:canonicalEvidence",
+      "owner": "syntax",
+      "symbol": "canonicalEvidence",
+      "source": "implementations/ts/src/syntax/evidence-codec.ts",
+      "definition": "implementations/ts/src/syntax/evidence-codec.ts",
+      "contract": "rhizomatic.syntax/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native syntax API canonicalEvidence implements SPEC-2 serializable grammar and explicit binding rules at implementations/ts/src/syntax/evidence-codec.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:syntax/evidence-codec.ts:EvidenceCodecError",
+      "owner": "syntax",
+      "symbol": "EvidenceCodecError",
+      "source": "implementations/ts/src/syntax/evidence-codec.ts",
+      "definition": "implementations/ts/src/syntax/evidence-codec.ts",
+      "contract": "rhizomatic.syntax/reading-appearance/1",
+      "classification": "portable_contract",
+      "semantics": "EvidenceCodecError: SPEC-16 lossless canonical full Schema appearances preserve optional name/alg separately from unchanged props/default schemaHash. Strict receiving decode, explicit semantic AST budgets and fixed error categories. Pure evidence codec, no execution/source permission claim. MR-04, MR-05, MR-07; definition implementations/ts/src/syntax/evidence-codec.ts."
+    },
+    {
+      "id": "ts:syntax/evidence-codec.ts:EvidenceCodecError#code",
+      "owner": "syntax",
+      "symbol": "EvidenceCodecError.code",
+      "source": "implementations/ts/src/syntax/evidence-codec.ts",
+      "definition": "implementations/ts/src/syntax/evidence-codec.ts",
+      "contract": "rhizomatic.syntax/reading-appearance/1",
+      "classification": "portable_contract",
+      "semantics": "EvidenceCodecError.code: SPEC-16 lossless canonical full Schema appearances preserve optional name/alg separately from unchanged props/default schemaHash. Strict receiving decode, explicit semantic AST budgets and fixed error categories. Pure evidence codec, no execution/source permission claim. MR-04, MR-05, MR-07; definition implementations/ts/src/syntax/evidence-codec.ts."
+    },
+    {
+      "id": "ts:syntax/evidence-codec.ts:ReadingAppearanceLimits",
+      "owner": "syntax",
+      "symbol": "ReadingAppearanceLimits",
+      "source": "implementations/ts/src/syntax/evidence-codec.ts",
+      "definition": "implementations/ts/src/syntax/evidence-codec.ts",
+      "contract": "rhizomatic.syntax/reading-appearance/1",
+      "classification": "portable_contract",
+      "semantics": "ReadingAppearanceLimits: SPEC-16 lossless canonical full Schema appearances preserve optional name/alg separately from unchanged props/default schemaHash. Strict receiving decode, explicit semantic AST budgets and fixed error categories. Pure evidence codec, no execution/source permission claim. MR-04, MR-05, MR-07; definition implementations/ts/src/syntax/evidence-codec.ts."
+    },
+    {
+      "id": "ts:syntax/evidence-codec.ts:ReadingAppearanceLimits#artifactBytes",
+      "owner": "syntax",
+      "symbol": "ReadingAppearanceLimits.artifactBytes",
+      "source": "implementations/ts/src/syntax/evidence-codec.ts",
+      "definition": "implementations/ts/src/syntax/evidence-codec.ts",
+      "contract": "rhizomatic.syntax/reading-appearance/1",
+      "classification": "portable_contract",
+      "semantics": "ReadingAppearanceLimits.artifactBytes: SPEC-16 lossless canonical full Schema appearances preserve optional name/alg separately from unchanged props/default schemaHash. Strict receiving decode, explicit semantic AST budgets and fixed error categories. Pure evidence codec, no execution/source permission claim. MR-04, MR-05, MR-07; definition implementations/ts/src/syntax/evidence-codec.ts."
+    },
+    {
+      "id": "ts:syntax/evidence-codec.ts:ReadingAppearanceLimits#syntaxDepth",
+      "owner": "syntax",
+      "symbol": "ReadingAppearanceLimits.syntaxDepth",
+      "source": "implementations/ts/src/syntax/evidence-codec.ts",
+      "definition": "implementations/ts/src/syntax/evidence-codec.ts",
+      "contract": "rhizomatic.syntax/reading-appearance/1",
+      "classification": "portable_contract",
+      "semantics": "ReadingAppearanceLimits.syntaxDepth: SPEC-16 lossless canonical full Schema appearances preserve optional name/alg separately from unchanged props/default schemaHash. Strict receiving decode, explicit semantic AST budgets and fixed error categories. Pure evidence codec, no execution/source permission claim. MR-04, MR-05, MR-07; definition implementations/ts/src/syntax/evidence-codec.ts."
+    },
+    {
+      "id": "ts:syntax/evidence-codec.ts:ReadingAppearanceLimits#syntaxNodes",
+      "owner": "syntax",
+      "symbol": "ReadingAppearanceLimits.syntaxNodes",
+      "source": "implementations/ts/src/syntax/evidence-codec.ts",
+      "definition": "implementations/ts/src/syntax/evidence-codec.ts",
+      "contract": "rhizomatic.syntax/reading-appearance/1",
+      "classification": "portable_contract",
+      "semantics": "ReadingAppearanceLimits.syntaxNodes: SPEC-16 lossless canonical full Schema appearances preserve optional name/alg separately from unchanged props/default schemaHash. Strict receiving decode, explicit semantic AST budgets and fixed error categories. Pure evidence codec, no execution/source permission claim. MR-04, MR-05, MR-07; definition implementations/ts/src/syntax/evidence-codec.ts."
+    },
+    {
+      "id": "ts:syntax/evidence-codec.ts:DEFAULT_READING_APPEARANCE_LIMITS",
+      "owner": "syntax",
+      "symbol": "DEFAULT_READING_APPEARANCE_LIMITS",
+      "source": "implementations/ts/src/syntax/evidence-codec.ts",
+      "definition": "implementations/ts/src/syntax/evidence-codec.ts",
+      "contract": "rhizomatic.syntax/reading-appearance/1",
+      "classification": "portable_contract",
+      "semantics": "DEFAULT_READING_APPEARANCE_LIMITS: SPEC-16 lossless canonical full Schema appearances preserve optional name/alg separately from unchanged props/default schemaHash. Strict receiving decode, explicit semantic AST budgets and fixed error categories. Pure evidence codec, no execution/source permission claim. MR-04, MR-05, MR-07; definition implementations/ts/src/syntax/evidence-codec.ts."
+    },
+    {
+      "id": "ts:syntax/reading-appearance.ts:encodeReadingAppearance",
+      "owner": "syntax",
+      "symbol": "encodeReadingAppearance",
+      "source": "implementations/ts/src/syntax/reading-appearance.ts",
+      "definition": "implementations/ts/src/syntax/reading-appearance.ts",
+      "contract": "rhizomatic.syntax/reading-appearance/1",
+      "classification": "portable_contract",
+      "semantics": "encodeReadingAppearance: SPEC-16 lossless canonical full Schema appearances preserve optional name/alg separately from unchanged props/default schemaHash. Strict receiving decode, explicit semantic AST budgets and fixed error categories. Pure evidence codec, no execution/source permission claim. MR-04, MR-05, MR-07; definition implementations/ts/src/syntax/reading-appearance.ts."
+    },
+    {
+      "id": "ts:syntax/reading-appearance.ts:decodeReadingAppearance",
+      "owner": "syntax",
+      "symbol": "decodeReadingAppearance",
+      "source": "implementations/ts/src/syntax/reading-appearance.ts",
+      "definition": "implementations/ts/src/syntax/reading-appearance.ts",
+      "contract": "rhizomatic.syntax/reading-appearance/1",
+      "classification": "portable_contract",
+      "semantics": "decodeReadingAppearance: SPEC-16 lossless canonical full Schema appearances preserve optional name/alg separately from unchanged props/default schemaHash. Strict receiving decode, explicit semantic AST budgets and fixed error categories. Pure evidence codec, no execution/source permission claim. MR-04, MR-05, MR-07; definition implementations/ts/src/syntax/reading-appearance.ts."
+    },
+    {
+      "id": "ts:syntax/reading-appearance.ts:EvidenceCodecError",
+      "owner": "syntax",
+      "symbol": "EvidenceCodecError",
+      "source": "implementations/ts/src/syntax/reading-appearance.ts",
+      "definition": "implementations/ts/src/syntax/evidence-codec.ts",
+      "contract": "rhizomatic.syntax/reading-appearance/1",
+      "classification": "compatibility_reexport",
+      "semantics": "EvidenceCodecError: SPEC-16 lossless canonical full Schema appearances preserve optional name/alg separately from unchanged props/default schemaHash. Strict receiving decode, explicit semantic AST budgets and fixed error categories. Pure evidence codec, no execution/source permission claim. MR-04, MR-05, MR-07; definition implementations/ts/src/syntax/evidence-codec.ts."
+    },
+    {
+      "id": "ts:syntax/reading-appearance.ts:EvidenceCodecError#code",
+      "owner": "syntax",
+      "symbol": "EvidenceCodecError.code",
+      "source": "implementations/ts/src/syntax/reading-appearance.ts",
+      "definition": "implementations/ts/src/syntax/evidence-codec.ts",
+      "contract": "rhizomatic.syntax/reading-appearance/1",
+      "classification": "compatibility_reexport",
+      "semantics": "EvidenceCodecError.code: SPEC-16 lossless canonical full Schema appearances preserve optional name/alg separately from unchanged props/default schemaHash. Strict receiving decode, explicit semantic AST budgets and fixed error categories. Pure evidence codec, no execution/source permission claim. MR-04, MR-05, MR-07; definition implementations/ts/src/syntax/evidence-codec.ts."
+    },
+    {
+      "id": "ts:syntax/reading-appearance.ts:DEFAULT_READING_APPEARANCE_LIMITS",
+      "owner": "syntax",
+      "symbol": "DEFAULT_READING_APPEARANCE_LIMITS",
+      "source": "implementations/ts/src/syntax/reading-appearance.ts",
+      "definition": "implementations/ts/src/syntax/evidence-codec.ts",
+      "contract": "rhizomatic.syntax/reading-appearance/1",
+      "classification": "compatibility_reexport",
+      "semantics": "DEFAULT_READING_APPEARANCE_LIMITS: SPEC-16 lossless canonical full Schema appearances preserve optional name/alg separately from unchanged props/default schemaHash. Strict receiving decode, explicit semantic AST budgets and fixed error categories. Pure evidence codec, no execution/source permission claim. MR-04, MR-05, MR-07; definition implementations/ts/src/syntax/evidence-codec.ts."
+    },
+    {
+      "id": "ts:syntax/reading-appearance.ts:ReadingAppearanceLimits",
+      "owner": "syntax",
+      "symbol": "ReadingAppearanceLimits",
+      "source": "implementations/ts/src/syntax/reading-appearance.ts",
+      "definition": "implementations/ts/src/syntax/evidence-codec.ts",
+      "contract": "rhizomatic.syntax/reading-appearance/1",
+      "classification": "compatibility_reexport",
+      "semantics": "ReadingAppearanceLimits: SPEC-16 lossless canonical full Schema appearances preserve optional name/alg separately from unchanged props/default schemaHash. Strict receiving decode, explicit semantic AST budgets and fixed error categories. Pure evidence codec, no execution/source permission claim. MR-04, MR-05, MR-07; definition implementations/ts/src/syntax/evidence-codec.ts."
+    },
+    {
+      "id": "ts:syntax/reading-appearance.ts:ReadingAppearanceLimits#artifactBytes",
+      "owner": "syntax",
+      "symbol": "ReadingAppearanceLimits.artifactBytes",
+      "source": "implementations/ts/src/syntax/reading-appearance.ts",
+      "definition": "implementations/ts/src/syntax/evidence-codec.ts",
+      "contract": "rhizomatic.syntax/reading-appearance/1",
+      "classification": "compatibility_reexport",
+      "semantics": "ReadingAppearanceLimits.artifactBytes: SPEC-16 lossless canonical full Schema appearances preserve optional name/alg separately from unchanged props/default schemaHash. Strict receiving decode, explicit semantic AST budgets and fixed error categories. Pure evidence codec, no execution/source permission claim. MR-04, MR-05, MR-07; definition implementations/ts/src/syntax/evidence-codec.ts."
+    },
+    {
+      "id": "ts:syntax/reading-appearance.ts:ReadingAppearanceLimits#syntaxDepth",
+      "owner": "syntax",
+      "symbol": "ReadingAppearanceLimits.syntaxDepth",
+      "source": "implementations/ts/src/syntax/reading-appearance.ts",
+      "definition": "implementations/ts/src/syntax/evidence-codec.ts",
+      "contract": "rhizomatic.syntax/reading-appearance/1",
+      "classification": "compatibility_reexport",
+      "semantics": "ReadingAppearanceLimits.syntaxDepth: SPEC-16 lossless canonical full Schema appearances preserve optional name/alg separately from unchanged props/default schemaHash. Strict receiving decode, explicit semantic AST budgets and fixed error categories. Pure evidence codec, no execution/source permission claim. MR-04, MR-05, MR-07; definition implementations/ts/src/syntax/evidence-codec.ts."
+    },
+    {
+      "id": "ts:syntax/reading-appearance.ts:ReadingAppearanceLimits#syntaxNodes",
+      "owner": "syntax",
+      "symbol": "ReadingAppearanceLimits.syntaxNodes",
+      "source": "implementations/ts/src/syntax/reading-appearance.ts",
+      "definition": "implementations/ts/src/syntax/evidence-codec.ts",
+      "contract": "rhizomatic.syntax/reading-appearance/1",
+      "classification": "compatibility_reexport",
+      "semantics": "ReadingAppearanceLimits.syntaxNodes: SPEC-16 lossless canonical full Schema appearances preserve optional name/alg separately from unchanged props/default schemaHash. Strict receiving decode, explicit semantic AST budgets and fixed error categories. Pure evidence codec, no execution/source permission claim. MR-04, MR-05, MR-07; definition implementations/ts/src/syntax/evidence-codec.ts."
+    },
+    {
+      "id": "ts:syntax/reading-budget.ts:checkReadingSyntax",
+      "owner": "syntax",
+      "symbol": "checkReadingSyntax",
+      "source": "implementations/ts/src/syntax/reading-budget.ts",
+      "definition": "implementations/ts/src/syntax/reading-budget.ts",
+      "contract": "rhizomatic.syntax/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native syntax API checkReadingSyntax implements SPEC-2 serializable grammar and explicit binding rules at implementations/ts/src/syntax/reading-budget.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:syntax/reading-wire-budget.ts:checkReadingWireSyntax",
+      "owner": "syntax",
+      "symbol": "checkReadingWireSyntax",
+      "source": "implementations/ts/src/syntax/reading-wire-budget.ts",
+      "definition": "implementations/ts/src/syntax/reading-wire-budget.ts",
+      "contract": "rhizomatic.syntax/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native syntax API checkReadingWireSyntax implements SPEC-2 serializable grammar and explicit binding rules at implementations/ts/src/syntax/reading-wire-budget.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:syntax/evidence-codec.ts:codecTextSize",
+      "owner": "syntax",
+      "symbol": "codecTextSize",
+      "source": "implementations/ts/src/syntax/evidence-codec.ts",
+      "definition": "implementations/ts/src/syntax/evidence-codec.ts",
+      "contract": "rhizomatic.syntax/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native syntax API codecTextSize implements SPEC-2 serializable grammar and explicit binding rules at implementations/ts/src/syntax/evidence-codec.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
     }
   ]
 }

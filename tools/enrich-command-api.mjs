@@ -17,6 +17,8 @@ for(const e of inventory.exports){
  if(module==='schema_deltas'&&['read_exact_definition','ExactDefinition'].includes(symbol))contract='rhizomatic.schema-load/exact-definition/1';
  if(module==='schema'&&['select_program','ProgramSelection','SelectedProgram','ProgramSelectionError','ProgramInspection','ProgramReference','ProgramSort','inspect_program_term','inspect_program_reading'].includes(symbol))contract='rhizomatic.schema/selected-program/1';
  if(module==='ordinary_journal_peer'&&['capture_existing_ordinary_source','OrdinarySourceCapture'].includes(symbol))contract='rhizomatic.federation/coherent-source/1';
+ if(module==='reading_appearance'||module==='evidence_codec')contract='rhizomatic.syntax/reading-appearance/1';
+ if(module==='hview_envelope')contract=symbol==='encode_hview_envelope'?'rhizomatic.hview-envelope/1/encode':symbol==='decode_hview_envelope'?'rhizomatic.hview-envelope/1/decode':'rhizomatic.hview-envelope/1';
  const named=api.find(c=>c.id===contract);
  if(named&&!named.owners.includes(e.owner))throw Error('named semantic owner mismatch');
  const reexport=e.classification==='compatibility_reexport'||e.definition==='reexport';

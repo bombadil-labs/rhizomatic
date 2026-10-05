@@ -3,7 +3,7 @@
 Input: Fable's independent review of `422a8e40178074fca0041734f90c179c785ab0ed`,
 2026-10-05, and supervisor M0 repair decisions including S1 selected-support erasure.
 This records builder changes, **not reviewer acceptance or runtime evidence**. Normative
-semantics remain in SPEC; cases/allocation remain in ACCEPTANCE/MILESTONES. No production
+semantics now live in SPEC-16; cases/allocation remain in ACCEPTANCE/MILESTONES. No production
 implementation or profile-1 changes are part of this repair.
 
 ## Follow-up N1/N2 at a07fb25
@@ -28,7 +28,7 @@ These are the supervisor's bounded follow-up changes, pending Fable's exact diff
 | B5 | MR-08/API/TRANSPORT/bootstrap: invoke receives finite trusted native receivedAt sampled once before preparation. No endpoint clock/global slot; serving-at mismatch invalid-arguments stage4. | `cmd_three_times`, `cmd_input_snapshot`, `loam_concurrent_basis` changed. |
 | B6 | MR-04/21: source-binding validity stage6; first nested decode/produce stages and phase priorities fixed. Per-envelope counters, aggregate body bytes, active descriptor expiry invalid-definition; deterministic pre-CAS overflow. | `cmd_error_priority`, `cmd_limits_complete`, `ctl_validity_advance` changed; `ctl_capacity_rotation`, `ctl_shared_basis_limits` added. |
 | B7 | MR-19/20: public components only peer/revision/capturedAt; inventories remain private. Recomputable evidence hashes separate from attested source commitments. One Basis/closure per maintained body, root adjacent for batch. | `cmd_public_basis_privacy`, `ctl_shared_basis_limits` added; `ctl_install_complete` changed. |
-| B8 | MR-10/21: original authority timestamp/interval stable across captures. Current authority validity, original capture-observation validity; malformed/expired authority or invalid-at-original capture invalid-source stage6. | `cmd_authority_capture_validity` added, including stable IDs/two captures, retained expired-now capture, current authority expiry and malformed interval. |
+| B8 | MR-10/21: original authority timestamp/interval stable across captures. Current authority validity, original capture-observation validity; expiry/interval containment invalid-source stage6; malformed delivered intervals invalid-appearance stage1, embedded invalid-control stage5 (N1). | `cmd_authority_capture_validity` added, including stable IDs/two captures, retained expired-now capture, current authority expiry and malformed interval. |
 | B9 | MR-05/07: native encode domain explicitly verifyCanonicalDelta/verify_canonical_delta including lowercase author/signature text. Noncanonical native spellings invalid-evidence; never normalize and claim losslessness. | `env_signature_choice` changed to uppercase-author/signature legacy-verifiable counterexamples and exact HView byte comparison. |
 | S1 | MR-14/15/17: active supports complete, retired only signed terminal IDs/scalar pins, no original payload. Host retires ALL consumers, purges unreachable and historical/temp/free-page/WAL copies before settlement. This retained program support is an honest host erasure surface. Explicit checkCurrent requiredSupport IDs distinguish affected/unrelated programs sharing binding/revision; host existing refusal facts enforce it, no second interpreter/journal/ambient context. | `ctl_support_erasure`, `ctl_support_erasure_crashes` added with same-binding/revision A/B vs C, shared definition and targeted descriptor, refusal between identical initial/final support checks despite equal source revision, uncertain absent/present, pre/post retire crash, physical cleanup and payload-free cross-witness retired reopen. `ctl_control_strict`, `ctl_retired_restart`, `ctl_metadata_no_payload` changed. |
 
@@ -63,3 +63,21 @@ Original signed Loam closure extraction, real fixture sizes, coherent host physi
 actual control CAS/rotation/purge and cross-witness behavior remain acceptance evidence for later
 milestones. No source-inspection contradiction remains deliberately unresolved in this packet;
 independent Fable re-review decides acceptance. Supervisor owns integration, merges and releases.
+
+## M1 source clarifications
+
+Supervisor confirmed complete encoded-CBOR-key sorting (SPEC-1 §4.1), semantic AST budget family
+traversal, and the bounded TS '__proto__' bridge correction documented in SPEC-16. Earlier empty
+oracles using raw UTF-8 sorting were withdrawn and corrected independently. The shared M1 vectors
+pin reserved own properties/nested bridges and exact syntax depth/count boundaries. These are
+implementation clarifications, not claims of completed runtime acceptance.
+
+Concrete M1 hostile-boundary repairs: duplicate CBOR map keys are rejected before the Rust
+canonical encoder can panic; malformed container map keys are structural errors and do not
+consume HView node counters in either witness. A shared lowered-node-limit counterexample pins
+that priority. Conservative UTF-8/payload byte lower bounds are checked before native bridge
+serialization and accumulated across distinct tables and repeated node text; exact canonical
+artifact length still decides the boundary. Shared exact/one-over schedules cover cumulative
+payloads, repeated multibyte node text and primitive author-rank metadata. Metadata still adds
+zero syntax nodes. Original profile1 vectors and hashes remain unchanged outside E23's explicitly
+approved reserved-key correction.

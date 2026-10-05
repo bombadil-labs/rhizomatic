@@ -1,0 +1,43 @@
+{
+  "status": "independently_derived_expected_bytes_not_runtime_execution",
+  "source": "Corrected after builder caught raw UTF-8 sorting error: existing C sorts full encoded CBOR key bytes lexicographically (SPEC-1 section 4.1 / D4). Separate Python encoder imports no witness code. These empty fixtures certify no signatures, nonempty evidence or transport digest.",
+  "cases": [
+    {
+      "id": "empty_root",
+      "input": {
+        "format": "rhizomatic.hview-envelope/1",
+        "appearances": [],
+        "readings": [],
+        "root": {
+          "id": "item:moss",
+          "props": {}
+        }
+      },
+      "expectedEnvelopeHex": "a464726f6f74a2626964696974656d3a6d6f73736570726f7073a066666f726d6174781b7268697a6f6d617469632e68766965772d656e76656c6f70652f316872656164696e6773806b617070656172616e63657380",
+      "expectedEnvelopeBytes": 86,
+      "expectedExistingHViewHex": "a2626964696974656d3a6d6f73736570726f7073a0"
+    },
+    {
+      "id": "empty_buckets_encoded_key_order",
+      "input": {
+        "format": "rhizomatic.hview-envelope/1",
+        "appearances": [],
+        "readings": [],
+        "root": {
+          "id": "item:moss",
+          "props": {
+            "é": [],
+            "z": [],
+            "aaaa": [],
+            "b": []
+          }
+        }
+      },
+      "expectedEnvelopeHex": "a464726f6f74a2626964696974656d3a6d6f73736570726f7073a4616280617a8062c3a98064616161618066666f726d6174781b7268697a6f6d617469632e68766965772d656e76656c6f70652f316872656164696e6773806b617070656172616e63657380",
+      "expectedEnvelopeBytes": 102,
+      "expectedExistingHViewHex": "a2626964696974656d3a6d6f73736570726f7073a4616280617a8062c3a980646161616180"
+    }
+  ],
+  "supersedes": "Previous expected bytes in this file used incorrect raw UTF-8 ordering; do not use them.",
+  "derivation": "Empty fixtures use only text, maps and empty arrays. UTF-8 text of length n uses head 0x60+n for n<24, else 0x78 followed by n; concatenate the original UTF-8 bytes. A map of n entries uses 0xa0+n followed by key/value pairs sorted lexicographically by the complete encoded text-key bytes. An empty array is 0x80 and an empty map is 0xa0. Apply these rules recursively to each literal input; envelope key order is root, format, readings, appearances, and bucket key order is b, z, é, aaaa. Existing HView is the separately encoded literal root object. No float, signature, digest or witness codec is used in this derivation."
+}

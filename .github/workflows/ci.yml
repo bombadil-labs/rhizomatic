@@ -34,6 +34,7 @@ jobs:
         run: |
           npm run gen-vectors
           npm run gen-command-vectors
+          npm run gen-evidence-vectors
           git diff --exit-code ../../vectors
           git diff --exit-code ../../contracts/command/coverage.json ../../contracts/command/TOWERS.json
 
@@ -150,4 +151,41 @@ jobs:
           path: |
             ${{ runner.temp }}/command-acceptance
             ${{ runner.temp }}/command-existing-conformance.json
+          if-no-files-found: error
+
+  materialization-m1:
+    name: Materialization M0 structure and M1 codec crossings
+    needs: [typescript, rust, haskell, elixir]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: implementations/ts/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: implementations/rust
+      - run: npm ci --ignore-scripts --prefix implementations/ts
+      - name: M0 packet and live semantic owner inventories
+        run: |
+          node contracts/materialization/validate.mjs --self-test
+          node tools/check-command-contracts.mjs --self-test
+          node tools/check-package-graph.mjs
+          node tools/check-rust-command-boundaries.mjs
+      - name: M1 cases, fixed crossings, three seeded towers and exact replay
+        env:
+          M1_ARTIFACT_DIR: ${{ runner.temp }}/materialization-m1
+          M1_SEED: m1:${{ github.run_id }}:${{ github.run_attempt }}:${{ github.sha }}
+        run: |
+          node tools/check-evidence-acceptance.mjs
+          node tools/check-evidence-towers.mjs --replay "$M1_ARTIFACT_DIR"
+      - name: Retain M1 evidence and reproducible codec plans
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: materialization-m1-evidence
+          path: ${{ runner.temp }}/materialization-m1
           if-no-files-found: error

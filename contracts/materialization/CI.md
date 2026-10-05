@@ -64,3 +64,10 @@ actual published Plant/Bed count/bytes and native/portable route choice before a
 infer whole-store feasibility from the 128-fact fixture.
 No speed threshold justifies incomplete evidence, hashes changing or omission of current-source
 checks. Baselines are measurements, not invented estimates or proof of incremental performance.
+
+## M1 executable wiring
+
+The materialization-m1 CI job now runs packet structure plus live owner inventories, all 15 M1
+case IDs, both fixed directions, three seeded codec assignments per selected fixture and exact
+retained replay. It depends on all four unchanged-level witness jobs and uploads concrete
+REPORT/COVERAGE/test/plan/port artifacts. Profiles M2–M5 remain prospective. See [M1.md](M1.md).

@@ -52,7 +52,7 @@ function packet() {
     acceptance: json('ACCEPTANCE.json'), milestones: json('MILESTONES.json'),
     boundaries: json('BOUNDARIES.json'), api: json('API.json'),
     towers: json('TOWERS.json'), bootstrap: json('bootstrap.json'),
-    spec: readFileSync(resolve(directory, 'SPEC.md'), 'utf8'),
+    spec: readFileSync(resolve(directory, '../../spec/16-materialization.md'), 'utf8'),
     loam: readFileSync(resolve(directory, 'LOAM-TRIAL.md'), 'utf8'),
     repairs: readFileSync(resolve(directory, 'REVIEW-REPAIRS.md'), 'utf8'),
   };

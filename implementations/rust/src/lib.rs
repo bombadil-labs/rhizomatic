@@ -110,3 +110,17 @@ pub use term_io::{
 };
 pub use term_json::{parse_pred, parse_pred_diagnostic, parse_term, parse_term_diagnostic};
 pub use types::{Claims, Delta, DeltaRef, EntityRef, Pointer, Primitive, Target};
+
+pub mod evidence_codec;
+pub mod hview_envelope;
+pub mod reading_appearance;
+mod reading_budget;
+mod reading_wire_budget;
+pub use evidence_codec::{
+    EvidenceCodecError, ReadingAppearanceLimits, DEFAULT_READING_APPEARANCE_LIMITS,
+};
+pub use hview_envelope::{
+    decode_hview_envelope, encode_hview_envelope, HViewEnvelopeLimits,
+    DEFAULT_HVIEW_ENVELOPE_LIMITS,
+};
+pub use reading_appearance::{decode_reading_appearance, encode_reading_appearance};
