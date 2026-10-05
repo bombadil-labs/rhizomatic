@@ -228,3 +228,17 @@ export {
   type CommandProgramCode,
   type CommandProgramDefinition,
 } from "./schema/command-program.js";
+
+export {
+  EvidenceCodecError,
+  DEFAULT_READING_APPEARANCE_LIMITS,
+  type ReadingAppearanceLimits,
+  encodeReadingAppearance,
+  decodeReadingAppearance,
+} from "./syntax/reading-appearance.js";
+export {
+  encodeHViewEnvelope,
+  decodeHViewEnvelope,
+  DEFAULT_HVIEW_ENVELOPE_LIMITS,
+  type HViewEnvelopeLimits,
+} from "./algebra/hview-envelope.js";

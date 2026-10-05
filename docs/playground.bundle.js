@@ -1345,8 +1345,9 @@
     }
   }
   function schemaToJson(p) {
-    const props = {};
-    for (const [k, v] of p.props) props[k] = policyToJson(v);
+    const props = Object.fromEntries(
+      [...p.props].map(([key, policy]) => [key, policyToJson(policy)])
+    );
     const out = { props, default: policyToJson(p.default) };
     if (p.name !== void 0) out.name = p.name;
     if (p.alg !== void 0) out.alg = p.alg;
@@ -1395,10 +1396,9 @@
           entity: term.entity
         };
         if (term.bindings !== void 0 && term.bindings.size > 0) {
-          const bindings = {};
-          for (const key of [...term.bindings.keys()].sort()) {
-            bindings[key] = term.bindings.get(key);
-          }
+          const bindings = Object.fromEntries(
+            [...term.bindings].sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)
+          );
           out["bindings"] = bindings;
         }
         return out;

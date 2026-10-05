@@ -244,7 +244,20 @@ function f16BitsToNumber(bits: number): number {
 
 const MAX_DECODE_DEPTH = 256;
 
-function decodeItem(r: ByteReader, depth: number): CborValue {
+// Optional receiving-port guard runs before container allocation/recursion. Paths use keys
+// and numeric array positions; the generic decoder does not interpret an upper grammar.
+export type CborContainerGuard = (
+  path: readonly (string | number)[],
+  kind: "array" | "map",
+  length: number,
+) => void;
+
+function decodeItem(
+  r: ByteReader,
+  depth: number,
+  guard?: CborContainerGuard,
+  path: readonly (string | number)[] = [],
+): CborValue {
   if (depth > MAX_DECODE_DEPTH) throw new Error("cbor: nesting depth exceeded");
   const head = r.u8();
   const major = head >> 5;
@@ -260,19 +273,25 @@ function decodeItem(r: ByteReader, depth: number): CborValue {
     }
     case 4: {
       const len = readLength(r, info);
+      guard?.(path, "array", len);
       if (len > r.remaining()) throw new Error("cbor: unexpected end of input");
       const items: CborValue[] = [];
-      for (let i = 0; i < len; i++) items.push(decodeItem(r, depth + 1));
+      for (let i = 0; i < len; i++)
+        items.push(decodeItem(r, depth + 1, guard, guard === undefined ? [] : [...path, i]));
       return array(items);
     }
     case 5: {
       const len = readLength(r, info);
+      guard?.(path, "map", len);
       if (len > Math.floor(r.remaining() / 2)) throw new Error("cbor: unexpected end of input");
       const entries: Array<[string, CborValue]> = [];
       for (let i = 0; i < len; i++) {
         const key = decodeItem(r, depth + 1);
         if (key.t !== "tstr") throw new Error("cbor: map keys must be text strings");
-        entries.push([key.v, decodeItem(r, depth + 1)]);
+        entries.push([
+          key.v,
+          decodeItem(r, depth + 1, guard, guard === undefined ? [] : [...path, key.v]),
+        ]);
       }
       return map(entries);
     }
@@ -309,4 +328,12 @@ export function decode(bytes: Uint8Array): CborValue {
   const v = decodeItem(r, 0);
   if (!r.done()) throw new Error("cbor: trailing bytes after item");
   return v;
+}
+
+/** Decode with an explicit preallocation container guard; canonicality remains caller-owned. */
+export function decodeWithGuard(bytes: Uint8Array, guard: CborContainerGuard): CborValue {
+  const r = new ByteReader(bytes);
+  const value = decodeItem(r, 0, guard);
+  if (!r.done()) throw new Error("cbor: trailing bytes after item");
+  return value;
 }

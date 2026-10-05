@@ -365,3 +365,12 @@ wanting spelling-insensitive matching expand predicates in the term builder (`ex
 `inSet([spellings…])`), where the evaluated term stays plain enumerated data inside the closed
 grammar. Semantically identical *authored* terms still hash identically; two spellings of a term
 are two terms, which is D16's honesty applied to programs — programs are data here, after all.
+
+## E23 — Legal reserved map keys must survive JSON bridges (2026-10-05)
+
+The TS serializer assigned legal `__proto__` keys onto ordinary object prototypes in schema props,
+fix bindings and the generic CBOR→JSON bridge. Those keys disappeared; Rust preserved them.
+This contradicted byte-honest author-chosen keys and the closed/open map distinction. Use own
+data-property construction, including nested paths. SPEC-16 records the approved compatibility
+exception: previously lossy TS inputs change their broken prior hashes to the lawful encoding;
+all unaffected encodings stay exact. Shared reserved-key and bridge/prototype rails cover this.

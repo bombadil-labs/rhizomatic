@@ -31,3 +31,6 @@ implementations/elixir/cover/
 !.adlc/tickets.json
 !.adlc/specs/
 .claude/settings.local.json
+
+# Reproducible local/CI execution artifacts; uploaded by the M1 composition gate.
+artifacts/

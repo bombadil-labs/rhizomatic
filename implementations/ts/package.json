@@ -65,7 +65,8 @@
     "gen-command-vectors": "tsx tools/gen-command-vectors.ts && tsx tools/gen-command-execution-vectors.ts && tsx tools/gen-command-tower-vectors.ts",
     "demo": "tsx demo/demo.ts",
     "playground:build": "esbuild demo/playground/playground.ts --bundle --format=iife --outfile=demo/playground/bundle.js",
-    "docs:build": "esbuild demo/tour/tour.ts --bundle --format=iife --outfile=../../docs/tour.bundle.js && esbuild demo/playground/playground.ts --bundle --format=iife --outfile=../../docs/playground.bundle.js"
+    "docs:build": "esbuild demo/tour/tour.ts --bundle --format=iife --outfile=../../docs/tour.bundle.js && esbuild demo/playground/playground.ts --bundle --format=iife --outfile=../../docs/playground.bundle.js",
+    "gen-evidence-vectors": "tsx tools/gen-evidence-vectors.ts"
   },
   "dependencies": {
     "@noble/curves": "^1.6.0",

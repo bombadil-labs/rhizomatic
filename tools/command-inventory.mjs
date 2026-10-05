@@ -51,6 +51,8 @@ function classification(e){
  if(e.definition.endsWith('/schema-load/command-definitions.ts'))contract='rhizomatic.schema-load/exact-definition/1';
  if(e.definition.endsWith('/schema/command-program.ts'))contract='rhizomatic.schema/selected-program/1';
  if(['captureOrdinaryJournalSource','OrdinaryJournalCapture'].includes(e.symbol))contract='rhizomatic.federation/coherent-source/1';
+ if(e.definition.endsWith('/syntax/reading-appearance.ts') || ['EvidenceCodecError','EvidenceCodecError.code','ReadingAppearanceLimits','ReadingAppearanceLimits.artifactBytes','ReadingAppearanceLimits.syntaxDepth','ReadingAppearanceLimits.syntaxNodes','DEFAULT_READING_APPEARANCE_LIMITS'].includes(e.symbol))contract='rhizomatic.syntax/reading-appearance/1';
+ if(e.definition.endsWith('/algebra/hview-envelope.ts'))contract=e.symbol==='encodeHViewEnvelope'?'rhizomatic.hview-envelope/1/encode':e.symbol==='decodeHViewEnvelope'?'rhizomatic.hview-envelope/1/decode':'rhizomatic.hview-envelope/1';
  const reexport=e.source!==e.definition;
  const named=api.find(c=>c.id===contract);
  return {...e,contract:contract??`rhizomatic.${e.owner}/native-api/1`,classification:reexport?'compatibility_reexport':contract==='rhizomatic.command/1/host-boot'?'host_capability':named?'portable_contract':'native_extension',semantics:named?`${e.symbol}: ${named.semantics} ${named.requirements.join(', ')}; definition ${e.definition}.`:`Native ${e.owner} API ${e.symbol} implements ${documents[e.owner]??'aggregate owner-preserving exports'} at ${e.definition}. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract.${reexport?' Reexport preserves the defining owner.':''}`};

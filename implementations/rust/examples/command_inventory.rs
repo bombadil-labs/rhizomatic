@@ -41,7 +41,13 @@ fn owner(module: &str, symbol: &str) -> &'static str {
         "command_data" => "command-data",
         "command" => "command",
         "types" | "cbor" | "delta" | "hash" | "sign" | "json_profile" | "b64u" | "set" => "delta",
-        "pred" | "term_io" | "term_json" => "syntax",
+        "pred"
+        | "term_io"
+        | "term_json"
+        | "evidence_codec"
+        | "reading_appearance"
+        | "reading_budget"
+        | "reading_wire_budget" => "syntax",
         "parse_error" if symbol.starts_with("diagnose_") => "syntax",
         "parse_error" | "strict" => "delta",
         "schema" => "schema",
@@ -69,7 +75,7 @@ fn owner(module: &str, symbol: &str) -> &'static str {
                 "resolve-kernel"
             }
         }
-        "hview" => "algebra",
+        "hview" | "hview_envelope" => "algebra",
         "alias" => "delta",
         "reactor" if matches!(symbol, "manifest_member_ids" | "make_manifest_claims") => "delta",
         "reactor" | "materialize" => "reactor",

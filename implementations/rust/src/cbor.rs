@@ -71,7 +71,21 @@ fn f16_bits_to_f64(bits: u16) -> Result<f64, String> {
 
 const MAX_DECODE_DEPTH: usize = 256;
 
-fn decode_item(r: &mut Reader, depth: usize) -> Result<CborValue, String> {
+/// Position in the serialized grammar, without any upper-layer interpretation.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CborPathPart {
+    Key(String),
+    Index(usize),
+}
+
+type ContainerGuard<'a> = dyn FnMut(&[CborPathPart], bool, usize) -> Result<(), String> + 'a;
+
+fn decode_item(
+    r: &mut Reader,
+    depth: usize,
+    path: &mut Vec<CborPathPart>,
+    guard: &mut ContainerGuard<'_>,
+) -> Result<CborValue, String> {
     if depth > MAX_DECODE_DEPTH {
         return Err("cbor: nesting depth exceeded".to_string());
     }
@@ -91,30 +105,37 @@ fn decode_item(r: &mut Reader, depth: usize) -> Result<CborValue, String> {
         }
         4 => {
             let len = read_length(r, info)?;
+            guard(path, false, len)?;
             // Every item consumes at least one byte. Check before reserving so a short hostile
             // image cannot force an allocation based on an untrusted container length.
             if len > r.bytes.len() - r.pos {
                 return Err("cbor: unexpected end of input".to_string());
             }
             let mut items = Vec::with_capacity(len.min(16));
-            for _ in 0..len {
-                items.push(decode_item(r, depth + 1)?);
+            for i in 0..len {
+                path.push(CborPathPart::Index(i));
+                items.push(decode_item(r, depth + 1, path, guard)?);
+                path.pop();
             }
             Ok(CborValue::Array(items))
         }
         5 => {
             let len = read_length(r, info)?;
+            guard(path, true, len)?;
             // A map entry contains at least a one-byte key and a one-byte value.
             if len > (r.bytes.len() - r.pos) / 2 {
                 return Err("cbor: unexpected end of input".to_string());
             }
             let mut entries = Vec::with_capacity(len.min(16));
             for _ in 0..len {
-                let key = decode_item(r, depth + 1)?;
+                let key = decode_item(r, depth + 1, &mut Vec::new(), &mut |_, _, _| Ok(()))?;
                 let CborValue::Tstr(k) = key else {
                     return Err("cbor: map keys must be text strings".to_string());
                 };
-                entries.push((k, decode_item(r, depth + 1)?));
+                path.push(CborPathPart::Key(k.clone()));
+                let value = decode_item(r, depth + 1, path, guard)?;
+                path.pop();
+                entries.push((k, value));
             }
             Ok(CborValue::Map(entries))
         }
@@ -153,11 +174,24 @@ fn decode_item(r: &mut Reader, depth: usize) -> Result<CborValue, String> {
 
 pub fn decode(bytes: &[u8]) -> Result<CborValue, String> {
     let mut r = Reader { bytes, pos: 0 };
-    let v = decode_item(&mut r, 0)?;
+    let v = decode_item(&mut r, 0, &mut Vec::new(), &mut |_, _, _| Ok(()))?;
     if r.pos != bytes.len() {
         return Err("cbor: trailing bytes after item".to_string());
     }
     Ok(v)
+}
+
+/// Decode with a preallocation guard. `is_map=false` denotes an array; paths are explicit.
+pub fn decode_with_guard(
+    bytes: &[u8],
+    guard: &mut impl FnMut(&[CborPathPart], bool, usize) -> Result<(), String>,
+) -> Result<CborValue, String> {
+    let mut r = Reader { bytes, pos: 0 };
+    let value = decode_item(&mut r, 0, &mut Vec::new(), guard)?;
+    if r.pos != bytes.len() {
+        return Err("cbor: trailing bytes after item".to_string());
+    }
+    Ok(value)
 }
 
 /// CBOR head: major type (high 3 bits) plus unsigned argument, shortest form.
