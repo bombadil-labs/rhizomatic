@@ -196,7 +196,7 @@
       "control-result"
     ],
     "M4": "cumulative M1/M2/M3 graphs including mutation/fault schedules",
-    "M5": "same package graphs embedded in selected real Loam door; native application stages explicitly unsplit"
+    "M5": "M2 batch gather/resolve graph at selected present/historical Loam door; no control CAS; native application decoration remains unsplit; capacity excluded paths observed separately"
   },
   "fixed_routes": {
     "M1": [
@@ -223,14 +223,20 @@
       "cmd_three_times",
       "cmd_nested_local_bindings",
       "cmd_source_authority_change",
-      "cmd_error_priority"
+      "cmd_error_priority",
+      "cmd_resolve_embedded_closure",
+      "cmd_authority_capture_validity",
+      "cmd_public_basis_privacy"
     ],
     "M3": [
       "ctl_cross_witness_restore",
       "ctl_equal_count_replace",
       "ctl_postcheck_precommit_race",
       "ctl_uncertain_present",
-      "ctl_retired_restart"
+      "ctl_retired_restart",
+      "ctl_capacity_rotation",
+      "ctl_shared_basis_limits",
+      "ctl_support_erasure"
     ],
     "M4": [
       "tower_corruption_probe",
@@ -259,7 +265,11 @@
     "actual_outputs",
     "artifact_hashes",
     "diagnostics",
-    "replay_command"
+    "replay_command",
+    "trusted_receivedAt_arguments",
+    "source_capacity_classification",
+    "durable_host_configuration_selection",
+    "program_support_purge_observations"
   ],
   "witnesses": [
     {

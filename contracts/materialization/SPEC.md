@@ -1,6 +1,6 @@
 # Portable evidence and maintained reads — proposed normative contract
 
-Status: **M0 draft for independent review; no runtime capability is certified.** Baseline:
+Status: **M0 repaired draft for independent re-review; no runtime capability is certified.** Baseline:
 Rhizomatic `21b209ed1b14e749a5e7cf84fd9eef4f8e592fb0`, Loam `ae0e4e21`.
 This packet proposes a new profile, `rhizomatic.materialization/1`. It does not amend
 `rhizomatic.command/1`, its installed operations, or SPEC-1–15. Requirement IDs MR-01–MR-24
@@ -56,10 +56,10 @@ the exact limit names, never raise them. Count repeated occurrences, not just di
 
 | Limit | Maximum | Counting rule |
 | --- | ---: | --- |
-| artifactBytes | 16,777,216 | each complete canonical envelope, capture, control image or result |
+| artifactBytes | 16,777,216 | each complete canonical envelope, snapshot, capture basis, control image or result body; also each embedded program/support artifact |
 | deliveryAppearances | 8,192 | every delivered Delta appearance before dedup |
 | deliveryBytes | 33,554,432 | canonical claims + decoded sig bytes per delivered appearance |
-| appearances | 4,096 | distinct full appearances in one envelope/capture |
+| appearances | 4,096 | selected appearance records per snapshot; distinct full appearances per envelope |
 | entries | 16,384 | HVEntry occurrences across all nested nodes |
 | nodes | 4,096 | root and every embedded child occurrence |
 | depth | 32 | root depth 1, child depth parent+1 |
@@ -70,13 +70,19 @@ the exact limit names, never raise them. Count repeated occurrences, not just di
 | syntaxDepth | 64 | root syntax node depth 1; predicates/orders/terms/policies all count |
 | syntaxNodes | 16,384 | all nodes in one complete program closure |
 | roots | 64 | per registration |
-| registrations | 64 | active plus retired entries per control image |
+| registrations | 64 | active plus retired entries: lifetime bound per receiver/configuration |
 | components | 64 | contributing peers in one capture |
 | inventoryIds | 16,384 | distinct raw/exclusion membership IDs per capture |
 
 Strings and byte payloads are bounded by artifactBytes as well as enclosing limits. No
-truncated successful result is allowed. Limits are cumulative where a result contains many
-root envelopes. A profile deliberately starts with full snapshots and full results; performance
+truncated successful result is allowed. appearances/entries/nodes/depth/pointers/buckets/readings
+apply independently to EACH envelope; never sum these structural counters across roots.
+artifactBytes applies to the entire result body, including all root envelopes/Views and the one
+shared basis/definition closure. definitions and syntax counters apply to one complete program
+closure, not once per root; roots counts the complete root partition. Snapshot appearance and
+inventory counters apply to that snapshot, including the full authorized source rather than the
+facts a particular root happens to use. MR-21 pins the first decode/produce stage of each limit.
+A profile deliberately starts with full snapshots and full results; performance
 work cannot replace these with patches or relax validation. Physical execution exhaustion is
 `resource-exhausted`, distinguished from deterministic input `resource-limit`.
 
@@ -104,14 +110,20 @@ all authored pointer roles, targets, contexts, pointer order, author, timestamp,
 the exact signature presence/bytes. Two signatures or signed/unsigned forms of the same ID
 are separate appearances; never choose a replacement appearance or re-sign an entry. Generic
 M1 permits valid unsigned native evidence with any legal native author string. When sig is
-present require canonical Ed25519 author and successful existing verification. M2/M3 separately
+present the native encode domain requires TS `verifyCanonicalDelta(delta) === "verified"`
+or Rust `verify_canonical_delta(delta) == Verification::Verified`, including lowercase author
+AND native signature text. Uppercase spellings that legacy verifyDelta accepts return
+`invalid-evidence`; never normalize then claim native HView byte preservation. Envelope decode
+reconstructs lowercase signature text from bytes and applies the same canonical verification.
+M2/M3 separately
 require all source/definition/command appearances to be signed. Generic decode grants no trust.
 
 ReadingAppearance.body is existing `schemaCanonicalHex` decoded to bytes (props/default only).
 Preserve optional name and alg independently, including absence. Decode using syntax, attach
 metadata, and demand exact body re-encoding. key = H(C(ReadingAppearance)). Its semantic
 pin is schemaHash(decoded Schema) = H(body), which deliberately excludes name/alg. Thus
-same-body/different-name readings have equal semantic pins but distinct transport keys. This
+same-body/different-name readings have equal semantic pins but distinct transport keys.
+Entry.readings[].reading is this full transport key, NEVER schemaHash. This
 preserves Loam child resolver lookup by reading name. Same-name/different-body readings also
 remain distinct in M1; the table is NOT a name registry. M2 registry ambiguity is separate.
 
@@ -143,7 +155,8 @@ Decoders enforce
 limits and recursive exact re-encoding. No primitive/byte/delta pointer can be expanded by repair.
 
 **MR-07.** H(envelopeBytes) is **transport identity**, not the existing HView evaluation
-digest H(existing hview canonical bytes). Reconstructing an envelope MUST reproduce the original
+digest H(existing hview canonical bytes). For native inputs within MR-05's stated encode domain,
+reconstructing an envelope MUST reproduce the original
 existing HView canonical bytes and preserve all additional native evidence above. Evaluation
 hash equality alone does not imply envelope equality (e.g. child reading name/alg metadata may differ).
 The envelope does not independently certify the negated annotation, reading choice, input
@@ -173,8 +186,9 @@ of profile-1 endpoint boot and MUST NOT broaden profile-1 authorization.
 Boot configuration and installed declarations MUST be signed by receiver. Boot explicitly
 selects configuration, signing capability, source grants and optional control store; selected
 descriptions are copied and immutable for the endpoint lifetime. Configuration and selected
-operation must be valid at each attempt's receivedAt;
-a required source binding must also be valid then. Retire/restore require no source grant. Invalid
+operation must be valid at each attempt's receivedAt (stage 3). A required source binding is
+checked at stage 6 only after arguments/control identify it; unrelated boot bindings never
+block retire/restore. Retire/restore require no source grant. Invalid
 boot refuses startup. Installed
 operation descriptions have roles `kind`, `name`, `interpreter`, `input-contract`,
 `output-contract`, `effect`, `replay`, `dependencies` (all 1 text except name: entity).
@@ -204,14 +218,26 @@ initialized empty control state only; expected-source is never empty. Read requi
 preconditions; it does not auto-refresh or reinstall. Install and read return all descriptor
 roots. A historical gather requires at = historical-cutoff; absent cutoff is current mode.
 Historical mode cannot install; registration time policy is explicitly live-time/1.
-serving-at must equal the host receivedAt captured once for that invocation; at is independent.
-An async preparer may capture receivedAt first and invoke with that frozen attempt observation;
-it cannot reuse it for a later attempt. Request author timestamps never set either clock.
+The new native endpoint API is boot(config,installed,bindings,signer,sourceGrant,
+controlStore?,diagnostics), then invoke(entryId,debugAppearances,receivedAt). receivedAt is a
+finite native HOST observation, sampled once before async preparation and explicitly handed to
+invoke; there is no independent endpoint clock and no ambient attempt slot. A nonfinite native
+argument is a local transport error without an outcome. A wire request cannot choose/override it.
+serving-at must equal this receivedAt exactly; mismatch is invalid-arguments at stage 4.
+Each new attempt samples its own observation. Request author timestamps never set either clock.
+Any finite at is legal, including after servingAt; historical at still equals cutoff and maintained
+advance must be nondecreasing. live-time/1 means explicit time advancement, not proof of wall-clock
+freshness. Loam's selected present reads explicitly use their observed now for at.
 
 `evidence/1` roles are `kind` 1 text, `result` 1 bytes containing the completed gather body in
 section 6. Its signature attests who carried the evidence, not who ran the program. Resolve
 accepts supplied evidence including foreign carrier authors; access to these bytes is already
-explicit. It neither acquires a source nor grants access to other source rows. It validates the
+explicit. It neither acquires a source nor grants access to other source rows. Its delivery is
+exactly request plus evidence, with boot descriptions already installed.
+Basis.definitions is its ONLY definition source: the complete deduplicated signed closure,
+INCLUDING both top HyperSchema and Schema acts, in delta-ID order. Additionally delivered
+acts are unexpected-support. Missing embedded top/closure acts are definition-closure at stage 7;
+malformed embedded acts are invalid-definition. It validates the
 complete basis, envelope and closure independently, with no ambient registry. A gather outcome
 may be wrapped by a caller as evidence without claiming receiver execution authenticity.
 
@@ -224,7 +250,7 @@ grant pins the entire binding ID and implements its selection. Bindings are rece
 explicitly selected at boot, and sourceId uniqueness is enforced. No name parses as a grant.
 
 The explicit source capability has three operations: capture(bindingId, servingAt, cutoff?),
-checkCurrent(bindingId, revision, authority, servingAt, cutoff?), and
+checkCurrent(bindingId, revision, authority, servingAt, cutoff, requiredSupport), and
 reacquireSnapshot(bindingId, exactCaptureDelta, servingAt). Capture returns the exact signed
 capture/authority and snapshot carrier; checkCurrent returns current; reacquireSnapshot returns
 exact committed snapshotBytes reconstructed/read under that grant (no new capture signature).
@@ -240,11 +266,37 @@ stale. Completed output describes that checked captured basis; the next read che
 No unbounded retry or hidden recapture is permitted. The host must detect changes during its
 local coherent capture/check; source mutation after the check is the documented race below.
 
+requiredSupport is an explicit sorted distinct Delta-ID array, never ambient context: the exact
+selected top acts plus complete original definition closure, and the descriptor ID for maintained
+operations. cutoff is an explicit optional native value (not a wire null); requiredSupport is always
+supplied. At stage 6, gather/install use syntactically available top/definition-role IDs (plus supplied
+descriptor for install); controls use validated stored active closure/descriptor IDs. Stage 7 proves
+exact reachable closure: missing/extraneous supports cannot succeed. The final check after
+precomputation uses the IDENTICAL sorted/deduplicated set, never repairs it by silently adding or
+removing IDs. A mismatch is definition-closure before execution; no omitted/extraneous ID can
+reach a successful final check/CAS.
+The host checks its existing permanent-refusal facts for these IDs; any refused selected support
+returns unauthorized. It does not decode or implement erasure law in this profile. Different
+programs sharing one binding/revision may thus be checked independently; unrelated support stays
+usable. Equal source bytes/revision do not suppress these per-attempt checks. Permanently refused
+support appearing between initial and final checks returns unauthorized with no result/CAS, even
+if source revision stays equal. This support check is independent of source-revision computation,
+though a real operand membership or source authority change still changes source revision. Capture/reacquisition alone
+never authorize program execution. Retire/restore and structural resolve require no such check.
+
 **MR-10.** A capture/1 delta has `kind`, `source-binding` ref, `authority` ref, `basis` bytes, all 1.
 The exact authority/1 support delta has `kind`, `source-binding` ref and `spec` bytes, all 1;
 spec is `{root: ID, epoch: N, context: bstr}`. root equals binding.authorityRoot; context is
 a canonical text-key map containing the host's complete authorization-selection context.
-Its author is the binding capturer. Its ID equals snapshot.authority. This representation
+Its author is the binding capturer. Its ID equals snapshot.authority. The host creates this
+original authority act when its epoch/context/claim interval is selected: timestamp and validFrom
+are finite host-selected epoch times, validUntil is absent or finite and greater than validFrom.
+These claims, including timestamp and validity, remain byte-for-byte stable across captures of
+an unchanged authority basis. Reuse that original act; do not stamp it at each observation.
+Changed epoch, context, or claim interval requires a new authority ID and source revision.
+Current source use validates authority at the invocation servingAt: expiry or a malformed
+interval is invalid-source at stage 6; revoked host permission is unauthorized. An authority valid at original
+capture that is expired now cannot authorize a current read. This representation
 is inert attributed context, not a portable execution of account law or a self-grant.
 basis is C of the snapshot map below with appearances omitted, format replaced by
 `rhizomatic.source-basis/1`, and one added `snapshot` ID = H(full snapshotBytes). Thus its
@@ -254,7 +306,13 @@ may carry it; its author is not the capture authority. Requests explicitly suppl
 Host capture yields both artifacts; each is verified independently, and their metadata and
 H(snapshotBytes) must agree exactly. Control stores only capture/1, never the snapshot carrier.
 Its author MUST be the installed binding's capturer; claims timestamp/validFrom equal the
-capture observation servingAt. This is trusted testimony under a host grant, not proof of
+capture observation servingAt; validUntil is absent or finite and greater than validFrom.
+Validate capture testimony at that ORIGINAL observation, not the new invocation time:
+outside its interval or malformed interval is invalid-source at stage 6. On a later read a
+capture may be past its interval now and still validate its original observation, but current
+binding, authority and host permission checks remain mandatory. A fresh snapshot carrier is
+inert data support; its signature/shape is checked, not used as a current source grant.
+This is trusted testimony under a host grant, not proof of
 account policy. Fresh command invocations require a current host check; serialized capture
 signatures alone confer no serving authority. Remote capture acquisition and capability
 delegation are excluded. Cross-language conformance supplies the same local host grant and
@@ -333,8 +391,9 @@ principal callbacks. Loam-specific custom resolvers remain outside portable reso
 Verify every appearance, then dedup as SPEC-15 R-08. Support closure is explicit: common config
 and operations come only from boot; direct request refs reach evidence, registration, capture, snapshot,
 top definitions and definition support. Capture reaches its authority support; registration may
-reach its definitions; evidence reaches
-definitions named in its gather body. Snapshot carriers are direct support only, never implicit
+reach its definitions. Resolve's embedded Basis.definitions is validated internally and does NOT
+add delivered support refs: delivery is exactly request plus evidence, even when those embedded
+acts are also referenced by top IDs in the body. Snapshot carriers are direct support only, never implicit
 storage retention. Source-binding
 comes only from boot. Nested referenced
 original operands are embedded appearances, not extra delivered supports. No arbitrary payload
@@ -368,15 +427,18 @@ state is scoped to one receiver.
 {format: "rhizomatic.materialization-control/1", receiver: PeerId,
  configuration: ID, generation: N, entries: [{registration: ID,
  status: "active"|"retired", transition: ID, sourceRevision: ID,
- authority: ID, at: finiteFloat, capture?: ID}...],
+ authority: ID, at: finiteFloat, definitionAt: finiteFloat,
+ hyperschemaPin: ID, schemaPin: ID, capture?: ID}...],
  deltas: [AppearanceBytes...]}
 ```
 
-Entries sort by registration ID. deltas contains exactly referenced signed descriptors, their
-complete signed definition closure, selected metadata-only capture and authority deltas for active
-entries and latest
-transition delta per entry, sorted by full appearance key, exactly one selected appearance per
-support Delta.id; boot configuration and binding
+Entries sort by registration ID. ACTIVE entries require capture and deltas contains their exact
+signed descriptors, complete signed definition closure, selected metadata-only capture/authority
+and latest transition. RETIRED entries forbid capture and require ONLY their latest receiver-signed
+retire transition: registration/source/authority IDs, time, definitionAt and scalar pins remain,
+not descriptor/definition/capture/authority payload. Shared support remains only while reachable
+from an active entry. deltas is the distinct union of those reachable supports, sorted by full
+appearance key, exactly one selected appearance per support Delta.id; boot configuration and binding
 descriptions are supplied by boot and not copied. No operand snapshot/carrier, old transition, index
 or result persists in this control image.
 Capture metadata includes inventories/appearance commitments but no operand payloads. Source
@@ -397,6 +459,7 @@ Each latest transition is a receiver-signed state/1 delta with roles `kind` 1 te
 `registration` 1 ref; `generation` 1 N; `prior-control` 1 text ID or empty;
 `prior-transition` 1 text ID or empty; `verb` 1 text install/replace-source/advance-time/retire;
 `source-revision` 1 ID text; `authority` 1 ID text; `at` 1 finite number;
+`definition-at` 1 finite number; `hyperschema-pin` 1 ID text; `schema-pin` 1 ID text;
 `capture` optional ref (required active; absent retired). Its timestamp/validFrom = receivedAt;
 no validUntil. It describes an accepted selection, not a new operand fact. Its prior-control
 references the pre-transition image; never include the resulting image's own digest (no hash
@@ -404,7 +467,28 @@ cycle). The image itself is sayable as an inert control-image/1 delta with roles
 data (1 application/cbor bytes) containing the exact image. Such a retained carrier cannot
 select a new store head or activate state. Current state is verifiable structure and local trusted
 durable selection, not an
-immutable history proof. State deltas may be retained as ordinary inert testimony elsewhere.
+immutable history proof. Retired scalar fields agree with the signed terminal transition, so
+restore/read/reinstall can keep retirement terminal without retrieving erased original support.
+State deltas may be retained as ordinary inert testimony elsewhere.
+
+The 64-entry bound is a finite configuration lifetime: the 65th distinct install refuses
+resource-limit before CAS, known no write. Retirement never frees a slot. An administrator may
+rotate using the native configuration-selection root: create a new receiver-signed configuration
+ID, initialize its separate empty control scope, explicitly install only selected still-active
+descriptors with complete support, fresh source checks and explicit time, then durably select that
+configuration for boot and disable old endpoint serving. No retired IDs or activation are copied
+implicitly. Same descriptor installed explicitly in a genuinely new scope is a new install, not
+restoration of old activation. Retained old requests refuse configuration-mismatch at the new
+endpoint. The old scope keeps terminal retirement on reopen.
+
+Host activation is NOT a portable cross-configuration transaction. During preparation only the
+old selected endpoint serves; the prepared endpoint is disabled. Failure/crash before durable
+activation leaves the old configuration selected; new prepared state remains inert for serving.
+Once the host durably selects the new configuration, old serving is disabled and restart boots
+only the new one, even if the process exits before response or serving starts. The host MUST
+prevent simultaneous serving endpoints around activation; its explicit durable selection is the
+restart authority. Failed preparation may be inspected/reused by explicit admin attempts, never
+silently replayed/copied. The selected Loam batch path does not need rotation.
 
 **MR-15.** Control store capability: initialize(receiver,configuration,emptyBytes),
 read(receiver,configuration), compareAndSet(expectedRevision,newImageBytes).
@@ -419,16 +503,36 @@ is claimed. Do not create a second ordinary peer journal or persist operand payl
 The source/result cache is disposable memory; filesystem spill or retention of full snapshots
 is outside this profile and would introduce separately specified erasure surfaces. Metadata
 keeps IDs/commitments legitimately; this is not evidence that operand plaintext remains.
-Definition bytes are retained explicitly as selected program support, not a duplicate operand
-database. If a definition itself becomes an erasure target, existing host erasure obligations
-include that support; a current source check cannot authorize serving a permanently refused act.
+ACTIVE descriptor/definition bytes are retained explicitly as selected program support. This IS
+a real host erasure surface, although control never copies operand snapshots. If a selected
+act/descriptor is an erasure target, the host refuses every affected active registration's explicit requiredSupport current check, retires each through an authorized
+exact-control attempt, and removes support now
+unreachable from ALL active entries. Unrelated active selections remain usable. It then purges
+historical control images, temp files, sqlite free pages/WAL and retained support copies on every
+declared host surface under existing host purge obligations before reporting physical settlement.
+No generic erasure interpreter or second peer journal is added by this profile. Shared support
+cannot be settled until every active consumer is durably retired and every payload copy is gone.
+
+A crash before retire CAS leaves active selection but serving blocked and purge owed. After durable
+retire CAS, terminal state restores without targeted payload; pending historical-copy cleanup is
+still owed. Uncertain retire requires reopen: absent branch stays active/blocked, present branch
+retired/cleanup owed; retry uses actual observed control, never blindly deletes active support.
+Payload removal before all affected retire commits would corrupt active control and is forbidden.
+Host purge proof covers all physical program-support copies; terminal IDs/scalar pins legitimately
+name the erased act and are not plaintext payload. A retired reopen requires no original descriptor
+or definition bytes and must not repair them from retained testimony.
 
 **MR-16.** install/replacement/time transitions first validate, acquire/check source authority
-and exact capture basis, compute COMPLETE batch HView+View for every root, bound-check full
-result/image, perform the final current
-source check, sign transition, then CAS. This precomputation avoids a known semantic error after
-commit; caches may still fail to build after commit. Results/indexes are disposable. Rebuild
-MUST use the same original definitions, explicit full snapshot matching accepted capture metadata,
+and exact capture basis, compute COMPLETE batch HView+View for every root, sign the prospective
+transition, encode/bound-check the exact prospective result/image, perform the final current source
+check with the identical requiredSupport set, then CAS. Prospective signed state is private/inert
+until CAS selects it; a refusal never reports it as committed. Signing before final size checks
+lets exact proposed image/result bytes be checked before a known effect. This precomputation avoids a known semantic error after commit; caches may still fail to build
+after commit. Results/indexes are disposable. The named fault point `post-CAS-result-materialization`
+occurs after confirmed durable CAS and before a successful result is materialized/signed. Even
+an implementation still holding precomputed results MUST honor that point: known injected failure
+returns indeterminate result-unavailable with confirmed control, never an old or completed result.
+Rebuild MUST use the same original definitions, explicit full snapshot matching accepted capture metadata,
 bindings and explicit at; native
 incremental indexes are allowed only when batch-equivalent. A failed rebuild never rolls back
 control implicitly or reports old cached output as current. Changing source replaces the selected
@@ -443,7 +547,7 @@ native signing object is needed. A preparer that cannot reconstruct/acquire it c
 successful read with an old result cache.
 Time may stay equal or increase, never decrease (time-regression); historical batch gather remains
 available independently. Registration expiry at servingAt refuses before CAS, leaving selection unchanged; a
-current read likewise refuses outside-validity instead of serving old output. Definition
+current read likewise refuses invalid-definition at stage 7 instead of serving old output. Definition
 validity remains at the represented definition-at; source validity advances at the new at.
 
 | Operation | Precondition beyond common validation | Durable effect | Result |
@@ -451,7 +555,7 @@ validity remains at the represented definition-at; source validity advances at t
 | install | descriptor absent; valid full support; current live capture/binding | create active entry and increment generation | committed transition + complete results |
 | replace-source | active exact registration; expected-source matches; proposed capture current and same binding | replace capture metadata/basis; increment generation even equal bytes | committed transition + complete results |
 | advance-time | active; explicit committed snapshot; expected-source matches; at >= stored at; source current | set at; increment generation even equal time | committed transition + complete results |
-| retire | active exact registration; admin; no source availability needed | terminal retired entry; remove capture metadata; increment generation | committed transition only |
+| retire | active exact registration; admin; no source availability needed | terminal retired metadata; remove now-unreachable descriptor/definition/capture support; increment generation | committed transition only |
 | read | active; exact control/source; explicit committed snapshot; current source grant and basis; valid at | none | full recomputed or batch-equivalent results |
 | restore | exact control; consistent validated full image; no source acquisition | none | sorted restored active/retired selections and per-active availability |
 
@@ -467,7 +571,9 @@ one registration's replacement cannot silently replace another's capture or time
 reachable supports, unique entries, generations (distinct nonzero latest generations <= image
 generation, with exactly one
 latest transition at image generation when nonempty; generation0 has no entries/deltas), transition/entry
-agreement, capture revision/binding, descriptor pins/closure, and active source selection. It
+agreement including scalar pins/definitionAt, and (ACTIVE entries only) capture revision/binding,
+descriptor pins/closure and active source selection. RETIRED entries verify only receiver-signed
+terminal metadata and require no erased descriptor/definition payload. It
 does not fabricate missing declarations, replay ordinary retained state into activation or fetch
 the latest named definitions. Restore does not treat an expired active descriptor as image
 corruption; read checks its
@@ -488,7 +594,7 @@ This is conditional durable state, not exactly-once execution or a request recei
 | CAS committed-unconfirmed, physically absent | prior on reopen | indeterminate commit-unconfirmed; reopen before new attempt |
 | CAS committed-unconfirmed, physically persisted | new on reopen | same indeterminate; reopen reveals new selection |
 | process exits after durable CAS before rebuild | new | no response; restore new and rebuild when source available |
-| rebuild/index fault after durable CAS | new | indeterminate result-unavailable with confirmed control revision; cannot claim refusal |
+| post-CAS-result-materialization fault (including rebuild/index), even with precomputed results held | new | indeterminate result-unavailable with confirmed control revision; cannot claim refusal |
 | response signing/delivery fault after durable CAS | new | no reliable response; reopen; cannot infer noncommit |
 | source replacement during precompute before final check | prior | refused source-changed, no blind recomputation on a new source |
 | source replacement after final source check, before CAS or next read | new selection, now stale | completed transition describes captured selection, not latest-at-commit; next read source-changed |
@@ -508,80 +614,136 @@ receivedAt, no validUntil. Do not auto-admit outcomes. result is canonical CBOR 
 one of the following shapes; all array/set sorting rules apply.
 
 ```
+ComponentCommitment = {peer: PeerId, revision: ID, capturedAt: finiteFloat}
 Basis = {binding: ID, revision: ID, authority: ID, selection: ID,
- membership: ID, appearanceDigest: ID, components: ComponentRecords,
+ membership: ID, appearanceDigest: ID, components: [ComponentCommitment...],
  at: finiteFloat, servingAt: finiteFloat, historicalCutoff?: finiteFloat,
- root: nonemptyText, bindings: bstr, definitionAt: finiteFloat, interpretation: "core/1",
+ bindings: bstr, definitionAt: finiteFloat, interpretation: "core/1",
  hyperschema: ID, hyperschemaPin: ID, schema: ID, schemaPin: ID,
  definitions: [SignedAppearanceBytes...], definitionDigest: ID}
-GatherBody = {kind: "gather", basis: Basis, envelope: bstr, transport: ID, hview: ID}
-ResolveBody = {kind: "resolve", basis: Basis, transport: ID, hview: ID,
+GatherBody = {kind: "gather", root: nonemptyText, basis: Basis,
+ envelope: bstr, transport: ID, hview: ID}
+ResolveBody = {kind: "resolve", root: nonemptyText, basis: Basis,
+ transport: ID, hview: ID, value: bstr, view: ID}
+RootResult = {root: nonemptyText, envelope: bstr, transport: ID, hview: ID,
  value: bstr, view: ID}
-RootResult = {root: nonemptyText, gather: GatherBody, value: bstr, view: ID}
-MaintainedBody = {kind: "install"|"replace-source"|"advance-time"|"read",
- registration: ID, control: ID, generation: N, sourceRevision: ID,
- authority: ID, at: finiteFloat, results: [RootResult...]}
-RetireBody = {kind: "retire", registration: ID, control: ID, generation: N}
+TransitionBody = {kind: "install"|"replace-source"|"advance-time",
+ registration: ID, transition: ID, control: ID, generation: N,
+ basis: Basis, results: [RootResult...]}
+ReadBody = {kind: "read", registration: ID, control: ID, generation: N,
+ basis: Basis, results: [RootResult...]}
+RetireBody = {kind: "retire", registration: ID, transition: ID, control: ID, generation: N}
 RestoreBody = {kind: "restore", control: ID|emptyText, generation: N,
  selections: [{registration: ID, status: "active"|"retired",
                sourceRevision: ID, authority: ID, at: finiteFloat,
-               definitionAt: finiteFloat, hyperschemaPin: ID, schemaPin: ID, availability: "unchecked"|"retired"}...]}
+               definitionAt: finiteFloat, hyperschemaPin: ID, schemaPin: ID,
+               availability: "unchecked"|"retired"}...]}
 RefusedBody = {code: StableCode}
 IndeterminateBody = {code: "commit-unconfirmed"}
                  | {code: "result-unavailable", control: ID}
 ```
 
-Basis.components copies the exact capture component records; definitions includes exactly full
-signed definition appearances in delta-ID order; definitionDigest is delta-membership/1 of
-these distinct acts. Gather hview/view fields are H(existing canonical bytes), not hex encodings
-of payloads. Root results sort by root and must contain every descriptor root, no extras.
-MaintainedBody.control is always nonempty because an active entry requires a transition. Read
-returns its current invocation servingAt while keeping the accepted source capture component
-observations and at distinct; resolve preserves the evidence's basis rather than rewriting it
-with its own receivedAt. Restore definitionAt/pins are derived from and must match the exact
-retained descriptor.
+Basis.components projects only peer/revision/capturedAt from the exact capture, sorted by peer.
+It NEVER carries rawIds, operandIds or exclusions. Those private inventories remain capture/
+snapshot/control metadata, not public result/evidence. Basis.definitions contains the complete
+deduplicated signed closure INCLUDING both top acts, in delta-ID order; definitionDigest is
+existing delta-membership/1 of those distinct acts. One shared Basis appears once per body,
+including once per multi-root maintained result. Batch root is adjacent to Basis; root-specific
+results do not duplicate Basis/definitions. Byte totals count that actual complete body.
+transport = H(envelopeBytes), hview = H(existing HView canonical bytes), view = H(existing View
+canonical bytes). Root results sort by root and contain every descriptor root, no extras.
+TransitionBody.transition/RetireBody.transition is the exact latest receiver-signed state Delta ID
+selected by that CAS. Strict contextual readback given a control image verifies that linkage.
+ReadBody has no new transition ID: it creates no effect. TransitionBody/ReadBody.control is always
+nonempty because active state requires a transition. Read returns its invocation servingAt while
+keeping accepted source observations and at distinct; resolve preserves gather's root/Basis rather
+than rewriting them with resolve's own receivedAt. Restore scalars match active descriptor/latest
+transition or retired terminal transition, respectively.
 A successful restore deliberately returns unchecked availability and
 no results: an ensuing read must check source currentness and authority. Whole-signature equality
 requires identical keys/config/request/receivedAt; otherwise compare attribution and semantics.
 
 **MR-20.** Complete readback composes outer Delta/body validation, strict HView envelope,
-signed definition closure/pins/bindings, and existing strict View decoder. Check all declared
-digests, status/body pairing, request argument/basis agreement, source binding/revision and
-complete root partition when the request/descriptor is provided. Without these, report only
+signed definition closure/pins/bindings, and existing strict View decoder. Recompute transport,
+existing HView/View digests, definitionDigest and definition pins from
+provided evidence bytes. Source membership/appearanceDigest, binding selection, component revisions
+and source revision are receiver/host-ATTESTED commitments: result envelopes are evaluated subsets
+and compact components cannot reconstruct full source inventory/exclusions. Do not claim to
+recompute them from an outcome alone. When a caller supplies capture/snapshot, recompute its
+commitments and compare them to Basis; otherwise contextual expected binding/revision/authority
+must still match exactly but the check remains commitment equality, not source execution proof.
+Check status/body pairing, request root/argument/basis agreement, control/transition linkage when
+provided, and complete descriptor root partition. Without these, report only
 verified structure, not a verified contextual answer. DefinitionDigest/membership do not bind
 signatures; full appearance transport keys do. Verification and receiver testimony are labelled
 separately from replay/oracle execution evidence. No partial JSON inspection qualifies as readback.
 
-**MR-21.** Fail at the first stage below, independent of delivery order. Within a stage
-return one stable category, not native exception text. Count limits precede decode; undecodable
-appearance precedes canonical-size checking because its size is unknown; then canonical-size
-limit precedes ID/signature checks. This follows SPEC-15's established ordering.
+**MR-21.** Fail at the first stage below, independent of delivery order. Within each listed
+phase, known count/byte bounds precede allocation and semantic checks; malformed data whose
+canonical size cannot be obtained refuses its stage's malformed category, not an invented size.
+Nested artifacts are checked at the first stage that decodes/produces them, never eagerly in an
+earlier phase. After stage 8 precomputation/size checks, gather and control serving operations
+repeat ONLY the stage-6 current check with identical requiredSupport, before result delivery or
+stage-9 CAS; its explicit source categories still apply. New refusal/authority facts can be observed
+then even if the initial check passed. No recapture/recompute occurs on that failure. Structural
+per-envelope counters are separate from aggregate result bytes (MR-04).
+Known deterministic limit failures are resource-limit; physical execution exhaustion is
+resource-exhausted. No blanket native exception catch can substitute either.
 
-1. Framing/canonical entry ID (local transport error without outcome), input limits, appearance
-   decode and full ID/signature verification: resource-limit or invalid-appearance.
+1. Framing/canonical entry ID and finite native receivedAt (local transport errors without
+   outcome); then delivered count; appearance decode; canonical deliveryBytes bounds;
+   full ID/signature verification: resource-limit or invalid-appearance. Count includes repeats
+   before dedup. An undecodable appearance is invalid-appearance before its unknown canonical
+   byte size. This stage does not open embedded snapshot/evidence/program/control bodies.
 2. Entry presence/common grammar/validity: entry-missing, invalid-request, request-outside-validity.
-3. Receiver/configuration/installed validity, then caller/admin authorization: configuration-mismatch,
-   unauthorized. Lack of administrator rights for a control verb is unauthorized.
-4. Installed verb selection, argument grammar, support: unsupported-operation, invalid-arguments,
-   missing-support, unexpected-support. resolve's evidence support shape is invalid-evidence. Snapshot carrier integrity/matching is invalid-source.
-5. Control existence/decoding/preconditions, then registration state: control-unavailable,
-   invalid-control, precondition-failed, registration-missing, retired, already-installed,
-   time-regression. Control image defects precede preconditions. No control image is required for
-   gather/resolve. Retire is independent of source, definitions' present validity and data availability.
-6. Source binding/current authority, capture integrity/currentness (gather/install/replace/advance/read
-   only; resolve verifies evidence basis structurally without a source grant/current check): unauthorized, invalid-source,
-   source-unavailable, source-changed, precondition-failed. capture revision mismatch to arguments is
-   precondition-failed; unsigned/changed embedded rows are invalid-source. An unknown boot binding
-   is unauthorized. Expired source grant/config is configuration-mismatch at stage 3.
-7. Definitions/program: invalid-definition, pin-mismatch, ambiguous-definition, definition-closure,
-   definition-cycle, invalid-program, in that priority. Invalid descriptor/capture core fields are
-   already invalid-arguments/invalid-source. Active descriptor outside servingAt validity is invalid-definition.
-8. Evidence and execution: invalid-evidence, missing-reading, resource-exhausted, execution-failed.
-   An invalid reading feature is invalid-program before resolution. Visible programming defects
-   remain host faults; execution-failed is a known read-only semantic failure, not a blanket catch.
+3. Receiver/configuration/installed validity, then caller/admin authorization:
+   configuration-mismatch, unauthorized. Only configuration and chosen operation validity are
+   checked here; source bindings wait until stage 6. Lack of admin rights is unauthorized.
+4. Installed verb selection, argument grammar (including serving-at/receivedAt equality), then
+   missing delivered supports, then extra supports: unsupported-operation, invalid-arguments,
+   missing-support, unexpected-support. Next bound-check and decode resolve's outer evidence body
+   or the supplied snapshot carrier's data bytes: resource-limit before invalid-evidence or
+   invalid-source when size is known. Embedded definition acts/envelopes wait until stages 7/8;
+   detailed snapshot structure waits until stage 6. Resolve requires no separately delivered
+   definitions. Bad arguments beat expired source bindings and missing embedded closure.
+5. Required control read, image byte/count limits and decode, preconditions, registration state,
+   then proposed entry-count/generation bounds: control-unavailable; resource-limit or
+   invalid-control; precondition-failed; registration-missing, retired, already-installed,
+   time-regression; resource-limit. A 65th distinct install or generation overflow refuses here
+   before source/precompute/CAS, known no write. Malformed image beats wrong expected control.
+   gather/resolve require no control. Retire needs no current source/definition validity.
+6. For gather/install/replace/advance/read only: identify required binding and check native grant
+   (unauthorized), then binding validity at receivedAt (configuration-mismatch); bound-check and
+   decode capture basis/snapshot (resource-limit before invalid-source when bounds are known),
+   validate signatures, capture/snapshot agreement, original capture interval and current authority
+   interval (invalid-source); compare expected-source IF PRESENT (precondition-failed); run host
+   current check with explicit requiredSupport IDs (unauthorized for refused selected support;
+   otherwise unauthorized, source-unavailable or source-changed according to its explicit
+   response). Supplied gather/install IDs are available syntactically here; other active controls
+   use validated stored closure. Stage 7 proves exactness before the repeated final check.
+   Unknown boot binding is unauthorized. Internal capture/snapshot revision mismatch
+   in gather/install is invalid-source, never a nonexistent expected-source precondition. Unsigned
+   embedded rows are invalid-source. Expired unrelated bindings cannot block retire/restore.
+   Resolve validates compact source commitments as evidence structure in stage 8, without a grant
+   or current-source/authority check; it does not certify present permission.
+7. Required original definitions/program: bound-check embedded definition artifact bytes and
+   bounded syntax at first decode (resource-limit; malformed syntax invalid-definition), then
+   invalid-definition, pin-mismatch, ambiguous-definition, definition-closure, definition-cycle,
+   invalid-program in that priority. Missing embedded top/closure acts in resolve is
+   definition-closure. Active descriptor expired at servingAt is invalid-definition. Definition
+   intervals use definition-at; retired restore needs only terminal metadata, not original acts.
+8. Evidence/execution: first bound-check/decode supplied envelope (resource-limit before
+   invalid-evidence when known), then structural/contextual evidence checks (invalid-evidence),
+   resolution (missing-reading, resource-exhausted, execution-failed), then produced envelope/View/
+   complete body/proposed control-image bounds (resource-limit BEFORE CAS). Gather/control
+   envelope generation checks per-envelope structural limits as it produces each tree; malformed
+   generated native evidence is invalid-evidence, unsupported reading features already
+   invalid-program at stage 7. Multiple root results share one Basis; aggregate bytes alone sum
+   across roots. A too-large computed result is a known refusal with prior control intact.
 9. Durable CAS: write-conflict, control-rejected (refused); commit-unconfirmed (indeterminate).
-   Post-commit rebuild is result-unavailable (indeterminate); signer/transport defects may have no
-   response. Never mint a refused response after a possibly performed effect.
+   After confirmed commit, post-CAS-result-materialization failure is result-unavailable with
+   confirmed control (indeterminate), even if precomputed results remain held. Signer/transport
+   defects may have no response. Never mint refusal after a possibly performed effect.
 
 **MR-22.** Portable semantics belong to their existing owners; ownership/API manifests
 freeze new seams. HView codec lives in algebra, full reading appearance primitives in syntax,
@@ -607,8 +769,24 @@ Keep existing four-witness gates, graph/API/coverage and profile-1 conformance g
 exact version capability evidence permits a tower stage; pending profiles cannot self-certify.
 
 **MR-24.** M5 migrates only the supervisor-selected ordinary named PRIMARY read subset
-documented in LOAM-TRIAL.md. Eligibility is static/full-closure; execution errors cannot route
-to an alternative native source/time. Existing Loam authority, current closure, asOf narrowing,
+documented in LOAM-TRIAL.md. Both present and historical reads use M2 batch gather then resolve,
+one arbitrary requested
+entity per invocation (registered or nonregistered); present at = host observed now, historical
+at = asOf, definition-at/current authority remain independently bound. This production branch
+performs NO maintained install/advance/replace CAS. M3/M4 lifecycle remains required substrate
+work, not a claimed Loam maintained-state migration.
+
+Dispatch requires full static executable-closure eligibility AND exact input-capacity preflight
+on the authorized per-invocation source/program/request/carriers, including all signed carrier
+claims/signatures and deliveryBytes. Classify before portable invocation; freeze route, source
+basis and time for that attempt. Out-of-input-bounds is an explicit excluded native branch with
+unchanged answers, never a caught portable error. Never filter/truncate membership to fit; missing
+promised original law is a visible error, not size exclusion. Any unexpected source change after
+classification is visible failure, including on the excluded native branch; no context reroute.
+Within input capacity does not promise output/expansion capacity or successful execution. Errors
+once portable invocation starts surface with their typed category. One attempt per door call:
+no automatic retry, native fallback, durable selection mutation or global current-source slot.
+Existing Loam authority, current closure, asOf narrowing,
 child decoration and custom bucket resolvers remain application-owned. All ten real-door
 schedules are mandatory, along with negative bystanders and removal of eligible obsolete code.
 Release A/B numbers are selected by supervisor at release time. The supervisor

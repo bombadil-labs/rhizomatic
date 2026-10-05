@@ -129,12 +129,12 @@
         "ts": "src/reactor/materialization-control.ts (planned)",
         "rust": "materialization_control.rs (planned)"
       },
-      "capability_boundary": "Input is already verified normalized declarations/program/capture metadata. Outer image codec does not claim complete semantic declaration validation; command composes readers for that. No upward imports into command-data/federation/schema-load.",
+      "capability_boundary": "Input is already verified normalized declarations/program/capture metadata. Outer image codec does not claim complete semantic declaration validation; command composes readers for that. No upward imports into command-data/federation/schema-load. Retired terminal scalar state needs no original support payload; 64-entry configuration lifetime.",
       "evidence_state": "specified_not_run"
     },
     {
       "id": "storage",
-      "responsibility": "Declared atomic full metadata control store capability/adapters; no operand payload persistence.",
+      "responsibility": "Atomic full control image store/adapters, active program-support physical cleanup under declared host purge obligations; no operand snapshot persistence",
       "allowed_dependencies": [
         "delta"
       ],
@@ -142,7 +142,7 @@
         "ts": "src/storage/materialization-store.ts (interface/adapters planned)",
         "rust": "materialization_store.rs (planned)"
       },
-      "capability_boundary": "Initialize/read/CAS; physical durability and unknown commit observations. No semantic installation or source authorization.",
+      "capability_boundary": "Initialize/read/CAS; durability/unknown commit observations and host physical-copy purge. No semantic installation, source authorization or second journal.",
       "evidence_state": "specified_not_run"
     },
     {
@@ -159,7 +159,7 @@
         "ts": "src/federation/materialization-source.ts (planned)",
         "rust": "materialization_source.rs (planned)"
       },
-      "capability_boundary": "Explicit host grants; core receives selected rows and provenance. Full snapshot reacquisition is native capability input, not authority implied by bytes. Thin MaterializationPeer facade/reexports delegate normalized reactor codecs/planner and storage bytes CAS; no second state machine. Command imports these through existing federation edge.",
+      "capability_boundary": "Explicit host grants; core receives selected rows and provenance. Full snapshot reacquisition is native capability input, not authority implied by bytes. Thin MaterializationPeer facade/reexports delegate normalized reactor codecs/planner and storage bytes CAS; no second state machine. Command imports these through existing federation edge. Native current check takes explicit requiredSupport IDs and delegates to existing host refusal facts, with no erasure interpreter or ambient request context.",
       "evidence_state": "specified_not_run"
     },
     {
@@ -193,7 +193,7 @@
         "ts": "src/command/materialization-endpoint.ts (planned)",
         "rust": "materialization_command.rs (planned)"
       },
-      "capability_boundary": "Composes all lower owners/capabilities. Registration/state description fields are shaped here through command-data, normalized to reactor types; no duplicate evaluator/state machine. Reactor/storage types/operations reached via federation facade, preserving declared direct graph.",
+      "capability_boundary": "Composes all lower owners/capabilities. Registration/state description fields are shaped here through command-data, normalized to reactor types; no duplicate evaluator/state machine. Reactor/storage types/operations reached via federation facade, preserving declared direct graph. Per-attempt finite native receivedAt; complete embedded resolve closure, compact public commitments/shared result Basis. Derives exact requiredSupport set for host checks.",
       "evidence_state": "specified_not_run"
     },
     {

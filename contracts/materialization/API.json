@@ -16,7 +16,7 @@
         "algebra"
       ],
       "milestone": "M1",
-      "semantics": "Lossless bounded encode; unsigned native originals permitted; no authority."
+      "semantics": "Lossless within canonical signed encode domain (verifyCanonicalDelta); unsigned native originals permitted; no authority."
     },
     {
       "id": "rhizomatic.hview-envelope/1/decode",
@@ -62,7 +62,7 @@
         "algebra"
       ],
       "milestone": "M2",
-      "semantics": "Strict explicit evidence/closure to existing View bytes, without source acquisition."
+      "semantics": "Delivery exactly request+evidence; embedded complete closure including top acts to existing View bytes, no source acquisition."
     },
     {
       "id": "rhizomatic.materialization/1/outcome-readback",
@@ -73,7 +73,7 @@
         "resolve-kernel"
       ],
       "milestone": "M2",
-      "semantics": "Complete structural and contextual readback, explicitly distinct from execution proof."
+      "semantics": "Compact public source commitments, one shared Basis; recomputed evidence hashes vs attested source commitments explicit. Structural/contextual readback is not execution proof."
     },
     {
       "id": "rhizomatic.materialization-control/1",
@@ -81,7 +81,7 @@
         "reactor"
       ],
       "milestone": "M3",
-      "semantics": "Outer canonical image codec and normalized pure lifecycle transitions; command performs full declaration validation."
+      "semantics": "Outer canonical image codec and normalized lifecycle; active support complete, retired receiver-signed terminal scalars only; 64-entry configuration lifetime. Command performs declaration validation."
     },
     {
       "id": "rhizomatic.materialization/1/control-store",
@@ -164,7 +164,7 @@
       "owner": "algebra",
       "contract": "rhizomatic.hview-envelope/1/encode",
       "classification": "portable_contract",
-      "signature_contract": "HView + finite limits -> canonical envelope bytes"
+      "signature_contract": "HView within canonical signed encode domain + finite limits -> canonical envelope bytes or invalid-evidence/resource-limit; never normalize native author/signature text"
     },
     {
       "ts": "decodeHViewEnvelope",
@@ -196,7 +196,7 @@
       "owner": "federation",
       "contract": "rhizomatic.materialization/1/capture",
       "classification": "host_capability",
-      "signature_contract": "capture(binding,servingAt,cutoff?) -> capture+authority+snapshot; checkCurrent(binding,revision,authority,servingAt,cutoff?) -> current or unauthorized/changed/unavailable; reacquireSnapshot(binding,exactCaptureDelta,servingAt) -> committed snapshotBytes or unauthorized/changed/unavailable; no old signer"
+      "signature_contract": "capture(binding,servingAt,cutoff?) -> capture+authority+snapshot; checkCurrent(binding,revision,authority,servingAt,cutoff,requiredSupport: sorted exact selected closure IDs plus descriptor when present) -> current or unauthorized/changed/unavailable; reacquireSnapshot(binding,exactCaptureDelta,servingAt) -> committed snapshotBytes or unauthorized/changed/unavailable; no old signer; host existing permanent-refusal facts deny requiredSupport, no ambient request context or erasure interpreter; identical sorted/deduplicated requiredSupport at initial and final-after-precompute checks, independent of source-revision equality"
     },
     {
       "ts": "decodeMaterializationControlImage",
@@ -228,7 +228,7 @@
       "owner": "command",
       "contract": "rhizomatic.materialization/1/host-boot",
       "classification": "host_capability",
-      "signature_contract": "boot(config,installed,bindings,signer,clock,sourceGrant,controlStore?,diagnostics); invoke(entryId,debugAppearances) -> signed outcome"
+      "signature_contract": "boot(config,installed,bindings,signer,sourceGrant,controlStore?,diagnostics); invoke(entryId,debugAppearances,receivedAt: finite host observation sampled once before preparation) -> signed outcome; no endpoint clock/global slot"
     },
     {
       "ts": "readMaterializationResult",
@@ -236,7 +236,7 @@
       "owner": "command",
       "contract": "rhizomatic.materialization/1/outcome-readback",
       "classification": "portable_contract",
-      "signature_contract": "outcome + expected receiver/config/request + optional descriptor -> complete strict contextual result"
+      "signature_contract": "outcome + expected receiver/config/request + optional descriptor/control/capture/snapshot -> complete strict contextual result; only supplied evidence digests recomputable, source commitments otherwise attested"
     },
     {
       "ts": "readMaterializationControl",
@@ -244,7 +244,7 @@
       "owner": "command",
       "contract": "rhizomatic.materialization/1/control-export",
       "classification": "portable_contract",
-      "signature_contract": "image bytes + exact boot descriptions -> complete validated declared selection; no source acquisition"
+      "signature_contract": "image bytes + exact boot descriptions -> complete validated selection; active full support, retired terminal scalars with no original descriptor/definition retrieval; no source acquisition"
     },
     {
       "ts": "MaterializationPeer",

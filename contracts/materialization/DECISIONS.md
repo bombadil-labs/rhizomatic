@@ -6,7 +6,7 @@ Observable changes require a synchronized contract/case amendment before impleme
 | Decision | Reason / consequence |
 | --- | --- |
 | New `rhizomatic.materialization/1` endpoint and vocabulary | Profile 1 has a closed two-operation grammar. No broadened caller/source authority or changed hashes. |
-| Generic unsigned evidence accepted by M1; commands require signatures | Native HView can contain legal unsigned deltas. Codec validity is distinct from admission. |
+| Generic unsigned evidence accepted by M1; canonical signed encode domain | Native unsigned deltas are legal. Signed native encoding requires verifyCanonicalDelta spelling, else invalid-evidence; no signature-text normalization. Commands require signatures. |
 | Appearance key hashes full canonical appearance, not Delta ID | Detached signature is outside claims identity. Preserve exact signature presence/choice and repeated entries. |
 | Reading key hashes body plus optional metadata | schemaHash/schemaCanonicalHex omit name/alg; Loam child decoration reads name. Same semantic pin can carry distinct native identities. |
 | Independent expansion/readings maps; missing legacy reading codec-valid | Native gather permits legacy expansion but resolve refuses it. No parent fallback or native behavior amendment. |
@@ -19,7 +19,16 @@ Observable changes require a synchronized contract/case amendment before impleme
 | Final source check followed by independent control CAS | Sequential sources need no global lock. Selection may become stale after the check; completed outcomes describe that basis, and subsequent reads check/refuse. No latest-at-commit guarantee. |
 | Durable metadata/program support only | Source payloads and results are disposable inputs/caches. Persisting a second operand database would require new purge/WAL surfaces. Control stores signed capture commitments, not plaintext operand copies. |
 | Explicit snapshot on read and time advance | Restore is possible in another witness with control bytes plus independent source artifact. Original commitment can be reconstructed with fresh carrier signatures; no old native signer needed. |
-| Terminal retirement by descriptor ID | Names/aliases cannot activate state; restart cannot resurrect it. New definition/time-selection identity needs a new descriptor. |
+| Terminal retirement by descriptor ID, minimal payload-free terminal state | Names/aliases cannot activate state; restart cannot resurrect it. Active support complete; retired state keeps signed terminal IDs/scalar pins without descriptor/definition plaintext. |
+| Active program support is a real host erasure surface | Host current check takes explicit exact closure/descriptor IDs and consults existing refusal facts, preserving unrelated programs on the same binding. It retires every consumer, purges unreachable support and historical/temp/WAL copies under existing obligations before claiming settlement. No duplicated journal/interpreter. |
+| 64-entry configuration lifetime and explicit host rotation | 65th install known no-write resource-limit. Separate prepared scope, explicit installs, durable host activation; no retired-ID copy or atomic cross-scope claim. |
+| New invoke explicitly receives trusted finite receivedAt | One host observation before preparation; no endpoint clock/global slot. serving-at mismatch stage-4 invalid-arguments. Any finite operand at allowed, including future; advance nondecreasing. |
+| Resolve delivery request+evidence only | Complete signed closure INCLUDING top acts embedded once in Basis.definitions; separately delivered acts unexpected-support, missing embedded acts definition-closure. |
+| Public compact source commitments and shared Basis | No raw/operand/exclusion inventories in result; evidence digests recomputable, source revision otherwise attested. One full closure per multi-root body. |
+| Stable authority act and original capture validity | Reuse claim times/interval for unchanged epoch/context. Authority valid now; capture valid at original observation. Expired authority/capture invalid-source stage 6. |
+| Stage-local deterministic nested limits | Check nested artifact when first decoded/produced; per-envelope structural limits, aggregate body bytes; resource-limit before CAS leaves control intact. |
+| Loam present/historical reads use batch first | Arbitrary per-call entity/time, one attempt, no maintained CAS/retry; retained application resolvers and authority rules. |
+| Input-capacity exclusion before Loam dispatch | Exact full source and signed carrier/delivery overhead preflight; out-of-input-bounds explicitly native, frozen basis/time. Post-dispatch errors visible; no truncated snapshot or catch-to-native. |
 | Reevaluate attempts, exact expected control/source | No request receipt cache, automatic rebasing, hidden retries or exactly-once claim. |
 | Complete batch compute before CAS; disposable rebuild afterward | Known semantic failure refuses before selection changes. A later host rebuild/signing fault cannot falsely claim no effect. |
 | Current source/config checks and independently bound returned context | Cached HView equality never reuses old permission. Receiver outcomes are testimony, not execution proofs. |
@@ -45,6 +54,11 @@ Observable changes require a synchronized contract/case amendment before impleme
   the callback as portable semantics.
 - Existing coherent journal capture checks full signed admitted rows. Loam's narrower capture
   and physical row inventory remain Loam-owned; a journal head alone cannot prove availability.
+
+Fable's 422a8e4 review and the supervisor's support-erasure counterexample are repaired as
+listed in REVIEW-REPAIRS. These choices supersede the first draft's Loam maintained mapping,
+public inventories, ambiguous validity/limit phases and retired support retention. They remain
+proposed until independent re-review; structural checks certify no runtime behavior.
 
 No unavoidable change to an existing canonical format was found. The originating proposal's
 blanket missing-reading rejection and the early draft's source lease/full durable snapshot

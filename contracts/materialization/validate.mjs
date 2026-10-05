@@ -9,7 +9,7 @@ const json = name => JSON.parse(readFileSync(resolve(directory, name), 'utf8'));
 const requiredFiles = [
   'README.md', 'SPEC.md', 'DECISIONS.md', 'BOUNDARIES.json', 'API.json',
   'ACCEPTANCE.json', 'MILESTONES.json', 'TRANSPORT.md', 'TOWERS.json', 'CI.md',
-  'bootstrap.json', 'LOAM-TRIAL.md', 'HANDOFF.md', 'validate.mjs',
+  'bootstrap.json', 'LOAM-TRIAL.md', 'HANDOFF.md', 'REVIEW-REPAIRS.md', 'validate.mjs',
 ];
 const limits = {
   artifactBytes: 16777216, deliveryAppearances: 8192, deliveryBytes: 33554432,
@@ -53,6 +53,8 @@ function packet() {
     boundaries: json('BOUNDARIES.json'), api: json('API.json'),
     towers: json('TOWERS.json'), bootstrap: json('bootstrap.json'),
     spec: readFileSync(resolve(directory, 'SPEC.md'), 'utf8'),
+    loam: readFileSync(resolve(directory, 'LOAM-TRIAL.md'), 'utf8'),
+    repairs: readFileSync(resolve(directory, 'REVIEW-REPAIRS.md'), 'utf8'),
   };
 }
 function validate(p) {
@@ -100,7 +102,33 @@ function validate(p) {
   }
   unique(allocated, 'global allocation');
   assert.deepEqual(allocated.sort(), [...byCase.keys()].sort(), 'unallocated case');
-  assert.equal(cases.filter(c => c.milestone === 'M5').length, 10, 'Loam schedule inventory');
+  assert.deepEqual(cases.filter(c => c.milestone === 'M5').map(c => c.id).sort(), [
+    'loam_primary_actual_door', 'loam_nested_reopen', 'loam_bucket_resolver',
+    'loam_present_history_closure', 'loam_remove_replace', 'loam_time_authority',
+    'loam_declared_restore', 'loam_bystander_exclusions', 'loam_concurrent_basis',
+    'loam_production_delete_duplicate',
+  ].sort(), 'Loam schedule inventory');
+  const repairCases = {
+    M2: ['cmd_resolve_embedded_closure', 'cmd_authority_capture_validity', 'cmd_public_basis_privacy'],
+    M3: ['ctl_capacity_rotation', 'ctl_shared_basis_limits', 'ctl_support_erasure', 'ctl_support_erasure_crashes'],
+  };
+  for (const [milestone, ids] of Object.entries(repairCases)) {
+    for (const id of ids) assert.equal(byCase.get(id)?.milestone, milestone, `missing repair case ${id}`);
+  }
+  for (const finding of [...Array.from({ length: 9 }, (_, i) => `B${i + 1}`),
+    ...Array.from({ length: 8 }, (_, i) => `A${i + 1}`), 'S1']) {
+    assert(p.repairs.includes(`| ${finding} |`), `missing repair disposition ${finding}`);
+  }
+  for (const match of p.repairs.matchAll(/`((?:packet|profile1|env|cmd|ctl|tower|loam|nested)_[a-z0-9_]+)`/g)) {
+    assert(byCase.has(match[1]), `unknown disposition case ${match[1]}`);
+  }
+  const basis = /Basis = \{([\s\S]*?)\}\nGatherBody/.exec(p.spec)?.[1];
+  assert(basis && !/rawIds|operandIds|exclusions|root:/.test(basis), 'public Basis privacy/root boundary');
+  assert(p.spec.includes('ComponentCommitment = {peer: PeerId, revision: ID, capturedAt: finiteFloat}'), 'compact component shape');
+  const rootResult = /RootResult = \{([\s\S]*?)\}\nTransitionBody/.exec(p.spec)?.[1];
+  assert(rootResult && !/basis|definitions|gather:/.test(rootResult), 'shared multi-root basis');
+  assert(p.loam.includes('batch gather then resolve for') && p.loam.includes('ONE attempt') &&
+    p.loam.includes('4096/4097') && p.loam.includes('BEFORE portable dispatch'), 'Loam bounded batch handoff');
 
   const cards = p.boundaries.cards;
   unique(cards.map(c => c.id), 'owner');
@@ -129,6 +157,12 @@ function validate(p) {
     assert(['portable_contract', 'host_capability'].includes(e.classification) && nonempty(e.signature_contract), `invalid API classification ${e.ts}`);
   }
 
+  const endpoint = p.api.exports.find(e => e.ts === 'MaterializationEndpoint')?.signature_contract;
+  assert(endpoint?.includes('invoke(entryId,debugAppearances,receivedAt:') &&
+    !/signer,clock/.test(endpoint), 'explicit trusted observation API');
+  const source = p.api.exports.find(e => e.ts === 'MaterializationSourceCapability')?.signature_contract;
+  assert(source?.includes('requiredSupport:'), 'explicit selected-support enforcement API');
+
   const towers = p.towers;
   assert.equal(towers.assignments_per_scenario, 3, 'three towers required');
   assert.equal(towers.planner.version, 'rhizomatic.command.tower/1', 'planner version');
@@ -151,7 +185,9 @@ function validate(p) {
     for (const id of ids) assert(byCase.has(id), `unknown tower scenario ${id}`);
   }
   for (const field of ['concrete_assignments', 'source_commits', 'build_hashes', 'source_artifacts',
-    'explicit_observation_schedule', 'fault_schedule', 'expected_outputs', 'actual_outputs', 'replay_command']) {
+    'explicit_observation_schedule', 'fault_schedule', 'expected_outputs', 'actual_outputs', 'replay_command',
+    'trusted_receivedAt_arguments', 'source_capacity_classification', 'durable_host_configuration_selection',
+    'program_support_purge_observations']) {
     assert(towers.replay_bundle_fields.includes(field), `missing replay field ${field}`);
   }
   for (const witness of towers.witnesses) {
@@ -189,6 +225,11 @@ if (process.argv.includes('--self-test')) {
     ['replay omitted', q => q.towers.replay_bundle_fields = q.towers.replay_bundle_fields.filter(x => x !== 'source_artifacts'), /missing replay field/],
     ['missing fixed route', q => q.towers.fixed_routes.M2.pop(), /fixed mixed routes/],
     ['invented evidence', q => q.acceptance.scenarios[0].execution_evidence.push('passed'), /invented execution evidence/],
+    ['public inventories', q => q.spec = q.spec.replace('components: [ComponentCommitment...]', 'components: [ComponentCommitment...], rawIds: [ID...]'), /public Basis privacy/],
+    ['root repeats basis', q => q.spec = q.spec.replace('RootResult = {root:', 'RootResult = {basis: Basis, root:'), /shared multi-root basis/],
+    ['observation omitted', q => q.api.exports.find(e => e.ts === 'MaterializationEndpoint').signature_contract = 'invoke(entryId,debugAppearances)', /explicit trusted observation API/],
+    ['support context omitted', q => q.api.exports.find(e => e.ts === 'MaterializationSourceCapability').signature_contract = 'checkCurrent(binding,revision,authority,servingAt)', /explicit selected-support enforcement API/],
+    ['disposition omitted', q => q.repairs = q.repairs.replace('| S1 |', '| X1 |'), /missing repair disposition/],
   ];
   for (const [label, mutate, expected] of mutations) {
     const q = structuredClone(p); mutate(q);

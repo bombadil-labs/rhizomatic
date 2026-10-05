@@ -1,99 +1,111 @@
-# Selected M5 trial: ordinary named PRIMARY reads
+# Selected M5 trial: ordinary named PRIMARY batch reads
 
-Supervisor selection from merged Loam `ae0e4e21`, same tree as reviewed `c32909b4`.
-Copied and made checkout-relative from the supervisor's selection evidence; this packet has
-no runtime/CI dependency on the external audit workspace. This is an implementation target,
-not evidence that extraction or migration has been executed.
+Supervisor selection from merged Loam `ae0e4e21`, same source tree as reviewed `c32909b4`.
+This repo-local selection and repair decisions are the handoff; no runtime/CI dependency on an
+audit workspace. Source inspection supports the target; original signed closure extraction and
+actual count/byte measurements remain M5 execution evidence, not established feasibility.
 
-## Actual door and eligible subset
+## Actual door and route
 
-Ordinary named GraphQL reads reach Loam `src/gateway/reads.ts:resolvedNodeImpl` (line484 at
-the selected baseline), then gatherImpl (line159), resolveView, decorateChildren/applyResolvers
-(line493 onward), then annotateImpl with existing View/HView digests and historical marks.
-Migrate the statically eligible PRIMARY subset of that production path:
+Loam `src/gateway/reads.ts:resolvedNodeImpl` (577 at `c32909b4`) calls `gatherImpl` (159),
+`resolveView`, then `decorateChildren` (587)/`applyResolvers`, finally `annotateImpl`.
+Migrate the selected ordinary named PRIMARY branch to portable **batch gather then resolve for
+BOTH present and historical reads**. The arbitrary requested entity is one batch root; registered
+and nonregistered entities both work. No portable install/advance/replace CAS occurs at this door.
+M3/M4 still deliver and prove maintained substrate lifecycle, not Loam maintained-state adoption.
+Loam pins reviewed published release B, even though this branch consumes M2.
 
-- Selected registration is root/local, not channel-origin; definition-source identity remains
-  distinct from operand-source identity. The exact current selected registration must be named.
-- No bound connection, separate pinned-version door or subscription. No whole admitted-source
-  read is added for bound users; unbound channel reads keep their own peer source.
-- Complete original HyperSchema/reading closure and exact pins are available from admitted law.
-  No minting a receiver-authored replacement for a foreign definition, inline reading or lost act.
-- Full gather, nested references, reflected subterms, alias-trust predicates AND top/child/embedded
-  reading orders pass both portable core support and Loam's no-governed-lowering conditions.
-  `needsLowering` alone traverses only part of that obligation. No implicit core interpretation
-  of Loam account/user predicates or native lowering capability.
-- Host preparation captures the primary source under current read closure and the requested
-  historical cutoff using existing source rules. Captured revision covers actual membership,
-  represented authority, closure parameters and contributing peer identity. No count/head shortcut.
-- Operand at, current definition-selection definition-at and present serving-at are explicitly
-  retained per invocation. Current source/time reads use maintained registration; historical
-  reads use portable batch gather with the same evidence envelope format.
+Present operand at is this invocation's explicit host-observed now; historical operand at equals
+asOf and historical-cutoff. Current selected definition-at and present serving-at/authority stay
+independent. Loam's present warm wall-clock route is not mapped onto a stored maintained at.
+Each door call makes ONE attempt; changed source/authority is a visible typed read failure.
+No automatic recapture/retry or catch-to-native after portable invocation begins.
 
-Eligibility is a full static dispatch decision before execution, not a catch after source,
-authority, pin, decoder or execution errors. A registration that promises eligible support but
-loses an act fails visibly; it does not silently choose native evaluation or different source.
-Native in-process-only `register()` fixtures without original published acts remain outside this
-subset; required migrated fixtures publish originals through the actual production journal door.
+## Eligibility and capacity classification before dispatch
 
-## Concrete implementation constraints and evidence
+- Selected registration is root/local, not channel-origin. Definition-source identity is distinct
+  from operand-source identity; select exact original acts rather than name-only latest lookup.
+- No bound connection, pinned-version door, watch or subscription. Bound users gain no PRIMARY
+  access; channel reads retain their own peer source and authority.
+- Complete original HyperSchema/reading closure and pins must be available from admitted law.
+  Native-only register() fixtures without published original acts are declared bystanders.
+  A registration promising portable support whose original law is missing fails visibly, rather
+  than being reclassified for capacity or re-signed by the receiver.
+- Inspect ALL gather terms/references/reflection/alias predicates AND top/child/embedded reading
+  orders for core and no-governed-lowering support. `needsLowering` alone is insufficient.
+  No account/user/principal callback or new portable Loam lowering profile is introduced.
+- After static classification, preflight the exact full authorized per-invocation source basis
+  and constructed program/request/carriers against every applicable INPUT limit. Count selected
+  appearances, components/inventory, syntax, snapshot/capture bytes, delivered appearances and
+  total canonical claims plus signature bytes INCLUDING carrier overhead. Never drop members to
+  fit a root; capture is the whole authorized PRIMARY source at that time/closure.
+- Freeze route, original source/definition selection and time in an explicit invocation value.
+  Outside input capacity selects the existing native branch BEFORE portable dispatch, preserving
+  its answers at that same basis. This is declared exclusion, not portable large-source support.
+  Unexpected source changes after classification fail visibly on either route. Do not reroute or
+  silently resample time. Within input bounds can still exceed output/expansion limits; once
+  dispatched such resource/auth/closure/pin/decoder/execution errors surface, never native fallback.
 
-- gatherImpl selects bound/channel/primary before warm materialization. Current readClosedIds
-  demotes old warm state; historical asOfGroundImpl applies timestamp cutoff then current closure.
-  Preserve both current readGround and historical narrowing, including unrelated bystanders.
-- `src/gateway/governed-trust.ts:needsLowering` traverses referenced gather definitions;
-  governedProgram builds overlays from native account evidence. Portable eligibility must inspect
-  readings/orders too. A private `user:` author pattern or unsupported feature cannot be renamed
-  core merely because its AST parser accepts it. No new portable Loam lowering profile is needed
-  for the actually eligible subset; unsupported closures are declared bystanders.
-- `src/gateway/registration.ts:registrationDeltaClaims` (line643) publishes living/frozen Schema
-  acts and bindings naming gather, living reading and snapshot. `publishRegistrationImpl` publishes
-  original signed gather acts. Extract the exact selected acts and reachable dependencies under
-  current law; deduplicate redundant living/frozen copies by selected act identity, not signature
-  substitution or packet order. Compare extracted body pins/metadata to current Registered values.
-- Definition validity must use definition-at independently from historical operand time. Loam's
-  current registered program can have been signed after the requested past time; program content
-  pin does not establish historical selection. A lifecycle descriptor pins its definition-at.
-  Changed current law/selected acts/definition-at require explicit retire/new install, not an alias
-  rebinding behind an existing descriptor. Descriptor choice remains Loam-owned and sayable.
-- `test/gateway/fixtures.ts` defines Plant and named PLANT_READING; genesis.test.ts contains a
-  durable BedWithPlants fixture. read.test.ts, reading-refs.test.ts and resolvers.test.ts exercise
-  real queries, child policies, authors/time and bucket evidence. Adapt real published variants,
-  rather than assuming their native-only registrations already satisfy signed-closure extraction.
-- resolvedNodeImpl is synchronous. Durable source/control work is async. Prepare at the async
-  query door or introduce an explicit async read path, propagating its public API changes through
-  the existing API/Peer boundary gates. Each invocation retains its own basis/envelope/result.
-  No effectful synchronous getter, global current-source slot or context rebinding on resume.
-- Source final check and metadata control CAS are separate. A just-selected basis may become stale;
-  next read checks/refuses. Control has no operand payload copies/WAL surface. Host read preparation
-  reacquires/reconstructs the exact snapshot from current rows plus committed metadata and signs a
-  fresh carrier, independently checking present permission. Lost source ⇒ unavailable, not cache.
-- Existing decorateChildren/readingResolversOf (reading NAME), applyResolvers (full bucket),
-  resolver memo and annotateImpl remain Loam-owned. Full names and original deltas are restored
-  from envelope; no “picked View equals evidence” shortcut. Current closure confession/forgotten
-  marks are still computed using the invocation's present basis, not a fresh implicit clock read.
+## Application-owned semantics and async feasibility
+
+- `gatherImpl` selects bound/channel/primary before warm materialization. Current `readGround` /
+  `readClosedIds` demotes closed warm state; historical `asOfGroundImpl` applies cutoff then
+  current closure. Preserve both narrowings, including unrelated bystanders and current authority.
+- `src/gateway/governed-trust.ts:needsLowering` traverses gather references, while governedProgram
+  builds overlays from native account evidence. Full eligibility checks readings/orders too;
+  private user patterns cannot be renamed core merely because their AST parses.
+- `src/gateway/registration.ts:registrationDeltaClaims` (643) publishes living/frozen Schema acts
+  and bindings naming gather, living reading and snapshot. `publishRegistrationImpl` publishes
+  original gather acts. Extract exact selected acts/dependencies under current law; select one
+  living/frozen copy by act identity. Compare pins/metadata to current Registered values.
+- Current definitions can be published after historical operand at. Explicit definition-at binds
+  this selection independently; changing current selected acts/definition-at changes the next
+  batch Basis. No Loam lifecycle descriptor, implicit retirement or durable CAS is needed here.
+- Plant/PLANT_READING in `test/gateway/fixtures.ts` and durable BedWithPlants in genesis.test.ts
+  supply real targets. Adapt published variants of reading-refs/resolvers/read suites rather than
+  assuming native-only schemas already support exact signed closure extraction.
+- `resolvedNodeImpl` is synchronous; preparation/capture and portable invocation are async. Prepare
+  at the async query door or propagate an explicit async read path through API/Peer gates. The host
+  samples finite receivedAt ONCE before preparation, freezes it in that invocation value, and calls
+  invoke(entryId,debugAppearances,receivedAt). Signed serving-at must match (stage-4 invalid-arguments
+  otherwise). No independent endpoint clock, effectful synchronous getter or global attempt slot.
+- Each invocation has original acts, source/capture/snapshot, time and returned envelope/Basis.
+  Resolve takes only request+evidence containing the complete signed closure, not redelivered acts.
+  Per-invocation source final check describes captured basis, not atomic multi-peer/latest serving.
+- `decorateChildren`/`readingResolversOf` (reading NAME), `applyResolvers` (full buckets), memo and
+  annotations remain application-owned. Restore full names/original entries from envelope;
+  a picked View alone cannot replace evidence. Current closure/historical marks use this
+  invocation's explicit present basis rather than another clock read.
 
 ## Ten required actual-door schedules
 
-The single machine-readable allocation is ACCEPTANCE M5; these descriptions explain its scope.
+ACCEPTANCE M5 freezes these ten IDs and their exact schedules, including capacity probes in #8.
 
-1. Actual GraphQL Plant read matches prior View/HView digests, including bytes and negation.
-2. Durable Bed→Plant survives fresh-process evidence decode and close/reopen.
-3. Bucket-count resolver receives all original evidence; values7/9 must still give count2.
-4. Current closure hides a target in both present/historical reads; named unrelated row survives.
-5. External SQLite deletion and equal-count replacement invalidate/rebuild selected source state.
-6. Explicit validity advance changes answer without ingest; same bytes/different authority never
-   reuses an old authorized answer.
-7. Drop runtime registrations/caches and reconstruct declarations; retired stays retired;
-   unavailable source never produces old current output.
-8. Bound/channel/governed/pinned/subscription and malformed/private PRIMARY bystanders stay green.
-9. Concurrent async preparations/source replacement retain per-invocation basis; errors do not
-   switch source/time or fall back to native evaluation.
-10. Eligible production branch calls published package contracts; delete its obsolete duplicated
-    mechanism while preserving machinery used by excluded paths.
+1. Actual Plant query matches prior View/HView bytes/digests, including bytes/negation; both
+   registered and arbitrary nonregistered entities use package batch gather/resolve.
+2. Durable Bed→Plant survives fresh-process envelope decode and close/reopen with original acts.
+3. Bucket resolver sees full evidence: values7/9 give count2, retaining child reading names.
+4. Present closure hides a target in both present/historical reads; unrelated row survives and
+   definition-at can follow the historical operand instant.
+5. External SQLite deletion/equal-count replacement: old in-flight basis refuses, next new batch
+   capture reflects physical inventory, unrelated rows survive. No maintained reconciliation CAS.
+6. Distinct explicit now values cross validity without ingest; same bytes/different authority
+   never reuse authorization. Present/historical batch contexts remain independent.
+7. Close/reopen, discard all native registrations/caches, reconstruct original published acts,
+   run new batch reads; unavailable source refuses. Portable retirement is an M3 gate only.
+8. Bound/channel/governed/pinned/subscription/private bystanders remain green. Capacity probes:
+   4096/4097 total selected appearances (definitions included if members), plus exact/over encoded
+   INPUT byte limits with carrier overhead counted. Exact boundary is portable when all other
+   limits fit; over boundary explicitly native with unchanged answers. Output overflow after
+   valid input is visible. Missing promised act is an error. Classification is observable to tests.
+9. Two concurrent async preparations for distinct arbitrary roots retain separate source/time/
+   authority; paused stale one fails once, new-basis one succeeds. No retry/global context/fallback.
+10. Pin published B; ingest then ordinary read uses a new batch basis without admin CAS. Prove real
+    production package calls, remove obsolete eligible duplication, preserve excluded consumers.
 
-Use real journal-backed stores for removal/restart/authority tests. Full snapshots and correctness
-come before incremental performance. M5 proves one supported subset, not portable account lowering,
-all GraphQL reads or composed subscriptions. If original signed closure extraction fails for the
-selected durable Plant/Bed path, return that concrete blocker to supervisor; do not substitute
-unsigned schemas or invent a feasibility claim. Source inspection supports this choice, not yet
-an executed extraction/consumer trial.
+Use real journal-backed stores for removal/restart/authority tests. Record total selected
+appearances, snapshot/capture/delivery/envelope/result byte sizes INCLUDING carriers for actual
+Plant/Bed fixtures before M5 acceptance. Full source snapshots/results and correctness come before
+optimization. This is one bounded subset, not whole-Loam migration. If exact signed closure
+extraction or frozen native capacity classification cannot preserve the actual selected door,
+report the concrete counterexample to supervisor; do not invent a fallback or unsigned law.

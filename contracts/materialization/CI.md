@@ -7,7 +7,9 @@ The local validator checks exact MR inventory and mapping, unique stable case ID
 milestone allocation, dependency DAG, prospective API classifications, stage/contract refs,
 three-tower/fixed-route/replay requirements, preserved witness levels and finite limits. Negative
 mutations prove missing cases, changed ownership, unknown requirements, invalid limit/dependency,
-false capability claims and removed replay requirements fail for the intended reason. This is
+false capability claims and removed replay requirements fail for the intended reason. Repair
+checks cover finding dispositions/case refs, preserved ten Loam schedule IDs, compact public
+Basis and shared multi-root shape, explicit native observation/support-set APIs and replay fields. This is
 contract consistency evidence, not runtime conformance. No heavy witness suites are required for
 this documents-only slice. Existing command contract/graph checks should still pass.
 
@@ -53,6 +55,12 @@ Boundary corruption and common-wrong-answer are different failures and both are 
 Record canonical source/envelope/control/result byte lengths, signature count, wall time and
 peak memory for the fixed nested Bed→Plant fixture (32 plants, four buckets each, 128 signed
 facts, bytes leaf, two-level expansion), in both witnesses before optimization. Record cold
-capture, gather, readback, resolve, install, replacement and fresh restore/read separately.
+capture, gather, readback, resolve, install, replacement and fresh restore/read separately. Add a
+source-size sweep at 0, 128, 1024, 4096 and 4097 TOTAL selected appearances (including selected law
+if it belongs to the source). Record snapshot/capture/carrier/delivery/result bytes and every
+signature verification; separate supported completion from deterministic capacity refusal. Include
+exact/over snapshot and delivery byte boundaries, including signed carrier overhead. At M5 record
+actual published Plant/Bed count/bytes and native/portable route choice before acceptance; do not
+infer whole-store feasibility from the 128-fact fixture.
 No speed threshold justifies incomplete evidence, hashes changing or omission of current-source
 checks. Baselines are measurements, not invented estimates or proof of incremental performance.
