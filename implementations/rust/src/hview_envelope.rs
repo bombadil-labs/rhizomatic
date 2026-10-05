@@ -71,7 +71,11 @@ impl HViewEnvelopeLimits {
         Ok(self)
     }
 }
-fn original(delta: &Delta, limits: HViewEnvelopeLimits) -> Result<Vec<u8>> {
+fn original(
+    delta: &Delta,
+    limits: HViewEnvelopeLimits,
+    verified: &mut BTreeSet<String>,
+) -> Result<Vec<u8>> {
     limit(delta.claims.pointers.len(), limits.pointers)?;
     let mut minimum = 0;
     let mut add = |n: usize| -> Result<()> {
@@ -115,7 +119,12 @@ fn original(delta: &Delta, limits: HViewEnvelopeLimits) -> Result<Vec<u8>> {
         ("claims", CborValue::Bstr(claims)),
     ];
     if let Some(sig) = &delta.sig {
-        if verify_canonical_delta(delta) != Verification::Verified {
+        // Keep canonical native spelling strict even when the bytes were verified earlier.
+        if sig.len() != 128
+            || !sig
+                .bytes()
+                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+        {
             return Err(INVALID);
         }
         values.push((
@@ -123,9 +132,23 @@ fn original(delta: &Delta, limits: HViewEnvelopeLimits) -> Result<Vec<u8>> {
             CborValue::Bstr(hex::decode(sig).map_err(|_| INVALID)?),
         ));
     }
-    Ok(encode(&map(values)))
+    let bytes = encode(&map(values));
+    if delta.sig.is_some() {
+        let key = content_address(&bytes);
+        if !verified.contains(&key) {
+            if verify_canonical_delta(delta) != Verification::Verified {
+                return Err(INVALID);
+            }
+            verified.insert(key); // Successful verification of exact full appearance bytes only.
+        }
+    }
+    Ok(bytes)
 }
-fn delta_from_bytes(input: &[u8], limits: HViewEnvelopeLimits) -> Result<Delta> {
+fn delta_from_bytes(
+    input: &[u8],
+    limits: HViewEnvelopeLimits,
+    verified: &mut BTreeSet<String>,
+) -> Result<Delta> {
     let raw = canonical(input, limits.artifact_bytes)?;
     let fs = fields(&raw, &["id", "claims", "sig"])?;
     let claims = canonical_guard(
@@ -146,7 +169,7 @@ fn delta_from_bytes(input: &[u8], limits: HViewEnvelopeLimits) -> Result<Delta> 
             .map(|v| bytes(v).map(hex::encode))
             .transpose()?,
     };
-    if original(&result, limits)? != input {
+    if original(&result, limits, verified)? != input {
         return Err(INVALID);
     }
     Ok(result)
@@ -177,7 +200,8 @@ fn table_add(
     }
     Ok(key)
 }
-struct Encoder {
+struct Encoder<'a> {
+    verified: &'a mut BTreeSet<String>,
     limits: HViewEnvelopeLimits,
     nodes: usize,
     entries: usize,
@@ -185,7 +209,7 @@ struct Encoder {
     appearances: BTreeMap<String, Vec<u8>>,
     readings: BTreeMap<String, Vec<u8>>,
 }
-impl Encoder {
+impl Encoder<'_> {
     fn node(&mut self, value: &HView, depth: usize) -> Result<CborValue> {
         limit(depth, self.limits.depth)?;
         self.nodes += 1;
@@ -205,7 +229,7 @@ impl Encoder {
             for entry in bucket {
                 let appearance = table_add(
                     &mut self.appearances,
-                    original(&entry.delta, self.limits)?,
+                    original(&entry.delta, self.limits, self.verified)?,
                     self.limits.appearances,
                     &mut self.byte_minimum,
                     self.limits.artifact_bytes,
@@ -261,7 +285,16 @@ fn records(values: BTreeMap<String, Vec<u8>>) -> CborValue {
 }
 pub fn encode_hview_envelope(view: &HView, limits: HViewEnvelopeLimits) -> Result<Vec<u8>> {
     let limits = limits.validate()?;
+    encode_envelope(view, limits, &mut BTreeSet::new())
+}
+// Private invocation-local cache, including the decode's final exact re-encode.
+fn encode_envelope(
+    view: &HView,
+    limits: HViewEnvelopeLimits,
+    verified: &mut BTreeSet<String>,
+) -> Result<Vec<u8>> {
     let mut encoder = Encoder {
+        verified,
         limits,
         nodes: 0,
         entries: 0,
@@ -419,7 +452,10 @@ pub fn decode_hview_envelope(input: &[u8], limits: HViewEnvelopeLimits) -> Resul
     if text(get(&fs, "format")?)? != "rhizomatic.hview-envelope/1" {
         return Err(INVALID);
     }
-    let appearances = table(get(&fs, "appearances")?, |v| delta_from_bytes(v, limits))?;
+    let mut verified = BTreeSet::new();
+    let appearances = table(get(&fs, "appearances")?, |v| {
+        delta_from_bytes(v, limits, &mut verified)
+    })?;
     let readings = table(get(&fs, "readings")?, |v| {
         decode_reading_appearance(v, limits.reading())
     })?;
@@ -435,7 +471,7 @@ pub fn decode_hview_envelope(input: &[u8], limits: HViewEnvelopeLimits) -> Resul
     {
         return Err(INVALID);
     }
-    if encode_hview_envelope(&result, limits)? != input {
+    if encode_envelope(&result, limits, &mut verified)? != input {
         return Err(INVALID);
     }
     Ok(result)

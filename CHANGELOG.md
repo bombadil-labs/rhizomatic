@@ -15,6 +15,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 
 ### Fixed
 
+- HView evidence codecs verify each distinct full signed appearance once per invocation, including
+  decode's final re-encode. Repeated entries preserve validation, canonical bytes and refusal codes.
 - TS schema props, fix bindings and CBOR JSON bridges now preserve legal `__proto__` keys as own
   properties. Previously lossy inputs may change their broken prior hashes; all unaffected hashes
   and existing profile1 behavior remain unchanged.

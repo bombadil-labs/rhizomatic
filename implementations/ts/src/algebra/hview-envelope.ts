@@ -1,6 +1,16 @@
 // SPEC-16 MR-04..07: lossless evidence, independent of existing HView evaluation identity.
-import { type CborValue, array, bool, bstr, encode, float, map, tstr } from "../delta/cbor.js";
-import { canonicalBytes, computeId } from "../delta/delta.js";
+import {
+  type CborValue,
+  decode,
+  array,
+  bool,
+  bstr,
+  encode,
+  float,
+  map,
+  tstr,
+} from "../delta/cbor.js";
+import { canonicalBytes } from "../delta/delta.js";
 import { bytesToHex, contentAddress } from "../delta/hash.js";
 import { parseClaims } from "../delta/json-profile.js";
 import { verifyCanonicalDelta } from "../delta/sign.js";
@@ -62,7 +72,7 @@ function index(value: CborValue | undefined): number {
   if (value?.t !== "float" || !Number.isSafeInteger(value.v) || value.v < 0) return invalid();
   return value.v;
 }
-function original(delta: Delta, limits: HViewEnvelopeLimits): Uint8Array {
+function original(delta: Delta, limits: HViewEnvelopeLimits, verified: Set<string>): Uint8Array {
   codecLimit(delta.claims.pointers.length, limits.pointers);
   let minimum = codecTextSize(delta.claims.author, limits.artifactBytes);
   const text = (s: string): void => {
@@ -91,18 +101,34 @@ function original(delta: Delta, limits: HViewEnvelopeLimits): Uint8Array {
   }
   const claims = canonicalBytes(delta.claims);
   codecLimit(claims.length, limits.artifactBytes);
-  if (id(delta.id) !== computeId(delta.claims)) return invalid();
+  const deltaId = id(delta.id),
+    sig = delta.sig;
+  if (deltaId !== contentAddress(claims)) return invalid();
   const fields: [string, CborValue][] = [
-    ["id", tstr(delta.id)],
+    ["id", tstr(deltaId)],
     ["claims", bstr(claims)],
   ];
-  if (delta.sig !== undefined) {
-    if (verifyCanonicalDelta(delta) !== "verified") return invalid();
-    fields.push(["sig", bstr(fromHex(delta.sig))]);
+  if (sig !== undefined) {
+    if (!/^[0-9a-f]{128}$/.test(sig)) return invalid();
+    fields.push(["sig", bstr(fromHex(sig))]);
   }
-  return encode(map(fields));
+  const bytes = encode(map(fields));
+  if (sig !== undefined) {
+    const key = contentAddress(bytes);
+    if (!verified.has(key)) {
+      // Verify the captured bytes, not fields reread from a mutable native object.
+      const captured = { id: deltaId, claims: parseClaims(cborToJson(decode(claims))), sig };
+      if (verifyCanonicalDelta(captured) !== "verified") return invalid();
+      verified.add(key); // Only successful checks of these exact full appearance bytes.
+    }
+  }
+  return bytes;
 }
-function deltaFromBytes(bytes: Uint8Array, limits: HViewEnvelopeLimits): Delta {
+function deltaFromBytes(
+  bytes: Uint8Array,
+  limits: HViewEnvelopeLimits,
+  verified: Set<string>,
+): Delta {
   const fields = codecMap(canonicalEvidence(bytes, limits.artifactBytes), ["id", "claims", "sig"]);
   const claimsBytes = codecBytes(fields.get("claims"));
   const raw = canonicalEvidence(claimsBytes, limits.artifactBytes, (path, kind, length) => {
@@ -116,7 +142,7 @@ function deltaFromBytes(bytes: Uint8Array, limits: HViewEnvelopeLimits): Delta {
     claims,
     ...(sig === undefined ? {} : { sig }),
   };
-  if (bytesToHex(original(delta, limits)) !== bytesToHex(bytes)) return invalid();
+  if (bytesToHex(original(delta, limits, verified)) !== bytesToHex(bytes)) return invalid();
   return delta;
 }
 function validSlot(entry: HVEntry, slot: number, limits: HViewEnvelopeLimits): void {
@@ -131,6 +157,15 @@ function validSlot(entry: HVEntry, slot: number, limits: HViewEnvelopeLimits): v
 export function encodeHViewEnvelope(
   view: HView,
   requested: Partial<HViewEnvelopeLimits> = {},
+): Uint8Array {
+  return encodeEnvelope(view, requested, new Set());
+}
+
+// Private invocation-local cache; never keyed by a Delta ID or native object identity.
+function encodeEnvelope(
+  view: HView,
+  requested: Partial<HViewEnvelopeLimits>,
+  verified: Set<string>,
 ): Uint8Array {
   return codecBoundary(() => {
     const limits = codecLimits(DEFAULT_HVIEW_ENVELOPE_LIMITS, requested);
@@ -164,7 +199,11 @@ export function encodeHViewEnvelope(
         codecLimit((entries += bucket.length), limits.entries);
         const items = bucket.map((entry) => {
           if (typeof entry.negated !== "boolean") return invalid();
-          const appearance = table(appearances, original(entry.delta, limits), limits.appearances);
+          const appearance = table(
+            appearances,
+            original(entry.delta, limits, verified),
+            limits.appearances,
+          );
           const expanded: CborValue[] = [],
             childReadings: CborValue[] = [];
           for (const [slot, child] of [...(entry.expanded ?? [])].sort(([a], [b]) => a - b)) {
@@ -276,8 +315,9 @@ export function decodeHViewEnvelope(
       }
       return result;
     }
+    const verified = new Set<string>();
     const appearances = table(envelope.get("appearances"), (value) =>
-      deltaFromBytes(value, limits),
+      deltaFromBytes(value, limits, verified),
     );
     const readings = table(envelope.get("readings"), (value) =>
       decodeReadingAppearance(value, readingLimits(limits)),
@@ -341,7 +381,8 @@ export function decodeHViewEnvelope(
     const result = node(root);
     if (usedAppearances.size !== appearances.size || usedReadings.size !== readings.size)
       return invalid();
-    if (bytesToHex(encodeHViewEnvelope(result, limits)) !== bytesToHex(bytes)) return invalid();
+    if (bytesToHex(encodeEnvelope(result, limits, verified)) !== bytesToHex(bytes))
+      return invalid();
     return result;
   });
 }

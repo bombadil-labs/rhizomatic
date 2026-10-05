@@ -1,7 +1,8 @@
-# M1 builder freeze evidence
+# Original M1 builder freeze evidence (965b223)
 
-This is implementation evidence for M1 only. Independent Fable review and hosted integration
-remain supervisor-owned. M2–M5 are specified, not implemented. The exact local freeze SHA is
+This records the original M1 freeze, independently accepted by Fable at 965b223. The bounded
+follow-up is recorded separately in [M1-FOLLOWUP.md](M1-FOLLOWUP.md). Hosted integration
+remains supervisor-owned. M2–M5 are specified, not implemented. The exact local freeze SHA is
 reported in the supervisor handoff; the generated ignored `artifacts/materialization-m1/REPORT.json`
 pins that SHA, source tree and clean status when the gate is rerun on the frozen commit.
 

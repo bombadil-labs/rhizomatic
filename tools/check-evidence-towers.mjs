@@ -13,9 +13,11 @@ const stages=packet.stages.filter(s=>s.id==='envelope-write'||s.id==='envelope-r
 const fixture=join(root,'implementations/ts/tools/evidence-fixture.ts');
 const tsx=join(root,'implementations/ts/node_modules/.bin/tsx');
 const cargo=process.env.CARGO??'cargo';
-const build=spawnSync(cargo,['build','--locked','--manifest-path',join(root,'implementations/rust/Cargo.toml'),'--example','evidence_fixture'],{cwd:root,encoding:'utf8',maxBuffer:10*1024*1024});
+const build=spawnSync(cargo,['build','--locked','--manifest-path',join(root,'implementations/rust/Cargo.toml'),'--example','evidence_fixture','--message-format=json'],{cwd:root,encoding:'utf8',maxBuffer:10*1024*1024});
 assert.equal(build.status,0,build.stderr);
-const rust=join(root,'implementations/rust/target/debug/examples/evidence_fixture');
+const executableArtifacts=build.stdout.trim().split('\n').filter(Boolean).map(JSON.parse).filter(m=>m.reason==='compiler-artifact'&&m.target?.name==='evidence_fixture'&&m.target.kind?.includes('example')&&m.executable);
+assert.equal(executableArtifacts.length,1,'Cargo must report exactly one evidence fixture executable');
+const rust=executableArtifacts[0].executable;
 const hash=path=>createHash('sha256').update(readFileSync(path)).digest('hex');
 const tsSrc=join(root,'implementations/ts/src');
 const files=dir=>readdirSync(dir,{withFileTypes:true}).flatMap(e=>e.isDirectory()?files(join(dir,e.name)):[join(dir,e.name)]).sort();

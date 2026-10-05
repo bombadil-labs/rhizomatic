@@ -1,3 +1,5 @@
+#[path = "support/evidence_assertions.rs"]
+mod assertion_evidence;
 #[path = "support/evidence_fixture.rs"]
 mod support;
 use rhizomatic::evidence_codec::ReadingAppearanceLimits;
@@ -21,65 +23,72 @@ fn vectors() -> Value {
 #[test]
 fn shared_evidence_vectors() {
     let vs = vectors();
+    let mut assertions = 0;
+    macro_rules! checked_eq { ($($args:tt)*) => {{ assert_eq!($($args)*); assertions+=1; }}; }
+    macro_rules! checked_ne { ($($args:tt)*) => {{ assert_ne!($($args)*); assertions+=1; }}; }
+    macro_rules! checked { ($($args:tt)*) => {{ assert!($($args)*); assertions+=1; }}; }
     let reading =
         parse_schema(&json!({"props":{},"default":{"pick":{"order":"lexById"}}})).unwrap();
     for v in vs["positives"].as_array().unwrap() {
+        let before = assertions;
         let label = format!("{}/{}", v["id"], v["variant"]);
         let native = support::fixture_view(&v["native"]).unwrap();
         let limits = support::limits(&v["limits"]);
         let expected = hex::decode(v["envelopeHex"].as_str().unwrap()).unwrap();
         let encoded = encode_hview_envelope(&native, limits).unwrap();
-        assert_eq!(encoded, expected, "{label}");
-        assert_eq!(
+        checked_eq!(encoded, expected, "{label}");
+        checked_eq!(
             content_address(&encoded),
             v["transportId"].as_str().unwrap(),
             "{label}"
         );
         let decoded = decode_hview_envelope(&expected, limits).unwrap();
-        assert_eq!(
+        checked_eq!(
             encode_hview_envelope(&decoded, limits).unwrap(),
             expected,
             "{label}"
         );
-        assert_eq!(
+        checked_eq!(
             support::inspect_view(&native),
             support::inspect_view(&decoded),
             "{label}"
         );
-        assert_eq!(
+        checked_eq!(
             hview_canonical_hex(&native),
             v["existingHViewHex"].as_str().unwrap(),
             "{label}"
         );
-        assert_eq!(
+        checked_eq!(
             hview_canonical_hex(&decoded),
             v["existingHViewHex"].as_str().unwrap(),
             "{label}"
         );
         if v["variant"] == "legacy" {
-            assert!(resolve_view(&reading, &decoded)
+            checked!(resolve_view(&reading, &decoded)
                 .unwrap_err()
                 .contains("reading"));
         }
         if v["variant"] == "annotations" {
-            assert_eq!(
+            checked_eq!(
                 resolve_view(&reading, &native),
                 resolve_view(&reading, &decoded)
             );
         }
         if v["variant"] == "bound" {
-            assert_ne!(
+            checked_ne!(
                 schema_hash(decoded.props["child"][0].readings.get(&1).unwrap()).unwrap(),
                 schema_hash(&parse_schema(&v["originalReading"]).unwrap()).unwrap()
             );
         }
         println!("materialization-case:{label}");
+        assertion_evidence::record("positives", v, assertions - before);
     }
     for v in vs["negative"].as_array().unwrap() {
+        let before = assertions;
         let expected = v["error"].as_str().unwrap();
         if !v["native"].is_null() {
             let native = support::fixture_view(&v["native"]).unwrap();
-            assert_eq!(
+            checked_eq!(
                 encode_hview_envelope(&native, support::limits(&v["limits"]))
                     .unwrap_err()
                     .to_string(),
@@ -90,7 +99,7 @@ fn shared_evidence_vectors() {
             &hex::decode(v["envelopeHex"].as_str().unwrap()).unwrap(),
             support::limits(&v["limits"]),
         );
-        assert_eq!(
+        checked_eq!(
             result.unwrap_err().to_string(),
             expected,
             "{}/{}",
@@ -98,35 +107,40 @@ fn shared_evidence_vectors() {
             v["variant"]
         );
         println!("materialization-case:{}/{}", v["id"], v["variant"]);
+        assertion_evidence::record("negative", v, assertions - before);
     }
     for v in vs["nativeReject"].as_array().unwrap() {
+        let before = assertions;
         let native = support::fixture_view(&v["native"]).unwrap();
-        assert_eq!(
+        checked_eq!(
             verify_delta(&native.props["child"][0].delta),
             Verification::Verified
         );
-        assert_eq!(
+        checked_eq!(
             encode_hview_envelope(&native, HViewEnvelopeLimits::default())
                 .unwrap_err()
                 .to_string(),
             "invalid-evidence"
         );
         println!("materialization-case:{}/{}", v["id"], v["variant"]);
+        assertion_evidence::record("nativeReject", v, assertions - before);
     }
     for v in vs["readingFixtures"].as_array().unwrap() {
+        let before = assertions;
         let native = parse_schema(&v["native"]).unwrap();
         let expected = hex::decode(v["appearanceHex"].as_str().unwrap()).unwrap();
-        assert_eq!(
+        checked_eq!(
             encode_reading_appearance(&native, ReadingAppearanceLimits::default()).unwrap(),
             expected
         );
         let decoded =
             decode_reading_appearance(&expected, ReadingAppearanceLimits::default()).unwrap();
-        assert_eq!(schema_to_json(&decoded), schema_to_json(&native));
-        assert_eq!(
+        checked_eq!(schema_to_json(&decoded), schema_to_json(&native));
+        checked_eq!(
             schema_hash(&decoded).unwrap(),
             v["semanticPin"].as_str().unwrap()
         );
+        assertion_evidence::record("readingFixtures", v, assertions - before);
     }
 }
 #[test]

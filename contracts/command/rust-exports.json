@@ -51172,56 +51172,12 @@
     {
       "form": "syn-resolved-path",
       "owner": "algebra",
-      "rawTarget": "crate::cbor::encode",
-      "resolvedTarget": "crate::cbor::encode",
-      "source": "implementations/rust/src/hview_envelope.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "encode_hview_envelope",
-      "target": "crate::cbor::encode",
-      "targetOwner": "delta"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "algebra",
       "rawTarget": "crate::evidence_codec::Result",
       "resolvedTarget": "crate::evidence_codec::Result",
       "source": "implementations/rust/src/hview_envelope.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "encode_hview_envelope",
       "target": "crate::evidence_codec::Result",
-      "targetOwner": "syntax"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "algebra",
-      "rawTarget": "crate::evidence_codec::limit",
-      "resolvedTarget": "crate::evidence_codec::limit",
-      "source": "implementations/rust/src/hview_envelope.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "encode_hview_envelope",
-      "target": "crate::evidence_codec::limit",
-      "targetOwner": "syntax"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "algebra",
-      "rawTarget": "crate::evidence_codec::map",
-      "resolvedTarget": "crate::evidence_codec::map",
-      "source": "implementations/rust/src/hview_envelope.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "encode_hview_envelope",
-      "target": "crate::evidence_codec::map",
-      "targetOwner": "syntax"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "algebra",
-      "rawTarget": "crate::evidence_codec::string",
-      "resolvedTarget": "crate::evidence_codec::string",
-      "source": "implementations/rust/src/hview_envelope.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "encode_hview_envelope",
-      "target": "crate::evidence_codec::string",
       "targetOwner": "syntax"
     },
     {
@@ -51238,17 +51194,6 @@
     {
       "form": "syn-resolved-path",
       "owner": "algebra",
-      "rawTarget": "crate::hview_envelope::Encoder",
-      "resolvedTarget": "crate::hview_envelope::Encoder",
-      "source": "implementations/rust/src/hview_envelope.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "encode_hview_envelope",
-      "target": "crate::hview_envelope::Encoder",
-      "targetOwner": "algebra"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "algebra",
       "rawTarget": "crate::hview_envelope::HViewEnvelopeLimits",
       "resolvedTarget": "crate::hview_envelope::HViewEnvelopeLimits",
       "source": "implementations/rust/src/hview_envelope.rs",
@@ -51256,35 +51201,6 @@
       "symbol": "encode_hview_envelope",
       "target": "crate::hview_envelope::HViewEnvelopeLimits",
       "targetOwner": "algebra"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "algebra",
-      "rawTarget": "crate::hview_envelope::records",
-      "resolvedTarget": "crate::hview_envelope::records",
-      "source": "implementations/rust/src/hview_envelope.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "encode_hview_envelope",
-      "target": "crate::hview_envelope::records",
-      "targetOwner": "algebra"
-    },
-    {
-      "form": "syn-external-path",
-      "owner": "algebra",
-      "source": "implementations/rust/src/hview_envelope.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "encode_hview_envelope",
-      "target": "std::collections::BTreeMap::new"
-    },
-    {
-      "form": "macro-region",
-      "macros": [
-        "vec"
-      ],
-      "owner": "algebra",
-      "source": "implementations/rust/src/hview_envelope.rs",
-      "status": "parsed-known-macro-arguments",
-      "symbol": "encode_hview_envelope"
     },
     {
       "form": "syn-resolved-path",
@@ -51895,17 +51811,6 @@
       "sourceRegion": "semantic-owner",
       "symbol": "decode_hview_envelope",
       "target": "crate::hview_envelope::delta_from_bytes",
-      "targetOwner": "algebra"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "algebra",
-      "rawTarget": "crate::hview_envelope::encode_hview_envelope",
-      "resolvedTarget": "crate::hview_envelope::encode_hview_envelope",
-      "source": "implementations/rust/src/hview_envelope.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "decode_hview_envelope",
-      "target": "crate::hview_envelope::encode_hview_envelope",
       "targetOwner": "algebra"
     },
     {
@@ -54669,6 +54574,207 @@
       "symbol": "decode_item",
       "target": "crate::cbor::ContainerGuard",
       "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "algebra",
+      "rawTarget": "crate::evidence_codec::bytes",
+      "resolvedTarget": "crate::evidence_codec::bytes",
+      "source": "implementations/rust/src/hview_envelope.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "original",
+      "target": "crate::evidence_codec::bytes",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "algebra",
+      "rawTarget": "crate::hash::content_address",
+      "resolvedTarget": "crate::hash::content_address",
+      "source": "implementations/rust/src/hview_envelope.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "original",
+      "target": "crate::hash::content_address",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "algebra",
+      "source": "implementations/rust/src/hview_envelope.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "original",
+      "target": "std::collections::BTreeSet"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "algebra",
+      "source": "implementations/rust/src/hview_envelope.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "delta_from_bytes",
+      "target": "std::collections::BTreeSet"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "algebra",
+      "source": "implementations/rust/src/hview_envelope.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Encoder",
+      "target": "std::collections::BTreeSet"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "algebra",
+      "rawTarget": "crate::hview_envelope::encode_envelope",
+      "resolvedTarget": "crate::hview_envelope::encode_envelope",
+      "source": "implementations/rust/src/hview_envelope.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "encode_hview_envelope",
+      "target": "crate::hview_envelope::encode_envelope",
+      "targetOwner": "algebra"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "algebra",
+      "source": "implementations/rust/src/hview_envelope.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "encode_hview_envelope",
+      "target": "std::collections::BTreeSet::new"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "algebra",
+      "rawTarget": "crate::cbor::encode",
+      "resolvedTarget": "crate::cbor::encode",
+      "source": "implementations/rust/src/hview_envelope.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "encode_envelope",
+      "target": "crate::cbor::encode",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "algebra",
+      "rawTarget": "crate::evidence_codec::Result",
+      "resolvedTarget": "crate::evidence_codec::Result",
+      "source": "implementations/rust/src/hview_envelope.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "encode_envelope",
+      "target": "crate::evidence_codec::Result",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "algebra",
+      "rawTarget": "crate::evidence_codec::limit",
+      "resolvedTarget": "crate::evidence_codec::limit",
+      "source": "implementations/rust/src/hview_envelope.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "encode_envelope",
+      "target": "crate::evidence_codec::limit",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "algebra",
+      "rawTarget": "crate::evidence_codec::map",
+      "resolvedTarget": "crate::evidence_codec::map",
+      "source": "implementations/rust/src/hview_envelope.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "encode_envelope",
+      "target": "crate::evidence_codec::map",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "algebra",
+      "rawTarget": "crate::evidence_codec::string",
+      "resolvedTarget": "crate::evidence_codec::string",
+      "source": "implementations/rust/src/hview_envelope.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "encode_envelope",
+      "target": "crate::evidence_codec::string",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "algebra",
+      "rawTarget": "crate::hview::HView",
+      "resolvedTarget": "crate::hview::HView",
+      "source": "implementations/rust/src/hview_envelope.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "encode_envelope",
+      "target": "crate::hview::HView",
+      "targetOwner": "algebra"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "algebra",
+      "rawTarget": "crate::hview_envelope::Encoder",
+      "resolvedTarget": "crate::hview_envelope::Encoder",
+      "source": "implementations/rust/src/hview_envelope.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "encode_envelope",
+      "target": "crate::hview_envelope::Encoder",
+      "targetOwner": "algebra"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "algebra",
+      "rawTarget": "crate::hview_envelope::HViewEnvelopeLimits",
+      "resolvedTarget": "crate::hview_envelope::HViewEnvelopeLimits",
+      "source": "implementations/rust/src/hview_envelope.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "encode_envelope",
+      "target": "crate::hview_envelope::HViewEnvelopeLimits",
+      "targetOwner": "algebra"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "algebra",
+      "rawTarget": "crate::hview_envelope::records",
+      "resolvedTarget": "crate::hview_envelope::records",
+      "source": "implementations/rust/src/hview_envelope.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "encode_envelope",
+      "target": "crate::hview_envelope::records",
+      "targetOwner": "algebra"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "algebra",
+      "source": "implementations/rust/src/hview_envelope.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "encode_envelope",
+      "target": "std::collections::BTreeMap::new"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "algebra",
+      "source": "implementations/rust/src/hview_envelope.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "encode_envelope",
+      "target": "std::collections::BTreeSet"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "vec"
+      ],
+      "owner": "algebra",
+      "source": "implementations/rust/src/hview_envelope.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "encode_envelope"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "algebra",
+      "rawTarget": "crate::hview_envelope::encode_envelope",
+      "resolvedTarget": "crate::hview_envelope::encode_envelope",
+      "source": "implementations/rust/src/hview_envelope.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "decode_hview_envelope",
+      "target": "crate::hview_envelope::encode_envelope",
+      "targetOwner": "algebra"
     }
   ],
   "exports": [

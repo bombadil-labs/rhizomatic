@@ -1,7 +1,17 @@
 // Expected bytes from explicit wire grammar, independently of all new M1 code.
 import { writeFileSync } from "node:fs";
 import { ed25519 } from "@noble/curves/ed25519";
-import { type CborValue, encode, map, array, tstr, bstr, float, bool } from "../src/delta/cbor.js";
+import {
+  type CborValue,
+  decode,
+  encode,
+  map,
+  array,
+  tstr,
+  bstr,
+  float,
+  bool,
+} from "../src/delta/cbor.js";
 import { bytesToHex, contentAddress } from "../src/delta/hash.js";
 import { parseClaims, claimsToJson } from "../src/delta/json-profile.js";
 import { canonicalBytes, computeId } from "../src/delta/delta.js";
@@ -494,6 +504,70 @@ bad(
   "env_signature_choice",
   "invalid-signature",
   wire(view([entry({ ...a, sig: "00".repeat(64) })])),
+);
+// A1 independent hostile shapes: recompute full transport keys, so closure checks
+// cannot hide the malformed embedded body/claims/signature behind a digest mismatch.
+bad(
+  "env_canonical_malformed",
+  "wrong-format",
+  edit(w, "format", tstr("rhizomatic.hview-envelope/2")),
+);
+bad("env_signature_choice", "short-signature", wire(view([entry({ ...a, sig: a.sig!.slice(2) })])));
+function replaceOnlyPayload(
+  envelope: CborValue,
+  table: "appearances" | "readings",
+  payload: Uint8Array,
+): CborValue {
+  const key = contentAddress(payload);
+  const changed = rootEntry(envelope, (e) =>
+    table === "appearances"
+      ? edit(e, "appearance", tstr(key))
+      : edit(
+          e,
+          "readings",
+          array(
+            (field(e, "readings") as { t: "array"; v: readonly CborValue[] }).v.map((r) =>
+              edit(r, "reading", tstr(key)),
+            ),
+          ),
+        ),
+  );
+  return edit(
+    changed,
+    table,
+    array([
+      map([
+        ["key", tstr(key)],
+        ["value", bstr(payload)],
+      ]),
+    ]),
+  );
+}
+const malformedReading = encode(
+  map([
+    ["body", bstr(encode(map([["props", map([])]])))],
+    ["name", tstr("Plant")],
+  ]),
+);
+bad(
+  "env_canonical_malformed",
+  "malformed-schema-body",
+  replaceOnlyPayload(w, "readings", malformedReading),
+);
+const rawClaims = decode(canonicalBytes(a.claims));
+if (rawClaims.t !== "map") throw Error("claims map");
+const duplicateClaimsFields = [...rawClaims.v, rawClaims.v[0]!].sort(([l], [r]) =>
+  Buffer.compare(Buffer.from(encode(tstr(l))), Buffer.from(encode(tstr(r)))),
+);
+const duplicateClaims = Uint8Array.from([
+  0xa0 + duplicateClaimsFields.length,
+  ...duplicateClaimsFields.flatMap(([k, v]) => [...encode(tstr(k)), ...encode(v)]),
+]);
+const duplicateClaimsAppearance = edit(decode(appearance(a)), "claims", bstr(duplicateClaims));
+bad(
+  "env_canonical_malformed",
+  "duplicate-inside-claims",
+  replaceOnlyPayload(w, "appearances", encode(duplicateClaimsAppearance)),
 );
 const upperClaims = {
     ...a.claims,

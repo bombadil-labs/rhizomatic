@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { describe, expect, test } from "vitest";
 import {
@@ -69,11 +70,31 @@ const vectors = JSON.parse(
     semanticPin: string;
   }[];
 };
+const corpusId = createHash("sha256")
+  .update(
+    readFileSync(
+      new URL("../../../vectors/materialization/evidence-envelope.json", import.meta.url),
+    ),
+  )
+  .digest("hex");
+function assertionEvidence(group: string, v: { variant: string; id?: string }): void {
+  console.log(
+    "materialization-assertion:" +
+      JSON.stringify({
+        group,
+        id: v.id ?? null,
+        variant: v.variant,
+        corpusId,
+        assertions: expect.getState().assertionCalls,
+      }),
+  );
+}
 const hex = (s: string): Uint8Array => Uint8Array.from(Buffer.from(s, "hex"));
 const reading = parseSchema({ props: {}, default: { pick: { order: "lexById" } } });
 describe("SPEC-16 shared envelope vectors", () => {
   for (const v of vectors.positives)
     test(`${v.id}/${v.variant}`, () => {
+      expect.assertions(6 + (["legacy", "annotations", "bound"].includes(v.variant) ? 1 : 0));
       const native = fixtureView(v.native),
         encoded = encodeHViewEnvelope(native, v.limits),
         decoded = decodeHViewEnvelope(hex(v.envelopeHex), v.limits);
@@ -90,9 +111,11 @@ describe("SPEC-16 shared envelope vectors", () => {
         expect(schemaHash([...decoded.props.values()][0]![0]!.readings!.get(1)!)).not.toBe(
           schemaHash(parseSchema(v.originalReading)),
         );
+      assertionEvidence("positives", v);
     });
   for (const v of vectors.negative)
     test(`${v.id}/${v.variant}`, () => {
+      expect.assertions(1 + (v.native !== undefined ? 1 : 0));
       if (v.native !== undefined)
         expect(() => encodeHViewEnvelope(fixtureView(v.native), v.limits)).toThrow(
           new EvidenceCodecError(v.error as "invalid-evidence" | "resource-limit"),
@@ -100,21 +123,26 @@ describe("SPEC-16 shared envelope vectors", () => {
       expect(() => decodeHViewEnvelope(hex(v.envelopeHex), v.limits)).toThrow(
         new EvidenceCodecError(v.error as "invalid-evidence" | "resource-limit"),
       );
+      assertionEvidence("negative", v);
     });
   for (const v of vectors.nativeReject)
     test(`${v.id}/${v.variant}`, () => {
+      expect.assertions(2);
       const native = fixtureView(v.native),
         d = [...native.props.values()][0]![0]!.delta;
       expect(verifyDelta(d)).toBe("verified");
       expect(() => encodeHViewEnvelope(native)).toThrow(new EvidenceCodecError("invalid-evidence"));
+      assertionEvidence("nativeReject", v);
     });
   for (const v of vectors.readingFixtures)
     test(`reading/${v.variant}`, () => {
+      expect.assertions(3);
       const native = parseSchema(v.native),
         decoded = decodeReadingAppearance(hex(v.appearanceHex));
       expect(bytesToHex(encodeReadingAppearance(native))).toBe(v.appearanceHex);
       expect(schemaToJson(decoded)).toEqual(schemaToJson(native));
       expect(schemaHash(decoded)).toBe(v.semanticPin);
+      assertionEvidence("readingFixtures", v);
     });
   test("env_reading_metadata/metadata-excluded-from-old-hash", () => {
     const input = fixtureView(vectors.positives.find((v) => v.variant === "metadata")!.native),
@@ -218,7 +246,9 @@ describe("SPEC-16 shared envelope vectors", () => {
 });
 
 test("env_finite_bounds/semantic-grammar-boundaries", () => {
+  expect.assertions(vectors.syntaxBudgets.reduce((n, v) => n + 3 + (v.valid ? 4 : 0), 0));
   for (const v of vectors.syntaxBudgets) {
+    const before = expect.getState().assertionCalls;
     const raw = jsonToCbor(v.native),
       limits = { artifactBytes: 16777216, syntaxNodes: v.nodes, syntaxDepth: v.depth };
     expect(() => checkReadingWireSyntax(raw, limits), v.variant).not.toThrow();
@@ -242,6 +272,16 @@ test("env_finite_bounds/semantic-grammar-boundaries", () => {
         new EvidenceCodecError("resource-limit"),
       );
     }
+    console.log(
+      "materialization-assertion:" +
+        JSON.stringify({
+          group: "syntaxBudgets",
+          id: null,
+          variant: v.variant,
+          corpusId,
+          assertions: expect.getState().assertionCalls - before,
+        }),
+    );
   }
 });
 test("env_fixed_mixed_routes/independent-empty-oracles-local", () => {

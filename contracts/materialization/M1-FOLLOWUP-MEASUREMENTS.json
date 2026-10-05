@@ -1,0 +1,93 @@
+{
+  "format": "rhizomatic.m1-repeat-measurements/1",
+  "baselineCoreCommit": "965b223f2699b99f71f14d9dd79b74987c0fb102",
+  "followupSource": "Exact repaired source is pinned by the clean freeze handoff and REPORT.json. Measurements were taken before commit; scripts are part of that freeze.",
+  "date": "2026-10-05",
+  "measurementPolicy": "One illustrative sample per size/witness/phase on this host. No wall-time CI threshold. Deterministic signature invocation counters are the regression gate.",
+  "toolchains": {
+    "node": "v24.14.0",
+    "rust": "rustc 1.98.1 (48a229cea 2026-09-01)"
+  },
+  "measurements": {
+    "ts_before": [
+      {
+        "witness": "ts",
+        "entries": 1000,
+        "distinctSignedAppearances": 1,
+        "artifactBytes": 111523,
+        "transportId": "1e201b93da243a92a5b9ef822efca8d958e36b24818db2b499dfee1851e0258b67d3",
+        "encodeMs": 1560.06816,
+        "decodeMs": 1548.012481
+      },
+      {
+        "witness": "ts",
+        "entries": 16384,
+        "distinctSignedAppearances": 1,
+        "artifactBytes": 1819147,
+        "transportId": "1e206d41c63e7ca314b9e88624b32033aadbe59727374da9fabc2d9db08e3e8f5bd4",
+        "encodeMs": 26123.847298,
+        "decodeMs": 23861.886913000002
+      }
+    ],
+    "ts_after": [
+      {
+        "witness": "ts",
+        "entries": 1000,
+        "distinctSignedAppearances": 1,
+        "artifactBytes": 111523,
+        "transportId": "1e201b93da243a92a5b9ef822efca8d958e36b24818db2b499dfee1851e0258b67d3",
+        "encodeMs": 87.740997,
+        "decodeMs": 94.072407
+      },
+      {
+        "witness": "ts",
+        "entries": 16384,
+        "distinctSignedAppearances": 1,
+        "artifactBytes": 1819147,
+        "transportId": "1e206d41c63e7ca314b9e88624b32033aadbe59727374da9fabc2d9db08e3e8f5bd4",
+        "encodeMs": 937.5826340000001,
+        "decodeMs": 1509.113831
+      }
+    ],
+    "rust_before": [
+      {
+        "artifactBytes": 111523,
+        "decodeMs": 68.219556,
+        "distinctSignedAppearances": 1,
+        "encodeMs": 66.50373800000001,
+        "entries": 1000,
+        "transportId": "1e201b93da243a92a5b9ef822efca8d958e36b24818db2b499dfee1851e0258b67d3",
+        "witness": "rust-release"
+      },
+      {
+        "artifactBytes": 1819147,
+        "decodeMs": 1112.461238,
+        "distinctSignedAppearances": 1,
+        "encodeMs": 1129.742031,
+        "entries": 16384,
+        "transportId": "1e206d41c63e7ca314b9e88624b32033aadbe59727374da9fabc2d9db08e3e8f5bd4",
+        "witness": "rust-release"
+      }
+    ],
+    "rust_after": [
+      {
+        "artifactBytes": 111523,
+        "decodeMs": 6.3634770000000005,
+        "distinctSignedAppearances": 1,
+        "encodeMs": 5.739173999999999,
+        "entries": 1000,
+        "transportId": "1e201b93da243a92a5b9ef822efca8d958e36b24818db2b499dfee1851e0258b67d3",
+        "witness": "rust-release"
+      },
+      {
+        "artifactBytes": 1819147,
+        "decodeMs": 110.71881499999999,
+        "distinctSignedAppearances": 1,
+        "encodeMs": 84.110003,
+        "entries": 16384,
+        "transportId": "1e206d41c63e7ca314b9e88624b32033aadbe59727374da9fabc2d9db08e3e8f5bd4",
+        "witness": "rust-release"
+      }
+    ]
+  }
+}
