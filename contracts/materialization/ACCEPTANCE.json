@@ -1,0 +1,1795 @@
+{
+  "format": "rhizomatic-materialization-acceptance/1",
+  "status": "scenario_specifications_not_executed",
+  "fixture_conventions": {
+    "seeds": "receiver03/caller04/foreign-definition05/capturer06/peer07 repeated32bytes; public test-only",
+    "root": "item:fern; nested root item:bed; empty root item:moss",
+    "receivedAt": 1000,
+    "definitionAt": 1000,
+    "default_at": 1000,
+    "base_A": "signed height42: subject EntityRef(item:fern, context height), value42; timestamp10, validFrom0, no upper bound unless overridden",
+    "replacement_B": "signed height87, same filing and value shape; timestamp20 validFrom0",
+    "T": "signed tag shade at timestamp11, context tag",
+    "X": "signed payload bytes MIME application/octet-stream, hex00ff01, timestamp12, context payload",
+    "N1_N2": "existing canonical negation DeltaRef vocabulary, N1 negates A, N2 negates N1; timestamp30/40, validFrom0",
+    "program": "Existing mask(drop)->select hasPointer targetEntity(root)->group(byTargetContext); Plant named reading default pick(byTimestamp desc); tag all(byTimestamp asc). Signed original SPEC3 definition acts valid at1000. Bed expands Plant at authored entity-pointer position with named reading. Do not replace signed originals with generated evaluated bodies.",
+    "C0": "explicit initialized empty generation0 control; public external revision empty string",
+    "source_membership": "S0 uses {A,T,X} unless case overrides; raw/exclusion inventories and represented authority contexts explicit; observation times independent of revisions",
+    "expected_bytes": "Implementation materializes independent canonical goldens/shared schedules. These recipes are M0 normative expectations, not passing vectors or generated-output oracles."
+  },
+  "requirements": [
+    "MR-01",
+    "MR-02",
+    "MR-03",
+    "MR-04",
+    "MR-05",
+    "MR-06",
+    "MR-07",
+    "MR-08",
+    "MR-09",
+    "MR-10",
+    "MR-11",
+    "MR-12",
+    "MR-13",
+    "MR-14",
+    "MR-15",
+    "MR-16",
+    "MR-17",
+    "MR-18",
+    "MR-19",
+    "MR-20",
+    "MR-21",
+    "MR-22",
+    "MR-23",
+    "MR-24"
+  ],
+  "evidence_rule": "Both required witnesses execute applicable cases before capability/acceptance. All plans remain specified with empty execution_evidence; reviewer evidence never fabricated.",
+  "scenarios": [
+    {
+      "id": "packet_inventory",
+      "milestone": "M0",
+      "requirements": [
+        "MR-01",
+        "MR-22"
+      ],
+      "evidence_kind": "contract_check",
+      "setup": "Baseline owners/exports and all packet files.",
+      "schedule": [
+        "Validate packet and compare existing owner dependencies."
+      ],
+      "expected": "No missing files, unknown owners, upward edges or duplicate semantic ownership; all proposed APIs have one assigned owner.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "packet_case_allocation",
+      "milestone": "M0",
+      "requirements": [
+        "MR-23"
+      ],
+      "evidence_kind": "contract_check",
+      "setup": "Frozen MR01–24 and stable case allocation.",
+      "schedule": [
+        "Check each requirement covered; compare acceptance IDs/milestones to independent allocation.",
+        "Remove one case in a negative fixture."
+      ],
+      "expected": "Full packet passes; removed or renamed case fails coverage rather than reducing denominator.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "packet_native_roots",
+      "milestone": "M0",
+      "requirements": [
+        "MR-02",
+        "MR-03"
+      ],
+      "evidence_kind": "contract_check",
+      "setup": "Boot inventory, grants and declared level manifests.",
+      "schedule": [
+        "Inspect every exercised interpretation/capability.",
+        "Try falsely advertising an unimplemented stage."
+      ],
+      "expected": "Native key/clock/grant/durability roots explicit; no execution-proof claim; false stage advertisement fails.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "packet_loam_selection",
+      "milestone": "M0",
+      "requirements": [
+        "MR-24"
+      ],
+      "evidence_kind": "contract_check",
+      "setup": "Copied ae0e4e21 real-door selection/evidence.",
+      "schedule": [
+        "Inspect Plant/Bed definition publication and synchronous query seam.",
+        "Classify named PRIMARY subset and bystanders."
+      ],
+      "expected": "Ten mandatory real-door schedules; explicit closure/three-time/async constraints; no whole-Loam feasibility claim.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "profile1_preserved",
+      "milestone": "M0",
+      "requirements": [
+        "MR-01"
+      ],
+      "evidence_kind": "contract_check",
+      "setup": "SPEC15, contracts/command and all current canonical owners.",
+      "schedule": [
+        "Compare against baseline; inspect new prefix/endpoint."
+      ],
+      "expected": "No modified adopted profile1 grammar/hash or lower witness level. Future implementation reruns old conformance.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "env_original_appearance",
+      "milestone": "M1",
+      "requirements": [
+        "MR-04",
+        "MR-05",
+        "MR-07"
+      ],
+      "evidence_kind": "shared_vector",
+      "setup": "Signed A with two EntityRefs, original bytes target, timestamp=10, validity [0,2000).",
+      "schedule": [
+        "Encode nested expansion at authored pointer index 1.",
+        "Decode fresh in other witness; re-encode.",
+        "Use a referenced body with fix that selects a root different from the original EntityRef target; encode/decode that actual evaluated HView."
+      ],
+      "expected": "Original claims/signature and validity bytes exact; expanded child separate; existing HView bytes unchanged; transport digest covers originals. Child root selected by fix is preserved independently, never forced to equal authored target.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "env_signed_unsigned_same_id",
+      "milestone": "M1",
+      "requirements": [
+        "MR-05"
+      ],
+      "evidence_kind": "shared_vector",
+      "setup": "Same legal claims as A in signed and unsigned Delta forms.",
+      "schedule": [
+        "Put both forms in separate entries.",
+        "Encode/decode without dedup by Delta.id."
+      ],
+      "expected": "Two full appearance keys, equal Delta.id, exact sig presence per entry; generic codec accepts unsigned form. M2 source rejects unsigned.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "env_signature_choice",
+      "milestone": "M1",
+      "requirements": [
+        "MR-05",
+        "MR-06"
+      ],
+      "evidence_kind": "shared_vector",
+      "setup": "Canonical signed native Delta in two buckets; signed/unsigned same-ID alternate; separate native legacy-verifiable uppercase signature and uppercase-author fixtures.",
+      "schedule": [
+        "Roundtrip exact referenced canonical signed appearance; compare existing native HView bytes.",
+        "Try encode with uppercase native signature text accepted by verifyDelta but not verifyCanonicalDelta.",
+        "Try a valid signature over claims whose ed25519 author key spelling is uppercase (legacy verification), preserving its correct ID.",
+        "Inject invalid detached signature into one referenced appearance."
+      ],
+      "expected": "Canonical appearance/signature bytes and existing HView bytes preserved. Uppercase signature or author and invalid signature each refuse invalid-evidence in both encoders; no normalization by ID/text. Generic unsigned valid evidence remains legal.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "env_entry_order_repeat",
+      "milestone": "M1",
+      "requirements": [
+        "MR-06"
+      ],
+      "evidence_kind": "shared_vector",
+      "setup": "One bucket [B,A,A], another [A], plus an empty bucket.",
+      "schedule": [
+        "Roundtrip with table order independent of entry order."
+      ],
+      "expected": "Entry arrays retain B,A,A and repeats; empty bucket remains; canonical table/map ordering does not sort entries.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "env_negation_annotation",
+      "milestone": "M1",
+      "requirements": [
+        "MR-05",
+        "MR-06"
+      ],
+      "evidence_kind": "shared_vector",
+      "setup": "Entries of A annotated true and false in separate nodes.",
+      "schedule": [
+        "Roundtrip.",
+        "Resolve preserved true/false structures independently."
+      ],
+      "expected": "Every explicit bool annotation retained; decoder does not assert that the claimed suppression really occurred.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "env_reading_metadata",
+      "milestone": "M1",
+      "requirements": [
+        "MR-05",
+        "MR-07"
+      ],
+      "evidence_kind": "shared_vector",
+      "setup": "Reading bodies equal; names Plant and OtherPlant, alg absent versus 1.",
+      "schedule": [
+        "Expand two children with those distinct full reading appearances.",
+        "Roundtrip and inspect native child names."
+      ],
+      "expected": "Same schemaHash, distinct reading transport keys/envelope identity; each name/alg presence retained; existing HView hash unchanged when only excluded metadata differs.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "env_same_name_different_pin",
+      "milestone": "M1",
+      "requirements": [
+        "MR-05",
+        "MR-06"
+      ],
+      "evidence_kind": "shared_vector",
+      "setup": "Two child readings named Plant with differing pick policies.",
+      "schedule": [
+        "Encode both in independent slots.",
+        "Decode without name registry."
+      ],
+      "expected": "Distinct semantic pins and full keys accepted by generic codec; per-slot policy preserved. M2 definition registry still refuses duplicate named acts.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "env_legacy_missing_reading",
+      "milestone": "M1",
+      "requirements": [
+        "MR-06",
+        "MR-07"
+      ],
+      "evidence_kind": "shared_vector",
+      "setup": "Native legal child expansion with no reading.",
+      "schedule": [
+        "Roundtrip envelope.",
+        "Attempt policy resolution."
+      ],
+      "expected": "Codec succeeds unchanged; resolve refuses missing-reading, with no parent fallback.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "env_invalid_expansion_indices",
+      "milestone": "M1",
+      "requirements": [
+        "MR-06"
+      ],
+      "evidence_kind": "shared_vector",
+      "setup": "Valid A pointer list plus independently mutated index and target kinds.",
+      "schedule": [
+        "Try out-of-range index.",
+        "Try primitive/bytes/delta index.",
+        "Try orphan reading without expansion."
+      ],
+      "expected": "Out-of-range/primitive/bytes/delta expansion positions and orphan reading refuse invalid-evidence; original pointer position is never repaired.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "env_missing_extra_table",
+      "milestone": "M1",
+      "requirements": [
+        "MR-06"
+      ],
+      "evidence_kind": "shared_vector",
+      "setup": "Valid envelope.",
+      "schedule": [
+        "Remove referenced appearance/reading.",
+        "Add unreachable appearance/reading.",
+        "Duplicate table key or map key, including equal duplicate values."
+      ],
+      "expected": "Each refuses invalid-evidence; table closure is exact, duplicates never overwritten.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "env_canonical_malformed",
+      "milestone": "M1",
+      "requirements": [
+        "MR-04",
+        "MR-05"
+      ],
+      "evidence_kind": "shared_vector",
+      "setup": "Canonical envelope fixture.",
+      "schedule": [
+        "Mutate CBOR ordering, numeric spelling, trailing bytes, text encoding, unknown key and annotation type separately."
+      ],
+      "expected": "Noncanonical, undecodable or wrongly shaped artifacts refuse invalid-evidence; no lossy decode/repair.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "env_finite_bounds",
+      "milestone": "M1",
+      "requirements": [
+        "MR-04",
+        "MR-06"
+      ],
+      "evidence_kind": "shared_vector",
+      "setup": "Recursively expanded fixture and reduced boot-independent codec limits.",
+      "schedule": [
+        "Run each depth/count/byte limit exactly at bound.",
+        "Run bound+1 for nodes, entries, readings, pointers and bytes.",
+        "Try a native object cycle."
+      ],
+      "expected": "At bound succeeds if all other limits permit; bound+1 resource-limit before deep allocation; cyclic native object invalid-evidence.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "env_all_pointer_sorts",
+      "milestone": "M1",
+      "requirements": [
+        "MR-05"
+      ],
+      "evidence_kind": "shared_vector",
+      "setup": "Primitive bool/string/finite-number, entity+context, delta+context, empty/nonempty bytes, repeated roles, signed validity and negative zero.",
+      "schedule": [
+        "Roundtrip original appearances and reconstruct existing canonical claims."
+      ],
+      "expected": "All legal originals exact under existing numeric/Unicode rules; pointer order preserved; no JSON bytes/object confusion.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "env_bound_reading",
+      "milestone": "M1",
+      "requirements": [
+        "MR-05",
+        "MR-07"
+      ],
+      "evidence_kind": "shared_vector",
+      "setup": "Child reading with byPred hole bound in fix-local environment and named metadata.",
+      "schedule": [
+        "Encode actual bound Schema; decode fresh."
+      ],
+      "expected": "Exact bound reading policy and name retained, with bound semantic hash distinct where body differs; original signed definition pin remains separate in M2 context.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "env_fixed_mixed_routes",
+      "milestone": "M1",
+      "requirements": [
+        "MR-23"
+      ],
+      "evidence_kind": "mixed_tower",
+      "setup": "Original, metadata and legacy fixtures.",
+      "schedule": [
+        "TS encode→Rust decode; Rust encode→TS decode.",
+        "Run three seeded encode/decode assignments and exact replay."
+      ],
+      "expected": "Canonical artifact equality to independent fixtures; one crossing per tower; legacy resolve refusal stays visible.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "cmd_gather_resolve_fresh",
+      "milestone": "M2",
+      "requirements": [
+        "MR-08",
+        "MR-11",
+        "MR-19",
+        "MR-20"
+      ],
+      "evidence_kind": "integration",
+      "setup": "Source S0={A,T,X}; original signed Plant closure at definitionAt=1000.",
+      "schedule": [
+        "Gather root fern at=1000 servingAt=1000.",
+        "Wrap GatherBody in evidence Delta.",
+        "Destroy sender registry; resolve in fresh other witness."
+      ],
+      "expected": "Complete View: height=42, tag=[shade], payload={mime:application/octet-stream,value:00ff01}; full original bucket evidence/HView digest preserved, context/pins/transport hashes exact.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "cmd_three_times",
+      "milestone": "M2",
+      "requirements": [
+        "MR-03",
+        "MR-08",
+        "MR-11",
+        "MR-19"
+      ],
+      "evidence_kind": "shared_vector",
+      "setup": "A timestamp10 validFrom0; D published/validFrom300; servingAt1000; authority current at1000.",
+      "schedule": [
+        "Gather historical at=100 cutoff=100 definitionAt=1000.",
+        "Repeat with definitionAt=100.",
+        "Repeat original pin with definitionAt=900 and same selected definitions.",
+        "Set signed serving-at=1001 while native invoke receivedAt=1000.",
+        "Invoke prepared request after async delay using its unchanged native receivedAt=1000; issue a separate new attempt observed at1100."
+      ],
+      "expected": "First returns A=42 using current definition; second invalid-definition; third succeeds with same program pins but distinct bound definitionAt context/result identity. No timestamp resets serving authority. Mismatched serving-at is invalid-arguments at stage4; delayed attempt uses its one frozen host observation, new attempt uses a separately sampled one. No endpoint clock or wire override.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "cmd_fresh_carrier",
+      "milestone": "M2",
+      "requirements": [
+        "MR-10",
+        "MR-12"
+      ],
+      "evidence_kind": "integration",
+      "setup": "Capture attested at1000 and committed snapshot payload; ordinary carrier signed at1000.",
+      "schedule": [
+        "Rewrap same payload under a fresh caller signature at1100.",
+        "Use preserved capture metadata plus independently current host check at1100."
+      ],
+      "expected": "Carrier attribution/time changes without requiring old native signer; payload commitment/basis unchanged; authority comes from capture+current grant, not carrier.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "cmd_source_authority_change",
+      "milestone": "M2",
+      "requirements": [
+        "MR-03",
+        "MR-09",
+        "MR-10"
+      ],
+      "evidence_kind": "integration",
+      "setup": "Two captures of identical rows under authority contexts U0 and U1.",
+      "schedule": [
+        "Compute revisions under each represented authority.",
+        "Attempt to reuse U0 after host authority changes to U1."
+      ],
+      "expected": "Same membership/appearance bytes, different revision; old basis source-changed if grant remains permitted, unauthorized if permission revoked. No old authorized result reuse.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "cmd_source_provenance",
+      "milestone": "M2",
+      "requirements": [
+        "MR-03",
+        "MR-10"
+      ],
+      "evidence_kind": "shared_vector",
+      "setup": "Peers P,Q offer A; Q also raw-holds excluded B and A without eligibility.",
+      "schedule": [
+        "Capture sequential P then Q with separate observations/revisions.",
+        "Decode operands/exclusions and peer contributor sets."
+      ],
+      "expected": "A operand peers includes only authorized P; raw-only Q retained as inventory provenance, never made an operand grant. Exclusion B bytes absent. No atomic peer instant claimed.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "cmd_physical_inventory",
+      "milestone": "M2",
+      "requirements": [
+        "MR-09",
+        "MR-10"
+      ],
+      "evidence_kind": "integration",
+      "setup": "SQLite/source fixture whose journal head is constant; rows A,T.",
+      "schedule": [
+        "Delete A physically without changing head.",
+        "Try same-count replacement A→B.",
+        "Coherently capture/check actual rows."
+      ],
+      "expected": "Deletion and replacement alter raw/operand inventories/revision or make source unavailable; count/head equality cannot authorize old source.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "cmd_changed_during_capture",
+      "milestone": "M2",
+      "requirements": [
+        "MR-09",
+        "MR-10"
+      ],
+      "evidence_kind": "integration",
+      "setup": "S0 with coherent captured membership.",
+      "schedule": [
+        "Mutate source between initial inventory/rows and final current check."
+      ],
+      "expected": "source-changed or source-unavailable for verified damage; no partial/truncated completed capture or silent recapture.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "cmd_source_metadata_integrity",
+      "milestone": "M2",
+      "requirements": [
+        "MR-04",
+        "MR-10"
+      ],
+      "evidence_kind": "shared_vector",
+      "setup": "Canonical capture authority and snapshot S0.",
+      "schedule": [
+        "Mutate revision, membership, appearanceDigest, selection, component peer sets, globally excluded/operand overlap and snapshot payload hash separately."
+      ],
+      "expected": "invalid-source for each mismatch; unknown boot binding unauthorized; canonical transport cannot confer authority.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "cmd_unsigned_embedded_row",
+      "milestone": "M2",
+      "requirements": [
+        "MR-05",
+        "MR-10"
+      ],
+      "evidence_kind": "shared_vector",
+      "setup": "Outer signed request/carriers valid; snapshot has unsigned A.",
+      "schedule": [
+        "Gather under valid host binding."
+      ],
+      "expected": "invalid-source before execution; M1 legal unsigned evidence has no command-source permission.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "cmd_invalid_duplicate_delivery",
+      "milestone": "M2",
+      "requirements": [
+        "MR-12",
+        "MR-21"
+      ],
+      "evidence_kind": "shared_vector",
+      "setup": "Outer signed request/support with one valid A appearance and malformed/invalid alternate sharing ID.",
+      "schedule": [
+        "Deliver both orders and exact repeats."
+      ],
+      "expected": "Any invalid supplied appearance invalid-appearance before dedup; valid exact repeats count toward limits. Enumeration order does not change code.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "cmd_delivery_support",
+      "milestone": "M2",
+      "requirements": [
+        "MR-08",
+        "MR-12"
+      ],
+      "evidence_kind": "shared_vector",
+      "setup": "Valid direct capture/snapshot/definition support closure.",
+      "schedule": [
+        "Permute delivery and request pointers.",
+        "Omit one direct/closure support; add unrelated signed support.",
+        "Redundantly deliver boot configuration."
+      ],
+      "expected": "Equivalent meanings preserve result basis; gather/install direct/closure omissions missing-support and extras unexpected-support; redundant boot config unexpected-support. Resolve is only request+evidence and embedded closure; delivered definitions unexpected-support, not missing-support when absent. Request IDs change on pointer permutation.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "cmd_shapes_closed",
+      "milestone": "M2",
+      "requirements": [
+        "MR-08",
+        "MR-21"
+      ],
+      "evidence_kind": "shared_vector",
+      "setup": "Every description kind and operation table.",
+      "schedule": [
+        "Try unknown roles, repeated singleton, duplicate set ref, contextual ref, wrong MIME, malformed ID, unknown kind/profile and non-finite time."
+      ],
+      "expected": "Closed shape/cardinality/domain failures return stage category, no native string or silent interpretation. New kind does not enter profile1 grammar.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "cmd_inert_retention",
+      "milestone": "M2",
+      "requirements": [
+        "MR-02",
+        "MR-08"
+      ],
+      "evidence_kind": "integration",
+      "setup": "Ordinary peer retains signed config, registration and install-shaped request.",
+      "schedule": [
+        "Retain using profile1.",
+        "Read new control state without invoking authorized install."
+      ],
+      "expected": "No installed operation/grant/active entry is created by retention; native control remains empty.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "cmd_core_feature_boundary",
+      "milestone": "M2",
+      "requirements": [
+        "MR-03",
+        "MR-11"
+      ],
+      "evidence_kind": "shared_vector",
+      "setup": "Reachable closure variants with actsFor in alias trust, nested terms, top/child order; reading order inView/aliased matches; ordinary gather alias.",
+      "schedule": [
+        "Validate each full executable closure including referenced programs."
+      ],
+      "expected": "Unsupported contextual reading/principal feature invalid-program; ordinary gather alias supported from explicit source. No needsLowering-only eligibility claim.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "cmd_nested_local_bindings",
+      "milestone": "M2",
+      "requirements": [
+        "MR-11",
+        "MR-19"
+      ],
+      "evidence_kind": "shared_vector",
+      "setup": "Bed expands Plant with child policy byPred using global and fix-local holes.",
+      "schedule": [
+        "Gather with explicit bindings.",
+        "Roundtrip envelope and fresh resolve; inspect original definition pins."
+      ],
+      "expected": "Fix-local environment wins where specified; full evaluated child Schema retained with name; no changing original acts or pins. Independent expected chosen candidate differs from global-hole candidate.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "cmd_definition_failures",
+      "milestone": "M2",
+      "requirements": [
+        "MR-11",
+        "MR-21"
+      ],
+      "evidence_kind": "shared_vector",
+      "setup": "Complete original closure.",
+      "schedule": [
+        "Mutate kind/time/blob/version; top pin; duplicate name; missing/unreachable dep; reference cycle; unbound hole separately."
+      ],
+      "expected": "Stable sequence invalid-definition, pin-mismatch, ambiguous-definition, definition-closure, definition-cycle, invalid-program; exact original acts not replaced or selected by packet order.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "cmd_foreign_definition_operand",
+      "milestone": "M2",
+      "requirements": [
+        "MR-03",
+        "MR-11"
+      ],
+      "evidence_kind": "shared_vector",
+      "setup": "Foreign-author signed Plant definition and source row authored by a third key.",
+      "schedule": [
+        "Authorized request selects foreign definition; host source grant selects operands."
+      ],
+      "expected": "Definition selection succeeds without conferring authority to foreign author or changing operand author/signature; provenance and capture authority remain separate.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "cmd_resolve_testimony",
+      "milestone": "M2",
+      "requirements": [
+        "MR-02",
+        "MR-07",
+        "MR-20"
+      ],
+      "evidence_kind": "shared_vector",
+      "setup": "Well-formed explicit evidence with altered-but-structurally-valid negation annotation and recomputed transport digest.",
+      "schedule": [
+        "Strict read/resolve without rerunning gather.",
+        "Inspect validation classification."
+      ],
+      "expected": "Structure/receiver attribution may verify and resolve claimed evidence; no claim execution verified. Replay oracle independently detects false claimed gathered result.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "cmd_result_context_strict",
+      "milestone": "M2",
+      "requirements": [
+        "MR-19",
+        "MR-20"
+      ],
+      "evidence_kind": "shared_vector",
+      "setup": "Completed gather/resolve bodies.",
+      "schedule": [
+        "Change receiver/config/request, pin, root, bindings, definitionAt, transport/hview/view digest, bytes leaf or status/body pair separately."
+      ],
+      "expected": "Complete reader refuses contextual/digest mismatch; opaque outer result decoding cannot certify an answer. Same-body/different-reading-name retained.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "cmd_error_priority",
+      "milestone": "M2",
+      "requirements": [
+        "MR-21"
+      ],
+      "evidence_kind": "shared_vector",
+      "setup": "Simultaneous defects at distinct stages, valid signed outer request/carriers so nested phases are reached.",
+      "schedule": [
+        "Count limit + invalid sig; undecodable appearance + unknown canonical byte size; config mismatch + unauthorized.",
+        "Missing and extra delivered supports; wrong top pin and duplicate name.",
+        "Malformed serving-at with an expired required source binding; then valid args with expired required binding.",
+        "Retire/restore with unrelated expired boot bindings; no source capability.",
+        "Gather capture/snapshot internally disagree on revision; advance/read/replace carry mismatched expected-source.",
+        "Supply omitted/extraneous original definition-role IDs; stage6 sees syntactic IDs but stage7 validates exact closure before final check."
+      ],
+      "expected": "MR21 priority: resource-limit for known delivery count, invalid-appearance for undecodable unknown size, configuration-mismatch, missing-support, pin-mismatch. Malformed arguments win stage4 invalid-arguments; valid required expired binding configuration-mismatch stage6. Unrelated expired bindings do not block retire/restore. Gather/install internal mismatch invalid-source stage6, expected-source mismatch precondition-failed only verbs carrying it. Stable under delivery permutations. Complete closure including both top acts required: no omitted/extraneous support may pass stage7; final requiredSupport set identical to initial, no hidden repair.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "cmd_current_auth_no_cache",
+      "milestone": "M2",
+      "requirements": [
+        "MR-03",
+        "MR-09",
+        "MR-19"
+      ],
+      "evidence_kind": "integration",
+      "setup": "Repeat same canonical gather request ID, current source initially permitted.",
+      "schedule": [
+        "Complete once.",
+        "Change grant or expire request/config; repeat with new receivedAt."
+      ],
+      "expected": "New attempt reauthorizes/rechecks; unauthorized or current validity category rather than cached successful answer.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "cmd_input_snapshot",
+      "milestone": "M2",
+      "requirements": [
+        "MR-12"
+      ],
+      "evidence_kind": "integration",
+      "setup": "Two async invocation preparations with mutable debug inputs and separate trusted finite receivedAt arguments (1000 and1100).",
+      "schedule": [
+        "Sample each host receivedAt before preparation; freeze source/time/claims in its per-invocation value.",
+        "Invoke with exact explicit receivedAt; mutate input objects and interleave awaits/current checks."
+      ],
+      "expected": "Copied verified inputs and explicit per-invocation native observations survive async interleaving; no global current basis/clock slot, wire override or endpoint resampling. Native nonfinite receivedAt is local transport error; signed serving-at mismatch stage4 invalid-arguments.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "cmd_limits_complete",
+      "milestone": "M2",
+      "requirements": [
+        "MR-04",
+        "MR-19"
+      ],
+      "evidence_kind": "shared_vector",
+      "setup": "Finite boot limits with valid closed request/source/program; nested/artifact defects isolated from outer delivered limits.",
+      "schedule": [
+        "Exceed delivery count/bytes at stage1.",
+        "Exceed supplied snapshot carrier data bytes at stage4; within its bytes exceed component/appearance/inventory counts at stage6, with a separate known-count-plus-bad-row case.",
+        "Resolve evidence body byte overflow stage4; within body limit exceed embedded definition syntaxDepth/syntaxNodes at stage7; separately exceed embedded envelope nodes/depth at stage8.",
+        "Generate a too-large envelope or aggregate result body at stage8 despite in-bounds inputs.",
+        "Permute supplied support order for every refusal."
+      ],
+      "expected": "Deterministic resource-limit at first named decode/produce stage, known nested bounds before semantic defect in that phase; malformed artifact whose size cannot be obtained uses stage malformed category. Physical execution exhaustion resource-exhausted only when real. No truncated completed body or native fallback; existing hashes unchanged.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "cmd_fixed_mixed_routes",
+      "milestone": "M2",
+      "requirements": [
+        "MR-23"
+      ],
+      "evidence_kind": "mixed_tower",
+      "setup": "Fresh-process gather→resolve with three-time, nested and refusal variants.",
+      "schedule": [
+        "Run both fixed routes.",
+        "Run three supported seeded assignments and exact replay."
+      ],
+      "expected": "New profile ports exercised in both directions with same signed inputs/basis; each versus independent oracle, not parity alone.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "cmd_resolve_embedded_closure",
+      "milestone": "M2",
+      "requirements": [
+        "MR-08",
+        "MR-11",
+        "MR-12",
+        "MR-19",
+        "MR-21",
+        "MR-23"
+      ],
+      "evidence_kind": "shared_vector",
+      "setup": "Complete gathered Plant body with top HyperSchema D_H, top Schema D_S and dependency D_C embedded in Basis.definitions in Delta-ID order; boot already installed.",
+      "schedule": [
+        "Fresh other witness resolves delivery exactly request+evidence; all three original acts embedded once.",
+        "Also deliver D_H or D_C separately.",
+        "Remove embedded D_C; separately remove embedded top D_H then D_S and recompute definitionDigest/body carrier.",
+        "Deliver only request (no evidence); separately malformed embedded definition signature.",
+        "Run both fixed gather/wrap/resolve routes with the exact same support boundary."
+      ],
+      "expected": "Baseline completes; extra delivered definitions unexpected-support stage4; missing evidence missing-support stage4. Each missing embedded top/dependency definition-closure stage7, malformed embedded signature invalid-definition stage7. No ambient lookup/redelivery required; embedded closure includes BOTH top acts. Mixed routes have identical body/expected refusals.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "cmd_authority_capture_validity",
+      "milestone": "M2",
+      "requirements": [
+        "MR-09",
+        "MR-10",
+        "MR-19",
+        "MR-21"
+      ],
+      "evidence_kind": "shared_vector",
+      "setup": "Unchanged source/authority U has fixed original timestamp/validFrom and validUntil2000; captures C0 at1000 (validUntil1050) and C1 at1100; later authority epoch/context/interval changes separate.",
+      "schedule": [
+        "Capture same full source at1000 and1100 using SAME original authority act U.",
+        "At1100 use C0 original snapshot with a freshly signed carrier and current check.",
+        "At2000 attempt current gather/read using expired U even if old capture was valid at1000.",
+        "Deliver an appearance claiming capture validUntil equal its observation validFrom; separately change authority interval/epoch/context while rows stay same."
+      ],
+      "expected": "Unchanged authority ID/component revisions/source revision stay equal across captures; capture IDs/observations differ. C0 validates at its original1000 even expired by1100, so can serve only if fresh current checks succeed. Authority expiry at2000 is invalid-source stage6. The delivered malformed capture interval is invalid-appearance stage1 under existing Delta claims validation, before source checks. New authority interval/epoch/context changes authority/source revision; no fresh capture timestamp masquerades as new authority basis.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "cmd_public_basis_privacy",
+      "milestone": "M2",
+      "requirements": [
+        "MR-10",
+        "MR-19",
+        "MR-20",
+        "MR-23"
+      ],
+      "evidence_kind": "shared_vector",
+      "setup": "Capture has raw-only excluded ID E_SENTINEL on Q, authorized A on P; no program/envelope uses sentinel. Public result can legitimately list Q peer/revision/observation.",
+      "schedule": [
+        "Gather, wrap evidence, resolve and serialize complete public bodies; recursively inspect all CBOR bytes.",
+        "Read outcome without snapshot; record which hashes can actually be recomputed.",
+        "Supply original capture/snapshot to contextual reader and recompute source revision/commitments; separately change expected source revision."
+      ],
+      "expected": "E_SENTINEL and rawIds/operandIds/exclusions inventories absent from result/evidence bodies; compact components exactly peer/revision/capturedAt. Reader recomputes transport/HView/View/definition digests, labels source revision/membership/appearanceDigest as attested without source artifacts. With source artifacts verifies commitments too; wrong expected revision refuses. No holdings-disclosure fix via public exclusion table.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "ctl_delta_state_inert",
+      "milestone": "M3",
+      "requirements": [
+        "MR-02",
+        "MR-13",
+        "MR-14"
+      ],
+      "evidence_kind": "integration",
+      "setup": "Retained registration/authority/capture/state descriptions but initialized empty control store.",
+      "schedule": [
+        "Restore/read then authorized install with full source artifact."
+      ],
+      "expected": "Before install empty selection; afterward represented active descriptor and latest state/1; ordinary retained deltas do not activate.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "ctl_install_complete",
+      "milestone": "M3",
+      "requirements": [
+        "MR-13",
+        "MR-14",
+        "MR-16",
+        "MR-19"
+      ],
+      "evidence_kind": "integration",
+      "setup": "Empty initialized control C0, roots fern and empty moss, S0, exact definitions.",
+      "schedule": [
+        "Admin install expected-control empty at1000 definitionAt1000.",
+        "Reopen stored image."
+      ],
+      "expected": "Generation1 active entry; both root results complete (moss empty View); ONE shared Basis/complete signed closure; each root only root/envelope/transport/hview/value/view. Returned transition ID equals latest signed state in control; scalars/pins/definitionAt/capture agree. Strict reader compares provided control linkage. Original active definitions preserved.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "ctl_metadata_no_payload",
+      "milestone": "M3",
+      "requirements": [
+        "MR-14",
+        "MR-15"
+      ],
+      "evidence_kind": "integration",
+      "setup": "A contains distinctive PUBLIC-TEST-OPERAND-MARKER; definition blob does not.",
+      "schedule": [
+        "Install; inspect reopened canonical control image including every stored Delta/CBOR bytes.",
+        "Delete runtime caches; reacquire explicit snapshot from source."
+      ],
+      "expected": "Control has private capture commitments/inventories plus ACTIVE original program support, no operand marker/snapshot/carrier. Reconstructed carrier hash exact, no duplicate operand erasure surface. Active descriptor/definition support and historical control backend copies ARE declared host erasure surfaces, never described as payload-free control.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "ctl_add_negate_negate",
+      "milestone": "M3",
+      "requirements": [
+        "MR-16",
+        "MR-19"
+      ],
+      "evidence_kind": "integration",
+      "setup": "Install source {A}; negations N1→A, N2→N1 use existing negation roles.",
+      "schedule": [
+        "Replace full source {A,N1}.",
+        "Read; replace full source {A,N1,N2}; read."
+      ],
+      "expected": "First height omitted, then height42 restored; results equal explicit batch at accepted revision/time, original bucket/negation evidence retained.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "ctl_physical_remove",
+      "milestone": "M3",
+      "requirements": [
+        "MR-09",
+        "MR-16"
+      ],
+      "evidence_kind": "integration",
+      "setup": "Installed {A,T}; actual journal-backed source inventory.",
+      "schedule": [
+        "Physically remove A while keeping unrelated T.",
+        "Read old selection; capture replacement and explicitly replace-source."
+      ],
+      "expected": "Old read source-changed/source-unavailable; after accepted full replacement height omitted, tag=[shade]; no count-only cache retention.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "ctl_equal_count_replace",
+      "milestone": "M3",
+      "requirements": [
+        "MR-16"
+      ],
+      "evidence_kind": "integration",
+      "setup": "Installed {A,T}; B height87.",
+      "schedule": [
+        "Replace actual rows A→B keeping count2.",
+        "Offer explicit new capture expected old source/control.",
+        "Read at stored time."
+      ],
+      "expected": "New source revision and control generation; height87/tag=[shade]; no old A in runtime set or control payload.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "ctl_authority_only_replace",
+      "milestone": "M3",
+      "requirements": [
+        "MR-03",
+        "MR-09",
+        "MR-16"
+      ],
+      "evidence_kind": "integration",
+      "setup": "Same source bytes under U0 then U1, still permitted.",
+      "schedule": [
+        "Read stale U0, then replace-source with U1 exact basis."
+      ],
+      "expected": "Old read source-changed; replacement changes source/control revision even identical HView/View bytes; returned authority U1.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "ctl_validity_advance",
+      "milestone": "M3",
+      "requirements": [
+        "MR-13",
+        "MR-16"
+      ],
+      "evidence_kind": "integration",
+      "setup": "A valid [100,200); source unchanged; descriptor/definitions valid at fixed1000; host invocation observation1000.",
+      "schedule": [
+        "Install at99 with servingAt1000.",
+        "Advance at100,199,200 with exact stored snapshot.",
+        "Advance at2100 (after servingAt1000).",
+        "Try decreasing at to150 after2100.",
+        "Expire the active descriptor then read/advance at a new servingAt without changing definition-at."
+      ],
+      "expected": "Height absent,42,42,absent at boundaries; finite future at2100 accepted with absent height. Decrease time-regression known no write; source revision stable, control generation changes. Expired active descriptor invalid-definition stage7 and selection unchanged. live-time means explicit nondecreasing advancement, no wall-clock proof.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "ctl_definition_selection_replace",
+      "milestone": "M3",
+      "requirements": [
+        "MR-11",
+        "MR-13",
+        "MR-16"
+      ],
+      "evidence_kind": "integration",
+      "setup": "D0/D1 actual original signed definitions, new descriptor pins or definitionAt differs.",
+      "schedule": [
+        "Try changing semantics behind old descriptor.",
+        "Retire old and install new descriptor."
+      ],
+      "expected": "Old ID immutable; only new descriptor selects D1/new definition-at. Aliases never route/activate. Active original support retained; retirement leaves only terminal signed scalar pins/IDs, so unreachable old original payload is not required for reopen.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "ctl_alias_collision",
+      "milestone": "M3",
+      "requirements": [
+        "MR-13"
+      ],
+      "evidence_kind": "integration",
+      "setup": "Two descriptors alias Plant but explicit distinct source bindings/roots.",
+      "schedule": [
+        "Install both by ID; read by each ID.",
+        "Try alias as registration DeltaRef."
+      ],
+      "expected": "Independent selections; alias text cannot select either; invalid-arguments/registration-missing by domain. No source inference from name.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "ctl_repeated_attempt",
+      "milestone": "M3",
+      "requirements": [
+        "MR-16",
+        "MR-18"
+      ],
+      "evidence_kind": "integration",
+      "setup": "Successful install C1.",
+      "schedule": [
+        "Repeat same request with stale expected C0.",
+        "Construct new expected C1 repeat descriptor."
+      ],
+      "expected": "First precondition-failed; second already-installed; no request-ID success cache or extra generation.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "ctl_two_writers",
+      "milestone": "M3",
+      "requirements": [
+        "MR-15",
+        "MR-16"
+      ],
+      "evidence_kind": "integration",
+      "setup": "Writers W0/W1 read same C1.",
+      "schedule": [
+        "W0 commits replacement C2.",
+        "W1 attempts advance with C1; then reopens/revalidates explicit C2."
+      ],
+      "expected": "W1 write-conflict if race reaches CAS, or precondition-failed if observed sooner; no implicit retry/rebase. Explicit new attempt uses current authority/source.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "ctl_before_commit_crash",
+      "milestone": "M3",
+      "requirements": [
+        "MR-18"
+      ],
+      "evidence_kind": "durable_fault",
+      "setup": "C1 selected; replacement precomputed.",
+      "schedule": [
+        "Kill actual subprocess before CAS dispatch.",
+        "Fresh other witness restores."
+      ],
+      "expected": "No response; durable C1 intact; no partial descriptor/capture/index activation.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "ctl_after_commit_crash",
+      "milestone": "M3",
+      "requirements": [
+        "MR-18"
+      ],
+      "evidence_kind": "durable_fault",
+      "setup": "Replacement C2 proposed.",
+      "schedule": [
+        "Commit CAS durably.",
+        "Kill subprocess before rebuild/output.",
+        "Fresh other witness restores and supplies committed source snapshot."
+      ],
+      "expected": "Durable C2/generation/new source selected; new complete batch result rebuilt, never C1 output as current.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "ctl_uncertain_absent",
+      "milestone": "M3",
+      "requirements": [
+        "MR-15",
+        "MR-18"
+      ],
+      "evidence_kind": "durable_fault",
+      "setup": "Control store returns unknown durability while physically keeping C1.",
+      "schedule": [
+        "Invoke replacement; force committed-unconfirmed absent branch.",
+        "Discard runtime state, reopen, restore."
+      ],
+      "expected": "Indeterminate commit-unconfirmed; reopened C1; new attempt must use actual preconditions. No claim known refusal.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "ctl_uncertain_present",
+      "milestone": "M3",
+      "requirements": [
+        "MR-15",
+        "MR-18"
+      ],
+      "evidence_kind": "durable_fault",
+      "setup": "Control store stores C2 then reports unknown durability.",
+      "schedule": [
+        "Invoke replacement; force committed-unconfirmed present branch.",
+        "Discard runtime state, fresh other witness restores."
+      ],
+      "expected": "Same indeterminate category; reopen C2 active new basis; whole image not partial; no duplicate automatic transition.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "ctl_known_rejection",
+      "milestone": "M3",
+      "requirements": [
+        "MR-15",
+        "MR-18"
+      ],
+      "evidence_kind": "durable_fault",
+      "setup": "C1; store rejects before write.",
+      "schedule": [
+        "Attempt replacement; return rejected.",
+        "Reopen."
+      ],
+      "expected": "Refused control-rejected, C1; precomputed cache cannot become current.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "ctl_postcommit_rebuild_fault",
+      "milestone": "M3",
+      "requirements": [
+        "MR-16",
+        "MR-18"
+      ],
+      "evidence_kind": "durable_fault",
+      "setup": "C2 durably committed; precomputed complete results still held in memory; named post-CAS-result-materialization fault scheduled.",
+      "schedule": [
+        "Inject known result-materialization/rebuild fault AFTER confirmed CAS BEFORE outcome signing, without discarding precomputed results first.",
+        "Observe outcome and reopen C2 in fresh other witness.",
+        "Provide exact snapshot/current grant and read/rebuild successfully."
+      ],
+      "expected": "Attempt MUST return indeterminate result-unavailable naming confirmed C2 even if precomputed result available; no completed fallback/refusal/rollback or stale C1 output. Fresh restore selects C2 and subsequent normal read matches batch oracle. Visible unexpected host bugs may yield no response, never a false noncommit.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "ctl_postcommit_sign_delivery",
+      "milestone": "M3",
+      "requirements": [
+        "MR-02",
+        "MR-18"
+      ],
+      "evidence_kind": "durable_fault",
+      "setup": "Replacement or retirement C2 committed.",
+      "schedule": [
+        "Fail outcome signer or transport delivery after CAS.",
+        "Reopen under new process."
+      ],
+      "expected": "No reliable response; C2 selected (retired remains retired); failure not known refusal or rollback.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "ctl_precheck_source_race",
+      "milestone": "M3",
+      "requirements": [
+        "MR-09",
+        "MR-16",
+        "MR-18"
+      ],
+      "evidence_kind": "integration",
+      "setup": "Precompute against S0, before final source check.",
+      "schedule": [
+        "Replace rows S0→S1 or revoke authority before final check.",
+        "Invoke CAS only if final check allows."
+      ],
+      "expected": "Source-changed/unauthorized with C1 unchanged; no hidden recapture from S1, no CAS.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "ctl_postcheck_precommit_race",
+      "milestone": "M3",
+      "requirements": [
+        "MR-09",
+        "MR-15",
+        "MR-18"
+      ],
+      "evidence_kind": "integration",
+      "setup": "Final check succeeded on S0; proposed C2 selects S0.",
+      "schedule": [
+        "Pause after final check.",
+        "Independently replace actual source S0→S1.",
+        "Resume CAS; then read C2 with expected S0."
+      ],
+      "expected": "C2 may durably select checked S0 and outcome completes for S0; next read source-changed. No atomic source+control/latest-at-commit claim, no silent S1 rebase.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "ctl_rebuild_source_replace",
+      "milestone": "M3",
+      "requirements": [
+        "MR-16",
+        "MR-18"
+      ],
+      "evidence_kind": "integration",
+      "setup": "Commit C2 selecting S0 then discard runtime result.",
+      "schedule": [
+        "Replace source before rebuild/read.",
+        "Supply old snapshot carrier and attempt read."
+      ],
+      "expected": "Selection C2 retained; current check source-changed; no cached/prospective completed current answer.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "ctl_restore_unavailable",
+      "milestone": "M3",
+      "requirements": [
+        "MR-14",
+        "MR-17"
+      ],
+      "evidence_kind": "integration",
+      "setup": "Active C2, runtime/source provider destroyed or unavailable.",
+      "schedule": [
+        "Restore canonical control in fresh process.",
+        "Prepare/read without reacquirable exact snapshot."
+      ],
+      "expected": "Restore reports active metadata availability unchecked, no stale value; preparation/read source-unavailable. Later exact source availability permits rebuild without reinstallation.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "ctl_retired_restart",
+      "milestone": "M3",
+      "requirements": [
+        "MR-13",
+        "MR-16",
+        "MR-17",
+        "MR-18"
+      ],
+      "evidence_kind": "durable_fault",
+      "setup": "Active descriptor with alias Plant.",
+      "schedule": [
+        "Retire, durably commit; kill process.",
+        "Restore with retained old install request and declarations.",
+        "Attempt read/reinstall same descriptor."
+      ],
+      "expected": "Retired terminal across restart; retired entry has only IDs/scalars plus latest receiver-signed retire transition, NO descriptor/definition/capture/authority payload unless independently active support elsewhere. Read/reinstall same ID retired with no new transition; restore uses terminal scalars, no erased payload reacquisition. Retained old request inert.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "ctl_retire_source_unavailable",
+      "milestone": "M3",
+      "requirements": [
+        "MR-16"
+      ],
+      "evidence_kind": "integration",
+      "setup": "Active C1; source revoked/unavailable; selected descriptor now expired.",
+      "schedule": [
+        "Authorized admin retires against exact control."
+      ],
+      "expected": "Retirement succeeds without source grant, current definition validity or source snapshot; config/operation/admin still checked.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "ctl_retire_uncertain",
+      "milestone": "M3",
+      "requirements": [
+        "MR-18"
+      ],
+      "evidence_kind": "durable_fault",
+      "setup": "Active C1; retire proposed C2.",
+      "schedule": [
+        "Run unknown-absent and unknown-present branches; restore each."
+      ],
+      "expected": "Both indeterminate; absent restores active C1, present retired C2; caller never infers retirement or nonretirement from missing response.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "ctl_control_strict",
+      "milestone": "M3",
+      "requirements": [
+        "MR-04",
+        "MR-14",
+        "MR-17",
+        "MR-21"
+      ],
+      "evidence_kind": "shared_vector",
+      "setup": "Valid control image.",
+      "schedule": [
+        "Mutate receiver/config/revision; entry/transition agreement; generations; duplicate IDs; unreachable support; capture metadata; definitionAt; original signatures.",
+        "For retired-only image omit all original descriptor/definition payload; then inject extra unreachable old support.",
+        "Change retired scalar pins/definitionAt without changing receiver-signed terminal transition.",
+        "Put a malformed authority/capture claim interval in control; separately supply a canonical snapshot with the correct format and an unknown top-level key alongside wrong expected-control, then correct expected-control."
+      ],
+      "expected": "Invalid-control for structural/selection inconsistency before preconditions; no activation of forged/mismatched image. Expired descriptor alone is not image corruption; read checks serving validity. Minimal retired image validates; extra old payload or changed terminal scalars invalid-control; active missing closure remains invalid-control. Malformed embedded claim interval is invalid-control stage5. Snapshot unknown key is deferred until stage6: wrong expected-control wins as precondition-failed stage5; with correct expected-control the unknown key is invalid-source stage6.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "ctl_cross_witness_restore",
+      "milestone": "M3",
+      "requirements": [
+        "MR-14",
+        "MR-17",
+        "MR-23"
+      ],
+      "evidence_kind": "mixed_tower",
+      "setup": "C1 exported from one witness; separate explicit source carrier.",
+      "schedule": [
+        "Fresh other witness receives control bytes only and restores selections.",
+        "Supply source independently via fresh carrier with identical committed bytes; read.",
+        "Reverse witness roles; run three seeded plans."
+      ],
+      "expected": "Exact control selection and full result/root/context equal to batch oracle; no native objects/old signer/registry persist across process boundary.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "ctl_scope_independence",
+      "milestone": "M3",
+      "requirements": [
+        "MR-13",
+        "MR-16"
+      ],
+      "evidence_kind": "integration",
+      "setup": "Two active descriptors sharing source but with different root/time/definitionAt.",
+      "schedule": [
+        "Replace source for only one; advance its time; read both."
+      ],
+      "expected": "Only named descriptor selection changes; control generation global but source/time selections independent. No alias/global-current-source leakage.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "ctl_capacity_rotation",
+      "milestone": "M3",
+      "requirements": [
+        "MR-04",
+        "MR-08",
+        "MR-14",
+        "MR-15",
+        "MR-16",
+        "MR-17",
+        "MR-18",
+        "MR-21"
+      ],
+      "evidence_kind": "integration",
+      "setup": "Receiver/config C_old has64 distinct lifetime IDs:2 active62 retired. Descriptor65 has full valid support; host durable selected configuration C_old.",
+      "schedule": [
+        "Install descriptor65 against exact C_old with an additional bad source; observe state/CAS log.",
+        "Create signed new config C_new, initialize separate empty scope, explicitly install the two chosen active descriptors with complete support/current checks/time; do NOT serve prepared endpoint.",
+        "Crash once during preparation and once after preparation before durable host activation; restart each.",
+        "Durably activate C_new disabling C_old; crash before starting new serving/response; restart.",
+        "Send retained old requests to new endpoint; reopen old scope and try its retired IDs.",
+        "Deliberately perform a new authorized install of an old retired descriptor in genuinely new C_new scope with valid support."
+      ],
+      "expected": "65th distinct install resource-limit stage5 before source/CAS, known no write; retirement does not free capacity. Pre-activation restart selects C_old only, prepared C_new cannot serve. Post-activation restart selects C_new only; its explicit active installs serve after fresh source checks, no implicit copy. Old requests configuration-mismatch, retired in old scope remain retired. Explicit install in new scope is new install allowed, not resurrection/restoration across configurations. No atomic cross-config transaction claimed.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "ctl_shared_basis_limits",
+      "milestone": "M3",
+      "requirements": [
+        "MR-04",
+        "MR-16",
+        "MR-19",
+        "MR-20",
+        "MR-21"
+      ],
+      "evidence_kind": "shared_vector",
+      "setup": "Two-root and64-root descriptors with common source/definition closure and one source fact per root; lower per-envelope entries/nodes to1 (snapshot appearances stays4096, source has2 or64). Separate boot with aggregate body byte limit.",
+      "schedule": [
+        "Install/read multi-root program whose each envelope fits per-envelope counters although totals exceed those counters.",
+        "Inspect canonical body for ONE Basis/closure, explicit scalar transition for transitions, no transition effect on read.",
+        "With otherwise valid inputs enlarge complete aggregate result over artifactBytes; attempt install, replacement and advance independently.",
+        "Exceed proposed control-image bytes while result fits; reopen after each known failure."
+      ],
+      "expected": "Per-envelope structural counters do not sum across roots; all root-local envelopes/Views complete with exactly one shared Basis. Exact transition link verified, read creates no new transition. Aggregate result/proposed-image overflow resource-limit stage8 BEFORE CAS, prior image/revision unchanged; no truncation or postcommit refusal. Real output bytes recorded, not estimated duplicated inventories.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "ctl_support_erasure",
+      "milestone": "M3",
+      "requirements": [
+        "MR-02",
+        "MR-14",
+        "MR-15",
+        "MR-16",
+        "MR-17",
+        "MR-20"
+      ],
+      "evidence_kind": "integration",
+      "setup": "A/B active registrations share definition D with PUBLIC-TEST-ERASED-DEFINITION-MARKER; unrelated C uses E; all three have SAME binding/revision/authority/operand snapshot, with D outside operand membership. Old control copies contain D. Separate targeted-descriptor alias-marker variant.",
+      "schedule": [
+        "Permanently refuse D using existing host erasure law; inspect explicit checkCurrent requiredSupport inputs: A/B closure includes D, C closure only E; attempt reads for all three.",
+        "Retire first consumer; try settle while second remains active and shares D.",
+        "Retire second consumer with refreshed expected-control; verify active-support reachability removes D.",
+        "Purge all historical image/temp/sqlite free-page/WAL/support copies under existing host obligations; only then settle.",
+        "Restart in fresh other witness with current image but without original retired descriptors/definitions; read/reinstall retired IDs and unrelated registration.",
+        "Repeat targeted-descriptor variant without globally purging definitions still needed by unrelated active entries.",
+        "Fresh variant: initial A current check passes; precompute replacement, then permanently refuse shared D before final check WITHOUT changing operand source revision. Record both requiredSupport arrays; attempt CAS then unrelated C read."
+      ],
+      "expected": "No affected read serves pending retirement/cleanup. First retire leaves D reachable and purge owed; after final durable retirement current control has no D payload and terminal signed pins/IDs restore without originals. Settlement only after physical marker absent on every declared surface; unrelated E remains and serves. Terminal read/reinstall retired; targeted descriptor payload removable too. No generic erasure interpreter or duplicate journal; retained IDs are not payload copies. Identical binding/revision can yield A/B unauthorized and C permitted because requiredSupport is explicit (exact closure plus descriptor), never hidden ambient state. Host refusal facts, not a new erasure interpreter, enforce it. Erasure-between-checks variant uses IDENTICAL sorted/deduplicated closure+descriptor IDs at both checks: A refuses unauthorized before CAS, prior active image retained/blocked and purge owed; unrelated C still succeeds at same binding/revision. Equal revision cannot bypass support checks.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "ctl_support_erasure_crashes",
+      "milestone": "M3",
+      "requirements": [
+        "MR-14",
+        "MR-15",
+        "MR-17",
+        "MR-18"
+      ],
+      "evidence_kind": "durable_fault",
+      "setup": "Affected active registration and physical historical program copies; host persists existing erasure refusal/purge debt independently from control CAS.",
+      "schedule": [
+        "Crash before retire CAS dispatch; reopen under persisted erasure restriction.",
+        "Run committed-unconfirmed absent and present retirement branches; reopen each before cleanup.",
+        "Crash after durable retire but before physical historical-copy purge, then reopen.",
+        "Complete remaining retirement attempts with actual observed control, purge all copies and report settlement; fresh cross-witness retired restore."
+      ],
+      "expected": "Before/uncertain-absent: active but serving blocked, support NOT prematurely removed, purge owed. Uncertain-present/postdurable: terminal retired metadata restores without original payload, physical debt remains owed until actual cleanup. Both uncertain attempts indeterminate, never infer success/noncommit. Retry explicit against observed state, no blind deletion/reinstall. Final physical absence permits settlement, unrelated active selection unchanged. requiredSupport explicitly carries the affected IDs after reopen, so persistent host refusal facts keep the uncertain-absent active branch blocked without global context.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "tower_capability_refusal",
+      "milestone": "M4",
+      "requirements": [
+        "MR-01",
+        "MR-23"
+      ],
+      "evidence_kind": "harness_negative",
+      "setup": "M1–M3 stage graph and prospective unsupported manifest.",
+      "schedule": [
+        "Advertise TS supported without measured stage evidence; attempt Elixir/Haskell upper assignment; delete one mandatory mixed port."
+      ],
+      "expected": "Fail capability gate, preserve L0; no homogeneous fallback or skipped stage.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "tower_three_seeded",
+      "milestone": "M4",
+      "requirements": [
+        "MR-23"
+      ],
+      "evidence_kind": "mixed_tower",
+      "setup": "All selected milestone scenarios and unchanged command.tower/1 planner.",
+      "schedule": [
+        "Freeze exact seed/capability/build snapshot.",
+        "Execute three distinct supported mixed plans where feasible; report explicit repeats otherwise."
+      ],
+      "expected": "Three plans per scenario with at least one crossing each; independent oracle and compatible intermediate byte equality; fixed routes still required.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "tower_exact_replay",
+      "milestone": "M4",
+      "requirements": [
+        "MR-23"
+      ],
+      "evidence_kind": "mixed_tower",
+      "setup": "Stored plan and all initial/input/intermediate/schedule/build artifacts.",
+      "schedule": [
+        "Replay without seed reroll.",
+        "Mutate artifact or remove recorded binary; retry."
+      ],
+      "expected": "Identical assignments/results for intact bundle; modified/missing build/artifact fails clearly, never substitutes newer source.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "tower_corruption_probe",
+      "milestone": "M4",
+      "requirements": [
+        "MR-20",
+        "MR-23"
+      ],
+      "evidence_kind": "harness_negative",
+      "setup": "Boundary receiving canonical envelope/control.",
+      "schedule": [
+        "Alter incoming appearance sig/reading metadata/index/canonical byte while preserving sender expected output."
+      ],
+      "expected": "Receiver/port validation fails at declared edge; artifacts diagnose producer/consumer.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "tower_wrong_shared_oracle",
+      "milestone": "M4",
+      "requirements": [
+        "MR-23"
+      ],
+      "evidence_kind": "harness_negative",
+      "setup": "All witnesses intentionally report height99 instead of specified42.",
+      "schedule": [
+        "Run agreement check and independent oracle check."
+      ],
+      "expected": "Independent oracle turns all three agreeing towers red; common incorrect answer is not conformance.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "tower_isolation",
+      "milestone": "M4",
+      "requirements": [
+        "MR-15",
+        "MR-23"
+      ],
+      "evidence_kind": "mixed_tower",
+      "setup": "Three stateful towers from same C0/source; each fresh durable path.",
+      "schedule": [
+        "Mutate source/control only in tower0; execute other initial plans."
+      ],
+      "expected": "Tower1/2 do not inherit tower0 state; isolation violations detected.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "existing_conformance_gates",
+      "milestone": "M4",
+      "requirements": [
+        "MR-01",
+        "MR-22",
+        "MR-23"
+      ],
+      "evidence_kind": "integration",
+      "setup": "Exact clean implementation/release head.",
+      "schedule": [
+        "Run actual TS/Rust gates and preserved Elixir/Haskell/profile1 checks; source graph/API/coverage and docs freshness."
+      ],
+      "expected": "All current required gates green; new APIs actually classified; no omitted/skipped cases or unsupported level claims.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "nested_resource_baseline",
+      "milestone": "M4",
+      "requirements": [
+        "MR-04",
+        "MR-23"
+      ],
+      "evidence_kind": "integration",
+      "setup": "Fixed32-plant128-fact nested Bed fixture plus source sweeps0,128,1024,4096,4097 TOTAL selected appearances (law included if source members); finite byte-boundary fixtures.",
+      "schedule": [
+        "Measure cold capture/gather/envelope/decode/resolve/install/replace/fresh restore+read in TS/Rust by source size.",
+        "Record total canonical snapshot/capture/carrier/delivery/control/result bytes, signature checks, wall time and peak memory; exact and one-over encoded byte boundaries.",
+        "At4097 or over input bytes observe deterministic refusal, rather than silently narrowing/raising caps.",
+        "Before M5 acceptance record actual journal-backed published Plant/Bed source count/bytes and static/capacity route evidence."
+      ],
+      "expected": "Real per-stage resource evidence at every declared size and exact/over byte boundary. Supported cases complete versus oracle, excluded/refused cases classified honestly. No invented speed/availability claim, raised limits, omitted current check or signature shortcut; within input capacity does not guarantee output capacity.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "independent_contract_implementation_review",
+      "milestone": "M4",
+      "requirements": [
+        "MR-01",
+        "MR-23"
+      ],
+      "evidence_kind": "independent_review",
+      "setup": "Frozen exact source and cumulative case artifacts.",
+      "schedule": [
+        "Supervisor submits independently to Fable, fixes verified findings, records exact accepted head."
+      ],
+      "expected": "Concrete scope+findings or green light; evidence distinguishes executed tests from inspection; builder cannot self-certify.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "loam_primary_actual_door",
+      "milestone": "M5",
+      "requirements": [
+        "MR-24",
+        "MR-03",
+        "MR-19"
+      ],
+      "evidence_kind": "loam_real_door",
+      "setup": "Original published Plant/PLANT_READING, byte payload and negation in actual journal-backed PRIMARY GraphQL query.",
+      "schedule": [
+        "Run prior oracle and eligible production branch at identical captured source/definition/time for registered fern and arbitrary unregistered entity moss.",
+        "Observe package batch gather then resolve; no install/advance/replace/control CAS."
+      ],
+      "expected": "Same View/HView digests/public result for both entities; actual published package batch contracts invoked with root explicit per call, present at=observed now. No portable maintained-state adoption claimed.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "loam_nested_reopen",
+      "milestone": "M5",
+      "requirements": [
+        "MR-24",
+        "MR-03",
+        "MR-19"
+      ],
+      "evidence_kind": "loam_real_door",
+      "setup": "Durable Bed→Plant reading fixture with full signed closure.",
+      "schedule": [
+        "Read, serialize evidence to fresh process, close/reopen store, read again."
+      ],
+      "expected": "Full child names/policies/evidence retained; same result/digests, no hidden registry.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "loam_bucket_resolver",
+      "milestone": "M5",
+      "requirements": [
+        "MR-24",
+        "MR-03",
+        "MR-19"
+      ],
+      "evidence_kind": "loam_real_door",
+      "setup": "Two readings with values7,9 and bucket-count custom resolver.",
+      "schedule": [
+        "Read through new eligible production branch then apply unchanged decorateChildren/applyResolvers."
+      ],
+      "expected": "Resolver sees both original deltas and count2, not picked9 or transported View alone.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "loam_present_history_closure",
+      "milestone": "M5",
+      "requirements": [
+        "MR-24",
+        "MR-03",
+        "MR-19"
+      ],
+      "evidence_kind": "loam_real_door",
+      "setup": "Current slate closes A; named unrelated bystander T; past cutoff before closure.",
+      "schedule": [
+        "Current read and historical read using at/cutoff past, definitionAt current, servingAt present."
+      ],
+      "expected": "A hidden in both; T survives; original historical annotations unchanged and no closure bypass.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "loam_remove_replace",
+      "milestone": "M5",
+      "requirements": [
+        "MR-24",
+        "MR-03",
+        "MR-19"
+      ],
+      "evidence_kind": "loam_real_door",
+      "setup": "Actual SQLite admitted source external physical deletion and equal-count replacement.",
+      "schedule": [
+        "Capture in-flight batch basis on actual SQLite source; physically delete A or replace A→B keeping count and head.",
+        "Resume old preparation/current check; then start separate new door invocation with fresh capture."
+      ],
+      "expected": "Old in-flight basis source-changed/unavailable with one visible failure, no hidden retry/CAS/reconcile. New batch source reflects actual removal/replacement; unrelated rows preserved. Equal-count/head never authorizes old data.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "loam_time_authority",
+      "milestone": "M5",
+      "requirements": [
+        "MR-24",
+        "MR-03",
+        "MR-19"
+      ],
+      "evidence_kind": "loam_real_door",
+      "setup": "Validity-bound A and immutable byte-identical source under changed authority.",
+      "schedule": [
+        "Issue separate present batch reads at explicit now99,100,199,200 without ingest, each own native receivedAt.",
+        "Issue historical at100 with current definition-at and servingAt200.",
+        "Change captured authority with identical rows; issue new read then resume paused old basis."
+      ],
+      "expected": "Validity boundaries produce absent,42,42,absent; historical result binds all three times independently. Fresh new authority changes source commitment; paused old authority fails once, equal HView never reuses old permission. No maintained time transition/CAS.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "loam_declared_restore",
+      "milestone": "M5",
+      "requirements": [
+        "MR-24",
+        "MR-03",
+        "MR-19"
+      ],
+      "evidence_kind": "loam_real_door",
+      "setup": "Journal-backed durable published Plant/Bed definitions plus source rows; no portable maintained state used by selected door.",
+      "schedule": [
+        "Read via package batch, close store and discard all native registrations/registry/caches.",
+        "Reopen, reconstruct original published selected definition closure and independently capture source; fresh batch query.",
+        "Make required source unavailable; invoke selected door; then separate new invocation when source available."
+      ],
+      "expected": "Fresh original act/pin/name reconstruction preserves result; unavailable visibly refuses and cannot serve old output. Later new batch works without portable restore/install. Retirement/restoration proof remains M3, not this Loam schedule.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "loam_bystander_exclusions",
+      "milestone": "M5",
+      "requirements": [
+        "MR-24",
+        "MR-03",
+        "MR-19"
+      ],
+      "evidence_kind": "loam_real_door",
+      "setup": "Bound/channel/governed/pinned/subscription/private PRIMARY regressions; exact portable Plant closure; fixtures total selected appearances4096 and4097 with all other input bounds fitting; encoded-byte edge fixtures.",
+      "schedule": [
+        "Exercise excluded bystanders with extra secret primary fact; eligible decoder/auth/pin/closure failures are visible.",
+        "Before dispatch classify4096 and4097 TOTAL selected appearances including law members; log route/exact frozen source/time and invocation count.",
+        "Repeat at exact artifactBytes for input snapshot and one encoded byte over, ensuring signed-carrier overhead fits deliveryBytes; separately exact/over deliveryBytes with carrier overhead and deliveryAppearances within limit.",
+        "Classify within input bounds then change source before use on portable and capacity-excluded native routes.",
+        "Input fits but computed output/expansion exceeds finite bound; separately remove an act promised portable before capacity classification."
+      ],
+      "expected": "4096/exact byte boundary dispatches portable when every other input limit fits;4097/over byte boundary explicitly native BEFORE portable invocation and preserves native answer at frozen basis. No truncate/filter-to-fit, capacity raise or catch fallback. Unexpected postclassification changes fail once on both routes. Post-dispatch output resource-limit/error visible; missing promised act visible error, not size exclusion. Other bystanders retain current contracts; bound users never gain whole-source access.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "loam_concurrent_basis",
+      "milestone": "M5",
+      "requirements": [
+        "MR-24",
+        "MR-03",
+        "MR-19"
+      ],
+      "evidence_kind": "loam_real_door",
+      "setup": "Two async door calls for distinct arbitrary roots fern and moss, explicit different source/authority/time bases; neither performs control CAS.",
+      "schedule": [
+        "Sample P0 receivedAt1000 and freeze basis/root; pause after source classification.",
+        "Replace source/authority and prepare P1 receivedAt1100 on new basis for moss.",
+        "Resume P0 final check and P1; separately inject pin/source error into P0.",
+        "Count attempts and verify no native catch path/global slot/control writes."
+      ],
+      "expected": "P0 stale source produces ONE typed visible read failure; P1 succeeds for its own moss/root/time/Basis. Each basis isolated, no automatic recapture/retry/fallback or admin CAS. A new caller invocation may try again explicitly, never inside failed call.",
+      "state": "specified",
+      "execution_evidence": []
+    },
+    {
+      "id": "loam_production_delete_duplicate",
+      "milestone": "M5",
+      "requirements": [
+        "MR-24",
+        "MR-03",
+        "MR-19"
+      ],
+      "evidence_kind": "loam_real_door",
+      "setup": "Published release-B package pinned by Loam; statically eligible PRIMARY path.",
+      "schedule": [
+        "Verify published release-B pin and actual eligible production gather/resolve calls.",
+        "Ingest new delta then read arbitrary root; repeat with another arbitrary root and historical path.",
+        "Remove obsolete duplicated eligible mechanism while preserving excluded/other consumers and their gates."
+      ],
+      "expected": "New post-ingest read has fresh full batch basis/updated answer, no administrative install/replace/advance CAS. Actual runtime migration, not test shim; preserve full bystander suites and API/Peer/cycle gates. No whole-Loam or maintained adoption claim.",
+      "state": "specified",
+      "execution_evidence": []
+    }
+  ]
+}

@@ -1,0 +1,265 @@
+{
+  "format": "rhizomatic-materialization-api/1",
+  "status": "prospective_not_exports_present",
+  "contracts": [
+    {
+      "id": "rhizomatic.syntax/reading-appearance/1",
+      "owners": [
+        "syntax"
+      ],
+      "milestone": "M1",
+      "semantics": "Full body and optional name/alg codec; distinct transport key from semantic pin."
+    },
+    {
+      "id": "rhizomatic.hview-envelope/1/encode",
+      "owners": [
+        "algebra"
+      ],
+      "milestone": "M1",
+      "semantics": "Lossless within canonical signed encode domain (verifyCanonicalDelta); unsigned native originals permitted; no authority."
+    },
+    {
+      "id": "rhizomatic.hview-envelope/1/decode",
+      "owners": [
+        "algebra"
+      ],
+      "milestone": "M1",
+      "semantics": "Strict bounded decode+exact re-encode; preserves full originals, entry arrays and legacy missing readings."
+    },
+    {
+      "id": "rhizomatic.materialization/1/description",
+      "owners": [
+        "command-data"
+      ],
+      "milestone": "M2",
+      "semantics": "Closed new-prefix signed role/argument codecs; opaque result payload only."
+    },
+    {
+      "id": "rhizomatic.materialization/1/capture",
+      "owners": [
+        "federation"
+      ],
+      "milestone": "M2",
+      "semantics": "Exact boot binding plus metadata-only capture/authority testimony and separate full snapshot; host grant required."
+    },
+    {
+      "id": "rhizomatic.materialization/gather/1",
+      "owners": [
+        "command",
+        "resolve",
+        "schema",
+        "schema-load",
+        "algebra"
+      ],
+      "milestone": "M2",
+      "semantics": "Gather at explicit operand/definition/serving context from granted exact source; complete envelope result."
+    },
+    {
+      "id": "rhizomatic.materialization/resolve/1",
+      "owners": [
+        "command",
+        "resolve-kernel",
+        "algebra"
+      ],
+      "milestone": "M2",
+      "semantics": "Delivery exactly request+evidence; embedded complete closure including top acts to existing View bytes, no source acquisition."
+    },
+    {
+      "id": "rhizomatic.materialization/1/outcome-readback",
+      "owners": [
+        "command",
+        "command-data",
+        "algebra",
+        "resolve-kernel"
+      ],
+      "milestone": "M2",
+      "semantics": "Compact public source commitments, one shared Basis; recomputed evidence hashes vs attested source commitments explicit. Structural/contextual readback is not execution proof."
+    },
+    {
+      "id": "rhizomatic.materialization-control/1",
+      "owners": [
+        "reactor"
+      ],
+      "milestone": "M3",
+      "semantics": "Outer canonical image codec and normalized lifecycle; active support complete, retired receiver-signed terminal scalars only; 64-entry configuration lifetime. Command performs declaration validation."
+    },
+    {
+      "id": "rhizomatic.materialization/1/control-store",
+      "owners": [
+        "storage"
+      ],
+      "milestone": "M3",
+      "semantics": "Explicit atomic metadata initialize/read/CAS with exact conflict/refusal/uncertain outcomes."
+    },
+    {
+      "id": "rhizomatic.materialization/1/control-execute",
+      "owners": [
+        "command",
+        "federation",
+        "reactor"
+      ],
+      "milestone": "M3",
+      "semantics": "Explicit install/replace/advance/retire/read/restore with original support and source artifacts."
+    },
+    {
+      "id": "rhizomatic.materialization/1/control-export",
+      "owners": [
+        "command",
+        "federation",
+        "reactor"
+      ],
+      "milestone": "M3",
+      "semantics": "Verified canonical complete control image, no native cache or operand snapshot."
+    },
+    {
+      "id": "rhizomatic.materialization/1/control-restore",
+      "owners": [
+        "command",
+        "federation",
+        "reactor"
+      ],
+      "milestone": "M3",
+      "semantics": "Fresh process reconstructs represented selections; source availability unchecked until read."
+    },
+    {
+      "id": "rhizomatic.materialization/1/control-read",
+      "owners": [
+        "command",
+        "federation",
+        "reactor",
+        "resolve"
+      ],
+      "milestone": "M3",
+      "semantics": "Explicit snapshot plus current source check; complete roots, batch-equivalent, no stale fallback."
+    },
+    {
+      "id": "rhizomatic.materialization/1/host-boot",
+      "owners": [
+        "command"
+      ],
+      "milestone": "M2",
+      "semantics": "Native key/config/grant/capability selection is explicit; descriptions cannot install themselves."
+    }
+  ],
+  "exports": [
+    {
+      "ts": "encodeReadingAppearance",
+      "rust": "encode_reading_appearance",
+      "owner": "syntax",
+      "contract": "rhizomatic.syntax/reading-appearance/1",
+      "classification": "portable_contract",
+      "signature_contract": "Schema -> canonical bytes"
+    },
+    {
+      "ts": "decodeReadingAppearance",
+      "rust": "decode_reading_appearance",
+      "owner": "syntax",
+      "contract": "rhizomatic.syntax/reading-appearance/1",
+      "classification": "portable_contract",
+      "signature_contract": "bytes + finite limits -> Schema or typed refusal"
+    },
+    {
+      "ts": "encodeHViewEnvelope",
+      "rust": "encode_hview_envelope",
+      "owner": "algebra",
+      "contract": "rhizomatic.hview-envelope/1/encode",
+      "classification": "portable_contract",
+      "signature_contract": "HView within canonical signed encode domain + finite limits -> canonical envelope bytes or invalid-evidence/resource-limit; never normalize native author/signature text"
+    },
+    {
+      "ts": "decodeHViewEnvelope",
+      "rust": "decode_hview_envelope",
+      "owner": "algebra",
+      "contract": "rhizomatic.hview-envelope/1/decode",
+      "classification": "portable_contract",
+      "signature_contract": "bytes + finite limits -> HView or typed evidence/limit refusal"
+    },
+    {
+      "ts": "materializationDescriptionClaims",
+      "rust": "materialization_description_claims",
+      "owner": "command-data",
+      "contract": "rhizomatic.materialization/1/description",
+      "classification": "portable_contract",
+      "signature_contract": "author + finite timestamp + closed kind/fields -> table-ordered Claims; no signing authority"
+    },
+    {
+      "ts": "readMaterializationDescription",
+      "rust": "read_materialization_description",
+      "owner": "command-data",
+      "contract": "rhizomatic.materialization/1/description",
+      "classification": "portable_contract",
+      "signature_contract": "Delta -> strict fields/opaque CBOR; verification/installation separate"
+    },
+    {
+      "ts": "MaterializationSourceCapability",
+      "rust": "MaterializationSourceCapability",
+      "owner": "federation",
+      "contract": "rhizomatic.materialization/1/capture",
+      "classification": "host_capability",
+      "signature_contract": "capture(binding,servingAt,cutoff?) -> capture+authority+snapshot; checkCurrent(binding,revision,authority,servingAt,cutoff,requiredSupport: sorted exact selected closure IDs plus descriptor when present) -> current or unauthorized/changed/unavailable; reacquireSnapshot(binding,exactCaptureDelta,servingAt) -> committed snapshotBytes or unauthorized/changed/unavailable; no old signer; host existing permanent-refusal facts deny requiredSupport, no ambient request context or erasure interpreter; identical sorted/deduplicated requiredSupport at initial and final-after-precompute checks, independent of source-revision equality"
+    },
+    {
+      "ts": "decodeMaterializationControlImage",
+      "rust": "decode_materialization_control_image",
+      "owner": "reactor",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "signature_contract": "bytes -> strict outer typed image, signatures and canonical bytes; not complete declaration validation"
+    },
+    {
+      "ts": "planMaterializationTransition",
+      "rust": "plan_materialization_transition",
+      "owner": "reactor",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "signature_contract": "verified normalized state/input + explicit program/source/time/results -> proposed next selection; no host observations"
+    },
+    {
+      "ts": "DurableMaterializationControlStore",
+      "rust": "DurableMaterializationControlStore",
+      "owner": "storage",
+      "contract": "rhizomatic.materialization/1/control-store",
+      "classification": "host_capability",
+      "signature_contract": "initialize(receiver,config,empty); read(receiver,config); compareAndSet(expected,newBytes) -> durable/conflict/rejected/committed-unconfirmed"
+    },
+    {
+      "ts": "MaterializationEndpoint",
+      "rust": "MaterializationEndpoint",
+      "owner": "command",
+      "contract": "rhizomatic.materialization/1/host-boot",
+      "classification": "host_capability",
+      "signature_contract": "boot(config,installed,bindings,signer,sourceGrant,controlStore?,diagnostics); invoke(entryId,debugAppearances,receivedAt: finite host observation sampled once before preparation) -> signed outcome; no endpoint clock/global slot"
+    },
+    {
+      "ts": "readMaterializationResult",
+      "rust": "read_materialization_result",
+      "owner": "command",
+      "contract": "rhizomatic.materialization/1/outcome-readback",
+      "classification": "portable_contract",
+      "signature_contract": "outcome + expected receiver/config/request + optional descriptor/control/capture/snapshot -> complete strict contextual result; only supplied evidence digests recomputable, source commitments otherwise attested"
+    },
+    {
+      "ts": "readMaterializationControl",
+      "rust": "read_materialization_control",
+      "owner": "command",
+      "contract": "rhizomatic.materialization/1/control-export",
+      "classification": "portable_contract",
+      "signature_contract": "image bytes + exact boot descriptions -> complete validated selection; active full support, retired terminal scalars with no original descriptor/definition retrieval; no source acquisition"
+    },
+    {
+      "ts": "MaterializationPeer",
+      "rust": "MaterializationPeer",
+      "owner": "federation",
+      "contract": "rhizomatic.materialization/1/control-execute",
+      "classification": "host_capability",
+      "signature_contract": "Thin native facade exposes lower outer-image/read/export/normalized-plan/bytes-CAS through existing federation edge; receives verified normalized inputs from command, never interprets account policy or signed command roles. Reexports lower types intentionally for upper dependency graph."
+    }
+  ],
+  "native_extensions_preserved": [
+    "Reactor.register/materializedView/lowering callbacks/subscriptions",
+    "SchemaRegistry native compatibility APIs",
+    "profile1 CommandEndpoint and its three existing interpretation profiles",
+    "Loam custom bucket resolver/decorateChildren pipeline"
+  ],
+  "inventory_gate": "Implementing milestone must map actual types, methods, aliases and root reexports to these contracts in existing TS compiler/Rust syn inventories. Names here are frozen prospective public names; pure internal factoring remains implementer choice."
+}

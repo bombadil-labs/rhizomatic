@@ -1,0 +1,302 @@
+{
+  "format": "rhizomatic-materialization-towers/1",
+  "status": "specified_not_executed",
+  "assignments_per_scenario": 3,
+  "planner": {
+    "version": "rhizomatic.command.tower/1",
+    "source": "../../tools/command-tower-plan.mjs",
+    "algorithm": "Reuse unchanged exported planTowers/validateReplayPlan and canonicalJson/fingerprint ranking. Existing rhizomatic-command-capabilities/1 planner framing may list these exact new stage IDs with NEW passing evidence; existing profile1 evidence does not imply them. No alternate PRNG/ranking algorithm.",
+    "seed_required": true,
+    "prefer_distinct_assignments": true,
+    "minimum_switches": 1,
+    "repeat_when_fewer_than_three": "explicit repeatedFrom with same recorded source plan",
+    "missing_mixed_route": "fail"
+  },
+  "stages": [
+    {
+      "id": "envelope-write",
+      "contract": "rhizomatic.hview-envelope/1/encode",
+      "owners": [
+        "algebra"
+      ],
+      "effect": "none",
+      "depends_on": [],
+      "unsplit_internal_region": false
+    },
+    {
+      "id": "envelope-read",
+      "contract": "rhizomatic.hview-envelope/1/decode",
+      "owners": [
+        "algebra"
+      ],
+      "effect": "none",
+      "depends_on": [
+        "envelope-write"
+      ],
+      "unsplit_internal_region": false
+    },
+    {
+      "id": "construct",
+      "contract": "rhizomatic.materialization/1/description",
+      "owners": [
+        "command-data",
+        "delta"
+      ],
+      "effect": "fixture-signing",
+      "depends_on": [],
+      "unsplit_internal_region": false
+    },
+    {
+      "id": "gather",
+      "contract": "rhizomatic.materialization/gather/1",
+      "owners": [
+        "command",
+        "resolve",
+        "schema",
+        "schema-load",
+        "algebra"
+      ],
+      "effect": "none",
+      "depends_on": [
+        "construct"
+      ],
+      "unsplit_internal_region": true
+    },
+    {
+      "id": "wrap-evidence",
+      "contract": "rhizomatic.materialization/1/description",
+      "owners": [
+        "command-data",
+        "delta"
+      ],
+      "effect": "fixture-signing",
+      "depends_on": [
+        "gather"
+      ],
+      "unsplit_internal_region": false
+    },
+    {
+      "id": "resolve",
+      "contract": "rhizomatic.materialization/resolve/1",
+      "owners": [
+        "command",
+        "resolve-kernel",
+        "algebra"
+      ],
+      "effect": "none",
+      "depends_on": [
+        "wrap-evidence"
+      ],
+      "unsplit_internal_region": true
+    },
+    {
+      "id": "read-result",
+      "contract": "rhizomatic.materialization/1/outcome-readback",
+      "owners": [
+        "command",
+        "algebra",
+        "resolve-kernel"
+      ],
+      "effect": "none",
+      "depends_on": [
+        "resolve"
+      ],
+      "unsplit_internal_region": false
+    },
+    {
+      "id": "control-execute",
+      "contract": "rhizomatic.materialization/1/control-execute",
+      "owners": [
+        "command",
+        "federation",
+        "reactor"
+      ],
+      "effect": "control",
+      "depends_on": [
+        "construct"
+      ],
+      "unsplit_internal_region": true
+    },
+    {
+      "id": "control-export",
+      "contract": "rhizomatic.materialization/1/control-export",
+      "owners": [
+        "command",
+        "federation",
+        "reactor"
+      ],
+      "effect": "none",
+      "depends_on": [
+        "control-execute"
+      ],
+      "unsplit_internal_region": false
+    },
+    {
+      "id": "control-restore",
+      "contract": "rhizomatic.materialization/1/control-restore",
+      "owners": [
+        "command",
+        "federation",
+        "reactor"
+      ],
+      "effect": "none",
+      "depends_on": [
+        "control-export"
+      ],
+      "unsplit_internal_region": false
+    },
+    {
+      "id": "control-read",
+      "contract": "rhizomatic.materialization/1/control-read",
+      "owners": [
+        "command",
+        "federation",
+        "reactor",
+        "resolve"
+      ],
+      "effect": "none",
+      "depends_on": [
+        "control-restore"
+      ],
+      "unsplit_internal_region": true
+    },
+    {
+      "id": "control-result",
+      "contract": "rhizomatic.materialization/1/outcome-readback",
+      "owners": [
+        "command",
+        "algebra",
+        "resolve-kernel"
+      ],
+      "effect": "none",
+      "depends_on": [
+        "control-read"
+      ],
+      "unsplit_internal_region": false
+    }
+  ],
+  "milestone_graphs": {
+    "M1": [
+      "envelope-write",
+      "envelope-read"
+    ],
+    "M2": [
+      "construct",
+      "gather",
+      "wrap-evidence",
+      "resolve",
+      "read-result"
+    ],
+    "M3": [
+      "construct",
+      "control-execute",
+      "control-export",
+      "control-restore",
+      "control-read",
+      "control-result"
+    ],
+    "M4": "cumulative M1/M2/M3 graphs including mutation/fault schedules",
+    "M5": "M2 batch gather/resolve graph at selected present/historical Loam door; no control CAS; native application decoration remains unsplit; capacity excluded paths observed separately"
+  },
+  "fixed_routes": {
+    "M1": [
+      "ts:envelope-write -> rust:envelope-read",
+      "rust:envelope-write -> ts:envelope-read"
+    ],
+    "M2": [
+      "ts:construct -> rust:gather -> ts:wrap-evidence -> ts:resolve -> rust:read-result",
+      "rust:construct -> ts:gather -> rust:wrap-evidence -> rust:resolve -> ts:read-result"
+    ],
+    "M3": [
+      "ts:control-execute/export -> rust:control-restore/read -> ts:control-result",
+      "rust:control-execute/export -> ts:control-restore/read -> rust:control-result"
+    ]
+  },
+  "required_scenarios": {
+    "M1": [
+      "env_original_appearance",
+      "env_reading_metadata",
+      "env_legacy_missing_reading"
+    ],
+    "M2": [
+      "cmd_gather_resolve_fresh",
+      "cmd_three_times",
+      "cmd_nested_local_bindings",
+      "cmd_source_authority_change",
+      "cmd_error_priority",
+      "cmd_resolve_embedded_closure",
+      "cmd_authority_capture_validity",
+      "cmd_public_basis_privacy"
+    ],
+    "M3": [
+      "ctl_cross_witness_restore",
+      "ctl_equal_count_replace",
+      "ctl_postcheck_precommit_race",
+      "ctl_uncertain_present",
+      "ctl_retired_restart",
+      "ctl_capacity_rotation",
+      "ctl_shared_basis_limits",
+      "ctl_support_erasure"
+    ],
+    "M4": [
+      "tower_corruption_probe",
+      "tower_wrong_shared_oracle",
+      "tower_exact_replay"
+    ]
+  },
+  "replay_bundle_fields": [
+    "seed",
+    "planner_version",
+    "concrete_assignments",
+    "stage_graph",
+    "exact_contract_versions",
+    "capability_manifest",
+    "source_commits",
+    "build_hashes",
+    "toolchain_versions",
+    "fixture_ids",
+    "initial_control_bytes",
+    "source_artifacts",
+    "explicit_observation_schedule",
+    "fault_schedule",
+    "input_artifacts",
+    "intermediate_artifacts",
+    "expected_outputs",
+    "actual_outputs",
+    "artifact_hashes",
+    "diagnostics",
+    "replay_command",
+    "trusted_receivedAt_arguments",
+    "source_capacity_classification",
+    "durable_host_configuration_selection",
+    "program_support_purge_observations"
+  ],
+  "witnesses": [
+    {
+      "id": "ts",
+      "level": 4,
+      "state": "not_implemented",
+      "stages": []
+    },
+    {
+      "id": "rust",
+      "level": 4,
+      "state": "not_implemented",
+      "stages": []
+    },
+    {
+      "id": "elixir",
+      "level": 0,
+      "state": "not_implemented",
+      "stages": []
+    },
+    {
+      "id": "haskell",
+      "level": 0,
+      "state": "not_implemented",
+      "stages": []
+    }
+  ],
+  "state_isolation": "Fresh durable directories and source inventories per tower; restore starts fresh process after export/termination. Source artifacts cross separately from metadata control image.",
+  "claim_limit": "Composition at declared ports, not interchangeable arbitrary native callback stacks; evidence/capture/authority are not proofs of execution."
+}

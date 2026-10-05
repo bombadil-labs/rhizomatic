@@ -1,0 +1,115 @@
+{
+  "format": "rhizomatic-materialization-bootstrap/1",
+  "status": "specified_not_executed",
+  "inherits": "../command/bootstrap.json",
+  "intrinsics": [
+    {
+      "id": "canonical-atoms",
+      "owner": "delta",
+      "semantics": "Existing Delta claims/signatures/content addressing/canonical CBOR"
+    },
+    {
+      "id": "bounded-syntax",
+      "owner": "syntax",
+      "semantics": "Existing term/reading syntax plus full reading metadata appearance codec and explicit finite feature walk"
+    },
+    {
+      "id": "evidence-codec",
+      "owner": "algebra",
+      "semantics": "MR05-07 bounded lossless envelope; no install/capture permission"
+    },
+    {
+      "id": "selected-registry",
+      "owner": "schema",
+      "semantics": "Exact pins, name ambiguity, complete reachable acyclic closure"
+    },
+    {
+      "id": "exact-definition",
+      "owner": "schema-load",
+      "semantics": "Signed original acts valid at explicit definition-at"
+    },
+    {
+      "id": "term-execution",
+      "owner": "resolve",
+      "semantics": "Existing finite algebra, aliases, reflection, validity and local bindings at explicit at"
+    },
+    {
+      "id": "policy-resolution",
+      "owner": "resolve-kernel",
+      "semantics": "Existing policies, ordering/ties/View codec; pure reading-order support"
+    },
+    {
+      "id": "control-state",
+      "owner": "reactor",
+      "semantics": "Normalized conditional lifecycle state and canonical metadata image; caches disposable"
+    },
+    {
+      "id": "description-codec",
+      "owner": "command-data",
+      "semantics": "Closed role grammar/opaque bodies; no effect"
+    },
+    {
+      "id": "installed-dispatch",
+      "owner": "command",
+      "semantics": "Explicit boot kind table plus caller/admin/source checks; outcome signing orchestration"
+    }
+  ],
+  "host_capabilities": [
+    {
+      "id": "configuration-selection",
+      "owner": "command",
+      "root": "Trusted host durably selects exactly one serving configuration; explicit separate-scope preparation/activation rotation with restart selection, no portable atomic cross-configuration transaction",
+      "portable_description": "endpoint/1 + operation/1 deltas"
+    },
+    {
+      "id": "key-custody",
+      "owner": "delta",
+      "root": "Host chooses author/sign capability; wire never carries a production secret",
+      "portable_description": "receiver author in signed boot/outcomes"
+    },
+    {
+      "id": "clock",
+      "owner": "command",
+      "root": "Host samples finite receivedAt once before preparation and supplies it explicitly to invoke; no independent endpoint clock or request override",
+      "portable_description": "serving-at plus outcome timestamp; at/definition-at separate"
+    },
+    {
+      "id": "source-grant",
+      "owner": "federation",
+      "root": "Host grants exact binding to a capture/check implementation; signatures cannot grant access; checkCurrent receives explicit selected program/descriptor IDs for existing permanent-refusal checks (no ambient program context); identical sorted/dedup support set rechecked after precompute despite equal source revision",
+      "portable_description": "source-binding/1 + authority/1 + capture/1; snapshot/1 is inert carrier"
+    },
+    {
+      "id": "source-reacquisition",
+      "owner": "federation",
+      "root": "Host reads actual rows and reconstructs exact committed snapshot bytes if available; no old native signer required",
+      "portable_description": "fresh snapshot/1 carrier with same payload commitment, independently checked current basis"
+    },
+    {
+      "id": "control-durability",
+      "owner": "storage",
+      "root": "Host initialize/read/atomic CAS and physical program-support purge including historical control copies/temp/free pages/WAL; retire all active consumers before removal; honest existing host purge obligations",
+      "portable_description": "canonical materialization-control/1 image + signed latest state/1 deltas"
+    },
+    {
+      "id": "diagnostics",
+      "owner": "command",
+      "root": "Visible host faults; no native exception text in canonical categories",
+      "portable_description": "typed stable refusal/indeterminate outcome"
+    }
+  ],
+  "existing_pins_preserved": {
+    "HyperSchemaSchema": "1e20b8c3b0b1d28a76edfc06506215f95ecde58869faae53afc75c3b7c1b5fe87360",
+    "SchemaSchema": "1e20b8c3b0b1d28a76edfc06506215f95ecde58869faae53afc75c3b7c1b5fe87360"
+  },
+  "not_claimed": [
+    "zero native bootstrap",
+    "self-authenticating grant/install",
+    "execution proof from envelope or receiver signature",
+    "atomic cross-peer/source-control snapshot",
+    "remote capture capability delegation",
+    "durable operand database",
+    "exactly-once request execution",
+    "payload-free control: active original program support is a declared host erasure surface"
+  ]
+}
