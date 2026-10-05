@@ -1,0 +1,191 @@
+{
+  "format": "rhizomatic-materialization-milestones/1",
+  "case_index_rule": "Allocation is independently frozen from ACCEPTANCE descriptions; missing/renamed/moved case requires explicit synchronized amendment.",
+  "milestones": [
+    {
+      "id": "M0",
+      "title": "Contract freeze",
+      "depends_on": [],
+      "required_cases": [
+        "packet_inventory",
+        "packet_case_allocation",
+        "packet_native_roots",
+        "packet_loam_selection",
+        "profile1_preserved"
+      ],
+      "delivered_witnesses": [],
+      "stopping_boundary": "Documents only; Fable contract review and supervisor handoff precede implementation"
+    },
+    {
+      "id": "M1",
+      "title": "Lossless evidence envelope",
+      "depends_on": [
+        "M0"
+      ],
+      "required_cases": [
+        "env_original_appearance",
+        "env_signed_unsigned_same_id",
+        "env_signature_choice",
+        "env_entry_order_repeat",
+        "env_negation_annotation",
+        "env_reading_metadata",
+        "env_same_name_different_pin",
+        "env_legacy_missing_reading",
+        "env_invalid_expansion_indices",
+        "env_missing_extra_table",
+        "env_canonical_malformed",
+        "env_finite_bounds",
+        "env_all_pointer_sorts",
+        "env_bound_reading",
+        "env_fixed_mixed_routes"
+      ],
+      "delivered_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "stopping_boundary": "Codec ports only; preserve existing hashes/native legacy behavior"
+    },
+    {
+      "id": "M2",
+      "title": "Portable gather/resolve commands",
+      "depends_on": [
+        "M1"
+      ],
+      "required_cases": [
+        "cmd_gather_resolve_fresh",
+        "cmd_three_times",
+        "cmd_fresh_carrier",
+        "cmd_source_authority_change",
+        "cmd_source_provenance",
+        "cmd_physical_inventory",
+        "cmd_changed_during_capture",
+        "cmd_source_metadata_integrity",
+        "cmd_unsigned_embedded_row",
+        "cmd_invalid_duplicate_delivery",
+        "cmd_delivery_support",
+        "cmd_shapes_closed",
+        "cmd_inert_retention",
+        "cmd_core_feature_boundary",
+        "cmd_nested_local_bindings",
+        "cmd_definition_failures",
+        "cmd_foreign_definition_operand",
+        "cmd_resolve_testimony",
+        "cmd_result_context_strict",
+        "cmd_error_priority",
+        "cmd_current_auth_no_cache",
+        "cmd_input_snapshot",
+        "cmd_limits_complete",
+        "cmd_fixed_mixed_routes"
+      ],
+      "delivered_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "stopping_boundary": "Release A eligible after exact M0\u2013M2 review/gates; lifecycle explicitly unsupported"
+    },
+    {
+      "id": "M3",
+      "title": "Represented maintained lifecycle",
+      "depends_on": [
+        "M2"
+      ],
+      "required_cases": [
+        "ctl_delta_state_inert",
+        "ctl_install_complete",
+        "ctl_metadata_no_payload",
+        "ctl_add_negate_negate",
+        "ctl_physical_remove",
+        "ctl_equal_count_replace",
+        "ctl_authority_only_replace",
+        "ctl_validity_advance",
+        "ctl_definition_selection_replace",
+        "ctl_alias_collision",
+        "ctl_repeated_attempt",
+        "ctl_two_writers",
+        "ctl_before_commit_crash",
+        "ctl_after_commit_crash",
+        "ctl_uncertain_absent",
+        "ctl_uncertain_present",
+        "ctl_known_rejection",
+        "ctl_postcommit_rebuild_fault",
+        "ctl_postcommit_sign_delivery",
+        "ctl_precheck_source_race",
+        "ctl_postcheck_precommit_race",
+        "ctl_rebuild_source_replace",
+        "ctl_restore_unavailable",
+        "ctl_retired_restart",
+        "ctl_retire_source_unavailable",
+        "ctl_retire_uncertain",
+        "ctl_control_strict",
+        "ctl_cross_witness_restore",
+        "ctl_scope_independence"
+      ],
+      "delivered_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "stopping_boundary": "No subscriptions/patches or durable operand database; exact state/source artifacts separate"
+    },
+    {
+      "id": "M4",
+      "title": "Composition acceptance/release B",
+      "depends_on": [
+        "M3"
+      ],
+      "required_cases": [
+        "tower_capability_refusal",
+        "tower_three_seeded",
+        "tower_exact_replay",
+        "tower_corruption_probe",
+        "tower_wrong_shared_oracle",
+        "tower_isolation",
+        "existing_conformance_gates",
+        "nested_resource_baseline",
+        "independent_contract_implementation_review"
+      ],
+      "delivered_witnesses": [
+        "ts",
+        "rust"
+      ],
+      "stopping_boundary": "Release B eligible after cumulative evidence and review; no deployment"
+    },
+    {
+      "id": "M5",
+      "title": "Selected Loam PRIMARY trial",
+      "depends_on": [
+        "M4"
+      ],
+      "required_cases": [
+        "loam_primary_actual_door",
+        "loam_nested_reopen",
+        "loam_bucket_resolver",
+        "loam_present_history_closure",
+        "loam_remove_replace",
+        "loam_time_authority",
+        "loam_declared_restore",
+        "loam_bystander_exclusions",
+        "loam_concurrent_basis",
+        "loam_production_delete_duplicate"
+      ],
+      "delivered_witnesses": [
+        "loam"
+      ],
+      "stopping_boundary": "End span: chosen PRIMARY subset only; retain all excluded doors"
+    }
+  ],
+  "release_points": {
+    "A": [
+      "M0",
+      "M1",
+      "M2"
+    ],
+    "B": [
+      "M0",
+      "M1",
+      "M2",
+      "M3",
+      "M4"
+    ]
+  },
+  "supervision": "Myk authorized plan; builder currently M0 only. Supervisor owns review/integration/merges and issues accepted-contract handoffs for subsequent milestones."
+}
