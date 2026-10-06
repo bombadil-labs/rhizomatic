@@ -4404,14 +4404,15 @@
     return context;
   }
   var TARGET_DISCRIMINATORS = ["id", "delta", "mime"];
-  function parseTarget(raw) {
+  function readTarget(raw, reader) {
     if (typeof raw === "string" || typeof raw === "number" || typeof raw === "boolean") {
-      return { kind: "primitive", value: parsePrimitive(raw) };
+      return reader.primitive(parsePrimitive(raw));
     }
     if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
       throw new Error(TARGET_SHAPES);
     }
-    const present = TARGET_DISCRIMINATORS.filter((k) => k in raw);
+    const captured = reader.object(raw, "target", ["id", "delta", "context", "mime", "value"]);
+    const present = TARGET_DISCRIMINATORS.filter((k) => k in captured);
     if (present.length === 0) throw new Error(TARGET_SHAPES);
     if (present.length > 1) {
       throw new Error(
@@ -4419,30 +4420,43 @@
       );
     }
     if (present[0] === "id") {
-      const o2 = asObject(raw, "entity ref target", ["id", "context"]);
+      const o2 = reader.object(captured, "entity ref target", ["id", "context"]);
       const id = o2["id"];
       if (typeof id !== "string") throw new Error("entity ref id must be a string");
       const context = parseContext(o2);
-      return context === void 0 ? { kind: "entity", entity: { id } } : { kind: "entity", entity: { id, context } };
+      return reader.entity(id, context);
     }
     if (present[0] === "delta") {
-      const o2 = asObject(raw, "delta ref target", ["delta", "context"]);
+      const o2 = reader.object(captured, "delta ref target", ["delta", "context"]);
       const delta = o2["delta"];
       if (typeof delta !== "string") throw new Error("delta ref delta must be a string");
       const context = parseContext(o2);
-      return context === void 0 ? { kind: "delta", deltaRef: { delta } } : { kind: "delta", deltaRef: { delta, context } };
+      return reader.delta(delta, context);
     }
-    const o = asObject(raw, "bytes target", ["mime", "value"]);
+    const o = reader.object(captured, "bytes target", ["mime", "value"]);
     const mime = o["mime"];
     if (typeof mime !== "string") throw new Error("bytes target mime must be a string");
     const value = o["value"];
     if (typeof value !== "string") throw new Error("bytes target value must be a base64url string");
-    return { kind: "bytes", mime, value: b64uDecode(value) };
+    return reader.bytes(mime, value);
   }
-  function parsePointer(raw) {
-    const o = asObject(raw, "pointer", ["role", "target"]);
+  var parsingReader = {
+    object: (raw, what, keys) => what === "target" ? raw : asObject(raw, what, keys),
+    primitive: (value) => ({ kind: "primitive", value }),
+    entity: (id, context) => ({
+      kind: "entity",
+      entity: { id, ...context === void 0 ? {} : { context } }
+    }),
+    delta: (delta, context) => ({
+      kind: "delta",
+      deltaRef: { delta, ...context === void 0 ? {} : { context } }
+    }),
+    bytes: (mime, encoded) => ({ kind: "bytes", mime, value: b64uDecode(encoded) })
+  };
+  function readPointer(raw, reader) {
+    const o = reader.object(raw, "pointer", ["role", "target"]);
     if (typeof o["role"] !== "string") throw new Error("pointer.role must be a string");
-    return { role: o["role"], target: parseTarget(o["target"]) };
+    return { role: o["role"], target: readTarget(o["target"], reader) };
   }
   function claimsToJson(claims) {
     return {
@@ -4476,8 +4490,8 @@
       })
     };
   }
-  function parseClaims(raw) {
-    const o = asObject(raw, "claims", ["timestamp", "validFrom", "validUntil", "author", "pointers"]);
+  function claimsFields(raw, object = asObject) {
+    const o = object(raw, "claims", ["timestamp", "validFrom", "validUntil", "author", "pointers"]);
     if (typeof o["timestamp"] !== "number") throw new Error("claims.timestamp must be a number");
     if (typeof o["validFrom"] !== "number") throw new Error("claims.validFrom must be a number");
     if (o["validUntil"] !== void 0 && typeof o["validUntil"] !== "number")
@@ -4489,8 +4503,12 @@
       validFrom: o["validFrom"],
       ...o["validUntil"] === void 0 ? {} : { validUntil: o["validUntil"] },
       author: o["author"],
-      pointers: o["pointers"].map(parsePointer)
+      pointers: o["pointers"]
     };
+  }
+  function parseClaims(raw) {
+    const fields = claimsFields(raw);
+    return { ...fields, pointers: fields.pointers.map((p) => readPointer(p, parsingReader)) };
   }
 
   // src/delta/manifest.ts

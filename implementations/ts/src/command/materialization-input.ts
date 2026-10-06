@@ -1,6 +1,6 @@
 // SPEC-16 MR-21 ordered pure input phases; native source checks are explicit orchestration gaps.
 import { encode } from "../delta/cbor.js";
-import { canonicalBytes } from "../delta/delta.js";
+import { captureDeltaDebugDelivery, DeltaDebugCaptureError } from "../delta/json-profile.js";
 import { contentAddress } from "../delta/hash.js";
 import type { Delta } from "../delta/types.js";
 import {
@@ -127,22 +127,32 @@ export function checkMaterializationDeliveryCounts(
   appearances: readonly unknown[],
   limits: MaterializationLimits,
 ): void {
-  mLimit(appearances.length, limits.deliveryAppearances);
-  const counts: number[] = [];
-  for (const value of appearances) {
-    if (typeof value !== "object" || value === null || !("claims" in value))
-      mFail("invalid-appearance");
-    const claims = value.claims;
-    if (
-      typeof claims !== "object" ||
-      claims === null ||
-      !("pointers" in claims) ||
-      !Array.isArray(claims.pointers)
-    )
-      mFail("invalid-appearance");
-    counts.push(claims.pointers.length);
+  try {
+    const length = appearances.length;
+    if (!Number.isSafeInteger(length) || length < 0) mFail("invalid-appearance");
+    mLimit(length, limits.deliveryAppearances);
+    const counts: number[] = [];
+    for (let i = 0; i < length; i++) {
+      const value = appearances[i];
+      if (typeof value !== "object" || value === null || !("claims" in value))
+        mFail("invalid-appearance");
+      const claims = value.claims;
+      if (
+        typeof claims !== "object" ||
+        claims === null ||
+        !("pointers" in claims) ||
+        !Array.isArray(claims.pointers)
+      )
+        mFail("invalid-appearance");
+      const count = claims.pointers.length;
+      if (!Number.isSafeInteger(count) || count < 0) mFail("invalid-appearance");
+      counts.push(count);
+    }
+    for (const count of counts) mLimit(count, limits.pointers);
+  } catch (error) {
+    if (error instanceof MaterializationInputError) throw error;
+    mFail("invalid-appearance");
   }
-  for (const count of counts) mLimit(count, limits.pointers);
 }
 export function prepareMaterializationInput(
   c: MaterializationInputCatalog,
@@ -153,21 +163,11 @@ export function prepareMaterializationInput(
   checkMaterializationDeliveryCounts(appearances, c.limits);
   let deltas: Delta[];
   try {
-    deltas = appearances.map(parseCommandDelta);
-  } catch {
-    return mFail("invalid-appearance");
+    const captured = captureDeltaDebugDelivery(appearances, c.limits);
+    deltas = captured.map(parseCommandDelta);
+  } catch (error) {
+    return mFail(error instanceof DeltaDebugCaptureError ? error.code : "invalid-appearance");
   }
-  let size = 0;
-  try {
-    for (const d of deltas) {
-      if (d.sig !== undefined && (!/^[a-fA-F0-9]*$/.test(d.sig) || d.sig.length % 2 !== 0))
-        throw Error();
-      size += canonicalBytes(d.claims).length + (d.sig?.length ?? 0) / 2;
-    }
-  } catch {
-    return mFail("invalid-appearance");
-  }
-  mLimit(size, c.limits.deliveryBytes);
   try {
     deltas.forEach(verifyCommandAppearance);
   } catch {

@@ -4,7 +4,6 @@ import {
   type MaterializationInputBoot,
   materializationInputCatalog,
   prepareMaterializationInput,
-  checkMaterializationDeliveryCounts,
   validateMaterializationSourceInput,
   validateMaterializationInputProgram,
 } from "./materialization-input.js";
@@ -24,22 +23,7 @@ export function preflightMaterializationInput(
     throw Error("invalid materialization transport framing");
   const catalog = materializationInputCatalog(boot);
   try {
-    checkMaterializationDeliveryCounts(appearances, catalog.limits);
-  } catch (error) {
-    if (error instanceof MaterializationInputError)
-      return error.code === "resource-limit"
-        ? { status: "over-input-limit", code: "resource-limit" }
-        : { status: "invalid-input", code: error.code };
-    throw error;
-  }
-  let copied: readonly unknown[];
-  try {
-    copied = structuredClone(appearances);
-  } catch {
-    copied = [null];
-  }
-  try {
-    const p = prepareMaterializationInput(catalog, entryId, copied, receivedAt);
+    const p = prepareMaterializationInput(catalog, entryId, appearances, receivedAt);
     if (p.verb === "gather") validateMaterializationSourceInput(catalog, p, receivedAt);
     validateMaterializationInputProgram(catalog, p);
     if (p.verb === "resolve")

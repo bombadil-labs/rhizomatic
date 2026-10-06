@@ -340,6 +340,17 @@
     {
       "form": "syn-resolved-path",
       "owner": "delta",
+      "rawTarget": "crate::b64u::sextet",
+      "resolvedTarget": "crate::b64u::sextet",
+      "source": "implementations/rust/src/b64u.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "decoded_length",
+      "target": "crate::b64u::sextet",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
       "rawTarget": "crate::cbor::CborValue",
       "resolvedTarget": "crate::cbor::CborValue",
       "source": "implementations/rust/src/cbor.rs",
@@ -806,6 +817,55 @@
       "source": "implementations/rust/src/cbor.rs",
       "status": "parsed-known-macro-arguments",
       "symbol": "write_float"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::cbor::write_head",
+      "resolvedTarget": "crate::cbor::write_head",
+      "source": "implementations/rust/src/cbor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "head_byte_length",
+      "target": "crate::cbor::write_head",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "delta",
+      "source": "implementations/rust/src/cbor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "head_byte_length",
+      "target": "std::vec::Vec::with_capacity"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::cbor::write_float",
+      "resolvedTarget": "crate::cbor::write_float",
+      "source": "implementations/rust/src/cbor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "float_byte_length",
+      "target": "crate::cbor::write_float",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "delta",
+      "source": "implementations/rust/src/cbor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "float_byte_length",
+      "target": "std::vec::Vec::with_capacity"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::cbor::head_byte_length",
+      "resolvedTarget": "crate::cbor::head_byte_length",
+      "source": "implementations/rust/src/cbor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "text_byte_length",
+      "target": "crate::cbor::head_byte_length",
+      "targetOwner": "delta"
     },
     {
       "form": "syn-resolved-path",
@@ -18727,45 +18787,12 @@
     {
       "form": "syn-resolved-path",
       "owner": "delta",
-      "rawTarget": "crate::types::Primitive",
-      "resolvedTarget": "crate::types::Primitive",
+      "rawTarget": "crate::strict::as_object",
+      "resolvedTarget": "crate::strict::as_object",
       "source": "implementations/rust/src/json_profile.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "parse_primitive",
-      "target": "crate::types::Primitive",
-      "targetOwner": "delta"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "delta",
-      "rawTarget": "crate::types::Primitive::Bool",
-      "resolvedTarget": "crate::types::Primitive::Bool",
-      "source": "implementations/rust/src/json_profile.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "parse_primitive",
-      "target": "crate::types::Primitive::Bool",
-      "targetOwner": "delta"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "delta",
-      "rawTarget": "crate::types::Primitive::Num",
-      "resolvedTarget": "crate::types::Primitive::Num",
-      "source": "implementations/rust/src/json_profile.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "parse_primitive",
-      "target": "crate::types::Primitive::Num",
-      "targetOwner": "delta"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "delta",
-      "rawTarget": "crate::types::Primitive::Str",
-      "resolvedTarget": "crate::types::Primitive::Str",
-      "source": "implementations/rust/src/json_profile.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "parse_primitive",
-      "target": "crate::types::Primitive::Str",
+      "symbol": "debug_object",
+      "target": "crate::strict::as_object",
       "targetOwner": "delta"
     },
     {
@@ -18773,39 +18800,7 @@
       "owner": "delta",
       "source": "implementations/rust/src/json_profile.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "parse_primitive",
-      "target": "serde_json::Value"
-    },
-    {
-      "form": "syn-external-path",
-      "owner": "delta",
-      "source": "implementations/rust/src/json_profile.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "parse_primitive",
-      "target": "serde_json::Value::Bool"
-    },
-    {
-      "form": "syn-external-path",
-      "owner": "delta",
-      "source": "implementations/rust/src/json_profile.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "parse_primitive",
-      "target": "serde_json::Value::Number"
-    },
-    {
-      "form": "syn-external-path",
-      "owner": "delta",
-      "source": "implementations/rust/src/json_profile.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "parse_primitive",
-      "target": "serde_json::Value::String"
-    },
-    {
-      "form": "syn-external-path",
-      "owner": "delta",
-      "source": "implementations/rust/src/json_profile.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "parse_context",
+      "symbol": "debug_object",
       "target": "serde_json::Map"
     },
     {
@@ -18813,7 +18808,7 @@
       "owner": "delta",
       "source": "implementations/rust/src/json_profile.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "parse_context",
+      "symbol": "debug_object",
       "target": "serde_json::Value"
     },
     {
@@ -18821,29 +18816,100 @@
       "owner": "delta",
       "source": "implementations/rust/src/json_profile.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "parse_context",
+      "symbol": "context",
+      "target": "serde_json::Map"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "delta",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "context",
+      "target": "serde_json::Value"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "delta",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "context",
       "target": "serde_json::Value::String"
     },
     {
       "form": "syn-resolved-path",
       "owner": "delta",
-      "rawTarget": "crate::b64u::decode",
-      "resolvedTarget": "crate::b64u::decode",
+      "rawTarget": "crate::json_profile::DebugTarget",
+      "resolvedTarget": "crate::json_profile::DebugTarget",
       "source": "implementations/rust/src/json_profile.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "parse_target",
-      "target": "crate::b64u::decode",
+      "symbol": "debug_target",
+      "target": "crate::json_profile::DebugTarget",
       "targetOwner": "delta"
     },
     {
       "form": "syn-resolved-path",
       "owner": "delta",
-      "rawTarget": "crate::json_profile::TARGET_DISCRIMINATORS",
-      "resolvedTarget": "crate::json_profile::TARGET_DISCRIMINATORS",
+      "rawTarget": "crate::json_profile::DebugTarget::Bool",
+      "resolvedTarget": "crate::json_profile::DebugTarget::Bool",
       "source": "implementations/rust/src/json_profile.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "parse_target",
-      "target": "crate::json_profile::TARGET_DISCRIMINATORS",
+      "symbol": "debug_target",
+      "target": "crate::json_profile::DebugTarget::Bool",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::json_profile::DebugTarget::Bytes",
+      "resolvedTarget": "crate::json_profile::DebugTarget::Bytes",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "debug_target",
+      "target": "crate::json_profile::DebugTarget::Bytes",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::json_profile::DebugTarget::Delta",
+      "resolvedTarget": "crate::json_profile::DebugTarget::Delta",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "debug_target",
+      "target": "crate::json_profile::DebugTarget::Delta",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::json_profile::DebugTarget::Entity",
+      "resolvedTarget": "crate::json_profile::DebugTarget::Entity",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "debug_target",
+      "target": "crate::json_profile::DebugTarget::Entity",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::json_profile::DebugTarget::Number",
+      "resolvedTarget": "crate::json_profile::DebugTarget::Number",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "debug_target",
+      "target": "crate::json_profile::DebugTarget::Number",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::json_profile::DebugTarget::Text",
+      "resolvedTarget": "crate::json_profile::DebugTarget::Text",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "debug_target",
+      "target": "crate::json_profile::DebugTarget::Text",
       "targetOwner": "delta"
     },
     {
@@ -18853,118 +18919,30 @@
       "resolvedTarget": "crate::json_profile::TARGET_SHAPES",
       "source": "implementations/rust/src/json_profile.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "parse_target",
+      "symbol": "debug_target",
       "target": "crate::json_profile::TARGET_SHAPES",
       "targetOwner": "delta"
     },
     {
       "form": "syn-resolved-path",
       "owner": "delta",
-      "rawTarget": "crate::json_profile::parse_context",
-      "resolvedTarget": "crate::json_profile::parse_context",
+      "rawTarget": "crate::json_profile::context",
+      "resolvedTarget": "crate::json_profile::context",
       "source": "implementations/rust/src/json_profile.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "parse_target",
-      "target": "crate::json_profile::parse_context",
+      "symbol": "debug_target",
+      "target": "crate::json_profile::context",
       "targetOwner": "delta"
     },
     {
       "form": "syn-resolved-path",
       "owner": "delta",
-      "rawTarget": "crate::json_profile::parse_primitive",
-      "resolvedTarget": "crate::json_profile::parse_primitive",
+      "rawTarget": "crate::json_profile::debug_object",
+      "resolvedTarget": "crate::json_profile::debug_object",
       "source": "implementations/rust/src/json_profile.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "parse_target",
-      "target": "crate::json_profile::parse_primitive",
-      "targetOwner": "delta"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "delta",
-      "rawTarget": "crate::strict::as_object",
-      "resolvedTarget": "crate::strict::as_object",
-      "source": "implementations/rust/src/json_profile.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "parse_target",
-      "target": "crate::strict::as_object",
-      "targetOwner": "delta"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "delta",
-      "rawTarget": "crate::types::DeltaRef",
-      "resolvedTarget": "crate::types::DeltaRef",
-      "source": "implementations/rust/src/json_profile.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "parse_target",
-      "target": "crate::types::DeltaRef",
-      "targetOwner": "delta"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "delta",
-      "rawTarget": "crate::types::EntityRef",
-      "resolvedTarget": "crate::types::EntityRef",
-      "source": "implementations/rust/src/json_profile.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "parse_target",
-      "target": "crate::types::EntityRef",
-      "targetOwner": "delta"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "delta",
-      "rawTarget": "crate::types::Target",
-      "resolvedTarget": "crate::types::Target",
-      "source": "implementations/rust/src/json_profile.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "parse_target",
-      "target": "crate::types::Target",
-      "targetOwner": "delta"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "delta",
-      "rawTarget": "crate::types::Target::Bytes",
-      "resolvedTarget": "crate::types::Target::Bytes",
-      "source": "implementations/rust/src/json_profile.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "parse_target",
-      "target": "crate::types::Target::Bytes",
-      "targetOwner": "delta"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "delta",
-      "rawTarget": "crate::types::Target::Delta",
-      "resolvedTarget": "crate::types::Target::Delta",
-      "source": "implementations/rust/src/json_profile.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "parse_target",
-      "target": "crate::types::Target::Delta",
-      "targetOwner": "delta"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "delta",
-      "rawTarget": "crate::types::Target::Entity",
-      "resolvedTarget": "crate::types::Target::Entity",
-      "source": "implementations/rust/src/json_profile.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "parse_target",
-      "target": "crate::types::Target::Entity",
-      "targetOwner": "delta"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "delta",
-      "rawTarget": "crate::types::Target::Primitive",
-      "resolvedTarget": "crate::types::Target::Primitive",
-      "source": "implementations/rust/src/json_profile.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "parse_target",
-      "target": "crate::types::Target::Primitive",
+      "symbol": "debug_target",
+      "target": "crate::json_profile::debug_object",
       "targetOwner": "delta"
     },
     {
@@ -18972,7 +18950,7 @@
       "owner": "delta",
       "source": "implementations/rust/src/json_profile.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "parse_target",
+      "symbol": "debug_target",
       "target": "serde_json::Value"
     },
     {
@@ -18980,7 +18958,7 @@
       "owner": "delta",
       "source": "implementations/rust/src/json_profile.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "parse_target",
+      "symbol": "debug_target",
       "target": "serde_json::Value::Bool"
     },
     {
@@ -18988,7 +18966,7 @@
       "owner": "delta",
       "source": "implementations/rust/src/json_profile.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "parse_target",
+      "symbol": "debug_target",
       "target": "serde_json::Value::Number"
     },
     {
@@ -18996,7 +18974,7 @@
       "owner": "delta",
       "source": "implementations/rust/src/json_profile.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "parse_target",
+      "symbol": "debug_target",
       "target": "serde_json::Value::String"
     },
     {
@@ -19004,7 +18982,7 @@
       "owner": "delta",
       "source": "implementations/rust/src/json_profile.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "parse_target",
+      "symbol": "debug_target",
       "target": "serde_json::Value::as_str"
     },
     {
@@ -19015,49 +18993,39 @@
       "owner": "delta",
       "source": "implementations/rust/src/json_profile.rs",
       "status": "parsed-known-macro-arguments",
-      "symbol": "parse_target"
-    },
-    {
-      "form": "macro-region",
-      "macros": [
-        "matches"
-      ],
-      "owner": "delta",
-      "source": "implementations/rust/src/json_profile.rs",
-      "status": "parsed-known-macro-arguments",
-      "symbol": "parse_target"
+      "symbol": "debug_target"
     },
     {
       "form": "syn-resolved-path",
       "owner": "delta",
-      "rawTarget": "crate::json_profile::parse_target",
-      "resolvedTarget": "crate::json_profile::parse_target",
+      "rawTarget": "crate::json_profile::DebugTarget",
+      "resolvedTarget": "crate::json_profile::DebugTarget",
       "source": "implementations/rust/src/json_profile.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "parse_pointer",
-      "target": "crate::json_profile::parse_target",
+      "symbol": "debug_pointer",
+      "target": "crate::json_profile::DebugTarget",
       "targetOwner": "delta"
     },
     {
       "form": "syn-resolved-path",
       "owner": "delta",
-      "rawTarget": "crate::strict::as_object",
-      "resolvedTarget": "crate::strict::as_object",
+      "rawTarget": "crate::json_profile::debug_object",
+      "resolvedTarget": "crate::json_profile::debug_object",
       "source": "implementations/rust/src/json_profile.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "parse_pointer",
-      "target": "crate::strict::as_object",
+      "symbol": "debug_pointer",
+      "target": "crate::json_profile::debug_object",
       "targetOwner": "delta"
     },
     {
       "form": "syn-resolved-path",
       "owner": "delta",
-      "rawTarget": "crate::types::Pointer",
-      "resolvedTarget": "crate::types::Pointer",
+      "rawTarget": "crate::json_profile::debug_target",
+      "resolvedTarget": "crate::json_profile::debug_target",
       "source": "implementations/rust/src/json_profile.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "parse_pointer",
-      "target": "crate::types::Pointer",
+      "symbol": "debug_pointer",
+      "target": "crate::json_profile::debug_target",
       "targetOwner": "delta"
     },
     {
@@ -19065,7 +19033,7 @@
       "owner": "delta",
       "source": "implementations/rust/src/json_profile.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "parse_pointer",
+      "symbol": "debug_pointer",
       "target": "serde_json::Value"
     },
     {
@@ -19073,29 +19041,308 @@
       "owner": "delta",
       "source": "implementations/rust/src/json_profile.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "parse_pointer",
+      "symbol": "debug_pointer",
       "target": "serde_json::Value::as_str"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "delta",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DebugClaims",
+      "target": "serde_json::Value"
     },
     {
       "form": "syn-resolved-path",
       "owner": "delta",
-      "rawTarget": "crate::json_profile::parse_pointer",
-      "resolvedTarget": "crate::json_profile::parse_pointer",
+      "rawTarget": "crate::json_profile::DebugClaims",
+      "resolvedTarget": "crate::json_profile::DebugClaims",
       "source": "implementations/rust/src/json_profile.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "parse_claims",
-      "target": "crate::json_profile::parse_pointer",
+      "symbol": "debug_claims",
+      "target": "crate::json_profile::DebugClaims",
       "targetOwner": "delta"
     },
     {
       "form": "syn-resolved-path",
       "owner": "delta",
-      "rawTarget": "crate::strict::as_object",
-      "resolvedTarget": "crate::strict::as_object",
+      "rawTarget": "crate::json_profile::debug_object",
+      "resolvedTarget": "crate::json_profile::debug_object",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "debug_claims",
+      "target": "crate::json_profile::debug_object",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "delta",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "debug_claims",
+      "target": "serde_json::Value"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "delta",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "debug_claims",
+      "target": "serde_json::Value::as_array"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "delta",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "debug_claims",
+      "target": "serde_json::Value::as_f64"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "delta",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "debug_claims",
+      "target": "serde_json::Value::as_str"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "delta",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "allocate_target",
+      "target": "core::primitive::str::to_string"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::b64u::decode",
+      "resolvedTarget": "crate::b64u::decode",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "allocate_target",
+      "target": "crate::b64u::decode",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::json_profile::DebugTarget",
+      "resolvedTarget": "crate::json_profile::DebugTarget",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "allocate_target",
+      "target": "crate::json_profile::DebugTarget",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::json_profile::DebugTarget::Bool",
+      "resolvedTarget": "crate::json_profile::DebugTarget::Bool",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "allocate_target",
+      "target": "crate::json_profile::DebugTarget::Bool",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::json_profile::DebugTarget::Bytes",
+      "resolvedTarget": "crate::json_profile::DebugTarget::Bytes",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "allocate_target",
+      "target": "crate::json_profile::DebugTarget::Bytes",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::json_profile::DebugTarget::Delta",
+      "resolvedTarget": "crate::json_profile::DebugTarget::Delta",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "allocate_target",
+      "target": "crate::json_profile::DebugTarget::Delta",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::json_profile::DebugTarget::Entity",
+      "resolvedTarget": "crate::json_profile::DebugTarget::Entity",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "allocate_target",
+      "target": "crate::json_profile::DebugTarget::Entity",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::json_profile::DebugTarget::Number",
+      "resolvedTarget": "crate::json_profile::DebugTarget::Number",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "allocate_target",
+      "target": "crate::json_profile::DebugTarget::Number",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::json_profile::DebugTarget::Text",
+      "resolvedTarget": "crate::json_profile::DebugTarget::Text",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "allocate_target",
+      "target": "crate::json_profile::DebugTarget::Text",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::types::DeltaRef",
+      "resolvedTarget": "crate::types::DeltaRef",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "allocate_target",
+      "target": "crate::types::DeltaRef",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::types::EntityRef",
+      "resolvedTarget": "crate::types::EntityRef",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "allocate_target",
+      "target": "crate::types::EntityRef",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::types::Primitive::Bool",
+      "resolvedTarget": "crate::types::Primitive::Bool",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "allocate_target",
+      "target": "crate::types::Primitive::Bool",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::types::Primitive::Num",
+      "resolvedTarget": "crate::types::Primitive::Num",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "allocate_target",
+      "target": "crate::types::Primitive::Num",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::types::Primitive::Str",
+      "resolvedTarget": "crate::types::Primitive::Str",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "allocate_target",
+      "target": "crate::types::Primitive::Str",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::types::Target",
+      "resolvedTarget": "crate::types::Target",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "allocate_target",
+      "target": "crate::types::Target",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::types::Target::Bytes",
+      "resolvedTarget": "crate::types::Target::Bytes",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "allocate_target",
+      "target": "crate::types::Target::Bytes",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::types::Target::Delta",
+      "resolvedTarget": "crate::types::Target::Delta",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "allocate_target",
+      "target": "crate::types::Target::Delta",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::types::Target::Entity",
+      "resolvedTarget": "crate::types::Target::Entity",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "allocate_target",
+      "target": "crate::types::Target::Entity",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::types::Target::Primitive",
+      "resolvedTarget": "crate::types::Target::Primitive",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "allocate_target",
+      "target": "crate::types::Target::Primitive",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::json_profile::allocate_target",
+      "resolvedTarget": "crate::json_profile::allocate_target",
       "source": "implementations/rust/src/json_profile.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "parse_claims",
-      "target": "crate::strict::as_object",
+      "target": "crate::json_profile::allocate_target",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::json_profile::debug_claims",
+      "resolvedTarget": "crate::json_profile::debug_claims",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "parse_claims",
+      "target": "crate::json_profile::debug_claims",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::json_profile::debug_pointer",
+      "resolvedTarget": "crate::json_profile::debug_pointer",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "parse_claims",
+      "target": "crate::json_profile::debug_pointer",
       "targetOwner": "delta"
     },
     {
@@ -19110,6 +19357,17 @@
       "targetOwner": "delta"
     },
     {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::types::Pointer",
+      "resolvedTarget": "crate::types::Pointer",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "parse_claims",
+      "target": "crate::types::Pointer",
+      "targetOwner": "delta"
+    },
+    {
       "form": "syn-external-path",
       "owner": "delta",
       "source": "implementations/rust/src/json_profile.rs",
@@ -19118,27 +19376,260 @@
       "target": "serde_json::Value"
     },
     {
-      "form": "syn-external-path",
+      "form": "syn-resolved-path",
       "owner": "delta",
+      "rawTarget": "crate::json_profile::DebugSize",
+      "resolvedTarget": "crate::json_profile::DebugSize",
       "source": "implementations/rust/src/json_profile.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "parse_claims",
-      "target": "serde_json::Value::as_array"
+      "symbol": "DebugSize",
+      "target": "crate::json_profile::DebugSize",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::json_profile::DebugSize",
+      "resolvedTarget": "crate::json_profile::DebugSize",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DebugSize::add",
+      "target": "crate::json_profile::DebugSize",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::cbor::float_byte_length",
+      "resolvedTarget": "crate::cbor::float_byte_length",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DebugSize::number",
+      "target": "crate::cbor::float_byte_length",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::json_profile::DebugSize",
+      "resolvedTarget": "crate::json_profile::DebugSize",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DebugSize::number",
+      "target": "crate::json_profile::DebugSize",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::b64u::decoded_length",
+      "resolvedTarget": "crate::b64u::decoded_length",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DebugSize::target",
+      "target": "crate::b64u::decoded_length",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::cbor::head_byte_length",
+      "resolvedTarget": "crate::cbor::head_byte_length",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DebugSize::target",
+      "target": "crate::cbor::head_byte_length",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::json_profile::DebugSize",
+      "resolvedTarget": "crate::json_profile::DebugSize",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DebugSize::target",
+      "target": "crate::json_profile::DebugSize",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::json_profile::DebugTarget",
+      "resolvedTarget": "crate::json_profile::DebugTarget",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DebugSize::target",
+      "target": "crate::json_profile::DebugTarget",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::json_profile::DebugTarget::Bool",
+      "resolvedTarget": "crate::json_profile::DebugTarget::Bool",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DebugSize::target",
+      "target": "crate::json_profile::DebugTarget::Bool",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::json_profile::DebugTarget::Bytes",
+      "resolvedTarget": "crate::json_profile::DebugTarget::Bytes",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DebugSize::target",
+      "target": "crate::json_profile::DebugTarget::Bytes",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::json_profile::DebugTarget::Delta",
+      "resolvedTarget": "crate::json_profile::DebugTarget::Delta",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DebugSize::target",
+      "target": "crate::json_profile::DebugTarget::Delta",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::json_profile::DebugTarget::Entity",
+      "resolvedTarget": "crate::json_profile::DebugTarget::Entity",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DebugSize::target",
+      "target": "crate::json_profile::DebugTarget::Entity",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::json_profile::DebugTarget::Number",
+      "resolvedTarget": "crate::json_profile::DebugTarget::Number",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DebugSize::target",
+      "target": "crate::json_profile::DebugTarget::Number",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::json_profile::DebugTarget::Text",
+      "resolvedTarget": "crate::json_profile::DebugTarget::Text",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DebugSize::target",
+      "target": "crate::json_profile::DebugTarget::Text",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::cbor::text_byte_length",
+      "resolvedTarget": "crate::cbor::text_byte_length",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DebugSize::text",
+      "target": "crate::cbor::text_byte_length",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::json_profile::DebugSize",
+      "resolvedTarget": "crate::json_profile::DebugSize",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DebugSize::text",
+      "target": "crate::json_profile::DebugSize",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "matches"
+      ],
+      "owner": "delta",
+      "source": "implementations/rust/src/json_profile.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "DebugSize::target"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::cbor::head_byte_length",
+      "resolvedTarget": "crate::cbor::head_byte_length",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "delta_debug_delivery_size",
+      "target": "crate::cbor::head_byte_length",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::json_profile::DebugSize",
+      "resolvedTarget": "crate::json_profile::DebugSize",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "delta_debug_delivery_size",
+      "target": "crate::json_profile::DebugSize",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::json_profile::debug_claims",
+      "resolvedTarget": "crate::json_profile::debug_claims",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "delta_debug_delivery_size",
+      "target": "crate::json_profile::debug_claims",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::json_profile::debug_object",
+      "resolvedTarget": "crate::json_profile::debug_object",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "delta_debug_delivery_size",
+      "target": "crate::json_profile::debug_object",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::json_profile::debug_pointer",
+      "resolvedTarget": "crate::json_profile::debug_pointer",
+      "source": "implementations/rust/src/json_profile.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "delta_debug_delivery_size",
+      "target": "crate::json_profile::debug_pointer",
+      "targetOwner": "delta"
     },
     {
       "form": "syn-external-path",
       "owner": "delta",
       "source": "implementations/rust/src/json_profile.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "parse_claims",
-      "target": "serde_json::Value::as_f64"
+      "symbol": "delta_debug_delivery_size",
+      "target": "serde_json::Value"
     },
     {
       "form": "syn-external-path",
       "owner": "delta",
       "source": "implementations/rust/src/json_profile.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "parse_claims",
+      "symbol": "delta_debug_delivery_size",
       "target": "serde_json::Value::as_str"
     },
     {
@@ -26752,23 +27243,23 @@
     {
       "form": "syn-import",
       "owner": "command",
-      "rawTarget": "crate::delta::canonical_bytes",
-      "resolvedTarget": "crate::delta::canonical_bytes",
-      "source": "implementations/rust/src/materialization_input.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "<import>",
-      "target": "crate::delta::canonical_bytes",
-      "targetOwner": "delta"
-    },
-    {
-      "form": "syn-import",
-      "owner": "command",
       "rawTarget": "crate::hash::content_address",
       "resolvedTarget": "crate::hash::content_address",
       "source": "implementations/rust/src/materialization_input.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "<import>",
       "target": "crate::hash::content_address",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-import",
+      "owner": "command",
+      "rawTarget": "crate::json_profile::delta_debug_delivery_size",
+      "resolvedTarget": "crate::json_profile::delta_debug_delivery_size",
+      "source": "implementations/rust/src/materialization_input.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::json_profile::delta_debug_delivery_size",
       "targetOwner": "delta"
     },
     {
@@ -27563,12 +28054,23 @@
     {
       "form": "syn-resolved-path",
       "owner": "command",
-      "rawTarget": "crate::delta::canonical_bytes",
-      "resolvedTarget": "crate::delta::canonical_bytes",
+      "rawTarget": "crate::command_data::is_content_id",
+      "resolvedTarget": "crate::command_data::is_content_id",
       "source": "implementations/rust/src/materialization_input.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "prepare",
-      "target": "crate::delta::canonical_bytes",
+      "target": "crate::command_data::is_content_id",
+      "targetOwner": "command-data"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "command",
+      "rawTarget": "crate::json_profile::delta_debug_delivery_size",
+      "resolvedTarget": "crate::json_profile::delta_debug_delivery_size",
+      "source": "implementations/rust/src/materialization_input.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "prepare",
+      "target": "crate::json_profile::delta_debug_delivery_size",
       "targetOwner": "delta"
     },
     {
@@ -27853,6 +28355,14 @@
       "sourceRegion": "semantic-owner",
       "symbol": "prepare",
       "target": "serde_json::Value"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "command",
+      "source": "implementations/rust/src/materialization_input.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "prepare",
+      "target": "serde_json::Value::as_str"
     },
     {
       "form": "syn-external-path",
@@ -67199,6 +67709,17 @@
       "classification": "native_extension",
       "contract": "rhizomatic.delta/native-api/1",
       "definition": "function",
+      "id": "rust:b64u:decoded_length",
+      "owner": "delta",
+      "semantics": "Native b64u::decoded_length implements SPEC-1 identity/canonical codecs and SPEC-8 neutral membership. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "source": "implementations/rust/src/b64u.rs",
+      "symbol": "decoded_length"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.delta/native-api/1",
+      "definition": "function",
       "id": "rust:b64u:encode",
       "owner": "delta",
       "semantics": "Native b64u::encode implements SPEC-1 identity/canonical codecs and SPEC-8 neutral membership. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
@@ -67270,6 +67791,39 @@
       "semantics": "Native cbor::encode implements SPEC-1 identity/canonical codecs and SPEC-8 neutral membership. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/cbor.rs",
       "symbol": "encode"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.delta/native-api/1",
+      "definition": "function",
+      "id": "rust:cbor:float_byte_length",
+      "owner": "delta",
+      "semantics": "Native cbor::float_byte_length implements SPEC-1 identity/canonical codecs and SPEC-8 neutral membership. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "source": "implementations/rust/src/cbor.rs",
+      "symbol": "float_byte_length"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.delta/native-api/1",
+      "definition": "function",
+      "id": "rust:cbor:head_byte_length",
+      "owner": "delta",
+      "semantics": "Native cbor::head_byte_length implements SPEC-1 identity/canonical codecs and SPEC-8 neutral membership. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "source": "implementations/rust/src/cbor.rs",
+      "symbol": "head_byte_length"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.delta/native-api/1",
+      "definition": "function",
+      "id": "rust:cbor:text_byte_length",
+      "owner": "delta",
+      "semantics": "Native cbor::text_byte_length implements SPEC-1 identity/canonical codecs and SPEC-8 neutral membership. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "source": "implementations/rust/src/cbor.rs",
+      "symbol": "text_byte_length"
     },
     {
       "cfg": [],
@@ -68751,6 +69305,17 @@
       "semantics": "Native json_profile::claims_to_json implements SPEC-1 identity/canonical codecs and SPEC-8 neutral membership. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/json_profile.rs",
       "symbol": "claims_to_json"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.delta/native-api/1",
+      "definition": "function",
+      "id": "rust:json_profile:delta_debug_delivery_size",
+      "owner": "delta",
+      "semantics": "Native json_profile::delta_debug_delivery_size implements SPEC-1 identity/canonical codecs and SPEC-8 neutral membership. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "source": "implementations/rust/src/json_profile.rs",
+      "symbol": "delta_debug_delivery_size"
     },
     {
       "cfg": [],
@@ -70937,7 +71502,7 @@
       "definition": "enum",
       "id": "rust:materialization_command:MaterializationInputPreflight",
       "owner": "command",
-      "semantics": "materialization_command::MaterializationInputPreflight: Pure supplied-input validation projection of stages1\u20134,6\u20138; all applicable input limits including supplied resolve envelope; no native source grant/currentness, execution or produced output guarantee. MR-08, MR-09, MR-10, MR-11, MR-12, MR-19, MR-20, MR-21, MR-22.",
+      "semantics": "materialization_command::MaterializationInputPreflight: Pure supplied-input validation projection of stages1–4,6–8; all applicable input limits including supplied resolve envelope; no native source grant/currentness, execution or produced output guarantee. MR-08, MR-09, MR-10, MR-11, MR-12, MR-19, MR-20, MR-21, MR-22.",
       "source": "implementations/rust/src/materialization_command.rs",
       "symbol": "MaterializationInputPreflight"
     },
@@ -70992,7 +71557,7 @@
       "definition": "function",
       "id": "rust:materialization_command:preflight_materialization_input",
       "owner": "command",
-      "semantics": "materialization_command::preflight_materialization_input: Pure supplied-input validation projection of stages1\u20134,6\u20138; all applicable input limits including supplied resolve envelope; no native source grant/currentness, execution or produced output guarantee. MR-08, MR-09, MR-10, MR-11, MR-12, MR-19, MR-20, MR-21, MR-22.",
+      "semantics": "materialization_command::preflight_materialization_input: Pure supplied-input validation projection of stages1–4,6–8; all applicable input limits including supplied resolve envelope; no native source grant/currentness, execution or produced output guarantee. MR-08, MR-09, MR-10, MR-11, MR-12, MR-19, MR-20, MR-21, MR-22.",
       "source": "implementations/rust/src/materialization_command.rs",
       "symbol": "preflight_materialization_input"
     },
@@ -71190,7 +71755,7 @@
       "definition": "struct",
       "id": "rust:materialization_input:MaterializationInputBoot",
       "owner": "command",
-      "semantics": "materialization_input::MaterializationInputBoot: Pure supplied-input validation projection of stages1\u20134,6\u20138; all applicable input limits including supplied resolve envelope; no native source grant/currentness, execution or produced output guarantee. MR-08, MR-09, MR-10, MR-11, MR-12, MR-19, MR-20, MR-21, MR-22.",
+      "semantics": "materialization_input::MaterializationInputBoot: Pure supplied-input validation projection of stages1–4,6–8; all applicable input limits including supplied resolve envelope; no native source grant/currentness, execution or produced output guarantee. MR-08, MR-09, MR-10, MR-11, MR-12, MR-19, MR-20, MR-21, MR-22.",
       "source": "implementations/rust/src/materialization_input.rs",
       "symbol": "MaterializationInputBoot"
     },
@@ -71201,7 +71766,7 @@
       "definition": "module",
       "id": "rust:materialization_input:materialization_input",
       "owner": "command",
-      "semantics": "materialization_input::materialization_input: Pure supplied-input validation projection of stages1\u20134,6\u20138; all applicable input limits including supplied resolve envelope; no native source grant/currentness, execution or produced output guarantee. MR-08, MR-09, MR-10, MR-11, MR-12, MR-19, MR-20, MR-21, MR-22.",
+      "semantics": "materialization_input::materialization_input: Pure supplied-input validation projection of stages1–4,6–8; all applicable input limits including supplied resolve envelope; no native source grant/currentness, execution or produced output guarantee. MR-08, MR-09, MR-10, MR-11, MR-12, MR-19, MR-20, MR-21, MR-22.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "materialization_input"
     },

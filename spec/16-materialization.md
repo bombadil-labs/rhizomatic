@@ -471,7 +471,31 @@ envelope bounds/decode and structural/contextual validation; structural invalid-
 known envelope resource-limit precede the evaluated-reading feature check. Original signed
 definition/program features remain stage 7 and precede all supplied envelope defects. Loam-specific custom resolvers remain outside portable resolution.
 
-**MR-12.** Delivery is `(entryId, signed debug Delta appearances)`, copied before awaits.
+**MR-12.** Delivery is `(entryId, signed debug Delta appearances)`, captured before awaits.
+Materialization invoke and input-preflight synchronously capture own enumerable JSON-debug
+fields into inert owned containers with immutable scalar values. Count, decode and verification
+MUST use the SAME captured values; no source object/accessor reference survives capture. Do not
+call toJSON, coerce built-ins or discard unknown/inherited fields to accept a malformed shape.
+Cycles/unsupported captured values, nonfinite numbers and getter/trap failures refuse
+invalid-appearance under the existing closed grammar. User getters/proxies execute host code
+outside a sandbox: no atomic snapshot of the origin or termination guarantee is made. Once
+captured, later caller mutation has no effect. A transparent Proxy yielding legal captured fields
+may pass; its old structuredClone rejection was incidental. This explicit native-domain change
+applies ONLY to these new materialization ports, not native Delta/profile1 or M1 codecs.
+
+Delivery-byte accounting validates shapes, base64url alphabet/length/trailing bits, Unicode,
+preferred canonical numeric widths and decoded signature spelling/length without allocating
+decoded payloads or full canonical claims buffers. Validate ALL appearances even after size
+saturation so malformed appearance still wins over the aggregate byte cap. Oversized payload
+copies MUST NOT precede the byte gate. Preliminary pointer scans cannot authorize different or
+larger arrays observed during capture: recheck captured container counts before copying their
+members. The exact enforced guarantee is refusal of over-deliveryBytes offers BEFORE full
+payload decoder/canonical-payload-buffer allocation, with retained captured grammar containers
+bounded by profile counts and using the same captured representation. Existing input storage,
+own-key enumeration/reflection arrays, runtime/GC and user accessor/Proxy-trap allocations and
+execution are outside that guarantee. Arbitrary native-object enumeration is not claimed to use
+constant memory. Enumerable symbols/unknown fields still refuse. No total storage/CPU bound or
+sandbox is claimed.
 Verify every appearance, then dedup as SPEC-15 R-08. Support closure is explicit: common config
 and operations come only from boot; direct request refs reach evidence, registration, capture, snapshot,
 top definitions and definition support. Capture reaches its authority support; registration may
@@ -777,7 +801,8 @@ resource-exhausted. No blanket native exception catch can substitute either.
 1. Framing/canonical entry ID and finite native receivedAt (local transport errors without
    outcome); then delivered count; scan all delivered debug claims.pointers array counts without
    decoding targets or opening embedded bytes; bound each known per-appearance pointers count;
-   appearance decode; canonical deliveryBytes bounds;
+   non-decoding capture/closed-grammar and canonical-size validation of all appearances;
+   canonical deliveryBytes bounds before decoded/canonical payload copies; appearance decode;
    full ID/signature verification: resource-limit or invalid-appearance. Count includes repeats
    before dedup. An undecodable appearance is invalid-appearance before its unknown canonical
    byte size. Unknown pointer counts (missing/malformed claims.pointers containers) are

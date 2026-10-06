@@ -2217,6 +2217,101 @@ for (const permutation of [false, true]) {
     cfg,
   });
 }
+// Allocation guard schedules: a well-formed oversized carrier plus a malformed sibling
+// must still report malformed appearance, independently of delivery permutation.
+const allocationCfg = configuration({ deliveryBytes: deliveryBytes - 1 }),
+  allocationQ = repoint(good, "configuration", ref(allocationCfg.id));
+const allocationDelivery = sourceDelivery(allocationQ);
+for (const [label, change] of [
+  [
+    "base64_alphabet",
+    (d: ReturnType<typeof serializeCommandDelta>) => {
+      const x = d as { claims: { pointers: { target: unknown }[] } };
+      x.claims.pointers[0]!.target = { mime: "application/octet-stream", value: "!!!" };
+    },
+  ],
+  [
+    "base64_trailing_bits",
+    (d: ReturnType<typeof serializeCommandDelta>) => {
+      const x = d as { claims: { pointers: { target: unknown }[] } };
+      x.claims.pointers[0]!.target = { mime: "application/octet-stream", value: "AB" };
+    },
+  ],
+  [
+    "base64_length",
+    (d: ReturnType<typeof serializeCommandDelta>) => {
+      const x = d as { claims: { pointers: { target: unknown }[] } };
+      x.claims.pointers[0]!.target = { mime: "application/octet-stream", value: "A" };
+    },
+  ],
+  [
+    "number_shape",
+    (d: ReturnType<typeof serializeCommandDelta>) => {
+      const x = d as { claims: { timestamp: unknown } };
+      x.claims.timestamp = "1000";
+    },
+  ],
+  [
+    "signature_odd",
+    (d: ReturnType<typeof serializeCommandDelta>) => {
+      (d as { sig: string }).sig = "0";
+    },
+  ],
+  [
+    "signature_nonhex",
+    (d: ReturnType<typeof serializeCommandDelta>) => {
+      (d as { sig: string }).sig = "gg";
+    },
+  ],
+] as const) {
+  const bad = structuredClone(serializeCommandDelta(hyper));
+  change(bad);
+  for (const reverse of [false, true]) {
+    const ds = [...allocationDelivery, bad];
+    if (reverse) ds.reverse();
+    negative(
+      "delivery_scan_" + label + (reverse ? "_reverse" : ""),
+      allocationQ,
+      ds,
+      "invalid-appearance",
+      { cfg: allocationCfg },
+    );
+  }
+}
+const oversizedCarrier = signClaims(
+  {
+    ...s.snapshot.claims,
+    pointers: s.snapshot.claims.pointers.map((p) =>
+      p.target.kind === "bytes"
+        ? {
+            ...p,
+            target: { kind: "bytes" as const, mime: p.target.mime, value: new Uint8Array(16384) },
+          }
+        : p,
+    ),
+  },
+  seeds.capturer,
+);
+const oversizedQ = repoint(allocationQ, "snapshot", ref(oversizedCarrier.id));
+const oversizedDelivery = sourceDelivery(oversizedQ).map((d) =>
+  d.id === s.snapshot.id ? serializeCommandDelta(oversizedCarrier) : d,
+);
+negative("delivery_scan_oversized_carrier", oversizedQ, oversizedDelivery, "resource-limit", {
+  cfg: allocationCfg,
+});
+for (const reverse of [false, true]) {
+  const bad = structuredClone(serializeCommandDelta(hyper)) as { sig: string };
+  bad.sig = "gg";
+  const ds = [...oversizedDelivery, bad];
+  if (reverse) ds.reverse();
+  negative(
+    "delivery_scan_oversized_malformed_sibling" + (reverse ? "_reverse" : ""),
+    oversizedQ,
+    ds,
+    "invalid-appearance",
+    { cfg: allocationCfg },
+  );
+}
 const exactArtifact = Math.max(
   s.payload.length,
   encode(baseBody).length,

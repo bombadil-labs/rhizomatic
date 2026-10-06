@@ -352,4 +352,158 @@ describe("shared materialization complete command oracles", () => {
       "transport framing",
     );
   });
+  it("native capture accepts legal proxies and owns getter values before await", async () => {
+    const f = fixture.positives[0];
+    const ds = structuredClone(f.delivery);
+    ds[0] = new Proxy(ds[0], {});
+    expect(preflightMaterializationInput(boot, f.request.id, ds, 1000)).toEqual({
+      status: "input-valid",
+    });
+    const host = nativeGrant(f),
+      e = endpoint(new Map([[f.source.binding, host.grant]]));
+    expect(serializeCommandDelta(await e.invoke(f.request.id, ds, 1000))).toEqual(
+      f.expected.gather,
+    );
+    const raw = structuredClone(f.delivery);
+    const first = raw[0].claims.pointers[0],
+      role = first.role;
+    Object.defineProperty(first, "role", {
+      enumerable: true,
+      get() {
+        raw[0].claims.author = "changed after header capture";
+        return role;
+      },
+    });
+    expect(preflightMaterializationInput(boot, f.request.id, raw, 1000)).toEqual({
+      status: "input-valid",
+    });
+    const again = structuredClone(f.delivery);
+    const original = again[0].claims.pointers[0],
+      originalRole = original.role;
+    Object.defineProperty(original, "role", {
+      enumerable: true,
+      get() {
+        again[0].claims.author = "changed after header capture";
+        return originalRole;
+      },
+    });
+    expect(serializeCommandDelta(await e.invoke(f.request.id, again, 1000))).toEqual(
+      f.expected.gather,
+    );
+  });
+  it("native capture rejects trap failure, cycles, unknown/inherited fields and unsafe scalars", async () => {
+    const f = fixture.positives[0];
+    for (const defect of [
+      "throw",
+      "cycle",
+      "unknown",
+      "inherited",
+      "unicode",
+      "infinity",
+      "nan",
+      "date",
+      "toJSON",
+    ] as const) {
+      const ds = structuredClone(f.delivery);
+      if (defect === "throw")
+        Object.defineProperty(ds[0], "claims", {
+          enumerable: true,
+          get() {
+            throw Error("getter failure");
+          },
+        });
+      if (defect === "cycle") ds[0].claims.pointers[0].target = ds[0];
+      if (defect === "unknown") ds[0].extra = { value: "must not disappear" };
+      if (defect === "inherited") {
+        const claims = ds[0].claims;
+        ds[0] = Object.create({ claims });
+        Object.assign(ds[0], { id: f.request.id, sig: f.request.sig });
+      }
+      if (defect === "unicode") ds[0].claims.pointers[0].target = "\ud800";
+      if (defect === "infinity") ds[0].claims.timestamp = Infinity;
+      if (defect === "nan") ds[0].claims.timestamp = NaN;
+      if (defect === "date") ds[0].claims.pointers[0].target = new Date(0);
+      if (defect === "toJSON")
+        ds[0].toJSON = () => {
+          throw Error("must never call toJSON");
+        };
+      expect(preflightMaterializationInput(boot, f.request.id, ds, 1000)).toEqual({
+        status: "invalid-input",
+        code: "invalid-appearance",
+      });
+      const out = await endpoint().invoke(f.request.id, ds, 1000);
+      const read = readMaterializationResult(out, {
+        receiver: fixture.keys.receiver,
+        configuration: boot.configuration.id,
+        request: f.request.id,
+        requestDelta: parseCommandDelta(f.request),
+      });
+      expect(read.body).toEqual({
+        t: "map",
+        v: [["code", { t: "tstr", v: "invalid-appearance" }]],
+      });
+    }
+  });
+  it("preliminary delivery scan cannot allocate through a caller iterator", async () => {
+    const f = fixture.positives[0];
+    for (const route of ["preflight", "invoke"] as const) {
+      const ds = structuredClone(f.delivery);
+      let entered = 0;
+      Object.defineProperty(ds, Symbol.iterator, {
+        enumerable: true,
+        value: function* () {
+          entered++;
+          for (;;) yield ds[0];
+        },
+      });
+      if (route === "preflight")
+        expect(preflightMaterializationInput(boot, f.request.id, ds, 1000)).toEqual({
+          status: "invalid-input",
+          code: "invalid-appearance",
+        });
+      else
+        expect(
+          commandText(
+            readMaterializationDescription(await endpoint().invoke(f.request.id, ds, 1000)),
+            "status",
+          ),
+        ).toBe("refused");
+      expect(entered).toBe(0);
+    }
+  });
+  it("captured pointer observation is checked again before member allocation", async () => {
+    const f = fixture.positives.find((f: { id: string }) => f.id === "request_pointers_exact");
+    const b = {
+      configuration: parseCommandDelta(f.boot.configuration),
+      declarations: f.boot.declarations.map(parseCommandDelta),
+      bindings: f.boot.bindings.map(parseCommandDelta),
+    };
+    for (const route of ["preflight", "invoke"] as const) {
+      const ds = structuredClone(f.delivery),
+        small = ds[0].claims.pointers;
+      let reads = 0;
+      Object.defineProperty(ds[0].claims, "pointers", {
+        enumerable: true,
+        get() {
+          reads++;
+          return reads <= 2 ? small : [...small, small[0]];
+        },
+      });
+      if (route === "preflight")
+        expect(preflightMaterializationInput(b, f.request.id, ds, 1000)).toEqual({
+          status: "over-input-limit",
+          code: "resource-limit",
+        });
+      else {
+        const out = await endpoint(new Map(), b).invoke(f.request.id, ds, 1000);
+        expect(commandText(readMaterializationDescription(out), "status")).toBe("refused");
+        expect(
+          Buffer.from(commandBytes(readMaterializationDescription(out), "result")).includes(
+            Buffer.from("resource-limit"),
+          ),
+        ).toBe(true);
+      }
+      expect(reads).toBe(3);
+    }
+  });
 });

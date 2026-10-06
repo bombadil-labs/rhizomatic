@@ -1,8 +1,7 @@
 //! MR-21 ordered pure input phases. Host grant/current checks remain explicit gaps.
 use crate::cbor::{encode, CborValue};
-use crate::delta::canonical_bytes;
 use crate::hash::content_address;
-use crate::json_profile::parse_delta;
+use crate::json_profile::{delta_debug_delivery_size, parse_delta};
 use crate::materialization_basis::{
     basis_program, definitions_program, BasisProgram, DefinitionProgramInput,
 };
@@ -162,24 +161,30 @@ pub(crate) fn prepare(
     received_at: f64,
 ) -> Result<PreparedInput> {
     check_delivery_counts(appearances, &c.limits)?;
+    let size = delta_debug_delivery_size(appearances, c.limits["deliveryBytes"])
+        .map_err(|_| "invalid-appearance")?;
+    limit(size, c.limits["deliveryBytes"])?;
+    // id and sig are not claims bytes; reject invalid framing before cloning them.
+    require(
+        appearances.iter().all(|v| {
+            v.get("id")
+                .and_then(serde_json::Value::as_str)
+                .is_some_and(crate::command_data::is_content_id)
+                && v.get("sig")
+                    .and_then(serde_json::Value::as_str)
+                    .is_some_and(|s| {
+                        s.len() == 128
+                            && s.bytes()
+                                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+                    })
+        }),
+        "invalid-appearance",
+    )?;
     let deltas = appearances
         .iter()
         .map(parse_delta)
         .collect::<std::result::Result<Vec<_>, _>>()
         .map_err(|_| "invalid-appearance")?;
-    let mut size = 0;
-    for d in &deltas {
-        let sig = d.sig.as_deref().unwrap_or("");
-        require(
-            sig.len() % 2 == 0 && sig.bytes().all(|b| b.is_ascii_hexdigit()),
-            "invalid-appearance",
-        )?;
-        size += canonical_bytes(&d.claims)
-            .map_err(|_| "invalid-appearance")?
-            .len()
-            + sig.len() / 2;
-    }
-    limit(size, c.limits["deliveryBytes"])?;
     require(
         deltas
             .iter()

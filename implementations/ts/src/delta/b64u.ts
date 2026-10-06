@@ -54,3 +54,14 @@ export function b64uDecode(s: string): Uint8Array {
   }
   return Uint8Array.from(out);
 }
+
+/** Validate the same canonical alphabet and tail, without constructing decoded payloads. */
+export function b64uDecodedLength(s: string): number {
+  if (s.length % 4 === 1) throw Error("base64url: invalid length (≡ 1 mod 4)");
+  let last = 0;
+  for (let i = 0; i < s.length; i++) last = sextet(s[i]!);
+  const tail = s.length % 4;
+  if ((tail === 2 && (last & 15) !== 0) || (tail === 3 && (last & 3) !== 0))
+    throw Error("base64url: non-canonical trailing bits");
+  return Math.floor(s.length / 4) * 3 + (tail === 0 ? 0 : tail - 1);
+}

@@ -266,6 +266,24 @@ fn write_float(out: &mut Vec<u8>, value: f64) {
     }
 }
 
+/// Count with the existing preferred head/float writers; temporary storage is at most nine bytes.
+pub fn head_byte_length(length: usize) -> usize {
+    let mut bytes = Vec::with_capacity(9);
+    write_head(&mut bytes, 0, length as u64);
+    bytes.len()
+}
+pub fn float_byte_length(value: f64) -> Result<usize, String> {
+    if !value.is_finite() {
+        return Err("non-finite number".into());
+    }
+    let mut bytes = Vec::with_capacity(9);
+    write_float(&mut bytes, value);
+    Ok(bytes.len())
+}
+pub fn text_byte_length(value: &str) -> usize {
+    head_byte_length(value.len()) + value.len()
+}
+
 fn encode_into(out: &mut Vec<u8>, value: &CborValue) {
     match value {
         CborValue::Tstr(s) => {

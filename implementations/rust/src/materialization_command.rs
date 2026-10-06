@@ -169,9 +169,8 @@ impl<'a> MaterializationEndpoint<'a> {
                 map(vec![("code", s(&code))]),
             );
         }
-        // Copy native debug inputs once; source checks never retain a caller-owned basis/global slot.
-        let copied = appearances.to_vec();
-        match self.attempt(entry_id, &copied, received_at) {
+        // The immutable borrow is counted before bounded typed allocation.
+        match self.attempt(entry_id, appearances, received_at) {
             Ok(body) => self.outcome(entry_id, received_at, "completed", body),
             Err(code) => self.outcome(
                 entry_id,

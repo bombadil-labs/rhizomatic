@@ -968,6 +968,81 @@
           "corpus": "commands",
           "group": "negatives",
           "id": "malformed_source_absent_grant"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "delivery_scan_base64_alphabet"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "delivery_scan_base64_alphabet_reverse"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "delivery_scan_base64_trailing_bits"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "delivery_scan_base64_trailing_bits_reverse"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "delivery_scan_base64_length"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "delivery_scan_base64_length_reverse"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "delivery_scan_number_shape"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "delivery_scan_number_shape_reverse"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "delivery_scan_signature_odd"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "delivery_scan_signature_odd_reverse"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "delivery_scan_signature_nonhex"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "delivery_scan_signature_nonhex_reverse"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "delivery_scan_oversized_carrier"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "delivery_scan_oversized_malformed_sibling"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "delivery_scan_oversized_malformed_sibling_reverse"
         }
       ],
       "native_evidence": false,

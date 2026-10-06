@@ -9,44 +9,53 @@ use serde_json::Value;
 const TARGET_SHAPES: &str =
     "target must be a primitive, {id, context?}, {delta, context?}, or {mime, value}";
 
-fn parse_primitive(v: &Value) -> Result<Primitive, String> {
+fn debug_object<'a>(
+    v: &'a Value,
+    what: &str,
+    keys: &[&str],
+    bounded: bool,
+) -> Result<&'a serde_json::Map<String, Value>, String> {
+    if !bounded {
+        return as_object(v, what, keys);
+    }
+    let o = v.as_object().ok_or("invalid debug object")?;
+    if o.keys().any(|k| !keys.contains(&k.as_str())) {
+        return Err("unknown debug field".into());
+    }
+    Ok(o)
+}
+// A borrowed grammar traversal shared by allocating parse and bounded size validation.
+// It never clones an input string or decodes a bytes literal.
+enum DebugTarget<'a> {
+    Text(&'a str),
+    Number(f64),
+    Bool(bool),
+    Entity(&'a str, Option<&'a str>),
+    Delta(&'a str, Option<&'a str>),
+    Bytes(&'a str, &'a str),
+}
+fn context(o: &serde_json::Map<String, Value>) -> Result<Option<&str>, String> {
+    match o.get("context") {
+        None => Ok(None),
+        Some(Value::String(s)) => Ok(Some(s)),
+        Some(_) => Err("context, when present, must be a string".into()),
+    }
+}
+fn debug_target(v: &Value, bounded: bool) -> Result<DebugTarget<'_>, String> {
     match v {
-        Value::String(s) => Ok(Primitive::Str(s.clone())),
-        Value::Bool(b) => Ok(Primitive::Bool(*b)),
+        Value::String(s) => return Ok(DebugTarget::Text(s)),
+        Value::Bool(b) => return Ok(DebugTarget::Bool(*b)),
         Value::Number(_) => {
             let n = v.as_f64().ok_or("number not representable as f64")?;
             if !n.is_finite() {
                 return Err("numeric primitive must be finite".into());
             }
-            Ok(Primitive::Num(n))
+            return Ok(DebugTarget::Number(n));
         }
-        _ => Err("primitive must be string | number | boolean".into()),
-    }
-}
-
-// The profile mirrors the canonical CBOR exactly: a primitive target is the bare value; an
-// entity ref is {id, context?}; a delta ref is {delta, context?}. Discrimination is structural
-// (SPEC-1 §2.1) — primitives are never objects, and the id/delta key names the ref kind.
-fn parse_context(o: &serde_json::Map<String, Value>) -> Result<Option<String>, String> {
-    match o.get("context") {
-        None => Ok(None),
-        // An explicit null (or any non-string) is present-but-malformed: reject, never drop.
-        Some(Value::String(s)) => Ok(Some(s.clone())),
-        Some(_) => Err("context, when present, must be a string".into()),
-    }
-}
-
-/// The discriminator keys of the three object target shapes. Exactly one may be present: the
-/// former first-match-wins reading silently picked an arm and dropped the rest, which is repair
-/// (SPEC-4 §2) and is now rejected as ambiguous (issue #25).
-const TARGET_DISCRIMINATORS: [&str; 3] = ["id", "delta", "mime"];
-
-fn parse_target(v: &Value) -> Result<Target, String> {
-    if matches!(v, Value::String(_) | Value::Number(_) | Value::Bool(_)) {
-        return Ok(Target::Primitive(parse_primitive(v)?));
+        _ => (),
     }
     let o = v.as_object().ok_or(TARGET_SHAPES)?;
-    let present: Vec<&str> = TARGET_DISCRIMINATORS
+    let present: Vec<&str> = ["id", "delta", "mime"]
         .iter()
         .filter(|k| o.contains_key(**k))
         .copied()
@@ -64,97 +73,243 @@ fn parse_target(v: &Value) -> Result<Target, String> {
                 .join(" and ")
         ));
     }
-    if present[0] == "id" {
-        let o = as_object(v, "entity ref target", &["id", "context"])?;
-        let id = o
-            .get("id")
-            .and_then(Value::as_str)
-            .ok_or("entity ref id must be a string")?
-            .to_string();
-        return Ok(Target::Entity(EntityRef {
-            id,
-            context: parse_context(o)?,
-        }));
+    match present[0] {
+        "id" => {
+            let o = debug_object(v, "entity ref target", &["id", "context"], bounded)?;
+            Ok(DebugTarget::Entity(
+                o.get("id")
+                    .and_then(Value::as_str)
+                    .ok_or("entity ref id must be a string")?,
+                context(o)?,
+            ))
+        }
+        "delta" => {
+            let o = debug_object(v, "delta ref target", &["delta", "context"], bounded)?;
+            Ok(DebugTarget::Delta(
+                o.get("delta")
+                    .and_then(Value::as_str)
+                    .ok_or("delta ref delta must be a string")?,
+                context(o)?,
+            ))
+        }
+        _ => {
+            let o = debug_object(v, "bytes target", &["mime", "value"], bounded)?;
+            Ok(DebugTarget::Bytes(
+                o.get("mime")
+                    .and_then(Value::as_str)
+                    .ok_or("bytes target mime must be a string")?,
+                o.get("value")
+                    .and_then(Value::as_str)
+                    .ok_or("bytes target value must be a base64url string")?,
+            ))
+        }
     }
-    if present[0] == "delta" {
-        let o = as_object(v, "delta ref target", &["delta", "context"])?;
-        let delta = o
-            .get("delta")
+}
+fn debug_pointer(v: &Value, bounded: bool) -> Result<(&str, DebugTarget<'_>), String> {
+    let o = debug_object(v, "pointer", &["role", "target"], bounded)?;
+    Ok((
+        o.get("role")
             .and_then(Value::as_str)
-            .ok_or("delta ref delta must be a string")?
-            .to_string();
-        return Ok(Target::Delta(DeltaRef {
-            delta,
-            context: parse_context(o)?,
-        }));
-    }
-    // A bytes literal has no context (D12). `value` is canonical unpadded base64url — malformed
-    // encodings are rejected, never repaired.
-    let o = as_object(v, "bytes target", &["mime", "value"])?;
-    let mime = o
-        .get("mime")
-        .and_then(Value::as_str)
-        .ok_or("bytes target mime must be a string")?
-        .to_string();
-    let value_s = o
-        .get("value")
-        .and_then(Value::as_str)
-        .ok_or("bytes target value must be a base64url string")?;
-    Ok(Target::Bytes {
-        mime,
-        value: b64u::decode(value_s)?,
-    })
+            .ok_or("pointer.role must be a string")?,
+        debug_target(
+            o.get("target").ok_or("pointer.target is required")?,
+            bounded,
+        )?,
+    ))
 }
-
-fn parse_pointer(v: &Value) -> Result<Pointer, String> {
-    let o = as_object(v, "pointer", &["role", "target"])?;
-    let role = o
-        .get("role")
-        .and_then(Value::as_str)
-        .ok_or("pointer.role must be a string")?
-        .to_string();
-    let target = parse_target(o.get("target").ok_or("pointer.target is required")?)?;
-    Ok(Pointer { role, target })
+struct DebugClaims<'a> {
+    timestamp: f64,
+    valid_from: f64,
+    valid_until: Option<f64>,
+    author: &'a str,
+    pointers: &'a [Value],
 }
-
-pub fn parse_claims(v: &Value) -> Result<Claims, String> {
-    let o = as_object(
+fn debug_claims(v: &Value, bounded: bool) -> Result<DebugClaims<'_>, String> {
+    let o = debug_object(
         v,
         "claims",
         &["timestamp", "validFrom", "validUntil", "author", "pointers"],
+        bounded,
     )?;
-    let timestamp = o
-        .get("timestamp")
-        .and_then(Value::as_f64)
-        .ok_or("claims.timestamp must be a number")?;
-    let valid_from = o
-        .get("validFrom")
-        .and_then(Value::as_f64)
-        .ok_or("claims.validFrom must be a number")?;
-    let valid_until = match o.get("validUntil") {
-        None => None,
-        Some(value) => Some(value.as_f64().ok_or("claims.validUntil must be a number")?),
-    };
-    let author = o
-        .get("author")
-        .and_then(Value::as_str)
-        .ok_or("claims.author must be a string")?
-        .to_string();
-    let pointers_v = o
-        .get("pointers")
-        .and_then(Value::as_array)
-        .ok_or("claims.pointers must be an array")?;
-    let pointers = pointers_v
+    Ok(DebugClaims {
+        timestamp: o
+            .get("timestamp")
+            .and_then(Value::as_f64)
+            .ok_or("claims.timestamp must be a number")?,
+        valid_from: o
+            .get("validFrom")
+            .and_then(Value::as_f64)
+            .ok_or("claims.validFrom must be a number")?,
+        valid_until: o
+            .get("validUntil")
+            .map(|v| v.as_f64().ok_or("claims.validUntil must be a number"))
+            .transpose()?,
+        author: o
+            .get("author")
+            .and_then(Value::as_str)
+            .ok_or("claims.author must be a string")?,
+        pointers: o
+            .get("pointers")
+            .and_then(Value::as_array)
+            .ok_or("claims.pointers must be an array")?,
+    })
+}
+fn allocate_target(t: DebugTarget<'_>) -> Result<Target, String> {
+    Ok(match t {
+        DebugTarget::Text(s) => Target::Primitive(Primitive::Str(s.into())),
+        DebugTarget::Number(n) => Target::Primitive(Primitive::Num(n)),
+        DebugTarget::Bool(b) => Target::Primitive(Primitive::Bool(b)),
+        DebugTarget::Entity(id, c) => Target::Entity(EntityRef {
+            id: id.into(),
+            context: c.map(str::to_string),
+        }),
+        DebugTarget::Delta(id, c) => Target::Delta(DeltaRef {
+            delta: id.into(),
+            context: c.map(str::to_string),
+        }),
+        DebugTarget::Bytes(mime, v) => Target::Bytes {
+            mime: mime.into(),
+            value: b64u::decode(v)?,
+        },
+    })
+}
+pub fn parse_claims(v: &Value) -> Result<Claims, String> {
+    let c = debug_claims(v, false)?;
+    let pointers = c
+        .pointers
         .iter()
-        .map(parse_pointer)
-        .collect::<Result<Vec<_>, _>>()?;
+        .map(|v| {
+            let (role, t) = debug_pointer(v, false)?;
+            Ok(Pointer {
+                role: role.into(),
+                target: allocate_target(t)?,
+            })
+        })
+        .collect::<Result<Vec<_>, String>>()?;
     Ok(Claims {
-        timestamp,
-        valid_from,
-        valid_until,
-        author,
+        timestamp: c.timestamp,
+        valid_from: c.valid_from,
+        valid_until: c.valid_until,
+        author: c.author.into(),
         pointers,
     })
+}
+// Checked/saturating arithmetic counts every shape, even after the cap is exceeded.
+struct DebugSize {
+    size: usize,
+    cap: usize,
+}
+impl DebugSize {
+    fn add(&mut self, n: usize) {
+        self.size = self.size.saturating_add(n).min(self.cap.saturating_add(1));
+    }
+    fn text(&mut self, s: &str) {
+        self.add(crate::cbor::text_byte_length(s));
+    }
+    fn number(&mut self, n: f64) -> Result<(), String> {
+        self.add(crate::cbor::float_byte_length(n)?);
+        Ok(())
+    }
+    fn target(&mut self, t: DebugTarget<'_>) -> Result<(), String> {
+        match t {
+            DebugTarget::Text(s) => self.text(s),
+            DebugTarget::Number(n) => self.number(n)?,
+            DebugTarget::Bool(_) => self.add(1),
+            DebugTarget::Entity(id, c) | DebugTarget::Delta(id, c) => {
+                // Determine key before moving the borrowed target (entity and delta differ).
+                self.add(crate::cbor::head_byte_length(if c.is_some() {
+                    2
+                } else {
+                    1
+                }));
+                self.text(if matches!(t, DebugTarget::Entity(..)) {
+                    "id"
+                } else {
+                    "delta"
+                });
+                self.text(id);
+                if let Some(c) = c {
+                    if c.is_empty() {
+                        return Err("empty context".into());
+                    }
+                    self.text("context");
+                    self.text(c);
+                }
+            }
+            DebugTarget::Bytes(mime, v) => {
+                if mime.is_empty() {
+                    return Err("empty mime".into());
+                }
+                let n = b64u::decoded_length(v)?;
+                self.add(crate::cbor::head_byte_length(2));
+                self.text("mime");
+                self.text(mime);
+                self.text("value");
+                self.add(crate::cbor::head_byte_length(n));
+                self.add(n);
+            }
+        }
+        Ok(())
+    }
+}
+/// Validate debug framing/claims and count canonical claims + signature bytes without payload
+/// decoding, input clones, or a canonical claims buffer. Invalid shape always beats saturation.
+pub fn delta_debug_delivery_size(raw: &[Value], cap: usize) -> Result<usize, String> {
+    let mut size = DebugSize { size: 0, cap };
+    for v in raw {
+        let o = debug_object(v, "delta", &["id", "claims", "sig"], true)?;
+        o.get("id")
+            .and_then(Value::as_str)
+            .ok_or("delta.id must be text")?;
+        let sig = o
+            .get("sig")
+            .map(|v| v.as_str().ok_or("delta.sig must be text"))
+            .transpose()?
+            .unwrap_or("");
+        if sig.len() % 2 != 0 || !sig.bytes().all(|b| b.is_ascii_hexdigit()) {
+            return Err("invalid signature spelling".into());
+        }
+        let c = debug_claims(o.get("claims").ok_or("delta.claims is required")?, true)?;
+        if c.author.is_empty()
+            || !c.timestamp.is_finite()
+            || !c.valid_from.is_finite()
+            || c.valid_until
+                .is_some_and(|n| !n.is_finite() || n <= c.valid_from)
+            || c.pointers.is_empty()
+        {
+            return Err("invalid claims".into());
+        }
+        size.add(sig.len() / 2);
+        size.add(crate::cbor::head_byte_length(if c.valid_until.is_some() {
+            5
+        } else {
+            4
+        }));
+        size.text("author");
+        size.text(c.author);
+        size.text("timestamp");
+        size.number(c.timestamp)?;
+        size.text("validFrom");
+        size.number(c.valid_from)?;
+        if let Some(n) = c.valid_until {
+            size.text("validUntil");
+            size.number(n)?;
+        }
+        size.text("pointers");
+        size.add(crate::cbor::head_byte_length(c.pointers.len()));
+        for v in c.pointers {
+            let (role, t) = debug_pointer(v, true)?;
+            if role.is_empty() {
+                return Err("empty role".into());
+            }
+            size.add(crate::cbor::head_byte_length(2));
+            size.text("role");
+            size.text(role);
+            size.text("target");
+            size.target(t)?;
+        }
+    }
+    Ok(size.size)
 }
 
 /// Strict existing Delta JSON debug framing. Authentication remains a separate delta operation.

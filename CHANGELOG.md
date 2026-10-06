@@ -22,6 +22,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 
 ### Fixed
 
+- Materialization delivery validates canonical byte sizes before decoded/canonical payload copies,
+  preserving malformed-appearance priority. New invoke/preflight capture one JSON-debug representation;
+  transparent Proxy fields may now pass instead of an incidental structuredClone refusal. Getters
+  run as host code outside a sandbox; existing Delta/profile1/M1 behavior is unchanged.
 - HView evidence codecs verify each distinct full signed appearance once per invocation, including
   decode's final re-encode. Repeated entries preserve validation, canonical bytes and refusal codes.
 - TS schema props, fix bindings and CBOR JSON bridges now preserve legal `__proto__` keys as own

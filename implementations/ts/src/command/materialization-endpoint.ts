@@ -23,7 +23,6 @@ import {
   type MaterializationInputBoot,
   materializationInputCatalog,
   prepareMaterializationInput,
-  checkMaterializationDeliveryCounts,
   materializationRequiredBinding,
   validateMaterializationSourceInput,
   validateMaterializationInputProgram,
@@ -78,21 +77,8 @@ export class MaterializationEndpoint {
   invoke(entryId: string, appearances: readonly unknown[], receivedAt: number): Promise<Delta> {
     if (!isCommandId(entryId) || !Array.isArray(appearances) || !Number.isFinite(receivedAt))
       throw Error("invalid materialization transport framing");
-    // The known count refusal precedes allocation/copying of any supplied appearance.
-    try {
-      checkMaterializationDeliveryCounts(appearances, this.catalogInputs.limits);
-    } catch (error) {
-      if (error instanceof MaterializationInputError)
-        return this.attempt(entryId, appearances, receivedAt);
-      throw error;
-    }
-    let copied: readonly unknown[];
-    try {
-      copied = structuredClone(appearances);
-    } catch {
-      copied = [null];
-    }
-    return this.attempt(entryId, copied, receivedAt);
+    // attempt captures/prepares synchronously before its first capability await.
+    return this.attempt(entryId, appearances, receivedAt);
   }
   private outcome(
     entryId: string,
