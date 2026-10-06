@@ -1,6 +1,6 @@
 # Portable read/materialization contract packet
 
-**Accepted contract with M1 codec implementation; M2–M5 remain prospective.**
+**Accepted contract and M1 codecs; M2 batch implementation awaits independent review. M3–M5 remain prospective.**
 
 Read [SPEC.md](SPEC.md), [DECISIONS.md](DECISIONS.md), [BOUNDARIES.json](BOUNDARIES.json),
 [API.json](API.json), [ACCEPTANCE.json](ACCEPTANCE.json), [MILESTONES.json](MILESTONES.json),
@@ -8,7 +8,7 @@ Read [SPEC.md](SPEC.md), [DECISIONS.md](DECISIONS.md), [BOUNDARIES.json](BOUNDAR
 [bootstrap.json](bootstrap.json), [LOAM-TRIAL.md](LOAM-TRIAL.md), then [HANDOFF.md](HANDOFF.md) and [REVIEW-REPAIRS.md](REVIEW-REPAIRS.md).
 
 MR-01–MR-24 live only in canonical [SPEC-16](../../spec/16-materialization.md). ACCEPTANCE maps requirements to stable cases; MILESTONES fixes
-case allocation. The original JSON cards describe future gates, not passed results. [M1.md](M1.md) describes executable codec gates and their scope. Run the packet's
+case allocation. The original JSON cards describe future gates, not passed results. [M1.md](M1.md) describes executable codec gates; [M2.md](M2.md) describes batch gates and practical limits. Run the packet's
 structural checks with `node contracts/materialization/validate.mjs --self-test`.
 
 Baseline: Rhizomatic main `21b209ed1b14e749a5e7cf84fd9eef4f8e592fb0`, Loam main `ae0e4e21`.

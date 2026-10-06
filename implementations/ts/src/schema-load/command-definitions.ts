@@ -1,5 +1,5 @@
 // Exact acts selected by SPEC-15 R22; no ambient latest-definition selection.
-import { decode } from "../delta/cbor.js";
+import { type CborValue, decode } from "../delta/cbor.js";
 import { bytesToHex } from "../delta/hash.js";
 import { verifyCanonicalDelta } from "../delta/sign.js";
 import type { Delta } from "../delta/types.js";
@@ -59,3 +59,58 @@ export function readCommandDefinition(delta: Delta, at: number): CommandProgramD
     throw new Error("invalid-definition");
   }
 }
+
+/** Stage-7 bounded closure decode; existing exact reader remains the definition semantic owner. */
+export function readMaterializationDefinitions(
+  deltas: readonly Delta[],
+  at: number,
+  limits: {
+    readonly definitions: number;
+    readonly artifactBytes: number;
+    readonly pointers: number;
+    readonly syntaxDepth: number;
+    readonly syntaxNodes: number;
+  },
+): readonly CommandProgramDefinition[] {
+  const budget = (n: number, max: number): void => {
+    if (n > max) throw new Error("resource-limit");
+  };
+  budget(deltas.length, limits.definitions);
+  const bodies: { body: CborValue; kind: "hyper" | "reading" }[] = [];
+  for (const d of deltas) {
+    budget(d.claims.pointers.length, limits.pointers);
+    budget(canonicalBytes(d.claims).length, limits.artifactBytes);
+    const kind = d.claims.pointers.some((p) => p.role === `${VOCAB_PREFIX}.hyperschema.defines`)
+      ? "hyper"
+      : "reading";
+    const role = `${VOCAB_PREFIX}.${kind === "hyper" ? "hyperschema" : "schema"}.term`;
+    const blob = d.claims.pointers.find((p) => p.role === role)?.target;
+    if (
+      blob?.kind !== "primitive" ||
+      typeof blob.value !== "string" ||
+      !/^(?:[0-9a-f]{2})+$/.test(blob.value)
+    )
+      throw new Error("invalid-definition");
+    budget(blob.value.length / 2, limits.artifactBytes);
+    const bytes = Uint8Array.from(blob.value.match(/../g)!, (h) => Number.parseInt(h, 16));
+    try {
+      bodies.push({ body: canonicalEvidence(bytes, limits.artifactBytes), kind });
+    } catch (fault) {
+      if (fault instanceof EvidenceCodecError && fault.code === "resource-limit")
+        throw new Error("resource-limit");
+      throw new Error("invalid-definition");
+    }
+  }
+  try {
+    checkProgramWireSyntax(bodies, limits);
+  } catch (fault) {
+    if (fault instanceof EvidenceCodecError && fault.code === "resource-limit")
+      throw new Error("resource-limit");
+    throw new Error("invalid-definition");
+  }
+  return deltas.map((d) => readCommandDefinition(d, at));
+}
+
+import { canonicalBytes } from "../delta/delta.js";
+import { canonicalEvidence, EvidenceCodecError } from "../syntax/evidence-codec.js";
+import { checkProgramWireSyntax } from "../syntax/reading-wire-budget.js";

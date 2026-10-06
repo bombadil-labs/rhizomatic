@@ -124,3 +124,43 @@ pub use hview_envelope::{
     DEFAULT_HVIEW_ENVELOPE_LIMITS,
 };
 pub use reading_appearance::{decode_reading_appearance, encode_reading_appearance};
+
+pub mod materialization_data;
+
+pub mod materialization_source;
+
+mod materialization_basis;
+mod materialization_values;
+pub mod resolve_evidence;
+
+pub mod materialization_input;
+
+pub mod materialization_command;
+mod materialization_evidence;
+
+pub mod materialization_result;
+pub use materialization_command::{
+    preflight_materialization_input, MaterializationDiagnostic, MaterializationEndpoint,
+    MaterializationInputPreflight, MaterializationSigner,
+};
+pub use materialization_data::{
+    encode_materialization_limits, materialization_description_claims, materialization_max_limits,
+    read_materialization_description, read_materialization_limits, MaterializationLimits,
+    MaterializationVerb,
+};
+pub use materialization_input::MaterializationInputBoot;
+pub use materialization_result::{
+    read_materialization_result, MaterializationResult, MaterializationResultClassification,
+    MaterializationResultContext, MaterializationSourceCommitments,
+};
+pub use materialization_source::{
+    decode_materialization_appearance, decode_materialization_authority_spec,
+    decode_materialization_binding_spec, decode_materialization_snapshot,
+    encode_materialization_appearance, materialization_capture_basis,
+    materialization_component_commitments, validate_materialization_capture_basis,
+    MaterializationAuthoritySpec, MaterializationBindingSpec, MaterializationCapture,
+    MaterializationSourceCapability, MaterializationSourceError, MaterializationSourceFailure,
+    MaterializationSourceLimits, MaterializationSourceSnapshot,
+};
+
+pub mod evaluation_budget;

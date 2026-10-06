@@ -21,6 +21,8 @@ function externalAllowed(d) {
   if (external === 'std' || external === 'core' || external === 'alloc') {
     const normalized = path.replace(/^(core|alloc)::/, 'std::');
     if (pureStd.some(p => under(normalized, p))) return true;
+    // Private cfg(test) invocation-local visitation storage, not an ambient source/control capability.
+    if (module === 'evaluation_budget' && ['std::rc::Rc', 'std::cell::RefCell'].some(p => under(normalized, p))) return true;
     if (['std::path::Path', 'std::path::Path::new', 'std::path::PathBuf', 'std::path::PathBuf::from'].includes(normalized)) return true;
     if (fileHosts.has(location(d)) && ['std::fs', 'std::io::Write'].some(p => under(normalized, p))) return true;
     if (httpHosts.has(location(d)) && ['std::thread', 'std::sync::Mutex'].some(p => under(normalized, p))) return true;

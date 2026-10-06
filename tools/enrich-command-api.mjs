@@ -19,10 +19,18 @@ for(const e of inventory.exports){
  if(module==='ordinary_journal_peer'&&['capture_existing_ordinary_source','OrdinarySourceCapture'].includes(symbol))contract='rhizomatic.federation/coherent-source/1';
  if(module==='reading_appearance'||module==='evidence_codec')contract='rhizomatic.syntax/reading-appearance/1';
  if(module==='hview_envelope')contract=symbol==='encode_hview_envelope'?'rhizomatic.hview-envelope/1/encode':symbol==='decode_hview_envelope'?'rhizomatic.hview-envelope/1/decode':'rhizomatic.hview-envelope/1';
+
+ if(module==='materialization_data')contract='rhizomatic.materialization/1/description';
+ if(module==='materialization_source')contract='rhizomatic.materialization/1/capture';
+ if(module==='materialization_input'||module==='materialization_values')contract='rhizomatic.materialization/1/input-preflight';
+ if(module==='materialization_result'||module==='materialization_basis'||module==='materialization_evidence')contract='rhizomatic.materialization/1/outcome-readback';
+ if(module==='materialization_command')contract=symbol==='preflight_materialization_input'||symbol==='MaterializationInputPreflight'?'rhizomatic.materialization/1/input-preflight':symbol==='MaterializationEndpoint::invoke'?'rhizomatic.materialization/gather/1':'rhizomatic.materialization/1/host-boot';
+ if((module==='schema_deltas'&&symbol==='read_materialization_definitions')||(module==='schema'&&symbol==='select_materialization_program'))contract='rhizomatic.materialization/gather/1';
+ if(module==='evaluation_budget'||(module==='eval'&&symbol==='eval_materialization_term_at'))contract='rhizomatic.materialization/gather/1';
  const named=api.find(c=>c.id===contract);
  if(named&&!named.owners.includes(e.owner))throw Error('named semantic owner mismatch');
  const reexport=e.classification==='compatibility_reexport'||e.definition==='reexport';
- const host=module==='wasm'||symbol==='ResponseSigner'||(e.owner==='federation'&&(/Store/.test(symbol)||['serve_peer','pull_from_url','write_durable_peer_state','read_durable_peer_state','write_peer_state','read_peer_state','admit_signed_loose_ordinary_transfer'].includes(symbol)));
+ const host=contract==='rhizomatic.materialization/1/host-boot'||symbol==='MaterializationSourceCapability'||module==='wasm'||symbol==='ResponseSigner'||(e.owner==='federation'&&(/Store/.test(symbol)||['serve_peer','pull_from_url','write_durable_peer_state','read_durable_peer_state','write_peer_state','read_peer_state','admit_signed_loose_ordinary_transfer'].includes(symbol)));
  e.contract=contract??`rhizomatic.${e.owner}/native-api/1`;
  e.classification=reexport?'compatibility_reexport':host?'host_capability':named?'portable_contract':'native_extension';
  e.semantics=named?`${module}::${symbol}: ${named.semantics} ${named.requirements.join(', ')}.`:`Native ${module}::${symbol} implements ${specs[e.owner]??'owner-preserving aggregate exports'}. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.${host?' This interface observes only explicitly passed host capabilities.':''}${reexport?' The reexport preserves its defining owner.':''}`;

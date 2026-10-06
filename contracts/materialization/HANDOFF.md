@@ -2,12 +2,14 @@
 
 ## Current assignment
 
-The supervisor accepted M0 independently at 2c07fc1343ec0c9a929833dec39496ba3c9cd721 and
-assigned this builder **M1 only** in isolated `rhizomatic-materialization-work/implementation`,
-branch `codex/portable-evidence-envelope`. Original/contract/review worktrees stay untouched.
+The supervisor accepted M1 and its bounded follow-up independently at
+43e2c874b2a904417e96d5d7d9fc8be60c9f45a9 and assigned this builder **M2 only** in
+isolated `rhizomatic-materialization-work/implementation`, branch
+`codex/portable-gather-resolve`. Original/contract/review worktrees stay untouched.
 ADLC remains suspended. One builder, no workers, pushes, PRs, merges or releases. Supervisor
-owns independent Fable review and integration. [M1.md](M1.md) names callable ports, vectors,
-executed evidence and replay commands; later milestone cards remain prospective.
+owns independent Fable review and integration. [M1.md](M1.md) records accepted codec ports;
+M2 batch implementation is being frozen for independent review; [M2.md](M2.md) records its ports,
+executed allocation and practical limits. M3–M5 remain prospective.
 
 Freeze a clean reviewable local commit after both witness gates, owner/inventory checks,
 shared cases, crossing/replay and docs/vector freshness. Report exact SHA and evidence to the
@@ -76,6 +78,30 @@ independent expected result and correct owner/port?
 No semantic choice is deliberately left as a TODO. M0 structural evidence does not establish
 runtime correctness or Loam signed-closure feasibility. The selected durable Plant/Bed extraction
 must be executed during M5, and its static eligibility/API changes reviewed; failure is a concrete
-blocker for supervisor, not license to invent a lowering profile or a fallback. Fable's acceptance
-is pending until supervisor collects its report. No worker should label M1–M5 complete from this
+blocker for supervisor, not license to invent a lowering profile or a fallback. M0 and M1 were independently accepted; M2 acceptance
+is pending until supervisor collects its report. No worker should label the remaining milestones complete from this
 packet's prospective JSON or from old command-profile evidence.
+
+## M2/M3 scenario variants
+
+[M2-VARIANTS.json](M2-VARIANTS.json) allocates all 27 original M2 case IDs explicitly.
+Each `::batch` variant includes every original gather/resolve/source/readback/preflight step.
+The following six lifecycle variants keep their original expectations and execute cumulatively
+in M3; their presence is not evidence that release A supports lifecycle operations:
+
+| Original case | Variant allocated to M3 | Preserved expectation |
+| --- | --- | --- |
+| cmd_delivery_support | install-support | Install omissions/extras refuse missing-support/unexpected-support. |
+| cmd_shapes_closed | lifecycle-descriptions | Closed registration/state/control shapes are checked by their M3 ports. |
+| cmd_inert_retention | empty-control-read | Real control remains empty after ordinary retention, with no transition. |
+| cmd_error_priority | retire-restore-unrelated-binding | Unrelated expired bindings cannot block retire/restore; neither requires a source grant. |
+| cmd_error_priority | lifecycle-expected-source | Advance/read/replace mismatch is precondition-failed; install internal mismatch invalid-source. |
+| cmd_authority_capture_validity | maintained-read-authority-expiry | Expired authority refuses maintained read invalid-source at stage 6. |
+
+The count is **six** lifecycle variants (two under cmd_error_priority). Stage-4 strict result
+readback and pure resolve are M2, distinct from the maintained `read` verb. M2 retention tests
+inspect boot/catalog/source-grant inactivity and unsupported lifecycle invocation; only M3 reads
+actual durable control. M2 shape tests cover all release-A descriptions and refusal of unfinished
+verbs; M3 validates lifecycle-specific descriptions. No original acceptance schedule or semantic
+expectation is weakened. Case-level M2 evidence must identify executed `::batch` assertions and
+list lifecycle variants as pending M3 rather than calling the entire mixed case complete.

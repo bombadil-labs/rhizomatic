@@ -65,3 +65,44 @@ blanket missing-reading rejection and the early draft's source lease/full durabl
 were narrowed before freeze to fit actual native behavior and the approved span. These are
 documented decisions, not pending semantic TODOs. Fable may find a contradiction; record any
 such finding against the exact requirement/case before code. The API graph is preserved.
+
+## M2 source inspection clarification
+
+Reading-order inView is native grammar-illegal in both witnesses (TS syntax/term-json parseOrder; Rust term_json parse_order). Exact signed definition readers therefore refuse invalid-definition at stage7, including a simultaneous wrong pin. Native-valid unsupported actsFor/aliased reading orders reach invalid-program only after pin/closure checks; a wrong pin wins pin-mismatch. Preserve native parser/profile1/M1 semantics and ordinary gather reflection. Supervisor selected this narrow split before its M2 vectors/code; no pre-parser feature classification or grammar widening.
+
+M2 stage-order clarification: original signed definition features remain stage7. Supplied evaluated reading features cannot be inspected before the mandated stage8 strict envelope decode. They are checked after structural/contextual evidence and before policy resolution; known envelope limits/invalid-evidence precede invalid-program there. Pure preflight keeps this order. No early raw opening or M1 domain amendment; supervisor confirmed the bounded split for cmd_core_feature_boundary precedence vectors.
+
+### M2 delivered pointers (supervisor ruling)
+
+Apply MR04 pointers to every materialization-delivered Delta appearance. Bound delivery count;
+obtain all outer pointer-array counts (unknown count is invalid-appearance); bound known counts;
+decode appearances and bound canonical bytes; verify every appearance before dedup. No early
+embedded artifact opening or profile1/Delta limit change. Lower caps may render a verb uncallable.
+
+## M2 bounded evaluation operational amendment
+
+Supervisor approved per-logical-operator HView node/entry bounds, per-node buckets, active expansion path depth, occurrence charging and non-cumulative wrappers. Independently bounded child intermediates may prune before parent attachment; at most one pending child per active frame, no total CPU/temporary-allocation guarantee. Existing default/profile1 evaluation unchanged. See normative MR04 amendment and shared bounded-evaluation schedules.
+
+## M2 delivery allocation repair and native-domain clarification
+
+Supervisor requires shared delta JSON grammar capture/count before payload decoding and full
+canonical buffering. Base64url and CBOR sizes retain their lower semantic owners. All appearances
+are validated despite saturated byte counts, preserving malformed-sibling priority and preliminary
+known-pointer precedence. Captured pointer counts are checked again before member allocation.
+Invoke/preflight count and decode the same owned snapshot, never clone or re-read raw payloads.
+
+Explicit new-port native compatibility exception: transparent Proxy fields may pass instead of
+incidental structuredClone refusal. Own enumerable JSON-debug data are captured synchronously;
+getter/trap host code is not sandboxed and no atomic origin snapshot/termination is promised.
+No toJSON/builtin coercion, unknown/inherited field dropping, raw unbounded clone or Proxy detector.
+Later mutation cannot change counted/decoded evidence. Global Delta/profile1 and M1 domains stay
+unchanged. This ruling follows the c3bcfc4 counterexample and is not silent domain preservation.
+
+Supervisor approved exact allocation scope: over-deliveryBytes offers refuse before full payload
+decoder/canonical-payload-buffer allocation; retained captured grammar containers are bounded
+by profile counts, and count/decode/verification use the same representation. Existing input
+storage, own-key enumeration/reflection arrays, runtime/GC and user accessor/Proxy-trap
+allocations/execution are excluded, not claimed constant-memory. Enumerable symbols/unknown
+fields still refuse. Six Rust route probes and TS spies observe exactly decoder entries and offered
+carrier canonical-buffer entries; a pre-gate decoding bypass makes the rail red. No global Delta,
+profile1, M1, hash, old vector-row or refusal-code change follows from this limitation.

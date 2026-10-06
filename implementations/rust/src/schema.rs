@@ -295,6 +295,7 @@ pub struct ProgramReference {
 pub struct ProgramInspection {
     pub references: Vec<ProgramReference>,
     pub acts_for: bool,
+    pub contextual_reading: bool,
     pub invalid: bool,
 }
 impl ProgramInspection {
@@ -355,6 +356,20 @@ impl ProgramInspection {
         use crate::resolution::Order;
         match o {
             Order::ByPred { pred, then } => {
+                fn contextual(p: &crate::pred::Pred) -> bool {
+                    use crate::pred::{Pred, StrMatch};
+                    match p {
+                        Pred::ActsFor { .. } | Pred::InView { .. } => true,
+                        Pred::And(l, r) | Pred::Or(l, r) => contextual(l) || contextual(r),
+                        Pred::Not(p) => contextual(p),
+                        Pred::HasPointer(p) => [&p.role, &p.context]
+                            .into_iter()
+                            .flatten()
+                            .any(|s| matches!(s, StrMatch::Aliased(_))),
+                        _ => false,
+                    }
+                }
+                self.contextual_reading |= contextual(pred);
                 self.predicate(pred, b);
                 self.order(then, b);
             }
@@ -491,6 +506,22 @@ pub fn select_program(
     readings: Vec<(String, Schema)>,
     selection: ProgramSelection<'_>,
 ) -> Result<SelectedProgram, ProgramSelectionError> {
+    select_program_mode(gathers, readings, selection, false)
+}
+pub fn select_materialization_program(
+    gathers: Vec<(String, HyperSchema)>,
+    readings: Vec<(String, Schema)>,
+    mut selection: ProgramSelection<'_>,
+) -> Result<SelectedProgram, ProgramSelectionError> {
+    selection.allow_principal = false;
+    select_program_mode(gathers, readings, selection, true)
+}
+fn select_program_mode(
+    gathers: Vec<(String, HyperSchema)>,
+    readings: Vec<(String, Schema)>,
+    selection: ProgramSelection<'_>,
+    pure_reading_orders: bool,
+) -> Result<SelectedProgram, ProgramSelectionError> {
     let ProgramSelection {
         top_gather,
         top_reading,
@@ -619,7 +650,10 @@ pub fn select_program(
         }
         checked.push((i, b.clone()));
         let a = inspect(&bodies[i].1, &b);
-        if a.invalid || (!allow_principal && a.acts_for) {
+        if a.invalid
+            || (!allow_principal && a.acts_for)
+            || (pure_reading_orders && a.contextual_reading)
+        {
             return Err(E::InvalidProgram);
         }
         for r in a.references {

@@ -9,7 +9,7 @@ const json = name => JSON.parse(readFileSync(resolve(directory, name), 'utf8'));
 const requiredFiles = [
   'README.md', 'SPEC.md', 'DECISIONS.md', 'BOUNDARIES.json', 'API.json',
   'ACCEPTANCE.json', 'MILESTONES.json', 'TRANSPORT.md', 'TOWERS.json', 'CI.md',
-  'bootstrap.json', 'LOAM-TRIAL.md', 'HANDOFF.md', 'REVIEW-REPAIRS.md', 'validate.mjs',
+  'bootstrap.json', 'LOAM-TRIAL.md', 'HANDOFF.md', 'REVIEW-REPAIRS.md', 'validate.mjs', 'M2-VARIANTS.json', 'M2-CASES.json',
 ];
 const limits = {
   artifactBytes: 16777216, deliveryAppearances: 8192, deliveryBytes: 33554432,
@@ -49,7 +49,7 @@ function dag(nodes, label) {
 }
 function packet() {
   return {
-    acceptance: json('ACCEPTANCE.json'), milestones: json('MILESTONES.json'),
+    acceptance: json('ACCEPTANCE.json'), milestones: json('MILESTONES.json'), variants: json('M2-VARIANTS.json'), batch: json('M2-CASES.json'),
     boundaries: json('BOUNDARIES.json'), api: json('API.json'),
     towers: json('TOWERS.json'), bootstrap: json('bootstrap.json'),
     spec: readFileSync(resolve(directory, '../../spec/16-materialization.md'), 'utf8'),
@@ -108,6 +108,28 @@ function validate(p) {
     'loam_declared_restore', 'loam_bystander_exclusions', 'loam_concurrent_basis',
     'loam_production_delete_duplicate',
   ].sort(), 'Loam schedule inventory');
+  const variantCases = p.variants.cases;
+  assert.deepEqual(variantCases.map(c => c.case).sort(), cases.filter(c => c.milestone === 'M2').map(c => c.id).sort(), 'M2 variant case allocation');
+  const lifecyclePins = ['cmd_delivery_support::install-support', 'cmd_shapes_closed::lifecycle-descriptions', 'cmd_inert_retention::empty-control-read', 'cmd_error_priority::retire-restore-unrelated-binding', 'cmd_error_priority::lifecycle-expected-source', 'cmd_authority_capture_validity::maintained-read-authority-expiry'];
+  const allVariants = variantCases.flatMap(c => c.variants);
+  unique(allVariants.map(v => v.id), 'variant ID');
+  for (const c of variantCases) {
+    assert(c.variants.some(v => v.id === `${c.case}::batch` && v.milestone === 'M2'), `missing batch variant ${c.case}`);
+    for (const v of c.variants) assert(v.id.startsWith(`${c.case}::`) && ['M2','M3'].includes(v.milestone) && nonempty(v.expectation) && v.state === 'specified', `invalid variant ${v.id}`);
+  }
+  assert.deepEqual(allVariants.filter(v => v.milestone === 'M3').map(v => v.id).sort(), lifecyclePins.sort(), 'M3 cumulative lifecycle variants');
+  assert.deepEqual(p.milestones.milestones.find(m => m.id === 'M3').required_variants.sort(), lifecyclePins.sort(), 'M3 cumulative executable allocation');
+  assert.equal(p.batch.format, 'rhizomatic-materialization-m2-case-assertions/1', 'batch allocation format');
+  unique(p.batch.cases.map(c => c.id), 'batch case');
+  assert.deepEqual(p.batch.cases.map(c => c.id).sort(), allVariants.filter(v => v.milestone === 'M2').map(v => v.id).sort(), 'M2 executable batch allocation');
+  for (const c of p.batch.cases) {
+    assert(c.vector_assertions.length > 0, `empty batch assertions ${c.id}`);
+    for (const ref of c.vector_assertions) {
+      assert(['commands', 'command-descriptions', 'source-snapshot'].includes(ref.corpus), `unknown batch corpus ${c.id}`);
+      const corpus = JSON.parse(readFileSync(resolve(directory, '../../vectors/materialization', ref.corpus + '.json')));
+      assert(corpus[ref.group]?.some(v => v.id === ref.id), `missing batch fixture ${c.id}: ${ref.id}`);
+    }
+  }
   const repairCases = {
     M2: ['cmd_resolve_embedded_closure', 'cmd_authority_capture_validity', 'cmd_public_basis_privacy'],
     M3: ['ctl_capacity_rotation', 'ctl_shared_basis_limits', 'ctl_support_erasure', 'ctl_support_erasure_crashes'],
@@ -215,6 +237,10 @@ validate(p);
 let negativeCount = 0;
 if (process.argv.includes('--self-test')) {
   const mutations = [
+    ['missing batch allocation', q => q.batch.cases.pop(), /M2 executable batch allocation/],
+    ['missing batch fixture', q => q.batch.cases[0].vector_assertions[0].id = 'absent', /missing batch fixture/],
+    ['missing lifecycle variant', q => q.variants.cases.find(c => c.case === 'cmd_error_priority').variants.pop(), /M3 cumulative lifecycle variants/],
+    ['missing M3 variant gate', q => q.milestones.milestones.find(m => m.id === 'M3').required_variants.pop(), /M3 cumulative executable allocation/],
     ['missing case', q => q.acceptance.scenarios.splice(5, 1), /missing allocated case/],
     ['unknown requirement', q => q.acceptance.scenarios[0].requirements.push('MR-99'), /unknown requirement/],
     ['moved case', q => q.acceptance.scenarios[0].milestone = 'M1', /case moved/],

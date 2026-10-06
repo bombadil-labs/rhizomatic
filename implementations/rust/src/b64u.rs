@@ -81,3 +81,20 @@ pub fn decode(s: &str) -> Result<Vec<u8>, String> {
     }
     Ok(out)
 }
+
+/// Canonical validation without a decoded payload allocation.
+pub fn decoded_length(s: &str) -> Result<usize, String> {
+    let bytes = s.as_bytes();
+    if bytes.len() % 4 == 1 {
+        return Err("base64url: invalid length (≡ 1 mod 4)".into());
+    }
+    let mut last = 0;
+    for &c in bytes {
+        last = sextet(c)?;
+    }
+    let tail = bytes.len() % 4;
+    if (tail == 2 && last & 15 != 0) || (tail == 3 && last & 3 != 0) {
+        return Err("base64url: non-canonical trailing bits".into());
+    }
+    Ok(bytes.len() / 4 * 3 + if tail == 0 { 0 } else { tail - 1 })
+}

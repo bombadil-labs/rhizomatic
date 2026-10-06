@@ -1,0 +1,1165 @@
+{
+  "format": "rhizomatic-materialization-m2-case-assertions/1",
+  "scope": "M2 batch obligations only; concrete assertion receipts supplement independent goldens and review. M3 variants remain specified, never completed by this manifest.",
+  "cases": [
+    {
+      "id": "cmd_gather_resolve_fresh::batch",
+      "vector_assertions": [
+        {
+          "corpus": "commands",
+          "group": "positives",
+          "id": "plant"
+        },
+        {
+          "corpus": "commands",
+          "group": "positives",
+          "id": "empty"
+        },
+        {
+          "corpus": "commands",
+          "group": "positives",
+          "id": "negated"
+        },
+        {
+          "corpus": "commands",
+          "group": "positives",
+          "id": "restored"
+        },
+        {
+          "corpus": "commands",
+          "group": "positives",
+          "id": "historical"
+        },
+        {
+          "corpus": "commands",
+          "group": "positives",
+          "id": "permuted_delivery"
+        }
+      ],
+      "native_evidence": false,
+      "tower_evidence": false
+    },
+    {
+      "id": "cmd_three_times::batch",
+      "vector_assertions": [
+        {
+          "corpus": "commands",
+          "group": "positives",
+          "id": "three_times_definition_900"
+        },
+        {
+          "corpus": "commands",
+          "group": "positives",
+          "id": "three_times_definition_1000"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "three_times_definition_not_yet_valid"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "serving_at_mismatch"
+        }
+      ],
+      "native_evidence": false,
+      "tower_evidence": false
+    },
+    {
+      "id": "cmd_fresh_carrier::batch",
+      "vector_assertions": [
+        {
+          "corpus": "commands",
+          "group": "positives",
+          "id": "fresh_carrier_old_capture"
+        },
+        {
+          "corpus": "commands",
+          "group": "positives",
+          "id": "new_observation_same_revision"
+        }
+      ],
+      "native_evidence": false,
+      "tower_evidence": false
+    },
+    {
+      "id": "cmd_source_authority_change::batch",
+      "vector_assertions": [
+        {
+          "corpus": "commands",
+          "group": "positives",
+          "id": "same_rows_changed_authority"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "old_authority_reuse"
+        },
+        {
+          "corpus": "commands",
+          "group": "positives",
+          "id": "same_rows_changed_authority_interval"
+        }
+      ],
+      "native_evidence": false,
+      "tower_evidence": false
+    },
+    {
+      "id": "cmd_source_provenance::batch",
+      "vector_assertions": [
+        {
+          "corpus": "commands",
+          "group": "positives",
+          "id": "private_provenance"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "source_bad_excluded_operand_overlap"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "source_bad_operand_peer_set"
+        }
+      ],
+      "native_evidence": false,
+      "tower_evidence": false
+    },
+    {
+      "id": "cmd_physical_inventory::batch",
+      "vector_assertions": [
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "physical_remove"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "equal_count_replace"
+        }
+      ],
+      "native_evidence": false,
+      "tower_evidence": false
+    },
+    {
+      "id": "cmd_changed_during_capture::batch",
+      "vector_assertions": [
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "changed_final"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "refused_support_final"
+        }
+      ],
+      "native_evidence": false,
+      "tower_evidence": false
+    },
+    {
+      "id": "cmd_source_metadata_integrity::batch",
+      "vector_assertions": [
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "source_bad_revision"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "source_bad_membership"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "source_bad_appearanceDigest"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "source_bad_selection"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "source_bad_component_peer_set"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "source_bad_excluded_operand_overlap"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "source_bad_operand_peer_set"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "source_bad_snapshot_commitment"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "source_bad_snapshot_commitment"
+        }
+      ],
+      "native_evidence": false,
+      "tower_evidence": false
+    },
+    {
+      "id": "cmd_unsigned_embedded_row::batch",
+      "vector_assertions": [
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "unsigned_embedded_source"
+        }
+      ],
+      "native_evidence": false,
+      "tower_evidence": false
+    },
+    {
+      "id": "cmd_invalid_duplicate_delivery::batch",
+      "vector_assertions": [
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "invalid_duplicate"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "invalid_duplicate_reverse"
+        }
+      ],
+      "native_evidence": false,
+      "tower_evidence": false
+    },
+    {
+      "id": "cmd_delivery_support::batch",
+      "vector_assertions": [
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "missing_capture"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "missing_authority"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "extra_boot"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "extra_ordinary"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "missing_and_extra"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "resolve_extra_definition"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "resolve_missing_evidence"
+        }
+      ],
+      "native_evidence": false,
+      "tower_evidence": false
+    },
+    {
+      "id": "cmd_shapes_closed::batch",
+      "vector_assertions": [
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "unknown_role"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "repeated_root"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "repeated_receiver"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "contextual_capture_ref"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "bindings_wrong_mime"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "unknown_request_kind"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "malformed_argument_id"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "duplicate_set_definition"
+        }
+      ],
+      "native_evidence": false,
+      "tower_evidence": false
+    },
+    {
+      "id": "cmd_inert_retention::batch",
+      "vector_assertions": [
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "absent_grant"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "unsupported_operation"
+        }
+      ],
+      "native_evidence": true,
+      "tower_evidence": false
+    },
+    {
+      "id": "cmd_core_feature_boundary::batch",
+      "vector_assertions": [
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "reflective_top"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "reflective_wrong_pin"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "native_valid_principal"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "native_valid_principal_wrong_pin"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "reflective_child"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "reflective_child_wrong_pin"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "alias_trust_principal"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "supplied_child_feature"
+        },
+        {
+          "corpus": "commands",
+          "group": "positives",
+          "id": "ordinary_alias"
+        },
+        {
+          "corpus": "commands",
+          "group": "positives",
+          "id": "ordinary_reflection"
+        }
+      ],
+      "native_evidence": false,
+      "tower_evidence": false
+    },
+    {
+      "id": "cmd_nested_local_bindings::batch",
+      "vector_assertions": [
+        {
+          "corpus": "commands",
+          "group": "positives",
+          "id": "nested_local"
+        }
+      ],
+      "native_evidence": false,
+      "tower_evidence": false
+    },
+    {
+      "id": "cmd_definition_failures::batch",
+      "vector_assertions": [
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "wrong_top_pin"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "missing_embedded_schema"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "missing_embedded_hyper"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "missing_embedded_dependency"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "bad_definition_version"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "ambiguous_definition"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "pin_before_ambiguity"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "unreachable_definition"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "definition_cycle"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "unbound_reading_hole"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "embedded_definition_bad_signature"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "bad_definition_kind"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "bad_definition_blob"
+        }
+      ],
+      "native_evidence": false,
+      "tower_evidence": false
+    },
+    {
+      "id": "cmd_foreign_definition_operand::batch",
+      "vector_assertions": [
+        {
+          "corpus": "commands",
+          "group": "positives",
+          "id": "plant"
+        }
+      ],
+      "native_evidence": false,
+      "tower_evidence": false
+    },
+    {
+      "id": "cmd_resolve_testimony::batch",
+      "vector_assertions": [
+        {
+          "corpus": "commands",
+          "group": "positives",
+          "id": "supplied_testimony"
+        }
+      ],
+      "native_evidence": false,
+      "tower_evidence": false
+    },
+    {
+      "id": "cmd_result_context_strict::batch",
+      "vector_assertions": [
+        {
+          "corpus": "commands",
+          "group": "resultRejections",
+          "id": "receiver_context"
+        },
+        {
+          "corpus": "commands",
+          "group": "resultRejections",
+          "id": "configuration_context"
+        },
+        {
+          "corpus": "commands",
+          "group": "resultRejections",
+          "id": "request_context"
+        },
+        {
+          "corpus": "commands",
+          "group": "resultRejections",
+          "id": "source_revision_context"
+        },
+        {
+          "corpus": "commands",
+          "group": "resultRejections",
+          "id": "gather_transport"
+        },
+        {
+          "corpus": "commands",
+          "group": "resultRejections",
+          "id": "gather_hview"
+        },
+        {
+          "corpus": "commands",
+          "group": "resultRejections",
+          "id": "basis_root"
+        },
+        {
+          "corpus": "commands",
+          "group": "resultRejections",
+          "id": "basis_at"
+        },
+        {
+          "corpus": "commands",
+          "group": "resultRejections",
+          "id": "basis_servingAt"
+        },
+        {
+          "corpus": "commands",
+          "group": "resultRejections",
+          "id": "basis_definitionAt"
+        },
+        {
+          "corpus": "commands",
+          "group": "resultRejections",
+          "id": "basis_bindings"
+        },
+        {
+          "corpus": "commands",
+          "group": "resultRejections",
+          "id": "basis_schemaPin"
+        },
+        {
+          "corpus": "commands",
+          "group": "resultRejections",
+          "id": "view_digest"
+        },
+        {
+          "corpus": "commands",
+          "group": "resultRejections",
+          "id": "bytes_leaf_changed"
+        },
+        {
+          "corpus": "commands",
+          "group": "resultRejections",
+          "id": "status_body_mismatch"
+        }
+      ],
+      "native_evidence": false,
+      "tower_evidence": false
+    },
+    {
+      "id": "cmd_error_priority::batch",
+      "vector_assertions": [
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "configuration_before_unauthorized"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "malformed_source_absent_grant"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "missing_and_extra"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "pin_before_ambiguity"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "reflective_wrong_pin"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "supplied_child_nodes_priority"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "supplied_child_context_priority"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "supplied_child_malformed_priority"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "original_definition_before_envelope_nodes"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "request_pointers_over_bad_signature"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "unknown_pointer_count_before_pointer_budget"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "known_count_invalid_signature"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "binding_expired_bad_args_priority"
+        }
+      ],
+      "native_evidence": false,
+      "tower_evidence": false
+    },
+    {
+      "id": "cmd_current_auth_no_cache::batch",
+      "vector_assertions": [
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "revoked_after_success"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "request_expired_after_success"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "configuration_expired_after_success"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "binding_expired_required"
+        }
+      ],
+      "native_evidence": false,
+      "tower_evidence": false
+    },
+    {
+      "id": "cmd_input_snapshot::batch",
+      "vector_assertions": [
+        {
+          "corpus": "commands",
+          "group": "positives",
+          "id": "plant"
+        },
+        {
+          "corpus": "commands",
+          "group": "positives",
+          "id": "new_observation_same_revision"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "serving_at_mismatch"
+        }
+      ],
+      "native_evidence": true,
+      "tower_evidence": false
+    },
+    {
+      "id": "cmd_limits_complete::batch",
+      "vector_assertions": [
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "known_count_invalid_signature"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "input_valid_output_nodes_overflow"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "request_pointers_over"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "request_pointers_over_bad_signature"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "carrier_pointers_over"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "carrier_pointers_over_bad_signature"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "definition_pointers_over"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "definition_pointers_over_bad_signature"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "repeated_delivery_count_before_dedup"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "delivery_bytes_over"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "delivery_bytes_over_reverse"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "snapshot_bytes_over"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "snapshot_bytes_over_reverse"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "snapshot_appearances_over"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "snapshot_appearances_over_reverse"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "snapshot_inventory_over"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "snapshot_inventory_over_reverse"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "definition_count_over"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "definition_count_over_reverse"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "definition_syntax_nodes_over"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "definition_syntax_nodes_over_reverse"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "definition_syntax_depth_over"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "definition_syntax_depth_over_reverse"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "resolve_outer_bytes_over"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "resolve_definition_syntax_nodes"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "resolve_definition_syntax_depth"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "resolve_envelope_depth_over"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "output_aggregate_bytes_over"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "snapshot_pointers_over"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "snapshot_pointers_over_bad_signature"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "snapshot_count_before_bad_row"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "source_bad_excluded_operand_overlap"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "source_components_over"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "bounded_dag_node_over"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "bounded_dag_entry_over"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "bounded_dag_depth_over"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "bounded_dag_exponential_early_stop"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "bounded_child_then_prune_over"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "bounded_parent_attachment_over"
+        },
+        {
+          "corpus": "commands",
+          "group": "positives",
+          "id": "request_pointers_exact"
+        },
+        {
+          "corpus": "commands",
+          "group": "positives",
+          "id": "delivery_bytes_exact"
+        },
+        {
+          "corpus": "commands",
+          "group": "positives",
+          "id": "artifact_bytes_exact"
+        },
+        {
+          "corpus": "commands",
+          "group": "positives",
+          "id": "bounded_dag_exact"
+        },
+        {
+          "corpus": "commands",
+          "group": "positives",
+          "id": "bounded_child_then_prune_exact"
+        },
+        {
+          "corpus": "commands",
+          "group": "positives",
+          "id": "bounded_wrappers_non_cumulative"
+        },
+        {
+          "corpus": "commands",
+          "group": "positives",
+          "id": "bounded_pending_child_prunes_to_one"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "absent_grant"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "refused_support"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "changed_final"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "malformed_source_absent_grant"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "delivery_scan_base64_alphabet"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "delivery_scan_base64_alphabet_reverse"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "delivery_scan_base64_trailing_bits"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "delivery_scan_base64_trailing_bits_reverse"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "delivery_scan_base64_length"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "delivery_scan_base64_length_reverse"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "delivery_scan_number_shape"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "delivery_scan_number_shape_reverse"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "delivery_scan_signature_odd"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "delivery_scan_signature_odd_reverse"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "delivery_scan_signature_nonhex"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "delivery_scan_signature_nonhex_reverse"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "delivery_scan_oversized_carrier"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "delivery_scan_oversized_malformed_sibling"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "delivery_scan_oversized_malformed_sibling_reverse"
+        }
+      ],
+      "native_evidence": false,
+      "tower_evidence": false
+    },
+    {
+      "id": "cmd_fixed_mixed_routes::batch",
+      "vector_assertions": [
+        {
+          "corpus": "commands",
+          "group": "positives",
+          "id": "plant"
+        },
+        {
+          "corpus": "commands",
+          "group": "positives",
+          "id": "nested_local"
+        },
+        {
+          "corpus": "commands",
+          "group": "positives",
+          "id": "three_times_definition_900"
+        },
+        {
+          "corpus": "commands",
+          "group": "positives",
+          "id": "same_rows_changed_authority"
+        }
+      ],
+      "native_evidence": false,
+      "tower_evidence": true
+    },
+    {
+      "id": "cmd_resolve_embedded_closure::batch",
+      "vector_assertions": [
+        {
+          "corpus": "commands",
+          "group": "positives",
+          "id": "embedded_three_originals"
+        },
+        {
+          "corpus": "commands",
+          "group": "positives",
+          "id": "nested_local"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "missing_embedded_schema"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "missing_embedded_hyper"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "missing_embedded_dependency"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "embedded_definition_bad_signature"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "resolve_extra_definition"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "resolve_missing_evidence"
+        }
+      ],
+      "native_evidence": false,
+      "tower_evidence": false
+    },
+    {
+      "id": "cmd_authority_capture_validity::batch",
+      "vector_assertions": [
+        {
+          "corpus": "commands",
+          "group": "positives",
+          "id": "fresh_carrier_old_capture"
+        },
+        {
+          "corpus": "commands",
+          "group": "positives",
+          "id": "new_observation_same_revision"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "authority_expired"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "invalid_capture_interval"
+        }
+      ],
+      "native_evidence": false,
+      "tower_evidence": false
+    },
+    {
+      "id": "cmd_public_basis_privacy::batch",
+      "vector_assertions": [
+        {
+          "corpus": "commands",
+          "group": "positives",
+          "id": "private_provenance"
+        }
+      ],
+      "native_evidence": true,
+      "tower_evidence": false
+    }
+  ]
+}

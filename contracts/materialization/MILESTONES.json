@@ -84,7 +84,7 @@
         "ts",
         "rust"
       ],
-      "stopping_boundary": "Release A eligible after exact M0–M2 review/gates; lifecycle explicitly unsupported"
+      "stopping_boundary": "Release A eligible after exact M0\u2013M2 review/gates; lifecycle explicitly unsupported"
     },
     {
       "id": "M3",
@@ -131,7 +131,15 @@
         "ts",
         "rust"
       ],
-      "stopping_boundary": "64-entry lifetime with explicit host rotation; active program-support erasure surface, payload-free retired terminal metadata; no subscriptions/patches/durable operand database; exact state/source artifacts separate"
+      "stopping_boundary": "64-entry lifetime with explicit host rotation; active program-support erasure surface, payload-free retired terminal metadata; no subscriptions/patches/durable operand database; exact state/source artifacts separate",
+      "required_variants": [
+        "cmd_delivery_support::install-support",
+        "cmd_shapes_closed::lifecycle-descriptions",
+        "cmd_inert_retention::empty-control-read",
+        "cmd_error_priority::retire-restore-unrelated-binding",
+        "cmd_error_priority::lifecycle-expected-source",
+        "cmd_authority_capture_validity::maintained-read-authority-expiry"
+      ]
     },
     {
       "id": "M4",
@@ -194,5 +202,5 @@
       "M4"
     ]
   },
-  "supervision": "Myk authorized plan; builder currently M0 only. Supervisor owns review/integration/merges and issues accepted-contract handoffs for subsequent milestones."
+  "supervision": "Supervisor accepted M1 at43e2c874; builder currently M2 only; supervisor owns review/integration/merges and later scoped handoffs."
 }

@@ -10,11 +10,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 
 - TS/Rust lossless HView envelope and full reading appearance codecs (SPEC-16 M1), with strict
   canonical decoding, original validity/signatures, reading metadata, finite semantic AST budgets,
-  shared independent golden fixtures and serialized mixed codec towers. Later materialization
-  commands and durable lifecycle remain unimplemented.
+  shared independent golden fixtures and serialized mixed codec towers.
+- TS/Rust portable batch gather and pure evidence resolve (SPEC-16 M2), explicit source grants,
+  three-time context, supplied-input preflight and strict contextual result readback. Shared
+  independent signed goldens, mixed command crossings/replay and resource measurements accompany
+  the typed APIs. Maintained lifecycle and Loam integration remain unimplemented.
+- Materialization-profile evaluation bounds each logical HView operator result, including discarded
+  intermediates, without changing native default/profile1 evaluation. Input preflight makes no
+  permission, output-capacity or execution guarantee. Large-source latency and whole-process memory
+  limits are recorded in contracts/materialization/M2.md for independent release review.
 
 ### Fixed
 
+- Materialization delivery validates canonical byte sizes before decoded/canonical payload copies,
+  preserving malformed-appearance priority. New invoke/preflight capture one JSON-debug representation;
+  transparent Proxy fields may now pass instead of an incidental structuredClone refusal. Getters
+  run as host code outside a sandbox; existing Delta/profile1/M1 behavior is unchanged.
 - HView evidence codecs verify each distinct full signed appearance once per invocation, including
   decode's final re-encode. Repeated entries preserve validation, canonical bytes and refusal codes.
 - TS schema props, fix bindings and CBOR JSON bridges now preserve legal `__proto__` keys as own

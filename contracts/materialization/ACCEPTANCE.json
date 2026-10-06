@@ -68,7 +68,7 @@
         "MR-23"
       ],
       "evidence_kind": "contract_check",
-      "setup": "Frozen MR01–24 and stable case allocation.",
+      "setup": "Frozen MR01\u201324 and stable case allocation.",
       "schedule": [
         "Check each requirement covered; compare acceptance IDs/milestones to independent allocation.",
         "Remove one case in a negative fixture."
@@ -370,7 +370,7 @@
       "evidence_kind": "mixed_tower",
       "setup": "Original, metadata and legacy fixtures.",
       "schedule": [
-        "TS encode→Rust decode; Rust encode→TS decode.",
+        "TS encode\u2192Rust decode; Rust encode\u2192TS decode.",
         "Run three seeded encode/decode assignments and exact replay."
       ],
       "expected": "Canonical artifact equality to independent fixtures; one crossing per tower; legacy resolve refusal stays visible.",
@@ -482,7 +482,7 @@
       "setup": "SQLite/source fixture whose journal head is constant; rows A,T.",
       "schedule": [
         "Delete A physically without changing head.",
-        "Try same-count replacement A→B.",
+        "Try same-count replacement A\u2192B.",
         "Coherently capture/check actual rows."
       ],
       "expected": "Deletion and replacement alter raw/operand inventories/revision or make source unavailable; count/head equality cannot authorize old source.",
@@ -614,9 +614,12 @@
       "evidence_kind": "shared_vector",
       "setup": "Reachable closure variants with actsFor in alias trust, nested terms, top/child order; reading order inView/aliased matches; ordinary gather alias.",
       "schedule": [
-        "Validate each full executable closure including referenced programs."
+        "Validate each full executable closure including referenced programs.",
+        "Correctly sign canonical four-field top/child reading acts carrying grammar-illegal inView; pair each with a wrong top pin.",
+        "Pair native-valid unsupported actsFor/aliased reading-order feature with a wrong top pin.",
+        "Resolve a valid original closure with native-valid unsupported evaluated child reading; repeat with known envelope nodes overflow, with structural/contextual envelope corruption, and with invalid original definition plus overflowing envelope."
       ],
-      "expected": "Unsupported contextual reading/principal feature invalid-program; ordinary gather alias supported from explicit source. No needsLowering-only eligibility claim.",
+      "expected": "Native-valid unsupported contextual reading/principal feature invalid-program after pins/closure; grammar-illegal reading-order inView invalid-definition stage7 even with wrong pin, subject to earlier stages/known syntax-limit precedence. Native-valid unsupported feature plus wrong top pin returns pin-mismatch. Ordinary gather reflection/alias supported from explicit source. No needsLowering-only eligibility claim; no native grammar widening. Supplied evaluated reading features run only after strict stage8 decode and structural/contextual checks: valid closure/unsupported child reading invalid-program; known nodes overflow resource-limit; structural/contextual corruption invalid-evidence. Invalid original definition beats envelope overflow with stage7 invalid-definition. Pure preflight keeps the same projected supplied-envelope/feature order.",
       "state": "specified",
       "execution_evidence": []
     },
@@ -768,12 +771,15 @@
       "setup": "Finite boot limits with valid closed request/source/program; nested/artifact defects isolated from outer delivered limits.",
       "schedule": [
         "Exceed delivery count/bytes at stage1.",
+        "Check every delivered request/carrier/definition outer pointer count at stage1: exact bound succeeds, bound+1 refuses resource-limit before target allocation or signature verification, including repeated appearances and stable permutations. Unknown pointer-array count refuses invalid-appearance after known delivered-count limit, before per-pointer/canonical-byte bounds.",
         "Exceed supplied snapshot carrier data bytes at stage4; within its bytes exceed component/appearance/inventory counts at stage6, with a separate known-count-plus-bad-row case.",
         "Resolve evidence body byte overflow stage4; within body limit exceed embedded definition syntaxDepth/syntaxNodes at stage7; separately exceed embedded envelope nodes/depth at stage8.",
         "Generate a too-large envelope or aggregate result body at stage8 despite in-bounds inputs.",
-        "Permute supplied support order for every refusal."
+        "Permute supplied support order for every refusal.",
+        "Pair pure preflight and invoke for absent grant, permanently refused selected support, stale source, malformed source with absent grant, supplied resolve-envelope overlimit, known count/invalid signature, malformed unknown-size appearance, and input-in-bounds produced-output overflow.",
+        "Bound every logical generated HView, including oversized children later pruned; shared DAG exact/bound+1 node/entry/depth; bounded100-node pending child pruned to1 in a near-full parent; parent attachment overflow; non-cumulative identity wrappers; multiple nodes with aggregate buckets above the PER-NODE cap. Deterministic traversal/allocation counters prove early stop before exponential expansion, independent of wall time."
       ],
-      "expected": "Deterministic resource-limit at first named decode/produce stage, known nested bounds before semantic defect in that phase; malformed artifact whose size cannot be obtained uses stage malformed category. Physical execution exhaustion resource-exhausted only when real. No truncated completed body or native fallback; existing hashes unchanged.",
+      "expected": "Deterministic resource-limit at first named decode/produce stage, known nested bounds before semantic defect in that phase; malformed artifact whose size cannot be obtained uses stage malformed category. Physical execution exhaustion resource-exhausted only when real. No truncated completed body or native fallback; existing hashes unchanged. Preflight projection checks supplied envelope inputs at stage8, omits native grants/currentness and execution/output budgets: input-valid is not authorization/currentness/output-capacity/dispatch assurance. Absent grant/refused support invoke unauthorized; stale source invokes source-changed; malformed source with absent grant preflights invalid-source but invokes unauthorized. Supplied envelope overlimit is over-input-limit/resource-limit in preflight/invoke; in-bounds input/produced-output overflow preflights input-valid then invokes resource-limit. Generated-result limits follow the explicit materialization operational amendment: global per-logical-result node/entry limits, buckets per node, active expansion-path depth; one pending independently bounded child per active frame, no total CPU/temporary-allocation guarantee.",
       "state": "specified",
       "execution_evidence": []
     },
@@ -784,7 +790,7 @@
         "MR-23"
       ],
       "evidence_kind": "mixed_tower",
-      "setup": "Fresh-process gather→resolve with three-time, nested and refusal variants.",
+      "setup": "Fresh-process gather\u2192resolve with three-time, nested and refusal variants.",
       "schedule": [
         "Run both fixed routes.",
         "Run three supported seeded assignments and exact replay."
@@ -919,7 +925,7 @@
         "MR-19"
       ],
       "evidence_kind": "integration",
-      "setup": "Install source {A}; negations N1→A, N2→N1 use existing negation roles.",
+      "setup": "Install source {A}; negations N1\u2192A, N2\u2192N1 use existing negation roles.",
       "schedule": [
         "Replace full source {A,N1}.",
         "Read; replace full source {A,N1,N2}; read."
@@ -954,7 +960,7 @@
       "evidence_kind": "integration",
       "setup": "Installed {A,T}; B height87.",
       "schedule": [
-        "Replace actual rows A→B keeping count2.",
+        "Replace actual rows A\u2192B keeping count2.",
         "Offer explicit new capture expected old source/control.",
         "Read at stored time."
       ],
@@ -1197,7 +1203,7 @@
       "evidence_kind": "integration",
       "setup": "Precompute against S0, before final source check.",
       "schedule": [
-        "Replace rows S0→S1 or revoke authority before final check.",
+        "Replace rows S0\u2192S1 or revoke authority before final check.",
         "Invoke CAS only if final check allows."
       ],
       "expected": "Source-changed/unauthorized with C1 unchanged; no hidden recapture from S1, no CAS.",
@@ -1216,7 +1222,7 @@
       "setup": "Final check succeeded on S0; proposed C2 selects S0.",
       "schedule": [
         "Pause after final check.",
-        "Independently replace actual source S0→S1.",
+        "Independently replace actual source S0\u2192S1.",
         "Resume CAS; then read C2 with expected S0."
       ],
       "expected": "C2 may durably select checked S0 and outcome completes for S0; next read source-changed. No atomic source+control/latest-at-commit claim, no silent S1 rebase.",
@@ -1467,7 +1473,7 @@
         "MR-23"
       ],
       "evidence_kind": "harness_negative",
-      "setup": "M1–M3 stage graph and prospective unsupported manifest.",
+      "setup": "M1\u2013M3 stage graph and prospective unsupported manifest.",
       "schedule": [
         "Advertise TS supported without measured stage evidence; attempt Elixir/Haskell upper assignment; delete one mandatory mixed port."
       ],
@@ -1633,7 +1639,7 @@
         "MR-19"
       ],
       "evidence_kind": "loam_real_door",
-      "setup": "Durable Bed→Plant reading fixture with full signed closure.",
+      "setup": "Durable Bed\u2192Plant reading fixture with full signed closure.",
       "schedule": [
         "Read, serialize evidence to fresh process, close/reopen store, read again."
       ],
@@ -1686,7 +1692,7 @@
       "evidence_kind": "loam_real_door",
       "setup": "Actual SQLite admitted source external physical deletion and equal-count replacement.",
       "schedule": [
-        "Capture in-flight batch basis on actual SQLite source; physically delete A or replace A→B keeping count and head.",
+        "Capture in-flight batch basis on actual SQLite source; physically delete A or replace A\u2192B keeping count and head.",
         "Resume old preparation/current check; then start separate new door invocation with fresh capture."
       ],
       "expected": "Old in-flight basis source-changed/unavailable with one visible failure, no hidden retry/CAS/reconcile. New batch source reflects actual removal/replacement; unrelated rows preserved. Equal-count/head never authorizes old data.",

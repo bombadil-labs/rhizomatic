@@ -81,3 +81,59 @@ artifact length still decides the boundary. Shared exact/one-over schedules cove
 payloads, repeated multibyte node text and primitive author-rank metadata. Metadata still adds
 zero syntax nodes. Original profile1 vectors and hashes remain unchanged outside E23's explicitly
 approved reserved-key correction.
+
+## M2 implementation clarification (supervisor ruling)
+
+MR03/cmd_core_feature_boundary now distinguishes native grammar-illegal reading-order inView (invalid-definition stage7) from successfully parsed unsupported reading features (invalid-program after pins/closure). The exact reader and native parseOrder guards remain unchanged. Shared top/child reflective acts and wrong-pin precedence variants are required M2 evidence; existing profile1/M1 refusal contracts remain preserved.
+
+M2 stage-order clarification: original signed definition features remain stage7. Supplied evaluated reading features cannot be inspected before the mandated stage8 strict envelope decode. They are checked after structural/contextual evidence and before policy resolution; known envelope limits/invalid-evidence precede invalid-program there. Pure preflight keeps this order. No early raw opening or M1 domain amendment; supervisor confirmed the bounded split for cmd_core_feature_boundary precedence vectors.
+
+## M2 supervisor pointer-count clarification
+
+MR04 pointers includes each delivered materialization request/support/carrier appearance. The
+profile-local stage1 guard first bounds delivery length, then scans every debug claims.pointers
+container without target decoding. Unknown container counts refuse invalid-appearance; otherwise
+any per-appearance overflow refuses resource-limit before target parsing/signature verification,
+then closed-grammar/canonical-size counting checks deliveryBytes before payload decode. Repeats count before dedup. Nested byte
+artifacts keep their first decode phases (source6, embedded original definitions7, envelope8).
+No unrelated boot description is newly inspected at invocation, and profile1/Delta acquire no
+global pointer cap. Shared exact/overflow request, carrier and definition schedules pin this.
+
+Source-faithful grammar note: native assertClosedTrustPred also rejects actsFor in aliased trust
+before an exact definition is returned. The canonical signed hostile act is invalid-definition,
+while native-valid unsupported principal orders remain invalid-program after pins/closure. The
+ordinary gather alias/reflection positives preserve native behavior.
+
+## M2 bounded evaluation operational amendment
+
+Supervisor approved per-logical-operator HView node/entry bounds, per-node buckets, active expansion path depth, occurrence charging and non-cumulative wrappers. Independently bounded child intermediates may prune before parent attachment; at most one pending child per active frame, no total CPU/temporary-allocation guarantee. Existing default/profile1 evaluation unchanged. See normative MR04 amendment and shared bounded-evaluation schedules.
+
+## M2 delivery allocation repair and native-domain clarification
+
+Supervisor requires shared delta JSON grammar capture/count before payload decoding and full
+canonical buffering. Base64url and CBOR sizes retain their lower semantic owners. All appearances
+are validated despite saturated byte counts, preserving malformed-sibling priority and preliminary
+known-pointer precedence. Captured pointer counts are checked again before member allocation.
+Invoke/preflight count and decode the same owned snapshot, never clone or re-read raw payloads.
+
+Explicit new-port native compatibility exception: transparent Proxy fields may pass instead of
+incidental structuredClone refusal. Own enumerable JSON-debug data are captured synchronously;
+getter/trap host code is not sandboxed and no atomic origin snapshot/termination is promised.
+No toJSON/builtin coercion, unknown/inherited field dropping, raw unbounded clone or Proxy detector.
+Later mutation cannot change counted/decoded evidence. Global Delta/profile1 and M1 domains stay
+unchanged. This ruling follows the c3bcfc4 counterexample and is not silent domain preservation.
+
+Supervisor approved exact allocation scope: over-deliveryBytes offers refuse before full payload
+decoder/canonical-payload-buffer allocation; retained captured grammar containers are bounded
+by profile counts, and count/decode/verification use the same representation. Existing input
+storage, own-key enumeration/reflection arrays, runtime/GC and user accessor/Proxy-trap
+allocations/execution are excluded, not claimed constant-memory. Enumerable symbols/unknown
+fields still refuse. Six Rust route probes and TS spies observe exactly decoder entries and offered
+carrier canonical-buffer entries; a pre-gate decoding bypass makes the rail red. No global Delta,
+profile1, M1, hash, old vector-row or refusal-code change follows from this limitation.
+
+Final native-failure provenance repair: getter/Proxy failures may throw exported scanner error
+classes. `instanceof` cannot prove an error came from this scan. Only refusal objects issued by
+the current invocation retain their scanner code; every foreign thrown value maps to
+invalid-appearance. Invocation-local identity tracking adds no cache/global state or domain
+change. Native count/capture/ownKeys spoof probes execute both invoke and preflight.

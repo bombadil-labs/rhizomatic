@@ -242,3 +242,46 @@ export {
   DEFAULT_HVIEW_ENVELOPE_LIMITS,
   type HViewEnvelopeLimits,
 } from "./algebra/hview-envelope.js";
+
+export {
+  MATERIALIZATION_PREFIX,
+  MATERIALIZATION_MAX_LIMITS,
+  materializationDescriptionClaims,
+  readMaterializationDescription,
+  encodeMaterializationLimits,
+  readMaterializationLimits,
+  type MaterializationLimits,
+  type MaterializationVerb,
+  type MaterializationDescriptionKind,
+} from "./command-data/materialization-codec.js";
+export {
+  MaterializationSourceError,
+  DEFAULT_MATERIALIZATION_SOURCE_LIMITS,
+  encodeMaterializationAppearance,
+  decodeMaterializationAppearance,
+  decodeMaterializationBindingSpec,
+  decodeMaterializationAuthoritySpec,
+  decodeMaterializationSnapshot,
+  materializationCaptureBasis,
+  validateMaterializationCaptureBasis,
+  materializationComponentCommitments,
+  type MaterializationSourceLimits,
+  type MaterializationSourceFailure,
+  type MaterializationSourceCapability,
+  type MaterializationBindingSpec,
+  type MaterializationSourceSnapshot,
+} from "./federation/materialization-source.js";
+export {
+  MaterializationEndpoint,
+  type MaterializationBoot,
+} from "./command/materialization-endpoint.js";
+export { type MaterializationInputBoot } from "./command/materialization-input.js";
+export {
+  preflightMaterializationInput,
+  type MaterializationInputPreflight,
+} from "./command/materialization-preflight.js";
+export {
+  readMaterializationResult,
+  type MaterializationResultContext,
+  type MaterializationResult,
+} from "./command/materialization-result.js";

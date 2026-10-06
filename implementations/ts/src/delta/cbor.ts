@@ -35,7 +35,7 @@ class ByteSink {
 }
 
 // Write a CBOR head: major type (high 3 bits) plus an unsigned argument, shortest form.
-function writeHead(sink: ByteSink, major: number, arg: number): void {
+function writeHead(sink: Pick<ByteSink, "push">, major: number, arg: number): void {
   const mt = major << 5;
   if (arg < 24) {
     sink.push(mt | arg);
@@ -92,7 +92,7 @@ function tryF16Bits(n: number): number | null {
 
 // ERRATA D1: numbers encode as float only, in the shortest of f16/f32/f64 that represents the
 // value exactly (RFC 8949 §4.2.1). -0.0 is normalized to +0.0.
-function writeFloat(sink: ByteSink, value: number): void {
+function writeFloat(sink: Pick<ByteSink, "push">, value: number): void {
   if (!Number.isFinite(value)) {
     throw new Error(`non-finite number is not representable: ${value}`);
   }
@@ -142,6 +142,48 @@ function wellFormedUnicode(value: string): boolean {
     } else if (unit >= 0xdc00 && unit <= 0xdfff) return false;
   }
   return true;
+}
+
+/** Canonical sizes without UTF8/payload buffers; number/head counting uses the actual writer. */
+export function cborHeadByteLength(length: number): number {
+  if (!Number.isSafeInteger(length) || length < 0) throw Error("invalid CBOR length");
+  let count = 0;
+  writeHead(
+    {
+      push: (...bytes) => {
+        count += bytes.length;
+      },
+    },
+    0,
+    length,
+  );
+  return count;
+}
+export function cborFloatByteLength(value: number): number {
+  let count = 0;
+  writeFloat(
+    {
+      push: (...bytes) => {
+        count += bytes.length;
+      },
+    },
+    value,
+  );
+  return count;
+}
+export function cborTextByteLength(value: string): number {
+  if (!wellFormedUnicode(value)) throw Error("cbor: text is not well-formed Unicode");
+  let length = 0;
+  for (let i = 0; i < value.length; i++) {
+    const c = value.charCodeAt(i);
+    if (c < 0x80) length++;
+    else if (c < 0x800) length += 2;
+    else if (c >= 0xd800 && c <= 0xdbff) {
+      length += 4;
+      i++;
+    } else length += 3;
+  }
+  return cborHeadByteLength(length) + length;
 }
 
 function encodeInto(sink: ByteSink, val: CborValue): void {

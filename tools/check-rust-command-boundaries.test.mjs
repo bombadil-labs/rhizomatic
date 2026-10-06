@@ -17,6 +17,10 @@ const fixture = async files => {
 };
 const check = actual => validateRustBoundaries(actual, null, boundaries, { compareInventory: false });
 const negatives = [
+  ['nonliteral include payload', { delta: 'fn bad() { let _ = include_str!(concat!("hidden", "path")); }' }, /nonliteral include_str/],
+  ['printed ambient access', { delta: 'fn bad() { println!("{:?}", std::env::vars()); }' }, /ambient capability/],
+  ['test-gated upward dependency', { delta: '#[cfg(test)] #[test] fn bad() { crate::command::call(); }', command: 'pub fn call() {}' }, /forbidden Rust dependency/],
+
   ["custom derive expansion", {"delta": "#[derive(hidden::Injected)] pub struct Example;"}, /unsupported.*(attribute|derive|cfg|allow)/],
   ["custom attribute expansion", {"delta": "#[hidden::inject] pub fn ordinary() {}"}, /unsupported.*(attribute|derive|cfg|allow)/],
   ["conditional attribute expansion", {"delta": "#[cfg_attr(any(), hidden::inject)] pub fn ordinary() {}"}, /unsupported.*(attribute|derive|cfg|allow)/],

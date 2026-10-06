@@ -754,3 +754,79 @@ fn json_input_is_owned_and_malformed_debug_appearance_is_a_signed_refusal() {
 
 #[path = "support/command_query.rs"]
 mod query;
+
+#[test]
+fn materialization_retention_is_inert() {
+    let v: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../vectors/materialization/commands.json"
+    ))
+    .unwrap();
+    let payload = v["retention"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|d| rhizomatic::json_profile::parse_delta(d).unwrap())
+        .collect::<Vec<_>>();
+    let mut rig = Rig::new(20);
+    let before = rig.endpoint.catalog();
+    let (_, out) = rig.offer(&payload, None, 1000.);
+    assert!(matches!(
+        read_outcome(&out).unwrap().body,
+        OutcomeBody::Retain { .. }
+    ));
+    for d in &payload {
+        assert_eq!(rig.store.rows.get(&d.id), Some(d));
+    }
+    assert_eq!(rig.endpoint.catalog(), before);
+    let b = rhizomatic::MaterializationInputBoot {
+        configuration: rhizomatic::json_profile::parse_delta(&v["boot"]["configuration"]).unwrap(),
+        declarations: v["boot"]["declarations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|d| rhizomatic::json_profile::parse_delta(d).unwrap())
+            .collect(),
+        bindings: v["boot"]["bindings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|d| rhizomatic::json_profile::parse_delta(d).unwrap())
+            .collect(),
+    };
+    struct MaterialSigner {
+        author: String,
+    }
+    impl rhizomatic::MaterializationSigner for MaterialSigner {
+        fn author(&self) -> &str {
+            &self.author
+        }
+        fn sign(&self, c: &Claims) -> Result<Delta, String> {
+            sign_claims(c, &"03".repeat(32))
+        }
+    }
+    let mut e = rhizomatic::MaterializationEndpoint::boot(
+        &b,
+        Box::new(MaterialSigner {
+            author: rig.peer.clone(),
+        }),
+        BTreeMap::new(),
+        Box::new(|e| panic!("{e}")),
+    )
+    .unwrap();
+    let f = &v["positives"][0];
+    let q = rhizomatic::json_profile::parse_delta(&f["request"]).unwrap();
+    let actual = e
+        .invoke(&q.id, f["delivery"].as_array().unwrap(), 1000.)
+        .unwrap();
+    let expected = v["negatives"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|f| f["id"] == "absent_grant")
+        .unwrap();
+    assert_eq!(
+        actual,
+        rhizomatic::json_profile::parse_delta(&expected["expected"]["outcome"]).unwrap()
+    );
+    println!("materialization-native:cmd_inert_retention::batch");
+}
