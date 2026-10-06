@@ -12,8 +12,7 @@ use crate::materialization_data::{
 };
 use crate::materialization_source::{
     decode_materialization_authority_spec, decode_materialization_binding_spec,
-    decode_materialization_snapshot, validate_materialization_capture_basis,
-    MaterializationSourceSnapshot,
+    decode_materialization_snapshot_evidence, MaterializationSourceSnapshot,
 };
 use crate::materialization_values::{
     cbor, field, limit, object, require, s, source_limits, text, Result,
@@ -382,7 +381,7 @@ pub(crate) fn validate_source(
             c.limits["artifactBytes"],
         )
         .map_err(|e| e.to_string())?;
-        let snap = decode_materialization_snapshot(
+        let (snap, checker) = decode_materialization_snapshot_evidence(
             p.snapshot_bytes.as_ref().ok_or("invalid-source")?,
             source_limits(&c.limits),
         )
@@ -407,12 +406,9 @@ pub(crate) fn validate_source(
                 && snap.historical_cutoff == cutoff,
             "invalid-source",
         )?;
-        validate_materialization_capture_basis(
-            &materialization_bytes(&cf, "basis")?,
-            p.snapshot_bytes.as_ref().ok_or("invalid-source")?,
-            source_limits(&c.limits),
-        )
-        .map_err(|e| e.to_string())?;
+        checker
+            .validate(&materialization_bytes(&cf, "basis")?)
+            .map_err(|e| e.to_string())?;
         Ok(snap)
     };
     validate().map_err(|e| {

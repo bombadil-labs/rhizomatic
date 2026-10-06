@@ -17,8 +17,7 @@ import {
   type MaterializationLimits,
 } from "../command-data/materialization-codec.js";
 import {
-  decodeMaterializationSnapshot,
-  validateMaterializationCaptureBasis,
+  decodeMaterializationSnapshotEvidence,
   type MaterializationSourceSnapshot,
 } from "../federation/materialization-source.js";
 import { decodeView, viewCanonicalHex, type View } from "../resolve-kernel/resolution.js";
@@ -181,8 +180,9 @@ export function readMaterializationResult(
     if (commandText(cf, "kind") !== "capture/1" || commandText(sf, "kind") !== "snapshot/1")
       mFail();
     const payload = commandBytes(sf, "data");
-    snapshot = decodeMaterializationSnapshot(payload, limits);
-    validateMaterializationCaptureBasis(commandBytes(cf, "basis"), payload, limits);
+    const decoded = decodeMaterializationSnapshotEvidence(payload, limits);
+    snapshot = decoded.snapshot;
+    decoded.validateCaptureBasis(commandBytes(cf, "basis"));
     if (
       commandRef(cf, "source-binding") !== snapshot.binding ||
       commandRef(cf, "authority") !== snapshot.authority ||

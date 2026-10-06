@@ -22931,6 +22931,16 @@
       "contract": "rhizomatic.delta/native-api/1",
       "classification": "compatibility_reexport",
       "semantics": "Native delta API DeltaDebugCaptureError.code implements SPEC-1 Delta identity/JSON/CBOR; SPEC-8 container-neutral membership at implementations/ts/src/delta/json-profile.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:federation/materialization-source.ts:decodeMaterializationSnapshotEvidence",
+      "owner": "federation",
+      "symbol": "decodeMaterializationSnapshotEvidence",
+      "source": "implementations/ts/src/federation/materialization-source.ts",
+      "definition": "implementations/ts/src/federation/materialization-source.ts",
+      "contract": "rhizomatic.materialization/1/capture",
+      "classification": "implementation_helper",
+      "semantics": "decodeMaterializationSnapshotEvidence: Exact boot binding plus metadata-only capture/authority testimony and separate full snapshot; host grant required. MR-08, MR-09, MR-10, MR-11, MR-12, MR-19, MR-20, MR-21, MR-22; definition implementations/ts/src/federation/materialization-source.ts."
     }
   ]
 }

@@ -23,8 +23,7 @@ import {
 import {
   decodeMaterializationBindingSpec,
   decodeMaterializationAuthoritySpec,
-  decodeMaterializationSnapshot,
-  validateMaterializationCaptureBasis,
+  decodeMaterializationSnapshotEvidence,
   MaterializationSourceError,
 } from "../federation/materialization-source.js";
 import { readMaterializationDefinitions } from "../schema-load/command-definitions.js";
@@ -322,7 +321,8 @@ export function validateMaterializationSourceInput(
         commandBytes(af, "spec"),
         c.limits.artifactBytes,
       ),
-      snapshot = decodeMaterializationSnapshot(p.snapshotBytes!, c.limits);
+      decoded = decodeMaterializationSnapshotEvidence(p.snapshotBytes!, c.limits),
+      snapshot = decoded.snapshot;
     if (
       capture.claims.author !== spec.capturer ||
       authority.claims.author !== spec.capturer ||
@@ -339,7 +339,7 @@ export function validateMaterializationSourceInput(
         (p.fields["historical-cutoff"] ? commandNumber(p.fields, "historical-cutoff") : undefined)
     )
       throw Error();
-    validateMaterializationCaptureBasis(commandBytes(cf, "basis"), p.snapshotBytes!, c.limits);
+    decoded.validateCaptureBasis(commandBytes(cf, "basis"));
     return snapshot;
   } catch (e) {
     if (e instanceof MaterializationSourceError && e.code === "resource-limit") mFail(e.code);

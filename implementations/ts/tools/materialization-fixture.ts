@@ -1,4 +1,5 @@
 // Test host only. Each stage starts fresh and carries only serialized signed descriptions/results.
+import { performance } from "node:perf_hooks";
 import { readFileSync } from "node:fs";
 import {
   MaterializationEndpoint,
@@ -17,7 +18,6 @@ import {
 import { commandBytes, commandEntity } from "../src/command-data/codec.js";
 import { bytesToHex } from "../src/delta/hash.js";
 import { encode } from "../src/delta/cbor.js";
-import { decodeMaterializationSnapshot } from "../src/federation/materialization-source.js";
 import type { CommandFields } from "../src/command-data/codec.js";
 const input = JSON.parse(readFileSync(0, "utf8"));
 const f = input.fixture;
@@ -74,12 +74,12 @@ if (input.mode === "construct") {
     ),
   });
 } else if (input.mode === "gather") {
-  const q = parseCommandDelta(input.upstream.request),
-    snapshot = decodeMaterializationSnapshot(
-      commandBytes(readMaterializationDescription(parseCommandDelta(f.snapshot)), "data"),
-    );
+  const preparing = performance.now();
+  const q = parseCommandDelta(input.upstream.request);
+  // Opaque source artifact. The independent fixture source supplies its own basis;
+  // only the endpoint decodes testimony, including an over-cap snapshot.
   const rows = DeltaSet.from(f.rows.map(parseCommandDelta)),
-    initial = DeltaSet.from(snapshot.deltas).digest();
+    initial = rows.digest();
   const calls: unknown[] = [];
   const grant: MaterializationSourceCapability = {
     async capture() {
@@ -92,9 +92,9 @@ if (input.mode === "construct") {
       calls.push({ binding, revision, authority, at, cutoff, support: [...support] });
       if (
         rows.digest() !== initial ||
-        binding !== snapshot.binding ||
-        revision !== snapshot.revision ||
-        authority !== snapshot.authority
+        binding !== f.source.binding ||
+        revision !== f.source.revision ||
+        authority !== f.source.authority
       )
         return { status: "source-changed" };
       return { status: "current" };
@@ -103,14 +103,25 @@ if (input.mode === "construct") {
   const e = MaterializationEndpoint.boot({
     ...boot,
     signer,
-    sourceGrants: new Map([[snapshot.binding, grant]]),
+    sourceGrants: new Map([[f.source.binding, grant]]),
     diagnostic: (e) => {
       throw e;
     },
   });
+  const preparedAt = performance.now();
+  const outcome = serializeCommandDelta(await e.invoke(q.id, input.upstream.delivery, receivedAt));
+  const finishedAt = performance.now();
   output({
+    ...(input.measureEndpoint
+      ? {
+          measurements: {
+            sourceAndBootPreparationMs: preparedAt - preparing,
+            endpointMs: finishedAt - preparedAt,
+          },
+        }
+      : {}),
     request: input.upstream.request,
-    outcome: serializeCommandDelta(await e.invoke(q.id, input.upstream.delivery, receivedAt)),
+    outcome,
     calls,
     preflight: preflightMaterializationInput(boot, q.id, input.upstream.delivery, receivedAt),
   });

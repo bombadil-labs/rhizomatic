@@ -8,9 +8,7 @@ use crate::materialization_data::{
     read_materialization_description, MaterializationLimits, MaterializationVerb,
 };
 use crate::materialization_evidence::validate_gather_evidence;
-use crate::materialization_source::{
-    decode_materialization_snapshot, validate_materialization_capture_basis,
-};
+use crate::materialization_source::decode_materialization_snapshot_evidence;
 use crate::materialization_values::{
     bytes, cbor, field, id, number, object, require, same, source_limits, text, Result,
 };
@@ -204,14 +202,12 @@ pub fn read_materialization_result(
             "invalid-evidence",
         )?;
         let payload = materialization_bytes(&sf, "data")?;
-        let snap = decode_materialization_snapshot(&payload, source_limits(limits))
+        let (snap, checker) =
+            decode_materialization_snapshot_evidence(&payload, source_limits(limits))
+                .map_err(|e| e.to_string())?;
+        checker
+            .validate(&materialization_bytes(&cf, "basis")?)
             .map_err(|e| e.to_string())?;
-        validate_materialization_capture_basis(
-            &materialization_bytes(&cf, "basis")?,
-            &payload,
-            source_limits(limits),
-        )
-        .map_err(|e| e.to_string())?;
         require(
             materialization_ref(&cf, "source-binding")? == snap.binding
                 && materialization_ref(&cf, "authority")? == snap.authority

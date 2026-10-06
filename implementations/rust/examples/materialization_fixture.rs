@@ -1,7 +1,6 @@
 //! Fresh-process test host. Only serialized signed descriptions cross stage boundaries.
 use rhizomatic::{
     cbor::encode,
-    decode_materialization_snapshot,
     json_profile::{claims_to_json, parse_delta},
     materialization_data::{materialization_bytes, materialization_entity, MaterializationFields},
     materialization_description_claims, materialization_max_limits,
@@ -12,8 +11,7 @@ use rhizomatic::{
     MaterializationCapture, MaterializationEndpoint, MaterializationInputBoot,
     MaterializationInputPreflight, MaterializationResultClassification,
     MaterializationResultContext, MaterializationSigner, MaterializationSourceCapability,
-    MaterializationSourceCommitments, MaterializationSourceFailure, MaterializationSourceLimits,
-    MaterializationSourceSnapshot,
+    MaterializationSourceCommitments, MaterializationSourceFailure,
 };
 use serde_json::{json, Value};
 use std::{
@@ -21,6 +19,7 @@ use std::{
     collections::BTreeMap,
     io::{self, Read},
     rc::Rc,
+    time::Instant,
 };
 struct Signer {
     author: String,
@@ -36,7 +35,8 @@ impl MaterializationSigner for Signer {
 }
 struct Source {
     rows: DeltaSet,
-    snapshot: MaterializationSourceSnapshot,
+    basis: Value,
+    initial_membership: String,
     calls: Rc<RefCell<Vec<Value>>>,
 }
 impl MaterializationSourceCapability for Source {
@@ -70,13 +70,10 @@ impl MaterializationSourceCapability for Source {
             call["cutoff"] = json!(t);
         }
         self.calls.borrow_mut().push(call);
-        if b != self.snapshot.binding
-            || r != self.snapshot.revision
-            || u != self.snapshot.authority
-            || self.rows.digest()
-                != DeltaSet::from_deltas(self.snapshot.deltas.clone())
-                    .unwrap()
-                    .digest()
+        if b != self.basis["binding"].as_str().unwrap()
+            || r != self.basis["revision"].as_str().unwrap()
+            || u != self.basis["authority"].as_str().unwrap()
+            || self.rows.digest() != self.initial_membership
         {
             return Err(MaterializationSourceFailure::SourceChanged);
         }
@@ -181,27 +178,29 @@ fn run(v: &Value) -> Result<Value, String> {
             Ok(json!({"request":serial(&out),"delivery":delivery}))
         }
         "gather" => {
+            let preparing = Instant::now();
             let q = parse_delta(&up["request"])?;
-            let sd = parse_delta(&f["snapshot"])?;
-            let snapshot = decode_materialization_snapshot(
-                &materialization_bytes(&read_materialization_description(&sd, None)?, "data")?,
-                MaterializationSourceLimits::default(),
-            )
-            .map_err(|e| e.to_string())?;
+            // Opaque artifact: independent raw fixture basis, never an expected response.
+            let rows = DeltaSet::from_deltas(
+                f["rows"]
+                    .as_array()
+                    .ok_or("rows")?
+                    .iter()
+                    .map(parse_delta)
+                    .collect::<Result<Vec<_>, _>>()?,
+            )?;
+            let initial_membership = rows.digest();
             let calls = Rc::new(RefCell::new(Vec::new()));
             let mut grants = BTreeMap::<String, Box<dyn MaterializationSourceCapability>>::new();
             grants.insert(
-                snapshot.binding.clone(),
+                f["source"]["binding"]
+                    .as_str()
+                    .ok_or("source binding")?
+                    .into(),
                 Box::new(Source {
-                    rows: DeltaSet::from_deltas(
-                        f["rows"]
-                            .as_array()
-                            .ok_or("rows")?
-                            .iter()
-                            .map(parse_delta)
-                            .collect::<Result<Vec<_>, _>>()?,
-                    )?,
-                    snapshot,
+                    rows,
+                    basis: f["source"].clone(),
+                    initial_membership,
                     calls: calls.clone(),
                 }),
             );
@@ -212,10 +211,16 @@ fn run(v: &Value) -> Result<Value, String> {
                 Box::new(|e| panic!("unexpected fault {e}")),
             )?;
             let delivery = up["delivery"].as_array().ok_or("delivery")?;
+            let preparation_ms = preparing.elapsed().as_secs_f64() * 1000.;
+            let started = Instant::now();
             let outcome = endpoint.invoke(&q.id, delivery, at)?;
-            Ok(
-                json!({"request":up["request"],"outcome":serial(&outcome),"calls":*calls.borrow(),"preflight":preflight(&b,&q,delivery,at)}),
-            )
+            let endpoint_ms = started.elapsed().as_secs_f64() * 1000.;
+            let mut result = json!({"request":up["request"],"outcome":serial(&outcome),"calls":*calls.borrow(),"preflight":preflight(&b,&q,delivery,at)});
+            if v["measureEndpoint"] == true {
+                result["measurements"] =
+                    json!({"sourceAndBootPreparationMs":preparation_ms,"endpointMs":endpoint_ms});
+            }
+            Ok(result)
         }
         "wrap-evidence" => {
             let out = parse_delta(&up["outcome"])?;

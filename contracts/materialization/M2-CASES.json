@@ -662,6 +662,11 @@
           "corpus": "commands",
           "group": "negatives",
           "id": "binding_expired_bad_args_priority"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "capture_authority_pointer_shape"
         }
       ],
       "native_evidence": false,

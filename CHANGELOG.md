@@ -6,6 +6,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 
 ## Unreleased
 
+### Changed
+
+- Batch gather and contextual readback validate capture metadata from one freshly decoded source
+  snapshot per invocation, preserving canonical outputs, refusal priority and fresh source checks.
+
+
 ## 0.11.0-next.8 — 2026-10-06
 
 Release A: portable batch gather/resolve and lossless evidence in TypeScript and Rust.

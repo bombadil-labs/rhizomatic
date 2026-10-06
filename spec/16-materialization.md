@@ -363,6 +363,15 @@ if source revision stays equal. This support check is independent of source-revi
 though a real operand membership or source authority change still changes source revision. Capture/reacquisition alone
 never authorize program execution. Retire/restore and structural resolve require no such check.
 
+A source owner MAY reuse a strictly decoded snapshot within one invocation to validate its
+capture basis without re-decoding the same artifact. Such reuse MUST bind both the exact
+snapshot commitment and the originally verified source data: a caller-made structural proof,
+mutable returned data or a matching Delta ID cannot substitute for raw-byte decoding. A native
+checker may privately retain the expected metadata commitment and expose defensive owned
+copies of its decoded data. It MUST preserve the stated validation/error order, and MUST NOT
+replace native grant/current-support checks. Independent preflight, invocation and result
+readback each establish their own fresh boundary; this is no cross-call verification cache.
+
 **MR-10.** A capture/1 delta has `kind`, `source-binding` ref, `authority` ref, `basis` bytes, all 1.
 The exact authority/1 support delta has `kind`, `source-binding` ref and `spec` bytes, all 1;
 spec is `{root: ID, epoch: N, context: bstr}`. root equals binding.authorityRoot; context is

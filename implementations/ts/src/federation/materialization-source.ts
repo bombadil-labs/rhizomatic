@@ -389,20 +389,52 @@ export function decodeMaterializationSnapshot(
     };
   });
 }
+/** Metadata-only projection owned by the source codec; never accepts a verified proof. */
+function captureBasis(snapshot: MaterializationSourceSnapshot, commitment: string): Uint8Array {
+  if (snapshot.value.t !== "map") return invalid();
+  return encode(
+    map([
+      ...snapshot.value.v.filter(([k]) => k !== "appearances" && k !== "format"),
+      ["format", tstr("rhizomatic.source-basis/1")],
+      ["snapshot", tstr(commitment)],
+    ]),
+  );
+}
+/**
+ * One raw-byte decode boundary. The checker owns its commitment bytes, independent of
+ * returned mutable native data. No caller-supplied decoded object can mint this checker.
+ * Checking stays explicit so callers preserve contextual validation/error ordering.
+ */
+export function decodeMaterializationSnapshotEvidence(
+  input: Uint8Array,
+  limits: MaterializationSourceLimits = DEFAULT_MATERIALIZATION_SOURCE_LIMITS,
+): {
+  snapshot: MaterializationSourceSnapshot;
+  validateCaptureBasis: (basisBytes: Uint8Array) => void;
+} {
+  const snapshot = decodeMaterializationSnapshot(input, limits);
+  const expected = captureBasis(snapshot, contentAddress(input));
+  const maximum = limits.artifactBytes;
+  return {
+    // Each retrieval is owned; neither callers nor callbacks can mutate the verified source.
+    get snapshot() {
+      return structuredClone(snapshot);
+    },
+    validateCaptureBasis: (basisBytes) =>
+      boundary(() => {
+        canonical(basisBytes, maximum);
+        limit(expected.length, maximum);
+        if (bytesToHex(expected) !== bytesToHex(basisBytes)) invalid();
+      }),
+  };
+}
 /** Metadata-only capture commitment: no operand appearance bytes. */
 export function materializationCaptureBasis(
   snapshotBytes: Uint8Array,
   limits: MaterializationSourceLimits = DEFAULT_MATERIALIZATION_SOURCE_LIMITS,
 ): Uint8Array {
   const snapshot = decodeMaterializationSnapshot(snapshotBytes, limits);
-  if (snapshot.value.t !== "map") return invalid();
-  const result = encode(
-    map([
-      ...snapshot.value.v.filter(([k]) => k !== "appearances" && k !== "format"),
-      ["format", tstr("rhizomatic.source-basis/1")],
-      ["snapshot", tstr(contentAddress(snapshotBytes))],
-    ]),
-  );
+  const result = captureBasis(snapshot, contentAddress(snapshotBytes));
   limit(result.length, limits.artifactBytes);
   return result;
 }
