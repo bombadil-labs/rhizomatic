@@ -1,0 +1,339 @@
+{
+  "format": "rhizomatic-materialization-variant-allocation/1",
+  "rule": "Original case IDs, schedules and expectations remain unchanged. M2 reports batch variant evidence, never lifecycle completion. M3 cumulative acceptance must execute every listed lifecycle variant in addition to its own allocated cases. No metadata-only coverage claim.",
+  "cases": [
+    {
+      "case": "cmd_gather_resolve_fresh",
+      "variants": [
+        {
+          "id": "cmd_gather_resolve_fresh::batch",
+          "milestone": "M2",
+          "expectation": "Execute every gather/resolve, source, codec, preflight, retention/unsupported-catalog and contextual-readback variant in the original scenario; lifecycle exceptions are explicitly listed below.",
+          "state": "specified"
+        }
+      ]
+    },
+    {
+      "case": "cmd_three_times",
+      "variants": [
+        {
+          "id": "cmd_three_times::batch",
+          "milestone": "M2",
+          "expectation": "Execute every gather/resolve, source, codec, preflight, retention/unsupported-catalog and contextual-readback variant in the original scenario; lifecycle exceptions are explicitly listed below.",
+          "state": "specified"
+        }
+      ]
+    },
+    {
+      "case": "cmd_fresh_carrier",
+      "variants": [
+        {
+          "id": "cmd_fresh_carrier::batch",
+          "milestone": "M2",
+          "expectation": "Execute every gather/resolve, source, codec, preflight, retention/unsupported-catalog and contextual-readback variant in the original scenario; lifecycle exceptions are explicitly listed below.",
+          "state": "specified"
+        }
+      ]
+    },
+    {
+      "case": "cmd_source_authority_change",
+      "variants": [
+        {
+          "id": "cmd_source_authority_change::batch",
+          "milestone": "M2",
+          "expectation": "Execute every gather/resolve, source, codec, preflight, retention/unsupported-catalog and contextual-readback variant in the original scenario; lifecycle exceptions are explicitly listed below.",
+          "state": "specified"
+        }
+      ]
+    },
+    {
+      "case": "cmd_source_provenance",
+      "variants": [
+        {
+          "id": "cmd_source_provenance::batch",
+          "milestone": "M2",
+          "expectation": "Execute every gather/resolve, source, codec, preflight, retention/unsupported-catalog and contextual-readback variant in the original scenario; lifecycle exceptions are explicitly listed below.",
+          "state": "specified"
+        }
+      ]
+    },
+    {
+      "case": "cmd_physical_inventory",
+      "variants": [
+        {
+          "id": "cmd_physical_inventory::batch",
+          "milestone": "M2",
+          "expectation": "Execute every gather/resolve, source, codec, preflight, retention/unsupported-catalog and contextual-readback variant in the original scenario; lifecycle exceptions are explicitly listed below.",
+          "state": "specified"
+        }
+      ]
+    },
+    {
+      "case": "cmd_changed_during_capture",
+      "variants": [
+        {
+          "id": "cmd_changed_during_capture::batch",
+          "milestone": "M2",
+          "expectation": "Execute every gather/resolve, source, codec, preflight, retention/unsupported-catalog and contextual-readback variant in the original scenario; lifecycle exceptions are explicitly listed below.",
+          "state": "specified"
+        }
+      ]
+    },
+    {
+      "case": "cmd_source_metadata_integrity",
+      "variants": [
+        {
+          "id": "cmd_source_metadata_integrity::batch",
+          "milestone": "M2",
+          "expectation": "Execute every gather/resolve, source, codec, preflight, retention/unsupported-catalog and contextual-readback variant in the original scenario; lifecycle exceptions are explicitly listed below.",
+          "state": "specified"
+        }
+      ]
+    },
+    {
+      "case": "cmd_unsigned_embedded_row",
+      "variants": [
+        {
+          "id": "cmd_unsigned_embedded_row::batch",
+          "milestone": "M2",
+          "expectation": "Execute every gather/resolve, source, codec, preflight, retention/unsupported-catalog and contextual-readback variant in the original scenario; lifecycle exceptions are explicitly listed below.",
+          "state": "specified"
+        }
+      ]
+    },
+    {
+      "case": "cmd_invalid_duplicate_delivery",
+      "variants": [
+        {
+          "id": "cmd_invalid_duplicate_delivery::batch",
+          "milestone": "M2",
+          "expectation": "Execute every gather/resolve, source, codec, preflight, retention/unsupported-catalog and contextual-readback variant in the original scenario; lifecycle exceptions are explicitly listed below.",
+          "state": "specified"
+        }
+      ]
+    },
+    {
+      "case": "cmd_delivery_support",
+      "variants": [
+        {
+          "id": "cmd_delivery_support::batch",
+          "milestone": "M2",
+          "expectation": "Execute every gather/resolve, source, codec, preflight, retention/unsupported-catalog and contextual-readback variant in the original scenario; lifecycle exceptions are explicitly listed below.",
+          "state": "specified"
+        },
+        {
+          "id": "cmd_delivery_support::install-support",
+          "milestone": "M3",
+          "expectation": "Install direct/descriptor closure omissions and extras retain missing-support/unexpected-support expectations.",
+          "state": "specified"
+        }
+      ]
+    },
+    {
+      "case": "cmd_shapes_closed",
+      "variants": [
+        {
+          "id": "cmd_shapes_closed::batch",
+          "milestone": "M2",
+          "expectation": "Execute every gather/resolve, source, codec, preflight, retention/unsupported-catalog and contextual-readback variant in the original scenario; lifecycle exceptions are explicitly listed below.",
+          "state": "specified"
+        },
+        {
+          "id": "cmd_shapes_closed::lifecycle-descriptions",
+          "milestone": "M3",
+          "expectation": "Closed registration/state/control request shapes and cardinalities are executable when M3 supplies their ports.",
+          "state": "specified"
+        }
+      ]
+    },
+    {
+      "case": "cmd_inert_retention",
+      "variants": [
+        {
+          "id": "cmd_inert_retention::batch",
+          "milestone": "M2",
+          "expectation": "Execute every gather/resolve, source, codec, preflight, retention/unsupported-catalog and contextual-readback variant in the original scenario; lifecycle exceptions are explicitly listed below.",
+          "state": "specified"
+        },
+        {
+          "id": "cmd_inert_retention::empty-control-read",
+          "milestone": "M3",
+          "expectation": "Read the real durable control image after inert retention; no active entry or transition is created.",
+          "state": "specified"
+        }
+      ]
+    },
+    {
+      "case": "cmd_core_feature_boundary",
+      "variants": [
+        {
+          "id": "cmd_core_feature_boundary::batch",
+          "milestone": "M2",
+          "expectation": "Execute every gather/resolve, source, codec, preflight, retention/unsupported-catalog and contextual-readback variant in the original scenario; lifecycle exceptions are explicitly listed below.",
+          "state": "specified"
+        }
+      ]
+    },
+    {
+      "case": "cmd_nested_local_bindings",
+      "variants": [
+        {
+          "id": "cmd_nested_local_bindings::batch",
+          "milestone": "M2",
+          "expectation": "Execute every gather/resolve, source, codec, preflight, retention/unsupported-catalog and contextual-readback variant in the original scenario; lifecycle exceptions are explicitly listed below.",
+          "state": "specified"
+        }
+      ]
+    },
+    {
+      "case": "cmd_definition_failures",
+      "variants": [
+        {
+          "id": "cmd_definition_failures::batch",
+          "milestone": "M2",
+          "expectation": "Execute every gather/resolve, source, codec, preflight, retention/unsupported-catalog and contextual-readback variant in the original scenario; lifecycle exceptions are explicitly listed below.",
+          "state": "specified"
+        }
+      ]
+    },
+    {
+      "case": "cmd_foreign_definition_operand",
+      "variants": [
+        {
+          "id": "cmd_foreign_definition_operand::batch",
+          "milestone": "M2",
+          "expectation": "Execute every gather/resolve, source, codec, preflight, retention/unsupported-catalog and contextual-readback variant in the original scenario; lifecycle exceptions are explicitly listed below.",
+          "state": "specified"
+        }
+      ]
+    },
+    {
+      "case": "cmd_resolve_testimony",
+      "variants": [
+        {
+          "id": "cmd_resolve_testimony::batch",
+          "milestone": "M2",
+          "expectation": "Execute every gather/resolve, source, codec, preflight, retention/unsupported-catalog and contextual-readback variant in the original scenario; lifecycle exceptions are explicitly listed below.",
+          "state": "specified"
+        }
+      ]
+    },
+    {
+      "case": "cmd_result_context_strict",
+      "variants": [
+        {
+          "id": "cmd_result_context_strict::batch",
+          "milestone": "M2",
+          "expectation": "Execute every gather/resolve, source, codec, preflight, retention/unsupported-catalog and contextual-readback variant in the original scenario; lifecycle exceptions are explicitly listed below.",
+          "state": "specified"
+        }
+      ]
+    },
+    {
+      "case": "cmd_error_priority",
+      "variants": [
+        {
+          "id": "cmd_error_priority::batch",
+          "milestone": "M2",
+          "expectation": "Execute every gather/resolve, source, codec, preflight, retention/unsupported-catalog and contextual-readback variant in the original scenario; lifecycle exceptions are explicitly listed below.",
+          "state": "specified"
+        },
+        {
+          "id": "cmd_error_priority::retire-restore-unrelated-binding",
+          "milestone": "M3",
+          "expectation": "Retire/restore succeed without source capability despite unrelated expired boot bindings.",
+          "state": "specified"
+        },
+        {
+          "id": "cmd_error_priority::lifecycle-expected-source",
+          "milestone": "M3",
+          "expectation": "Advance/read/replace expected-source mismatch is precondition-failed; install internal capture/snapshot mismatch is invalid-source.",
+          "state": "specified"
+        }
+      ]
+    },
+    {
+      "case": "cmd_current_auth_no_cache",
+      "variants": [
+        {
+          "id": "cmd_current_auth_no_cache::batch",
+          "milestone": "M2",
+          "expectation": "Execute every gather/resolve, source, codec, preflight, retention/unsupported-catalog and contextual-readback variant in the original scenario; lifecycle exceptions are explicitly listed below.",
+          "state": "specified"
+        }
+      ]
+    },
+    {
+      "case": "cmd_input_snapshot",
+      "variants": [
+        {
+          "id": "cmd_input_snapshot::batch",
+          "milestone": "M2",
+          "expectation": "Execute every gather/resolve, source, codec, preflight, retention/unsupported-catalog and contextual-readback variant in the original scenario; lifecycle exceptions are explicitly listed below.",
+          "state": "specified"
+        }
+      ]
+    },
+    {
+      "case": "cmd_limits_complete",
+      "variants": [
+        {
+          "id": "cmd_limits_complete::batch",
+          "milestone": "M2",
+          "expectation": "Execute every gather/resolve, source, codec, preflight, retention/unsupported-catalog and contextual-readback variant in the original scenario; lifecycle exceptions are explicitly listed below.",
+          "state": "specified"
+        }
+      ]
+    },
+    {
+      "case": "cmd_fixed_mixed_routes",
+      "variants": [
+        {
+          "id": "cmd_fixed_mixed_routes::batch",
+          "milestone": "M2",
+          "expectation": "Execute every gather/resolve, source, codec, preflight, retention/unsupported-catalog and contextual-readback variant in the original scenario; lifecycle exceptions are explicitly listed below.",
+          "state": "specified"
+        }
+      ]
+    },
+    {
+      "case": "cmd_resolve_embedded_closure",
+      "variants": [
+        {
+          "id": "cmd_resolve_embedded_closure::batch",
+          "milestone": "M2",
+          "expectation": "Execute every gather/resolve, source, codec, preflight, retention/unsupported-catalog and contextual-readback variant in the original scenario; lifecycle exceptions are explicitly listed below.",
+          "state": "specified"
+        }
+      ]
+    },
+    {
+      "case": "cmd_authority_capture_validity",
+      "variants": [
+        {
+          "id": "cmd_authority_capture_validity::batch",
+          "milestone": "M2",
+          "expectation": "Execute every gather/resolve, source, codec, preflight, retention/unsupported-catalog and contextual-readback variant in the original scenario; lifecycle exceptions are explicitly listed below.",
+          "state": "specified"
+        },
+        {
+          "id": "cmd_authority_capture_validity::maintained-read-authority-expiry",
+          "milestone": "M3",
+          "expectation": "At2000 a maintained read using expired U refuses invalid-source at stage6.",
+          "state": "specified"
+        }
+      ]
+    },
+    {
+      "case": "cmd_public_basis_privacy",
+      "variants": [
+        {
+          "id": "cmd_public_basis_privacy::batch",
+          "milestone": "M2",
+          "expectation": "Execute every gather/resolve, source, codec, preflight, retention/unsupported-catalog and contextual-readback variant in the original scenario; lifecycle exceptions are explicitly listed below.",
+          "state": "specified"
+        }
+      ]
+    }
+  ]
+}

@@ -1,3 +1,8 @@
+import {
+  EvaluationBudget,
+  type LogicalTreeSummary,
+  type MaterializationEvaluationLimits,
+} from "./evaluation-budget.js";
 // Term evaluation: select/union/mask over DSet (SPEC-2 §4.1-4.3), group into HView (§4.4),
 // prune over HView (§4.6). eval is a pure function; order-blind; deterministic (SPEC-2 §5).
 // Sorts are checked at evaluation time in v0 (ERRATA-2 E9).
@@ -287,10 +292,11 @@ function resolveReflective(
   root: string | undefined,
   registry: SchemaRegistry | undefined,
   bindings: Bindings | undefined,
+  budget?: EvaluationBudget,
 ): Pred {
   switch (pred.kind) {
     case "inView": {
-      const sub = evalTermRaw(pred.term, input, root, registry, bindings);
+      const sub = evalTermWithin(pred.term, input, root, registry, bindings, budget);
       if (sub.sort !== "dset") throw new Error("inView.term must evaluate to a DSet (E9)");
       return {
         kind: "match",
@@ -302,17 +308,20 @@ function resolveReflective(
     case "and":
       return {
         kind: "and",
-        left: resolveReflective(pred.left, input, root, registry, bindings),
-        right: resolveReflective(pred.right, input, root, registry, bindings),
+        left: resolveReflective(pred.left, input, root, registry, bindings, budget),
+        right: resolveReflective(pred.right, input, root, registry, bindings, budget),
       };
     case "or":
       return {
         kind: "or",
-        left: resolveReflective(pred.left, input, root, registry, bindings),
-        right: resolveReflective(pred.right, input, root, registry, bindings),
+        left: resolveReflective(pred.left, input, root, registry, bindings, budget),
+        right: resolveReflective(pred.right, input, root, registry, bindings, budget),
       };
     case "not":
-      return { kind: "not", pred: resolveReflective(pred.pred, input, root, registry, bindings) };
+      return {
+        kind: "not",
+        pred: resolveReflective(pred.pred, input, root, registry, bindings, budget),
+      };
     case "actsFor":
       throw new Error("actsFor requires an explicit principal resolver (SPEC-14)");
     default:
@@ -321,15 +330,26 @@ function resolveReflective(
 }
 
 // group(key, D) @ root — filing rules per ERRATA-2 E6; annotate tags thread into entries (E7).
-function evalGroup(key: GroupKey, operand: DSetResult, root: string): HView {
+function evalGroup(
+  key: GroupKey,
+  operand: DSetResult,
+  root: string,
+  budget?: EvaluationBudget,
+): HView {
+  let entries = 0;
   const buckets = new Map<string, Map<string, HVEntry>>(); // prop -> deltaId -> entry
   const file = (prop: string, d: Delta) => {
     let bucket = buckets.get(prop);
     if (bucket === undefined) {
+      budget?.check({ nodes: 1, entries, maxBuckets: buckets.size + 1, depth: 1 });
       bucket = new Map();
       buckets.set(prop, bucket);
     }
-    if (!bucket.has(d.id)) bucket.set(d.id, { delta: d, negated: operand.negated.has(d.id) });
+    if (!bucket.has(d.id)) {
+      budget?.check({ nodes: 1, entries: entries + 1, maxBuckets: buckets.size, depth: 1 });
+      entries++;
+      bucket.set(d.id, { delta: d, negated: operand.negated.has(d.id) });
+    }
   };
   for (const d of operand.set) {
     if (key.kind === "const") {
@@ -353,7 +373,8 @@ function evalGroup(key: GroupKey, operand: DSetResult, root: string): HView {
       [...bucket.values()].sort((a, b) => (a.delta.id < b.delta.id ? -1 : 1)),
     );
   }
-  return { id: root, props };
+  const tree = { id: root, props };
+  return budget ? budget.set(tree, { nodes: 1, entries, maxBuckets: props.size, depth: 1 }) : tree;
 }
 
 // Raw term evaluation is for machinery such as federation offers and storage inspection. It does
@@ -365,46 +386,76 @@ export function evalTermRaw(
   registry?: SchemaRegistry,
   bindings?: Bindings,
 ): EvalResult {
+  return evalTermWithin(term, input, root, registry, bindings);
+}
+
+function evalTermWithin(
+  term: Term,
+  input: DeltaSet,
+  root?: string,
+  registry?: SchemaRegistry,
+  bindings?: Bindings,
+  budget?: EvaluationBudget,
+): EvalResult {
   switch (term.kind) {
     case "input":
       return dsetResult(input);
     case "select": {
-      const of = expectDSet(evalTermRaw(term.of, input, root, registry, bindings), "select");
+      const of = expectDSet(
+        evalTermWithin(term.of, input, root, registry, bindings, budget),
+        "select",
+      );
       const pred = resolveReflective(
         expandAliased(substituteHoles(term.pred, bindings), input, root),
         input,
         root,
         registry,
         bindings,
+        budget,
       );
       return dsetResult(fork(of.set, (d) => evalPred(pred, d, root)));
     }
     case "union": {
-      const left = expectDSet(evalTermRaw(term.left, input, root, registry, bindings), "union");
-      const right = expectDSet(evalTermRaw(term.right, input, root, registry, bindings), "union");
+      const left = expectDSet(
+        evalTermWithin(term.left, input, root, registry, bindings, budget),
+        "union",
+      );
+      const right = expectDSet(
+        evalTermWithin(term.right, input, root, registry, bindings, budget),
+        "union",
+      );
       return dsetResult(merge(left.set, right.set));
     }
     case "intersect": {
       // left ∩ right, keyed by content-addressed id (SPEC-2 §4.9). Plain DSet result: any
       // mask(annotate) tag channel on an operand is dropped, like select/union (E14).
-      const left = expectDSet(evalTermRaw(term.left, input, root, registry, bindings), "intersect");
+      const left = expectDSet(
+        evalTermWithin(term.left, input, root, registry, bindings, budget),
+        "intersect",
+      );
       const right = expectDSet(
-        evalTermRaw(term.right, input, root, registry, bindings),
+        evalTermWithin(term.right, input, root, registry, bindings, budget),
         "intersect",
       );
       return dsetResult(fork(left.set, (d) => right.set.has(d.id)));
     }
     case "difference": {
       // of ∖ without, keyed by id (SPEC-2 §4.9). Asymmetric operands `of`/`without`.
-      const of = expectDSet(evalTermRaw(term.of, input, root, registry, bindings), "difference");
+      const of = expectDSet(
+        evalTermWithin(term.of, input, root, registry, bindings, budget),
+        "difference",
+      );
       const without = expectDSet(
-        evalTermRaw(term.without, input, root, registry, bindings),
+        evalTermWithin(term.without, input, root, registry, bindings, budget),
         "difference",
       );
       return dsetResult(fork(of.set, (d) => !without.set.has(d.id)));
     }
     case "mask": {
-      const of = expectDSet(evalTermRaw(term.of, input, root, registry, bindings), "mask");
+      const of = expectDSet(
+        evalTermWithin(term.of, input, root, registry, bindings, budget),
+        "mask",
+      );
       switch (term.policy.kind) {
         case "drop": {
           const negated = computeNegated(of.set);
@@ -421,6 +472,7 @@ export function evalTermRaw(
             root,
             registry,
             bindings,
+            budget,
           );
           const negated = computeNegated(of.set, (n) => evalPred(pred, n, root));
           return dsetResult(fork(of.set, (d) => !negated.has(d.id)));
@@ -430,44 +482,75 @@ export function evalTermRaw(
     }
     case "group": {
       if (root === undefined) throw new Error("group requires an ambient root entity (E9)");
-      const of = expectDSet(evalTermRaw(term.of, input, root, registry, bindings), "group");
-      return { sort: "hview", hview: evalGroup(term.key, of, root) };
+      const of = expectDSet(
+        evalTermWithin(term.of, input, root, registry, bindings, budget),
+        "group",
+      );
+      return { sort: "hview", hview: evalGroup(term.key, of, root, budget) };
     }
     case "prune": {
-      const of = expectHView(evalTermRaw(term.of, input, root, registry, bindings), "prune");
+      const of = expectHView(
+        evalTermWithin(term.of, input, root, registry, bindings, budget),
+        "prune",
+      );
       if (term.keep === "all") return of;
       const keep = expandStrMatch(term.keep, input, root);
       const props = new Map<string, readonly HVEntry[]>();
       for (const [prop, entries] of of.hview.props) {
         if (strMatch(keep, prop)) props.set(prop, entries);
       }
-      return { sort: "hview", hview: { id: of.hview.id, props } };
+      const tree = { id: of.hview.id, props };
+      if (budget) budget.set(tree, summaryOfProps(props, budget));
+      return { sort: "hview", hview: tree };
     }
     case "expand": {
-      const of = expectHView(evalTermRaw(term.of, input, root, registry, bindings), "expand");
+      const of = expectHView(
+        evalTermWithin(term.of, input, root, registry, bindings, budget),
+        "expand",
+      );
       const role = expandStrMatch(term.role, input, root);
       // Resolve the child's reading once, up front — an unknown reading fails the whole
       // evaluation loudly, exactly as an unknown gather schema does (issue #23).
       const reading =
         term.reading === undefined ? undefined : lookupReading(term.reading, registry, bindings);
       const props = new Map<string, readonly HVEntry[]>();
+      const childSummaries = new Map<string, LogicalTreeSummary>();
+      let ownEntries = 0;
+      if (budget)
+        for (const [prop, entries] of of.hview.props) {
+          ownEntries += entries.length;
+          entries.forEach((e, n) => {
+            for (const [i, h] of e.expanded ?? [])
+              childSummaries.set(JSON.stringify([prop, n, i]), budget.summary(h));
+          });
+        }
       for (const [prop, entries] of of.hview.props) {
         props.set(
           prop,
-          entries.map((e) => {
+          entries.map((e, entryIndex) => {
             let expanded: Map<number, HView> | undefined;
             let readings: Map<number, Schema> | undefined;
             e.delta.claims.pointers.forEach((ptr, i) => {
               // Only role-matching EntityRef pointers expand; everything else passes through
               // as written (E11, SPEC-3 §7 graceful degradation).
               if (ptr.target.kind !== "entity" || !strMatch(role, ptr.role)) return;
+              const childBudget = budget?.descend();
               const nested = evalSchema(
                 term.schema,
                 input,
                 ptr.target.entity.id,
                 registry,
                 bindings,
+                childBudget,
               );
+              if (budget && childBudget) {
+                const key = JSON.stringify([prop, entryIndex, i]);
+                childSummaries.set(key, childBudget.summary(nested));
+                budget.check(
+                  combinedSummary(of.hview.props.size, ownEntries, childSummaries.values()),
+                );
+                budget.summaries.set(nested, childBudget.summary(nested));
+              }
               expanded = expanded ?? new Map(e.expanded ?? []);
               expanded.set(i, nested);
               if (reading !== undefined) {
@@ -479,17 +562,29 @@ export function evalTermRaw(
           }),
         );
       }
-      return { sort: "hview", hview: { id: of.hview.id, props } };
+      const tree = { id: of.hview.id, props };
+      if (budget) budget.set(tree, summaryOfProps(props, budget));
+      return { sort: "hview", hview: tree };
     }
     case "fix":
       // The invocation instruction: ambient root is set explicitly (E10); bindings, when
       // present, become the ambient hole environment for the invoked body (E15).
       return {
         sort: "hview",
-        hview: evalSchema(term.schema, input, term.entity, registry, term.bindings ?? bindings),
+        hview: evalSchema(
+          term.schema,
+          input,
+          term.entity,
+          registry,
+          term.bindings ?? bindings,
+          budget,
+        ),
       };
     case "resolve": {
-      const of = expectHView(evalTermRaw(term.of, input, root, registry, bindings), "resolve");
+      const of = expectHView(
+        evalTermWithin(term.of, input, root, registry, bindings, budget),
+        "resolve",
+      );
       return {
         sort: "view",
         view: resolveView(bindReadingVariables(term.schema, bindings), of.hview),
@@ -526,13 +621,14 @@ function evalSchema(
   root: string,
   registry: SchemaRegistry | undefined,
   bindings?: Bindings,
+  budget?: EvaluationBudget,
 ): HView {
   const label = ref.kind === "name" ? ref.name : `pinned:${ref.hash.slice(0, 12)}…`;
   if (registry === undefined)
     throw new Error(`schema ${label} referenced but no registry supplied (E10)`);
   const schema = registry.resolve(ref);
   if (schema === undefined) throw new Error(`unknown schema: ${label} (E10/E13)`);
-  const result = evalTermRaw(schema.body, input, root, registry, bindings);
+  const result = evalTermWithin(schema.body, input, root, registry, bindings, budget);
   if (result.sort !== "hview") {
     throw new Error(`schema ${label} body must be an HView-sort term (E10)`);
   }
@@ -569,4 +665,62 @@ export function resultCanonicalHex(result: EvalResult): string {
       ]),
     ),
   );
+}
+
+function summaryOfProps(
+  props: ReadonlyMap<string, readonly HVEntry[]>,
+  budget: EvaluationBudget,
+): LogicalTreeSummary {
+  let nodes = 1,
+    entries = 0,
+    maxBuckets = props.size,
+    depth = 1;
+  for (const es of props.values())
+    for (const e of es) {
+      entries++;
+      for (const h of e.expanded?.values() ?? []) {
+        const s = budget.summary(h);
+        nodes += s.nodes;
+        entries += s.entries;
+        maxBuckets = Math.max(maxBuckets, s.maxBuckets);
+        depth = Math.max(depth, 1 + s.depth);
+      }
+    }
+  return { nodes, entries, maxBuckets, depth };
+}
+/** Profile-specific operational bounds; legacy/native entry points retain their domain. */
+export function evalMaterializationTerm(
+  term: Term,
+  input: DeltaSet,
+  at: number,
+  limits: MaterializationEvaluationLimits,
+  root?: string,
+  registry?: SchemaRegistry,
+  bindings?: Bindings,
+): EvalResult {
+  if (!Number.isFinite(at)) throw Error("evaluation time must be finite");
+  const valid = fork(
+    input,
+    (d) =>
+      d.claims.validFrom <= at && (d.claims.validUntil === undefined || at < d.claims.validUntil),
+  );
+  return evalTermWithin(term, valid, root, registry, bindings, new EvaluationBudget(limits));
+}
+
+function combinedSummary(
+  buckets: number,
+  ownEntries: number,
+  children: Iterable<LogicalTreeSummary>,
+): LogicalTreeSummary {
+  let nodes = 1,
+    entries = ownEntries,
+    maxBuckets = buckets,
+    depth = 1;
+  for (const s of children) {
+    nodes += s.nodes;
+    entries += s.entries;
+    maxBuckets = Math.max(maxBuckets, s.maxBuckets);
+    depth = Math.max(depth, 1 + s.depth);
+  }
+  return { nodes, entries, maxBuckets, depth };
 }

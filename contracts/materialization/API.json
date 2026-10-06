@@ -139,6 +139,14 @@
       ],
       "milestone": "M2",
       "semantics": "Native key/config/grant/capability selection is explicit; descriptions cannot install themselves."
+    },
+    {
+      "id": "rhizomatic.materialization/1/input-preflight",
+      "owners": [
+        "command"
+      ],
+      "milestone": "M2",
+      "semantics": "Pure supplied-input validation projection of stages1\u20134,6\u20138; all applicable input limits including supplied resolve envelope; no native source grant/currentness, execution or produced output guarantee."
     }
   ],
   "exports": [
@@ -253,6 +261,14 @@
       "contract": "rhizomatic.materialization/1/control-execute",
       "classification": "host_capability",
       "signature_contract": "Thin native facade exposes lower outer-image/read/export/normalized-plan/bytes-CAS through existing federation edge; receives verified normalized inputs from command, never interprets account policy or signed command roles. Reexports lower types intentionally for upper dependency graph."
+    },
+    {
+      "ts": "preflightMaterializationInput",
+      "rust": "preflight_materialization_input",
+      "owner": "command",
+      "contract": "rhizomatic.materialization/1/input-preflight",
+      "classification": "portable_contract",
+      "signature_contract": "copied explicit signed boot/catalog/bindings + entryId/delivery/receivedAt -> input-valid | over-input-limit(resource-limit) | invalid-input(StableCode); local framing errors; projection documented MR21, not invoke first-refusal prediction"
     }
   ],
   "native_extensions_preserved": [

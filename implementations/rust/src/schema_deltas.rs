@@ -340,3 +340,89 @@ pub fn read_exact_definition(
         Ok(ExactDefinition::Reading(reading))
     }
 }
+
+/// Bounded stage-7 closure decode; signed exact acts retain the existing semantic reader.
+pub fn read_materialization_definitions(
+    deltas: &[crate::types::Delta],
+    at: f64,
+    definitions: usize,
+    pointers: usize,
+    limits: crate::evidence_codec::ReadingAppearanceLimits,
+) -> Result<Vec<(String, ExactDefinition)>, String> {
+    let budget = |n: usize, max: usize| {
+        if n > max {
+            Err("resource-limit".to_string())
+        } else {
+            Ok(())
+        }
+    };
+    budget(deltas.len(), definitions)?;
+    let mut bodies = Vec::new();
+    for d in deltas {
+        budget(d.claims.pointers.len(), pointers)?;
+        budget(
+            crate::delta::canonical_bytes(&d.claims)
+                .map_err(|_| "invalid-definition")?
+                .len(),
+            limits.artifact_bytes,
+        )?;
+        let hyper = d
+            .claims
+            .pointers
+            .iter()
+            .any(|p| p.role == format!("{VOCAB_PREFIX}.hyperschema.defines"));
+        let role = format!(
+            "{VOCAB_PREFIX}.{}.term",
+            if hyper { "hyperschema" } else { "schema" }
+        );
+        let blob = match d
+            .claims
+            .pointers
+            .iter()
+            .find(|p| p.role == role)
+            .map(|p| &p.target)
+        {
+            Some(Target::Primitive(Primitive::Str(s))) => s,
+            _ => return Err("invalid-definition".into()),
+        };
+        if blob.is_empty()
+            || blob.len() % 2 != 0
+            || !blob
+                .bytes()
+                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+        {
+            return Err("invalid-definition".into());
+        }
+        budget(blob.len() / 2, limits.artifact_bytes)?;
+        let bytes = hex::decode(blob).map_err(|_| "invalid-definition")?;
+        let body =
+            crate::evidence_codec::canonical(&bytes, limits.artifact_bytes).map_err(|e| {
+                if e == crate::evidence_codec::EvidenceCodecError::ResourceLimit {
+                    "resource-limit"
+                } else {
+                    "invalid-definition"
+                }
+            })?;
+        bodies.push((body, !hyper));
+    }
+    crate::reading_wire_budget::check_program(
+        &bodies.iter().map(|(b, r)| (b, *r)).collect::<Vec<_>>(),
+        limits,
+    )
+    .map_err(|e| {
+        if e == crate::evidence_codec::EvidenceCodecError::ResourceLimit {
+            "resource-limit"
+        } else {
+            "invalid-definition"
+        }
+    })?;
+    deltas
+        .iter()
+        .map(|d| {
+            Ok((
+                d.id.clone(),
+                read_exact_definition(d, at).map_err(|_| "invalid-definition")?,
+            ))
+        })
+        .collect()
+}

@@ -81,3 +81,29 @@ artifact length still decides the boundary. Shared exact/one-over schedules cove
 payloads, repeated multibyte node text and primitive author-rank metadata. Metadata still adds
 zero syntax nodes. Original profile1 vectors and hashes remain unchanged outside E23's explicitly
 approved reserved-key correction.
+
+## M2 implementation clarification (supervisor ruling)
+
+MR03/cmd_core_feature_boundary now distinguishes native grammar-illegal reading-order inView (invalid-definition stage7) from successfully parsed unsupported reading features (invalid-program after pins/closure). The exact reader and native parseOrder guards remain unchanged. Shared top/child reflective acts and wrong-pin precedence variants are required M2 evidence; existing profile1/M1 refusal contracts remain preserved.
+
+M2 stage-order clarification: original signed definition features remain stage7. Supplied evaluated reading features cannot be inspected before the mandated stage8 strict envelope decode. They are checked after structural/contextual evidence and before policy resolution; known envelope limits/invalid-evidence precede invalid-program there. Pure preflight keeps this order. No early raw opening or M1 domain amendment; supervisor confirmed the bounded split for cmd_core_feature_boundary precedence vectors.
+
+## M2 supervisor pointer-count clarification
+
+MR04 pointers includes each delivered materialization request/support/carrier appearance. The
+profile-local stage1 guard first bounds delivery length, then scans every debug claims.pointers
+container without target decoding. Unknown container counts refuse invalid-appearance; otherwise
+any per-appearance overflow refuses resource-limit before target parsing/signature verification,
+then canonical deliveryBytes are checked after decode. Repeats count before dedup. Nested byte
+artifacts keep their first decode phases (source6, embedded original definitions7, envelope8).
+No unrelated boot description is newly inspected at invocation, and profile1/Delta acquire no
+global pointer cap. Shared exact/overflow request, carrier and definition schedules pin this.
+
+Source-faithful grammar note: native assertClosedTrustPred also rejects actsFor in aliased trust
+before an exact definition is returned. The canonical signed hostile act is invalid-definition,
+while native-valid unsupported principal orders remain invalid-program after pins/closure. The
+ordinary gather alias/reflection positives preserve native behavior.
+
+## M2 bounded evaluation operational amendment
+
+Supervisor approved per-logical-operator HView node/entry bounds, per-node buckets, active expansion path depth, occurrence charging and non-cumulative wrappers. Independently bounded child intermediates may prune before parent attachment; at most one pending child per active frame, no total CPU/temporary-allocation guarantee. Existing default/profile1 evaluation unchanged. See normative MR04 amendment and shared bounded-evaluation schedules.

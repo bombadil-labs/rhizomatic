@@ -45,7 +45,7 @@ function validate({cards,scenarios,plan,coverage,capabilities,bootstrap,towers,e
  }
  unique(api.contracts.map(c=>c.id),'API contract');
  if(stageContracts.some(id=>!api.contracts.some(c=>c.id===id)))throw Error('missing API stage contract');
- for(const c of api.contracts)if(!c.id||!c.semantics||!c.owners.length||c.owners.some(o=>!owners.has(o))||!c.requirements.length||c.requirements.some(r=>c.spec==='spec/16-materialization.md' ? !/^MR-0[4-7]$/.test(r) || !['rhizomatic.syntax/reading-appearance/1','rhizomatic.hview-envelope/1','rhizomatic.hview-envelope/1/encode','rhizomatic.hview-envelope/1/decode'].includes(c.id) : !/^R-(0[1-9]|[12][0-9]|3[0-4])$/.test(r)))throw Error('invalid API semantic contract');
+ for(const c of api.contracts)if(!c.id||!c.semantics||!c.owners.length||c.owners.some(o=>!owners.has(o))||!c.requirements.length||c.requirements.some(r=>c.spec==='spec/16-materialization.md' ? !/^MR-(0[1-9]|1[0-9]|2[0-4])$/.test(r) || !([...JSON.parse(readFileSync(join(root,'contracts/materialization/API.json'),'utf8')).contracts.filter(c=>c.milestone==='M1'||c.milestone==='M2').map(c=>c.id),'rhizomatic.hview-envelope/1','rhizomatic.syntax/materialization-program-budget/1'].includes(c.id)) : !/^R-(0[1-9]|[12][0-9]|3[0-4])$/.test(r)))throw Error('invalid API semantic contract');
 }
 const data={cards:read('BOUNDARIES').cards,scenarios:read('ACCEPTANCE').scenarios,plan:read('MILESTONES').milestones,coverage:read('coverage').scenarios,capabilities:read('capabilities'),bootstrap:read('bootstrap'),towers:read('TOWERS'),execution:JSON.parse(readFileSync(join(root,'vectors/command/execution.json'),'utf8')),api:read('API')};
 validate(data);

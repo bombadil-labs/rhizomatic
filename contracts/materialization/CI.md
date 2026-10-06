@@ -70,4 +70,19 @@ checks. Baselines are measurements, not invented estimates or proof of increment
 The materialization-m1 CI job now runs packet structure plus live owner inventories, all 15 M1
 case IDs, both fixed directions, three seeded codec assignments per selected fixture and exact
 retained replay. It depends on all four unchanged-level witness jobs and uploads concrete
-REPORT/COVERAGE/test/plan/port artifacts. Profiles M2–M5 remain prospective. See [M1.md](M1.md).
+REPORT/COVERAGE/test/plan/port artifacts. This paragraph records M1 wiring; M3–M5 remain prospective. See [M1.md](M1.md).
+
+## M2 executable wiring
+
+The materialization-m2 job depends on all four unchanged native witness gates. It executes M0
+packet/live inventories and harness sensitivity, all 27 M2 batch allocations, both fixed command
+routes and three seeded assignments per required family, exact retained replay and the narrow
+measurement sweep. It uploads REPORT/COVERAGE/assertion receipts, stage plans/artifacts and
+MEASUREMENTS. Three hostile families additionally terminate through signed refusal readback;
+resolve is never dispatched after a refusal. Six M3 lifecycle variants remain explicitly deferred.
+
+The TS freshness job regenerates materialization vectors alongside all existing generators.
+Local final profile1 acceptance still requires actual hosted exact-SHA four-witness results;
+unsupported local toolchains cannot manufacture that report. Fable's pinned independent review
+and supervisor integration remain required before release A. See [M2.md](M2.md) for API and
+measurement boundaries and [M2-RESULTS.md](M2-RESULTS.md) for local execution.

@@ -38,8 +38,14 @@ fn uses(tree: &UseTree, prefix: String, out: &mut Vec<(String, String)>) {
 }
 fn owner(module: &str, symbol: &str) -> &'static str {
     match module {
-        "command_data" => "command-data",
-        "command" => "command",
+        "command_data" | "materialization_data" => "command-data",
+        "command"
+        | "materialization_command"
+        | "materialization_result"
+        | "materialization_input"
+        | "materialization_values"
+        | "materialization_basis"
+        | "materialization_evidence" => "command",
         "types" | "cbor" | "delta" | "hash" | "sign" | "json_profile" | "b64u" | "set" => "delta",
         "pred"
         | "term_io"
@@ -53,6 +59,7 @@ fn owner(module: &str, symbol: &str) -> &'static str {
         "schema" => "schema",
         "schema_deltas" if symbol == "VOCAB_PREFIX" => "delta",
         "schema_deltas" | "lens_binding" => "schema-load",
+        "evaluation_budget" => "resolve",
         "eval" => {
             if matches!(
                 symbol,
@@ -75,6 +82,8 @@ fn owner(module: &str, symbol: &str) -> &'static str {
                 "resolve-kernel"
             }
         }
+        "resolve_evidence" => "resolve",
+        "materialization_source" => "federation",
         "hview" | "hview_envelope" => "algebra",
         "alias" => "delta",
         "reactor" if matches!(symbol, "manifest_member_ids" | "make_manifest_claims") => "delta",
@@ -153,6 +162,9 @@ fn attribute_meta(meta: &syn::Meta) -> Result<(), String> {
             }
             _ => Err("unsupported nonliteral cfg predicate".into()),
         }
+    }
+    if meta.path().is_ident("test") && matches!(meta, syn::Meta::Path(_)) {
+        return Ok(());
     }
     if meta.path().is_ident("cfg") {
         let syn::Meta::List(l) = meta else {
@@ -315,12 +327,15 @@ fn macro_expressions(m: &syn::Macro) -> Result<Vec<Expr>, String> {
             };
             parser.parse2(m.tokens.clone()).map_err(|e| e.to_string())
         }
-        "format" | "assert" | "assert_eq" | "assert_ne" | "panic" | "unreachable" => {
+        "format" | "println" | "assert" | "assert_eq" | "assert_ne" | "panic" | "unreachable" => {
             syn::punctuated::Punctuated::<Expr, Token![,]>::parse_terminated
                 .parse2(m.tokens.clone())
                 .map(|v| v.into_iter().collect())
                 .map_err(|e| e.to_string())
         }
+        "include_str" => syn::parse2::<syn::LitStr>(m.tokens.clone())
+            .map(|_| Vec::new())
+            .map_err(|e| format!("unsupported nonliteral include_str: {e}")),
         _ => Err(format!("unsupported production macro {name}")),
     }
 }

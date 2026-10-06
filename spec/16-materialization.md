@@ -1,7 +1,7 @@
 # Portable evidence and maintained reads
 
-Status: **Accepted contract; M1 implementation in progress. Later milestones are specified,
-not implemented or certified by this document.** Baseline:
+Status: **Accepted contract and independently accepted M1 codecs; M2 batch implementation
+awaits independent review. M3–M5 remain specified, not implemented or certified by this document.** Baseline:
 Rhizomatic `21b209ed1b14e749a5e7cf84fd9eef4f8e592fb0`, Loam `ae0e4e21`.
 This contract defines a new profile, `rhizomatic.materialization/1`. It does not amend
 `rhizomatic.command/1`, its installed operations, or SPEC-1–15. Requirement IDs MR-01–MR-24
@@ -35,9 +35,12 @@ closure, including reading orders, alias trust predicates and reflected subterms
 profile-1 principal modes and native Loam lowering APIs remain intact. No account-lowering
 callback is smuggled into core. Gather predicates retain existing alias/reflection semantics.
 Reading-order predicates (top, child and embedded resolve Schemas) must be ordinary pure
-delta predicates after explicit hole substitution: actsFor, inView and aliased string matches
-there are invalid-program, since the current pure policy kernel cannot acquire their input
-context. Generic M1 may preserve those native syntax shapes; new portable resolution cannot
+delta predicates after explicit hole substitution. Native-valid actsFor and aliased string matches
+there are invalid-program after higher-priority definition/pin/closure checks, since the pure
+policy kernel cannot acquire their input context. Native grammar-illegal reading-order inView
+is invalid-definition at stage 7 under the existing exact reader, subject to earlier stages and
+known syntax-limit precedence. A wrong pin cannot override this parsing refusal; a wrong pin
+with a native-valid unsupported feature instead returns pin-mismatch. Generic M1 may preserve those native syntax shapes; new portable resolution cannot
 pretend they execute. This is a new-profile support boundary, not an evaluator/hash amendment. One
 root per batch gather; registrations have a finite explicit
 root set. No automatic root discovery, registry lookup, name-based latest selection or network I/O.
@@ -66,7 +69,7 @@ the exact limit names, never raise them. Count repeated occurrences, not just di
 | entries | 16,384 | HVEntry occurrences across all nested nodes |
 | nodes | 4,096 | root and every embedded child occurrence |
 | depth | 32 | root depth 1, child depth parent+1 |
-| pointers | 256 | per original Delta |
+| pointers | 256 | per Delta appearance decoded by this profile, including every delivered request/support/carrier; nested originals at their assigned decode phase |
 | buckets | 256 | per node, including empty buckets |
 | readings | 256 | distinct full Schema appearances per envelope |
 | definitions | 256 | exact signed acts per program closure |
@@ -139,6 +142,30 @@ match SPEC-1/SPEC-2 and Rust; their broken prior hashes are the explicit compati
 All unaffected Delta/term/Schema/HView/View canonical bytes and hashes remain unchanged.
 
 ## 3. M1: lossless HView evidence
+
+### Materialization evaluation operational bounds (M2 amendment)
+
+The materialization profile bounds EVERY logical HView operator result under the existing
+bottom-up term semantics, including intermediates later discarded by prune. This is an
+operational limit of this profile; native/default evaluation and profile1 are unchanged.
+Logical result summaries carry total node and entry OCCURRENCES and maximum depth; buckets
+are bounded PER NODE (including empty buckets), never summed against the bucket cap. Repeated
+expansion paths count separately regardless of shared objects, memoization or optimization.
+
+Group reserves each new bucket/entry before allocating it. Expansion evaluates children
+sequentially and checks active path depth before descent. Each child operator has the global
+per-result node/entry bound, not a parent's remaining allowance: an in-bound100-node child
+intermediate pruned to1 may fit the parent's1 remaining slot. Before attachment, reserve the
+combined parent summary including every child descendant; replacement subtracts exactly the
+replaced occurrence subtree. Identity prune/fix wrappers do not accumulate charges. An
+oversized logical child fails even when an enclosing prune would discard it.
+
+At most one pending independently bounded child exists PER active evaluator frame; ancestor
+partial trees and bounded child temporaries may coexist. No absence of temporary allocation
+or total CPU/work quota is claimed. Known structural overflow refuses resource-limit at
+stage8 before the next over-budget group allocation, descent or parent attachment. Pure input
+preflight never executes this evaluator and may pass these inputs; no fallback follows the
+invocation refusal. Deterministic traversal/allocation probes, not timings, check early stop.
 
 **MR-05.** Define `rhizomatic.hview-envelope/1` as C of this exact map:
 
@@ -438,8 +465,11 @@ original signed definition pins. Envelope schemas are claimed evaluated readings
 definition publications. Complete-result validation verifies signed definition closure and
 pins and strictly decodes the envelope; it does not re-run gathering to prove each annotation
 or child reading choice. Resolution operates on that explicit evidence. M2 core checks reject
-unbound/actsFor features in evaluated reading bodies too, so an envelope cannot request native
-principal callbacks. Loam-specific custom resolvers remain outside portable resolution.
+unbound/native-valid unsupported features in supplied evaluated reading bodies too, so an envelope
+cannot request native principal callbacks. These checks occur at stage 8 only after strict supplied
+envelope bounds/decode and structural/contextual validation; structural invalid-evidence and
+known envelope resource-limit precede the evaluated-reading feature check. Original signed
+definition/program features remain stage 7 and precede all supplied envelope defects. Loam-specific custom resolvers remain outside portable resolution.
 
 **MR-12.** Delivery is `(entryId, signed debug Delta appearances)`, copied before awaits.
 Verify every appearance, then dedup as SPEC-15 R-08. Support closure is explicit: common config
@@ -745,10 +775,18 @@ Known deterministic limit failures are resource-limit; physical execution exhaus
 resource-exhausted. No blanket native exception catch can substitute either.
 
 1. Framing/canonical entry ID and finite native receivedAt (local transport errors without
-   outcome); then delivered count; appearance decode; canonical deliveryBytes bounds;
+   outcome); then delivered count; scan all delivered debug claims.pointers array counts without
+   decoding targets or opening embedded bytes; bound each known per-appearance pointers count;
+   appearance decode; canonical deliveryBytes bounds;
    full ID/signature verification: resource-limit or invalid-appearance. Count includes repeats
    before dedup. An undecodable appearance is invalid-appearance before its unknown canonical
-   byte size. This stage does not open embedded snapshot/evidence/program/control bodies.
+   byte size. Unknown pointer counts (missing/malformed claims.pointers containers) are
+   invalid-appearance after delivered count and before per-pointer/canonical-byte bounds; this
+   scan order is independent of delivery enumeration. For known containers, any over-pointer
+   appearance is resource-limit before target parsing/signature verification, even alongside a
+   bad signature; repeats count before dedup. Directly delivered definition/carrier outer pointers
+   are bounded here; their embedded originals still wait for their assigned phases. A lower cap
+   may make a verb uncallable; reserved descriptions have no exemption. This stage does not open embedded snapshot/evidence/program/control bodies.
 2. Entry presence/common grammar/validity: entry-missing, invalid-request, request-outside-validity.
 3. Receiver/configuration/installed validity, then caller/admin authorization:
    configuration-mismatch, unauthorized. Only configuration and chosen operation validity are
@@ -792,13 +830,54 @@ resource-exhausted. No blanket native exception catch can substitute either.
    resolution (missing-reading, resource-exhausted, execution-failed), then produced envelope/View/
    complete body/proposed control-image bounds (resource-limit BEFORE CAS). Gather/control
    envelope generation checks per-envelope structural limits as it produces each tree; malformed
-   generated native evidence is invalid-evidence, unsupported reading features already
-   invalid-program at stage 7. Multiple root results share one Basis; aggregate bytes alone sum
+   generated native evidence is invalid-evidence. Original signed definition features were checked
+   at stage 7; supplied evaluated readings are checked here only after envelope bounds/decode
+   and structural/contextual evidence validation, before resolution, with native-valid unsupported
+   or unbound features returning invalid-program. Multiple root results share one Basis; aggregate bytes alone sum
    across roots. A too-large computed result is a known refusal with prior control intact.
 9. Durable CAS: write-conflict, control-rejected (refused); commit-unconfirmed (indeterminate).
    After confirmed commit, post-CAS-result-materialization failure is result-unavailable with
    confirmed control (indeterminate), even if precomputed results remain held. Signer/transport
    defects may have no response. Never mint refusal after a possibly performed effect.
+
+### Pure input-capacity preflight (release A)
+
+`preflightMaterializationInput` / `preflight_materialization_input` is owned by command and
+implements `rhizomatic.materialization/1/input-preflight`. It receives explicit copied signed
+boot configuration, installed catalog and bindings, entry ID, all delivered debug appearances
+and the finite trusted receivedAt. It receives no source capability, clock, signer or store.
+Native malformed framing/nonfinite receivedAt produces a local transport error as invoke does.
+Its exact projected result is one of:
+
+```
+{status: "input-valid"}
+{status: "over-input-limit", code: "resource-limit"}
+{status: "invalid-input", code: StableCode}
+```
+
+Input-valid means all supplied-input checks passed. It grants NO permission/currentness/source
+access, output-capacity guarantee, execution proof or dispatch guarantee. Over-input-limit is
+the only capacity exclusion; semantic refusals are errors, never native capacity fallback.
+The projection visits invocation stages 1, 2, 3 (signed configuration/selected operation validity
+and caller authorization), 4, 6 (supplied source structure only), 7, then 8 (supplied evidence
+structure only). Stage 5/control and stage 9 are unsupported in release A. In stage 6 omit
+native grant lookup and host current checks; check explicit signed binding presence/validity and
+all capture/authority/snapshot evidence using supplied boot only. Stage 8 resolve uses the M1
+decoder and the same contextual evidence validation, including every supplied-envelope bound;
+it performs no policy resolution or gather execution and checks no produced output bounds.
+No native current check runs at either initial or final positions. This is a pure validation
+projection; it MUST NOT move invoke's stage-8 checks into invoke's earlier stages.
+Known deterministic bounds beat malformed input within the same projected phase, matching
+MR-21. Returned semantic code need not be invoke's first refusal: an omitted native grant or
+currentness check could win earlier there. In particular absent grant, refused required support
+and stale source can all preflight input-valid yet invoke unauthorized/source-changed; malformed
+source evidence with missing grant can preflight invalid-source but invoke unauthorized.
+Supplied resolve envelope overflow preflights over-input-limit and invokes resource-limit at
+stage 8; in-bounds gather input with excessive produced expansion preflights input-valid but
+invokes resource-limit. These paired schedules are mandatory M2 evidence. Applications retaining
+snapshots, evidence, outcomes or definition payloads own every retained erasure surface; these
+pure ports neither persist nor purge those copies. Host diagnostics may distinguish refused
+support from revoked permission while both remain wire unauthorized.
 
 **MR-22.** Portable semantics belong to their existing owners; ownership/API manifests
 freeze new seams. HView codec lives in algebra, full reading appearance primitives in syntax,

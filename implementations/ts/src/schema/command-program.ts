@@ -28,6 +28,7 @@ interface Features {
   entityHoles: Set<string>;
   actsFor: boolean;
   badSort: boolean;
+  contextualReading: boolean;
 }
 function features(definition: CommandProgramDefinition): Features {
   const result: Features = {
@@ -36,6 +37,7 @@ function features(definition: CommandProgramDefinition): Features {
     entityHoles: new Set(),
     actsFor: false,
     badSort: false,
+    contextualReading: false,
   };
   const hole = (v: unknown) => {
     if (typeof v === "object" && v !== null && "kind" in v && v.kind === "hole" && "name" in v)
@@ -76,8 +78,17 @@ function features(definition: CommandProgramDefinition): Features {
         return;
     }
   };
+  const contextual = (p: Pred): boolean => {
+    if (p.kind === "actsFor" || p.kind === "inView") return true;
+    if (p.kind === "and" || p.kind === "or") return contextual(p.left) || contextual(p.right);
+    if (p.kind === "not") return contextual(p.pred);
+    if (p.kind === "hasPointer")
+      return p.ppred.role?.kind === "aliased" || p.ppred.context?.kind === "aliased";
+    return false;
+  };
   const order = (o: Order): void => {
     if (o.kind === "byPred") {
+      result.contextualReading ||= contextual(o.pred);
       pred(o.pred);
       order(o.then);
     }
@@ -154,6 +165,7 @@ export function validateCommandProgram(
   readingPin: string,
   bindings: Bindings,
   allowPrincipal: boolean,
+  pureReadingOrders = false,
 ): { hyper: HyperSchema; reading: Schema; registry: SchemaRegistry } {
   const fail = (code: CommandProgramCode): never => {
     throw new CommandProgramError(code);
@@ -221,6 +233,7 @@ export function validateCommandProgram(
     const f = scans.get(id)!;
     if (
       f.badSort ||
+      (pureReadingOrders && f.contextualReading) ||
       (!allowPrincipal && f.actsFor) ||
       [...f.holes].some((h) => !environment.has(h)) ||
       [...f.entityHoles].some((h) => typeof environment.get(h) !== "string")
@@ -236,4 +249,35 @@ export function validateCommandProgram(
     definitions.filter((d) => d.kind === "reading").map((d) => d.reading),
   );
   return { hyper: hyper.hyper, reading: reading.reading, registry };
+}
+
+/** New profile support boundary; the profile-1 validator retains its existing default. */
+export function validateMaterializationProgram(
+  definitions: readonly CommandProgramDefinition[],
+  hyperId: string,
+  readingId: string,
+  hyperPin: string,
+  readingPin: string,
+  bindings: Bindings,
+): { hyper: HyperSchema; reading: Schema; registry: SchemaRegistry } {
+  return validateCommandProgram(
+    definitions,
+    hyperId,
+    readingId,
+    hyperPin,
+    readingPin,
+    bindings,
+    false,
+    true,
+  );
+}
+export function validateMaterializationReading(reading: Schema, bindings: Bindings): void {
+  const f = features({ id: "", kind: "reading", reading });
+  if (
+    f.actsFor ||
+    f.contextualReading ||
+    [...f.holes].some((h) => !bindings.has(h)) ||
+    [...f.entityHoles].some((h) => typeof bindings.get(h) !== "string")
+  )
+    throw new CommandProgramError("invalid-program");
 }

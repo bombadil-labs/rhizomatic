@@ -65,3 +65,20 @@ blanket missing-reading rejection and the early draft's source lease/full durabl
 were narrowed before freeze to fit actual native behavior and the approved span. These are
 documented decisions, not pending semantic TODOs. Fable may find a contradiction; record any
 such finding against the exact requirement/case before code. The API graph is preserved.
+
+## M2 source inspection clarification
+
+Reading-order inView is native grammar-illegal in both witnesses (TS syntax/term-json parseOrder; Rust term_json parse_order). Exact signed definition readers therefore refuse invalid-definition at stage7, including a simultaneous wrong pin. Native-valid unsupported actsFor/aliased reading orders reach invalid-program only after pin/closure checks; a wrong pin wins pin-mismatch. Preserve native parser/profile1/M1 semantics and ordinary gather reflection. Supervisor selected this narrow split before its M2 vectors/code; no pre-parser feature classification or grammar widening.
+
+M2 stage-order clarification: original signed definition features remain stage7. Supplied evaluated reading features cannot be inspected before the mandated stage8 strict envelope decode. They are checked after structural/contextual evidence and before policy resolution; known envelope limits/invalid-evidence precede invalid-program there. Pure preflight keeps this order. No early raw opening or M1 domain amendment; supervisor confirmed the bounded split for cmd_core_feature_boundary precedence vectors.
+
+### M2 delivered pointers (supervisor ruling)
+
+Apply MR04 pointers to every materialization-delivered Delta appearance. Bound delivery count;
+obtain all outer pointer-array counts (unknown count is invalid-appearance); bound known counts;
+decode appearances and bound canonical bytes; verify every appearance before dedup. No early
+embedded artifact opening or profile1/Delta limit change. Lower caps may render a verb uncallable.
+
+## M2 bounded evaluation operational amendment
+
+Supervisor approved per-logical-operator HView node/entry bounds, per-node buckets, active expansion path depth, occurrence charging and non-cumulative wrappers. Independently bounded child intermediates may prune before parent attachment; at most one pending child per active frame, no total CPU/temporary-allocation guarantee. Existing default/profile1 evaluation unchanged. See normative MR04 amendment and shared bounded-evaluation schedules.

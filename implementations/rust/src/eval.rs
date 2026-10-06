@@ -2,6 +2,7 @@
 //! expand (§4.5), prune (§4.6), fix (§4.8). Mirrors ../ts/src/eval.ts.
 //! Sorts are checked at evaluation time (E9); the schema registry is an explicit input (E10).
 
+use crate::evaluation_budget::{EvalScope, LogicalTree, MaterializationEvaluationLimits, Summary};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use crate::cbor::{encode, CborValue};
@@ -343,7 +344,7 @@ fn resolve_reflective(
     root: Option<&str>,
     registry: Option<&SchemaRegistry>,
     bindings: Option<&Bindings>,
-    bind_readings: bool,
+    scope: &EvalScope,
 ) -> Result<Pred, String> {
     Ok(match pred {
         Pred::InView {
@@ -351,7 +352,7 @@ fn resolve_reflective(
             field,
             extract,
         } => {
-            let set = match eval_term_inner(term, input, root, registry, bindings, bind_readings)? {
+            let set = match eval_term_inner(term, input, root, registry, bindings, scope)?.value {
                 EvalResult::DSet { set, .. } => set,
                 _ => return Err("inView.term must evaluate to a DSet (E9)".to_string()),
             };
@@ -363,47 +364,22 @@ fn resolve_reflective(
         }
         Pred::And(l, r) => Pred::And(
             Box::new(resolve_reflective(
-                l,
-                input,
-                root,
-                registry,
-                bindings,
-                bind_readings,
+                l, input, root, registry, bindings, scope,
             )?),
             Box::new(resolve_reflective(
-                r,
-                input,
-                root,
-                registry,
-                bindings,
-                bind_readings,
+                r, input, root, registry, bindings, scope,
             )?),
         ),
         Pred::Or(l, r) => Pred::Or(
             Box::new(resolve_reflective(
-                l,
-                input,
-                root,
-                registry,
-                bindings,
-                bind_readings,
+                l, input, root, registry, bindings, scope,
             )?),
             Box::new(resolve_reflective(
-                r,
-                input,
-                root,
-                registry,
-                bindings,
-                bind_readings,
+                r, input, root, registry, bindings, scope,
             )?),
         ),
         Pred::Not(p) => Pred::Not(Box::new(resolve_reflective(
-            p,
-            input,
-            root,
-            registry,
-            bindings,
-            bind_readings,
+            p, input, root, registry, bindings, scope,
         )?)),
         Pred::ActsFor { .. } => {
             return Err("actsFor requires an explicit principal resolver (SPEC-14)".to_string())
@@ -440,23 +416,56 @@ pub fn term_contains_in_view(t: &Term) -> bool {
 }
 
 /// group(key, D) @ root — filing rules per ERRATA-2 E6; annotate tags thread into entries (E7).
-fn eval_group(key: &GroupKey, set: &DeltaSet, negated: &BTreeSet<String>, root: &str) -> HView {
+fn eval_group(
+    key: &GroupKey,
+    set: &DeltaSet,
+    negated: &BTreeSet<String>,
+    root: &str,
+    scope: &EvalScope,
+) -> Result<(HView, LogicalTree), String> {
     let mut buckets: BTreeMap<String, BTreeMap<String, HVEntry>> = BTreeMap::new();
-    let mut file = |prop: &str, d: &Delta| {
-        buckets
-            .entry(prop.to_string())
-            .or_default()
-            .entry(d.id.clone())
-            .or_insert_with(|| HVEntry {
-                delta: d.clone(),
-                negated: negated.contains(&d.id),
-                expanded: BTreeMap::new(),
-                readings: BTreeMap::new(),
-            });
+    let mut entries = 0;
+    scope.check(Summary {
+        nodes: 1,
+        depth: 1,
+        ..Default::default()
+    })?;
+    scope.visit("group-node");
+    let mut file = |prop: &str, d: &Delta| -> Result<(), String> {
+        if !buckets.contains_key(prop) {
+            scope.check(Summary {
+                nodes: 1,
+                entries,
+                max_buckets: buckets.len() + 1,
+                depth: 1,
+            })?;
+            scope.visit("bucket");
+            buckets.insert(prop.into(), BTreeMap::new());
+        }
+        if !buckets[prop].contains_key(&d.id) {
+            scope.check(Summary {
+                nodes: 1,
+                entries: entries + 1,
+                max_buckets: buckets.len(),
+                depth: 1,
+            })?;
+            scope.visit("entry");
+            entries += 1;
+            buckets.get_mut(prop).unwrap().insert(
+                d.id.clone(),
+                HVEntry {
+                    delta: d.clone(),
+                    negated: negated.contains(&d.id),
+                    expanded: BTreeMap::new(),
+                    readings: BTreeMap::new(),
+                },
+            );
+        }
+        Ok(())
     };
     for d in set.iter() {
         if let GroupKey::Const(prop) = key {
-            file(prop, d);
+            file(prop, d)?;
             continue;
         }
         for ptr in &d.claims.pointers {
@@ -469,35 +478,56 @@ fn eval_group(key: &GroupKey, set: &DeltaSet, negated: &BTreeSet<String>, root: 
             match key {
                 GroupKey::ByTargetContext => {
                     if let Some(ctx) = &er.context {
-                        file(ctx, d);
+                        file(ctx, d)?;
                     }
                 }
-                GroupKey::ByRole => file(&ptr.role, d),
-                GroupKey::Const(_) => unreachable!("handled above"),
+                GroupKey::ByRole => file(&ptr.role, d)?,
+                GroupKey::Const(_) => unreachable!(),
             }
         }
     }
-    // BTreeMap iteration is id-sorted already (entries keyed by id).
-    let props = buckets
-        .into_iter()
-        .map(|(prop, bucket)| (prop, bucket.into_values().collect()))
-        .collect();
-    HView {
-        id: root.to_string(),
-        props,
-    }
+    let tree = LogicalTree {
+        own_entries: entries,
+        own_buckets: buckets.len(),
+        children: BTreeMap::new(),
+    };
+    Ok((
+        HView {
+            id: root.into(),
+            props: buckets
+                .into_iter()
+                .map(|(p, b)| (p, b.into_values().collect()))
+                .collect(),
+        },
+        tree,
+    ))
 }
 
 /// Evaluate a named schema at a root over the SAME delta set the enclosing evaluation received
 /// (SPEC-2 §4.5). Termination is the schema DAG's, enforced at registry build (SPEC-3 §3).
+struct EvalStep {
+    value: EvalResult,
+    tree: Option<LogicalTree>,
+}
+impl EvalStep {
+    fn plain(value: EvalResult) -> Self {
+        Self { value, tree: None }
+    }
+    fn hview(h: HView, tree: LogicalTree) -> Self {
+        Self {
+            value: EvalResult::HView(h),
+            tree: Some(tree),
+        }
+    }
+}
 fn eval_schema(
     schema_ref: &SchemaRef,
     input: &DeltaSet,
     root: &str,
     registry: Option<&SchemaRegistry>,
     bindings: Option<&Bindings>,
-    bind_readings: bool,
-) -> Result<HView, String> {
+    scope: &EvalScope,
+) -> Result<(HView, LogicalTree), String> {
     let label = match schema_ref {
         SchemaRef::Name(n) => n.clone(),
         SchemaRef::Pinned(h) => format!("pinned:{}", &h[..h.len().min(16)]),
@@ -508,15 +538,16 @@ fn eval_schema(
     let schema = registry
         .resolve(schema_ref)
         .ok_or(format!("unknown schema: {label} (E10/E13)"))?;
-    match eval_term_inner(
+    let step = eval_term_inner(
         &schema.body,
         input,
         Some(root),
         Some(registry),
         bindings,
-        bind_readings,
-    )? {
-        EvalResult::HView(h) => Ok(h),
+        scope,
+    )?;
+    match step.value {
+        EvalResult::HView(h) => Ok((h, step.tree.unwrap())),
         _ => Err(format!(
             "schema {label} body must be an HView-sort term (E10)"
         )),
@@ -594,7 +625,15 @@ pub fn eval_term(
     registry: Option<&SchemaRegistry>,
     bindings: Option<&Bindings>,
 ) -> Result<EvalResult, String> {
-    eval_term_inner(term, input, root, registry, bindings, false)
+    eval_term_inner(
+        term,
+        input,
+        root,
+        registry,
+        bindings,
+        &EvalScope::native(false),
+    )
+    .map(|s| s.value)
 }
 
 fn eval_term_inner(
@@ -603,25 +642,25 @@ fn eval_term_inner(
     root: Option<&str>,
     registry: Option<&SchemaRegistry>,
     bindings: Option<&Bindings>,
-    bind_readings: bool,
-) -> Result<EvalResult, String> {
-    fn expect_dset(r: EvalResult, op: &str) -> Result<(DeltaSet, BTreeSet<String>), String> {
-        match r {
+    scope: &EvalScope,
+) -> Result<EvalStep, String> {
+    fn expect_dset(r: EvalStep, op: &str) -> Result<(DeltaSet, BTreeSet<String>), String> {
+        match r.value {
             EvalResult::DSet { set, negated, .. } => Ok((set, negated)),
             _ => Err(format!("{op} requires a DSet operand (E9)")),
         }
     }
-    fn expect_hview(r: EvalResult, op: &str) -> Result<HView, String> {
-        match r {
-            EvalResult::HView(h) => Ok(h),
+    fn expect_hview(r: EvalStep, op: &str) -> Result<(HView, LogicalTree), String> {
+        match r.value {
+            EvalResult::HView(h) => Ok((h, r.tree.unwrap())),
             _ => Err(format!("{op} requires an HView operand (E9)")),
         }
     }
     match term {
-        Term::Input => Ok(dset_result(input.clone())),
+        Term::Input => Ok(EvalStep::plain(dset_result(input.clone()))),
         Term::Select { pred, of } => {
             let (set, _) = expect_dset(
-                eval_term_inner(of, input, root, registry, bindings, bind_readings)?,
+                eval_term_inner(of, input, root, registry, bindings, scope)?,
                 "select",
             )?;
             let pred = resolve_reflective(
@@ -630,54 +669,58 @@ fn eval_term_inner(
                 root,
                 registry,
                 bindings,
-                bind_readings,
+                scope,
             )?;
-            Ok(dset_result(fork(&set, |d: &Delta| {
+            Ok(EvalStep::plain(dset_result(fork(&set, |d: &Delta| {
                 eval_pred(&pred, d, root)
-            })))
+            }))))
         }
         Term::Union { left, right } => {
             let (l, _) = expect_dset(
-                eval_term_inner(left, input, root, registry, bindings, bind_readings)?,
+                eval_term_inner(left, input, root, registry, bindings, scope)?,
                 "union",
             )?;
             let (r, _) = expect_dset(
-                eval_term_inner(right, input, root, registry, bindings, bind_readings)?,
+                eval_term_inner(right, input, root, registry, bindings, scope)?,
                 "union",
             )?;
-            Ok(dset_result(merge(&l, &r)))
+            Ok(EvalStep::plain(dset_result(merge(&l, &r))))
         }
         Term::Intersect { left, right } => {
             // left ∩ right, keyed by content-addressed id (SPEC-2 §4.9). Plain DSet result: any
             // mask(annotate) tag channel on an operand is dropped, like select/union (E14).
             let (l, _) = expect_dset(
-                eval_term_inner(left, input, root, registry, bindings, bind_readings)?,
+                eval_term_inner(left, input, root, registry, bindings, scope)?,
                 "intersect",
             )?;
             let (r, _) = expect_dset(
-                eval_term_inner(right, input, root, registry, bindings, bind_readings)?,
+                eval_term_inner(right, input, root, registry, bindings, scope)?,
                 "intersect",
             )?;
-            Ok(dset_result(fork(&l, |d: &Delta| r.contains(&d.id))))
+            Ok(EvalStep::plain(dset_result(fork(&l, |d: &Delta| {
+                r.contains(&d.id)
+            }))))
         }
         Term::Difference { of, without } => {
             // of ∖ without, keyed by id (SPEC-2 §4.9). Asymmetric operands `of`/`without`.
             let (o, _) = expect_dset(
-                eval_term_inner(of, input, root, registry, bindings, bind_readings)?,
+                eval_term_inner(of, input, root, registry, bindings, scope)?,
                 "difference",
             )?;
             let (w, _) = expect_dset(
-                eval_term_inner(without, input, root, registry, bindings, bind_readings)?,
+                eval_term_inner(without, input, root, registry, bindings, scope)?,
                 "difference",
             )?;
-            Ok(dset_result(fork(&o, |d: &Delta| !w.contains(&d.id))))
+            Ok(EvalStep::plain(dset_result(fork(&o, |d: &Delta| {
+                !w.contains(&d.id)
+            }))))
         }
         Term::Mask { policy, of } => {
             let (set, _) = expect_dset(
-                eval_term_inner(of, input, root, registry, bindings, bind_readings)?,
+                eval_term_inner(of, input, root, registry, bindings, scope)?,
                 "mask",
             )?;
-            Ok(match policy {
+            Ok(EvalStep::plain(match policy {
                 MaskPolicy::Drop => {
                     let negated = compute_negated(&set, None, root);
                     dset_result(fork(&set, |d: &Delta| !negated.contains(&d.id)))
@@ -697,30 +740,39 @@ fn eval_term_inner(
                         root,
                         registry,
                         bindings,
-                        bind_readings,
+                        scope,
                     )?;
                     let negated = compute_negated(&set, Some(&pred), root);
                     dset_result(fork(&set, |d: &Delta| !negated.contains(&d.id)))
                 }
-            })
+            }))
         }
         Term::Group { key, of } => {
             let root = root.ok_or("group requires an ambient root entity (E9)")?;
             let (set, negated) = expect_dset(
-                eval_term_inner(of, input, Some(root), registry, bindings, bind_readings)?,
+                eval_term_inner(of, input, Some(root), registry, bindings, scope)?,
                 "group",
             )?;
-            Ok(EvalResult::HView(eval_group(key, &set, &negated, root)))
+            let (h, tree) = eval_group(key, &set, &negated, root, scope)?;
+            Ok(EvalStep::hview(h, tree))
         }
         Term::Prune { keep, of } => {
-            let h = expect_hview(
-                eval_term_inner(of, input, root, registry, bindings, bind_readings)?,
+            let (h, mut tree) = expect_hview(
+                eval_term_inner(of, input, root, registry, bindings, scope)?,
                 "prune",
             )?;
-            Ok(EvalResult::HView(match keep {
+            let h = match keep {
                 PruneKeep::All => h,
                 PruneKeep::Match(m) => {
                     let m = expand_str_match(m, input, root);
+                    tree.children.retain(|(prop, _, _), _| str_match(&m, prop));
+                    tree.own_entries = h
+                        .props
+                        .iter()
+                        .filter(|(p, _)| str_match(&m, p))
+                        .map(|(_, es)| es.len())
+                        .sum();
+                    tree.own_buckets = h.props.keys().filter(|p| str_match(&m, p)).count();
                     HView {
                         id: h.id,
                         props: h
@@ -730,7 +782,9 @@ fn eval_term_inner(
                             .collect(),
                     }
                 }
-            }))
+            };
+            scope.check(tree.summary())?;
+            Ok(EvalStep::hview(h, tree))
         }
         Term::Expand {
             role,
@@ -738,8 +792,8 @@ fn eval_term_inner(
             reading,
             of,
         } => {
-            let h = expect_hview(
-                eval_term_inner(of, input, root, registry, bindings, bind_readings)?,
+            let (h, mut tree) = expect_hview(
+                eval_term_inner(of, input, root, registry, bindings, scope)?,
                 "expand",
             )?;
             let role = expand_str_match(role, input, root);
@@ -749,7 +803,7 @@ fn eval_term_inner(
                 None => None,
                 Some(r) => {
                     let reading = lookup_reading(r, registry)?;
-                    Some(if bind_readings {
+                    Some(if scope.bind_readings {
                         bind_program_reading(&reading, bindings)?
                     } else {
                         reading
@@ -759,7 +813,7 @@ fn eval_term_inner(
             let mut props: BTreeMap<String, Vec<HVEntry>> = BTreeMap::new();
             for (prop, entries) in h.props {
                 let mut out = Vec::with_capacity(entries.len());
-                for mut e in entries {
+                for (entry_index, mut e) in entries.into_iter().enumerate() {
                     for (i, ptr) in e.delta.claims.pointers.iter().enumerate() {
                         // Only role-matching EntityRef pointers expand; everything else passes
                         // through as written (E11, SPEC-3 §7 graceful degradation).
@@ -769,8 +823,14 @@ fn eval_term_inner(
                         if !str_match(&role, &ptr.role) {
                             continue;
                         }
-                        let nested =
-                            eval_schema(schema, input, &er.id, registry, bindings, bind_readings)?;
+                        let child_scope = scope.descend()?;
+                        let (nested, child_tree) =
+                            eval_schema(schema, input, &er.id, registry, bindings, &child_scope)?;
+                        scope.visit("child-ready");
+                        tree.children
+                            .insert((prop.clone(), entry_index, i), child_tree.summary());
+                        scope.check(tree.summary())?;
+                        scope.visit("attachment");
                         e.expanded.insert(i, nested);
                         if let Some(r) = &reading {
                             e.readings.insert(i, r.clone());
@@ -780,7 +840,7 @@ fn eval_term_inner(
                 }
                 props.insert(prop, out);
             }
-            Ok(EvalResult::HView(HView { id: h.id, props }))
+            Ok(EvalStep::hview(HView { id: h.id, props }, tree))
         }
         Term::Fix {
             schema,
@@ -789,26 +849,27 @@ fn eval_term_inner(
         } => {
             // The invocation instruction: ambient root is set explicitly (E10); bindings, when
             // present, become the ambient hole environment for the invoked body (E15).
-            Ok(EvalResult::HView(eval_schema(
+            let (h, tree) = eval_schema(
                 schema,
                 input,
                 entity,
                 registry,
                 fix_bindings.as_ref().or(bindings),
-                bind_readings,
-            )?))
+                scope,
+            )?;
+            Ok(EvalStep::hview(h, tree))
         }
         Term::Resolve { schema, of } => {
-            let h = expect_hview(
-                eval_term_inner(of, input, root, registry, bindings, bind_readings)?,
+            let (h, _tree) = expect_hview(
+                eval_term_inner(of, input, root, registry, bindings, scope)?,
                 "resolve",
             )?;
-            let bound = if bind_readings {
+            let bound = if scope.bind_readings {
                 bind_program_reading(schema, bindings)?
             } else {
                 schema.clone()
             };
-            Ok(EvalResult::View(resolve_view(&bound, &h)?))
+            Ok(EvalStep::plain(EvalResult::View(resolve_view(&bound, &h)?)))
         }
     }
 }
@@ -848,7 +909,15 @@ pub fn eval_bound_program_at(
     let valid = fork(input, |d: &Delta| {
         d.claims.valid_from <= at && d.claims.valid_until.is_none_or(|end| at < end)
     });
-    eval_term_inner(term, &valid, root, registry, Some(bindings), true)
+    eval_term_inner(
+        term,
+        &valid,
+        root,
+        registry,
+        Some(bindings),
+        &EvalScope::native(true),
+    )
+    .map(|s| s.value)
 }
 
 fn bind_string_match(m: &StrMatch, b: &Bindings) -> Result<StrMatch, String> {
@@ -1056,4 +1125,215 @@ pub(crate) fn selected_definition(
         ));
     }
     Ok(first_by_order(order, defs).unwrap().clone())
+}
+
+/// Materialization-only operational bounds; native/default/profile1 entry points remain unchanged.
+pub fn eval_materialization_term_at(
+    term: &Term,
+    input: &DeltaSet,
+    at: f64,
+    limits: MaterializationEvaluationLimits,
+    root: Option<&str>,
+    registry: Option<&SchemaRegistry>,
+    bindings: &Bindings,
+) -> Result<EvalResult, String> {
+    if !at.is_finite() {
+        return Err("evaluation time must be finite".into());
+    }
+    let valid = fork(input, |d| {
+        d.claims.valid_from <= at && d.claims.valid_until.is_none_or(|end| at < end)
+    });
+    eval_term_inner(
+        term,
+        &valid,
+        root,
+        registry,
+        Some(bindings),
+        &EvalScope::bounded(limits)?,
+    )
+    .map(|s| s.value)
+}
+
+#[cfg(test)]
+#[test]
+fn deterministic_logical_visitation() {
+    let v: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../vectors/materialization/commands.json"
+    ))
+    .unwrap();
+    for (id, groups, descents) in [
+        ("bounded_dag_exact", 15, 14),
+        ("bounded_dag_node_over", 15, 14),
+        ("bounded_dag_depth_over", 3, 3),
+        ("bounded_dag_exponential_early_stop", 43, 42),
+        ("bounded_wrappers_non_cumulative", 15, 14),
+        ("bounded_pending_child_prunes_to_one", 200, 199),
+    ] {
+        let f = v["positives"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .chain(v["negatives"].as_array().unwrap())
+            .find(|f| f["id"] == id)
+            .unwrap();
+        let b = if f["boot"].is_object() {
+            &f["boot"]
+        } else {
+            &v["boot"]
+        };
+        let configuration = crate::json_profile::parse_delta(&b["configuration"]).unwrap();
+        let limits_bytes = configuration
+            .claims
+            .pointers
+            .iter()
+            .find_map(|p| {
+                if p.role.ends_with(".limits") {
+                    if let Target::Bytes { value, .. } = &p.target {
+                        return Some(value);
+                    }
+                }
+                None
+            })
+            .unwrap();
+        let limits = crate::term_io::cbor_to_json(&crate::cbor::decode(limits_bytes).unwrap());
+        let top = f["request"]["claims"]["pointers"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|p| p["role"].as_str().unwrap().ends_with(".hyperschema"))
+            .unwrap()["target"]["delta"]
+            .as_str();
+        // Native syntax/data loaders only: the resolve-owned probe has no upward command dependency.
+        let mut hypers = Vec::new();
+        let mut readings = Vec::new();
+        let mut selected = None;
+        for raw in f["delivery"].as_array().unwrap() {
+            let d = crate::json_profile::parse_delta(raw).unwrap();
+            let text = |suffix: &str| {
+                d.claims.pointers.iter().find_map(|p| {
+                    if p.role.ends_with(suffix) {
+                        if let Target::Primitive(Primitive::Str(v)) = &p.target {
+                            return Some(v.clone());
+                        }
+                    }
+                    None
+                })
+            };
+            let Some(body) = text(".term") else {
+                continue;
+            };
+            let value = crate::term_io::cbor_to_json(
+                &crate::cbor::decode(&hex::decode(body).unwrap()).unwrap(),
+            );
+            let name = text(".name").unwrap();
+            if d.claims
+                .pointers
+                .iter()
+                .any(|p| p.role == "rhizomatic.hyperschema.term")
+            {
+                let h = crate::schema::HyperSchema {
+                    name,
+                    alg: 1,
+                    body: crate::term_json::parse_term(&value).unwrap(),
+                };
+                if Some(d.id.as_str()) == top {
+                    selected = Some(h.body.clone());
+                }
+                hypers.push(h);
+            } else {
+                let mut r = crate::term_json::parse_schema(&value).unwrap();
+                r.name = Some(name);
+                readings.push(r);
+            }
+        }
+        let registry = SchemaRegistry::build(hypers, readings).unwrap();
+        let term = selected.unwrap();
+        let base = if f["rows"].is_array() {
+            f
+        } else {
+            v["positives"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|p| p["id"] == f["fixtureSourceId"])
+                .unwrap()
+        };
+        let rows = DeltaSet::from_deltas(
+            base["rows"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|d| crate::json_profile::parse_delta(d).unwrap()),
+        )
+        .unwrap();
+        let bindings = Bindings::new();
+        let scope = EvalScope::bounded(MaterializationEvaluationLimits {
+            nodes: limits["nodes"].as_f64().unwrap() as usize,
+            entries: limits["entries"].as_f64().unwrap() as usize,
+            buckets: limits["buckets"].as_f64().unwrap() as usize,
+            depth: limits["depth"].as_f64().unwrap() as usize,
+        })
+        .unwrap();
+        let result = eval_term_inner(
+            &term,
+            &rows,
+            Some("item:fern"),
+            Some(&registry),
+            Some(&bindings),
+            &scope,
+        );
+        if v["positives"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|f| f["id"] == id)
+        {
+            assert!(matches!(result.unwrap().value, EvalResult::HView(_)));
+        } else {
+            assert_eq!(result.err().unwrap(), "resource-limit");
+        }
+        let visits = scope.visits.borrow();
+        assert_eq!(
+            visits.iter().filter(|s| s.1 == "group-node").count(),
+            groups,
+            "{id}"
+        );
+        assert_eq!(
+            visits.iter().filter(|s| s.1 == "descent").count(),
+            descents,
+            "{id}"
+        );
+        if id == "bounded_dag_exponential_early_stop" {
+            assert_eq!(visits.iter().filter(|s| s.1 == "attachment").count(), 30);
+        }
+        if id == "bounded_dag_node_over" {
+            assert!(matches!(
+                eval_bound_program_at(
+                    &term,
+                    &rows,
+                    1000.,
+                    Some("item:fern"),
+                    Some(&registry),
+                    &bindings
+                )
+                .unwrap(),
+                EvalResult::HView(_)
+            ));
+        }
+        // Ready child temporaries are bounded per active expansion-path frame, not globally.
+        let mut pending = BTreeMap::<usize, usize>::new();
+        for (depth, event) in visits.iter() {
+            if *event == "child-ready" {
+                let n = pending.entry(*depth).or_default();
+                *n += 1;
+                assert!(*n <= 1, "{id}: two pending children at depth{depth}");
+            }
+            if *event == "attachment" {
+                let n = pending.get_mut(depth).unwrap();
+                assert_eq!(*n, 1);
+                *n -= 1;
+            }
+        }
+        println!("materialization-visitation:{id}:{groups}:{descents}:max-pending-per-frame=1");
+    }
 }

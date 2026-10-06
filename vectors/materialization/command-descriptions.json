@@ -1,0 +1,230 @@
+{
+  "format": "rhizomatic-materialization-description-vectors/1",
+  "oracle": "SPEC-16 role tables and independent Python RFC8949 major types/preferred float16/32/64; map ordering by complete encoded keys. No witness codec or hash imports. Claims hex excludes detached signature.",
+  "positives": [
+    {
+      "id": "operation_gather",
+      "kind": "operation/1",
+      "verb": null,
+      "claims": {
+        "author": "ed25519:0101010101010101010101010101010101010101010101010101010101010101",
+        "timestamp": 1000,
+        "validFrom": 1000,
+        "pointers": [
+          {
+            "role": "rhizomatic.materialization.kind",
+            "target": "operation/1"
+          },
+          {
+            "role": "rhizomatic.materialization.name",
+            "target": {
+              "id": "rhizomatic.materialization.gather"
+            }
+          },
+          {
+            "role": "rhizomatic.materialization.interpreter",
+            "target": "rhizomatic.materialization.gather/1"
+          },
+          {
+            "role": "rhizomatic.materialization.input-contract",
+            "target": "rhizomatic.materialization.gather/1"
+          },
+          {
+            "role": "rhizomatic.materialization.output-contract",
+            "target": "rhizomatic.materialization.outcome/1"
+          },
+          {
+            "role": "rhizomatic.materialization.effect",
+            "target": "none"
+          },
+          {
+            "role": "rhizomatic.materialization.replay",
+            "target": "re-evaluate/1"
+          },
+          {
+            "role": "rhizomatic.materialization.dependencies",
+            "target": "explicit-support/1"
+          }
+        ]
+      },
+      "expectedClaimsHex": "a466617574686f727848656432353531393a3031303130313031303130313031303130313031303130313031303130313031303130313031303130313031303130313031303130313031303130313031303168706f696e7465727388a264726f6c65781f7268697a6f6d617469632e6d6174657269616c697a6174696f6e2e6b696e64667461726765746b6f7065726174696f6e2f31a264726f6c65781f7268697a6f6d617469632e6d6174657269616c697a6174696f6e2e6e616d6566746172676574a162696478217268697a6f6d617469632e6d6174657269616c697a6174696f6e2e676174686572a264726f6c6578267268697a6f6d617469632e6d6174657269616c697a6174696f6e2e696e7465727072657465726674617267657478237268697a6f6d617469632e6d6174657269616c697a6174696f6e2e6761746865722f31a264726f6c6578297268697a6f6d617469632e6d6174657269616c697a6174696f6e2e696e7075742d636f6e74726163746674617267657478237268697a6f6d617469632e6d6174657269616c697a6174696f6e2e6761746865722f31a264726f6c65782a7268697a6f6d617469632e6d6174657269616c697a6174696f6e2e6f75747075742d636f6e74726163746674617267657478247268697a6f6d617469632e6d6174657269616c697a6174696f6e2e6f7574636f6d652f31a264726f6c6578217268697a6f6d617469632e6d6174657269616c697a6174696f6e2e65666665637466746172676574646e6f6e65a264726f6c6578217268697a6f6d617469632e6d6174657269616c697a6174696f6e2e7265706c6179667461726765746d72652d6576616c756174652f31a264726f6c6578277268697a6f6d617469632e6d6174657269616c697a6174696f6e2e646570656e64656e6369657366746172676574726578706c696369742d737570706f72742f316974696d657374616d70f963d06976616c696446726f6df963d0",
+      "expectedRoles": [
+        "rhizomatic.materialization.kind",
+        "rhizomatic.materialization.name",
+        "rhizomatic.materialization.interpreter",
+        "rhizomatic.materialization.input-contract",
+        "rhizomatic.materialization.output-contract",
+        "rhizomatic.materialization.effect",
+        "rhizomatic.materialization.replay",
+        "rhizomatic.materialization.dependencies"
+      ]
+    },
+    {
+      "id": "operation_resolve",
+      "kind": "operation/1",
+      "verb": null,
+      "claims": {
+        "author": "ed25519:0101010101010101010101010101010101010101010101010101010101010101",
+        "timestamp": 1000,
+        "validFrom": 1000,
+        "pointers": [
+          {
+            "role": "rhizomatic.materialization.kind",
+            "target": "operation/1"
+          },
+          {
+            "role": "rhizomatic.materialization.name",
+            "target": {
+              "id": "rhizomatic.materialization.resolve"
+            }
+          },
+          {
+            "role": "rhizomatic.materialization.interpreter",
+            "target": "rhizomatic.materialization.resolve/1"
+          },
+          {
+            "role": "rhizomatic.materialization.input-contract",
+            "target": "rhizomatic.materialization.resolve/1"
+          },
+          {
+            "role": "rhizomatic.materialization.output-contract",
+            "target": "rhizomatic.materialization.outcome/1"
+          },
+          {
+            "role": "rhizomatic.materialization.effect",
+            "target": "none"
+          },
+          {
+            "role": "rhizomatic.materialization.replay",
+            "target": "re-evaluate/1"
+          },
+          {
+            "role": "rhizomatic.materialization.dependencies",
+            "target": "explicit-support/1"
+          }
+        ]
+      },
+      "expectedClaimsHex": "a466617574686f727848656432353531393a3031303130313031303130313031303130313031303130313031303130313031303130313031303130313031303130313031303130313031303130313031303168706f696e7465727388a264726f6c65781f7268697a6f6d617469632e6d6174657269616c697a6174696f6e2e6b696e64667461726765746b6f7065726174696f6e2f31a264726f6c65781f7268697a6f6d617469632e6d6174657269616c697a6174696f6e2e6e616d6566746172676574a162696478227268697a6f6d617469632e6d6174657269616c697a6174696f6e2e7265736f6c7665a264726f6c6578267268697a6f6d617469632e6d6174657269616c697a6174696f6e2e696e7465727072657465726674617267657478247268697a6f6d617469632e6d6174657269616c697a6174696f6e2e7265736f6c76652f31a264726f6c6578297268697a6f6d617469632e6d6174657269616c697a6174696f6e2e696e7075742d636f6e74726163746674617267657478247268697a6f6d617469632e6d6174657269616c697a6174696f6e2e7265736f6c76652f31a264726f6c65782a7268697a6f6d617469632e6d6174657269616c697a6174696f6e2e6f75747075742d636f6e74726163746674617267657478247268697a6f6d617469632e6d6174657269616c697a6174696f6e2e6f7574636f6d652f31a264726f6c6578217268697a6f6d617469632e6d6174657269616c697a6174696f6e2e65666665637466746172676574646e6f6e65a264726f6c6578217268697a6f6d617469632e6d6174657269616c697a6174696f6e2e7265706c6179667461726765746d72652d6576616c756174652f31a264726f6c6578277268697a6f6d617469632e6d6174657269616c697a6174696f6e2e646570656e64656e6369657366746172676574726578706c696369742d737570706f72742f316974696d657374616d70f963d06976616c696446726f6df963d0",
+      "expectedRoles": [
+        "rhizomatic.materialization.kind",
+        "rhizomatic.materialization.name",
+        "rhizomatic.materialization.interpreter",
+        "rhizomatic.materialization.input-contract",
+        "rhizomatic.materialization.output-contract",
+        "rhizomatic.materialization.effect",
+        "rhizomatic.materialization.replay",
+        "rhizomatic.materialization.dependencies"
+      ]
+    },
+    {
+      "id": "request_resolve",
+      "kind": "request/1",
+      "verb": "resolve",
+      "claims": {
+        "author": "ed25519:0101010101010101010101010101010101010101010101010101010101010101",
+        "timestamp": 1000,
+        "validFrom": 1000,
+        "pointers": [
+          {
+            "role": "rhizomatic.materialization.kind",
+            "target": "request/1"
+          },
+          {
+            "role": "rhizomatic.materialization.receiver",
+            "target": {
+              "id": "ed25519:0101010101010101010101010101010101010101010101010101010101010101"
+            }
+          },
+          {
+            "role": "rhizomatic.materialization.configuration",
+            "target": {
+              "delta": "1e200101010101010101010101010101010101010101010101010101010101010101"
+            }
+          },
+          {
+            "role": "rhizomatic.materialization.operation",
+            "target": {
+              "delta": "1e200202020202020202020202020202020202020202020202020202020202020202"
+            }
+          },
+          {
+            "role": "rhizomatic.materialization.evidence",
+            "target": {
+              "delta": "1e200303030303030303030303030303030303030303030303030303030303030303"
+            }
+          }
+        ]
+      },
+      "expectedClaimsHex": "a466617574686f727848656432353531393a3031303130313031303130313031303130313031303130313031303130313031303130313031303130313031303130313031303130313031303130313031303168706f696e7465727385a264726f6c65781f7268697a6f6d617469632e6d6174657269616c697a6174696f6e2e6b696e646674617267657469726571756573742f31a264726f6c6578237268697a6f6d617469632e6d6174657269616c697a6174696f6e2e726563656976657266746172676574a16269647848656432353531393a30313031303130313031303130313031303130313031303130313031303130313031303130313031303130313031303130313031303130313031303130313031a264726f6c6578287268697a6f6d617469632e6d6174657269616c697a6174696f6e2e636f6e66696775726174696f6e66746172676574a16564656c746178443165323030313031303130313031303130313031303130313031303130313031303130313031303130313031303130313031303130313031303130313031303130313031a264726f6c6578247268697a6f6d617469632e6d6174657269616c697a6174696f6e2e6f7065726174696f6e66746172676574a16564656c746178443165323030323032303230323032303230323032303230323032303230323032303230323032303230323032303230323032303230323032303230323032303230323032a264726f6c6578237268697a6f6d617469632e6d6174657269616c697a6174696f6e2e65766964656e636566746172676574a16564656c7461784431653230303330333033303330333033303330333033303330333033303330333033303330333033303330333033303330333033303330333033303330333033303330336974696d657374616d70f963d06976616c696446726f6df963d0",
+      "expectedRoles": [
+        "rhizomatic.materialization.kind",
+        "rhizomatic.materialization.receiver",
+        "rhizomatic.materialization.configuration",
+        "rhizomatic.materialization.operation",
+        "rhizomatic.materialization.evidence"
+      ]
+    },
+    {
+      "id": "authority",
+      "kind": "authority/1",
+      "verb": null,
+      "claims": {
+        "author": "ed25519:0101010101010101010101010101010101010101010101010101010101010101",
+        "timestamp": 1000,
+        "validFrom": 1000,
+        "pointers": [
+          {
+            "role": "rhizomatic.materialization.kind",
+            "target": "authority/1"
+          },
+          {
+            "role": "rhizomatic.materialization.source-binding",
+            "target": {
+              "delta": "1e200101010101010101010101010101010101010101010101010101010101010101"
+            }
+          },
+          {
+            "role": "rhizomatic.materialization.spec",
+            "target": {
+              "mime": "application/cbor",
+              "value": "oA"
+            }
+          }
+        ]
+      },
+      "expectedClaimsHex": "a466617574686f727848656432353531393a3031303130313031303130313031303130313031303130313031303130313031303130313031303130313031303130313031303130313031303130313031303168706f696e7465727383a264726f6c65781f7268697a6f6d617469632e6d6174657269616c697a6174696f6e2e6b696e64667461726765746b617574686f726974792f31a264726f6c6578297268697a6f6d617469632e6d6174657269616c697a6174696f6e2e736f757263652d62696e64696e6766746172676574a16564656c746178443165323030313031303130313031303130313031303130313031303130313031303130313031303130313031303130313031303130313031303130313031303130313031a264726f6c65781f7268697a6f6d617469632e6d6174657269616c697a6174696f6e2e7370656366746172676574a2646d696d65706170706c69636174696f6e2f63626f726576616c756541a06974696d657374616d70f963d06976616c696446726f6df963d0",
+      "expectedRoles": [
+        "rhizomatic.materialization.kind",
+        "rhizomatic.materialization.source-binding",
+        "rhizomatic.materialization.spec"
+      ]
+    }
+  ],
+  "negatives": [
+    {
+      "id": "unknown_role",
+      "base": "request_resolve",
+      "mutation": "extra-role"
+    },
+    {
+      "id": "duplicate_singleton",
+      "base": "request_resolve",
+      "mutation": "duplicate-receiver"
+    },
+    {
+      "id": "contextual_reference",
+      "base": "request_resolve",
+      "mutation": "reference-context"
+    },
+    {
+      "id": "unknown_operation",
+      "base": "operation_gather",
+      "mutation": "unknown-name"
+    },
+    {
+      "id": "wrong_mime",
+      "base": "authority",
+      "mutation": "wrong-mime"
+    }
+  ]
+}

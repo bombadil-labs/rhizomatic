@@ -1861,10 +1861,10 @@
     }
     return [...out].sort(comparePrimitives);
   }
-  function resolveReflective(pred, input, root, registry, bindings) {
+  function resolveReflective(pred, input, root, registry, bindings, budget) {
     switch (pred.kind) {
       case "inView": {
-        const sub = evalTermRaw(pred.term, input, root, registry, bindings);
+        const sub = evalTermWithin(pred.term, input, root, registry, bindings, budget);
         if (sub.sort !== "dset") throw new Error("inView.term must evaluate to a DSet (E9)");
         return {
           kind: "match",
@@ -1876,32 +1876,41 @@
       case "and":
         return {
           kind: "and",
-          left: resolveReflective(pred.left, input, root, registry, bindings),
-          right: resolveReflective(pred.right, input, root, registry, bindings)
+          left: resolveReflective(pred.left, input, root, registry, bindings, budget),
+          right: resolveReflective(pred.right, input, root, registry, bindings, budget)
         };
       case "or":
         return {
           kind: "or",
-          left: resolveReflective(pred.left, input, root, registry, bindings),
-          right: resolveReflective(pred.right, input, root, registry, bindings)
+          left: resolveReflective(pred.left, input, root, registry, bindings, budget),
+          right: resolveReflective(pred.right, input, root, registry, bindings, budget)
         };
       case "not":
-        return { kind: "not", pred: resolveReflective(pred.pred, input, root, registry, bindings) };
+        return {
+          kind: "not",
+          pred: resolveReflective(pred.pred, input, root, registry, bindings, budget)
+        };
       case "actsFor":
         throw new Error("actsFor requires an explicit principal resolver (SPEC-14)");
       default:
         return pred;
     }
   }
-  function evalGroup(key, operand, root) {
+  function evalGroup(key, operand, root, budget) {
+    let entries = 0;
     const buckets = /* @__PURE__ */ new Map();
     const file = (prop, d) => {
       let bucket = buckets.get(prop);
       if (bucket === void 0) {
+        budget?.check({ nodes: 1, entries, maxBuckets: buckets.size + 1, depth: 1 });
         bucket = /* @__PURE__ */ new Map();
         buckets.set(prop, bucket);
       }
-      if (!bucket.has(d.id)) bucket.set(d.id, { delta: d, negated: operand.negated.has(d.id) });
+      if (!bucket.has(d.id)) {
+        budget?.check({ nodes: 1, entries: entries + 1, maxBuckets: buckets.size, depth: 1 });
+        entries++;
+        bucket.set(d.id, { delta: d, negated: operand.negated.has(d.id) });
+      }
     };
     for (const d of operand.set) {
       if (key.kind === "const") {
@@ -1925,46 +1934,69 @@
         [...bucket.values()].sort((a, b) => a.delta.id < b.delta.id ? -1 : 1)
       );
     }
-    return { id: root, props };
+    const tree = { id: root, props };
+    return budget ? budget.set(tree, { nodes: 1, entries, maxBuckets: props.size, depth: 1 }) : tree;
   }
   function evalTermRaw(term, input, root, registry, bindings) {
+    return evalTermWithin(term, input, root, registry, bindings);
+  }
+  function evalTermWithin(term, input, root, registry, bindings, budget) {
     switch (term.kind) {
       case "input":
         return dsetResult(input);
       case "select": {
-        const of = expectDSet(evalTermRaw(term.of, input, root, registry, bindings), "select");
+        const of = expectDSet(
+          evalTermWithin(term.of, input, root, registry, bindings, budget),
+          "select"
+        );
         const pred = resolveReflective(
           expandAliased(substituteHoles(term.pred, bindings), input, root),
           input,
           root,
           registry,
-          bindings
+          bindings,
+          budget
         );
         return dsetResult(fork(of.set, (d) => evalPred(pred, d, root)));
       }
       case "union": {
-        const left = expectDSet(evalTermRaw(term.left, input, root, registry, bindings), "union");
-        const right = expectDSet(evalTermRaw(term.right, input, root, registry, bindings), "union");
+        const left = expectDSet(
+          evalTermWithin(term.left, input, root, registry, bindings, budget),
+          "union"
+        );
+        const right = expectDSet(
+          evalTermWithin(term.right, input, root, registry, bindings, budget),
+          "union"
+        );
         return dsetResult(merge(left.set, right.set));
       }
       case "intersect": {
-        const left = expectDSet(evalTermRaw(term.left, input, root, registry, bindings), "intersect");
+        const left = expectDSet(
+          evalTermWithin(term.left, input, root, registry, bindings, budget),
+          "intersect"
+        );
         const right = expectDSet(
-          evalTermRaw(term.right, input, root, registry, bindings),
+          evalTermWithin(term.right, input, root, registry, bindings, budget),
           "intersect"
         );
         return dsetResult(fork(left.set, (d) => right.set.has(d.id)));
       }
       case "difference": {
-        const of = expectDSet(evalTermRaw(term.of, input, root, registry, bindings), "difference");
+        const of = expectDSet(
+          evalTermWithin(term.of, input, root, registry, bindings, budget),
+          "difference"
+        );
         const without = expectDSet(
-          evalTermRaw(term.without, input, root, registry, bindings),
+          evalTermWithin(term.without, input, root, registry, bindings, budget),
           "difference"
         );
         return dsetResult(fork(of.set, (d) => !without.set.has(d.id)));
       }
       case "mask": {
-        const of = expectDSet(evalTermRaw(term.of, input, root, registry, bindings), "mask");
+        const of = expectDSet(
+          evalTermWithin(term.of, input, root, registry, bindings, budget),
+          "mask"
+        );
         switch (term.policy.kind) {
           case "drop": {
             const negated = computeNegated(of.set);
@@ -1980,7 +2012,8 @@
               input,
               root,
               registry,
-              bindings
+              bindings,
+              budget
             );
             const negated = computeNegated(of.set, (n) => evalPred(pred, n, root));
             return dsetResult(fork(of.set, (d) => !negated.has(d.id)));
@@ -1990,39 +2023,70 @@
       }
       case "group": {
         if (root === void 0) throw new Error("group requires an ambient root entity (E9)");
-        const of = expectDSet(evalTermRaw(term.of, input, root, registry, bindings), "group");
-        return { sort: "hview", hview: evalGroup(term.key, of, root) };
+        const of = expectDSet(
+          evalTermWithin(term.of, input, root, registry, bindings, budget),
+          "group"
+        );
+        return { sort: "hview", hview: evalGroup(term.key, of, root, budget) };
       }
       case "prune": {
-        const of = expectHView(evalTermRaw(term.of, input, root, registry, bindings), "prune");
+        const of = expectHView(
+          evalTermWithin(term.of, input, root, registry, bindings, budget),
+          "prune"
+        );
         if (term.keep === "all") return of;
         const keep = expandStrMatch(term.keep, input, root);
         const props = /* @__PURE__ */ new Map();
         for (const [prop, entries] of of.hview.props) {
           if (strMatch(keep, prop)) props.set(prop, entries);
         }
-        return { sort: "hview", hview: { id: of.hview.id, props } };
+        const tree = { id: of.hview.id, props };
+        if (budget) budget.set(tree, summaryOfProps(props, budget));
+        return { sort: "hview", hview: tree };
       }
       case "expand": {
-        const of = expectHView(evalTermRaw(term.of, input, root, registry, bindings), "expand");
+        const of = expectHView(
+          evalTermWithin(term.of, input, root, registry, bindings, budget),
+          "expand"
+        );
         const role = expandStrMatch(term.role, input, root);
         const reading = term.reading === void 0 ? void 0 : lookupReading(term.reading, registry, bindings);
         const props = /* @__PURE__ */ new Map();
+        const childSummaries = /* @__PURE__ */ new Map();
+        let ownEntries = 0;
+        if (budget)
+          for (const [prop, entries] of of.hview.props) {
+            ownEntries += entries.length;
+            entries.forEach((e, n) => {
+              for (const [i, h] of e.expanded ?? [])
+                childSummaries.set(JSON.stringify([prop, n, i]), budget.summary(h));
+            });
+          }
         for (const [prop, entries] of of.hview.props) {
           props.set(
             prop,
-            entries.map((e) => {
+            entries.map((e, entryIndex) => {
               let expanded;
               let readings;
               e.delta.claims.pointers.forEach((ptr, i) => {
                 if (ptr.target.kind !== "entity" || !strMatch(role, ptr.role)) return;
+                const childBudget = budget?.descend();
                 const nested = evalSchema(
                   term.schema,
                   input,
                   ptr.target.entity.id,
                   registry,
-                  bindings
+                  bindings,
+                  childBudget
                 );
+                if (budget && childBudget) {
+                  const key = JSON.stringify([prop, entryIndex, i]);
+                  childSummaries.set(key, childBudget.summary(nested));
+                  budget.check(
+                    combinedSummary(of.hview.props.size, ownEntries, childSummaries.values())
+                  );
+                  budget.summaries.set(nested, childBudget.summary(nested));
+                }
                 expanded = expanded ?? new Map(e.expanded ?? []);
                 expanded.set(i, nested);
                 if (reading !== void 0) {
@@ -2034,15 +2098,27 @@
             })
           );
         }
-        return { sort: "hview", hview: { id: of.hview.id, props } };
+        const tree = { id: of.hview.id, props };
+        if (budget) budget.set(tree, summaryOfProps(props, budget));
+        return { sort: "hview", hview: tree };
       }
       case "fix":
         return {
           sort: "hview",
-          hview: evalSchema(term.schema, input, term.entity, registry, term.bindings ?? bindings)
+          hview: evalSchema(
+            term.schema,
+            input,
+            term.entity,
+            registry,
+            term.bindings ?? bindings,
+            budget
+          )
         };
       case "resolve": {
-        const of = expectHView(evalTermRaw(term.of, input, root, registry, bindings), "resolve");
+        const of = expectHView(
+          evalTermWithin(term.of, input, root, registry, bindings, budget),
+          "resolve"
+        );
         return {
           sort: "view",
           view: resolveView(bindReadingVariables(term.schema, bindings), of.hview)
@@ -2058,13 +2134,13 @@
     );
     return evalTermRaw(term, valid, root, registry, bindings);
   }
-  function evalSchema(ref, input, root, registry, bindings) {
+  function evalSchema(ref, input, root, registry, bindings, budget) {
     const label = ref.kind === "name" ? ref.name : `pinned:${ref.hash.slice(0, 12)}\u2026`;
     if (registry === void 0)
       throw new Error(`schema ${label} referenced but no registry supplied (E10)`);
     const schema = registry.resolve(ref);
     if (schema === void 0) throw new Error(`unknown schema: ${label} (E10/E13)`);
-    const result = evalTermRaw(schema.body, input, root, registry, bindings);
+    const result = evalTermWithin(schema.body, input, root, registry, bindings, budget);
     if (result.sort !== "hview") {
       throw new Error(`schema ${label} body must be an HView-sort term (E10)`);
     }
@@ -2077,6 +2153,31 @@
     const schema = registry.resolveReading(ref);
     if (schema === void 0) throw new Error(`unknown reading: ${label} (issue #23)`);
     return bindReadingVariables(schema, bindings);
+  }
+  function summaryOfProps(props, budget) {
+    let nodes2 = 1, entries = 0, maxBuckets = props.size, depth = 1;
+    for (const es of props.values())
+      for (const e of es) {
+        entries++;
+        for (const h of e.expanded?.values() ?? []) {
+          const s = budget.summary(h);
+          nodes2 += s.nodes;
+          entries += s.entries;
+          maxBuckets = Math.max(maxBuckets, s.maxBuckets);
+          depth = Math.max(depth, 1 + s.depth);
+        }
+      }
+    return { nodes: nodes2, entries, maxBuckets, depth };
+  }
+  function combinedSummary(buckets, ownEntries, children) {
+    let nodes2 = 1, entries = ownEntries, maxBuckets = buckets, depth = 1;
+    for (const s of children) {
+      nodes2 += s.nodes;
+      entries += s.entries;
+      maxBuckets = Math.max(maxBuckets, s.maxBuckets);
+      depth = Math.max(depth, 1 + s.depth);
+    }
+    return { nodes: nodes2, entries, maxBuckets, depth };
   }
 
   // src/schema/schema.ts

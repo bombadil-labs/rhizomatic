@@ -35,6 +35,7 @@ jobs:
           npm run gen-vectors
           npm run gen-command-vectors
           npm run gen-evidence-vectors
+          npm run gen-materialization-vectors
           git diff --exit-code ../../vectors
           git diff --exit-code ../../contracts/command/coverage.json ../../contracts/command/TOWERS.json
 
@@ -188,4 +189,43 @@ jobs:
         with:
           name: materialization-m1-evidence
           path: ${{ runner.temp }}/materialization-m1
+          if-no-files-found: error
+
+  materialization-m2:
+    name: Materialization M2 batch commands and mixed crossings
+    needs: [typescript, rust, haskell, elixir]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: implementations/ts/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: implementations/rust
+      - run: npm ci --ignore-scripts --prefix implementations/ts
+      - name: Packet consistency, live ownership and harness sensitivity
+        run: |
+          node contracts/materialization/validate.mjs --self-test
+          node tools/check-command-contracts.mjs --self-test
+          node tools/check-package-graph.mjs
+          node tools/check-rust-command-boundaries.mjs
+          node --test tools/check-materialization-accounting.test.mjs tools/check-rust-command-boundaries.test.mjs
+      - name: M2 batch cases, fixed crossings, three towers and retained replay
+        env:
+          M2_ARTIFACT_DIR: ${{ runner.temp }}/materialization-m2
+          M2_SEED: m2:${{ github.run_id }}:${{ github.run_attempt }}:${{ github.sha }}
+        run: |
+          node tools/check-materialization-acceptance.mjs
+          node tools/check-materialization-towers.mjs --replay "$M2_ARTIFACT_DIR"
+          node tools/measure-materialization.mjs
+      - name: Retain concrete M2 evidence and measurements
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: materialization-m2-evidence
+          path: ${{ runner.temp }}/materialization-m2
           if-no-files-found: error

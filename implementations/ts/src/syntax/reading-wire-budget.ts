@@ -21,6 +21,14 @@ type Family =
   | "term";
 
 export function checkReadingWireSyntax(root: CborValue, limits: ReadingAppearanceLimits): void {
+  checkProgramWireSyntax([{ body: root, kind: "reading" }], limits);
+}
+
+/** Each distinct selected body starts at depth 1; the node budget is shared by the closure. */
+export function checkProgramWireSyntax(
+  definitions: readonly { readonly body: CborValue; readonly kind: "hyper" | "reading" }[],
+  limits: ReadingAppearanceLimits,
+): void {
   let count = 0;
   function visit(value: CborValue | undefined, family: Family, depth: number): void {
     if (value === undefined) return; // Native parser rejects missing required fields.
@@ -136,5 +144,6 @@ export function checkReadingWireSyntax(root: CborValue, limits: ReadingAppearanc
         break;
     }
   }
-  visit(root, "schema", 1);
+  for (const definition of definitions)
+    visit(definition.body, definition.kind === "reading" ? "schema" : "term", 1);
 }

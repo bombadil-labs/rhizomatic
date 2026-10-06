@@ -27,7 +27,25 @@ fn field<'a>(v: &'a CborValue, k: &str) -> Option<&'a CborValue> {
     }
 }
 pub(crate) fn check(root: &CborValue, limits: ReadingAppearanceLimits) -> Result<()> {
-    Counter { count: 0, limits }.visit(Some(root), Family::Schema, 1)
+    check_program(&[(root, true)], limits)
+}
+pub(crate) fn check_program(
+    definitions: &[(&CborValue, bool)],
+    limits: ReadingAppearanceLimits,
+) -> Result<()> {
+    let mut counter = Counter { count: 0, limits };
+    for (body, reading) in definitions {
+        counter.visit(
+            Some(body),
+            if *reading {
+                Family::Schema
+            } else {
+                Family::Term
+            },
+            1,
+        )?;
+    }
+    Ok(())
 }
 struct Counter {
     count: usize,
