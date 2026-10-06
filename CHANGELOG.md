@@ -6,6 +6,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 
 ## Unreleased
 
+## 0.11.0-next.8 — 2026-10-06
+
+Release A: portable batch gather/resolve and lossless evidence in TypeScript and Rust.
+Elixir and Haskell remain Level 0; maintained lifecycle and Loam adoption follow separately.
+
+### ⚠️ Breaking
+
+- TS schema props, fix bindings and CBOR JSON bridges now preserve legal `__proto__` keys as own
+  properties. Native inputs that previously lost this key can produce different canonical hashes.
+  If you computed pins from affected native inputs, recompute them and explicitly republish affected
+  definitions/update their references. Existing signed acts are not rewritten; unaffected hashes
+  and existing profile1 behavior remain unchanged.
+
 ### Added
 
 - TS/Rust lossless HView envelope and full reading appearance codecs (SPEC-16 M1), with strict
@@ -28,9 +41,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
   run as host code outside a sandbox; existing Delta/profile1/M1 behavior is unchanged.
 - HView evidence codecs verify each distinct full signed appearance once per invocation, including
   decode's final re-encode. Repeated entries preserve validation, canonical bytes and refusal codes.
-- TS schema props, fix bindings and CBOR JSON bridges now preserve legal `__proto__` keys as own
-  properties. Previously lossy inputs may change their broken prior hashes; all unaffected hashes
-  and existing profile1 behavior remain unchanged.
+
+### Known limits
+
+- This prerelease does not promise low-latency serving at its capacity ceiling. Independent review
+  measured TS gather at about 26 seconds for 4,096 appearances and whole-fixture-process peak RSS
+  around 1.17 GiB, including retained fixtures/results/runtime. Repeated snapshot verification is
+  a tracked optimization; no per-phase memory attribution or total evaluator work quota is claimed.
+  See `contracts/materialization/M2.md` for scope and reproducible measurement boundaries.
 
 ## 0.11.0-next.7 — 2026-10-01
 
