@@ -266,8 +266,10 @@ export function captureDeltaDebugDelivery(
   raw: readonly unknown[],
   limits: { deliveryAppearances: number; pointers: number; deliveryBytes: number },
 ): readonly unknown[] {
-  const fail = (code: "invalid-appearance" | "resource-limit"): never => {
-    throw new DeltaDebugCaptureError(code);
+  let issued: DeltaDebugCaptureError | undefined;
+  const fail: (code: "invalid-appearance" | "resource-limit") => never = (code) => {
+    issued = new DeltaDebugCaptureError(code);
+    throw issued;
   };
   try {
     if (Object.values(limits).some((n) => !Number.isSafeInteger(n) || n < 0))
@@ -355,7 +357,7 @@ export function captureDeltaDebugDelivery(
     if (size > limits.deliveryBytes) fail("resource-limit");
     return owned;
   } catch (error) {
-    if (error instanceof DeltaDebugCaptureError) throw error;
+    if (issued !== undefined && error === issued) throw issued;
     return fail("invalid-appearance");
   }
 }

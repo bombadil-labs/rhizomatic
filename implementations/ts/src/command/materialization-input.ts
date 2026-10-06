@@ -34,7 +34,6 @@ import { materializationBasisProgram } from "./materialization-basis.js";
 import {
   mFail,
   mCanonical,
-  mLimit,
   mText,
   mFields,
   MaterializationInputError,
@@ -127,15 +126,23 @@ export function checkMaterializationDeliveryCounts(
   appearances: readonly unknown[],
   limits: MaterializationLimits,
 ): void {
+  let issued: MaterializationInputError | undefined;
+  const fail: (code: string) => never = (code) => {
+    issued = new MaterializationInputError(code);
+    throw issued;
+  };
+  const bound = (n: number, max: number): void => {
+    if (n > max) fail("resource-limit");
+  };
   try {
     const length = appearances.length;
-    if (!Number.isSafeInteger(length) || length < 0) mFail("invalid-appearance");
-    mLimit(length, limits.deliveryAppearances);
+    if (!Number.isSafeInteger(length) || length < 0) fail("invalid-appearance");
+    bound(length, limits.deliveryAppearances);
     const counts: number[] = [];
     for (let i = 0; i < length; i++) {
       const value = appearances[i];
       if (typeof value !== "object" || value === null || !("claims" in value))
-        mFail("invalid-appearance");
+        fail("invalid-appearance");
       const claims = value.claims;
       if (
         typeof claims !== "object" ||
@@ -143,14 +150,14 @@ export function checkMaterializationDeliveryCounts(
         !("pointers" in claims) ||
         !Array.isArray(claims.pointers)
       )
-        mFail("invalid-appearance");
+        fail("invalid-appearance");
       const count = claims.pointers.length;
-      if (!Number.isSafeInteger(count) || count < 0) mFail("invalid-appearance");
+      if (!Number.isSafeInteger(count) || count < 0) fail("invalid-appearance");
       counts.push(count);
     }
-    for (const count of counts) mLimit(count, limits.pointers);
+    for (const count of counts) bound(count, limits.pointers);
   } catch (error) {
-    if (error instanceof MaterializationInputError) throw error;
+    if (issued !== undefined && error === issued) throw issued;
     mFail("invalid-appearance");
   }
 }

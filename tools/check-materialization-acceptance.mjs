@@ -33,7 +33,7 @@ for(const [id,name]of Object.entries(nativeNames)){
  assert.ok(passed.some(n=>n.includes(name)),id+' missing native TS assertions');
  assert.ok((rustLog+rustNative).includes('materialization-native:'+id+'::batch'),id+' missing native Rust assertions');
 }
-for (const name of ['native capture accepts legal proxies','native capture rejects trap failure','captured pointer observation is checked again','preliminary delivery scan cannot allocate through a caller iterator',...['delivery_scan_oversized_carrier','delivery_scan_oversized_malformed_sibling','delivery_scan_oversized_malformed_sibling_reverse'].map(id=>'oversized input never enters payload decoder or canonical buffer/'+id)]) assert.ok(passed.some(n=>n.includes(name)),'missing allocation/native capture assertion schedule:'+name);
+for (const name of ['native capture accepts legal proxies','native capture rejects trap failure','captured pointer observation is checked again','preliminary delivery scan cannot allocate through a caller iterator','getter and proxy failures cannot spoof trusted scanner refusals',...['delivery_scan_oversized_carrier','delivery_scan_oversized_malformed_sibling','delivery_scan_oversized_malformed_sibling_reverse'].map(id=>'oversized input never enters payload decoder or canonical buffer/'+id)]) assert.ok(passed.some(n=>n.includes(name)),'missing allocation/native capture assertion schedule:'+name);
 for(const c of cases){
  assert.ok(c.vector_assertions.length>0);
  for(const w of ['ts','rust'])for(const ref of c.vector_assertions)assert.ok(assertions[w].records.some(r=>r.corpus===ref.corpus&&r.group===ref.group&&r.id===ref.id),c.id+' missing executed vector '+ref.id);

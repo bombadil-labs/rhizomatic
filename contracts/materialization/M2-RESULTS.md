@@ -29,12 +29,12 @@ exact-commit four-witness conformance. Temporary /tmp log files are diagnostics,
 
 ## Local gates
 
-TS format/lint/typecheck/full suite pass: **1,182 tests across 59 files**. Rust fmt/clippy
+TS format/lint/typecheck/full suite pass: **1,183 tests across 59 files**. Rust fmt/clippy
 with warnings denied/full native suite pass: **252 test functions**, plus the finalized three-test
 size suite (**253 distinct functions** across the full and focused runs). Shared schedules execute
 inside those functions. WASM release clippy/build, TS build, playground and docs bundles pass.
 The baseline/new harness regression run passes97 tests; Rust boundary sensitivity passes45.
-Focused M2 acceptance runs206 TS tests after the mirrored pending-child work probe. Local
+Focused M2 acceptance runs207 TS tests after the mirrored pending-child work probe. Local
 measurements are observational; [M2.md](M2.md) gives exact boundaries and candid limits.
 
 ```
@@ -126,3 +126,8 @@ GC and user getter/Proxy-trap allocations/execution are excluded. No claim all J
 are bounded, constant-memory arbitrary-object enumeration, sandbox or scan-CPU limit is made.
 Symbols/unknown fields still refuse. Transparent Proxy admission is the explicit supervisor-
 approved new-port native exception; native Delta/profile1/M1 domains and unaffected hashes stay.
+
+The final native TS failure-provenance probe covers forged exported scanner errors from getters
+and Proxy ownKeys, in both routes and both count/capture phases. Only this invocation's issued
+refusals preserve their code; foreign failures are invalid-appearance. No global mutable brand,
+cache or grammar/domain change is introduced.

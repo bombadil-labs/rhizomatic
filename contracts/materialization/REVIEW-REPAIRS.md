@@ -131,3 +131,9 @@ allocations/execution are excluded, not claimed constant-memory. Enumerable symb
 fields still refuse. Six Rust route probes and TS spies observe exactly decoder entries and offered
 carrier canonical-buffer entries; a pre-gate decoding bypass makes the rail red. No global Delta,
 profile1, M1, hash, old vector-row or refusal-code change follows from this limitation.
+
+Final native-failure provenance repair: getter/Proxy failures may throw exported scanner error
+classes. `instanceof` cannot prove an error came from this scan. Only refusal objects issued by
+the current invocation retain their scanner code; every foreign thrown value maps to
+invalid-appearance. Invocation-local identity tracking adds no cache/global state or domain
+change. Native count/capture/ownKeys spoof probes execute both invoke and preflight.

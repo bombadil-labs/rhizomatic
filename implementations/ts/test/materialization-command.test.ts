@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { DeltaDebugCaptureError } from "../src/delta/json-profile.js";
+import { MaterializationInputError } from "../src/command/materialization-values.js";
 import { MaterializationEndpoint } from "../src/command/materialization-endpoint.js";
 import { preflightMaterializationInput } from "../src/command/materialization-preflight.js";
 import { readMaterializationResult } from "../src/command/materialization-result.js";
@@ -443,6 +445,50 @@ describe("shared materialization complete command oracles", () => {
         v: [["code", { t: "tstr", v: "invalid-appearance" }]],
       });
     }
+  });
+  it("getter and proxy failures cannot spoof trusted scanner refusals", async () => {
+    const f = fixture.positives[0];
+    for (const route of ["preflight", "invoke"] as const)
+      for (const phase of ["counts", "capture", "ownKeys"] as const)
+        for (const forged of [
+          new MaterializationInputError("resource-limit"),
+          new DeltaDebugCaptureError("resource-limit"),
+        ]) {
+          const ds = structuredClone(f.delivery);
+          if (phase === "counts")
+            Object.defineProperty(ds[0], "claims", {
+              enumerable: true,
+              get() {
+                throw forged;
+              },
+            });
+          if (phase === "capture")
+            Object.defineProperty(ds[0].claims.pointers[0], "role", {
+              enumerable: true,
+              get() {
+                throw forged;
+              },
+            });
+          if (phase === "ownKeys")
+            ds[0] = new Proxy(ds[0], {
+              ownKeys() {
+                throw forged;
+              },
+            });
+          if (route === "preflight")
+            expect(preflightMaterializationInput(boot, f.request.id, ds, 1000)).toEqual({
+              status: "invalid-input",
+              code: "invalid-appearance",
+            });
+          else {
+            const out = await endpoint().invoke(f.request.id, ds, 1000);
+            expect(
+              Buffer.from(commandBytes(readMaterializationDescription(out), "result")).includes(
+                Buffer.from("invalid-appearance"),
+              ),
+            ).toBe(true);
+          }
+        }
   });
   it("preliminary delivery scan cannot allocate through a caller iterator", async () => {
     const f = fixture.positives[0];
