@@ -500,21 +500,51 @@ pub fn decode_materialization_snapshot(
         deltas,
     })
 }
+fn capture_basis(snapshot: &MaterializationSourceSnapshot, commitment: &str) -> Result<Vec<u8>> {
+    let CborValue::Map(fs) = &snapshot.value else {
+        return Err(INVALID);
+    };
+    let mut fs: Vec<_> = fs
+        .iter()
+        .filter(|(k, _)| k != "appearances" && k != "format")
+        .cloned()
+        .collect();
+    fs.push(("format".into(), string("rhizomatic.source-basis/1")));
+    fs.push(("snapshot".into(), string(commitment)));
+    Ok(encode(&CborValue::Map(fs)))
+}
+/// Private owned commitment: never created from caller-supplied decoded evidence.
+pub(crate) struct CaptureBasisChecker {
+    expected: Vec<u8>,
+    maximum: usize,
+}
+impl CaptureBasisChecker {
+    pub(crate) fn validate(&self, basis: &[u8]) -> Result<()> {
+        canonical(basis, self.maximum)?;
+        limit(self.expected.len(), self.maximum)?;
+        require(self.expected == basis)
+    }
+}
+pub(crate) fn decode_materialization_snapshot_evidence(
+    input: &[u8],
+    limits: MaterializationSourceLimits,
+) -> Result<(MaterializationSourceSnapshot, CaptureBasisChecker)> {
+    let snapshot = decode_materialization_snapshot(input, limits)?;
+    let expected = capture_basis(&snapshot, &content_address(input))?;
+    Ok((
+        snapshot,
+        CaptureBasisChecker {
+            expected,
+            maximum: limits.artifact_bytes,
+        },
+    ))
+}
 pub fn materialization_capture_basis(
     snapshot_bytes: &[u8],
     limits: MaterializationSourceLimits,
 ) -> Result<Vec<u8>> {
     let snapshot = decode_materialization_snapshot(snapshot_bytes, limits)?;
-    let CborValue::Map(fs) = snapshot.value else {
-        return Err(INVALID);
-    };
-    let mut fs: Vec<_> = fs
-        .into_iter()
-        .filter(|(k, _)| k != "appearances" && k != "format")
-        .collect();
-    fs.push(("format".into(), string("rhizomatic.source-basis/1")));
-    fs.push(("snapshot".into(), string(&content_address(snapshot_bytes))));
-    let out = encode(&CborValue::Map(fs));
+    let out = capture_basis(&snapshot, &content_address(snapshot_bytes))?;
     limit(out.len(), limits.artifact_bytes)?;
     Ok(out)
 }
@@ -546,4 +576,31 @@ pub fn materialization_component_commitments(
             })
             .collect::<Result<Vec<_>>>()?,
     ))
+}
+
+#[cfg(test)]
+#[test]
+fn capture_checker_owns_its_basis_after_native_source_mutation() {
+    let fixtures: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../vectors/materialization/source-snapshot.json"
+    ))
+    .unwrap();
+    let f = fixtures["positives"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|f| f["id"] == "one")
+        .unwrap();
+    let mut raw = hex::decode(f["snapshotHex"].as_str().unwrap()).unwrap();
+    let basis = hex::decode(f["basisHex"].as_str().unwrap()).unwrap();
+    let (mut snapshot, checker) =
+        decode_materialization_snapshot_evidence(&raw, Default::default()).unwrap();
+    snapshot.deltas[0].claims.pointers.clear();
+    snapshot.value = CborValue::Map(vec![]);
+    snapshot.components.clear();
+    raw.fill(0);
+    checker.validate(&basis).unwrap();
+    assert_eq!(checker.validate(&[0]).unwrap_err(), INVALID);
+    // New calls always re-enter raw decode: no receipt/proof argument exists.
+    assert!(decode_materialization_snapshot_evidence(&raw, Default::default()).is_err());
 }

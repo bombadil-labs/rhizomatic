@@ -40,7 +40,14 @@
         "federation"
       ],
       "milestone": "M2",
-      "semantics": "Exact boot binding plus metadata-only capture/authority testimony and separate full snapshot; host grant required."
+      "semantics": "Exact boot binding plus metadata-only capture/authority testimony and separate full snapshot; host grant required.",
+      "native_reuse_seam": {
+        "ts": "federation/materialization-source.ts decodeMaterializationSnapshotEvidence (leaf export; no root reexport)",
+        "rust": "crate-only decode_materialization_snapshot_evidence and private CaptureBasisChecker",
+        "input": "Raw canonical snapshot bytes and explicit limits; never caller-supplied verified proof.",
+        "output": "Owned decoded source plus private expected-basis checker. TS snapshot access makes a defensive owned copy.",
+        "scope": "Fresh factory per invoke/preflight/readback; explicit basis validation preserves phase and priority. No authorization or currentness cache."
+      }
     },
     {
       "id": "rhizomatic.materialization/gather/1",

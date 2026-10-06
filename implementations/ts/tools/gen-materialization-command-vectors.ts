@@ -2881,6 +2881,23 @@ negative(
     },
   },
 );
+// A malformed authority role is a stage-4 closure defect, before source validation.
+const malformedAuthorityCapture = repoint(
+  s.capture,
+  "authority",
+  ent("not-a-delta-reference"),
+  seeds.capturer,
+);
+const malformedAuthorityRequest = repoint(good, "capture", ref(malformedAuthorityCapture.id));
+negative(
+  "capture_authority_pointer_shape",
+  malformedAuthorityRequest,
+  sourceDelivery(malformedAuthorityRequest).map((d) =>
+    d.id === s.capture.id ? serializeCommandDelta(malformedAuthorityCapture) : d,
+  ),
+  "unexpected-support",
+);
+
 // Capture's signed commitment must identify the exact supplied canonical snapshot payload.
 const wrongSnapshotBasis = description("capture/1", readFieldsWithNewBasis(), seeds.capturer);
 function readFieldsWithNewBasis(): readonly (readonly [string, Target | readonly Target[]])[] {

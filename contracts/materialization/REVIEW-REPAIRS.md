@@ -137,3 +137,13 @@ classes. `instanceof` cannot prove an error came from this scan. Only refusal ob
 the current invocation retain their scanner code; every foreign thrown value maps to
 invalid-appearance. Invocation-local identity tracking adds no cache/global state or domain
 change. Native count/capture/ownKeys spoof probes execute both invoke and preflight.
+
+## Accepted M2 follow-up P1/A1/A2
+
+The bounded follow-up to Fable review-m2-fbd3df8 is specified in [M2-FOLLOWUP.md](M2-FOLLOWUP.md).
+P1 removes one redundant same-invocation snapshot decode through a federation-owned private
+commitment checker, with defensive TS source copies and fresh independent readback. A1 adds the
+malformed capture authority-pointer stage-4 vector. A2 makes serialized host snapshots opaque
+and measures actual source4097 endpoint refusals in both witnesses, separately from native
+preparation. Original goldens/error order/native source checks remain unchanged; there is no
+public skip-verification proof or cross-call cache. Exact-head independent diff review is pending.
