@@ -15,6 +15,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
   category (SPEC-16 ERRATA E1). A Basis with an empty closure and a malformed pin now refuses
   `invalid-evidence` in both; TypeScript previously answered `definition-closure`.
 
+### Added
+
+- SPEC-16 M3 groundwork in TypeScript and Rust: the reactor-owned `rhizomatic.materialization-control/1`
+  image codec and pure transition planner, the storage-owned control store seam, a federation
+  facade, and the `registration/1`, `state/1` and `control-image/1` descriptions plus the six
+  lifecycle request grammars. Shared vectors: `vectors/materialization/control-image.json` and new
+  description oracles. Lifecycle verbs are not yet installed in either endpoint.
+
 ### Changed
 
 - Batch gather and contextual readback validate capture metadata from one freshly decoded source

@@ -55,6 +55,8 @@ function classification(e){
  if(e.definition.endsWith('/algebra/hview-envelope.ts'))contract=e.symbol==='encodeHViewEnvelope'?'rhizomatic.hview-envelope/1/encode':e.symbol==='decodeHViewEnvelope'?'rhizomatic.hview-envelope/1/decode':'rhizomatic.hview-envelope/1';
 
  if(e.definition.endsWith('/command-data/materialization-codec.ts'))contract='rhizomatic.materialization/1/description';
+ if(e.definition.endsWith('/reactor/materialization-control.ts'))contract='rhizomatic.materialization-control/1';
+ if(e.definition.endsWith('/storage/materialization-store.ts'))contract='rhizomatic.materialization/1/control-store';
  if(e.definition.endsWith('/federation/materialization-source.ts'))contract='rhizomatic.materialization/1/capture';
  if(e.definition.endsWith('/command/materialization-result.ts'))contract='rhizomatic.materialization/1/outcome-readback';
  if(e.definition.endsWith('/command/materialization-preflight.ts')||e.definition.endsWith('/command/materialization-input.ts')||e.definition.endsWith('/command/materialization-values.ts'))contract='rhizomatic.materialization/1/input-preflight';

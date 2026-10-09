@@ -277,6 +277,30 @@ export {
 } from "./command/materialization-endpoint.js";
 export { type MaterializationInputBoot } from "./command/materialization-input.js";
 export {
+  MATERIALIZATION_CONTROL_FORMAT,
+  MATERIALIZATION_CONTROL_EMPTY_REVISION,
+  MaterializationControlError,
+  materializationAppearanceKey,
+  emptyMaterializationControl,
+  materializationControlImage,
+  encodeMaterializationControl,
+  decodeMaterializationControl,
+  materializationControlRevision,
+  planMaterializationControl,
+  type MaterializationControlLimits,
+  type MaterializationControlStatus,
+  type MaterializationControlEntry,
+  type MaterializationControlImage,
+  type MaterializationControlSelection,
+  type MaterializationControlActive,
+  type MaterializationControlTransition,
+  type MaterializationControlPlan,
+  type MaterializationControlStore,
+  type MaterializationControlInitialize,
+  type MaterializationControlRead,
+  type MaterializationControlWrite,
+} from "./federation/materialization-control.js";
+export {
   preflightMaterializationInput,
   type MaterializationInputPreflight,
 } from "./command/materialization-preflight.js";

@@ -40,7 +40,24 @@ export type MaterializationLimits =
   Readonly<typeof MATERIALIZATION_MAX_LIMITS> extends infer T
     ? { readonly [K in keyof T]: number }
     : never;
-export type MaterializationVerb = "gather" | "resolve";
+export const MATERIALIZATION_VERBS = Object.freeze([
+  "gather",
+  "resolve",
+  "install",
+  "replace-source",
+  "advance-time",
+  "retire",
+  "read",
+  "restore",
+] as const);
+export type MaterializationVerb = (typeof MATERIALIZATION_VERBS)[number];
+/** Release A installs the first two verbs; release B installs all eight (MR-08). */
+export const MATERIALIZATION_RELEASE_VERBS = Object.freeze({
+  A: MATERIALIZATION_VERBS.slice(0, 2),
+  B: MATERIALIZATION_VERBS,
+});
+export const materializationVerbEffect = (verb: MaterializationVerb): "none" | "control" =>
+  ["install", "replace-source", "advance-time", "retire"].includes(verb) ? "control" : "none";
 export type MaterializationDescriptionKind =
   | "endpoint/1"
   | "operation/1"
@@ -50,8 +67,37 @@ export type MaterializationDescriptionKind =
   | "capture/1"
   | "snapshot/1"
   | "evidence/1"
-  | "outcome/1";
+  | "outcome/1"
+  | "registration/1"
+  | "state/1"
+  | "control-image/1";
 const COMMON = ["kind", "receiver", "configuration", "operation"];
+const LIFECYCLE = ["expected-control", "registration", "expected-source"];
+/** Verb-specific request roles after the common fields (MR-08 table). */
+const VERB_ROLES: Record<Exclude<MaterializationVerb, "gather">, readonly string[]> = {
+  resolve: ["evidence"],
+  install: ["expected-control", "registration", "capture", "snapshot", "at", "serving-at"],
+  "replace-source": [
+    "expected-control",
+    "registration",
+    "expected-source",
+    "capture",
+    "snapshot",
+    "serving-at",
+  ],
+  "advance-time": [
+    "expected-control",
+    "registration",
+    "expected-source",
+    "snapshot",
+    "at",
+    "serving-at",
+  ],
+  retire: ["expected-control", "registration"],
+  read: ["expected-control", "registration", "expected-source", "snapshot", "serving-at"],
+  restore: ["expected-control"],
+};
+export const STATE_VERBS = Object.freeze(["install", "replace-source", "advance-time", "retire"]);
 const GATHER = [
   "capture",
   "snapshot",
@@ -88,14 +134,64 @@ const ORDER: Record<MaterializationDescriptionKind, readonly string[]> = {
     "replay",
     "dependencies",
   ],
-  "request/1": [...COMMON, ...GATHER, "evidence"],
+  "request/1": [...COMMON, ...LIFECYCLE, ...GATHER, "evidence"],
   "source-binding/1": ["kind", "receiver", "spec"],
   "authority/1": ["kind", "source-binding", "spec"],
   "capture/1": ["kind", "source-binding", "authority", "basis"],
   "snapshot/1": ["kind", "data"],
   "evidence/1": ["kind", "result"],
   "outcome/1": ["kind", "receiver", "configuration", "request", "status", "result"],
+  "registration/1": [
+    "kind",
+    "source-binding",
+    "hyperschema",
+    "hyperschema-pin",
+    "schema",
+    "schema-pin",
+    "definition",
+    "roots",
+    "bindings",
+    "definition-at",
+    "interpretation",
+    "result-kind",
+    "time-policy",
+    "alias",
+  ],
+  "state/1": [
+    "kind",
+    "registration",
+    "generation",
+    "prior-control",
+    "prior-transition",
+    "verb",
+    "source-revision",
+    "authority",
+    "at",
+    "definition-at",
+    "hyperschema-pin",
+    "schema-pin",
+    "capture",
+  ],
+  "control-image/1": ["kind", "data"],
 };
+const SETS = [
+  "caller",
+  "administrator",
+  "installed",
+  "source-binding",
+  "definition",
+  "roots",
+  "alias",
+];
+const setKey = (t: Target): string =>
+  t.kind === "delta"
+    ? t.deltaRef.delta
+    : t.kind === "primitive" && typeof t.value === "string"
+      ? t.value
+      : t.kind === "entity" && t.entity.context === undefined
+        ? t.entity.id
+        : fail();
+const isN = (n: number): boolean => Number.isSafeInteger(n) && n >= 0;
 const fail = (): never => {
   throw new Error("invalid materialization description");
 };
@@ -109,16 +205,18 @@ function shape(
   for (const k of allowed) {
     const ts = f[k] ?? [];
     if (sets.includes(k)) {
-      const values = ts.map((t) =>
-        t.kind === "delta"
-          ? t.deltaRef.delta
-          : t.kind === "primitive" && typeof t.value === "string"
-            ? t.value
-            : fail(),
-      );
+      const values = ts.map(setKey);
       if (new Set(values).size !== values.length) fail();
     } else if (ts.length !== (optional.includes(k) ? Math.min(ts.length, 1) : 1)) fail();
   }
+}
+export function materializationOperationVerb(name: string): MaterializationVerb {
+  const verb = name.startsWith(MATERIALIZATION_PREFIX)
+    ? name.slice(MATERIALIZATION_PREFIX.length)
+    : fail();
+  return (MATERIALIZATION_VERBS as readonly string[]).includes(verb)
+    ? (verb as MaterializationVerb)
+    : fail();
 }
 export function readMaterializationLimits(bytes: Uint8Array): MaterializationLimits {
   const v = canonicalCommandCbor(bytes);
@@ -143,6 +241,7 @@ export function encodeMaterializationLimits(limits: MaterializationLimits): Uint
   readMaterializationLimits(bytes);
   return bytes;
 }
+/** Readers accept pointer permutations: set-valued roles read in their canonical sorted order. */
 export function materializationFields(delta: Delta): CommandFields {
   const fields: Record<string, Target[]> = Object.create(null) as Record<string, Target[]>;
   for (const p of delta.claims.pointers) {
@@ -150,6 +249,11 @@ export function materializationFields(delta: Delta): CommandFields {
     const k = p.role.slice(MATERIALIZATION_PREFIX.length);
     (fields[k] ??= []).push(p.target);
   }
+  for (const k of SETS)
+    if (fields[k] && fields[k].length > 1)
+      fields[k] = [...fields[k]].sort((a, b) =>
+        setKey(a) < setKey(b) ? -1 : setKey(a) > setKey(b) ? 1 : 0,
+      );
   return fields;
 }
 /** Without verb, request reading validates only common fields (MR-21 stage 2). */
@@ -169,12 +273,22 @@ export function readMaterializationDescription(
     if (verb === undefined) return f;
     shape(
       f,
-      verb === "gather" ? [...COMMON, ...GATHER] : [...COMMON, "evidence"],
+      verb === "gather" ? [...COMMON, ...GATHER] : [...COMMON, ...VERB_ROLES[verb]],
       verb === "gather" ? ["historical-cutoff"] : [],
       verb === "gather" ? ["definition"] : [],
     );
     if (verb === "resolve") {
       commandRef(f, "evidence");
+      return f;
+    }
+    if (verb !== "gather") {
+      const control = commandText(f, "expected-control");
+      if (control !== "" && !isCommandId(control)) fail();
+      for (const k of VERB_ROLES[verb]) {
+        if (["registration", "capture", "snapshot"].includes(k)) commandRef(f, k);
+        if (k === "expected-source" && !isCommandId(commandText(f, k))) fail();
+        if (["at", "serving-at"].includes(k)) commandNumber(f, k);
+      }
       return f;
     }
     for (const k of ["capture", "snapshot", "hyperschema", "schema"]) commandRef(f, k);
@@ -201,8 +315,12 @@ export function readMaterializationDescription(
   shape(
     f,
     ORDER[kind],
-    [],
-    kind === "endpoint/1" ? ["caller", "administrator", "installed", "source-binding"] : [],
+    kind === "state/1" ? ["capture"] : [],
+    kind === "endpoint/1"
+      ? ["caller", "administrator", "installed", "source-binding"]
+      : kind === "registration/1"
+        ? ["definition", "roots", "alias"]
+        : [],
   );
   if (
     ["endpoint/1", "source-binding/1", "outcome/1"].includes(kind) &&
@@ -210,7 +328,8 @@ export function readMaterializationDescription(
   )
     fail();
   if (kind === "endpoint/1") {
-    if (!f.caller?.length || !f.administrator?.length || f.installed?.length !== 2) fail();
+    if (!f.caller?.length || !f.administrator?.length || ![2, 8].includes(f.installed?.length ?? 0))
+      fail();
     const keys = (k: string) =>
       (f[k] ?? []).map((t) => {
         const key = commandText({ x: [t] }, "x");
@@ -224,26 +343,60 @@ export function readMaterializationDescription(
     readMaterializationLimits(commandBytes(f, "limits"));
   }
   if (kind === "operation/1") {
-    const name = commandEntity(f, "name");
-    const verb =
-      name === MATERIALIZATION_PREFIX + "gather"
-        ? "gather"
-        : name === MATERIALIZATION_PREFIX + "resolve"
-          ? "resolve"
-          : fail();
+    const verb = materializationOperationVerb(commandEntity(f, "name"));
     for (const [k, v] of Object.entries({
       interpreter: MATERIALIZATION_PREFIX + verb + "/1",
       "input-contract": MATERIALIZATION_PREFIX + verb + "/1",
       "output-contract": MATERIALIZATION_PREFIX + "outcome/1",
-      effect: "none",
+      effect: materializationVerbEffect(verb),
       replay: "re-evaluate/1",
       dependencies: "explicit-support/1",
     }))
       if (commandText(f, k) !== v) fail();
   }
+  if (kind === "registration/1") {
+    for (const k of ["source-binding", "hyperschema", "schema"]) commandRef(f, k);
+    for (const k of ["hyperschema-pin", "schema-pin"]) if (!isCommandId(commandText(f, k))) fail();
+    const ids = [commandRef(f, "hyperschema"), commandRef(f, "schema")];
+    for (const t of f.definition ?? []) {
+      const id = commandRef({ x: [t] }, "x");
+      if (ids.includes(id)) fail();
+      ids.push(id);
+    }
+    const roots = (f.roots ?? []).map(setKey);
+    if (!roots.length || roots.some((r, i) => !r || (i > 0 && roots[i - 1]! >= r))) fail();
+    const aliases = (f.alias ?? []).map(setKey);
+    if (aliases.some((a, i) => !a || (i > 0 && aliases[i - 1]! >= a))) fail();
+    decodeBindings(commandBytes(f, "bindings"));
+    commandNumber(f, "definition-at");
+    if (
+      commandText(f, "interpretation") !== "core/1" ||
+      commandText(f, "result-kind") !== "hview-and-view/1" ||
+      commandText(f, "time-policy") !== "live-time/1"
+    )
+      fail();
+  }
+  if (kind === "state/1") {
+    commandRef(f, "registration");
+    if (!isN(commandNumber(f, "generation")) || commandNumber(f, "generation") < 1) fail();
+    for (const k of ["prior-control", "prior-transition"]) {
+      const v = commandText(f, k);
+      if (v !== "" && !isCommandId(v)) fail();
+    }
+    const verb = commandText(f, "verb");
+    if (!STATE_VERBS.includes(verb)) fail();
+    for (const k of ["source-revision", "authority", "hyperschema-pin", "schema-pin"])
+      if (!isCommandId(commandText(f, k))) fail();
+    for (const k of ["at", "definition-at"]) commandNumber(f, k);
+    if ((verb === "retire") !== (f.capture === undefined)) fail();
+    if (f.capture) commandRef(f, "capture");
+    if (delta.claims.timestamp !== delta.claims.validFrom || delta.claims.validUntil !== undefined)
+      fail();
+  }
   if (["authority/1", "capture/1"].includes(kind)) commandRef(f, "source-binding");
   if (kind === "capture/1") commandRef(f, "authority");
   for (const k of ["spec", "basis", "data", "result"]) if (f[k]) commandBytes(f, k);
+  if (kind === "control-image/1") commandBytes(f, "data");
   if (kind === "outcome/1") {
     commandRef(f, "configuration");
     commandRef(f, "request");
@@ -268,12 +421,10 @@ export function materializationDescriptionClaims(
   if (Object.keys(f).some((k) => !ORDER[kind].includes(k))) fail();
   const pointers = ORDER[kind].flatMap((k) => {
     let targets = f[k] ?? [];
-    if (["caller", "administrator", "installed", "source-binding", "definition"].includes(k))
-      targets = [...targets].sort((a, b) => {
-        const key = (t: Target) =>
-          t.kind === "delta" ? t.deltaRef.delta : t.kind === "primitive" ? String(t.value) : fail();
-        return key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0;
-      });
+    if (SETS.includes(k))
+      targets = [...targets].sort((a, b) =>
+        setKey(a) < setKey(b) ? -1 : setKey(a) > setKey(b) ? 1 : 0,
+      );
     return targets.map((target) => ({ role: MATERIALIZATION_PREFIX + k, target }));
   });
   const claims = { author, timestamp: at, validFrom: at, pointers };

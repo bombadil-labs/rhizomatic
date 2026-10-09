@@ -139,6 +139,10 @@ pub mod materialization_command;
 mod materialization_evidence;
 
 pub mod materialization_result;
+
+pub mod materialization_control;
+pub mod materialization_peer;
+pub mod materialization_store;
 pub use materialization_command::{
     preflight_materialization_input, MaterializationDiagnostic, MaterializationEndpoint,
     MaterializationInputPreflight, MaterializationSigner,

@@ -22941,6 +22941,2466 @@
       "contract": "rhizomatic.materialization/1/capture",
       "classification": "implementation_helper",
       "semantics": "decodeMaterializationSnapshotEvidence: Exact boot binding plus metadata-only capture/authority testimony and separate full snapshot; host grant required. MR-08, MR-09, MR-10, MR-11, MR-12, MR-19, MR-20, MR-21, MR-22; definition implementations/ts/src/federation/materialization-source.ts."
+    },
+    {
+      "id": "ts:command-data/materialization-codec.ts:materializationOperationVerb",
+      "owner": "command-data",
+      "symbol": "materializationOperationVerb",
+      "source": "implementations/ts/src/command-data/materialization-codec.ts",
+      "definition": "implementations/ts/src/command-data/materialization-codec.ts",
+      "contract": "rhizomatic.materialization/1/description",
+      "classification": "portable_contract",
+      "semantics": "materializationOperationVerb: Closed new-prefix signed role/argument codecs; opaque result payload only. MR-08, MR-09, MR-10, MR-11, MR-12, MR-19, MR-20, MR-21, MR-22; definition implementations/ts/src/command-data/materialization-codec.ts."
+    },
+    {
+      "id": "ts:command-data/materialization-codec.ts:MATERIALIZATION_VERBS",
+      "owner": "command-data",
+      "symbol": "MATERIALIZATION_VERBS",
+      "source": "implementations/ts/src/command-data/materialization-codec.ts",
+      "definition": "implementations/ts/src/command-data/materialization-codec.ts",
+      "contract": "rhizomatic.materialization/1/description",
+      "classification": "portable_contract",
+      "semantics": "MATERIALIZATION_VERBS: Closed new-prefix signed role/argument codecs; opaque result payload only. MR-08, MR-09, MR-10, MR-11, MR-12, MR-19, MR-20, MR-21, MR-22; definition implementations/ts/src/command-data/materialization-codec.ts."
+    },
+    {
+      "id": "ts:command-data/materialization-codec.ts:MATERIALIZATION_RELEASE_VERBS",
+      "owner": "command-data",
+      "symbol": "MATERIALIZATION_RELEASE_VERBS",
+      "source": "implementations/ts/src/command-data/materialization-codec.ts",
+      "definition": "implementations/ts/src/command-data/materialization-codec.ts",
+      "contract": "rhizomatic.materialization/1/description",
+      "classification": "portable_contract",
+      "semantics": "MATERIALIZATION_RELEASE_VERBS: Closed new-prefix signed role/argument codecs; opaque result payload only. MR-08, MR-09, MR-10, MR-11, MR-12, MR-19, MR-20, MR-21, MR-22; definition implementations/ts/src/command-data/materialization-codec.ts."
+    },
+    {
+      "id": "ts:command-data/materialization-codec.ts:materializationVerbEffect",
+      "owner": "command-data",
+      "symbol": "materializationVerbEffect",
+      "source": "implementations/ts/src/command-data/materialization-codec.ts",
+      "definition": "implementations/ts/src/command-data/materialization-codec.ts",
+      "contract": "rhizomatic.materialization/1/description",
+      "classification": "portable_contract",
+      "semantics": "materializationVerbEffect: Closed new-prefix signed role/argument codecs; opaque result payload only. MR-08, MR-09, MR-10, MR-11, MR-12, MR-19, MR-20, MR-21, MR-22; definition implementations/ts/src/command-data/materialization-codec.ts."
+    },
+    {
+      "id": "ts:command-data/materialization-codec.ts:STATE_VERBS",
+      "owner": "command-data",
+      "symbol": "STATE_VERBS",
+      "source": "implementations/ts/src/command-data/materialization-codec.ts",
+      "definition": "implementations/ts/src/command-data/materialization-codec.ts",
+      "contract": "rhizomatic.materialization/1/description",
+      "classification": "portable_contract",
+      "semantics": "STATE_VERBS: Closed new-prefix signed role/argument codecs; opaque result payload only. MR-08, MR-09, MR-10, MR-11, MR-12, MR-19, MR-20, MR-21, MR-22; definition implementations/ts/src/command-data/materialization-codec.ts."
+    },
+    {
+      "id": "ts:command/materialization-input.ts:MaterializationInputCatalog#release",
+      "owner": "command",
+      "symbol": "MaterializationInputCatalog.release",
+      "source": "implementations/ts/src/command/materialization-input.ts",
+      "definition": "implementations/ts/src/command/materialization-input.ts",
+      "contract": "rhizomatic.materialization/1/input-preflight",
+      "classification": "implementation_helper",
+      "semantics": "MaterializationInputCatalog.release: Pure supplied-input validation projection of stages1–4,6–8; all applicable input limits including supplied resolve envelope; no native source grant/currentness, execution or produced output guarantee. MR-08, MR-09, MR-10, MR-11, MR-12, MR-19, MR-20, MR-21, MR-22; definition implementations/ts/src/command/materialization-input.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MATERIALIZATION_CONTROL_FORMAT",
+      "owner": "reactor",
+      "symbol": "MATERIALIZATION_CONTROL_FORMAT",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MATERIALIZATION_CONTROL_FORMAT: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MATERIALIZATION_CONTROL_EMPTY_REVISION",
+      "owner": "reactor",
+      "symbol": "MATERIALIZATION_CONTROL_EMPTY_REVISION",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MATERIALIZATION_CONTROL_EMPTY_REVISION: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlError",
+      "owner": "reactor",
+      "symbol": "MaterializationControlError",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlError: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlError#code",
+      "owner": "reactor",
+      "symbol": "MaterializationControlError.code",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlError.code: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:materializationAppearanceKey",
+      "owner": "reactor",
+      "symbol": "materializationAppearanceKey",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "materializationAppearanceKey: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:emptyMaterializationControl",
+      "owner": "reactor",
+      "symbol": "emptyMaterializationControl",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "emptyMaterializationControl: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:materializationControlImage",
+      "owner": "reactor",
+      "symbol": "materializationControlImage",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "materializationControlImage: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:encodeMaterializationControl",
+      "owner": "reactor",
+      "symbol": "encodeMaterializationControl",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "encodeMaterializationControl: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:decodeMaterializationControl",
+      "owner": "reactor",
+      "symbol": "decodeMaterializationControl",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "decodeMaterializationControl: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:materializationControlRevision",
+      "owner": "reactor",
+      "symbol": "materializationControlRevision",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "materializationControlRevision: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:planMaterializationControl",
+      "owner": "reactor",
+      "symbol": "planMaterializationControl",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "planMaterializationControl: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlLimits",
+      "owner": "reactor",
+      "symbol": "MaterializationControlLimits",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlLimits: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlLimits#artifactBytes",
+      "owner": "reactor",
+      "symbol": "MaterializationControlLimits.artifactBytes",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlLimits.artifactBytes: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlLimits#registrations",
+      "owner": "reactor",
+      "symbol": "MaterializationControlLimits.registrations",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlLimits.registrations: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlLimits#definitions",
+      "owner": "reactor",
+      "symbol": "MaterializationControlLimits.definitions",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlLimits.definitions: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlStatus",
+      "owner": "reactor",
+      "symbol": "MaterializationControlStatus",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlStatus: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlEntry",
+      "owner": "reactor",
+      "symbol": "MaterializationControlEntry",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlEntry: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlEntry#registration",
+      "owner": "reactor",
+      "symbol": "MaterializationControlEntry.registration",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlEntry.registration: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlEntry#status",
+      "owner": "reactor",
+      "symbol": "MaterializationControlEntry.status",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlEntry.status: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlEntry#transition",
+      "owner": "reactor",
+      "symbol": "MaterializationControlEntry.transition",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlEntry.transition: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlEntry#sourceRevision",
+      "owner": "reactor",
+      "symbol": "MaterializationControlEntry.sourceRevision",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlEntry.sourceRevision: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlEntry#authority",
+      "owner": "reactor",
+      "symbol": "MaterializationControlEntry.authority",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlEntry.authority: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlEntry#at",
+      "owner": "reactor",
+      "symbol": "MaterializationControlEntry.at",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlEntry.at: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlEntry#definitionAt",
+      "owner": "reactor",
+      "symbol": "MaterializationControlEntry.definitionAt",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlEntry.definitionAt: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlEntry#hyperschemaPin",
+      "owner": "reactor",
+      "symbol": "MaterializationControlEntry.hyperschemaPin",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlEntry.hyperschemaPin: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlEntry#schemaPin",
+      "owner": "reactor",
+      "symbol": "MaterializationControlEntry.schemaPin",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlEntry.schemaPin: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlEntry#capture",
+      "owner": "reactor",
+      "symbol": "MaterializationControlEntry.capture",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlEntry.capture: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlImage",
+      "owner": "reactor",
+      "symbol": "MaterializationControlImage",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlImage: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlImage#receiver",
+      "owner": "reactor",
+      "symbol": "MaterializationControlImage.receiver",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlImage.receiver: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlImage#configuration",
+      "owner": "reactor",
+      "symbol": "MaterializationControlImage.configuration",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlImage.configuration: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlImage#generation",
+      "owner": "reactor",
+      "symbol": "MaterializationControlImage.generation",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlImage.generation: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlImage#entries",
+      "owner": "reactor",
+      "symbol": "MaterializationControlImage.entries",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlImage.entries: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlImage#deltas",
+      "owner": "reactor",
+      "symbol": "MaterializationControlImage.deltas",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlImage.deltas: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlSelection",
+      "owner": "reactor",
+      "symbol": "MaterializationControlSelection",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlSelection: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlSelection#receiver",
+      "owner": "reactor",
+      "symbol": "MaterializationControlSelection.receiver",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlSelection.receiver: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlSelection#configuration",
+      "owner": "reactor",
+      "symbol": "MaterializationControlSelection.configuration",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlSelection.configuration: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlSelection#generation",
+      "owner": "reactor",
+      "symbol": "MaterializationControlSelection.generation",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlSelection.generation: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlSelection#entries",
+      "owner": "reactor",
+      "symbol": "MaterializationControlSelection.entries",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlSelection.entries: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlActive",
+      "owner": "reactor",
+      "symbol": "MaterializationControlActive",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlActive: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlActive#registration",
+      "owner": "reactor",
+      "symbol": "MaterializationControlActive.registration",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlActive.registration: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlActive#sourceRevision",
+      "owner": "reactor",
+      "symbol": "MaterializationControlActive.sourceRevision",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlActive.sourceRevision: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlActive#authority",
+      "owner": "reactor",
+      "symbol": "MaterializationControlActive.authority",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlActive.authority: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlActive#at",
+      "owner": "reactor",
+      "symbol": "MaterializationControlActive.at",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlActive.at: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlActive#definitionAt",
+      "owner": "reactor",
+      "symbol": "MaterializationControlActive.definitionAt",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlActive.definitionAt: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlActive#hyperschemaPin",
+      "owner": "reactor",
+      "symbol": "MaterializationControlActive.hyperschemaPin",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlActive.hyperschemaPin: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlActive#schemaPin",
+      "owner": "reactor",
+      "symbol": "MaterializationControlActive.schemaPin",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlActive.schemaPin: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlActive#capture",
+      "owner": "reactor",
+      "symbol": "MaterializationControlActive.capture",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlActive.capture: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlTransition",
+      "owner": "reactor",
+      "symbol": "MaterializationControlTransition",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlTransition: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlTransition#verb",
+      "owner": "reactor",
+      "symbol": "MaterializationControlTransition.verb",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlTransition.verb: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlTransition#entry",
+      "owner": "reactor",
+      "symbol": "MaterializationControlTransition.entry",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlTransition.entry: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlTransition#transition",
+      "owner": "reactor",
+      "symbol": "MaterializationControlTransition.transition",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlTransition.transition: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlTransition#support",
+      "owner": "reactor",
+      "symbol": "MaterializationControlTransition.support",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlTransition.support: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlTransition#registration",
+      "owner": "reactor",
+      "symbol": "MaterializationControlTransition.registration",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlTransition.registration: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlTransition#sourceRevision",
+      "owner": "reactor",
+      "symbol": "MaterializationControlTransition.sourceRevision",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlTransition.sourceRevision: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlTransition#authority",
+      "owner": "reactor",
+      "symbol": "MaterializationControlTransition.authority",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlTransition.authority: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlTransition#capture",
+      "owner": "reactor",
+      "symbol": "MaterializationControlTransition.capture",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlTransition.capture: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlTransition#superseded",
+      "owner": "reactor",
+      "symbol": "MaterializationControlTransition.superseded",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlTransition.superseded: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlTransition#at",
+      "owner": "reactor",
+      "symbol": "MaterializationControlTransition.at",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlTransition.at: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlPlan",
+      "owner": "reactor",
+      "symbol": "MaterializationControlPlan",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlPlan: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlPlan#status",
+      "owner": "reactor",
+      "symbol": "MaterializationControlPlan.status",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlPlan.status: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlPlan#selection",
+      "owner": "reactor",
+      "symbol": "MaterializationControlPlan.selection",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlPlan.selection: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlPlan#code",
+      "owner": "reactor",
+      "symbol": "MaterializationControlPlan.code",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlPlan.code: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlStore",
+      "owner": "storage",
+      "symbol": "MaterializationControlStore",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/storage/materialization-store.ts",
+      "contract": "rhizomatic.materialization/1/control-store",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlStore: Explicit atomic metadata initialize/read/CAS with exact durable, conflict, rejected and committed-unconfirmed outcomes. MR-15, MR-18; definition implementations/ts/src/storage/materialization-store.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlStore#initialize",
+      "owner": "storage",
+      "symbol": "MaterializationControlStore.initialize",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/storage/materialization-store.ts",
+      "contract": "rhizomatic.materialization/1/control-store",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlStore.initialize: Explicit atomic metadata initialize/read/CAS with exact durable, conflict, rejected and committed-unconfirmed outcomes. MR-15, MR-18; definition implementations/ts/src/storage/materialization-store.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlStore#read",
+      "owner": "storage",
+      "symbol": "MaterializationControlStore.read",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/storage/materialization-store.ts",
+      "contract": "rhizomatic.materialization/1/control-store",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlStore.read: Explicit atomic metadata initialize/read/CAS with exact durable, conflict, rejected and committed-unconfirmed outcomes. MR-15, MR-18; definition implementations/ts/src/storage/materialization-store.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlStore#compareAndSet",
+      "owner": "storage",
+      "symbol": "MaterializationControlStore.compareAndSet",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/storage/materialization-store.ts",
+      "contract": "rhizomatic.materialization/1/control-store",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlStore.compareAndSet: Explicit atomic metadata initialize/read/CAS with exact durable, conflict, rejected and committed-unconfirmed outcomes. MR-15, MR-18; definition implementations/ts/src/storage/materialization-store.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlInitialize",
+      "owner": "storage",
+      "symbol": "MaterializationControlInitialize",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/storage/materialization-store.ts",
+      "contract": "rhizomatic.materialization/1/control-store",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlInitialize: Explicit atomic metadata initialize/read/CAS with exact durable, conflict, rejected and committed-unconfirmed outcomes. MR-15, MR-18; definition implementations/ts/src/storage/materialization-store.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlInitialize#status",
+      "owner": "storage",
+      "symbol": "MaterializationControlInitialize.status",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/storage/materialization-store.ts",
+      "contract": "rhizomatic.materialization/1/control-store",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlInitialize.status: Explicit atomic metadata initialize/read/CAS with exact durable, conflict, rejected and committed-unconfirmed outcomes. MR-15, MR-18; definition implementations/ts/src/storage/materialization-store.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlInitialize#bytes",
+      "owner": "storage",
+      "symbol": "MaterializationControlInitialize.bytes",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/storage/materialization-store.ts",
+      "contract": "rhizomatic.materialization/1/control-store",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlInitialize.bytes: Explicit atomic metadata initialize/read/CAS with exact durable, conflict, rejected and committed-unconfirmed outcomes. MR-15, MR-18; definition implementations/ts/src/storage/materialization-store.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlInitialize#revision",
+      "owner": "storage",
+      "symbol": "MaterializationControlInitialize.revision",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/storage/materialization-store.ts",
+      "contract": "rhizomatic.materialization/1/control-store",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlInitialize.revision: Explicit atomic metadata initialize/read/CAS with exact durable, conflict, rejected and committed-unconfirmed outcomes. MR-15, MR-18; definition implementations/ts/src/storage/materialization-store.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlRead",
+      "owner": "storage",
+      "symbol": "MaterializationControlRead",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/storage/materialization-store.ts",
+      "contract": "rhizomatic.materialization/1/control-store",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlRead: Explicit atomic metadata initialize/read/CAS with exact durable, conflict, rejected and committed-unconfirmed outcomes. MR-15, MR-18; definition implementations/ts/src/storage/materialization-store.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlRead#status",
+      "owner": "storage",
+      "symbol": "MaterializationControlRead.status",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/storage/materialization-store.ts",
+      "contract": "rhizomatic.materialization/1/control-store",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlRead.status: Explicit atomic metadata initialize/read/CAS with exact durable, conflict, rejected and committed-unconfirmed outcomes. MR-15, MR-18; definition implementations/ts/src/storage/materialization-store.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlRead#bytes",
+      "owner": "storage",
+      "symbol": "MaterializationControlRead.bytes",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/storage/materialization-store.ts",
+      "contract": "rhizomatic.materialization/1/control-store",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlRead.bytes: Explicit atomic metadata initialize/read/CAS with exact durable, conflict, rejected and committed-unconfirmed outcomes. MR-15, MR-18; definition implementations/ts/src/storage/materialization-store.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlRead#revision",
+      "owner": "storage",
+      "symbol": "MaterializationControlRead.revision",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/storage/materialization-store.ts",
+      "contract": "rhizomatic.materialization/1/control-store",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlRead.revision: Explicit atomic metadata initialize/read/CAS with exact durable, conflict, rejected and committed-unconfirmed outcomes. MR-15, MR-18; definition implementations/ts/src/storage/materialization-store.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlRead#fault",
+      "owner": "storage",
+      "symbol": "MaterializationControlRead.fault",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/storage/materialization-store.ts",
+      "contract": "rhizomatic.materialization/1/control-store",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlRead.fault: Explicit atomic metadata initialize/read/CAS with exact durable, conflict, rejected and committed-unconfirmed outcomes. MR-15, MR-18; definition implementations/ts/src/storage/materialization-store.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlWrite",
+      "owner": "storage",
+      "symbol": "MaterializationControlWrite",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/storage/materialization-store.ts",
+      "contract": "rhizomatic.materialization/1/control-store",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlWrite: Explicit atomic metadata initialize/read/CAS with exact durable, conflict, rejected and committed-unconfirmed outcomes. MR-15, MR-18; definition implementations/ts/src/storage/materialization-store.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlWrite#status",
+      "owner": "storage",
+      "symbol": "MaterializationControlWrite.status",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/storage/materialization-store.ts",
+      "contract": "rhizomatic.materialization/1/control-store",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlWrite.status: Explicit atomic metadata initialize/read/CAS with exact durable, conflict, rejected and committed-unconfirmed outcomes. MR-15, MR-18; definition implementations/ts/src/storage/materialization-store.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlWrite#revision",
+      "owner": "storage",
+      "symbol": "MaterializationControlWrite.revision",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/storage/materialization-store.ts",
+      "contract": "rhizomatic.materialization/1/control-store",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlWrite.revision: Explicit atomic metadata initialize/read/CAS with exact durable, conflict, rejected and committed-unconfirmed outcomes. MR-15, MR-18; definition implementations/ts/src/storage/materialization-store.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlWrite#reason",
+      "owner": "storage",
+      "symbol": "MaterializationControlWrite.reason",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/storage/materialization-store.ts",
+      "contract": "rhizomatic.materialization/1/control-store",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlWrite.reason: Explicit atomic metadata initialize/read/CAS with exact durable, conflict, rejected and committed-unconfirmed outcomes. MR-15, MR-18; definition implementations/ts/src/storage/materialization-store.ts."
+    },
+    {
+      "id": "ts:federation/materialization-control.ts:MaterializationControlWrite#fault",
+      "owner": "storage",
+      "symbol": "MaterializationControlWrite.fault",
+      "source": "implementations/ts/src/federation/materialization-control.ts",
+      "definition": "implementations/ts/src/storage/materialization-store.ts",
+      "contract": "rhizomatic.materialization/1/control-store",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlWrite.fault: Explicit atomic metadata initialize/read/CAS with exact durable, conflict, rejected and committed-unconfirmed outcomes. MR-15, MR-18; definition implementations/ts/src/storage/materialization-store.ts."
+    },
+    {
+      "id": "ts:index.ts:MATERIALIZATION_CONTROL_FORMAT",
+      "owner": "reactor",
+      "symbol": "MATERIALIZATION_CONTROL_FORMAT",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MATERIALIZATION_CONTROL_FORMAT: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:MATERIALIZATION_CONTROL_EMPTY_REVISION",
+      "owner": "reactor",
+      "symbol": "MATERIALIZATION_CONTROL_EMPTY_REVISION",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MATERIALIZATION_CONTROL_EMPTY_REVISION: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlError",
+      "owner": "reactor",
+      "symbol": "MaterializationControlError",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlError: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlError#code",
+      "owner": "reactor",
+      "symbol": "MaterializationControlError.code",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlError.code: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:materializationAppearanceKey",
+      "owner": "reactor",
+      "symbol": "materializationAppearanceKey",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "materializationAppearanceKey: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:emptyMaterializationControl",
+      "owner": "reactor",
+      "symbol": "emptyMaterializationControl",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "emptyMaterializationControl: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:materializationControlImage",
+      "owner": "reactor",
+      "symbol": "materializationControlImage",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "materializationControlImage: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:encodeMaterializationControl",
+      "owner": "reactor",
+      "symbol": "encodeMaterializationControl",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "encodeMaterializationControl: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:decodeMaterializationControl",
+      "owner": "reactor",
+      "symbol": "decodeMaterializationControl",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "decodeMaterializationControl: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:materializationControlRevision",
+      "owner": "reactor",
+      "symbol": "materializationControlRevision",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "materializationControlRevision: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:planMaterializationControl",
+      "owner": "reactor",
+      "symbol": "planMaterializationControl",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "planMaterializationControl: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlLimits",
+      "owner": "reactor",
+      "symbol": "MaterializationControlLimits",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlLimits: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlLimits#artifactBytes",
+      "owner": "reactor",
+      "symbol": "MaterializationControlLimits.artifactBytes",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlLimits.artifactBytes: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlLimits#registrations",
+      "owner": "reactor",
+      "symbol": "MaterializationControlLimits.registrations",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlLimits.registrations: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlLimits#definitions",
+      "owner": "reactor",
+      "symbol": "MaterializationControlLimits.definitions",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlLimits.definitions: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlStatus",
+      "owner": "reactor",
+      "symbol": "MaterializationControlStatus",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlStatus: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlEntry",
+      "owner": "reactor",
+      "symbol": "MaterializationControlEntry",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlEntry: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlEntry#registration",
+      "owner": "reactor",
+      "symbol": "MaterializationControlEntry.registration",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlEntry.registration: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlEntry#status",
+      "owner": "reactor",
+      "symbol": "MaterializationControlEntry.status",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlEntry.status: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlEntry#transition",
+      "owner": "reactor",
+      "symbol": "MaterializationControlEntry.transition",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlEntry.transition: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlEntry#sourceRevision",
+      "owner": "reactor",
+      "symbol": "MaterializationControlEntry.sourceRevision",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlEntry.sourceRevision: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlEntry#authority",
+      "owner": "reactor",
+      "symbol": "MaterializationControlEntry.authority",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlEntry.authority: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlEntry#at",
+      "owner": "reactor",
+      "symbol": "MaterializationControlEntry.at",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlEntry.at: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlEntry#definitionAt",
+      "owner": "reactor",
+      "symbol": "MaterializationControlEntry.definitionAt",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlEntry.definitionAt: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlEntry#hyperschemaPin",
+      "owner": "reactor",
+      "symbol": "MaterializationControlEntry.hyperschemaPin",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlEntry.hyperschemaPin: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlEntry#schemaPin",
+      "owner": "reactor",
+      "symbol": "MaterializationControlEntry.schemaPin",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlEntry.schemaPin: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlEntry#capture",
+      "owner": "reactor",
+      "symbol": "MaterializationControlEntry.capture",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlEntry.capture: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlImage",
+      "owner": "reactor",
+      "symbol": "MaterializationControlImage",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlImage: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlImage#receiver",
+      "owner": "reactor",
+      "symbol": "MaterializationControlImage.receiver",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlImage.receiver: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlImage#configuration",
+      "owner": "reactor",
+      "symbol": "MaterializationControlImage.configuration",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlImage.configuration: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlImage#generation",
+      "owner": "reactor",
+      "symbol": "MaterializationControlImage.generation",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlImage.generation: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlImage#entries",
+      "owner": "reactor",
+      "symbol": "MaterializationControlImage.entries",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlImage.entries: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlImage#deltas",
+      "owner": "reactor",
+      "symbol": "MaterializationControlImage.deltas",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlImage.deltas: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlSelection",
+      "owner": "reactor",
+      "symbol": "MaterializationControlSelection",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlSelection: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlSelection#receiver",
+      "owner": "reactor",
+      "symbol": "MaterializationControlSelection.receiver",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlSelection.receiver: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlSelection#configuration",
+      "owner": "reactor",
+      "symbol": "MaterializationControlSelection.configuration",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlSelection.configuration: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlSelection#generation",
+      "owner": "reactor",
+      "symbol": "MaterializationControlSelection.generation",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlSelection.generation: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlSelection#entries",
+      "owner": "reactor",
+      "symbol": "MaterializationControlSelection.entries",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlSelection.entries: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlActive",
+      "owner": "reactor",
+      "symbol": "MaterializationControlActive",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlActive: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlActive#registration",
+      "owner": "reactor",
+      "symbol": "MaterializationControlActive.registration",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlActive.registration: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlActive#sourceRevision",
+      "owner": "reactor",
+      "symbol": "MaterializationControlActive.sourceRevision",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlActive.sourceRevision: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlActive#authority",
+      "owner": "reactor",
+      "symbol": "MaterializationControlActive.authority",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlActive.authority: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlActive#at",
+      "owner": "reactor",
+      "symbol": "MaterializationControlActive.at",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlActive.at: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlActive#definitionAt",
+      "owner": "reactor",
+      "symbol": "MaterializationControlActive.definitionAt",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlActive.definitionAt: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlActive#hyperschemaPin",
+      "owner": "reactor",
+      "symbol": "MaterializationControlActive.hyperschemaPin",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlActive.hyperschemaPin: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlActive#schemaPin",
+      "owner": "reactor",
+      "symbol": "MaterializationControlActive.schemaPin",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlActive.schemaPin: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlActive#capture",
+      "owner": "reactor",
+      "symbol": "MaterializationControlActive.capture",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlActive.capture: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlTransition",
+      "owner": "reactor",
+      "symbol": "MaterializationControlTransition",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlTransition: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlTransition#verb",
+      "owner": "reactor",
+      "symbol": "MaterializationControlTransition.verb",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlTransition.verb: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlTransition#entry",
+      "owner": "reactor",
+      "symbol": "MaterializationControlTransition.entry",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlTransition.entry: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlTransition#transition",
+      "owner": "reactor",
+      "symbol": "MaterializationControlTransition.transition",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlTransition.transition: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlTransition#support",
+      "owner": "reactor",
+      "symbol": "MaterializationControlTransition.support",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlTransition.support: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlTransition#registration",
+      "owner": "reactor",
+      "symbol": "MaterializationControlTransition.registration",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlTransition.registration: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlTransition#sourceRevision",
+      "owner": "reactor",
+      "symbol": "MaterializationControlTransition.sourceRevision",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlTransition.sourceRevision: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlTransition#authority",
+      "owner": "reactor",
+      "symbol": "MaterializationControlTransition.authority",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlTransition.authority: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlTransition#capture",
+      "owner": "reactor",
+      "symbol": "MaterializationControlTransition.capture",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlTransition.capture: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlTransition#superseded",
+      "owner": "reactor",
+      "symbol": "MaterializationControlTransition.superseded",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlTransition.superseded: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlTransition#at",
+      "owner": "reactor",
+      "symbol": "MaterializationControlTransition.at",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlTransition.at: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlPlan",
+      "owner": "reactor",
+      "symbol": "MaterializationControlPlan",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlPlan: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlPlan#status",
+      "owner": "reactor",
+      "symbol": "MaterializationControlPlan.status",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlPlan.status: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlPlan#selection",
+      "owner": "reactor",
+      "symbol": "MaterializationControlPlan.selection",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlPlan.selection: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlPlan#code",
+      "owner": "reactor",
+      "symbol": "MaterializationControlPlan.code",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlPlan.code: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlStore",
+      "owner": "storage",
+      "symbol": "MaterializationControlStore",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/materialization-store.ts",
+      "contract": "rhizomatic.materialization/1/control-store",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlStore: Explicit atomic metadata initialize/read/CAS with exact durable, conflict, rejected and committed-unconfirmed outcomes. MR-15, MR-18; definition implementations/ts/src/storage/materialization-store.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlStore#initialize",
+      "owner": "storage",
+      "symbol": "MaterializationControlStore.initialize",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/materialization-store.ts",
+      "contract": "rhizomatic.materialization/1/control-store",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlStore.initialize: Explicit atomic metadata initialize/read/CAS with exact durable, conflict, rejected and committed-unconfirmed outcomes. MR-15, MR-18; definition implementations/ts/src/storage/materialization-store.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlStore#read",
+      "owner": "storage",
+      "symbol": "MaterializationControlStore.read",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/materialization-store.ts",
+      "contract": "rhizomatic.materialization/1/control-store",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlStore.read: Explicit atomic metadata initialize/read/CAS with exact durable, conflict, rejected and committed-unconfirmed outcomes. MR-15, MR-18; definition implementations/ts/src/storage/materialization-store.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlStore#compareAndSet",
+      "owner": "storage",
+      "symbol": "MaterializationControlStore.compareAndSet",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/materialization-store.ts",
+      "contract": "rhizomatic.materialization/1/control-store",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlStore.compareAndSet: Explicit atomic metadata initialize/read/CAS with exact durable, conflict, rejected and committed-unconfirmed outcomes. MR-15, MR-18; definition implementations/ts/src/storage/materialization-store.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlInitialize",
+      "owner": "storage",
+      "symbol": "MaterializationControlInitialize",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/materialization-store.ts",
+      "contract": "rhizomatic.materialization/1/control-store",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlInitialize: Explicit atomic metadata initialize/read/CAS with exact durable, conflict, rejected and committed-unconfirmed outcomes. MR-15, MR-18; definition implementations/ts/src/storage/materialization-store.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlInitialize#status",
+      "owner": "storage",
+      "symbol": "MaterializationControlInitialize.status",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/materialization-store.ts",
+      "contract": "rhizomatic.materialization/1/control-store",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlInitialize.status: Explicit atomic metadata initialize/read/CAS with exact durable, conflict, rejected and committed-unconfirmed outcomes. MR-15, MR-18; definition implementations/ts/src/storage/materialization-store.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlInitialize#bytes",
+      "owner": "storage",
+      "symbol": "MaterializationControlInitialize.bytes",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/materialization-store.ts",
+      "contract": "rhizomatic.materialization/1/control-store",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlInitialize.bytes: Explicit atomic metadata initialize/read/CAS with exact durable, conflict, rejected and committed-unconfirmed outcomes. MR-15, MR-18; definition implementations/ts/src/storage/materialization-store.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlInitialize#revision",
+      "owner": "storage",
+      "symbol": "MaterializationControlInitialize.revision",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/materialization-store.ts",
+      "contract": "rhizomatic.materialization/1/control-store",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlInitialize.revision: Explicit atomic metadata initialize/read/CAS with exact durable, conflict, rejected and committed-unconfirmed outcomes. MR-15, MR-18; definition implementations/ts/src/storage/materialization-store.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlRead",
+      "owner": "storage",
+      "symbol": "MaterializationControlRead",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/materialization-store.ts",
+      "contract": "rhizomatic.materialization/1/control-store",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlRead: Explicit atomic metadata initialize/read/CAS with exact durable, conflict, rejected and committed-unconfirmed outcomes. MR-15, MR-18; definition implementations/ts/src/storage/materialization-store.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlRead#status",
+      "owner": "storage",
+      "symbol": "MaterializationControlRead.status",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/materialization-store.ts",
+      "contract": "rhizomatic.materialization/1/control-store",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlRead.status: Explicit atomic metadata initialize/read/CAS with exact durable, conflict, rejected and committed-unconfirmed outcomes. MR-15, MR-18; definition implementations/ts/src/storage/materialization-store.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlRead#bytes",
+      "owner": "storage",
+      "symbol": "MaterializationControlRead.bytes",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/materialization-store.ts",
+      "contract": "rhizomatic.materialization/1/control-store",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlRead.bytes: Explicit atomic metadata initialize/read/CAS with exact durable, conflict, rejected and committed-unconfirmed outcomes. MR-15, MR-18; definition implementations/ts/src/storage/materialization-store.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlRead#revision",
+      "owner": "storage",
+      "symbol": "MaterializationControlRead.revision",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/materialization-store.ts",
+      "contract": "rhizomatic.materialization/1/control-store",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlRead.revision: Explicit atomic metadata initialize/read/CAS with exact durable, conflict, rejected and committed-unconfirmed outcomes. MR-15, MR-18; definition implementations/ts/src/storage/materialization-store.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlRead#fault",
+      "owner": "storage",
+      "symbol": "MaterializationControlRead.fault",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/materialization-store.ts",
+      "contract": "rhizomatic.materialization/1/control-store",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlRead.fault: Explicit atomic metadata initialize/read/CAS with exact durable, conflict, rejected and committed-unconfirmed outcomes. MR-15, MR-18; definition implementations/ts/src/storage/materialization-store.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlWrite",
+      "owner": "storage",
+      "symbol": "MaterializationControlWrite",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/materialization-store.ts",
+      "contract": "rhizomatic.materialization/1/control-store",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlWrite: Explicit atomic metadata initialize/read/CAS with exact durable, conflict, rejected and committed-unconfirmed outcomes. MR-15, MR-18; definition implementations/ts/src/storage/materialization-store.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlWrite#status",
+      "owner": "storage",
+      "symbol": "MaterializationControlWrite.status",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/materialization-store.ts",
+      "contract": "rhizomatic.materialization/1/control-store",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlWrite.status: Explicit atomic metadata initialize/read/CAS with exact durable, conflict, rejected and committed-unconfirmed outcomes. MR-15, MR-18; definition implementations/ts/src/storage/materialization-store.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlWrite#revision",
+      "owner": "storage",
+      "symbol": "MaterializationControlWrite.revision",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/materialization-store.ts",
+      "contract": "rhizomatic.materialization/1/control-store",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlWrite.revision: Explicit atomic metadata initialize/read/CAS with exact durable, conflict, rejected and committed-unconfirmed outcomes. MR-15, MR-18; definition implementations/ts/src/storage/materialization-store.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlWrite#reason",
+      "owner": "storage",
+      "symbol": "MaterializationControlWrite.reason",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/materialization-store.ts",
+      "contract": "rhizomatic.materialization/1/control-store",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlWrite.reason: Explicit atomic metadata initialize/read/CAS with exact durable, conflict, rejected and committed-unconfirmed outcomes. MR-15, MR-18; definition implementations/ts/src/storage/materialization-store.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationControlWrite#fault",
+      "owner": "storage",
+      "symbol": "MaterializationControlWrite.fault",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/materialization-store.ts",
+      "contract": "rhizomatic.materialization/1/control-store",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationControlWrite.fault: Explicit atomic metadata initialize/read/CAS with exact durable, conflict, rejected and committed-unconfirmed outcomes. MR-15, MR-18; definition implementations/ts/src/storage/materialization-store.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:materializationAppearanceKey",
+      "owner": "reactor",
+      "symbol": "materializationAppearanceKey",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "materializationAppearanceKey: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:emptyMaterializationControl",
+      "owner": "reactor",
+      "symbol": "emptyMaterializationControl",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "emptyMaterializationControl: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:materializationControlImage",
+      "owner": "reactor",
+      "symbol": "materializationControlImage",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "materializationControlImage: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:encodeMaterializationControl",
+      "owner": "reactor",
+      "symbol": "encodeMaterializationControl",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "encodeMaterializationControl: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:decodeMaterializationControl",
+      "owner": "reactor",
+      "symbol": "decodeMaterializationControl",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "decodeMaterializationControl: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:materializationControlRevision",
+      "owner": "reactor",
+      "symbol": "materializationControlRevision",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "materializationControlRevision: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:planMaterializationControl",
+      "owner": "reactor",
+      "symbol": "planMaterializationControl",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "planMaterializationControl: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:MATERIALIZATION_CONTROL_FORMAT",
+      "owner": "reactor",
+      "symbol": "MATERIALIZATION_CONTROL_FORMAT",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "MATERIALIZATION_CONTROL_FORMAT: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:MATERIALIZATION_CONTROL_EMPTY_REVISION",
+      "owner": "reactor",
+      "symbol": "MATERIALIZATION_CONTROL_EMPTY_REVISION",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "MATERIALIZATION_CONTROL_EMPTY_REVISION: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:MaterializationControlError",
+      "owner": "reactor",
+      "symbol": "MaterializationControlError",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlError: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:MaterializationControlError#code",
+      "owner": "reactor",
+      "symbol": "MaterializationControlError.code",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlError.code: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:MaterializationControlLimits",
+      "owner": "reactor",
+      "symbol": "MaterializationControlLimits",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlLimits: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:MaterializationControlLimits#artifactBytes",
+      "owner": "reactor",
+      "symbol": "MaterializationControlLimits.artifactBytes",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlLimits.artifactBytes: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:MaterializationControlLimits#registrations",
+      "owner": "reactor",
+      "symbol": "MaterializationControlLimits.registrations",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlLimits.registrations: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:MaterializationControlLimits#definitions",
+      "owner": "reactor",
+      "symbol": "MaterializationControlLimits.definitions",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlLimits.definitions: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:MaterializationControlStatus",
+      "owner": "reactor",
+      "symbol": "MaterializationControlStatus",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlStatus: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:MaterializationControlEntry",
+      "owner": "reactor",
+      "symbol": "MaterializationControlEntry",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlEntry: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:MaterializationControlEntry#registration",
+      "owner": "reactor",
+      "symbol": "MaterializationControlEntry.registration",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlEntry.registration: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:MaterializationControlEntry#status",
+      "owner": "reactor",
+      "symbol": "MaterializationControlEntry.status",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlEntry.status: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:MaterializationControlEntry#transition",
+      "owner": "reactor",
+      "symbol": "MaterializationControlEntry.transition",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlEntry.transition: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:MaterializationControlEntry#sourceRevision",
+      "owner": "reactor",
+      "symbol": "MaterializationControlEntry.sourceRevision",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlEntry.sourceRevision: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:MaterializationControlEntry#authority",
+      "owner": "reactor",
+      "symbol": "MaterializationControlEntry.authority",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlEntry.authority: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:MaterializationControlEntry#at",
+      "owner": "reactor",
+      "symbol": "MaterializationControlEntry.at",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlEntry.at: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:MaterializationControlEntry#definitionAt",
+      "owner": "reactor",
+      "symbol": "MaterializationControlEntry.definitionAt",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlEntry.definitionAt: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:MaterializationControlEntry#hyperschemaPin",
+      "owner": "reactor",
+      "symbol": "MaterializationControlEntry.hyperschemaPin",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlEntry.hyperschemaPin: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:MaterializationControlEntry#schemaPin",
+      "owner": "reactor",
+      "symbol": "MaterializationControlEntry.schemaPin",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlEntry.schemaPin: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:MaterializationControlEntry#capture",
+      "owner": "reactor",
+      "symbol": "MaterializationControlEntry.capture",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlEntry.capture: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:MaterializationControlImage",
+      "owner": "reactor",
+      "symbol": "MaterializationControlImage",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlImage: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:MaterializationControlImage#receiver",
+      "owner": "reactor",
+      "symbol": "MaterializationControlImage.receiver",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlImage.receiver: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:MaterializationControlImage#configuration",
+      "owner": "reactor",
+      "symbol": "MaterializationControlImage.configuration",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlImage.configuration: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:MaterializationControlImage#generation",
+      "owner": "reactor",
+      "symbol": "MaterializationControlImage.generation",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlImage.generation: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:MaterializationControlImage#entries",
+      "owner": "reactor",
+      "symbol": "MaterializationControlImage.entries",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlImage.entries: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:MaterializationControlImage#deltas",
+      "owner": "reactor",
+      "symbol": "MaterializationControlImage.deltas",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlImage.deltas: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:MaterializationControlSelection",
+      "owner": "reactor",
+      "symbol": "MaterializationControlSelection",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlSelection: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:MaterializationControlSelection#receiver",
+      "owner": "reactor",
+      "symbol": "MaterializationControlSelection.receiver",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlSelection.receiver: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:MaterializationControlSelection#configuration",
+      "owner": "reactor",
+      "symbol": "MaterializationControlSelection.configuration",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlSelection.configuration: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:MaterializationControlSelection#generation",
+      "owner": "reactor",
+      "symbol": "MaterializationControlSelection.generation",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlSelection.generation: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:MaterializationControlSelection#entries",
+      "owner": "reactor",
+      "symbol": "MaterializationControlSelection.entries",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlSelection.entries: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:MaterializationControlActive",
+      "owner": "reactor",
+      "symbol": "MaterializationControlActive",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlActive: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:MaterializationControlActive#registration",
+      "owner": "reactor",
+      "symbol": "MaterializationControlActive.registration",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlActive.registration: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:MaterializationControlActive#sourceRevision",
+      "owner": "reactor",
+      "symbol": "MaterializationControlActive.sourceRevision",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlActive.sourceRevision: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:MaterializationControlActive#authority",
+      "owner": "reactor",
+      "symbol": "MaterializationControlActive.authority",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlActive.authority: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:MaterializationControlActive#at",
+      "owner": "reactor",
+      "symbol": "MaterializationControlActive.at",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlActive.at: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:MaterializationControlActive#definitionAt",
+      "owner": "reactor",
+      "symbol": "MaterializationControlActive.definitionAt",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlActive.definitionAt: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:MaterializationControlActive#hyperschemaPin",
+      "owner": "reactor",
+      "symbol": "MaterializationControlActive.hyperschemaPin",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlActive.hyperschemaPin: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:MaterializationControlActive#schemaPin",
+      "owner": "reactor",
+      "symbol": "MaterializationControlActive.schemaPin",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlActive.schemaPin: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:MaterializationControlActive#capture",
+      "owner": "reactor",
+      "symbol": "MaterializationControlActive.capture",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlActive.capture: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:MaterializationControlTransition",
+      "owner": "reactor",
+      "symbol": "MaterializationControlTransition",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlTransition: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:MaterializationControlTransition#verb",
+      "owner": "reactor",
+      "symbol": "MaterializationControlTransition.verb",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlTransition.verb: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:MaterializationControlTransition#entry",
+      "owner": "reactor",
+      "symbol": "MaterializationControlTransition.entry",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlTransition.entry: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:MaterializationControlTransition#transition",
+      "owner": "reactor",
+      "symbol": "MaterializationControlTransition.transition",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlTransition.transition: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:MaterializationControlTransition#support",
+      "owner": "reactor",
+      "symbol": "MaterializationControlTransition.support",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlTransition.support: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:MaterializationControlTransition#registration",
+      "owner": "reactor",
+      "symbol": "MaterializationControlTransition.registration",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlTransition.registration: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:MaterializationControlTransition#sourceRevision",
+      "owner": "reactor",
+      "symbol": "MaterializationControlTransition.sourceRevision",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlTransition.sourceRevision: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:MaterializationControlTransition#authority",
+      "owner": "reactor",
+      "symbol": "MaterializationControlTransition.authority",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlTransition.authority: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:MaterializationControlTransition#capture",
+      "owner": "reactor",
+      "symbol": "MaterializationControlTransition.capture",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlTransition.capture: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:MaterializationControlTransition#superseded",
+      "owner": "reactor",
+      "symbol": "MaterializationControlTransition.superseded",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlTransition.superseded: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:MaterializationControlTransition#at",
+      "owner": "reactor",
+      "symbol": "MaterializationControlTransition.at",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlTransition.at: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:MaterializationControlPlan",
+      "owner": "reactor",
+      "symbol": "MaterializationControlPlan",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlPlan: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:MaterializationControlPlan#status",
+      "owner": "reactor",
+      "symbol": "MaterializationControlPlan.status",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlPlan.status: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:MaterializationControlPlan#selection",
+      "owner": "reactor",
+      "symbol": "MaterializationControlPlan.selection",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlPlan.selection: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:reactor/materialization-control.ts:MaterializationControlPlan#code",
+      "owner": "reactor",
+      "symbol": "MaterializationControlPlan.code",
+      "source": "implementations/ts/src/reactor/materialization-control.ts",
+      "definition": "implementations/ts/src/reactor/materialization-control.ts",
+      "contract": "rhizomatic.materialization-control/1",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlPlan.code: Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime. MR-13, MR-14, MR-16, MR-17; definition implementations/ts/src/reactor/materialization-control.ts."
+    },
+    {
+      "id": "ts:storage/materialization-store.ts:MaterializationControlInitialize",
+      "owner": "storage",
+      "symbol": "MaterializationControlInitialize",
+      "source": "implementations/ts/src/storage/materialization-store.ts",
+      "definition": "implementations/ts/src/storage/materialization-store.ts",
+      "contract": "rhizomatic.materialization/1/control-store",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlInitialize: Explicit atomic metadata initialize/read/CAS with exact durable, conflict, rejected and committed-unconfirmed outcomes. MR-15, MR-18; definition implementations/ts/src/storage/materialization-store.ts."
+    },
+    {
+      "id": "ts:storage/materialization-store.ts:MaterializationControlInitialize#status",
+      "owner": "storage",
+      "symbol": "MaterializationControlInitialize.status",
+      "source": "implementations/ts/src/storage/materialization-store.ts",
+      "definition": "implementations/ts/src/storage/materialization-store.ts",
+      "contract": "rhizomatic.materialization/1/control-store",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlInitialize.status: Explicit atomic metadata initialize/read/CAS with exact durable, conflict, rejected and committed-unconfirmed outcomes. MR-15, MR-18; definition implementations/ts/src/storage/materialization-store.ts."
+    },
+    {
+      "id": "ts:storage/materialization-store.ts:MaterializationControlInitialize#bytes",
+      "owner": "storage",
+      "symbol": "MaterializationControlInitialize.bytes",
+      "source": "implementations/ts/src/storage/materialization-store.ts",
+      "definition": "implementations/ts/src/storage/materialization-store.ts",
+      "contract": "rhizomatic.materialization/1/control-store",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlInitialize.bytes: Explicit atomic metadata initialize/read/CAS with exact durable, conflict, rejected and committed-unconfirmed outcomes. MR-15, MR-18; definition implementations/ts/src/storage/materialization-store.ts."
+    },
+    {
+      "id": "ts:storage/materialization-store.ts:MaterializationControlInitialize#revision",
+      "owner": "storage",
+      "symbol": "MaterializationControlInitialize.revision",
+      "source": "implementations/ts/src/storage/materialization-store.ts",
+      "definition": "implementations/ts/src/storage/materialization-store.ts",
+      "contract": "rhizomatic.materialization/1/control-store",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlInitialize.revision: Explicit atomic metadata initialize/read/CAS with exact durable, conflict, rejected and committed-unconfirmed outcomes. MR-15, MR-18; definition implementations/ts/src/storage/materialization-store.ts."
+    },
+    {
+      "id": "ts:storage/materialization-store.ts:MaterializationControlRead",
+      "owner": "storage",
+      "symbol": "MaterializationControlRead",
+      "source": "implementations/ts/src/storage/materialization-store.ts",
+      "definition": "implementations/ts/src/storage/materialization-store.ts",
+      "contract": "rhizomatic.materialization/1/control-store",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlRead: Explicit atomic metadata initialize/read/CAS with exact durable, conflict, rejected and committed-unconfirmed outcomes. MR-15, MR-18; definition implementations/ts/src/storage/materialization-store.ts."
+    },
+    {
+      "id": "ts:storage/materialization-store.ts:MaterializationControlRead#status",
+      "owner": "storage",
+      "symbol": "MaterializationControlRead.status",
+      "source": "implementations/ts/src/storage/materialization-store.ts",
+      "definition": "implementations/ts/src/storage/materialization-store.ts",
+      "contract": "rhizomatic.materialization/1/control-store",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlRead.status: Explicit atomic metadata initialize/read/CAS with exact durable, conflict, rejected and committed-unconfirmed outcomes. MR-15, MR-18; definition implementations/ts/src/storage/materialization-store.ts."
+    },
+    {
+      "id": "ts:storage/materialization-store.ts:MaterializationControlRead#bytes",
+      "owner": "storage",
+      "symbol": "MaterializationControlRead.bytes",
+      "source": "implementations/ts/src/storage/materialization-store.ts",
+      "definition": "implementations/ts/src/storage/materialization-store.ts",
+      "contract": "rhizomatic.materialization/1/control-store",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlRead.bytes: Explicit atomic metadata initialize/read/CAS with exact durable, conflict, rejected and committed-unconfirmed outcomes. MR-15, MR-18; definition implementations/ts/src/storage/materialization-store.ts."
+    },
+    {
+      "id": "ts:storage/materialization-store.ts:MaterializationControlRead#revision",
+      "owner": "storage",
+      "symbol": "MaterializationControlRead.revision",
+      "source": "implementations/ts/src/storage/materialization-store.ts",
+      "definition": "implementations/ts/src/storage/materialization-store.ts",
+      "contract": "rhizomatic.materialization/1/control-store",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlRead.revision: Explicit atomic metadata initialize/read/CAS with exact durable, conflict, rejected and committed-unconfirmed outcomes. MR-15, MR-18; definition implementations/ts/src/storage/materialization-store.ts."
+    },
+    {
+      "id": "ts:storage/materialization-store.ts:MaterializationControlRead#fault",
+      "owner": "storage",
+      "symbol": "MaterializationControlRead.fault",
+      "source": "implementations/ts/src/storage/materialization-store.ts",
+      "definition": "implementations/ts/src/storage/materialization-store.ts",
+      "contract": "rhizomatic.materialization/1/control-store",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlRead.fault: Explicit atomic metadata initialize/read/CAS with exact durable, conflict, rejected and committed-unconfirmed outcomes. MR-15, MR-18; definition implementations/ts/src/storage/materialization-store.ts."
+    },
+    {
+      "id": "ts:storage/materialization-store.ts:MaterializationControlWrite",
+      "owner": "storage",
+      "symbol": "MaterializationControlWrite",
+      "source": "implementations/ts/src/storage/materialization-store.ts",
+      "definition": "implementations/ts/src/storage/materialization-store.ts",
+      "contract": "rhizomatic.materialization/1/control-store",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlWrite: Explicit atomic metadata initialize/read/CAS with exact durable, conflict, rejected and committed-unconfirmed outcomes. MR-15, MR-18; definition implementations/ts/src/storage/materialization-store.ts."
+    },
+    {
+      "id": "ts:storage/materialization-store.ts:MaterializationControlWrite#status",
+      "owner": "storage",
+      "symbol": "MaterializationControlWrite.status",
+      "source": "implementations/ts/src/storage/materialization-store.ts",
+      "definition": "implementations/ts/src/storage/materialization-store.ts",
+      "contract": "rhizomatic.materialization/1/control-store",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlWrite.status: Explicit atomic metadata initialize/read/CAS with exact durable, conflict, rejected and committed-unconfirmed outcomes. MR-15, MR-18; definition implementations/ts/src/storage/materialization-store.ts."
+    },
+    {
+      "id": "ts:storage/materialization-store.ts:MaterializationControlWrite#revision",
+      "owner": "storage",
+      "symbol": "MaterializationControlWrite.revision",
+      "source": "implementations/ts/src/storage/materialization-store.ts",
+      "definition": "implementations/ts/src/storage/materialization-store.ts",
+      "contract": "rhizomatic.materialization/1/control-store",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlWrite.revision: Explicit atomic metadata initialize/read/CAS with exact durable, conflict, rejected and committed-unconfirmed outcomes. MR-15, MR-18; definition implementations/ts/src/storage/materialization-store.ts."
+    },
+    {
+      "id": "ts:storage/materialization-store.ts:MaterializationControlWrite#reason",
+      "owner": "storage",
+      "symbol": "MaterializationControlWrite.reason",
+      "source": "implementations/ts/src/storage/materialization-store.ts",
+      "definition": "implementations/ts/src/storage/materialization-store.ts",
+      "contract": "rhizomatic.materialization/1/control-store",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlWrite.reason: Explicit atomic metadata initialize/read/CAS with exact durable, conflict, rejected and committed-unconfirmed outcomes. MR-15, MR-18; definition implementations/ts/src/storage/materialization-store.ts."
+    },
+    {
+      "id": "ts:storage/materialization-store.ts:MaterializationControlWrite#fault",
+      "owner": "storage",
+      "symbol": "MaterializationControlWrite.fault",
+      "source": "implementations/ts/src/storage/materialization-store.ts",
+      "definition": "implementations/ts/src/storage/materialization-store.ts",
+      "contract": "rhizomatic.materialization/1/control-store",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlWrite.fault: Explicit atomic metadata initialize/read/CAS with exact durable, conflict, rejected and committed-unconfirmed outcomes. MR-15, MR-18; definition implementations/ts/src/storage/materialization-store.ts."
+    },
+    {
+      "id": "ts:storage/materialization-store.ts:MaterializationControlStore",
+      "owner": "storage",
+      "symbol": "MaterializationControlStore",
+      "source": "implementations/ts/src/storage/materialization-store.ts",
+      "definition": "implementations/ts/src/storage/materialization-store.ts",
+      "contract": "rhizomatic.materialization/1/control-store",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlStore: Explicit atomic metadata initialize/read/CAS with exact durable, conflict, rejected and committed-unconfirmed outcomes. MR-15, MR-18; definition implementations/ts/src/storage/materialization-store.ts."
+    },
+    {
+      "id": "ts:storage/materialization-store.ts:MaterializationControlStore#initialize",
+      "owner": "storage",
+      "symbol": "MaterializationControlStore.initialize",
+      "source": "implementations/ts/src/storage/materialization-store.ts",
+      "definition": "implementations/ts/src/storage/materialization-store.ts",
+      "contract": "rhizomatic.materialization/1/control-store",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlStore.initialize: Explicit atomic metadata initialize/read/CAS with exact durable, conflict, rejected and committed-unconfirmed outcomes. MR-15, MR-18; definition implementations/ts/src/storage/materialization-store.ts."
+    },
+    {
+      "id": "ts:storage/materialization-store.ts:MaterializationControlStore#read",
+      "owner": "storage",
+      "symbol": "MaterializationControlStore.read",
+      "source": "implementations/ts/src/storage/materialization-store.ts",
+      "definition": "implementations/ts/src/storage/materialization-store.ts",
+      "contract": "rhizomatic.materialization/1/control-store",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlStore.read: Explicit atomic metadata initialize/read/CAS with exact durable, conflict, rejected and committed-unconfirmed outcomes. MR-15, MR-18; definition implementations/ts/src/storage/materialization-store.ts."
+    },
+    {
+      "id": "ts:storage/materialization-store.ts:MaterializationControlStore#compareAndSet",
+      "owner": "storage",
+      "symbol": "MaterializationControlStore.compareAndSet",
+      "source": "implementations/ts/src/storage/materialization-store.ts",
+      "definition": "implementations/ts/src/storage/materialization-store.ts",
+      "contract": "rhizomatic.materialization/1/control-store",
+      "classification": "portable_contract",
+      "semantics": "MaterializationControlStore.compareAndSet: Explicit atomic metadata initialize/read/CAS with exact durable, conflict, rejected and committed-unconfirmed outcomes. MR-15, MR-18; definition implementations/ts/src/storage/materialization-store.ts."
     }
   ]
 }

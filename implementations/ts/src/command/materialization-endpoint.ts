@@ -41,15 +41,25 @@ import {
   mText,
   MaterializationInputError,
 } from "./materialization-values.js";
+import {
+  isLifecycleVerb,
+  runMaterializationLifecycle,
+  type MaterializationLifecycleHooks,
+} from "./materialization-lifecycle.js";
+import type { MaterializationControlStore } from "../federation/materialization-control.js";
 export interface MaterializationBoot extends MaterializationInputBoot {
   readonly signer: CommandSigner;
   readonly sourceGrants: ReadonlyMap<string, MaterializationSourceCapability>;
   readonly diagnostic: (fault: unknown) => void;
+  /** Release B only: the explicitly initialized control store (MR-15). */
+  readonly controlStore?: MaterializationControlStore;
+  readonly hooks?: MaterializationLifecycleHooks;
 }
 export class MaterializationEndpoint {
   private readonly catalogInputs;
   private readonly signer: CommandSigner;
   private readonly sourceGrants: ReadonlyMap<string, MaterializationSourceCapability>;
+  private readonly controlStore: MaterializationControlStore | undefined;
   private constructor(private readonly inputs: MaterializationBoot) {
     this.catalogInputs = materializationInputCatalog(inputs);
     if (
@@ -61,6 +71,9 @@ export class MaterializationEndpoint {
     this.sourceGrants = new Map(inputs.sourceGrants);
     if ([...this.sourceGrants.keys()].some((k) => !this.catalogInputs.bindings.has(k)))
       throw Error("grant for unselected binding");
+    if (this.catalogInputs.release === "B" && !inputs.controlStore)
+      throw Error("maintained verbs require an initialized control store");
+    this.controlStore = this.catalogInputs.release === "B" ? inputs.controlStore : undefined;
   }
   static boot(inputs: MaterializationBoot): MaterializationEndpoint {
     return new MaterializationEndpoint(inputs);
@@ -83,7 +96,7 @@ export class MaterializationEndpoint {
   private outcome(
     entryId: string,
     receivedAt: number,
-    status: "completed" | "refused",
+    status: "completed" | "refused" | "indeterminate",
     body: ReturnType<typeof map>,
   ): Delta {
     const ref = (delta: string): Target => ({ kind: "delta", deltaRef: { delta } });
@@ -109,6 +122,21 @@ export class MaterializationEndpoint {
     const c = this.catalogInputs;
     try {
       const p = prepareMaterializationInput(c, entryId, appearances, receivedAt);
+      if (isLifecycleVerb(p.verb)) {
+        const r = await runMaterializationLifecycle(
+          {
+            catalog: c,
+            signer: this.signer,
+            sourceGrants: this.sourceGrants,
+            controlStore: this.controlStore!,
+            hooks: this.inputs.hooks ?? {},
+            diagnostic: this.inputs.diagnostic,
+          },
+          p,
+          receivedAt,
+        );
+        return this.outcome(entryId, receivedAt, r.status, r.body);
+      }
       let snapshot;
       let grant: MaterializationSourceCapability | undefined;
       let binding: string | undefined;
