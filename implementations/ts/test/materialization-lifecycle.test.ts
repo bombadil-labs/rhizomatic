@@ -36,6 +36,7 @@ import {
 } from "../src/federation/materialization-control.js";
 import { MaterializationEndpoint } from "../src/command/materialization-endpoint.js";
 import { initializeMaterializationControl } from "../src/command/materialization-lifecycle.js";
+import { readMaterializationResult } from "../src/command/materialization-result.js";
 
 const fixture = JSON.parse(
   readFileSync(new URL("../../../vectors/materialization/commands.json", import.meta.url), "utf8"),
@@ -504,3 +505,145 @@ for (const step of schedule.steps)
         }),
     );
   });
+
+// ---- MR-20 readback of every shared step: the request, the post-CAS image and the delivered
+// source pair link a completed body to a verified contextual answer; any broken link demotes it.
+const scheduleKind = (d: Delta) =>
+  d.claims.pointers.find((x) => x.role === MATERIALIZATION_PREFIX + "kind")?.target;
+const scheduleDelivered = (step: (typeof schedule.steps)[number], kind: string) =>
+  (step.delivery as unknown[])
+    .map(parseCommandDelta)
+    .find((d) => JSON.stringify(scheduleKind(d)) === JSON.stringify(p(kind)));
+const installStep = schedule.steps.find((s: { id: string }) => s.id === "install");
+for (const step of schedule.steps)
+  it(`shared lifecycle readback ${step.id}`, () => {
+    const before = expect.getState().assertionCalls;
+    const outcome = parseCommandDelta(step.expected.outcome);
+    const q = parseCommandDelta(step.request);
+    const base = {
+      receiver: schedule.keys.receiver as string,
+      configuration: scheduleBoot.configuration.id,
+      request: q.id,
+      receivedAt: 1000,
+    };
+    const structure = readMaterializationResult(outcome, base);
+    expect(structure.status).toBe(step.expected.status);
+    expect(bytesToHex(encode(structure.body))).toBe(step.expected.bodyHex);
+    expect(structure.classification).toBe("verified-structure");
+    const snapshot = scheduleDelivered(step, "snapshot/1");
+    const capture =
+      scheduleDelivered(step, "capture/1") ?? scheduleDelivered(installStep, "capture/1");
+    const full = {
+      ...base,
+      requestDelta: q,
+      control: hex(step.expected.controlHex),
+      ...(snapshot && capture ? { capture, snapshot } : {}),
+    };
+    if (step.expected.status === "refused") {
+      const read = readMaterializationResult(outcome, { ...base, requestDelta: q });
+      expect(read.classification).toBe("verified-context");
+      expect(text(field(read.body, "code"))).toBe(step.expected.code);
+      expect(() => readMaterializationResult(outcome, { ...base, request: outcome.id })).toThrow(
+        "invalid-evidence",
+      );
+    } else {
+      const read = readMaterializationResult(outcome, full);
+      expect(read.classification).toBe("verified-context");
+      expect(read.sourceCommitments).toBe(snapshot ? "commitments-verified" : "attested");
+      expect(read.values === undefined).toBe(!snapshot);
+      // The pre-CAS image is not the image the body names, except for the effect-free verbs.
+      const stale = { ...full, control: hex(step.initialControl.hex) };
+      if (step.initialControl.hex === step.expected.controlHex)
+        expect(readMaterializationResult(outcome, stale).classification).toBe("verified-context");
+      else expect(() => readMaterializationResult(outcome, stale)).toThrow("invalid-evidence");
+      // The request must be the one the outcome names.
+      const other = schedule.steps.find((s: { id: string }) => s.id !== step.id);
+      expect(() =>
+        readMaterializationResult(outcome, {
+          ...full,
+          requestDelta: parseCommandDelta(other.request),
+          request: other.request.id,
+        }),
+      ).toThrow("invalid-evidence");
+      // A body missing one root, or naming another registration, no longer reads.
+      const body = decode(hex(step.expected.bodyHex));
+      if (body.t === "map" && body.v.some(([k]) => k === "results")) {
+        const dropped: CborValue = {
+          t: "map",
+          v: body.v.map(([k, x]): [string, CborValue] =>
+            k === "results" && x.t === "array" ? [k, { t: "array", v: x.v.slice(1) }] : [k, x],
+          ),
+        };
+        const forged = signClaims(
+          materializationDescriptionClaims(schedule.keys.receiver, 1000, "outcome/1", {
+            receiver: [ent(schedule.keys.receiver)],
+            configuration: [ref(scheduleBoot.configuration.id)],
+            request: [ref(q.id)],
+            status: [p("completed")],
+            result: [blob(encode(dropped))],
+          }),
+          schedule.seeds.receiver,
+        );
+        expect(readMaterializationResult(forged, base).classification).toBe("verified-structure");
+        expect(() => readMaterializationResult(forged, full)).toThrow("invalid-evidence");
+      }
+    }
+    console.log(
+      "materialization-m3-assertion:" +
+        JSON.stringify({
+          corpus: "lifecycle",
+          corpusId: scheduleCorpusId,
+          group: "readback",
+          id: step.id,
+          assertions: expect.getState().assertionCalls - before,
+        }),
+    );
+  });
+it("indeterminate outcomes read as structure with their exact MR-19 shape", () => {
+  const q = parseCommandDelta(installStep.request);
+  const outcome = (result: CborValue) =>
+    signClaims(
+      materializationDescriptionClaims(schedule.keys.receiver, 1000, "outcome/1", {
+        receiver: [ent(schedule.keys.receiver)],
+        configuration: [ref(scheduleBoot.configuration.id)],
+        request: [ref(q.id)],
+        status: [p("indeterminate")],
+        result: [blob(encode(result))],
+      }),
+      schedule.seeds.receiver,
+    );
+  const base = {
+    receiver: schedule.keys.receiver as string,
+    configuration: scheduleBoot.configuration.id,
+    request: q.id,
+  };
+  const control = contentAddress(new Uint8Array([1]));
+  const tstr = (v: string): CborValue => ({ t: "tstr", v });
+  const m = (fields: [string, CborValue][]): CborValue => ({ t: "map", v: fields });
+  const unconfirmed = readMaterializationResult(
+    outcome(m([["code", tstr("commit-unconfirmed")]])),
+    base,
+  );
+  expect(unconfirmed.status).toBe("indeterminate");
+  expect(unconfirmed.classification).toBe("verified-structure");
+  const unavailable = readMaterializationResult(
+    outcome(
+      m([
+        ["code", tstr("result-unavailable")],
+        ["control", tstr(control)],
+      ]),
+    ),
+    { ...base, requestDelta: q },
+  );
+  expect(unavailable.status).toBe("indeterminate");
+  expect(unavailable.classification).toBe("verified-context");
+  for (const bad of [
+    m([["code", tstr("result-unavailable")]]),
+    m([
+      ["code", tstr("commit-unconfirmed")],
+      ["control", tstr(control)],
+    ]),
+    m([["code", tstr("write-conflict")]]),
+  ])
+    expect(() => readMaterializationResult(outcome(bad), base)).toThrow("invalid-evidence");
+});

@@ -28,8 +28,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
   outcomes. Release B boots need the store (`controlStore` / `boot_maintained`). The shared
   schedule `vectors/materialization/lifecycle.json` pins twenty steps, each from an explicit
   control image, with signed outcomes and images equal in both witnesses. ERRATA E3 records three
-  small decisions. Readback of lifecycle outcomes, fault schedules, cross-witness towers,
-  rotation and support erasure follow.
+  small decisions.
+- SPEC-16 MR-20 readback for the six maintained bodies and both indeterminate bodies
+  (`readMaterializationResult` / `read_materialization_result`): strict root-result envelopes
+  and Views, the nine M3 refusal codes, and contextual linkage to the request and the named
+  control image (ERRATA E4). The preflight projection covers install. `contracts/materialization/M3-CASES.json`
+  allocates the M3 cases and `tools/check-materialization-m3-acceptance.mjs` checks both
+  witnesses' receipts in CI. Fault schedules, cross-witness towers, rotation and support erasure
+  follow.
 
 ### Changed
 

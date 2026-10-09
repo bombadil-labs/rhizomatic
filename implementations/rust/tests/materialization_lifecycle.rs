@@ -769,3 +769,268 @@ fn shared_lifecycle_schedule() {
         );
     }
 }
+
+/// MR-20 readback of every shared step: the request, the post-CAS image and the delivered
+/// source pair link a completed body to a verified contextual answer; any broken link demotes it.
+#[test]
+fn shared_lifecycle_readback() {
+    use rhizomatic::{
+        read_materialization_result, MaterializationResultClassification as C,
+        MaterializationResultContext, MaterializationSourceCommitments as S,
+    };
+    const SCHEDULE: &[u8] = include_bytes!("../../../vectors/materialization/lifecycle.json");
+    let v: Value = serde_json::from_slice(SCHEDULE).unwrap();
+    let configuration = parse_command_delta(&v["boot"]["configuration"]).unwrap();
+    let limits = read_materialization_limits(
+        &materialization_bytes(
+            &read_materialization_description(&configuration, None).unwrap(),
+            "limits",
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    let receiver = v["keys"]["receiver"].as_str().unwrap().to_string();
+    let seed = v["seeds"]["receiver"].as_str().unwrap().to_string();
+    let steps = v["steps"].as_array().unwrap();
+    let delivered = |step: &Value, kind: &str| -> Option<Delta> {
+        step["delivery"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|d| parse_command_delta(d).unwrap())
+            .find(|d| {
+                d.claims.pointers.iter().any(|x| {
+                    x.role == rhizomatic::materialization_data::materialization_role("kind")
+                        && x.target == p(kind)[0]
+                })
+            })
+    };
+    let install = steps.iter().find(|s| s["id"] == "install").unwrap();
+    let outcome_of = |q: &Delta, status: &str, result: &CborValue| -> Delta {
+        sign(
+            &seed,
+            1000.0,
+            "outcome/1",
+            MaterializationFields::from([
+                ("receiver".into(), ent(&receiver)),
+                ("configuration".into(), vec![r(&configuration.id)]),
+                ("request".into(), vec![r(&q.id)]),
+                ("status".into(), p(status)),
+                ("result".into(), blob(encode(result))),
+            ]),
+        )
+    };
+    for step in steps {
+        let mut assertions = 0;
+        macro_rules! checked_eq {($($args:tt)*)=>{{assert_eq!($($args)*);assertions+=1;}};}
+        let outcome = parse_command_delta(&step["expected"]["outcome"]).unwrap();
+        let q = parse_command_delta(&step["request"]).unwrap();
+        let base = MaterializationResultContext {
+            receiver: receiver.clone(),
+            configuration: configuration.id.clone(),
+            request: q.id.clone(),
+            request_delta: None,
+            evidence: None,
+            binding: None,
+            revision: None,
+            authority: None,
+            capture: None,
+            snapshot: None,
+            received_at: Some(1000.0),
+            control: None,
+        };
+        let structure = read_materialization_result(&outcome, &base, &limits).unwrap();
+        checked_eq!(
+            structure.status,
+            step["expected"]["status"].as_str().unwrap()
+        );
+        checked_eq!(
+            hex::encode(encode(&structure.body)),
+            step["expected"]["bodyHex"].as_str().unwrap()
+        );
+        checked_eq!(structure.classification, C::VerifiedStructure);
+        let snapshot = delivered(step, "snapshot/1");
+        let capture = delivered(step, "capture/1").or_else(|| delivered(install, "capture/1"));
+        let full = MaterializationResultContext {
+            request_delta: Some(q.clone()),
+            control: Some(hex::decode(step["expected"]["controlHex"].as_str().unwrap()).unwrap()),
+            capture: if snapshot.is_some() { capture } else { None },
+            snapshot: snapshot.clone(),
+            ..base.clone()
+        };
+        if step["expected"]["status"] == "refused" {
+            let read = read_materialization_result(
+                &outcome,
+                &MaterializationResultContext {
+                    request_delta: Some(q.clone()),
+                    ..base.clone()
+                },
+                &limits,
+            )
+            .unwrap();
+            checked_eq!(read.classification, C::VerifiedContext);
+            checked_eq!(
+                text(field(&read.body, "code")),
+                step["expected"]["code"].as_str().unwrap()
+            );
+            checked_eq!(
+                read_materialization_result(
+                    &outcome,
+                    &MaterializationResultContext {
+                        request: outcome.id.clone(),
+                        ..base.clone()
+                    },
+                    &limits
+                )
+                .unwrap_err(),
+                "invalid-evidence"
+            );
+        } else {
+            let read = read_materialization_result(&outcome, &full, &limits).unwrap();
+            checked_eq!(read.classification, C::VerifiedContext);
+            checked_eq!(
+                read.source_commitments,
+                if snapshot.is_some() {
+                    S::CommitmentsVerified
+                } else {
+                    S::Attested
+                }
+            );
+            checked_eq!(read.values.is_empty(), snapshot.is_none());
+            // The pre-CAS image is not the image the body names, except for the effect-free verbs.
+            let stale = MaterializationResultContext {
+                control: Some(
+                    hex::decode(step["initialControl"]["hex"].as_str().unwrap()).unwrap(),
+                ),
+                ..full.clone()
+            };
+            if step["initialControl"]["hex"] == step["expected"]["controlHex"] {
+                checked_eq!(
+                    read_materialization_result(&outcome, &stale, &limits)
+                        .unwrap()
+                        .classification,
+                    C::VerifiedContext
+                );
+            } else {
+                checked_eq!(
+                    read_materialization_result(&outcome, &stale, &limits).unwrap_err(),
+                    "invalid-evidence"
+                );
+            }
+            // The request must be the one the outcome names.
+            let other = parse_command_delta(
+                &steps.iter().find(|s| s["id"] != step["id"]).unwrap()["request"],
+            )
+            .unwrap();
+            checked_eq!(
+                read_materialization_result(
+                    &outcome,
+                    &MaterializationResultContext {
+                        request: other.id.clone(),
+                        request_delta: Some(other),
+                        ..full.clone()
+                    },
+                    &limits
+                )
+                .unwrap_err(),
+                "invalid-evidence"
+            );
+            // A body missing one root no longer reads in context.
+            let body = decode(&hex::decode(step["expected"]["bodyHex"].as_str().unwrap()).unwrap())
+                .unwrap();
+            if let CborValue::Map(fields) = &body {
+                if fields.iter().any(|(k, _)| k == "results") {
+                    let dropped = CborValue::Map(
+                        fields
+                            .iter()
+                            .map(|(k, x)| match (k.as_str(), x) {
+                                ("results", CborValue::Array(xs)) => {
+                                    (k.clone(), CborValue::Array(xs[1..].to_vec()))
+                                }
+                                _ => (k.clone(), x.clone()),
+                            })
+                            .collect(),
+                    );
+                    let forged = outcome_of(&q, "completed", &dropped);
+                    checked_eq!(
+                        read_materialization_result(&forged, &base, &limits)
+                            .unwrap()
+                            .classification,
+                        C::VerifiedStructure
+                    );
+                    checked_eq!(
+                        read_materialization_result(&forged, &full, &limits).unwrap_err(),
+                        "invalid-evidence"
+                    );
+                }
+            }
+        }
+        println!(
+            "materialization-m3-assertion:{}",
+            serde_json::json!({"corpus":"lifecycle","corpusId":hex::encode(sha2::Sha256::digest(SCHEDULE)),"group":"readback","id":step["id"],"assertions":assertions})
+        );
+    }
+    // Indeterminate outcomes read as structure with their exact MR-19 shape.
+    let q = parse_command_delta(&install["request"]).unwrap();
+    let base = MaterializationResultContext {
+        receiver: receiver.clone(),
+        configuration: configuration.id.clone(),
+        request: q.id.clone(),
+        request_delta: None,
+        evidence: None,
+        binding: None,
+        revision: None,
+        authority: None,
+        capture: None,
+        snapshot: None,
+        received_at: None,
+        control: None,
+    };
+    let control = content_address(&[1]);
+    let m = |fields: Vec<(&str, &str)>| {
+        CborValue::Map(
+            fields
+                .into_iter()
+                .map(|(k, v)| (k.to_string(), CborValue::Tstr(v.to_string())))
+                .collect(),
+        )
+    };
+    let unconfirmed = read_materialization_result(
+        &outcome_of(
+            &q,
+            "indeterminate",
+            &m(vec![("code", "commit-unconfirmed")]),
+        ),
+        &base,
+        &limits,
+    )
+    .unwrap();
+    assert_eq!(unconfirmed.status, "indeterminate");
+    assert_eq!(unconfirmed.classification, C::VerifiedStructure);
+    let unavailable = read_materialization_result(
+        &outcome_of(
+            &q,
+            "indeterminate",
+            &m(vec![("code", "result-unavailable"), ("control", &control)]),
+        ),
+        &MaterializationResultContext {
+            request_delta: Some(q.clone()),
+            ..base.clone()
+        },
+        &limits,
+    )
+    .unwrap();
+    assert_eq!(unavailable.status, "indeterminate");
+    assert_eq!(unavailable.classification, C::VerifiedContext);
+    for bad in [
+        m(vec![("code", "result-unavailable")]),
+        m(vec![("code", "commit-unconfirmed"), ("control", &control)]),
+        m(vec![("code", "write-conflict")]),
+    ] {
+        assert_eq!(
+            read_materialization_result(&outcome_of(&q, "indeterminate", &bad), &base, &limits)
+                .unwrap_err(),
+            "invalid-evidence"
+        );
+    }
+}

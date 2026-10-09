@@ -229,3 +229,33 @@ jobs:
           name: materialization-m2-evidence
           path: ${{ runner.temp }}/materialization-m2
           if-no-files-found: error
+
+  materialization-m3:
+    name: Materialization M3 control image, lifecycle verbs and readback
+    needs: [typescript, rust]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: implementations/ts/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: implementations/rust
+      - run: npm ci --ignore-scripts --prefix implementations/ts
+      - name: Allocation consistency and harness sensitivity
+        run: node --test tools/check-materialization-accounting.test.mjs
+      - name: M3 shared schedule receipts in both witnesses
+        env:
+          M3_ARTIFACT_DIR: ${{ runner.temp }}/materialization-m3
+        run: node tools/check-materialization-m3-acceptance.mjs
+      - name: Retain concrete M3 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: materialization-m3-evidence
+          path: ${{ runner.temp }}/materialization-m3
+          if-no-files-found: error

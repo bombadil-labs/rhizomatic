@@ -55,3 +55,25 @@ Decided 2026-10-09 while building the lifecycle verbs; pinned by `vectors/materi
   on a different binding is `invalid-source` at stage 6. Changing the source binding means
   retire and install under a new descriptor, as MR-13 already says for every other immutable
   field.
+
+## E4 — What "control/transition linkage when provided" means for readback
+
+Decided 2026-10-09 while building MR-20 for the maintained bodies. MR-20 says a strict reader
+checks control/transition linkage when the caller provides it and otherwise reports only verified
+structure, but does not say what the caller provides or which fields the linkage compares.
+
+Decision: the caller provides the control image bytes the body names (the post-CAS image for a
+transition, the unchanged image for read and restore). The reader classifies that image with the
+stage-5 reader and requires: `control` equals the image's revision and `generation` its
+generation; for a body naming a registration, the entry exists, its latest transition equals
+`transition` when the body carries one, and its status is retired exactly for a retire body; for
+a serving body, the Basis binding, revision, authority, at, definitionAt, both pins, hyperschema,
+schema and bindings equal the stored descriptor and entry, the Basis closure equals the
+descriptor's closure, and the root results partition the descriptor's roots exactly; for a
+restore body, the selections equal the entries' projection. A maintained body is
+`verified-context` only with both the request and the control image; either alone leaves it
+`verified-structure`. Readback never executes a program or checks a source: it compares
+commitments.
+
+Pinned by the readback tests over `vectors/materialization/lifecycle.json` in both witnesses.
+

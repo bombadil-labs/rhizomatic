@@ -24,18 +24,32 @@ pub(crate) fn validate_gather_evidence(
         text(field(&fs, "kind")?)? == "gather" && !text(field(&fs, "root")?)?.is_empty(),
         "invalid-evidence",
     )?;
-    let envelope = bytes(field(&fs, "envelope")?)?;
-    let hview =
-        decode_hview_envelope(envelope, envelope_limits(limits)).map_err(|e| e.to_string())?;
+    let hview = validate_envelope(
+        bytes(field(&fs, "envelope")?)?,
+        &id(field(&fs, "transport")?)?,
+        &id(field(&fs, "hview")?)?,
+        limits,
+    )?;
     basis_program(field(&fs, "basis")?, limits)?;
     validate_basis(field(&fs, "basis")?, limits, None)?;
+    limit(encode(body).len(), limits["artifactBytes"])?;
+    Ok(GatherEvidence { hview })
+}
+/// Strict HView envelope readback (MR-20): decode under the limits, recompute transport and hview
+/// digests from the bytes, and refuse any reading the materialization grammar cannot run.
+pub(crate) fn validate_envelope(
+    envelope: &[u8],
+    transport: &str,
+    hview_id: &str,
+    limits: &MaterializationLimits,
+) -> Result<HView> {
+    let hview =
+        decode_hview_envelope(envelope, envelope_limits(limits)).map_err(|e| e.to_string())?;
     let hview_bytes = hex::decode(hview_canonical_hex(&hview)).map_err(|_| "invalid-evidence")?;
     require(
-        content_address(envelope) == id(field(&fs, "transport")?)?
-            && content_address(&hview_bytes) == id(field(&fs, "hview")?)?,
+        content_address(envelope) == transport && content_address(&hview_bytes) == hview_id,
         "invalid-evidence",
     )?;
-    limit(encode(body).len(), limits["artifactBytes"])?;
     fn check(node: &HView) -> Result<()> {
         for entry in node.props.values().flatten() {
             for reading in entry.readings.values() {
@@ -52,7 +66,7 @@ pub(crate) fn validate_gather_evidence(
         Ok(())
     }
     check(&hview)?;
-    Ok(GatherEvidence { hview })
+    Ok(hview)
 }
 pub(crate) fn missing_reading(hview: &HView) -> bool {
     hview.props.values().flatten().any(|entry| {

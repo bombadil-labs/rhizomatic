@@ -144,6 +144,7 @@ fn run(v: &Value) -> Result<Value, String> {
         request: q.id.clone(),
         request_delta: Some(q.clone()),
         received_at: Some(at),
+        control: None,
         evidence: None,
         binding: None,
         revision: None,

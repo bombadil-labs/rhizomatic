@@ -1,0 +1,748 @@
+{
+  "format": "rhizomatic.materialization-m3-cases/1",
+  "scope": "SPEC-16 M3 maintained lifecycle. Each required case and variant is allocated once. `executed` means every listed shared vector runs in both witnesses with receipts; `partial` names the executed part and what remains; `specified` has no executed evidence yet. Counts prove no arbitrary semantics; review reads the schedule.",
+  "cases": [
+    {
+      "id": "ctl_delta_state_inert",
+      "state": "partial",
+      "vector_assertions": [
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "restore_empty"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "restore_empty"
+        }
+      ],
+      "native_evidence": [
+        "the empty image restores with no selections and refuses unknown registrations",
+        "the_empty_image_restores_with_no_selections_and_refuses_unknown_registrations"
+      ],
+      "remaining": "A retained journal with ordinary registration/state deltas and an empty control store is an M3c fixture host; the shared steps only show the empty image restores with no selection."
+    },
+    {
+      "id": "ctl_install_complete",
+      "state": "executed",
+      "vector_assertions": [
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "install"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "install"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "read_installed"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "read_installed"
+        }
+      ],
+      "native_evidence": [
+        "install, read, advance, replace, retire and restore agree with the batch oracle",
+        "install_read_advance_replace_retire_and_restore_agree_with_the_batch_oracle"
+      ],
+      "remaining": ""
+    },
+    {
+      "id": "ctl_metadata_no_payload",
+      "state": "specified",
+      "vector_assertions": [],
+      "native_evidence": [],
+      "remaining": "Operand-marker inspection of the stored image and cache deletion with explicit snapshot reacquisition need the M3c fixture host."
+    },
+    {
+      "id": "ctl_add_negate_negate",
+      "state": "specified",
+      "vector_assertions": [],
+      "native_evidence": [],
+      "remaining": "Negation chains across replace-source need the M3c fixture source with a journal."
+    },
+    {
+      "id": "ctl_physical_remove",
+      "state": "specified",
+      "vector_assertions": [],
+      "native_evidence": [],
+      "remaining": "Physical row removal and source-changed on the old selection need the M3c fixture source."
+    },
+    {
+      "id": "ctl_equal_count_replace",
+      "state": "partial",
+      "vector_assertions": [
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "replace_source_same_basis"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "replace_source_same_basis"
+        }
+      ],
+      "native_evidence": [
+        "install, read, advance, replace, retire and restore agree with the batch oracle",
+        "install_read_advance_replace_retire_and_restore_agree_with_the_batch_oracle"
+      ],
+      "remaining": "The shared step replaces with an equal basis; the equal-count row change A\u2192B with height 87 needs the M3c fixture source."
+    },
+    {
+      "id": "ctl_authority_only_replace",
+      "state": "specified",
+      "vector_assertions": [],
+      "native_evidence": [],
+      "remaining": "Same source bytes under a second authority need the M3c fixture source."
+    },
+    {
+      "id": "ctl_validity_advance",
+      "state": "partial",
+      "vector_assertions": [
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "advance_time"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "advance_time"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "advance_time_regression"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "advance_time_regression"
+        }
+      ],
+      "native_evidence": [
+        "install, read, advance, replace, retire and restore agree with the batch oracle",
+        "install_read_advance_replace_retire_and_restore_agree_with_the_batch_oracle"
+      ],
+      "remaining": "The validity boundaries 100/199/200/2100 and the expired-descriptor read need an M3c schedule over the plant source."
+    },
+    {
+      "id": "ctl_definition_selection_replace",
+      "state": "specified",
+      "vector_assertions": [],
+      "native_evidence": [],
+      "remaining": "Retire-and-install under a new descriptor with a second definition needs the M3c fixture."
+    },
+    {
+      "id": "ctl_alias_collision",
+      "state": "partial",
+      "vector_assertions": [
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "install_descriptor_not_registration"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "install_descriptor_not_registration"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "retire_missing"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "retire_missing"
+        }
+      ],
+      "native_evidence": [],
+      "remaining": "Two aliased descriptors installed and read by ID need an M3c schedule; the shared steps pin that a non-descriptor registration argument and an unknown registration refuse by domain."
+    },
+    {
+      "id": "ctl_repeated_attempt",
+      "state": "executed",
+      "vector_assertions": [
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "install_stale_control"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "install_stale_control"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "install_already_installed"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "install_already_installed"
+        }
+      ],
+      "native_evidence": [],
+      "remaining": ""
+    },
+    {
+      "id": "ctl_two_writers",
+      "state": "partial",
+      "vector_assertions": [
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "install_stale_control"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "read_wrong_control"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "read_wrong_control"
+        }
+      ],
+      "native_evidence": [],
+      "remaining": "The precondition-failed branch is pinned; the write-conflict branch at the CAS needs the M3c racing control store."
+    },
+    {
+      "id": "ctl_before_commit_crash",
+      "state": "specified",
+      "vector_assertions": [],
+      "native_evidence": [],
+      "remaining": "Durable fault schedule with a killed subprocess and a fresh other-witness restore (M3c)."
+    },
+    {
+      "id": "ctl_after_commit_crash",
+      "state": "specified",
+      "vector_assertions": [],
+      "native_evidence": [],
+      "remaining": "Durable fault schedule with a killed subprocess and a fresh other-witness restore (M3c)."
+    },
+    {
+      "id": "ctl_postcommit_sign_delivery",
+      "state": "specified",
+      "vector_assertions": [],
+      "native_evidence": [],
+      "remaining": "Durable fault schedule with a killed subprocess and a fresh other-witness restore (M3c)."
+    },
+    {
+      "id": "ctl_retire_uncertain",
+      "state": "specified",
+      "vector_assertions": [],
+      "native_evidence": [],
+      "remaining": "Durable fault schedule with a killed subprocess and a fresh other-witness restore (M3c)."
+    },
+    {
+      "id": "ctl_uncertain_absent",
+      "state": "specified",
+      "vector_assertions": [],
+      "native_evidence": [],
+      "remaining": "Control store fault injection and reopen (M3c); the MR-19 refused and indeterminate body shapes already read back in both witnesses."
+    },
+    {
+      "id": "ctl_uncertain_present",
+      "state": "specified",
+      "vector_assertions": [],
+      "native_evidence": [],
+      "remaining": "Control store fault injection and reopen (M3c); the MR-19 refused and indeterminate body shapes already read back in both witnesses."
+    },
+    {
+      "id": "ctl_known_rejection",
+      "state": "specified",
+      "vector_assertions": [],
+      "native_evidence": [],
+      "remaining": "Control store fault injection and reopen (M3c); the MR-19 refused and indeterminate body shapes already read back in both witnesses."
+    },
+    {
+      "id": "ctl_postcommit_rebuild_fault",
+      "state": "specified",
+      "vector_assertions": [],
+      "native_evidence": [],
+      "remaining": "Control store fault injection and reopen (M3c); the MR-19 refused and indeterminate body shapes already read back in both witnesses."
+    },
+    {
+      "id": "ctl_precheck_source_race",
+      "state": "specified",
+      "vector_assertions": [],
+      "native_evidence": [],
+      "remaining": "Source replacement between precompute and the final check needs the M3c fixture source."
+    },
+    {
+      "id": "ctl_postcheck_precommit_race",
+      "state": "specified",
+      "vector_assertions": [],
+      "native_evidence": [],
+      "remaining": "Pause after the final check with an independent source replacement needs the M3c fixture host."
+    },
+    {
+      "id": "ctl_rebuild_source_replace",
+      "state": "specified",
+      "vector_assertions": [],
+      "native_evidence": [],
+      "remaining": "Source replacement after commit and before rebuild needs the M3c fixture source."
+    },
+    {
+      "id": "ctl_restore_unavailable",
+      "state": "specified",
+      "vector_assertions": [],
+      "native_evidence": [],
+      "remaining": "Restore with a destroyed source provider needs the M3c fixture host."
+    },
+    {
+      "id": "ctl_retired_restart",
+      "state": "partial",
+      "vector_assertions": [
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "retire"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "retire"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "restore_retired"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "restore_retired"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "read_retired"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "read_retired"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "retire_retired"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "retire_retired"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "install_retired"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "install_retired"
+        }
+      ],
+      "native_evidence": [
+        "install, read, advance, replace, retire and restore agree with the batch oracle",
+        "install_read_advance_replace_retire_and_restore_agree_with_the_batch_oracle"
+      ],
+      "remaining": "The process kill and the retained old install request need the M3c fixture host; the shared steps pin the retired terminal state, its payload-free restore and every refusal on a retired ID."
+    },
+    {
+      "id": "ctl_retire_source_unavailable",
+      "state": "specified",
+      "vector_assertions": [],
+      "native_evidence": [],
+      "remaining": "Retire with a revoked grant and an expired descriptor needs an M3c schedule."
+    },
+    {
+      "id": "ctl_control_strict",
+      "state": "partial",
+      "vector_assertions": [
+        {
+          "corpus": "control-image",
+          "group": "negatives",
+          "id": "unknown_key"
+        },
+        {
+          "corpus": "control-image",
+          "group": "negatives",
+          "id": "wrong_format"
+        },
+        {
+          "corpus": "control-image",
+          "group": "negatives",
+          "id": "entries_unsorted"
+        },
+        {
+          "corpus": "control-image",
+          "group": "negatives",
+          "id": "duplicate_registration"
+        },
+        {
+          "corpus": "control-image",
+          "group": "negatives",
+          "id": "active_without_capture"
+        },
+        {
+          "corpus": "control-image",
+          "group": "negatives",
+          "id": "retired_with_capture"
+        },
+        {
+          "corpus": "control-image",
+          "group": "negatives",
+          "id": "generation_zero_with_entries"
+        },
+        {
+          "corpus": "control-image",
+          "group": "negatives",
+          "id": "generation_without_entries"
+        },
+        {
+          "corpus": "control-image",
+          "group": "negatives",
+          "id": "generation_fraction"
+        },
+        {
+          "corpus": "control-image",
+          "group": "negatives",
+          "id": "generation_negative"
+        },
+        {
+          "corpus": "control-image",
+          "group": "negatives",
+          "id": "bad_status"
+        },
+        {
+          "corpus": "control-image",
+          "group": "negatives",
+          "id": "deltas_unsorted"
+        },
+        {
+          "corpus": "control-image",
+          "group": "negatives",
+          "id": "duplicate_delta"
+        },
+        {
+          "corpus": "control-image",
+          "group": "negatives",
+          "id": "delta_not_bytes"
+        },
+        {
+          "corpus": "control-image",
+          "group": "negatives",
+          "id": "bad_receiver"
+        },
+        {
+          "corpus": "control-image",
+          "group": "negatives",
+          "id": "bad_id_field"
+        },
+        {
+          "corpus": "control-image",
+          "group": "negatives",
+          "id": "nonfinite_at"
+        },
+        {
+          "corpus": "control-image",
+          "group": "negatives",
+          "id": "noncanonical_key_order"
+        },
+        {
+          "corpus": "control-image",
+          "group": "negatives",
+          "id": "truncated"
+        },
+        {
+          "corpus": "control-image",
+          "group": "negatives",
+          "id": "entries_over_registrations"
+        },
+        {
+          "corpus": "control-image",
+          "group": "negatives",
+          "id": "image_over_artifact_bytes"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "corrupt_image"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "corrupt_image"
+        }
+      ],
+      "native_evidence": [],
+      "remaining": "Entry/transition disagreement, unreachable support, retired scalar changes under an unchanged terminal transition and the malformed authority interval need M3c hostile images."
+    },
+    {
+      "id": "ctl_cross_witness_restore",
+      "state": "specified",
+      "vector_assertions": [],
+      "native_evidence": [],
+      "remaining": "Mixed towers over exported control bytes (M3c)."
+    },
+    {
+      "id": "ctl_scope_independence",
+      "state": "specified",
+      "vector_assertions": [],
+      "native_evidence": [],
+      "remaining": "Two active descriptors over one source need an M3c schedule."
+    },
+    {
+      "id": "ctl_capacity_rotation",
+      "state": "specified",
+      "vector_assertions": [],
+      "native_evidence": [],
+      "remaining": "64-entry lifetime with explicit host rotation (M3c)."
+    },
+    {
+      "id": "ctl_shared_basis_limits",
+      "state": "partial",
+      "vector_assertions": [
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "install"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "read_installed"
+        }
+      ],
+      "native_evidence": [],
+      "remaining": "Readback already requires one Basis per body and the exact root-result fields; the 64-root descriptor and the aggregate byte limit need M3c vectors."
+    },
+    {
+      "id": "ctl_support_erasure",
+      "state": "specified",
+      "vector_assertions": [],
+      "native_evidence": [],
+      "remaining": "Shared-definition erasure through the host erasure law (M3c)."
+    },
+    {
+      "id": "ctl_support_erasure_crashes",
+      "state": "specified",
+      "vector_assertions": [],
+      "native_evidence": [],
+      "remaining": "Erasure with crashes before and after the retire CAS (M3c)."
+    }
+  ],
+  "variants": [
+    {
+      "id": "cmd_delivery_support::install-support",
+      "state": "executed",
+      "vector_assertions": [
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "install_missing_closure"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "install_missing_closure"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "replace_redelivered_definition"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "replace_redelivered_definition"
+        }
+      ],
+      "native_evidence": [],
+      "remaining": ""
+    },
+    {
+      "id": "cmd_shapes_closed::lifecycle-descriptions",
+      "state": "executed",
+      "vector_assertions": [
+        {
+          "corpus": "command-descriptions",
+          "group": "positives",
+          "id": "operation_install"
+        },
+        {
+          "corpus": "command-descriptions",
+          "group": "positives",
+          "id": "operation_replace-source"
+        },
+        {
+          "corpus": "command-descriptions",
+          "group": "positives",
+          "id": "operation_advance-time"
+        },
+        {
+          "corpus": "command-descriptions",
+          "group": "positives",
+          "id": "operation_retire"
+        },
+        {
+          "corpus": "command-descriptions",
+          "group": "positives",
+          "id": "operation_read"
+        },
+        {
+          "corpus": "command-descriptions",
+          "group": "positives",
+          "id": "operation_restore"
+        },
+        {
+          "corpus": "command-descriptions",
+          "group": "positives",
+          "id": "request_install"
+        },
+        {
+          "corpus": "command-descriptions",
+          "group": "positives",
+          "id": "request_replace_source"
+        },
+        {
+          "corpus": "command-descriptions",
+          "group": "positives",
+          "id": "request_advance_time"
+        },
+        {
+          "corpus": "command-descriptions",
+          "group": "positives",
+          "id": "request_retire"
+        },
+        {
+          "corpus": "command-descriptions",
+          "group": "positives",
+          "id": "request_read"
+        },
+        {
+          "corpus": "command-descriptions",
+          "group": "positives",
+          "id": "request_restore"
+        },
+        {
+          "corpus": "command-descriptions",
+          "group": "positives",
+          "id": "registration"
+        },
+        {
+          "corpus": "command-descriptions",
+          "group": "positives",
+          "id": "state_install"
+        },
+        {
+          "corpus": "command-descriptions",
+          "group": "positives",
+          "id": "state_retire"
+        },
+        {
+          "corpus": "command-descriptions",
+          "group": "positives",
+          "id": "control_image"
+        },
+        {
+          "corpus": "command-descriptions",
+          "group": "negatives",
+          "id": "install_extra_role"
+        },
+        {
+          "corpus": "command-descriptions",
+          "group": "negatives",
+          "id": "retire_duplicate_receiver"
+        },
+        {
+          "corpus": "command-descriptions",
+          "group": "negatives",
+          "id": "registration_extra_role"
+        },
+        {
+          "corpus": "command-descriptions",
+          "group": "negatives",
+          "id": "state_extra_role"
+        },
+        {
+          "corpus": "command-descriptions",
+          "group": "negatives",
+          "id": "control_image_extra_role"
+        }
+      ],
+      "native_evidence": [],
+      "remaining": ""
+    },
+    {
+      "id": "cmd_inert_retention::empty-control-read",
+      "state": "partial",
+      "vector_assertions": [
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "restore_empty"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "restore_empty"
+        }
+      ],
+      "native_evidence": [
+        "the empty image restores with no selections and refuses unknown registrations",
+        "the_empty_image_restores_with_no_selections_and_refuses_unknown_registrations"
+      ],
+      "remaining": "A retained journal beside the empty control store is an M3c fixture host."
+    },
+    {
+      "id": "cmd_error_priority::retire-restore-unrelated-binding",
+      "state": "specified",
+      "vector_assertions": [],
+      "native_evidence": [],
+      "remaining": "Retire and restore under a configuration without the registration's binding need an M3c schedule."
+    },
+    {
+      "id": "cmd_error_priority::lifecycle-expected-source",
+      "state": "executed",
+      "vector_assertions": [
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "read_wrong_source"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "read_wrong_source"
+        }
+      ],
+      "native_evidence": [],
+      "remaining": ""
+    },
+    {
+      "id": "cmd_authority_capture_validity::maintained-read-authority-expiry",
+      "state": "specified",
+      "vector_assertions": [],
+      "native_evidence": [],
+      "remaining": "A read after the stored authority expires needs an M3c schedule over the plant source."
+    }
+  ]
+}

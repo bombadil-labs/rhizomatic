@@ -8,6 +8,7 @@ import {
   validateMaterializationInputProgram,
 } from "./materialization-input.js";
 import { validateGatherMaterializationEvidence } from "./materialization-evidence.js";
+import { isLifecycleVerb, preflightMaterializationLifecycle } from "./materialization-lifecycle.js";
 import { MaterializationInputError } from "./materialization-values.js";
 export type MaterializationInputPreflight =
   | { readonly status: "input-valid" }
@@ -24,6 +25,10 @@ export function preflightMaterializationInput(
   const catalog = materializationInputCatalog(boot);
   try {
     const p = prepareMaterializationInput(catalog, entryId, appearances, receivedAt);
+    if (isLifecycleVerb(p.verb)) {
+      preflightMaterializationLifecycle(catalog, p, receivedAt);
+      return { status: "input-valid" };
+    }
     if (p.verb === "gather") validateMaterializationSourceInput(catalog, p, receivedAt);
     validateMaterializationInputProgram(catalog, p);
     if (p.verb === "resolve")

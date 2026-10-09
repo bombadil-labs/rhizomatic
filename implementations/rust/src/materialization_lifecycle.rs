@@ -128,20 +128,20 @@ pub(crate) fn descriptor_closure(d: &Descriptor) -> Vec<String> {
 }
 
 /// One active entry's verified stored support after restore classification (MR-17).
-struct StoredEntry {
-    entry: MaterializationControlEntry,
-    transition: Delta,
-    descriptor: Option<Descriptor>,
-    definitions: Vec<Delta>,
-    capture: Option<Delta>,
-    authority: Option<Delta>,
-    support: BTreeMap<String, Vec<u8>>,
+pub(crate) struct StoredEntry {
+    pub entry: MaterializationControlEntry,
+    pub transition: Delta,
+    pub descriptor: Option<Descriptor>,
+    pub definitions: Vec<Delta>,
+    pub capture: Option<Delta>,
+    pub authority: Option<Delta>,
+    pub support: BTreeMap<String, Vec<u8>>,
 }
-struct ControlState {
-    revision: String,
-    image: MaterializationControlImage,
-    selection: MaterializationControlSelection,
-    stored: BTreeMap<String, StoredEntry>,
+pub(crate) struct ControlState {
+    pub revision: String,
+    pub image: MaterializationControlImage,
+    pub selection: MaterializationControlSelection,
+    pub stored: BTreeMap<String, StoredEntry>,
 }
 fn control_limits(l: &MaterializationLimits) -> MaterializationControlLimits {
     MaterializationControlLimits {
@@ -170,26 +170,36 @@ fn read_control(host: &mut LifecycleHost) -> Result<ControlState> {
         }
         _ => return Err("control-unavailable".into()),
     };
-    let image = decode_materialization_control(&bytes, &control_limits(&c.limits))
+    let state = classify_control(&bytes, &c.receiver, &c.configuration.id, &c.limits)?;
+    require(named == state.revision, INVALID_CONTROL)?;
+    Ok(state)
+}
+/// Pure stage-5 classification of one control image (MR-17): decode, verify every reachable
+/// appearance exactly, and derive the stored entries. Readback (MR-20) shares this reader.
+pub(crate) fn classify_control(
+    bytes: &[u8],
+    receiver: &str,
+    configuration: &str,
+    limits: &MaterializationLimits,
+) -> Result<ControlState> {
+    let image = decode_materialization_control(bytes, &control_limits(limits))
         .map_err(|e| e.to_string())?;
     require(
-        image.receiver == c.receiver && image.configuration == c.configuration.id,
+        image.receiver == receiver && image.configuration == configuration,
         INVALID_CONTROL,
     )?;
-    let revision = materialization_control_revision(&bytes, image.generation);
-    require(named == revision, INVALID_CONTROL)?;
+    let revision = materialization_control_revision(bytes, image.generation);
     // Decode every appearance once; signatures and canonical bytes are verified here.
     let mut acts: BTreeMap<String, Act> = BTreeMap::new();
     let mut by_id: BTreeMap<String, String> = BTreeMap::new();
     for (key, raw) in &image.deltas {
-        let delta =
-            decode_materialization_appearance(raw, source_limits(&c.limits)).map_err(|e| {
-                if e.to_string() == "resource-limit" {
-                    "resource-limit".to_string()
-                } else {
-                    INVALID_CONTROL.to_string()
-                }
-            })?;
+        let delta = decode_materialization_appearance(raw, source_limits(limits)).map_err(|e| {
+            if e.to_string() == "resource-limit" {
+                "resource-limit".to_string()
+            } else {
+                INVALID_CONTROL.to_string()
+            }
+        })?;
         require(!by_id.contains_key(&delta.id), INVALID_CONTROL)?;
         by_id.insert(delta.id.clone(), key.clone());
         let fields = read_materialization_description(&delta, None).ok();
@@ -221,7 +231,7 @@ fn read_control(host: &mut LifecycleHost) -> Result<ControlState> {
             None
         };
         require(
-            t.delta.claims.author == c.receiver
+            t.delta.claims.author == receiver
                 && materialization_ref(tf, "registration")? == entry.registration
                 && (materialization_text(tf, "verb")? == "retire")
                     == (entry.status == MaterializationControlStatus::Retired)
@@ -345,11 +355,20 @@ fn check_source(
     stored: Option<&StoredEntry>,
     received_at: f64,
 ) -> Result<SourceCheck> {
-    let c = host.catalog;
     require(
         host.grants.contains_key(&descriptor.binding),
         "unauthorized",
     )?;
+    check_source_structure(host.catalog, p, descriptor, stored, received_at)
+}
+/// The supplied-input half of stage 6: everything but the native grant and current check.
+fn check_source_structure(
+    c: &InputCatalog,
+    p: &PreparedInput,
+    descriptor: &Descriptor,
+    stored: Option<&StoredEntry>,
+    received_at: f64,
+) -> Result<SourceCheck> {
     let binding = c.bindings.get(&descriptor.binding).ok_or("unauthorized")?;
     require(valid_at(binding, received_at), "configuration-mismatch")?;
     let fresh = matches!(
@@ -997,6 +1016,33 @@ fn commit(
             Ok(LifecycleOutcome::Completed(prepared.body))
         }
     }
+}
+/// Pure preflight projection for a maintained verb (MR-21): stage 5 and every control-dependent
+/// check are unsupported, so only install can project its supplied source and program.
+pub(crate) fn preflight_lifecycle(
+    c: &InputCatalog,
+    p: &PreparedInput,
+    received_at: f64,
+) -> Result<()> {
+    if p.verb != MaterializationVerb::Install {
+        return Ok(());
+    }
+    let registration = materialization_ref(&p.fields, "registration")?;
+    let descriptor =
+        read_registration_descriptor(p.supplied.get(&registration).ok_or("invalid-arguments")?)
+            .ok_or("invalid-arguments")?;
+    check_source_structure(c, p, &descriptor, None, received_at)?;
+    let deltas = descriptor_closure(&descriptor)
+        .iter()
+        .map(|id| {
+            p.supplied
+                .get(id)
+                .cloned()
+                .ok_or("missing-support".to_string())
+        })
+        .collect::<Result<Vec<_>>>()?;
+    check_program(c, &descriptor, deltas, received_at)?;
+    Ok(())
 }
 /// Explicit host initialization of the empty image (MR-14/15); never lazy.
 pub fn initialize_materialization_control(

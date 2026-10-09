@@ -92,7 +92,7 @@ export type MaterializationLifecycleOutcome =
   | { readonly status: "indeterminate"; readonly body: CborValue };
 
 /** Normalized registration descriptor fields (MR-13). */
-interface Descriptor {
+export interface Descriptor {
   readonly delta: Delta;
   readonly binding: string;
   readonly hyper: string;
@@ -131,7 +131,7 @@ export const descriptorClosure = (d: Descriptor): string[] =>
   [d.hyper, d.reading, ...d.definitions].sort();
 
 /** One active entry's verified stored support after restore classification (MR-17). */
-interface StoredEntry {
+export interface StoredEntry {
   readonly entry: MaterializationControlEntry;
   readonly transition: Delta;
   readonly descriptor?: Descriptor;
@@ -140,7 +140,7 @@ interface StoredEntry {
   readonly authority?: Delta;
   readonly support: Map<string, Uint8Array>;
 }
-interface ControlState {
+export interface ControlState {
   readonly bytes: Uint8Array;
   readonly revision: string;
   readonly image: MaterializationControlImage;
@@ -159,23 +159,41 @@ async function readControl(host: MaterializationLifecycleHost): Promise<ControlS
   const c = host.catalog;
   const read = await host.controlStore.read(c.receiver, c.configuration.id);
   if (read.status !== "image") return mFail("control-unavailable");
+  const state = classifyMaterializationControl(
+    read.bytes,
+    c.receiver,
+    c.configuration.id,
+    c.limits,
+  );
+  if (read.revision !== state.revision) invalidControl();
+  return state;
+}
+/**
+ * Pure stage-5 classification of one control image (MR-17): decode, verify every reachable
+ * appearance exactly, and derive the stored entries. Readback (MR-20) shares this reader.
+ */
+export function classifyMaterializationControl(
+  bytes: Uint8Array,
+  receiver: string,
+  configuration: string,
+  limits: MaterializationLimits,
+): ControlState {
   let image: MaterializationControlImage;
   try {
-    image = decodeMaterializationControl(read.bytes, controlLimits(c.limits));
+    image = decodeMaterializationControl(bytes, controlLimits(limits));
   } catch (e) {
     if (e instanceof MaterializationControlError) mFail(e.code);
     throw e;
   }
-  if (image.receiver !== c.receiver || image.configuration !== c.configuration.id) invalidControl();
-  const revision = materializationControlRevision(read.bytes, image.generation);
-  if (read.revision !== revision) invalidControl();
+  if (image.receiver !== receiver || image.configuration !== configuration) invalidControl();
+  const revision = materializationControlRevision(bytes, image.generation);
   // Decode every appearance once; signatures and canonical bytes are verified here.
   const acts = new Map<string, { delta: Delta; key: string; fields?: CommandFields }>();
   const byId = new Map<string, string>();
-  for (const [key, bytes] of image.deltas) {
+  for (const [key, raw] of image.deltas) {
     let delta: Delta;
     try {
-      delta = decodeMaterializationAppearance(bytes, c.limits);
+      delta = decodeMaterializationAppearance(raw, limits);
     } catch (e) {
       if (e instanceof MaterializationSourceError && e.code === "resource-limit") mFail(e.code);
       return invalidControl();
@@ -204,7 +222,7 @@ async function readControl(host: MaterializationLifecycleHost): Promise<ControlS
     const tf = t.fields;
     const generation = commandNumber(tf, "generation");
     if (
-      t.delta.claims.author !== c.receiver ||
+      t.delta.claims.author !== receiver ||
       commandRef(tf, "registration") !== entry.registration ||
       (commandText(tf, "verb") === "retire") !== (entry.status === "retired") ||
       commandText(tf, "source-revision") !== entry.sourceRevision ||
@@ -274,7 +292,7 @@ async function readControl(host: MaterializationLifecycleHost): Promise<ControlS
     generation: image.generation,
     entries: new Map([...stored].map(([k, s]) => [k, { entry: s.entry, support: s.support }])),
   };
-  return { bytes: read.bytes, revision, image, selection, stored };
+  return { bytes, revision, image, selection, stored };
 }
 
 interface SourceCheck {
@@ -292,9 +310,19 @@ function checkSource(
   stored: StoredEntry | undefined,
   receivedAt: number,
 ): SourceCheck {
-  const c = host.catalog;
   const grant = host.sourceGrants.get(descriptor.binding);
   if (!grant) return mFail("unauthorized");
+  const structure = checkSourceStructure(host.catalog, p, descriptor, stored, receivedAt);
+  return { ...structure, grant };
+}
+/** The supplied-input half of stage 6: everything but the native grant and current check. */
+function checkSourceStructure(
+  c: MaterializationInputCatalog,
+  p: MaterializationPreparedInput,
+  descriptor: Descriptor,
+  stored: StoredEntry | undefined,
+  receivedAt: number,
+): Omit<SourceCheck, "grant"> {
   const binding = c.bindings.get(descriptor.binding);
   if (!binding) return mFail("unauthorized");
   if (!materializationValidAt(binding, receivedAt)) mFail("configuration-mismatch");
@@ -341,7 +369,7 @@ function checkSource(
         snapshot.authority !== stored!.entry.authority)
     )
       throw Error();
-    return { binding: descriptor.binding, grant, snapshot, capture, authority };
+    return { binding: descriptor.binding, snapshot, capture, authority };
   } catch (e) {
     if (e instanceof MaterializationSourceError && e.code === "resource-limit") mFail(e.code);
     if (e instanceof MaterializationInputError) throw e;
@@ -819,6 +847,27 @@ async function commitTransition(
       return { status: "completed", body };
     },
   };
+}
+/**
+ * Pure preflight projection for a maintained verb (MR-21): stage 5 and every control-dependent
+ * check are unsupported, so only install can project its supplied source and program.
+ */
+export function preflightMaterializationLifecycle(
+  c: MaterializationInputCatalog,
+  p: MaterializationPreparedInput,
+  receivedAt: number,
+): void {
+  if (p.verb !== "install") return;
+  const descriptor =
+    readRegistrationDescriptor(p.supplied.get(commandRef(p.fields, "registration"))!) ??
+    mFail("invalid-arguments");
+  checkSourceStructure(c, p, descriptor, undefined, receivedAt);
+  checkProgram(
+    c,
+    descriptor,
+    descriptorClosure(descriptor).map((id) => p.supplied.get(id)!),
+    receivedAt,
+  );
 }
 /** Explicit host initialization of the empty image (MR-14/15); never lazy. */
 export async function initializeMaterializationControl(

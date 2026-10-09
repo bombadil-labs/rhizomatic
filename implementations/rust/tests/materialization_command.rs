@@ -146,6 +146,7 @@ fn context(v: &Value, b: &MaterializationInputBoot, q: &Delta) -> Materializatio
         capture: None,
         snapshot: None,
         received_at: Some(1000.),
+        control: None,
     }
 }
 fn endpoint<'a>(

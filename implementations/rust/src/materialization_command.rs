@@ -14,7 +14,7 @@ use crate::materialization_input::{
     InputCatalog, MaterializationInputBoot,
 };
 use crate::materialization_lifecycle::{
-    is_lifecycle_verb, run_lifecycle, LifecycleHost, LifecycleOutcome,
+    is_lifecycle_verb, preflight_lifecycle, run_lifecycle, LifecycleHost, LifecycleOutcome,
     MaterializationLifecycleHooks,
 };
 use crate::materialization_peer::MaterializationControlStore;
@@ -50,6 +50,9 @@ pub fn preflight_materialization_input(
     let c = catalog(boot)?;
     let validation = || -> Result<()> {
         let p = prepare(&c, entry_id, appearances, received_at)?;
+        if is_lifecycle_verb(p.verb) {
+            return preflight_lifecycle(&c, &p, received_at);
+        }
         if p.verb == MaterializationVerb::Gather {
             validate_source(&c, &p, received_at)?;
         }
