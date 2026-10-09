@@ -6,7 +6,8 @@ use crate::materialization_basis::{
     basis_program, definitions_program, BasisProgram, DefinitionProgramInput,
 };
 use crate::materialization_data::{
-    materialization_bytes, materialization_entity, materialization_number, materialization_ref,
+    materialization_bytes, materialization_entity, materialization_number,
+    materialization_operation_verb, materialization_ref, materialization_release_verbs,
     materialization_role, materialization_text, read_materialization_description,
     read_materialization_limits, MaterializationFields, MaterializationLimits, MaterializationVerb,
 };
@@ -34,6 +35,8 @@ pub(crate) struct InputCatalog {
     pub limits: MaterializationLimits,
     pub operations: BTreeMap<String, (Delta, MaterializationVerb)>,
     pub bindings: BTreeMap<String, Delta>,
+    /// Release A installs gather/resolve only; release B installs all eight verbs (MR-08).
+    pub release: char,
 }
 pub(crate) fn valid_at(d: &Delta, at: f64) -> bool {
     d.claims.valid_from <= at && d.claims.valid_until.is_none_or(|end| at < end)
@@ -63,12 +66,7 @@ pub(crate) fn catalog(boot: &MaterializationInputBoot) -> Result<InputCatalog> {
             materialization_text(&f, "kind")? == "operation/1",
             "invalid operation kind",
         )?;
-        let name = materialization_entity(&f, "name")?;
-        let verb = if name == materialization_role("gather") {
-            MaterializationVerb::Gather
-        } else {
-            MaterializationVerb::Resolve
-        };
+        let verb = materialization_operation_verb(&materialization_entity(&f, "name")?)?;
         require(kinds.insert(verb.as_str()), "duplicate operation")?;
         operations.insert(d.id.clone(), (d.clone(), verb));
     }
@@ -79,12 +77,19 @@ pub(crate) fn catalog(boot: &MaterializationInputBoot) -> Result<InputCatalog> {
             .map(|t| materialization_ref(&BTreeMap::from([("x".into(), vec![t.clone()])]), "x"))
             .collect()
     };
+    let release = ['A', 'B']
+        .into_iter()
+        .find(|r| {
+            let verbs = materialization_release_verbs(*r);
+            kinds.len() == verbs.len() && verbs.iter().all(|v| kinds.contains(v.as_str()))
+        })
+        .ok_or("invalid operation catalog")?;
+    let installed = refs("installed")?;
     require(
-        operations.len() == 2
-            && boot.declarations.len() == 2
-            && refs("installed")?
-                .iter()
-                .all(|i| operations.contains_key(i)),
+        operations.len() == kinds.len()
+            && boot.declarations.len() == kinds.len()
+            && installed.len() == kinds.len()
+            && installed.iter().all(|i| operations.contains_key(i)),
         "invalid operation catalog",
     )?;
     let mut bindings = BTreeMap::new();
@@ -121,6 +126,7 @@ pub(crate) fn catalog(boot: &MaterializationInputBoot) -> Result<InputCatalog> {
         limits,
         operations,
         bindings,
+        release,
     })
 }
 #[derive(Debug, Clone)]
@@ -222,47 +228,91 @@ pub(crate) fn prepare(
     let verb = operation.ok_or("unsupported-operation")?.1;
     let fields =
         read_materialization_description(&entry, Some(verb)).map_err(|_| "invalid-arguments")?;
-    if verb == MaterializationVerb::Gather {
+    if fields.contains_key("serving-at") {
         require(
             materialization_number(&fields, "serving-at")? == received_at,
             "invalid-arguments",
         )?;
     }
+    let one =
+        |t: &Target| materialization_ref(&BTreeMap::from([("x".into(), vec![t.clone()])]), "x");
     let mut required_support = Vec::new();
-    let direct = if verb == MaterializationVerb::Gather {
-        required_support.extend([
-            materialization_ref(&fields, "hyperschema")?,
-            materialization_ref(&fields, "schema")?,
-        ]);
-        for t in fields.get("definition").into_iter().flatten() {
-            required_support.push(materialization_ref(
-                &BTreeMap::from([("x".into(), vec![t.clone()])]),
-                "x",
-            )?);
+    // Direct delivered supports per verb (MR-12); stored support is never redelivered.
+    let direct = match verb {
+        MaterializationVerb::Gather => {
+            required_support.extend([
+                materialization_ref(&fields, "hyperschema")?,
+                materialization_ref(&fields, "schema")?,
+            ]);
+            for t in fields.get("definition").into_iter().flatten() {
+                required_support.push(one(t)?);
+            }
+            required_support.sort();
+            [
+                vec![
+                    materialization_ref(&fields, "capture")?,
+                    materialization_ref(&fields, "snapshot")?,
+                ],
+                required_support.clone(),
+            ]
+            .concat()
         }
-        required_support.sort();
-        [
-            vec![
-                materialization_ref(&fields, "capture")?,
-                materialization_ref(&fields, "snapshot")?,
-            ],
-            required_support.clone(),
-        ]
-        .concat()
-    } else {
-        vec![materialization_ref(&fields, "evidence")?]
+        MaterializationVerb::Resolve => vec![materialization_ref(&fields, "evidence")?],
+        MaterializationVerb::Install => vec![
+            materialization_ref(&fields, "registration")?,
+            materialization_ref(&fields, "capture")?,
+            materialization_ref(&fields, "snapshot")?,
+        ],
+        MaterializationVerb::ReplaceSource => vec![
+            materialization_ref(&fields, "capture")?,
+            materialization_ref(&fields, "snapshot")?,
+        ],
+        MaterializationVerb::AdvanceTime | MaterializationVerb::Read => {
+            vec![materialization_ref(&fields, "snapshot")?]
+        }
+        MaterializationVerb::Retire | MaterializationVerb::Restore => vec![],
     };
     require(
         direct.iter().all(|i| supplied.contains_key(i)),
         "missing-support",
     )?;
-    let capture = if verb == MaterializationVerb::Gather {
+    let mut reachable: BTreeSet<String> =
+        direct.into_iter().chain([entry_id.to_string()]).collect();
+    if verb == MaterializationVerb::Install {
+        // The named descriptor must be a registration act; its closure is delivered in full.
+        let descriptor = read_materialization_description(
+            &supplied[&materialization_ref(&fields, "registration")?],
+            None,
+        )
+        .map_err(|_| "invalid-arguments")?;
+        require(
+            materialization_text(&descriptor, "kind")? == "registration/1",
+            "invalid-arguments",
+        )?;
+        required_support = vec![
+            materialization_ref(&descriptor, "hyperschema")?,
+            materialization_ref(&descriptor, "schema")?,
+        ];
+        for t in descriptor.get("definition").into_iter().flatten() {
+            required_support.push(one(t)?);
+        }
+        required_support.sort();
+        require(
+            required_support.iter().all(|i| supplied.contains_key(i)),
+            "missing-support",
+        )?;
+        reachable.extend(required_support.iter().cloned());
+    }
+    let capture = if matches!(
+        verb,
+        MaterializationVerb::Gather
+            | MaterializationVerb::Install
+            | MaterializationVerb::ReplaceSource
+    ) {
         Some(supplied[&materialization_ref(&fields, "capture")?].clone())
     } else {
         None
     };
-    let mut reachable: BTreeSet<String> =
-        direct.into_iter().chain([entry_id.to_string()]).collect();
     if let Some(cap) = &capture {
         let ps = cap
             .claims
@@ -283,6 +333,20 @@ pub(crate) fn prepare(
         supplied.keys().all(|i| reachable.contains(i)),
         "unexpected-support",
     )?;
+    if matches!(
+        verb,
+        MaterializationVerb::Retire | MaterializationVerb::Restore
+    ) {
+        return Ok(PreparedInput {
+            fields,
+            verb,
+            supplied,
+            required_support,
+            capture: None,
+            snapshot_bytes: None,
+            evidence_body: None,
+        });
+    }
     let (snapshot_bytes, evidence_body) = if verb == MaterializationVerb::Resolve {
         let ef = read_materialization_description(
             &supplied[&materialization_ref(&fields, "evidence")?],

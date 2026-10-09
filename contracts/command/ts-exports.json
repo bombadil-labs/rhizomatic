@@ -25401,6 +25401,226 @@
       "contract": "rhizomatic.materialization/1/control-store",
       "classification": "portable_contract",
       "semantics": "MaterializationControlStore.compareAndSet: Explicit atomic metadata initialize/read/CAS with exact durable, conflict, rejected and committed-unconfirmed outcomes. MR-15, MR-18; definition implementations/ts/src/storage/materialization-store.ts."
+    },
+    {
+      "id": "ts:command/materialization-endpoint.ts:MaterializationBoot#controlStore",
+      "owner": "command",
+      "symbol": "MaterializationBoot.controlStore",
+      "source": "implementations/ts/src/command/materialization-endpoint.ts",
+      "definition": "implementations/ts/src/command/materialization-endpoint.ts",
+      "contract": "rhizomatic.materialization/1/host-boot",
+      "classification": "host_capability",
+      "semantics": "MaterializationBoot.controlStore: Native key/config/grant/capability selection is explicit; descriptions cannot install themselves. MR-08, MR-09, MR-10, MR-11, MR-12, MR-19, MR-20, MR-21, MR-22; definition implementations/ts/src/command/materialization-endpoint.ts."
+    },
+    {
+      "id": "ts:command/materialization-endpoint.ts:MaterializationBoot#hooks",
+      "owner": "command",
+      "symbol": "MaterializationBoot.hooks",
+      "source": "implementations/ts/src/command/materialization-endpoint.ts",
+      "definition": "implementations/ts/src/command/materialization-endpoint.ts",
+      "contract": "rhizomatic.materialization/1/host-boot",
+      "classification": "host_capability",
+      "semantics": "MaterializationBoot.hooks: Native key/config/grant/capability selection is explicit; descriptions cannot install themselves. MR-08, MR-09, MR-10, MR-11, MR-12, MR-19, MR-20, MR-21, MR-22; definition implementations/ts/src/command/materialization-endpoint.ts."
+    },
+    {
+      "id": "ts:command/materialization-lifecycle.ts:readRegistrationDescriptor",
+      "owner": "command",
+      "symbol": "readRegistrationDescriptor",
+      "source": "implementations/ts/src/command/materialization-lifecycle.ts",
+      "definition": "implementations/ts/src/command/materialization-lifecycle.ts",
+      "contract": "rhizomatic.materialization/1/control-execute",
+      "classification": "implementation_helper",
+      "semantics": "readRegistrationDescriptor: Explicit install/replace/advance/retire/read/restore with original support and source artifacts; stage-5 control classification, prospective transition and CAS. MR-13, MR-14, MR-15, MR-16, MR-17, MR-18, MR-19, MR-21; definition implementations/ts/src/command/materialization-lifecycle.ts."
+    },
+    {
+      "id": "ts:command/materialization-lifecycle.ts:runMaterializationLifecycle",
+      "owner": "command",
+      "symbol": "runMaterializationLifecycle",
+      "source": "implementations/ts/src/command/materialization-lifecycle.ts",
+      "definition": "implementations/ts/src/command/materialization-lifecycle.ts",
+      "contract": "rhizomatic.materialization/1/control-execute",
+      "classification": "implementation_helper",
+      "semantics": "runMaterializationLifecycle: Explicit install/replace/advance/retire/read/restore with original support and source artifacts; stage-5 control classification, prospective transition and CAS. MR-13, MR-14, MR-15, MR-16, MR-17, MR-18, MR-19, MR-21; definition implementations/ts/src/command/materialization-lifecycle.ts."
+    },
+    {
+      "id": "ts:command/materialization-lifecycle.ts:initializeMaterializationControl",
+      "owner": "command",
+      "symbol": "initializeMaterializationControl",
+      "source": "implementations/ts/src/command/materialization-lifecycle.ts",
+      "definition": "implementations/ts/src/command/materialization-lifecycle.ts",
+      "contract": "rhizomatic.materialization/1/control-execute",
+      "classification": "implementation_helper",
+      "semantics": "initializeMaterializationControl: Explicit install/replace/advance/retire/read/restore with original support and source artifacts; stage-5 control classification, prospective transition and CAS. MR-13, MR-14, MR-15, MR-16, MR-17, MR-18, MR-19, MR-21; definition implementations/ts/src/command/materialization-lifecycle.ts."
+    },
+    {
+      "id": "ts:command/materialization-lifecycle.ts:MaterializationLifecycleVerb",
+      "owner": "command",
+      "symbol": "MaterializationLifecycleVerb",
+      "source": "implementations/ts/src/command/materialization-lifecycle.ts",
+      "definition": "implementations/ts/src/command/materialization-lifecycle.ts",
+      "contract": "rhizomatic.materialization/1/control-execute",
+      "classification": "implementation_helper",
+      "semantics": "MaterializationLifecycleVerb: Explicit install/replace/advance/retire/read/restore with original support and source artifacts; stage-5 control classification, prospective transition and CAS. MR-13, MR-14, MR-15, MR-16, MR-17, MR-18, MR-19, MR-21; definition implementations/ts/src/command/materialization-lifecycle.ts."
+    },
+    {
+      "id": "ts:command/materialization-lifecycle.ts:isLifecycleVerb",
+      "owner": "command",
+      "symbol": "isLifecycleVerb",
+      "source": "implementations/ts/src/command/materialization-lifecycle.ts",
+      "definition": "implementations/ts/src/command/materialization-lifecycle.ts",
+      "contract": "rhizomatic.materialization/1/control-execute",
+      "classification": "implementation_helper",
+      "semantics": "isLifecycleVerb: Explicit install/replace/advance/retire/read/restore with original support and source artifacts; stage-5 control classification, prospective transition and CAS. MR-13, MR-14, MR-15, MR-16, MR-17, MR-18, MR-19, MR-21; definition implementations/ts/src/command/materialization-lifecycle.ts."
+    },
+    {
+      "id": "ts:command/materialization-lifecycle.ts:MaterializationLifecycleHooks",
+      "owner": "command",
+      "symbol": "MaterializationLifecycleHooks",
+      "source": "implementations/ts/src/command/materialization-lifecycle.ts",
+      "definition": "implementations/ts/src/command/materialization-lifecycle.ts",
+      "contract": "rhizomatic.materialization/1/control-execute",
+      "classification": "implementation_helper",
+      "semantics": "MaterializationLifecycleHooks: Explicit install/replace/advance/retire/read/restore with original support and source artifacts; stage-5 control classification, prospective transition and CAS. MR-13, MR-14, MR-15, MR-16, MR-17, MR-18, MR-19, MR-21; definition implementations/ts/src/command/materialization-lifecycle.ts."
+    },
+    {
+      "id": "ts:command/materialization-lifecycle.ts:MaterializationLifecycleHooks#postCasResultMaterialization",
+      "owner": "command",
+      "symbol": "MaterializationLifecycleHooks.postCasResultMaterialization",
+      "source": "implementations/ts/src/command/materialization-lifecycle.ts",
+      "definition": "implementations/ts/src/command/materialization-lifecycle.ts",
+      "contract": "rhizomatic.materialization/1/control-execute",
+      "classification": "implementation_helper",
+      "semantics": "MaterializationLifecycleHooks.postCasResultMaterialization: Explicit install/replace/advance/retire/read/restore with original support and source artifacts; stage-5 control classification, prospective transition and CAS. MR-13, MR-14, MR-15, MR-16, MR-17, MR-18, MR-19, MR-21; definition implementations/ts/src/command/materialization-lifecycle.ts."
+    },
+    {
+      "id": "ts:command/materialization-lifecycle.ts:MaterializationLifecycleHost",
+      "owner": "command",
+      "symbol": "MaterializationLifecycleHost",
+      "source": "implementations/ts/src/command/materialization-lifecycle.ts",
+      "definition": "implementations/ts/src/command/materialization-lifecycle.ts",
+      "contract": "rhizomatic.materialization/1/control-execute",
+      "classification": "implementation_helper",
+      "semantics": "MaterializationLifecycleHost: Explicit install/replace/advance/retire/read/restore with original support and source artifacts; stage-5 control classification, prospective transition and CAS. MR-13, MR-14, MR-15, MR-16, MR-17, MR-18, MR-19, MR-21; definition implementations/ts/src/command/materialization-lifecycle.ts."
+    },
+    {
+      "id": "ts:command/materialization-lifecycle.ts:MaterializationLifecycleHost#catalog",
+      "owner": "command",
+      "symbol": "MaterializationLifecycleHost.catalog",
+      "source": "implementations/ts/src/command/materialization-lifecycle.ts",
+      "definition": "implementations/ts/src/command/materialization-lifecycle.ts",
+      "contract": "rhizomatic.materialization/1/control-execute",
+      "classification": "implementation_helper",
+      "semantics": "MaterializationLifecycleHost.catalog: Explicit install/replace/advance/retire/read/restore with original support and source artifacts; stage-5 control classification, prospective transition and CAS. MR-13, MR-14, MR-15, MR-16, MR-17, MR-18, MR-19, MR-21; definition implementations/ts/src/command/materialization-lifecycle.ts."
+    },
+    {
+      "id": "ts:command/materialization-lifecycle.ts:MaterializationLifecycleHost#signer",
+      "owner": "command",
+      "symbol": "MaterializationLifecycleHost.signer",
+      "source": "implementations/ts/src/command/materialization-lifecycle.ts",
+      "definition": "implementations/ts/src/command/materialization-lifecycle.ts",
+      "contract": "rhizomatic.materialization/1/control-execute",
+      "classification": "implementation_helper",
+      "semantics": "MaterializationLifecycleHost.signer: Explicit install/replace/advance/retire/read/restore with original support and source artifacts; stage-5 control classification, prospective transition and CAS. MR-13, MR-14, MR-15, MR-16, MR-17, MR-18, MR-19, MR-21; definition implementations/ts/src/command/materialization-lifecycle.ts."
+    },
+    {
+      "id": "ts:command/materialization-lifecycle.ts:MaterializationLifecycleHost#sourceGrants",
+      "owner": "command",
+      "symbol": "MaterializationLifecycleHost.sourceGrants",
+      "source": "implementations/ts/src/command/materialization-lifecycle.ts",
+      "definition": "implementations/ts/src/command/materialization-lifecycle.ts",
+      "contract": "rhizomatic.materialization/1/control-execute",
+      "classification": "implementation_helper",
+      "semantics": "MaterializationLifecycleHost.sourceGrants: Explicit install/replace/advance/retire/read/restore with original support and source artifacts; stage-5 control classification, prospective transition and CAS. MR-13, MR-14, MR-15, MR-16, MR-17, MR-18, MR-19, MR-21; definition implementations/ts/src/command/materialization-lifecycle.ts."
+    },
+    {
+      "id": "ts:command/materialization-lifecycle.ts:MaterializationLifecycleHost#controlStore",
+      "owner": "command",
+      "symbol": "MaterializationLifecycleHost.controlStore",
+      "source": "implementations/ts/src/command/materialization-lifecycle.ts",
+      "definition": "implementations/ts/src/command/materialization-lifecycle.ts",
+      "contract": "rhizomatic.materialization/1/control-execute",
+      "classification": "implementation_helper",
+      "semantics": "MaterializationLifecycleHost.controlStore: Explicit install/replace/advance/retire/read/restore with original support and source artifacts; stage-5 control classification, prospective transition and CAS. MR-13, MR-14, MR-15, MR-16, MR-17, MR-18, MR-19, MR-21; definition implementations/ts/src/command/materialization-lifecycle.ts."
+    },
+    {
+      "id": "ts:command/materialization-lifecycle.ts:MaterializationLifecycleHost#hooks",
+      "owner": "command",
+      "symbol": "MaterializationLifecycleHost.hooks",
+      "source": "implementations/ts/src/command/materialization-lifecycle.ts",
+      "definition": "implementations/ts/src/command/materialization-lifecycle.ts",
+      "contract": "rhizomatic.materialization/1/control-execute",
+      "classification": "implementation_helper",
+      "semantics": "MaterializationLifecycleHost.hooks: Explicit install/replace/advance/retire/read/restore with original support and source artifacts; stage-5 control classification, prospective transition and CAS. MR-13, MR-14, MR-15, MR-16, MR-17, MR-18, MR-19, MR-21; definition implementations/ts/src/command/materialization-lifecycle.ts."
+    },
+    {
+      "id": "ts:command/materialization-lifecycle.ts:MaterializationLifecycleHost#diagnostic",
+      "owner": "command",
+      "symbol": "MaterializationLifecycleHost.diagnostic",
+      "source": "implementations/ts/src/command/materialization-lifecycle.ts",
+      "definition": "implementations/ts/src/command/materialization-lifecycle.ts",
+      "contract": "rhizomatic.materialization/1/control-execute",
+      "classification": "implementation_helper",
+      "semantics": "MaterializationLifecycleHost.diagnostic: Explicit install/replace/advance/retire/read/restore with original support and source artifacts; stage-5 control classification, prospective transition and CAS. MR-13, MR-14, MR-15, MR-16, MR-17, MR-18, MR-19, MR-21; definition implementations/ts/src/command/materialization-lifecycle.ts."
+    },
+    {
+      "id": "ts:command/materialization-lifecycle.ts:MaterializationLifecycleOutcome",
+      "owner": "command",
+      "symbol": "MaterializationLifecycleOutcome",
+      "source": "implementations/ts/src/command/materialization-lifecycle.ts",
+      "definition": "implementations/ts/src/command/materialization-lifecycle.ts",
+      "contract": "rhizomatic.materialization/1/control-execute",
+      "classification": "implementation_helper",
+      "semantics": "MaterializationLifecycleOutcome: Explicit install/replace/advance/retire/read/restore with original support and source artifacts; stage-5 control classification, prospective transition and CAS. MR-13, MR-14, MR-15, MR-16, MR-17, MR-18, MR-19, MR-21; definition implementations/ts/src/command/materialization-lifecycle.ts."
+    },
+    {
+      "id": "ts:command/materialization-lifecycle.ts:MaterializationLifecycleOutcome#status",
+      "owner": "command",
+      "symbol": "MaterializationLifecycleOutcome.status",
+      "source": "implementations/ts/src/command/materialization-lifecycle.ts",
+      "definition": "implementations/ts/src/command/materialization-lifecycle.ts",
+      "contract": "rhizomatic.materialization/1/control-execute",
+      "classification": "implementation_helper",
+      "semantics": "MaterializationLifecycleOutcome.status: Explicit install/replace/advance/retire/read/restore with original support and source artifacts; stage-5 control classification, prospective transition and CAS. MR-13, MR-14, MR-15, MR-16, MR-17, MR-18, MR-19, MR-21; definition implementations/ts/src/command/materialization-lifecycle.ts."
+    },
+    {
+      "id": "ts:command/materialization-lifecycle.ts:MaterializationLifecycleOutcome#body",
+      "owner": "command",
+      "symbol": "MaterializationLifecycleOutcome.body",
+      "source": "implementations/ts/src/command/materialization-lifecycle.ts",
+      "definition": "implementations/ts/src/command/materialization-lifecycle.ts",
+      "contract": "rhizomatic.materialization/1/control-execute",
+      "classification": "implementation_helper",
+      "semantics": "MaterializationLifecycleOutcome.body: Explicit install/replace/advance/retire/read/restore with original support and source artifacts; stage-5 control classification, prospective transition and CAS. MR-13, MR-14, MR-15, MR-16, MR-17, MR-18, MR-19, MR-21; definition implementations/ts/src/command/materialization-lifecycle.ts."
+    },
+    {
+      "id": "ts:command/materialization-lifecycle.ts:descriptorClosure",
+      "owner": "command",
+      "symbol": "descriptorClosure",
+      "source": "implementations/ts/src/command/materialization-lifecycle.ts",
+      "definition": "implementations/ts/src/command/materialization-lifecycle.ts",
+      "contract": "rhizomatic.materialization/1/control-execute",
+      "classification": "implementation_helper",
+      "semantics": "descriptorClosure: Explicit install/replace/advance/retire/read/restore with original support and source artifacts; stage-5 control classification, prospective transition and CAS. MR-13, MR-14, MR-15, MR-16, MR-17, MR-18, MR-19, MR-21; definition implementations/ts/src/command/materialization-lifecycle.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationBoot#controlStore",
+      "owner": "command",
+      "symbol": "MaterializationBoot.controlStore",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/command/materialization-endpoint.ts",
+      "contract": "rhizomatic.materialization/1/host-boot",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationBoot.controlStore: Native key/config/grant/capability selection is explicit; descriptions cannot install themselves. MR-08, MR-09, MR-10, MR-11, MR-12, MR-19, MR-20, MR-21, MR-22; definition implementations/ts/src/command/materialization-endpoint.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationBoot#hooks",
+      "owner": "command",
+      "symbol": "MaterializationBoot.hooks",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/command/materialization-endpoint.ts",
+      "contract": "rhizomatic.materialization/1/host-boot",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationBoot.hooks: Native key/config/grant/capability selection is explicit; descriptions cannot install themselves. MR-08, MR-09, MR-10, MR-11, MR-12, MR-19, MR-20, MR-21, MR-22; definition implementations/ts/src/command/materialization-endpoint.ts."
     }
   ]
 }

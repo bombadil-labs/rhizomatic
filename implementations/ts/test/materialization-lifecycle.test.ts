@@ -1,11 +1,17 @@
 // SPEC-16 M3: the six maintained verbs over an in-memory control store, driven by the shared
 // `plant` batch fixture so every root result must equal the batch oracle byte for byte.
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { expect, it } from "vitest";
 import { decode, encode, type CborValue } from "../src/delta/cbor.js";
 import { bytesToHex, contentAddress } from "../src/delta/hash.js";
 import { signClaims } from "../src/delta/sign.js";
 import { claimsToJson } from "../src/delta/json-profile.js";
+const serializeCommandDelta = (d: Delta) => ({
+  id: d.id,
+  claims: claimsToJson(d.claims),
+  ...(d.sig === undefined ? {} : { sig: d.sig }),
+});
 import type { Delta, Target } from "../src/delta/types.js";
 import {
   parseCommandDelta,
@@ -207,7 +213,10 @@ const resultOf = (outcome: Delta) => {
     body = decode(commandBytes(f, "result")),
     status = commandText(f, "status");
   // A refusal reports its code in the status so a failing step names its category.
-  return { status: status === "completed" ? status : status + ":" + text(field(body, "code")), body };
+  return {
+    status: status === "completed" ? status : status + ":" + text(field(body, "code")),
+    body,
+  };
 };
 async function host() {
   const store = new MemoryStore();
@@ -428,3 +437,70 @@ it("the empty image restores with no selections and refuses unknown registration
   );
   expect(text(field(stale.body, "code"))).toBe("precondition-failed");
 });
+
+// ---- Shared schedule: a fresh endpoint per step from an explicit image (vectors/lifecycle.json).
+const schedule = JSON.parse(
+  readFileSync(new URL("../../../vectors/materialization/lifecycle.json", import.meta.url), "utf8"),
+);
+const scheduleCorpusId = createHash("sha256")
+  .update(readFileSync(new URL("../../../vectors/materialization/lifecycle.json", import.meta.url)))
+  .digest("hex");
+const scheduleBoot = {
+  configuration: parseCommandDelta(schedule.boot.configuration),
+  declarations: schedule.boot.declarations.map(parseCommandDelta),
+  bindings: schedule.boot.bindings.map(parseCommandDelta),
+};
+const scheduleGrant: MaterializationSourceCapability = {
+  async capture() {
+    throw Error("never recaptures");
+  },
+  async reacquireSnapshot() {
+    throw Error("never restores");
+  },
+  async checkCurrent(b, revision, auth) {
+    return b === schedule.source.binding &&
+      revision === schedule.source.revision &&
+      auth === schedule.source.authority
+      ? { status: "current" }
+      : { status: "source-changed" };
+  },
+};
+for (const step of schedule.steps)
+  it(`shared lifecycle step ${step.id}`, async () => {
+    const before = expect.getState().assertionCalls;
+    const store = new MemoryStore();
+    const key = schedule.keys.receiver + "/" + scheduleBoot.configuration.id;
+    store.images.set(key, {
+      bytes: hex(step.initialControl.hex),
+      revision: step.initialControlRevision ?? step.initialControl.revision,
+    });
+    const endpoint = MaterializationEndpoint.boot({
+      ...scheduleBoot,
+      signer: {
+        author: schedule.keys.receiver,
+        sign: (c) => signClaims(c, schedule.seeds.receiver),
+      },
+      sourceGrants: new Map([[schedule.source.binding, scheduleGrant]]),
+      controlStore: store,
+      diagnostic: (fault) => {
+        throw fault;
+      },
+    });
+    const q = parseCommandDelta(step.request);
+    const outcome = await endpoint.invoke(q.id, step.delivery, 1000);
+    expect(serializeCommandDelta(outcome)).toEqual(step.expected.outcome);
+    const f = readMaterializationDescription(outcome);
+    expect(commandText(f, "status")).toBe(step.expected.status);
+    expect(bytesToHex(commandBytes(f, "result"))).toBe(step.expected.bodyHex);
+    expect(bytesToHex(store.images.get(key)!.bytes)).toBe(step.expected.controlHex);
+    console.log(
+      "materialization-m3-assertion:" +
+        JSON.stringify({
+          corpus: "lifecycle",
+          corpusId: scheduleCorpusId,
+          group: "steps",
+          id: step.id,
+          assertions: expect.getState().assertionCalls - before,
+        }),
+    );
+  });

@@ -56,6 +56,7 @@ function classification(e){
 
  if(e.definition.endsWith('/command-data/materialization-codec.ts'))contract='rhizomatic.materialization/1/description';
  if(e.definition.endsWith('/reactor/materialization-control.ts'))contract='rhizomatic.materialization-control/1';
+ if(e.definition.endsWith('/command/materialization-lifecycle.ts'))contract='rhizomatic.materialization/1/control-execute';
  if(e.definition.endsWith('/storage/materialization-store.ts'))contract='rhizomatic.materialization/1/control-store';
  if(e.definition.endsWith('/federation/materialization-source.ts'))contract='rhizomatic.materialization/1/capture';
  if(e.definition.endsWith('/command/materialization-result.ts'))contract='rhizomatic.materialization/1/outcome-readback';

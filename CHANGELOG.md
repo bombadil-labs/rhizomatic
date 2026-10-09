@@ -21,7 +21,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
   image codec and pure transition planner, the storage-owned control store seam, a federation
   facade, and the `registration/1`, `state/1` and `control-image/1` descriptions plus the six
   lifecycle request grammars. Shared vectors: `vectors/materialization/control-image.json` and new
-  description oracles. Lifecycle verbs are not yet installed in either endpoint.
+  description oracles.
+- SPEC-16 M3 lifecycle verbs in both endpoints: install, replace-source, advance-time, retire,
+  read and restore over an explicitly initialized control store, with stage-5 control
+  classification, prospective receiver-signed transitions, bounded images and the four CAS
+  outcomes. Release B boots need the store (`controlStore` / `boot_maintained`). The shared
+  schedule `vectors/materialization/lifecycle.json` pins twenty steps, each from an explicit
+  control image, with signed outcomes and images equal in both witnesses. ERRATA E3 records three
+  small decisions. Readback of lifecycle outcomes, fault schedules, cross-witness towers,
+  rotation and support erasure follow.
 
 ### Changed
 

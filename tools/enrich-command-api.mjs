@@ -22,6 +22,7 @@ for(const e of inventory.exports){
 
  if(module==='materialization_data')contract='rhizomatic.materialization/1/description';
  if(module==='materialization_control')contract='rhizomatic.materialization-control/1';
+ if(module==='materialization_lifecycle')contract='rhizomatic.materialization/1/control-execute';
  if(module==='materialization_store')contract='rhizomatic.materialization/1/control-store';
  if(module==='materialization_source')contract='rhizomatic.materialization/1/capture';
  if(module==='materialization_input'||module==='materialization_values')contract='rhizomatic.materialization/1/input-preflight';

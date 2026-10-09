@@ -37,3 +37,21 @@ It checks that a retired entry keeps exactly one record reachable; command binds
 
 Pinned by `vectors/materialization/control-image.json` (`entries_over_registrations`,
 `image_over_artifact_bytes`, `duplicate_delta`, `deltas_unsorted`).
+
+## E3 — Three small M3 decisions the text left open
+
+Decided 2026-10-09 while building the lifecycle verbs; pinned by `vectors/materialization/lifecycle.json`.
+
+- **A `registration` argument that names a delivered act which is not a `registration/1`
+  descriptor refuses `invalid-arguments` at stage 4.** The argument is wrong, not the support
+  set. A missing descriptor is still `missing-support`, and a descriptor whose closure is not
+  delivered in full is `missing-support` before any stage-7 category (`install_descriptor_not_registration`,
+  `install_missing_closure`).
+- **A control store names stored bytes by their external revision.** `read` and `initialize`
+  return the empty text for the generation-0 image and `H(bytes)` otherwise, and the endpoint
+  refuses `invalid-control` when the name and the bytes disagree. The store never decodes an
+  image; the rule keeps `expected-control` comparable across witnesses and hosts.
+- **A replacement capture must keep the registration's binding.** `replace-source` with a capture
+  on a different binding is `invalid-source` at stage 6. Changing the source binding means
+  retire and install under a new descriptor, as MR-13 already says for every other immutable
+  field.

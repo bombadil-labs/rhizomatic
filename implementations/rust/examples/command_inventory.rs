@@ -45,7 +45,8 @@ fn owner(module: &str, symbol: &str) -> &'static str {
         | "materialization_input"
         | "materialization_values"
         | "materialization_basis"
-        | "materialization_evidence" => "command",
+        | "materialization_evidence"
+        | "materialization_lifecycle" => "command",
         "types" | "cbor" | "delta" | "hash" | "sign" | "json_profile" | "b64u" | "set" => "delta",
         "pred"
         | "term_io"
