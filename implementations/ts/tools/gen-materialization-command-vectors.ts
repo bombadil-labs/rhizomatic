@@ -3354,6 +3354,83 @@ writeFileSync(
       ],
     ]),
   });
+  // Two more images the mixed towers restore and read after a crossing (M3 slice C).
+  step("restore_installed", restoreQ(r1), [restoreQ(r1)], [c1, 1], {
+    status: "completed",
+    body: map([
+      ["kind", tstr("restore")],
+      ["control", tstr(r1)],
+      ["generation", float(1)],
+      [
+        "selections",
+        array([
+          map([
+            ["registration", tstr(descriptor.id)],
+            ["status", tstr("active")],
+            ["sourceRevision", tstr(s.revision)],
+            ["authority", tstr(authority.id)],
+            ["at", float(1000)],
+            ["definitionAt", float(1000)],
+            ["hyperschemaPin", tstr(termHash(term))],
+            ["schemaPin", tstr(schemaHash(reading))],
+            ["availability", tstr("unchecked")],
+          ]),
+        ]),
+      ],
+    ]),
+  });
+  const activeSelection = (at: number) =>
+    map([
+      ["registration", tstr(descriptor.id)],
+      ["status", tstr("active")],
+      ["sourceRevision", tstr(s.revision)],
+      ["authority", tstr(authority.id)],
+      ["at", float(at)],
+      ["definitionAt", float(1000)],
+      ["hyperschemaPin", tstr(termHash(term))],
+      ["schemaPin", tstr(schemaHash(reading))],
+      ["availability", tstr("unchecked")],
+    ]);
+  step("restore_advanced", restoreQ(r2), [restoreQ(r2)], [c2, 2], {
+    status: "completed",
+    body: map([
+      ["kind", tstr("restore")],
+      ["control", tstr(r2)],
+      ["generation", float(2)],
+      ["selections", array([activeSelection(1500)])],
+    ]),
+  });
+  step("restore_replaced", restoreQ(r3), [restoreQ(r3)], [c3, 3], {
+    status: "completed",
+    body: map([
+      ["kind", tstr("restore")],
+      ["control", tstr(r3)],
+      ["generation", float(3)],
+      ["selections", array([activeSelection(1500)])],
+    ]),
+  });
+  step("read_replaced", readQ(r3), [readQ(r3), s.snapshot], [c3, 3], {
+    status: "completed",
+    body: map([
+      ["kind", tstr("read")],
+      ["registration", tstr(descriptor.id)],
+      ["control", tstr(r3)],
+      ["generation", float(3)],
+      ["basis", basisAt(1500)],
+      ["results", array([rootResult])],
+    ]),
+  });
+  step("read_advanced", readQ(r2), [readQ(r2), s.snapshot], [c2, 2], {
+    status: "completed",
+    body: map([
+      ["kind", tstr("read")],
+      ["registration", tstr(descriptor.id)],
+      ["control", tstr(r2)],
+      ["generation", float(2)],
+      ["basis", basisAt(1500)],
+      ["results", array([rootResult])],
+    ]),
+  });
   step("restore_empty", restoreQ(""), [restoreQ("")], [c0, 0], {
     status: "completed",
     body: map([

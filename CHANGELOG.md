@@ -34,8 +34,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
   and Views, the nine M3 refusal codes, and contextual linkage to the request and the named
   control image (ERRATA E4). The preflight projection covers install. `contracts/materialization/M3-CASES.json`
   allocates the M3 cases and `tools/check-materialization-m3-acceptance.mjs` checks both
-  witnesses' receipts in CI. Fault schedules, cross-witness towers, rotation and support erasure
-  follow.
+  witnesses' receipts in CI.
+- SPEC-16 M3 durable fixture hosts in both witnesses with a shared file layout, the seven MR-18
+  fault points, and `tools/check-materialization-m3-towers.mjs`: three tower scenarios in both
+  fixed directions and three seeded mixed plans each with exact replay, plus eight fault
+  schedules. The shared schedule grew to 25 steps. Journal-backed sources, rotation, shared-basis
+  limits and support erasure follow.
 
 ### Changed
 

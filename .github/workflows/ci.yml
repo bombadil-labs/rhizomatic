@@ -248,10 +248,13 @@ jobs:
       - run: npm ci --ignore-scripts --prefix implementations/ts
       - name: Allocation consistency and harness sensitivity
         run: node --test tools/check-materialization-accounting.test.mjs
-      - name: M3 shared schedule receipts in both witnesses
+      - name: M3 shared schedule receipts, durable crossings, fault points and retained replay
         env:
           M3_ARTIFACT_DIR: ${{ runner.temp }}/materialization-m3
-        run: node tools/check-materialization-m3-acceptance.mjs
+          M3_SEED: m3:${{ github.run_id }}:${{ github.run_attempt }}:${{ github.sha }}
+        run: |
+          node tools/check-materialization-m3-acceptance.mjs
+          node tools/check-materialization-m3-towers.mjs --replay "$M3_ARTIFACT_DIR"
       - name: Retain concrete M3 evidence
         if: always()
         uses: actions/upload-artifact@v4

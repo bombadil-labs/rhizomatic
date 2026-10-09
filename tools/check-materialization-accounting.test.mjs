@@ -24,7 +24,7 @@ import {expectedMaterializationM3Assertions,materializationM3AssertionReceipts} 
 const m3Corpora=Object.fromEntries(['control-image','lifecycle'].map(c=>[c,readFileSync(new URL('../vectors/materialization/'+c+'.json',import.meta.url))]));
 test('M3 corpus identity/assertion receipts and missing evidence sensitivity',()=>{
  const expected=expectedMaterializationM3Assertions(m3Corpora);
- assert.equal(expected.length,3+21+20+20);
+ assert.equal(expected.length,3+21+25+25);
  assert.deepEqual([...new Set(expected.filter(e=>e.group==='readback').map(e=>e.assertions))].sort(),[10,6,8]);
  const log=expected.map(e=>'materialization-m3-assertion:'+JSON.stringify(e)).join('\n');
  validateMaterializationAssertions(expected,materializationM3AssertionReceipts(log));
@@ -38,7 +38,7 @@ test('M3 required cases and variants are each allocated once with executable ref
  const all={...corpora,...m3Corpora};
  for(const c of [...m3.cases,...m3.variants]){
   assert.ok(['executed','partial','specified'].includes(c.state),c.id+' state');
-  assert.equal(c.state==='specified',c.vector_assertions.length===0&&c.native_evidence.length===0,c.id+' specified cases carry no evidence');
+  assert.equal(c.state==='specified',c.vector_assertions.length===0&&c.native_evidence.length===0&&c.tower_evidence.length===0,c.id+' specified cases carry no evidence');
   if(c.state!=='executed')assert.ok(c.remaining.length>0,c.id+' names what remains');
   for(const r of c.vector_assertions){
    const corpus=JSON.parse(all[r.corpus]),group=r.corpus==='lifecycle'?'steps':r.group;

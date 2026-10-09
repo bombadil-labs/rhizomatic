@@ -206,6 +206,7 @@ fn main() {
         capture: Some(capture.clone()),
         snapshot: Some(snapshot.clone()),
         received_at: Some(1000.),
+        control: None,
     };
     let read = phase(&mut phases, "gather-readback", || {
         read_materialization_result(&gathered, &ctx, &limits).unwrap()
