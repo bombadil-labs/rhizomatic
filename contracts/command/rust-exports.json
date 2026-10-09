@@ -22656,6 +22656,14 @@
       "targetOwner": "delta"
     },
     {
+      "form": "syn-external-import",
+      "owner": "command",
+      "source": "implementations/rust/src/materialization_basis.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "std::collections::BTreeMap"
+    },
+    {
       "form": "syn-resolved-path",
       "owner": "command",
       "rawTarget": "crate::pred::Bindings",
@@ -22947,7 +22955,7 @@
       "resolvedTarget": "crate::cbor::CborValue",
       "source": "implementations/rust/src/materialization_basis.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "basis_program",
+      "symbol": "basis_grammar",
       "target": "crate::cbor::CborValue",
       "targetOwner": "delta"
     },
@@ -22958,9 +22966,149 @@
       "resolvedTarget": "crate::command_data::read_bindings",
       "source": "implementations/rust/src/materialization_basis.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "basis_program",
+      "symbol": "basis_grammar",
       "target": "crate::command_data::read_bindings",
       "targetOwner": "command-data"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "command",
+      "rawTarget": "crate::materialization_values::Result",
+      "resolvedTarget": "crate::materialization_values::Result",
+      "source": "implementations/rust/src/materialization_basis.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "basis_grammar",
+      "target": "crate::materialization_values::Result",
+      "targetOwner": "command"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "command",
+      "rawTarget": "crate::materialization_values::bytes",
+      "resolvedTarget": "crate::materialization_values::bytes",
+      "source": "implementations/rust/src/materialization_basis.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "basis_grammar",
+      "target": "crate::materialization_values::bytes",
+      "targetOwner": "command"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "command",
+      "rawTarget": "crate::materialization_values::field",
+      "resolvedTarget": "crate::materialization_values::field",
+      "source": "implementations/rust/src/materialization_basis.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "basis_grammar",
+      "target": "crate::materialization_values::field",
+      "targetOwner": "command"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "command",
+      "rawTarget": "crate::materialization_values::id",
+      "resolvedTarget": "crate::materialization_values::id",
+      "source": "implementations/rust/src/materialization_basis.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "basis_grammar",
+      "target": "crate::materialization_values::id",
+      "targetOwner": "command"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "command",
+      "rawTarget": "crate::materialization_values::list",
+      "resolvedTarget": "crate::materialization_values::list",
+      "source": "implementations/rust/src/materialization_basis.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "basis_grammar",
+      "target": "crate::materialization_values::list",
+      "targetOwner": "command"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "command",
+      "rawTarget": "crate::materialization_values::number",
+      "resolvedTarget": "crate::materialization_values::number",
+      "source": "implementations/rust/src/materialization_basis.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "basis_grammar",
+      "target": "crate::materialization_values::number",
+      "targetOwner": "command"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "command",
+      "rawTarget": "crate::materialization_values::object",
+      "resolvedTarget": "crate::materialization_values::object",
+      "source": "implementations/rust/src/materialization_basis.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "basis_grammar",
+      "target": "crate::materialization_values::object",
+      "targetOwner": "command"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "command",
+      "rawTarget": "crate::materialization_values::peer",
+      "resolvedTarget": "crate::materialization_values::peer",
+      "source": "implementations/rust/src/materialization_basis.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "basis_grammar",
+      "target": "crate::materialization_values::peer",
+      "targetOwner": "command"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "command",
+      "rawTarget": "crate::materialization_values::require",
+      "resolvedTarget": "crate::materialization_values::require",
+      "source": "implementations/rust/src/materialization_basis.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "basis_grammar",
+      "target": "crate::materialization_values::require",
+      "targetOwner": "command"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "command",
+      "rawTarget": "crate::materialization_values::text",
+      "resolvedTarget": "crate::materialization_values::text",
+      "source": "implementations/rust/src/materialization_basis.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "basis_grammar",
+      "target": "crate::materialization_values::text",
+      "targetOwner": "command"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "command",
+      "rawTarget": "crate::pred::Bindings",
+      "resolvedTarget": "crate::pred::Bindings",
+      "source": "implementations/rust/src/materialization_basis.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "basis_grammar",
+      "target": "crate::pred::Bindings",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "command",
+      "source": "implementations/rust/src/materialization_basis.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "basis_grammar",
+      "target": "std::collections::BTreeMap"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "command",
+      "rawTarget": "crate::cbor::CborValue",
+      "resolvedTarget": "crate::cbor::CborValue",
+      "source": "implementations/rust/src/materialization_basis.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "basis_program",
+      "target": "crate::cbor::CborValue",
+      "targetOwner": "delta"
     },
     {
       "form": "syn-resolved-path",
@@ -22993,6 +23141,17 @@
       "sourceRegion": "semantic-owner",
       "symbol": "basis_program",
       "target": "crate::materialization_basis::DefinitionProgramInput",
+      "targetOwner": "command"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "command",
+      "rawTarget": "crate::materialization_basis::basis_grammar",
+      "resolvedTarget": "crate::materialization_basis::basis_grammar",
+      "source": "implementations/rust/src/materialization_basis.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "basis_program",
+      "target": "crate::materialization_basis::basis_grammar",
       "targetOwner": "command"
     },
     {
@@ -23163,6 +23322,17 @@
     {
       "form": "syn-resolved-path",
       "owner": "command",
+      "rawTarget": "crate::materialization_basis::basis_grammar",
+      "resolvedTarget": "crate::materialization_basis::basis_grammar",
+      "source": "implementations/rust/src/materialization_basis.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "validate_basis",
+      "target": "crate::materialization_basis::basis_grammar",
+      "targetOwner": "command"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "command",
       "rawTarget": "crate::materialization_basis::basis_program",
       "resolvedTarget": "crate::materialization_basis::basis_program",
       "source": "implementations/rust/src/materialization_basis.rs",
@@ -23328,17 +23498,6 @@
     {
       "form": "syn-resolved-path",
       "owner": "command",
-      "rawTarget": "crate::materialization_values::text",
-      "resolvedTarget": "crate::materialization_values::text",
-      "source": "implementations/rust/src/materialization_basis.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "validate_basis",
-      "target": "crate::materialization_values::text",
-      "targetOwner": "command"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "command",
       "rawTarget": "crate::set::DeltaSet::from_deltas",
       "resolvedTarget": "crate::set::DeltaSet::from_deltas",
       "source": "implementations/rust/src/materialization_basis.rs",
@@ -23346,14 +23505,6 @@
       "symbol": "validate_basis",
       "target": "crate::set::DeltaSet::from_deltas",
       "targetOwner": "delta"
-    },
-    {
-      "form": "syn-external-path",
-      "owner": "command",
-      "source": "implementations/rust/src/materialization_basis.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "validate_basis",
-      "target": "std::vec::Vec::new"
     },
     {
       "form": "syn-resolved-path",
