@@ -75629,6 +75629,1271 @@
       }
     },
     {
+      "id": "resolve_basis_pin_grammar_before_closure",
+      "fixtureSourceId": "plant",
+      "boot": {
+        "configuration": {
+          "id": "1e2082c66f04abc4355fc3ba383ea3591a35750ecef8b9a4c09d5aab15d5d7387bcd",
+          "claims": {
+            "timestamp": 0,
+            "validFrom": 0,
+            "author": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1",
+            "pointers": [
+              {
+                "role": "rhizomatic.materialization.kind",
+                "target": "endpoint/1"
+              },
+              {
+                "role": "rhizomatic.materialization.receiver",
+                "target": {
+                  "id": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1"
+                }
+              },
+              {
+                "role": "rhizomatic.materialization.caller",
+                "target": "ed25519:ca93ac1705187071d67b83c7ff0efe8108e8ec4530575d7726879333dbdabe7c"
+              },
+              {
+                "role": "rhizomatic.materialization.administrator",
+                "target": "ed25519:ca93ac1705187071d67b83c7ff0efe8108e8ec4530575d7726879333dbdabe7c"
+              },
+              {
+                "role": "rhizomatic.materialization.installed",
+                "target": {
+                  "delta": "1e2016bf4a50bb5e076f37e0aa7dff96e90598908645c8eac78f476a10a8c7f83e44"
+                }
+              },
+              {
+                "role": "rhizomatic.materialization.installed",
+                "target": {
+                  "delta": "1e20ec741e924409363c8f704bd372efd55fdaede30a57ddd01f6a93ad9931dad0b1"
+                }
+              },
+              {
+                "role": "rhizomatic.materialization.source-binding",
+                "target": {
+                  "delta": "1e204d9d77b2065f865b6ecdec9126a81f97053d09e054bcdca54dfebdd6a34aa12f"
+                }
+              },
+              {
+                "role": "rhizomatic.materialization.limits",
+                "target": {
+                  "mime": "application/cbor",
+                  "value": "sWVkZXB0aPlQAGVub2Rlc_lsAGVyb290c_lUAGdidWNrZXRz-VwAZ2VudHJpZXP5dABocG9pbnRlcnP5XABocmVhZGluZ3P5XABqY29tcG9uZW50c_lUAGthcHBlYXJhbmNlc_lsAGtkZWZpbml0aW9uc_lcAGtzeW50YXhEZXB0aPlUAGtzeW50YXhOb2Rlc_l0AGxpbnZlbnRvcnlJZHP5dABtYXJ0aWZhY3RCeXRlc_pLgAAAbWRlbGl2ZXJ5Qnl0ZXP6TAAAAG1yZWdpc3RyYXRpb25z-VQAc2RlbGl2ZXJ5QXBwZWFyYW5jZXP5cAA"
+                }
+              }
+            ]
+          },
+          "sig": "33df8504900342fe26b6efc59460b906b6d8d9af16c2f319d040d2526af2d55c10b344a44ee6e8dffaa0f51c768fb2fc0d4c8d052144121446acd8eb6c6af001"
+        },
+        "declarations": [
+          {
+            "id": "1e2016bf4a50bb5e076f37e0aa7dff96e90598908645c8eac78f476a10a8c7f83e44",
+            "claims": {
+              "timestamp": 0,
+              "validFrom": 0,
+              "author": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1",
+              "pointers": [
+                {
+                  "role": "rhizomatic.materialization.kind",
+                  "target": "operation/1"
+                },
+                {
+                  "role": "rhizomatic.materialization.name",
+                  "target": {
+                    "id": "rhizomatic.materialization.gather"
+                  }
+                },
+                {
+                  "role": "rhizomatic.materialization.interpreter",
+                  "target": "rhizomatic.materialization.gather/1"
+                },
+                {
+                  "role": "rhizomatic.materialization.input-contract",
+                  "target": "rhizomatic.materialization.gather/1"
+                },
+                {
+                  "role": "rhizomatic.materialization.output-contract",
+                  "target": "rhizomatic.materialization.outcome/1"
+                },
+                {
+                  "role": "rhizomatic.materialization.effect",
+                  "target": "none"
+                },
+                {
+                  "role": "rhizomatic.materialization.replay",
+                  "target": "re-evaluate/1"
+                },
+                {
+                  "role": "rhizomatic.materialization.dependencies",
+                  "target": "explicit-support/1"
+                }
+              ]
+            },
+            "sig": "9268ac78a0a951f0ae3095efdfb515ad66eac545f235e4ca7f70663f4fadd5f2c78e5c3c8966a26e2a2954e22244c2b2bd705ed471ebb062841eaa5616862105"
+          },
+          {
+            "id": "1e20ec741e924409363c8f704bd372efd55fdaede30a57ddd01f6a93ad9931dad0b1",
+            "claims": {
+              "timestamp": 0,
+              "validFrom": 0,
+              "author": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1",
+              "pointers": [
+                {
+                  "role": "rhizomatic.materialization.kind",
+                  "target": "operation/1"
+                },
+                {
+                  "role": "rhizomatic.materialization.name",
+                  "target": {
+                    "id": "rhizomatic.materialization.resolve"
+                  }
+                },
+                {
+                  "role": "rhizomatic.materialization.interpreter",
+                  "target": "rhizomatic.materialization.resolve/1"
+                },
+                {
+                  "role": "rhizomatic.materialization.input-contract",
+                  "target": "rhizomatic.materialization.resolve/1"
+                },
+                {
+                  "role": "rhizomatic.materialization.output-contract",
+                  "target": "rhizomatic.materialization.outcome/1"
+                },
+                {
+                  "role": "rhizomatic.materialization.effect",
+                  "target": "none"
+                },
+                {
+                  "role": "rhizomatic.materialization.replay",
+                  "target": "re-evaluate/1"
+                },
+                {
+                  "role": "rhizomatic.materialization.dependencies",
+                  "target": "explicit-support/1"
+                }
+              ]
+            },
+            "sig": "3733d3d0bc1070484d8691f89ab85d14c1d047bfb1c17c0fd206b6175f20bad161288971443a295d31ecfae6a0bf5b7837f36729e55a9c1694111490891d2c00"
+          }
+        ],
+        "bindings": [
+          {
+            "id": "1e204d9d77b2065f865b6ecdec9126a81f97053d09e054bcdca54dfebdd6a34aa12f",
+            "claims": {
+              "timestamp": 0,
+              "validFrom": 0,
+              "author": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1",
+              "pointers": [
+                {
+                  "role": "rhizomatic.materialization.kind",
+                  "target": "source-binding/1"
+                },
+                {
+                  "role": "rhizomatic.materialization.receiver",
+                  "target": {
+                    "id": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1"
+                  }
+                },
+                {
+                  "role": "rhizomatic.materialization.spec",
+                  "target": {
+                    "mime": "application/cbor",
+                    "value": "pGhjYXB0dXJlcnhIZWQyNTUxOTo4YTg3NWZmZjFlYjM4NDUxNTc3YWNkNWFmZWU0MDU0NTY1NjhkZDdjODllMDkwODYzYTA1NTdiYzdhZjQ5ZjE3aHNvdXJjZUlkZ3ByaW1hcnlpc2VsZWN0aW9uomdwcm9maWxleBpob3N0LWF1dGhvcml6ZWQtc25hcHNob3QvMWpwYXJhbWV0ZXJzQaBtYXV0aG9yaXR5Um9vdHhEMWUyMDE0Yjc5MjFhZmRhMDQwMTVhNmQ1Y2RhNDg1MjY0NWY5NGQzZGVlNTYyYmZiNDkxMDc3NjQ1MzJiNzNiYjc5Y2U"
+                  }
+                }
+              ]
+            },
+            "sig": "b1dd32ea0f9cc34a368911c6cf5e854e05ac64637c06a8ea725847f5ed04e2a5eb7f7285775cd737507a4453baf494871a9db5017d6034667450ba0224f10d00"
+          }
+        ]
+      },
+      "receivedAt": 1000,
+      "request": {
+        "id": "1e2086874c12a06559ec542690f8bba624b430b1ba223dc9173378bc0dc03453b89d",
+        "claims": {
+          "timestamp": 1000,
+          "validFrom": 1000,
+          "author": "ed25519:ca93ac1705187071d67b83c7ff0efe8108e8ec4530575d7726879333dbdabe7c",
+          "pointers": [
+            {
+              "role": "rhizomatic.materialization.kind",
+              "target": "request/1"
+            },
+            {
+              "role": "rhizomatic.materialization.receiver",
+              "target": {
+                "id": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1"
+              }
+            },
+            {
+              "role": "rhizomatic.materialization.configuration",
+              "target": {
+                "delta": "1e2082c66f04abc4355fc3ba383ea3591a35750ecef8b9a4c09d5aab15d5d7387bcd"
+              }
+            },
+            {
+              "role": "rhizomatic.materialization.operation",
+              "target": {
+                "delta": "1e20ec741e924409363c8f704bd372efd55fdaede30a57ddd01f6a93ad9931dad0b1"
+              }
+            },
+            {
+              "role": "rhizomatic.materialization.evidence",
+              "target": {
+                "delta": "1e20dbb88ef46ac0ba1c451854ee3210abc66cb79569baf3cba58076d84339dff732"
+              }
+            }
+          ]
+        },
+        "sig": "e1fefbfaae221246da93845f6751b3e13008658db9329f88e6a49a24274514fccc69c1cc85f912a2289f2b912a1b28d3dd6b3f892bdec085bc3fadb956195e08"
+      },
+      "delivery": [
+        {
+          "id": "1e2086874c12a06559ec542690f8bba624b430b1ba223dc9173378bc0dc03453b89d",
+          "claims": {
+            "timestamp": 1000,
+            "validFrom": 1000,
+            "author": "ed25519:ca93ac1705187071d67b83c7ff0efe8108e8ec4530575d7726879333dbdabe7c",
+            "pointers": [
+              {
+                "role": "rhizomatic.materialization.kind",
+                "target": "request/1"
+              },
+              {
+                "role": "rhizomatic.materialization.receiver",
+                "target": {
+                  "id": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1"
+                }
+              },
+              {
+                "role": "rhizomatic.materialization.configuration",
+                "target": {
+                  "delta": "1e2082c66f04abc4355fc3ba383ea3591a35750ecef8b9a4c09d5aab15d5d7387bcd"
+                }
+              },
+              {
+                "role": "rhizomatic.materialization.operation",
+                "target": {
+                  "delta": "1e20ec741e924409363c8f704bd372efd55fdaede30a57ddd01f6a93ad9931dad0b1"
+                }
+              },
+              {
+                "role": "rhizomatic.materialization.evidence",
+                "target": {
+                  "delta": "1e20dbb88ef46ac0ba1c451854ee3210abc66cb79569baf3cba58076d84339dff732"
+                }
+              }
+            ]
+          },
+          "sig": "e1fefbfaae221246da93845f6751b3e13008658db9329f88e6a49a24274514fccc69c1cc85f912a2289f2b912a1b28d3dd6b3f892bdec085bc3fadb956195e08"
+        },
+        {
+          "id": "1e20dbb88ef46ac0ba1c451854ee3210abc66cb79569baf3cba58076d84339dff732",
+          "claims": {
+            "timestamp": 1000,
+            "validFrom": 1000,
+            "author": "ed25519:ca93ac1705187071d67b83c7ff0efe8108e8ec4530575d7726879333dbdabe7c",
+            "pointers": [
+              {
+                "role": "rhizomatic.materialization.kind",
+                "target": "evidence/1"
+              },
+              {
+                "role": "rhizomatic.materialization.result",
+                "target": {
+                  "mime": "application/cbor",
+                  "value": "pmRraW5kZmdhdGhlcmRyb290aWl0ZW06ZmVybmViYXNpc7JiYXT5Y9Bmc2NoZW1heEQxZTIwMTkzM2ZhZTc4YjA5YTMyZDdkMTZlODkxY2Q5NjU3Yzg0MjljYTJlYTBkMGVmNjU3ZGZmMDM3NjI5ZTdlN2NkMGdiaW5kaW5neEQxZTIwNGQ5ZDc3YjIwNjVmODY1YjZlY2RlYzkxMjZhODFmOTcwNTNkMDllMDU0YmNkY2E1NGRmZWJkZDZhMzRhYTEyZmhiaW5kaW5nc0GgaHJldmlzaW9ueEQxZTIwYzBkOWVhZGM5MWE2NWQzNTI1ZWU2NDFjZjQ1MGEwZDAwZDIwYjQwNzVlNGFkN2ZmZDllYjJjYjkxODhlYjc3ZmlhdXRob3JpdHl4RDFlMjAxMzQxODExNDhkNGMyNTc0ODg2NjRiODJhMzVjNGNkNDg5ZWMxMTliYjczMWU5NGQ2ZjYzZGUyMzg3YTBiYmI3aXNjaGVtYVBpbnhEMWUyMDc5YWQ0OTU1NDBlODI5ZjdmY2M2MDY1NmE0ZDRkNmFjNGQ0MDM1NGFmNTYzNjBiOTQwNWQ3NjJmNGE0MGYxZWZpc2VsZWN0aW9ueEQxZTIwZDlmM2JhOGFlNDM2NjM2YTA1OWNlMjBmYjA1MDgyZmE3MDM3OTcyMzNhN2JhNjc1YjA0YTlkNjgwYzkzMWM1ZGlzZXJ2aW5nQXT5Y9BqY29tcG9uZW50c4GjZHBlZXJ4SGVkMjU1MTk6ZWE0YTZjNjNlMjljNTIwYWJlZjU1MDdiMTMyZWM1Zjk5NTQ3NzZhZWJlYmU3YjkyNDIxZWVhNjkxNDQ2ZDIyY2hyZXZpc2lvbnhEMWUyMDBkNmY0MmYzODBkZjBlYmFjN2Y2NzdiMzhkY2Q1NTk4NzFjYzAzZWFlZmUwNDg0ZWI2MWRmNzM3YWI3YTU3YWFqY2FwdHVyZWRBdPlj0GptZW1iZXJzaGlweEQxZTIwMGQ2ZjQyZjM4MGRmMGViYWM3ZjY3N2IzOGRjZDU1OTg3MWNjMDNlYWVmZTA0ODRlYjYxZGY3MzdhYjdhNTdhYWtkZWZpbml0aW9uc4BraHlwZXJzY2hlbWF4RDFlMjBlNmFjZDg5MzM0OTY0NWQxZDkyZDlmNGQ1YzI0NTE0NWZlMzJiYjUxYTEzNzQ4NDlkNjE0ZjI5YmRhMmMwZmMwbGRlZmluaXRpb25BdPlj0G5oeXBlcnNjaGVtYVBpbmNiYWRuaW50ZXJwcmV0YXRpb25mY29yZS8xcGFwcGVhcmFuY2VEaWdlc3R4RDFlMjAwMWZkY2U3NWM4NjU2NDc5NDFhY2RjNzYyMGUxMTNkYmJjMjdhMzMxMDRlZjU5NTg0ODNiZTY2ZDI4NjljYjA2cGRlZmluaXRpb25EaWdlc3R4RDFlMjAzYzBkYTY0NzhkNzJjZTgzYmFiZGRkMWM1MGM0NWQyNjdiN2I5OTZhNGJhOWVkYmMwZjY3ZDRjMWUyNmIxYTIzZWh2aWV3eEQxZTIwMDIxM2FiYWQ2OGMyZGRiMzZmYWYxYjA2ZTQ3NDQwODI1YTcyYmY2YTMzNjhjOTk2MDAxMmFjOGNkMjQyMjFiZWhlbnZlbG9wZVkG4qRkcm9vdKJiaWRpaXRlbTpmZXJuZXByb3Bzo2N0YWeBpGduZWdhdGVk9GhleHBhbmRlZIBocmVhZGluZ3OAamFwcGVhcmFuY2V4RDFlMjA1M2YzMzI0Nzk1MmY4ZTEwYTMyYThkNjRjMjI4NDc1MDIzYWIzYTM5MDliZjg0YjM2MWI5ODI5Yjc0OGExOGZkZmhlaWdodIGkZ25lZ2F0ZWT0aGV4cGFuZGVkgGhyZWFkaW5nc4BqYXBwZWFyYW5jZXhEMWUyMGFhOTU0NDU0ODk3ODZjMTU1OTM5NGRiNjRhZTNhMTE5NzJmYWQwMGY0Mzk1OWRiZGEyNjBkYjg2MDlhNjYwYWFncGF5bG9hZIGkZ25lZ2F0ZWT0aGV4cGFuZGVkgGhyZWFkaW5nc4BqYXBwZWFyYW5jZXhEMWUyMGM5ODVmN2I4YmRiNzBiNDliOWUxZjViY2E2ZWI1ZGJiMTM3NzdlZTk5NDIwODE4M2FiZGE3MjQyYjc1YWE2MzNmZm9ybWF0eBtyaGl6b21hdGljLmh2aWV3LWVudmVsb3BlLzFocmVhZGluZ3OAa2FwcGVhcmFuY2Vzg6Jja2V5eEQxZTIwNTNmMzMyNDc5NTJmOGUxMGEzMmE4ZDY0YzIyODQ3NTAyM2FiM2EzOTA5YmY4NGIzNjFiOTgyOWI3NDhhMThmZGV2YWx1ZVkBV6NiaWR4RDFlMjA0ZTM5OGNkMzZjMTY2ZTdmNjVkZDgyYjA5ZGQwMmU2ZTk4MjUyMDg4NDk4YzA0ZDUxMDFiNTU4ZTM4NDg1MGZmY3NpZ1hAJocBQsiWyRVnXs0OgTMCSva8VDoRuV5Dh9EyPoyjOV2cLTE2rIl4MoJL0RjkbURyjUYTNZarjYApEFbdyec2C2ZjbGFpbXNYvqRmYXV0aG9yeEhlZDI1NTE5OmVhNGE2YzYzZTI5YzUyMGFiZWY1NTA3YjEzMmVjNWY5OTU0Nzc2YWViZWJlN2I5MjQyMWVlYTY5MTQ0NmQyMmNocG9pbnRlcnOComRyb2xlZ3N1YmplY3RmdGFyZ2V0omJpZGlpdGVtOmZlcm5nY29udGV4dGN0YWeiZHJvbGVldmFsdWVmdGFyZ2V0ZXNoYWRlaXRpbWVzdGFtcPlJgGl2YWxpZEZyb235AACiY2tleXhEMWUyMGFhOTU0NDU0ODk3ODZjMTU1OTM5NGRiNjRhZTNhMTE5NzJmYWQwMGY0Mzk1OWRiZGEyNjBkYjg2MDlhNjYwYWFldmFsdWVZAVejYmlkeEQxZTIwY2U1ZTE5YzhhMWY1N2FiZTQxZjc2YzM4YWNkOTc4ZDgwYzU1MmQ0MGZlZGY4YmQ4YjJlNGRjYzhlN2VmNzg3OWNzaWdYQGY0ZkeXy9-6E9NH5xefdi2_Wdp9FpxmzfzZ10hzMKY79adSBe2CpTG7cCCtl_UH0egz2uZw_pAG9t3aQtVKjgVmY2xhaW1zWL6kZmF1dGhvcnhIZWQyNTUxOTplYTRhNmM2M2UyOWM1MjBhYmVmNTUwN2IxMzJlYzVmOTk1NDc3NmFlYmViZTdiOTI0MjFlZWE2OTE0NDZkMjJjaHBvaW50ZXJzgqJkcm9sZWdzdWJqZWN0ZnRhcmdldKJiaWRpaXRlbTpmZXJuZ2NvbnRleHRmaGVpZ2h0omRyb2xlZXZhbHVlZnRhcmdldPlRQGl0aW1lc3RhbXD5SQBpdmFsaWRGcm9t-QAAomNrZXl4RDFlMjBjOTg1ZjdiOGJkYjcwYjQ5YjllMWY1YmNhNmViNWRiYjEzNzc3ZWU5OTQyMDgxODNhYmRhNzI0MmI3NWFhNjMzZXZhbHVlWQF_o2JpZHhEMWUyMDY2ZmI2MGFhMGZjNDQxMjVjODQ3M2RkZWJiZDgyMzg5ZmRhZWU1M2NkNzRlYzM0ZjliNTQ4ZmU4ZWQ4NjQxMmZjc2lnWEA7p0rz6NuM7_sR4_LIIuWgtC_Kw-Qo28zOAPZQSRbzqk36j1G8ZFCBkR7HhZcu7kYBA1pJ4VZCLUpEdYCbUL0MZmNsYWltc1jmpGZhdXRob3J4SGVkMjU1MTk6ZWE0YTZjNjNlMjljNTIwYWJlZjU1MDdiMTMyZWM1Zjk5NTQ3NzZhZWJlYmU3YjkyNDIxZWVhNjkxNDQ2ZDIyY2hwb2ludGVyc4KiZHJvbGVnc3ViamVjdGZ0YXJnZXSiYmlkaWl0ZW06ZmVybmdjb250ZXh0Z3BheWxvYWSiZHJvbGVldmFsdWVmdGFyZ2V0omRtaW1leBhhcHBsaWNhdGlvbi9vY3RldC1zdHJlYW1ldmFsdWVDAP8BaXRpbWVzdGFtcPlKAGl2YWxpZEZyb235AABpdHJhbnNwb3J0eEQxZTIwNjk0MmFkNDhjNzNhNzNlZjMxZjQ4OGNmZGIxNWM3YzRmMGZlYmJkN2IxNmVkMTkxNjE3MmNhYmE1MDczNGVkMQ"
+                }
+              }
+            ]
+          },
+          "sig": "1bbcfd8d0e9f963094fe3a0a9d097b9dbc3728c5c319649c57303969ed19f0bd1f05caaefa89bf50d15fb7d177933263ac37d4f1638d150ab148577aead04a0c"
+        }
+      ],
+      "actions": [],
+      "source": {
+        "binding": "1e204d9d77b2065f865b6ecdec9126a81f97053d09e054bcdca54dfebdd6a34aa12f",
+        "revision": "1e20c0d9eadc91a65d3525ee641cf450a0d00d20b4075e4ad7ffd9eb2cb9188eb77f",
+        "authority": "1e20134181148d4c257488664b82a35c4cd489ec119bb731e94d6f63de2387a0bbb7",
+        "servingAt": 1000,
+        "requiredSupport": [
+          "1e201933fae78b09a32d7d16e891cd9657c8429ca2ea0d0ef657dff037629e7e7cd0",
+          "1e20e6acd893349645d1d92d9f4d5c245145fe32bb51a1374849d614f29bda2c0fc0"
+        ]
+      },
+      "expected": {
+        "code": "invalid-evidence",
+        "preflight": "invalid-evidence",
+        "outcome": {
+          "id": "1e202a31ddbbcf13e738778c83c3a9567e7ad1551be9ae790b7cb578298ec19dce15",
+          "claims": {
+            "timestamp": 1000,
+            "validFrom": 1000,
+            "author": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1",
+            "pointers": [
+              {
+                "role": "rhizomatic.materialization.kind",
+                "target": "outcome/1"
+              },
+              {
+                "role": "rhizomatic.materialization.receiver",
+                "target": {
+                  "id": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1"
+                }
+              },
+              {
+                "role": "rhizomatic.materialization.configuration",
+                "target": {
+                  "delta": "1e2082c66f04abc4355fc3ba383ea3591a35750ecef8b9a4c09d5aab15d5d7387bcd"
+                }
+              },
+              {
+                "role": "rhizomatic.materialization.request",
+                "target": {
+                  "delta": "1e2086874c12a06559ec542690f8bba624b430b1ba223dc9173378bc0dc03453b89d"
+                }
+              },
+              {
+                "role": "rhizomatic.materialization.status",
+                "target": "refused"
+              },
+              {
+                "role": "rhizomatic.materialization.result",
+                "target": {
+                  "mime": "application/cbor",
+                  "value": "oWRjb2RlcGludmFsaWQtZXZpZGVuY2U"
+                }
+              }
+            ]
+          },
+          "sig": "cedb123477258adbc505ba7ee5ad70415e4e97905f08f2bc45392d5ddeeff4ac387c7d79db667806d345cf6f530d0939bcb6c57e3971c5f673e23ad0b177030a"
+        }
+      }
+    },
+    {
+      "id": "resolve_basis_bindings_grammar_before_closure",
+      "fixtureSourceId": "plant",
+      "boot": {
+        "configuration": {
+          "id": "1e2082c66f04abc4355fc3ba383ea3591a35750ecef8b9a4c09d5aab15d5d7387bcd",
+          "claims": {
+            "timestamp": 0,
+            "validFrom": 0,
+            "author": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1",
+            "pointers": [
+              {
+                "role": "rhizomatic.materialization.kind",
+                "target": "endpoint/1"
+              },
+              {
+                "role": "rhizomatic.materialization.receiver",
+                "target": {
+                  "id": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1"
+                }
+              },
+              {
+                "role": "rhizomatic.materialization.caller",
+                "target": "ed25519:ca93ac1705187071d67b83c7ff0efe8108e8ec4530575d7726879333dbdabe7c"
+              },
+              {
+                "role": "rhizomatic.materialization.administrator",
+                "target": "ed25519:ca93ac1705187071d67b83c7ff0efe8108e8ec4530575d7726879333dbdabe7c"
+              },
+              {
+                "role": "rhizomatic.materialization.installed",
+                "target": {
+                  "delta": "1e2016bf4a50bb5e076f37e0aa7dff96e90598908645c8eac78f476a10a8c7f83e44"
+                }
+              },
+              {
+                "role": "rhizomatic.materialization.installed",
+                "target": {
+                  "delta": "1e20ec741e924409363c8f704bd372efd55fdaede30a57ddd01f6a93ad9931dad0b1"
+                }
+              },
+              {
+                "role": "rhizomatic.materialization.source-binding",
+                "target": {
+                  "delta": "1e204d9d77b2065f865b6ecdec9126a81f97053d09e054bcdca54dfebdd6a34aa12f"
+                }
+              },
+              {
+                "role": "rhizomatic.materialization.limits",
+                "target": {
+                  "mime": "application/cbor",
+                  "value": "sWVkZXB0aPlQAGVub2Rlc_lsAGVyb290c_lUAGdidWNrZXRz-VwAZ2VudHJpZXP5dABocG9pbnRlcnP5XABocmVhZGluZ3P5XABqY29tcG9uZW50c_lUAGthcHBlYXJhbmNlc_lsAGtkZWZpbml0aW9uc_lcAGtzeW50YXhEZXB0aPlUAGtzeW50YXhOb2Rlc_l0AGxpbnZlbnRvcnlJZHP5dABtYXJ0aWZhY3RCeXRlc_pLgAAAbWRlbGl2ZXJ5Qnl0ZXP6TAAAAG1yZWdpc3RyYXRpb25z-VQAc2RlbGl2ZXJ5QXBwZWFyYW5jZXP5cAA"
+                }
+              }
+            ]
+          },
+          "sig": "33df8504900342fe26b6efc59460b906b6d8d9af16c2f319d040d2526af2d55c10b344a44ee6e8dffaa0f51c768fb2fc0d4c8d052144121446acd8eb6c6af001"
+        },
+        "declarations": [
+          {
+            "id": "1e2016bf4a50bb5e076f37e0aa7dff96e90598908645c8eac78f476a10a8c7f83e44",
+            "claims": {
+              "timestamp": 0,
+              "validFrom": 0,
+              "author": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1",
+              "pointers": [
+                {
+                  "role": "rhizomatic.materialization.kind",
+                  "target": "operation/1"
+                },
+                {
+                  "role": "rhizomatic.materialization.name",
+                  "target": {
+                    "id": "rhizomatic.materialization.gather"
+                  }
+                },
+                {
+                  "role": "rhizomatic.materialization.interpreter",
+                  "target": "rhizomatic.materialization.gather/1"
+                },
+                {
+                  "role": "rhizomatic.materialization.input-contract",
+                  "target": "rhizomatic.materialization.gather/1"
+                },
+                {
+                  "role": "rhizomatic.materialization.output-contract",
+                  "target": "rhizomatic.materialization.outcome/1"
+                },
+                {
+                  "role": "rhizomatic.materialization.effect",
+                  "target": "none"
+                },
+                {
+                  "role": "rhizomatic.materialization.replay",
+                  "target": "re-evaluate/1"
+                },
+                {
+                  "role": "rhizomatic.materialization.dependencies",
+                  "target": "explicit-support/1"
+                }
+              ]
+            },
+            "sig": "9268ac78a0a951f0ae3095efdfb515ad66eac545f235e4ca7f70663f4fadd5f2c78e5c3c8966a26e2a2954e22244c2b2bd705ed471ebb062841eaa5616862105"
+          },
+          {
+            "id": "1e20ec741e924409363c8f704bd372efd55fdaede30a57ddd01f6a93ad9931dad0b1",
+            "claims": {
+              "timestamp": 0,
+              "validFrom": 0,
+              "author": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1",
+              "pointers": [
+                {
+                  "role": "rhizomatic.materialization.kind",
+                  "target": "operation/1"
+                },
+                {
+                  "role": "rhizomatic.materialization.name",
+                  "target": {
+                    "id": "rhizomatic.materialization.resolve"
+                  }
+                },
+                {
+                  "role": "rhizomatic.materialization.interpreter",
+                  "target": "rhizomatic.materialization.resolve/1"
+                },
+                {
+                  "role": "rhizomatic.materialization.input-contract",
+                  "target": "rhizomatic.materialization.resolve/1"
+                },
+                {
+                  "role": "rhizomatic.materialization.output-contract",
+                  "target": "rhizomatic.materialization.outcome/1"
+                },
+                {
+                  "role": "rhizomatic.materialization.effect",
+                  "target": "none"
+                },
+                {
+                  "role": "rhizomatic.materialization.replay",
+                  "target": "re-evaluate/1"
+                },
+                {
+                  "role": "rhizomatic.materialization.dependencies",
+                  "target": "explicit-support/1"
+                }
+              ]
+            },
+            "sig": "3733d3d0bc1070484d8691f89ab85d14c1d047bfb1c17c0fd206b6175f20bad161288971443a295d31ecfae6a0bf5b7837f36729e55a9c1694111490891d2c00"
+          }
+        ],
+        "bindings": [
+          {
+            "id": "1e204d9d77b2065f865b6ecdec9126a81f97053d09e054bcdca54dfebdd6a34aa12f",
+            "claims": {
+              "timestamp": 0,
+              "validFrom": 0,
+              "author": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1",
+              "pointers": [
+                {
+                  "role": "rhizomatic.materialization.kind",
+                  "target": "source-binding/1"
+                },
+                {
+                  "role": "rhizomatic.materialization.receiver",
+                  "target": {
+                    "id": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1"
+                  }
+                },
+                {
+                  "role": "rhizomatic.materialization.spec",
+                  "target": {
+                    "mime": "application/cbor",
+                    "value": "pGhjYXB0dXJlcnhIZWQyNTUxOTo4YTg3NWZmZjFlYjM4NDUxNTc3YWNkNWFmZWU0MDU0NTY1NjhkZDdjODllMDkwODYzYTA1NTdiYzdhZjQ5ZjE3aHNvdXJjZUlkZ3ByaW1hcnlpc2VsZWN0aW9uomdwcm9maWxleBpob3N0LWF1dGhvcml6ZWQtc25hcHNob3QvMWpwYXJhbWV0ZXJzQaBtYXV0aG9yaXR5Um9vdHhEMWUyMDE0Yjc5MjFhZmRhMDQwMTVhNmQ1Y2RhNDg1MjY0NWY5NGQzZGVlNTYyYmZiNDkxMDc3NjQ1MzJiNzNiYjc5Y2U"
+                  }
+                }
+              ]
+            },
+            "sig": "b1dd32ea0f9cc34a368911c6cf5e854e05ac64637c06a8ea725847f5ed04e2a5eb7f7285775cd737507a4453baf494871a9db5017d6034667450ba0224f10d00"
+          }
+        ]
+      },
+      "receivedAt": 1000,
+      "request": {
+        "id": "1e20f6ba45608b331965fbe7c740c6a591e419da620a7b969ac867aedef3a3ab00d7",
+        "claims": {
+          "timestamp": 1000,
+          "validFrom": 1000,
+          "author": "ed25519:ca93ac1705187071d67b83c7ff0efe8108e8ec4530575d7726879333dbdabe7c",
+          "pointers": [
+            {
+              "role": "rhizomatic.materialization.kind",
+              "target": "request/1"
+            },
+            {
+              "role": "rhizomatic.materialization.receiver",
+              "target": {
+                "id": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1"
+              }
+            },
+            {
+              "role": "rhizomatic.materialization.configuration",
+              "target": {
+                "delta": "1e2082c66f04abc4355fc3ba383ea3591a35750ecef8b9a4c09d5aab15d5d7387bcd"
+              }
+            },
+            {
+              "role": "rhizomatic.materialization.operation",
+              "target": {
+                "delta": "1e20ec741e924409363c8f704bd372efd55fdaede30a57ddd01f6a93ad9931dad0b1"
+              }
+            },
+            {
+              "role": "rhizomatic.materialization.evidence",
+              "target": {
+                "delta": "1e20bc0c135bf99a7172de34fea6ec04ecef0ea87728deade68cf6c2d20a071a6690"
+              }
+            }
+          ]
+        },
+        "sig": "5442e152e8fa268833af4f1fef076bf94a189b49f45109ff74e7d34384d0d471a63410e3af22e99944b86db1689bc22aa69df903e64cd28c16661032c1b8da06"
+      },
+      "delivery": [
+        {
+          "id": "1e20f6ba45608b331965fbe7c740c6a591e419da620a7b969ac867aedef3a3ab00d7",
+          "claims": {
+            "timestamp": 1000,
+            "validFrom": 1000,
+            "author": "ed25519:ca93ac1705187071d67b83c7ff0efe8108e8ec4530575d7726879333dbdabe7c",
+            "pointers": [
+              {
+                "role": "rhizomatic.materialization.kind",
+                "target": "request/1"
+              },
+              {
+                "role": "rhizomatic.materialization.receiver",
+                "target": {
+                  "id": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1"
+                }
+              },
+              {
+                "role": "rhizomatic.materialization.configuration",
+                "target": {
+                  "delta": "1e2082c66f04abc4355fc3ba383ea3591a35750ecef8b9a4c09d5aab15d5d7387bcd"
+                }
+              },
+              {
+                "role": "rhizomatic.materialization.operation",
+                "target": {
+                  "delta": "1e20ec741e924409363c8f704bd372efd55fdaede30a57ddd01f6a93ad9931dad0b1"
+                }
+              },
+              {
+                "role": "rhizomatic.materialization.evidence",
+                "target": {
+                  "delta": "1e20bc0c135bf99a7172de34fea6ec04ecef0ea87728deade68cf6c2d20a071a6690"
+                }
+              }
+            ]
+          },
+          "sig": "5442e152e8fa268833af4f1fef076bf94a189b49f45109ff74e7d34384d0d471a63410e3af22e99944b86db1689bc22aa69df903e64cd28c16661032c1b8da06"
+        },
+        {
+          "id": "1e20bc0c135bf99a7172de34fea6ec04ecef0ea87728deade68cf6c2d20a071a6690",
+          "claims": {
+            "timestamp": 1000,
+            "validFrom": 1000,
+            "author": "ed25519:ca93ac1705187071d67b83c7ff0efe8108e8ec4530575d7726879333dbdabe7c",
+            "pointers": [
+              {
+                "role": "rhizomatic.materialization.kind",
+                "target": "evidence/1"
+              },
+              {
+                "role": "rhizomatic.materialization.result",
+                "target": {
+                  "mime": "application/cbor",
+                  "value": "pmRraW5kZmdhdGhlcmRyb290aWl0ZW06ZmVybmViYXNpc7JiYXT5Y9Bmc2NoZW1heEQxZTIwMTkzM2ZhZTc4YjA5YTMyZDdkMTZlODkxY2Q5NjU3Yzg0MjljYTJlYTBkMGVmNjU3ZGZmMDM3NjI5ZTdlN2NkMGdiaW5kaW5neEQxZTIwNGQ5ZDc3YjIwNjVmODY1YjZlY2RlYzkxMjZhODFmOTcwNTNkMDllMDU0YmNkY2E1NGRmZWJkZDZhMzRhYTEyZmhiaW5kaW5nc0H_aHJldmlzaW9ueEQxZTIwYzBkOWVhZGM5MWE2NWQzNTI1ZWU2NDFjZjQ1MGEwZDAwZDIwYjQwNzVlNGFkN2ZmZDllYjJjYjkxODhlYjc3ZmlhdXRob3JpdHl4RDFlMjAxMzQxODExNDhkNGMyNTc0ODg2NjRiODJhMzVjNGNkNDg5ZWMxMTliYjczMWU5NGQ2ZjYzZGUyMzg3YTBiYmI3aXNjaGVtYVBpbnhEMWUyMDc5YWQ0OTU1NDBlODI5ZjdmY2M2MDY1NmE0ZDRkNmFjNGQ0MDM1NGFmNTYzNjBiOTQwNWQ3NjJmNGE0MGYxZWZpc2VsZWN0aW9ueEQxZTIwZDlmM2JhOGFlNDM2NjM2YTA1OWNlMjBmYjA1MDgyZmE3MDM3OTcyMzNhN2JhNjc1YjA0YTlkNjgwYzkzMWM1ZGlzZXJ2aW5nQXT5Y9BqY29tcG9uZW50c4GjZHBlZXJ4SGVkMjU1MTk6ZWE0YTZjNjNlMjljNTIwYWJlZjU1MDdiMTMyZWM1Zjk5NTQ3NzZhZWJlYmU3YjkyNDIxZWVhNjkxNDQ2ZDIyY2hyZXZpc2lvbnhEMWUyMDBkNmY0MmYzODBkZjBlYmFjN2Y2NzdiMzhkY2Q1NTk4NzFjYzAzZWFlZmUwNDg0ZWI2MWRmNzM3YWI3YTU3YWFqY2FwdHVyZWRBdPlj0GptZW1iZXJzaGlweEQxZTIwMGQ2ZjQyZjM4MGRmMGViYWM3ZjY3N2IzOGRjZDU1OTg3MWNjMDNlYWVmZTA0ODRlYjYxZGY3MzdhYjdhNTdhYWtkZWZpbml0aW9uc4BraHlwZXJzY2hlbWF4RDFlMjBlNmFjZDg5MzM0OTY0NWQxZDkyZDlmNGQ1YzI0NTE0NWZlMzJiYjUxYTEzNzQ4NDlkNjE0ZjI5YmRhMmMwZmMwbGRlZmluaXRpb25BdPlj0G5oeXBlcnNjaGVtYVBpbnhEMWUyMGI4YzNiMGIxZDI4YTc2ZWRmYzA2NTA2MjE1Zjk1ZWNkZTU4ODY5ZmFhZTUzYWZjNzVjM2I3YzFiNWZlODczNjBuaW50ZXJwcmV0YXRpb25mY29yZS8xcGFwcGVhcmFuY2VEaWdlc3R4RDFlMjAwMWZkY2U3NWM4NjU2NDc5NDFhY2RjNzYyMGUxMTNkYmJjMjdhMzMxMDRlZjU5NTg0ODNiZTY2ZDI4NjljYjA2cGRlZmluaXRpb25EaWdlc3R4RDFlMjAzYzBkYTY0NzhkNzJjZTgzYmFiZGRkMWM1MGM0NWQyNjdiN2I5OTZhNGJhOWVkYmMwZjY3ZDRjMWUyNmIxYTIzZWh2aWV3eEQxZTIwMDIxM2FiYWQ2OGMyZGRiMzZmYWYxYjA2ZTQ3NDQwODI1YTcyYmY2YTMzNjhjOTk2MDAxMmFjOGNkMjQyMjFiZWhlbnZlbG9wZVkG4qRkcm9vdKJiaWRpaXRlbTpmZXJuZXByb3Bzo2N0YWeBpGduZWdhdGVk9GhleHBhbmRlZIBocmVhZGluZ3OAamFwcGVhcmFuY2V4RDFlMjA1M2YzMzI0Nzk1MmY4ZTEwYTMyYThkNjRjMjI4NDc1MDIzYWIzYTM5MDliZjg0YjM2MWI5ODI5Yjc0OGExOGZkZmhlaWdodIGkZ25lZ2F0ZWT0aGV4cGFuZGVkgGhyZWFkaW5nc4BqYXBwZWFyYW5jZXhEMWUyMGFhOTU0NDU0ODk3ODZjMTU1OTM5NGRiNjRhZTNhMTE5NzJmYWQwMGY0Mzk1OWRiZGEyNjBkYjg2MDlhNjYwYWFncGF5bG9hZIGkZ25lZ2F0ZWT0aGV4cGFuZGVkgGhyZWFkaW5nc4BqYXBwZWFyYW5jZXhEMWUyMGM5ODVmN2I4YmRiNzBiNDliOWUxZjViY2E2ZWI1ZGJiMTM3NzdlZTk5NDIwODE4M2FiZGE3MjQyYjc1YWE2MzNmZm9ybWF0eBtyaGl6b21hdGljLmh2aWV3LWVudmVsb3BlLzFocmVhZGluZ3OAa2FwcGVhcmFuY2Vzg6Jja2V5eEQxZTIwNTNmMzMyNDc5NTJmOGUxMGEzMmE4ZDY0YzIyODQ3NTAyM2FiM2EzOTA5YmY4NGIzNjFiOTgyOWI3NDhhMThmZGV2YWx1ZVkBV6NiaWR4RDFlMjA0ZTM5OGNkMzZjMTY2ZTdmNjVkZDgyYjA5ZGQwMmU2ZTk4MjUyMDg4NDk4YzA0ZDUxMDFiNTU4ZTM4NDg1MGZmY3NpZ1hAJocBQsiWyRVnXs0OgTMCSva8VDoRuV5Dh9EyPoyjOV2cLTE2rIl4MoJL0RjkbURyjUYTNZarjYApEFbdyec2C2ZjbGFpbXNYvqRmYXV0aG9yeEhlZDI1NTE5OmVhNGE2YzYzZTI5YzUyMGFiZWY1NTA3YjEzMmVjNWY5OTU0Nzc2YWViZWJlN2I5MjQyMWVlYTY5MTQ0NmQyMmNocG9pbnRlcnOComRyb2xlZ3N1YmplY3RmdGFyZ2V0omJpZGlpdGVtOmZlcm5nY29udGV4dGN0YWeiZHJvbGVldmFsdWVmdGFyZ2V0ZXNoYWRlaXRpbWVzdGFtcPlJgGl2YWxpZEZyb235AACiY2tleXhEMWUyMGFhOTU0NDU0ODk3ODZjMTU1OTM5NGRiNjRhZTNhMTE5NzJmYWQwMGY0Mzk1OWRiZGEyNjBkYjg2MDlhNjYwYWFldmFsdWVZAVejYmlkeEQxZTIwY2U1ZTE5YzhhMWY1N2FiZTQxZjc2YzM4YWNkOTc4ZDgwYzU1MmQ0MGZlZGY4YmQ4YjJlNGRjYzhlN2VmNzg3OWNzaWdYQGY0ZkeXy9-6E9NH5xefdi2_Wdp9FpxmzfzZ10hzMKY79adSBe2CpTG7cCCtl_UH0egz2uZw_pAG9t3aQtVKjgVmY2xhaW1zWL6kZmF1dGhvcnhIZWQyNTUxOTplYTRhNmM2M2UyOWM1MjBhYmVmNTUwN2IxMzJlYzVmOTk1NDc3NmFlYmViZTdiOTI0MjFlZWE2OTE0NDZkMjJjaHBvaW50ZXJzgqJkcm9sZWdzdWJqZWN0ZnRhcmdldKJiaWRpaXRlbTpmZXJuZ2NvbnRleHRmaGVpZ2h0omRyb2xlZXZhbHVlZnRhcmdldPlRQGl0aW1lc3RhbXD5SQBpdmFsaWRGcm9t-QAAomNrZXl4RDFlMjBjOTg1ZjdiOGJkYjcwYjQ5YjllMWY1YmNhNmViNWRiYjEzNzc3ZWU5OTQyMDgxODNhYmRhNzI0MmI3NWFhNjMzZXZhbHVlWQF_o2JpZHhEMWUyMDY2ZmI2MGFhMGZjNDQxMjVjODQ3M2RkZWJiZDgyMzg5ZmRhZWU1M2NkNzRlYzM0ZjliNTQ4ZmU4ZWQ4NjQxMmZjc2lnWEA7p0rz6NuM7_sR4_LIIuWgtC_Kw-Qo28zOAPZQSRbzqk36j1G8ZFCBkR7HhZcu7kYBA1pJ4VZCLUpEdYCbUL0MZmNsYWltc1jmpGZhdXRob3J4SGVkMjU1MTk6ZWE0YTZjNjNlMjljNTIwYWJlZjU1MDdiMTMyZWM1Zjk5NTQ3NzZhZWJlYmU3YjkyNDIxZWVhNjkxNDQ2ZDIyY2hwb2ludGVyc4KiZHJvbGVnc3ViamVjdGZ0YXJnZXSiYmlkaWl0ZW06ZmVybmdjb250ZXh0Z3BheWxvYWSiZHJvbGVldmFsdWVmdGFyZ2V0omRtaW1leBhhcHBsaWNhdGlvbi9vY3RldC1zdHJlYW1ldmFsdWVDAP8BaXRpbWVzdGFtcPlKAGl2YWxpZEZyb235AABpdHJhbnNwb3J0eEQxZTIwNjk0MmFkNDhjNzNhNzNlZjMxZjQ4OGNmZGIxNWM3YzRmMGZlYmJkN2IxNmVkMTkxNjE3MmNhYmE1MDczNGVkMQ"
+                }
+              }
+            ]
+          },
+          "sig": "b6413068727af0a36d99fd368a64acaf0ee885c66866f8dc446adb3f0f5d6084be4c0f11e95446da7278184db460bcc7ee0184a2b863a1885d32e6527bc3e205"
+        }
+      ],
+      "actions": [],
+      "source": {
+        "binding": "1e204d9d77b2065f865b6ecdec9126a81f97053d09e054bcdca54dfebdd6a34aa12f",
+        "revision": "1e20c0d9eadc91a65d3525ee641cf450a0d00d20b4075e4ad7ffd9eb2cb9188eb77f",
+        "authority": "1e20134181148d4c257488664b82a35c4cd489ec119bb731e94d6f63de2387a0bbb7",
+        "servingAt": 1000,
+        "requiredSupport": [
+          "1e201933fae78b09a32d7d16e891cd9657c8429ca2ea0d0ef657dff037629e7e7cd0",
+          "1e20e6acd893349645d1d92d9f4d5c245145fe32bb51a1374849d614f29bda2c0fc0"
+        ]
+      },
+      "expected": {
+        "code": "invalid-evidence",
+        "preflight": "invalid-evidence",
+        "outcome": {
+          "id": "1e2014c786e29bf30b72f227a30054cc14b41eb0ff4ee49cc92328e07b0698c3445f",
+          "claims": {
+            "timestamp": 1000,
+            "validFrom": 1000,
+            "author": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1",
+            "pointers": [
+              {
+                "role": "rhizomatic.materialization.kind",
+                "target": "outcome/1"
+              },
+              {
+                "role": "rhizomatic.materialization.receiver",
+                "target": {
+                  "id": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1"
+                }
+              },
+              {
+                "role": "rhizomatic.materialization.configuration",
+                "target": {
+                  "delta": "1e2082c66f04abc4355fc3ba383ea3591a35750ecef8b9a4c09d5aab15d5d7387bcd"
+                }
+              },
+              {
+                "role": "rhizomatic.materialization.request",
+                "target": {
+                  "delta": "1e20f6ba45608b331965fbe7c740c6a591e419da620a7b969ac867aedef3a3ab00d7"
+                }
+              },
+              {
+                "role": "rhizomatic.materialization.status",
+                "target": "refused"
+              },
+              {
+                "role": "rhizomatic.materialization.result",
+                "target": {
+                  "mime": "application/cbor",
+                  "value": "oWRjb2RlcGludmFsaWQtZXZpZGVuY2U"
+                }
+              }
+            ]
+          },
+          "sig": "aad0038567d69aa390c0dd0b9b817d7cfec0cb54ff3811a339893ed9c86af9b65b66adc45e3f7cee3ff072c1ff7f75cd31795d87fcf065c1906daa28c4a6a004"
+        }
+      }
+    },
+    {
+      "id": "definition_appearance_bytes_over",
+      "fixtureSourceId": "plant",
+      "boot": {
+        "configuration": {
+          "id": "1e20d32e6163e5b1995de2725235b09a5d8246c3c3efd5e95cd79cd335c9f87b26ac",
+          "claims": {
+            "timestamp": 0,
+            "validFrom": 0,
+            "author": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1",
+            "pointers": [
+              {
+                "role": "rhizomatic.materialization.kind",
+                "target": "endpoint/1"
+              },
+              {
+                "role": "rhizomatic.materialization.receiver",
+                "target": {
+                  "id": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1"
+                }
+              },
+              {
+                "role": "rhizomatic.materialization.caller",
+                "target": "ed25519:ca93ac1705187071d67b83c7ff0efe8108e8ec4530575d7726879333dbdabe7c"
+              },
+              {
+                "role": "rhizomatic.materialization.administrator",
+                "target": "ed25519:ca93ac1705187071d67b83c7ff0efe8108e8ec4530575d7726879333dbdabe7c"
+              },
+              {
+                "role": "rhizomatic.materialization.installed",
+                "target": {
+                  "delta": "1e2016bf4a50bb5e076f37e0aa7dff96e90598908645c8eac78f476a10a8c7f83e44"
+                }
+              },
+              {
+                "role": "rhizomatic.materialization.installed",
+                "target": {
+                  "delta": "1e20ec741e924409363c8f704bd372efd55fdaede30a57ddd01f6a93ad9931dad0b1"
+                }
+              },
+              {
+                "role": "rhizomatic.materialization.source-binding",
+                "target": {
+                  "delta": "1e204d9d77b2065f865b6ecdec9126a81f97053d09e054bcdca54dfebdd6a34aa12f"
+                }
+              },
+              {
+                "role": "rhizomatic.materialization.limits",
+                "target": {
+                  "mime": "application/cbor",
+                  "value": "sWVkZXB0aPlQAGVub2Rlc_lsAGVyb290c_lUAGdidWNrZXRz-VwAZ2VudHJpZXP5dABocG9pbnRlcnP5XABocmVhZGluZ3P5XABqY29tcG9uZW50c_lUAGthcHBlYXJhbmNlc_lsAGtkZWZpbml0aW9uc_lcAGtzeW50YXhEZXB0aPlUAGtzeW50YXhOb2Rlc_l0AGxpbnZlbnRvcnlJZHP5dABtYXJ0aWZhY3RCeXRlc_pG1o4AbWRlbGl2ZXJ5Qnl0ZXP6TAAAAG1yZWdpc3RyYXRpb25z-VQAc2RlbGl2ZXJ5QXBwZWFyYW5jZXP5cAA"
+                }
+              }
+            ]
+          },
+          "sig": "49f16123f1032aedd92ac0e4b3bd08f9680c45a8cc339685487c77695b507b892e195c9fd2023c7edbdbfd7f1a41adce4a4516d9adb82bff9154812d81cba100"
+        },
+        "declarations": [
+          {
+            "id": "1e2016bf4a50bb5e076f37e0aa7dff96e90598908645c8eac78f476a10a8c7f83e44",
+            "claims": {
+              "timestamp": 0,
+              "validFrom": 0,
+              "author": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1",
+              "pointers": [
+                {
+                  "role": "rhizomatic.materialization.kind",
+                  "target": "operation/1"
+                },
+                {
+                  "role": "rhizomatic.materialization.name",
+                  "target": {
+                    "id": "rhizomatic.materialization.gather"
+                  }
+                },
+                {
+                  "role": "rhizomatic.materialization.interpreter",
+                  "target": "rhizomatic.materialization.gather/1"
+                },
+                {
+                  "role": "rhizomatic.materialization.input-contract",
+                  "target": "rhizomatic.materialization.gather/1"
+                },
+                {
+                  "role": "rhizomatic.materialization.output-contract",
+                  "target": "rhizomatic.materialization.outcome/1"
+                },
+                {
+                  "role": "rhizomatic.materialization.effect",
+                  "target": "none"
+                },
+                {
+                  "role": "rhizomatic.materialization.replay",
+                  "target": "re-evaluate/1"
+                },
+                {
+                  "role": "rhizomatic.materialization.dependencies",
+                  "target": "explicit-support/1"
+                }
+              ]
+            },
+            "sig": "9268ac78a0a951f0ae3095efdfb515ad66eac545f235e4ca7f70663f4fadd5f2c78e5c3c8966a26e2a2954e22244c2b2bd705ed471ebb062841eaa5616862105"
+          },
+          {
+            "id": "1e20ec741e924409363c8f704bd372efd55fdaede30a57ddd01f6a93ad9931dad0b1",
+            "claims": {
+              "timestamp": 0,
+              "validFrom": 0,
+              "author": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1",
+              "pointers": [
+                {
+                  "role": "rhizomatic.materialization.kind",
+                  "target": "operation/1"
+                },
+                {
+                  "role": "rhizomatic.materialization.name",
+                  "target": {
+                    "id": "rhizomatic.materialization.resolve"
+                  }
+                },
+                {
+                  "role": "rhizomatic.materialization.interpreter",
+                  "target": "rhizomatic.materialization.resolve/1"
+                },
+                {
+                  "role": "rhizomatic.materialization.input-contract",
+                  "target": "rhizomatic.materialization.resolve/1"
+                },
+                {
+                  "role": "rhizomatic.materialization.output-contract",
+                  "target": "rhizomatic.materialization.outcome/1"
+                },
+                {
+                  "role": "rhizomatic.materialization.effect",
+                  "target": "none"
+                },
+                {
+                  "role": "rhizomatic.materialization.replay",
+                  "target": "re-evaluate/1"
+                },
+                {
+                  "role": "rhizomatic.materialization.dependencies",
+                  "target": "explicit-support/1"
+                }
+              ]
+            },
+            "sig": "3733d3d0bc1070484d8691f89ab85d14c1d047bfb1c17c0fd206b6175f20bad161288971443a295d31ecfae6a0bf5b7837f36729e55a9c1694111490891d2c00"
+          }
+        ],
+        "bindings": [
+          {
+            "id": "1e204d9d77b2065f865b6ecdec9126a81f97053d09e054bcdca54dfebdd6a34aa12f",
+            "claims": {
+              "timestamp": 0,
+              "validFrom": 0,
+              "author": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1",
+              "pointers": [
+                {
+                  "role": "rhizomatic.materialization.kind",
+                  "target": "source-binding/1"
+                },
+                {
+                  "role": "rhizomatic.materialization.receiver",
+                  "target": {
+                    "id": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1"
+                  }
+                },
+                {
+                  "role": "rhizomatic.materialization.spec",
+                  "target": {
+                    "mime": "application/cbor",
+                    "value": "pGhjYXB0dXJlcnhIZWQyNTUxOTo4YTg3NWZmZjFlYjM4NDUxNTc3YWNkNWFmZWU0MDU0NTY1NjhkZDdjODllMDkwODYzYTA1NTdiYzdhZjQ5ZjE3aHNvdXJjZUlkZ3ByaW1hcnlpc2VsZWN0aW9uomdwcm9maWxleBpob3N0LWF1dGhvcml6ZWQtc25hcHNob3QvMWpwYXJhbWV0ZXJzQaBtYXV0aG9yaXR5Um9vdHhEMWUyMDE0Yjc5MjFhZmRhMDQwMTVhNmQ1Y2RhNDg1MjY0NWY5NGQzZGVlNTYyYmZiNDkxMDc3NjQ1MzJiNzNiYjc5Y2U"
+                  }
+                }
+              ]
+            },
+            "sig": "b1dd32ea0f9cc34a368911c6cf5e854e05ac64637c06a8ea725847f5ed04e2a5eb7f7285775cd737507a4453baf494871a9db5017d6034667450ba0224f10d00"
+          }
+        ]
+      },
+      "receivedAt": 1000,
+      "request": {
+        "id": "1e205dcbfae7d1c5ee6ffd8629895689100796148d0775216e12ecb99515d2a75bc7",
+        "claims": {
+          "timestamp": 1000,
+          "validFrom": 1000,
+          "author": "ed25519:ca93ac1705187071d67b83c7ff0efe8108e8ec4530575d7726879333dbdabe7c",
+          "pointers": [
+            {
+              "role": "rhizomatic.materialization.kind",
+              "target": "request/1"
+            },
+            {
+              "role": "rhizomatic.materialization.receiver",
+              "target": {
+                "id": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1"
+              }
+            },
+            {
+              "role": "rhizomatic.materialization.configuration",
+              "target": {
+                "delta": "1e20d32e6163e5b1995de2725235b09a5d8246c3c3efd5e95cd79cd335c9f87b26ac"
+              }
+            },
+            {
+              "role": "rhizomatic.materialization.operation",
+              "target": {
+                "delta": "1e2016bf4a50bb5e076f37e0aa7dff96e90598908645c8eac78f476a10a8c7f83e44"
+              }
+            },
+            {
+              "role": "rhizomatic.materialization.capture",
+              "target": {
+                "delta": "1e20add7c8b8ca7ceb2b2151cdf591157074eb5779c08da0e747c0d0cf05a5ab4619"
+              }
+            },
+            {
+              "role": "rhizomatic.materialization.snapshot",
+              "target": {
+                "delta": "1e20417e69472de5a27d747ffcc95e6a0f8758118086c17ab852dc0478af83fc6392"
+              }
+            },
+            {
+              "role": "rhizomatic.materialization.root",
+              "target": {
+                "id": "item:fern"
+              }
+            },
+            {
+              "role": "rhizomatic.materialization.at",
+              "target": 1000
+            },
+            {
+              "role": "rhizomatic.materialization.serving-at",
+              "target": 1000
+            },
+            {
+              "role": "rhizomatic.materialization.interpretation",
+              "target": "core/1"
+            },
+            {
+              "role": "rhizomatic.materialization.hyperschema",
+              "target": {
+                "delta": "1e20e6acd893349645d1d92d9f4d5c245145fe32bb51a1374849d614f29bda2c0fc0"
+              }
+            },
+            {
+              "role": "rhizomatic.materialization.hyperschema-pin",
+              "target": "1e20b8c3b0b1d28a76edfc06506215f95ecde58869faae53afc75c3b7c1b5fe87360"
+            },
+            {
+              "role": "rhizomatic.materialization.schema",
+              "target": {
+                "delta": "1e20f7ecdf906be5cdba7505ebe619b91fe49cf88a9f9313fc3e80a8b238b08dcef6"
+              }
+            },
+            {
+              "role": "rhizomatic.materialization.schema-pin",
+              "target": "1e20250994e17b4104d8a8a0e2f6088b7aac3430011ca89ab8a4ca6bf5d9f890863d"
+            },
+            {
+              "role": "rhizomatic.materialization.bindings",
+              "target": {
+                "mime": "application/cbor",
+                "value": "oA"
+              }
+            },
+            {
+              "role": "rhizomatic.materialization.definition-at",
+              "target": 1000
+            }
+          ]
+        },
+        "sig": "3525bdf559c4dbbd4628ed3e1be66b2d8032d8d226ab63cb0dfb16cf08e7551c32a5cbef494036136ff5d79464b39d168169aa2ffee935581069e92b4081d605"
+      },
+      "delivery": [
+        {
+          "id": "1e205dcbfae7d1c5ee6ffd8629895689100796148d0775216e12ecb99515d2a75bc7",
+          "claims": {
+            "timestamp": 1000,
+            "validFrom": 1000,
+            "author": "ed25519:ca93ac1705187071d67b83c7ff0efe8108e8ec4530575d7726879333dbdabe7c",
+            "pointers": [
+              {
+                "role": "rhizomatic.materialization.kind",
+                "target": "request/1"
+              },
+              {
+                "role": "rhizomatic.materialization.receiver",
+                "target": {
+                  "id": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1"
+                }
+              },
+              {
+                "role": "rhizomatic.materialization.configuration",
+                "target": {
+                  "delta": "1e20d32e6163e5b1995de2725235b09a5d8246c3c3efd5e95cd79cd335c9f87b26ac"
+                }
+              },
+              {
+                "role": "rhizomatic.materialization.operation",
+                "target": {
+                  "delta": "1e2016bf4a50bb5e076f37e0aa7dff96e90598908645c8eac78f476a10a8c7f83e44"
+                }
+              },
+              {
+                "role": "rhizomatic.materialization.capture",
+                "target": {
+                  "delta": "1e20add7c8b8ca7ceb2b2151cdf591157074eb5779c08da0e747c0d0cf05a5ab4619"
+                }
+              },
+              {
+                "role": "rhizomatic.materialization.snapshot",
+                "target": {
+                  "delta": "1e20417e69472de5a27d747ffcc95e6a0f8758118086c17ab852dc0478af83fc6392"
+                }
+              },
+              {
+                "role": "rhizomatic.materialization.root",
+                "target": {
+                  "id": "item:fern"
+                }
+              },
+              {
+                "role": "rhizomatic.materialization.at",
+                "target": 1000
+              },
+              {
+                "role": "rhizomatic.materialization.serving-at",
+                "target": 1000
+              },
+              {
+                "role": "rhizomatic.materialization.interpretation",
+                "target": "core/1"
+              },
+              {
+                "role": "rhizomatic.materialization.hyperschema",
+                "target": {
+                  "delta": "1e20e6acd893349645d1d92d9f4d5c245145fe32bb51a1374849d614f29bda2c0fc0"
+                }
+              },
+              {
+                "role": "rhizomatic.materialization.hyperschema-pin",
+                "target": "1e20b8c3b0b1d28a76edfc06506215f95ecde58869faae53afc75c3b7c1b5fe87360"
+              },
+              {
+                "role": "rhizomatic.materialization.schema",
+                "target": {
+                  "delta": "1e20f7ecdf906be5cdba7505ebe619b91fe49cf88a9f9313fc3e80a8b238b08dcef6"
+                }
+              },
+              {
+                "role": "rhizomatic.materialization.schema-pin",
+                "target": "1e20250994e17b4104d8a8a0e2f6088b7aac3430011ca89ab8a4ca6bf5d9f890863d"
+              },
+              {
+                "role": "rhizomatic.materialization.bindings",
+                "target": {
+                  "mime": "application/cbor",
+                  "value": "oA"
+                }
+              },
+              {
+                "role": "rhizomatic.materialization.definition-at",
+                "target": 1000
+              }
+            ]
+          },
+          "sig": "3525bdf559c4dbbd4628ed3e1be66b2d8032d8d226ab63cb0dfb16cf08e7551c32a5cbef494036136ff5d79464b39d168169aa2ffee935581069e92b4081d605"
+        },
+        {
+          "id": "1e20add7c8b8ca7ceb2b2151cdf591157074eb5779c08da0e747c0d0cf05a5ab4619",
+          "claims": {
+            "timestamp": 1000,
+            "validFrom": 1000,
+            "author": "ed25519:8a875fff1eb38451577acd5afee405456568dd7c89e090863a0557bc7af49f17",
+            "pointers": [
+              {
+                "role": "rhizomatic.materialization.kind",
+                "target": "capture/1"
+              },
+              {
+                "role": "rhizomatic.materialization.source-binding",
+                "target": {
+                  "delta": "1e204d9d77b2065f865b6ecdec9126a81f97053d09e054bcdca54dfebdd6a34aa12f"
+                }
+              },
+              {
+                "role": "rhizomatic.materialization.authority",
+                "target": {
+                  "delta": "1e20134181148d4c257488664b82a35c4cd489ec119bb731e94d6f63de2387a0bbb7"
+                }
+              },
+              {
+                "role": "rhizomatic.materialization.basis",
+                "target": {
+                  "mime": "application/cbor",
+                  "value": "rGZmb3JtYXR4GXJoaXpvbWF0aWMuc291cmNlLWJhc2lzLzFnYmluZGluZ3hEMWUyMDRkOWQ3N2IyMDY1Zjg2NWI2ZWNkZWM5MTI2YTgxZjk3MDUzZDA5ZTA1NGJjZGNhNTRkZmViZGQ2YTM0YWExMmZob3BlcmFuZHODo2JpZHhEMWUyMDRlMzk4Y2QzNmMxNjZlN2Y2NWRkODJiMDlkZDAyZTZlOTgyNTIwODg0OThjMDRkNTEwMWI1NThlMzg0ODUwZmZlcGVlcnOBeEhlZDI1NTE5OmVhNGE2YzYzZTI5YzUyMGFiZWY1NTA3YjEzMmVjNWY5OTU0Nzc2YWViZWJlN2I5MjQyMWVlYTY5MTQ0NmQyMmNqYXBwZWFyYW5jZXhEMWUyMDUzZjMzMjQ3OTUyZjhlMTBhMzJhOGQ2NGMyMjg0NzUwMjNhYjNhMzkwOWJmODRiMzYxYjk4MjliNzQ4YTE4ZmSjYmlkeEQxZTIwNjZmYjYwYWEwZmM0NDEyNWM4NDczZGRlYmJkODIzODlmZGFlZTUzY2Q3NGVjMzRmOWI1NDhmZThlZDg2NDEyZmVwZWVyc4F4SGVkMjU1MTk6ZWE0YTZjNjNlMjljNTIwYWJlZjU1MDdiMTMyZWM1Zjk5NTQ3NzZhZWJlYmU3YjkyNDIxZWVhNjkxNDQ2ZDIyY2phcHBlYXJhbmNleEQxZTIwYzk4NWY3YjhiZGI3MGI0OWI5ZTFmNWJjYTZlYjVkYmIxMzc3N2VlOTk0MjA4MTgzYWJkYTcyNDJiNzVhYTYzM6NiaWR4RDFlMjBjZTVlMTljOGExZjU3YWJlNDFmNzZjMzhhY2Q5NzhkODBjNTUyZDQwZmVkZjhiZDhiMmU0ZGNjOGU3ZWY3ODc5ZXBlZXJzgXhIZWQyNTUxOTplYTRhNmM2M2UyOWM1MjBhYmVmNTUwN2IxMzJlYzVmOTk1NDc3NmFlYmViZTdiOTI0MjFlZWE2OTE0NDZkMjJjamFwcGVhcmFuY2V4RDFlMjBhYTk1NDQ1NDg5Nzg2YzE1NTkzOTRkYjY0YWUzYTExOTcyZmFkMDBmNDM5NTlkYmRhMjYwZGI4NjA5YTY2MGFhaHJldmlzaW9ueEQxZTIwYzBkOWVhZGM5MWE2NWQzNTI1ZWU2NDFjZjQ1MGEwZDAwZDIwYjQwNzVlNGFkN2ZmZDllYjJjYjkxODhlYjc3ZmhzbmFwc2hvdHhEMWUyMDFlOTY2NTA2MjBmMmY4ZGQ3MmU1ZTg2MzYxNzY0MTlkYjUyMDI1YzcwMjE3NjI1NjNiMjNiYWI0OWY0MTk0YjBpYXV0aG9yaXR5eEQxZTIwMTM0MTgxMTQ4ZDRjMjU3NDg4NjY0YjgyYTM1YzRjZDQ4OWVjMTE5YmI3MzFlOTRkNmY2M2RlMjM4N2EwYmJiN2lzZWxlY3Rpb254RDFlMjBkOWYzYmE4YWU0MzY2MzZhMDU5Y2UyMGZiMDUwODJmYTcwMzc5NzIzM2E3YmE2NzViMDRhOWQ2ODBjOTMxYzVkaXNlcnZpbmdBdPlj0Gpjb21wb25lbnRzgaVkcGVlcnhIZWQyNTUxOTplYTRhNmM2M2UyOWM1MjBhYmVmNTUwN2IxMzJlYzVmOTk1NDc3NmFlYmViZTdiOTI0MjFlZWE2OTE0NDZkMjJjZnJhd0lkc4N4RDFlMjA0ZTM5OGNkMzZjMTY2ZTdmNjVkZDgyYjA5ZGQwMmU2ZTk4MjUyMDg4NDk4YzA0ZDUxMDFiNTU4ZTM4NDg1MGZmeEQxZTIwNjZmYjYwYWEwZmM0NDEyNWM4NDczZGRlYmJkODIzODlmZGFlZTUzY2Q3NGVjMzRmOWI1NDhmZThlZDg2NDEyZnhEMWUyMGNlNWUxOWM4YTFmNTdhYmU0MWY3NmMzOGFjZDk3OGQ4MGM1NTJkNDBmZWRmOGJkOGIyZTRkY2M4ZTdlZjc4NzlocmV2aXNpb254RDFlMjAwZDZmNDJmMzgwZGYwZWJhYzdmNjc3YjM4ZGNkNTU5ODcxY2MwM2VhZWZlMDQ4NGViNjFkZjczN2FiN2E1N2FhamNhcHR1cmVkQXT5Y9Bqb3BlcmFuZElkc4N4RDFlMjA0ZTM5OGNkMzZjMTY2ZTdmNjVkZDgyYjA5ZGQwMmU2ZTk4MjUyMDg4NDk4YzA0ZDUxMDFiNTU4ZTM4NDg1MGZmeEQxZTIwNjZmYjYwYWEwZmM0NDEyNWM4NDczZGRlYmJkODIzODlmZGFlZTUzY2Q3NGVjMzRmOWI1NDhmZThlZDg2NDEyZnhEMWUyMGNlNWUxOWM4YTFmNTdhYmU0MWY3NmMzOGFjZDk3OGQ4MGM1NTJkNDBmZWRmOGJkOGIyZTRkY2M4ZTdlZjc4NzlqZXhjbHVzaW9uc4BqbWVtYmVyc2hpcHhEMWUyMDBkNmY0MmYzODBkZjBlYmFjN2Y2NzdiMzhkY2Q1NTk4NzFjYzAzZWFlZmUwNDg0ZWI2MWRmNzM3YWI3YTU3YWFwYXBwZWFyYW5jZURpZ2VzdHhEMWUyMDAxZmRjZTc1Yzg2NTY0Nzk0MWFjZGM3NjIwZTExM2RiYmMyN2EzMzEwNGVmNTk1ODQ4M2JlNjZkMjg2OWNiMDY"
+                }
+              }
+            ]
+          },
+          "sig": "4ce22b1c72bb4473bc097e1baa61c945ffdd7717c15cc09022801010a9134ffc5d63983b78eac4586d250574f7a107fd42d53a282ace2a07b0d10b9e974c2d0d"
+        },
+        {
+          "id": "1e20417e69472de5a27d747ffcc95e6a0f8758118086c17ab852dc0478af83fc6392",
+          "claims": {
+            "timestamp": 1000,
+            "validFrom": 1000,
+            "author": "ed25519:8a875fff1eb38451577acd5afee405456568dd7c89e090863a0557bc7af49f17",
+            "pointers": [
+              {
+                "role": "rhizomatic.materialization.kind",
+                "target": "snapshot/1"
+              },
+              {
+                "role": "rhizomatic.materialization.data",
+                "target": {
+                  "mime": "application/cbor",
+                  "value": "rGZmb3JtYXR4HHJoaXpvbWF0aWMuc291cmNlLXNuYXBzaG90LzFnYmluZGluZ3hEMWUyMDRkOWQ3N2IyMDY1Zjg2NWI2ZWNkZWM5MTI2YTgxZjk3MDUzZDA5ZTA1NGJjZGNhNTRkZmViZGQ2YTM0YWExMmZob3BlcmFuZHODo2JpZHhEMWUyMDRlMzk4Y2QzNmMxNjZlN2Y2NWRkODJiMDlkZDAyZTZlOTgyNTIwODg0OThjMDRkNTEwMWI1NThlMzg0ODUwZmZlcGVlcnOBeEhlZDI1NTE5OmVhNGE2YzYzZTI5YzUyMGFiZWY1NTA3YjEzMmVjNWY5OTU0Nzc2YWViZWJlN2I5MjQyMWVlYTY5MTQ0NmQyMmNqYXBwZWFyYW5jZXhEMWUyMDUzZjMzMjQ3OTUyZjhlMTBhMzJhOGQ2NGMyMjg0NzUwMjNhYjNhMzkwOWJmODRiMzYxYjk4MjliNzQ4YTE4ZmSjYmlkeEQxZTIwNjZmYjYwYWEwZmM0NDEyNWM4NDczZGRlYmJkODIzODlmZGFlZTUzY2Q3NGVjMzRmOWI1NDhmZThlZDg2NDEyZmVwZWVyc4F4SGVkMjU1MTk6ZWE0YTZjNjNlMjljNTIwYWJlZjU1MDdiMTMyZWM1Zjk5NTQ3NzZhZWJlYmU3YjkyNDIxZWVhNjkxNDQ2ZDIyY2phcHBlYXJhbmNleEQxZTIwYzk4NWY3YjhiZGI3MGI0OWI5ZTFmNWJjYTZlYjVkYmIxMzc3N2VlOTk0MjA4MTgzYWJkYTcyNDJiNzVhYTYzM6NiaWR4RDFlMjBjZTVlMTljOGExZjU3YWJlNDFmNzZjMzhhY2Q5NzhkODBjNTUyZDQwZmVkZjhiZDhiMmU0ZGNjOGU3ZWY3ODc5ZXBlZXJzgXhIZWQyNTUxOTplYTRhNmM2M2UyOWM1MjBhYmVmNTUwN2IxMzJlYzVmOTk1NDc3NmFlYmViZTdiOTI0MjFlZWE2OTE0NDZkMjJjamFwcGVhcmFuY2V4RDFlMjBhYTk1NDQ1NDg5Nzg2YzE1NTkzOTRkYjY0YWUzYTExOTcyZmFkMDBmNDM5NTlkYmRhMjYwZGI4NjA5YTY2MGFhaHJldmlzaW9ueEQxZTIwYzBkOWVhZGM5MWE2NWQzNTI1ZWU2NDFjZjQ1MGEwZDAwZDIwYjQwNzVlNGFkN2ZmZDllYjJjYjkxODhlYjc3ZmlhdXRob3JpdHl4RDFlMjAxMzQxODExNDhkNGMyNTc0ODg2NjRiODJhMzVjNGNkNDg5ZWMxMTliYjczMWU5NGQ2ZjYzZGUyMzg3YTBiYmI3aXNlbGVjdGlvbnhEMWUyMGQ5ZjNiYThhZTQzNjYzNmEwNTljZTIwZmIwNTA4MmZhNzAzNzk3MjMzYTdiYTY3NWIwNGE5ZDY4MGM5MzFjNWRpc2VydmluZ0F0-WPQamNvbXBvbmVudHOBpWRwZWVyeEhlZDI1NTE5OmVhNGE2YzYzZTI5YzUyMGFiZWY1NTA3YjEzMmVjNWY5OTU0Nzc2YWViZWJlN2I5MjQyMWVlYTY5MTQ0NmQyMmNmcmF3SWRzg3hEMWUyMDRlMzk4Y2QzNmMxNjZlN2Y2NWRkODJiMDlkZDAyZTZlOTgyNTIwODg0OThjMDRkNTEwMWI1NThlMzg0ODUwZmZ4RDFlMjA2NmZiNjBhYTBmYzQ0MTI1Yzg0NzNkZGViYmQ4MjM4OWZkYWVlNTNjZDc0ZWMzNGY5YjU0OGZlOGVkODY0MTJmeEQxZTIwY2U1ZTE5YzhhMWY1N2FiZTQxZjc2YzM4YWNkOTc4ZDgwYzU1MmQ0MGZlZGY4YmQ4YjJlNGRjYzhlN2VmNzg3OWhyZXZpc2lvbnhEMWUyMDBkNmY0MmYzODBkZjBlYmFjN2Y2NzdiMzhkY2Q1NTk4NzFjYzAzZWFlZmUwNDg0ZWI2MWRmNzM3YWI3YTU3YWFqY2FwdHVyZWRBdPlj0GpvcGVyYW5kSWRzg3hEMWUyMDRlMzk4Y2QzNmMxNjZlN2Y2NWRkODJiMDlkZDAyZTZlOTgyNTIwODg0OThjMDRkNTEwMWI1NThlMzg0ODUwZmZ4RDFlMjA2NmZiNjBhYTBmYzQ0MTI1Yzg0NzNkZGViYmQ4MjM4OWZkYWVlNTNjZDc0ZWMzNGY5YjU0OGZlOGVkODY0MTJmeEQxZTIwY2U1ZTE5YzhhMWY1N2FiZTQxZjc2YzM4YWNkOTc4ZDgwYzU1MmQ0MGZlZGY4YmQ4YjJlNGRjYzhlN2VmNzg3OWpleGNsdXNpb25zgGptZW1iZXJzaGlweEQxZTIwMGQ2ZjQyZjM4MGRmMGViYWM3ZjY3N2IzOGRjZDU1OTg3MWNjMDNlYWVmZTA0ODRlYjYxZGY3MzdhYjdhNTdhYWthcHBlYXJhbmNlc4OiY2tleXhEMWUyMDUzZjMzMjQ3OTUyZjhlMTBhMzJhOGQ2NGMyMjg0NzUwMjNhYjNhMzkwOWJmODRiMzYxYjk4MjliNzQ4YTE4ZmRldmFsdWVZAVejYmlkeEQxZTIwNGUzOThjZDM2YzE2NmU3ZjY1ZGQ4MmIwOWRkMDJlNmU5ODI1MjA4ODQ5OGMwNGQ1MTAxYjU1OGUzODQ4NTBmZmNzaWdYQCaHAULIlskVZ17NDoEzAkr2vFQ6EbleQ4fRMj6MozldnC0xNqyJeDKCS9EY5G1Eco1GEzWWq42AKRBW3cnnNgtmY2xhaW1zWL6kZmF1dGhvcnhIZWQyNTUxOTplYTRhNmM2M2UyOWM1MjBhYmVmNTUwN2IxMzJlYzVmOTk1NDc3NmFlYmViZTdiOTI0MjFlZWE2OTE0NDZkMjJjaHBvaW50ZXJzgqJkcm9sZWdzdWJqZWN0ZnRhcmdldKJiaWRpaXRlbTpmZXJuZ2NvbnRleHRjdGFnomRyb2xlZXZhbHVlZnRhcmdldGVzaGFkZWl0aW1lc3RhbXD5SYBpdmFsaWRGcm9t-QAAomNrZXl4RDFlMjBhYTk1NDQ1NDg5Nzg2YzE1NTkzOTRkYjY0YWUzYTExOTcyZmFkMDBmNDM5NTlkYmRhMjYwZGI4NjA5YTY2MGFhZXZhbHVlWQFXo2JpZHhEMWUyMGNlNWUxOWM4YTFmNTdhYmU0MWY3NmMzOGFjZDk3OGQ4MGM1NTJkNDBmZWRmOGJkOGIyZTRkY2M4ZTdlZjc4Nzljc2lnWEBmNGZHl8vfuhPTR-cXn3Ytv1nafRacZs382ddIczCmO_WnUgXtgqUxu3AgrZf1B9HoM9rmcP6QBvbd2kLVSo4FZmNsYWltc1i-pGZhdXRob3J4SGVkMjU1MTk6ZWE0YTZjNjNlMjljNTIwYWJlZjU1MDdiMTMyZWM1Zjk5NTQ3NzZhZWJlYmU3YjkyNDIxZWVhNjkxNDQ2ZDIyY2hwb2ludGVyc4KiZHJvbGVnc3ViamVjdGZ0YXJnZXSiYmlkaWl0ZW06ZmVybmdjb250ZXh0ZmhlaWdodKJkcm9sZWV2YWx1ZWZ0YXJnZXT5UUBpdGltZXN0YW1w-UkAaXZhbGlkRnJvbfkAAKJja2V5eEQxZTIwYzk4NWY3YjhiZGI3MGI0OWI5ZTFmNWJjYTZlYjVkYmIxMzc3N2VlOTk0MjA4MTgzYWJkYTcyNDJiNzVhYTYzM2V2YWx1ZVkBf6NiaWR4RDFlMjA2NmZiNjBhYTBmYzQ0MTI1Yzg0NzNkZGViYmQ4MjM4OWZkYWVlNTNjZDc0ZWMzNGY5YjU0OGZlOGVkODY0MTJmY3NpZ1hAO6dK8-jbjO_7EePyyCLloLQvysPkKNvMzgD2UEkW86pN-o9RvGRQgZEex4WXLu5GAQNaSeFWQi1KRHWAm1C9DGZjbGFpbXNY5qRmYXV0aG9yeEhlZDI1NTE5OmVhNGE2YzYzZTI5YzUyMGFiZWY1NTA3YjEzMmVjNWY5OTU0Nzc2YWViZWJlN2I5MjQyMWVlYTY5MTQ0NmQyMmNocG9pbnRlcnOComRyb2xlZ3N1YmplY3RmdGFyZ2V0omJpZGlpdGVtOmZlcm5nY29udGV4dGdwYXlsb2FkomRyb2xlZXZhbHVlZnRhcmdldKJkbWltZXgYYXBwbGljYXRpb24vb2N0ZXQtc3RyZWFtZXZhbHVlQwD_AWl0aW1lc3RhbXD5SgBpdmFsaWRGcm9t-QAAcGFwcGVhcmFuY2VEaWdlc3R4RDFlMjAwMWZkY2U3NWM4NjU2NDc5NDFhY2RjNzYyMGUxMTNkYmJjMjdhMzMxMDRlZjU5NTg0ODNiZTY2ZDI4NjljYjA2"
+                }
+              }
+            ]
+          },
+          "sig": "77a963c26d4606d43e93a99d2f01767a8d9830755d4d6a0d3159941458d3ca575c43421102ae95171a33007fbf79bb6d73b8d24a0d8c73d27a40621b53a8d405"
+        },
+        {
+          "id": "1e20134181148d4c257488664b82a35c4cd489ec119bb731e94d6f63de2387a0bbb7",
+          "claims": {
+            "timestamp": 0,
+            "validFrom": 0,
+            "validUntil": 2000,
+            "author": "ed25519:8a875fff1eb38451577acd5afee405456568dd7c89e090863a0557bc7af49f17",
+            "pointers": [
+              {
+                "role": "rhizomatic.materialization.kind",
+                "target": "authority/1"
+              },
+              {
+                "role": "rhizomatic.materialization.source-binding",
+                "target": {
+                  "delta": "1e204d9d77b2065f865b6ecdec9126a81f97053d09e054bcdca54dfebdd6a34aa12f"
+                }
+              },
+              {
+                "role": "rhizomatic.materialization.spec",
+                "target": {
+                  "mime": "application/cbor",
+                  "value": "o2Ryb290eEQxZTIwMTRiNzkyMWFmZGEwNDAxNWE2ZDVjZGE0ODUyNjQ1Zjk0ZDNkZWU1NjJiZmI0OTEwNzc2NDUzMmI3M2JiNzljZWVlcG9jaPk8AGdjb250ZXh0QaA"
+                }
+              }
+            ]
+          },
+          "sig": "98a4b315d7de4f2a0f030d7a0213256417e26ca2d6068b4a70b62e732225ddddfc6090172c3c629b7ee1e945ee2a25ed3ceaf76424ff787403b731482e2d6404"
+        },
+        {
+          "id": "1e20e6acd893349645d1d92d9f4d5c245145fe32bb51a1374849d614f29bda2c0fc0",
+          "claims": {
+            "timestamp": 0,
+            "validFrom": 0,
+            "author": "ed25519:6e7a1cdd29b0b78fd13af4c5598feff4ef2a97166e3ca6f2e4fbfccd80505bf1",
+            "pointers": [
+              {
+                "role": "rhizomatic.hyperschema.defines",
+                "target": {
+                  "id": "definition:Plant",
+                  "context": "definition"
+                }
+              },
+              {
+                "role": "rhizomatic.hyperschema.name",
+                "target": "Plant"
+              },
+              {
+                "role": "rhizomatic.hyperschema.alg",
+                "target": 1
+              },
+              {
+                "role": "rhizomatic.hyperschema.term",
+                "target": "a362696ea362696ea362696e65696e707574626f70646d61736b66706f6c6963796464726f70626f706673656c6563746470726564a16a686173506f696e746572a16c746172676574456e74697479a16376617264726f6f74626f706567726f7570636b65796f6279546172676574436f6e74657874"
+              }
+            ]
+          },
+          "sig": "95f379ca843e19ffa3703dac736a8c877cdfd68373a05d38127d03eb8d0828aa019e24be86243c8b528a8ff432e84275d7096a43efbef377dd64e5c80653bd0d"
+        },
+        {
+          "id": "1e20f7ecdf906be5cdba7505ebe619b91fe49cf88a9f9313fc3e80a8b238b08dcef6",
+          "claims": {
+            "timestamp": 0,
+            "validFrom": 0,
+            "author": "ed25519:6e7a1cdd29b0b78fd13af4c5598feff4ef2a97166e3ca6f2e4fbfccd80505bf1",
+            "pointers": [
+              {
+                "role": "rhizomatic.schema.defines",
+                "target": {
+                  "id": "definition:Plant",
+                  "context": "definition"
+                }
+              },
+              {
+                "role": "rhizomatic.schema.name",
+                "target": "Plant"
+              },
+              {
+                "role": "rhizomatic.schema.alg",
+                "target": 1
+              },
+              {
+                "role": "rhizomatic.schema.term",
+                "target": "a26570726f7073b90191627030a163616c6ca1656f72646572a16b627954696d657374616d7063617363627031a163616c6ca1656f72646572a16b627954696d657374616d7063617363627032a163616c6ca1656f72646572a16b627954696d657374616d7063617363627033a163616c6ca1656f72646572a16b627954696d657374616d7063617363627034a163616c6ca1656f72646572a16b627954696d657374616d7063617363627035a163616c6ca1656f72646572a16b627954696d657374616d7063617363627036a163616c6ca1656f72646572a16b627954696d657374616d7063617363627037a163616c6ca1656f72646572a16b627954696d657374616d7063617363627038a163616c6ca1656f72646572a16b627954696d657374616d7063617363627039a163616c6ca1656f72646572a16b627954696d657374616d706361736363703130a163616c6ca1656f72646572a16b627954696d657374616d706361736363703131a163616c6ca1656f72646572a16b627954696d657374616d706361736363703132a163616c6ca1656f72646572a16b627954696d657374616d706361736363703133a163616c6ca1656f72646572a16b627954696d657374616d706361736363703134a163616c6ca1656f72646572a16b627954696d657374616d706361736363703135a163616c6ca1656f72646572a16b627954696d657374616d706361736363703136a163616c6ca1656f72646572a16b627954696d657374616d706361736363703137a163616c6ca1656f72646572a16b627954696d657374616d706361736363703138a163616c6ca1656f72646572a16b627954696d657374616d706361736363703139a163616c6ca1656f72646572a16b627954696d657374616d706361736363703230a163616c6ca1656f72646572a16b627954696d657374616d706361736363703231a163616c6ca1656f72646572a16b627954696d657374616d706361736363703232a163616c6ca1656f72646572a16b627954696d657374616d706361736363703233a163616c6ca1656f72646572a16b627954696d657374616d706361736363703234a163616c6ca1656f72646572a16b627954696d657374616d706361736363703235a163616c6ca1656f72646572a16b627954696d657374616d706361736363703236a163616c6ca1656f72646572a16b627954696d657374616d706361736363703237a163616c6ca1656f72646572a16b627954696d657374616d706361736363703238a163616c6ca1656f72646572a16b627954696d657374616d706361736363703239a163616c6ca1656f72646572a16b627954696d657374616d706361736363703330a163616c6ca1656f72646572a16b627954696d657374616d706361736363703331a163616c6ca1656f72646572a16b627954696d657374616d706361736363703332a163616c6ca1656f72646572a16b627954696d657374616d706361736363703333a163616c6ca1656f72646572a16b627954696d657374616d706361736363703334a163616c6ca1656f72646572a16b627954696d657374616d706361736363703335a163616c6ca1656f72646572a16b627954696d657374616d706361736363703336a163616c6ca1656f72646572a16b627954696d657374616d706361736363703337a163616c6ca1656f72646572a16b627954696d657374616d706361736363703338a163616c6ca1656f72646572a16b627954696d657374616d706361736363703339a163616c6ca1656f72646572a16b627954696d657374616d706361736363703430a163616c6ca1656f72646572a16b627954696d657374616d706361736363703431a163616c6ca1656f72646572a16b627954696d657374616d706361736363703432a163616c6ca1656f72646572a16b627954696d657374616d706361736363703433a163616c6ca1656f72646572a16b627954696d657374616d706361736363703434a163616c6ca1656f72646572a16b627954696d657374616d706361736363703435a163616c6ca1656f72646572a16b627954696d657374616d706361736363703436a163616c6ca1656f72646572a16b627954696d657374616d706361736363703437a163616c6ca1656f72646572a16b627954696d657374616d706361736363703438a163616c6ca1656f72646572a16b627954696d657374616d706361736363703439a163616c6ca1656f72646572a16b627954696d657374616d706361736363703530a163616c6ca1656f72646572a16b627954696d657374616d706361736363703531a163616c6ca1656f72646572a16b627954696d657374616d706361736363703532a163616c6ca1656f72646572a16b627954696d657374616d706361736363703533a163616c6ca1656f72646572a16b627954696d657374616d706361736363703534a163616c6ca1656f72646572a16b627954696d657374616d706361736363703535a163616c6ca1656f72646572a16b627954696d657374616d706361736363703536a163616c6ca1656f72646572a16b627954696d657374616d706361736363703537a163616c6ca1656f72646572a16b627954696d657374616d706361736363703538a163616c6ca1656f72646572a16b627954696d657374616d706361736363703539a163616c6ca1656f72646572a16b627954696d657374616d706361736363703630a163616c6ca1656f72646572a16b627954696d657374616d706361736363703631a163616c6ca1656f72646572a16b627954696d657374616d706361736363703632a163616c6ca1656f72646572a16b627954696d657374616d706361736363703633a163616c6ca1656f72646572a16b627954696d657374616d706361736363703634a163616c6ca1656f72646572a16b627954696d657374616d706361736363703635a163616c6ca1656f72646572a16b627954696d657374616d706361736363703636a163616c6ca1656f72646572a16b627954696d657374616d706361736363703637a163616c6ca1656f72646572a16b627954696d657374616d706361736363703638a163616c6ca1656f72646572a16b627954696d657374616d706361736363703639a163616c6ca1656f72646572a16b627954696d657374616d706361736363703730a163616c6ca1656f72646572a16b627954696d657374616d706361736363703731a163616c6ca1656f72646572a16b627954696d657374616d706361736363703732a163616c6ca1656f72646572a16b627954696d657374616d706361736363703733a163616c6ca1656f72646572a16b627954696d657374616d706361736363703734a163616c6ca1656f72646572a16b627954696d657374616d706361736363703735a163616c6ca1656f72646572a16b627954696d657374616d706361736363703736a163616c6ca1656f72646572a16b627954696d657374616d706361736363703737a163616c6ca1656f72646572a16b627954696d657374616d706361736363703738a163616c6ca1656f72646572a16b627954696d657374616d706361736363703739a163616c6ca1656f72646572a16b627954696d657374616d706361736363703830a163616c6ca1656f72646572a16b627954696d657374616d706361736363703831a163616c6ca1656f72646572a16b627954696d657374616d706361736363703832a163616c6ca1656f72646572a16b627954696d657374616d706361736363703833a163616c6ca1656f72646572a16b627954696d657374616d706361736363703834a163616c6ca1656f72646572a16b627954696d657374616d706361736363703835a163616c6ca1656f72646572a16b627954696d657374616d706361736363703836a163616c6ca1656f72646572a16b627954696d657374616d706361736363703837a163616c6ca1656f72646572a16b627954696d657374616d706361736363703838a163616c6ca1656f72646572a16b627954696d657374616d706361736363703839a163616c6ca1656f72646572a16b627954696d657374616d706361736363703930a163616c6ca1656f72646572a16b627954696d657374616d706361736363703931a163616c6ca1656f72646572a16b627954696d657374616d706361736363703932a163616c6ca1656f72646572a16b627954696d657374616d706361736363703933a163616c6ca1656f72646572a16b627954696d657374616d706361736363703934a163616c6ca1656f72646572a16b627954696d657374616d706361736363703935a163616c6ca1656f72646572a16b627954696d657374616d706361736363703936a163616c6ca1656f72646572a16b627954696d657374616d706361736363703937a163616c6ca1656f72646572a16b627954696d657374616d706361736363703938a163616c6ca1656f72646572a16b627954696d657374616d706361736363703939a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313030a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313031a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313032a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313033a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313034a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313035a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313036a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313037a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313038a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313039a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313130a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313131a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313132a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313133a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313134a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313135a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313136a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313137a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313138a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313139a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313230a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313231a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313232a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313233a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313234a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313235a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313236a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313237a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313238a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313239a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313330a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313331a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313332a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313333a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313334a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313335a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313336a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313337a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313338a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313339a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313430a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313431a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313432a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313433a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313434a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313435a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313436a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313437a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313438a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313439a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313530a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313531a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313532a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313533a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313534a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313535a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313536a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313537a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313538a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313539a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313630a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313631a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313632a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313633a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313634a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313635a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313636a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313637a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313638a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313639a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313730a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313731a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313732a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313733a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313734a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313735a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313736a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313737a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313738a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313739a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313830a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313831a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313832a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313833a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313834a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313835a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313836a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313837a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313838a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313839a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313930a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313931a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313932a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313933a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313934a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313935a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313936a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313937a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313938a163616c6ca1656f72646572a16b627954696d657374616d70636173636470313939a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323030a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323031a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323032a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323033a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323034a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323035a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323036a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323037a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323038a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323039a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323130a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323131a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323132a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323133a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323134a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323135a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323136a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323137a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323138a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323139a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323230a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323231a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323232a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323233a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323234a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323235a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323236a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323237a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323238a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323239a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323330a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323331a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323332a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323333a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323334a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323335a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323336a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323337a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323338a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323339a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323430a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323431a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323432a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323433a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323434a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323435a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323436a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323437a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323438a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323439a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323530a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323531a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323532a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323533a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323534a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323535a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323536a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323537a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323538a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323539a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323630a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323631a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323632a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323633a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323634a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323635a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323636a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323637a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323638a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323639a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323730a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323731a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323732a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323733a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323734a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323735a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323736a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323737a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323738a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323739a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323830a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323831a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323832a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323833a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323834a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323835a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323836a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323837a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323838a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323839a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323930a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323931a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323932a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323933a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323934a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323935a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323936a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323937a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323938a163616c6ca1656f72646572a16b627954696d657374616d70636173636470323939a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333030a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333031a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333032a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333033a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333034a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333035a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333036a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333037a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333038a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333039a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333130a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333131a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333132a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333133a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333134a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333135a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333136a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333137a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333138a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333139a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333230a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333231a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333232a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333233a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333234a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333235a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333236a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333237a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333238a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333239a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333330a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333331a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333332a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333333a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333334a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333335a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333336a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333337a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333338a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333339a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333430a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333431a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333432a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333433a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333434a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333435a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333436a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333437a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333438a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333439a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333530a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333531a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333532a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333533a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333534a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333535a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333536a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333537a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333538a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333539a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333630a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333631a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333632a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333633a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333634a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333635a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333636a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333637a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333638a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333639a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333730a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333731a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333732a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333733a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333734a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333735a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333736a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333737a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333738a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333739a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333830a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333831a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333832a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333833a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333834a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333835a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333836a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333837a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333838a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333839a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333930a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333931a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333932a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333933a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333934a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333935a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333936a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333937a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333938a163616c6ca1656f72646572a16b627954696d657374616d70636173636470333939a163616c6ca1656f72646572a16b627954696d657374616d70636173636470343030a163616c6ca1656f72646572a16b627954696d657374616d70636173636764656661756c74a1647069636ba1656f72646572a16b627954696d657374616d706464657363"
+              }
+            ]
+          },
+          "sig": "5b52135620cb71b6cfedfb8c701cdd26d00a4c20c91eb45907380efe62ddab3db9bafacc3883c5bde7f765043a26c4a5045654d5859417ec059e2787e9da8f07"
+        }
+      ],
+      "actions": [],
+      "source": {
+        "binding": "1e204d9d77b2065f865b6ecdec9126a81f97053d09e054bcdca54dfebdd6a34aa12f",
+        "revision": "1e20c0d9eadc91a65d3525ee641cf450a0d00d20b4075e4ad7ffd9eb2cb9188eb77f",
+        "authority": "1e20134181148d4c257488664b82a35c4cd489ec119bb731e94d6f63de2387a0bbb7",
+        "servingAt": 1000,
+        "requiredSupport": [
+          "1e20e6acd893349645d1d92d9f4d5c245145fe32bb51a1374849d614f29bda2c0fc0",
+          "1e20f7ecdf906be5cdba7505ebe619b91fe49cf88a9f9313fc3e80a8b238b08dcef6"
+        ]
+      },
+      "expected": {
+        "code": "resource-limit",
+        "preflight": "input-valid",
+        "outcome": {
+          "id": "1e201f52cdb13ed784220abb99cdeae5c6d0d946e02140dddd8041030552bca66b7d",
+          "claims": {
+            "timestamp": 1000,
+            "validFrom": 1000,
+            "author": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1",
+            "pointers": [
+              {
+                "role": "rhizomatic.materialization.kind",
+                "target": "outcome/1"
+              },
+              {
+                "role": "rhizomatic.materialization.receiver",
+                "target": {
+                  "id": "ed25519:ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d1"
+                }
+              },
+              {
+                "role": "rhizomatic.materialization.configuration",
+                "target": {
+                  "delta": "1e20d32e6163e5b1995de2725235b09a5d8246c3c3efd5e95cd79cd335c9f87b26ac"
+                }
+              },
+              {
+                "role": "rhizomatic.materialization.request",
+                "target": {
+                  "delta": "1e205dcbfae7d1c5ee6ffd8629895689100796148d0775216e12ecb99515d2a75bc7"
+                }
+              },
+              {
+                "role": "rhizomatic.materialization.status",
+                "target": "refused"
+              },
+              {
+                "role": "rhizomatic.materialization.result",
+                "target": {
+                  "mime": "application/cbor",
+                  "value": "oWRjb2RlbnJlc291cmNlLWxpbWl0"
+                }
+              }
+            ]
+          },
+          "sig": "ef178ad4a0da14a5c2b868fb37cda801449db6b5c9df24560372e6fcdd9c4bf5851d4997d333c0315d9119a9b2a372bacfb4a84c9de685a7761d1d5adf723d0f"
+        }
+      }
+    },
+    {
       "id": "snapshot_pointers_over",
       "fixtureSourceId": "plant",
       "boot": {

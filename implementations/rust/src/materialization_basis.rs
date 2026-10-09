@@ -20,6 +20,7 @@ use crate::schema::{
 use crate::schema_deltas::{read_materialization_definitions, ExactDefinition};
 use crate::set::DeltaSet;
 use crate::types::Delta;
+use std::collections::BTreeMap;
 pub(crate) const BASIS_FIELDS: &[&str] = &[
     "binding",
     "revision",
@@ -144,11 +145,51 @@ pub(crate) fn definitions_program(
         selected,
     })
 }
+/// Stage-4 Basis field grammar: every field except the embedded definition acts (MR-21).
+fn basis_grammar(fs: &BTreeMap<&str, &CborValue>) -> Result<Bindings> {
+    for k in [
+        "binding",
+        "revision",
+        "authority",
+        "selection",
+        "membership",
+        "appearanceDigest",
+        "hyperschema",
+        "hyperschemaPin",
+        "schema",
+        "schemaPin",
+        "definitionDigest",
+    ] {
+        id(field(fs, k)?)?;
+    }
+    for k in ["at", "servingAt", "definitionAt"] {
+        number(field(fs, k)?)?;
+    }
+    if let Some(cutoff) = fs.get("historicalCutoff") {
+        number(cutoff)?;
+    }
+    require(
+        text(field(fs, "interpretation")?)? == "core/1",
+        "invalid-evidence",
+    )?;
+    for c in list(field(fs, "components")?)? {
+        let f = object(c, &["peer", "revision", "capturedAt"], &[])?;
+        peer(field(&f, "peer")?)?;
+        id(field(&f, "revision")?)?;
+        number(field(&f, "capturedAt")?)?;
+    }
+    for d in list(field(fs, "definitions")?)? {
+        bytes(d)?;
+    }
+    crate::command_data::read_bindings(bytes(field(fs, "bindings")?)?)
+        .map_err(|_| "invalid-evidence".into())
+}
 pub(crate) fn basis_program(
     value: &CborValue,
     limits: &MaterializationLimits,
 ) -> Result<BasisProgram> {
     let fs = object(value, BASIS_FIELDS, &["historicalCutoff"])?;
+    let bindings = basis_grammar(&fs)?;
     let defs = list(field(&fs, "definitions")?)?;
     limit(defs.len(), limits["definitions"])?;
     for d in defs {
@@ -167,8 +208,6 @@ pub(crate) fn basis_program(
         })
         .collect::<Result<Vec<_>>>()?;
     ordered(&deltas.iter().map(|d| d.id.clone()).collect::<Vec<_>>())?;
-    let bindings = crate::command_data::read_bindings(bytes(field(&fs, "bindings")?)?)
-        .map_err(|_| "invalid-evidence")?;
     definitions_program(
         deltas,
         DefinitionProgramInput {
@@ -189,44 +228,25 @@ pub(crate) fn validate_basis(
     snapshot: Option<&MaterializationSourceSnapshot>,
 ) -> Result<()> {
     let fs = object(value, BASIS_FIELDS, &["historicalCutoff"])?;
-    for k in [
-        "binding",
-        "revision",
-        "authority",
-        "selection",
-        "membership",
-        "appearanceDigest",
-        "hyperschema",
-        "hyperschemaPin",
-        "schema",
-        "schemaPin",
-        "definitionDigest",
-    ] {
-        id(field(&fs, k)?)?;
-    }
-    for k in ["at", "servingAt", "definitionAt"] {
-        number(field(&fs, k)?)?;
-    }
+    basis_grammar(&fs)?;
     if let Some(cutoff) = fs.get("historicalCutoff") {
         require(
             number(cutoff)? == number(field(&fs, "at")?)?,
             "invalid-evidence",
         )?;
     }
-    require(
-        text(field(&fs, "interpretation")?)? == "core/1",
-        "invalid-evidence",
-    )?;
     let components = list(field(&fs, "components")?)?;
     limit(components.len(), limits["components"])?;
     require(!components.is_empty(), "invalid-evidence")?;
-    let mut peers = Vec::new();
-    for c in components {
-        let f = object(c, &["peer", "revision", "capturedAt"], &[])?;
-        peers.push(peer(field(&f, "peer")?)?);
-        id(field(&f, "revision")?)?;
-        number(field(&f, "capturedAt")?)?;
-    }
+    let peers = components
+        .iter()
+        .map(|c| {
+            peer(field(
+                &object(c, &["peer", "revision", "capturedAt"], &[])?,
+                "peer",
+            )?)
+        })
+        .collect::<Result<Vec<_>>>()?;
     ordered(&peers)?;
     let program = basis_program(value, limits)?;
     require(

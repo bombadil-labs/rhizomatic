@@ -2361,6 +2361,59 @@ negative("output_aggregate_bytes_over", aggregateQ, sourceDelivery(aggregateQ), 
   cfg: aggregateCfg,
   preflight: "input-valid",
 });
+// MR-21 stage 4: Basis field grammar refuses before any stage-7 definition category.
+const basisOf = (body: CborValue) =>
+  body.t === "map"
+    ? new Map(body.v).get("basis")!
+    : (() => {
+        throw Error();
+      })();
+const emptyClosure = update(basisOf(baseBody), "definitions", array([]));
+resolveEvidence(
+  "resolve_basis_pin_grammar_before_closure",
+  update(baseBody, "basis", update(emptyClosure, "hyperschemaPin", tstr("bad"))),
+  "invalid-evidence",
+);
+resolveEvidence(
+  "resolve_basis_bindings_grammar_before_closure",
+  update(baseBody, "basis", update(emptyClosure, "bindings", bstr(Uint8Array.of(0xff)))),
+  "invalid-evidence",
+);
+// MR-21 stage 8: a produced definition appearance over artifactBytes is a known refusal.
+// The reading's claims fit the bound exactly; its full signed appearance does not.
+const wideReading: Schema = {
+  ...reading,
+  props: new Map(Array.from({ length: 401 }, (_, i) => [`p${i}`, reading.props.get("tag")!])),
+};
+const wideSchema = definition("reading", schemaCanonicalHex(wideReading), "Plant");
+const wideCfg = configuration({ artifactBytes: canonicalBytes(wideSchema.claims).length });
+const wideDefs = [hyper, wideSchema].sort((a, b) => (a.id < b.id ? -1 : 1));
+const wideQ = request(
+  s,
+  wideCfg,
+  1000,
+  1000,
+  hyper,
+  wideSchema,
+  termHash(term),
+  schemaHash(wideReading),
+);
+if (
+  appearance(wideSchema).length <= canonicalBytes(wideSchema.claims).length ||
+  Math.max(s.payload.length, appearance(hyper).length) >= canonicalBytes(wideSchema.claims).length
+)
+  throw Error("wide reading fixture does not isolate the produced appearance bound");
+negative(
+  "definition_appearance_bytes_over",
+  wideQ,
+  sourceDelivery(wideQ, s, wideDefs),
+  "resource-limit",
+  {
+    cfg: wideCfg,
+    definitions: wideDefs,
+    preflight: "input-valid",
+  },
+);
 const manyPointers = signClaims(
   { ...a.claims, pointers: Array.from({ length: 257 }, () => a.claims.pointers[0]!) },
   seeds.peer,

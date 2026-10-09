@@ -831,7 +831,11 @@ resource-exhausted. No blanket native exception catch can substitute either.
    or the supplied snapshot carrier's data bytes: resource-limit before invalid-evidence or
    invalid-source when size is known. Embedded definition acts/envelopes wait until stages 7/8;
    snapshot decoding here checks only the byte bound, canonical CBOR well-formedness and format
-   text. Snapshot map shape, counts and digests wait until stage 6. Resolve requires no separately delivered
+   text. Snapshot map shape, counts and digests wait until stage 6. Resolve's outer body decode
+   also checks the complete Basis field grammar other than the embedded definition acts: ID and
+   finite-number fields, the interpretation text, component record shape, the definitions list
+   shape and canonical bindings decoding refuse invalid-evidence here, before any stage-7
+   definition category (ERRATA E1). Resolve requires no separately delivered
    definitions. Bad arguments beat expired source bindings and missing embedded closure.
 5. Required control read, image byte/count limits and decode, preconditions, registration state,
    then proposed entry-count/generation bounds: control-unavailable; resource-limit or

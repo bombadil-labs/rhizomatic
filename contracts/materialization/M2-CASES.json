@@ -667,6 +667,16 @@
           "corpus": "commands",
           "group": "negatives",
           "id": "capture_authority_pointer_shape"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "resolve_basis_pin_grammar_before_closure"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "resolve_basis_bindings_grammar_before_closure"
         }
       ],
       "native_evidence": false,
@@ -1048,6 +1058,11 @@
           "corpus": "commands",
           "group": "negatives",
           "id": "delivery_scan_oversized_malformed_sibling_reverse"
+        },
+        {
+          "corpus": "commands",
+          "group": "negatives",
+          "id": "definition_appearance_bytes_over"
         }
       ],
       "native_evidence": false,

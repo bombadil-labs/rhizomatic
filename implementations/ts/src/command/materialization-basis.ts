@@ -55,8 +55,42 @@ export const MATERIALIZATION_BASIS_FIELDS = [
   "definitions",
   "definitionDigest",
 ] as const;
+/** Stage-4 Basis field grammar: every field except the embedded definition acts (MR-21). */
+function basisGrammar(fs: Map<string, CborValue>): void {
+  for (const k of [
+    "binding",
+    "revision",
+    "authority",
+    "selection",
+    "membership",
+    "appearanceDigest",
+    "hyperschema",
+    "hyperschemaPin",
+    "schema",
+    "schemaPin",
+    "definitionDigest",
+  ])
+    mId(fs.get(k));
+  for (const k of ["at", "servingAt", "definitionAt"]) mNumber(fs.get(k));
+  if (fs.has("historicalCutoff")) mNumber(fs.get("historicalCutoff"));
+  if (mText(fs.get("interpretation")) !== "core/1") mFail();
+  for (const c of mList(fs.get("components"))) {
+    const f = mFields(c, ["peer", "revision", "capturedAt"]);
+    mPeer(f.get("peer"));
+    mId(f.get("revision"));
+    mNumber(f.get("capturedAt"));
+  }
+  for (const x of mList(fs.get("definitions"))) mBytes(x);
+  try {
+    decodeBindings(mBytes(fs.get("bindings")));
+  } catch (e) {
+    if (e instanceof MaterializationInputError) throw e;
+    mFail();
+  }
+}
 export function materializationBasisProgram(value: CborValue, limits: MaterializationLimits) {
   const fs = mFields(value, MATERIALIZATION_BASIS_FIELDS, ["historicalCutoff"]);
+  basisGrammar(fs);
   const definitions = mList(fs.get("definitions"));
   mLimit(definitions.length, limits.definitions);
   for (const x of definitions) mLimit(mBytes(x).length, limits.artifactBytes);
@@ -122,35 +156,15 @@ export function validateMaterializationBasis(
   snapshot?: MaterializationSourceSnapshot,
 ): void {
   const fs = mFields(value, MATERIALIZATION_BASIS_FIELDS, ["historicalCutoff"]);
-  for (const k of [
-    "binding",
-    "revision",
-    "authority",
-    "selection",
-    "membership",
-    "appearanceDigest",
-    "hyperschema",
-    "hyperschemaPin",
-    "schema",
-    "schemaPin",
-    "definitionDigest",
-  ])
-    mId(fs.get(k));
-  for (const k of ["at", "servingAt", "definitionAt"]) mNumber(fs.get(k));
+  basisGrammar(fs);
   if (fs.has("historicalCutoff") && mNumber(fs.get("historicalCutoff")) !== mNumber(fs.get("at")))
     mFail();
-  if (mText(fs.get("interpretation")) !== "core/1") mFail();
   const components = mList(fs.get("components"));
   mLimit(components.length, limits.components);
   if (!components.length) mFail();
-  const peers: string[] = [];
-  for (const c of components) {
-    const f = mFields(c, ["peer", "revision", "capturedAt"]);
-    peers.push(mPeer(f.get("peer")));
-    mId(f.get("revision"));
-    mNumber(f.get("capturedAt"));
-  }
-  mOrdered(peers);
+  mOrdered(
+    components.map((c) => mPeer(mFields(c, ["peer", "revision", "capturedAt"]).get("peer"))),
+  );
   const parsed = materializationBasisProgram(value, limits);
   if (DeltaSet.from(parsed.deltas).digest() !== mId(fs.get("definitionDigest"))) mFail();
   if (snapshot) {
@@ -179,6 +193,20 @@ export function gatherMaterializationBasis(
   limits: MaterializationLimits,
 ): CborValue {
   const signed = [...definitions].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  try {
+    return produceBasis(f, snapshot, signed, limits);
+  } catch (e) {
+    // A produced support artifact over its bound is a stage-8 known refusal, not a host fault.
+    if (e instanceof MaterializationSourceError) mFail(e.code);
+    throw e;
+  }
+}
+function produceBasis(
+  f: CommandFields,
+  snapshot: MaterializationSourceSnapshot,
+  signed: readonly Delta[],
+  limits: MaterializationLimits,
+): CborValue {
   return map([
     ...(
       ["binding", "revision", "authority", "selection", "membership", "appearanceDigest"] as const
