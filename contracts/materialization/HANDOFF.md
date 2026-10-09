@@ -6,6 +6,8 @@ The supervisor accepted M1 and its bounded follow-up independently at
 43e2c874b2a904417e96d5d7d9fc8be60c9f45a9 and assigned this builder **M2 only** in
 isolated `rhizomatic-materialization-work/implementation`, branch
 `codex/portable-gather-resolve`. Original/contract/review worktrees stay untouched.
+Each worktree carries its own build output: set one shared `CARGO_TARGET_DIR`, and remove a
+worktree once its report is collected ([M2.md](M2.md), "Disk cost and cleanup").
 ADLC remains suspended. One builder, no workers, pushes, PRs, merges or releases. Supervisor
 owns independent Fable review and integration. [M1.md](M1.md) records accepted codec ports;
 M2 batch implementation is being frozen for independent review; [M2.md](M2.md) records its ports,

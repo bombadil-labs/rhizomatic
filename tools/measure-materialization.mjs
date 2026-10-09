@@ -1,5 +1,7 @@
 // Narrow measurement runner. Instrumentation is confined to disposable build copies/artifacts.
 // Verifier equations, validated bytes and independent semantic oracles remain unchanged.
+// The instrumented crate copy builds into the shared Cargo target directory: Cargo keys its
+// artifacts by package path, so the copy shares every dependency build and `cargo clean` removes it.
 import assert from 'node:assert/strict';
 import {readFileSync,writeFileSync,mkdirSync,cpSync,readdirSync} from 'node:fs';
 import {resolve,dirname,join} from 'node:path';
@@ -27,7 +29,7 @@ mkdirSync(join(rustCopy,'examples'),{recursive:true});cpSync(join(root,'tools/ma
 const signPath=join(rustCopy,'src/sign.rs');let sign=readFileSync(signPath,'utf8');const marker='pub(crate) fn verify_sig_strict(sig: &[u8], msg: &[u8], pubkey: &[u8]) -> bool {';
 assert.equal(sign.split(marker).length,2,'unique real Rust strict verifier');sign=sign.replace(marker,marker+'\n MEASUREMENT_CALLS.with(|c|c.set(c.get()+1));');
 sign+='\nstd::thread_local!{static MEASUREMENT_CALLS:std::cell::Cell<usize>=const{std::cell::Cell::new(0)};}\npub fn measurement_reset(){MEASUREMENT_CALLS.with(|c|c.set(0));}pub fn measurement_count()->usize{MEASUREMENT_CALLS.with(std::cell::Cell::get)}\n';writeFileSync(signPath,sign);
-const cargo=run(process.env.CARGO??'cargo',['build','--locked','--release','--manifest-path',join(rustCopy,'Cargo.toml'),'--example','materialization_measure','--example','materialization_fixture','--message-format=json'],{env:{...process.env,CARGO_TARGET_DIR:join(resolve(process.env.CARGO_TARGET_DIR??join(root,'implementations/rust/target')),'materialization-measurement')}});
+const cargo=run(process.env.CARGO??'cargo',['build','--locked','--release','--manifest-path',join(rustCopy,'Cargo.toml'),'--example','materialization_measure','--example','materialization_fixture','--message-format=json'],{env:{...process.env,CARGO_TARGET_DIR:resolve(process.env.CARGO_TARGET_DIR??join(root,'implementations/rust/target'))}});
 const artifact=cargo.stdout.trim().split('\n').map(JSON.parse).filter(m=>m.reason==='compiler-artifact'&&m.target?.name==='materialization_measure'&&m.executable);assert.equal(artifact.length,1);
 const fixtureArtifact=cargo.stdout.trim().split('\n').map(JSON.parse).filter(m=>m.reason==='compiler-artifact'&&m.target?.name==='materialization_fixture'&&m.executable);assert.equal(fixtureArtifact.length,1);
 const rows=[];

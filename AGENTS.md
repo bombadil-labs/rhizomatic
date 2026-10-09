@@ -153,6 +153,9 @@ GitHub issues when useful; coordinate design changes with Myk and Loam's owner.
 - Parity (every witness, one command): `node tools/check-all.mjs` from the repo root — discovers
   witnesses from `implementations/*/witness.json`; pass names to filter (`node tools/check-all.mjs ts elixir`)
 - Elixir: `cd implementations/elixir && mix test`
+- Disk: the materialization gates build the Rust crate four ways and keep evidence under
+  `artifacts/`. Expect low tens of GB per checkout. `cargo clean` plus `rm -rf artifacts/` reclaims it;
+  share one `CARGO_TARGET_DIR` across worktrees. See contracts/materialization/M2.md, "Disk cost and cleanup".
 - Haskell: `cd implementations/haskell && node check.mjs` (needs GHC ≥ 9.4 on PATH; no cabal, no deps)
 - CI: `.github/workflows/ci.yml` runs all four witness gates + docs- and vector-freshness checks on
   every push. Any TS source change also requires `npm run docs:build` (the tour + playground
