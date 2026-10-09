@@ -47,6 +47,177 @@
           "corpus": "lifecycle",
           "group": "readback",
           "id": "read_installed"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "install_second_root"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "install_second_root"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "read_moss_unchanged"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "read_moss_unchanged"
+        }
+      ],
+      "native_evidence": [
+        "install, read, advance, replace, retire and restore agree with the batch oracle",
+        "install_read_advance_replace_retire_and_restore_agree_with_the_batch_oracle"
+      ],
+      "remaining": "",
+      "tower_evidence": [
+        "ctl_cross_witness_restore"
+      ]
+    },
+    {
+      "id": "ctl_metadata_no_payload",
+      "state": "partial",
+      "vector_assertions": [
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "install"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "install"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "replace_negated"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "replace_negated"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "replace_equal_count"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "replace_equal_count"
+        }
+      ],
+      "native_evidence": [],
+      "remaining": "Every shared step now checks that no delivered snapshot payload is in the stored image; the operand marker, cache deletion and explicit reacquisition need an M3c3 fixture host.",
+      "tower_evidence": []
+    },
+    {
+      "id": "ctl_add_negate_negate",
+      "state": "executed",
+      "vector_assertions": [
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "replace_negated"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "replace_negated"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "read_negated"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "read_negated"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "replace_restored"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "replace_restored"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "read_restored"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "read_restored"
+        }
+      ],
+      "native_evidence": [],
+      "remaining": "",
+      "tower_evidence": []
+    },
+    {
+      "id": "ctl_physical_remove",
+      "state": "executed",
+      "vector_assertions": [
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "read_before_removal"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "read_before_removal"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "replace_removed"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "replace_removed"
+        }
+      ],
+      "native_evidence": [],
+      "remaining": "",
+      "tower_evidence": []
+    },
+    {
+      "id": "ctl_equal_count_replace",
+      "state": "executed",
+      "vector_assertions": [
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "replace_equal_count"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "replace_equal_count"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "read_equal_count"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "read_equal_count"
         }
       ],
       "native_evidence": [
@@ -57,57 +228,42 @@
       "tower_evidence": []
     },
     {
-      "id": "ctl_metadata_no_payload",
-      "state": "specified",
-      "vector_assertions": [],
-      "native_evidence": [],
-      "remaining": "Operand-marker inspection of the stored image and cache deletion with explicit snapshot reacquisition need the M3c fixture host.",
-      "tower_evidence": []
-    },
-    {
-      "id": "ctl_add_negate_negate",
-      "state": "specified",
-      "vector_assertions": [],
-      "native_evidence": [],
-      "remaining": "Negation chains across replace-source need the M3c fixture source with a journal.",
-      "tower_evidence": []
-    },
-    {
-      "id": "ctl_physical_remove",
-      "state": "specified",
-      "vector_assertions": [],
-      "native_evidence": [],
-      "remaining": "Physical row removal and source-changed on the old selection need the M3c fixture source.",
-      "tower_evidence": []
-    },
-    {
-      "id": "ctl_equal_count_replace",
-      "state": "partial",
+      "id": "ctl_authority_only_replace",
+      "state": "executed",
       "vector_assertions": [
         {
           "corpus": "lifecycle",
           "group": "steps",
-          "id": "replace_source_same_basis"
+          "id": "read_stale_authority"
         },
         {
           "corpus": "lifecycle",
           "group": "readback",
-          "id": "replace_source_same_basis"
+          "id": "read_stale_authority"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "replace_authority"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "replace_authority"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "read_authority"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "read_authority"
         }
       ],
-      "native_evidence": [
-        "install, read, advance, replace, retire and restore agree with the batch oracle",
-        "install_read_advance_replace_retire_and_restore_agree_with_the_batch_oracle"
-      ],
-      "remaining": "The shared step replaces with an equal basis; the equal-count row change A\u2192B with height 87 needs the M3c fixture source.",
-      "tower_evidence": []
-    },
-    {
-      "id": "ctl_authority_only_replace",
-      "state": "specified",
-      "vector_assertions": [],
       "native_evidence": [],
-      "remaining": "Same source bytes under a second authority need the M3c fixture source.",
+      "remaining": "",
       "tower_evidence": []
     },
     {
@@ -144,16 +300,87 @@
     },
     {
       "id": "ctl_definition_selection_replace",
-      "state": "specified",
-      "vector_assertions": [],
+      "state": "executed",
+      "vector_assertions": [
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "install_later_definitions"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "install_later_definitions"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "read_later_definitions"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "read_later_definitions"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "restore_retired_and_later"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "restore_retired_and_later"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "install_descriptor_not_registration"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "install_descriptor_not_registration"
+        }
+      ],
       "native_evidence": [],
-      "remaining": "Retire-and-install under a new descriptor with a second definition needs the M3c fixture.",
+      "remaining": "",
       "tower_evidence": []
     },
     {
       "id": "ctl_alias_collision",
-      "state": "partial",
+      "state": "executed",
       "vector_assertions": [
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "install_second_root"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "install_second_root"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "read_moss_unchanged"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "read_moss_unchanged"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "read_fern_replaced"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "read_fern_replaced"
+        },
         {
           "corpus": "lifecycle",
           "group": "steps",
@@ -176,7 +403,7 @@
         }
       ],
       "native_evidence": [],
-      "remaining": "Two aliased descriptors installed and read by ID need an M3c schedule; the shared steps pin that a non-descriptor registration argument and an unknown registration refuse by domain.",
+      "remaining": "",
       "tower_evidence": []
     },
     {
@@ -210,11 +437,16 @@
     },
     {
       "id": "ctl_two_writers",
-      "state": "partial",
+      "state": "executed",
       "vector_assertions": [
         {
           "corpus": "lifecycle",
           "group": "steps",
+          "id": "install_stale_control"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
           "id": "install_stale_control"
         },
         {
@@ -229,8 +461,10 @@
         }
       ],
       "native_evidence": [],
-      "remaining": "The precondition-failed branch is pinned; the write-conflict branch at the CAS needs the M3c racing control store.",
-      "tower_evidence": []
+      "remaining": "",
+      "tower_evidence": [
+        "ctl_two_writers"
+      ]
     },
     {
       "id": "ctl_before_commit_crash",
@@ -659,10 +893,31 @@
     },
     {
       "id": "ctl_retire_source_unavailable",
-      "state": "specified",
-      "vector_assertions": [],
+      "state": "executed",
+      "vector_assertions": [
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "install_expiring"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "install_expiring"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "retire_expired_without_grant"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "retire_expired_without_grant"
+        }
+      ],
       "native_evidence": [],
-      "remaining": "Retire with a revoked grant and an expired descriptor needs an M3c schedule.",
+      "remaining": "",
       "tower_evidence": []
     },
     {
@@ -832,10 +1087,61 @@
     },
     {
       "id": "ctl_scope_independence",
-      "state": "specified",
-      "vector_assertions": [],
+      "state": "executed",
+      "vector_assertions": [
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "install_second_root"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "install_second_root"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "replace_fern_only"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "replace_fern_only"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "read_moss_unchanged"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "read_moss_unchanged"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "read_fern_replaced"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "read_fern_replaced"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "restore_two_roots"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "restore_two_roots"
+        }
+      ],
       "native_evidence": [],
-      "remaining": "Two active descriptors over one source need an M3c schedule.",
+      "remaining": "",
       "tower_evidence": []
     },
     {
@@ -1077,10 +1383,21 @@
     },
     {
       "id": "cmd_authority_capture_validity::maintained-read-authority-expiry",
-      "state": "specified",
-      "vector_assertions": [],
+      "state": "executed",
+      "vector_assertions": [
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "read_authority_expired"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "read_authority_expired"
+        }
+      ],
       "native_evidence": [],
-      "remaining": "A read after the stored authority expires needs an M3c schedule over the plant source.",
+      "remaining": "",
       "tower_evidence": []
     }
   ]

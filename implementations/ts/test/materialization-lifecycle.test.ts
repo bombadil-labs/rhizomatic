@@ -451,7 +451,13 @@ const scheduleBoot = {
   declarations: schedule.boot.declarations.map(parseCommandDelta),
   bindings: schedule.boot.bindings.map(parseCommandDelta),
 };
-const scheduleGrant: MaterializationSourceCapability = {
+// The grant is current exactly for the source a step names; a step may name a moved source,
+// a later receive time, or no grant at all.
+const scheduleGrantFor = (source: {
+  binding: string;
+  revision: string;
+  authority: string;
+}): MaterializationSourceCapability => ({
   async capture() {
     throw Error("never recaptures");
   },
@@ -459,13 +465,18 @@ const scheduleGrant: MaterializationSourceCapability = {
     throw Error("never restores");
   },
   async checkCurrent(b, revision, auth) {
-    return b === schedule.source.binding &&
-      revision === schedule.source.revision &&
-      auth === schedule.source.authority
+    return b === source.binding && revision === source.revision && auth === source.authority
       ? { status: "current" }
       : { status: "source-changed" };
   },
-};
+});
+const snapshotPayloads = (delivery: unknown[]) =>
+  delivery
+    .map(parseCommandDelta)
+    .filter((d) => JSON.stringify(scheduleKind(d)) === JSON.stringify(p("snapshot/1")))
+    .map((d) => bytesToHex(commandBytes(readMaterializationDescription(d), "data")));
+const scheduleKind = (d: Delta) =>
+  d.claims.pointers.find((x) => x.role === MATERIALIZATION_PREFIX + "kind")?.target;
 for (const step of schedule.steps)
   it(`shared lifecycle step ${step.id}`, async () => {
     const before = expect.getState().assertionCalls;
@@ -475,25 +486,32 @@ for (const step of schedule.steps)
       bytes: hex(step.initialControl.hex),
       revision: step.initialControlRevision ?? step.initialControl.revision,
     });
+    const source = step.source ?? schedule.source;
     const endpoint = MaterializationEndpoint.boot({
       ...scheduleBoot,
       signer: {
         author: schedule.keys.receiver,
         sign: (c) => signClaims(c, schedule.seeds.receiver),
       },
-      sourceGrants: new Map([[schedule.source.binding, scheduleGrant]]),
+      sourceGrants: step.noGrant
+        ? new Map()
+        : new Map([[source.binding, scheduleGrantFor(source)]]),
       controlStore: store,
       diagnostic: (fault) => {
         throw fault;
       },
     });
     const q = parseCommandDelta(step.request);
-    const outcome = await endpoint.invoke(q.id, step.delivery, 1000);
+    const outcome = await endpoint.invoke(q.id, step.delivery, step.receivedAt ?? 1000);
     expect(serializeCommandDelta(outcome)).toEqual(step.expected.outcome);
     const f = readMaterializationDescription(outcome);
     expect(commandText(f, "status")).toBe(step.expected.status);
     expect(bytesToHex(commandBytes(f, "result"))).toBe(step.expected.bodyHex);
     expect(bytesToHex(store.images.get(key)!.bytes)).toBe(step.expected.controlHex);
+    // The image keeps captures and acts, never a snapshot payload (MR-14).
+    expect(
+      snapshotPayloads(step.delivery).some((payload) => step.expected.controlHex.includes(payload)),
+    ).toBe(false);
     console.log(
       "materialization-m3-assertion:" +
         JSON.stringify({
@@ -508,13 +526,19 @@ for (const step of schedule.steps)
 
 // ---- MR-20 readback of every shared step: the request, the post-CAS image and the delivered
 // source pair link a completed body to a verified contextual answer; any broken link demotes it.
-const scheduleKind = (d: Delta) =>
-  d.claims.pointers.find((x) => x.role === MATERIALIZATION_PREFIX + "kind")?.target;
 const scheduleDelivered = (step: (typeof schedule.steps)[number], kind: string) =>
   (step.delivery as unknown[])
     .map(parseCommandDelta)
     .find((d) => JSON.stringify(scheduleKind(d)) === JSON.stringify(p(kind)));
 const installStep = schedule.steps.find((s: { id: string }) => s.id === "install");
+// A read step delivers only its snapshot; its capture was delivered by the install or
+// replacement that selected that snapshot.
+const capturePairedWith = new Map<string, Delta>();
+for (const s of schedule.steps) {
+  const c = scheduleDelivered(s, "capture/1"),
+    n = scheduleDelivered(s, "snapshot/1");
+  if (c && n) capturePairedWith.set(n.id, c);
+}
 for (const step of schedule.steps)
   it(`shared lifecycle readback ${step.id}`, () => {
     const before = expect.getState().assertionCalls;
@@ -524,7 +548,7 @@ for (const step of schedule.steps)
       receiver: schedule.keys.receiver as string,
       configuration: scheduleBoot.configuration.id,
       request: q.id,
-      receivedAt: 1000,
+      receivedAt: (step.receivedAt as number | undefined) ?? 1000,
     };
     const structure = readMaterializationResult(outcome, base);
     expect(structure.status).toBe(step.expected.status);
@@ -532,7 +556,7 @@ for (const step of schedule.steps)
     expect(structure.classification).toBe("verified-structure");
     const snapshot = scheduleDelivered(step, "snapshot/1");
     const capture =
-      scheduleDelivered(step, "capture/1") ?? scheduleDelivered(installStep, "capture/1");
+      scheduleDelivered(step, "capture/1") ?? (snapshot && capturePairedWith.get(snapshot.id));
     const full = {
       ...base,
       requestDelta: q,

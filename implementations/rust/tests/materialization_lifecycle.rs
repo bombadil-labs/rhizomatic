@@ -721,15 +721,30 @@ fn shared_lifecycle_schedule() {
                     .to_string(),
             ),
         );
-        let grants: BTreeMap<String, Box<dyn MaterializationSourceCapability>> =
-            BTreeMap::from([(
-                source.0.clone(),
+        // The grant is current exactly for the source the step names; a step may name a moved
+        // source, a later receive time, or no grant at all.
+        let step_source = if step["source"].is_null() {
+            source.clone()
+        } else {
+            (
+                step["source"]["binding"].as_str().unwrap().to_string(),
+                step["source"]["revision"].as_str().unwrap().to_string(),
+                step["source"]["authority"].as_str().unwrap().to_string(),
+            )
+        };
+        let mut grants: BTreeMap<String, Box<dyn MaterializationSourceCapability>> =
+            BTreeMap::new();
+        if step["noGrant"] != true {
+            grants.insert(
+                step_source.0.clone(),
                 Box::new(Grant {
-                    binding: source.0.clone(),
-                    revision: source.1.clone(),
-                    authority: source.2.clone(),
+                    binding: step_source.0.clone(),
+                    revision: step_source.1.clone(),
+                    authority: step_source.2.clone(),
                 }) as Box<dyn MaterializationSourceCapability>,
-            )]);
+            );
+        }
+        let received_at = step["receivedAt"].as_f64().unwrap_or(1000.0);
         let mut endpoint = MaterializationEndpoint::boot_maintained(
             &boot,
             Box::new(Signer(receiver.clone(), seed.clone())),
@@ -741,7 +756,7 @@ fn shared_lifecycle_schedule() {
         .unwrap();
         let q = parse_command_delta(&step["request"]).unwrap();
         let delivery = step["delivery"].as_array().unwrap().clone();
-        let outcome = endpoint.invoke(&q.id, &delivery, 1000.0).unwrap();
+        let outcome = endpoint.invoke(&q.id, &delivery, received_at).unwrap();
         let mut assertions = 0;
         macro_rules! checked_eq {($($args:tt)*)=>{{assert_eq!($($args)*);assertions+=1;}};}
         checked_eq!(
@@ -749,6 +764,31 @@ fn shared_lifecycle_schedule() {
             parse_command_delta(&step["expected"]["outcome"]).unwrap(),
             "{}",
             step["id"]
+        );
+        // The image keeps captures and acts, never a snapshot payload (MR-14).
+        let payloads: Vec<String> = delivery
+            .iter()
+            .map(|d| parse_command_delta(d).unwrap())
+            .filter(|d| {
+                d.claims.pointers.iter().any(|p| {
+                    p.role == rhizomatic::materialization_data::materialization_role("kind")
+                        && p.target == Target::Primitive(Primitive::Str("snapshot/1".into()))
+                })
+            })
+            .map(|d| {
+                hex::encode(
+                    materialization_bytes(
+                        &read_materialization_description(&d, None).unwrap(),
+                        "data",
+                    )
+                    .unwrap(),
+                )
+            })
+            .collect();
+        let control_hex = step["expected"]["controlHex"].as_str().unwrap();
+        checked_eq!(
+            payloads.iter().any(|p| control_hex.contains(p.as_str())),
+            false
         );
         let f = read_materialization_description(&outcome, None).unwrap();
         checked_eq!(
@@ -806,6 +846,14 @@ fn shared_lifecycle_readback() {
             })
     };
     let install = steps.iter().find(|s| s["id"] == "install").unwrap();
+    // A read step delivers only its snapshot; its capture was delivered by the install or
+    // replacement that selected that snapshot.
+    let mut paired: BTreeMap<String, Delta> = BTreeMap::new();
+    for s in steps {
+        if let (Some(c), Some(n)) = (delivered(s, "capture/1"), delivered(s, "snapshot/1")) {
+            paired.insert(n.id.clone(), c);
+        }
+    }
     let outcome_of = |q: &Delta, status: &str, result: &CborValue| -> Delta {
         sign(
             &seed,
@@ -836,7 +884,7 @@ fn shared_lifecycle_readback() {
             authority: None,
             capture: None,
             snapshot: None,
-            received_at: Some(1000.0),
+            received_at: Some(step["receivedAt"].as_f64().unwrap_or(1000.0)),
             control: None,
         };
         let structure = read_materialization_result(&outcome, &base, &limits).unwrap();
@@ -850,7 +898,8 @@ fn shared_lifecycle_readback() {
         );
         checked_eq!(structure.classification, C::VerifiedStructure);
         let snapshot = delivered(step, "snapshot/1");
-        let capture = delivered(step, "capture/1").or_else(|| delivered(install, "capture/1"));
+        let capture = delivered(step, "capture/1")
+            .or_else(|| snapshot.as_ref().and_then(|n| paired.get(&n.id).cloned()));
         let full = MaterializationResultContext {
             request_delta: Some(q.clone()),
             control: Some(hex::decode(step["expected"]["controlHex"].as_str().unwrap()).unwrap()),

@@ -69,6 +69,8 @@ fn component(s: &str) -> String {
 struct FileControlStore {
     dir: PathBuf,
     fault: Option<String>,
+    /// The image another writer lands between this host's read and its CAS (`race`).
+    raced: Option<(String, Vec<u8>)>,
 }
 impl FileControlStore {
     fn path(&self, receiver: &str, configuration: &str) -> PathBuf {
@@ -137,6 +139,9 @@ impl MaterializationControlStore for FileControlStore {
         bytes: &[u8],
         revision: &str,
     ) -> Result<MaterializationControlWrite, String> {
+        if let (Some("race"), Some((revision, bytes))) = (self.fault.as_deref(), &self.raced) {
+            self.save(receiver, configuration, revision, bytes);
+        }
         if self
             .load(receiver, configuration)
             .map(|(r, _)| r)
@@ -348,25 +353,37 @@ fn run(v: &Value) -> Result<Value, String> {
     };
     let step = &v["step"];
     let fault = v["fault"]["kind"].as_str().map(String::from);
+    let raced = v["fault"]["image"]["hex"].as_str().map(|h| {
+        (
+            v["fault"]["image"]["revision"]
+                .as_str()
+                .unwrap_or("")
+                .to_string(),
+            hex::decode(h).unwrap(),
+        )
+    });
     let store_dir = || PathBuf::from(v["store"]["dir"].as_str().unwrap_or("."));
     // A release-B host over the durable directory; faults name one MR-18 point each.
     let lifecycle = |dir: PathBuf, fault: Option<String>| -> Result<LifecycleHost<'_>, String> {
         let calls = Rc::new(RefCell::new(Vec::new()));
         let diagnostics = Rc::new(RefCell::new(Vec::new()));
         let mut grants = BTreeMap::<String, Box<dyn MaterializationSourceCapability>>::new();
-        grants.insert(
-            f["source"]["binding"]
-                .as_str()
-                .ok_or("source binding")?
-                .into(),
-            Box::new(LifecycleGrant {
-                source: f["source"].clone(),
-                calls: calls.clone(),
-            }),
-        );
+        if f["noGrant"] != true {
+            grants.insert(
+                f["source"]["binding"]
+                    .as_str()
+                    .ok_or("source binding")?
+                    .into(),
+                Box::new(LifecycleGrant {
+                    source: f["source"].clone(),
+                    calls: calls.clone(),
+                }),
+            );
+        }
         let inspector = FileControlStore {
             dir: dir.clone(),
             fault: None,
+            raced: None,
         };
         let diag = diagnostics.clone();
         let endpoint = MaterializationEndpoint::boot_maintained(
@@ -381,6 +398,7 @@ fn run(v: &Value) -> Result<Value, String> {
             Box::new(FileControlStore {
                 dir,
                 fault: fault.clone(),
+                raced: raced.clone(),
             }),
             MaterializationLifecycleHooks {
                 post_cas_result_materialization: if fault.as_deref() == Some("post-cas-result") {
@@ -442,6 +460,7 @@ fn run(v: &Value) -> Result<Value, String> {
         "control-export" => Ok(FileControlStore {
             dir: store_dir(),
             fault: None,
+            raced: None,
         }
         .state(&receiver, &b.configuration.id)),
         "control-restore" => {

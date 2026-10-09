@@ -63,12 +63,15 @@ type FaultKind =
   | "unconfirmed-present"
   | "rejected"
   | "post-cas-result"
-  | "sign-failure";
+  | "sign-failure"
+  | "race";
 const hex = (s: string) => Uint8Array.from(s.match(/../g) ?? [], (x) => parseInt(x, 16));
 class FileControlStore implements MaterializationControlStore {
   constructor(
     readonly dir: string,
     readonly fault?: FaultKind,
+    /** The image another writer lands between this host's read and its CAS (`race`). */
+    readonly raced?: { hex: string; revision: string },
   ) {}
   private path(receiver: string, configuration: string) {
     return join(
@@ -108,6 +111,8 @@ class FileControlStore implements MaterializationControlStore {
     bytes: Uint8Array,
     revision: string,
   ) {
+    if (this.fault === "race" && this.raced)
+      this.save(receiver, configuration, this.raced.revision, hex(this.raced.hex));
     if (this.load(receiver, configuration)?.revision !== expectedRevision)
       return { status: "conflict" as const };
     if (this.fault === "rejected")
@@ -129,7 +134,11 @@ const isOutcomeClaims = (claims: Delta["claims"]) =>
       p.target.kind === "primitive" &&
       p.target.value === "outcome/1",
   );
-const lifecycleHost = (dir: string, fault?: FaultKind) => {
+const lifecycleHost = (
+  dir: string,
+  fault?: FaultKind,
+  raced?: { hex: string; revision: string },
+) => {
   const calls: unknown[] = [];
   const diagnostics: string[] = [];
   const grant: MaterializationSourceCapability = {
@@ -148,7 +157,7 @@ const lifecycleHost = (dir: string, fault?: FaultKind) => {
         : { status: "source-changed" };
     },
   };
-  const store = new FileControlStore(dir, fault);
+  const store = new FileControlStore(dir, fault, raced);
   const endpoint = MaterializationEndpoint.boot({
     ...boot,
     signer: {
@@ -159,7 +168,7 @@ const lifecycleHost = (dir: string, fault?: FaultKind) => {
         return signer.sign(claims);
       },
     },
-    sourceGrants: new Map([[f.source.binding, grant]]),
+    sourceGrants: f.noGrant ? new Map() : new Map([[f.source.binding, grant]]),
     controlStore: store,
     hooks:
       fault === "post-cas-result"
@@ -214,7 +223,7 @@ if (input.mode === "construct" && step) {
   });
 } else if (input.mode === "control-execute" || input.mode === "control-read") {
   // A fresh process over the durable directory; the seed writes the step's initial image once.
-  const host = lifecycleHost(input.store.dir, input.fault?.kind);
+  const host = lifecycleHost(input.store.dir, input.fault?.kind, input.fault?.image);
   if (input.seed && step?.initialControl)
     host.store.save(
       signer.author,

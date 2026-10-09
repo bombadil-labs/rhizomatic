@@ -45,7 +45,7 @@ run('node',['tools/check-materialization-m3-towers.mjs',...(replayIndex<0?[]:['-
 const towers=JSON.parse(readFileSync(join(out,'M3-TOWERS.json')));
 const executedTowers=new Set([...towers.executed.towers,...towers.executed.faults]);
 for(const c of [...m3.cases,...m3.variants])for(const id of c.tower_evidence)assert.ok(executedTowers.has(id),c.id+' missing executed tower or fault '+id);
-assert.equal(towers.fixed.length,6);assert.equal(towers.towers.length,9);assert.equal(towers.faults.length,16);
+assert.equal(towers.fixed.length,6);assert.equal(towers.towers.length,9);assert.equal(towers.faults.length,18);
 const git=args=>spawnSync('git',args,{cwd:root,encoding:'utf8'}).stdout.trim();
 const states=Object.fromEntries(['executed','partial','specified'].map(s=>[s,[...m3.cases,...m3.variants].filter(c=>c.state===s).map(c=>c.id)]));
 const coverage={format:'rhizomatic.materialization-m3-coverage/1',scope:'M3 slices A, B and C1: control image, planner, six lifecycle verbs, CAS outcomes, MR-20 readback over the shared schedule, durable fixture hosts, MR-18 fault points and mixed towers. Journal-backed sources, source races, rotation, shared-basis limits and erasure are not executed.',cases:m3.cases.map(c=>({...c,ts:c.state==='specified'?'not-run':'passed',rust:c.state==='specified'?'not-run':'passed'})),variants:m3.variants,states,tsTests:ts.numPassedTests,artifacts:['VECTOR-ASSERTIONS.json','TS-TESTS.json','ts.log','rust.log','M3-TOWERS.json','M3-CAPABILITIES.json','towers.log']};

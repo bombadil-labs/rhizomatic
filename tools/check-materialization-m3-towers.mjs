@@ -27,6 +27,8 @@ const role='rhizomatic.materialization.';
 const verbs=new Map(schedule.boot.declarations.map(d=>[d.id,d.claims.pointers.find(p=>p.role===role+'name')?.target?.id?.slice(role.length)]));
 const fixture={boot:schedule.boot,seeds:schedule.seeds,keys:schedule.keys,source:schedule.source};
 const stepOf=id=>{const s=schedule.steps.find(s=>s.id===id);assert.ok(s,id);return {...s,verb:verbs.get(s.request.claims.pointers.find(p=>p.role===role+'operation').target.delta)};};
+// A step may name its own source, receive time or no grant; the hosts read those from the fixture.
+const fixtureFor=step=>({...fixture,source:step.source??schedule.source,...(step.receivedAt?{receivedAt:step.receivedAt}:{}),...(step.noGrant?{noGrant:true}:{})});
 const kindOf=d=>d.claims.pointers.find(p=>p.role===role+'kind')?.target;
 const delivered=(step,kind)=>step.delivery.find(d=>kindOf(d)===kind);
 const install=stepOf('install');
@@ -55,7 +57,7 @@ function crossing(a,plan,label){
  const dirA=freshDir(label+'-a');
  const constructed=must(a['construct'],{mode:'construct',fixture,step:first});
  assert.deepEqual(constructed.delivery.map(d=>d.id),first.delivery.map(d=>d.id));record(records,'construct',a['construct'],{mode:'construct',step:first.id},constructed);
- const executeInput={mode:'control-execute',fixture,step:first,store:{dir:dirA},seed:true,upstream:constructed,...(fault?{fault:{kind:fault}}:{})};
+ const executeInput={mode:'control-execute',fixture:fixtureFor(first),step:first,store:{dir:dirA},seed:true,upstream:constructed,...(fault?{fault:{kind:fault,...(plan.raced?{image:plan.raced}:{})}}:{})};
  const executed=run(a['control-execute'],executeInput);
  if(after.crash){assert.notEqual(executed.status,0,'a crashed host answers nothing');assert.equal(executed.output,null);}
  else{assert.equal(executed.status,0,executed.stderr);if(after.outcome)expectExecuted(executed.output,first);if(after.status){assert.equal(executed.output.outcome.claims.pointers.find(p=>p.role===role+'status').target,after.status);assert.equal(executed.output.store.bytesHex,after.controlHex);}}
@@ -65,12 +67,12 @@ function crossing(a,plan,label){
  const dirB=freshDir(label+'-b');
  const restored=must(a['control-restore'],{mode:'control-restore',fixture,step:restore,store:{dir:dirB},upstream:exported});
  assert.deepEqual(restored.outcome,restore.expected.outcome);assert.equal(restored.store.bytesHex,after.controlHex);record(records,'control-restore',a['control-restore'],{mode:'control-restore',step:restore.id},restored);
- const readOut=must(a['control-read'],{mode:'control-read',fixture,step:read,store:{dir:dirB}});
+ const readOut=must(a['control-read'],{mode:'control-read',fixture:fixtureFor(read),step:read,store:{dir:dirB}});
  assert.deepEqual(readOut.outcome,read.expected.outcome);record(records,'control-read',a['control-read'],{mode:'control-read',step:read.id},readOut);
  const snapshot=delivered(read,'snapshot/1'),capture=delivered(read,'capture/1')??delivered(install,'capture/1');
  const resultInput={mode:'control-result',fixture,upstream:readOut,control:exported,...(snapshot?{capture,snapshot}:{})};
  const result=must(a['control-result'],resultInput);expectReadback(result,readback);record(records,'control-result',a['control-result'],{mode:'control-result',step:read.id},result);
- for(const e of extra){const o=must(a['control-read'],{mode:'control-execute',fixture,step:e.step,store:{dir:dirB}});assert.deepEqual(o.outcome,e.step.expected.outcome);assert.equal(o.store.bytesHex,after.controlHex);record(records,'control-read',a['control-read'],{mode:'control-execute',step:e.step.id},o);}
+ for(const e of extra){const o=must(a['control-read'],{mode:'control-execute',fixture:fixtureFor(e.step),step:e.step,store:{dir:dirB}});assert.deepEqual(o.outcome,e.step.expected.outcome);assert.equal(o.store.bytesHex,after.controlHex);record(records,'control-read',a['control-read'],{mode:'control-execute',step:e.step.id},o);}
  if(!after.crash&&after.status){const r=must(a['control-result'],{mode:'control-result',fixture,upstream:executed.output,control:exported});expectReadback(r,{status:after.status,classification:'verified-context',sourceCommitments:'attested',bodyHex:after.bodyHex});record(records,'control-result',a['control-result'],{mode:'control-result',step:first.id},r);}
  return records;
 }
@@ -91,6 +93,7 @@ const faults={
  ctl_postcommit_rebuild_fault:{first:S('advance_time'),fault:'post-cas-result',after:{status:'indeterminate',controlHex:S('advance_time').expected.controlHex,bodyHex:cborMap([['code','result-unavailable'],['control',r2]])},restore:S('restore_advanced'),read:S('read_advanced'),readback:completed(S('read_advanced'))},
  ctl_postcommit_sign_delivery:{first:S('retire'),fault:'sign-failure',after:{crash:true,controlHex:S('retire').expected.controlHex},restore:S('restore_retired'),read:S('read_retired'),readback:refusedRead(S('read_retired'))},
  ctl_retire_uncertain_absent:{first:S('retire'),fault:'unconfirmed-absent',after:{status:'indeterminate',controlHex:S('retire').initialControl.hex,bodyHex:cborMap([['code','commit-unconfirmed']])},restore:S('restore_replaced'),read:S('read_replaced'),readback:completed(S('read_replaced'))},
+ ctl_two_writers:{first:S('advance_time'),fault:'race',raced:{hex:S('advance_time').expected.controlHex,revision:r2},after:{status:'refused',controlHex:S('advance_time').expected.controlHex,bodyHex:cborMap([['code','write-conflict']])},restore:S('restore_advanced'),read:S('read_advanced'),readback:completed(S('read_advanced'))},
  ctl_retire_uncertain_present:{first:S('retire'),fault:'unconfirmed-present',after:{status:'indeterminate',controlHex:S('retire').expected.controlHex,bodyHex:cborMap([['code','commit-unconfirmed']])},restore:S('restore_retired'),read:S('read_retired'),readback:refusedRead(S('read_retired'))},
 };
 assert.equal(S('read_wrong_control').initialControl.hex,S('install').expected.controlHex);

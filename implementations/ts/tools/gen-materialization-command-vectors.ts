@@ -3525,6 +3525,786 @@ writeFileSync(
       },
     );
   }
+  // ---- Slice C2: more sources, more descriptors and multi-entry images, still from the batch
+  // oracles above. Every step keeps the plant program unless the step says otherwise.
+  interface EntryX {
+    registration: Delta;
+    status: "active" | "retired";
+    transition: string;
+    revision: string;
+    authority: string;
+    at: number;
+    definitionAt: number;
+    hyperPin: string;
+    schemaPin: string;
+    capture?: string | undefined;
+  }
+  type EntryFields = Omit<EntryX, "status" | "transition">;
+  const byId = (p: Delta, q: Delta) => (p.id < q.id ? -1 : 1);
+  const entryX = (e: EntryX) =>
+    map([
+      ["registration", tstr(e.registration.id)],
+      ["status", tstr(e.status)],
+      ["transition", tstr(e.transition)],
+      ["sourceRevision", tstr(e.revision)],
+      ["authority", tstr(e.authority)],
+      ["at", float(e.at)],
+      ["definitionAt", float(e.definitionAt)],
+      ["hyperschemaPin", tstr(e.hyperPin)],
+      ["schemaPin", tstr(e.schemaPin)],
+      ...(e.capture === undefined ? [] : [["capture", tstr(e.capture)] as const]),
+    ]);
+  const selectionX = (e: EntryX) =>
+    map([
+      ["registration", tstr(e.registration.id)],
+      ["status", tstr(e.status)],
+      ["sourceRevision", tstr(e.revision)],
+      ["authority", tstr(e.authority)],
+      ["at", float(e.at)],
+      ["definitionAt", float(e.definitionAt)],
+      ["hyperschemaPin", tstr(e.hyperPin)],
+      ["schemaPin", tstr(e.schemaPin)],
+      ["availability", tstr(e.status === "active" ? "unchecked" : "retired")],
+    ]);
+  const sortedEntries = (entries: EntryX[]) =>
+    [...entries].sort((p, q) => (p.registration.id < q.registration.id ? -1 : 1));
+  const imageX = (generation: number, entries: EntryX[], support: Delta[]) =>
+    encode(
+      map([
+        ["format", tstr("rhizomatic.materialization-control/1")],
+        ["receiver", tstr(keys.receiver!)],
+        ["configuration", tstr(configB.id)],
+        ["generation", float(generation)],
+        ["entries", array(sortedEntries(entries).map(entryX))],
+        [
+          "deltas",
+          array(
+            [...new Map(support.map((d) => [d.id, d])).values()]
+              .map(appearance)
+              .sort((a, b) => {
+                const ka = contentAddress(a),
+                  kb = contentAddress(b);
+                return ka < kb ? -1 : ka > kb ? 1 : 0;
+              })
+              .map(bstr),
+          ),
+        ],
+      ]),
+    );
+  const stateX = (
+    generation: number,
+    priorControl: string,
+    priorTransition: string,
+    verb: string,
+    e: EntryFields,
+    receivedAt = 1000,
+  ) =>
+    description(
+      "state/1",
+      [
+        ["registration", ref(e.registration.id)],
+        ["generation", p(generation)],
+        ["prior-control", p(priorControl)],
+        ["prior-transition", p(priorTransition)],
+        ["verb", p(verb)],
+        ["source-revision", p(e.revision)],
+        ["authority", p(e.authority)],
+        ["at", p(e.at)],
+        ["definition-at", p(e.definitionAt)],
+        ["hyperschema-pin", p(e.hyperPin)],
+        ["schema-pin", p(e.schemaPin)],
+        ...(e.capture === undefined ? [] : [["capture", ref(e.capture)] as const]),
+      ],
+      seeds.receiver,
+      receivedAt,
+    );
+  const outcomeAt = (q: Delta, body: CborValue, status: string, at: number) =>
+    description(
+      "outcome/1",
+      [
+        ["receiver", ent(keys.receiver!)],
+        ["configuration", ref(configB.id)],
+        ["request", ref(q.id)],
+        ["status", p(status)],
+        ["result", blob(encode(body))],
+      ],
+      seeds.receiver,
+      at,
+    );
+  const transitionX = (
+    kind: string,
+    registration: Delta,
+    transition: Delta,
+    control: string,
+    generation: number,
+    basis: CborValue,
+    results: CborValue[],
+  ) =>
+    map([
+      ["kind", tstr(kind)],
+      ["registration", tstr(registration.id)],
+      ["transition", tstr(transition.id)],
+      ["control", tstr(control)],
+      ["generation", float(generation)],
+      ["basis", basis],
+      ["results", array(results)],
+    ]);
+  const readBodyX = (
+    registration: Delta,
+    control: string,
+    generation: number,
+    basis: CborValue,
+    results: CborValue[],
+  ) =>
+    map([
+      ["kind", tstr("read")],
+      ["registration", tstr(registration.id)],
+      ["control", tstr(control)],
+      ["generation", float(generation)],
+      ["basis", basis],
+      ["results", array(results)],
+    ]);
+  const restoreBodyX = (control: string, generation: number, entries: EntryX[]) =>
+    map([
+      ["kind", tstr("restore")],
+      ["control", tstr(control)],
+      ["generation", float(generation)],
+      ["selections", array(sortedEntries(entries).map(selectionX))],
+    ]);
+  // Root results and bases come from the batch oracles of the fixtures that share the program.
+  const fixtureOf = (id: string) => positives.find((f) => f.id === id)!;
+  const bodiesOf = (id: string) => ({
+    gather: decode(hex(fixtureOf(id).expected.gatherBodyHex)),
+    resolve: decode(hex(fixtureOf(id).expected.resolveBodyHex)),
+  });
+  const rootResultFrom = (gather: CborValue, resolve: CborValue, rootId: string) =>
+    map([
+      ["root", tstr(rootId)],
+      ["envelope", field(gather, "envelope")],
+      ["transport", field(gather, "transport")],
+      ["hview", field(gather, "hview")],
+      ["value", field(resolve, "value")],
+      ["view", field(resolve, "view")],
+    ]);
+  const rootResultOf = (id: string, rootId = root) => {
+    const b = bodiesOf(id);
+    return rootResultFrom(b.gather, b.resolve, rootId);
+  };
+  const basisFrom = (gather: CborValue, at: number, patch: [string, CborValue][] = []) =>
+    patch.reduce(
+      (b, [k, v]) => update(b, k, v),
+      update(update(field(gather, "basis"), "at", float(at)), "servingAt", float(1000)),
+    );
+  const basisOf = (id: string, at: number, patch: [string, CborValue][] = []) =>
+    basisFrom(bodiesOf(id).gather, at, patch);
+  const sourceOf = (src: ReturnType<typeof source>, auth = authority) => ({
+    binding: binding.id,
+    revision: src.revision,
+    authority: auth.id,
+  });
+  const pins = { hyperPin: termHash(term), schemaPin: schemaHash(reading) };
+  const fern: EntryFields = {
+    registration: descriptor,
+    revision: s.revision,
+    authority: authority.id,
+    at: 1000,
+    definitionAt: 1000,
+    ...pins,
+    capture: s.capture.id,
+  };
+  const fernEntry: EntryX = { ...fern, status: "active", transition: t1.id };
+  const requestX = (
+    verb: string,
+    control: string,
+    registration: Delta,
+    fields: (readonly [string, Target | readonly Target[]])[],
+  ) =>
+    requestB(verb, [
+      ["expected-control", p(control)],
+      ["registration", ref(registration.id)],
+      ...fields,
+    ]);
+  const replaceX = (
+    control: string,
+    src: ReturnType<typeof source>,
+    expectedSource: string,
+    registration = descriptor,
+  ) =>
+    requestX("replace-source", control, registration, [
+      ["expected-source", p(expectedSource)],
+      ["capture", ref(src.capture.id)],
+      ["snapshot", ref(src.snapshot.id)],
+      ["serving-at", p(1000)],
+    ]);
+  const readX = (
+    control: string,
+    src: ReturnType<typeof source>,
+    registration = descriptor,
+    expectedSource = src.revision,
+  ) =>
+    requestX("read", control, registration, [
+      ["expected-source", p(expectedSource)],
+      ["snapshot", ref(src.snapshot.id)],
+      ["serving-at", p(1000)],
+    ]);
+  const installX = (control: string, registration: Delta, src = s, at = 1000) =>
+    requestX("install", control, registration, [
+      ["capture", ref(src.capture.id)],
+      ["snapshot", ref(src.snapshot.id)],
+      ["at", p(at)],
+      ["serving-at", p(1000)],
+    ]);
+  const retireX = (control: string, registration: Delta) =>
+    requestX("retire", control, registration, []);
+  const completed = (body: CborValue, after: Uint8Array) => ({
+    status: "completed" as const,
+    body,
+    after,
+  });
+
+  // C2-1: the negation chain. Replace the source twice and read after each replacement.
+  const sNeg = source([a, t, x, n1]),
+    sRes = source([a, t, x, n1, n2]);
+  const fernNeg: EntryFields = { ...fern, revision: sNeg.revision, capture: sNeg.capture.id };
+  const tN = stateX(2, r1, t1.id, "replace-source", fernNeg);
+  const cN = imageX(
+    2,
+    [{ ...fernNeg, status: "active", transition: tN.id }],
+    [descriptor, ...defs, sNeg.capture, authority, tN],
+  );
+  const rN = revisionOf(cN, 2);
+  step(
+    "replace_negated",
+    replaceX(r1, sNeg, s.revision),
+    [replaceX(r1, sNeg, s.revision), sNeg.capture, sNeg.snapshot, authority],
+    [c1, 1],
+    completed(
+      transitionX("replace-source", descriptor, tN, rN, 2, basisOf("negated", 1000), [
+        rootResultOf("negated"),
+      ]),
+      cN,
+    ),
+    { source: sourceOf(sNeg) },
+  );
+  step(
+    "read_negated",
+    readX(rN, sNeg),
+    [readX(rN, sNeg), sNeg.snapshot],
+    [cN, 2],
+    completed(
+      readBodyX(descriptor, rN, 2, basisOf("negated", 1000), [rootResultOf("negated")]),
+      cN,
+    ),
+    { source: sourceOf(sNeg) },
+  );
+  const fernRes: EntryFields = { ...fern, revision: sRes.revision, capture: sRes.capture.id };
+  const tR = stateX(3, rN, tN.id, "replace-source", fernRes);
+  const cR = imageX(
+    3,
+    [{ ...fernRes, status: "active", transition: tR.id }],
+    [descriptor, ...defs, sRes.capture, authority, tR],
+  );
+  const rR = revisionOf(cR, 3);
+  step(
+    "replace_restored",
+    replaceX(rN, sRes, sNeg.revision),
+    [replaceX(rN, sRes, sNeg.revision), sRes.capture, sRes.snapshot, authority],
+    [cN, 2],
+    completed(
+      transitionX("replace-source", descriptor, tR, rR, 3, basisOf("restored", 1000), [
+        rootResultOf("restored"),
+      ]),
+      cR,
+    ),
+    { source: sourceOf(sRes) },
+  );
+  step(
+    "read_restored",
+    readX(rR, sRes),
+    [readX(rR, sRes), sRes.snapshot],
+    [cR, 3],
+    completed(
+      readBodyX(descriptor, rR, 3, basisOf("restored", 1000), [rootResultOf("restored")]),
+      cR,
+    ),
+    { source: sourceOf(sRes) },
+  );
+
+  // C2-2: the same rows under a new authority. The stale read refuses; the replacement moves the
+  // source and control revisions although every result byte stays the same.
+  step(
+    "read_stale_authority",
+    readQ(r1),
+    [readQ(r1), s.snapshot],
+    [c1, 1],
+    refusal("source-changed"),
+    { source: sourceOf(changedSource, changedAuthority) },
+  );
+  const fernAuth: EntryFields = {
+    ...fern,
+    revision: changedSource.revision,
+    authority: changedAuthority.id,
+    capture: changedSource.capture.id,
+  };
+  const tA = stateX(2, r1, t1.id, "replace-source", fernAuth);
+  const cA = imageX(
+    2,
+    [{ ...fernAuth, status: "active", transition: tA.id }],
+    [descriptor, ...defs, changedSource.capture, changedAuthority, tA],
+  );
+  const rA = revisionOf(cA, 2);
+  step(
+    "replace_authority",
+    replaceX(r1, changedSource, s.revision),
+    [
+      replaceX(r1, changedSource, s.revision),
+      changedSource.capture,
+      changedSource.snapshot,
+      changedAuthority,
+    ],
+    [c1, 1],
+    completed(
+      transitionX(
+        "replace-source",
+        descriptor,
+        tA,
+        rA,
+        2,
+        basisOf("same_rows_changed_authority", 1000),
+        [rootResultOf("same_rows_changed_authority")],
+      ),
+      cA,
+    ),
+    { source: sourceOf(changedSource, changedAuthority) },
+  );
+  step(
+    "read_authority",
+    readX(rA, changedSource),
+    [readX(rA, changedSource), changedSource.snapshot],
+    [cA, 2],
+    completed(
+      readBodyX(descriptor, rA, 2, basisOf("same_rows_changed_authority", 1000), [
+        rootResultOf("same_rows_changed_authority"),
+      ]),
+      cA,
+    ),
+    { source: sourceOf(changedSource, changedAuthority) },
+  );
+
+  // C2-3: a maintained read after the stored authority expires (validUntil 2000).
+  const readLate = requestX("read", r1, descriptor, [
+    ["expected-source", p(s.revision)],
+    ["snapshot", ref(s.snapshot.id)],
+    ["serving-at", p(2500)],
+  ]);
+  steps.push({
+    id: "read_authority_expired",
+    request: serializeCommandDelta(readLate),
+    delivery: [readLate, s.snapshot].map(serializeCommandDelta),
+    initialControl: { hex: bytesToHex(c1), revision: r1 },
+    receivedAt: 2500,
+    expected: {
+      status: "refused",
+      code: "invalid-source",
+      outcome: serializeCommandDelta(
+        outcomeAt(readLate, map([["code", tstr("invalid-source")]]), "refused", 2500),
+      ),
+      bodyHex: bytesToHex(encode(map([["code", tstr("invalid-source")]]))),
+      controlHex: bytesToHex(c1),
+    },
+  });
+
+  // C2-4: an equal-count replacement (A → B, height 87) and a physical removal (A gone). Both
+  // bodies come from the same batch oracle construction as the positives above.
+  const b = fact("height", p(87), 11);
+  const batch = (rows: Delta[], selected: Delta[]) => {
+    const src = source([...rows]);
+    const q = request(
+      src,
+      config,
+      1000,
+      1000,
+      hyper,
+      schema,
+      termHash(term),
+      schemaHash(reading),
+      [],
+      root,
+    );
+    const view: HView = {
+      id: root,
+      props: new Map(
+        selected.map((d) => [
+          d === a || d === b ? "height" : d === t ? "tag" : "payload",
+          [{ delta: d, negated: false }],
+        ]),
+      ),
+    };
+    const gathered = gatherBody(src, q, view, 1000, 1000);
+    const value = encode(
+      map(
+        selected.map((d) => [
+          d === a || d === b ? "height" : d === t ? "tag" : "payload",
+          d === a
+            ? float(42)
+            : d === b
+              ? float(87)
+              : d === t
+                ? array([tstr("shade")])
+                : map([
+                    ["mime", tstr("application/octet-stream")],
+                    ["value", bstr(hex("00ff01"))],
+                  ]),
+        ]),
+      ),
+    );
+    const resolved = map([
+      ["value", bstr(value)],
+      ["view", tstr(contentAddress(value))],
+    ]);
+    return { src, gather: gathered, rootResult: rootResultFrom(gathered, resolved, root) };
+  };
+  const equal = batch([b, t, x], [b, t, x]),
+    removed = batch([t, x], [t, x]);
+  const fernB: EntryFields = {
+    ...fern,
+    revision: equal.src.revision,
+    capture: equal.src.capture.id,
+  };
+  const tB = stateX(2, r1, t1.id, "replace-source", fernB);
+  const cB = imageX(
+    2,
+    [{ ...fernB, status: "active", transition: tB.id }],
+    [descriptor, ...defs, equal.src.capture, authority, tB],
+  );
+  const rB = revisionOf(cB, 2);
+  step(
+    "replace_equal_count",
+    replaceX(r1, equal.src, s.revision),
+    [replaceX(r1, equal.src, s.revision), equal.src.capture, equal.src.snapshot, authority],
+    [c1, 1],
+    completed(
+      transitionX("replace-source", descriptor, tB, rB, 2, basisFrom(equal.gather, 1000), [
+        equal.rootResult,
+      ]),
+      cB,
+    ),
+    { source: sourceOf(equal.src) },
+  );
+  step(
+    "read_equal_count",
+    readX(rB, equal.src),
+    [readX(rB, equal.src), equal.src.snapshot],
+    [cB, 2],
+    completed(readBodyX(descriptor, rB, 2, basisFrom(equal.gather, 1000), [equal.rootResult]), cB),
+    { source: sourceOf(equal.src) },
+  );
+  step(
+    "read_before_removal",
+    readQ(r1),
+    [readQ(r1), s.snapshot],
+    [c1, 1],
+    refusal("source-changed"),
+    { source: sourceOf(removed.src) },
+  );
+  const fernRm: EntryFields = {
+    ...fern,
+    revision: removed.src.revision,
+    capture: removed.src.capture.id,
+  };
+  const tRm = stateX(2, r1, t1.id, "replace-source", fernRm);
+  const cRm = imageX(
+    2,
+    [{ ...fernRm, status: "active", transition: tRm.id }],
+    [descriptor, ...defs, removed.src.capture, authority, tRm],
+  );
+  const rRm = revisionOf(cRm, 2);
+  step(
+    "replace_removed",
+    replaceX(r1, removed.src, s.revision),
+    [replaceX(r1, removed.src, s.revision), removed.src.capture, removed.src.snapshot, authority],
+    [c1, 1],
+    completed(
+      transitionX("replace-source", descriptor, tRm, rRm, 2, basisFrom(removed.gather, 1000), [
+        removed.rootResult,
+      ]),
+      cRm,
+    ),
+    { source: sourceOf(removed.src) },
+  );
+
+  // C2-5: two descriptors on one source. Replacing the fern source leaves the moss selection as
+  // it was; the generation is global, the selections are independent.
+  const descriptorMoss = description(
+    "registration/1",
+    [
+      ["source-binding", ref(binding.id)],
+      ["hyperschema", ref(hyper.id)],
+      ["hyperschema-pin", p(termHash(term))],
+      ["schema", ref(schema.id)],
+      ["schema-pin", p(schemaHash(reading))],
+      ["roots", ent("item:moss")],
+      ["bindings", blob(C_EMPTY)],
+      ["definition-at", p(1000)],
+      ["interpretation", p("core/1")],
+      ["result-kind", p("hview-and-view/1")],
+      ["time-policy", p("live-time/1")],
+      ["alias", p("Plant")],
+    ],
+    seeds.definition,
+    0,
+  );
+  const moss: EntryFields = { ...fern, registration: descriptorMoss };
+  const tM = stateX(2, r1, "", "install", moss);
+  const mossEntry: EntryX = { ...moss, status: "active", transition: tM.id };
+  const cTwo = imageX(
+    2,
+    [fernEntry, mossEntry],
+    [descriptor, descriptorMoss, ...defs, s.capture, authority, t1, tM],
+  );
+  const rTwo = revisionOf(cTwo, 2);
+  step(
+    "install_second_root",
+    installX(r1, descriptorMoss),
+    [installX(r1, descriptorMoss), descriptorMoss, s.capture, s.snapshot, authority, ...defs],
+    [c1, 1],
+    completed(
+      transitionX("install", descriptorMoss, tM, rTwo, 2, basisOf("empty", 1000), [
+        rootResultOf("empty", "item:moss"),
+      ]),
+      cTwo,
+    ),
+  );
+  const tF = stateX(3, rTwo, t1.id, "replace-source", fernNeg);
+  const cThree = imageX(
+    3,
+    [{ ...fernNeg, status: "active", transition: tF.id }, mossEntry],
+    [descriptor, descriptorMoss, ...defs, s.capture, sNeg.capture, authority, tM, tF],
+  );
+  const rThree = revisionOf(cThree, 3);
+  step(
+    "replace_fern_only",
+    replaceX(rTwo, sNeg, s.revision),
+    [replaceX(rTwo, sNeg, s.revision), sNeg.capture, sNeg.snapshot, authority],
+    [cTwo, 2],
+    completed(
+      transitionX("replace-source", descriptor, tF, rThree, 3, basisOf("negated", 1000), [
+        rootResultOf("negated"),
+      ]),
+      cThree,
+    ),
+    { source: sourceOf(sNeg) },
+  );
+  step(
+    "read_moss_unchanged",
+    readX(rThree, s, descriptorMoss),
+    [readX(rThree, s, descriptorMoss), s.snapshot],
+    [cThree, 3],
+    completed(
+      readBodyX(descriptorMoss, rThree, 3, basisOf("empty", 1000), [
+        rootResultOf("empty", "item:moss"),
+      ]),
+      cThree,
+    ),
+  );
+  step(
+    "read_fern_replaced",
+    readX(rThree, sNeg),
+    [readX(rThree, sNeg), sNeg.snapshot],
+    [cThree, 3],
+    completed(
+      readBodyX(descriptor, rThree, 3, basisOf("negated", 1000), [rootResultOf("negated")]),
+      cThree,
+    ),
+    { source: sourceOf(sNeg) },
+  );
+  step(
+    "restore_two_roots",
+    restoreQ(rThree),
+    [restoreQ(rThree)],
+    [cThree, 3],
+    completed(
+      restoreBodyX(rThree, 3, [{ ...fernNeg, status: "active", transition: tF.id }, mossEntry]),
+      cThree,
+    ),
+  );
+
+  // C2-6: a descriptor that expires at 1200 retires at 1500 with no source grant at all.
+  const descriptorExpiring = signClaims(
+    {
+      ...description(
+        "registration/1",
+        [
+          ["source-binding", ref(binding.id)],
+          ["hyperschema", ref(hyper.id)],
+          ["hyperschema-pin", p(termHash(term))],
+          ["schema", ref(schema.id)],
+          ["schema-pin", p(schemaHash(reading))],
+          ["roots", ent(root)],
+          ["bindings", blob(C_EMPTY)],
+          ["definition-at", p(1000)],
+          ["interpretation", p("core/1")],
+          ["result-kind", p("hview-and-view/1")],
+          ["time-policy", p("live-time/1")],
+          ["alias", p("PlantExpiring")],
+        ],
+        seeds.definition,
+        0,
+      ).claims,
+      validUntil: 1200,
+    },
+    seeds.definition,
+  );
+  const expiring: EntryFields = { ...fern, registration: descriptorExpiring };
+  const tE = stateX(1, "", "", "install", expiring);
+  const cE = imageX(
+    1,
+    [{ ...expiring, status: "active", transition: tE.id }],
+    [descriptorExpiring, ...defs, s.capture, authority, tE],
+  );
+  const rE = revisionOf(cE, 1);
+  step(
+    "install_expiring",
+    installX("", descriptorExpiring),
+    [
+      installX("", descriptorExpiring),
+      descriptorExpiring,
+      s.capture,
+      s.snapshot,
+      authority,
+      ...defs,
+    ],
+    [c0, 0],
+    completed(
+      transitionX("install", descriptorExpiring, tE, rE, 1, basisOf("plant", 1000), [
+        rootResultOf("plant"),
+      ]),
+      cE,
+    ),
+  );
+  const tER = stateX(2, rE, tE.id, "retire", { ...expiring, capture: undefined }, 1500);
+  const cER = imageX(
+    2,
+    [{ ...expiring, capture: undefined, status: "retired", transition: tER.id }],
+    [tER],
+  );
+  const rER = revisionOf(cER, 2);
+  steps.push({
+    id: "retire_expired_without_grant",
+    request: serializeCommandDelta(retireX(rE, descriptorExpiring)),
+    delivery: [serializeCommandDelta(retireX(rE, descriptorExpiring))],
+    initialControl: { hex: bytesToHex(cE), revision: rE },
+    receivedAt: 1500,
+    noGrant: true,
+    expected: {
+      status: "completed",
+      outcome: serializeCommandDelta(
+        outcomeAt(
+          retireX(rE, descriptorExpiring),
+          map([
+            ["kind", tstr("retire")],
+            ["registration", tstr(descriptorExpiring.id)],
+            ["transition", tstr(tER.id)],
+            ["control", tstr(rER)],
+            ["generation", float(2)],
+          ]),
+          "completed",
+          1500,
+        ),
+      ),
+      bodyHex: bytesToHex(
+        encode(
+          map([
+            ["kind", tstr("retire")],
+            ["registration", tstr(descriptorExpiring.id)],
+            ["transition", tstr(tER.id)],
+            ["control", tstr(rER)],
+            ["generation", float(2)],
+          ]),
+        ),
+      ),
+      controlHex: bytesToHex(cER),
+    },
+  });
+
+  // C2-7: after the fern descriptor retires, a new descriptor selects the later-signed
+  // definitions at definition-at 1500. The retired entry keeps only its terminal transition.
+  const descriptorLater = description(
+    "registration/1",
+    [
+      ["source-binding", ref(binding.id)],
+      ["hyperschema", ref(laterHyper.id)],
+      ["hyperschema-pin", p(termHash(term))],
+      ["schema", ref(laterSchema.id)],
+      ["schema-pin", p(schemaHash(reading))],
+      ["roots", ent(root)],
+      ["bindings", blob(C_EMPTY)],
+      ["definition-at", p(1500)],
+      ["interpretation", p("core/1")],
+      ["result-kind", p("hview-and-view/1")],
+      ["time-policy", p("live-time/1")],
+      ["alias", p("Plant")],
+    ],
+    seeds.definition,
+    0,
+  );
+  const later: EntryFields = { ...fern, registration: descriptorLater, definitionAt: 1500 };
+  const tL = stateX(5, r4, "", "install", later);
+  const retiredFern: EntryX = {
+    ...fern,
+    at: 1500,
+    capture: undefined,
+    status: "retired",
+    transition: t4.id,
+  };
+  const cL = imageX(
+    5,
+    [retiredFern, { ...later, status: "active", transition: tL.id }],
+    [t4, descriptorLater, ...laterDefs, s.capture, authority, tL],
+  );
+  const rL = revisionOf(cL, 5);
+  const laterBasis = basisOf("plant", 1000, [
+    ["definitionAt", float(1500)],
+    ["hyperschema", tstr(laterHyper.id)],
+    ["schema", tstr(laterSchema.id)],
+    ["definitions", array(laterDefs.map((d) => bstr(appearance(d))))],
+    ["definitionDigest", tstr(digest(laterDefs.map((d) => d.id)))],
+  ]);
+  step(
+    "install_later_definitions",
+    installX(r4, descriptorLater),
+    [
+      installX(r4, descriptorLater),
+      descriptorLater,
+      s.capture,
+      s.snapshot,
+      authority,
+      ...laterDefs,
+    ],
+    [c4, 4],
+    completed(
+      transitionX("install", descriptorLater, tL, rL, 5, laterBasis, [rootResultOf("plant")]),
+      cL,
+    ),
+  );
+  step(
+    "read_later_definitions",
+    readX(rL, s, descriptorLater),
+    [readX(rL, s, descriptorLater), s.snapshot],
+    [cL, 5],
+    completed(readBodyX(descriptorLater, rL, 5, laterBasis, [rootResultOf("plant")]), cL),
+  );
+  step(
+    "restore_retired_and_later",
+    restoreQ(rL),
+    [restoreQ(rL)],
+    [cL, 5],
+    completed(
+      restoreBodyX(rL, 5, [retiredFern, { ...later, status: "active", transition: tL.id }]),
+      cL,
+    ),
+  );
+  void byId;
   writeFileSync(
     new URL("../../../vectors/materialization/lifecycle.json", import.meta.url),
     JSON.stringify(

@@ -38,8 +38,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 - SPEC-16 M3 durable fixture hosts in both witnesses with a shared file layout, the seven MR-18
   fault points, and `tools/check-materialization-m3-towers.mjs`: three tower scenarios in both
   fixed directions and three seeded mixed plans each with exact replay, plus eight fault
-  schedules. The shared schedule grew to 25 steps. Journal-backed sources, rotation, shared-basis
-  limits and support erasure follow.
+  schedules.
+- SPEC-16 M3 slice C2: the shared schedule grew to 47 steps with two more sources, an authority
+  change, an equal-count replacement, a physical removal, a second descriptor on one source, an
+  expiring descriptor retired without a grant, a later-definition descriptor after retirement,
+  and a read after authority expiry. Steps may name a source, a receive time or no grant. Every
+  step checks the image holds no snapshot payload. The towers add the two-writers race.
+  Validity boundaries, source races, rotation, shared-basis limits and support erasure follow.
 
 ### Changed
 
