@@ -28,7 +28,7 @@ const verbs=new Map(schedule.boot.declarations.map(d=>[d.id,d.claims.pointers.fi
 const fixture={boot:schedule.boot,seeds:schedule.seeds,keys:schedule.keys,source:schedule.source};
 const stepOf=id=>{const s=schedule.steps.find(s=>s.id===id);assert.ok(s,id);return {...s,verb:verbs.get(s.request.claims.pointers.find(p=>p.role===role+'operation').target.delta)};};
 // A step may name its own source, receive time or no grant; the hosts read those from the fixture.
-const fixtureFor=step=>({...fixture,boot:step.bootOverride??schedule.boot,source:step.source??schedule.source,...(step.receivedAt?{receivedAt:step.receivedAt}:{}),...(step.noGrant?{noGrant:true}:{})});
+const fixtureFor=step=>({...fixture,boot:step.bootOverride??schedule.boot,source:step.source??schedule.source,...(step.receivedAt?{receivedAt:step.receivedAt}:{}),...(step.noGrant?{noGrant:true}:{}),...(step.sourceUnavailable?{sourceUnavailable:true}:{})});
 const kindOf=d=>d.claims.pointers.find(p=>p.role===role+'kind')?.target;
 const delivered=(step,kind)=>step.delivery.find(d=>kindOf(d)===kind);
 const install=stepOf('install');
@@ -44,7 +44,9 @@ const run=(w,input)=>{
 const must=(w,input)=>{const r=run(w,input);assert.equal(r.status,0,`${w} ${input.mode}: ${r.stderr}`);return r.output;};
 // Directory names carry a run counter, so records keep the logical side (a or b), never the path.
 const record=(records,stage,witness,input,actual)=>{const {store,...rest}=input;records.push({stage,witness,input:{...rest,...(store?{store:store.dir.endsWith('-b')?'b':'a'}:{})},actual});};
-function expectExecuted(actual,step){assert.deepEqual(actual.outcome,step.expected.outcome);assert.deepEqual(actual.preflight,{status:'input-valid'});assert.equal(actual.store.bytesHex,step.expected.controlHex);for(const c of actual.calls)assert.deepEqual([c.binding,c.revision,c.authority],[schedule.source.binding,schedule.source.revision,schedule.source.authority]);}
+function expectExecuted(actual,step){const src=step.source??schedule.source;assert.deepEqual(actual.outcome,step.expected.outcome);assert.deepEqual(actual.preflight,{status:'input-valid'});assert.equal(actual.store.bytesHex,step.expected.controlHex);for(const c of actual.calls)assert.deepEqual([c.binding,c.revision,c.authority],[src.binding,src.revision,src.authority]);}
+// A read delivers only its snapshot; its capture was delivered by the step that selected that snapshot.
+const captureFor=read=>{const snapshot=delivered(read,'snapshot/1');if(!snapshot)return undefined;const selecting=schedule.steps.find(s=>delivered(s,'capture/1')&&delivered(s,'snapshot/1')?.id===snapshot.id);return selecting?delivered(selecting,'capture/1'):delivered(install,'capture/1');};
 function expectReadback(actual,expected){assert.deepEqual(actual,{receiverTestimony:true,executionVerified:false,...expected});}
 /**
  * One crossing: execute `first` (with an optional fault) on a fresh directory, export the
@@ -62,18 +64,18 @@ function crossing(a,plan,label){
  if(after.crash){assert.notEqual(executed.status,0,'a crashed host answers nothing');assert.equal(executed.output,null);}
  else{assert.equal(executed.status,0,executed.stderr);if(after.outcome)expectExecuted(executed.output,first);if(after.status){assert.equal(executed.output.outcome.claims.pointers.find(p=>p.role===role+'status').target,after.status);assert.equal(executed.output.store.bytesHex,after.controlHex);}}
  const {upstream:_u,...executeRecord}=executeInput;record(records,'control-execute',a['control-execute'],executeRecord,executed.output??{crashed:true,status:executed.status});
- const exported=must(a['control-export'],{mode:'control-export',fixture,store:{dir:dirA}});
+ const exported=must(a['control-export'],{mode:'control-export',fixture:fixtureFor(first),store:{dir:dirA}});
  assert.equal(exported.bytesHex,after.controlHex,'the directory after the stage is the oracle');record(records,'control-export',a['control-export'],{mode:'control-export'},exported);
  const dirB=freshDir(label+'-b');
- const restored=must(a['control-restore'],{mode:'control-restore',fixture,step:restore,store:{dir:dirB},upstream:exported});
+ const restored=must(a['control-restore'],{mode:'control-restore',fixture:fixtureFor(restore),step:restore,store:{dir:dirB},upstream:exported});
  assert.deepEqual(restored.outcome,restore.expected.outcome);assert.equal(restored.store.bytesHex,after.controlHex);record(records,'control-restore',a['control-restore'],{mode:'control-restore',step:restore.id},restored);
  const readOut=must(a['control-read'],{mode:'control-read',fixture:fixtureFor(read),step:read,store:{dir:dirB}});
  assert.deepEqual(readOut.outcome,read.expected.outcome);record(records,'control-read',a['control-read'],{mode:'control-read',step:read.id},readOut);
- const snapshot=delivered(read,'snapshot/1'),capture=delivered(read,'capture/1')??delivered(install,'capture/1');
- const resultInput={mode:'control-result',fixture,upstream:readOut,control:exported,...(snapshot?{capture,snapshot}:{})};
+ const snapshot=delivered(read,'snapshot/1'),capture=delivered(read,'capture/1')??captureFor(read);
+ const resultInput={mode:'control-result',fixture:fixtureFor(read),upstream:readOut,control:exported,...(snapshot?{capture,snapshot}:{})};
  const result=must(a['control-result'],resultInput);expectReadback(result,readback);record(records,'control-result',a['control-result'],{mode:'control-result',step:read.id},result);
  for(const e of extra){const o=must(a['control-read'],{mode:'control-execute',fixture:fixtureFor(e.step),step:e.step,store:{dir:dirB}});assert.deepEqual(o.outcome,e.step.expected.outcome);assert.equal(o.store.bytesHex,after.controlHex);record(records,'control-read',a['control-read'],{mode:'control-execute',step:e.step.id},o);}
- if(!after.crash&&after.status){const r=must(a['control-result'],{mode:'control-result',fixture,upstream:executed.output,control:exported});expectReadback(r,{status:after.status,classification:'verified-context',sourceCommitments:'attested',bodyHex:after.bodyHex});record(records,'control-result',a['control-result'],{mode:'control-result',step:first.id},r);}
+ if(!after.crash&&after.status){const r=must(a['control-result'],{mode:'control-result',fixture:fixtureFor(first),upstream:executed.output,control:exported});expectReadback(r,{status:after.status,classification:'verified-context',sourceCommitments:'attested',bodyHex:after.bodyHex});record(records,'control-result',a['control-result'],{mode:'control-result',step:first.id},r);}
  return records;
 }
 const completed=(read,commitments=true)=>({status:'completed',classification:'verified-context',sourceCommitments:commitments?'commitments-verified':'attested',bodyHex:read.expected.bodyHex});
@@ -84,6 +86,10 @@ const scenarios={
  ctl_cross_witness_restore:{first:S('install'),after:{outcome:true,controlHex:S('install').expected.controlHex},restore:S('restore_installed'),read:S('read_installed'),readback:completed(S('read_installed'))},
  ctl_uncertain_present:{first:S('advance_time'),fault:'unconfirmed-present',after:{status:'indeterminate',controlHex:S('advance_time').expected.controlHex,bodyHex:cborMap([['code','commit-unconfirmed']])},restore:S('restore_advanced'),read:S('read_advanced'),readback:completed(S('read_advanced'))},
  ctl_retired_restart:{first:S('retire'),fault:'crash-after-cas',after:{crash:true,controlHex:S('retire').expected.controlHex},restore:S('restore_retired'),read:S('read_retired'),readback:refusedRead(S('read_retired')),extra:[{step:S('install_retired')},{step:S('retire_retired')}]},
+ // The host's source moves after the final check: the committed selection stands and the next read refuses.
+ ctl_postcheck_precommit_race:{first:S('advance_time'),fault:'source-replaced-after-final-check',after:{outcome:true,controlHex:S('advance_time').expected.controlHex},restore:S('restore_advanced'),read:S('read_advanced_source_replaced'),readback:refusedRead(S('read_advanced_source_replaced'))},
+ ctl_equal_count_replace:{first:S('replace_equal_count'),after:{outcome:true,controlHex:S('replace_equal_count').expected.controlHex},restore:S('restore_equal_count'),read:S('read_equal_count'),readback:completed(S('read_equal_count'))},
+ ctl_shared_basis_limits:{first:S('limits_install_64_roots'),after:{outcome:true,controlHex:S('limits_install_64_roots').expected.controlHex},restore:S('restore_64_roots'),read:S('limits_read_64_roots'),readback:completed(S('limits_read_64_roots'))},
 };
 const faults={
  ctl_before_commit_crash:{first:S('advance_time'),fault:'crash-before-cas',after:{crash:true,controlHex:S('advance_time').initialControl.hex},restore:S('restore_installed'),read:S('read_installed'),readback:completed(S('read_installed'))},
@@ -95,11 +101,18 @@ const faults={
  ctl_retire_uncertain_absent:{first:S('retire'),fault:'unconfirmed-absent',after:{status:'indeterminate',controlHex:S('retire').initialControl.hex,bodyHex:cborMap([['code','commit-unconfirmed']])},restore:S('restore_replaced'),read:S('read_replaced'),readback:completed(S('read_replaced'))},
  ctl_two_writers:{first:S('advance_time'),fault:'race',raced:{hex:S('advance_time').expected.controlHex,revision:r2},after:{status:'refused',controlHex:S('advance_time').expected.controlHex,bodyHex:cborMap([['code','write-conflict']])},restore:S('restore_advanced'),read:S('read_advanced'),readback:completed(S('read_advanced'))},
  ctl_retire_uncertain_present:{first:S('retire'),fault:'unconfirmed-present',after:{status:'indeterminate',controlHex:S('retire').expected.controlHex,bodyHex:cborMap([['code','commit-unconfirmed']])},restore:S('restore_retired'),read:S('read_retired'),readback:refusedRead(S('read_retired'))},
+ // The host's source moves, or its authority is revoked, between the precompute check and the final check: refused, no CAS.
+ ctl_precheck_source_race:{first:S('advance_time'),fault:'source-replaced-before-final-check',after:{status:'refused',controlHex:S('advance_time').initialControl.hex,bodyHex:cborMap([['code','source-changed']])},restore:S('restore_installed'),read:S('read_installed'),readback:completed(S('read_installed'))},
+ ctl_precheck_authority_revoked:{first:S('advance_time'),fault:'authority-revoked-before-final-check',after:{status:'refused',controlHex:S('advance_time').initialControl.hex,bodyHex:cborMap([['code','unauthorized']])},restore:S('restore_installed'),read:S('read_installed'),readback:completed(S('read_installed'))},
+ // The committed selection is restored in a fresh process after the source moved: the read refuses, nothing cached answers.
+ ctl_rebuild_source_replace:{first:S('advance_time'),after:{outcome:true,controlHex:S('advance_time').expected.controlHex},restore:S('restore_advanced'),read:S('read_advanced_source_replaced'),readback:refusedRead(S('read_advanced_source_replaced'))},
+ // The provider is unavailable after restore: the selection is reported unchecked, the read refuses, and a later read with the source back completes.
+ ctl_restore_unavailable:{first:S('advance_time'),after:{outcome:true,controlHex:S('advance_time').expected.controlHex},restore:S('restore_advanced'),read:S('read_advanced_source_unavailable'),readback:refusedRead(S('read_advanced_source_unavailable')),extra:[{step:S('read_advanced')}]},
 };
 assert.equal(S('read_wrong_control').initialControl.hex,S('install').expected.controlHex);
 const capabilities={format:'rhizomatic-command-capabilities/1',witnesses:['ts','rust'].map(id=>({id,state:'supported',buildId:builds[id],profiles:[],stages:[...new Set(stages.map(s=>s.contract))],stage_evidence:Object.fromEntries(stages.map(s=>[s.contract,Object.keys(scenarios)]))})).concat(['elixir','haskell'].map(id=>({id,state:'not_implemented',stages:[],profiles:[]})))};
 const fixed=[['ts','ts','ts','rust','rust','ts'],['rust','rust','rust','ts','ts','rust']].map(ws=>Object.fromEntries(stages.map((s,i)=>[s.id,ws[i]])));
-const evidence={format:'rhizomatic.materialization-m3-executed/1',scope:'M3 lifecycle crossings over durable directories and MR-18 fault points; no source journal, rotation, erasure or execution proof',seed:process.env.M3_SEED??'M3-2026-10-09',builds,toolchains:{node:process.version,rust:spawnSync(process.env.RUSTC??'rustc',['--version','--verbose'],{encoding:'utf8'}).stdout.trim()},fixed:[],towers:[],faults:[],executed:{towers:Object.keys(scenarios),faults:Object.keys(faults)},notExecuted:packet.required_scenarios.M3.filter(id=>!(id in scenarios))};
+const evidence={format:'rhizomatic.materialization-m3-executed/1',scope:'M3 lifecycle crossings over durable directories, MR-18 fault points and source races; no source journal, rotation, erasure or execution proof',seed:process.env.M3_SEED??'M3-2026-10-09',builds,toolchains:{node:process.version,rust:spawnSync(process.env.RUSTC??'rustc',['--version','--verbose'],{encoding:'utf8'}).stdout.trim()},fixed:[],towers:[],faults:[],executed:{towers:Object.keys(scenarios),faults:Object.keys(faults)},notExecuted:packet.required_scenarios.M3.filter(id=>!(id in scenarios))};
 const strip=records=>records.map(r=>{if(!r.actual||typeof r.actual!=='object')return r;const {diagnostics:_d,...actual}=r.actual;return {...r,actual};});
 for(const [caseId,plan]of Object.entries(scenarios)){
  for(let i=0;i<fixed.length;i++){const records=crossing(fixed[i],plan,`${caseId}-fixed-${i}`),path=`m3-fixed-${caseId}-${i}.json`;writeFileSync(join(out,path),canonicalJson({caseId,assignment:fixed[i],records})+'\n');evidence.fixed.push({caseId,assignment:fixed[i],artifact:path,sha256:hash(join(out,path))});}
@@ -115,8 +128,8 @@ for(const [caseId,plan]of Object.entries(scenarios)){
 for(const [caseId,plan]of Object.entries(faults)){
  for(let i=0;i<fixed.length;i++){const records=crossing(fixed[i],plan,`${caseId}-${i}`),path=`m3-fault-${caseId}-${i}.json`;
   if(replayDir){const prior=JSON.parse(readFileSync(join(replayDir,path)));assert.equal(canonicalJson(strip(prior.records)),canonicalJson(strip(records)),'retained fault replay');}
-  writeFileSync(join(out,path),canonicalJson({caseId,fault:plan.fault,assignment:fixed[i],records})+'\n');evidence.faults.push({caseId,fault:plan.fault,assignment:fixed[i],artifact:path,sha256:hash(join(out,path))});}
- console.log(`M3 fault ${caseId} (${plan.fault}): both fixed directions`);
+  writeFileSync(join(out,path),canonicalJson({caseId,...(plan.fault?{fault:plan.fault}:{}),assignment:fixed[i],records})+'\n');evidence.faults.push({caseId,...(plan.fault?{fault:plan.fault}:{}),assignment:fixed[i],artifact:path,sha256:hash(join(out,path))});}
+ console.log(`M3 fault ${caseId} (${plan.fault??'no fault'}): both fixed directions`);
 }
 // Harness sensitivity: a wrong outcome, a stale build and a modified plan must each refuse.
 const good=must('ts',{mode:'control-execute',fixture,step:install,store:{dir:freshDir('negative')},seed:true});
