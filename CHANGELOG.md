@@ -61,6 +61,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
   the snapshot's inventory rules and recomputes both digests, and restore requires the stored
   capture's signed claims to name the observation its basis carries. Three shared steps pin
   them.
+- SPEC-16 M3 slice C3a: the shared schedule grew to 89 steps with the validity boundaries over a
+  bounded fact, the expired-descriptor read and advance, two-root and 64-root programs under
+  lowered per-envelope counters, aggregate body and image byte overflows refused before CAS,
+  four more hostile images, the unknown-snapshot-key priority pair, and retire and restore
+  beside an expired unrelated binding. ERRATA E8 records the readings. Twenty-four of the
+  thirty-three M3 cases are executed.
 
 ### Changed
 

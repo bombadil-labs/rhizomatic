@@ -160,3 +160,35 @@ shared vector that pins it in `vectors/materialization/lifecycle.json`.
   claims and checks validity at that time; disagreement is `invalid-control`
   (`restore_capture_observation_mismatch`). Expiry since the observation is not corruption,
   and no live source is consulted.
+
+## E8 — Readings pinned by slice C3a of M3
+
+Decided 2026-10-10 while building the validity, shared-basis-limit and strict-control schedules.
+Each item names the text it reads and the shared vector that pins it in
+`vectors/materialization/lifecycle.json`.
+
+- **A descriptor expired at the serving time refuses invalid-definition for advance-time as for
+  read.** MR-16 says registration expiry at servingAt refuses before CAS and that a read refuses
+  `invalid-definition` at stage 7. Both verbs use the same stage-7 code and leave the selection
+  unchanged (`read_expired_descriptor`, `advance_expired_descriptor`). Definition validity stays
+  at definition-at; `validity_advance_2100` accepts a finite future at with the stored source.
+- **An unrelated binding is one the configuration selects and the descriptor does not use.**
+  MR-21 says unrelated boot bindings are never checked at invocation and that expired unrelated
+  bindings cannot block retire or restore. A boot carries exactly the bindings the configuration
+  selects, so the variant boots a configuration that selects the descriptor's binding and an
+  expired second binding, with no source grant (`retire_unrelated_expired_binding`,
+  `restore_unrelated_expired_binding`).
+- **A snapshot carrier's unknown top-level key waits for stage 6.** Stage 4 checks only the
+  carrier's byte bound, canonical form and format text (REVIEW-REPAIRS N2). With a wrong
+  expected-control the refusal is `precondition-failed` at stage 5; with the right one the
+  unknown key is `invalid-source` at stage 6 (`read_snapshot_unknown_key_wrong_control`,
+  `read_snapshot_unknown_key`).
+- **Per-envelope counters bind each root envelope; artifactBytes binds the whole body and the
+  whole image.** MR-04 says the structural counters never sum across roots and that artifactBytes
+  covers the complete result body and the control image. With entries and nodes lowered to 1, a
+  64-root program whose roots each hold one fact installs and reads with one shared Basis
+  (`limits_install_64_roots`, `limits_read_64_roots`). A body limit below the 64-root body and
+  above every other artifact refuses `resource-limit` before CAS for install, replace-source and
+  advance-time; an image limit below a fat-alias descriptor's image and above its body refuses
+  install the same way, with the prior image unchanged (`limits_*_over_body_bytes`,
+  `limits_install_fat_descriptor_over_image_bytes`).

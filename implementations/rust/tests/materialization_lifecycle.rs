@@ -893,14 +893,14 @@ fn shared_lifecycle_readback() {
             paired.insert(n.id.clone(), c);
         }
     }
-    let outcome_of = |q: &Delta, status: &str, result: &CborValue| -> Delta {
+    let outcome_of = |q: &Delta, cfg: &str, status: &str, result: &CborValue| -> Delta {
         sign(
             &seed,
             1000.0,
             "outcome/1",
             MaterializationFields::from([
                 ("receiver".into(), ent(&receiver)),
-                ("configuration".into(), vec![r(&configuration.id)]),
+                ("configuration".into(), vec![r(cfg)]),
                 ("request".into(), vec![r(&q.id)]),
                 ("status".into(), p(status)),
                 ("result".into(), blob(encode(result))),
@@ -921,7 +921,7 @@ fn shared_lifecycle_readback() {
         };
         let base = MaterializationResultContext {
             receiver: receiver.clone(),
-            configuration: configuration_id,
+            configuration: configuration_id.clone(),
             request: q.id.clone(),
             request_delta: None,
             evidence: None,
@@ -1046,7 +1046,7 @@ fn shared_lifecycle_readback() {
                             })
                             .collect(),
                     );
-                    let forged = outcome_of(&q, "completed", &dropped);
+                    let forged = outcome_of(&q, &configuration_id, "completed", &dropped);
                     checked_eq!(
                         read_materialization_result(&forged, &base, &limits)
                             .unwrap()
@@ -1093,6 +1093,7 @@ fn shared_lifecycle_readback() {
     let unconfirmed = read_materialization_result(
         &outcome_of(
             &q,
+            &configuration.id,
             "indeterminate",
             &m(vec![("code", "commit-unconfirmed")]),
         ),
@@ -1105,6 +1106,7 @@ fn shared_lifecycle_readback() {
     let unavailable = read_materialization_result(
         &outcome_of(
             &q,
+            &configuration.id,
             "indeterminate",
             &m(vec![("code", "result-unavailable"), ("control", &control)]),
         ),
@@ -1123,8 +1125,12 @@ fn shared_lifecycle_readback() {
         m(vec![("code", "write-conflict")]),
     ] {
         assert_eq!(
-            read_materialization_result(&outcome_of(&q, "indeterminate", &bad), &base, &limits)
-                .unwrap_err(),
+            read_materialization_result(
+                &outcome_of(&q, &configuration.id, "indeterminate", &bad),
+                &base,
+                &limits
+            )
+            .unwrap_err(),
             "invalid-evidence"
         );
     }

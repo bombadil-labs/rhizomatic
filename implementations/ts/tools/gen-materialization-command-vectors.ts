@@ -13,8 +13,10 @@ import {
   tstr,
   type CborValue,
 } from "../src/delta/cbor.js";
-import { canonicalBytes } from "../src/delta/delta.js";
+import { canonicalBytes, claimsToCbor } from "../src/delta/delta.js";
 import { authorForSeed, signClaims } from "../src/delta/sign.js";
+import { ed25519 } from "@noble/curves/ed25519";
+import { hexToBytes } from "@noble/hashes/utils";
 import { bytesToHex, contentAddress } from "../src/delta/hash.js";
 import { claimsToJson, parseClaims } from "../src/delta/json-profile.js";
 function serializeCommandDelta(d: Delta) {
@@ -3272,20 +3274,29 @@ writeFileSync(
     const {
       preflight = { status: "input-valid" },
       boot: cfg = configB,
+      receivedAt,
       ...rest
     } = extra as {
       preflight?: Record<string, unknown>;
       boot?: Delta;
+      receivedAt?: number;
     } & Record<string, unknown>;
+    // A step received later than 1000 signs its outcome at that time; only release-B boots do.
+    if (receivedAt !== undefined && cfg !== configB) throw Error("receivedAt needs configB");
     steps.push({
       id,
       request: serializeCommandDelta(q),
       delivery: delivery.map(serializeCommandDelta),
       initialControl: { hex: bytesToHex(before[0]), revision: revisionOf(before[0], before[1]) },
+      ...(receivedAt === undefined ? {} : { receivedAt }),
       expected: {
         status: expected.status,
         ...(expected.code === undefined ? {} : { code: expected.code }),
-        outcome: serializeCommandDelta(outcome(q, expected.body, expected.status, cfg as Delta)),
+        outcome: serializeCommandDelta(
+          receivedAt === undefined
+            ? outcome(q, expected.body, expected.status, cfg as Delta)
+            : outcomeAt(q, expected.body, expected.status, receivedAt),
+        ),
         bodyHex: bytesToHex(encode(expected.body)),
         controlHex: bytesToHex(expected.after ?? before[0]),
         preflight,
@@ -4731,6 +4742,692 @@ writeFileSync(
   restoreWithCapture(
     "restore_capture_wrong_appearance",
     captureWith(patchOperand(storedBasis, "appearance", tstr(authorityRoot))),
+  );
+
+  // ---- Slice C3a: validity boundaries, shared-basis limits, strict-control hostile images and
+  // the unrelated-binding variant. Bodies still come from the batch oracle encoders; a local
+  // oracle builds gather and resolve bodies for a source and a selected row set at `at`.
+  const propOf = new Map<string, { prop: string; value: CborValue }>([
+    [a.id, { prop: "height", value: float(42) }],
+    [t.id, { prop: "tag", value: array([tstr("shade")]) }],
+    [
+      x.id,
+      {
+        prop: "payload",
+        value: map([
+          ["mime", tstr("application/octet-stream")],
+          ["value", bstr(hex("00ff01"))],
+        ]),
+      },
+    ],
+  ]);
+  const row = (
+    rootId: string,
+    prop: string,
+    value: Target,
+    cbor: CborValue,
+    timestamp: number,
+    validFrom = 0,
+    validUntil?: number,
+  ) => {
+    const d = signClaims(
+      {
+        author: keys.peer!,
+        timestamp,
+        validFrom,
+        ...(validUntil === undefined ? {} : { validUntil }),
+        pointers: [
+          { role: "subject", target: { kind: "entity", entity: { id: rootId, context: prop } } },
+          { role: "value", target: value },
+        ],
+      },
+      seeds.peer,
+    );
+    propOf.set(d.id, { prop, value: cbor });
+    return d;
+  };
+  const oracleOf = (
+    src: ReturnType<typeof source>,
+    selected: Delta[],
+    at: number,
+    rootId = root,
+  ) => {
+    const q = request(
+      src,
+      config,
+      at,
+      1000,
+      hyper,
+      schema,
+      termHash(term),
+      schemaHash(reading),
+      [],
+      rootId,
+    );
+    const view: HView = {
+      id: rootId,
+      props: new Map(selected.map((d) => [propOf.get(d.id)!.prop, [{ delta: d, negated: false }]])),
+    };
+    const gather = gatherBody(src, q, view, at);
+    if (gather.t !== "map") throw Error();
+    const value = encode(
+      map(selected.map((d) => [propOf.get(d.id)!.prop, propOf.get(d.id)!.value])),
+    );
+    const resolve = map([
+      ["kind", tstr("resolve")],
+      ...gather.v.filter(([k]) => ["root", "basis", "transport", "hview"].includes(k)),
+      ["value", bstr(value)],
+      ["view", tstr(contentAddress(value))],
+    ]);
+    return { gather, resolve, result: rootResultFrom(gather, resolve, rootId) };
+  };
+  const bootFor = (cfg: Delta) => ({
+    boot: cfg,
+    bootOverride: {
+      configuration: serializeCommandDelta(cfg),
+      declarations: operationsB.map(serializeCommandDelta),
+      bindings: [serializeCommandDelta(binding)],
+    },
+  });
+  const installIn = (
+    cfg: Delta,
+    control: string,
+    registration: Delta,
+    src: ReturnType<typeof source>,
+    at = 1000,
+  ) =>
+    requestFor(cfg, "install", [
+      ["expected-control", p(control)],
+      ["registration", ref(registration.id)],
+      ["capture", ref(src.capture.id)],
+      ["snapshot", ref(src.snapshot.id)],
+      ["at", p(at)],
+      ["serving-at", p(1000)],
+    ]);
+  const readIn = (
+    cfg: Delta,
+    control: string,
+    registration: Delta,
+    src: ReturnType<typeof source>,
+  ) =>
+    requestFor(cfg, "read", [
+      ["expected-control", p(control)],
+      ["registration", ref(registration.id)],
+      ["expected-source", p(src.revision)],
+      ["snapshot", ref(src.snapshot.id)],
+      ["serving-at", p(1000)],
+    ]);
+  const replaceIn = (
+    cfg: Delta,
+    control: string,
+    registration: Delta,
+    src: ReturnType<typeof source>,
+  ) =>
+    requestFor(cfg, "replace-source", [
+      ["expected-control", p(control)],
+      ["registration", ref(registration.id)],
+      ["expected-source", p(src.revision)],
+      ["capture", ref(src.capture.id)],
+      ["snapshot", ref(src.snapshot.id)],
+      ["serving-at", p(1000)],
+    ]);
+  const advanceIn = (
+    cfg: Delta,
+    control: string,
+    registration: Delta,
+    src: ReturnType<typeof source>,
+    at: number,
+  ) =>
+    requestFor(cfg, "advance-time", [
+      ["expected-control", p(control)],
+      ["registration", ref(registration.id)],
+      ["expected-source", p(src.revision)],
+      ["snapshot", ref(src.snapshot.id)],
+      ["at", p(at)],
+      ["serving-at", p(1000)],
+    ]);
+
+  // C3a-1: validity boundaries (ctl_validity_advance). The height fact is valid on [100, 200);
+  // install at 99, then advance through 100, 199, 200 and the future 2100; a decrease is
+  // time-regression with no write; an expired descriptor refuses invalid-definition at a later
+  // serving time with the selection unchanged.
+  const aBounded = row(root, "height", p(42), float(42), 10, 100, 200);
+  const sV = source([aBounded, t, x]);
+  const fernV: EntryFields = { ...fern, revision: sV.revision, capture: sV.capture.id, at: 99 };
+  const tV1 = stateX(1, "", "", "install", fernV);
+  const cV1 = imageX(
+    1,
+    [{ ...fernV, status: "active", transition: tV1.id }],
+    [descriptor, ...defs, sV.capture, authority, tV1],
+  );
+  const oV99 = oracleOf(sV, [t, x], 99);
+  step(
+    "validity_install_at_99",
+    installX("", descriptor, sV, 99),
+    [installX("", descriptor, sV, 99), descriptor, sV.capture, sV.snapshot, authority, ...defs],
+    [c0, 0],
+    completed(
+      transitionX("install", descriptor, tV1, revisionOf(cV1, 1), 1, basisFrom(oV99.gather, 99), [
+        oV99.result,
+      ]),
+      cV1,
+    ),
+    { source: sourceOf(sV) },
+  );
+  let validity = { c: cV1, t: tV1, entry: fernV, generation: 1 };
+  for (const [at, selected] of [
+    [100, [aBounded, t, x]],
+    [199, [aBounded, t, x]],
+    [200, [t, x]],
+    [2100, [t, x]],
+  ] as const) {
+    const prev = validity,
+      generation = prev.generation + 1,
+      entry: EntryFields = { ...prev.entry, at },
+      tN = stateX(
+        generation,
+        revisionOf(prev.c, prev.generation),
+        prev.t.id,
+        "advance-time",
+        entry,
+      ),
+      cN = imageX(
+        generation,
+        [{ ...entry, status: "active", transition: tN.id }],
+        [descriptor, ...defs, sV.capture, authority, tN],
+      ),
+      o = oracleOf(sV, [...selected], at),
+      q = advanceIn(configB, revisionOf(prev.c, prev.generation), descriptor, sV, at);
+    step(
+      "validity_advance_" + at,
+      q,
+      [q, sV.snapshot],
+      [prev.c, prev.generation],
+      completed(
+        transitionX(
+          "advance-time",
+          descriptor,
+          tN,
+          revisionOf(cN, generation),
+          generation,
+          basisFrom(o.gather, at),
+          [o.result],
+        ),
+        cN,
+      ),
+      { source: sourceOf(sV) },
+    );
+    validity = { c: cN, t: tN, entry, generation };
+  }
+  {
+    const q = advanceIn(configB, revisionOf(validity.c, validity.generation), descriptor, sV, 150);
+    step(
+      "validity_regression_150",
+      q,
+      [q, sV.snapshot],
+      [validity.c, validity.generation],
+      refusal("time-regression"),
+      {
+        source: sourceOf(sV),
+      },
+    );
+  }
+  {
+    const readLate = requestX("read", rE, descriptorExpiring, [
+      ["expected-source", p(s.revision)],
+      ["snapshot", ref(s.snapshot.id)],
+      ["serving-at", p(1500)],
+    ]);
+    step(
+      "read_expired_descriptor",
+      readLate,
+      [readLate, s.snapshot],
+      [cE, 1],
+      refusal("invalid-definition"),
+      {
+        receivedAt: 1500,
+      },
+    );
+    const advanceLate = requestX("advance-time", rE, descriptorExpiring, [
+      ["expected-source", p(s.revision)],
+      ["snapshot", ref(s.snapshot.id)],
+      ["at", p(1500)],
+      ["serving-at", p(1500)],
+    ]);
+    step(
+      "advance_expired_descriptor",
+      advanceLate,
+      [advanceLate, s.snapshot],
+      [cE, 1],
+      refusal("invalid-definition"),
+      {
+        receivedAt: 1500,
+      },
+    );
+  }
+
+  // C3a-2: shared-basis limits (ctl_shared_basis_limits). One fact per root; the per-envelope
+  // entries and nodes counters are lowered to 1 so each root envelope fits while the totals do
+  // not. The aggregate body limit then sits below the 64-root body and above every other
+  // artifact; the image limit sits below a fat-alias descriptor's image and above its body.
+  const roots64 = Array.from({ length: 64 }, (_, i) => `item:r${String(i).padStart(2, "0")}`);
+  const bigPayload = (i: number) =>
+    Uint8Array.from({ length: 2048 }, (_, j) => (i * 31 + j) & 0xff);
+  const rows64 = roots64.map((r, i) =>
+    row(
+      r,
+      "payload",
+      { kind: "bytes", mime: "application/octet-stream", value: bigPayload(i) },
+      map([
+        ["mime", tstr("application/octet-stream")],
+        ["value", bstr(bigPayload(i))],
+      ]),
+      10 + i,
+    ),
+  );
+  const s64 = source(rows64);
+  const d64 = description(
+    "registration/1",
+    registrationFields(roots64.map(ent), [p("Plant64")]),
+    seeds.definition,
+    0,
+  );
+  const mossOne = row("item:moss", "height", p(7), float(7), 11);
+  const s2 = source([a, mossOne]);
+  const d2 = description(
+    "registration/1",
+    registrationFields([ent(root), ent("item:moss")], [p("PlantTwo")]),
+    seeds.definition,
+    0,
+  );
+  const configCounters = endpointFor([keys.caller!], [keys.caller!], {
+    ...limits,
+    entries: 1,
+    nodes: 1,
+  });
+  const multi = (
+    cfg: Delta,
+    registration: Delta,
+    src: ReturnType<typeof source>,
+    rootsSel: (readonly [string, Delta[]])[],
+  ) => {
+    const oracles = rootsSel.map(([r, sel]) => oracleOf(src, sel, 1000, r));
+    const entry: EntryFields = {
+      registration,
+      revision: src.revision,
+      authority: authority.id,
+      at: 1000,
+      definitionAt: 1000,
+      ...pins,
+      capture: src.capture.id,
+    };
+    const tr = stateX(1, "", "", "install", entry);
+    const c = imageX(
+      1,
+      [{ ...entry, status: "active", transition: tr.id }],
+      [registration, ...defs, src.capture, authority, tr],
+      cfg,
+    );
+    return {
+      entry,
+      t: tr,
+      c,
+      r: revisionOf(c, 1),
+      basis: basisFrom(oracles[0]!.gather, 1000),
+      results: oracles.map((o) => o.result),
+    };
+  };
+  const multiSteps = (
+    tag: string,
+    cfg: Delta,
+    registration: Delta,
+    src: ReturnType<typeof source>,
+    rootsSel: (readonly [string, Delta[]])[],
+  ) => {
+    const m = multi(cfg, registration, src, rootsSel);
+    const install = installIn(cfg, "", registration, src),
+      read = readIn(cfg, m.r, registration, src);
+    step(
+      "limits_install_" + tag,
+      install,
+      [install, registration, src.capture, src.snapshot, authority, ...defs],
+      [imageX(0, [], [], cfg), 0],
+      completed(transitionX("install", registration, m.t, m.r, 1, m.basis, m.results), m.c),
+      { source: sourceOf(src), ...bootFor(cfg) },
+    );
+    step(
+      "limits_read_" + tag,
+      read,
+      [read, src.snapshot],
+      [m.c, 1],
+      completed(readBodyX(registration, m.r, 1, m.basis, m.results), m.c),
+      { source: sourceOf(src), ...bootFor(cfg) },
+    );
+    return m;
+  };
+  multiSteps("two_roots", configCounters, d2, s2, [
+    [root, [a]],
+    ["item:moss", [mossOne]],
+  ]);
+  const m64 = multiSteps(
+    "64_roots",
+    configCounters,
+    d64,
+    s64,
+    roots64.map((r, i) => [r, [rows64[i]!]] as const),
+  );
+  const bodyBytes64 = encode(
+    transitionX("install", d64, m64.t, m64.r, 1, m64.basis, m64.results),
+  ).length;
+  const largestOther64 = Math.max(
+    s64.payload.length,
+    appearance(s64.capture).length,
+    appearance(d64).length,
+    m64.c.length,
+    ...m64.results.map((res) => {
+      const env = field(res, "envelope");
+      return env.t === "bstr" ? env.v.length : 0;
+    }),
+  );
+  if (bodyBytes64 - 1 <= largestOther64) throw Error("aggregate body limit is not separable");
+  const configBody = endpointFor([keys.caller!], [keys.caller!], {
+    ...limits,
+    entries: 1,
+    nodes: 1,
+    artifactBytes: bodyBytes64 - 1,
+  });
+  const m64B = multi(
+    configBody,
+    d64,
+    s64,
+    roots64.map((r, i) => [r, [rows64[i]!]] as const),
+  );
+  {
+    const install = installIn(configBody, "", d64, s64);
+    step(
+      "limits_install_64_roots_over_body_bytes",
+      install,
+      [install, d64, s64.capture, s64.snapshot, authority, ...defs],
+      [imageX(0, [], [], configBody), 0],
+      refusal("resource-limit"),
+      { source: sourceOf(s64), ...bootFor(configBody) },
+    );
+    const replace = replaceIn(configBody, m64B.r, d64, s64);
+    step(
+      "limits_replace_64_roots_over_body_bytes",
+      replace,
+      [replace, s64.capture, s64.snapshot, authority],
+      [m64B.c, 1],
+      refusal("resource-limit"),
+      { source: sourceOf(s64), ...bootFor(configBody) },
+    );
+    const advance = advanceIn(configBody, m64B.r, d64, s64, 1001);
+    step(
+      "limits_advance_64_roots_over_body_bytes",
+      advance,
+      [advance, s64.snapshot],
+      [m64B.c, 1],
+      refusal("resource-limit"),
+      { source: sourceOf(s64), ...bootFor(configBody) },
+    );
+  }
+  const fatAliases = Array.from({ length: 200 }, (_, i) =>
+    p("alias-" + String(i).padStart(3, "0") + "-" + "x".repeat(1000)),
+  );
+  const dFat = description(
+    "registration/1",
+    registrationFields([ent(root)], fatAliases),
+    seeds.definition,
+    0,
+  );
+  const fat: EntryFields = { ...fern, registration: dFat };
+  const tFat = stateX(1, "", "", "install", fat);
+  const imageBytesFat = imageX(
+    1,
+    [{ ...fat, status: "active", transition: tFat.id }],
+    [dFat, ...defs, s.capture, authority, tFat],
+  ).length;
+  const largestOtherFat = Math.max(
+    appearance(dFat).length,
+    s.payload.length,
+    encode(
+      transitionX("install", dFat, tFat, "", 1, basisOf("plant", 1000), [rootResultOf("plant")]),
+    ).length,
+  );
+  if (imageBytesFat - 1 <= largestOtherFat) throw Error("image limit is not separable");
+  const configImage = endpointFor([keys.caller!], [keys.caller!], {
+    ...limits,
+    artifactBytes: imageBytesFat - 1,
+  });
+  {
+    const install = installIn(configImage, "", dFat, s);
+    step(
+      "limits_install_fat_descriptor_over_image_bytes",
+      install,
+      [install, dFat, s.capture, s.snapshot, authority, ...defs],
+      [imageX(0, [], [], configImage), 0],
+      refusal("resource-limit"),
+      bootFor(configImage),
+    );
+  }
+
+  // C3a-3: strict control (ctl_control_strict). Signed images that are structurally wrong in
+  // one way each refuse invalid-control at stage 5; the unknown snapshot key waits for stage 6.
+  const cUnreachable = imageX(1, [fernEntry], [descriptor, ...defs, s.capture, authority, t1, n1]);
+  step(
+    "restore_unreachable_support",
+    restoreQ(revisionOf(cUnreachable, 1)),
+    [restoreQ(revisionOf(cUnreachable, 1))],
+    [cUnreachable, 1],
+    refusal("invalid-control"),
+  );
+  const cRetiredExtra = imageX(4, [retiredFern], [t4, descriptor]);
+  step(
+    "restore_retired_with_old_support",
+    restoreQ(revisionOf(cRetiredExtra, 4)),
+    [restoreQ(revisionOf(cRetiredExtra, 4))],
+    [cRetiredExtra, 4],
+    refusal("invalid-control"),
+  );
+  const cRetiredScalars = imageX(4, [{ ...retiredFern, hyperPin: authorityRoot }], [t4]);
+  step(
+    "restore_retired_changed_scalars",
+    restoreQ(revisionOf(cRetiredScalars, 4)),
+    [restoreQ(revisionOf(cRetiredScalars, 4))],
+    [cRetiredScalars, 4],
+    refusal("invalid-control"),
+  );
+  // A hand-signed authority whose validUntil does not follow its validFrom (both 0): the L0
+  // signer refuses to produce it, so the claims are encoded and signed with the primitives.
+  const badAuthorityClaims = { ...authority.claims, validUntil: 0 };
+  const badAuthorityBytes = encode(claimsToCbor(badAuthorityClaims));
+  const badAuthorityId = contentAddress(badAuthorityBytes);
+  const badAuthority: Delta = {
+    id: badAuthorityId,
+    claims: badAuthorityClaims,
+    sig: bytesToHex(ed25519.sign(hexToBytes(badAuthorityId), hexToBytes(seeds.capturer!))),
+  };
+  const badAuthorityAppearance = encode(
+    map([
+      ["id", tstr(badAuthorityId)],
+      ["claims", bstr(badAuthorityBytes)],
+      ["sig", bstr(hex(badAuthority.sig!))],
+    ]),
+  );
+  const sBad = source([a, t, x], 1000, badAuthority);
+  const fernBad: EntryFields = {
+    ...fern,
+    revision: sBad.revision,
+    authority: badAuthority.id,
+    capture: sBad.capture.id,
+  };
+  const tBad = stateX(1, "", "", "install", fernBad);
+  const imageRaw = (generation: number, entries: EntryX[], support: Uint8Array[]) =>
+    encode(
+      map([
+        ["format", tstr("rhizomatic.materialization-control/1")],
+        ["receiver", tstr(keys.receiver!)],
+        ["configuration", tstr(configB.id)],
+        ["generation", float(generation)],
+        ["entries", array(sortedEntries(entries).map(entryX))],
+        [
+          "deltas",
+          array(
+            [...new Map(support.map((b) => [contentAddress(b), b])).entries()]
+              .sort(([ka], [kb]) => (ka < kb ? -1 : ka > kb ? 1 : 0))
+              .map(([, b]) => bstr(b)),
+          ),
+        ],
+      ]),
+    );
+  const cBadAuthority = imageRaw(
+    1,
+    [{ ...fernBad, status: "active", transition: tBad.id }],
+    [...[descriptor, ...defs, sBad.capture, tBad].map(appearance), badAuthorityAppearance],
+  );
+  step(
+    "restore_malformed_authority_interval",
+    restoreQ(revisionOf(cBadAuthority, 1)),
+    [restoreQ(revisionOf(cBadAuthority, 1))],
+    [cBadAuthority, 1],
+    refusal("invalid-control"),
+  );
+  const payloadExtra = (() => {
+    const v = decode(s.payload);
+    if (v.t !== "map") throw Error();
+    return encode(map([...v.v, ["zz-unknown", tstr("x")]]));
+  })();
+  const snapshotExtra = description(
+    "snapshot/1",
+    [["data", blob(payloadExtra)]],
+    seeds.capturer,
+    1000,
+  );
+  const readExtra = (control: string) =>
+    requestX("read", control, descriptor, [
+      ["expected-source", p(s.revision)],
+      ["snapshot", ref(snapshotExtra.id)],
+      ["serving-at", p(1000)],
+    ]);
+  step(
+    "read_snapshot_unknown_key_wrong_control",
+    readExtra(authorityRoot),
+    [readExtra(authorityRoot), snapshotExtra],
+    [c1, 1],
+    refusal("precondition-failed"),
+  );
+  step(
+    "read_snapshot_unknown_key",
+    readExtra(r1),
+    [readExtra(r1), snapshotExtra],
+    [c1, 1],
+    refusal("invalid-source"),
+  );
+
+  // C3a-4: an expired boot binding the descriptor does not use never blocks retire or restore
+  // (cmd_error_priority::retire-restore-unrelated-binding).
+  const unrelatedExpiredBinding = signClaims(
+    {
+      ...description(
+        "source-binding/1",
+        [
+          ["receiver", ent(keys.receiver!)],
+          [
+            "spec",
+            blob(
+              encode(
+                map([
+                  ["sourceId", tstr("secondary")],
+                  ["capturer", tstr(keys.capturer!)],
+                  ["authorityRoot", tstr(authorityRoot)],
+                  ["selection", selection],
+                ]),
+              ),
+            ),
+          ],
+        ],
+        seeds.receiver,
+        0,
+      ).claims,
+      validUntil: 500,
+    },
+    seeds.receiver,
+  );
+  // The configuration selects both bindings; the descriptor uses only the first.
+  const configTwoBindings = description(
+    "endpoint/1",
+    [
+      ["receiver", ent(keys.receiver!)],
+      ["caller", p(keys.caller!)],
+      ["administrator", p(keys.caller!)],
+      [
+        "installed",
+        operationsB
+          .map((o) => o.id)
+          .sort()
+          .map(ref),
+      ],
+      ["source-binding", [ref(binding.id), ref(unrelatedExpiredBinding.id)]],
+      ["limits", blob(encode(map(Object.entries(limits).map(([k, v]) => [k, float(v)]))))],
+    ],
+    seeds.receiver,
+    0,
+  );
+  const bootWithUnrelated = {
+    boot: configTwoBindings,
+    noGrant: true,
+    bootOverride: {
+      configuration: serializeCommandDelta(configTwoBindings),
+      declarations: operationsB.map(serializeCommandDelta),
+      bindings: [binding, unrelatedExpiredBinding].map(serializeCommandDelta),
+    },
+  };
+  const tU1 = stateX(1, "", "", "install", fern);
+  const cU1 = imageX(
+    1,
+    [{ ...fern, status: "active", transition: tU1.id }],
+    [descriptor, ...defs, s.capture, authority, tU1],
+    configTwoBindings,
+  );
+  const rU1 = revisionOf(cU1, 1);
+  const retiredU: EntryFields = { ...fern, capture: undefined };
+  const tU2 = stateX(2, rU1, tU1.id, "retire", retiredU);
+  const cU2 = imageX(
+    2,
+    [{ ...retiredU, status: "retired", transition: tU2.id }],
+    [tU2],
+    configTwoBindings,
+  );
+  const rU2 = revisionOf(cU2, 2);
+  const retireU = requestFor(configTwoBindings, "retire", [
+    ["expected-control", p(rU1)],
+    ["registration", ref(descriptor.id)],
+  ]);
+  step(
+    "retire_unrelated_expired_binding",
+    retireU,
+    [retireU],
+    [cU1, 1],
+    completed(
+      map([
+        ["kind", tstr("retire")],
+        ["registration", tstr(descriptor.id)],
+        ["transition", tstr(tU2.id)],
+        ["control", tstr(rU2)],
+        ["generation", float(2)],
+      ]),
+      cU2,
+    ),
+    bootWithUnrelated,
+  );
+  const restoreU = requestFor(configTwoBindings, "restore", [["expected-control", p(rU2)]]);
+  step(
+    "restore_unrelated_expired_binding",
+    restoreU,
+    [restoreU],
+    [cU2, 2],
+    completed(restoreBodyX(rU2, 2, [{ ...retiredU, status: "retired", transition: tU2.id }]), cU2),
+    bootWithUnrelated,
   );
   void byId;
   writeFileSync(
