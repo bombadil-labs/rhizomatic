@@ -140,3 +140,23 @@ shared vector or witness test that pins it.
   capture must equal the capture the image selected for the registration; a request that names
   another capture refuses `invalid-evidence`. Pinned by the hostile-context tests in both
   witnesses.
+
+## E7 — Decisions from the third independent review of M3 (PR #65)
+
+Decided 2026-10-10 after the review of 25a1c22. Each item names the text it reads and the
+shared vector that pins it in `vectors/materialization/lifecycle.json`.
+
+- **A stored capture basis obeys every MR-10 inventory rule the snapshot obeys.** Recomputing
+  the revision does not cover the operand table, because the operand table is not an input to
+  that hash. The capture basis decoder in both witnesses now requires each operand and each
+  exclusion to name exactly its contributing peers from the components table, requires the
+  appearance keys to be distinct, and recomputes `membership` from the operand ids and
+  `appearanceDigest` from the sorted appearance keys. None of this needs operand bytes or a
+  live source. A basis that fails any rule is `invalid-control` at stage 5
+  (`restore_capture_foreign_peer`, `restore_capture_wrong_appearance`).
+- **The stored capture's signed claims name its original observation.** MR-10 requires a
+  capture's timestamp and validFrom to equal the basis servingAt, and the capture to be valid
+  at that observation. The stage-5 reader compares the decoded servingAt to the capture's
+  claims and checks validity at that time; disagreement is `invalid-control`
+  (`restore_capture_observation_mismatch`). Expiry since the observation is not corruption,
+  and no live source is consulted.

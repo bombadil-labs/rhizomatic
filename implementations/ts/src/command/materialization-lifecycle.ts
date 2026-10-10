@@ -289,6 +289,14 @@ export function classifyMaterializationControl(
       commitments.authority !== entry.authority
     )
       return invalidControl();
+    // MR-10: the capture's signed claims name its original observation, and the capture was
+    // valid at that observation; expiry since then is not corruption.
+    if (
+      cap.delta.claims.timestamp !== commitments.servingAt ||
+      cap.delta.claims.validFrom !== commitments.servingAt ||
+      !materializationValidAt(cap.delta, commitments.servingAt)
+    )
+      return invalidControl();
     // MR-17: the pins and exact closure hold against the retained acts at definition-at; an
     // expired descriptor is not corruption, so validity at the current time is not checked here.
     try {

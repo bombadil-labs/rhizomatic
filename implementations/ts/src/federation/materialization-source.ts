@@ -454,44 +454,67 @@ export function decodeMaterializationCaptureBasis(
       : undefined;
     const components = list(f.get("components"));
     if (!components.length) invalid();
-    const raw = new Set<string>(),
-      eligible = new Set<string>(),
+    // The same inventory rules as the snapshot: every operand and exclusion names exactly the
+    // contributing peers, and the two digests follow from the operand ids and appearance keys.
+    const raw = new Map<string, Set<string>>(),
+      eligible = new Map<string, Set<string>>(),
       componentPeers: string[] = [],
       componentBases: CborValue[] = [];
     for (const c of components) {
       const fs = fields(c, ["peer", "revision", "capturedAt", "rawIds", "operandIds"]);
-      componentPeers.push(peer(text(fs.get("peer"))));
+      const p = peer(text(fs.get("peer")));
+      componentPeers.push(p);
       id(text(fs.get("revision")));
       number(fs.get("capturedAt"));
       const raws = ids(fs.get("rawIds")),
         ops = ids(fs.get("operandIds"));
       if (ops.some((x) => !raws.includes(x))) invalid();
-      for (const x of raws) raw.add(x);
-      for (const x of ops) eligible.add(x);
+      for (const x of raws) {
+        if (!raw.has(x)) raw.set(x, new Set());
+        raw.get(x)!.add(p);
+      }
+      for (const x of ops) {
+        if (!eligible.has(x)) eligible.set(x, new Set());
+        eligible.get(x)!.add(p);
+      }
       componentBases.push(map([...fs].filter(([k]) => k !== "capturedAt")));
     }
     ordered(componentPeers);
     limit(raw.size, limits.inventoryIds);
-    const operandIds: string[] = [];
+    const operandIds: string[] = [],
+      used = new Set<string>();
     for (const o of list(f.get("operands"))) {
       const of = fields(o, ["id", "appearance", "peers"]),
-        i = id(text(of.get("id")));
-      id(text(of.get("appearance")));
-      if (!ids(of.get("peers"), peer).length || !eligible.has(i)) invalid();
+        i = id(text(of.get("id"))),
+        a = id(text(of.get("appearance"))),
+        ps = ids(of.get("peers"), peer);
+      if (!ps.length || ps.join() !== [...(eligible.get(i) ?? [])].sort().join()) invalid();
       operandIds.push(i);
+      used.add(a);
     }
     ordered(operandIds);
-    if (eligible.size !== operandIds.length) invalid();
+    if (used.size !== operandIds.length || eligible.size !== operandIds.length) invalid();
     const exclusionIds: string[] = [];
     for (const e of list(f.get("exclusions"))) {
       const ef = fields(e, ["id", "peers", "reason"]),
-        i = id(text(ef.get("id")));
-      if (!text(ef.get("reason")) || eligible.has(i) || !ids(ef.get("peers"), peer).length)
+        i = id(text(ef.get("id"))),
+        ps = ids(ef.get("peers"), peer);
+      if (
+        !text(ef.get("reason")) ||
+        eligible.has(i) ||
+        !ps.length ||
+        ps.join() !== [...(raw.get(i) ?? [])].sort().join()
+      )
         invalid();
       exclusionIds.push(i);
     }
     ordered(exclusionIds);
     if (raw.size !== operandIds.length + exclusionIds.length) invalid();
+    if (
+      contentAddress(encode(array(operandIds.map(tstr)))) !== membership ||
+      contentAddress(encode(array([...used].sort().map(tstr)))) !== appearanceDigest
+    )
+      invalid();
     const expected = contentAddress(
       encode(
         map([

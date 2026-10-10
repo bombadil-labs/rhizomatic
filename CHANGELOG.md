@@ -57,6 +57,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
   (`decodeMaterializationCaptureBasis` / `decode_materialization_capture_basis`), and readback
   links an install or replacement request to the capture the image selected. Two shared steps
   and hostile-context tests in both witnesses pin them.
+- Fixes from the third independent review of M3 (ERRATA E7): the capture basis decoder enforces
+  the snapshot's inventory rules and recomputes both digests, and restore requires the stored
+  capture's signed claims to name the observation its basis carries. Three shared steps pin
+  them.
 
 ### Changed
 

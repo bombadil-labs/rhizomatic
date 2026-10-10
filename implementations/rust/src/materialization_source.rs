@@ -585,8 +585,10 @@ pub fn decode_materialization_capture_basis(
     let historical_cutoff = f.get("historicalCutoff").map(|x| number(x)).transpose()?;
     let components = list(get(&f, "components")?)?;
     require(!components.is_empty())?;
-    let mut raw = BTreeSet::new();
-    let mut eligible = BTreeSet::new();
+    // The same inventory rules as the snapshot: every operand and exclusion names exactly the
+    // contributing peers, and the two digests follow from the operand ids and appearance keys.
+    let mut raw: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+    let mut eligible: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
     let mut component_peers = Vec::new();
     let mut component_bases = Vec::new();
     for c in components {
@@ -595,14 +597,19 @@ pub fn decode_materialization_capture_basis(
             &["peer", "revision", "capturedAt", "rawIds", "operandIds"],
             &[],
         )?;
-        component_peers.push(peer(text(get(&fs, "peer")?)?)?);
+        let p = peer(text(get(&fs, "peer")?)?)?;
+        component_peers.push(p.clone());
         id(text(get(&fs, "revision")?)?)?;
         number(get(&fs, "capturedAt")?)?;
         let raws = ids(get(&fs, "rawIds")?, false)?;
         let ops = ids(get(&fs, "operandIds")?, false)?;
         require(ops.iter().all(|x| raws.contains(x)))?;
-        raw.extend(raws);
-        eligible.extend(ops);
+        for x in raws {
+            raw.entry(x).or_default().insert(p.clone());
+        }
+        for x in ops {
+            eligible.entry(x).or_default().insert(p.clone());
+        }
         component_bases.push(CborValue::Map(
             fs.iter()
                 .filter(|(k, _)| **k != "capturedAt")
@@ -613,28 +620,52 @@ pub fn decode_materialization_capture_basis(
     ordered(&component_peers)?;
     limit(raw.len(), limits.inventory_ids)?;
     let mut operand_ids = Vec::new();
+    let mut used = BTreeSet::new();
     for o in list(get(&f, "operands")?)? {
         let of = exact(o, &["id", "appearance", "peers"], &[])?;
         let i = id(text(get(&of, "id")?)?)?;
-        id(text(get(&of, "appearance")?)?)?;
-        require(!ids(get(&of, "peers")?, true)?.is_empty() && eligible.contains(&i))?;
+        let a = id(text(get(&of, "appearance")?)?)?;
+        let ps = ids(get(&of, "peers")?, true)?;
+        require(
+            !ps.is_empty()
+                && ps
+                    == eligible
+                        .get(&i)
+                        .map(|s| s.iter().cloned().collect::<Vec<_>>())
+                        .unwrap_or_default(),
+        )?;
         operand_ids.push(i);
+        used.insert(a);
     }
     ordered(&operand_ids)?;
-    require(eligible.len() == operand_ids.len())?;
+    require(used.len() == operand_ids.len() && eligible.len() == operand_ids.len())?;
     let mut exclusion_ids = Vec::new();
     for e in list(get(&f, "exclusions")?)? {
         let ef = exact(e, &["id", "peers", "reason"], &[])?;
         let i = id(text(get(&ef, "id")?)?)?;
+        let ps = ids(get(&ef, "peers")?, true)?;
         require(
             !text(get(&ef, "reason")?)?.is_empty()
-                && !eligible.contains(&i)
-                && !ids(get(&ef, "peers")?, true)?.is_empty(),
+                && !eligible.contains_key(&i)
+                && !ps.is_empty()
+                && ps
+                    == raw
+                        .get(&i)
+                        .map(|s| s.iter().cloned().collect::<Vec<_>>())
+                        .unwrap_or_default(),
         )?;
         exclusion_ids.push(i);
     }
     ordered(&exclusion_ids)?;
     require(raw.len() == operand_ids.len() + exclusion_ids.len())?;
+    require(
+        content_address(&encode(&CborValue::Array(
+            operand_ids.iter().map(|k| string(k)).collect(),
+        ))) == membership
+            && content_address(&encode(&CborValue::Array(
+                used.iter().map(|k| string(k)).collect(),
+            ))) == appearance_digest,
+    )?;
     let expected = content_address(&encode(&CborValue::Map(vec![
         ("binding".into(), CborValue::Tstr(binding.clone())),
         ("authority".into(), CborValue::Tstr(authority.clone())),

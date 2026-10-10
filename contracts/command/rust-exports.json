@@ -33479,6 +33479,17 @@
     {
       "form": "syn-resolved-path",
       "owner": "command",
+      "rawTarget": "crate::materialization_input::valid_at",
+      "resolvedTarget": "crate::materialization_input::valid_at",
+      "source": "implementations/rust/src/materialization_lifecycle.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "classify_control",
+      "target": "crate::materialization_input::valid_at",
+      "targetOwner": "command"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "command",
       "rawTarget": "crate::materialization_lifecycle::Act",
       "resolvedTarget": "crate::materialization_lifecycle::Act",
       "source": "implementations/rust/src/materialization_lifecycle.rs",
@@ -40911,6 +40922,41 @@
       "symbol": "decode_materialization_capture_basis",
       "target": "crate::materialization_source::require",
       "targetOwner": "federation"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::materialization_source::string",
+      "resolvedTarget": "crate::materialization_source::string",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "decode_materialization_capture_basis",
+      "target": "crate::materialization_source::string",
+      "targetOwner": "federation"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "federation",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "decode_materialization_capture_basis",
+      "target": "std::collections::BTreeMap"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "federation",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "decode_materialization_capture_basis",
+      "target": "std::collections::BTreeMap::new"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "federation",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "decode_materialization_capture_basis",
+      "target": "std::collections::BTreeSet"
     },
     {
       "form": "syn-external-path",

@@ -4671,6 +4671,67 @@ writeFileSync(
     [cTruncated, 1],
     refusal("invalid-control"),
   );
+  // ---- Review round 3: shared counterexamples for the findings on 25a1c22. Each step stores
+  // a capture whose basis keeps the fixture's revision but breaks one MR-10 invariant the
+  // stage-5 reader can check without the operand bytes: restore refuses invalid-control.
+  const basisBytesOf = (capture: Delta) => {
+    const t = capture.claims.pointers.find((x) => x.role === prefix + "basis")?.target;
+    if (t?.kind !== "bytes") throw Error();
+    return t.value;
+  };
+  const captureWith = (basis: CborValue) =>
+    description(
+      "capture/1",
+      [
+        ["source-binding", ref(binding.id)],
+        ["authority", ref(authority.id)],
+        ["basis", blob(encode(basis))],
+      ],
+      seeds.capturer,
+      1000,
+    );
+  const patchOperand = (basis: CborValue, key: string, data: CborValue): CborValue => {
+    const operands = field(basis, "operands");
+    if (operands.t !== "array" || operands.v[0]?.t !== "map") throw Error();
+    return update(
+      basis,
+      "operands",
+      array([update(operands.v[0], key, data), ...operands.v.slice(1)]),
+    );
+  };
+  const restoreWithCapture = (id: string, capture: Delta) => {
+    const entry: EntryFields = { ...fern, capture: capture.id };
+    const t = stateX(1, "", "", "install", entry);
+    const c = imageX(
+      1,
+      [{ ...entry, status: "active", transition: t.id }],
+      [descriptor, ...defs, capture, authority, t],
+    );
+    step(
+      id,
+      restoreQ(revisionOf(c, 1)),
+      [restoreQ(revisionOf(c, 1))],
+      [c, 1],
+      refusal("invalid-control"),
+    );
+  };
+  const storedBasis = decode(basisBytesOf(s.capture));
+  // The basis names an observation the capture's signed claims do not (timestamp and validFrom
+  // stay at 1000); the revision is unchanged because the observation is outside its hash.
+  restoreWithCapture(
+    "restore_capture_observation_mismatch",
+    captureWith(update(storedBasis, "servingAt", float(9999))),
+  );
+  // The operand names a contributing peer the components table does not carry.
+  restoreWithCapture(
+    "restore_capture_foreign_peer",
+    captureWith(patchOperand(storedBasis, "peers", array([tstr(keys.caller!)]))),
+  );
+  // The operand names an appearance key the appearance digest does not hash.
+  restoreWithCapture(
+    "restore_capture_wrong_appearance",
+    captureWith(patchOperand(storedBasis, "appearance", tstr(authorityRoot))),
+  );
   void byId;
   writeFileSync(
     new URL("../../../vectors/materialization/lifecycle.json", import.meta.url),

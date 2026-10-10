@@ -1098,10 +1098,40 @@
           "corpus": "lifecycle",
           "group": "readback",
           "id": "restore_truncated_capture_basis"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "restore_capture_observation_mismatch"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "restore_capture_observation_mismatch"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "restore_capture_foreign_peer"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "restore_capture_foreign_peer"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "restore_capture_wrong_appearance"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "restore_capture_wrong_appearance"
         }
       ],
       "native_evidence": [],
-      "remaining": "Unreachable support, retired scalar changes under an unchanged terminal transition and the malformed authority interval need M3c3 hostile images; a signed image whose entry names a revision its capture does not commit to, pins the retained hyperschema does not carry, or selects a capture with a truncated basis now refuses invalid-control.",
+      "remaining": "Unreachable support, retired scalar changes under an unchanged terminal transition and the malformed authority interval need M3c3 hostile images; a signed image whose entry names a revision its capture does not commit to, pins the retained hyperschema does not carry, or selects a capture with a truncated, inconsistent or misdated basis now refuses invalid-control.",
       "tower_evidence": []
     },
     {

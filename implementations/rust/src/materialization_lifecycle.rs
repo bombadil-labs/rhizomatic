@@ -155,7 +155,7 @@ const INVALID_CONTROL: &str = "invalid-control";
 fn capture_commitments(
     basis: &[u8],
     limits: &MaterializationLimits,
-) -> Result<(String, String, String)> {
+) -> Result<(String, String, String, f64)> {
     let b = decode_materialization_capture_basis(basis, source_limits(limits)).map_err(|e| {
         if e.to_string() == "resource-limit" {
             "resource-limit".to_string()
@@ -163,7 +163,7 @@ fn capture_commitments(
             INVALID_CONTROL.to_string()
         }
     })?;
-    Ok((b.revision, b.binding, b.authority))
+    Ok((b.revision, b.binding, b.authority, b.serving_at))
 }
 
 struct Act {
@@ -310,12 +310,20 @@ pub(crate) fn classify_control(
             INVALID_CONTROL,
         )?;
         // MR-17: the stored capture commits to the entry's source revision, binding and authority.
-        let (revision, binding, authority) =
+        let (revision, binding, authority, observed_at) =
             capture_commitments(&materialization_bytes(cf, "basis")?, limits)?;
         require(
             revision == entry.source_revision
                 && binding == descriptor.binding
                 && authority == entry.authority,
+            INVALID_CONTROL,
+        )?;
+        // MR-10: the capture's signed claims name its original observation, and the capture was
+        // valid at that observation; expiry since then is not corruption.
+        require(
+            cap.delta.claims.timestamp == observed_at
+                && cap.delta.claims.valid_from == observed_at
+                && valid_at(&cap.delta, observed_at),
             INVALID_CONTROL,
         )?;
         // MR-17: the pins and exact closure hold against the retained acts at definition-at; an
