@@ -5429,6 +5429,46 @@ writeFileSync(
     completed(restoreBodyX(rU2, 2, [{ ...retiredU, status: "retired", transition: tU2.id }]), cU2),
     bootWithUnrelated,
   );
+  // ---- Slice C3b: the steps the source-race, unavailable-source and tower crossings need.
+  // A read of the advanced image after the host's source moved on keeps the stored selection
+  // and refuses source-changed at the current check; while the provider is unavailable the
+  // grant answers source-unavailable instead.
+  step(
+    "read_advanced_source_replaced",
+    readQ(r2),
+    [readQ(r2), s.snapshot],
+    [c2, 2],
+    refusal("source-changed"),
+    { source: sourceOf(sNeg) },
+  );
+  step(
+    "read_advanced_source_unavailable",
+    readQ(r2),
+    [readQ(r2), s.snapshot],
+    [c2, 2],
+    refusal("source-unavailable"),
+    { sourceUnavailable: true },
+  );
+  // Restores the tower crossings need: the equal-count replacement and the 64-root program.
+  step(
+    "restore_equal_count",
+    restoreQ(rB),
+    [restoreQ(rB)],
+    [cB, 2],
+    completed(restoreBodyX(rB, 2, [{ ...fernB, status: "active", transition: tB.id }]), cB),
+  );
+  const restore64 = requestFor(configCounters, "restore", [["expected-control", p(m64.r)]]);
+  step(
+    "restore_64_roots",
+    restore64,
+    [restore64],
+    [m64.c, 1],
+    completed(
+      restoreBodyX(m64.r, 1, [{ ...m64.entry, status: "active", transition: m64.t.id }]),
+      m64.c,
+    ),
+    bootFor(configCounters),
+  );
   void byId;
   writeFileSync(
     new URL("../../../vectors/materialization/lifecycle.json", import.meta.url),

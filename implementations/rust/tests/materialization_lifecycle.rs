@@ -97,6 +97,7 @@ struct Grant {
     binding: String,
     revision: String,
     authority: String,
+    unavailable: bool,
 }
 impl MaterializationSourceCapability for Grant {
     fn capture(
@@ -116,6 +117,9 @@ impl MaterializationSourceCapability for Grant {
         _: Option<f64>,
         _: &[String],
     ) -> Result<(), MaterializationSourceFailure> {
+        if self.unavailable {
+            return Err(MaterializationSourceFailure::SourceUnavailable);
+        }
         if b == self.binding && revision == self.revision && authority == self.authority {
             Ok(())
         } else {
@@ -402,6 +406,7 @@ fn host<'a>(f: &'a Fixture) -> Host<'a> {
             binding: f.source.0.clone(),
             revision: f.source.1.clone(),
             authority: f.source.2.clone(),
+            unavailable: false,
         }) as Box<dyn MaterializationSourceCapability>,
     )]);
     let endpoint = MaterializationEndpoint::boot_maintained(
@@ -765,6 +770,7 @@ fn shared_lifecycle_schedule() {
                     binding: step_source.0.clone(),
                     revision: step_source.1.clone(),
                     authority: step_source.2.clone(),
+                    unavailable: step["sourceUnavailable"] == true,
                 }) as Box<dyn MaterializationSourceCapability>,
             );
         }

@@ -454,11 +454,10 @@ const scheduleBoot = {
 };
 // The grant is current exactly for the source a step names; a step may name a moved source,
 // a later receive time, or no grant at all.
-const scheduleGrantFor = (source: {
-  binding: string;
-  revision: string;
-  authority: string;
-}): MaterializationSourceCapability => ({
+const scheduleGrantFor = (
+  source: { binding: string; revision: string; authority: string },
+  unavailable = false,
+): MaterializationSourceCapability => ({
   async capture() {
     throw Error("never recaptures");
   },
@@ -466,6 +465,7 @@ const scheduleGrantFor = (source: {
     throw Error("never restores");
   },
   async checkCurrent(b, revision, auth) {
+    if (unavailable) return { status: "source-unavailable" };
     return b === source.binding && revision === source.revision && auth === source.authority
       ? { status: "current" }
       : { status: "source-changed" };
@@ -504,7 +504,7 @@ for (const step of schedule.steps)
       },
       sourceGrants: step.noGrant
         ? new Map()
-        : new Map([[source.binding, scheduleGrantFor(source)]]),
+        : new Map([[source.binding, scheduleGrantFor(source, step.sourceUnavailable === true)]]),
       controlStore: store,
       diagnostic: (fault) => {
         throw fault;

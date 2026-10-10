@@ -67,6 +67,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
   four more hostile images, the unknown-snapshot-key priority pair, and retire and restore
   beside an expired unrelated binding. ERRATA E8 records the readings. Twenty-four of the
   thirty-three M3 cases are executed.
+- SPEC-16 M3 slice C3b: both fixture hosts gain three fault points on the current-source
+  check and a source-unavailable flag; the tower runner boots every stage from the step's own
+  fixture and runs six tower scenarios and thirteen fault schedules, adding the source races
+  around the final check, the rebuild after a source replacement, restore with an unavailable
+  provider, the equal-count replacement and the 64-root program. ERRATA E9 records the
+  readings. Twenty-eight of the thirty-three M3 cases are executed.
 
 ### Changed
 

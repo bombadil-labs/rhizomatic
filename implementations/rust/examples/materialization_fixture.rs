@@ -185,10 +185,15 @@ struct LifecycleHost<'a> {
     calls: Rc<RefCell<Vec<Value>>>,
     diagnostics: Rc<RefCell<Vec<String>>>,
 }
-/// The schedule grant: current exactly for the fixture's binding, revision and authority.
+/// The schedule grant: current exactly for the fixture's binding, revision and authority. It
+/// is unavailable when the fixture says so, and a race fault moves or revokes it at the named
+/// current check: the second check is the final one before CAS for a transition.
 struct LifecycleGrant {
     source: Value,
     calls: Rc<RefCell<Vec<Value>>>,
+    fault: Option<String>,
+    unavailable: bool,
+    checks: usize,
 }
 impl MaterializationSourceCapability for LifecycleGrant {
     fn capture(
@@ -221,6 +226,22 @@ impl MaterializationSourceCapability for LifecycleGrant {
             call["cutoff"] = json!(t);
         }
         self.calls.borrow_mut().push(call);
+        self.checks += 1;
+        if self.unavailable {
+            return Err(MaterializationSourceFailure::SourceUnavailable);
+        }
+        match (self.fault.as_deref(), self.checks) {
+            (Some("source-replaced-before-final-check"), n) if n >= 2 => {
+                return Err(MaterializationSourceFailure::SourceChanged)
+            }
+            (Some("authority-revoked-before-final-check"), n) if n >= 2 => {
+                return Err(MaterializationSourceFailure::Unauthorized)
+            }
+            (Some("source-replaced-after-final-check"), n) if n >= 3 => {
+                return Err(MaterializationSourceFailure::SourceChanged)
+            }
+            _ => {}
+        }
         if b == self.source["binding"]
             && r == self.source["revision"]
             && u == self.source["authority"]
@@ -377,6 +398,9 @@ fn run(v: &Value) -> Result<Value, String> {
                 Box::new(LifecycleGrant {
                     source: f["source"].clone(),
                     calls: calls.clone(),
+                    fault: fault.clone(),
+                    unavailable: f["sourceUnavailable"] == true,
+                    checks: 0,
                 }),
             );
         }

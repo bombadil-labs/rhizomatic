@@ -64,7 +64,10 @@ type FaultKind =
   | "rejected"
   | "post-cas-result"
   | "sign-failure"
-  | "race";
+  | "race"
+  | "source-replaced-before-final-check"
+  | "authority-revoked-before-final-check"
+  | "source-replaced-after-final-check";
 const hex = (s: string) => Uint8Array.from(s.match(/../g) ?? [], (x) => parseInt(x, 16));
 class FileControlStore implements MaterializationControlStore {
   constructor(
@@ -141,6 +144,10 @@ const lifecycleHost = (
 ) => {
   const calls: unknown[] = [];
   const diagnostics: string[] = [];
+  // The fixture source is current exactly for the fixture's binding, revision and authority.
+  // It is unavailable when the fixture says so, and a race fault moves or revokes it at the
+  // named current check: the second check is the final one before CAS for a transition.
+  let checks = 0;
   const grant: MaterializationSourceCapability = {
     async capture() {
       throw Error("the fixture source never recaptures");
@@ -150,6 +157,14 @@ const lifecycleHost = (
     },
     async checkCurrent(binding, revision, authority, at, cutoff, support) {
       calls.push({ binding, revision, authority, at, cutoff, support: [...support] });
+      checks += 1;
+      if (f.sourceUnavailable) return { status: "source-unavailable" };
+      if (fault === "source-replaced-before-final-check" && checks >= 2)
+        return { status: "source-changed" };
+      if (fault === "authority-revoked-before-final-check" && checks >= 2)
+        return { status: "unauthorized" };
+      if (fault === "source-replaced-after-final-check" && checks >= 3)
+        return { status: "source-changed" };
       return binding === f.source.binding &&
         revision === f.source.revision &&
         authority === f.source.authority
