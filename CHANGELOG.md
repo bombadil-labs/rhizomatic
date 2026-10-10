@@ -6,6 +6,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 
 ## Unreleased
 
+### Fixed
+
+- Materialization gather in TypeScript returns a signed `resource-limit` refusal when a produced
+  definition appearance exceeds `artifactBytes`; it previously threw with no outcome while Rust
+  refused. Pinned by the shared `definition_appearance_bytes_over` vector.
+- Both witnesses check the complete Basis field grammar at stage 4, before any stage-7 definition
+  category (SPEC-16 ERRATA E1). A Basis with an empty closure and a malformed pin now refuses
+  `invalid-evidence` in both; TypeScript previously answered `definition-closure`.
+
 ### Changed
 
 - Batch gather and contextual readback validate capture metadata from one freshly decoded source
