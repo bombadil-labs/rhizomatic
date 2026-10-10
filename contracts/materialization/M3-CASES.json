@@ -278,7 +278,7 @@
     },
     {
       "id": "ctl_validity_advance",
-      "state": "partial",
+      "state": "executed",
       "vector_assertions": [
         {
           "corpus": "lifecycle",
@@ -299,13 +299,93 @@
           "corpus": "lifecycle",
           "group": "readback",
           "id": "advance_time_regression"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "validity_install_at_99"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "validity_install_at_99"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "validity_advance_100"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "validity_advance_100"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "validity_advance_199"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "validity_advance_199"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "validity_advance_200"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "validity_advance_200"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "validity_advance_2100"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "validity_advance_2100"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "validity_regression_150"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "validity_regression_150"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "read_expired_descriptor"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "read_expired_descriptor"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "advance_expired_descriptor"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "advance_expired_descriptor"
         }
       ],
       "native_evidence": [
         "install, read, advance, replace, retire and restore agree with the batch oracle",
         "install_read_advance_replace_retire_and_restore_agree_with_the_batch_oracle"
       ],
-      "remaining": "The validity boundaries 100/199/200/2100 and the expired-descriptor read need an M3c schedule over the plant source.",
+      "remaining": "",
       "tower_evidence": []
     },
     {
@@ -952,7 +1032,7 @@
     },
     {
       "id": "ctl_control_strict",
-      "state": "partial",
+      "state": "executed",
       "vector_assertions": [
         {
           "corpus": "control-image",
@@ -1128,10 +1208,70 @@
           "corpus": "lifecycle",
           "group": "readback",
           "id": "restore_capture_wrong_appearance"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "restore_unreachable_support"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "restore_unreachable_support"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "restore_retired_with_old_support"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "restore_retired_with_old_support"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "restore_retired_changed_scalars"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "restore_retired_changed_scalars"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "restore_malformed_authority_interval"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "restore_malformed_authority_interval"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "read_snapshot_unknown_key_wrong_control"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "read_snapshot_unknown_key_wrong_control"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "read_snapshot_unknown_key"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "read_snapshot_unknown_key"
         }
       ],
       "native_evidence": [],
-      "remaining": "Unreachable support, retired scalar changes under an unchanged terminal transition and the malformed authority interval need M3c3 hostile images; a signed image whose entry names a revision its capture does not commit to, pins the retained hyperschema does not carry, or selects a capture with a truncated, inconsistent or misdated basis now refuses invalid-control.",
+      "remaining": "",
       "tower_evidence": []
     },
     {
@@ -1244,7 +1384,7 @@
     },
     {
       "id": "ctl_shared_basis_limits",
-      "state": "partial",
+      "state": "executed",
       "vector_assertions": [
         {
           "corpus": "lifecycle",
@@ -1285,10 +1425,90 @@
           "corpus": "lifecycle",
           "group": "readback",
           "id": "install_private_use_roots"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "limits_install_two_roots"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "limits_install_two_roots"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "limits_read_two_roots"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "limits_read_two_roots"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "limits_install_64_roots"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "limits_install_64_roots"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "limits_read_64_roots"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "limits_read_64_roots"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "limits_install_64_roots_over_body_bytes"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "limits_install_64_roots_over_body_bytes"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "limits_replace_64_roots_over_body_bytes"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "limits_replace_64_roots_over_body_bytes"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "limits_advance_64_roots_over_body_bytes"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "limits_advance_64_roots_over_body_bytes"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "limits_install_fat_descriptor_over_image_bytes"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "limits_install_fat_descriptor_over_image_bytes"
         }
       ],
       "native_evidence": [],
-      "remaining": "The roots limit is pinned at install and in readback; the 64-root descriptor's one shared Basis and the aggregate byte limit need M3c3 vectors.",
+      "remaining": "",
       "tower_evidence": []
     },
     {
@@ -1476,10 +1696,31 @@
     },
     {
       "id": "cmd_error_priority::retire-restore-unrelated-binding",
-      "state": "specified",
-      "vector_assertions": [],
+      "state": "executed",
+      "vector_assertions": [
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "retire_unrelated_expired_binding"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "retire_unrelated_expired_binding"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "restore_unrelated_expired_binding"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "restore_unrelated_expired_binding"
+        }
+      ],
       "native_evidence": [],
-      "remaining": "Retire and restore under a configuration without the registration's binding need an M3c schedule.",
+      "remaining": "",
       "tower_evidence": []
     },
     {
