@@ -4604,6 +4604,73 @@ writeFileSync(
     [cFake, 1],
     refusal("invalid-control"),
   );
+  // ---- Review round 2: shared counterexamples for the findings on 1c81d7f.
+  // A signed image whose descriptor and entry agree on a hyperschema pin the retained
+  // definition does not carry (MR-17: pins hold against the acts at definition-at): restore
+  // refuses invalid-control.
+  const badPinDescriptor = rawDescriptor(
+    registrationFields([ent(root)], [p("Plant")]).map(
+      ([k, v]): readonly [string, Target | readonly Target[]] =>
+        k === "hyperschema-pin" ? [k, p(authorityRoot)] : [k, v],
+    ),
+  );
+  const fernBadPin: EntryFields = {
+    ...fern,
+    registration: badPinDescriptor,
+    hyperPin: authorityRoot,
+  };
+  const tBadPin = stateX(1, "", "", "install", fernBadPin);
+  const cBadPin = imageX(
+    1,
+    [{ ...fernBadPin, status: "active", transition: tBadPin.id }],
+    [badPinDescriptor, ...defs, s.capture, authority, tBadPin],
+  );
+  step(
+    "restore_bad_hyperschema_pin",
+    restoreQ(revisionOf(cBadPin, 1)),
+    [restoreQ(revisionOf(cBadPin, 1))],
+    [cBadPin, 1],
+    refusal("invalid-control"),
+  );
+  // A stored capture whose basis carries only the three commitment fields is not a complete
+  // MR-10 basis (MR-17): restore refuses invalid-control even though revision, binding and
+  // authority agree with the entry.
+  const truncatedCapture = description(
+    "capture/1",
+    [
+      ["source-binding", ref(binding.id)],
+      ["authority", ref(authority.id)],
+      [
+        "basis",
+        blob(
+          encode(
+            map([
+              ["format", tstr("rhizomatic.source-basis/1")],
+              ["binding", tstr(binding.id)],
+              ["authority", tstr(authority.id)],
+              ["revision", tstr(s.revision)],
+            ]),
+          ),
+        ),
+      ],
+    ],
+    seeds.capturer,
+    1000,
+  );
+  const fernTruncated: EntryFields = { ...fern, capture: truncatedCapture.id };
+  const tTruncated = stateX(1, "", "", "install", fernTruncated);
+  const cTruncated = imageX(
+    1,
+    [{ ...fernTruncated, status: "active", transition: tTruncated.id }],
+    [descriptor, ...defs, truncatedCapture, authority, tTruncated],
+  );
+  step(
+    "restore_truncated_capture_basis",
+    restoreQ(revisionOf(cTruncated, 1)),
+    [restoreQ(revisionOf(cTruncated, 1))],
+    [cTruncated, 1],
+    refusal("invalid-control"),
+  );
   void byId;
   writeFileSync(
     new URL("../../../vectors/materialization/lifecycle.json", import.meta.url),

@@ -31,6 +31,7 @@ import {
   MaterializationSourceError,
   type MaterializationSourceCapability,
   type MaterializationSourceSnapshot,
+  decodeMaterializationCaptureBasis,
 } from "../federation/materialization-source.js";
 import {
   decodeMaterializationControl,
@@ -67,7 +68,7 @@ import {
   type MaterializationInputCatalog,
   type MaterializationPreparedInput,
 } from "./materialization-input.js";
-import { mFail, mLimit, MaterializationInputError, mCanonical } from "./materialization-values.js";
+import { mFail, mLimit, MaterializationInputError } from "./materialization-values.js";
 
 export type MaterializationLifecycleVerb = Exclude<MaterializationVerb, "gather" | "resolve">;
 export const isLifecycleVerb = (v: MaterializationVerb): v is MaterializationLifecycleVerb =>
@@ -153,23 +154,14 @@ const controlLimits = (l: MaterializationLimits): MaterializationControlLimits =
   definitions: l.definitions,
 });
 const invalidControl = (): never => mFail("invalid-control");
-/** The source commitments a capture basis carries (MR-10); the bytes are canonical CBOR. */
+/** The commitments of a stored capture (MR-10), read from its complete basis. */
 function captureCommitments(basis: Uint8Array, limits: MaterializationLimits) {
-  let decoded: CborValue;
   try {
-    decoded = mCanonical(basis, limits.artifactBytes, "invalid-control");
+    return decodeMaterializationCaptureBasis(basis, limits);
   } catch (e) {
-    if (e instanceof MaterializationInputError && e.code === "resource-limit") throw e;
+    if (e instanceof MaterializationSourceError && e.code === "resource-limit") mFail(e.code);
     return invalidControl();
   }
-  if (decoded.t !== "map") return invalidControl();
-  const fs = new Map(decoded.v);
-  const text = (k: string) => {
-    const v = fs.get(k);
-    return v?.t === "tstr" ? v.v : invalidControl();
-  };
-  if (text("format") !== "rhizomatic.source-basis/1") invalidControl();
-  return { revision: text("revision"), binding: text("binding"), authority: text("authority") };
 }
 
 /** Stage 5: read, decode and classify the complete image; every reachable support is exact. */
@@ -297,6 +289,14 @@ export function classifyMaterializationControl(
       commitments.authority !== entry.authority
     )
       return invalidControl();
+    // MR-17: the pins and exact closure hold against the retained acts at definition-at; an
+    // expired descriptor is not corruption, so validity at the current time is not checked here.
+    try {
+      programOf(limits, descriptor, definitions);
+    } catch (e) {
+      if (e instanceof MaterializationInputError && e.code === "resource-limit") throw e;
+      return invalidControl();
+    }
     support.set(cap.key, image.deltas.get(cap.key)!);
     support.set(auth.key, image.deltas.get(auth.key)!);
     reachable.add(cap.key);
@@ -417,9 +417,17 @@ function checkProgram(
   receivedAt: number,
 ): Program {
   if (!materializationValidAt(descriptor.delta, receivedAt)) mFail("invalid-definition");
+  return programOf(c.limits, descriptor, deltas);
+}
+/** The exact program a descriptor selects: closure, pins and bindings at its definition-at. */
+function programOf(
+  limits: MaterializationLimits,
+  descriptor: Descriptor,
+  deltas: readonly Delta[],
+): Program {
   let definitions;
   try {
-    definitions = readMaterializationDefinitions(deltas, descriptor.definitionAt, c.limits);
+    definitions = readMaterializationDefinitions(deltas, descriptor.definitionAt, limits);
   } catch (e) {
     return mFail(
       e instanceof Error && e.message === "resource-limit"

@@ -51,6 +51,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
   and in readback, restore checks each stored capture's commitments, expected-source compares
   after the other stage-6 checks, and readback links a mutating request to its transition and
   its serving time. Thirteen shared steps and hostile-context tests in both witnesses pin them.
+- Fixes from the second independent review of M3 (ERRATA E6): readback compares root partitions
+  element by element, restore validates the stored descriptor's pins and closure against the
+  retained acts, the stored capture basis is decoded as a complete MR-10 basis
+  (`decodeMaterializationCaptureBasis` / `decode_materialization_capture_basis`), and readback
+  links an install or replacement request to the capture the image selected. Two shared steps
+  and hostile-context tests in both witnesses pin them.
 
 ### Changed
 

@@ -28,12 +28,12 @@ use crate::materialization_peer::{
 };
 use crate::materialization_source::{
     decode_materialization_appearance, decode_materialization_authority_spec,
-    decode_materialization_binding_spec, decode_materialization_snapshot_evidence,
-    encode_materialization_appearance, MaterializationSourceCapability,
-    MaterializationSourceFailure, MaterializationSourceSnapshot,
+    decode_materialization_binding_spec, decode_materialization_capture_basis,
+    decode_materialization_snapshot_evidence, encode_materialization_appearance,
+    MaterializationSourceCapability, MaterializationSourceFailure, MaterializationSourceSnapshot,
 };
 use crate::materialization_values::{
-    cbor, envelope_limits, limit, map, require, s, source_limits, Result,
+    envelope_limits, limit, map, require, s, source_limits, Result,
 };
 use crate::resolution::{resolve_view, view_canonical_hex};
 use crate::resolve_evidence::{encode_hview_envelope, hview_canonical_hex};
@@ -151,26 +151,19 @@ fn control_limits(l: &MaterializationLimits) -> MaterializationControlLimits {
     }
 }
 const INVALID_CONTROL: &str = "invalid-control";
-/// The source commitments a capture basis carries (MR-10); the bytes are canonical CBOR.
+/// The commitments of a stored capture (MR-10), read from its complete basis.
 fn capture_commitments(
     basis: &[u8],
     limits: &MaterializationLimits,
 ) -> Result<(String, String, String)> {
-    let decoded = cbor(basis, limits["artifactBytes"], INVALID_CONTROL)?;
-    let CborValue::Map(fs) = &decoded else {
-        return Err(INVALID_CONTROL.into());
-    };
-    let text = |k: &str| -> Result<String> {
-        match fs.iter().find(|(key, _)| key == k) {
-            Some((_, CborValue::Tstr(s))) => Ok(s.clone()),
-            _ => Err(INVALID_CONTROL.into()),
+    let b = decode_materialization_capture_basis(basis, source_limits(limits)).map_err(|e| {
+        if e.to_string() == "resource-limit" {
+            "resource-limit".to_string()
+        } else {
+            INVALID_CONTROL.to_string()
         }
-    };
-    require(
-        text("format")? == "rhizomatic.source-basis/1",
-        INVALID_CONTROL,
-    )?;
-    Ok((text("revision")?, text("binding")?, text("authority")?))
+    })?;
+    Ok((b.revision, b.binding, b.authority))
 }
 
 struct Act {
@@ -325,6 +318,15 @@ pub(crate) fn classify_control(
                 && authority == entry.authority,
             INVALID_CONTROL,
         )?;
+        // MR-17: the pins and exact closure hold against the retained acts at definition-at; an
+        // expired descriptor is not corruption, so validity at the current time is not checked.
+        program_of(limits, &descriptor, definitions.clone()).map_err(|e| {
+            if e == "resource-limit" {
+                e
+            } else {
+                INVALID_CONTROL.to_string()
+            }
+        })?;
         support.insert(cap.key.clone(), image.deltas[&cap.key].clone());
         support.insert(auth.key.clone(), image.deltas[&auth.key].clone());
         reachable.insert(cap.key.clone());
@@ -499,6 +501,14 @@ fn check_program(
         valid_at(&descriptor.delta, received_at),
         "invalid-definition",
     )?;
+    program_of(&c.limits, descriptor, deltas)
+}
+/// The exact program a descriptor selects: closure, pins and bindings at its definition-at.
+fn program_of(
+    limits: &MaterializationLimits,
+    descriptor: &Descriptor,
+    deltas: Vec<Delta>,
+) -> Result<BasisProgram> {
     let bindings = crate::command_data::read_bindings(&descriptor.bindings)
         .map_err(|_| "invalid-definition")?;
     definitions_program(
@@ -512,7 +522,7 @@ fn check_program(
             bindings,
             embedded: false,
         },
-        &c.limits,
+        limits,
     )
 }
 /// Stage 8: one root's complete envelope and View (MR-19 RootResult).

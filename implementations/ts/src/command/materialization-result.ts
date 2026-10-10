@@ -335,6 +335,9 @@ function verifySourceCommitments(
   validateMaterializationBasis(basis, limits, snapshot);
   return snapshot;
 }
+/** Every descriptor root exactly once and no extras, compared element by element. */
+const sameRoots = (expected: readonly string[], actual: readonly string[]) =>
+  expected.length === actual.length && expected.every((root, i) => root === actual[i]);
 /** One MR-19 RootResult: strict envelope, recomputed digests, decoded View. */
 function readRootResult(v: CborValue, limits: MaterializationLimits): [string, View] {
   const fs = mFields(v, ["root", "envelope", "transport", "hview", "value", "view"]);
@@ -489,6 +492,10 @@ function readMaintainedResult(
       const e = stored.entry;
       if (transition !== undefined && stored.transition.id !== transition) mFail();
       if ((e.status === "retired") !== (kind === "retire")) mFail();
+      if ((kind === "install" || kind === "replace-source") && f) {
+        // The request's capture is the capture the image selected for this registration.
+        if (commandRef(f, "capture") !== e.capture) mFail();
+      }
       if (transition !== undefined && f) {
         // The selected transition must answer this request: same verb, and its prior control is
         // the control the request expected.
@@ -513,8 +520,7 @@ function readMaintainedResult(
           d.reading !== mId(b!.get("schema")) ||
           bytesToHex(d.bindings) !== bytesToHex(mBytes(b!.get("bindings"))) ||
           descriptorClosure(d).join() !== program!.deltas.map((x) => x.id).join() ||
-          [...d.roots].sort(compareMaterializationText).join("\u0000") !==
-            [...values.keys()].join("\u0000")
+          !sameRoots([...d.roots].sort(compareMaterializationText), [...values.keys()])
         )
           mFail();
       }

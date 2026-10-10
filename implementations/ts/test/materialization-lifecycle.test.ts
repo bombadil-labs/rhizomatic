@@ -737,4 +737,66 @@ it("hostile request contexts demote a linked readback", () => {
   expect(() =>
     readMaterializationResult(wrongServing.forged, context(wrongServing.request)),
   ).toThrow("invalid-evidence");
+  // Without a capture in the context, the request's capture must still be the capture the
+  // image selected for the registration.
+  const bare = (request: Delta) => ({
+    receiver: schedule.keys.receiver as string,
+    configuration: scheduleBoot.configuration.id,
+    request: request.id,
+    requestDelta: request,
+    receivedAt: 1000,
+    control,
+  });
+  expect(readMaterializationResult(outcome, bare(q)).classification).toBe("verified-context");
+  const wrongCapture = resigned({ capture: [ref(contentAddress(new Uint8Array([0x34])))] });
+  expect(() => readMaterializationResult(wrongCapture.forged, bare(wrongCapture.request))).toThrow(
+    "invalid-evidence",
+  );
+});
+
+// A body with one result whose root is the registered roots joined by NUL is not the complete
+// root partition; readback compares roots one by one.
+it("a single result joining the registered roots does not read as the partition", () => {
+  const step = schedule.steps.find((s: { id: string }) => s.id === "install_private_use_roots"),
+    q = parseCommandDelta(step.request),
+    body = decode(hex(step.expected.bodyHex)),
+    results = field(body, "results");
+  const first = results.t === "array" ? results.v[0] : undefined;
+  if (body.t !== "map" || results.t !== "array" || results.v.length < 2 || first?.t !== "map")
+    throw Error();
+  const joined = results.v.map((r) => text(field(r, "root"))).join("\0");
+  const one: CborValue = {
+    t: "map",
+    v: first.v.map(([k, x]): [string, CborValue] =>
+      k === "root" ? [k, { t: "tstr", v: joined }] : [k, x],
+    ),
+  };
+  const forgedBody: CborValue = {
+    t: "map",
+    v: body.v.map(([k, x]): [string, CborValue] =>
+      k === "results" ? [k, { t: "array", v: [one] }] : [k, x],
+    ),
+  };
+  const forged = signClaims(
+    materializationDescriptionClaims(schedule.keys.receiver, 1000, "outcome/1", {
+      receiver: [ent(schedule.keys.receiver)],
+      configuration: [ref(scheduleBoot.configuration.id)],
+      request: [ref(q.id)],
+      status: [p("completed")],
+      result: [blob(encode(forgedBody))],
+    }),
+    schedule.seeds.receiver,
+  );
+  const context = {
+    receiver: schedule.keys.receiver as string,
+    configuration: scheduleBoot.configuration.id,
+    request: q.id,
+    requestDelta: q,
+    receivedAt: 1000,
+    control: hex(step.expected.controlHex),
+  };
+  expect(
+    readMaterializationResult(parseCommandDelta(step.expected.outcome), context).classification,
+  ).toBe("verified-context");
+  expect(() => readMaterializationResult(forged, context)).toThrow("invalid-evidence");
 });

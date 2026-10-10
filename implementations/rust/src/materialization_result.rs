@@ -704,6 +704,16 @@ fn read_maintained_result(
                 (e.status == MaterializationControlStatus::Retired) == (kind == "retire"),
                 "invalid-evidence",
             )?;
+            if let (true, Some(f)) = (
+                kind == "install" || kind == "replace-source",
+                &request_fields,
+            ) {
+                // The request's capture is the capture the image selected for this registration.
+                require(
+                    Some(materialization_ref(f, "capture")?) == e.capture,
+                    "invalid-evidence",
+                )?;
+            }
             if let (Some(_), Some(f)) = (&transition, &request_fields) {
                 // The selected transition must answer this request: same verb, and its prior
                 // control is the control the request expected.

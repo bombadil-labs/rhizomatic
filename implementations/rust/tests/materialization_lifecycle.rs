@@ -1229,4 +1229,129 @@ fn hostile_request_contexts_are_refused() {
         read_materialization_result(&forged, &context(&request), &limits).unwrap_err(),
         "invalid-evidence"
     );
+    // Without a capture in the context, the request's capture must still be the capture the
+    // image selected for the registration.
+    let bare = |request: &Delta| MaterializationResultContext {
+        capture: None,
+        snapshot: None,
+        ..context(request)
+    };
+    assert_eq!(
+        read_materialization_result(&outcome, &bare(&q), &limits)
+            .unwrap()
+            .classification,
+        C::VerifiedContext
+    );
+    let (request, forged) = resign(("capture", vec![r(&content_address(&[0x34]))]));
+    assert_eq!(
+        read_materialization_result(&forged, &bare(&request), &limits).unwrap_err(),
+        "invalid-evidence"
+    );
+}
+
+// A body with one result whose root is the registered roots joined by NUL is not the complete
+// root partition; readback compares roots one by one.
+#[test]
+fn a_single_result_joining_the_registered_roots_is_refused() {
+    use rhizomatic::{
+        read_materialization_result, MaterializationResultClassification as C,
+        MaterializationResultContext,
+    };
+    const SCHEDULE: &[u8] = include_bytes!("../../../vectors/materialization/lifecycle.json");
+    let v: Value = serde_json::from_slice(SCHEDULE).unwrap();
+    let configuration = parse_command_delta(&v["boot"]["configuration"]).unwrap();
+    let limits = read_materialization_limits(
+        &materialization_bytes(
+            &read_materialization_description(&configuration, None).unwrap(),
+            "limits",
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    let receiver = v["keys"]["receiver"].as_str().unwrap().to_string();
+    let step = v["steps"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|s| s["id"] == "install_private_use_roots")
+        .unwrap();
+    let q = parse_command_delta(&step["request"]).unwrap();
+    let body =
+        decode(&hex::decode(step["expected"]["bodyHex"].as_str().unwrap()).unwrap()).unwrap();
+    let CborValue::Array(results) = field(&body, "results") else {
+        panic!("results")
+    };
+    assert!(results.len() >= 2);
+    let joined = results
+        .iter()
+        .map(|r| text(field(r, "root")).to_string())
+        .collect::<Vec<_>>()
+        .join("\0");
+    let CborValue::Map(first) = &results[0] else {
+        panic!("result")
+    };
+    let one = CborValue::Map(
+        first
+            .iter()
+            .map(|(k, x)| {
+                if k == "root" {
+                    (k.clone(), CborValue::Tstr(joined.clone()))
+                } else {
+                    (k.clone(), x.clone())
+                }
+            })
+            .collect(),
+    );
+    let CborValue::Map(fields) = &body else {
+        panic!("body")
+    };
+    let forged_body = CborValue::Map(
+        fields
+            .iter()
+            .map(|(k, x)| {
+                if k == "results" {
+                    (k.clone(), CborValue::Array(vec![one.clone()]))
+                } else {
+                    (k.clone(), x.clone())
+                }
+            })
+            .collect(),
+    );
+    let forged = sign(
+        v["seeds"]["receiver"].as_str().unwrap(),
+        1000.0,
+        "outcome/1",
+        MaterializationFields::from([
+            ("receiver".into(), ent(&receiver)),
+            ("configuration".into(), vec![r(&configuration.id)]),
+            ("request".into(), vec![r(&q.id)]),
+            ("status".into(), p("completed")),
+            ("result".into(), blob(encode(&forged_body))),
+        ]),
+    );
+    let context = MaterializationResultContext {
+        receiver: receiver.clone(),
+        configuration: configuration.id.clone(),
+        request: q.id.clone(),
+        request_delta: Some(q.clone()),
+        evidence: None,
+        binding: None,
+        revision: None,
+        authority: None,
+        capture: None,
+        snapshot: None,
+        received_at: Some(1000.0),
+        control: Some(hex::decode(step["expected"]["controlHex"].as_str().unwrap()).unwrap()),
+    };
+    let outcome = parse_command_delta(&step["expected"]["outcome"]).unwrap();
+    assert_eq!(
+        read_materialization_result(&outcome, &context, &limits)
+            .unwrap()
+            .classification,
+        C::VerifiedContext
+    );
+    assert_eq!(
+        read_materialization_result(&forged, &context, &limits).unwrap_err(),
+        "invalid-evidence"
+    );
 }

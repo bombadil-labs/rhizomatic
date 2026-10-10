@@ -113,3 +113,30 @@ shared vector that pins it in `vectors/materialization/lifecycle.json`.
   request's serving-at must equal the outcome time. Pinned by the hostile-context tests in both
   witnesses.
 
+## E6 — Decisions from the second independent review of M3 (PR #65)
+
+Decided 2026-10-10 after the review of 1c81d7f. Each item names the text it reads and the
+shared vector or witness test that pins it.
+
+- **Root partitions compare element by element.** MR-19 requires the results to cover the
+  registered roots exactly. A text join of the roots is not injective: a single result whose
+  root is the registered roots joined by NUL reads as the partition under a joined compare.
+  Both witnesses compare the sorted roots one by one; the joined result refuses
+  `invalid-evidence`. Pinned by the single-result tests in both witnesses over
+  `install_private_use_roots`.
+- **Restore validates the stored program against the retained acts.** MR-17 requires the
+  descriptor's pins and exact closure to hold against the retained definition acts at the
+  descriptor's definition-at. The stage-5 reader runs the same program check install runs,
+  from the retained acts; a signed image whose descriptor and entry agree on a pin the retained
+  hyperschema does not carry is `invalid-control` (`restore_bad_hyperschema_pin`). Validity of
+  an expired descriptor is not checked at stage 5; expiry is not corruption.
+- **The stored capture basis is a complete MR-10 basis.** MR-17 says the capture commits to the
+  entry's source revision and binding. A basis that carries only the three commitment fields
+  states no such commitment, because the revision is a hash over the full basis. The stage-5
+  reader decodes the complete basis with the batch grammar and recomputes the revision; a
+  truncated basis is `invalid-control` (`restore_truncated_capture_basis`).
+- **Readback links an install or replacement request to the selected capture.** MR-20 requires
+  request agreement. With the control image and no capture in the context, the request's
+  capture must equal the capture the image selected for the registration; a request that names
+  another capture refuses `invalid-evidence`. Pinned by the hostile-context tests in both
+  witnesses.
