@@ -191,6 +191,20 @@ const setKey = (t: Target): string =>
       : t.kind === "entity" && t.entity.context === undefined
         ? t.entity.id
         : fail();
+/**
+ * Bytewise order of the UTF-8 encodings (MR-04/MR-13), which is code point order; JavaScript's
+ * default string order compares UTF-16 code units and disagrees above U+FFFF.
+ */
+export function compareMaterializationText(a: string, b: string): number {
+  const xs = [...a],
+    ys = [...b];
+  for (let i = 0; i < xs.length && i < ys.length; i++) {
+    const d = xs[i]!.codePointAt(0)! - ys[i]!.codePointAt(0)!;
+    if (d !== 0) return d;
+  }
+  return xs.length - ys.length;
+}
+const bySetKey = (a: Target, b: Target) => compareMaterializationText(setKey(a), setKey(b));
 const isN = (n: number): boolean => Number.isSafeInteger(n) && n >= 0;
 const fail = (): never => {
   throw new Error("invalid materialization description");
@@ -250,10 +264,7 @@ export function materializationFields(delta: Delta): CommandFields {
     (fields[k] ??= []).push(p.target);
   }
   for (const k of SETS)
-    if (fields[k] && fields[k].length > 1)
-      fields[k] = [...fields[k]].sort((a, b) =>
-        setKey(a) < setKey(b) ? -1 : setKey(a) > setKey(b) ? 1 : 0,
-      );
+    if (fields[k] && fields[k].length > 1) fields[k] = [...fields[k]].sort(bySetKey);
   return fields;
 }
 /** Without verb, request reading validates only common fields (MR-21 stage 2). */
@@ -363,10 +374,18 @@ export function readMaterializationDescription(
       if (ids.includes(id)) fail();
       ids.push(id);
     }
-    const roots = (f.roots ?? []).map(setKey);
-    if (!roots.length || roots.some((r, i) => !r || (i > 0 && roots[i - 1]! >= r))) fail();
-    const aliases = (f.alias ?? []).map(setKey);
-    if (aliases.some((a, i) => !a || (i > 0 && aliases[i - 1]! >= a))) fail();
+    // MR-13: roots are distinct nonempty entities and aliases distinct nonempty texts, each
+    // sorted bytewise; a text root or an entity alias is not a registration descriptor.
+    const roots = (f.roots ?? []).map((t) =>
+      t.kind === "entity" && t.entity.context === undefined ? t.entity.id : fail(),
+    );
+    const strictlyAscending = (xs: string[]) =>
+      xs.every((x, i) => x && (i === 0 || compareMaterializationText(xs[i - 1]!, x) < 0));
+    if (!roots.length || !strictlyAscending(roots)) fail();
+    const aliases = (f.alias ?? []).map((t) =>
+      t.kind === "primitive" && typeof t.value === "string" ? t.value : fail(),
+    );
+    if (!strictlyAscending(aliases)) fail();
     decodeBindings(commandBytes(f, "bindings"));
     commandNumber(f, "definition-at");
     if (
@@ -421,10 +440,7 @@ export function materializationDescriptionClaims(
   if (Object.keys(f).some((k) => !ORDER[kind].includes(k))) fail();
   const pointers = ORDER[kind].flatMap((k) => {
     let targets = f[k] ?? [];
-    if (SETS.includes(k))
-      targets = [...targets].sort((a, b) =>
-        setKey(a) < setKey(b) ? -1 : setKey(a) > setKey(b) ? 1 : 0,
-      );
+    if (SETS.includes(k)) targets = [...targets].sort(bySetKey);
     return targets.map((target) => ({ role: MATERIALIZATION_PREFIX + k, target }));
   });
   const claims = { author, timestamp: at, validFrom: at, pointers };

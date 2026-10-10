@@ -67,7 +67,7 @@ import {
   type MaterializationInputCatalog,
   type MaterializationPreparedInput,
 } from "./materialization-input.js";
-import { mFail, mLimit, MaterializationInputError } from "./materialization-values.js";
+import { mFail, mLimit, MaterializationInputError, mCanonical } from "./materialization-values.js";
 
 export type MaterializationLifecycleVerb = Exclude<MaterializationVerb, "gather" | "resolve">;
 export const isLifecycleVerb = (v: MaterializationVerb): v is MaterializationLifecycleVerb =>
@@ -153,6 +153,24 @@ const controlLimits = (l: MaterializationLimits): MaterializationControlLimits =
   definitions: l.definitions,
 });
 const invalidControl = (): never => mFail("invalid-control");
+/** The source commitments a capture basis carries (MR-10); the bytes are canonical CBOR. */
+function captureCommitments(basis: Uint8Array, limits: MaterializationLimits) {
+  let decoded: CborValue;
+  try {
+    decoded = mCanonical(basis, limits.artifactBytes, "invalid-control");
+  } catch (e) {
+    if (e instanceof MaterializationInputError && e.code === "resource-limit") throw e;
+    return invalidControl();
+  }
+  if (decoded.t !== "map") return invalidControl();
+  const fs = new Map(decoded.v);
+  const text = (k: string) => {
+    const v = fs.get(k);
+    return v?.t === "tstr" ? v.v : invalidControl();
+  };
+  if (text("format") !== "rhizomatic.source-basis/1") invalidControl();
+  return { revision: text("revision"), binding: text("binding"), authority: text("authority") };
+}
 
 /** Stage 5: read, decode and classify the complete image; every reachable support is exact. */
 async function readControl(host: MaterializationLifecycleHost): Promise<ControlState> {
@@ -253,6 +271,7 @@ export function classifyMaterializationControl(
       descriptor.definitionAt !== entry.definitionAt
     )
       return invalidControl();
+    if (descriptor.roots.length > limits.roots) mFail("resource-limit");
     support.set(d!.key, image.deltas.get(d!.key)!);
     reachable.add(d!.key);
     const definitions: Delta[] = [];
@@ -270,6 +289,14 @@ export function classifyMaterializationControl(
     if (!auth?.fields || commandText(auth.fields, "kind") !== "authority/1")
       return invalidControl();
     if (auth.delta.id !== entry.authority) return invalidControl();
+    // MR-17: the stored capture commits to the entry's source revision, binding and authority.
+    const commitments = captureCommitments(commandBytes(cap.fields, "basis"), limits);
+    if (
+      commitments.revision !== entry.sourceRevision ||
+      commitments.binding !== descriptor.binding ||
+      commitments.authority !== entry.authority
+    )
+      return invalidControl();
     support.set(cap.key, image.deltas.get(cap.key)!);
     support.set(auth.key, image.deltas.get(auth.key)!);
     reachable.add(cap.key);
@@ -579,9 +606,11 @@ export async function runMaterializationLifecycle(
   let basis: CborValue | undefined;
   let at = stored?.entry.at ?? 0;
   if (verb !== "retire") {
+    source = checkSource(host, p, descriptor, stored, receivedAt);
+    // MR-21 stage 6: expected-source compares after the grant, binding, capture, snapshot and
+    // authority checks and before the host's current check.
     if (verb !== "install" && commandText(f, "expected-source") !== stored!.entry.sourceRevision)
       mFail("precondition-failed");
-    source = checkSource(host, p, descriptor, stored, receivedAt);
     requiredSupport = [...descriptorClosure(descriptor), descriptor.delta.id].sort();
     const check = async () => {
       const result = await source!.grant.checkCurrent(

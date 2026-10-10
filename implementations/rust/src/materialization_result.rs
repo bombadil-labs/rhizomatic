@@ -584,7 +584,9 @@ fn read_maintained_result(
         b = Some(basis_fields(context, basis)?);
         source_commitments = verify_source_commitments(context, basis, limits)?;
         let mut roots = vec![];
-        for r in list(field(&fs, "results")?)? {
+        let rows = list(field(&fs, "results")?)?;
+        require(rows.len() <= limits["roots"], "resource-limit")?;
+        for r in rows {
             let (root, view) = read_root_result(r, limits)?;
             require(
                 values.insert(root.clone(), view).is_none(),
@@ -604,6 +606,7 @@ fn read_maintained_result(
         )?;
     }
     let mut request_linked = false;
+    let mut request_fields = None;
     if let Some(request) = &context.request_delta {
         let verb = MaterializationVerb::parse(kind).ok_or("invalid-evidence")?;
         let f = read_materialization_description(request, Some(verb))?;
@@ -622,7 +625,8 @@ fn read_maintained_result(
         if serving {
             let b = b.as_ref().unwrap();
             require(
-                number(field(b, "servingAt")?)? == outcome.claims.timestamp,
+                number(field(b, "servingAt")?)? == outcome.claims.timestamp
+                    && materialization_number(&f, "serving-at")? == outcome.claims.timestamp,
                 "invalid-evidence",
             )?;
             if kind == "install" || kind == "advance-time" {
@@ -651,6 +655,7 @@ fn read_maintained_result(
             }
         }
         request_linked = true;
+        request_fields = Some(f);
     }
     let mut control_linked = false;
     if let Some(image) = &context.control {
@@ -699,6 +704,17 @@ fn read_maintained_result(
                 (e.status == MaterializationControlStatus::Retired) == (kind == "retire"),
                 "invalid-evidence",
             )?;
+            if let (Some(_), Some(f)) = (&transition, &request_fields) {
+                // The selected transition must answer this request: same verb, and its prior
+                // control is the control the request expected.
+                let tf = read_materialization_description(&stored.transition, None)?;
+                require(
+                    materialization_text(&tf, "verb")? == kind
+                        && materialization_text(&tf, "prior-control")?
+                            == materialization_text(f, "expected-control")?,
+                    "invalid-evidence",
+                )?;
+            }
             if serving {
                 let d = stored.descriptor.as_ref().ok_or("invalid-evidence")?;
                 let b = b.as_ref().unwrap();

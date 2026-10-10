@@ -67,6 +67,16 @@
           "corpus": "lifecycle",
           "group": "readback",
           "id": "read_moss_unchanged"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "install_private_use_roots"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "install_private_use_roots"
         }
       ],
       "native_evidence": [
@@ -400,6 +410,26 @@
           "corpus": "lifecycle",
           "group": "readback",
           "id": "retire_missing"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "install_entity_alias"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "install_entity_alias"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "install_text_root"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "install_text_root"
         }
       ],
       "native_evidence": [],
@@ -1038,10 +1068,20 @@
           "corpus": "lifecycle",
           "group": "readback",
           "id": "corrupt_image"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "restore_inconsistent_capture"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "restore_inconsistent_capture"
         }
       ],
       "native_evidence": [],
-      "remaining": "Entry/transition disagreement, unreachable support, retired scalar changes under an unchanged terminal transition and the malformed authority interval need M3c hostile images.",
+      "remaining": "Unreachable support, retired scalar changes under an unchanged terminal transition and the malformed authority interval need M3c3 hostile images; a signed image whose entry names a revision its capture does not commit to now refuses invalid-control.",
       "tower_evidence": []
     },
     {
@@ -1165,10 +1205,40 @@
           "corpus": "lifecycle",
           "group": "readback",
           "id": "read_installed"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "install_65_roots"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "install_65_roots"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "install_two_roots_lowered_limit"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "install_two_roots_lowered_limit"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "install_private_use_roots"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "install_private_use_roots"
         }
       ],
       "native_evidence": [],
-      "remaining": "Readback already requires one Basis per body and the exact root-result fields; the 64-root descriptor and the aggregate byte limit need M3c vectors.",
+      "remaining": "The roots limit is pinned at install and in readback; the 64-root descriptor's one shared Basis and the aggregate byte limit need M3c3 vectors.",
       "tower_evidence": []
     },
     {
@@ -1375,6 +1445,26 @@
           "corpus": "lifecycle",
           "group": "readback",
           "id": "read_wrong_source"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "read_wrong_source_without_grant"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "read_wrong_source_without_grant"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "read_wrong_source_expired_authority"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "read_wrong_source_expired_authority"
         }
       ],
       "native_evidence": [],

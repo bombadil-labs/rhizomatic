@@ -219,12 +219,26 @@ pub(crate) fn prepare(
             && operation.is_none_or(|(d, _)| valid_at(d, received_at)),
         "configuration-mismatch",
     )?;
-    require(
-        c.fields.get("caller").into_iter().flatten().any(
+    let member = |role: &str| {
+        c.fields.get(role).into_iter().flatten().any(
             |t| matches!(t,Target::Primitive(Primitive::Str(key)) if *key==entry.claims.author),
-        ),
-        "unauthorized",
-    )?;
+        )
+    };
+    require(member("caller"), "unauthorized")?;
+    // MR-08: the five control verbs need an administrator; stage 3 refuses before any argument.
+    if let Some((_, verb)) = operation {
+        require(
+            !matches!(
+                verb,
+                MaterializationVerb::Install
+                    | MaterializationVerb::ReplaceSource
+                    | MaterializationVerb::AdvanceTime
+                    | MaterializationVerb::Retire
+                    | MaterializationVerb::Restore
+            ) || member("administrator"),
+            "unauthorized",
+        )?;
+    }
     let verb = operation.ok_or("unsupported-operation")?.1;
     let fields =
         read_materialization_description(&entry, Some(verb)).map_err(|_| "invalid-arguments")?;
@@ -288,6 +302,11 @@ pub(crate) fn prepare(
         require(
             materialization_text(&descriptor, "kind")? == "registration/1",
             "invalid-arguments",
+        )?;
+        // MR-04: the complete root partition is bounded here, before any root is evaluated.
+        limit(
+            descriptor.get("roots").map_or(0, |ts| ts.len()),
+            c.limits["roots"],
         )?;
         required_support = vec![
             materialization_ref(&descriptor, "hyperschema")?,

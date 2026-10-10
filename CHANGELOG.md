@@ -45,6 +45,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
   and a read after authority expiry. Steps may name a source, a receive time or no grant. Every
   step checks the image holds no snapshot payload. The towers add the two-writers race.
   Validity boundaries, source races, rotation, shared-basis limits and support erasure follow.
+- Fixes from the first independent review of M3 (ERRATA E5): roots and aliases are typed by
+  role, text sets and root results order by UTF-8 bytes in TypeScript, the five control verbs
+  require an administrator at stage 3, the roots limit binds at install, on stored descriptors
+  and in readback, restore checks each stored capture's commitments, expected-source compares
+  after the other stage-6 checks, and readback links a mutating request to its transition and
+  its serving time. Thirteen shared steps and hostile-context tests in both witnesses pin them.
 
 ### Changed
 

@@ -28988,39 +28988,6 @@
     {
       "form": "syn-resolved-path",
       "owner": "command-data",
-      "rawTarget": "crate::materialization_data::MaterializationFields",
-      "resolvedTarget": "crate::materialization_data::MaterializationFields",
-      "source": "implementations/rust/src/materialization_data.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "sorted_distinct_nonempty",
-      "target": "crate::materialization_data::MaterializationFields",
-      "targetOwner": "command-data"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "command-data",
-      "rawTarget": "crate::materialization_data::require",
-      "resolvedTarget": "crate::materialization_data::require",
-      "source": "implementations/rust/src/materialization_data.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "sorted_distinct_nonempty",
-      "target": "crate::materialization_data::require",
-      "targetOwner": "command-data"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "command-data",
-      "rawTarget": "crate::materialization_data::set_key",
-      "resolvedTarget": "crate::materialization_data::set_key",
-      "source": "implementations/rust/src/materialization_data.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "sorted_distinct_nonempty",
-      "target": "crate::materialization_data::set_key",
-      "targetOwner": "command-data"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "command-data",
       "rawTarget": "crate::cbor::CborValue",
       "resolvedTarget": "crate::cbor::CborValue",
       "source": "implementations/rust/src/materialization_data.rs",
@@ -29510,17 +29477,6 @@
     {
       "form": "syn-resolved-path",
       "owner": "command-data",
-      "rawTarget": "crate::materialization_data::sorted_distinct_nonempty",
-      "resolvedTarget": "crate::materialization_data::sorted_distinct_nonempty",
-      "source": "implementations/rust/src/materialization_data.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "read_materialization_description",
-      "target": "crate::materialization_data::sorted_distinct_nonempty",
-      "targetOwner": "command-data"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "command-data",
       "rawTarget": "crate::types::Delta",
       "resolvedTarget": "crate::types::Delta",
       "source": "implementations/rust/src/materialization_data.rs",
@@ -29538,6 +29494,28 @@
       "sourceRegion": "semantic-owner",
       "symbol": "read_materialization_description",
       "target": "crate::types::Primitive::Str",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "command-data",
+      "rawTarget": "crate::types::Target",
+      "resolvedTarget": "crate::types::Target",
+      "source": "implementations/rust/src/materialization_data.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_materialization_description",
+      "target": "crate::types::Target",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "command-data",
+      "rawTarget": "crate::types::Target::Entity",
+      "resolvedTarget": "crate::types::Target::Entity",
+      "source": "implementations/rust/src/materialization_data.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_materialization_description",
+      "target": "crate::types::Target::Entity",
       "targetOwner": "delta"
     },
     {
@@ -32656,6 +32634,17 @@
     {
       "form": "syn-import",
       "owner": "command",
+      "rawTarget": "crate::materialization_values::cbor",
+      "resolvedTarget": "crate::materialization_values::cbor",
+      "source": "implementations/rust/src/materialization_lifecycle.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::materialization_values::cbor",
+      "targetOwner": "command"
+    },
+    {
+      "form": "syn-import",
+      "owner": "command",
       "rawTarget": "crate::materialization_values::envelope_limits",
       "resolvedTarget": "crate::materialization_values::envelope_limits",
       "source": "implementations/rust/src/materialization_lifecycle.rs",
@@ -33270,6 +33259,94 @@
     {
       "form": "syn-resolved-path",
       "owner": "command",
+      "rawTarget": "crate::cbor::CborValue::Map",
+      "resolvedTarget": "crate::cbor::CborValue::Map",
+      "source": "implementations/rust/src/materialization_lifecycle.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "capture_commitments",
+      "target": "crate::cbor::CborValue::Map",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "command",
+      "rawTarget": "crate::cbor::CborValue::Tstr",
+      "resolvedTarget": "crate::cbor::CborValue::Tstr",
+      "source": "implementations/rust/src/materialization_lifecycle.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "capture_commitments",
+      "target": "crate::cbor::CborValue::Tstr",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "command",
+      "rawTarget": "crate::materialization_data::MaterializationLimits",
+      "resolvedTarget": "crate::materialization_data::MaterializationLimits",
+      "source": "implementations/rust/src/materialization_lifecycle.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "capture_commitments",
+      "target": "crate::materialization_data::MaterializationLimits",
+      "targetOwner": "command-data"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "command",
+      "rawTarget": "crate::materialization_lifecycle::INVALID_CONTROL",
+      "resolvedTarget": "crate::materialization_lifecycle::INVALID_CONTROL",
+      "source": "implementations/rust/src/materialization_lifecycle.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "capture_commitments",
+      "target": "crate::materialization_lifecycle::INVALID_CONTROL",
+      "targetOwner": "command"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "command",
+      "rawTarget": "crate::materialization_values::Result",
+      "resolvedTarget": "crate::materialization_values::Result",
+      "source": "implementations/rust/src/materialization_lifecycle.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "capture_commitments",
+      "target": "crate::materialization_values::Result",
+      "targetOwner": "command"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "command",
+      "rawTarget": "crate::materialization_values::cbor",
+      "resolvedTarget": "crate::materialization_values::cbor",
+      "source": "implementations/rust/src/materialization_lifecycle.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "capture_commitments",
+      "target": "crate::materialization_values::cbor",
+      "targetOwner": "command"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "command",
+      "rawTarget": "crate::materialization_values::require",
+      "resolvedTarget": "crate::materialization_values::require",
+      "source": "implementations/rust/src/materialization_lifecycle.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "capture_commitments",
+      "target": "crate::materialization_values::require",
+      "targetOwner": "command"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "command",
+      "rawTarget": "crate::materialization_values::s",
+      "resolvedTarget": "crate::materialization_values::s",
+      "source": "implementations/rust/src/materialization_lifecycle.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "capture_commitments",
+      "target": "crate::materialization_values::s",
+      "targetOwner": "command"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "command",
       "rawTarget": "crate::materialization_data::MaterializationFields",
       "resolvedTarget": "crate::materialization_data::MaterializationFields",
       "source": "implementations/rust/src/materialization_lifecycle.rs",
@@ -33380,6 +33457,17 @@
     {
       "form": "syn-resolved-path",
       "owner": "command",
+      "rawTarget": "crate::materialization_data::materialization_bytes",
+      "resolvedTarget": "crate::materialization_data::materialization_bytes",
+      "source": "implementations/rust/src/materialization_lifecycle.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "classify_control",
+      "target": "crate::materialization_data::materialization_bytes",
+      "targetOwner": "command-data"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "command",
       "rawTarget": "crate::materialization_data::materialization_number",
       "resolvedTarget": "crate::materialization_data::materialization_number",
       "source": "implementations/rust/src/materialization_lifecycle.rs",
@@ -33463,6 +33551,17 @@
       "sourceRegion": "semantic-owner",
       "symbol": "classify_control",
       "target": "crate::materialization_lifecycle::StoredEntry",
+      "targetOwner": "command"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "command",
+      "rawTarget": "crate::materialization_lifecycle::capture_commitments",
+      "resolvedTarget": "crate::materialization_lifecycle::capture_commitments",
+      "source": "implementations/rust/src/materialization_lifecycle.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "classify_control",
+      "target": "crate::materialization_lifecycle::capture_commitments",
       "targetOwner": "command"
     },
     {
@@ -33573,6 +33672,17 @@
       "sourceRegion": "semantic-owner",
       "symbol": "classify_control",
       "target": "crate::materialization_values::Result",
+      "targetOwner": "command"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "command",
+      "rawTarget": "crate::materialization_values::limit",
+      "resolvedTarget": "crate::materialization_values::limit",
+      "source": "implementations/rust/src/materialization_lifecycle.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "classify_control",
+      "target": "crate::materialization_values::limit",
       "targetOwner": "command"
     },
     {

@@ -2,6 +2,7 @@
 import { type CborValue, encode } from "../delta/cbor.js";
 import { bytesToHex } from "../delta/hash.js";
 import { canonicalCommandCbor } from "../command-data/codec.js";
+import { compareMaterializationText } from "../command-data/materialization-codec.js";
 export class MaterializationInputError extends Error {
   constructor(readonly code: string) {
     super(code);
@@ -48,7 +49,7 @@ export function mList(x: CborValue | undefined): readonly CborValue[] {
   return x?.t === "array" ? x.v : mFail();
 }
 export function mOrdered(xs: readonly string[]): void {
-  if (xs.some((x, i) => i > 0 && xs[i - 1]! >= x)) mFail();
+  if (xs.some((x, i) => i > 0 && compareMaterializationText(xs[i - 1]!, x) >= 0)) mFail();
 }
 export function mEqual(a: CborValue, b: CborValue): boolean {
   return bytesToHex(encode(a)) === bytesToHex(encode(b));

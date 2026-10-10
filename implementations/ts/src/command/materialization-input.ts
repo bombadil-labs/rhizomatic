@@ -44,6 +44,13 @@ export interface MaterializationInputBoot {
   readonly declarations: readonly Delta[];
   readonly bindings: readonly Delta[];
 }
+const ADMINISTRATOR_VERBS = new Set([
+  "install",
+  "replace-source",
+  "advance-time",
+  "retire",
+  "restore",
+]);
 export interface MaterializationInputCatalog {
   readonly configuration: Delta;
   readonly receiver: string;
@@ -212,9 +219,11 @@ export function prepareMaterializationInput(
     (operation && !materializationValidAt(operation.delta, receivedAt))
   )
     mFail("configuration-mismatch");
-  if (
-    !(c.fields.caller ?? []).some((t) => t.kind === "primitive" && t.value === entry.claims.author)
-  )
+  const member = (role: string) =>
+    (c.fields[role] ?? []).some((t) => t.kind === "primitive" && t.value === entry.claims.author);
+  if (!member("caller")) mFail("unauthorized");
+  // MR-08: the five control verbs need an administrator; stage 3 refuses before any argument.
+  if (operation && ADMINISTRATOR_VERBS.has(operation.verb) && !member("administrator"))
     mFail("unauthorized");
   if (!operation) return mFail("unsupported-operation");
   let fields: CommandFields;
@@ -263,6 +272,8 @@ export function prepareMaterializationInput(
     } catch {
       return mFail("invalid-arguments");
     }
+    // MR-04: the complete root partition is bounded here, before any root is evaluated.
+    if ((descriptor.roots ?? []).length > c.limits.roots) mFail("resource-limit");
     requiredSupport = [
       commandRef(descriptor, "hyperschema"),
       commandRef(descriptor, "schema"),

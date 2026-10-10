@@ -328,16 +328,6 @@ fn set_key(t: &Target) -> Result<String, String> {
         _ => Err(ERROR.into()),
     }
 }
-fn sorted_distinct_nonempty(f: &MaterializationFields, k: &str) -> Result<Vec<String>, String> {
-    let keys = f
-        .get(k)
-        .into_iter()
-        .flatten()
-        .map(set_key)
-        .collect::<Result<Vec<_>, _>>()?;
-    require(keys.iter().all(|s| !s.is_empty()) && keys.windows(2).all(|w| w[0] < w[1]))?;
-    Ok(keys)
-}
 fn is_n(n: f64) -> bool {
     n.is_finite() && n >= 0.0 && n.fract() == 0.0 && n <= 9007199254740991.0
 }
@@ -545,8 +535,29 @@ pub fn read_materialization_description(
             let single = BTreeMap::from([("x".into(), vec![t.clone()])]);
             require(ids.insert(materialization_ref(&single, "x")?))?;
         }
-        require(!sorted_distinct_nonempty(&f, "roots")?.is_empty())?;
-        sorted_distinct_nonempty(&f, "alias")?;
+        // MR-13: roots are distinct nonempty entities and aliases distinct nonempty texts, each
+        // sorted bytewise; a text root or an entity alias is not a registration descriptor.
+        let typed = |k: &str, pick: fn(&Target) -> Option<String>| -> Result<Vec<String>, String> {
+            let keys = f
+                .get(k)
+                .into_iter()
+                .flatten()
+                .map(|t| pick(t).ok_or_else(|| ERROR.to_string()))
+                .collect::<Result<Vec<_>, _>>()?;
+            require(keys.iter().all(|s| !s.is_empty()) && keys.windows(2).all(|w| w[0] < w[1]))?;
+            Ok(keys)
+        };
+        require(
+            !typed("roots", |t| match t {
+                Target::Entity(e) if e.context.is_none() => Some(e.id.clone()),
+                _ => None,
+            })?
+            .is_empty(),
+        )?;
+        typed("alias", |t| match t {
+            Target::Primitive(Primitive::Str(s)) => Some(s.clone()),
+            _ => None,
+        })?;
         read_bindings(&materialization_bytes(&f, "bindings")?)?;
         materialization_number(&f, "definition-at")?;
         require(

@@ -28,7 +28,7 @@ const verbs=new Map(schedule.boot.declarations.map(d=>[d.id,d.claims.pointers.fi
 const fixture={boot:schedule.boot,seeds:schedule.seeds,keys:schedule.keys,source:schedule.source};
 const stepOf=id=>{const s=schedule.steps.find(s=>s.id===id);assert.ok(s,id);return {...s,verb:verbs.get(s.request.claims.pointers.find(p=>p.role===role+'operation').target.delta)};};
 // A step may name its own source, receive time or no grant; the hosts read those from the fixture.
-const fixtureFor=step=>({...fixture,source:step.source??schedule.source,...(step.receivedAt?{receivedAt:step.receivedAt}:{}),...(step.noGrant?{noGrant:true}:{})});
+const fixtureFor=step=>({...fixture,boot:step.bootOverride??schedule.boot,source:step.source??schedule.source,...(step.receivedAt?{receivedAt:step.receivedAt}:{}),...(step.noGrant?{noGrant:true}:{})});
 const kindOf=d=>d.claims.pointers.find(p=>p.role===role+'kind')?.target;
 const delivered=(step,kind)=>step.delivery.find(d=>kindOf(d)===kind);
 const install=stepOf('install');

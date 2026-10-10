@@ -37,6 +37,7 @@ import {
 import { MaterializationEndpoint } from "../src/command/materialization-endpoint.js";
 import { initializeMaterializationControl } from "../src/command/materialization-lifecycle.js";
 import { readMaterializationResult } from "../src/command/materialization-result.js";
+import { preflightMaterializationInput } from "../src/command/materialization-preflight.js";
 
 const fixture = JSON.parse(
   readFileSync(new URL("../../../vectors/materialization/commands.json", import.meta.url), "utf8"),
@@ -481,14 +482,22 @@ for (const step of schedule.steps)
   it(`shared lifecycle step ${step.id}`, async () => {
     const before = expect.getState().assertionCalls;
     const store = new MemoryStore();
-    const key = schedule.keys.receiver + "/" + scheduleBoot.configuration.id;
+    // A step may boot another configuration of the same receiver (limits, administrators).
+    const boot = step.bootOverride
+      ? {
+          configuration: parseCommandDelta(step.bootOverride.configuration),
+          declarations: step.bootOverride.declarations.map(parseCommandDelta),
+          bindings: step.bootOverride.bindings.map(parseCommandDelta),
+        }
+      : scheduleBoot;
+    const key = schedule.keys.receiver + "/" + boot.configuration.id;
     store.images.set(key, {
       bytes: hex(step.initialControl.hex),
       revision: step.initialControlRevision ?? step.initialControl.revision,
     });
     const source = step.source ?? schedule.source;
     const endpoint = MaterializationEndpoint.boot({
-      ...scheduleBoot,
+      ...boot,
       signer: {
         author: schedule.keys.receiver,
         sign: (c) => signClaims(c, schedule.seeds.receiver),
@@ -504,6 +513,9 @@ for (const step of schedule.steps)
     const q = parseCommandDelta(step.request);
     const outcome = await endpoint.invoke(q.id, step.delivery, step.receivedAt ?? 1000);
     expect(serializeCommandDelta(outcome)).toEqual(step.expected.outcome);
+    expect(
+      preflightMaterializationInput(boot, q.id, step.delivery, step.receivedAt ?? 1000),
+    ).toEqual(step.expected.preflight);
     const f = readMaterializationDescription(outcome);
     expect(commandText(f, "status")).toBe(step.expected.status);
     expect(bytesToHex(commandBytes(f, "result"))).toBe(step.expected.bodyHex);
@@ -546,7 +558,10 @@ for (const step of schedule.steps)
     const q = parseCommandDelta(step.request);
     const base = {
       receiver: schedule.keys.receiver as string,
-      configuration: scheduleBoot.configuration.id,
+      configuration: (step.bootOverride
+        ? parseCommandDelta(step.bootOverride.configuration)
+        : scheduleBoot.configuration
+      ).id,
       request: q.id,
       receivedAt: (step.receivedAt as number | undefined) ?? 1000,
     };
@@ -670,4 +685,56 @@ it("indeterminate outcomes read as structure with their exact MR-19 shape", () =
     m([["code", tstr("write-conflict")]]),
   ])
     expect(() => readMaterializationResult(outcome(bad), base)).toThrow("invalid-evidence");
+});
+
+// A linked readback must refuse a request the selected transition did not answer: a different
+// expected control, or a serving time the outcome and Basis do not carry.
+it("hostile request contexts demote a linked readback", () => {
+  const outcome = parseCommandDelta(installStep.expected.outcome),
+    q = parseCommandDelta(installStep.request),
+    f = readMaterializationDescription(q, "install"),
+    control = hex(installStep.expected.controlHex),
+    snapshot = scheduleDelivered(installStep, "snapshot/1")!,
+    capture = scheduleDelivered(installStep, "capture/1")!;
+  const resigned = (patch: Record<string, Target[]>) => {
+    const fields = { ...f, ...patch };
+    delete fields.kind;
+    const request = signClaims(
+      materializationDescriptionClaims(schedule.keys.caller, 1000, "request/1", fields),
+      schedule.seeds.caller,
+    );
+    const of = readMaterializationDescription(outcome);
+    const forged = signClaims(
+      materializationDescriptionClaims(schedule.keys.receiver, 1000, "outcome/1", {
+        receiver: of.receiver!,
+        configuration: of.configuration!,
+        request: [ref(request.id)],
+        status: of.status!,
+        result: of.result!,
+      }),
+      schedule.seeds.receiver,
+    );
+    return { request, forged };
+  };
+  const context = (request: Delta) => ({
+    receiver: schedule.keys.receiver as string,
+    configuration: scheduleBoot.configuration.id,
+    request: request.id,
+    requestDelta: request,
+    receivedAt: 1000,
+    control,
+    capture,
+    snapshot,
+  });
+  expect(readMaterializationResult(outcome, context(q)).classification).toBe("verified-context");
+  const wrongControl = resigned({
+    "expected-control": [p(contentAddress(new Uint8Array([0x12])))],
+  });
+  expect(() =>
+    readMaterializationResult(wrongControl.forged, context(wrongControl.request)),
+  ).toThrow("invalid-evidence");
+  const wrongServing = resigned({ "serving-at": [p(9999)] });
+  expect(() =>
+    readMaterializationResult(wrongServing.forged, context(wrongServing.request)),
+  ).toThrow("invalid-evidence");
 });

@@ -710,6 +710,30 @@ fn shared_lifecycle_schedule() {
     );
     for step in v["steps"].as_array().unwrap() {
         let store = std::rc::Rc::new(std::cell::RefCell::new(MemoryStore::default()));
+        // A step may boot another configuration of the same receiver (limits, administrators).
+        let boot = if step["bootOverride"].is_null() {
+            MaterializationInputBoot {
+                configuration: boot.configuration.clone(),
+                declarations: boot.declarations.clone(),
+                bindings: boot.bindings.clone(),
+            }
+        } else {
+            MaterializationInputBoot {
+                configuration: parse_command_delta(&step["bootOverride"]["configuration"]).unwrap(),
+                declarations: step["bootOverride"]["declarations"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|d| parse_command_delta(d).unwrap())
+                    .collect(),
+                bindings: step["bootOverride"]["bindings"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|d| parse_command_delta(d).unwrap())
+                    .collect(),
+            }
+        };
         let key = format!("{receiver}/{}", boot.configuration.id);
         store.borrow_mut().0.insert(
             key.clone(),
@@ -765,6 +789,21 @@ fn shared_lifecycle_schedule() {
             "{}",
             step["id"]
         );
+        let preflight =
+            match rhizomatic::preflight_materialization_input(&boot, &q.id, &delivery, received_at)
+                .unwrap()
+            {
+                rhizomatic::MaterializationInputPreflight::InputValid => {
+                    serde_json::json!({"status":"input-valid"})
+                }
+                rhizomatic::MaterializationInputPreflight::OverInputLimit => {
+                    serde_json::json!({"status":"over-input-limit","code":"resource-limit"})
+                }
+                rhizomatic::MaterializationInputPreflight::InvalidInput { code } => {
+                    serde_json::json!({"status":"invalid-input","code":code})
+                }
+            };
+        checked_eq!(preflight, step["expected"]["preflight"], "{}", step["id"]);
         // The image keeps captures and acts, never a snapshot payload (MR-14).
         let payloads: Vec<String> = delivery
             .iter()
@@ -873,9 +912,16 @@ fn shared_lifecycle_readback() {
         macro_rules! checked_eq {($($args:tt)*)=>{{assert_eq!($($args)*);assertions+=1;}};}
         let outcome = parse_command_delta(&step["expected"]["outcome"]).unwrap();
         let q = parse_command_delta(&step["request"]).unwrap();
+        let configuration_id = if step["bootOverride"].is_null() {
+            configuration.id.clone()
+        } else {
+            parse_command_delta(&step["bootOverride"]["configuration"])
+                .unwrap()
+                .id
+        };
         let base = MaterializationResultContext {
             receiver: receiver.clone(),
-            configuration: configuration.id.clone(),
+            configuration: configuration_id,
             request: q.id.clone(),
             request_delta: None,
             evidence: None,
@@ -1082,4 +1128,105 @@ fn shared_lifecycle_readback() {
             "invalid-evidence"
         );
     }
+}
+
+/// A linked readback must refuse a request the selected transition did not answer: a different
+/// expected control, or a serving time the outcome and Basis do not carry.
+#[test]
+fn hostile_request_contexts_are_refused() {
+    use rhizomatic::{
+        read_materialization_result, MaterializationResultClassification as C,
+        MaterializationResultContext,
+    };
+    const SCHEDULE: &[u8] = include_bytes!("../../../vectors/materialization/lifecycle.json");
+    let v: Value = serde_json::from_slice(SCHEDULE).unwrap();
+    let configuration = parse_command_delta(&v["boot"]["configuration"]).unwrap();
+    let limits = read_materialization_limits(
+        &materialization_bytes(
+            &read_materialization_description(&configuration, None).unwrap(),
+            "limits",
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    let receiver = v["keys"]["receiver"].as_str().unwrap().to_string();
+    let install = v["steps"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|s| s["id"] == "install")
+        .unwrap();
+    let delivered = |kind: &str| -> Delta {
+        install["delivery"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|d| parse_command_delta(d).unwrap())
+            .find(|d| {
+                d.claims.pointers.iter().any(|x| {
+                    x.role == rhizomatic::materialization_data::materialization_role("kind")
+                        && x.target == p(kind)[0]
+                })
+            })
+            .unwrap()
+    };
+    let outcome = parse_command_delta(&install["expected"]["outcome"]).unwrap();
+    let q = parse_command_delta(&install["request"]).unwrap();
+    let control = hex::decode(install["expected"]["controlHex"].as_str().unwrap()).unwrap();
+    let context = |request: &Delta| MaterializationResultContext {
+        receiver: receiver.clone(),
+        configuration: configuration.id.clone(),
+        request: request.id.clone(),
+        request_delta: Some(request.clone()),
+        evidence: None,
+        binding: None,
+        revision: None,
+        authority: None,
+        capture: Some(delivered("capture/1")),
+        snapshot: Some(delivered("snapshot/1")),
+        received_at: Some(1000.0),
+        control: Some(control.clone()),
+    };
+    assert_eq!(
+        read_materialization_result(&outcome, &context(&q), &limits)
+            .unwrap()
+            .classification,
+        C::VerifiedContext
+    );
+    let resign = |patch: (&str, Vec<Target>)| -> (Delta, Delta) {
+        let mut fields =
+            read_materialization_description(&q, Some(MaterializationVerb::Install)).unwrap();
+        fields.remove("kind");
+        fields.insert(patch.0.into(), patch.1);
+        let request = sign(
+            v["seeds"]["caller"].as_str().unwrap(),
+            1000.0,
+            "request/1",
+            fields,
+        );
+        let of = read_materialization_description(&outcome, None).unwrap();
+        let forged = sign(
+            v["seeds"]["receiver"].as_str().unwrap(),
+            1000.0,
+            "outcome/1",
+            MaterializationFields::from([
+                ("receiver".into(), of["receiver"].clone()),
+                ("configuration".into(), of["configuration"].clone()),
+                ("request".into(), vec![r(&request.id)]),
+                ("status".into(), of["status"].clone()),
+                ("result".into(), of["result"].clone()),
+            ]),
+        );
+        (request, forged)
+    };
+    let (request, forged) = resign(("expected-control", p(&content_address(&[0x12]))));
+    assert_eq!(
+        read_materialization_result(&forged, &context(&request), &limits).unwrap_err(),
+        "invalid-evidence"
+    );
+    let (request, forged) = resign(("serving-at", n(9999.0)));
+    assert_eq!(
+        read_materialization_result(&forged, &context(&request), &limits).unwrap_err(),
+        "invalid-evidence"
+    );
 }

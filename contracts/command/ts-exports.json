@@ -25941,6 +25941,16 @@
       "contract": "rhizomatic.materialization/1/outcome-readback",
       "classification": "compatibility_reexport",
       "semantics": "MaterializationResult.values: Compact public source commitments, one shared Basis; recomputed evidence hashes vs attested source commitments explicit. Structural/contextual readback is not execution proof. MR-08, MR-09, MR-10, MR-11, MR-12, MR-19, MR-20, MR-21, MR-22; definition implementations/ts/src/command/materialization-result.ts."
+    },
+    {
+      "id": "ts:command-data/materialization-codec.ts:compareMaterializationText",
+      "owner": "command-data",
+      "symbol": "compareMaterializationText",
+      "source": "implementations/ts/src/command-data/materialization-codec.ts",
+      "definition": "implementations/ts/src/command-data/materialization-codec.ts",
+      "contract": "rhizomatic.materialization/1/description",
+      "classification": "portable_contract",
+      "semantics": "compareMaterializationText: Closed new-prefix signed role/argument codecs; opaque result payload only. MR-08, MR-09, MR-10, MR-11, MR-12, MR-19, MR-20, MR-21, MR-22; definition implementations/ts/src/command-data/materialization-codec.ts."
     }
   ]
 }

@@ -3267,7 +3267,16 @@ writeFileSync(
       code?: string;
     },
     extra: Record<string, unknown> = {},
-  ) =>
+  ) => {
+    // Every step names its MR-21 preflight projection; stage-5+ refusals project input-valid.
+    const {
+      preflight = { status: "input-valid" },
+      boot: cfg = configB,
+      ...rest
+    } = extra as {
+      preflight?: Record<string, unknown>;
+      boot?: Delta;
+    } & Record<string, unknown>;
     steps.push({
       id,
       request: serializeCommandDelta(q),
@@ -3276,12 +3285,16 @@ writeFileSync(
       expected: {
         status: expected.status,
         ...(expected.code === undefined ? {} : { code: expected.code }),
-        outcome: serializeCommandDelta(outcome(q, expected.body, expected.status, configB)),
+        outcome: serializeCommandDelta(outcome(q, expected.body, expected.status, cfg as Delta)),
         bodyHex: bytesToHex(encode(expected.body)),
         controlHex: bytesToHex(expected.after ?? before[0]),
+        preflight,
       },
-      ...extra,
+      ...rest,
     });
+  };
+  const invalidInput = (code: string) => ({ preflight: { status: "invalid-input", code } });
+  const overLimit = { preflight: { status: "over-input-limit", code: "resource-limit" } };
   const refusal = (code: string) => ({
     status: "refused" as const,
     body: map([["code", tstr(code)]]),
@@ -3486,6 +3499,7 @@ writeFileSync(
     installDelivery(installQ("")).filter((d) => d.id !== hyper.id),
     [c0, 0],
     refusal("missing-support"),
+    invalidInput("missing-support"),
   );
   step(
     "replace_redelivered_definition",
@@ -3493,6 +3507,7 @@ writeFileSync(
     [replaceQ(r2), s.capture, s.snapshot, authority, hyper],
     [c2, 2],
     refusal("unexpected-support"),
+    invalidInput("unexpected-support"),
   );
   {
     const q = requestB("install", [
@@ -3509,6 +3524,7 @@ writeFileSync(
       [q, s.capture, s.snapshot, authority],
       [c0, 0],
       refusal("invalid-arguments"),
+      invalidInput("invalid-arguments"),
     );
   }
   {
@@ -3568,12 +3584,12 @@ writeFileSync(
     ]);
   const sortedEntries = (entries: EntryX[]) =>
     [...entries].sort((p, q) => (p.registration.id < q.registration.id ? -1 : 1));
-  const imageX = (generation: number, entries: EntryX[], support: Delta[]) =>
+  const imageX = (generation: number, entries: EntryX[], support: Delta[], cfg = configB) =>
     encode(
       map([
         ["format", tstr("rhizomatic.materialization-control/1")],
         ["receiver", tstr(keys.receiver!)],
-        ["configuration", tstr(configB.id)],
+        ["configuration", tstr(cfg.id)],
         ["generation", float(generation)],
         ["entries", array(sortedEntries(entries).map(entryX))],
         [
@@ -3906,6 +3922,7 @@ writeFileSync(
     expected: {
       status: "refused",
       code: "invalid-source",
+      preflight: { status: "input-valid" },
       outcome: serializeCommandDelta(
         outcomeAt(readLate, map([["code", tstr("invalid-source")]]), "refused", 2500),
       ),
@@ -3917,7 +3934,7 @@ writeFileSync(
   // C2-4: an equal-count replacement (A → B, height 87) and a physical removal (A gone). Both
   // bodies come from the same batch oracle construction as the positives above.
   const b = fact("height", p(87), 11);
-  const batch = (rows: Delta[], selected: Delta[]) => {
+  const batch = (rows: Delta[], selected: Delta[], rootId = root) => {
     const src = source([...rows]);
     const q = request(
       src,
@@ -3929,10 +3946,10 @@ writeFileSync(
       termHash(term),
       schemaHash(reading),
       [],
-      root,
+      rootId,
     );
     const view: HView = {
-      id: root,
+      id: rootId,
       props: new Map(
         selected.map((d) => [
           d === a || d === b ? "height" : d === t ? "tag" : "payload",
@@ -3962,7 +3979,7 @@ writeFileSync(
       ["value", bstr(value)],
       ["view", tstr(contentAddress(value))],
     ]);
-    return { src, gather: gathered, rootResult: rootResultFrom(gathered, resolved, root) };
+    return { src, gather: gathered, rootResult: rootResultFrom(gathered, resolved, rootId) };
   };
   const equal = batch([b, t, x], [b, t, x]),
     removed = batch([t, x], [t, x]);
@@ -4198,6 +4215,7 @@ writeFileSync(
     noGrant: true,
     expected: {
       status: "completed",
+      preflight: { status: "input-valid" },
       outcome: serializeCommandDelta(
         outcomeAt(
           retireX(rE, descriptorExpiring),
@@ -4303,6 +4321,288 @@ writeFileSync(
       restoreBodyX(rL, 5, [retiredFern, { ...later, status: "active", transition: tL.id }]),
       cL,
     ),
+  );
+  // ---- Review round 1: shared counterexamples for the seven findings on 17032db.
+  const registrationFields = (
+    roots: Target[],
+    aliases: Target[],
+    patch: (readonly [string, Target | readonly Target[]])[] = [],
+  ): (readonly [string, Target | readonly Target[]])[] => [
+    ["source-binding", ref(binding.id)],
+    ["hyperschema", ref(hyper.id)],
+    ["hyperschema-pin", p(termHash(term))],
+    ["schema", ref(schema.id)],
+    ["schema-pin", p(schemaHash(reading))],
+    ["roots", roots],
+    ["bindings", blob(C_EMPTY)],
+    ["definition-at", p(1000)],
+    ["interpretation", p("core/1")],
+    ["result-kind", p("hview-and-view/1")],
+    ["time-policy", p("live-time/1")],
+    ["alias", aliases],
+    ...patch,
+  ];
+  // A descriptor whose roots or aliases carry the wrong target kind is not a registration (MR-13).
+  // Signed as raw claims so the description writer's own grammar does not refuse it first.
+  const rawDescriptor = (fields: (readonly [string, Target | readonly Target[]])[]) =>
+    signClaims(
+      {
+        author: keys.definition!,
+        timestamp: 0,
+        validFrom: 0,
+        pointers: [
+          { role: prefix + "kind", target: p("registration/1") },
+          ...fields.flatMap(([k, v]) =>
+            (Array.isArray(v) ? v : [v]).map((target) => ({
+              role: prefix + k,
+              target: target as Target,
+            })),
+          ),
+        ],
+      },
+      seeds.definition,
+    );
+  const textRoot = rawDescriptor(registrationFields([p(root)], [p("Plant")]));
+  const entityAlias = rawDescriptor(registrationFields([ent(root)], [ent("Plant")]));
+  for (const [id, d] of [
+    ["install_text_root", textRoot],
+    ["install_entity_alias", entityAlias],
+  ] as const) {
+    step(
+      id,
+      installX("", d),
+      [installX("", d), d, s.capture, s.snapshot, authority, ...defs],
+      [c0, 0],
+      refusal("invalid-arguments"),
+      invalidInput("invalid-arguments"),
+    );
+  }
+  // Sixty-five roots exceed the absolute roots limit (MR-04) at stage 4, before any root runs.
+  const manyRoots = description(
+    "registration/1",
+    registrationFields(
+      Array.from({ length: 65 }, (_, i) => ent("root:" + String(i).padStart(2, "0"))),
+      [p("Plant")],
+    ),
+    seeds.definition,
+    0,
+  );
+  step(
+    "install_65_roots",
+    installX("", manyRoots),
+    [installX("", manyRoots), manyRoots, s.capture, s.snapshot, authority, ...defs],
+    [c0, 0],
+    refusal("resource-limit"),
+    overLimit,
+  );
+  // Root results sort by UTF-8 bytes: U+E000 (EE 80 80) precedes U+10000 (F0 90 80 80) although
+  // UTF-16 code units order them the other way.
+  const privateRoots = ["", "\u{10000}"];
+  const privateDescriptor = description(
+    "registration/1",
+    registrationFields(privateRoots.map(ent), [p("Plant")]),
+    seeds.definition,
+    0,
+  );
+  const privateBatches = privateRoots.map((r) => batch([a, t, x], [], r));
+  const privateEntry: EntryFields = { ...fern, registration: privateDescriptor };
+  const tP = stateX(1, "", "", "install", privateEntry);
+  const cP = imageX(
+    1,
+    [{ ...privateEntry, status: "active", transition: tP.id }],
+    [privateDescriptor, ...defs, s.capture, authority, tP],
+  );
+  const rP = revisionOf(cP, 1);
+  step(
+    "install_private_use_roots",
+    installX("", privateDescriptor),
+    [installX("", privateDescriptor), privateDescriptor, s.capture, s.snapshot, authority, ...defs],
+    [c0, 0],
+    completed(
+      transitionX(
+        "install",
+        privateDescriptor,
+        tP,
+        rP,
+        1,
+        basisFrom(privateBatches[0]!.gather, 1000),
+        privateBatches.map((x) => x.rootResult),
+      ),
+      cP,
+    ),
+  );
+  // A boot may lower the roots limit (MR-04); two roots refuse under a limit of one.
+  const endpointFor = (callers: string[], admins: string[], lim: typeof limits) =>
+    description(
+      "endpoint/1",
+      [
+        ["receiver", ent(keys.receiver!)],
+        ["caller", callers.map(p)],
+        ["administrator", admins.map(p)],
+        [
+          "installed",
+          operationsB
+            .map((o) => o.id)
+            .sort()
+            .map(ref),
+        ],
+        ["source-binding", [ref(binding.id)]],
+        ["limits", blob(encode(map(Object.entries(lim).map(([k, v]) => [k, float(v)]))))],
+      ],
+      seeds.receiver,
+      0,
+    );
+  const configLow = endpointFor([keys.caller!], [keys.caller!], { ...limits, roots: 1 });
+  const twoRoots = description(
+    "registration/1",
+    registrationFields([ent(root), ent("item:moss")], [p("Plant")]),
+    seeds.definition,
+    0,
+  );
+  const requestFor = (
+    cfg: Delta,
+    verb: string,
+    fields: (readonly [string, Target | readonly Target[]])[],
+  ) =>
+    description("request/1", [
+      ["receiver", ent(keys.receiver!)],
+      ["configuration", ref(cfg.id)],
+      ["operation", ref(opB(verb).id)],
+      ...fields,
+    ]);
+  const installFor = (cfg: Delta, control: string, registration: Delta) =>
+    requestFor(cfg, "install", [
+      ["expected-control", p(control)],
+      ["registration", ref(registration.id)],
+      ["capture", ref(s.capture.id)],
+      ["snapshot", ref(s.snapshot.id)],
+      ["at", p(1000)],
+      ["serving-at", p(1000)],
+    ]);
+  const cLow0 = imageX(0, [], [], configLow);
+  step(
+    "install_two_roots_lowered_limit",
+    installFor(configLow, "", twoRoots),
+    [installFor(configLow, "", twoRoots), twoRoots, s.capture, s.snapshot, authority, ...defs],
+    [cLow0, 0],
+    refusal("resource-limit"),
+    {
+      ...overLimit,
+      boot: configLow,
+      bootOverride: {
+        configuration: serializeCommandDelta(configLow),
+        declarations: operationsB.map(serializeCommandDelta),
+        bindings: [serializeCommandDelta(binding)],
+      },
+    },
+  );
+  // A caller who is not an administrator cannot run any control verb (MR-08, MR-21 stage 3).
+  const configAdmin = endpointFor([keys.caller!, keys.receiver!], [keys.receiver!], limits);
+  const cAdmin0 = imageX(0, [], [], configAdmin);
+  const adminRequests: [string, Delta, Delta[]][] = [
+    [
+      "install",
+      installFor(configAdmin, "", descriptor),
+      [descriptor, s.capture, s.snapshot, authority, ...defs],
+    ],
+    [
+      "replace-source",
+      requestFor(configAdmin, "replace-source", [
+        ["expected-control", p("")],
+        ["registration", ref(descriptor.id)],
+        ["expected-source", p(s.revision)],
+        ["capture", ref(s.capture.id)],
+        ["snapshot", ref(s.snapshot.id)],
+        ["serving-at", p(1000)],
+      ]),
+      [s.capture, s.snapshot, authority],
+    ],
+    [
+      "advance-time",
+      requestFor(configAdmin, "advance-time", [
+        ["expected-control", p("")],
+        ["registration", ref(descriptor.id)],
+        ["expected-source", p(s.revision)],
+        ["snapshot", ref(s.snapshot.id)],
+        ["at", p(1500)],
+        ["serving-at", p(1000)],
+      ]),
+      [s.snapshot],
+    ],
+    [
+      "retire",
+      requestFor(configAdmin, "retire", [
+        ["expected-control", p("")],
+        ["registration", ref(descriptor.id)],
+      ]),
+      [],
+    ],
+    ["restore", requestFor(configAdmin, "restore", [["expected-control", p("")]]), []],
+  ];
+  for (const [verb, q, support] of adminRequests)
+    step(
+      "caller_without_administrator_" + verb.replace("-", "_"),
+      q,
+      [q, ...support],
+      [cAdmin0, 0],
+      refusal("unauthorized"),
+      {
+        ...invalidInput("unauthorized"),
+        boot: configAdmin,
+        bootOverride: {
+          configuration: serializeCommandDelta(configAdmin),
+          declarations: operationsB.map(serializeCommandDelta),
+          bindings: [serializeCommandDelta(binding)],
+        },
+      },
+    );
+  // Stage-6 order: a missing grant and an expired authority both beat a wrong expected-source.
+  step(
+    "read_wrong_source_without_grant",
+    readQ(r1, authorityRoot),
+    [readQ(r1, authorityRoot), s.snapshot],
+    [c1, 1],
+    refusal("unauthorized"),
+    { noGrant: true },
+  );
+  const readLateWrong = requestX("read", r1, descriptor, [
+    ["expected-source", p(authorityRoot)],
+    ["snapshot", ref(s.snapshot.id)],
+    ["serving-at", p(2500)],
+  ]);
+  steps.push({
+    id: "read_wrong_source_expired_authority",
+    request: serializeCommandDelta(readLateWrong),
+    delivery: [readLateWrong, s.snapshot].map(serializeCommandDelta),
+    initialControl: { hex: bytesToHex(c1), revision: r1 },
+    receivedAt: 2500,
+    expected: {
+      status: "refused",
+      code: "invalid-source",
+      preflight: { status: "input-valid" },
+      outcome: serializeCommandDelta(
+        outcomeAt(readLateWrong, map([["code", tstr("invalid-source")]]), "refused", 2500),
+      ),
+      bodyHex: bytesToHex(encode(map([["code", tstr("invalid-source")]]))),
+      controlHex: bytesToHex(c1),
+    },
+  });
+  // A signed image whose entry and latest transition name a revision the stored capture does
+  // not commit to is structurally inconsistent support (MR-17): restore refuses invalid-control.
+  const fakeRevision = authorityRoot;
+  const fernFake: EntryFields = { ...fern, revision: fakeRevision };
+  const tFake = stateX(1, "", "", "install", fernFake);
+  const cFake = imageX(
+    1,
+    [{ ...fernFake, status: "active", transition: tFake.id }],
+    [descriptor, ...defs, s.capture, authority, tFake],
+  );
+  step(
+    "restore_inconsistent_capture",
+    restoreQ(revisionOf(cFake, 1)),
+    [restoreQ(revisionOf(cFake, 1))],
+    [cFake, 1],
+    refusal("invalid-control"),
   );
   void byId;
   writeFileSync(

@@ -9,11 +9,13 @@ import {
   commandBytes,
   commandNumber,
   verifyCommandAppearance,
+  type CommandFields,
 } from "../command-data/codec.js";
 import {
   encodeMaterializationLimits,
   readMaterializationDescription,
   MATERIALIZATION_MAX_LIMITS,
+  compareMaterializationText,
   type MaterializationLimits,
   type MaterializationVerb,
 } from "../command-data/materialization-codec.js";
@@ -413,7 +415,9 @@ function readMaintainedResult(
     validateMaterializationBasis(basis, limits);
     b = basisFields(context, basis);
     snapshot = verifySourceCommitments(context, basis, limits);
-    for (const r of mList(fs.get("results"))) {
+    const rows = mList(fs.get("results"));
+    if (rows.length > limits.roots) mFail("resource-limit");
+    for (const r of rows) {
       const [root, view] = readRootResult(r, limits);
       if (values.has(root)) mFail();
       values.set(root, view);
@@ -429,13 +433,15 @@ function readMaintainedResult(
     mFail();
   let requestLinked = false;
   const request = context.requestDelta;
+  let f: CommandFields | undefined;
   if (request) {
-    const f = readMaterializationDescription(request, kind as MaterializationVerb);
+    f = readMaterializationDescription(request, kind as MaterializationVerb);
     if (registration !== undefined && commandRef(f, "registration") !== registration) mFail();
     if ((kind === "read" || kind === "restore") && commandText(f, "expected-control") !== control)
       mFail();
     if (serving) {
       if (mNumber(b!.get("servingAt")) !== outcome.claims.timestamp) mFail();
+      if (commandNumber(f, "serving-at") !== outcome.claims.timestamp) mFail();
       if (
         (kind === "install" || kind === "advance-time") &&
         commandNumber(f, "at") !== mNumber(b!.get("at"))
@@ -483,6 +489,16 @@ function readMaintainedResult(
       const e = stored.entry;
       if (transition !== undefined && stored.transition.id !== transition) mFail();
       if ((e.status === "retired") !== (kind === "retire")) mFail();
+      if (transition !== undefined && f) {
+        // The selected transition must answer this request: same verb, and its prior control is
+        // the control the request expected.
+        const tf = readMaterializationDescription(stored.transition);
+        if (
+          commandText(tf, "verb") !== kind ||
+          commandText(tf, "prior-control") !== commandText(f, "expected-control")
+        )
+          mFail();
+      }
       if (serving) {
         const d = stored.descriptor!;
         if (
@@ -497,7 +513,8 @@ function readMaintainedResult(
           d.reading !== mId(b!.get("schema")) ||
           bytesToHex(d.bindings) !== bytesToHex(mBytes(b!.get("bindings"))) ||
           descriptorClosure(d).join() !== program!.deltas.map((x) => x.id).join() ||
-          [...d.roots].sort().join("\u0000") !== [...values.keys()].join("\u0000")
+          [...d.roots].sort(compareMaterializationText).join("\u0000") !==
+            [...values.keys()].join("\u0000")
         )
           mFail();
       }

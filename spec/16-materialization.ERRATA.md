@@ -77,3 +77,39 @@ commitments.
 
 Pinned by the readback tests over `vectors/materialization/lifecycle.json` in both witnesses.
 
+## E5 — Decisions from the first independent review of M3 (PR #65)
+
+Decided 2026-10-10 after the review of 17032db. Each item names the text it reads and the
+shared vector that pins it in `vectors/materialization/lifecycle.json`.
+
+- **Roots and aliases are typed by role at the description grammar.** MR-13 says roots are
+  entities and aliases texts. A text root or an entity alias is not a registration descriptor,
+  so install refuses `invalid-arguments` at stage 4 (E3), in preflight too
+  (`install_text_root`, `install_entity_alias`).
+- **Text sets order by UTF-8 bytes.** MR-04 and MR-13 order text by bytes; JavaScript's default
+  order compares UTF-16 code units and disagrees above U+FFFF. The TypeScript witness now orders
+  every set-valued role and every root result by code point, which equals byte order
+  (`install_private_use_roots`).
+- **The five control verbs need an administrator at stage 3.** MR-08 reserves install,
+  replace-source, advance-time, retire and restore for administrators; MR-21 stage 3 refuses
+  `unauthorized` once the operation is known and before any argument (`caller_without_administrator_*`).
+- **The roots limit binds at the descriptor's first decode.** MR-04 bounds the complete root
+  partition at 64, lowerable by boot. Install refuses `resource-limit` at stage 4 and preflight
+  reports over-input-limit; a stored descriptor over the limit refuses `resource-limit` at
+  stage 5; readback refuses more results than the limit (`install_65_roots`,
+  `install_two_roots_lowered_limit`).
+- **Restore checks the stored capture's commitments.** MR-17 requires capture revision and
+  binding agreement for active entries. The stage-5 reader decodes each active capture basis
+  and requires its revision, binding and authority to equal the entry and descriptor; a signed
+  image that disagrees is `invalid-control` (`restore_inconsistent_capture`).
+- **Expected-source compares after the other stage-6 checks.** MR-21 stage 6 lists the grant,
+  binding validity, capture and snapshot validation and authority validity before
+  expected-source. A missing grant is `unauthorized` and an expired authority `invalid-source`
+  before a wrong expected-source is `precondition-failed` (`read_wrong_source_without_grant`,
+  `read_wrong_source_expired_authority`).
+- **Readback links a mutating request to its transition.** MR-20 requires request agreement.
+  With the control image, a transition body's selected transition must carry the request's
+  verb and its prior control must equal the request's expected-control, and every serving
+  request's serving-at must equal the outcome time. Pinned by the hostile-context tests in both
+  witnesses.
+

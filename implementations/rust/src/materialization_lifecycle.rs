@@ -33,7 +33,7 @@ use crate::materialization_source::{
     MaterializationSourceFailure, MaterializationSourceSnapshot,
 };
 use crate::materialization_values::{
-    envelope_limits, limit, map, require, s, source_limits, Result,
+    cbor, envelope_limits, limit, map, require, s, source_limits, Result,
 };
 use crate::resolution::{resolve_view, view_canonical_hex};
 use crate::resolve_evidence::{encode_hview_envelope, hview_canonical_hex};
@@ -151,6 +151,27 @@ fn control_limits(l: &MaterializationLimits) -> MaterializationControlLimits {
     }
 }
 const INVALID_CONTROL: &str = "invalid-control";
+/// The source commitments a capture basis carries (MR-10); the bytes are canonical CBOR.
+fn capture_commitments(
+    basis: &[u8],
+    limits: &MaterializationLimits,
+) -> Result<(String, String, String)> {
+    let decoded = cbor(basis, limits["artifactBytes"], INVALID_CONTROL)?;
+    let CborValue::Map(fs) = &decoded else {
+        return Err(INVALID_CONTROL.into());
+    };
+    let text = |k: &str| -> Result<String> {
+        match fs.iter().find(|(key, _)| key == k) {
+            Some((_, CborValue::Tstr(s))) => Ok(s.clone()),
+            _ => Err(INVALID_CONTROL.into()),
+        }
+    };
+    require(
+        text("format")? == "rhizomatic.source-basis/1",
+        INVALID_CONTROL,
+    )?;
+    Ok((text("revision")?, text("binding")?, text("authority")?))
+}
 
 struct Act {
     delta: Delta,
@@ -272,6 +293,7 @@ pub(crate) fn classify_control(
                 && descriptor.definition_at == entry.definition_at,
             INVALID_CONTROL,
         )?;
+        limit(descriptor.roots.len(), limits["roots"])?;
         support.insert(d.key.clone(), image.deltas[&d.key].clone());
         reachable.insert(d.key.clone());
         let mut definitions = Vec::new();
@@ -292,6 +314,15 @@ pub(crate) fn classify_control(
         let af = auth.fields.as_ref().ok_or(INVALID_CONTROL)?;
         require(
             materialization_text(af, "kind")? == "authority/1" && auth.delta.id == entry.authority,
+            INVALID_CONTROL,
+        )?;
+        // MR-17: the stored capture commits to the entry's source revision, binding and authority.
+        let (revision, binding, authority) =
+            capture_commitments(&materialization_bytes(cf, "basis")?, limits)?;
+        require(
+            revision == entry.source_revision
+                && binding == descriptor.binding
+                && authority == entry.authority,
             INVALID_CONTROL,
         )?;
         support.insert(cap.key.clone(), image.deltas[&cap.key].clone());
@@ -719,13 +750,15 @@ pub(crate) fn run_lifecycle(
         )?;
         return commit(&mut host, &control, prepared);
     }
+    let source = check_source(&host, p, &descriptor, stored, received_at)?;
+    // MR-21 stage 6: expected-source compares after the grant, binding, capture, snapshot and
+    // authority checks and before the host's current check.
     if verb != MaterializationVerb::Install {
         require(
             materialization_text(f, "expected-source")? == stored.unwrap().entry.source_revision,
             "precondition-failed",
         )?;
     }
-    let source = check_source(&host, p, &descriptor, stored, received_at)?;
     let mut required_support = descriptor_closure(&descriptor);
     required_support.push(descriptor.delta.id.clone());
     required_support.sort();
