@@ -21,6 +21,9 @@ for(const e of inventory.exports){
  if(module==='hview_envelope')contract=symbol==='encode_hview_envelope'?'rhizomatic.hview-envelope/1/encode':symbol==='decode_hview_envelope'?'rhizomatic.hview-envelope/1/decode':'rhizomatic.hview-envelope/1';
 
  if(module==='materialization_data')contract='rhizomatic.materialization/1/description';
+ if(module==='materialization_control')contract='rhizomatic.materialization-control/1';
+ if(module==='materialization_lifecycle')contract='rhizomatic.materialization/1/control-execute';
+ if(module==='materialization_store')contract='rhizomatic.materialization/1/control-store';
  if(module==='materialization_source')contract='rhizomatic.materialization/1/capture';
  if(module==='materialization_input'||module==='materialization_values')contract='rhizomatic.materialization/1/input-preflight';
  if(module==='materialization_result'||module==='materialization_basis'||module==='materialization_evidence')contract='rhizomatic.materialization/1/outcome-readback';

@@ -346,6 +346,52 @@
         "MR-21"
       ],
       "spec": "spec/16-materialization.md"
+    },
+    {
+      "id": "rhizomatic.materialization-control/1",
+      "owners": [
+        "reactor"
+      ],
+      "semantics": "Normalized maintained selections, canonical control image codec and pure conditional transition planner; opaque support bytes, 64-entry configuration lifetime.",
+      "requirements": [
+        "MR-13",
+        "MR-14",
+        "MR-16",
+        "MR-17"
+      ],
+      "spec": "spec/16-materialization.md"
+    },
+    {
+      "id": "rhizomatic.materialization/1/control-store",
+      "owners": [
+        "storage"
+      ],
+      "semantics": "Explicit atomic metadata initialize/read/CAS with exact durable, conflict, rejected and committed-unconfirmed outcomes.",
+      "requirements": [
+        "MR-15",
+        "MR-18"
+      ],
+      "spec": "spec/16-materialization.md"
+    },
+    {
+      "id": "rhizomatic.materialization/1/control-execute",
+      "owners": [
+        "command",
+        "federation",
+        "reactor"
+      ],
+      "semantics": "Explicit install/replace/advance/retire/read/restore with original support and source artifacts; stage-5 control classification, prospective transition and CAS.",
+      "requirements": [
+        "MR-13",
+        "MR-14",
+        "MR-15",
+        "MR-16",
+        "MR-17",
+        "MR-18",
+        "MR-19",
+        "MR-21"
+      ],
+      "spec": "spec/16-materialization.md"
     }
   ]
 }

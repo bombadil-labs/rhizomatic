@@ -25,19 +25,105 @@ const GATHER: &[&str] = &[
     "definition",
     "historical-cutoff",
 ];
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+const LIFECYCLE: &[&str] = &["expected-control", "registration", "expected-source"];
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum MaterializationVerb {
     Gather,
     Resolve,
+    Install,
+    ReplaceSource,
+    AdvanceTime,
+    Retire,
+    Read,
+    Restore,
 }
 impl MaterializationVerb {
+    pub const ALL: [MaterializationVerb; 8] = [
+        Self::Gather,
+        Self::Resolve,
+        Self::Install,
+        Self::ReplaceSource,
+        Self::AdvanceTime,
+        Self::Retire,
+        Self::Read,
+        Self::Restore,
+    ];
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Gather => "gather",
             Self::Resolve => "resolve",
+            Self::Install => "install",
+            Self::ReplaceSource => "replace-source",
+            Self::AdvanceTime => "advance-time",
+            Self::Retire => "retire",
+            Self::Read => "read",
+            Self::Restore => "restore",
+        }
+    }
+    pub fn parse(s: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|v| v.as_str() == s)
+    }
+    /// MR-08: install, replace-source, advance-time and retire change control state.
+    pub fn effect(self) -> &'static str {
+        match self {
+            Self::Install | Self::ReplaceSource | Self::AdvanceTime | Self::Retire => "control",
+            _ => "none",
+        }
+    }
+    /// Verb-specific request roles after the common fields (MR-08 table).
+    fn roles(self) -> &'static [&'static str] {
+        match self {
+            Self::Gather => GATHER,
+            Self::Resolve => &["evidence"],
+            Self::Install => &[
+                "expected-control",
+                "registration",
+                "capture",
+                "snapshot",
+                "at",
+                "serving-at",
+            ],
+            Self::ReplaceSource => &[
+                "expected-control",
+                "registration",
+                "expected-source",
+                "capture",
+                "snapshot",
+                "serving-at",
+            ],
+            Self::AdvanceTime => &[
+                "expected-control",
+                "registration",
+                "expected-source",
+                "snapshot",
+                "at",
+                "serving-at",
+            ],
+            Self::Retire => &["expected-control", "registration"],
+            Self::Read => &[
+                "expected-control",
+                "registration",
+                "expected-source",
+                "snapshot",
+                "serving-at",
+            ],
+            Self::Restore => &["expected-control"],
         }
     }
 }
+/// Release A installs the first two verbs; release B installs all eight (MR-08).
+pub fn materialization_release_verbs(release: char) -> &'static [MaterializationVerb] {
+    match release {
+        'A' => &MaterializationVerb::ALL[..2],
+        _ => &MaterializationVerb::ALL,
+    }
+}
+pub fn materialization_operation_verb(name: &str) -> Result<MaterializationVerb, String> {
+    name.strip_prefix(&materialization_role(""))
+        .and_then(MaterializationVerb::parse)
+        .ok_or_else(|| ERROR.into())
+}
+pub const STATE_VERBS: &[&str] = &["install", "replace-source", "advance-time", "retire"];
 pub fn materialization_role(suffix: &str) -> String {
     format!("{VOCAB_PREFIX}.materialization.{suffix}")
 }
@@ -93,7 +179,7 @@ fn order(kind: &str) -> Result<Vec<&'static str>, String> {
             "replay",
             "dependencies",
         ],
-        "request/1" => [COMMON, GATHER, &["evidence"]].concat(),
+        "request/1" => [COMMON, LIFECYCLE, GATHER, &["evidence"]].concat(),
         "source-binding/1" => vec!["kind", "receiver", "spec"],
         "authority/1" => vec!["kind", "source-binding", "spec"],
         "capture/1" => vec!["kind", "source-binding", "authority", "basis"],
@@ -107,9 +193,42 @@ fn order(kind: &str) -> Result<Vec<&'static str>, String> {
             "status",
             "result",
         ],
+        "registration/1" => vec![
+            "kind",
+            "source-binding",
+            "hyperschema",
+            "hyperschema-pin",
+            "schema",
+            "schema-pin",
+            "definition",
+            "roots",
+            "bindings",
+            "definition-at",
+            "interpretation",
+            "result-kind",
+            "time-policy",
+            "alias",
+        ],
+        "state/1" => vec![
+            "kind",
+            "registration",
+            "generation",
+            "prior-control",
+            "prior-transition",
+            "verb",
+            "source-revision",
+            "authority",
+            "at",
+            "definition-at",
+            "hyperschema-pin",
+            "schema-pin",
+            "capture",
+        ],
+        "control-image/1" => vec!["kind", "data"],
         _ => return Err(ERROR.into()),
     })
 }
+/// Readers accept pointer permutations: set-valued roles read in their canonical sorted order.
 pub fn materialization_fields(d: &Delta) -> Result<MaterializationFields, String> {
     let mut out: MaterializationFields = BTreeMap::new();
     for p in &d.claims.pointers {
@@ -118,6 +237,18 @@ pub fn materialization_fields(d: &Delta) -> Result<MaterializationFields, String
             .strip_prefix(&materialization_role(""))
             .ok_or(ERROR)?;
         out.entry(key.into()).or_default().push(p.target.clone());
+    }
+    for k in SETS {
+        if let Some(ts) = out.get_mut(*k) {
+            if ts.len() > 1 {
+                let mut keyed = ts
+                    .iter()
+                    .map(|t| set_key(t).map(|k| (k, t.clone())))
+                    .collect::<Result<Vec<_>, _>>()?;
+                keyed.sort_by(|a, b| a.0.cmp(&b.0));
+                *ts = keyed.into_iter().map(|(_, t)| t).collect();
+            }
+        }
     }
     Ok(out)
 }
@@ -168,12 +299,7 @@ fn shape(
         if sets.contains(k) {
             let mut unique = BTreeSet::new();
             for t in ts {
-                let key = match t {
-                    Target::Delta(r) => r.delta.clone(),
-                    Target::Primitive(Primitive::Str(s)) => s.clone(),
-                    _ => return Err(ERROR.into()),
-                };
-                require(unique.insert(key))?;
+                require(unique.insert(set_key(t)?))?;
             }
         } else {
             require(if optional.contains(k) {
@@ -184,6 +310,26 @@ fn shape(
         }
     }
     Ok(())
+}
+const SETS: &[&str] = &[
+    "caller",
+    "administrator",
+    "installed",
+    "source-binding",
+    "definition",
+    "roots",
+    "alias",
+];
+fn set_key(t: &Target) -> Result<String, String> {
+    match t {
+        Target::Delta(r) => Ok(r.delta.clone()),
+        Target::Primitive(Primitive::Str(s)) => Ok(s.clone()),
+        Target::Entity(e) if e.context.is_none() => Ok(e.id.clone()),
+        _ => Err(ERROR.into()),
+    }
+}
+fn is_n(n: f64) -> bool {
+    n.is_finite() && n >= 0.0 && n.fract() == 0.0 && n <= 9007199254740991.0
 }
 fn unique(v: &CborValue) -> Result<(), String> {
     match v {
@@ -251,15 +397,7 @@ pub fn read_materialization_description(
         let Some(verb) = verb else { return Ok(f) };
         shape(
             &f,
-            &[
-                COMMON,
-                if verb == MaterializationVerb::Gather {
-                    GATHER
-                } else {
-                    &["evidence"]
-                },
-            ]
-            .concat(),
+            &[COMMON, verb.roles()].concat(),
             if verb == MaterializationVerb::Gather {
                 &["historical-cutoff"]
             } else {
@@ -273,6 +411,25 @@ pub fn read_materialization_description(
         )?;
         if verb == MaterializationVerb::Resolve {
             materialization_ref(&f, "evidence")?;
+            return Ok(f);
+        }
+        if verb != MaterializationVerb::Gather {
+            let control = materialization_text(&f, "expected-control")?;
+            require(control.is_empty() || is_content_id(&control))?;
+            for k in verb.roles() {
+                match *k {
+                    "registration" | "capture" | "snapshot" => {
+                        materialization_ref(&f, k)?;
+                    }
+                    "expected-source" => {
+                        require(is_content_id(&materialization_text(&f, k)?))?;
+                    }
+                    "at" | "serving-at" => {
+                        materialization_number(&f, k)?;
+                    }
+                    _ => {}
+                }
+            }
             return Ok(f);
         }
         for k in ["capture", "snapshot", "hyperschema", "schema"] {
@@ -309,9 +466,11 @@ pub fn read_materialization_description(
     shape(
         &f,
         &allowed,
-        &[],
+        if kind == "state/1" { &["capture"] } else { &[] },
         if kind == "endpoint/1" {
             &["caller", "administrator", "installed", "source-binding"]
+        } else if kind == "registration/1" {
+            &["definition", "roots", "alias"]
         } else {
             &[]
         },
@@ -336,7 +495,8 @@ pub fn read_materialization_description(
             !callers.is_empty()
                 && !admins.is_empty()
                 && admins.iter().all(|a| callers.contains(a))
-                && f.get("installed").is_some_and(|ts| ts.len() == 2),
+                && f.get("installed")
+                    .is_some_and(|ts| ts.len() == 2 || ts.len() == 8),
         )?;
         for k in ["installed", "source-binding"] {
             for t in f.get(k).into_iter().flatten() {
@@ -346,24 +506,92 @@ pub fn read_materialization_description(
         read_materialization_limits(&materialization_bytes(&f, "limits")?)?;
     }
     if kind == "operation/1" {
-        let name = materialization_entity(&f, "name")?;
-        let verb = if name == materialization_role("gather") {
-            "gather"
-        } else if name == materialization_role("resolve") {
-            "resolve"
-        } else {
-            return Err(ERROR.into());
-        };
+        let verb = materialization_operation_verb(&materialization_entity(&f, "name")?)?;
+        let name = verb.as_str();
         for (k, v) in [
-            ("interpreter", materialization_role(&format!("{verb}/1"))),
-            ("input-contract", materialization_role(&format!("{verb}/1"))),
+            ("interpreter", materialization_role(&format!("{name}/1"))),
+            ("input-contract", materialization_role(&format!("{name}/1"))),
             ("output-contract", materialization_role("outcome/1")),
-            ("effect", "none".into()),
+            ("effect", verb.effect().into()),
             ("replay", "re-evaluate/1".into()),
             ("dependencies", "explicit-support/1".into()),
         ] {
             require(materialization_text(&f, k)? == v)?;
         }
+    }
+    if kind == "registration/1" {
+        for k in ["source-binding", "hyperschema", "schema"] {
+            materialization_ref(&f, k)?;
+        }
+        for k in ["hyperschema-pin", "schema-pin"] {
+            require(is_content_id(&materialization_text(&f, k)?))?;
+        }
+        let mut ids = BTreeSet::from([
+            materialization_ref(&f, "hyperschema")?,
+            materialization_ref(&f, "schema")?,
+        ]);
+        require(ids.len() == 2)?;
+        for t in f.get("definition").into_iter().flatten() {
+            let single = BTreeMap::from([("x".into(), vec![t.clone()])]);
+            require(ids.insert(materialization_ref(&single, "x")?))?;
+        }
+        // MR-13: roots are distinct nonempty entities and aliases distinct nonempty texts, each
+        // sorted bytewise; a text root or an entity alias is not a registration descriptor.
+        let typed = |k: &str, pick: fn(&Target) -> Option<String>| -> Result<Vec<String>, String> {
+            let keys = f
+                .get(k)
+                .into_iter()
+                .flatten()
+                .map(|t| pick(t).ok_or_else(|| ERROR.to_string()))
+                .collect::<Result<Vec<_>, _>>()?;
+            require(keys.iter().all(|s| !s.is_empty()) && keys.windows(2).all(|w| w[0] < w[1]))?;
+            Ok(keys)
+        };
+        require(
+            !typed("roots", |t| match t {
+                Target::Entity(e) if e.context.is_none() => Some(e.id.clone()),
+                _ => None,
+            })?
+            .is_empty(),
+        )?;
+        typed("alias", |t| match t {
+            Target::Primitive(Primitive::Str(s)) => Some(s.clone()),
+            _ => None,
+        })?;
+        read_bindings(&materialization_bytes(&f, "bindings")?)?;
+        materialization_number(&f, "definition-at")?;
+        require(
+            materialization_text(&f, "interpretation")? == "core/1"
+                && materialization_text(&f, "result-kind")? == "hview-and-view/1"
+                && materialization_text(&f, "time-policy")? == "live-time/1",
+        )?;
+    }
+    if kind == "state/1" {
+        materialization_ref(&f, "registration")?;
+        let generation = materialization_number(&f, "generation")?;
+        require(is_n(generation) && generation >= 1.0)?;
+        for k in ["prior-control", "prior-transition"] {
+            let v = materialization_text(&f, k)?;
+            require(v.is_empty() || is_content_id(&v))?;
+        }
+        let verb = materialization_text(&f, "verb")?;
+        require(STATE_VERBS.contains(&verb.as_str()))?;
+        for k in [
+            "source-revision",
+            "authority",
+            "hyperschema-pin",
+            "schema-pin",
+        ] {
+            require(is_content_id(&materialization_text(&f, k)?))?;
+        }
+        for k in ["at", "definition-at"] {
+            materialization_number(&f, k)?;
+        }
+        require((verb == "retire") != f.contains_key("capture"))?;
+        if f.contains_key("capture") {
+            materialization_ref(&f, "capture")?;
+        }
+        require(d.claims.timestamp == d.claims.valid_from && d.claims.valid_until.is_none())?;
     }
     if ["authority/1", "capture/1"].contains(&kind.as_str()) {
         materialization_ref(&f, "source-binding")?;
@@ -375,6 +603,9 @@ pub fn read_materialization_description(
         if f.contains_key(k) {
             materialization_bytes(&f, k)?;
         }
+    }
+    if kind == "control-image/1" {
+        materialization_bytes(&f, "data")?;
     }
     if kind == "outcome/1" {
         materialization_ref(&f, "configuration")?;
@@ -406,25 +637,10 @@ pub fn materialization_description_claims(
     let mut pointers = Vec::new();
     for k in allowed {
         let mut ts = fs.remove(k).unwrap_or_default();
-        if [
-            "caller",
-            "administrator",
-            "installed",
-            "source-binding",
-            "definition",
-        ]
-        .contains(&k)
-        {
-            let key = |t: &Target| -> Result<String, String> {
-                match t {
-                    Target::Delta(r) => Ok(r.delta.clone()),
-                    Target::Primitive(Primitive::Str(s)) => Ok(s.clone()),
-                    _ => Err(ERROR.into()),
-                }
-            };
+        if SETS.contains(&k) {
             let mut keyed = ts
                 .into_iter()
-                .map(|t| Ok((key(&t)?, t)))
+                .map(|t| Ok((set_key(&t)?, t)))
                 .collect::<Result<Vec<_>, String>>()?;
             keyed.sort_by(|a, b| a.0.cmp(&b.0));
             ts = keyed.into_iter().map(|(_, t)| t).collect();

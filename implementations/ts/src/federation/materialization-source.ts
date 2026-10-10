@@ -389,6 +389,159 @@ export function decodeMaterializationSnapshot(
     };
   });
 }
+/** The metadata a capture basis commits to (MR-10); operand bytes never appear here. */
+export interface MaterializationCaptureBasis {
+  readonly binding: string;
+  readonly authority: string;
+  readonly selection: string;
+  readonly revision: string;
+  readonly servingAt: number;
+  readonly historicalCutoff?: number;
+  readonly membership: string;
+  readonly appearanceDigest: string;
+  readonly snapshot: string;
+}
+const CAPTURE_BASIS_FIELDS = [
+  "format",
+  "binding",
+  "authority",
+  "selection",
+  "revision",
+  "servingAt",
+  "components",
+  "operands",
+  "exclusions",
+  "membership",
+  "appearanceDigest",
+  "snapshot",
+];
+/**
+ * Decode a complete capture basis without its snapshot: the exact MR-10 field set, bounded
+ * inventories, sorted components and the revision recomputed from the metadata it names. A
+ * basis that drops or adds a field, or whose revision does not follow from its own fields, is
+ * invalid. Nothing here proves the operand bytes; that stays with the snapshot checker.
+ */
+export function decodeMaterializationCaptureBasis(
+  input: Uint8Array,
+  limits: MaterializationSourceLimits = DEFAULT_MATERIALIZATION_SOURCE_LIMITS,
+): MaterializationCaptureBasis {
+  return boundary(() => {
+    checkedLimits(limits);
+    const value = canonical(input, limits.artifactBytes, (path, kind, length) => {
+      if (kind !== "array") return;
+      if (path.length === 1) {
+        if (path[0] === "components") limit(length, limits.components);
+        if (path[0] === "operands") limit(length, limits.appearances);
+        if (path[0] === "exclusions") limit(length, limits.inventoryIds);
+      }
+      if (path.at(-1) === "rawIds" || path.at(-1) === "operandIds")
+        limit(length, limits.inventoryIds);
+      if (path.at(-1) === "peers") limit(length, limits.components);
+    });
+    const f = fields(value, CAPTURE_BASIS_FIELDS, ["historicalCutoff"]);
+    if (text(f.get("format")) !== "rhizomatic.source-basis/1") invalid();
+    const getId = (k: string) => id(text(f.get(k)));
+    const binding = getId("binding"),
+      authority = getId("authority"),
+      selection = getId("selection"),
+      revision = getId("revision"),
+      membership = getId("membership"),
+      appearanceDigest = getId("appearanceDigest"),
+      snapshot = getId("snapshot"),
+      servingAt = number(f.get("servingAt"));
+    const historicalCutoff = f.has("historicalCutoff")
+      ? number(f.get("historicalCutoff"))
+      : undefined;
+    const components = list(f.get("components"));
+    if (!components.length) invalid();
+    // The same inventory rules as the snapshot: every operand and exclusion names exactly the
+    // contributing peers, and the two digests follow from the operand ids and appearance keys.
+    const raw = new Map<string, Set<string>>(),
+      eligible = new Map<string, Set<string>>(),
+      componentPeers: string[] = [],
+      componentBases: CborValue[] = [];
+    for (const c of components) {
+      const fs = fields(c, ["peer", "revision", "capturedAt", "rawIds", "operandIds"]);
+      const p = peer(text(fs.get("peer")));
+      componentPeers.push(p);
+      id(text(fs.get("revision")));
+      number(fs.get("capturedAt"));
+      const raws = ids(fs.get("rawIds")),
+        ops = ids(fs.get("operandIds"));
+      if (ops.some((x) => !raws.includes(x))) invalid();
+      for (const x of raws) {
+        if (!raw.has(x)) raw.set(x, new Set());
+        raw.get(x)!.add(p);
+      }
+      for (const x of ops) {
+        if (!eligible.has(x)) eligible.set(x, new Set());
+        eligible.get(x)!.add(p);
+      }
+      componentBases.push(map([...fs].filter(([k]) => k !== "capturedAt")));
+    }
+    ordered(componentPeers);
+    limit(raw.size, limits.inventoryIds);
+    const operandIds: string[] = [],
+      used = new Set<string>();
+    for (const o of list(f.get("operands"))) {
+      const of = fields(o, ["id", "appearance", "peers"]),
+        i = id(text(of.get("id"))),
+        a = id(text(of.get("appearance"))),
+        ps = ids(of.get("peers"), peer);
+      if (!ps.length || ps.join() !== [...(eligible.get(i) ?? [])].sort().join()) invalid();
+      operandIds.push(i);
+      used.add(a);
+    }
+    ordered(operandIds);
+    if (used.size !== operandIds.length || eligible.size !== operandIds.length) invalid();
+    const exclusionIds: string[] = [];
+    for (const e of list(f.get("exclusions"))) {
+      const ef = fields(e, ["id", "peers", "reason"]),
+        i = id(text(ef.get("id"))),
+        ps = ids(ef.get("peers"), peer);
+      if (
+        !text(ef.get("reason")) ||
+        eligible.has(i) ||
+        !ps.length ||
+        ps.join() !== [...(raw.get(i) ?? [])].sort().join()
+      )
+        invalid();
+      exclusionIds.push(i);
+    }
+    ordered(exclusionIds);
+    if (raw.size !== operandIds.length + exclusionIds.length) invalid();
+    if (
+      contentAddress(encode(array(operandIds.map(tstr)))) !== membership ||
+      contentAddress(encode(array([...used].sort().map(tstr)))) !== appearanceDigest
+    )
+      invalid();
+    const expected = contentAddress(
+      encode(
+        map([
+          ["binding", tstr(binding)],
+          ["authority", tstr(authority)],
+          ["selection", tstr(selection)],
+          ["components", array(componentBases)],
+          ["membership", tstr(membership)],
+          ["appearanceDigest", tstr(appearanceDigest)],
+          ["exclusions", f.get("exclusions")!],
+        ]),
+      ),
+    );
+    if (revision !== expected) invalid();
+    return {
+      binding,
+      authority,
+      selection,
+      revision,
+      servingAt,
+      ...(historicalCutoff === undefined ? {} : { historicalCutoff }),
+      membership,
+      appearanceDigest,
+      snapshot,
+    };
+  });
+}
 /** Metadata-only projection owned by the source codec; never accepts a verified proof. */
 function captureBasis(snapshot: MaterializationSourceSnapshot, commitment: string): Uint8Array {
   if (snapshot.value.t !== "map") return invalid();

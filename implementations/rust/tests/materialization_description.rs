@@ -30,12 +30,9 @@ fn shared_description_oracle() {
             claims: claims.clone(),
             sig: None,
         };
-        let verb = match f["verb"].as_str() {
-            Some("resolve") => Some(MaterializationVerb::Resolve),
-            Some("gather") => Some(MaterializationVerb::Gather),
-            _ => None,
-        };
-        let fs = read_materialization_description(&d, verb).unwrap();
+        let verb = f["verb"].as_str().and_then(MaterializationVerb::parse);
+        let fs = read_materialization_description(&d, verb)
+            .unwrap_or_else(|e| panic!("{}: {e}", f["id"]));
         let written = materialization_description_claims(
             &claims.author,
             1000.0,
@@ -70,11 +67,7 @@ fn shared_description_oracle() {
             .find(|f| f["id"] == n["base"])
             .unwrap();
         let mut claims = parse_claims(&f["claims"]).unwrap();
-        let verb = if f["verb"] == "resolve" {
-            Some(MaterializationVerb::Resolve)
-        } else {
-            None
-        };
+        let verb = f["verb"].as_str().and_then(MaterializationVerb::parse);
         match n["mutation"].as_str().unwrap() {
             "extra-role" => claims.pointers.push(rhizomatic::types::Pointer {
                 role: "rhizomatic.materialization.extra".into(),

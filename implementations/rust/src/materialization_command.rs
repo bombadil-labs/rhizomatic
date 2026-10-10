@@ -13,6 +13,11 @@ use crate::materialization_input::{
     catalog, check_delivery_counts, prepare, required_binding, validate_program, validate_source,
     InputCatalog, MaterializationInputBoot,
 };
+use crate::materialization_lifecycle::{
+    is_lifecycle_verb, preflight_lifecycle, run_lifecycle, LifecycleHost, LifecycleOutcome,
+    MaterializationLifecycleHooks,
+};
+use crate::materialization_peer::MaterializationControlStore;
 use crate::materialization_source::{
     MaterializationSourceCapability, MaterializationSourceFailure, MaterializationSourceSnapshot,
 };
@@ -45,6 +50,9 @@ pub fn preflight_materialization_input(
     let c = catalog(boot)?;
     let validation = || -> Result<()> {
         let p = prepare(&c, entry_id, appearances, received_at)?;
+        if is_lifecycle_verb(p.verb) {
+            return preflight_lifecycle(&c, &p, received_at);
+        }
         if p.verb == MaterializationVerb::Gather {
             validate_source(&c, &p, received_at)?;
         }
@@ -74,13 +82,51 @@ pub struct MaterializationEndpoint<'a> {
     signer: Box<dyn MaterializationSigner + 'a>,
     source_grants: BTreeMap<String, Box<dyn MaterializationSourceCapability + 'a>>,
     diagnostic: Box<MaterializationDiagnostic<'a>>,
+    control_store: Option<Box<dyn MaterializationControlStore + 'a>>,
+    hooks: MaterializationLifecycleHooks<'a>,
 }
 impl<'a> MaterializationEndpoint<'a> {
+    /// Release A: gather and resolve only. A release-B catalog needs `boot_maintained`.
     pub fn boot(
         boot: &MaterializationInputBoot,
         signer: Box<dyn MaterializationSigner + 'a>,
         source_grants: BTreeMap<String, Box<dyn MaterializationSourceCapability + 'a>>,
         diagnostic: Box<MaterializationDiagnostic<'a>>,
+    ) -> Result<Self> {
+        Self::boot_with(
+            boot,
+            signer,
+            source_grants,
+            diagnostic,
+            None,
+            Default::default(),
+        )
+    }
+    /// Release B: all eight verbs over an explicitly initialized control store (MR-15).
+    pub fn boot_maintained(
+        boot: &MaterializationInputBoot,
+        signer: Box<dyn MaterializationSigner + 'a>,
+        source_grants: BTreeMap<String, Box<dyn MaterializationSourceCapability + 'a>>,
+        diagnostic: Box<MaterializationDiagnostic<'a>>,
+        control_store: Box<dyn MaterializationControlStore + 'a>,
+        hooks: MaterializationLifecycleHooks<'a>,
+    ) -> Result<Self> {
+        Self::boot_with(
+            boot,
+            signer,
+            source_grants,
+            diagnostic,
+            Some(control_store),
+            hooks,
+        )
+    }
+    fn boot_with(
+        boot: &MaterializationInputBoot,
+        signer: Box<dyn MaterializationSigner + 'a>,
+        source_grants: BTreeMap<String, Box<dyn MaterializationSourceCapability + 'a>>,
+        diagnostic: Box<MaterializationDiagnostic<'a>>,
+        control_store: Option<Box<dyn MaterializationControlStore + 'a>>,
+        hooks: MaterializationLifecycleHooks<'a>,
     ) -> Result<Self> {
         let catalog = catalog(boot)?;
         require(
@@ -93,11 +139,18 @@ impl<'a> MaterializationEndpoint<'a> {
                 .all(|k| catalog.bindings.contains_key(k)),
             "grant for unselected binding",
         )?;
+        let maintained = catalog.release == 'B';
+        require(
+            !maintained || control_store.is_some(),
+            "maintained verbs require an initialized control store",
+        )?;
         Ok(Self {
             catalog,
             signer,
             source_grants,
             diagnostic,
+            control_store: if maintained { control_store } else { None },
+            hooks,
         })
     }
     pub fn catalog(&self) -> DeltaSet {
@@ -171,7 +224,12 @@ impl<'a> MaterializationEndpoint<'a> {
         }
         // The immutable borrow is counted before bounded typed allocation.
         match self.attempt(entry_id, appearances, received_at) {
-            Ok(body) => self.outcome(entry_id, received_at, "completed", body),
+            Ok(LifecycleOutcome::Completed(body)) => {
+                self.outcome(entry_id, received_at, "completed", body)
+            }
+            Ok(LifecycleOutcome::Indeterminate(body)) => {
+                self.outcome(entry_id, received_at, "indeterminate", body)
+            }
             Err(code) => self.outcome(
                 entry_id,
                 received_at,
@@ -212,8 +270,23 @@ impl<'a> MaterializationEndpoint<'a> {
         entry_id: &str,
         appearances: &[serde_json::Value],
         received_at: f64,
-    ) -> Result<CborValue> {
+    ) -> Result<LifecycleOutcome> {
         let p = prepare(&self.catalog, entry_id, appearances, received_at)?;
+        if is_lifecycle_verb(p.verb) {
+            let store = self.control_store.as_mut().ok_or("unsupported-operation")?;
+            return run_lifecycle(
+                LifecycleHost {
+                    catalog: &self.catalog,
+                    signer: self.signer.as_ref(),
+                    grants: &mut self.source_grants,
+                    store: store.as_mut(),
+                    hooks: &self.hooks,
+                    diagnostic: self.diagnostic.as_ref(),
+                },
+                &p,
+                received_at,
+            );
+        }
         let snapshot = if p.verb == MaterializationVerb::Gather {
             let binding = required_binding(&p)?;
             require(self.source_grants.contains_key(&binding), "unauthorized")?;
@@ -308,6 +381,6 @@ impl<'a> MaterializationEndpoint<'a> {
                 &p.required_support,
             )?;
         }
-        Ok(body)
+        Ok(LifecycleOutcome::Completed(body))
     }
 }

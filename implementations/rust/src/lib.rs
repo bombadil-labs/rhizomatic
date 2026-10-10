@@ -139,6 +139,11 @@ pub mod materialization_command;
 mod materialization_evidence;
 
 pub mod materialization_result;
+
+pub mod materialization_control;
+pub mod materialization_lifecycle;
+pub mod materialization_peer;
+pub mod materialization_store;
 pub use materialization_command::{
     preflight_materialization_input, MaterializationDiagnostic, MaterializationEndpoint,
     MaterializationInputPreflight, MaterializationSigner,
@@ -149,6 +154,9 @@ pub use materialization_data::{
     MaterializationVerb,
 };
 pub use materialization_input::MaterializationInputBoot;
+pub use materialization_lifecycle::{
+    initialize_materialization_control, MaterializationLifecycleHooks,
+};
 pub use materialization_result::{
     read_materialization_result, MaterializationResult, MaterializationResultClassification,
     MaterializationResultContext, MaterializationSourceCommitments,

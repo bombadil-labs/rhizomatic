@@ -1,6 +1,7 @@
 // Test host only. Each stage starts fresh and carries only serialized signed descriptions/results.
 import { performance } from "node:perf_hooks";
-import { readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import {
   MaterializationEndpoint,
   materializationDescriptionClaims,
@@ -14,6 +15,8 @@ import {
   DeltaSet,
   type Delta,
   type MaterializationSourceCapability,
+  type MaterializationControlStore,
+  type MaterializationVerb,
 } from "../src/index.js";
 import { commandBytes, commandEntity } from "../src/command-data/codec.js";
 import { bytesToHex } from "../src/delta/hash.js";
@@ -51,7 +54,233 @@ const context = (q: Delta) => ({
   requestDelta: q,
   receivedAt,
 });
-if (input.mode === "construct") {
+// ---- M3 durable host: one JSON document per (receiver, configuration), replaced whole by rename.
+// The store never decodes an image; it keeps the revision the endpoint named beside the bytes.
+type FaultKind =
+  | "crash-before-cas"
+  | "crash-after-cas"
+  | "unconfirmed-absent"
+  | "unconfirmed-present"
+  | "rejected"
+  | "post-cas-result"
+  | "sign-failure"
+  | "race";
+const hex = (s: string) => Uint8Array.from(s.match(/../g) ?? [], (x) => parseInt(x, 16));
+class FileControlStore implements MaterializationControlStore {
+  constructor(
+    readonly dir: string,
+    readonly fault?: FaultKind,
+    /** The image another writer lands between this host's read and its CAS (`race`). */
+    readonly raced?: { hex: string; revision: string },
+  ) {}
+  private path(receiver: string, configuration: string) {
+    return join(
+      this.dir,
+      encodeURIComponent(receiver),
+      encodeURIComponent(configuration) + ".json",
+    );
+  }
+  load(receiver: string, configuration: string) {
+    const p = this.path(receiver, configuration);
+    if (!existsSync(p)) return undefined;
+    const doc = JSON.parse(readFileSync(p, "utf8")) as { revision: string; imageHex: string };
+    return { revision: doc.revision, bytes: hex(doc.imageHex) };
+  }
+  save(receiver: string, configuration: string, revision: string, bytes: Uint8Array) {
+    const p = this.path(receiver, configuration);
+    mkdirSync(dirname(p), { recursive: true });
+    writeFileSync(p + ".tmp", JSON.stringify({ revision, imageHex: bytesToHex(bytes) }));
+    renameSync(p + ".tmp", p);
+  }
+  async initialize(receiver: string, configuration: string, emptyBytes: Uint8Array) {
+    const existing = this.load(receiver, configuration);
+    if (existing) return { status: "existing" as const, ...existing };
+    this.save(receiver, configuration, "", emptyBytes);
+    return { status: "initialized" as const, bytes: emptyBytes };
+  }
+  async read(receiver: string, configuration: string) {
+    const existing = this.load(receiver, configuration);
+    return existing
+      ? { status: "image" as const, ...existing }
+      : { status: "unavailable" as const, fault: "absent" };
+  }
+  async compareAndSet(
+    receiver: string,
+    configuration: string,
+    expectedRevision: string,
+    bytes: Uint8Array,
+    revision: string,
+  ) {
+    if (this.fault === "race" && this.raced)
+      this.save(receiver, configuration, this.raced.revision, hex(this.raced.hex));
+    if (this.load(receiver, configuration)?.revision !== expectedRevision)
+      return { status: "conflict" as const };
+    if (this.fault === "rejected")
+      return { status: "rejected" as const, reason: "fixture-rejected" };
+    if (this.fault === "unconfirmed-absent")
+      return { status: "committed-unconfirmed" as const, fault: "fixture-unconfirmed" };
+    if (this.fault === "crash-before-cas") process.exit(3);
+    this.save(receiver, configuration, revision, bytes);
+    if (this.fault === "crash-after-cas") process.exit(3);
+    if (this.fault === "unconfirmed-present")
+      return { status: "committed-unconfirmed" as const, fault: "fixture-unconfirmed" };
+    return { status: "durable" as const, revision };
+  }
+}
+const isOutcomeClaims = (claims: Delta["claims"]) =>
+  claims.pointers.some(
+    (p) =>
+      p.role === "rhizomatic.materialization.kind" &&
+      p.target.kind === "primitive" &&
+      p.target.value === "outcome/1",
+  );
+const lifecycleHost = (
+  dir: string,
+  fault?: FaultKind,
+  raced?: { hex: string; revision: string },
+) => {
+  const calls: unknown[] = [];
+  const diagnostics: string[] = [];
+  const grant: MaterializationSourceCapability = {
+    async capture() {
+      throw Error("the fixture source never recaptures");
+    },
+    async reacquireSnapshot() {
+      throw Error("the fixture source never restores a snapshot");
+    },
+    async checkCurrent(binding, revision, authority, at, cutoff, support) {
+      calls.push({ binding, revision, authority, at, cutoff, support: [...support] });
+      return binding === f.source.binding &&
+        revision === f.source.revision &&
+        authority === f.source.authority
+        ? { status: "current" }
+        : { status: "source-changed" };
+    },
+  };
+  const store = new FileControlStore(dir, fault, raced);
+  const endpoint = MaterializationEndpoint.boot({
+    ...boot,
+    signer: {
+      author: signer.author,
+      sign: (claims) => {
+        if (fault === "sign-failure" && isOutcomeClaims(claims))
+          throw Error("fixture-signer-fault");
+        return signer.sign(claims);
+      },
+    },
+    sourceGrants: f.noGrant ? new Map() : new Map([[f.source.binding, grant]]),
+    controlStore: store,
+    hooks:
+      fault === "post-cas-result"
+        ? {
+            postCasResultMaterialization: () => {
+              throw Error("fixture-result-fault");
+            },
+          }
+        : {},
+    diagnostic: (e) => {
+      diagnostics.push(String(e instanceof Error ? e.message : e));
+    },
+  });
+  return { endpoint, store, calls, diagnostics };
+};
+const storeState = (store: FileControlStore) => {
+  const existing = store.load(signer.author, boot.configuration.id);
+  return existing
+    ? { revision: existing.revision, bytesHex: bytesToHex(existing.bytes) }
+    : { revision: null, bytesHex: null };
+};
+const step = input.step as
+  | {
+      verb: MaterializationVerb;
+      request: unknown;
+      delivery: unknown[];
+      initialControl?: { hex: string; revision: string };
+    }
+  | undefined;
+if (input.mode === "construct" && step) {
+  // Re-sign the step's request from its decoded fields: only serialized descriptions cross.
+  const q = parseCommandDelta(step.request),
+    fields = readMaterializationDescription(q, step.verb),
+    copied: Record<string, readonly Delta["claims"]["pointers"][number]["target"][]> = {
+      ...fields,
+    };
+  delete copied.kind;
+  const constructed = signClaims(
+    materializationDescriptionClaims(
+      authorForSeed(f.seeds.caller),
+      q.claims.timestamp,
+      "request/1",
+      copied,
+    ),
+    f.seeds.caller,
+  );
+  output({
+    request: serializeCommandDelta(constructed),
+    delivery: step.delivery.map((d) =>
+      (d as { id: string }).id === q.id ? serializeCommandDelta(constructed) : d,
+    ),
+  });
+} else if (input.mode === "control-execute" || input.mode === "control-read") {
+  // A fresh process over the durable directory; the seed writes the step's initial image once.
+  const host = lifecycleHost(input.store.dir, input.fault?.kind, input.fault?.image);
+  if (input.seed && step?.initialControl)
+    host.store.save(
+      signer.author,
+      boot.configuration.id,
+      step.initialControl.revision,
+      hex(step.initialControl.hex),
+    );
+  const request = input.upstream?.request ?? step!.request,
+    delivery = input.upstream?.delivery ?? step!.delivery,
+    q = parseCommandDelta(request);
+  const outcome = await host.endpoint.invoke(q.id, delivery, receivedAt);
+  output({
+    request,
+    delivery,
+    outcome: serializeCommandDelta(outcome),
+    preflight: preflightMaterializationInput(boot, q.id, delivery, receivedAt),
+    calls: host.calls,
+    diagnostics: host.diagnostics,
+    store: storeState(host.store),
+  });
+} else if (input.mode === "control-export") {
+  output(storeState(new FileControlStore(input.store.dir)));
+} else if (input.mode === "control-restore") {
+  // Only the exported bytes and revision enter the fresh directory; then the restore verb runs.
+  const host = lifecycleHost(input.store.dir);
+  host.store.save(
+    signer.author,
+    boot.configuration.id,
+    input.upstream.revision,
+    hex(input.upstream.bytesHex),
+  );
+  const q = parseCommandDelta(step!.request);
+  const outcome = await host.endpoint.invoke(q.id, step!.delivery, receivedAt);
+  output({
+    request: step!.request,
+    outcome: serializeCommandDelta(outcome),
+    preflight: preflightMaterializationInput(boot, q.id, step!.delivery, receivedAt),
+    store: storeState(host.store),
+  });
+} else if (input.mode === "control-result") {
+  const q = parseCommandDelta(input.upstream.request),
+    read = readMaterializationResult(parseCommandDelta(input.upstream.outcome), {
+      ...context(q),
+      control: hex(input.control.bytesHex),
+      ...(input.capture && input.snapshot
+        ? { capture: parseCommandDelta(input.capture), snapshot: parseCommandDelta(input.snapshot) }
+        : {}),
+    });
+  output({
+    status: read.status,
+    classification: read.classification,
+    sourceCommitments: read.sourceCommitments,
+    receiverTestimony: read.receiverTestimony,
+    executionVerified: read.executionVerified,
+    bodyHex: bytesToHex(encode(read.body)),
+  });
+} else if (input.mode === "construct") {
   const q = parseCommandDelta(f.request),
     fields = readMaterializationDescription(q, "gather"),
     copied: Record<string, readonly Delta["claims"]["pointers"][number]["target"][]> = {

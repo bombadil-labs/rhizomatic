@@ -16,7 +16,9 @@ import {
 import {
   readMaterializationDescription,
   readMaterializationLimits,
+  materializationOperationVerb,
   MATERIALIZATION_PREFIX,
+  MATERIALIZATION_RELEASE_VERBS,
   type MaterializationLimits,
   type MaterializationVerb,
 } from "../command-data/materialization-codec.js";
@@ -42,6 +44,13 @@ export interface MaterializationInputBoot {
   readonly declarations: readonly Delta[];
   readonly bindings: readonly Delta[];
 }
+const ADMINISTRATOR_VERBS = new Set([
+  "install",
+  "replace-source",
+  "advance-time",
+  "retire",
+  "restore",
+]);
 export interface MaterializationInputCatalog {
   readonly configuration: Delta;
   readonly receiver: string;
@@ -49,6 +58,8 @@ export interface MaterializationInputCatalog {
   readonly limits: MaterializationLimits;
   readonly operations: ReadonlyMap<string, { delta: Delta; verb: MaterializationVerb }>;
   readonly bindings: ReadonlyMap<string, Delta>;
+  /** Release A installs gather/resolve only; release B installs all eight verbs (MR-08). */
+  readonly release: "A" | "B";
 }
 export const materializationValidAt = (d: Delta, at: number): boolean =>
   d.claims.validFrom <= at && (d.claims.validUntil === undefined || at < d.claims.validUntil);
@@ -68,16 +79,21 @@ export function materializationInputCatalog(
     const fields = readMaterializationDescription(d);
     if (d.claims.author !== receiver || commandText(fields, "kind") !== "operation/1")
       throw Error("invalid operation authority");
-    const verb = commandEntity(fields, "name").slice(
-      MATERIALIZATION_PREFIX.length,
-    ) as MaterializationVerb;
+    const verb = materializationOperationVerb(commandEntity(fields, "name"));
     operations.set(d.id, { delta: d, verb });
   }
   const installed = (f.installed ?? []).map((t) => commandRef({ x: [t] }, "x"));
+  const verbs = [...new Set([...operations.values()].map((o) => o.verb))].sort();
+  const release = (["A", "B"] as const).find(
+    (r) =>
+      verbs.length === MATERIALIZATION_RELEASE_VERBS[r].length &&
+      [...MATERIALIZATION_RELEASE_VERBS[r]].sort().every((v, i) => v === verbs[i]),
+  );
   if (
-    operations.size !== 2 ||
-    boot.declarations.length !== 2 ||
-    new Set([...operations.values()].map((o) => o.verb)).size !== 2 ||
+    release === undefined ||
+    operations.size !== verbs.length ||
+    boot.declarations.length !== verbs.length ||
+    installed.length !== verbs.length ||
     installed.some((i) => !operations.has(i))
   )
     throw Error("invalid operation catalog");
@@ -108,6 +124,7 @@ export function materializationInputCatalog(
     limits: readMaterializationLimits(commandBytes(f, "limits")),
     operations,
     bindings,
+    release,
   };
 }
 export interface MaterializationPreparedInput {
@@ -202,35 +219,73 @@ export function prepareMaterializationInput(
     (operation && !materializationValidAt(operation.delta, receivedAt))
   )
     mFail("configuration-mismatch");
-  if (
-    !(c.fields.caller ?? []).some((t) => t.kind === "primitive" && t.value === entry.claims.author)
-  )
+  const member = (role: string) =>
+    (c.fields[role] ?? []).some((t) => t.kind === "primitive" && t.value === entry.claims.author);
+  if (!member("caller")) mFail("unauthorized");
+  // MR-08: the five control verbs need an administrator; stage 3 refuses before any argument.
+  if (operation && ADMINISTRATOR_VERBS.has(operation.verb) && !member("administrator"))
     mFail("unauthorized");
   if (!operation) return mFail("unsupported-operation");
   let fields: CommandFields;
   try {
     fields = readMaterializationDescription(entry, operation.verb);
-    if (operation.verb === "gather" && commandNumber(fields, "serving-at") !== receivedAt)
-      throw Error();
+    if (fields["serving-at"] && commandNumber(fields, "serving-at") !== receivedAt) throw Error();
   } catch {
     return mFail("invalid-arguments");
   }
-  const requiredSupport =
-    operation.verb === "gather"
+  const verb = operation.verb;
+  let requiredSupport =
+    verb === "gather"
       ? [
           commandRef(fields, "hyperschema"),
           commandRef(fields, "schema"),
           ...(fields.definition ?? []).map((t) => commandRef({ x: [t] }, "x")),
         ].sort()
       : [];
+  // Direct delivered supports per verb (MR-12); stored support is never redelivered.
   const direct =
-    operation.verb === "gather"
+    verb === "gather"
       ? [commandRef(fields, "capture"), commandRef(fields, "snapshot"), ...requiredSupport]
-      : [commandRef(fields, "evidence")];
+      : verb === "resolve"
+        ? [commandRef(fields, "evidence")]
+        : verb === "install"
+          ? [
+              commandRef(fields, "registration"),
+              commandRef(fields, "capture"),
+              commandRef(fields, "snapshot"),
+            ]
+          : verb === "replace-source"
+            ? [commandRef(fields, "capture"), commandRef(fields, "snapshot")]
+            : verb === "advance-time" || verb === "read"
+              ? [commandRef(fields, "snapshot")]
+              : [];
   if (direct.some((i) => !supplied.has(i))) mFail("missing-support");
   const reachable = new Set([entryId, ...direct]);
+  if (verb === "install") {
+    // The named descriptor must be a registration act; its closure is delivered in full.
+    let descriptor;
+    try {
+      descriptor = readMaterializationDescription(
+        supplied.get(commandRef(fields, "registration"))!,
+      );
+      if (commandText(descriptor, "kind") !== "registration/1") throw Error();
+    } catch {
+      return mFail("invalid-arguments");
+    }
+    // MR-04: the complete root partition is bounded here, before any root is evaluated.
+    if ((descriptor.roots ?? []).length > c.limits.roots) mFail("resource-limit");
+    requiredSupport = [
+      commandRef(descriptor, "hyperschema"),
+      commandRef(descriptor, "schema"),
+      ...(descriptor.definition ?? []).map((t) => commandRef({ x: [t] }, "x")),
+    ].sort();
+    if (requiredSupport.some((i) => !supplied.has(i))) mFail("missing-support");
+    for (const i of requiredSupport) reachable.add(i);
+  }
   const capture =
-    operation.verb === "gather" ? supplied.get(commandRef(fields, "capture")) : undefined;
+    verb === "gather" || verb === "install" || verb === "replace-source"
+      ? supplied.get(commandRef(fields, "capture"))
+      : undefined;
   if (capture) {
     const ps = capture.claims.pointers.filter(
       (p) => p.role === MATERIALIZATION_PREFIX + "authority",
@@ -246,7 +301,9 @@ export function prepareMaterializationInput(
     }
   }
   if ([...supplied.keys()].some((i) => !reachable.has(i))) mFail("unexpected-support");
-  if (operation.verb === "resolve") {
+  if (verb === "retire" || verb === "restore")
+    return { entry, fields, verb, supplied, requiredSupport };
+  if (verb === "resolve") {
     let evidenceFields;
     try {
       evidenceFields = readMaterializationDescription(
@@ -278,10 +335,10 @@ export function prepareMaterializationInput(
   return {
     entry,
     fields,
-    verb: operation.verb,
+    verb,
     supplied,
     requiredSupport,
-    capture: capture!,
+    ...(capture ? { capture } : {}),
     snapshotBytes,
   };
 }

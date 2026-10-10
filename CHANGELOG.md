@@ -15,6 +15,53 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
   category (SPEC-16 ERRATA E1). A Basis with an empty closure and a malformed pin now refuses
   `invalid-evidence` in both; TypeScript previously answered `definition-closure`.
 
+### Added
+
+- SPEC-16 M3 groundwork in TypeScript and Rust: the reactor-owned `rhizomatic.materialization-control/1`
+  image codec and pure transition planner, the storage-owned control store seam, a federation
+  facade, and the `registration/1`, `state/1` and `control-image/1` descriptions plus the six
+  lifecycle request grammars. Shared vectors: `vectors/materialization/control-image.json` and new
+  description oracles.
+- SPEC-16 M3 lifecycle verbs in both endpoints: install, replace-source, advance-time, retire,
+  read and restore over an explicitly initialized control store, with stage-5 control
+  classification, prospective receiver-signed transitions, bounded images and the four CAS
+  outcomes. Release B boots need the store (`controlStore` / `boot_maintained`). The shared
+  schedule `vectors/materialization/lifecycle.json` pins twenty steps, each from an explicit
+  control image, with signed outcomes and images equal in both witnesses. ERRATA E3 records three
+  small decisions.
+- SPEC-16 MR-20 readback for the six maintained bodies and both indeterminate bodies
+  (`readMaterializationResult` / `read_materialization_result`): strict root-result envelopes
+  and Views, the nine M3 refusal codes, and contextual linkage to the request and the named
+  control image (ERRATA E4). The preflight projection covers install. `contracts/materialization/M3-CASES.json`
+  allocates the M3 cases and `tools/check-materialization-m3-acceptance.mjs` checks both
+  witnesses' receipts in CI.
+- SPEC-16 M3 durable fixture hosts in both witnesses with a shared file layout, the seven MR-18
+  fault points, and `tools/check-materialization-m3-towers.mjs`: three tower scenarios in both
+  fixed directions and three seeded mixed plans each with exact replay, plus eight fault
+  schedules.
+- SPEC-16 M3 slice C2: the shared schedule grew to 47 steps with two more sources, an authority
+  change, an equal-count replacement, a physical removal, a second descriptor on one source, an
+  expiring descriptor retired without a grant, a later-definition descriptor after retirement,
+  and a read after authority expiry. Steps may name a source, a receive time or no grant. Every
+  step checks the image holds no snapshot payload. The towers add the two-writers race.
+  Validity boundaries, source races, rotation, shared-basis limits and support erasure follow.
+- Fixes from the first independent review of M3 (ERRATA E5): roots and aliases are typed by
+  role, text sets and root results order by UTF-8 bytes in TypeScript, the five control verbs
+  require an administrator at stage 3, the roots limit binds at install, on stored descriptors
+  and in readback, restore checks each stored capture's commitments, expected-source compares
+  after the other stage-6 checks, and readback links a mutating request to its transition and
+  its serving time. Thirteen shared steps and hostile-context tests in both witnesses pin them.
+- Fixes from the second independent review of M3 (ERRATA E6): readback compares root partitions
+  element by element, restore validates the stored descriptor's pins and closure against the
+  retained acts, the stored capture basis is decoded as a complete MR-10 basis
+  (`decodeMaterializationCaptureBasis` / `decode_materialization_capture_basis`), and readback
+  links an install or replacement request to the capture the image selected. Two shared steps
+  and hostile-context tests in both witnesses pin them.
+- Fixes from the third independent review of M3 (ERRATA E7): the capture basis decoder enforces
+  the snapshot's inventory rules and recomputes both digests, and restore requires the stored
+  capture's signed claims to name the observation its basis carries. Three shared steps pin
+  them.
+
 ### Changed
 
 - Batch gather and contextual readback validate capture metadata from one freshly decoded source

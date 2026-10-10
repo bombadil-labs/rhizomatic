@@ -32,3 +32,33 @@ export function materializationAccountingSensitivity(expected){
  assert.throws(()=>validateMaterializationAssertions(expected,wrongCorpus),/corpus commitment/);
  return ['missing-assertion-evidence','missing-executed-assertions','wrong-vector-identity','wrong-corpus-commitment'];
 }
+
+// M3 receipts: the control-image and lifecycle corpora. Counts are identical in both witnesses.
+const SERVING_VERBS=['install','replace-source','advance-time','read'];
+function lifecycleVerbs(v){
+ const role=s=>'rhizomatic.materialization.'+s,verbs=new Map();
+ for(const d of v.boot.declarations){
+  const ps=d.claims.pointers,kind=ps.find(p=>p.role===role('kind'))?.target,name=ps.find(p=>p.role===role('name'))?.target?.id;
+  if(kind==='operation/1'&&typeof name==='string')verbs.set(d.id,name.slice(role('').length));
+ }
+ return step=>verbs.get(step.request.claims.pointers.find(p=>p.role===role('operation'))?.target?.delta);
+}
+export function expectedMaterializationM3Assertions(corpora){
+ const expected=[];
+ for(const [corpus,bytes] of Object.entries(corpora)){
+  const v=JSON.parse(bytes),corpusId=createHash('sha256').update(bytes).digest('hex');
+  if(corpus==='control-image'){
+   for(const f of v.positives)expected.push({corpus,corpusId,group:'positives',id:f.id,assertions:7+f.expected.deltaKeys.length});
+   for(const f of v.negatives)expected.push({corpus,corpusId,group:'negatives',id:f.id,assertions:1});
+  }else if(corpus==='lifecycle'){
+   const verbOf=lifecycleVerbs(v);
+   for(const s of v.steps){
+    expected.push({corpus,corpusId,group:'steps',id:s.id,assertions:6});
+    const refused=s.expected.status==='refused',results=!refused&&SERVING_VERBS.includes(verbOf(s));
+    expected.push({corpus,corpusId,group:'readback',id:s.id,assertions:refused?6:results?10:8});
+   }
+  }else throw Error('unknown M3 corpus '+corpus);
+ }
+ return expected;
+}
+export function materializationM3AssertionReceipts(log){return [...log.matchAll(/materialization-m3-assertion:(\{[^\n]+\})/g)].map(m=>JSON.parse(m[1]));}

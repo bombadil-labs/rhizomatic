@@ -513,6 +513,184 @@ fn capture_basis(snapshot: &MaterializationSourceSnapshot, commitment: &str) -> 
     fs.push(("snapshot".into(), string(commitment)));
     Ok(encode(&CborValue::Map(fs)))
 }
+/// The metadata a capture basis commits to (MR-10); operand bytes never appear here.
+#[derive(Debug, Clone, PartialEq)]
+pub struct MaterializationCaptureBasis {
+    pub binding: String,
+    pub authority: String,
+    pub selection: String,
+    pub revision: String,
+    pub serving_at: f64,
+    pub historical_cutoff: Option<f64>,
+    pub membership: String,
+    pub appearance_digest: String,
+    pub snapshot: String,
+}
+const CAPTURE_BASIS_FIELDS: &[&str] = &[
+    "format",
+    "binding",
+    "authority",
+    "selection",
+    "revision",
+    "servingAt",
+    "components",
+    "operands",
+    "exclusions",
+    "membership",
+    "appearanceDigest",
+    "snapshot",
+];
+/// Decode a complete capture basis without its snapshot: the exact MR-10 field set, bounded
+/// inventories, sorted components and the revision recomputed from the metadata it names. A
+/// basis that drops or adds a field, or whose revision does not follow from its own fields, is
+/// invalid. Nothing here proves the operand bytes; that stays with the snapshot checker.
+pub fn decode_materialization_capture_basis(
+    input: &[u8],
+    limits: MaterializationSourceLimits,
+) -> Result<MaterializationCaptureBasis> {
+    checked_limits(limits)?;
+    let value = canonical_guard(input, limits.artifact_bytes, &mut |path, is_map, n| {
+        if is_map {
+            return Ok(());
+        }
+        if path.len() == 1 {
+            match &path[0] {
+                CborPathPart::Key(k) if k == "components" => guard_limit(n, limits.components)?,
+                CborPathPart::Key(k) if k == "operands" => guard_limit(n, limits.appearances)?,
+                CborPathPart::Key(k) if k == "exclusions" => guard_limit(n, limits.inventory_ids)?,
+                _ => {}
+            }
+        }
+        if let Some(CborPathPart::Key(k)) = path.last() {
+            if k == "rawIds" || k == "operandIds" {
+                guard_limit(n, limits.inventory_ids)?;
+            }
+            if k == "peers" {
+                guard_limit(n, limits.components)?;
+            }
+        }
+        Ok(())
+    })?;
+    let f = exact(&value, CAPTURE_BASIS_FIELDS, &["historicalCutoff"])?;
+    require(text(get(&f, "format")?)? == "rhizomatic.source-basis/1")?;
+    let get_id = |k| -> Result<String> { id(text(get(&f, k)?)?) };
+    let binding = get_id("binding")?;
+    let authority = get_id("authority")?;
+    let selection = get_id("selection")?;
+    let revision = get_id("revision")?;
+    let membership = get_id("membership")?;
+    let appearance_digest = get_id("appearanceDigest")?;
+    let snapshot = get_id("snapshot")?;
+    let serving_at = number(get(&f, "servingAt")?)?;
+    let historical_cutoff = f.get("historicalCutoff").map(|x| number(x)).transpose()?;
+    let components = list(get(&f, "components")?)?;
+    require(!components.is_empty())?;
+    // The same inventory rules as the snapshot: every operand and exclusion names exactly the
+    // contributing peers, and the two digests follow from the operand ids and appearance keys.
+    let mut raw: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+    let mut eligible: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+    let mut component_peers = Vec::new();
+    let mut component_bases = Vec::new();
+    for c in components {
+        let fs = exact(
+            c,
+            &["peer", "revision", "capturedAt", "rawIds", "operandIds"],
+            &[],
+        )?;
+        let p = peer(text(get(&fs, "peer")?)?)?;
+        component_peers.push(p.clone());
+        id(text(get(&fs, "revision")?)?)?;
+        number(get(&fs, "capturedAt")?)?;
+        let raws = ids(get(&fs, "rawIds")?, false)?;
+        let ops = ids(get(&fs, "operandIds")?, false)?;
+        require(ops.iter().all(|x| raws.contains(x)))?;
+        for x in raws {
+            raw.entry(x).or_default().insert(p.clone());
+        }
+        for x in ops {
+            eligible.entry(x).or_default().insert(p.clone());
+        }
+        component_bases.push(CborValue::Map(
+            fs.iter()
+                .filter(|(k, _)| **k != "capturedAt")
+                .map(|(k, v)| ((*k).into(), (*v).clone()))
+                .collect(),
+        ));
+    }
+    ordered(&component_peers)?;
+    limit(raw.len(), limits.inventory_ids)?;
+    let mut operand_ids = Vec::new();
+    let mut used = BTreeSet::new();
+    for o in list(get(&f, "operands")?)? {
+        let of = exact(o, &["id", "appearance", "peers"], &[])?;
+        let i = id(text(get(&of, "id")?)?)?;
+        let a = id(text(get(&of, "appearance")?)?)?;
+        let ps = ids(get(&of, "peers")?, true)?;
+        require(
+            !ps.is_empty()
+                && ps
+                    == eligible
+                        .get(&i)
+                        .map(|s| s.iter().cloned().collect::<Vec<_>>())
+                        .unwrap_or_default(),
+        )?;
+        operand_ids.push(i);
+        used.insert(a);
+    }
+    ordered(&operand_ids)?;
+    require(used.len() == operand_ids.len() && eligible.len() == operand_ids.len())?;
+    let mut exclusion_ids = Vec::new();
+    for e in list(get(&f, "exclusions")?)? {
+        let ef = exact(e, &["id", "peers", "reason"], &[])?;
+        let i = id(text(get(&ef, "id")?)?)?;
+        let ps = ids(get(&ef, "peers")?, true)?;
+        require(
+            !text(get(&ef, "reason")?)?.is_empty()
+                && !eligible.contains_key(&i)
+                && !ps.is_empty()
+                && ps
+                    == raw
+                        .get(&i)
+                        .map(|s| s.iter().cloned().collect::<Vec<_>>())
+                        .unwrap_or_default(),
+        )?;
+        exclusion_ids.push(i);
+    }
+    ordered(&exclusion_ids)?;
+    require(raw.len() == operand_ids.len() + exclusion_ids.len())?;
+    require(
+        content_address(&encode(&CborValue::Array(
+            operand_ids.iter().map(|k| string(k)).collect(),
+        ))) == membership
+            && content_address(&encode(&CborValue::Array(
+                used.iter().map(|k| string(k)).collect(),
+            ))) == appearance_digest,
+    )?;
+    let expected = content_address(&encode(&CborValue::Map(vec![
+        ("binding".into(), CborValue::Tstr(binding.clone())),
+        ("authority".into(), CborValue::Tstr(authority.clone())),
+        ("selection".into(), CborValue::Tstr(selection.clone())),
+        ("components".into(), CborValue::Array(component_bases)),
+        ("membership".into(), CborValue::Tstr(membership.clone())),
+        (
+            "appearanceDigest".into(),
+            CborValue::Tstr(appearance_digest.clone()),
+        ),
+        ("exclusions".into(), get(&f, "exclusions")?.clone()),
+    ])));
+    require(revision == expected)?;
+    Ok(MaterializationCaptureBasis {
+        binding,
+        authority,
+        selection,
+        revision,
+        serving_at,
+        historical_cutoff,
+        membership,
+        appearance_digest,
+        snapshot,
+    })
+}
 /// Private owned commitment: never created from caller-supplied decoded evidence.
 pub(crate) struct CaptureBasisChecker {
     expected: Vec<u8>,

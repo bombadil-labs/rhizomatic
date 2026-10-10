@@ -17,7 +17,27 @@ export function validateGatherMaterializationEvidence(
 ) {
   const fs = mFields(body, ["kind", "root", "basis", "envelope", "transport", "hview"]);
   if (mText(fs.get("kind")) !== "gather" || !mText(fs.get("root"))) mFail();
-  const envelope = mBytes(fs.get("envelope"));
+  const hview = validateMaterializationEnvelope(
+    mBytes(fs.get("envelope")),
+    mId(fs.get("transport")),
+    mId(fs.get("hview")),
+    limits,
+  );
+  const program = materializationBasisProgram(fs.get("basis")!, limits);
+  validateMaterializationBasis(fs.get("basis")!, limits);
+  mLimit(encode(body).length, limits.artifactBytes);
+  return { fields: fs, hview, program };
+}
+/**
+ * Strict HView envelope readback (MR-20): decode under the limits, recompute transport and hview
+ * digests from the bytes, and refuse any reading the materialization grammar cannot run.
+ */
+export function validateMaterializationEnvelope(
+  envelope: Uint8Array,
+  transport: string,
+  hviewId: string,
+  limits: MaterializationLimits,
+): HView {
   let hview: HView;
   try {
     hview = decodeHViewEnvelope(envelope, {
@@ -36,17 +56,8 @@ export function validateGatherMaterializationEvidence(
     if (e instanceof EvidenceCodecError) mFail(e.code);
     throw e;
   }
-  const program = materializationBasisProgram(fs.get("basis")!, limits);
-  validateMaterializationBasis(fs.get("basis")!, limits);
-  const hviewBytes = Uint8Array.from(hviewCanonicalHex(hview).match(/../g)!, (h) =>
-    parseInt(h, 16),
-  );
-  if (
-    contentAddress(envelope) !== mId(fs.get("transport")) ||
-    contentAddress(hviewBytes) !== mId(fs.get("hview"))
-  )
-    mFail();
-  mLimit(encode(body).length, limits.artifactBytes);
+  const hviewBytes = materializationHexBytes(hviewCanonicalHex(hview));
+  if (contentAddress(envelope) !== transport || contentAddress(hviewBytes) !== hviewId) mFail();
   const check = (node: HView): void => {
     for (const entries of node.props.values())
       for (const entry of entries) {
@@ -62,7 +73,7 @@ export function validateGatherMaterializationEvidence(
       }
   };
   check(hview);
-  return { fields: fs, hview, program };
+  return hview;
 }
 export function materializationHasMissingReading(hview: HView): boolean {
   for (const bucket of hview.props.values())

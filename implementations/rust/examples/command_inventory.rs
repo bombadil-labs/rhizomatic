@@ -45,7 +45,8 @@ fn owner(module: &str, symbol: &str) -> &'static str {
         | "materialization_input"
         | "materialization_values"
         | "materialization_basis"
-        | "materialization_evidence" => "command",
+        | "materialization_evidence"
+        | "materialization_lifecycle" => "command",
         "types" | "cbor" | "delta" | "hash" | "sign" | "json_profile" | "b64u" | "set" => "delta",
         "pred"
         | "term_io"
@@ -83,7 +84,9 @@ fn owner(module: &str, symbol: &str) -> &'static str {
             }
         }
         "resolve_evidence" => "resolve",
-        "materialization_source" => "federation",
+        "materialization_source" | "materialization_peer" => "federation",
+        "materialization_control" => "reactor",
+        "materialization_store" => "storage",
         "hview" | "hview_envelope" => "algebra",
         "alias" => "delta",
         "reactor" if matches!(symbol, "manifest_member_ids" | "make_manifest_claims") => "delta",
