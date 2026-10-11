@@ -71,8 +71,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
   check and a source-unavailable flag; the tower runner boots every stage from the step's own
   fixture and runs six tower scenarios and thirteen fault schedules, adding the source races
   around the final check, the rebuild after a source replacement, restore with an unavailable
-  provider, the equal-count replacement and the 64-root program. ERRATA E9 records the
-  readings. Twenty-eight of the thirty-three M3 cases are executed.
+  provider, the equal-count replacement and the 64-root program. The post-check race moves
+  the provider's durable source state in the host directory after the final check and before
+  CAS dispatch, and a later process over that directory sees the moved source. ERRATA E9
+  records the readings. Twenty-eight of the thirty-three M3 cases are executed.
 
 ### Changed
 

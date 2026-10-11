@@ -59,13 +59,17 @@ function crossing(a,plan,label){
  const dirA=freshDir(label+'-a');
  const constructed=must(a['construct'],{mode:'construct',fixture,step:first});
  assert.deepEqual(constructed.delivery.map(d=>d.id),first.delivery.map(d=>d.id));record(records,'construct',a['construct'],{mode:'construct',step:first.id},constructed);
- const executeInput={mode:'control-execute',fixture:fixtureFor(first),step:first,store:{dir:dirA},seed:true,upstream:constructed,...(fault?{fault:{kind:fault,...(plan.raced?{image:plan.raced}:{})}}:{})};
+ const executeInput={mode:'control-execute',fixture:{...fixtureFor(first),...(plan.moved?{movedSource:plan.moved}:{})},step:first,store:{dir:dirA},seed:true,upstream:constructed,...(fault?{fault:{kind:fault,...(plan.raced?{image:plan.raced}:{})}}:{})};
  const executed=run(a['control-execute'],executeInput);
+ // The post-check race is an event in the committing process: the host's durable source moved before CAS dispatch, after exactly two checks.
+ if(plan.moved){assert.deepEqual(executed.output.sourceAtCas,plan.moved,'the moved source is current at CAS dispatch');assert.equal(executed.output.calls.length,2,'no check after the final one');}
  if(after.crash){assert.notEqual(executed.status,0,'a crashed host answers nothing');assert.equal(executed.output,null);}
  else{assert.equal(executed.status,0,executed.stderr);if(after.outcome)expectExecuted(executed.output,first);if(after.status){assert.equal(executed.output.outcome.claims.pointers.find(p=>p.role===role+'status').target,after.status);assert.equal(executed.output.store.bytesHex,after.controlHex);}}
  const {upstream:_u,...executeRecord}=executeInput;record(records,'control-execute',a['control-execute'],executeRecord,executed.output??{crashed:true,status:executed.status});
  const exported=must(a['control-export'],{mode:'control-export',fixture:fixtureFor(first),store:{dir:dirA}});
  assert.equal(exported.bytesHex,after.controlHex,'the directory after the stage is the oracle');record(records,'control-export',a['control-export'],{mode:'control-export'},exported);
+ // A later read over the same directory sees the moved source from the host's own durable state; the test supplies the original source.
+ for(const e of plan.afterOnA??[]){const o=must(a['control-read'],{mode:'control-read',fixture:{...fixtureFor(e.step),source:schedule.source},step:e.step,store:{dir:dirA}});assert.deepEqual(o.outcome,e.step.expected.outcome);assert.equal(o.store.bytesHex,after.controlHex);record(records,'control-read',a['control-read'],{mode:'control-read',step:e.step.id,source:'original'},o);}
  const dirB=freshDir(label+'-b');
  const restored=must(a['control-restore'],{mode:'control-restore',fixture:fixtureFor(restore),step:restore,store:{dir:dirB},upstream:exported});
  assert.deepEqual(restored.outcome,restore.expected.outcome);assert.equal(restored.store.bytesHex,after.controlHex);record(records,'control-restore',a['control-restore'],{mode:'control-restore',step:restore.id},restored);
@@ -87,7 +91,7 @@ const scenarios={
  ctl_uncertain_present:{first:S('advance_time'),fault:'unconfirmed-present',after:{status:'indeterminate',controlHex:S('advance_time').expected.controlHex,bodyHex:cborMap([['code','commit-unconfirmed']])},restore:S('restore_advanced'),read:S('read_advanced'),readback:completed(S('read_advanced'))},
  ctl_retired_restart:{first:S('retire'),fault:'crash-after-cas',after:{crash:true,controlHex:S('retire').expected.controlHex},restore:S('restore_retired'),read:S('read_retired'),readback:refusedRead(S('read_retired')),extra:[{step:S('install_retired')},{step:S('retire_retired')}]},
  // The host's source moves after the final check: the committed selection stands and the next read refuses.
- ctl_postcheck_precommit_race:{first:S('advance_time'),fault:'source-replaced-after-final-check',after:{outcome:true,controlHex:S('advance_time').expected.controlHex},restore:S('restore_advanced'),read:S('read_advanced_source_replaced'),readback:refusedRead(S('read_advanced_source_replaced'))},
+ ctl_postcheck_precommit_race:{first:S('advance_time'),fault:'source-replaced-after-final-check',moved:S('read_advanced_source_replaced').source,afterOnA:[{step:S('read_advanced_source_replaced')}],after:{outcome:true,controlHex:S('advance_time').expected.controlHex},restore:S('restore_advanced'),read:S('read_advanced_source_replaced'),readback:refusedRead(S('read_advanced_source_replaced'))},
  ctl_equal_count_replace:{first:S('replace_equal_count'),after:{outcome:true,controlHex:S('replace_equal_count').expected.controlHex},restore:S('restore_equal_count'),read:S('read_equal_count'),readback:completed(S('read_equal_count'))},
  ctl_shared_basis_limits:{first:S('limits_install_64_roots'),after:{outcome:true,controlHex:S('limits_install_64_roots').expected.controlHex},restore:S('restore_64_roots'),read:S('limits_read_64_roots'),readback:completed(S('limits_read_64_roots'))},
 };
