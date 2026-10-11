@@ -1736,6 +1736,26 @@
           "corpus": "lifecycle",
           "group": "readback",
           "id": "rotation_new_restore"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "restore_state_other_configuration"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "restore_state_other_configuration"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "read_state_other_configuration"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "read_state_other_configuration"
         }
       ],
       "native_evidence": [],
@@ -2316,6 +2336,11 @@
           "corpus": "command-descriptions",
           "group": "negatives",
           "id": "control_image_extra_role"
+        },
+        {
+          "corpus": "command-descriptions",
+          "group": "negatives",
+          "id": "state_missing_configuration"
         }
       ],
       "native_evidence": [],

@@ -83,6 +83,11 @@ describe("materialization descriptions shared independent claims oracle", () => 
         });
       if (n.mutation === "duplicate-receiver")
         ps.push(ps.find((p) => p.role.endsWith("receiver"))!);
+      if (n.mutation === "missing-configuration")
+        ps.splice(
+          ps.findIndex((p) => p.role.endsWith("configuration")),
+          1,
+        );
       if (n.mutation === "reference-context") {
         const i = ps.findIndex((p) => p.role.endsWith("evidence"));
         ps[i] = {

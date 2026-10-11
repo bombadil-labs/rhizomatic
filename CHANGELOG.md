@@ -92,8 +92,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
   empty scope with new installs, configuration-mismatch for requests of the other configuration,
   and retirements kept in the old scope. Both fixture hosts select a configuration by one renamed
   file and refuse an explicit attempt to serve by the signed request's verb, and the rotation
-  crossing crashes on either side of activation. ERRATA E12 records the
-  readings. All thirty-three M3 cases are executed.
+  crossing crashes on either side of activation. A state/1 act carries a required
+  `configuration` ref; an image whose state act names another configuration is `invalid-control`.
+  ERRATA E12 records the readings. All thirty-three M3 cases are executed.
 
 ### Changed
 

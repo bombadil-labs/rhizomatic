@@ -3106,6 +3106,7 @@ writeFileSync(
     description(
       "state/1",
       [
+        ["configuration", ref(configB.id)],
         ["registration", ref(descriptor.id)],
         ["generation", p(generation)],
         ["prior-control", p(priorControl)],
@@ -3625,10 +3626,12 @@ writeFileSync(
     verb: string,
     e: EntryFields,
     receivedAt = 1000,
+    cfg: Delta = configB,
   ) =>
     description(
       "state/1",
       [
+        ["configuration", ref(cfg.id)],
         ["registration", ref(e.registration.id)],
         ["generation", p(generation)],
         ["prior-control", p(priorControl)],
@@ -5062,7 +5065,7 @@ writeFileSync(
       ...pins,
       capture: src.capture.id,
     };
-    const tr = stateX(1, "", "", "install", entry);
+    const tr = stateX(1, "", "", "install", entry, 1000, cfg);
     const c = imageX(
       1,
       [{ ...entry, status: "active", transition: tr.id }],
@@ -5383,7 +5386,7 @@ writeFileSync(
       bindings: [binding, unrelatedExpiredBinding].map(serializeCommandDelta),
     },
   };
-  const tU1 = stateX(1, "", "", "install", fern);
+  const tU1 = stateX(1, "", "", "install", fern, 1000, configTwoBindings);
   const cU1 = imageX(
     1,
     [{ ...fern, status: "active", transition: tU1.id }],
@@ -5392,7 +5395,7 @@ writeFileSync(
   );
   const rU1 = revisionOf(cU1, 1);
   const retiredU: EntryFields = { ...fern, capture: undefined };
-  const tU2 = stateX(2, rU1, tU1.id, "retire", retiredU);
+  const tU2 = stateX(2, rU1, tU1.id, "retire", retiredU, 1000, configTwoBindings);
   const cU2 = imageX(
     2,
     [{ ...retiredU, status: "retired", transition: tU2.id }],
@@ -5999,7 +6002,7 @@ writeFileSync(
   );
   if (configNew.id === configB.id) throw Error("rotation needs a new configuration");
   const cN0 = imageX(0, [], [], configNew);
-  const tN1 = stateX(1, "", "", "install", fern);
+  const tN1 = stateX(1, "", "", "install", fern, 1000, configNew);
   const fernNX: EntryX = { ...fern, status: "active", transition: tN1.id };
   const cN1 = imageX(1, [fernNX], [descriptor, ...defs, s.capture, authority, tN1], configNew);
   const rN1 = revisionOf(cN1, 1);
@@ -6017,7 +6020,7 @@ writeFileSync(
     ),
     bootFor(configNew),
   );
-  const tN2 = stateX(2, rN1, "", "install", fieldsOf(dMoss));
+  const tN2 = stateX(2, rN1, "", "install", fieldsOf(dMoss), 1000, configNew);
   const mossNX: EntryX = { ...fieldsOf(dMoss), status: "active", transition: tN2.id };
   const cN2 = imageX(
     2,
@@ -6065,7 +6068,7 @@ writeFileSync(
     completed(readBodyX(descriptor, rN2, 2, basisOf("plant", 1000), [rootResultOf("plant")]), cN2),
     bootFor(configNew),
   );
-  const tN3 = stateX(3, rN2, "", "install", fieldsOf(slot3));
+  const tN3 = stateX(3, rN2, "", "install", fieldsOf(slot3), 1000, configNew);
   const slot3NX: EntryX = { ...fieldsOf(slot3), status: "active", transition: tN3.id };
   const cN3 = imageX(
     3,
@@ -6095,6 +6098,27 @@ writeFileSync(
     [cN3, 3],
     completed(restoreBodyX(rN3, 3, [fernNX, mossNX, slot3NX]), cN3),
     bootFor(configNew),
+  );
+  // ERRATA E12: a state act names its configuration. The first install signed for the new scope,
+  // transplanted into an image of the old scope with every other field intact, is invalid-control;
+  // the same act in its own scope restores (rotation_new_restore covers that side).
+  const fernT: EntryX = { ...fern, status: "active", transition: tN1.id };
+  const cTransplant = imageX(1, [fernT], [descriptor, ...defs, s.capture, authority, tN1]);
+  const rTransplant = revisionOf(cTransplant, 1);
+  if (tN1.id === stateX(1, "", "", "install", fern).id) throw Error("scopes share a state act");
+  step(
+    "restore_state_other_configuration",
+    restoreQ(rTransplant),
+    [restoreQ(rTransplant)],
+    [cTransplant, 1],
+    refusal("invalid-control"),
+  );
+  step(
+    "read_state_other_configuration",
+    readX(rTransplant, s),
+    [readX(rTransplant, s), s.snapshot],
+    [cTransplant, 1],
+    refusal("invalid-control"),
   );
   void byId;
   writeFileSync(

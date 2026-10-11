@@ -333,10 +333,13 @@ text it reads and the shared step or tower that pins it.
   request delta, and the structure read (status, code) is the honest level. Both harnesses pin
   that and the accounting formula counts five readback assertions for it
   (`rotation_old_request_new_endpoint`, `rotation_new_request_old_endpoint`).
-- **Open question for Myk: a state act is not scoped by configuration.** The first install of
-  the same descriptor in the new scope signs a state act with prior control `""` and prior
-  transition `""`, byte-identical to the first install in the old scope, so the two transitions
-  share one ID. The control image carries the configuration and the store keys scopes by it,
-  so nothing reads across scopes, and the outcome names its configuration. Whether the state
-  act should also name its configuration is a format decision outside this slice; the vectors
-  pin the current bytes.
+- **A state act names its configuration (decided by Myk, 2026-10-11).** Before this slice the
+  first install of one descriptor in two scopes signed byte-identical state acts with one ID: a
+  first act names an empty prior control, so nothing tied it to a scope, and a state act kept
+  as standalone testimony could not say which scope accepted it. state/1 now carries a required
+  `configuration` ref, written by both endpoints from the booted configuration. The control
+  reader refuses `invalid-control` when an entry's state act names a configuration other than
+  the image's, on restore and on every read (`restore_state_other_configuration`,
+  `read_state_other_configuration`); a description without the role is refused
+  (`command-descriptions::state_missing_configuration`). state/1 had not shipped in a release, so
+  no consumer carries the old bytes.

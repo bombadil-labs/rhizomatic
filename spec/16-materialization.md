@@ -573,12 +573,15 @@ The control-store key is receiver/configuration; a different configuration canno
 state implicitly. Export/restore bytes are the same canonical image, not native objects.
 
 Each latest transition is a receiver-signed state/1 delta with roles `kind` 1 text;
-`registration` 1 ref; `generation` 1 N; `prior-control` 1 text ID or empty;
+`configuration` 1 ref; `registration` 1 ref; `generation` 1 N; `prior-control` 1 text ID or empty;
 `prior-transition` 1 text ID or empty; `verb` 1 text install/replace-source/advance-time/retire;
 `source-revision` 1 ID text; `authority` 1 ID text; `at` 1 finite number;
 `definition-at` 1 finite number; `hyperschema-pin` 1 ID text; `schema-pin` 1 ID text;
 `capture` optional ref (required active; absent retired). Its timestamp/validFrom = receivedAt;
-no validUntil. It describes an accepted selection, not a new operand fact. Its prior-control
+no validUntil. It describes an accepted selection, not a new operand fact. Its configuration
+names the configuration whose control scope accepted the selection, so a state act retained on
+its own still names its scope; an image whose state act names another configuration is
+invalid-control. Its prior-control
 references the pre-transition image; never include the resulting image's own digest (no hash
 cycle). The image itself is sayable as an inert control-image/1 delta with roles kind (1 text) and
 data (1 application/cbor bytes) containing the exact image. Such a retained carrier cannot
