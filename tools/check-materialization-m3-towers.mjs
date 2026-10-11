@@ -64,8 +64,10 @@ function crossing(a,plan,label){
  const dirA=freshDir(label+'-a');
  const constructed=must(a['construct'],{mode:'construct',fixture,step:first});
  assert.deepEqual(constructed.delivery.map(d=>d.id),first.delivery.map(d=>d.id));record(records,'construct',a['construct'],{mode:'construct',step:first.id},constructed);
- const executeInput={mode:'control-execute',fixture:{...fixtureFor(first),...(plan.refused?{refusedSupport:plan.refused}:{})},step:first,store:{dir:dirA},seed:true,upstream:constructed,...(fault?{fault:{kind:fault,...(plan.raced?{image:plan.raced}:{})}}:{})};
+ const executeInput={mode:'control-execute',fixture:{...fixtureFor(first),...(plan.refused?{refusedSupport:plan.refused}:{}),...(plan.moved?{movedSource:plan.moved}:{})},step:first,store:{dir:dirA},seed:true,upstream:constructed,...(fault?{fault:{kind:fault,...(plan.raced?{image:plan.raced}:{})}}:{})};
  const executed=run(a['control-execute'],executeInput);
+ // The post-check race is an event in the committing process: the host's durable source moved before CAS dispatch, after exactly two checks.
+ if(plan.moved){assert.deepEqual(executed.output.sourceAtCas,plan.moved,'the moved source is current at CAS dispatch');assert.equal(executed.output.calls.length,2,'no check after the final one');}
  if(after.crash){assert.notEqual(executed.status,0,'a crashed host answers nothing');assert.equal(executed.output,null);}
  else{assert.equal(executed.status,0,executed.stderr);if(after.outcome)expectExecuted(executed.output,first);if(after.status){assert.equal(executed.output.outcome.claims.pointers.find(p=>p.role===role+'status').target,after.status);assert.equal(executed.output.store.bytesHex,after.controlHex);}}
  const {upstream:_u,...executeRecord}=executeInput;record(records,'control-execute',a['control-execute'],executeRecord,executed.output??{crashed:true,status:executed.status});
@@ -75,6 +77,8 @@ function crossing(a,plan,label){
  // Erasure settlement is a physical fact: the marker is present on the directory while a consumer is active, absent once the last consumer retired.
  if(plan.erased==='present')assert.ok(exported.bytesHex.includes(ERASED_MARKER)&&dirHas(dirA,ERASED_MARKER),'erased support still reachable, purge owed');
  if(plan.erased==='absent')assert.ok(!exported.bytesHex.includes(ERASED_MARKER)&&!dirHas(dirA,ERASED_MARKER),'erased support settled on every surface');
+ // A later read over the same directory sees the moved source from the host's own durable state; the test supplies the original source.
+ for(const e of plan.afterOnA??[]){const o=must(a['control-read'],{mode:'control-read',fixture:{...fixtureFor(e.step),source:schedule.source},step:e.step,store:{dir:dirA}});assert.deepEqual(o.outcome,e.step.expected.outcome);assert.equal(o.store.bytesHex,after.controlHex);record(records,'control-read',a['control-read'],{mode:'control-read',step:e.step.id,source:'original'},o);}
  const dirB=freshDir(label+'-b');
  const restored=must(a['control-restore'],{mode:'control-restore',fixture:fixtureFor(restore),step:restore,store:{dir:dirB},upstream:exported});
  assert.deepEqual(restored.outcome,restore.expected.outcome);assert.equal(restored.store.bytesHex,after.controlHex);record(records,'control-restore',a['control-restore'],{mode:'control-restore',step:restore.id},restored);
@@ -135,17 +139,64 @@ function rotationCrossing(a,plan,label){
  const final=ex('control-export',a['control-export'],{mode:'control-export',fixture:fixtureFor(old),store:{dir},explicit:true});assert.equal(final.bytesHex,old.expected.controlHex,'the old image is untouched by rotation');assert.equal(final.selected,newId);
  return records;
 }
-const cross=(a,plan,label)=>plan.kind==='rotation'?rotationCrossing(a,plan,label):crossing(a,plan,label);
+/**
+ * The erasure crossing (ctl_support_erasure, ctl_support_erasure_crashes): the host is told the
+ * refused acts once, with the seed, and keeps them as durable facts; every later process over the
+ * directory reopens under that restriction without being told again. Seeded historical copies
+ * are the physical program-support copies an older host left; settlement purges them only once
+ * no active entry reaches a refused act, and a crash between a durable retire and that purge
+ * leaves debt a reopen settles. The fresh witness then restores without the originals.
+ */
+function erasureCrossing(a,plan,label){
+ const {first,fault,after,refused,seedHistory=[],then=[],restore,read,readback,extra=[]}=plan;const records=[];
+ const dirA=freshDir(label+'-a');
+ const scan=(exported,erased,where)=>{const image=exported.bytesHex.includes(ERASED_MARKER),dir=dirHas(dirA,ERASED_MARKER);
+  if(erased==='present')assert.ok(image&&dir,where+': erased support still reachable, purge owed');
+  if(erased==='debt')assert.ok(!image&&dir,where+': the image settled, historical copies still owed');
+  if(erased==='absent')assert.ok(!image&&!dir,where+': erased support settled on every surface');};
+ const exportA=()=>{const e=must(a['control-export'],{mode:'control-export',fixture:fixtureFor(first),store:{dir:dirA}});record(records,'control-export',a['control-export'],{mode:'control-export'},e);return e;};
+ const constructed=must(a['construct'],{mode:'construct',fixture,step:first});
+ assert.deepEqual(constructed.delivery.map(d=>d.id),first.delivery.map(d=>d.id));record(records,'construct',a['construct'],{mode:'construct',step:first.id},constructed);
+ const executeInput={mode:'control-execute',fixture:{...fixtureFor(first),refusedSupport:refused},step:first,store:{dir:dirA},seed:true,seedHistory,upstream:constructed,...(fault?{fault:{kind:fault}}:{})};
+ const executed=run(a['control-execute'],executeInput);
+ if(after.crash){assert.notEqual(executed.status,0,'a crashed host answers nothing');assert.equal(executed.output,null);}
+ else{assert.equal(executed.status,0,executed.stderr);if(after.outcome)expectExecuted(executed.output,first);if(after.status){assert.equal(executed.output.outcome.claims.pointers.find(p=>p.role===role+'status').target,after.status);assert.equal(executed.output.store.bytesHex,after.controlHex);}if(after.settled!==undefined)assert.equal(executed.output.erasure.afterAttempt.settled,after.settled,'settlement after '+first.id);}
+ const {upstream:_u,...executeRecord}=executeInput;record(records,'control-execute',a['control-execute'],executeRecord,executed.output??{crashed:true,status:executed.status});
+ let exported=exportA();assert.equal(exported.bytesHex,after.controlHex,'the directory after the stage is the oracle');scan(exported,after.erased,'after '+first.id);
+ assert.deepEqual(exported.erasure.refused,refused,'the refused acts are durable host facts');
+ // Later processes reopen the surviving directory; the test never supplies the refused acts again.
+ for(const t of then){const {refusedSupport:_r,...fx}=fixtureFor(t.step);const input={mode:'control-execute',fixture:fx,step:t.step,store:{dir:dirA},...(t.fault?{fault:{kind:t.fault}}:{})};const o=run(a['control-read'],input);
+  if(t.crash){assert.notEqual(o.status,0,'a crashed host answers nothing');record(records,'control-execute',a['control-read'],input,{crashed:true,status:o.status});}
+  else{assert.equal(o.status,0,o.stderr);assert.deepEqual(o.output.outcome,t.step.expected.outcome);assert.equal(o.output.store.bytesHex,t.step.expected.controlHex);assert.deepEqual(o.output.erasure.refused,refused,'reopened under the persisted restriction');if(t.settled!==undefined)assert.equal(o.output.erasure.afterAttempt.settled,t.settled,'settlement after '+t.step.id);record(records,'control-execute',a['control-read'],input,o.output);}
+  exported=exportA();scan(exported,t.erased,'after '+t.step.id);}
+ const finalHex=exported.bytesHex;
+ // The fresh witness has its own erasure law and is told the same acts; it restores the terminal image without the originals.
+ const dirB=freshDir(label+'-b');
+ const toldB=step=>({...fixtureFor(step),refusedSupport:refused});
+ const restored=must(a['control-restore'],{mode:'control-restore',fixture:toldB(restore),step:restore,store:{dir:dirB},upstream:exported});
+ assert.deepEqual(restored.outcome,restore.expected.outcome);assert.equal(restored.store.bytesHex,finalHex);record(records,'control-restore',a['control-restore'],{mode:'control-restore',step:restore.id},restored);
+ const readOut=must(a['control-read'],{mode:'control-read',fixture:toldB(read),step:read,store:{dir:dirB}});
+ assert.deepEqual(readOut.outcome,read.expected.outcome);record(records,'control-read',a['control-read'],{mode:'control-read',step:read.id},readOut);
+ const snapshot=delivered(read,'snapshot/1'),capture=delivered(read,'capture/1')??captureFor(read);
+ const result=must(a['control-result'],{mode:'control-result',fixture:fixtureFor(read),upstream:readOut,control:exported,...(snapshot?{capture,snapshot}:{})});expectReadback(result,readback);record(records,'control-result',a['control-result'],{mode:'control-result',step:read.id},result);
+ for(const e of extra){const o=must(a['control-read'],{mode:'control-execute',fixture:toldB(e.step),step:e.step,store:{dir:dirB}});assert.deepEqual(o.outcome,e.step.expected.outcome);assert.equal(o.store.bytesHex,e.controlHex??finalHex);record(records,'control-read',a['control-read'],{mode:'control-execute',step:e.step.id},o);}
+ if(plan.finalErased==='absent')assert.ok(!exported.bytesHex.includes(ERASED_MARKER)&&!dirHas(dirB,ERASED_MARKER),'the fresh witness carries no erased support');
+ return records;
+}
+const cross=(a,plan,label)=>plan.kind==='rotation'?rotationCrossing(a,plan,label):plan.kind==='erasure'?erasureCrossing(a,plan,label):crossing(a,plan,label);
 const completed=(read,commitments=true)=>({status:'completed',classification:'verified-context',sourceCommitments:commitments?'commitments-verified':'attested',bodyHex:read.expected.bodyHex});
 const refusedRead=read=>({status:'refused',classification:'verified-context',sourceCommitments:'attested',bodyHex:bodyOf(read)});
 const S=id=>stepOf(id);
+// The refused acts of the erasure cases, and the historical copies an older host left that carry them.
+const ERASED_IDS=stepOf('erasure_read_a_refused').refusedSupport,TARGET_IDS=stepOf('erasure_targeted_read_a_refused').refusedSupport;
+const erasureHistory=['erasure_install_b','erasure_install_c'].map(id=>({revision:stepOf(id).initialControl.revision,hex:stepOf(id).initialControl.hex}));
 const r2=S('read_advanced').initialControl.revision;
 const scenarios={
  ctl_cross_witness_restore:{first:S('install'),after:{outcome:true,controlHex:S('install').expected.controlHex},restore:S('restore_installed'),read:S('read_installed'),readback:completed(S('read_installed'))},
  ctl_uncertain_present:{first:S('advance_time'),fault:'unconfirmed-present',after:{status:'indeterminate',controlHex:S('advance_time').expected.controlHex,bodyHex:cborMap([['code','commit-unconfirmed']])},restore:S('restore_advanced'),read:S('read_advanced'),readback:completed(S('read_advanced'))},
  ctl_retired_restart:{first:S('retire'),fault:'crash-after-cas',after:{crash:true,controlHex:S('retire').expected.controlHex},restore:S('restore_retired'),read:S('read_retired'),readback:refusedRead(S('read_retired')),extra:[{step:S('install_retired')},{step:S('retire_retired')}]},
  // The host's source moves after the final check: the committed selection stands and the next read refuses.
- ctl_postcheck_precommit_race:{first:S('advance_time'),fault:'source-replaced-after-final-check',after:{outcome:true,controlHex:S('advance_time').expected.controlHex},restore:S('restore_advanced'),read:S('read_advanced_source_replaced'),readback:refusedRead(S('read_advanced_source_replaced'))},
+ ctl_postcheck_precommit_race:{first:S('advance_time'),fault:'source-replaced-after-final-check',moved:S('read_advanced_source_replaced').source,afterOnA:[{step:S('read_advanced_source_replaced')}],after:{outcome:true,controlHex:S('advance_time').expected.controlHex},restore:S('restore_advanced'),read:S('read_advanced_source_replaced'),readback:refusedRead(S('read_advanced_source_replaced'))},
  ctl_equal_count_replace:{first:S('replace_equal_count'),after:{outcome:true,controlHex:S('replace_equal_count').expected.controlHex},restore:S('restore_equal_count'),read:S('read_equal_count'),readback:completed(S('read_equal_count'))},
  ctl_shared_basis_limits:{first:S('limits_install_64_roots'),after:{outcome:true,controlHex:S('limits_install_64_roots').expected.controlHex},restore:S('restore_64_roots'),read:S('limits_read_64_roots'),readback:completed(S('limits_read_64_roots'))},
  // A source fact carries the operand marker; the image, the directory and the other witness's restore never do.
@@ -153,7 +204,7 @@ const scenarios={
  // Retained ordinary deltas never activate: the empty image restores empty and reads missing; only an authorized install activates.
  ctl_delta_state_inert:{first:S('restore_empty_retained'),after:{outcome:true,controlHex:S('restore_empty_retained').expected.controlHex},restore:S('restore_empty_retained'),read:S('read_missing_retained'),readback:refusedRead(S('read_missing_retained')),extra:[{step:S('install'),controlHex:S('install').expected.controlHex}]},
  // The last consumer of the refused definitions retires: the image and the directory no longer carry the marker, the other witness restores the terminal selections without the originals, and the unrelated registration still serves.
- ctl_support_erasure:{first:S('erasure_retire_b'),after:{outcome:true,controlHex:S('erasure_retire_b').expected.controlHex},erased:'absent',restore:S('erasure_restore_settled'),read:S('erasure_read_c_settled'),readback:completed(S('erasure_read_c_settled')),extra:[{step:S('erasure_read_a_retired')},{step:S('erasure_install_a_retired')}]},
+ ctl_support_erasure:{kind:'erasure',first:S('erasure_retire_a'),refused:ERASED_IDS,seedHistory:erasureHistory,after:{outcome:true,controlHex:S('erasure_retire_a').expected.controlHex,erased:'present',settled:false},then:[{step:S('erasure_read_b_refused_retired_a'),erased:'present',settled:false},{step:S('erasure_retire_b'),erased:'absent',settled:true},{step:S('erasure_read_a_retired'),erased:'absent'},{step:S('erasure_install_a_retired'),erased:'absent'}],restore:S('erasure_restore_settled'),read:S('erasure_read_c_settled'),readback:completed(S('erasure_read_c_settled')),finalErased:'absent'},
  // The 64-entry lifetime and rotation: the 65th install refuses, the new configuration is prepared without serving, activated by one durable selection, and serves alone afterwards.
  ctl_capacity_rotation:{kind:'rotation'},
 };
@@ -176,17 +227,19 @@ const faults={
  ctl_restore_unavailable:{first:S('advance_time'),after:{outcome:true,controlHex:S('advance_time').expected.controlHex},restore:S('restore_advanced'),read:S('read_advanced_source_unavailable'),readback:refusedRead(S('read_advanced_source_unavailable')),extra:[{step:S('read_advanced')}]},
  // A retained configuration, descriptor and install-shaped request create no operation, grant or entry.
  cmd_inert_retention_empty_control_read:{first:S('restore_empty_retained_request'),after:{outcome:true,controlHex:S('restore_empty_retained_request').expected.controlHex},restore:S('restore_empty_retained_request'),read:S('read_missing_retained'),readback:refusedRead(S('read_missing_retained'))},
- // Support erasure: the first retire leaves the shared definitions reachable through B and purge owed; B stays blocked.
- ctl_support_erasure_first_retire:{first:S('erasure_retire_a'),after:{outcome:true,controlHex:S('erasure_retire_a').expected.controlHex},erased:'present',restore:S('erasure_restore_a_retired'),read:S('erasure_read_b_refused_retired_a'),readback:refusedRead(S('erasure_read_b_refused_retired_a'))},
- // The targeted variant refuses A's descriptor alone: retiring A drops it while B keeps the shared definitions and serves.
- ctl_support_erasure_targeted:{first:S('erasure_targeted_retire_a'),after:{outcome:true,controlHex:S('erasure_targeted_retire_a').expected.controlHex},erased:'present',restore:S('erasure_restore_a_retired'),read:S('erasure_targeted_read_b_retired_a'),readback:completed(S('erasure_targeted_read_b_retired_a'))},
+ // Support erasure: the first retire leaves the shared definitions reachable through B and purge owed; B stays blocked after a reopen that is not told the refused acts again.
+ ctl_support_erasure_first_retire:{kind:'erasure',first:S('erasure_retire_a'),refused:ERASED_IDS,seedHistory:erasureHistory,after:{outcome:true,controlHex:S('erasure_retire_a').expected.controlHex,erased:'present',settled:false},then:[{step:S('erasure_read_b_refused_retired_a'),erased:'present',settled:false}],restore:S('erasure_restore_a_retired'),read:S('erasure_read_b_refused_retired_a'),readback:refusedRead(S('erasure_read_b_refused_retired_a'))},
+ // The targeted variant refuses A's descriptor alone: retiring A drops it, the historical copies carrying it settle at once, and B keeps the shared definitions and serves.
+ ctl_support_erasure_targeted:{kind:'erasure',first:S('erasure_targeted_retire_a'),refused:TARGET_IDS,seedHistory:erasureHistory,after:{outcome:true,controlHex:S('erasure_targeted_retire_a').expected.controlHex,erased:'present',settled:true},then:[{step:S('erasure_targeted_read_b_retired_a'),erased:'present',settled:true}],restore:S('erasure_restore_a_retired'),read:S('erasure_targeted_read_b_retired_a'),readback:completed(S('erasure_targeted_read_b_retired_a'))},
  // Between the two checks of a replacement the shared definition is refused: unauthorized before CAS with the same requiredSupport at both checks; C on the same source still reads.
  ctl_support_erasure_between_checks:{first:S('erasure_replace_a'),fault:'support-refused-before-final-check',refused:S('erasure_read_a_refused').refusedSupport,after:{status:'refused',controlHex:S('erasure_replace_a').initialControl.hex,bodyHex:cborMap([['code','unauthorized']])},erased:'present',restore:S('erasure_restore_abc'),read:S('erasure_read_c_allowed'),readback:completed(S('erasure_read_c_allowed'))},
- // The erasure crash schedule: before the retire CAS or with the write absent, A stays active and blocked and the retry retires it; with the write present or after the CAS, the terminal selection restores without the originals.
- ctl_support_erasure_crash_before:{first:S('erasure_retire_a'),fault:'crash-before-cas',after:{crash:true,controlHex:S('erasure_retire_a').initialControl.hex},erased:'present',restore:S('erasure_restore_abc'),read:S('erasure_read_a_refused'),readback:refusedRead(S('erasure_read_a_refused')),extra:[{step:S('erasure_retire_a'),controlHex:S('erasure_retire_a').expected.controlHex}]},
- ctl_support_erasure_uncertain_absent:{first:S('erasure_retire_a'),fault:'unconfirmed-absent',after:{status:'indeterminate',controlHex:S('erasure_retire_a').initialControl.hex,bodyHex:cborMap([['code','commit-unconfirmed']])},erased:'present',restore:S('erasure_restore_abc'),read:S('erasure_read_a_refused'),readback:refusedRead(S('erasure_read_a_refused')),extra:[{step:S('erasure_retire_a'),controlHex:S('erasure_retire_a').expected.controlHex}]},
- ctl_support_erasure_uncertain_present:{first:S('erasure_retire_a'),fault:'unconfirmed-present',after:{status:'indeterminate',controlHex:S('erasure_retire_a').expected.controlHex,bodyHex:cborMap([['code','commit-unconfirmed']])},erased:'present',restore:S('erasure_restore_a_retired'),read:S('erasure_read_a_retired_bc'),readback:refusedRead(S('erasure_read_a_retired_bc'))},
- ctl_support_erasure_crash_after:{first:S('erasure_retire_a'),fault:'crash-after-cas',after:{crash:true,controlHex:S('erasure_retire_a').expected.controlHex},erased:'present',restore:S('erasure_restore_a_retired'),read:S('erasure_read_a_retired_bc'),readback:refusedRead(S('erasure_read_a_retired_bc'))},
+ // The erasure crash schedule runs each faulted history to settlement: before the retire CAS or with the write absent, A stays active and blocked under the persisted restriction and the explicit retry retires it; with the write present or after the CAS, A reads retired; then B retires with the observed control, the historical copies purge, and the fresh witness restores the terminal image without the originals.
+ ctl_support_erasure_crash_before:{kind:'erasure',first:S('erasure_retire_a'),fault:'crash-before-cas',refused:ERASED_IDS,seedHistory:erasureHistory,after:{crash:true,controlHex:S('erasure_retire_a').initialControl.hex,erased:'present'},then:[{step:S('erasure_read_a_refused'),erased:'present',settled:false},{step:S('erasure_retire_a'),erased:'present',settled:false},{step:S('erasure_read_b_refused_retired_a'),erased:'present',settled:false},{step:S('erasure_retire_b'),erased:'absent',settled:true}],restore:S('erasure_restore_settled'),read:S('erasure_read_c_settled'),readback:completed(S('erasure_read_c_settled')),finalErased:'absent'},
+ ctl_support_erasure_uncertain_absent:{kind:'erasure',first:S('erasure_retire_a'),fault:'unconfirmed-absent',refused:ERASED_IDS,seedHistory:erasureHistory,after:{status:'indeterminate',controlHex:S('erasure_retire_a').initialControl.hex,bodyHex:cborMap([['code','commit-unconfirmed']]),erased:'present',settled:false},then:[{step:S('erasure_read_a_refused'),erased:'present',settled:false},{step:S('erasure_retire_a'),erased:'present',settled:false},{step:S('erasure_read_b_refused_retired_a'),erased:'present',settled:false},{step:S('erasure_retire_b'),erased:'absent',settled:true}],restore:S('erasure_restore_settled'),read:S('erasure_read_c_settled'),readback:completed(S('erasure_read_c_settled')),finalErased:'absent'},
+ ctl_support_erasure_uncertain_present:{kind:'erasure',first:S('erasure_retire_a'),fault:'unconfirmed-present',refused:ERASED_IDS,seedHistory:erasureHistory,after:{status:'indeterminate',controlHex:S('erasure_retire_a').expected.controlHex,bodyHex:cborMap([['code','commit-unconfirmed']]),erased:'present',settled:false},then:[{step:S('erasure_read_a_retired_bc'),erased:'present',settled:false},{step:S('erasure_retire_b'),erased:'absent',settled:true}],restore:S('erasure_restore_settled'),read:S('erasure_read_c_settled'),readback:completed(S('erasure_read_c_settled')),finalErased:'absent'},
+ ctl_support_erasure_crash_after:{kind:'erasure',first:S('erasure_retire_a'),fault:'crash-after-cas',refused:ERASED_IDS,seedHistory:erasureHistory,after:{crash:true,controlHex:S('erasure_retire_a').expected.controlHex,erased:'present'},then:[{step:S('erasure_read_a_retired_bc'),erased:'present',settled:false},{step:S('erasure_retire_b'),erased:'absent',settled:true}],restore:S('erasure_restore_settled'),read:S('erasure_read_c_settled'),readback:completed(S('erasure_read_c_settled')),finalErased:'absent'},
+ // The last consumer retires durably and the host crashes before the purge: the image settled, the historical copies are still owed, and the reopen purges them before anything else.
+ ctl_support_erasure_crash_after_last_retire:{kind:'erasure',first:S('erasure_retire_b'),fault:'crash-after-cas',refused:ERASED_IDS,seedHistory:[...erasureHistory,{revision:S('erasure_retire_b').initialControl.revision,hex:S('erasure_retire_b').initialControl.hex}],after:{crash:true,controlHex:S('erasure_retire_b').expected.controlHex,erased:'debt'},then:[{step:S('erasure_read_c_settled'),erased:'absent',settled:true}],restore:S('erasure_restore_settled'),read:S('erasure_read_c_settled'),readback:completed(S('erasure_read_c_settled')),finalErased:'absent'},
  // Rotation crashes: during preparation the explicit retry completes; before activation the restart selects the old configuration only; after it, only the new one.
  ctl_capacity_rotation_prep_crash:{kind:'rotation',fault:'prep-crash'},
  ctl_capacity_rotation_crash_before_activation:{kind:'rotation',fault:'crash-before-activation'},

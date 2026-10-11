@@ -71,8 +71,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
   check and a source-unavailable flag; the tower runner boots every stage from the step's own
   fixture and runs six tower scenarios and thirteen fault schedules, adding the source races
   around the final check, the rebuild after a source replacement, restore with an unavailable
-  provider, the equal-count replacement and the 64-root program. ERRATA E9 records the
-  readings. Twenty-eight of the thirty-three M3 cases are executed.
+  provider, the equal-count replacement and the 64-root program. The post-check race moves
+  the provider's durable source state in the host directory after the final check and before
+  CAS dispatch, and a later process over that directory sees the moved source. ERRATA E9
+  records the readings. Twenty-eight of the thirty-three M3 cases are executed.
 - SPEC-16 M3 slice C3c1: every shared step asserts the stored image carries no operand bytes,
   using a marker fact; the hosts retain ordinary deltas in a reactor before booting and the
   empty image stays empty. Two tower scenarios and one fault schedule pin them. ERRATA E10
@@ -80,9 +82,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 - SPEC-16 M3 slice C3c2: a step may name refused acts; the schedule's grant refuses a current
   check whose required support names one, retire of the blocked registrations completes, and the
   shared marker definitions leave the image and the host directory with their last active
-  consumer. One tower scenario and seven fault schedules pin erasure, its targeted and
-  between-checks variants, and its crash schedule. ERRATA E11 records the readings. Thirty-two
-  of the thirty-three M3 cases are executed.
+  consumer. Both hosts keep the refused acts as durable facts and every superseded image as a
+  historical copy; settlement purges the copies once no active entry reaches a refused act, and a
+  reopen settles debt a crash left. One tower scenario and eight fault schedules pin erasure, its
+  targeted and between-checks variants, and its crash schedule through settlement. ERRATA E11
+  records the readings. Thirty-two of the thirty-three M3 cases are executed.
 - SPEC-16 M3 slice C3c3: the 64-entry lifetime refuses the 65th distinct install with no source
   check and no write, and retirement frees no slot; a new receiver-signed configuration starts an
   empty scope with new installs, configuration-mismatch for requests of the other configuration,
