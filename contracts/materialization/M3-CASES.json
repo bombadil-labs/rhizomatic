@@ -1595,11 +1595,157 @@
     },
     {
       "id": "ctl_capacity_rotation",
-      "state": "specified",
-      "vector_assertions": [],
+      "state": "executed",
+      "vector_assertions": [
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "rotation_install_65"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "rotation_install_65"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "rotation_retire_moss"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "rotation_retire_moss"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "rotation_install_65_after_retire"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "rotation_install_65_after_retire"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "rotation_old_read_retired"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "rotation_old_read_retired"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "rotation_old_install_retired"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "rotation_old_install_retired"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "rotation_old_read_fern"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "rotation_old_read_fern"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "rotation_old_restore"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "rotation_old_restore"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "rotation_new_install_fern"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "rotation_new_install_fern"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "rotation_new_install_moss"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "rotation_new_install_moss"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "rotation_old_request_new_endpoint"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "rotation_old_request_new_endpoint"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "rotation_new_request_old_endpoint"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "rotation_new_request_old_endpoint"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "rotation_new_read_fern"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "rotation_new_read_fern"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "rotation_new_install_retired_old"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "rotation_new_install_retired_old"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "rotation_new_restore"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "rotation_new_restore"
+        }
+      ],
       "native_evidence": [],
-      "remaining": "64-entry lifetime with explicit host rotation (M3c).",
-      "tower_evidence": []
+      "remaining": "",
+      "tower_evidence": [
+        "ctl_capacity_rotation",
+        "ctl_capacity_rotation_prep_crash",
+        "ctl_capacity_rotation_crash_before_activation",
+        "ctl_capacity_rotation_crash_after_activation"
+      ]
     },
     {
       "id": "ctl_shared_basis_limits",

@@ -25,7 +25,7 @@ const m3Corpora=Object.fromEntries(['control-image','lifecycle'].map(c=>[c,readF
 test('M3 corpus identity/assertion receipts and missing evidence sensitivity',()=>{
  const expected=expectedMaterializationM3Assertions(m3Corpora);
  assert.equal(expected.length,3+21+2*JSON.parse(m3Corpora.lifecycle).steps.length);
- assert.deepEqual([...new Set(expected.filter(e=>e.group==='readback').map(e=>e.assertions))].sort(),[10,6,8]);
+ assert.deepEqual([...new Set(expected.filter(e=>e.group==='readback').map(e=>e.assertions))].sort(),[10,5,6,8]);
  const log=expected.map(e=>'materialization-m3-assertion:'+JSON.stringify(e)).join('\n');
  validateMaterializationAssertions(expected,materializationM3AssertionReceipts(log));
  assert.equal(materializationAccountingSensitivity(expected).length,4);

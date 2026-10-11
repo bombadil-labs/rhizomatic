@@ -27,7 +27,7 @@ use std::{
     collections::BTreeMap,
     fs,
     io::{self, Read},
-    path::PathBuf,
+    path::{Path, PathBuf},
     rc::Rc,
     time::Instant,
 };
@@ -336,21 +336,40 @@ fn preflight(b: &MaterializationInputBoot, q: &Delta, delivery: &[Value], at: f6
 fn run(v: &Value) -> Result<Value, String> {
     let f = &v["fixture"];
     let up = &v["upstream"];
-    let b = MaterializationInputBoot {
-        configuration: parse_delta(&f["boot"]["configuration"])?,
-        declarations: f["boot"]["declarations"]
-            .as_array()
-            .ok_or("declarations")?
-            .iter()
-            .map(parse_delta)
-            .collect::<Result<_, _>>()?,
-        bindings: f["boot"]["bindings"]
-            .as_array()
-            .ok_or("bindings")?
-            .iter()
-            .map(parse_delta)
-            .collect::<Result<_, _>>()?,
+    let parse_boot = |b: &Value| -> Result<MaterializationInputBoot, String> {
+        Ok(MaterializationInputBoot {
+            configuration: parse_delta(&b["configuration"])?,
+            declarations: b["declarations"]
+                .as_array()
+                .ok_or("declarations")?
+                .iter()
+                .map(parse_delta)
+                .collect::<Result<_, _>>()?,
+            bindings: b["bindings"]
+                .as_array()
+                .ok_or("bindings")?
+                .iter()
+                .map(parse_delta)
+                .collect::<Result<_, _>>()?,
+        })
     };
+    // Host configuration selection (MR-14): one durable file names the configuration a restart
+    // boots. A stage over a directory boots the selected configuration; an explicit
+    // administrative attempt boots the configuration it names and never serves.
+    let selection_path = |dir: &Path| dir.join("selected.json");
+    let durable: Option<Value> = v["store"]["dir"]
+        .as_str()
+        .and_then(|d| fs::read_to_string(selection_path(Path::new(d))).ok())
+        .and_then(|t| serde_json::from_str(&t).ok());
+    let explicit = v["explicit"] == true;
+    let selected_id = durable
+        .as_ref()
+        .and_then(|s| s["configuration"].as_str().map(String::from));
+    let b = parse_boot(if explicit {
+        &f["boot"]
+    } else {
+        durable.as_ref().map(|s| &s["boot"]).unwrap_or(&f["boot"])
+    })?;
     let at = f["receivedAt"].as_f64().unwrap_or(1000.);
     let receiver = author_for_seed(f["seeds"]["receiver"].as_str().ok_or("seed")?)?;
     let seed = f["seeds"]["caller"].as_str().ok_or("seed")?;
@@ -504,6 +523,9 @@ fn run(v: &Value) -> Result<Value, String> {
                 )
             };
             let q = parse_delta(&request)?;
+            if explicit && step["verb"] == "read" {
+                return Err("an explicit administrative attempt never serves".into());
+            }
             let outcome = endpoint.invoke(&q.id, &delivery, at)?;
             Ok(json!({
                 "request": request,
@@ -513,15 +535,43 @@ fn run(v: &Value) -> Result<Value, String> {
                 "calls": *calls.borrow(),
                 "diagnostics": *diagnostics.borrow(),
                 "retained": retained,
+                "selected": selected_id,
                 "store": inspector.state(&receiver, &b.configuration.id),
             }))
         }
-        "control-export" => Ok(FileControlStore {
-            dir: store_dir(),
-            fault: None,
-            raced: None,
+        "control-export" => {
+            let mut state = FileControlStore {
+                dir: store_dir(),
+                fault: None,
+                raced: None,
+            }
+            .state(&receiver, &b.configuration.id);
+            state["selected"] = json!(selected_id);
+            Ok(state)
         }
-        .state(&receiver, &b.configuration.id)),
+        "control-select" => {
+            // Durable activation: one renamed file selects the fixture's configuration for every
+            // later boot over this directory. A crash before the rename leaves the old selection;
+            // a crash after it leaves the new one, although this process answers nothing.
+            if fault.as_deref() == Some("crash-before-activation") {
+                std::process::exit(3);
+            }
+            let own = parse_boot(&f["boot"])?;
+            let dir = store_dir();
+            fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+            let path = selection_path(&dir);
+            let tmp = path.with_extension("json.tmp");
+            fs::write(
+                &tmp,
+                json!({"configuration": own.configuration.id, "boot": f["boot"]}).to_string(),
+            )
+            .map_err(|e| e.to_string())?;
+            fs::rename(tmp, path).map_err(|e| e.to_string())?;
+            if fault.as_deref() == Some("crash-after-activation") {
+                std::process::exit(3);
+            }
+            Ok(json!({"selected": own.configuration.id}))
+        }
         "control-restore" => {
             let LifecycleHost {
                 mut endpoint,

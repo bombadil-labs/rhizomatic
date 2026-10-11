@@ -596,9 +596,17 @@ for (const step of schedule.steps)
       ...(snapshot && capture ? { capture, snapshot } : {}),
     };
     if (step.expected.status === "refused") {
-      const read = readMaterializationResult(outcome, { ...base, requestDelta: q });
-      expect(read.classification).toBe("verified-context");
-      expect(text(field(read.body, "code"))).toBe(step.expected.code);
+      if (step.expected.code === "configuration-mismatch") {
+        // The request names another configuration, so no context verifies it against this one;
+        // the structure read above is the honest level for this refusal.
+        expect(() => readMaterializationResult(outcome, { ...base, requestDelta: q })).toThrow(
+          "invalid-evidence",
+        );
+      } else {
+        const read = readMaterializationResult(outcome, { ...base, requestDelta: q });
+        expect(read.classification).toBe("verified-context");
+        expect(text(field(read.body, "code"))).toBe(step.expected.code);
+      }
       expect(() => readMaterializationResult(outcome, { ...base, request: outcome.id })).toThrow(
         "invalid-evidence",
       );

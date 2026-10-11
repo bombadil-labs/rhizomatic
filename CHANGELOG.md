@@ -83,6 +83,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
   consumer. One tower scenario and seven fault schedules pin erasure, its targeted and
   between-checks variants, and its crash schedule. ERRATA E11 records the readings. Thirty-two
   of the thirty-three M3 cases are executed.
+- SPEC-16 M3 slice C3c3: the 64-entry lifetime refuses the 65th distinct install with no source
+  check and no write, and retirement frees no slot; a new receiver-signed configuration starts an
+  empty scope with new installs, configuration-mismatch for requests of the other configuration,
+  and retirements kept in the old scope. Both fixture hosts select a configuration by one renamed
+  file, and the rotation crossing crashes on either side of activation. ERRATA E12 records the
+  readings. All thirty-three M3 cases are executed.
 
 ### Changed
 

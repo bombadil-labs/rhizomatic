@@ -273,3 +273,50 @@ reads and the shared step or tower that pins it.
   file through a rename and keeps no history, so the directory scan is the whole surface here.
   A host with history, WAL or spill owes the purge under its own obligations; this profile
   pins only that the control image and the fixture directory settle.
+
+## E12 — Readings pinned by slice C3c3 of M3
+
+Decided 2026-10-11 while building the lifetime and rotation crossings. Each item names the
+text it reads and the shared step or tower that pins it.
+
+- **The lifetime bound counts retired entries.** MR-04 and MR-14 say the 64-entry bound is a
+  finite configuration lifetime and retirement never frees a slot. The old configuration holds
+  two active and 62 retired entries; the 65th distinct install refuses `resource-limit` at stage
+  5 with no source check and no write, before and after one more retire
+  (`rotation_install_65`, `rotation_retire_moss`, `rotation_install_65_after_retire`). The
+  step names an unavailable source and the grant is never consulted.
+- **A new configuration is a new scope.** The new receiver-signed configuration carries the same
+  receiver, callers, operations, binding and limits and differs only by its signing time; its
+  control scope starts empty and explicit installs there complete as new installs
+  (`rotation_new_install_fern`, `rotation_new_install_moss`). A request for either
+  configuration at the other endpoint refuses `configuration-mismatch` at stage 3, and the
+  projection says `invalid-input` (`rotation_old_request_new_endpoint`,
+  `rotation_new_request_old_endpoint`).
+- **The old scope keeps its retirements, and the new scope does not inherit them.** Reopened
+  explicitly, the old image still refuses `retired` for a retired descriptor on read and
+  reinstall and restores all 64 selections (`rotation_old_read_retired`,
+  `rotation_old_install_retired`, `rotation_old_restore`). The same retired descriptor installs
+  into the new scope as a new install, not a restoration (`rotation_new_install_retired_old`,
+  `rotation_new_restore`).
+- **Activation is one durable selection, and the fixture hosts model it.** Both fixture hosts
+  keep one renamed file that names the configuration a restart boots. A stage over a directory
+  boots the selected configuration; an explicit administrative attempt boots the configuration
+  it names and never serves a read. Before activation the prepared scope cannot serve and the
+  old endpoint still does; a crash before the rename leaves the old selection and the explicit
+  retry activates; a crash after it leaves the new one although the process answered nothing;
+  afterwards every boot serves only the new configuration after a fresh source check
+  (`ctl_capacity_rotation`, `ctl_capacity_rotation::prep-crash`,
+  `::crash-before-activation`, `::crash-after-activation`).
+- **A configuration-mismatch refusal reads at the structure level only.** MR-20 verified
+  context binds the request to the outcome's configuration. The request of such a refusal names
+  another configuration by definition, so both readers refuse `invalid-evidence` when given the
+  request delta, and the structure read (status, code) is the honest level. Both harnesses pin
+  that and the accounting formula counts five readback assertions for it
+  (`rotation_old_request_new_endpoint`, `rotation_new_request_old_endpoint`).
+- **Open question for Myk: a state act is not scoped by configuration.** The first install of
+  the same descriptor in the new scope signs a state act with prior control `""` and prior
+  transition `""`, byte-identical to the first install in the old scope, so the two transitions
+  share one ID. The control image carries the configuration and the store keys scopes by it,
+  so nothing reads across scopes, and the outcome names its configuration. Whether the state
+  act should also name its configuration is a format decision outside this slice; the vectors
+  pin the current bytes.

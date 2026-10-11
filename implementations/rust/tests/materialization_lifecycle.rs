@@ -990,20 +990,37 @@ fn shared_lifecycle_readback() {
             ..base.clone()
         };
         if step["expected"]["status"] == "refused" {
-            let read = read_materialization_result(
-                &outcome,
-                &MaterializationResultContext {
-                    request_delta: Some(q.clone()),
-                    ..base.clone()
-                },
-                &limits,
-            )
-            .unwrap();
-            checked_eq!(read.classification, C::VerifiedContext);
-            checked_eq!(
-                text(field(&read.body, "code")),
-                step["expected"]["code"].as_str().unwrap()
-            );
+            if step["expected"]["code"] == "configuration-mismatch" {
+                // The request names another configuration, so no context verifies it against
+                // this one; the structure read above is the honest level for this refusal.
+                checked_eq!(
+                    read_materialization_result(
+                        &outcome,
+                        &MaterializationResultContext {
+                            request_delta: Some(q.clone()),
+                            ..base.clone()
+                        },
+                        &limits
+                    )
+                    .unwrap_err(),
+                    "invalid-evidence"
+                );
+            } else {
+                let read = read_materialization_result(
+                    &outcome,
+                    &MaterializationResultContext {
+                        request_delta: Some(q.clone()),
+                        ..base.clone()
+                    },
+                    &limits,
+                )
+                .unwrap();
+                checked_eq!(read.classification, C::VerifiedContext);
+                checked_eq!(
+                    text(field(&read.body, "code")),
+                    step["expected"]["code"].as_str().unwrap()
+                );
+            }
             checked_eq!(
                 read_materialization_result(
                     &outcome,

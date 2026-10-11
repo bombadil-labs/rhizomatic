@@ -87,6 +87,55 @@ function crossing(a,plan,label){
  if(!after.crash&&after.status){const r=must(a['control-result'],{mode:'control-result',fixture:fixtureFor(first),upstream:executed.output,control:exported});expectReadback(r,{status:after.status,classification:'verified-context',sourceCommitments:'attested',bodyHex:after.bodyHex});record(records,'control-result',a['control-result'],{mode:'control-result',step:first.id},r);}
  return records;
 }
+/**
+ * The rotation crossing (ctl_capacity_rotation): the host durably selects the old configuration
+ * over its 64-entry image, the 65th install refuses, the new configuration is prepared by
+ * explicit installs that never serve, activation is one durable selection with a crash on either
+ * side of it, and every later boot serves only the selected configuration.
+ */
+function rotationCrossing(a,plan,label){
+ const {fault}=plan;const records=[];const dir=freshDir(label+'-a');
+ const old=S('rotation_install_65'),prepA=S('rotation_new_install_fern'),prepB=S('rotation_new_install_moss'),blockedNew=S('rotation_new_request_old_endpoint'),oldServes=S('rotation_old_read_fern'),oldAtNew=S('rotation_old_request_new_endpoint'),newRead=S('rotation_new_read_fern'),reopenInstall=S('rotation_old_install_retired'),reopenRestore=S('rotation_old_restore'),newInstallOld=S('rotation_new_install_retired_old');
+ const oldId=schedule.boot.configuration.id,newId=prepA.bootOverride.configuration.id;assert.notEqual(oldId,newId);
+ const ex=(stage,w,input)=>{const o=must(w,input);record(records,stage,w,input,o);return o;};
+ const selectIn=(w,step,kind)=>{const input={mode:'control-select',fixture:fixtureFor(step),store:{dir},explicit:true,...(kind?{fault:{kind}}:{})};const r=run(w,input);record(records,'control-select',w,input,r.output??{crashed:true,status:r.status});return r;};
+ // 1. The host selects the old configuration and seeds its 64-entry image; the 65th distinct install refuses before any source check or write.
+ assert.equal(selectIn(a['construct'],old).status,0);
+ const sixtyFifth=ex('control-execute',a['control-execute'],{mode:'control-execute',fixture:fixtureFor(old),step:old,store:{dir},seed:true});
+ assert.deepEqual(sixtyFifth.outcome,old.expected.outcome);assert.equal(sixtyFifth.store.bytesHex,old.expected.controlHex);assert.deepEqual(sixtyFifth.calls,[]);assert.equal(sixtyFifth.selected,oldId);
+ // 2. Preparation: explicit installs into the new scope, which never serves; a preparation crash restarts and the explicit retry completes.
+ // The new scope is initialized by seeding its empty image; the prepared installs are explicit and never serve.
+ const prepare=(w,step,kind)=>{const input={mode:'control-execute',fixture:fixtureFor(step),step,store:{dir},explicit:true,...(step===prepA?{seed:true}:{}),...(kind?{fault:{kind}}:{})};const r=run(w,input);record(records,'control-execute',w,input,r.output??{crashed:true,status:r.status});return r;};
+ if(fault==='prep-crash'){const crashed=prepare(a['control-restore'],prepA,'crash-before-cas');assert.notEqual(crashed.status,0,'a crashed preparation answers nothing');}
+ for(const step of [prepA,prepB]){const r=prepare(a['control-restore'],step);assert.equal(r.status,0,r.stderr);assert.deepEqual(r.output.outcome,step.expected.outcome);assert.equal(r.output.store.bytesHex,step.expected.controlHex);assert.equal(r.output.selected,oldId);}
+ const blocked=ex('control-read',a['control-read'],{mode:'control-read',fixture:fixtureFor(blockedNew),step:blockedNew,store:{dir}});assert.deepEqual(blocked.outcome,blockedNew.expected.outcome);assert.equal(blocked.selected,oldId);
+ const served=ex('control-read',a['control-read'],{mode:'control-read',fixture:fixtureFor(oldServes),step:oldServes,store:{dir}});expectExecuted(served,oldServes);
+ const explicitRead=run(a['control-read'],{mode:'control-execute',fixture:fixtureFor(newRead),step:newRead,store:{dir},explicit:true});assert.notEqual(explicitRead.status,0,'an explicit attempt never serves');
+ // 3. Activation: one durable selection, with a crash before or after the rename.
+ const activation=selectIn(a['control-execute'],prepA,fault==='crash-before-activation'||fault==='crash-after-activation'?fault:undefined);
+ if(fault==='crash-before-activation'||fault==='crash-after-activation')assert.notEqual(activation.status,0,'a crashed activation answers nothing');else assert.equal(activation.status,0,activation.stderr);
+ const exported=ex('control-export',a['control-export'],{mode:'control-export',fixture:fixtureFor(prepB),store:{dir},explicit:true});assert.equal(exported.bytesHex,prepB.expected.controlHex);
+ const exportedOld=ex('control-export',a['control-export'],{mode:'control-export',fixture:fixtureFor(old),store:{dir},explicit:true});assert.equal(exportedOld.bytesHex,old.expected.controlHex);
+ if(fault==='crash-before-activation'){
+  // The restart selects the old configuration only; the prepared scope stays inert; the explicit retry activates.
+  assert.equal(exported.selected,oldId);
+  const still=ex('control-read',a['control-read'],{mode:'control-read',fixture:fixtureFor(blockedNew),step:blockedNew,store:{dir}});assert.deepEqual(still.outcome,blockedNew.expected.outcome);
+  const again=ex('control-read',a['control-read'],{mode:'control-read',fixture:fixtureFor(oldServes),step:oldServes,store:{dir}});expectExecuted(again,oldServes);
+  assert.equal(selectIn(a['control-execute'],prepA).status,0);
+ }else assert.equal(exported.selected,newId);
+ // 4. After activation every boot serves the new configuration only: old requests refuse, the new scope serves after a fresh source check.
+ const mismatch=ex('control-read',a['control-read'],{mode:'control-read',fixture:fixtureFor(oldAtNew),step:oldAtNew,store:{dir}});assert.deepEqual(mismatch.outcome,oldAtNew.expected.outcome);assert.equal(mismatch.selected,newId);
+ const fresh=ex('control-read',a['control-read'],{mode:'control-read',fixture:fixtureFor(newRead),step:newRead,store:{dir}});expectExecuted(fresh,newRead);assert.ok(fresh.calls.length>=1,'a fresh source check');assert.equal(fresh.selected,newId);
+ const snapshot=delivered(newRead,'snapshot/1'),capture=captureFor(newRead);
+ const result=ex('control-result',a['control-result'],{mode:'control-result',fixture:fixtureFor(newRead),upstream:fresh,control:{bytesHex:prepB.expected.controlHex},capture,snapshot});expectReadback(result,completed(newRead));
+ // 5. The old scope reopened explicitly keeps its retirements; nothing is copied or resurrected.
+ for(const step of [reopenInstall,reopenRestore]){const r=prepare(a['control-restore'],step);assert.equal(r.status,0,r.stderr);assert.deepEqual(r.output.outcome,step.expected.outcome);assert.equal(r.output.store.bytesHex,old.expected.controlHex);}
+ // 6. An explicit install of an old retired descriptor into the new scope is a new install.
+ const newInstall=ex('control-execute',a['control-execute'],{mode:'control-execute',fixture:fixtureFor(newInstallOld),step:newInstallOld,store:{dir}});expectExecuted(newInstall,newInstallOld);assert.equal(newInstall.selected,newId);
+ const final=ex('control-export',a['control-export'],{mode:'control-export',fixture:fixtureFor(old),store:{dir},explicit:true});assert.equal(final.bytesHex,old.expected.controlHex,'the old image is untouched by rotation');assert.equal(final.selected,newId);
+ return records;
+}
+const cross=(a,plan,label)=>plan.kind==='rotation'?rotationCrossing(a,plan,label):crossing(a,plan,label);
 const completed=(read,commitments=true)=>({status:'completed',classification:'verified-context',sourceCommitments:commitments?'commitments-verified':'attested',bodyHex:read.expected.bodyHex});
 const refusedRead=read=>({status:'refused',classification:'verified-context',sourceCommitments:'attested',bodyHex:bodyOf(read)});
 const S=id=>stepOf(id);
@@ -105,6 +154,8 @@ const scenarios={
  ctl_delta_state_inert:{first:S('restore_empty_retained'),after:{outcome:true,controlHex:S('restore_empty_retained').expected.controlHex},restore:S('restore_empty_retained'),read:S('read_missing_retained'),readback:refusedRead(S('read_missing_retained')),extra:[{step:S('install'),controlHex:S('install').expected.controlHex}]},
  // The last consumer of the refused definitions retires: the image and the directory no longer carry the marker, the other witness restores the terminal selections without the originals, and the unrelated registration still serves.
  ctl_support_erasure:{first:S('erasure_retire_b'),after:{outcome:true,controlHex:S('erasure_retire_b').expected.controlHex},erased:'absent',restore:S('erasure_restore_settled'),read:S('erasure_read_c_settled'),readback:completed(S('erasure_read_c_settled')),extra:[{step:S('erasure_read_a_retired')},{step:S('erasure_install_a_retired')}]},
+ // The 64-entry lifetime and rotation: the 65th install refuses, the new configuration is prepared without serving, activated by one durable selection, and serves alone afterwards.
+ ctl_capacity_rotation:{kind:'rotation'},
 };
 const faults={
  ctl_before_commit_crash:{first:S('advance_time'),fault:'crash-before-cas',after:{crash:true,controlHex:S('advance_time').initialControl.hex},restore:S('restore_installed'),read:S('read_installed'),readback:completed(S('read_installed'))},
@@ -136,25 +187,29 @@ const faults={
  ctl_support_erasure_uncertain_absent:{first:S('erasure_retire_a'),fault:'unconfirmed-absent',after:{status:'indeterminate',controlHex:S('erasure_retire_a').initialControl.hex,bodyHex:cborMap([['code','commit-unconfirmed']])},erased:'present',restore:S('erasure_restore_abc'),read:S('erasure_read_a_refused'),readback:refusedRead(S('erasure_read_a_refused')),extra:[{step:S('erasure_retire_a'),controlHex:S('erasure_retire_a').expected.controlHex}]},
  ctl_support_erasure_uncertain_present:{first:S('erasure_retire_a'),fault:'unconfirmed-present',after:{status:'indeterminate',controlHex:S('erasure_retire_a').expected.controlHex,bodyHex:cborMap([['code','commit-unconfirmed']])},erased:'present',restore:S('erasure_restore_a_retired'),read:S('erasure_read_a_retired_bc'),readback:refusedRead(S('erasure_read_a_retired_bc'))},
  ctl_support_erasure_crash_after:{first:S('erasure_retire_a'),fault:'crash-after-cas',after:{crash:true,controlHex:S('erasure_retire_a').expected.controlHex},erased:'present',restore:S('erasure_restore_a_retired'),read:S('erasure_read_a_retired_bc'),readback:refusedRead(S('erasure_read_a_retired_bc'))},
+ // Rotation crashes: during preparation the explicit retry completes; before activation the restart selects the old configuration only; after it, only the new one.
+ ctl_capacity_rotation_prep_crash:{kind:'rotation',fault:'prep-crash'},
+ ctl_capacity_rotation_crash_before_activation:{kind:'rotation',fault:'crash-before-activation'},
+ ctl_capacity_rotation_crash_after_activation:{kind:'rotation',fault:'crash-after-activation'},
 };
 assert.equal(S('read_wrong_control').initialControl.hex,S('install').expected.controlHex);
 const capabilities={format:'rhizomatic-command-capabilities/1',witnesses:['ts','rust'].map(id=>({id,state:'supported',buildId:builds[id],profiles:[],stages:[...new Set(stages.map(s=>s.contract))],stage_evidence:Object.fromEntries(stages.map(s=>[s.contract,Object.keys(scenarios)]))})).concat(['elixir','haskell'].map(id=>({id,state:'not_implemented',stages:[],profiles:[]})))};
 const fixed=[['ts','ts','ts','rust','rust','ts'],['rust','rust','rust','ts','ts','rust']].map(ws=>Object.fromEntries(stages.map((s,i)=>[s.id,ws[i]])));
-const evidence={format:'rhizomatic.materialization-m3-executed/1',scope:'M3 lifecycle crossings over durable directories, MR-18 fault points, source races and support erasure; no source journal, rotation or execution proof',seed:process.env.M3_SEED??'M3-2026-10-09',builds,toolchains:{node:process.version,rust:spawnSync(process.env.RUSTC??'rustc',['--version','--verbose'],{encoding:'utf8'}).stdout.trim()},fixed:[],towers:[],faults:[],executed:{towers:Object.keys(scenarios),faults:Object.keys(faults)},notExecuted:packet.required_scenarios.M3.filter(id=>!(id in scenarios))};
+const evidence={format:'rhizomatic.materialization-m3-executed/1',scope:'M3 lifecycle crossings over durable directories, MR-18 fault points, source races, support erasure and configuration rotation; no source journal or execution proof',seed:process.env.M3_SEED??'M3-2026-10-09',builds,toolchains:{node:process.version,rust:spawnSync(process.env.RUSTC??'rustc',['--version','--verbose'],{encoding:'utf8'}).stdout.trim()},fixed:[],towers:[],faults:[],executed:{towers:Object.keys(scenarios),faults:Object.keys(faults)},notExecuted:packet.required_scenarios.M3.filter(id=>!(id in scenarios))};
 const strip=records=>records.map(r=>{if(!r.actual||typeof r.actual!=='object')return r;const {diagnostics:_d,...actual}=r.actual;return {...r,actual};});
 for(const [caseId,plan]of Object.entries(scenarios)){
- for(let i=0;i<fixed.length;i++){const records=crossing(fixed[i],plan,`${caseId}-fixed-${i}`),path=`m3-fixed-${caseId}-${i}.json`;writeFileSync(join(out,path),canonicalJson({caseId,assignment:fixed[i],records})+'\n');evidence.fixed.push({caseId,assignment:fixed[i],artifact:path,sha256:hash(join(out,path))});}
+ for(let i=0;i<fixed.length;i++){const records=cross(fixed[i],plan,`${caseId}-fixed-${i}`),path=`m3-fixed-${caseId}-${i}.json`;writeFileSync(join(out,path),canonicalJson({caseId,assignment:fixed[i],records})+'\n');evidence.fixed.push({caseId,assignment:fixed[i],artifact:path,sha256:hash(join(out,path))});}
  const plans=replayDir?JSON.parse(readFileSync(join(replayDir,`m3-plans-${caseId}.json`))):planTowers({seed:evidence.seed,scenario:caseId,stages,capabilities});validateReplayPlan(plans,{stages,capabilities,availableBuilds:builds});
  writeFileSync(join(out,`m3-plans-${caseId}.json`),canonicalJson(plans)+'\n');
- for(const p of plans.plans){const a=Object.fromEntries(p.assignments.map(x=>[x.stage,x.witness]));const first=crossing(a,plan,`${caseId}-tower-${p.index}`);const path=`m3-tower-${caseId}-${p.index}.json`;
+ for(const p of plans.plans){const a=Object.fromEntries(p.assignments.map(x=>[x.stage,x.witness]));const first=cross(a,plan,`${caseId}-tower-${p.index}`);const path=`m3-tower-${caseId}-${p.index}.json`;
   if(replayDir){const prior=JSON.parse(readFileSync(join(replayDir,path)));assert.equal(canonicalJson(strip(prior.first)),canonicalJson(strip(first)),'retained exact replay');}
-  const replay=crossing(a,plan,`${caseId}-replay-${p.index}`);assert.equal(canonicalJson(strip(first)),canonicalJson(strip(replay)),'deterministic stage replay');
+  const replay=cross(a,plan,`${caseId}-replay-${p.index}`);assert.equal(canonicalJson(strip(first)),canonicalJson(strip(replay)),'deterministic stage replay');
   writeFileSync(join(out,path),canonicalJson({plan:p,first,replay})+'\n');evidence.towers.push({caseId,plan:p,artifact:path,sha256:hash(join(out,path))});
  }
  console.log(`M3 ${caseId}: both fixed directions + three towers/replay`);
 }
 for(const [caseId,plan]of Object.entries(faults)){
- for(let i=0;i<fixed.length;i++){const records=crossing(fixed[i],plan,`${caseId}-${i}`),path=`m3-fault-${caseId}-${i}.json`;
+ for(let i=0;i<fixed.length;i++){const records=cross(fixed[i],plan,`${caseId}-${i}`),path=`m3-fault-${caseId}-${i}.json`;
   if(replayDir){const prior=JSON.parse(readFileSync(join(replayDir,path)));assert.equal(canonicalJson(strip(prior.records)),canonicalJson(strip(records)),'retained fault replay');}
   writeFileSync(join(out,path),canonicalJson({caseId,...(plan.fault?{fault:plan.fault}:{}),assignment:fixed[i],records})+'\n');evidence.faults.push({caseId,...(plan.fault?{fault:plan.fault}:{}),assignment:fixed[i],artifact:path,sha256:hash(join(out,path))});}
  console.log(`M3 fault ${caseId} (${plan.fault??'no fault'}): both fixed directions`);
