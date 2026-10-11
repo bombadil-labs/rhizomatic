@@ -616,7 +616,7 @@ for (const step of schedule.steps)
         const forged = signClaims(
           materializationDescriptionClaims(schedule.keys.receiver, 1000, "outcome/1", {
             receiver: [ent(schedule.keys.receiver)],
-            configuration: [ref(scheduleBoot.configuration.id)],
+            configuration: [ref(base.configuration)],
             request: [ref(q.id)],
             status: [p("completed")],
             result: [blob(encode(dropped))],
