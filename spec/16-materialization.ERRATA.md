@@ -318,7 +318,10 @@ text it reads and the shared step or tower that pins it.
 - **Activation is one durable selection, and the fixture hosts model it.** Both fixture hosts
   keep one renamed file that names the configuration a restart boots. A stage over a directory
   boots the selected configuration; an explicit administrative attempt boots the configuration
-  it names and never serves a read. Before activation the prepared scope cannot serve and the
+  it names and never serves a read; the guard resolves the verb from the signed request's
+  operation and the booted declarations, and a step label that disagrees with the request is
+  refused, so neither a relabeled wrapper nor a read supplied upstream under another label
+  serves. Before activation the prepared scope cannot serve and the
   old endpoint still does; a crash before the rename leaves the old selection and the explicit
   retry activates; a crash after it leaves the new one although the process answered nothing;
   afterwards every boot serves only the new configuration after a fresh source check

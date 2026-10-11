@@ -4,8 +4,8 @@ use rhizomatic::{
     json_profile::{claims_to_json, parse_delta},
     materialization_control::{decode_materialization_control, MaterializationControlLimits},
     materialization_data::{
-        materialization_bytes, materialization_entity, materialization_role, MaterializationFields,
-        MaterializationVerb,
+        materialization_bytes, materialization_entity, materialization_ref, materialization_role,
+        MaterializationFields, MaterializationVerb,
     },
     materialization_description_claims, materialization_max_limits,
     materialization_peer::{
@@ -565,6 +565,37 @@ fn run(v: &Value) -> Result<Value, String> {
         snapshot: None,
     };
     let step = &v["step"];
+    // The verb a signed request invokes, resolved from its operation and the booted declarations.
+    // A step's label is only a wrapper; a wrapper that disagrees with the request is refused.
+    let verb_of = |q: &Delta, label: Option<&str>| -> Result<Option<String>, String> {
+        let operation =
+            materialization_ref(&read_materialization_description(q, None)?, "operation")?;
+        let verb = b
+            .declarations
+            .iter()
+            .find(|d| d.id == operation)
+            .and_then(|d| {
+                materialization_entity(&read_materialization_description(d, None).ok()?, "name")
+                    .ok()
+            })
+            .and_then(|name| {
+                name.strip_prefix("rhizomatic.materialization.")
+                    .map(String::from)
+            });
+        if let Some(label) = label {
+            if verb.as_deref() != Some(label) {
+                return Err("the step label disagrees with the signed request".into());
+            }
+        }
+        Ok(verb)
+    };
+    // An explicit administrative attempt never serves: the guard follows the signed request.
+    let explicit_never_serves = |q: &Delta, label: Option<&str>| -> Result<(), String> {
+        if explicit && verb_of(q, label)?.as_deref() == Some("read") {
+            return Err("an explicit administrative attempt never serves".into());
+        }
+        Ok(())
+    };
     let fault = v["fault"]["kind"].as_str().map(String::from);
     let raced = v["fault"]["image"]["hex"].as_str().map(|h| {
         (
@@ -712,9 +743,7 @@ fn run(v: &Value) -> Result<Value, String> {
                 )
             };
             let q = parse_delta(&request)?;
-            if explicit && step["verb"] == "read" {
-                return Err("an explicit administrative attempt never serves".into());
-            }
+            explicit_never_serves(&q, step["verb"].as_str())?;
             let outcome = host.endpoint.invoke(&q.id, &delivery, at)?;
             let after_attempt = host.settle(&receiver, &b.configuration.id, true);
             Ok(json!({
@@ -782,6 +811,7 @@ fn run(v: &Value) -> Result<Value, String> {
             let retained = retain_inert()?;
             let q = parse_delta(&step["request"])?;
             let delivery = step_delivery()?;
+            explicit_never_serves(&q, step["verb"].as_str())?;
             let outcome = host.endpoint.invoke(&q.id, &delivery, at)?;
             let after_attempt = host.settle(&receiver, &b.configuration.id, true);
             Ok(json!({

@@ -91,7 +91,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
   check and no write, and retirement frees no slot; a new receiver-signed configuration starts an
   empty scope with new installs, configuration-mismatch for requests of the other configuration,
   and retirements kept in the old scope. Both fixture hosts select a configuration by one renamed
-  file, and the rotation crossing crashes on either side of activation. ERRATA E12 records the
+  file and refuse an explicit attempt to serve by the signed request's verb, and the rotation
+  crossing crashes on either side of activation. ERRATA E12 records the
   readings. All thirty-three M3 cases are executed.
 
 ### Changed

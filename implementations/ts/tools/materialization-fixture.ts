@@ -29,7 +29,7 @@ import {
   decodeMaterializationControl,
   decodeMaterializationAppearance,
 } from "../src/index.js";
-import { commandBytes, commandEntity } from "../src/command-data/codec.js";
+import { commandBytes, commandEntity, commandRef } from "../src/command-data/codec.js";
 import { bytesToHex } from "../src/delta/hash.js";
 import { encode } from "../src/delta/cbor.js";
 import type { CommandFields } from "../src/command-data/codec.js";
@@ -72,6 +72,26 @@ const op = (verb: string) =>
       commandEntity(readMaterializationDescription(d), "name") ===
       "rhizomatic.materialization." + verb,
   )!.id;
+// The verb a signed request invokes, resolved from its operation and the booted declarations.
+// A step's label is only a wrapper; a wrapper that disagrees with the request is refused.
+const verbOf = (q: Delta, label?: string) => {
+  const operation = commandRef(readMaterializationDescription(q), "operation");
+  const declaration = boot.declarations.find((d: Delta) => d.id === operation);
+  const name = declaration
+    ? commandEntity(readMaterializationDescription(declaration), "name")
+    : undefined;
+  const verb = name?.startsWith("rhizomatic.materialization.")
+    ? name.slice("rhizomatic.materialization.".length)
+    : undefined;
+  if (label !== undefined && label !== verb)
+    throw Error("the step label disagrees with the signed request");
+  return verb;
+};
+// An explicit administrative attempt never serves: the guard follows the signed request.
+const explicitNeverServes = (q: Delta, label?: string) => {
+  if (input.explicit === true && verbOf(q, label) === "read")
+    throw Error("an explicit administrative attempt never serves");
+};
 const context = (q: Delta) => ({
   receiver: signer.author,
   configuration: boot.configuration.id,
@@ -386,8 +406,7 @@ if (input.mode === "construct" && step) {
   const request = input.upstream?.request ?? step!.request,
     delivery = input.upstream?.delivery ?? step!.delivery,
     q = parseCommandDelta(request);
-  if (input.explicit === true && step?.verb === "read")
-    throw Error("an explicit administrative attempt never serves");
+  explicitNeverServes(q, step?.verb);
   const outcome = await host.endpoint.invoke(q.id, delivery, receivedAt);
   const afterAttempt = host.settleNow(true);
   output({
@@ -426,6 +445,7 @@ if (input.mode === "construct" && step) {
   );
   const retained = retainInert(step?.retained);
   const q = parseCommandDelta(step!.request);
+  explicitNeverServes(q, step!.verb);
   const outcome = await host.endpoint.invoke(q.id, step!.delivery, receivedAt);
   output({
     request: step!.request,

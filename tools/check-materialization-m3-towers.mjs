@@ -114,7 +114,11 @@ function rotationCrossing(a,plan,label){
  for(const step of [prepA,prepB]){const r=prepare(a['control-restore'],step);assert.equal(r.status,0,r.stderr);assert.deepEqual(r.output.outcome,step.expected.outcome);assert.equal(r.output.store.bytesHex,step.expected.controlHex);assert.equal(r.output.selected,oldId);}
  const blocked=ex('control-read',a['control-read'],{mode:'control-read',fixture:fixtureFor(blockedNew),step:blockedNew,store:{dir}});assert.deepEqual(blocked.outcome,blockedNew.expected.outcome);assert.equal(blocked.selected,oldId);
  const served=ex('control-read',a['control-read'],{mode:'control-read',fixture:fixtureFor(oldServes),step:oldServes,store:{dir}});expectExecuted(served,oldServes);
- const explicitRead=run(a['control-read'],{mode:'control-execute',fixture:fixtureFor(newRead),step:newRead,store:{dir},explicit:true});assert.notEqual(explicitRead.status,0,'an explicit attempt never serves');
+ // The guard follows the signed request, not the wrapper: a read labeled as a read, a read relabeled as a restore, and a read supplied upstream under a restore wrapper are all refused as explicit attempts.
+ const neverServes=(w,step,read,why)=>{const input={mode:'control-execute',fixture:fixtureFor(read),step,store:{dir},explicit:true,...(step===read?{}:{upstream:{request:read.request,delivery:read.delivery}})};const r=run(w,input);assert.notEqual(r.status,0,why);assert.equal(r.output,null);const {upstream:_u,...rest}=input;record(records,'control-execute',w,{...rest,step:step.id,read:read.id},{refused:true,status:r.status});};
+ neverServes(a['control-read'],newRead,newRead,'an explicit attempt never serves');
+ neverServes(a['control-read'],{...newRead,verb:'restore'},newRead,'a relabeled wrapper never serves');
+ neverServes(a['control-read'],reopenRestore,newRead,'a supplied upstream read never serves');
  // 3. Activation: one durable selection, with a crash before or after the rename.
  const activation=selectIn(a['control-execute'],prepA,fault==='crash-before-activation'||fault==='crash-after-activation'?fault:undefined);
  if(fault==='crash-before-activation'||fault==='crash-after-activation')assert.notEqual(activation.status,0,'a crashed activation answers nothing');else assert.equal(activation.status,0,activation.stderr);
@@ -130,6 +134,10 @@ function rotationCrossing(a,plan,label){
  // 4. After activation every boot serves the new configuration only: old requests refuse, the new scope serves after a fresh source check.
  const mismatch=ex('control-read',a['control-read'],{mode:'control-read',fixture:fixtureFor(oldAtNew),step:oldAtNew,store:{dir}});assert.deepEqual(mismatch.outcome,oldAtNew.expected.outcome);assert.equal(mismatch.selected,newId);
  const fresh=ex('control-read',a['control-read'],{mode:'control-read',fixture:fixtureFor(newRead),step:newRead,store:{dir}});expectExecuted(fresh,newRead);assert.ok(fresh.calls.length>=1,'a fresh source check');assert.equal(fresh.selected,newId);
+ // Old serving is disabled after activation on every path: the old read is refused as an explicit attempt under any wrapper.
+ neverServes(a['control-read'],oldServes,oldServes,'the old configuration never serves after activation');
+ neverServes(a['control-read'],{...oldServes,verb:'restore'},oldServes,'a relabeled old read never serves');
+ neverServes(a['control-read'],reopenRestore,oldServes,'a supplied upstream old read never serves');
  const snapshot=delivered(newRead,'snapshot/1'),capture=captureFor(newRead);
  const result=ex('control-result',a['control-result'],{mode:'control-result',fixture:fixtureFor(newRead),upstream:fresh,control:{bytesHex:prepB.expected.controlHex},capture,snapshot});expectReadback(result,completed(newRead));
  // 5. The old scope reopened explicitly keeps its retirements; nothing is copied or resurrected.
