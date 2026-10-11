@@ -193,6 +193,7 @@ struct LifecycleGrant {
     calls: Rc<RefCell<Vec<Value>>>,
     fault: Option<String>,
     unavailable: bool,
+    refused: Vec<String>,
     checks: usize,
 }
 impl MaterializationSourceCapability for LifecycleGrant {
@@ -229,6 +230,15 @@ impl MaterializationSourceCapability for LifecycleGrant {
         self.checks += 1;
         if self.unavailable {
             return Err(MaterializationSourceFailure::SourceUnavailable);
+        }
+        // The host's erasure law: a refused act in the explicit required support is unauthorized,
+        // from the first check, or from the final check when the fault names it.
+        if !self.refused.is_empty()
+            && (self.fault.as_deref() != Some("support-refused-before-final-check")
+                || self.checks >= 2)
+            && support.iter().any(|id| self.refused.contains(id))
+        {
+            return Err(MaterializationSourceFailure::Unauthorized);
         }
         match (self.fault.as_deref(), self.checks) {
             (Some("source-replaced-before-final-check"), n) if n >= 2 => {
@@ -400,6 +410,14 @@ fn run(v: &Value) -> Result<Value, String> {
                     calls: calls.clone(),
                     fault: fault.clone(),
                     unavailable: f["sourceUnavailable"] == true,
+                    refused: f["refusedSupport"]
+                        .as_array()
+                        .map(|xs| {
+                            xs.iter()
+                                .filter_map(|x| x.as_str().map(String::from))
+                                .collect()
+                        })
+                        .unwrap_or_default(),
                     checks: 0,
                 }),
             );

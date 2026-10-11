@@ -68,7 +68,8 @@ type FaultKind =
   | "race"
   | "source-replaced-before-final-check"
   | "authority-revoked-before-final-check"
-  | "source-replaced-after-final-check";
+  | "source-replaced-after-final-check"
+  | "support-refused-before-final-check";
 const hex = (s: string) => Uint8Array.from(s.match(/../g) ?? [], (x) => parseInt(x, 16));
 class FileControlStore implements MaterializationControlStore {
   constructor(
@@ -160,6 +161,15 @@ const lifecycleHost = (
       calls.push({ binding, revision, authority, at, cutoff, support: [...support] });
       checks += 1;
       if (f.sourceUnavailable) return { status: "source-unavailable" };
+      // The host's erasure law: a refused act in the explicit required support is unauthorized,
+      // from the first check, or from the final check when the fault names it.
+      const refused: string[] = f.refusedSupport ?? [];
+      if (
+        refused.length &&
+        (fault !== "support-refused-before-final-check" || checks >= 2) &&
+        support.some((id) => refused.includes(id))
+      )
+        return { status: "unauthorized" };
       if (fault === "source-replaced-before-final-check" && checks >= 2)
         return { status: "source-changed" };
       if (fault === "authority-revoked-before-final-check" && checks >= 2)

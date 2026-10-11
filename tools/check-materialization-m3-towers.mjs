@@ -28,7 +28,10 @@ const verbs=new Map(schedule.boot.declarations.map(d=>[d.id,d.claims.pointers.fi
 const fixture={boot:schedule.boot,seeds:schedule.seeds,keys:schedule.keys,source:schedule.source};
 const stepOf=id=>{const s=schedule.steps.find(s=>s.id===id);assert.ok(s,id);return {...s,verb:verbs.get(s.request.claims.pointers.find(p=>p.role===role+'operation').target.delta)};};
 // A step may name its own source, receive time or no grant; the hosts read those from the fixture.
-const fixtureFor=step=>({...fixture,boot:step.bootOverride??schedule.boot,source:step.source??schedule.source,...(step.receivedAt?{receivedAt:step.receivedAt}:{}),...(step.noGrant?{noGrant:true}:{}),...(step.sourceUnavailable?{sourceUnavailable:true}:{})});
+const fixtureFor=step=>({...fixture,boot:step.bootOverride??schedule.boot,source:step.source??schedule.source,...(step.receivedAt?{receivedAt:step.receivedAt}:{}),...(step.noGrant?{noGrant:true}:{}),...(step.sourceUnavailable?{sourceUnavailable:true}:{}),...(step.refusedSupport?{refusedSupport:step.refusedSupport}:{})});
+// The erasure marker: text the shared definitions of the erasure registrations carry (MR-15).
+const ERASED_MARKER=Buffer.from('PUBLIC-TEST-ERASED-DEFINITION-MARKER').toString('hex');
+const dirHas=(dir,hex)=>files(dir).some(p=>readFileSync(p).toString('hex').includes(hex)||readFileSync(p,'utf8').includes(hex));
 const kindOf=d=>d.claims.pointers.find(p=>p.role===role+'kind')?.target;
 const delivered=(step,kind)=>step.delivery.find(d=>kindOf(d)===kind);
 const install=stepOf('install');
@@ -61,7 +64,7 @@ function crossing(a,plan,label){
  const dirA=freshDir(label+'-a');
  const constructed=must(a['construct'],{mode:'construct',fixture,step:first});
  assert.deepEqual(constructed.delivery.map(d=>d.id),first.delivery.map(d=>d.id));record(records,'construct',a['construct'],{mode:'construct',step:first.id},constructed);
- const executeInput={mode:'control-execute',fixture:fixtureFor(first),step:first,store:{dir:dirA},seed:true,upstream:constructed,...(fault?{fault:{kind:fault,...(plan.raced?{image:plan.raced}:{})}}:{})};
+ const executeInput={mode:'control-execute',fixture:{...fixtureFor(first),...(plan.refused?{refusedSupport:plan.refused}:{})},step:first,store:{dir:dirA},seed:true,upstream:constructed,...(fault?{fault:{kind:fault,...(plan.raced?{image:plan.raced}:{})}}:{})};
  const executed=run(a['control-execute'],executeInput);
  if(after.crash){assert.notEqual(executed.status,0,'a crashed host answers nothing');assert.equal(executed.output,null);}
  else{assert.equal(executed.status,0,executed.stderr);if(after.outcome)expectExecuted(executed.output,first);if(after.status){assert.equal(executed.output.outcome.claims.pointers.find(p=>p.role===role+'status').target,after.status);assert.equal(executed.output.store.bytesHex,after.controlHex);}}
@@ -69,6 +72,9 @@ function crossing(a,plan,label){
  const exported=must(a['control-export'],{mode:'control-export',fixture:fixtureFor(first),store:{dir:dirA}});
  assert.equal(exported.bytesHex,after.controlHex,'the directory after the stage is the oracle');record(records,'control-export',a['control-export'],{mode:'control-export'},exported);
  assert.ok(!exported.bytesHex.includes(OPERAND_MARKER),'no operand bytes in the image');for(const p of files(dirA))assert.ok(!readFileSync(p).toString('hex').includes(OPERAND_MARKER)&&!readFileSync(p,'utf8').includes(OPERAND_MARKER),'no operand bytes in the directory');
+ // Erasure settlement is a physical fact: the marker is present on the directory while a consumer is active, absent once the last consumer retired.
+ if(plan.erased==='present')assert.ok(exported.bytesHex.includes(ERASED_MARKER)&&dirHas(dirA,ERASED_MARKER),'erased support still reachable, purge owed');
+ if(plan.erased==='absent')assert.ok(!exported.bytesHex.includes(ERASED_MARKER)&&!dirHas(dirA,ERASED_MARKER),'erased support settled on every surface');
  const dirB=freshDir(label+'-b');
  const restored=must(a['control-restore'],{mode:'control-restore',fixture:fixtureFor(restore),step:restore,store:{dir:dirB},upstream:exported});
  assert.deepEqual(restored.outcome,restore.expected.outcome);assert.equal(restored.store.bytesHex,after.controlHex);record(records,'control-restore',a['control-restore'],{mode:'control-restore',step:restore.id},restored);
@@ -97,6 +103,8 @@ const scenarios={
  ctl_metadata_no_payload:{first:S('install_marker'),after:{outcome:true,controlHex:S('install_marker').expected.controlHex},restore:S('restore_marker'),read:S('read_marker'),readback:completed(S('read_marker'))},
  // Retained ordinary deltas never activate: the empty image restores empty and reads missing; only an authorized install activates.
  ctl_delta_state_inert:{first:S('restore_empty_retained'),after:{outcome:true,controlHex:S('restore_empty_retained').expected.controlHex},restore:S('restore_empty_retained'),read:S('read_missing_retained'),readback:refusedRead(S('read_missing_retained')),extra:[{step:S('install'),controlHex:S('install').expected.controlHex}]},
+ // The last consumer of the refused definitions retires: the image and the directory no longer carry the marker, the other witness restores the terminal selections without the originals, and the unrelated registration still serves.
+ ctl_support_erasure:{first:S('erasure_retire_b'),after:{outcome:true,controlHex:S('erasure_retire_b').expected.controlHex},erased:'absent',restore:S('erasure_restore_settled'),read:S('erasure_read_c_settled'),readback:completed(S('erasure_read_c_settled')),extra:[{step:S('erasure_read_a_retired')},{step:S('erasure_install_a_retired')}]},
 };
 const faults={
  ctl_before_commit_crash:{first:S('advance_time'),fault:'crash-before-cas',after:{crash:true,controlHex:S('advance_time').initialControl.hex},restore:S('restore_installed'),read:S('read_installed'),readback:completed(S('read_installed'))},
@@ -117,11 +125,22 @@ const faults={
  ctl_restore_unavailable:{first:S('advance_time'),after:{outcome:true,controlHex:S('advance_time').expected.controlHex},restore:S('restore_advanced'),read:S('read_advanced_source_unavailable'),readback:refusedRead(S('read_advanced_source_unavailable')),extra:[{step:S('read_advanced')}]},
  // A retained configuration, descriptor and install-shaped request create no operation, grant or entry.
  cmd_inert_retention_empty_control_read:{first:S('restore_empty_retained_request'),after:{outcome:true,controlHex:S('restore_empty_retained_request').expected.controlHex},restore:S('restore_empty_retained_request'),read:S('read_missing_retained'),readback:refusedRead(S('read_missing_retained'))},
+ // Support erasure: the first retire leaves the shared definitions reachable through B and purge owed; B stays blocked.
+ ctl_support_erasure_first_retire:{first:S('erasure_retire_a'),after:{outcome:true,controlHex:S('erasure_retire_a').expected.controlHex},erased:'present',restore:S('erasure_restore_a_retired'),read:S('erasure_read_b_refused_retired_a'),readback:refusedRead(S('erasure_read_b_refused_retired_a'))},
+ // The targeted variant refuses A's descriptor alone: retiring A drops it while B keeps the shared definitions and serves.
+ ctl_support_erasure_targeted:{first:S('erasure_targeted_retire_a'),after:{outcome:true,controlHex:S('erasure_targeted_retire_a').expected.controlHex},erased:'present',restore:S('erasure_restore_a_retired'),read:S('erasure_targeted_read_b_retired_a'),readback:completed(S('erasure_targeted_read_b_retired_a'))},
+ // Between the two checks of a replacement the shared definition is refused: unauthorized before CAS with the same requiredSupport at both checks; C on the same source still reads.
+ ctl_support_erasure_between_checks:{first:S('erasure_replace_a'),fault:'support-refused-before-final-check',refused:S('erasure_read_a_refused').refusedSupport,after:{status:'refused',controlHex:S('erasure_replace_a').initialControl.hex,bodyHex:cborMap([['code','unauthorized']])},erased:'present',restore:S('erasure_restore_abc'),read:S('erasure_read_c_allowed'),readback:completed(S('erasure_read_c_allowed'))},
+ // The erasure crash schedule: before the retire CAS or with the write absent, A stays active and blocked and the retry retires it; with the write present or after the CAS, the terminal selection restores without the originals.
+ ctl_support_erasure_crash_before:{first:S('erasure_retire_a'),fault:'crash-before-cas',after:{crash:true,controlHex:S('erasure_retire_a').initialControl.hex},erased:'present',restore:S('erasure_restore_abc'),read:S('erasure_read_a_refused'),readback:refusedRead(S('erasure_read_a_refused')),extra:[{step:S('erasure_retire_a'),controlHex:S('erasure_retire_a').expected.controlHex}]},
+ ctl_support_erasure_uncertain_absent:{first:S('erasure_retire_a'),fault:'unconfirmed-absent',after:{status:'indeterminate',controlHex:S('erasure_retire_a').initialControl.hex,bodyHex:cborMap([['code','commit-unconfirmed']])},erased:'present',restore:S('erasure_restore_abc'),read:S('erasure_read_a_refused'),readback:refusedRead(S('erasure_read_a_refused')),extra:[{step:S('erasure_retire_a'),controlHex:S('erasure_retire_a').expected.controlHex}]},
+ ctl_support_erasure_uncertain_present:{first:S('erasure_retire_a'),fault:'unconfirmed-present',after:{status:'indeterminate',controlHex:S('erasure_retire_a').expected.controlHex,bodyHex:cborMap([['code','commit-unconfirmed']])},erased:'present',restore:S('erasure_restore_a_retired'),read:S('erasure_read_a_retired_bc'),readback:refusedRead(S('erasure_read_a_retired_bc'))},
+ ctl_support_erasure_crash_after:{first:S('erasure_retire_a'),fault:'crash-after-cas',after:{crash:true,controlHex:S('erasure_retire_a').expected.controlHex},erased:'present',restore:S('erasure_restore_a_retired'),read:S('erasure_read_a_retired_bc'),readback:refusedRead(S('erasure_read_a_retired_bc'))},
 };
 assert.equal(S('read_wrong_control').initialControl.hex,S('install').expected.controlHex);
 const capabilities={format:'rhizomatic-command-capabilities/1',witnesses:['ts','rust'].map(id=>({id,state:'supported',buildId:builds[id],profiles:[],stages:[...new Set(stages.map(s=>s.contract))],stage_evidence:Object.fromEntries(stages.map(s=>[s.contract,Object.keys(scenarios)]))})).concat(['elixir','haskell'].map(id=>({id,state:'not_implemented',stages:[],profiles:[]})))};
 const fixed=[['ts','ts','ts','rust','rust','ts'],['rust','rust','rust','ts','ts','rust']].map(ws=>Object.fromEntries(stages.map((s,i)=>[s.id,ws[i]])));
-const evidence={format:'rhizomatic.materialization-m3-executed/1',scope:'M3 lifecycle crossings over durable directories, MR-18 fault points and source races; no source journal, rotation, erasure or execution proof',seed:process.env.M3_SEED??'M3-2026-10-09',builds,toolchains:{node:process.version,rust:spawnSync(process.env.RUSTC??'rustc',['--version','--verbose'],{encoding:'utf8'}).stdout.trim()},fixed:[],towers:[],faults:[],executed:{towers:Object.keys(scenarios),faults:Object.keys(faults)},notExecuted:packet.required_scenarios.M3.filter(id=>!(id in scenarios))};
+const evidence={format:'rhizomatic.materialization-m3-executed/1',scope:'M3 lifecycle crossings over durable directories, MR-18 fault points, source races and support erasure; no source journal, rotation or execution proof',seed:process.env.M3_SEED??'M3-2026-10-09',builds,toolchains:{node:process.version,rust:spawnSync(process.env.RUSTC??'rustc',['--version','--verbose'],{encoding:'utf8'}).stdout.trim()},fixed:[],towers:[],faults:[],executed:{towers:Object.keys(scenarios),faults:Object.keys(faults)},notExecuted:packet.required_scenarios.M3.filter(id=>!(id in scenarios))};
 const strip=records=>records.map(r=>{if(!r.actual||typeof r.actual!=='object')return r;const {diagnostics:_d,...actual}=r.actual;return {...r,actual};});
 for(const [caseId,plan]of Object.entries(scenarios)){
  for(let i=0;i<fixed.length;i++){const records=crossing(fixed[i],plan,`${caseId}-fixed-${i}`),path=`m3-fixed-${caseId}-${i}.json`;writeFileSync(join(out,path),canonicalJson({caseId,assignment:fixed[i],records})+'\n');evidence.fixed.push({caseId,assignment:fixed[i],artifact:path,sha256:hash(join(out,path))});}

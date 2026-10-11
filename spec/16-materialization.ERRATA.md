@@ -234,3 +234,42 @@ names the text it reads and the shared step or tower that pins it.
   and reads `registration-missing`; only the authorized install that follows activates
   (`restore_empty_retained`, `read_missing_retained`, `restore_empty_retained_request`,
   `ctl_delta_state_inert`, `cmd_inert_retention::empty-control-read`).
+
+## E11 — Readings pinned by slice C3c2 of M3
+
+Decided 2026-10-10 while building the support-erasure crossings. Each item names the text it
+reads and the shared step or tower that pins it.
+
+- **The erasure law lives in the grant, and the endpoint only reads its verdict.** MR-15 says
+  the host refuses every affected active registration's explicit requiredSupport current check.
+  The schedule's grant refuses a check whose required support names a refused act and returns
+  `unauthorized`; the endpoint refuses the read, replacement or install with that code and
+  decodes no erasure law of its own (`erasure_read_a_refused`, `erasure_read_b_refused`). An
+  unrelated registration on the same source passes the same grant (`erasure_read_c_allowed`).
+- **Retire is authorized while the support is refused.** The retire verb carries no source
+  check, so the exact-control retire of a blocked registration completes and its entry drops
+  its capture (`erasure_retire_a`, `erasure_retire_b`). A refused registration that is already
+  retired refuses `retired` on read and reinstall without touching the grant
+  (`erasure_read_a_retired`, `erasure_install_a_retired`).
+- **Support leaves the image with its last active consumer.** Two registrations share the
+  marker definitions. After the first retire the image still carries them through the second
+  active entry; after the second retire the image carries neither the marker definitions nor
+  either descriptor, and both witnesses restore the terminal selections from that image without
+  the originals (`erasure_restore_a_retired`, `erasure_restore_settled`,
+  `ctl_support_erasure`, `ctl_support_erasure::first-retire`). The crossing asserts the marker
+  text on the exported image and every file in the host directory: present while a consumer is
+  active, absent once the last one retired.
+- **A targeted descriptor leaves shared definitions in place.** When the refused act is one
+  registration's descriptor, the other registration keeps the shared definitions and serves
+  (`erasure_targeted_read_b_allowed`, `ctl_support_erasure::targeted`).
+- **The crash schedule of a retire under erasure matches MR-15.** Before the CAS or with the
+  write absent, the registration stays active and blocked and the exact-control retry retires
+  it; with the write present or after the CAS, the terminal selection restores without the
+  originals (`ctl_support_erasure_crashes::crash-before`, `::uncertain-absent`,
+  `::uncertain-present`, `::crash-after`). A refusal between the two checks of a replacement
+  refuses `unauthorized` before the CAS with the same required support at both checks
+  (`ctl_support_erasure::between-checks`).
+- **Physical purge of historical copies is the host's.** The fixture store writes one image
+  file through a rename and keeps no history, so the directory scan is the whole surface here.
+  A host with history, WAL or spill owes the purge under its own obligations; this profile
+  pins only that the control image and the fixture directory settle.

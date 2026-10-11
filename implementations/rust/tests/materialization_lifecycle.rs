@@ -98,6 +98,7 @@ struct Grant {
     revision: String,
     authority: String,
     unavailable: bool,
+    refused: Vec<String>,
 }
 impl MaterializationSourceCapability for Grant {
     fn capture(
@@ -115,10 +116,14 @@ impl MaterializationSourceCapability for Grant {
         authority: &str,
         _: f64,
         _: Option<f64>,
-        _: &[String],
+        support: &[String],
     ) -> Result<(), MaterializationSourceFailure> {
         if self.unavailable {
             return Err(MaterializationSourceFailure::SourceUnavailable);
+        }
+        // The host's erasure law: a refused act in the explicit required support is unauthorized.
+        if support.iter().any(|id| self.refused.contains(id)) {
+            return Err(MaterializationSourceFailure::Unauthorized);
         }
         if b == self.binding && revision == self.revision && authority == self.authority {
             Ok(())
@@ -407,6 +412,7 @@ fn host<'a>(f: &'a Fixture) -> Host<'a> {
             revision: f.source.1.clone(),
             authority: f.source.2.clone(),
             unavailable: false,
+            refused: Vec::new(),
         }) as Box<dyn MaterializationSourceCapability>,
     )]);
     let endpoint = MaterializationEndpoint::boot_maintained(
@@ -771,6 +777,14 @@ fn shared_lifecycle_schedule() {
                     revision: step_source.1.clone(),
                     authority: step_source.2.clone(),
                     unavailable: step["sourceUnavailable"] == true,
+                    refused: step["refusedSupport"]
+                        .as_array()
+                        .map(|xs| {
+                            xs.iter()
+                                .filter_map(|x| x.as_str().map(String::from))
+                                .collect()
+                        })
+                        .unwrap_or_default(),
                 }) as Box<dyn MaterializationSourceCapability>,
             );
         }

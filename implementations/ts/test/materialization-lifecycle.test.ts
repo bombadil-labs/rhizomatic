@@ -458,6 +458,7 @@ const scheduleBoot = {
 const scheduleGrantFor = (
   source: { binding: string; revision: string; authority: string },
   unavailable = false,
+  refused: readonly string[] = [],
 ): MaterializationSourceCapability => ({
   async capture() {
     throw Error("never recaptures");
@@ -465,8 +466,10 @@ const scheduleGrantFor = (
   async reacquireSnapshot() {
     throw Error("never restores");
   },
-  async checkCurrent(b, revision, auth) {
+  async checkCurrent(b, revision, auth, _at, _cutoff, support) {
     if (unavailable) return { status: "source-unavailable" };
+    // The host's erasure law: a refused act in the explicit required support is unauthorized.
+    if (support.some((id) => refused.includes(id))) return { status: "unauthorized" };
     return b === source.binding && revision === source.revision && auth === source.authority
       ? { status: "current" }
       : { status: "source-changed" };
@@ -505,7 +508,12 @@ for (const step of schedule.steps)
       },
       sourceGrants: step.noGrant
         ? new Map()
-        : new Map([[source.binding, scheduleGrantFor(source, step.sourceUnavailable === true)]]),
+        : new Map([
+            [
+              source.binding,
+              scheduleGrantFor(source, step.sourceUnavailable === true, step.refusedSupport ?? []),
+            ],
+          ]),
       controlStore: store,
       diagnostic: (fault) => {
         throw fault;

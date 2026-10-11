@@ -4791,6 +4791,7 @@ writeFileSync(
     selected: Delta[],
     at: number,
     rootId = root,
+    program?: Parameters<typeof gatherBody>[6],
   ) => {
     const q = request(
       src,
@@ -4808,7 +4809,7 @@ writeFileSync(
       id: rootId,
       props: new Map(selected.map((d) => [propOf.get(d.id)!.prop, [{ delta: d, negated: false }]])),
     };
-    const gather = gatherBody(src, q, view, at);
+    const gather = gatherBody(src, q, view, at, 1000, undefined, program);
     if (gather.t !== "map") throw Error();
     const value = encode(
       map(selected.map((d) => [propOf.get(d.id)!.prop, propOf.get(d.id)!.value])),
@@ -5549,6 +5550,308 @@ writeFileSync(
     [c0, 0],
     completed(emptyRestore, c0),
     { retained: [configB, descriptor, installQ("")].map(serializeCommandDelta) },
+  );
+  // ---- Slice C3c2: support erasure. Registrations A and B share a program whose two
+  // definitions carry an erasure marker; C uses the plant program on the same source. The host
+  // refuses the marker definition through its erasure law (the grant's requiredSupport check);
+  // retiring every consumer removes the support from the image, and the crossings scan the
+  // directory for the marker before settlement.
+  const ERASED = "PUBLIC-TEST-ERASED-DEFINITION-MARKER";
+  const readingE: Schema = { ...reading, name: ERASED };
+  const hyperE = definition("hyper", termCanonicalHex(term), ERASED),
+    schemaE = definition("reading", schemaCanonicalHex(readingE), ERASED),
+    defsE = [hyperE, schemaE].sort((p, q) => (p.id < q.id ? -1 : 1));
+  const programE = {
+    hyper: hyperE,
+    schema: schemaE,
+    hyperPin: termHash(term),
+    schemaPin: schemaHash(readingE),
+    definitions: defsE,
+    bindings: C_EMPTY,
+  };
+  const descriptorE = (rootId: string, alias: string) =>
+    description(
+      "registration/1",
+      [
+        ["source-binding", ref(binding.id)],
+        ["hyperschema", ref(hyperE.id)],
+        ["hyperschema-pin", p(termHash(term))],
+        ["schema", ref(schemaE.id)],
+        ["schema-pin", p(schemaHash(readingE))],
+        ["roots", ent(rootId)],
+        ["bindings", blob(C_EMPTY)],
+        ["definition-at", p(1000)],
+        ["interpretation", p("core/1")],
+        ["result-kind", p("hview-and-view/1")],
+        ["time-policy", p("live-time/1")],
+        ["alias", p(alias)],
+      ],
+      seeds.definition,
+      0,
+    );
+  const dA = descriptorE(root, "ErasureA"),
+    dB = descriptorE("item:moss", "ErasureB"),
+    dC = descriptor;
+  const eA: EntryFields = {
+    registration: dA,
+    revision: s.revision,
+    authority: authority.id,
+    at: 1000,
+    definitionAt: 1000,
+    hyperPin: termHash(term),
+    schemaPin: schemaHash(readingE),
+    capture: s.capture.id,
+  };
+  const eB: EntryFields = { ...eA, registration: dB };
+  const oA = oracleOf(s, [a, t, x], 1000, root, programE),
+    oB = oracleOf(s, [], 1000, "item:moss", programE);
+  const tEA = stateX(1, "", "", "install", eA);
+  const cEA = imageX(
+    1,
+    [{ ...eA, status: "active", transition: tEA.id }],
+    [dA, ...defsE, s.capture, authority, tEA],
+  );
+  const rEA = revisionOf(cEA, 1);
+  const tEB = stateX(2, rEA, "", "install", eB);
+  const activeA: EntryX = { ...eA, status: "active", transition: tEA.id },
+    activeB: EntryX = { ...eB, status: "active", transition: tEB.id };
+  const cEAB = imageX(2, [activeA, activeB], [dA, dB, ...defsE, s.capture, authority, tEA, tEB]);
+  const rEAB = revisionOf(cEAB, 2);
+  const tEC = stateX(3, rEAB, "", "install", fern);
+  const activeC: EntryX = { ...fern, status: "active", transition: tEC.id };
+  const cABC = imageX(
+    3,
+    [activeA, activeB, activeC],
+    [dA, dB, dC, ...defsE, ...defs, s.capture, authority, tEA, tEB, tEC],
+  );
+  const rABC = revisionOf(cABC, 3);
+  const erasedHex = bytesToHex(new TextEncoder().encode(ERASED));
+  if (!bytesToHex(cABC).includes(erasedHex) || bytesToHex(c1).includes(erasedHex))
+    throw Error("erasure marker placement");
+  step(
+    "erasure_install_a",
+    installX("", dA),
+    [installX("", dA), dA, s.capture, s.snapshot, authority, ...defsE],
+    [c0, 0],
+    completed(
+      transitionX("install", dA, tEA, rEA, 1, basisFrom(oA.gather, 1000), [oA.result]),
+      cEA,
+    ),
+  );
+  step(
+    "erasure_install_b",
+    installX(rEA, dB),
+    [installX(rEA, dB), dB, s.capture, s.snapshot, authority, ...defsE],
+    [cEA, 1],
+    completed(
+      transitionX("install", dB, tEB, rEAB, 2, basisFrom(oB.gather, 1000), [oB.result]),
+      cEAB,
+    ),
+  );
+  step(
+    "erasure_install_c",
+    installX(rEAB, dC),
+    [installX(rEAB, dC), dC, s.capture, s.snapshot, authority, ...defs],
+    [cEAB, 2],
+    completed(
+      transitionX("install", dC, tEC, rABC, 3, basisOf("plant", 1000), [rootResultOf("plant")]),
+      cABC,
+    ),
+  );
+  // The host's erasure law refuses the shared marker definition: A and B are blocked at their
+  // explicit requiredSupport check, C on the same source is not.
+  const refusedE = { refusedSupport: [hyperE.id] };
+  step(
+    "erasure_read_a_refused",
+    readX(rABC, s, dA),
+    [readX(rABC, s, dA), s.snapshot],
+    [cABC, 3],
+    refusal("unauthorized"),
+    refusedE,
+  );
+  step(
+    "erasure_read_b_refused",
+    readX(rABC, s, dB),
+    [readX(rABC, s, dB), s.snapshot],
+    [cABC, 3],
+    refusal("unauthorized"),
+    refusedE,
+  );
+  step(
+    "erasure_read_c_allowed",
+    readX(rABC, s, dC),
+    [readX(rABC, s, dC), s.snapshot],
+    [cABC, 3],
+    completed(readBodyX(dC, rABC, 3, basisOf("plant", 1000), [rootResultOf("plant")]), cABC),
+    refusedE,
+  );
+  const retiredA: EntryFields = { ...eA, capture: undefined },
+    retiredB: EntryFields = { ...eB, capture: undefined };
+  const tRA = stateX(4, rABC, tEA.id, "retire", retiredA);
+  const retiredAX: EntryX = { ...retiredA, status: "retired", transition: tRA.id };
+  const cBC = imageX(
+    4,
+    [retiredAX, activeB, activeC],
+    [dB, dC, ...defsE, ...defs, s.capture, authority, tRA, tEB, tEC],
+  );
+  const rBC = revisionOf(cBC, 4);
+  const retireBody = (
+    registration: Delta,
+    transition: Delta,
+    control: string,
+    generation: number,
+  ) =>
+    map([
+      ["kind", tstr("retire")],
+      ["registration", tstr(registration.id)],
+      ["transition", tstr(transition.id)],
+      ["control", tstr(control)],
+      ["generation", float(generation)],
+    ]);
+  step(
+    "erasure_retire_a",
+    retireX(rABC, dA),
+    [retireX(rABC, dA)],
+    [cABC, 3],
+    completed(retireBody(dA, tRA, rBC, 4), cBC),
+    refusedE,
+  );
+  const tRB = stateX(5, rBC, tEB.id, "retire", retiredB);
+  const retiredBX: EntryX = { ...retiredB, status: "retired", transition: tRB.id };
+  const cC = imageX(
+    5,
+    [retiredAX, retiredBX, activeC],
+    [dC, ...defs, s.capture, authority, tRA, tRB, tEC],
+  );
+  const rC = revisionOf(cC, 5);
+  if (bytesToHex(cBC).includes(erasedHex) === false || bytesToHex(cC).includes(erasedHex))
+    throw Error("erasure reachability");
+  step(
+    "erasure_retire_b",
+    retireX(rBC, dB),
+    [retireX(rBC, dB)],
+    [cBC, 4],
+    completed(retireBody(dB, tRB, rC, 5), cC),
+    refusedE,
+  );
+  step(
+    "erasure_restore_abc",
+    restoreQ(rABC),
+    [restoreQ(rABC)],
+    [cABC, 3],
+    completed(restoreBodyX(rABC, 3, [activeA, activeB, activeC]), cABC),
+    refusedE,
+  );
+  step(
+    "erasure_restore_a_retired",
+    restoreQ(rBC),
+    [restoreQ(rBC)],
+    [cBC, 4],
+    completed(restoreBodyX(rBC, 4, [retiredAX, activeB, activeC]), cBC),
+    refusedE,
+  );
+  step(
+    "erasure_restore_settled",
+    restoreQ(rC),
+    [restoreQ(rC)],
+    [cC, 5],
+    completed(restoreBodyX(rC, 5, [retiredAX, retiredBX, activeC]), cC),
+    refusedE,
+  );
+  step(
+    "erasure_read_a_retired",
+    readX(rC, s, dA),
+    [readX(rC, s, dA), s.snapshot],
+    [cC, 5],
+    refusal("retired"),
+    refusedE,
+  );
+  step(
+    "erasure_install_a_retired",
+    installX(rC, dA),
+    [installX(rC, dA), dA, s.capture, s.snapshot, authority, ...defsE],
+    [cC, 5],
+    refusal("retired"),
+    refusedE,
+  );
+  step(
+    "erasure_read_c_settled",
+    readX(rC, s, dC),
+    [readX(rC, s, dC), s.snapshot],
+    [cC, 5],
+    completed(readBodyX(dC, rC, 5, basisOf("plant", 1000), [rootResultOf("plant")]), cC),
+    refusedE,
+  );
+  // After A retired alone, B is still blocked, A reads retired, and the targeted variant serves B.
+  step(
+    "erasure_read_b_refused_retired_a",
+    readX(rBC, s, dB),
+    [readX(rBC, s, dB), s.snapshot],
+    [cBC, 4],
+    refusal("unauthorized"),
+    refusedE,
+  );
+  step(
+    "erasure_read_a_retired_bc",
+    readX(rBC, s, dA),
+    [readX(rBC, s, dA), s.snapshot],
+    [cBC, 4],
+    refusal("retired"),
+    refusedE,
+  );
+  // The targeted variant refuses A's descriptor alone: B keeps the shared definitions.
+  const refusedA = { refusedSupport: [dA.id] };
+  step(
+    "erasure_targeted_read_b_retired_a",
+    readX(rBC, s, dB),
+    [readX(rBC, s, dB), s.snapshot],
+    [cBC, 4],
+    completed(readBodyX(dB, rBC, 4, basisFrom(oB.gather, 1000), [oB.result]), cBC),
+    refusedA,
+  );
+  step(
+    "erasure_targeted_read_a_refused",
+    readX(rABC, s, dA),
+    [readX(rABC, s, dA), s.snapshot],
+    [cABC, 3],
+    refusal("unauthorized"),
+    refusedA,
+  );
+  step(
+    "erasure_targeted_read_b_allowed",
+    readX(rABC, s, dB),
+    [readX(rABC, s, dB), s.snapshot],
+    [cABC, 3],
+    completed(readBodyX(dB, rABC, 3, basisFrom(oB.gather, 1000), [oB.result]), cABC),
+    refusedA,
+  );
+  step(
+    "erasure_targeted_retire_a",
+    retireX(rABC, dA),
+    [retireX(rABC, dA)],
+    [cABC, 3],
+    completed(retireBody(dA, tRA, rBC, 4), cBC),
+    refusedA,
+  );
+  // A replacement of A's source with the same source completes when nothing is refused; the
+  // between-checks fault schedule refuses the shared definition before its final check.
+  const tRep = stateX(4, rABC, tEA.id, "replace-source", eA);
+  const cRep = imageX(
+    4,
+    [{ ...eA, status: "active", transition: tRep.id }, activeB, activeC],
+    [dA, dB, dC, ...defsE, ...defs, s.capture, authority, tRep, tEB, tEC],
+  );
+  step(
+    "erasure_replace_a",
+    replaceX(rABC, s, s.revision, dA),
+    [replaceX(rABC, s, s.revision, dA), s.capture, s.snapshot, authority],
+    [cABC, 3],
+    completed(
+      transitionX("replace-source", dA, tRep, revisionOf(cRep, 4), 4, basisFrom(oA.gather, 1000), [
+        oA.result,
+      ]),
+      cRep,
+    ),
   );
   void byId;
   writeFileSync(
