@@ -71,6 +71,20 @@ type FaultKind =
   | "source-replaced-after-final-check"
   | "support-refused-before-final-check";
 const hex = (s: string) => Uint8Array.from(s.match(/../g) ?? [], (x) => parseInt(x, 16));
+// ---- The fixture's independent source provider keeps durable state of its own: one file names
+// the source that is current for this directory's host. A race fault moves it after the final
+// check and before CAS dispatch; every later process over the directory sees the moved source.
+type SourceState = { binding: string; revision: string; authority: string };
+const sourceStatePath = (dir: string) => join(dir, "source-state.json");
+const currentSource = (dir: string): SourceState =>
+  existsSync(sourceStatePath(dir))
+    ? (JSON.parse(readFileSync(sourceStatePath(dir), "utf8")) as SourceState)
+    : (f.source as SourceState);
+const moveSource = (dir: string, to: SourceState) => {
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(sourceStatePath(dir) + ".tmp", JSON.stringify(to));
+  renameSync(sourceStatePath(dir) + ".tmp", sourceStatePath(dir));
+};
 class FileControlStore implements MaterializationControlStore {
   constructor(
     readonly dir: string,
@@ -78,6 +92,8 @@ class FileControlStore implements MaterializationControlStore {
     /** The image another writer lands between this host's read and its CAS (`race`). */
     readonly raced?: { hex: string; revision: string },
   ) {}
+  /** The source the independent provider reported current when CAS was dispatched. */
+  sourceAtCas?: SourceState;
   private path(receiver: string, configuration: string) {
     return join(
       this.dir,
@@ -120,6 +136,12 @@ class FileControlStore implements MaterializationControlStore {
       this.save(receiver, configuration, this.raced.revision, hex(this.raced.hex));
     if (this.load(receiver, configuration)?.revision !== expectedRevision)
       return { status: "conflict" as const };
+    // The post-check race: the independent source moves after the final check succeeded and
+    // before this dispatch. The checked snapshot and the proposed image are unchanged; the
+    // host records which source is current at CAS.
+    if (this.fault === "source-replaced-after-final-check" && f.movedSource)
+      moveSource(this.dir, f.movedSource as SourceState);
+    this.sourceAtCas = currentSource(this.dir);
     if (this.fault === "rejected")
       return { status: "rejected" as const, reason: "fixture-rejected" };
     if (this.fault === "unconfirmed-absent")
@@ -174,11 +196,10 @@ const lifecycleHost = (
         return { status: "source-changed" };
       if (fault === "authority-revoked-before-final-check" && checks >= 2)
         return { status: "unauthorized" };
-      if (fault === "source-replaced-after-final-check" && checks >= 3)
-        return { status: "source-changed" };
-      return binding === f.source.binding &&
-        revision === f.source.revision &&
-        authority === f.source.authority
+      const current = currentSource(dir);
+      return binding === current.binding &&
+        revision === current.revision &&
+        authority === current.authority
         ? { status: "current" }
         : { status: "source-changed" };
     },
@@ -280,6 +301,7 @@ if (input.mode === "construct" && step) {
     calls: host.calls,
     diagnostics: host.diagnostics,
     retained,
+    sourceAtCas: host.store.sourceAtCas ?? null,
     store: storeState(host.store),
   });
 } else if (input.mode === "control-export") {

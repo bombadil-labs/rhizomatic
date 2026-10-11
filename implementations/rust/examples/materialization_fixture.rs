@@ -27,7 +27,7 @@ use std::{
     collections::BTreeMap,
     fs,
     io::{self, Read},
-    path::PathBuf,
+    path::{Path, PathBuf},
     rc::Rc,
     time::Instant,
 };
@@ -66,11 +66,33 @@ fn component(s: &str) -> String {
     }
     out
 }
+/// The fixture's independent source provider keeps durable state of its own: one file names
+/// the source that is current for this directory's host. A race fault moves it after the final
+/// check and before CAS dispatch; every later process over the directory sees the moved source.
+fn source_state_path(dir: &Path) -> PathBuf {
+    dir.join("source-state.json")
+}
+fn current_source(dir: &Path) -> Option<Value> {
+    let text = fs::read_to_string(source_state_path(dir)).ok()?;
+    serde_json::from_str(&text).ok()
+}
+fn move_source(dir: &Path, to: &Value) {
+    fs::create_dir_all(dir).unwrap();
+    let path = source_state_path(dir);
+    let tmp = path.with_extension("json.tmp");
+    fs::write(&tmp, to.to_string()).unwrap();
+    fs::rename(tmp, path).unwrap();
+}
 struct FileControlStore {
     dir: PathBuf,
     fault: Option<String>,
     /// The image another writer lands between this host's read and its CAS (`race`).
     raced: Option<(String, Vec<u8>)>,
+    /// The fixture source, and the moved source a post-check race installs at CAS dispatch.
+    source: Value,
+    moved: Option<Value>,
+    /// The source the independent provider reported current when CAS was dispatched.
+    source_at_cas: Rc<RefCell<Option<Value>>>,
 }
 impl FileControlStore {
     fn path(&self, receiver: &str, configuration: &str) -> PathBuf {
@@ -151,6 +173,14 @@ impl MaterializationControlStore for FileControlStore {
             return Ok(MaterializationControlWrite::Conflict);
         }
         let fault = self.fault.as_deref();
+        // The post-check race: the independent source moves after the final check succeeded
+        // and before this dispatch. The checked snapshot and the proposed image are unchanged;
+        // the host records which source is current at CAS.
+        if let (Some("source-replaced-after-final-check"), Some(moved)) = (fault, &self.moved) {
+            move_source(&self.dir, moved);
+        }
+        *self.source_at_cas.borrow_mut() =
+            Some(current_source(&self.dir).unwrap_or_else(|| self.source.clone()));
         if fault == Some("rejected") {
             return Ok(MaterializationControlWrite::Rejected {
                 reason: "fixture-rejected".into(),
@@ -184,12 +214,14 @@ struct LifecycleHost<'a> {
     inspector: FileControlStore,
     calls: Rc<RefCell<Vec<Value>>>,
     diagnostics: Rc<RefCell<Vec<String>>>,
+    source_at_cas: Rc<RefCell<Option<Value>>>,
 }
 /// The schedule grant: current exactly for the fixture's binding, revision and authority. It
 /// is unavailable when the fixture says so, and a race fault moves or revokes it at the named
 /// current check: the second check is the final one before CAS for a transition.
 struct LifecycleGrant {
     source: Value,
+    dir: PathBuf,
     calls: Rc<RefCell<Vec<Value>>>,
     fault: Option<String>,
     unavailable: bool,
@@ -247,15 +279,10 @@ impl MaterializationSourceCapability for LifecycleGrant {
             (Some("authority-revoked-before-final-check"), n) if n >= 2 => {
                 return Err(MaterializationSourceFailure::Unauthorized)
             }
-            (Some("source-replaced-after-final-check"), n) if n >= 3 => {
-                return Err(MaterializationSourceFailure::SourceChanged)
-            }
             _ => {}
         }
-        if b == self.source["binding"]
-            && r == self.source["revision"]
-            && u == self.source["authority"]
-        {
+        let current = current_source(&self.dir).unwrap_or_else(|| self.source.clone());
+        if b == current["binding"] && r == current["revision"] && u == current["authority"] {
             Ok(())
         } else {
             Err(MaterializationSourceFailure::SourceChanged)
@@ -407,6 +434,7 @@ fn run(v: &Value) -> Result<Value, String> {
                     .into(),
                 Box::new(LifecycleGrant {
                     source: f["source"].clone(),
+                    dir: dir.clone(),
                     calls: calls.clone(),
                     fault: fault.clone(),
                     unavailable: f["sourceUnavailable"] == true,
@@ -422,10 +450,14 @@ fn run(v: &Value) -> Result<Value, String> {
                 }),
             );
         }
+        let source_at_cas = Rc::new(RefCell::new(None));
         let inspector = FileControlStore {
             dir: dir.clone(),
             fault: None,
             raced: None,
+            source: f["source"].clone(),
+            moved: None,
+            source_at_cas: Rc::new(RefCell::new(None)),
         };
         let diag = diagnostics.clone();
         let endpoint = MaterializationEndpoint::boot_maintained(
@@ -441,6 +473,13 @@ fn run(v: &Value) -> Result<Value, String> {
                 dir,
                 fault: fault.clone(),
                 raced: raced.clone(),
+                source: f["source"].clone(),
+                moved: if f["movedSource"].is_null() {
+                    None
+                } else {
+                    Some(f["movedSource"].clone())
+                },
+                source_at_cas: source_at_cas.clone(),
             }),
             MaterializationLifecycleHooks {
                 post_cas_result_materialization: if fault.as_deref() == Some("post-cas-result") {
@@ -455,6 +494,7 @@ fn run(v: &Value) -> Result<Value, String> {
             inspector,
             calls,
             diagnostics,
+            source_at_cas,
         })
     };
     let step_delivery = || -> Result<Vec<Value>, String> {
@@ -482,6 +522,7 @@ fn run(v: &Value) -> Result<Value, String> {
                 inspector,
                 calls,
                 diagnostics,
+                source_at_cas,
             } = lifecycle(store_dir(), fault)?;
             if v["seed"] == true && !step["initialControl"].is_null() {
                 inspector.save(
@@ -513,6 +554,7 @@ fn run(v: &Value) -> Result<Value, String> {
                 "calls": *calls.borrow(),
                 "diagnostics": *diagnostics.borrow(),
                 "retained": retained,
+                "sourceAtCas": *source_at_cas.borrow(),
                 "store": inspector.state(&receiver, &b.configuration.id),
             }))
         }
@@ -520,6 +562,9 @@ fn run(v: &Value) -> Result<Value, String> {
             dir: store_dir(),
             fault: None,
             raced: None,
+            source: f["source"].clone(),
+            moved: None,
+            source_at_cas: Rc::new(RefCell::new(None)),
         }
         .state(&receiver, &b.configuration.id)),
         "control-restore" => {

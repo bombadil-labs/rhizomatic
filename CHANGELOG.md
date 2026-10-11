@@ -71,8 +71,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
   check and a source-unavailable flag; the tower runner boots every stage from the step's own
   fixture and runs six tower scenarios and thirteen fault schedules, adding the source races
   around the final check, the rebuild after a source replacement, restore with an unavailable
-  provider, the equal-count replacement and the 64-root program. ERRATA E9 records the
-  readings. Twenty-eight of the thirty-three M3 cases are executed.
+  provider, the equal-count replacement and the 64-root program. The post-check race moves
+  the provider's durable source state in the host directory after the final check and before
+  CAS dispatch, and a later process over that directory sees the moved source. ERRATA E9
+  records the readings. Twenty-eight of the thirty-three M3 cases are executed.
 - SPEC-16 M3 slice C3c1: every shared step asserts the stored image carries no operand bytes,
   using a marker fact; the hosts retain ordinary deltas in a reactor before booting and the
   empty image stays empty. Two tower scenarios and one fault schedule pin them. ERRATA E10
