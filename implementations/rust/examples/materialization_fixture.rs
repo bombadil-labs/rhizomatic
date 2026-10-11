@@ -2,6 +2,7 @@
 use rhizomatic::{
     cbor::encode,
     json_profile::{claims_to_json, parse_delta},
+    materialization_control::{decode_materialization_control, MaterializationControlLimits},
     materialization_data::{
         materialization_bytes, materialization_entity, materialization_role, MaterializationFields,
         MaterializationVerb,
@@ -11,6 +12,7 @@ use rhizomatic::{
         MaterializationControlInitialize, MaterializationControlRead, MaterializationControlStore,
         MaterializationControlWrite,
     },
+    materialization_source::{decode_materialization_appearance, MaterializationSourceLimits},
     preflight_materialization_input, read_materialization_description, read_materialization_result,
     set::DeltaSet,
     sign::{author_for_seed, sign_claims},
@@ -83,6 +85,128 @@ fn move_source(dir: &Path, to: &Value) {
     fs::write(&tmp, to.to_string()).unwrap();
     fs::rename(tmp, path).unwrap();
 }
+/// Host erasure facts and purge debt (MR-15). The host's erasure law is told which acts are
+/// refused; it keeps that fact in one file, so a restart refuses the same support without being
+/// told again. Every superseded image is kept as a historical copy until settlement: once no
+/// active entry reaches a refused act, every historical copy that still carries one is purged.
+fn erasure_path(dir: &Path) -> PathBuf {
+    dir.join("erasure.json")
+}
+fn history_dir(dir: &Path) -> PathBuf {
+    dir.join("history")
+}
+fn load_refused(dir: &Path) -> Vec<String> {
+    fs::read_to_string(erasure_path(dir))
+        .ok()
+        .and_then(|t| serde_json::from_str::<Value>(&t).ok())
+        .and_then(|v| {
+            v["refused"].as_array().map(|xs| {
+                xs.iter()
+                    .filter_map(|x| x.as_str().map(String::from))
+                    .collect()
+            })
+        })
+        .unwrap_or_default()
+}
+fn declare_refused(dir: &Path, ids: &[String]) -> Vec<String> {
+    let before = load_refused(dir);
+    let mut refused: Vec<String> = before.iter().chain(ids.iter()).cloned().collect();
+    refused.sort();
+    refused.dedup();
+    if refused.len() != before.len() {
+        fs::create_dir_all(dir).unwrap();
+        let path = erasure_path(dir);
+        let tmp = path.with_extension("json.tmp");
+        fs::write(&tmp, json!({"refused": refused}).to_string()).unwrap();
+        fs::rename(tmp, path).unwrap();
+    }
+    refused
+}
+fn support_of(bytes: &[u8]) -> Vec<String> {
+    let limits = MaterializationControlLimits {
+        artifact_bytes: 16777216,
+        registrations: 64,
+        definitions: 256,
+    };
+    // The support an image carries, as delta IDs: each stored appearance decodes to its delta.
+    decode_materialization_control(bytes, &limits)
+        .map(|image| {
+            image
+                .deltas
+                .values()
+                .filter_map(|appearance| {
+                    decode_materialization_appearance(
+                        appearance,
+                        MaterializationSourceLimits::default(),
+                    )
+                    .ok()
+                    .map(|d| d.id)
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+fn history_files(dir: &Path) -> Vec<PathBuf> {
+    let mut out: Vec<PathBuf> = fs::read_dir(history_dir(dir))
+        .map(|entries| {
+            entries
+                .filter_map(|e| e.ok().map(|e| e.path()))
+                .filter(|p| p.extension().is_some_and(|x| x == "json"))
+                .collect()
+        })
+        .unwrap_or_default();
+    out.sort();
+    out
+}
+fn keep_history(dir: &Path, configuration: &str, revision: &str, bytes: &[u8]) {
+    fs::create_dir_all(history_dir(dir)).unwrap();
+    let name = format!(
+        "{}-{}.json",
+        component(configuration),
+        if revision.is_empty() {
+            "empty"
+        } else {
+            revision
+        }
+    );
+    let path = history_dir(dir).join(name);
+    let tmp = path.with_extension("json.tmp");
+    fs::write(
+        &tmp,
+        json!({"revision":revision,"imageHex":hex::encode(bytes)}).to_string(),
+    )
+    .unwrap();
+    fs::rename(tmp, path).unwrap();
+}
+/// Settlement: once no active entry reaches a refused act, purge the historical copies that
+/// carry one.
+fn settle(dir: &Path, current: Option<&[u8]>, purge: bool) -> Value {
+    let refused = load_refused(dir);
+    if refused.is_empty() {
+        return json!({"refused": refused, "owed": 0, "settled": null, "purged": 0});
+    }
+    let carries = |bytes: &[u8]| support_of(bytes).iter().any(|id| refused.contains(id));
+    let debts: Vec<PathBuf> = history_files(dir)
+        .into_iter()
+        .filter(|p| {
+            fs::read_to_string(p)
+                .ok()
+                .and_then(|t| serde_json::from_str::<Value>(&t).ok())
+                .and_then(|v| v["imageHex"].as_str().and_then(|h| hex::decode(h).ok()))
+                .is_some_and(|bytes| carries(&bytes))
+        })
+        .collect();
+    if current.is_some_and(carries) {
+        return json!({"refused": refused, "owed": debts.len(), "settled": false, "purged": 0});
+    }
+    if !purge {
+        return json!({"refused": refused, "owed": debts.len(), "settled": debts.is_empty(), "purged": 0});
+    }
+    for p in &debts {
+        fs::remove_file(p).unwrap();
+    }
+    json!({"refused": refused, "owed": 0, "settled": true, "purged": debts.len()})
+}
 struct FileControlStore {
     dir: PathBuf,
     fault: Option<String>,
@@ -110,6 +234,10 @@ impl FileControlStore {
     }
     fn save(&self, receiver: &str, configuration: &str, revision: &str, bytes: &[u8]) {
         let path = self.path(receiver, configuration);
+        // The superseded image stays as a historical copy until settlement purges it.
+        if let Some((prior_revision, prior_bytes)) = self.load(receiver, configuration) {
+            keep_history(&self.dir, configuration, &prior_revision, &prior_bytes);
+        }
         fs::create_dir_all(path.parent().unwrap()).unwrap();
         let tmp = path.with_extension("json.tmp");
         fs::write(
@@ -215,6 +343,14 @@ struct LifecycleHost<'a> {
     calls: Rc<RefCell<Vec<Value>>>,
     diagnostics: Rc<RefCell<Vec<String>>>,
     source_at_cas: Rc<RefCell<Option<Value>>>,
+    refused: Vec<String>,
+}
+impl LifecycleHost<'_> {
+    /// Settle the directory against the image it holds now.
+    fn settle(&self, receiver: &str, configuration: &str, purge: bool) -> Value {
+        let current = self.inspector.load(receiver, configuration).map(|(_, b)| b);
+        settle(&self.inspector.dir, current.as_deref(), purge)
+    }
 }
 /// The schedule grant: current exactly for the fixture's binding, revision and authority. It
 /// is unavailable when the fixture says so, and a race fault moves or revokes it at the named
@@ -425,6 +561,16 @@ fn run(v: &Value) -> Result<Value, String> {
     let lifecycle = |dir: PathBuf, fault: Option<String>| -> Result<LifecycleHost<'_>, String> {
         let calls = Rc::new(RefCell::new(Vec::new()));
         let diagnostics = Rc::new(RefCell::new(Vec::new()));
+        // The host's erasure law: the refused acts it is told are durable facts of this directory.
+        let told: Vec<String> = f["refusedSupport"]
+            .as_array()
+            .map(|xs| {
+                xs.iter()
+                    .filter_map(|x| x.as_str().map(String::from))
+                    .collect()
+            })
+            .unwrap_or_default();
+        let refused = declare_refused(&dir, &told);
         let mut grants = BTreeMap::<String, Box<dyn MaterializationSourceCapability>>::new();
         if f["noGrant"] != true {
             grants.insert(
@@ -438,14 +584,7 @@ fn run(v: &Value) -> Result<Value, String> {
                     calls: calls.clone(),
                     fault: fault.clone(),
                     unavailable: f["sourceUnavailable"] == true,
-                    refused: f["refusedSupport"]
-                        .as_array()
-                        .map(|xs| {
-                            xs.iter()
-                                .filter_map(|x| x.as_str().map(String::from))
-                                .collect()
-                        })
-                        .unwrap_or_default(),
+                    refused: refused.clone(),
                     checks: 0,
                 }),
             );
@@ -495,6 +634,7 @@ fn run(v: &Value) -> Result<Value, String> {
             calls,
             diagnostics,
             source_at_cas,
+            refused,
         })
     };
     let step_delivery = || -> Result<Vec<Value>, String> {
@@ -517,15 +657,9 @@ fn run(v: &Value) -> Result<Value, String> {
     };
     match v["mode"].as_str().ok_or("mode")? {
         "control-execute" | "control-read" => {
-            let LifecycleHost {
-                mut endpoint,
-                inspector,
-                calls,
-                diagnostics,
-                source_at_cas,
-            } = lifecycle(store_dir(), fault)?;
+            let mut host = lifecycle(store_dir(), fault)?;
             if v["seed"] == true && !step["initialControl"].is_null() {
-                inspector.save(
+                host.inspector.save(
                     &receiver,
                     &b.configuration.id,
                     step["initialControl"]["revision"]
@@ -535,6 +669,20 @@ fn run(v: &Value) -> Result<Value, String> {
                         .map_err(|e| e.to_string())?,
                 );
             }
+            // Seeded historical copies: the physical program-support copies an older host left.
+            if v["seed"] == true {
+                for h in v["seedHistory"].as_array().cloned().unwrap_or_default() {
+                    keep_history(
+                        &store_dir(),
+                        &b.configuration.id,
+                        h["revision"].as_str().ok_or("history revision")?,
+                        &hex::decode(h["hex"].as_str().ok_or("history hex")?)
+                            .map_err(|e| e.to_string())?,
+                    );
+                }
+            }
+            // Reopen settles first: a crash after a durable retire may have left purge debt.
+            let at_boot = host.settle(&receiver, &b.configuration.id, true);
             let retained = retain_inert()?;
             let (request, delivery) = if up.is_null() {
                 (step["request"].clone(), step_delivery()?)
@@ -545,35 +693,39 @@ fn run(v: &Value) -> Result<Value, String> {
                 )
             };
             let q = parse_delta(&request)?;
-            let outcome = endpoint.invoke(&q.id, &delivery, at)?;
+            let outcome = host.endpoint.invoke(&q.id, &delivery, at)?;
+            let after_attempt = host.settle(&receiver, &b.configuration.id, true);
             Ok(json!({
                 "request": request,
                 "delivery": delivery,
                 "outcome": serial(&outcome),
                 "preflight": preflight(&b, &q, &delivery, at),
-                "calls": *calls.borrow(),
-                "diagnostics": *diagnostics.borrow(),
+                "calls": *host.calls.borrow(),
+                "diagnostics": *host.diagnostics.borrow(),
                 "retained": retained,
-                "sourceAtCas": *source_at_cas.borrow(),
-                "store": inspector.state(&receiver, &b.configuration.id),
+                "sourceAtCas": *host.source_at_cas.borrow(),
+                "erasure": {"refused": host.refused, "atBoot": at_boot, "afterAttempt": after_attempt},
+                "store": host.inspector.state(&receiver, &b.configuration.id),
             }))
         }
-        "control-export" => Ok(FileControlStore {
-            dir: store_dir(),
-            fault: None,
-            raced: None,
-            source: f["source"].clone(),
-            moved: None,
-            source_at_cas: Rc::new(RefCell::new(None)),
+        "control-export" => {
+            // An export reads; it never settles.
+            let store = FileControlStore {
+                dir: store_dir(),
+                fault: None,
+                raced: None,
+                source: f["source"].clone(),
+                moved: None,
+                source_at_cas: Rc::new(RefCell::new(None)),
+            };
+            let mut state = store.state(&receiver, &b.configuration.id);
+            let current = store.load(&receiver, &b.configuration.id).map(|(_, b)| b);
+            state["erasure"] = settle(&store.dir, current.as_deref(), false);
+            Ok(state)
         }
-        .state(&receiver, &b.configuration.id)),
         "control-restore" => {
-            let LifecycleHost {
-                mut endpoint,
-                inspector,
-                ..
-            } = lifecycle(store_dir(), None)?;
-            inspector.save(
+            let mut host = lifecycle(store_dir(), None)?;
+            host.inspector.save(
                 &receiver,
                 &b.configuration.id,
                 up["revision"].as_str().ok_or("revision")?,
@@ -583,13 +735,15 @@ fn run(v: &Value) -> Result<Value, String> {
             let retained = retain_inert()?;
             let q = parse_delta(&step["request"])?;
             let delivery = step_delivery()?;
-            let outcome = endpoint.invoke(&q.id, &delivery, at)?;
+            let outcome = host.endpoint.invoke(&q.id, &delivery, at)?;
+            let after_attempt = host.settle(&receiver, &b.configuration.id, true);
             Ok(json!({
                 "request": step["request"],
                 "outcome": serial(&outcome),
                 "preflight": preflight(&b, &q, &delivery, at),
                 "retained": retained,
-                "store": inspector.state(&receiver, &b.configuration.id),
+                "erasure": {"refused": host.refused, "afterAttempt": after_attempt},
+                "store": host.inspector.state(&receiver, &b.configuration.id),
             }))
         }
         "control-result" => {

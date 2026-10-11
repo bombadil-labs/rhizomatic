@@ -2027,7 +2027,8 @@
         "ctl_support_erasure_crash_before",
         "ctl_support_erasure_uncertain_absent",
         "ctl_support_erasure_uncertain_present",
-        "ctl_support_erasure_crash_after"
+        "ctl_support_erasure_crash_after",
+        "ctl_support_erasure_crash_after_last_retire"
       ]
     }
   ],

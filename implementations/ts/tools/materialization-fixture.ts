@@ -1,6 +1,14 @@
 // Test host only. Each stage starts fresh and carries only serialized signed descriptions/results.
 import { performance } from "node:perf_hooks";
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { dirname, join } from "node:path";
 import {
   MaterializationEndpoint,
@@ -18,6 +26,8 @@ import {
   type MaterializationControlStore,
   type MaterializationVerb,
   Reactor,
+  decodeMaterializationControl,
+  decodeMaterializationAppearance,
 } from "../src/index.js";
 import { commandBytes, commandEntity } from "../src/command-data/codec.js";
 import { bytesToHex } from "../src/delta/hash.js";
@@ -85,6 +95,62 @@ const moveSource = (dir: string, to: SourceState) => {
   writeFileSync(sourceStatePath(dir) + ".tmp", JSON.stringify(to));
   renameSync(sourceStatePath(dir) + ".tmp", sourceStatePath(dir));
 };
+// ---- Host erasure facts and purge debt (MR-15). The host's erasure law is told which acts are
+// refused; it keeps that fact in one file, so a restart refuses the same support without being
+// told again. Every superseded image is kept as a historical copy until settlement: once no
+// active entry reaches a refused act, every historical copy that still carries one is purged.
+type ErasureState = { refused: string[] };
+const erasurePath = (dir: string) => join(dir, "erasure.json");
+const historyDir = (dir: string) => join(dir, "history");
+const loadErasure = (dir: string): ErasureState =>
+  existsSync(erasurePath(dir))
+    ? (JSON.parse(readFileSync(erasurePath(dir), "utf8")) as ErasureState)
+    : { refused: [] };
+const declareRefused = (dir: string, ids: readonly string[]) => {
+  const state = loadErasure(dir);
+  const refused = [...new Set([...state.refused, ...ids])].sort();
+  if (refused.length !== state.refused.length) {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(erasurePath(dir) + ".tmp", JSON.stringify({ refused }));
+    renameSync(erasurePath(dir) + ".tmp", erasurePath(dir));
+  }
+  return refused;
+};
+const CONTROL_LIMITS = { artifactBytes: 16777216, registrations: 64, definitions: 256 };
+// The support an image carries, as delta IDs: each stored appearance decodes to its delta.
+const supportOf = (bytes: Uint8Array) =>
+  [...decodeMaterializationControl(bytes, CONTROL_LIMITS).deltas.values()].map(
+    (appearance) => decodeMaterializationAppearance(appearance).id,
+  );
+const historyFiles = (dir: string) =>
+  existsSync(historyDir(dir))
+    ? readdirSync(historyDir(dir))
+        .filter((n) => n.endsWith(".json"))
+        .map((n) => join(historyDir(dir), n))
+    : [];
+const keepHistory = (dir: string, configuration: string, revision: string, bytes: Uint8Array) => {
+  mkdirSync(historyDir(dir), { recursive: true });
+  const p = join(
+    historyDir(dir),
+    encodeURIComponent(configuration) + "-" + (revision || "empty") + ".json",
+  );
+  writeFileSync(p + ".tmp", JSON.stringify({ revision, imageHex: bytesToHex(bytes) }));
+  renameSync(p + ".tmp", p);
+};
+/** Settlement: once no active entry reaches a refused act, purge the historical copies that carry one. */
+const settle = (dir: string, current: Uint8Array | undefined, purge: boolean) => {
+  const { refused } = loadErasure(dir);
+  if (!refused.length) return { refused, owed: 0, settled: null as boolean | null, purged: 0 };
+  const carries = (bytes: Uint8Array) => supportOf(bytes).some((id) => refused.includes(id));
+  const debts = historyFiles(dir).filter((p) =>
+    carries(hex((JSON.parse(readFileSync(p, "utf8")) as { imageHex: string }).imageHex)),
+  );
+  if (current && carries(current))
+    return { refused, owed: debts.length, settled: false, purged: 0 };
+  if (!purge) return { refused, owed: debts.length, settled: debts.length === 0, purged: 0 };
+  for (const p of debts) rmSync(p);
+  return { refused, owed: 0, settled: true, purged: debts.length };
+};
 class FileControlStore implements MaterializationControlStore {
   constructor(
     readonly dir: string,
@@ -109,6 +175,9 @@ class FileControlStore implements MaterializationControlStore {
   }
   save(receiver: string, configuration: string, revision: string, bytes: Uint8Array) {
     const p = this.path(receiver, configuration);
+    // The superseded image stays as a historical copy until settlement purges it.
+    const prior = this.load(receiver, configuration);
+    if (prior) keepHistory(this.dir, configuration, prior.revision, prior.bytes);
     mkdirSync(dirname(p), { recursive: true });
     writeFileSync(p + ".tmp", JSON.stringify({ revision, imageHex: bytesToHex(bytes) }));
     renameSync(p + ".tmp", p);
@@ -168,6 +237,8 @@ const lifecycleHost = (
 ) => {
   const calls: unknown[] = [];
   const diagnostics: string[] = [];
+  // The host's erasure law: the refused acts it is told are durable facts of this directory.
+  const refused = declareRefused(dir, (f.refusedSupport ?? []) as string[]);
   // The fixture source is current exactly for the fixture's binding, revision and authority.
   // It is unavailable when the fixture says so, and a race fault moves or revokes it at the
   // named current check: the second check is the final one before CAS for a transition.
@@ -183,9 +254,8 @@ const lifecycleHost = (
       calls.push({ binding, revision, authority, at, cutoff, support: [...support] });
       checks += 1;
       if (f.sourceUnavailable) return { status: "source-unavailable" };
-      // The host's erasure law: a refused act in the explicit required support is unauthorized,
-      // from the first check, or from the final check when the fault names it.
-      const refused: string[] = f.refusedSupport ?? [];
+      // A refused act in the explicit required support is unauthorized, from the first check,
+      // or from the final check when the fault names it.
       if (
         refused.length &&
         (fault !== "support-refused-before-final-check" || checks >= 2) &&
@@ -229,7 +299,9 @@ const lifecycleHost = (
       diagnostics.push(String(e instanceof Error ? e.message : e));
     },
   });
-  return { endpoint, store, calls, diagnostics };
+  const settleNow = (purge: boolean) =>
+    settle(dir, store.load(signer.author, boot.configuration.id)?.bytes, purge);
+  return { endpoint, store, calls, diagnostics, refused, settleNow };
 };
 const storeState = (store: FileControlStore) => {
   const existing = store.load(signer.author, boot.configuration.id);
@@ -288,11 +360,18 @@ if (input.mode === "construct" && step) {
       step.initialControl.revision,
       hex(step.initialControl.hex),
     );
+  // Seeded historical copies: the physical program-support copies an older host left behind.
+  if (input.seed)
+    for (const h of (input.seedHistory ?? []) as { revision: string; hex: string }[])
+      keepHistory(input.store.dir, boot.configuration.id, h.revision, hex(h.hex));
+  // Reopen settles first: a crash after a durable retire may have left purge debt behind.
+  const atBoot = host.settleNow(true);
   const retained = retainInert(step?.retained);
   const request = input.upstream?.request ?? step!.request,
     delivery = input.upstream?.delivery ?? step!.delivery,
     q = parseCommandDelta(request);
   const outcome = await host.endpoint.invoke(q.id, delivery, receivedAt);
+  const afterAttempt = host.settleNow(true);
   output({
     request,
     delivery,
@@ -302,10 +381,20 @@ if (input.mode === "construct" && step) {
     diagnostics: host.diagnostics,
     retained,
     sourceAtCas: host.store.sourceAtCas ?? null,
+    erasure: { refused: host.refused, atBoot, afterAttempt },
     store: storeState(host.store),
   });
 } else if (input.mode === "control-export") {
-  output(storeState(new FileControlStore(input.store.dir)));
+  // An export reads; it never settles.
+  const store = new FileControlStore(input.store.dir);
+  output({
+    ...storeState(store),
+    erasure: settle(
+      input.store.dir,
+      store.load(signer.author, boot.configuration.id)?.bytes,
+      false,
+    ),
+  });
 } else if (input.mode === "control-restore") {
   // Only the exported bytes and revision enter the fresh directory; then the restore verb runs.
   const host = lifecycleHost(input.store.dir);
@@ -323,6 +412,7 @@ if (input.mode === "construct" && step) {
     outcome: serializeCommandDelta(outcome),
     preflight: preflightMaterializationInput(boot, q.id, step!.delivery, receivedAt),
     retained,
+    erasure: { refused: host.refused, afterAttempt: host.settleNow(true) },
     store: storeState(host.store),
   });
 } else if (input.mode === "control-result") {

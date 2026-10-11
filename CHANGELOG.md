@@ -82,9 +82,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 - SPEC-16 M3 slice C3c2: a step may name refused acts; the schedule's grant refuses a current
   check whose required support names one, retire of the blocked registrations completes, and the
   shared marker definitions leave the image and the host directory with their last active
-  consumer. One tower scenario and seven fault schedules pin erasure, its targeted and
-  between-checks variants, and its crash schedule. ERRATA E11 records the readings. Thirty-two
-  of the thirty-three M3 cases are executed.
+  consumer. Both hosts keep the refused acts as durable facts and every superseded image as a
+  historical copy; settlement purges the copies once no active entry reaches a refused act, and a
+  reopen settles debt a crash left. One tower scenario and eight fault schedules pin erasure, its
+  targeted and between-checks variants, and its crash schedule through settlement. ERRATA E11
+  records the readings. Thirty-two of the thirty-three M3 cases are executed.
 
 ### Changed
 
