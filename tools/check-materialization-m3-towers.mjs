@@ -32,6 +32,8 @@ const fixtureFor=step=>({...fixture,boot:step.bootOverride??schedule.boot,source
 const kindOf=d=>d.claims.pointers.find(p=>p.role===role+'kind')?.target;
 const delivered=(step,kind)=>step.delivery.find(d=>kindOf(d)===kind);
 const install=stepOf('install');
+// The operand marker: a source fact's text that no stored image or directory file may carry (MR-14).
+const OPERAND_MARKER=Buffer.from('PUBLIC-TEST-OPERAND-MARKER').toString('hex');
 const bodyOf=step=>Buffer.from(step.expected.outcome.claims.pointers.find(p=>p.role===role+'result').target.value,'base64url').toString('hex');
 // Canonical CBOR of the two indeterminate bodies and the control-rejected refusal (MR-19).
 const tstr=s=>Buffer.concat([Buffer.from([s.length<24?0x60+s.length:0x78,...(s.length<24?[]:[s.length])]),Buffer.from(s)]);
@@ -66,6 +68,7 @@ function crossing(a,plan,label){
  const {upstream:_u,...executeRecord}=executeInput;record(records,'control-execute',a['control-execute'],executeRecord,executed.output??{crashed:true,status:executed.status});
  const exported=must(a['control-export'],{mode:'control-export',fixture:fixtureFor(first),store:{dir:dirA}});
  assert.equal(exported.bytesHex,after.controlHex,'the directory after the stage is the oracle');record(records,'control-export',a['control-export'],{mode:'control-export'},exported);
+ assert.ok(!exported.bytesHex.includes(OPERAND_MARKER),'no operand bytes in the image');for(const p of files(dirA))assert.ok(!readFileSync(p).toString('hex').includes(OPERAND_MARKER)&&!readFileSync(p,'utf8').includes(OPERAND_MARKER),'no operand bytes in the directory');
  const dirB=freshDir(label+'-b');
  const restored=must(a['control-restore'],{mode:'control-restore',fixture:fixtureFor(restore),step:restore,store:{dir:dirB},upstream:exported});
  assert.deepEqual(restored.outcome,restore.expected.outcome);assert.equal(restored.store.bytesHex,after.controlHex);record(records,'control-restore',a['control-restore'],{mode:'control-restore',step:restore.id},restored);
@@ -74,7 +77,7 @@ function crossing(a,plan,label){
  const snapshot=delivered(read,'snapshot/1'),capture=delivered(read,'capture/1')??captureFor(read);
  const resultInput={mode:'control-result',fixture:fixtureFor(read),upstream:readOut,control:exported,...(snapshot?{capture,snapshot}:{})};
  const result=must(a['control-result'],resultInput);expectReadback(result,readback);record(records,'control-result',a['control-result'],{mode:'control-result',step:read.id},result);
- for(const e of extra){const o=must(a['control-read'],{mode:'control-execute',fixture:fixtureFor(e.step),step:e.step,store:{dir:dirB}});assert.deepEqual(o.outcome,e.step.expected.outcome);assert.equal(o.store.bytesHex,after.controlHex);record(records,'control-read',a['control-read'],{mode:'control-execute',step:e.step.id},o);}
+ for(const e of extra){const o=must(a['control-read'],{mode:'control-execute',fixture:fixtureFor(e.step),step:e.step,store:{dir:dirB}});assert.deepEqual(o.outcome,e.step.expected.outcome);assert.equal(o.store.bytesHex,e.controlHex??after.controlHex);record(records,'control-read',a['control-read'],{mode:'control-execute',step:e.step.id},o);}
  if(!after.crash&&after.status){const r=must(a['control-result'],{mode:'control-result',fixture:fixtureFor(first),upstream:executed.output,control:exported});expectReadback(r,{status:after.status,classification:'verified-context',sourceCommitments:'attested',bodyHex:after.bodyHex});record(records,'control-result',a['control-result'],{mode:'control-result',step:first.id},r);}
  return records;
 }
@@ -90,6 +93,10 @@ const scenarios={
  ctl_postcheck_precommit_race:{first:S('advance_time'),fault:'source-replaced-after-final-check',after:{outcome:true,controlHex:S('advance_time').expected.controlHex},restore:S('restore_advanced'),read:S('read_advanced_source_replaced'),readback:refusedRead(S('read_advanced_source_replaced'))},
  ctl_equal_count_replace:{first:S('replace_equal_count'),after:{outcome:true,controlHex:S('replace_equal_count').expected.controlHex},restore:S('restore_equal_count'),read:S('read_equal_count'),readback:completed(S('read_equal_count'))},
  ctl_shared_basis_limits:{first:S('limits_install_64_roots'),after:{outcome:true,controlHex:S('limits_install_64_roots').expected.controlHex},restore:S('restore_64_roots'),read:S('limits_read_64_roots'),readback:completed(S('limits_read_64_roots'))},
+ // A source fact carries the operand marker; the image, the directory and the other witness's restore never do.
+ ctl_metadata_no_payload:{first:S('install_marker'),after:{outcome:true,controlHex:S('install_marker').expected.controlHex},restore:S('restore_marker'),read:S('read_marker'),readback:completed(S('read_marker'))},
+ // Retained ordinary deltas never activate: the empty image restores empty and reads missing; only an authorized install activates.
+ ctl_delta_state_inert:{first:S('restore_empty_retained'),after:{outcome:true,controlHex:S('restore_empty_retained').expected.controlHex},restore:S('restore_empty_retained'),read:S('read_missing_retained'),readback:refusedRead(S('read_missing_retained')),extra:[{step:S('install'),controlHex:S('install').expected.controlHex}]},
 };
 const faults={
  ctl_before_commit_crash:{first:S('advance_time'),fault:'crash-before-cas',after:{crash:true,controlHex:S('advance_time').initialControl.hex},restore:S('restore_installed'),read:S('read_installed'),readback:completed(S('read_installed'))},
@@ -108,6 +115,8 @@ const faults={
  ctl_rebuild_source_replace:{first:S('advance_time'),after:{outcome:true,controlHex:S('advance_time').expected.controlHex},restore:S('restore_advanced'),read:S('read_advanced_source_replaced'),readback:refusedRead(S('read_advanced_source_replaced'))},
  // The provider is unavailable after restore: the selection is reported unchecked, the read refuses, and a later read with the source back completes.
  ctl_restore_unavailable:{first:S('advance_time'),after:{outcome:true,controlHex:S('advance_time').expected.controlHex},restore:S('restore_advanced'),read:S('read_advanced_source_unavailable'),readback:refusedRead(S('read_advanced_source_unavailable')),extra:[{step:S('read_advanced')}]},
+ // A retained configuration, descriptor and install-shaped request create no operation, grant or entry.
+ cmd_inert_retention_empty_control_read:{first:S('restore_empty_retained_request'),after:{outcome:true,controlHex:S('restore_empty_retained_request').expected.controlHex},restore:S('restore_empty_retained_request'),read:S('read_missing_retained'),readback:refusedRead(S('read_missing_retained'))},
 };
 assert.equal(S('read_wrong_control').initialControl.hex,S('install').expected.controlHex);
 const capabilities={format:'rhizomatic-command-capabilities/1',witnesses:['ts','rust'].map(id=>({id,state:'supported',buildId:builds[id],profiles:[],stages:[...new Set(stages.map(s=>s.contract))],stage_evidence:Object.fromEntries(stages.map(s=>[s.contract,Object.keys(scenarios)]))})).concat(['elixir','haskell'].map(id=>({id,state:'not_implemented',stages:[],profiles:[]})))};

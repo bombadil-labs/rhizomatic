@@ -5469,6 +5469,87 @@ writeFileSync(
     ),
     bootFor(configCounters),
   );
+  // ---- Slice C3c1: the operand marker and inert retention. A source fact carries a marker
+  // text that the stored image must never contain (MR-14); ordinary retained deltas never
+  // activate a selection (MR-02, MR-13).
+  const MARKER = "PUBLIC-TEST-OPERAND-MARKER";
+  const tMarker = row(root, "tag", p(MARKER), array([tstr(MARKER)]), 11);
+  const sM = source([a, tMarker, x]);
+  const markerHex = bytesToHex(new TextEncoder().encode(MARKER));
+  const fernM: EntryFields = { ...fern, revision: sM.revision, capture: sM.capture.id };
+  const tM1 = stateX(1, "", "", "install", fernM);
+  const cM = imageX(
+    1,
+    [{ ...fernM, status: "active", transition: tM1.id }],
+    [descriptor, ...defs, sM.capture, authority, tM1],
+  );
+  const rM = revisionOf(cM, 1);
+  if (
+    !bytesToHex(sM.payload).includes(markerHex) ||
+    bytesToHex(cM).includes(markerHex) ||
+    defs.some((d) => bytesToHex(appearance(d)).includes(markerHex))
+  )
+    throw Error("operand marker placement");
+  const oM = oracleOf(sM, [a, tMarker, x], 1000);
+  step(
+    "install_marker",
+    installX("", descriptor, sM),
+    [installX("", descriptor, sM), descriptor, sM.capture, sM.snapshot, authority, ...defs],
+    [c0, 0],
+    completed(
+      transitionX("install", descriptor, tM1, rM, 1, basisFrom(oM.gather, 1000), [oM.result]),
+      cM,
+    ),
+    { source: sourceOf(sM) },
+  );
+  step(
+    "restore_marker",
+    restoreQ(rM),
+    [restoreQ(rM)],
+    [cM, 1],
+    completed(restoreBodyX(rM, 1, [{ ...fernM, status: "active", transition: tM1.id }]), cM),
+  );
+  step(
+    "read_marker",
+    readX(rM, sM),
+    [readX(rM, sM), sM.snapshot],
+    [cM, 1],
+    completed(readBodyX(descriptor, rM, 1, basisFrom(oM.gather, 1000), [oM.result]), cM),
+    { source: sourceOf(sM) },
+  );
+  const emptyRestore = map([
+    ["kind", tstr("restore")],
+    ["control", tstr("")],
+    ["generation", float(0)],
+    ["selections", array([])],
+  ]);
+  const retainedState = [descriptor, authority, s.capture, t1].map(serializeCommandDelta);
+  step(
+    "restore_empty_retained",
+    restoreQ(""),
+    [restoreQ("")],
+    [c0, 0],
+    completed(emptyRestore, c0),
+    {
+      retained: retainedState,
+    },
+  );
+  step(
+    "read_missing_retained",
+    readQ(""),
+    [readQ(""), s.snapshot],
+    [c0, 0],
+    refusal("registration-missing"),
+    { retained: retainedState },
+  );
+  step(
+    "restore_empty_retained_request",
+    restoreQ(""),
+    [restoreQ("")],
+    [c0, 0],
+    completed(emptyRestore, c0),
+    { retained: [configB, descriptor, installQ("")].map(serializeCommandDelta) },
+  );
   void byId;
   writeFileSync(
     new URL("../../../vectors/materialization/lifecycle.json", import.meta.url),

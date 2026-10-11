@@ -442,6 +442,21 @@ fn run(v: &Value) -> Result<Value, String> {
     let step_delivery = || -> Result<Vec<Value>, String> {
         Ok(step["delivery"].as_array().ok_or("step delivery")?.clone())
     };
+    // Ordinary retained deltas are inert testimony: a step may name deltas the host retains in
+    // a reactor before booting; the control endpoint never sees that reactor.
+    let retain_inert = || -> Result<usize, String> {
+        let mut reactor = rhizomatic::reactor::Reactor::new();
+        let retained = step["retained"].as_array().cloned().unwrap_or_default();
+        for d in &retained {
+            if !matches!(
+                reactor.ingest(parse_delta(d)?),
+                rhizomatic::reactor::IngestResult::Accepted
+            ) {
+                return Err("retained delta rejected".into());
+            }
+        }
+        Ok(retained.len())
+    };
     match v["mode"].as_str().ok_or("mode")? {
         "control-execute" | "control-read" => {
             let LifecycleHost {
@@ -461,6 +476,7 @@ fn run(v: &Value) -> Result<Value, String> {
                         .map_err(|e| e.to_string())?,
                 );
             }
+            let retained = retain_inert()?;
             let (request, delivery) = if up.is_null() {
                 (step["request"].clone(), step_delivery()?)
             } else {
@@ -478,6 +494,7 @@ fn run(v: &Value) -> Result<Value, String> {
                 "preflight": preflight(&b, &q, &delivery, at),
                 "calls": *calls.borrow(),
                 "diagnostics": *diagnostics.borrow(),
+                "retained": retained,
                 "store": inspector.state(&receiver, &b.configuration.id),
             }))
         }
@@ -500,6 +517,7 @@ fn run(v: &Value) -> Result<Value, String> {
                 &hex::decode(up["bytesHex"].as_str().ok_or("bytesHex")?)
                     .map_err(|e| e.to_string())?,
             );
+            let retained = retain_inert()?;
             let q = parse_delta(&step["request"])?;
             let delivery = step_delivery()?;
             let outcome = endpoint.invoke(&q.id, &delivery, at)?;
@@ -507,6 +525,7 @@ fn run(v: &Value) -> Result<Value, String> {
                 "request": step["request"],
                 "outcome": serial(&outcome),
                 "preflight": preflight(&b, &q, &delivery, at),
+                "retained": retained,
                 "store": inspector.state(&receiver, &b.configuration.id),
             }))
         }
