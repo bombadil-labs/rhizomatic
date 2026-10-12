@@ -79,6 +79,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
   using a marker fact; the hosts retain ordinary deltas in a reactor before booting and the
   empty image stays empty. Two tower scenarios and one fault schedule pin them. ERRATA E10
   records the readings. Thirty of the thirty-three M3 cases and all six variants are executed.
+- SPEC-16 M3 slice C3c2: a step may name refused acts; the schedule's grant refuses a current
+  check whose required support names one, retire of the blocked registrations completes, and the
+  shared marker definitions leave the image and the host directory with their last active
+  consumer. Both hosts keep the refused acts as durable facts and every superseded image as a
+  historical copy; settlement purges the copies once no active entry reaches a refused act, and a
+  reopen settles debt a crash left. One tower scenario and eight fault schedules pin erasure, its
+  targeted and between-checks variants, and its crash schedule through settlement. ERRATA E11
+  records the readings. Thirty-two of the thirty-three M3 cases are executed.
 
 ### Changed
 

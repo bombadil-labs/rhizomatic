@@ -1744,19 +1744,292 @@
     },
     {
       "id": "ctl_support_erasure",
-      "state": "specified",
-      "vector_assertions": [],
+      "state": "executed",
+      "vector_assertions": [
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "erasure_install_a"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "erasure_install_a"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "erasure_install_b"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "erasure_install_b"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "erasure_install_c"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "erasure_install_c"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "erasure_read_a_refused"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "erasure_read_a_refused"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "erasure_read_b_refused"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "erasure_read_b_refused"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "erasure_read_c_allowed"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "erasure_read_c_allowed"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "erasure_retire_a"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "erasure_retire_a"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "erasure_retire_b"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "erasure_retire_b"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "erasure_restore_abc"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "erasure_restore_abc"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "erasure_restore_a_retired"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "erasure_restore_a_retired"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "erasure_restore_settled"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "erasure_restore_settled"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "erasure_read_a_retired"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "erasure_read_a_retired"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "erasure_install_a_retired"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "erasure_install_a_retired"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "erasure_read_c_settled"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "erasure_read_c_settled"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "erasure_targeted_read_a_refused"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "erasure_targeted_read_a_refused"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "erasure_targeted_read_b_allowed"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "erasure_targeted_read_b_allowed"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "erasure_targeted_retire_a"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "erasure_targeted_retire_a"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "erasure_replace_a"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "erasure_replace_a"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "erasure_read_b_refused_retired_a"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "erasure_read_b_refused_retired_a"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "erasure_targeted_read_b_retired_a"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "erasure_targeted_read_b_retired_a"
+        }
+      ],
       "native_evidence": [],
-      "remaining": "Shared-definition erasure through the host erasure law (M3c).",
-      "tower_evidence": []
+      "remaining": "",
+      "tower_evidence": [
+        "ctl_support_erasure",
+        "ctl_support_erasure_first_retire",
+        "ctl_support_erasure_targeted",
+        "ctl_support_erasure_between_checks"
+      ]
     },
     {
       "id": "ctl_support_erasure_crashes",
-      "state": "specified",
-      "vector_assertions": [],
+      "state": "executed",
+      "vector_assertions": [
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "erasure_retire_a"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "erasure_retire_a"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "erasure_restore_abc"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "erasure_restore_abc"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "erasure_restore_a_retired"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "erasure_restore_a_retired"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "erasure_read_a_refused"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "erasure_read_a_refused"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "erasure_read_a_retired"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "erasure_read_a_retired"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "erasure_read_a_retired_bc"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "erasure_read_a_retired_bc"
+        }
+      ],
       "native_evidence": [],
-      "remaining": "Erasure with crashes before and after the retire CAS (M3c).",
-      "tower_evidence": []
+      "remaining": "",
+      "tower_evidence": [
+        "ctl_support_erasure_crash_before",
+        "ctl_support_erasure_uncertain_absent",
+        "ctl_support_erasure_uncertain_present",
+        "ctl_support_erasure_crash_after",
+        "ctl_support_erasure_crash_after_last_retire"
+      ]
     }
   ],
   "variants": [
