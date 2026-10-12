@@ -63,7 +63,8 @@ const milestones=read(join(root,'contracts/materialization/MILESTONES.json')).mi
 const m3Contract=read(join(root,'contracts/materialization/M3-CASES.json'));
 // The M2 runner's refusal branches: each fixture under both fixed routes and three planned towers.
 const M2_REFUSALS=['reflective_top','request_pointers_over','snapshot_count_before_bad_row'];
-export const M3_FAULTS=[...new Set([...m3Contract.cases,...m3Contract.variants].flatMap(c=>c.tower_evidence))].filter(id=>!packet.required_scenarios.M3.includes(id)).sort();
+// Every M3 case names the towers or fault branches that execute it (tower_evidence).
+export const M3_TOWER_EVIDENCE=[...new Set([...m3Contract.cases,...m3Contract.variants].flatMap(c=>c.tower_evidence))].sort();
 const listed=(evidence,list)=>{assert.ok(Array.isArray(evidence[list]),`evidence lists ${list}`);return evidence[list];};
 export function checkInventory(M,{milestoneReport,coverage,evidence,exists}){
  const m=milestones.find(x=>x.id===M);
@@ -85,8 +86,12 @@ export function checkInventory(M,{milestoneReport,coverage,evidence,exists}){
  listed(evidence,'fixed');
  if(M==='M2'){const refusals=listed(evidence,'refusalBranches');for(const id of M2_REFUSALS)assert.equal(refusals.filter(e=>e.fixtureId===id).length,5,`M2 refusal branch ${id} under five assignments`);}
  if(M==='M3'){
-  const faults=listed(evidence,'faults'),routes=packet.fixed_routes.M3.map(parseRoute);
-  for(const id of M3_FAULTS)for(const route of routes)assert.ok(faults.some(e=>e.caseId===id&&canonicalJson(e.assignment)===canonicalJson(route)),`M3 fault ${id} under fixed route ${JSON.stringify(route)}`);
+  // Each named id is retained either as three listed towers or as a fault branch under both fixed routes.
+  const faults=listed(evidence,'faults'),routes=packet.fixed_routes.M3.map(parseRoute),towerRuns=listed(evidence,'towers');
+  for(const id of M3_TOWER_EVIDENCE){
+   if(towerRuns.filter(e=>e.caseId===id).length===3)continue;
+   for(const route of routes)assert.ok(faults.some(e=>e.caseId===id&&Object.entries(route).every(([stage,w])=>e.assignment?.[stage]===w)),`M3 tower evidence ${id}: three towers or a fault under fixed route ${JSON.stringify(route)}`);
+  }
  }
 }
 // ---- Source identity. Every bundle and report carries the commit, tree and clean state it was built
@@ -150,7 +155,7 @@ for(const M of ['M1','M2','M3']){
  const milestoneReport=milestoneReportOf(M),coverage=existsSync(join(dirs[M],'COVERAGE.json'))?read(join(dirs[M],'COVERAGE.json')):undefined;
  checkInventory(M,{milestoneReport,coverage,evidence,exists:a=>existsSync(join(dirs[M],a))});
  pinSource(`${M} bundle`,milestoneReport.source,expectedSource);
- report.inventory[M]={cases:coverage.cases.length,...(M==='M3'?{variants:coverage.variants.length,faults:M3_FAULTS.length}:{}),...(M==='M2'?{refusalBranches:evidence.refusalBranches.length}:{})};
+ report.inventory[M]={cases:coverage.cases.length,...(M==='M3'?{variants:coverage.variants.length,towerEvidence:M3_TOWER_EVIDENCE.length,faults:evidence.faults.length}:{}),...(M==='M2'?{refusalBranches:evidence.refusalBranches.length}:{})};
  // ---- Three seeded plans per required scenario, each mixed, each replayed exactly.
  report.threeSeeded[M]={};
  for(const scenario of packet.required_scenarios[M]){
@@ -194,6 +199,7 @@ for(const M of ['M1','M2','M3']){
  refuse('modified-replay-plan',()=>{const p=structuredClone(plans);p.seed+='changed';validateReplayPlan(p,{stages,capabilities,availableBuilds:builds});},/fingerprint/);
  report.harness[M]=evidence.harnessNegatives;
  if(M==='M2')for(const e of evidence.refusalBranches){const r=read(join(dirs.M2,e.artifact));for(const run of ['first','replay']){assert.ok(r[run]?.length===3,`M2 refusal ${e.artifact} ${run} stops after gather and readback`);const sequence=['construct','gather','read-result'];checkExecution(M,`M2 refusal ${e.artifact} ${run}`,Object.fromEntries(sequence.map(s=>[s,r.assignment[s]])),r[run],{sequence,crosses:false});}}
+ if(M==='M3')for(const e of evidence.towers.filter(e=>!packet.required_scenarios.M3.includes(e.caseId))){const t=read(join(dirs.M3,e.artifact));assert.equal(canonicalJson(t.plan),canonicalJson(e.plan),`M3 tower ${e.artifact} plan`);for(const run of ['first','replay'])checkExecution(M,`M3 tower ${e.artifact} ${run}`,assignmentOf(t.plan),t[run]);}
  if(M==='M3')for(const e of evidence.faults){const f=read(join(dirs.M3,e.artifact));assert.equal(canonicalJson(f.assignment),canonicalJson(e.assignment),`M3 fault ${e.artifact} assignment`);checkExecution(M,`M3 fault ${e.artifact}`,f.assignment,f.records);}
 }
 
@@ -290,7 +296,7 @@ report.isolation=m3.isolation;
 {
  const refuses=(name,f,pattern)=>{assert.throws(f,pattern,'probe '+name);(report.sensitivity??={})[name]='refused';};
  const input=M=>({milestoneReport:milestoneReportOf(M),coverage:read(join(dirs[M],'COVERAGE.json')),evidence:evidenceOf(M),exists:a=>existsSync(join(dirs[M],a))});
- refuses('deleted-fault-branches',()=>{const x=input('M3');x.evidence.faults=[];checkInventory('M3',x);},/M3 fault/);
+ refuses('deleted-fault-branches',()=>{const x=input('M3');x.evidence.faults=[];checkInventory('M3',x);},/M3 tower evidence/);
  refuses('absent-fault-list',()=>{const x=input('M3');delete x.evidence.faults;checkInventory('M3',x);},/evidence lists faults/);
  refuses('missing-report',()=>{const x=input('M3');x.milestoneReport=undefined;checkInventory('M3',x);},/REPORT\.json/);
  refuses('missing-coverage',()=>{const x=input('M3');x.coverage=undefined;checkInventory('M3',x);},/COVERAGE\.json/);
