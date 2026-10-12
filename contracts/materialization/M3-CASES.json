@@ -228,6 +228,16 @@
           "corpus": "lifecycle",
           "group": "readback",
           "id": "read_equal_count"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "restore_equal_count"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "restore_equal_count"
         }
       ],
       "native_evidence": [
@@ -235,7 +245,9 @@
         "install_read_advance_replace_retire_and_restore_agree_with_the_batch_oracle"
       ],
       "remaining": "",
-      "tower_evidence": []
+      "tower_evidence": [
+        "ctl_equal_count_replace"
+      ]
     },
     {
       "id": "ctl_authority_only_replace",
@@ -907,35 +919,178 @@
     },
     {
       "id": "ctl_precheck_source_race",
-      "state": "specified",
-      "vector_assertions": [],
+      "state": "executed",
+      "vector_assertions": [
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "advance_time"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "advance_time"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "restore_installed"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "restore_installed"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "read_installed"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "read_installed"
+        }
+      ],
       "native_evidence": [],
-      "remaining": "Source replacement between precompute and the final check needs the M3c fixture source.",
-      "tower_evidence": []
+      "remaining": "",
+      "tower_evidence": [
+        "ctl_precheck_source_race",
+        "ctl_precheck_authority_revoked"
+      ]
     },
     {
       "id": "ctl_postcheck_precommit_race",
-      "state": "specified",
-      "vector_assertions": [],
+      "state": "executed",
+      "vector_assertions": [
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "advance_time"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "advance_time"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "restore_advanced"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "restore_advanced"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "read_advanced_source_replaced"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "read_advanced_source_replaced"
+        }
+      ],
       "native_evidence": [],
-      "remaining": "Pause after the final check with an independent source replacement needs the M3c fixture host.",
-      "tower_evidence": []
+      "remaining": "",
+      "tower_evidence": [
+        "ctl_postcheck_precommit_race"
+      ]
     },
     {
       "id": "ctl_rebuild_source_replace",
-      "state": "specified",
-      "vector_assertions": [],
+      "state": "executed",
+      "vector_assertions": [
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "advance_time"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "advance_time"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "restore_advanced"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "restore_advanced"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "read_advanced_source_replaced"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "read_advanced_source_replaced"
+        }
+      ],
       "native_evidence": [],
-      "remaining": "Source replacement after commit and before rebuild needs the M3c fixture source.",
-      "tower_evidence": []
+      "remaining": "",
+      "tower_evidence": [
+        "ctl_rebuild_source_replace"
+      ]
     },
     {
       "id": "ctl_restore_unavailable",
-      "state": "specified",
-      "vector_assertions": [],
+      "state": "executed",
+      "vector_assertions": [
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "advance_time"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "advance_time"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "restore_advanced"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "restore_advanced"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "read_advanced_source_unavailable"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "read_advanced_source_unavailable"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "read_advanced"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "read_advanced"
+        }
+      ],
       "native_evidence": [],
-      "remaining": "Restore with a destroyed source provider needs the M3c fixture host.",
-      "tower_evidence": []
+      "remaining": "",
+      "tower_evidence": [
+        "ctl_restore_unavailable"
+      ]
     },
     {
       "id": "ctl_retired_restart",
@@ -1505,11 +1660,23 @@
           "corpus": "lifecycle",
           "group": "readback",
           "id": "limits_install_fat_descriptor_over_image_bytes"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "restore_64_roots"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "restore_64_roots"
         }
       ],
       "native_evidence": [],
       "remaining": "",
-      "tower_evidence": []
+      "tower_evidence": [
+        "ctl_shared_basis_limits"
+      ]
     },
     {
       "id": "ctl_support_erasure",

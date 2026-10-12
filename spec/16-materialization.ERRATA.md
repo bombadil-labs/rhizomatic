@@ -192,3 +192,28 @@ Each item names the text it reads and the shared vector that pins it in
   advance-time; an image limit below a fat-alias descriptor's image and above its body refuses
   install the same way, with the prior image unchanged (`limits_*_over_body_bytes`,
   `limits_install_fat_descriptor_over_image_bytes`).
+
+## E9 — Readings pinned by slice C3b of M3
+
+Decided 2026-10-10 while building the source-race and unavailable-source crossings. Each item
+names the text it reads and the tower or fault schedule that pins it in
+`tools/check-materialization-m3-towers.mjs`.
+
+- **The final current check is the last word before CAS.** MR-16 and MR-18 say a source
+  replacement during precompute, before the final check, refuses `source-changed` with the
+  prior image and no CAS, and that a replacement after the final check leaves a committed
+  selection that the next read refuses. The fixture grant moves or revokes its source at a
+  named check: at the second check a transition refuses `source-changed` or `unauthorized` and
+  the directory holds the prior image (`ctl_precheck_source_race`,
+  `ctl_precheck_authority_revoked`). For the post-check race the fixture's independent source
+  provider keeps durable state in the host directory; the fault moves that state after the
+  second check succeeded and before CAS dispatch. The host records the moved source as current
+  at CAS, makes no third check, commits the checked selection, and a later read over the same
+  directory with the original source supplied by the test refuses `source-changed` from the
+  host's own state (`ctl_postcheck_precommit_race`). No recapture happens in either case; the
+  fixture source cannot recapture.
+- **A selection restored without its source is reported, never served.** MR-17 says restore
+  reports selections with availability unchecked and never calls stale output current. With
+  the provider unavailable the restored read refuses `source-unavailable`; with the provider
+  back a later read completes against the same selection, without reinstallation
+  (`ctl_restore_unavailable`, `read_advanced_source_unavailable`).
