@@ -291,3 +291,55 @@ reads and the shared step or tower that pins it.
   copies; the directory scan covers both. A host with WAL, spill or other surfaces owes the
   same purge under its own obligations; this profile pins only that the control image, the
   historical copies and the fixture directory settle.
+## E12 — Readings pinned by slice C3c3 of M3
+
+Decided 2026-10-11 while building the lifetime and rotation crossings. Each item names the
+text it reads and the shared step or tower that pins it.
+
+- **The lifetime bound counts retired entries.** MR-04 and MR-14 say the 64-entry bound is a
+  finite configuration lifetime and retirement never frees a slot. The old configuration holds
+  two active and 62 retired entries; the 65th distinct install refuses `resource-limit` at stage
+  5 with no source check and no write, before and after one more retire
+  (`rotation_install_65`, `rotation_retire_moss`, `rotation_install_65_after_retire`). The
+  step names an unavailable source and the grant is never consulted.
+- **A new configuration is a new scope.** The new receiver-signed configuration carries the same
+  receiver, callers, operations, binding and limits and differs only by its signing time; its
+  control scope starts empty and explicit installs there complete as new installs
+  (`rotation_new_install_fern`, `rotation_new_install_moss`). A request for either
+  configuration at the other endpoint refuses `configuration-mismatch` at stage 3, and the
+  projection says `invalid-input` (`rotation_old_request_new_endpoint`,
+  `rotation_new_request_old_endpoint`).
+- **The old scope keeps its retirements, and the new scope does not inherit them.** Reopened
+  explicitly, the old image still refuses `retired` for a retired descriptor on read and
+  reinstall and restores all 64 selections (`rotation_old_read_retired`,
+  `rotation_old_install_retired`, `rotation_old_restore`). The same retired descriptor installs
+  into the new scope as a new install, not a restoration (`rotation_new_install_retired_old`,
+  `rotation_new_restore`).
+- **Activation is one durable selection, and the fixture hosts model it.** Both fixture hosts
+  keep one renamed file that names the configuration a restart boots. A stage over a directory
+  boots the selected configuration; an explicit administrative attempt boots the configuration
+  it names and never serves a read; the guard resolves the verb from the signed request's
+  operation and the booted declarations, and a step label that disagrees with the request is
+  refused, so neither a relabeled wrapper nor a read supplied upstream under another label
+  serves. Before activation the prepared scope cannot serve and the
+  old endpoint still does; a crash before the rename leaves the old selection and the explicit
+  retry activates; a crash after it leaves the new one although the process answered nothing;
+  afterwards every boot serves only the new configuration after a fresh source check
+  (`ctl_capacity_rotation`, `ctl_capacity_rotation::prep-crash`,
+  `::crash-before-activation`, `::crash-after-activation`).
+- **A configuration-mismatch refusal reads at the structure level only.** MR-20 verified
+  context binds the request to the outcome's configuration. The request of such a refusal names
+  another configuration by definition, so both readers refuse `invalid-evidence` when given the
+  request delta, and the structure read (status, code) is the honest level. Both harnesses pin
+  that and the accounting formula counts five readback assertions for it
+  (`rotation_old_request_new_endpoint`, `rotation_new_request_old_endpoint`).
+- **A state act names its configuration (decided by Myk, 2026-10-11).** Before this slice the
+  first install of one descriptor in two scopes signed byte-identical state acts with one ID: a
+  first act names an empty prior control, so nothing tied it to a scope, and a state act kept
+  as standalone testimony could not say which scope accepted it. state/1 now carries a required
+  `configuration` ref, written by both endpoints from the booted configuration. The control
+  reader refuses `invalid-control` when an entry's state act names a configuration other than
+  the image's, on restore and on every read (`restore_state_other_configuration`,
+  `read_state_other_configuration`); a description without the role is refused
+  (`command-descriptions::state_missing_configuration`). state/1 had not shipped in a release, so
+  no consumer carries the old bytes.

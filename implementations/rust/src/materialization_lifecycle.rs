@@ -246,6 +246,7 @@ pub(crate) fn classify_control(
         };
         require(
             t.delta.claims.author == receiver
+                && materialization_ref(tf, "configuration")? == image.configuration
                 && materialization_ref(tf, "registration")? == entry.registration
                 && (materialization_text(tf, "verb")? == "retire")
                     == (entry.status == MaterializationControlStatus::Retired)
@@ -891,6 +892,7 @@ fn prepare_transition(
         _ => return Err(INVALID_CONTROL.into()),
     };
     let mut fields: MaterializationFields = BTreeMap::from([
+        ("configuration".to_string(), r(&c.configuration.id)),
         ("registration".to_string(), r(&x.registration)),
         ("generation".into(), p(x.generation)),
         ("prior-control".into(), t(&control.revision)),

@@ -29,17 +29,31 @@ import {
   decodeMaterializationControl,
   decodeMaterializationAppearance,
 } from "../src/index.js";
-import { commandBytes, commandEntity } from "../src/command-data/codec.js";
+import { commandBytes, commandEntity, commandRef } from "../src/command-data/codec.js";
 import { bytesToHex } from "../src/delta/hash.js";
 import { encode } from "../src/delta/cbor.js";
 import type { CommandFields } from "../src/command-data/codec.js";
 const input = JSON.parse(readFileSync(0, "utf8"));
 const f = input.fixture;
-const boot = {
-  configuration: parseCommandDelta(f.boot.configuration),
-  declarations: f.boot.declarations.map(parseCommandDelta),
-  bindings: f.boot.bindings.map(parseCommandDelta),
-};
+const parseBoot = (b: typeof f.boot) => ({
+  configuration: parseCommandDelta(b.configuration),
+  declarations: b.declarations.map(parseCommandDelta),
+  bindings: b.bindings.map(parseCommandDelta),
+});
+// ---- Host configuration selection (MR-14): one durable file names the configuration a restart
+// boots. A stage over a directory boots the selected configuration; an explicit administrative
+// attempt boots the configuration it names and never serves.
+const selectionPath = (dir: string) => join(dir, "selected.json");
+const readSelection = (dir: string) =>
+  existsSync(selectionPath(dir))
+    ? (JSON.parse(readFileSync(selectionPath(dir), "utf8")) as {
+        configuration: string;
+        boot: typeof f.boot;
+      })
+    : undefined;
+const durable = typeof input.store?.dir === "string" ? readSelection(input.store.dir) : undefined;
+const selection = input.explicit === true ? undefined : durable;
+const boot = parseBoot(selection?.boot ?? f.boot);
 const receivedAt = f.receivedAt ?? 1000;
 const signer = {
   author: authorForSeed(f.seeds.receiver),
@@ -58,6 +72,26 @@ const op = (verb: string) =>
       commandEntity(readMaterializationDescription(d), "name") ===
       "rhizomatic.materialization." + verb,
   )!.id;
+// The verb a signed request invokes, resolved from its operation and the booted declarations.
+// A step's label is only a wrapper; a wrapper that disagrees with the request is refused.
+const verbOf = (q: Delta, label?: string) => {
+  const operation = commandRef(readMaterializationDescription(q), "operation");
+  const declaration = boot.declarations.find((d: Delta) => d.id === operation);
+  const name = declaration
+    ? commandEntity(readMaterializationDescription(declaration), "name")
+    : undefined;
+  const verb = name?.startsWith("rhizomatic.materialization.")
+    ? name.slice("rhizomatic.materialization.".length)
+    : undefined;
+  if (label !== undefined && label !== verb)
+    throw Error("the step label disagrees with the signed request");
+  return verb;
+};
+// An explicit administrative attempt never serves: the guard follows the signed request.
+const explicitNeverServes = (q: Delta, label?: string) => {
+  if (input.explicit === true && verbOf(q, label) === "read")
+    throw Error("an explicit administrative attempt never serves");
+};
 const context = (q: Delta) => ({
   receiver: signer.author,
   configuration: boot.configuration.id,
@@ -79,7 +113,9 @@ type FaultKind =
   | "source-replaced-before-final-check"
   | "authority-revoked-before-final-check"
   | "source-replaced-after-final-check"
-  | "support-refused-before-final-check";
+  | "support-refused-before-final-check"
+  | "crash-before-activation"
+  | "crash-after-activation";
 const hex = (s: string) => Uint8Array.from(s.match(/../g) ?? [], (x) => parseInt(x, 16));
 // ---- The fixture's independent source provider keeps durable state of its own: one file names
 // the source that is current for this directory's host. A race fault moves it after the final
@@ -370,6 +406,7 @@ if (input.mode === "construct" && step) {
   const request = input.upstream?.request ?? step!.request,
     delivery = input.upstream?.delivery ?? step!.delivery,
     q = parseCommandDelta(request);
+  explicitNeverServes(q, step?.verb);
   const outcome = await host.endpoint.invoke(q.id, delivery, receivedAt);
   const afterAttempt = host.settleNow(true);
   output({
@@ -382,6 +419,7 @@ if (input.mode === "construct" && step) {
     retained,
     sourceAtCas: host.store.sourceAtCas ?? null,
     erasure: { refused: host.refused, atBoot, afterAttempt },
+    selected: durable?.configuration ?? null,
     store: storeState(host.store),
   });
 } else if (input.mode === "control-export") {
@@ -389,6 +427,7 @@ if (input.mode === "construct" && step) {
   const store = new FileControlStore(input.store.dir);
   output({
     ...storeState(store),
+    selected: durable?.configuration ?? null,
     erasure: settle(
       input.store.dir,
       store.load(signer.author, boot.configuration.id)?.bytes,
@@ -406,6 +445,7 @@ if (input.mode === "construct" && step) {
   );
   const retained = retainInert(step?.retained);
   const q = parseCommandDelta(step!.request);
+  explicitNeverServes(q, step!.verb);
   const outcome = await host.endpoint.invoke(q.id, step!.delivery, receivedAt);
   output({
     request: step!.request,
@@ -558,4 +598,18 @@ if (input.mode === "construct" && step) {
     executionVerified: read.executionVerified,
     bodyHex: bytesToHex(encode(read.body)),
   });
+} else if (input.mode === "control-select") {
+  // Durable activation: one renamed file selects the fixture's configuration for every later
+  // boot over this directory. A crash before the rename leaves the old selection; a crash after
+  // it leaves the new one, although this process answers nothing.
+  if (input.fault?.kind === "crash-before-activation") process.exit(3);
+  const own = parseBoot(f.boot);
+  mkdirSync(input.store.dir, { recursive: true });
+  writeFileSync(
+    selectionPath(input.store.dir) + ".tmp",
+    JSON.stringify({ configuration: own.configuration.id, boot: f.boot }),
+  );
+  renameSync(selectionPath(input.store.dir) + ".tmp", selectionPath(input.store.dir));
+  if (input.fault?.kind === "crash-after-activation") process.exit(3);
+  output({ selected: own.configuration.id });
 } else throw Error("unknown fixture mode");

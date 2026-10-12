@@ -233,6 +233,7 @@ export function classifyMaterializationControl(
     const generation = commandNumber(tf, "generation");
     if (
       t.delta.claims.author !== receiver ||
+      commandRef(tf, "configuration") !== image.configuration ||
       commandRef(tf, "registration") !== entry.registration ||
       (commandText(tf, "verb") === "retire") !== (entry.status === "retired") ||
       commandText(tf, "source-revision") !== entry.sourceRevision ||
@@ -731,6 +732,7 @@ async function commitTransition(
   const sourceRevision = source ? source.snapshot.revision : entry!.sourceRevision;
   const authority = source ? source.authority.id : entry!.authority;
   const transitionClaims = materializationDescriptionClaims(c.receiver, x.receivedAt, "state/1", {
+    configuration: [ref(c.configuration.id)],
     registration: [ref(x.registration)],
     generation: [p(x.generation)],
     "prior-control": [p(control.revision)],

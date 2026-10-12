@@ -81,6 +81,9 @@ fn shared_description_oracle() {
                     .unwrap()
                     .clone(),
             ),
+            "missing-configuration" => claims
+                .pointers
+                .retain(|p| !p.role.ends_with("configuration")),
             "reference-context" => {
                 let p = claims
                     .pointers

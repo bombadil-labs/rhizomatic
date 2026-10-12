@@ -159,6 +159,7 @@ const ORDER: Record<MaterializationDescriptionKind, readonly string[]> = {
   ],
   "state/1": [
     "kind",
+    "configuration",
     "registration",
     "generation",
     "prior-control",
@@ -396,6 +397,7 @@ export function readMaterializationDescription(
       fail();
   }
   if (kind === "state/1") {
+    commandRef(f, "configuration");
     commandRef(f, "registration");
     if (!isN(commandNumber(f, "generation")) || commandNumber(f, "generation") < 1) fail();
     for (const k of ["prior-control", "prior-transition"]) {

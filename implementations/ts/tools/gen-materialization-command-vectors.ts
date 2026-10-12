@@ -3106,6 +3106,7 @@ writeFileSync(
     description(
       "state/1",
       [
+        ["configuration", ref(configB.id)],
         ["registration", ref(descriptor.id)],
         ["generation", p(generation)],
         ["prior-control", p(priorControl)],
@@ -3625,10 +3626,12 @@ writeFileSync(
     verb: string,
     e: EntryFields,
     receivedAt = 1000,
+    cfg: Delta = configB,
   ) =>
     description(
       "state/1",
       [
+        ["configuration", ref(cfg.id)],
         ["registration", ref(e.registration.id)],
         ["generation", p(generation)],
         ["prior-control", p(priorControl)],
@@ -5062,7 +5065,7 @@ writeFileSync(
       ...pins,
       capture: src.capture.id,
     };
-    const tr = stateX(1, "", "", "install", entry);
+    const tr = stateX(1, "", "", "install", entry, 1000, cfg);
     const c = imageX(
       1,
       [{ ...entry, status: "active", transition: tr.id }],
@@ -5383,7 +5386,7 @@ writeFileSync(
       bindings: [binding, unrelatedExpiredBinding].map(serializeCommandDelta),
     },
   };
-  const tU1 = stateX(1, "", "", "install", fern);
+  const tU1 = stateX(1, "", "", "install", fern, 1000, configTwoBindings);
   const cU1 = imageX(
     1,
     [{ ...fern, status: "active", transition: tU1.id }],
@@ -5392,7 +5395,7 @@ writeFileSync(
   );
   const rU1 = revisionOf(cU1, 1);
   const retiredU: EntryFields = { ...fern, capture: undefined };
-  const tU2 = stateX(2, rU1, tU1.id, "retire", retiredU);
+  const tU2 = stateX(2, rU1, tU1.id, "retire", retiredU, 1000, configTwoBindings);
   const cU2 = imageX(
     2,
     [{ ...retiredU, status: "retired", transition: tU2.id }],
@@ -5852,6 +5855,270 @@ writeFileSync(
       ]),
       cRep,
     ),
+  );
+  // ---- Slice C3c3: the 64-entry lifetime and configuration rotation (MR-04, MR-14). The old
+  // configuration holds 64 lifetime entries, two active and 62 retired. The 65th distinct
+  // install refuses resource-limit before any source check or CAS, and retirement frees no
+  // slot. A new receiver-signed configuration starts an empty scope: explicit installs there
+  // are new installs, requests for the other configuration refuse configuration-mismatch, and
+  // the old scope keeps its retirements on reopen.
+  const slotDescriptor = (i: number) =>
+    description(
+      "registration/1",
+      registrationFields([ent(`item:slot${i}`)], [p(`Slot${i}`)]),
+      seeds.definition,
+      0,
+    );
+  const dMoss = description(
+    "registration/1",
+    registrationFields([ent("item:moss")], [p("Moss")]),
+    seeds.definition,
+    0,
+  );
+  const fieldsOf = (registration: Delta): EntryFields => ({ ...fern, registration });
+  const chain = {
+    generation: 0,
+    control: "",
+    entries: [] as EntryX[],
+    support: [...defs, s.capture, authority] as Delta[],
+    installs: new Map<string, Delta>(),
+  };
+  const installInChain = (registration: Delta) => {
+    chain.generation += 1;
+    const t = stateX(chain.generation, chain.control, "", "install", fieldsOf(registration));
+    chain.entries.push({ ...fieldsOf(registration), status: "active", transition: t.id });
+    chain.support.push(registration, t);
+    chain.installs.set(registration.id, t);
+    const image = imageX(chain.generation, chain.entries, chain.support);
+    chain.control = revisionOf(image, chain.generation);
+    return image;
+  };
+  const retireInChain = (registration: Delta) => {
+    chain.generation += 1;
+    const prior = chain.installs.get(registration.id)!;
+    const retired: EntryFields = { ...fieldsOf(registration), capture: undefined };
+    const t = stateX(chain.generation, chain.control, prior.id, "retire", retired);
+    chain.entries = chain.entries.map((e) =>
+      e.registration.id === registration.id
+        ? { ...retired, status: "retired" as const, transition: t.id }
+        : e,
+    );
+    chain.support = chain.support.filter((d) => d.id !== registration.id && d.id !== prior.id);
+    chain.support.push(t);
+    const image = imageX(chain.generation, chain.entries, chain.support);
+    chain.control = revisionOf(image, chain.generation);
+    return { image, transition: t };
+  };
+  installInChain(descriptor);
+  installInChain(dMoss);
+  const slots = Array.from({ length: 63 }, (_, i) => slotDescriptor(i + 3));
+  for (let i = 0; i < 62; i++) installInChain(slots[i]!);
+  let cOld: ReturnType<typeof imageX> = new Uint8Array();
+  for (let i = 0; i < 62; i++) cOld = retireInChain(slots[i]!).image;
+  if (chain.generation !== 126 || chain.entries.length !== 64) throw Error("lifetime chain");
+  const rOld = chain.control,
+    entriesOld = [...chain.entries],
+    slot3 = slots[0]!,
+    slot65 = slots[62]!;
+  const install65 = installX(rOld, slot65);
+  step(
+    "rotation_install_65",
+    install65,
+    [install65, slot65, s.capture, s.snapshot, authority, ...defs],
+    [cOld, 126],
+    refusal("resource-limit"),
+    { sourceUnavailable: true },
+  );
+  const retireMoss = retireX(rOld, dMoss);
+  const { image: cOldR, transition: tRM } = retireInChain(dMoss);
+  const rOldR = chain.control;
+  step(
+    "rotation_retire_moss",
+    retireMoss,
+    [retireMoss],
+    [cOld, 126],
+    completed(retireBody(dMoss, tRM, rOldR, 127), cOldR),
+  );
+  const install65R = installX(rOldR, slot65);
+  step(
+    "rotation_install_65_after_retire",
+    install65R,
+    [install65R, slot65, s.capture, s.snapshot, authority, ...defs],
+    [cOldR, 127],
+    refusal("resource-limit"),
+    { sourceUnavailable: true },
+  );
+  step(
+    "rotation_old_read_retired",
+    readX(rOld, s, slot3),
+    [readX(rOld, s, slot3), s.snapshot],
+    [cOld, 126],
+    refusal("retired"),
+  );
+  step(
+    "rotation_old_install_retired",
+    installX(rOld, slot3),
+    [installX(rOld, slot3), slot3, s.capture, s.snapshot, authority, ...defs],
+    [cOld, 126],
+    refusal("retired"),
+  );
+  step(
+    "rotation_old_read_fern",
+    readX(rOld, s, descriptor),
+    [readX(rOld, s, descriptor), s.snapshot],
+    [cOld, 126],
+    completed(
+      readBodyX(descriptor, rOld, 126, basisOf("plant", 1000), [rootResultOf("plant")]),
+      cOld,
+    ),
+  );
+  step(
+    "rotation_old_restore",
+    restoreQ(rOld),
+    [restoreQ(rOld)],
+    [cOld, 126],
+    completed(restoreBodyX(rOld, 126, entriesOld), cOld),
+  );
+  // The new configuration carries the same receiver, callers, operations, binding and limits;
+  // only its signing time differs, so it is a genuinely new configuration ID.
+  const configNew = description(
+    "endpoint/1",
+    [
+      ["receiver", ent(keys.receiver!)],
+      ["caller", p(keys.caller!)],
+      ["administrator", p(keys.caller!)],
+      [
+        "installed",
+        operationsB
+          .map((o) => o.id)
+          .sort()
+          .map(ref),
+      ],
+      ["source-binding", [ref(binding.id)]],
+      ["limits", blob(encode(map(Object.entries(limits).map(([k, v]) => [k, float(v)]))))],
+    ],
+    seeds.receiver,
+    1,
+  );
+  if (configNew.id === configB.id) throw Error("rotation needs a new configuration");
+  const cN0 = imageX(0, [], [], configNew);
+  const tN1 = stateX(1, "", "", "install", fern, 1000, configNew);
+  const fernNX: EntryX = { ...fern, status: "active", transition: tN1.id };
+  const cN1 = imageX(1, [fernNX], [descriptor, ...defs, s.capture, authority, tN1], configNew);
+  const rN1 = revisionOf(cN1, 1);
+  const qN1 = installIn(configNew, "", descriptor, s);
+  step(
+    "rotation_new_install_fern",
+    qN1,
+    [qN1, descriptor, s.capture, s.snapshot, authority, ...defs],
+    [cN0, 0],
+    completed(
+      transitionX("install", descriptor, tN1, rN1, 1, basisOf("plant", 1000), [
+        rootResultOf("plant"),
+      ]),
+      cN1,
+    ),
+    bootFor(configNew),
+  );
+  const tN2 = stateX(2, rN1, "", "install", fieldsOf(dMoss), 1000, configNew);
+  const mossNX: EntryX = { ...fieldsOf(dMoss), status: "active", transition: tN2.id };
+  const cN2 = imageX(
+    2,
+    [fernNX, mossNX],
+    [descriptor, dMoss, ...defs, s.capture, authority, tN1, tN2],
+    configNew,
+  );
+  const rN2 = revisionOf(cN2, 2);
+  const oMoss = oracleOf(s, [], 1000, "item:moss");
+  const qN2 = installIn(configNew, rN1, dMoss, s);
+  step(
+    "rotation_new_install_moss",
+    qN2,
+    [qN2, dMoss, s.capture, s.snapshot, authority, ...defs],
+    [cN1, 1],
+    completed(
+      transitionX("install", dMoss, tN2, rN2, 2, basisFrom(oMoss.gather, 1000), [oMoss.result]),
+      cN2,
+    ),
+    bootFor(configNew),
+  );
+  const qOldAtNew = readX(rOld, s, descriptor);
+  step(
+    "rotation_old_request_new_endpoint",
+    qOldAtNew,
+    [qOldAtNew, s.snapshot],
+    [cN2, 2],
+    refusal("configuration-mismatch"),
+    { ...invalidInput("configuration-mismatch"), ...bootFor(configNew) },
+  );
+  const qNewAtOld = readIn(configNew, rN2, descriptor, s);
+  step(
+    "rotation_new_request_old_endpoint",
+    qNewAtOld,
+    [qNewAtOld, s.snapshot],
+    [cOld, 126],
+    refusal("configuration-mismatch"),
+    invalidInput("configuration-mismatch"),
+  );
+  step(
+    "rotation_new_read_fern",
+    qNewAtOld,
+    [qNewAtOld, s.snapshot],
+    [cN2, 2],
+    completed(readBodyX(descriptor, rN2, 2, basisOf("plant", 1000), [rootResultOf("plant")]), cN2),
+    bootFor(configNew),
+  );
+  const tN3 = stateX(3, rN2, "", "install", fieldsOf(slot3), 1000, configNew);
+  const slot3NX: EntryX = { ...fieldsOf(slot3), status: "active", transition: tN3.id };
+  const cN3 = imageX(
+    3,
+    [fernNX, mossNX, slot3NX],
+    [descriptor, dMoss, slot3, ...defs, s.capture, authority, tN1, tN2, tN3],
+    configNew,
+  );
+  const rN3 = revisionOf(cN3, 3);
+  const oSlot3 = oracleOf(s, [], 1000, "item:slot3");
+  const qN3 = installIn(configNew, rN2, slot3, s);
+  step(
+    "rotation_new_install_retired_old",
+    qN3,
+    [qN3, slot3, s.capture, s.snapshot, authority, ...defs],
+    [cN2, 2],
+    completed(
+      transitionX("install", slot3, tN3, rN3, 3, basisFrom(oSlot3.gather, 1000), [oSlot3.result]),
+      cN3,
+    ),
+    bootFor(configNew),
+  );
+  const restoreN = requestFor(configNew, "restore", [["expected-control", p(rN3)]]);
+  step(
+    "rotation_new_restore",
+    restoreN,
+    [restoreN],
+    [cN3, 3],
+    completed(restoreBodyX(rN3, 3, [fernNX, mossNX, slot3NX]), cN3),
+    bootFor(configNew),
+  );
+  // ERRATA E12: a state act names its configuration. The first install signed for the new scope,
+  // transplanted into an image of the old scope with every other field intact, is invalid-control;
+  // the same act in its own scope restores (rotation_new_restore covers that side).
+  const fernT: EntryX = { ...fern, status: "active", transition: tN1.id };
+  const cTransplant = imageX(1, [fernT], [descriptor, ...defs, s.capture, authority, tN1]);
+  const rTransplant = revisionOf(cTransplant, 1);
+  if (tN1.id === stateX(1, "", "", "install", fern).id) throw Error("scopes share a state act");
+  step(
+    "restore_state_other_configuration",
+    restoreQ(rTransplant),
+    [restoreQ(rTransplant)],
+    [cTransplant, 1],
+    refusal("invalid-control"),
+  );
+  step(
+    "read_state_other_configuration",
+    readX(rTransplant, s),
+    [readX(rTransplant, s), s.snapshot],
+    [cTransplant, 1],
+    refusal("invalid-control"),
   );
   void byId;
   writeFileSync(

@@ -211,6 +211,7 @@ fn order(kind: &str) -> Result<Vec<&'static str>, String> {
         ],
         "state/1" => vec![
             "kind",
+            "configuration",
             "registration",
             "generation",
             "prior-control",
@@ -567,6 +568,7 @@ pub fn read_materialization_description(
         )?;
     }
     if kind == "state/1" {
+        materialization_ref(&f, "configuration")?;
         materialization_ref(&f, "registration")?;
         let generation = materialization_number(&f, "generation")?;
         require(is_n(generation) && generation >= 1.0)?;
