@@ -95,5 +95,8 @@ integrity, three replayed plans and both fixed routes per required scenario, ind
 over the retained outputs, the capability gate against each real manifest, a common wrong answer
 the oracle must turn red, exact replay against a mutated bundle, and each runner's harness
 proofs. Before the checker, it runs `tools/measure-materialization-lifecycle.mjs`, the lifecycle
-resource baseline in both witnesses, and the checker validates that report. It uploads
-M4-CUMULATIVE, MEASUREMENTS-LIFECYCLE and REPORT. See [M4.md](M4.md) and [M4-CASES.json](M4-CASES.json).
+resource baseline for the nested Bed fixture and the source sweep in both witnesses, and the
+checker validates that report with exact phase sequences. The checker also requires each
+milestone's REPORT and COVERAGE to name every required case, pins every bundle to this checkout's
+clean commit and tree, and checks every executed record against its plan role and witness. It
+uploads M4-CUMULATIVE, MEASUREMENTS-LIFECYCLE and REPORT. See [M4.md](M4.md) and [M4-CASES.json](M4-CASES.json).

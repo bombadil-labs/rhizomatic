@@ -17,7 +17,9 @@
       "state": "executed",
       "evidence": [
         "M4-CUMULATIVE.threeSeeded: every required M1, M2 and M3 scenario has three validated mixed plans, repeats reported, each tower replayed byte-exactly",
-        "M4-CUMULATIVE.fixedRoutes: both fixed routes of each milestone executed for every required scenario",
+        "M4-CUMULATIVE.threeSeeded: every first and replay run executed each planned role on its planned witness and crossed witnesses; plan build ids equal the recorded builds",
+        "M4-CUMULATIVE.fixedRoutes: both fixed routes of each milestone executed for every required scenario, with records checked against the route",
+        "M4-CUMULATIVE.inventory: each milestone's REPORT and COVERAGE name every required case and variant as passed, from the pinned clean source, with every listed tower, refusal branch and fault branch retained",
         "M4-CUMULATIVE.oracle: M1 envelopes, M2 final readbacks and M3 restore and read outcomes equal the shared goldens"
       ],
       "remaining": ""
@@ -71,9 +73,10 @@
       "id": "nested_resource_baseline",
       "state": "executed",
       "evidence": [
-        "M2 MEASUREMENTS: the nested Bed fixture (32 plants, four buckets, 128 signed facts, two levels) and the 0/128/1024/4096/4097 source sweep, batch phases, both witnesses",
-        "M4 MEASUREMENTS-LIFECYCLE: install, replacement, fresh restore and fresh read across the same sweep, each step a cold boot; control, delivery and result bytes, wall time, strict signature verifications, source checks and peak memory, both witnesses",
-        "M4-CUMULATIVE.measurements: byte accounting agrees between the witnesses at every step; 4097 refuses at install with zero source checks",
+        "M2 MEASUREMENTS: the nested Bed fixture (32 plants, four buckets, 128 signed facts, two levels) and the 0/128/1024/4096/4097 source sweep, batch phases, both witnesses, each row with its exact phase set",
+        "M4 MEASUREMENTS-LIFECYCLE.nested: the same nested Bed fixture through install, equal-size replacement, fresh restore and fresh read, each step a cold boot, outcome and image equal to a hand-built oracle in both witnesses",
+        "M4 MEASUREMENTS-LIFECYCLE.rows: the same four phases across the source sweep; control, delivery and result bytes, wall time, strict signature verifications, source checks and peak memory, both witnesses",
+        "M4-CUMULATIVE.measurements: exact phase sequences, byte accounting equal between the witnesses, 4097 refused at install with zero source checks, and refusal probes for missing phases",
         "MEASUREMENTS-LIFECYCLE.boundaries: the exact and one-over pairs for delivery bytes, artifact bytes and request pointers, the over-only limits and the four lifecycle over-limit steps, all shared vectors both witnesses execute"
       ],
       "remaining": "Journal-backed published Plant and Bed counts and bytes, and the native or portable route choice, are owed at M5 before acceptance."

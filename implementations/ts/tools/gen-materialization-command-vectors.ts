@@ -6260,6 +6260,176 @@ writeFileSync(
         }) + "\n",
       );
     }
+    // The nested Bed fixture through the same lifecycle: install, equal-size replacement, fresh
+    // restore and fresh read. Its oracle is built by hand from the two-level HView and value.
+    const bedA = nestedBed(),
+      bedB = nestedBed(100),
+      bedProgram = bedA.program;
+    const descriptorBed = description(
+      "registration/1",
+      [
+        ["source-binding", ref(binding.id)],
+        ["hyperschema", ref(bedProgram.hyper.id)],
+        ["hyperschema-pin", p(bedProgram.hyperPin)],
+        ["schema", ref(bedProgram.schema.id)],
+        ["schema-pin", p(bedProgram.schemaPin)],
+        // MR-13: the descriptor reaches the Plant and leaf definitions its expansions name.
+        [
+          "definition",
+          bedProgram.definitions
+            .filter((d) => d.id !== bedProgram.hyper.id && d.id !== bedProgram.schema.id)
+            .map((d) => ref(d.id)),
+        ],
+        ["roots", ent("bed:bench")],
+        ["bindings", blob(C_EMPTY)],
+        ["definition-at", p(1000)],
+        ["interpretation", p("core/1")],
+        ["result-kind", p("hview-and-view/1")],
+        ["time-policy", p("live-time/1")],
+        ["alias", p("BedBench")],
+      ],
+      seeds.definition,
+      0,
+    );
+    const bedOracle = (bed: ReturnType<typeof nestedBed>) => {
+      const q = request(
+        bed.src,
+        config,
+        1000,
+        1000,
+        bed.bedDef,
+        bed.bedSchema,
+        bedProgram.hyperPin,
+        bedProgram.schemaPin,
+        [],
+        "bed:bench",
+      );
+      const gather = gatherBody(bed.src, q, bed.view, 1000, 1000, undefined, bedProgram);
+      if (gather.t !== "map") throw Error("bed gather body");
+      const value = encode(bed.value);
+      const resolve = map([
+        ["kind", tstr("resolve")],
+        ...gather.v.filter(([k]) => ["root", "basis", "transport", "hview"].includes(k)),
+        ["value", bstr(value)],
+        ["view", tstr(contentAddress(value))],
+      ]);
+      return { gather, result: rootResultFrom(gather, resolve, "bed:bench") };
+    };
+    const bedEntry = (bed: ReturnType<typeof nestedBed>): EntryFields => ({
+      registration: descriptorBed,
+      revision: bed.src.revision,
+      authority: authority.id,
+      at: 1000,
+      definitionAt: 1000,
+      hyperPin: bedProgram.hyperPin,
+      schemaPin: bedProgram.schemaPin,
+      capture: bed.src.capture.id,
+    });
+    const oBedA = bedOracle(bedA),
+      eBedA = bedEntry(bedA),
+      tBedA = stateX(1, "", "", "install", eBedA);
+    const cBedA = imageX(
+      1,
+      [{ ...eBedA, status: "active", transition: tBedA.id }],
+      [descriptorBed, ...bedProgram.definitions, bedA.src.capture, authority, tBedA],
+    );
+    const rBedA = revisionOf(cBedA, 1);
+    const oBedB = bedOracle(bedB),
+      eBedB = bedEntry(bedB),
+      tBedB = stateX(2, rBedA, tBedA.id, "replace-source", eBedB);
+    const activeBedB: EntryX = { ...eBedB, status: "active", transition: tBedB.id };
+    const cBedB = imageX(
+      2,
+      [activeBedB],
+      [descriptorBed, ...bedProgram.definitions, bedB.src.capture, authority, tBedB],
+    );
+    const rBedB = revisionOf(cBedB, 2);
+    const qBedI = installX("", descriptorBed, bedA.src),
+      qBedR = replaceX(rBedA, bedB.src, bedA.src.revision, descriptorBed),
+      qBedRead = readX(rBedB, bedB.src, descriptorBed);
+    const bedSteps = [
+      measured(
+        "install",
+        "measure_install_bed",
+        qBedI,
+        [
+          qBedI,
+          descriptorBed,
+          bedA.src.capture,
+          bedA.src.snapshot,
+          authority,
+          ...bedProgram.definitions,
+        ],
+        [c0, 0],
+        completed(
+          transitionX("install", descriptorBed, tBedA, rBedA, 1, basisFrom(oBedA.gather, 1000), [
+            oBedA.result,
+          ]),
+          cBedA,
+        ),
+        { source: sourceOf(bedA.src) },
+      ),
+      measured(
+        "replace",
+        "measure_replace_bed",
+        qBedR,
+        [qBedR, bedB.src.capture, bedB.src.snapshot, authority],
+        [cBedA, 1],
+        completed(
+          transitionX(
+            "replace-source",
+            descriptorBed,
+            tBedB,
+            rBedB,
+            2,
+            basisFrom(oBedB.gather, 1000),
+            [oBedB.result],
+          ),
+          cBedB,
+        ),
+        { source: sourceOf(bedB.src) },
+      ),
+      measured(
+        "restore",
+        "measure_restore_bed",
+        restoreQ(rBedB),
+        [restoreQ(rBedB)],
+        [cBedB, 2],
+        completed(restoreBodyX(rBedB, 2, [activeBedB]), cBedB),
+        { source: sourceOf(bedB.src) },
+      ),
+      measured(
+        "read",
+        "measure_read_bed",
+        qBedRead,
+        [qBedRead, bedB.src.snapshot],
+        [cBedB, 2],
+        completed(
+          readBodyX(descriptorBed, rBedB, 2, basisFrom(oBedB.gather, 1000), [oBedB.result]),
+          cBedB,
+        ),
+        { source: sourceOf(bedB.src) },
+      ),
+    ];
+    writeFileSync(
+      `${directory}/lifecycle_bed_32x4_two_levels.json`,
+      JSON.stringify({
+        format: "rhizomatic.materialization-m4-measurement-fixture/1",
+        id: "lifecycle_bed_32x4_two_levels",
+        fixture: "bed_32x4_two_levels",
+        selectedAppearances: bedA.rows.length,
+        nested: { plants: 32, bucketsPerPlant: 4, signedFacts: 128, expansionLevels: 2 },
+        expectedStatus: "completed",
+        seeds,
+        keys,
+        boot: {
+          configuration: serializeCommandDelta(configB),
+          declarations: operationsB.map(serializeCommandDelta),
+          bindings: [serializeCommandDelta(binding)],
+        },
+        steps: bedSteps,
+      }) + "\n",
+    );
   }
   void byId;
   writeFileSync(
@@ -6285,6 +6455,175 @@ writeFileSync(
       2,
     ) + "\n",
   );
+}
+
+// The fixed nested Bed fixture of the measurement contract: 32 plants, four buckets each, 128 signed
+// facts, a bytes leaf and two expansion levels. `shift` moves every height, so an equal-size
+// replacement has a different source revision.
+function nestedBed(shift = 0) {
+  const leafTerm: Term = {
+      kind: "group",
+      key: { kind: "byTargetContext" },
+      of: { kind: "select", pred: { kind: "false" }, of: { kind: "input" } },
+    },
+    leafDef = definition("hyper", termCanonicalHex(leafTerm), "EmptyLeafBench"),
+    leafReading: Schema = {
+      name: "EmptyLeafBench",
+      alg: 1,
+      props: new Map(),
+      default: { kind: "pick", order: { kind: "lexById" } },
+    },
+    leafSchema = definition("reading", schemaCanonicalHex(leafReading), "EmptyLeafBench");
+  const plantTerm: Term = {
+      kind: "expand",
+      role: { kind: "exact", value: "value" },
+      schema: { kind: "name", name: "EmptyLeafBench" },
+      reading: { kind: "name", name: "EmptyLeafBench" },
+      of: term,
+    },
+    plantDef = definition("hyper", termCanonicalHex(plantTerm), "PlantBench"),
+    plantReading: Schema = {
+      name: "PlantBench",
+      alg: 1,
+      props: new Map(),
+      default: { kind: "pick", order: { kind: "lexById" } },
+    },
+    plantSchema = definition("reading", schemaCanonicalHex(plantReading), "PlantBench");
+  const bedTerm: Term = {
+      kind: "expand",
+      role: { kind: "exact", value: "value" },
+      schema: { kind: "name", name: "PlantBench" },
+      reading: { kind: "name", name: "PlantBench" },
+      of: term,
+    },
+    bedDef = definition("hyper", termCanonicalHex(bedTerm), "BedBench"),
+    bedReading: Schema = {
+      name: "BedBench",
+      alg: 1,
+      props: new Map(),
+      default: { kind: "pick", order: { kind: "lexById" } },
+    },
+    bedSchema = definition("reading", schemaCanonicalHex(bedReading), "BedBench");
+  const facts: Delta[] = [],
+    children: HView[] = [],
+    childValues: CborValue[] = [];
+  for (let n = 0; n < 32; n++) {
+    const id = `plant:${n}`,
+      leaf = `leaf:${n}`,
+      props = new Map<
+        string,
+        {
+          delta: Delta;
+          negated: boolean;
+          expanded?: Map<number, HView>;
+          readings?: Map<number, Schema>;
+        }[]
+      >();
+    for (const [name, target] of [
+      ["height", p(n + shift)],
+      ["tag", p(`tag:${n}`)],
+      [
+        "payload",
+        { kind: "bytes", mime: "application/octet-stream", value: hex("00ff01") } as Target,
+      ],
+      ["leaf", ent(leaf)],
+    ] as const) {
+      const delta = signClaims(
+        {
+          author: keys.peer!,
+          timestamp: 10,
+          validFrom: 0,
+          pointers: [
+            { role: "subject", target: { kind: "entity", entity: { id, context: name } } },
+            { role: "value", target },
+          ],
+        },
+        seeds.peer,
+      );
+      facts.push(delta);
+      props.set(name, [
+        name === "leaf"
+          ? {
+              delta,
+              negated: false,
+              expanded: new Map([[1, { id: leaf, props: new Map() }]]),
+              readings: new Map([[1, leafReading]]),
+            }
+          : { delta, negated: false },
+      ]);
+    }
+    children.push({ id, props });
+    childValues.push(
+      map([
+        ["height", float(n + shift)],
+        ["tag", tstr(`tag:${n}`)],
+        [
+          "payload",
+          map([
+            ["mime", tstr("application/octet-stream")],
+            ["value", bstr(hex("00ff01"))],
+          ]),
+        ],
+        ["leaf", map([])],
+      ]),
+    );
+  }
+  const link = signClaims(
+    {
+      author: keys.peer!,
+      timestamp: 10,
+      validFrom: 0,
+      pointers: [
+        {
+          role: "subject",
+          target: { kind: "entity", entity: { id: "bed:bench", context: "plants" } },
+        },
+        ...children.map((child) => ({ role: "value", target: ent(child.id) })),
+      ],
+    },
+    seeds.peer,
+  );
+  const rows = [link, ...facts],
+    ds = [bedDef, bedSchema, plantDef, plantSchema, leafDef, leafSchema].sort((a, b) =>
+      a.id < b.id ? -1 : 1,
+    );
+  const view: HView = {
+    id: "bed:bench",
+    props: new Map([
+      [
+        "plants",
+        [
+          {
+            delta: link,
+            negated: false,
+            expanded: new Map(children.map((h, n) => [n + 1, h])),
+            readings: new Map(children.map((_, n) => [n + 1, plantReading])),
+          },
+        ],
+      ],
+    ]),
+  };
+  const program = {
+    hyper: bedDef,
+    schema: bedSchema,
+    hyperPin: termHash(bedTerm),
+    schemaPin: schemaHash(bedReading),
+    definitions: ds,
+    bindings: C_EMPTY,
+  };
+  const value = map([["plants", map([["value", array(childValues)]])]]);
+  return {
+    rows,
+    src: source(rows),
+    ds,
+    bedDef,
+    bedSchema,
+    bedTerm,
+    bedReading,
+    view,
+    program,
+    value,
+  };
 }
 
 // Optional measurement artifacts, never committed semantic expectations or alternate command execution.
@@ -6367,175 +6706,23 @@ if (process.env.M2_MEASUREMENT_DIR) {
       });
     }
   }
-  const leafTerm: Term = {
-      kind: "group",
-      key: { kind: "byTargetContext" },
-      of: { kind: "select", pred: { kind: "false" }, of: { kind: "input" } },
-    },
-    leafDef = definition("hyper", termCanonicalHex(leafTerm), "EmptyLeafBench"),
-    leafReading: Schema = {
-      name: "EmptyLeafBench",
-      alg: 1,
-      props: new Map(),
-      default: { kind: "pick", order: { kind: "lexById" } },
-    },
-    leafSchema = definition("reading", schemaCanonicalHex(leafReading), "EmptyLeafBench");
-  const plantTerm: Term = {
-      kind: "expand",
-      role: { kind: "exact", value: "value" },
-      schema: { kind: "name", name: "EmptyLeafBench" },
-      reading: { kind: "name", name: "EmptyLeafBench" },
-      of: term,
-    },
-    plantDef = definition("hyper", termCanonicalHex(plantTerm), "PlantBench"),
-    plantReading: Schema = {
-      name: "PlantBench",
-      alg: 1,
-      props: new Map(),
-      default: { kind: "pick", order: { kind: "lexById" } },
-    },
-    plantSchema = definition("reading", schemaCanonicalHex(plantReading), "PlantBench");
-  const bedTerm: Term = {
-      kind: "expand",
-      role: { kind: "exact", value: "value" },
-      schema: { kind: "name", name: "PlantBench" },
-      reading: { kind: "name", name: "PlantBench" },
-      of: term,
-    },
-    bedDef = definition("hyper", termCanonicalHex(bedTerm), "BedBench"),
-    bedReading: Schema = {
-      name: "BedBench",
-      alg: 1,
-      props: new Map(),
-      default: { kind: "pick", order: { kind: "lexById" } },
-    },
-    bedSchema = definition("reading", schemaCanonicalHex(bedReading), "BedBench");
-  const facts: Delta[] = [],
-    children: HView[] = [],
-    childValues: CborValue[] = [];
-  for (let n = 0; n < 32; n++) {
-    const id = `plant:${n}`,
-      leaf = `leaf:${n}`,
-      props = new Map<
-        string,
-        {
-          delta: Delta;
-          negated: boolean;
-          expanded?: Map<number, HView>;
-          readings?: Map<number, Schema>;
-        }[]
-      >();
-    for (const [name, target] of [
-      ["height", p(n)],
-      ["tag", p(`tag:${n}`)],
-      [
-        "payload",
-        { kind: "bytes", mime: "application/octet-stream", value: hex("00ff01") } as Target,
-      ],
-      ["leaf", ent(leaf)],
-    ] as const) {
-      const delta = signClaims(
-        {
-          author: keys.peer!,
-          timestamp: 10,
-          validFrom: 0,
-          pointers: [
-            { role: "subject", target: { kind: "entity", entity: { id, context: name } } },
-            { role: "value", target },
-          ],
-        },
-        seeds.peer,
-      );
-      facts.push(delta);
-      props.set(name, [
-        name === "leaf"
-          ? {
-              delta,
-              negated: false,
-              expanded: new Map([[1, { id: leaf, props: new Map() }]]),
-              readings: new Map([[1, leafReading]]),
-            }
-          : { delta, negated: false },
-      ]);
-    }
-    children.push({ id, props });
-    childValues.push(
-      map([
-        ["height", float(n)],
-        ["tag", tstr(`tag:${n}`)],
-        [
-          "payload",
-          map([
-            ["mime", tstr("application/octet-stream")],
-            ["value", bstr(hex("00ff01"))],
-          ]),
-        ],
-        ["leaf", map([])],
-      ]),
-    );
-  }
-  const link = signClaims(
-      {
-        author: keys.peer!,
-        timestamp: 10,
-        validFrom: 0,
-        pointers: [
-          {
-            role: "subject",
-            target: { kind: "entity", entity: { id: "bed:bench", context: "plants" } },
-          },
-          ...children.map((child) => ({ role: "value", target: ent(child.id) })),
-        ],
-      },
-      seeds.peer,
-    ),
-    rows = [link, ...facts],
-    src = source(rows),
-    ds = [bedDef, bedSchema, plantDef, plantSchema, leafDef, leafSchema].sort((a, b) =>
-      a.id < b.id ? -1 : 1,
-    ),
+  const bed = nestedBed(),
     q = request(
-      src,
+      bed.src,
       config,
       1000,
       1000,
-      bedDef,
-      bedSchema,
-      termHash(bedTerm),
-      schemaHash(bedReading),
-      ds.filter((d) => d.id !== bedDef.id && d.id !== bedSchema.id),
+      bed.bedDef,
+      bed.bedSchema,
+      termHash(bed.bedTerm),
+      schemaHash(bed.bedReading),
+      bed.ds.filter((d) => d.id !== bed.bedDef.id && d.id !== bed.bedSchema.id),
       "bed:bench",
     );
-  positive(
-    "bed_32x4_two_levels",
-    src,
-    q,
-    {
-      id: "bed:bench",
-      props: new Map([
-        [
-          "plants",
-          [
-            {
-              delta: link,
-              negated: false,
-              expanded: new Map(children.map((h, n) => [n + 1, h])),
-              readings: new Map(children.map((_, n) => [n + 1, plantReading])),
-            },
-          ],
-        ],
-      ]),
-    },
-    {
-      hyper: bedDef,
-      schema: bedSchema,
-      hyperPin: termHash(bedTerm),
-      schemaPin: schemaHash(bedReading),
-      definitions: ds,
-      bindings: C_EMPTY,
-    },
-    { rows, value: map([["plants", map([["value", array(childValues)]])]]) },
-  );
+  positive("bed_32x4_two_levels", bed.src, q, bed.view, bed.program, {
+    rows: bed.rows,
+    value: bed.value,
+  });
   save(positives[positives.length - 1]!, {
     selectedAppearances: 129,
     signedFacts: 128,

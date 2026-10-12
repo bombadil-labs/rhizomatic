@@ -1,5 +1,5 @@
-// M4 lifecycle measurement runner: the source-size sweep through install, replace, fresh restore
-// and fresh read, in both witnesses. Instrumentation is confined to disposable build copies: a
+// M4 lifecycle measurement runner: the fixed nested Bed fixture and the source-size sweep through
+// install, replace, fresh restore and fresh read, in both witnesses. Instrumentation is confined to disposable build copies: a
 // counter is inserted into each witness's exact strict signature verifier and nothing else.
 // Outcomes and images are checked against the generator's goldens inside each host; canonical
 // byte lengths must agree between the witnesses. No timing threshold, raised limit or shortcut.
@@ -32,8 +32,10 @@ assert.equal(sign.split(marker).length,2,'unique real Rust strict verifier');sig
 sign+='\nstd::thread_local!{static MEASUREMENT_CALLS:std::cell::Cell<usize>=const{std::cell::Cell::new(0)};}\npub fn measurement_reset(){MEASUREMENT_CALLS.with(|c|c.set(0));}pub fn measurement_count()->usize{MEASUREMENT_CALLS.with(std::cell::Cell::get)}\n';writeFileSync(signPath,sign);
 const cargo=run(process.env.CARGO??'cargo',['build','--locked','--release','--manifest-path',join(rustCopy,'Cargo.toml'),'--example','materialization_measure_lifecycle','--message-format=json'],{env:{...process.env,CARGO_TARGET_DIR:join(resolve(process.env.CARGO_TARGET_DIR??join(root,'implementations/rust/target')),'materialization-measurement')}});
 const artifact=cargo.stdout.trim().split('\n').map(JSON.parse).filter(m=>m.reason==='compiler-artifact'&&m.target?.name==='materialization_measure_lifecycle'&&m.executable);assert.equal(artifact.length,1);
-const rows=[];
-for(const file of readdirSync(fixtures).filter(f=>f.endsWith('.json')).sort((a,b)=>Number(a.match(/\d+/))-Number(b.match(/\d+/)))){
+// Each size of the source sweep, then the fixed nested Bed fixture, in that order.
+const sweepFiles=readdirSync(fixtures).filter(f=>/^lifecycle_\d+\.json$/.test(f)).sort((a,b)=>Number(a.match(/\d+/))-Number(b.match(/\d+/)));
+const rows=[],nested=[];
+for(const file of [...sweepFiles,'lifecycle_bed_32x4_two_levels.json']){
  const input=readFileSync(join(fixtures,file),'utf8'),metadata=JSON.parse(input);
  const pair=[];
  for(const [witness,cmd,args]of [['ts',process.execPath,[tsBinary]],['rust',artifact[0].executable,[]]]){
@@ -49,11 +51,14 @@ for(const file of readdirSync(fixtures).filter(f=>f.endsWith('.json')).sort((a,b
  if(metadata.expectedStatus==='refused'){
   assert.deepEqual(phases,['install'],'an over-limit source is refused at install');
   for(const m of pair){assert.equal(m.steps[0].status,'refused');assert.equal(m.steps[0].currentChecks,0,'refused before any source check');}
- }else assert.deepEqual(phases,metadata.selectedAppearances===0?['install','restore','read']:['install','replace','restore','read']);
- rows.push({id:metadata.id,selectedAppearances:metadata.selectedAppearances,expectedStatus:metadata.expectedStatus,measurements:pair});
+ }else{
+  assert.deepEqual(phases,metadata.selectedAppearances===0?['install','restore','read']:['install','replace','restore','read']);
+  for(const m of pair)assert.ok(m.steps.every(x=>x.status==='completed'),metadata.id+' every phase completes');
+ }
+ (metadata.fixture?nested:rows).push({id:metadata.id,...(metadata.fixture?{fixture:metadata.fixture,nested:metadata.nested}:{}),selectedAppearances:metadata.selectedAppearances,expectedStatus:metadata.expectedStatus,measurements:pair});
  console.log(`M4 lifecycle measurement ${metadata.id}: ${metadata.selectedAppearances} source appearances; ${phases.join(', ')}; ${metadata.expectedStatus}`);
 }
-assert.deepEqual(rows.map(r=>r.selectedAppearances),[0,128,1024,4096,4097]);
+assert.deepEqual(rows.map(r=>r.selectedAppearances),[0,128,1024,4096,4097]);assert.deepEqual(nested.map(r=>r.fixture),['bed_32x4_two_levels']);
 // The exact and one-over byte boundaries are shared vectors that both witness suites execute;
 // this report names them beside the sweep rather than re-deriving their bytes.
 const commands=JSON.parse(readFileSync(join(root,'vectors/materialization/commands.json'))),lifecycle=JSON.parse(readFileSync(join(root,'vectors/materialization/lifecycle.json')));
@@ -67,11 +72,11 @@ for(const {exact,over}of boundaries.pairs){assert.ok(commands.positives.some(v=>
 for(const id of boundaries.overOnly)assert.equal(commands.negatives.find(v=>v.id===id)?.expected.code,'resource-limit','shared over vector '+id);
 for(const id of boundaries.lifecycleOver)assert.equal(lifecycle.steps.find(s=>s.id===id)?.expected.code,'resource-limit','lifecycle boundary '+id);
 const git=args=>run('git',args).stdout.trim();
-const report={format:'rhizomatic.materialization-m4-lifecycle-measurement/1',source:{commit:git(['rev-parse','HEAD']),tree:git(['rev-parse','HEAD^{tree}'])},
- scope:'M4 lifecycle sweep: install, equal-size replacement, fresh restore and fresh read at 0, 128, 1024, 4096 and 4097 source appearances, each step a cold boot from its stored image over an in-memory store. No Loam or storage I/O, no performance promise.',
+const report={format:'rhizomatic.materialization-m4-lifecycle-measurement/1',source:{commit:git(['rev-parse','HEAD']),tree:git(['rev-parse','HEAD^{tree}']),clean:git(['status','--porcelain','--untracked-files=normal'])===''},
+ scope:'M4 lifecycle baseline: install, equal-size replacement, fresh restore and fresh read for the fixed nested Bed fixture (32 plants, four buckets each, 128 signed facts, a bytes leaf, two expansion levels) and at 0, 128, 1024, 4096 and 4097 source appearances. Each step is a cold boot from its stored image over an in-memory store. No Loam or storage I/O, no performance promise.',
  peakRssScope:'Whole fresh child process per size, including parsed fixtures and goldens; parent bundler and compiler excluded.',
  signatureCounting:'Every call of each witness\'s exact strict verifier, counted in a disposable build copy.',
  boundaries,
- deferred:['M5 journal-backed published Plant and Bed source counts and bytes','lifecycle over the nested Bed fixture (its batch phases are in the M2 report)'],
- thresholds:[],builds:{ts:hash(tsBinary),rust:hash(artifact[0].executable)},rows};
+ deferred:['M5 journal-backed published Plant and Bed source counts and bytes'],
+ thresholds:[],builds:{ts:hash(tsBinary),rust:hash(artifact[0].executable)},rows,nested};
 writeFileSync(join(out,'MEASUREMENTS-LIFECYCLE.json'),JSON.stringify(report,null,2)+'\n');
