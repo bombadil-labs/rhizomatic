@@ -17,6 +17,7 @@ import {
   type MaterializationSourceCapability,
   type MaterializationControlStore,
   type MaterializationVerb,
+  Reactor,
 } from "../src/index.js";
 import { commandBytes, commandEntity } from "../src/command-data/codec.js";
 import { bytesToHex } from "../src/delta/hash.js";
@@ -226,12 +227,22 @@ const storeState = (store: FileControlStore) => {
     ? { revision: existing.revision, bytesHex: bytesToHex(existing.bytes) }
     : { revision: null, bytesHex: null };
 };
+// Ordinary retained deltas are inert testimony: a step may name deltas the host retains in a
+// reactor before booting; the control endpoint never sees that reactor.
+const retainInert = (retained: unknown[] | undefined) => {
+  const reactor = new Reactor();
+  for (const d of retained ?? [])
+    if (reactor.ingest(parseCommandDelta(d)).status !== "accepted")
+      throw Error("retained delta rejected");
+  return (retained ?? []).length;
+};
 const step = input.step as
   | {
       verb: MaterializationVerb;
       request: unknown;
       delivery: unknown[];
       initialControl?: { hex: string; revision: string };
+      retained?: unknown[];
     }
   | undefined;
 if (input.mode === "construct" && step) {
@@ -267,6 +278,7 @@ if (input.mode === "construct" && step) {
       step.initialControl.revision,
       hex(step.initialControl.hex),
     );
+  const retained = retainInert(step?.retained);
   const request = input.upstream?.request ?? step!.request,
     delivery = input.upstream?.delivery ?? step!.delivery,
     q = parseCommandDelta(request);
@@ -278,6 +290,7 @@ if (input.mode === "construct" && step) {
     preflight: preflightMaterializationInput(boot, q.id, delivery, receivedAt),
     calls: host.calls,
     diagnostics: host.diagnostics,
+    retained,
     sourceAtCas: host.store.sourceAtCas ?? null,
     store: storeState(host.store),
   });
@@ -292,12 +305,14 @@ if (input.mode === "construct" && step) {
     input.upstream.revision,
     hex(input.upstream.bytesHex),
   );
+  const retained = retainInert(step?.retained);
   const q = parseCommandDelta(step!.request);
   const outcome = await host.endpoint.invoke(q.id, step!.delivery, receivedAt);
   output({
     request: step!.request,
     outcome: serializeCommandDelta(outcome),
     preflight: preflightMaterializationInput(boot, q.id, step!.delivery, receivedAt),
+    retained,
     store: storeState(host.store),
   });
 } else if (input.mode === "control-result") {

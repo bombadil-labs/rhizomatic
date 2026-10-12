@@ -35,6 +35,7 @@ import {
   type MaterializationControlStore,
 } from "../src/federation/materialization-control.js";
 import { MaterializationEndpoint } from "../src/command/materialization-endpoint.js";
+import { Reactor } from "../src/reactor/reactor.js";
 import { initializeMaterializationControl } from "../src/command/materialization-lifecycle.js";
 import { readMaterializationResult } from "../src/command/materialization-result.js";
 import { preflightMaterializationInput } from "../src/command/materialization-preflight.js";
@@ -510,6 +511,12 @@ for (const step of schedule.steps)
         throw fault;
       },
     });
+    // Ordinary retained deltas are inert testimony: they enter a reactor, never the control.
+    const retained = new Reactor();
+    if (step.retained)
+      expect(
+        (step.retained as unknown[]).map((d) => retained.ingest(parseCommandDelta(d)).status),
+      ).toEqual((step.retained as unknown[]).map(() => "accepted"));
     const q = parseCommandDelta(step.request);
     const outcome = await endpoint.invoke(q.id, step.delivery, step.receivedAt ?? 1000);
     expect(serializeCommandDelta(outcome)).toEqual(step.expected.outcome);
@@ -520,10 +527,11 @@ for (const step of schedule.steps)
     expect(commandText(f, "status")).toBe(step.expected.status);
     expect(bytesToHex(commandBytes(f, "result"))).toBe(step.expected.bodyHex);
     expect(bytesToHex(store.images.get(key)!.bytes)).toBe(step.expected.controlHex);
-    // The image keeps captures and acts, never a snapshot payload (MR-14).
+    // The image keeps captures and acts, never a snapshot payload or an operand's bytes (MR-14).
     expect(
       snapshotPayloads(step.delivery).some((payload) => step.expected.controlHex.includes(payload)),
     ).toBe(false);
+    expect(bytesToHex(store.images.get(key)!.bytes).includes(OPERAND_MARKER_HEX)).toBe(false);
     console.log(
       "materialization-m3-assertion:" +
         JSON.stringify({
@@ -543,6 +551,7 @@ const scheduleDelivered = (step: (typeof schedule.steps)[number], kind: string) 
     .map(parseCommandDelta)
     .find((d) => JSON.stringify(scheduleKind(d)) === JSON.stringify(p(kind)));
 const installStep = schedule.steps.find((s: { id: string }) => s.id === "install");
+const OPERAND_MARKER_HEX = bytesToHex(new TextEncoder().encode("PUBLIC-TEST-OPERAND-MARKER"));
 // A read step delivers only its snapshot; its capture was delivered by the install or
 // replacement that selected that snapshot.
 const capturePairedWith = new Map<string, Delta>();

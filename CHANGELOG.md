@@ -75,6 +75,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
   the provider's durable source state in the host directory after the final check and before
   CAS dispatch, and a later process over that directory sees the moved source. ERRATA E9
   records the readings. Twenty-eight of the thirty-three M3 cases are executed.
+- SPEC-16 M3 slice C3c1: every shared step asserts the stored image carries no operand bytes,
+  using a marker fact; the hosts retain ordinary deltas in a reactor before booting and the
+  empty image stays empty. Two tower scenarios and one fault schedule pin them. ERRATA E10
+  records the readings. Thirty of the thirty-three M3 cases and all six variants are executed.
 
 ### Changed
 

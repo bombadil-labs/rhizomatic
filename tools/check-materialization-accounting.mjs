@@ -53,7 +53,7 @@ export function expectedMaterializationM3Assertions(corpora){
   }else if(corpus==='lifecycle'){
    const verbOf=lifecycleVerbs(v);
    for(const s of v.steps){
-    expected.push({corpus,corpusId,group:'steps',id:s.id,assertions:6});
+    expected.push({corpus,corpusId,group:'steps',id:s.id,assertions:7+(s.retained?1:0)});
     const refused=s.expected.status==='refused',results=!refused&&SERVING_VERBS.includes(verbOf(s));
     expected.push({corpus,corpusId,group:'readback',id:s.id,assertions:refused?6:results?10:8});
    }

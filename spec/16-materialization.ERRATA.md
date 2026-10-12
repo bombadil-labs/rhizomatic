@@ -217,3 +217,23 @@ names the text it reads and the tower or fault schedule that pins it in
   the provider unavailable the restored read refuses `source-unavailable`; with the provider
   back a later read completes against the same selection, without reinstallation
   (`ctl_restore_unavailable`, `read_advanced_source_unavailable`).
+
+## E10 — Readings pinned by slice C3c1 of M3
+
+Decided 2026-10-10 while building the operand-marker and inert-retention crossings. Each item
+names the text it reads and the shared step or tower that pins it.
+
+- **The stored image carries no operand bytes.** MR-14 says no operand snapshot or carrier
+  persists in the control image. A source fact carries a marker text; every shared step asserts
+  the stored image does not contain it, and the marker crossing asserts the exported image and
+  every file in the host directory do not contain it, in both witnesses
+  (`install_marker`, `ctl_metadata_no_payload`). Reacquisition is the explicit carrier a later
+  read supplies in a fresh process; the endpoint checks it against the stored capture's
+  commitment, so a reconstructed carrier is exact or the read refuses `invalid-source`.
+- **Ordinary retained deltas never activate a selection.** MR-02 and MR-13 say retention is
+  inert and install is the only activation. A step may name deltas the host retains in an
+  ordinary reactor before booting: a descriptor, authority, capture and state act, or a
+  configuration, descriptor and install-shaped request. The empty image still restores empty
+  and reads `registration-missing`; only the authorized install that follows activates
+  (`restore_empty_retained`, `read_missing_retained`, `restore_empty_retained_request`,
+  `ctl_delta_state_inert`, `cmd_inert_retention::empty-control-read`).

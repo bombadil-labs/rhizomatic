@@ -4,7 +4,7 @@
   "cases": [
     {
       "id": "ctl_delta_state_inert",
-      "state": "partial",
+      "state": "executed",
       "vector_assertions": [
         {
           "corpus": "lifecycle",
@@ -15,14 +15,46 @@
           "corpus": "lifecycle",
           "group": "readback",
           "id": "restore_empty"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "restore_empty_retained"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "restore_empty_retained"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "read_missing_retained"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "read_missing_retained"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "install"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "install"
         }
       ],
       "native_evidence": [
         "the empty image restores with no selections and refuses unknown registrations",
         "the_empty_image_restores_with_no_selections_and_refuses_unknown_registrations"
       ],
-      "remaining": "A retained journal with ordinary registration/state deltas and an empty control store is an M3c fixture host; the shared steps only show the empty image restores with no selection.",
-      "tower_evidence": []
+      "remaining": "",
+      "tower_evidence": [
+        "ctl_delta_state_inert"
+      ]
     },
     {
       "id": "ctl_install_complete",
@@ -90,7 +122,7 @@
     },
     {
       "id": "ctl_metadata_no_payload",
-      "state": "partial",
+      "state": "executed",
       "vector_assertions": [
         {
           "corpus": "lifecycle",
@@ -121,11 +153,43 @@
           "corpus": "lifecycle",
           "group": "readback",
           "id": "replace_equal_count"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "install_marker"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "install_marker"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "restore_marker"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "restore_marker"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "read_marker"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "read_marker"
         }
       ],
       "native_evidence": [],
-      "remaining": "Every shared step now checks that no delivered snapshot payload is in the stored image; the operand marker, cache deletion and explicit reacquisition need an M3c3 fixture host.",
-      "tower_evidence": []
+      "remaining": "",
+      "tower_evidence": [
+        "ctl_metadata_no_payload"
+      ]
     },
     {
       "id": "ctl_add_negate_negate",
@@ -1841,7 +1905,7 @@
     },
     {
       "id": "cmd_inert_retention::empty-control-read",
-      "state": "partial",
+      "state": "executed",
       "vector_assertions": [
         {
           "corpus": "lifecycle",
@@ -1852,14 +1916,36 @@
           "corpus": "lifecycle",
           "group": "readback",
           "id": "restore_empty"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "restore_empty_retained_request"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "restore_empty_retained_request"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "steps",
+          "id": "read_missing_retained"
+        },
+        {
+          "corpus": "lifecycle",
+          "group": "readback",
+          "id": "read_missing_retained"
         }
       ],
       "native_evidence": [
         "the empty image restores with no selections and refuses unknown registrations",
         "the_empty_image_restores_with_no_selections_and_refuses_unknown_registrations"
       ],
-      "remaining": "A retained journal beside the empty control store is an M3c fixture host.",
-      "tower_evidence": []
+      "remaining": "",
+      "tower_evidence": [
+        "cmd_inert_retention_empty_control_read"
+      ]
     },
     {
       "id": "cmd_error_priority::retire-restore-unrelated-binding",

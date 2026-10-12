@@ -786,9 +786,20 @@ fn shared_lifecycle_schedule() {
         .unwrap();
         let q = parse_command_delta(&step["request"]).unwrap();
         let delivery = step["delivery"].as_array().unwrap().clone();
-        let outcome = endpoint.invoke(&q.id, &delivery, received_at).unwrap();
         let mut assertions = 0;
         macro_rules! checked_eq {($($args:tt)*)=>{{assert_eq!($($args)*);assertions+=1;}};}
+        // Ordinary retained deltas are inert testimony: they enter a reactor, never the control.
+        let mut retained = rhizomatic::reactor::Reactor::new();
+        if let Some(rs) = step["retained"].as_array() {
+            let accepted = rs.iter().all(|d| {
+                matches!(
+                    retained.ingest(parse_command_delta(d).unwrap()),
+                    rhizomatic::reactor::IngestResult::Accepted
+                )
+            });
+            checked_eq!(accepted, true, "{}", step["id"]);
+        }
+        let outcome = endpoint.invoke(&q.id, &delivery, received_at).unwrap();
         checked_eq!(
             outcome,
             parse_command_delta(&step["expected"]["outcome"]).unwrap(),
@@ -833,6 +844,11 @@ fn shared_lifecycle_schedule() {
         let control_hex = step["expected"]["controlHex"].as_str().unwrap();
         checked_eq!(
             payloads.iter().any(|p| control_hex.contains(p.as_str())),
+            false
+        );
+        checked_eq!(
+            hex::encode(&store.borrow().0[&key].0)
+                .contains(&hex::encode(b"PUBLIC-TEST-OPERAND-MARKER")),
             false
         );
         let f = read_materialization_description(&outcome, None).unwrap();
