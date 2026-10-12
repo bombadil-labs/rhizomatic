@@ -94,4 +94,6 @@ It downloads their retained bundles and runs `tools/check-materialization-m4.mjs
 integrity, three replayed plans and both fixed routes per required scenario, independent goldens
 over the retained outputs, the capability gate against each real manifest, a common wrong answer
 the oracle must turn red, exact replay against a mutated bundle, and each runner's harness
-proofs. It uploads M4-CUMULATIVE and REPORT. See [M4.md](M4.md) and [M4-CASES.json](M4-CASES.json).
+proofs. Before the checker, it runs `tools/measure-materialization-lifecycle.mjs`, the lifecycle
+resource baseline in both witnesses, and the checker validates that report. It uploads
+M4-CUMULATIVE, MEASUREMENTS-LIFECYCLE and REPORT. See [M4.md](M4.md) and [M4-CASES.json](M4-CASES.json).

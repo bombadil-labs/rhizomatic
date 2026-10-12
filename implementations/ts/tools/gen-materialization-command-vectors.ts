@@ -6120,6 +6120,147 @@ writeFileSync(
     [cTransplant, 1],
     refusal("invalid-control"),
   );
+  // ---- M4 lifecycle measurement fixtures (optional, never committed): one per sweep size, in the
+  // schedule's own step format and from the same oracle. Each size installs, replaces with an
+  // equal-size source, reads, and restores; every step boots fresh from its stored image. The
+  // rows sit on another entity, so the size is the snapshot's appearance count and the plant's
+  // view stays empty. An empty source has no distinct equal-size replacement, so size 0 skips
+  // the replacement.
+  if (process.env.M4_MEASUREMENT_DIR) {
+    const directory = process.env.M4_MEASUREMENT_DIR;
+    mkdirSync(directory, { recursive: true });
+    const measured = (phase: string, ...args: Parameters<typeof step>) => {
+      step(...args);
+      return { phase, ...(steps.pop() as Record<string, unknown>) };
+    };
+    for (const count of [0, 128, 1024, 4096, 4097]) {
+      const bulk = (shift: number) =>
+        Array.from({ length: count }, (_, n) =>
+          row("item:bulk", "height", p(n), float(n), n + shift),
+        );
+      const sA = source(bulk(1));
+      const qI = installX("", descriptor, sA);
+      const installDelivery = [qI, descriptor, sA.capture, sA.snapshot, authority, ...defs];
+      const fixtureSteps: Record<string, unknown>[] = [];
+      if (count > limits.appearances)
+        fixtureSteps.push(
+          measured(
+            "install",
+            `measure_install_${count}`,
+            qI,
+            installDelivery,
+            [c0, 0],
+            refusal("resource-limit"),
+            {
+              ...overLimit,
+              source: sourceOf(sA),
+            },
+          ),
+        );
+      else {
+        const oA = oracleOf(sA, [], 1000);
+        const eA: EntryFields = { ...fern, revision: sA.revision, capture: sA.capture.id };
+        const tA = stateX(1, "", "", "install", eA);
+        const cA = imageX(
+          1,
+          [{ ...eA, status: "active", transition: tA.id }],
+          [descriptor, ...defs, sA.capture, authority, tA],
+        );
+        const rA = revisionOf(cA, 1);
+        fixtureSteps.push(
+          measured(
+            "install",
+            `measure_install_${count}`,
+            qI,
+            installDelivery,
+            [c0, 0],
+            completed(
+              transitionX("install", descriptor, tA, rA, 1, basisFrom(oA.gather, 1000), [
+                oA.result,
+              ]),
+              cA,
+            ),
+            { source: sourceOf(sA) },
+          ),
+        );
+        let last = { c: cA, r: rA, generation: 1, src: sA, o: oA, entry: eA, t: tA };
+        if (count > 0) {
+          const sB = source(bulk(2)),
+            oB = oracleOf(sB, [], 1000);
+          const eB: EntryFields = { ...fern, revision: sB.revision, capture: sB.capture.id };
+          const tB = stateX(2, rA, tA.id, "replace-source", eB);
+          const cB = imageX(
+            2,
+            [{ ...eB, status: "active", transition: tB.id }],
+            [descriptor, ...defs, sB.capture, authority, tB],
+          );
+          const rB = revisionOf(cB, 2);
+          const qR = replaceX(rA, sB, sA.revision);
+          fixtureSteps.push(
+            measured(
+              "replace",
+              `measure_replace_${count}`,
+              qR,
+              [qR, sB.capture, sB.snapshot, authority],
+              [cA, 1],
+              completed(
+                transitionX("replace-source", descriptor, tB, rB, 2, basisFrom(oB.gather, 1000), [
+                  oB.result,
+                ]),
+                cB,
+              ),
+              { source: sourceOf(sB) },
+            ),
+          );
+          last = { c: cB, r: rB, generation: 2, src: sB, o: oB, entry: eB, t: tB };
+        }
+        const { c, r, generation, src, o, entry, t } = last;
+        fixtureSteps.push(
+          measured(
+            "restore",
+            `measure_restore_${count}`,
+            restoreQ(r),
+            [restoreQ(r)],
+            [c, generation],
+            completed(
+              restoreBodyX(r, generation, [{ ...entry, status: "active", transition: t.id }]),
+              c,
+            ),
+            { source: sourceOf(src) },
+          ),
+          measured(
+            "read",
+            `measure_read_${count}`,
+            readX(r, src),
+            [readX(r, src), src.snapshot],
+            [c, generation],
+            completed(
+              readBodyX(descriptor, r, generation, basisFrom(o.gather, 1000), [o.result]),
+              c,
+            ),
+            { source: sourceOf(src) },
+          ),
+        );
+      }
+      writeFileSync(
+        `${directory}/lifecycle_${count}.json`,
+        JSON.stringify({
+          format: "rhizomatic.materialization-m4-measurement-fixture/1",
+          id: `lifecycle_${count}`,
+          selectedAppearances: count,
+          expectedStatus: count > limits.appearances ? "refused" : "completed",
+          seeds,
+          keys,
+          boot: {
+            configuration: serializeCommandDelta(configB),
+            declarations: operationsB.map(serializeCommandDelta),
+            bindings: [serializeCommandDelta(binding)],
+          },
+          steps: fixtureSteps,
+        }) + "\n",
+      );
+    }
+  }
   void byId;
   writeFileSync(
     new URL("../../../vectors/materialization/lifecycle.json", import.meta.url),

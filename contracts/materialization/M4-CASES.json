@@ -69,9 +69,14 @@
     },
     {
       "id": "nested_resource_baseline",
-      "state": "specified",
-      "evidence": [],
-      "remaining": "Lifecycle phases (install, replace, fresh restore and read) and control bytes in the measurement sweep, with exact and one-over byte boundaries (slice M4b). Journal-backed published Plant and Bed counts are owed before M5 acceptance."
+      "state": "executed",
+      "evidence": [
+        "M2 MEASUREMENTS: the nested Bed fixture (32 plants, four buckets, 128 signed facts, two levels) and the 0/128/1024/4096/4097 source sweep, batch phases, both witnesses",
+        "M4 MEASUREMENTS-LIFECYCLE: install, replacement, fresh restore and fresh read across the same sweep, each step a cold boot; control, delivery and result bytes, wall time, strict signature verifications, source checks and peak memory, both witnesses",
+        "M4-CUMULATIVE.measurements: byte accounting agrees between the witnesses at every step; 4097 refuses at install with zero source checks",
+        "MEASUREMENTS-LIFECYCLE.boundaries: the exact and one-over pairs for delivery bytes, artifact bytes and request pointers, the over-only limits and the four lifecycle over-limit steps, all shared vectors both witnesses execute"
+      ],
+      "remaining": "Journal-backed published Plant and Bed counts and bytes, and the native or portable route choice, are owed at M5 before acceptance."
     },
     {
       "id": "independent_contract_implementation_review",

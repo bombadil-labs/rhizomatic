@@ -185,6 +185,26 @@ report.isolation=m3.isolation;
  const broken=structuredClone(caps);broken.witnesses.find(w=>w.id==='ts').stages=[];broken.witnesses.find(w=>w.id==='ts').stage_evidence={};
  assert.throws(()=>requireFixedRoutes('M2',broken),/fixed route needs ts/);
 }
+// ---- nested_resource_baseline: the M2 batch report (nested Bed fixture and source sweep) and the
+// M4 lifecycle report (install, replacement, fresh restore and read across the sweep), each with
+// both witnesses' byte accounting in agreement and the over-limit size refused before any check.
+{
+ const m2=read(join(dirs.M2,'MEASUREMENTS.json')),life=read(join(out,'MEASUREMENTS-LIFECYCLE.json'));
+ const sweep=[0,128,1024,4096,4097];
+ assert.deepEqual(m2.rows.map(r=>r.id).sort(),['bed_32x4_two_levels',...sweep.map(n=>'source_'+n)].sort(),'M2 batch measurement rows');
+ for(const r of m2.rows)assert.deepEqual(r.measurements.map(m=>m.witness),['ts','rust-release'],r.id+' both witnesses');
+ assert.deepEqual(life.rows.map(r=>r.selectedAppearances),sweep,'lifecycle sweep sizes');
+ for(const r of life.rows){
+  assert.deepEqual(r.measurements.map(m=>m.witness),['ts','rust'],r.id+' both witnesses');
+  const [ts,rust]=r.measurements;
+  assert.deepEqual(ts.steps.map(x=>[x.phase,x.lengths]),rust.steps.map(x=>[x.phase,x.lengths]),r.id+' byte accounting agrees');
+  for(const m of r.measurements)for(const x of m.steps)for(const phase of ['boot',x.phase])assert.ok(Number.isFinite(x.phases[phase]?.wallMs)&&Number.isInteger(x.phases[phase]?.strictSignatureVerifications),`${r.id} ${m.witness} ${x.id} ${phase} measured`);
+  if(r.selectedAppearances>4096)assert.ok(r.measurements.every(m=>m.steps.length===1&&m.steps[0].status==='refused'&&m.steps[0].currentChecks===0),r.id+' refused before any source check');
+  else assert.ok(r.measurements.every(m=>m.steps.every(x=>x.status==='completed')&&m.steps.some(x=>x.phase==='restore')&&m.steps.some(x=>x.phase==='read')),r.id+' completes install, restore and read');
+ }
+ assert.deepEqual(life.boundaries.pairs.map(b=>b.limit),['deliveryBytes','artifactBytes','requestPointers'],'exact and one-over boundary pairs named');
+ report.measurements={batchRows:m2.rows.map(r=>r.id),lifecycleRows:life.rows.map(r=>({id:r.id,phases:r.measurements[0].steps.map(x=>x.phase)})),boundaries:life.boundaries,deferred:life.deferred};
+}
 // ---- existing_conformance_gates: in CI the job needs every existing gate of the same run and
 // records their results; a local run cannot produce this evidence and says so.
 const git=args=>spawnSync('git',args,{cwd:root,encoding:'utf8'}).stdout.trim();

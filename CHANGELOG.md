@@ -23,6 +23,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
   oracle must refuse, and exact replay against a mutated bundle. The M3 runner gains
   control-edge corruption probes in both directions, a tower-isolation probe and the
   unsupported-stage and missing-evidence negatives. Seven of the nine M4 cases are executed.
+- SPEC-16 M4 slice M4b: a lifecycle resource baseline. At 0, 128, 1024, 4096 and 4097 selected
+  source appearances, both witnesses run install, equal-size replacement, fresh restore and fresh
+  read, each step from a cold boot over its stored image. The report records byte lengths, wall
+  time, strict signature verifications, source checks and peak memory. Byte lengths agree between
+  the witnesses; 4097 refuses at install before any source check. No thresholds are set. Eight of
+  the nine M4 cases are executed.
 - SPEC-16 M3 groundwork in TypeScript and Rust: the reactor-owned `rhizomatic.materialization-control/1`
   image codec and pure transition planner, the storage-owned control store seam, a federation
   facade, and the `registration/1`, `state/1` and `control-image/1` descriptions plus the six

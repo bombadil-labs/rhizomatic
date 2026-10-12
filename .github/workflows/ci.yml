@@ -292,7 +292,9 @@ jobs:
           M4_ARTIFACT_DIR: ${{ runner.temp }}/materialization-m4
           CI_COMMIT: ${{ github.sha }}
           CI_RESULTS: ${{ toJSON(needs) }}
-        run: node tools/check-materialization-m4.mjs
+        run: |
+          node tools/measure-materialization-lifecycle.mjs
+          node tools/check-materialization-m4.mjs
       - name: Retain concrete M4 evidence
         if: always()
         uses: actions/upload-artifact@v4
