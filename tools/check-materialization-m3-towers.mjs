@@ -48,7 +48,9 @@ const run=(w,input)=>{
 };
 const must=(w,input)=>{const r=run(w,input);assert.equal(r.status,0,`${w} ${input.mode}: ${r.stderr}`);return r.output;};
 // Directory names carry a run counter, so records keep the logical side (a or b), never the path.
-const record=(records,stage,witness,input,actual)=>{const {store,...rest}=input;records.push({stage,witness,input:{...rest,...(store?{store:store.dir.endsWith('-b')?'b':'a'}:{})},actual});};
+// A record names the action, the plan role whose witness ran it, and that witness: an action can
+// reuse another role's witness (a reopen runs on the reader), so the role is what ties it to its plan.
+const record=(records,stage,a,role,input,actual)=>{const {store,...rest}=input;records.push({stage,role,witness:a[role],input:{...rest,...(store?{store:store.dir.endsWith('-b')?'b':'a'}:{})},actual});};
 function expectExecuted(actual,step){const src=step.source??schedule.source;assert.deepEqual(actual.outcome,step.expected.outcome);assert.deepEqual(actual.preflight,{status:'input-valid'});assert.equal(actual.store.bytesHex,step.expected.controlHex);for(const c of actual.calls)assert.deepEqual([c.binding,c.revision,c.authority],[src.binding,src.revision,src.authority]);}
 // A read delivers only its snapshot; its capture was delivered by the step that selected that snapshot.
 const captureFor=read=>{const snapshot=delivered(read,'snapshot/1');if(!snapshot)return undefined;const selecting=schedule.steps.find(s=>delivered(s,'capture/1')&&delivered(s,'snapshot/1')?.id===snapshot.id);return selecting?delivered(selecting,'capture/1'):delivered(install,'capture/1');};
@@ -63,32 +65,32 @@ function crossing(a,plan,label){
  const {first,fault,after,restore,read,readback,extra=[]}=plan;const records=[];
  const dirA=plan.dirA??freshDir(label+'-a');
  const constructed=must(a['construct'],{mode:'construct',fixture,step:first});
- assert.deepEqual(constructed.delivery.map(d=>d.id),first.delivery.map(d=>d.id));record(records,'construct',a['construct'],{mode:'construct',step:first.id},constructed);
+ assert.deepEqual(constructed.delivery.map(d=>d.id),first.delivery.map(d=>d.id));record(records,'construct',a,'construct',{mode:'construct',step:first.id},constructed);
  const executeInput={mode:'control-execute',fixture:{...fixtureFor(first),...(plan.refused?{refusedSupport:plan.refused}:{}),...(plan.moved?{movedSource:plan.moved}:{})},step:first,store:{dir:dirA},seed:true,upstream:constructed,...(fault?{fault:{kind:fault,...(plan.raced?{image:plan.raced}:{})}}:{})};
  const executed=run(a['control-execute'],executeInput);
  // The post-check race is an event in the committing process: the host's durable source moved before CAS dispatch, after exactly two checks.
  if(plan.moved){assert.deepEqual(executed.output.sourceAtCas,plan.moved,'the moved source is current at CAS dispatch');assert.equal(executed.output.calls.length,2,'no check after the final one');}
  if(after.crash){assert.notEqual(executed.status,0,'a crashed host answers nothing');assert.equal(executed.output,null);}
  else{assert.equal(executed.status,0,executed.stderr);if(after.outcome)expectExecuted(executed.output,first);if(after.status){assert.equal(executed.output.outcome.claims.pointers.find(p=>p.role===role+'status').target,after.status);assert.equal(executed.output.store.bytesHex,after.controlHex);}}
- const {upstream:_u,...executeRecord}=executeInput;record(records,'control-execute',a['control-execute'],executeRecord,executed.output??{crashed:true,status:executed.status});
+ const {upstream:_u,...executeRecord}=executeInput;record(records,'control-execute',a,'control-execute',executeRecord,executed.output??{crashed:true,status:executed.status});
  const exported=must(a['control-export'],{mode:'control-export',fixture:fixtureFor(first),store:{dir:dirA}});
- assert.equal(exported.bytesHex,after.controlHex,'the directory after the stage is the oracle');record(records,'control-export',a['control-export'],{mode:'control-export'},exported);
+ assert.equal(exported.bytesHex,after.controlHex,'the directory after the stage is the oracle');record(records,'control-export',a,'control-export',{mode:'control-export'},exported);
  assert.ok(!exported.bytesHex.includes(OPERAND_MARKER),'no operand bytes in the image');for(const p of files(dirA))assert.ok(!readFileSync(p).toString('hex').includes(OPERAND_MARKER)&&!readFileSync(p,'utf8').includes(OPERAND_MARKER),'no operand bytes in the directory');
  // Erasure settlement is a physical fact: the marker is present on the directory while a consumer is active, absent once the last consumer retired.
  if(plan.erased==='present')assert.ok(exported.bytesHex.includes(ERASED_MARKER)&&dirHas(dirA,ERASED_MARKER),'erased support still reachable, purge owed');
  if(plan.erased==='absent')assert.ok(!exported.bytesHex.includes(ERASED_MARKER)&&!dirHas(dirA,ERASED_MARKER),'erased support settled on every surface');
  // A later read over the same directory sees the moved source from the host's own durable state; the test supplies the original source.
- for(const e of plan.afterOnA??[]){const o=must(a['control-read'],{mode:'control-read',fixture:{...fixtureFor(e.step),source:schedule.source},step:e.step,store:{dir:dirA}});assert.deepEqual(o.outcome,e.step.expected.outcome);assert.equal(o.store.bytesHex,after.controlHex);record(records,'control-read',a['control-read'],{mode:'control-read',step:e.step.id,source:'original'},o);}
+ for(const e of plan.afterOnA??[]){const o=must(a['control-read'],{mode:'control-read',fixture:{...fixtureFor(e.step),source:schedule.source},step:e.step,store:{dir:dirA}});assert.deepEqual(o.outcome,e.step.expected.outcome);assert.equal(o.store.bytesHex,after.controlHex);record(records,'control-read',a,'control-read',{mode:'control-read',step:e.step.id,source:'original'},o);}
  const dirB=freshDir(label+'-b');
  const restored=must(a['control-restore'],{mode:'control-restore',fixture:fixtureFor(restore),step:restore,store:{dir:dirB},upstream:exported});
- assert.deepEqual(restored.outcome,restore.expected.outcome);assert.equal(restored.store.bytesHex,after.controlHex);record(records,'control-restore',a['control-restore'],{mode:'control-restore',step:restore.id},restored);
+ assert.deepEqual(restored.outcome,restore.expected.outcome);assert.equal(restored.store.bytesHex,after.controlHex);record(records,'control-restore',a,'control-restore',{mode:'control-restore',step:restore.id},restored);
  const readOut=must(a['control-read'],{mode:'control-read',fixture:fixtureFor(read),step:read,store:{dir:dirB}});
- assert.deepEqual(readOut.outcome,read.expected.outcome);record(records,'control-read',a['control-read'],{mode:'control-read',step:read.id},readOut);
+ assert.deepEqual(readOut.outcome,read.expected.outcome);record(records,'control-read',a,'control-read',{mode:'control-read',step:read.id},readOut);
  const snapshot=delivered(read,'snapshot/1'),capture=delivered(read,'capture/1')??captureFor(read);
  const resultInput={mode:'control-result',fixture:fixtureFor(read),upstream:readOut,control:exported,...(snapshot?{capture,snapshot}:{})};
- const result=must(a['control-result'],resultInput);expectReadback(result,readback);record(records,'control-result',a['control-result'],{mode:'control-result',step:read.id},result);
- for(const e of extra){const o=must(a['control-read'],{mode:'control-execute',fixture:fixtureFor(e.step),step:e.step,store:{dir:dirB}});assert.deepEqual(o.outcome,e.step.expected.outcome);assert.equal(o.store.bytesHex,e.controlHex??after.controlHex);record(records,'control-read',a['control-read'],{mode:'control-execute',step:e.step.id},o);}
- if(!after.crash&&after.status){const r=must(a['control-result'],{mode:'control-result',fixture:fixtureFor(first),upstream:executed.output,control:exported});expectReadback(r,{status:after.status,classification:'verified-context',sourceCommitments:'attested',bodyHex:after.bodyHex});record(records,'control-result',a['control-result'],{mode:'control-result',step:first.id},r);}
+ const result=must(a['control-result'],resultInput);expectReadback(result,readback);record(records,'control-result',a,'control-result',{mode:'control-result',step:read.id},result);
+ for(const e of extra){const o=must(a['control-read'],{mode:'control-execute',fixture:fixtureFor(e.step),step:e.step,store:{dir:dirB}});assert.deepEqual(o.outcome,e.step.expected.outcome);assert.equal(o.store.bytesHex,e.controlHex??after.controlHex);record(records,'control-read',a,'control-read',{mode:'control-execute',step:e.step.id},o);}
+ if(!after.crash&&after.status){const r=must(a['control-result'],{mode:'control-result',fixture:fixtureFor(first),upstream:executed.output,control:exported});expectReadback(r,{status:after.status,classification:'verified-context',sourceCommitments:'attested',bodyHex:after.bodyHex});record(records,'control-result',a,'control-result',{mode:'control-result',step:first.id},r);}
  return records;
 }
 /**
@@ -101,50 +103,50 @@ function rotationCrossing(a,plan,label){
  const {fault}=plan;const records=[];const dir=freshDir(label+'-a');
  const old=S('rotation_install_65'),prepA=S('rotation_new_install_fern'),prepB=S('rotation_new_install_moss'),blockedNew=S('rotation_new_request_old_endpoint'),oldServes=S('rotation_old_read_fern'),oldAtNew=S('rotation_old_request_new_endpoint'),newRead=S('rotation_new_read_fern'),reopenInstall=S('rotation_old_install_retired'),reopenRestore=S('rotation_old_restore'),newInstallOld=S('rotation_new_install_retired_old');
  const oldId=schedule.boot.configuration.id,newId=prepA.bootOverride.configuration.id;assert.notEqual(oldId,newId);
- const ex=(stage,w,input)=>{const o=must(w,input);record(records,stage,w,input,o);return o;};
- const selectIn=(w,step,kind)=>{const input={mode:'control-select',fixture:fixtureFor(step),store:{dir},explicit:true,...(kind?{fault:{kind}}:{})};const r=run(w,input);record(records,'control-select',w,input,r.output??{crashed:true,status:r.status});return r;};
+ const ex=(stage,role,input)=>{const o=must(a[role],input);record(records,stage,a,role,input,o);return o;};
+ const selectIn=(role,step,kind)=>{const input={mode:'control-select',fixture:fixtureFor(step),store:{dir},explicit:true,...(kind?{fault:{kind}}:{})};const r=run(a[role],input);record(records,'control-select',a,role,input,r.output??{crashed:true,status:r.status});return r;};
  // 1. The host selects the old configuration and seeds its 64-entry image; the 65th distinct install refuses before any source check or write.
- assert.equal(selectIn(a['construct'],old).status,0);
- const sixtyFifth=ex('control-execute',a['control-execute'],{mode:'control-execute',fixture:fixtureFor(old),step:old,store:{dir},seed:true});
+ assert.equal(selectIn('construct',old).status,0);
+ const sixtyFifth=ex('control-execute','control-execute',{mode:'control-execute',fixture:fixtureFor(old),step:old,store:{dir},seed:true});
  assert.deepEqual(sixtyFifth.outcome,old.expected.outcome);assert.equal(sixtyFifth.store.bytesHex,old.expected.controlHex);assert.deepEqual(sixtyFifth.calls,[]);assert.equal(sixtyFifth.selected,oldId);
  // 2. Preparation: explicit installs into the new scope, which never serves; a preparation crash restarts and the explicit retry completes.
  // The new scope is initialized by seeding its empty image; the prepared installs are explicit and never serve.
- const prepare=(w,step,kind)=>{const input={mode:'control-execute',fixture:fixtureFor(step),step,store:{dir},explicit:true,...(step===prepA?{seed:true}:{}),...(kind?{fault:{kind}}:{})};const r=run(w,input);record(records,'control-execute',w,input,r.output??{crashed:true,status:r.status});return r;};
- if(fault==='prep-crash'){const crashed=prepare(a['control-restore'],prepA,'crash-before-cas');assert.notEqual(crashed.status,0,'a crashed preparation answers nothing');}
- for(const step of [prepA,prepB]){const r=prepare(a['control-restore'],step);assert.equal(r.status,0,r.stderr);assert.deepEqual(r.output.outcome,step.expected.outcome);assert.equal(r.output.store.bytesHex,step.expected.controlHex);assert.equal(r.output.selected,oldId);}
- const blocked=ex('control-read',a['control-read'],{mode:'control-read',fixture:fixtureFor(blockedNew),step:blockedNew,store:{dir}});assert.deepEqual(blocked.outcome,blockedNew.expected.outcome);assert.equal(blocked.selected,oldId);
- const served=ex('control-read',a['control-read'],{mode:'control-read',fixture:fixtureFor(oldServes),step:oldServes,store:{dir}});expectExecuted(served,oldServes);
+ const prepare=(role,step,kind)=>{const input={mode:'control-execute',fixture:fixtureFor(step),step,store:{dir},explicit:true,...(step===prepA?{seed:true}:{}),...(kind?{fault:{kind}}:{})};const r=run(a[role],input);record(records,'control-execute',a,role,input,r.output??{crashed:true,status:r.status});return r;};
+ if(fault==='prep-crash'){const crashed=prepare('control-restore',prepA,'crash-before-cas');assert.notEqual(crashed.status,0,'a crashed preparation answers nothing');}
+ for(const step of [prepA,prepB]){const r=prepare('control-restore',step);assert.equal(r.status,0,r.stderr);assert.deepEqual(r.output.outcome,step.expected.outcome);assert.equal(r.output.store.bytesHex,step.expected.controlHex);assert.equal(r.output.selected,oldId);}
+ const blocked=ex('control-read','control-read',{mode:'control-read',fixture:fixtureFor(blockedNew),step:blockedNew,store:{dir}});assert.deepEqual(blocked.outcome,blockedNew.expected.outcome);assert.equal(blocked.selected,oldId);
+ const served=ex('control-read','control-read',{mode:'control-read',fixture:fixtureFor(oldServes),step:oldServes,store:{dir}});expectExecuted(served,oldServes);
  // The guard follows the signed request, not the wrapper: a read labeled as a read, a read relabeled as a restore, and a read supplied upstream under a restore wrapper are all refused as explicit attempts.
- const neverServes=(w,step,read,why)=>{const input={mode:'control-execute',fixture:fixtureFor(read),step,store:{dir},explicit:true,...(step===read?{}:{upstream:{request:read.request,delivery:read.delivery}})};const r=run(w,input);assert.notEqual(r.status,0,why);assert.equal(r.output,null);const {upstream:_u,...rest}=input;record(records,'control-execute',w,{...rest,step:step.id,read:read.id},{refused:true,status:r.status});};
- neverServes(a['control-read'],newRead,newRead,'an explicit attempt never serves');
- neverServes(a['control-read'],{...newRead,verb:'restore'},newRead,'a relabeled wrapper never serves');
- neverServes(a['control-read'],reopenRestore,newRead,'a supplied upstream read never serves');
+ const neverServes=(role,step,read,why)=>{const input={mode:'control-execute',fixture:fixtureFor(read),step,store:{dir},explicit:true,...(step===read?{}:{upstream:{request:read.request,delivery:read.delivery}})};const r=run(a[role],input);assert.notEqual(r.status,0,why);assert.equal(r.output,null);const {upstream:_u,...rest}=input;record(records,'control-execute',a,role,{...rest,step:step.id,read:read.id},{refused:true,status:r.status});};
+ neverServes('control-read',newRead,newRead,'an explicit attempt never serves');
+ neverServes('control-read',{...newRead,verb:'restore'},newRead,'a relabeled wrapper never serves');
+ neverServes('control-read',reopenRestore,newRead,'a supplied upstream read never serves');
  // 3. Activation: one durable selection, with a crash before or after the rename.
- const activation=selectIn(a['control-execute'],prepA,fault==='crash-before-activation'||fault==='crash-after-activation'?fault:undefined);
+ const activation=selectIn('control-execute',prepA,fault==='crash-before-activation'||fault==='crash-after-activation'?fault:undefined);
  if(fault==='crash-before-activation'||fault==='crash-after-activation')assert.notEqual(activation.status,0,'a crashed activation answers nothing');else assert.equal(activation.status,0,activation.stderr);
- const exported=ex('control-export',a['control-export'],{mode:'control-export',fixture:fixtureFor(prepB),store:{dir},explicit:true});assert.equal(exported.bytesHex,prepB.expected.controlHex);
- const exportedOld=ex('control-export',a['control-export'],{mode:'control-export',fixture:fixtureFor(old),store:{dir},explicit:true});assert.equal(exportedOld.bytesHex,old.expected.controlHex);
+ const exported=ex('control-export','control-export',{mode:'control-export',fixture:fixtureFor(prepB),store:{dir},explicit:true});assert.equal(exported.bytesHex,prepB.expected.controlHex);
+ const exportedOld=ex('control-export','control-export',{mode:'control-export',fixture:fixtureFor(old),store:{dir},explicit:true});assert.equal(exportedOld.bytesHex,old.expected.controlHex);
  if(fault==='crash-before-activation'){
   // The restart selects the old configuration only; the prepared scope stays inert; the explicit retry activates.
   assert.equal(exported.selected,oldId);
-  const still=ex('control-read',a['control-read'],{mode:'control-read',fixture:fixtureFor(blockedNew),step:blockedNew,store:{dir}});assert.deepEqual(still.outcome,blockedNew.expected.outcome);
-  const again=ex('control-read',a['control-read'],{mode:'control-read',fixture:fixtureFor(oldServes),step:oldServes,store:{dir}});expectExecuted(again,oldServes);
-  assert.equal(selectIn(a['control-execute'],prepA).status,0);
+  const still=ex('control-read','control-read',{mode:'control-read',fixture:fixtureFor(blockedNew),step:blockedNew,store:{dir}});assert.deepEqual(still.outcome,blockedNew.expected.outcome);
+  const again=ex('control-read','control-read',{mode:'control-read',fixture:fixtureFor(oldServes),step:oldServes,store:{dir}});expectExecuted(again,oldServes);
+  assert.equal(selectIn('control-execute',prepA).status,0);
  }else assert.equal(exported.selected,newId);
  // 4. After activation every boot serves the new configuration only: old requests refuse, the new scope serves after a fresh source check.
- const mismatch=ex('control-read',a['control-read'],{mode:'control-read',fixture:fixtureFor(oldAtNew),step:oldAtNew,store:{dir}});assert.deepEqual(mismatch.outcome,oldAtNew.expected.outcome);assert.equal(mismatch.selected,newId);
- const fresh=ex('control-read',a['control-read'],{mode:'control-read',fixture:fixtureFor(newRead),step:newRead,store:{dir}});expectExecuted(fresh,newRead);assert.ok(fresh.calls.length>=1,'a fresh source check');assert.equal(fresh.selected,newId);
+ const mismatch=ex('control-read','control-read',{mode:'control-read',fixture:fixtureFor(oldAtNew),step:oldAtNew,store:{dir}});assert.deepEqual(mismatch.outcome,oldAtNew.expected.outcome);assert.equal(mismatch.selected,newId);
+ const fresh=ex('control-read','control-read',{mode:'control-read',fixture:fixtureFor(newRead),step:newRead,store:{dir}});expectExecuted(fresh,newRead);assert.ok(fresh.calls.length>=1,'a fresh source check');assert.equal(fresh.selected,newId);
  // Old serving is disabled after activation on every path: the old read is refused as an explicit attempt under any wrapper.
- neverServes(a['control-read'],oldServes,oldServes,'the old configuration never serves after activation');
- neverServes(a['control-read'],{...oldServes,verb:'restore'},oldServes,'a relabeled old read never serves');
- neverServes(a['control-read'],reopenRestore,oldServes,'a supplied upstream old read never serves');
+ neverServes('control-read',oldServes,oldServes,'the old configuration never serves after activation');
+ neverServes('control-read',{...oldServes,verb:'restore'},oldServes,'a relabeled old read never serves');
+ neverServes('control-read',reopenRestore,oldServes,'a supplied upstream old read never serves');
  const snapshot=delivered(newRead,'snapshot/1'),capture=captureFor(newRead);
- const result=ex('control-result',a['control-result'],{mode:'control-result',fixture:fixtureFor(newRead),upstream:fresh,control:{bytesHex:prepB.expected.controlHex},capture,snapshot});expectReadback(result,completed(newRead));
+ const result=ex('control-result','control-result',{mode:'control-result',fixture:fixtureFor(newRead),upstream:fresh,control:{bytesHex:prepB.expected.controlHex},capture,snapshot});expectReadback(result,completed(newRead));
  // 5. The old scope reopened explicitly keeps its retirements; nothing is copied or resurrected.
- for(const step of [reopenInstall,reopenRestore]){const r=prepare(a['control-restore'],step);assert.equal(r.status,0,r.stderr);assert.deepEqual(r.output.outcome,step.expected.outcome);assert.equal(r.output.store.bytesHex,old.expected.controlHex);}
+ for(const step of [reopenInstall,reopenRestore]){const r=prepare('control-restore',step);assert.equal(r.status,0,r.stderr);assert.deepEqual(r.output.outcome,step.expected.outcome);assert.equal(r.output.store.bytesHex,old.expected.controlHex);}
  // 6. An explicit install of an old retired descriptor into the new scope is a new install.
- const newInstall=ex('control-execute',a['control-execute'],{mode:'control-execute',fixture:fixtureFor(newInstallOld),step:newInstallOld,store:{dir}});expectExecuted(newInstall,newInstallOld);assert.equal(newInstall.selected,newId);
- const final=ex('control-export',a['control-export'],{mode:'control-export',fixture:fixtureFor(old),store:{dir},explicit:true});assert.equal(final.bytesHex,old.expected.controlHex,'the old image is untouched by rotation');assert.equal(final.selected,newId);
+ const newInstall=ex('control-execute','control-execute',{mode:'control-execute',fixture:fixtureFor(newInstallOld),step:newInstallOld,store:{dir}});expectExecuted(newInstall,newInstallOld);assert.equal(newInstall.selected,newId);
+ const final=ex('control-export','control-export',{mode:'control-export',fixture:fixtureFor(old),store:{dir},explicit:true});assert.equal(final.bytesHex,old.expected.controlHex,'the old image is untouched by rotation');assert.equal(final.selected,newId);
  return records;
 }
 /**
@@ -162,32 +164,32 @@ function erasureCrossing(a,plan,label){
   if(erased==='present')assert.ok(image&&dir,where+': erased support still reachable, purge owed');
   if(erased==='debt')assert.ok(!image&&dir,where+': the image settled, historical copies still owed');
   if(erased==='absent')assert.ok(!image&&!dir,where+': erased support settled on every surface');};
- const exportA=()=>{const e=must(a['control-export'],{mode:'control-export',fixture:fixtureFor(first),store:{dir:dirA}});record(records,'control-export',a['control-export'],{mode:'control-export'},e);return e;};
+ const exportA=()=>{const e=must(a['control-export'],{mode:'control-export',fixture:fixtureFor(first),store:{dir:dirA}});record(records,'control-export',a,'control-export',{mode:'control-export'},e);return e;};
  const constructed=must(a['construct'],{mode:'construct',fixture,step:first});
- assert.deepEqual(constructed.delivery.map(d=>d.id),first.delivery.map(d=>d.id));record(records,'construct',a['construct'],{mode:'construct',step:first.id},constructed);
+ assert.deepEqual(constructed.delivery.map(d=>d.id),first.delivery.map(d=>d.id));record(records,'construct',a,'construct',{mode:'construct',step:first.id},constructed);
  const executeInput={mode:'control-execute',fixture:{...fixtureFor(first),refusedSupport:refused},step:first,store:{dir:dirA},seed:true,seedHistory,upstream:constructed,...(fault?{fault:{kind:fault}}:{})};
  const executed=run(a['control-execute'],executeInput);
  if(after.crash){assert.notEqual(executed.status,0,'a crashed host answers nothing');assert.equal(executed.output,null);}
  else{assert.equal(executed.status,0,executed.stderr);if(after.outcome)expectExecuted(executed.output,first);if(after.status){assert.equal(executed.output.outcome.claims.pointers.find(p=>p.role===role+'status').target,after.status);assert.equal(executed.output.store.bytesHex,after.controlHex);}if(after.settled!==undefined)assert.equal(executed.output.erasure.afterAttempt.settled,after.settled,'settlement after '+first.id);}
- const {upstream:_u,...executeRecord}=executeInput;record(records,'control-execute',a['control-execute'],executeRecord,executed.output??{crashed:true,status:executed.status});
+ const {upstream:_u,...executeRecord}=executeInput;record(records,'control-execute',a,'control-execute',executeRecord,executed.output??{crashed:true,status:executed.status});
  let exported=exportA();assert.equal(exported.bytesHex,after.controlHex,'the directory after the stage is the oracle');scan(exported,after.erased,'after '+first.id);
  assert.deepEqual(exported.erasure.refused,refused,'the refused acts are durable host facts');
  // Later processes reopen the surviving directory; the test never supplies the refused acts again.
  for(const t of then){const {refusedSupport:_r,...fx}=fixtureFor(t.step);const input={mode:'control-execute',fixture:fx,step:t.step,store:{dir:dirA},...(t.fault?{fault:{kind:t.fault}}:{})};const o=run(a['control-read'],input);
-  if(t.crash){assert.notEqual(o.status,0,'a crashed host answers nothing');record(records,'control-execute',a['control-read'],input,{crashed:true,status:o.status});}
-  else{assert.equal(o.status,0,o.stderr);assert.deepEqual(o.output.outcome,t.step.expected.outcome);assert.equal(o.output.store.bytesHex,t.step.expected.controlHex);assert.deepEqual(o.output.erasure.refused,refused,'reopened under the persisted restriction');if(t.settled!==undefined)assert.equal(o.output.erasure.afterAttempt.settled,t.settled,'settlement after '+t.step.id);record(records,'control-execute',a['control-read'],input,o.output);}
+  if(t.crash){assert.notEqual(o.status,0,'a crashed host answers nothing');record(records,'control-execute',a,'control-read',input,{crashed:true,status:o.status});}
+  else{assert.equal(o.status,0,o.stderr);assert.deepEqual(o.output.outcome,t.step.expected.outcome);assert.equal(o.output.store.bytesHex,t.step.expected.controlHex);assert.deepEqual(o.output.erasure.refused,refused,'reopened under the persisted restriction');if(t.settled!==undefined)assert.equal(o.output.erasure.afterAttempt.settled,t.settled,'settlement after '+t.step.id);record(records,'control-execute',a,'control-read',input,o.output);}
   exported=exportA();scan(exported,t.erased,'after '+t.step.id);}
  const finalHex=exported.bytesHex;
  // The fresh witness has its own erasure law and is told the same acts; it restores the terminal image without the originals.
  const dirB=freshDir(label+'-b');
  const toldB=step=>({...fixtureFor(step),refusedSupport:refused});
  const restored=must(a['control-restore'],{mode:'control-restore',fixture:toldB(restore),step:restore,store:{dir:dirB},upstream:exported});
- assert.deepEqual(restored.outcome,restore.expected.outcome);assert.equal(restored.store.bytesHex,finalHex);record(records,'control-restore',a['control-restore'],{mode:'control-restore',step:restore.id},restored);
+ assert.deepEqual(restored.outcome,restore.expected.outcome);assert.equal(restored.store.bytesHex,finalHex);record(records,'control-restore',a,'control-restore',{mode:'control-restore',step:restore.id},restored);
  const readOut=must(a['control-read'],{mode:'control-read',fixture:toldB(read),step:read,store:{dir:dirB}});
- assert.deepEqual(readOut.outcome,read.expected.outcome);record(records,'control-read',a['control-read'],{mode:'control-read',step:read.id},readOut);
+ assert.deepEqual(readOut.outcome,read.expected.outcome);record(records,'control-read',a,'control-read',{mode:'control-read',step:read.id},readOut);
  const snapshot=delivered(read,'snapshot/1'),capture=delivered(read,'capture/1')??captureFor(read);
- const result=must(a['control-result'],{mode:'control-result',fixture:fixtureFor(read),upstream:readOut,control:exported,...(snapshot?{capture,snapshot}:{})});expectReadback(result,readback);record(records,'control-result',a['control-result'],{mode:'control-result',step:read.id},result);
- for(const e of extra){const o=must(a['control-read'],{mode:'control-execute',fixture:toldB(e.step),step:e.step,store:{dir:dirB}});assert.deepEqual(o.outcome,e.step.expected.outcome);assert.equal(o.store.bytesHex,e.controlHex??finalHex);record(records,'control-read',a['control-read'],{mode:'control-execute',step:e.step.id},o);}
+ const result=must(a['control-result'],{mode:'control-result',fixture:fixtureFor(read),upstream:readOut,control:exported,...(snapshot?{capture,snapshot}:{})});expectReadback(result,readback);record(records,'control-result',a,'control-result',{mode:'control-result',step:read.id},result);
+ for(const e of extra){const o=must(a['control-read'],{mode:'control-execute',fixture:toldB(e.step),step:e.step,store:{dir:dirB}});assert.deepEqual(o.outcome,e.step.expected.outcome);assert.equal(o.store.bytesHex,e.controlHex??finalHex);record(records,'control-read',a,'control-read',{mode:'control-execute',step:e.step.id},o);}
  if(plan.finalErased==='absent')assert.ok(!exported.bytesHex.includes(ERASED_MARKER)&&!dirHas(dirB,ERASED_MARKER),'the fresh witness carries no erased support');
  return records;
 }
