@@ -1,0 +1,83 @@
+{
+  "format": "rhizomatic.materialization-m4-cases/1",
+  "scope": "SPEC-16 M4 cumulative acceptance. Each required case is allocated once. `executed` means the named evidence runs on every CI push against the M1, M2 and M3 bundles of the same run; `ci-only` evidence cannot be produced by a local run; `specified` has no executed evidence yet. The checker is tools/check-materialization-m4.mjs; its report is M4-CUMULATIVE.json and REPORT.json.",
+  "cases": [
+    {
+      "id": "tower_capability_refusal",
+      "state": "executed",
+      "evidence": [
+        "M4-CUMULATIVE.capability: advertised-without-evidence, unverified-upper-witness, upper-witness-assignment, deleted-mixed-port, missing-recorded-build, stale-build and modified-replay-plan refuse against the real M1, M2 and M3 manifests",
+        "M4-CUMULATIVE: Elixir and Haskell stay not_implemented with no stages in every manifest",
+        "each runner: unsupported-stage and missing-stage-evidence negatives"
+      ],
+      "remaining": ""
+    },
+    {
+      "id": "tower_three_seeded",
+      "state": "executed",
+      "evidence": [
+        "M4-CUMULATIVE.threeSeeded: every required M1, M2 and M3 scenario has three validated mixed plans, repeats reported, each tower replayed byte-exactly",
+        "M4-CUMULATIVE.fixedRoutes: both fixed routes of each milestone executed for every required scenario",
+        "M4-CUMULATIVE.oracle: M1 envelopes, M2 final readbacks and M3 restore and read outcomes equal the shared goldens"
+      ],
+      "remaining": ""
+    },
+    {
+      "id": "tower_exact_replay",
+      "state": "executed",
+      "evidence": [
+        "M4-CUMULATIVE.replay: the M3 runner replays a retained scenario without a seed reroll; the intact bundle reproduces and a bundle with one changed recorded signature refuses with retained exact replay",
+        "M4-CUMULATIVE.capability: missing-recorded-build and stale-build refuse at the replay plan",
+        "M4-CUMULATIVE.integrity: every retained artifact hashes to its recorded digest"
+      ],
+      "remaining": ""
+    },
+    {
+      "id": "tower_corruption_probe",
+      "state": "executed",
+      "evidence": [
+        "M1 runner receivingCorruption and the shared receiving-boundary negatives: noncanonical bytes, signatures, indices and tables refuse invalid-evidence",
+        "M2 runner corrupt-signed-delivery: an altered request signature refuses before dispatch",
+        "M3 runner receivingCorruption: a trailing byte and a flipped appearance-signature byte in an exported image refuse invalid-control at restore and invalid-evidence at readback, in both producer and consumer directions"
+      ],
+      "remaining": ""
+    },
+    {
+      "id": "tower_wrong_shared_oracle",
+      "state": "executed",
+      "evidence": [
+        "M4-CUMULATIVE.oracle.wrongShared: all three cmd_gather_resolve_fresh towers report height 99 where the fixture specifies 42; agreement passes and the independent oracle turns all three red"
+      ],
+      "remaining": ""
+    },
+    {
+      "id": "tower_isolation",
+      "state": "executed",
+      "evidence": [
+        "M3 runner isolation: after tower 0 ran, its control image and source state change; towers 1 and 2 reproduce their recorded results in fresh directories, and a tower pointed at tower 0's directory is detected"
+      ],
+      "remaining": ""
+    },
+    {
+      "id": "existing_conformance_gates",
+      "state": "executed",
+      "evidence": [
+        "ci-only: the materialization-m4 job needs the TypeScript, Rust, Haskell, Elixir, command, M1, M2 and M3 jobs of the same run; the checker requires every one of them to succeed on the checked-out commit",
+        "the TypeScript job carries docs and vector freshness; the M1 and M2 jobs carry packet structure, command contracts, the package graph and Rust boundaries; the command job carries the inventories"
+      ],
+      "remaining": ""
+    },
+    {
+      "id": "nested_resource_baseline",
+      "state": "specified",
+      "evidence": [],
+      "remaining": "Lifecycle phases (install, replace, fresh restore and read) and control bytes in the measurement sweep, with exact and one-over byte boundaries (slice M4b). Journal-backed published Plant and Bed counts are owed before M5 acceptance."
+    },
+    {
+      "id": "independent_contract_implementation_review",
+      "state": "specified",
+      "evidence": [],
+      "remaining": "Independent review of the frozen M4 head; the accepted head is recorded here."
+    }
+  ]
+}

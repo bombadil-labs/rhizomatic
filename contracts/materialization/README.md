@@ -1,6 +1,6 @@
 # Portable read/materialization contract packet
 
-**Accepted contract and M1 codecs; M2 batch implementation awaits independent review. M3–M5 remain prospective.**
+**M1–M3 are implemented in both witnesses, reviewed and on main. M4 cumulative acceptance is in progress ([M4.md](M4.md)); M5 remains prospective.**
 
 Read [SPEC.md](SPEC.md), [DECISIONS.md](DECISIONS.md), [BOUNDARIES.json](BOUNDARIES.json),
 [API.json](API.json), [ACCEPTANCE.json](ACCEPTANCE.json), [MILESTONES.json](MILESTONES.json),

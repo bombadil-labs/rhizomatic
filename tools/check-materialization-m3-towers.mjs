@@ -61,7 +61,7 @@ function expectReadback(actual,expected){assert.deepEqual(actual,{receiverTestim
  */
 function crossing(a,plan,label){
  const {first,fault,after,restore,read,readback,extra=[]}=plan;const records=[];
- const dirA=freshDir(label+'-a');
+ const dirA=plan.dirA??freshDir(label+'-a');
  const constructed=must(a['construct'],{mode:'construct',fixture,step:first});
  assert.deepEqual(constructed.delivery.map(d=>d.id),first.delivery.map(d=>d.id));record(records,'construct',a['construct'],{mode:'construct',step:first.id},constructed);
  const executeInput={mode:'control-execute',fixture:{...fixtureFor(first),...(plan.refused?{refusedSupport:plan.refused}:{}),...(plan.moved?{movedSource:plan.moved}:{})},step:first,store:{dir:dirA},seed:true,upstream:constructed,...(fault?{fault:{kind:fault,...(plan.raced?{image:plan.raced}:{})}}:{})};
@@ -256,9 +256,13 @@ const faults={
 assert.equal(S('read_wrong_control').initialControl.hex,S('install').expected.controlHex);
 const capabilities={format:'rhizomatic-command-capabilities/1',witnesses:['ts','rust'].map(id=>({id,state:'supported',buildId:builds[id],profiles:[],stages:[...new Set(stages.map(s=>s.contract))],stage_evidence:Object.fromEntries(stages.map(s=>[s.contract,Object.keys(scenarios)]))})).concat(['elixir','haskell'].map(id=>({id,state:'not_implemented',stages:[],profiles:[]})))};
 const fixed=[['ts','ts','ts','rust','rust','ts'],['rust','rust','rust','ts','ts','rust']].map(ws=>Object.fromEntries(stages.map((s,i)=>[s.id,ws[i]])));
-const evidence={format:'rhizomatic.materialization-m3-executed/1',scope:'M3 lifecycle crossings over durable directories, MR-18 fault points, source races, support erasure and configuration rotation; no source journal or execution proof',seed:process.env.M3_SEED??'M3-2026-10-09',builds,toolchains:{node:process.version,rust:spawnSync(process.env.RUSTC??'rustc',['--version','--verbose'],{encoding:'utf8'}).stdout.trim()},fixed:[],towers:[],faults:[],executed:{towers:Object.keys(scenarios),faults:Object.keys(faults)},notExecuted:packet.required_scenarios.M3.filter(id=>!(id in scenarios))};
+// M3_ONLY names the scenarios and fault schedules to run (comma list); a filtered run records no
+// harness negatives. M4's exact-replay probe uses it to replay one retained scenario.
+const only=process.env.M3_ONLY?new Set(process.env.M3_ONLY.split(',')):null;
+const selected=table=>Object.entries(table).filter(([id])=>!only||only.has(id));
+const evidence={format:'rhizomatic.materialization-m3-executed/1',scope:'M3 lifecycle crossings over durable directories, MR-18 fault points, source races, support erasure and configuration rotation; no source journal or execution proof',seed:process.env.M3_SEED??'M3-2026-10-09',builds,toolchains:{node:process.version,rust:spawnSync(process.env.RUSTC??'rustc',['--version','--verbose'],{encoding:'utf8'}).stdout.trim()},fixed:[],towers:[],faults:[],executed:{towers:selected(scenarios).map(([id])=>id),faults:selected(faults).map(([id])=>id)},notExecuted:packet.required_scenarios.M3.filter(id=>!(id in scenarios))};
 const strip=records=>records.map(r=>{if(!r.actual||typeof r.actual!=='object')return r;const {diagnostics:_d,...actual}=r.actual;return {...r,actual};});
-for(const [caseId,plan]of Object.entries(scenarios)){
+for(const [caseId,plan]of selected(scenarios)){
  for(let i=0;i<fixed.length;i++){const records=cross(fixed[i],plan,`${caseId}-fixed-${i}`),path=`m3-fixed-${caseId}-${i}.json`;writeFileSync(join(out,path),canonicalJson({caseId,assignment:fixed[i],records})+'\n');evidence.fixed.push({caseId,assignment:fixed[i],artifact:path,sha256:hash(join(out,path))});}
  const plans=replayDir?JSON.parse(readFileSync(join(replayDir,`m3-plans-${caseId}.json`))):planTowers({seed:evidence.seed,scenario:caseId,stages,capabilities});validateReplayPlan(plans,{stages,capabilities,availableBuilds:builds});
  writeFileSync(join(out,`m3-plans-${caseId}.json`),canonicalJson(plans)+'\n');
@@ -269,11 +273,54 @@ for(const [caseId,plan]of Object.entries(scenarios)){
  }
  console.log(`M3 ${caseId}: both fixed directions + three towers/replay`);
 }
-for(const [caseId,plan]of Object.entries(faults)){
+for(const [caseId,plan]of selected(faults)){
  for(let i=0;i<fixed.length;i++){const records=cross(fixed[i],plan,`${caseId}-${i}`),path=`m3-fault-${caseId}-${i}.json`;
   if(replayDir){const prior=JSON.parse(readFileSync(join(replayDir,path)));assert.equal(canonicalJson(strip(prior.records)),canonicalJson(strip(records)),'retained fault replay');}
   writeFileSync(join(out,path),canonicalJson({caseId,...(plan.fault?{fault:plan.fault}:{}),assignment:fixed[i],records})+'\n');evidence.faults.push({caseId,...(plan.fault?{fault:plan.fault}:{}),assignment:fixed[i],artifact:path,sha256:hash(join(out,path))});}
  console.log(`M3 fault ${caseId} (${plan.fault??'no fault'}): both fixed directions`);
+}
+if(only){rmSync(stores,{recursive:true,force:true});writeFileSync(join(out,'M3-TOWERS.json'),JSON.stringify(evidence,null,2)+'\n');console.log(`M3 filtered run: ${[...only].join(',')}`);process.exit(0);}
+// Receiving-edge corruption (tower_corruption_probe): the producer exports a valid image and the
+// consumer receives it with one change. The consumer refuses at its declared edge, and each record
+// names the producer, the consumer, the edge and the change.
+const flipSignature=hex=>{const at=hex.indexOf('63736967'+'5840');assert.ok(at>=0,'an appearance signature in the image');const i=at+12;return hex.slice(0,i)+(parseInt(hex.slice(i,i+2),16)^1).toString(16).padStart(2,'0')+hex.slice(i+2);};
+const corruptions={'trailing-byte':hex=>hex+'f4','flipped-signature-byte':flipSignature};
+const invalidControl=cborMap([['code','invalid-control']]);
+evidence.receivingCorruption=[];
+{
+ const produced={revision:S('restore_installed').initialControl.revision,bytesHex:S('install').expected.controlHex};
+ for(const [producer,consumer]of [['ts','rust'],['rust','ts']])for(const [change,mutate]of Object.entries(corruptions)){
+  const upstream={...produced,bytesHex:mutate(produced.bytesHex)};
+  // Edge 1: restore in a fresh consumer directory.
+  const restored=must(consumer,{mode:'control-restore',fixture:fixtureFor(S('restore_installed')),step:S('restore_installed'),store:{dir:freshDir('corrupt-restore')},upstream});
+  assert.equal(restored.outcome.claims.pointers.find(p=>p.role===role+'status').target,'refused',`${consumer} restore of a corrupted image refuses`);
+  assert.equal(bodyOf({expected:{outcome:restored.outcome}}),invalidControl,`${consumer} restore refuses invalid-control`);
+  // Edge 2: readback of a genuine read outcome against the corrupted image.
+  const readOut=must(producer,{mode:'control-read',fixture:fixtureFor(S('read_installed')),step:S('read_installed'),store:{dir:freshDir('corrupt-read')},seed:true});
+  const snapshot=delivered(S('read_installed'),'snapshot/1'),capture=captureFor(S('read_installed'));
+  const readback=run(consumer,{mode:'control-result',fixture:fixtureFor(S('read_installed')),upstream:readOut,control:{bytesHex:upstream.bytesHex},capture,snapshot});
+  assert.notEqual(readback.status,0,`${consumer} readback against a corrupted image refuses`);assert.match(readback.stderr,/invalid-(evidence|control)/);
+  evidence.receivingCorruption.push({change,producer,consumer,edges:[{edge:'control-restore',status:'refused',code:'invalid-control'},{edge:'control-result',refused:true,error:readback.stderr.trim().split('\n').find(l=>/invalid-(evidence|control)/.test(l))?.trim()??null}]});
+ }
+}
+// Tower isolation (tower_isolation): each tower owns a fresh durable directory. After tower 0 ran,
+// its control image and its source state are changed; towers 1 and 2 still reproduce their
+// recorded results, and a run pointed at tower 0's directory is detected.
+{
+ const isoPlans=JSON.parse(readFileSync(join(out,'m3-plans-ctl_cross_witness_restore.json'))).plans,plan=scenarios.ctl_cross_witness_restore;
+ const assign=p=>Object.fromEntries(p.assignments.map(x=>[x.stage,x.witness]));
+ const dir0=freshDir('isolation-0-a');crossing(assign(isoPlans[0]),{...plan,dirA:dir0},'isolation-0');
+ const doc=files(dir0).find(p=>p.endsWith('.json')&&!p.endsWith('source-state.json'));
+ writeFileSync(doc,JSON.stringify({revision:S('advance_time').expected.controlHex.slice(0,8),imageHex:S('advance_time').expected.controlHex}));
+ writeFileSync(join(dir0,'source-state.json'),JSON.stringify(S('read_advanced_source_replaced').source));
+ const kept=[];
+ for(const i of [1,2]){
+  const prior=JSON.parse(readFileSync(join(out,`m3-tower-ctl_cross_witness_restore-${i}.json`))).first;
+  const again=crossing(assign(isoPlans[i]),plan,`isolation-${i}`);
+  assert.equal(canonicalJson(strip(again)),canonicalJson(strip(prior)),`tower ${i} does not inherit tower 0 state`);kept.push(i);
+ }
+ assert.throws(()=>crossing(assign(isoPlans[1]),{...plan,dirA:dir0},'isolation-leak'),/Expected values|source-changed|deepEqual|strictEqual/,'a tower reading tower 0 state is detected');
+ evidence.isolation={scenario:'ctl_cross_witness_restore',mutated:'tower 0 control image and source state',unchanged:kept,leakDetected:true};
 }
 // Harness sensitivity: a wrong outcome, a stale build and a modified plan must each refuse.
 const good=must('ts',{mode:'control-execute',fixture,step:install,store:{dir:freshDir('negative')},seed:true});
@@ -282,7 +329,9 @@ const tampered=structuredClone(good);tampered.store.bytesHex=S('advance_time').e
 const plans=JSON.parse(readFileSync(join(out,'m3-plans-ctl_cross_witness_restore.json')));
 assert.throws(()=>validateReplayPlan(plans,{stages,capabilities,availableBuilds:{...builds,ts:'stale'}}),/pinned replay build/);
 const modified=structuredClone(plans);modified.seed+='changed';assert.throws(()=>validateReplayPlan(modified,{stages,capabilities,availableBuilds:builds}),/fingerprint/);
-evidence.harnessNegatives=['wrong-outcome','wrong-directory','stale-build','modified-replay-plan'];
+const unsupported=structuredClone(capabilities);for(const w of unsupported.witnesses){w.state='not_implemented';w.stages=[];w.profiles=[];}assert.throws(()=>planTowers({seed:'negative',scenario:'unsupported',stages,capabilities:unsupported}),/unsupported required stage/);
+const missing=structuredClone(capabilities);delete missing.witnesses[0].stage_evidence[stages[0].contract];assert.throws(()=>planTowers({seed:'negative',scenario:'missing-evidence',stages,capabilities:missing}),/stage evidence/);
+evidence.harnessNegatives=['wrong-outcome','wrong-directory','stale-build','modified-replay-plan','unsupported-stage','missing-stage-evidence','receiving-corruption','tower-isolation'];
 rmSync(stores,{recursive:true,force:true});
 writeFileSync(join(out,'M3-CAPABILITIES.json'),JSON.stringify(capabilities,null,2)+'\n');writeFileSync(join(out,'M3-TOWERS.json'),JSON.stringify(evidence,null,2)+'\n');
 console.log(`M3 crossings: ${evidence.fixed.length} fixed, ${evidence.towers.length} seeded towers + exact replay, ${evidence.faults.length} fault branches; ${evidence.harnessNegatives.length} sensitivity negatives; ${out}`);
