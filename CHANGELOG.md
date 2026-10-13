@@ -35,7 +35,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
   to one clean source (the CI checkout in CI); checks every executed record against its plan role
   and witness; and requires exact measurement phase sequences. M1 crossings record their writer
   and reader, and M3 records name the plan role whose witness ran them. Each new check has a
-  refusal probe.
+  refusal probe. The independent re-review of this head found no remaining findings, so all nine
+  M4 cases are executed.
 - SPEC-16 M3 groundwork in TypeScript and Rust: the reactor-owned `rhizomatic.materialization-control/1`
   image codec and pure transition planner, the storage-owned control store seam, a federation
   facade, and the `registration/1`, `state/1` and `control-image/1` descriptions plus the six

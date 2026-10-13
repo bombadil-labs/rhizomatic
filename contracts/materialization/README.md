@@ -1,6 +1,6 @@
 # Portable read/materialization contract packet
 
-**M1–M3 are implemented in both witnesses, reviewed and on main. M4 cumulative acceptance is in progress ([M4.md](M4.md)); M5 remains prospective.**
+**M1–M3 are implemented in both witnesses, reviewed and on main. M4 cumulative acceptance is executed and independently reviewed ([M4.md](M4.md)); release B is eligible once it lands. M5 remains prospective.**
 
 Read [SPEC.md](SPEC.md), [DECISIONS.md](DECISIONS.md), [BOUNDARIES.json](BOUNDARIES.json),
 [API.json](API.json), [ACCEPTANCE.json](ACCEPTANCE.json), [MILESTONES.json](MILESTONES.json),

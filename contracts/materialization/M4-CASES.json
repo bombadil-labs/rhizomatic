@@ -83,9 +83,14 @@
     },
     {
       "id": "independent_contract_implementation_review",
-      "state": "specified",
-      "evidence": [],
-      "remaining": "Independent review of the frozen M4 head; the accepted head is recorded here."
+      "state": "executed",
+      "evidence": [
+        "Independent re-review of head 0acef87ae741221dfceb370fd3992342a8ed4b48 on PR #71 (review 5506849416, 2026-10-13): no remaining actionable findings; all four round-1 findings on 7efc494 addressed",
+        "The reviewer inspected CI run 38266687436 and its M1\u2013M4 artifacts, ran the receipt, inventory, execution, capability, oracle and measurement checks against them (175 digests, 57 M3 oracle outcomes, all 24 new probes), and rebuilt both measurement hosts to run the nested Bed lifecycle locally",
+        "Not repeated locally by the reviewer: the Rust build-identity comparison and the live retained-bundle replay (both passed in the pinned CI run), the full four-language suite and the full source-size sweep",
+        "The commit that records this review changes only the case ledger, M4.md, the packet README and CHANGELOG"
+      ],
+      "remaining": ""
     }
   ]
 }
