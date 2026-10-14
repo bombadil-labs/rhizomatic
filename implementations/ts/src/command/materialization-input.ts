@@ -394,7 +394,9 @@ export function validateMaterializationSourceInput(
       !materializationValidAt(capture, snapshot.servingAt) ||
       !materializationValidAt(authority, receivedAt) ||
       snapshot.historicalCutoff !==
-        (p.fields["historical-cutoff"] ? commandNumber(p.fields, "historical-cutoff") : undefined) ||
+        (p.fields["historical-cutoff"]
+          ? commandNumber(p.fields, "historical-cutoff")
+          : undefined) ||
       // A scoped binding promises scoped captures, and a full binding promises full ones.
       materializationBindingScoped(spec) !== (snapshot.scope !== undefined)
     )

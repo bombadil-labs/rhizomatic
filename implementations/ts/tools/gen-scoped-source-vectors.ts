@@ -83,9 +83,7 @@ function snapshot(
         ["membership", tstr(membership)],
         ["appearanceDigest", tstr(appearanceDigest)],
         ["exclusions", array([])],
-        ...(revisionScope === null
-          ? []
-          : [["scope", array(revisionScope.map(tstr))] as const]),
+        ...(revisionScope === null ? [] : [["scope", array(revisionScope.map(tstr))] as const]),
       ]),
     ),
   );
