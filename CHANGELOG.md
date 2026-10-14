@@ -6,6 +6,32 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 
 ## Unreleased
 
+## 0.11.0-next.10 — 2026-10-14
+
+Release C: reads cost their footprint, not the store (SPEC-17 proposal, slices R1, R1b and R2),
+in TypeScript and Rust. An anchored program evaluates over S(E), the deltas that point at the
+entities it reads, closed under negation. Warm views refresh over their own scope. A portable
+batch read can capture one read's scope with the new `scoped-snapshot/1` profile, and the library
+now produces the snapshot and basis bytes. Both witnesses pass the new shared vectors, and both
+PRs (#72, #73) were independently reviewed. Elixir and Haskell remain Level 0.
+
+### ⚠️ Breaking
+
+- A scope array on the wire is ordered by UTF-8 bytes (SPEC-16 MR-10a). Hosts that build a scope
+  by hand must sort with that order, or call `produceMaterializationSnapshot`, which does it.
+- A TypeScript caller that counted strict signature checks will see fewer: successful checks are
+  remembered per process (`verifyDelta`). Answers do not change.
+- `scope-miss` is a new refusal code. A consumer that matches refusal codes exhaustively must add
+  it.
+
+### Known limits
+
+- Unanchored programs (aliased roles, reflection without a pinned entity, `actsFor`, a const
+  group without a pinned entity) still evaluate over the whole store.
+- Maintained (M3) lifecycle reads still use full captures; only batch gather is scoped.
+- A lowered (governed) program dispatches broadly unless its hook names its dependencies.
+- The trust-state snapshot and the repudiation operation (SPEC-17 §9) are design notes, not code.
+
 ### Added
 
 - Anchored reads (SPEC-17 proposal, slice R1), in TypeScript and Rust. A read now costs its
