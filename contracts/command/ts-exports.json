@@ -26951,6 +26951,236 @@
       "contract": "rhizomatic.resolve/native-api/1",
       "classification": "native_extension",
       "semantics": "Native resolve API hviewAnchors implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/anchored.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:index.ts:hviewAnchors",
+      "owner": "resolve",
+      "symbol": "hviewAnchors",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/resolve/anchored.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native resolve API hviewAnchors implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/anchored.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:materializationBindingScoped",
+      "owner": "federation",
+      "symbol": "materializationBindingScoped",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/federation/materialization-source.ts",
+      "contract": "rhizomatic.materialization/1/capture",
+      "classification": "compatibility_reexport",
+      "semantics": "materializationBindingScoped: Exact boot binding plus metadata-only capture/authority testimony and separate full snapshot; host grant required. MR-08, MR-09, MR-10, MR-11, MR-12, MR-19, MR-20, MR-21, MR-22; definition implementations/ts/src/federation/materialization-source.ts."
+    },
+    {
+      "id": "ts:index.ts:produceMaterializationSnapshot",
+      "owner": "federation",
+      "symbol": "produceMaterializationSnapshot",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/federation/materialization-source.ts",
+      "contract": "rhizomatic.materialization/1/capture",
+      "classification": "compatibility_reexport",
+      "semantics": "produceMaterializationSnapshot: Exact boot binding plus metadata-only capture/authority testimony and separate full snapshot; host grant required. MR-08, MR-09, MR-10, MR-11, MR-12, MR-19, MR-20, MR-21, MR-22; definition implementations/ts/src/federation/materialization-source.ts."
+    },
+    {
+      "id": "ts:index.ts:SCOPED_SNAPSHOT_PROFILE",
+      "owner": "federation",
+      "symbol": "SCOPED_SNAPSHOT_PROFILE",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/federation/materialization-source.ts",
+      "contract": "rhizomatic.materialization/1/capture",
+      "classification": "compatibility_reexport",
+      "semantics": "SCOPED_SNAPSHOT_PROFILE: Exact boot binding plus metadata-only capture/authority testimony and separate full snapshot; host grant required. MR-08, MR-09, MR-10, MR-11, MR-12, MR-19, MR-20, MR-21, MR-22; definition implementations/ts/src/federation/materialization-source.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationSourceComponentInput",
+      "owner": "federation",
+      "symbol": "MaterializationSourceComponentInput",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/federation/materialization-source.ts",
+      "contract": "rhizomatic.materialization/1/capture",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationSourceComponentInput: Exact boot binding plus metadata-only capture/authority testimony and separate full snapshot; host grant required. MR-08, MR-09, MR-10, MR-11, MR-12, MR-19, MR-20, MR-21, MR-22; definition implementations/ts/src/federation/materialization-source.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationSourceComponentInput#peer",
+      "owner": "federation",
+      "symbol": "MaterializationSourceComponentInput.peer",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/federation/materialization-source.ts",
+      "contract": "rhizomatic.materialization/1/capture",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationSourceComponentInput.peer: Exact boot binding plus metadata-only capture/authority testimony and separate full snapshot; host grant required. MR-08, MR-09, MR-10, MR-11, MR-12, MR-19, MR-20, MR-21, MR-22; definition implementations/ts/src/federation/materialization-source.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationSourceComponentInput#revision",
+      "owner": "federation",
+      "symbol": "MaterializationSourceComponentInput.revision",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/federation/materialization-source.ts",
+      "contract": "rhizomatic.materialization/1/capture",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationSourceComponentInput.revision: Exact boot binding plus metadata-only capture/authority testimony and separate full snapshot; host grant required. MR-08, MR-09, MR-10, MR-11, MR-12, MR-19, MR-20, MR-21, MR-22; definition implementations/ts/src/federation/materialization-source.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationSourceComponentInput#capturedAt",
+      "owner": "federation",
+      "symbol": "MaterializationSourceComponentInput.capturedAt",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/federation/materialization-source.ts",
+      "contract": "rhizomatic.materialization/1/capture",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationSourceComponentInput.capturedAt: Exact boot binding plus metadata-only capture/authority testimony and separate full snapshot; host grant required. MR-08, MR-09, MR-10, MR-11, MR-12, MR-19, MR-20, MR-21, MR-22; definition implementations/ts/src/federation/materialization-source.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationSourceComponentInput#operands",
+      "owner": "federation",
+      "symbol": "MaterializationSourceComponentInput.operands",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/federation/materialization-source.ts",
+      "contract": "rhizomatic.materialization/1/capture",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationSourceComponentInput.operands: Exact boot binding plus metadata-only capture/authority testimony and separate full snapshot; host grant required. MR-08, MR-09, MR-10, MR-11, MR-12, MR-19, MR-20, MR-21, MR-22; definition implementations/ts/src/federation/materialization-source.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationSourceComponentInput#heldIds",
+      "owner": "federation",
+      "symbol": "MaterializationSourceComponentInput.heldIds",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/federation/materialization-source.ts",
+      "contract": "rhizomatic.materialization/1/capture",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationSourceComponentInput.heldIds: Exact boot binding plus metadata-only capture/authority testimony and separate full snapshot; host grant required. MR-08, MR-09, MR-10, MR-11, MR-12, MR-19, MR-20, MR-21, MR-22; definition implementations/ts/src/federation/materialization-source.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationSourceInput",
+      "owner": "federation",
+      "symbol": "MaterializationSourceInput",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/federation/materialization-source.ts",
+      "contract": "rhizomatic.materialization/1/capture",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationSourceInput: Exact boot binding plus metadata-only capture/authority testimony and separate full snapshot; host grant required. MR-08, MR-09, MR-10, MR-11, MR-12, MR-19, MR-20, MR-21, MR-22; definition implementations/ts/src/federation/materialization-source.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationSourceInput#binding",
+      "owner": "federation",
+      "symbol": "MaterializationSourceInput.binding",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/federation/materialization-source.ts",
+      "contract": "rhizomatic.materialization/1/capture",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationSourceInput.binding: Exact boot binding plus metadata-only capture/authority testimony and separate full snapshot; host grant required. MR-08, MR-09, MR-10, MR-11, MR-12, MR-19, MR-20, MR-21, MR-22; definition implementations/ts/src/federation/materialization-source.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationSourceInput#authority",
+      "owner": "federation",
+      "symbol": "MaterializationSourceInput.authority",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/federation/materialization-source.ts",
+      "contract": "rhizomatic.materialization/1/capture",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationSourceInput.authority: Exact boot binding plus metadata-only capture/authority testimony and separate full snapshot; host grant required. MR-08, MR-09, MR-10, MR-11, MR-12, MR-19, MR-20, MR-21, MR-22; definition implementations/ts/src/federation/materialization-source.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationSourceInput#selection",
+      "owner": "federation",
+      "symbol": "MaterializationSourceInput.selection",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/federation/materialization-source.ts",
+      "contract": "rhizomatic.materialization/1/capture",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationSourceInput.selection: Exact boot binding plus metadata-only capture/authority testimony and separate full snapshot; host grant required. MR-08, MR-09, MR-10, MR-11, MR-12, MR-19, MR-20, MR-21, MR-22; definition implementations/ts/src/federation/materialization-source.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationSourceInput#servingAt",
+      "owner": "federation",
+      "symbol": "MaterializationSourceInput.servingAt",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/federation/materialization-source.ts",
+      "contract": "rhizomatic.materialization/1/capture",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationSourceInput.servingAt: Exact boot binding plus metadata-only capture/authority testimony and separate full snapshot; host grant required. MR-08, MR-09, MR-10, MR-11, MR-12, MR-19, MR-20, MR-21, MR-22; definition implementations/ts/src/federation/materialization-source.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationSourceInput#historicalCutoff",
+      "owner": "federation",
+      "symbol": "MaterializationSourceInput.historicalCutoff",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/federation/materialization-source.ts",
+      "contract": "rhizomatic.materialization/1/capture",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationSourceInput.historicalCutoff: Exact boot binding plus metadata-only capture/authority testimony and separate full snapshot; host grant required. MR-08, MR-09, MR-10, MR-11, MR-12, MR-19, MR-20, MR-21, MR-22; definition implementations/ts/src/federation/materialization-source.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationSourceInput#scope",
+      "owner": "federation",
+      "symbol": "MaterializationSourceInput.scope",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/federation/materialization-source.ts",
+      "contract": "rhizomatic.materialization/1/capture",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationSourceInput.scope: Exact boot binding plus metadata-only capture/authority testimony and separate full snapshot; host grant required. MR-08, MR-09, MR-10, MR-11, MR-12, MR-19, MR-20, MR-21, MR-22; definition implementations/ts/src/federation/materialization-source.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationSourceInput#components",
+      "owner": "federation",
+      "symbol": "MaterializationSourceInput.components",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/federation/materialization-source.ts",
+      "contract": "rhizomatic.materialization/1/capture",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationSourceInput.components: Exact boot binding plus metadata-only capture/authority testimony and separate full snapshot; host grant required. MR-08, MR-09, MR-10, MR-11, MR-12, MR-19, MR-20, MR-21, MR-22; definition implementations/ts/src/federation/materialization-source.ts."
+    },
+    {
+      "id": "ts:index.ts:MaterializationSourceInput#exclusions",
+      "owner": "federation",
+      "symbol": "MaterializationSourceInput.exclusions",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/federation/materialization-source.ts",
+      "contract": "rhizomatic.materialization/1/capture",
+      "classification": "compatibility_reexport",
+      "semantics": "MaterializationSourceInput.exclusions: Exact boot binding plus metadata-only capture/authority testimony and separate full snapshot; host grant required. MR-08, MR-09, MR-10, MR-11, MR-12, MR-19, MR-20, MR-21, MR-22; definition implementations/ts/src/federation/materialization-source.ts."
+    },
+    {
+      "id": "ts:index.ts:ProducedMaterializationSource",
+      "owner": "federation",
+      "symbol": "ProducedMaterializationSource",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/federation/materialization-source.ts",
+      "contract": "rhizomatic.materialization/1/capture",
+      "classification": "compatibility_reexport",
+      "semantics": "ProducedMaterializationSource: Exact boot binding plus metadata-only capture/authority testimony and separate full snapshot; host grant required. MR-08, MR-09, MR-10, MR-11, MR-12, MR-19, MR-20, MR-21, MR-22; definition implementations/ts/src/federation/materialization-source.ts."
+    },
+    {
+      "id": "ts:index.ts:ProducedMaterializationSource#snapshotBytes",
+      "owner": "federation",
+      "symbol": "ProducedMaterializationSource.snapshotBytes",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/federation/materialization-source.ts",
+      "contract": "rhizomatic.materialization/1/capture",
+      "classification": "compatibility_reexport",
+      "semantics": "ProducedMaterializationSource.snapshotBytes: Exact boot binding plus metadata-only capture/authority testimony and separate full snapshot; host grant required. MR-08, MR-09, MR-10, MR-11, MR-12, MR-19, MR-20, MR-21, MR-22; definition implementations/ts/src/federation/materialization-source.ts."
+    },
+    {
+      "id": "ts:index.ts:ProducedMaterializationSource#basisBytes",
+      "owner": "federation",
+      "symbol": "ProducedMaterializationSource.basisBytes",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/federation/materialization-source.ts",
+      "contract": "rhizomatic.materialization/1/capture",
+      "classification": "compatibility_reexport",
+      "semantics": "ProducedMaterializationSource.basisBytes: Exact boot binding plus metadata-only capture/authority testimony and separate full snapshot; host grant required. MR-08, MR-09, MR-10, MR-11, MR-12, MR-19, MR-20, MR-21, MR-22; definition implementations/ts/src/federation/materialization-source.ts."
+    },
+    {
+      "id": "ts:index.ts:ProducedMaterializationSource#revision",
+      "owner": "federation",
+      "symbol": "ProducedMaterializationSource.revision",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/federation/materialization-source.ts",
+      "contract": "rhizomatic.materialization/1/capture",
+      "classification": "compatibility_reexport",
+      "semantics": "ProducedMaterializationSource.revision: Exact boot binding plus metadata-only capture/authority testimony and separate full snapshot; host grant required. MR-08, MR-09, MR-10, MR-11, MR-12, MR-19, MR-20, MR-21, MR-22; definition implementations/ts/src/federation/materialization-source.ts."
     }
   ]
 }
