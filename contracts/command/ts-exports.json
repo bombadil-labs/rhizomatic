@@ -27181,6 +27181,26 @@
       "contract": "rhizomatic.materialization/1/capture",
       "classification": "compatibility_reexport",
       "semantics": "ProducedMaterializationSource.revision: Exact boot binding plus metadata-only capture/authority testimony and separate full snapshot; host grant required. MR-08, MR-09, MR-10, MR-11, MR-12, MR-19, MR-20, MR-21, MR-22; definition implementations/ts/src/federation/materialization-source.ts."
+    },
+    {
+      "id": "ts:cbor.ts:compareUtf8",
+      "owner": "delta",
+      "symbol": "compareUtf8",
+      "source": "implementations/ts/src/cbor.ts",
+      "definition": "implementations/ts/src/delta/cbor.ts",
+      "contract": "rhizomatic.delta/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native delta API compareUtf8 implements SPEC-1 Delta identity/JSON/CBOR; SPEC-8 container-neutral membership at implementations/ts/src/delta/cbor.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:delta/cbor.ts:compareUtf8",
+      "owner": "delta",
+      "symbol": "compareUtf8",
+      "source": "implementations/ts/src/delta/cbor.ts",
+      "definition": "implementations/ts/src/delta/cbor.ts",
+      "contract": "rhizomatic.delta/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native delta API compareUtf8 implements SPEC-1 Delta identity/JSON/CBOR; SPEC-8 container-neutral membership at implementations/ts/src/delta/cbor.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
     }
   ]
 }
