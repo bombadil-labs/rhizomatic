@@ -210,10 +210,10 @@
   }
   var utf8Decoder = new TextDecoder("utf-8", { fatal: true });
 
-  // node_modules/@noble/hashes/esm/crypto.js
+  // ../../../rhizomatic/implementations/ts/node_modules/@noble/hashes/esm/crypto.js
   var crypto = typeof globalThis === "object" && "crypto" in globalThis ? globalThis.crypto : void 0;
 
-  // node_modules/@noble/hashes/esm/utils.js
+  // ../../../rhizomatic/implementations/ts/node_modules/@noble/hashes/esm/utils.js
   function isBytes(a) {
     return a instanceof Uint8Array || ArrayBuffer.isView(a) && a.constructor.name === "Uint8Array";
   }
@@ -369,7 +369,7 @@
     throw new Error("crypto.getRandomValues must be defined");
   }
 
-  // node_modules/@noble/hashes/esm/_md.js
+  // ../../../rhizomatic/implementations/ts/node_modules/@noble/hashes/esm/_md.js
   function setBigUint64(view, byteOffset, value, isLE2) {
     if (typeof view.setBigUint64 === "function")
       return view.setBigUint64(byteOffset, value, isLE2);
@@ -501,7 +501,7 @@
     327033209
   ]);
 
-  // node_modules/@noble/hashes/esm/_u64.js
+  // ../../../rhizomatic/implementations/ts/node_modules/@noble/hashes/esm/_u64.js
   var U32_MASK64 = /* @__PURE__ */ BigInt(2 ** 32 - 1);
   var _32n = /* @__PURE__ */ BigInt(32);
   function fromBig(n, le = false) {
@@ -536,7 +536,7 @@
   var add5L = (Al, Bl, Cl, Dl, El) => (Al >>> 0) + (Bl >>> 0) + (Cl >>> 0) + (Dl >>> 0) + (El >>> 0);
   var add5H = (low, Ah, Bh, Ch, Dh, Eh) => Ah + Bh + Ch + Dh + Eh + (low / 2 ** 32 | 0) | 0;
 
-  // node_modules/@noble/hashes/esm/_blake.js
+  // ../../../rhizomatic/implementations/ts/node_modules/@noble/hashes/esm/_blake.js
   function G1s(a, b, c, d, x) {
     a = a + b + x | 0;
     d = rotr(d ^ a, 16);
@@ -552,7 +552,7 @@
     return { a, b, c, d };
   }
 
-  // node_modules/@noble/hashes/esm/blake2.js
+  // ../../../rhizomatic/implementations/ts/node_modules/@noble/hashes/esm/blake2.js
   var BLAKE2 = class extends Hash {
     constructor(blockLen, outputLen) {
       super();
@@ -659,7 +659,7 @@
     return { v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15 };
   }
 
-  // node_modules/@noble/hashes/esm/blake3.js
+  // ../../../rhizomatic/implementations/ts/node_modules/@noble/hashes/esm/blake3.js
   var B3_Flags = {
     CHUNK_START: 1,
     CHUNK_END: 2,
@@ -2261,6 +2261,7 @@
     reason;
   };
   var conjuncts = (pred) => pred.kind === "and" ? [...conjuncts(pred.left), ...conjuncts(pred.right)] : [pred];
+  var AMBIENT = /* @__PURE__ */ Symbol("ambient root");
   function pinnedEntity(pred, bindings) {
     for (const c of conjuncts(pred)) {
       if (c.kind !== "hasPointer" || c.ppred.targetEntity === void 0) continue;
@@ -2271,7 +2272,7 @@
   }
   function entityOf(m, bindings) {
     if (m.kind === "const") return m.id;
-    if (m.kind === "root") return "root";
+    if (m.kind === "root") return AMBIENT;
     const bound = bindings?.get(m.name);
     return typeof bound === "string" ? bound : void 0;
   }
@@ -2301,7 +2302,7 @@
           const sub = p.term;
           const entity = sub.kind === "select" ? pinnedEntity(sub.pred, b) : void 0;
           if (entity === void 0) throw new Unanchored("reflection");
-          if (entity !== "root") anchors.add(entity);
+          if (entity !== AMBIENT) anchors.add(entity);
           walk(sub, b);
           return;
         }
@@ -2342,7 +2343,7 @@
           if (t.key.kind === "const") {
             const entity = t.of.kind === "select" ? pinnedEntity(t.of.pred, b) : void 0;
             if (entity === void 0) throw new Unanchored("const-group");
-            if (entity !== "root") anchors.add(entity);
+            if (entity !== AMBIENT) anchors.add(entity);
           }
           walk(t.of, b);
           return;
@@ -2408,7 +2409,7 @@
     return manifest.claims.pointers.filter((p) => p.role === `${VOCAB_PREFIX}.txn.member` && p.target.kind === "delta").map((p) => p.target.deltaRef.delta);
   }
 
-  // node_modules/@noble/hashes/esm/sha2.js
+  // ../../../rhizomatic/implementations/ts/node_modules/@noble/hashes/esm/sha2.js
   var K512 = /* @__PURE__ */ (() => split([
     "0x428a2f98d728ae22",
     "0x7137449123ef65cd",
@@ -2608,7 +2609,7 @@
   };
   var sha512 = /* @__PURE__ */ createHasher(() => new SHA512());
 
-  // node_modules/@noble/curves/esm/utils.js
+  // ../../../rhizomatic/implementations/ts/node_modules/@noble/curves/esm/utils.js
   var _0n = /* @__PURE__ */ BigInt(0);
   var _1n = /* @__PURE__ */ BigInt(1);
   function _abool2(value, title = "") {
@@ -2721,7 +2722,7 @@
     };
   }
 
-  // node_modules/@noble/curves/esm/abstract/modular.js
+  // ../../../rhizomatic/implementations/ts/node_modules/@noble/curves/esm/abstract/modular.js
   var _0n2 = BigInt(0);
   var _1n2 = BigInt(1);
   var _2n = /* @__PURE__ */ BigInt(2);
@@ -3047,7 +3048,7 @@
     return Object.freeze(f);
   }
 
-  // node_modules/@noble/curves/esm/abstract/curve.js
+  // ../../../rhizomatic/implementations/ts/node_modules/@noble/curves/esm/abstract/curve.js
   var _0n3 = BigInt(0);
   var _1n3 = BigInt(1);
   function negateCt(condition, item) {
@@ -3310,7 +3311,7 @@
     return { CURVE, Fp: Fp2, Fn: Fn2 };
   }
 
-  // node_modules/@noble/curves/esm/abstract/edwards.js
+  // ../../../rhizomatic/implementations/ts/node_modules/@noble/curves/esm/abstract/edwards.js
   var _0n4 = BigInt(0);
   var _1n4 = BigInt(1);
   var _2n2 = BigInt(2);
@@ -3861,7 +3862,7 @@
     return _eddsa_new_output_to_legacy(c, EDDSA);
   }
 
-  // node_modules/@noble/curves/esm/ed25519.js
+  // ../../../rhizomatic/implementations/ts/node_modules/@noble/curves/esm/ed25519.js
   var _0n5 = /* @__PURE__ */ BigInt(0);
   var _1n5 = BigInt(1);
   var _2n3 = BigInt(2);

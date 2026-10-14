@@ -398,6 +398,60 @@ fn a_grant_after_a_strike_refreshes_the_trust_view() {
     assert_eq!(granted, result_canonical_hex(&batch));
 }
 
+#[test]
+fn an_entity_named_root_is_an_ordinary_anchor() {
+    let term = parse_term(&serde_json::json!({
+        "op": "group",
+        "key": { "const": "all" },
+        "in": { "op": "select", "pred": { "hasPointer": { "targetEntity": "root" } }, "in": "input" }
+    }))
+    .unwrap();
+    let registry = property_registry();
+    let mut reactor = Reactor::new();
+    reactor
+        .register_at(
+            "pinned",
+            term.clone(),
+            &["e0".to_string()],
+            50.0,
+            Some(registry.clone()),
+        )
+        .unwrap();
+    let empty = reactor
+        .materialized_hex("pinned", "e0")
+        .unwrap()
+        .to_string();
+    let fact = Claims {
+        timestamp: 1.0,
+        valid_from: 1.0,
+        valid_until: None,
+        author: AUTHORS[0].to_string(),
+        pointers: vec![Pointer {
+            role: "subject".to_string(),
+            target: Target::Entity(EntityRef {
+                id: "root".to_string(),
+                context: Some("name".to_string()),
+            }),
+        }],
+    };
+    reactor.ingest(make_delta(fact, None).unwrap());
+    let warm = reactor
+        .materialized_hex("pinned", "e0")
+        .unwrap()
+        .to_string();
+    assert_ne!(warm, empty);
+    let batch = eval_term_at(
+        &term,
+        &reactor.snapshot(),
+        50.0,
+        Some("e0"),
+        Some(&registry),
+        None,
+    )
+    .unwrap();
+    assert_eq!(warm, result_canonical_hex(&batch));
+}
+
 fn lowered_refreshes(deps: Option<Vec<String>>, at: &str) -> u64 {
     let registry = property_registry();
     let mut reactor = Reactor::new();

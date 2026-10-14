@@ -137,19 +137,26 @@ fn conjuncts(pred: &Pred) -> Vec<&Pred> {
     }
 }
 
-fn entity_of(m: &EntityMatch, bindings: Option<&Bindings>) -> Option<String> {
+/// What a conjunct pins: the ambient root, or a named entity. The two stay apart, because an
+/// entity may be named "root".
+enum Pin {
+    Ambient,
+    Entity(String),
+}
+
+fn entity_of(m: &EntityMatch, bindings: Option<&Bindings>) -> Option<Pin> {
     match m {
-        EntityMatch::Const(id) => Some(id.clone()),
-        EntityMatch::Root => Some("root".to_string()),
+        EntityMatch::Const(id) => Some(Pin::Entity(id.clone())),
+        EntityMatch::Root => Some(Pin::Ambient),
         EntityMatch::Hole(name) => match bindings.and_then(|b| b.get(name)) {
-            Some(Primitive::Str(s)) => Some(s.clone()),
+            Some(Primitive::Str(s)) => Some(Pin::Entity(s.clone())),
             _ => None,
         },
     }
 }
 
-/// The entity a conjunct pins, when it pins one: "root" for the ambient root.
-fn pinned_entity(pred: &Pred, bindings: Option<&Bindings>) -> Option<String> {
+/// The entity a conjunct pins, when it pins one.
+fn pinned_entity(pred: &Pred, bindings: Option<&Bindings>) -> Option<Pin> {
     conjuncts(pred).into_iter().find_map(|c| match c {
         Pred::HasPointer(pp) => pp
             .target_entity
@@ -192,8 +199,7 @@ impl Analyzer<'_> {
                     Term::Select { pred, .. } => pinned_entity(pred, b),
                     _ => None,
                 };
-                let entity = entity.ok_or(UnanchoredReason::Reflection)?;
-                if entity != "root" {
+                if let Pin::Entity(entity) = entity.ok_or(UnanchoredReason::Reflection)? {
                     self.anchors.insert(entity);
                 }
                 self.walk(term, b)
@@ -246,8 +252,7 @@ impl Analyzer<'_> {
                         Term::Select { pred, .. } => pinned_entity(pred, b),
                         _ => None,
                     };
-                    let entity = entity.ok_or(UnanchoredReason::ConstGroup)?;
-                    if entity != "root" {
+                    if let Pin::Entity(entity) = entity.ok_or(UnanchoredReason::ConstGroup)? {
                         self.anchors.insert(entity);
                     }
                 }
