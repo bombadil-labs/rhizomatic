@@ -364,9 +364,9 @@ pub(crate) fn anchored_read(
             return Err(format!("term is not anchored: {}", r.as_str()))
         }
     };
-    let gather = match term {
-        Term::Resolve { of, .. } => of.as_ref(),
-        t => t,
+    let (gather, resolves) = match term {
+        Term::Resolve { of, .. } => (of.as_ref(), true),
+        t => (t, false),
     };
     let evaluate = |t: &Term, set: &DeltaSet| match now {
         Some(at) => eval_term_at(t, set, at, Some(root), registry, bindings),
@@ -385,10 +385,10 @@ pub(crate) fn anchored_read(
         visible_anchors(h, &mut seen);
         let missing: Vec<String> = seen.difference(&scope).cloned().collect();
         if missing.is_empty() {
-            let result = if std::ptr::eq(gather, term) {
-                gathered
-            } else {
+            let result = if resolves {
                 evaluate(term, &set)?
+            } else {
+                gathered
             };
             return Ok(AnchoredRead {
                 result,
