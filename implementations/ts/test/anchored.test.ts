@@ -425,3 +425,113 @@ describe("an anchored read's cost does not grow with the store (SPEC-17 P7)", ()
     expect(lookups(5000)).toEqual(small);
   });
 });
+
+// Incremental equivalence under scope dispatch (SPEC-4 §1, SPEC-17 §6): a warm view refreshes only
+// when an ingested delta touches its scope, and after every single ingest it still equals a batch
+// evaluation. Narrower dispatch is only sound if this holds.
+describe("warm views refresh by scope and stay equal to batch evaluation", () => {
+  const roots = ["e0", "e1", "e2"];
+  for (const name of ["leaf", "rootTree", "annotate", "trust", "setAlgebra"]) {
+    it(`${name}: equal to batch after every ingest`, () => {
+      const term = parseTerm(TERMS[name]);
+      let skipped = 0;
+      fc.assert(
+        fc.property(fc.array(raw, { minLength: 1, maxLength: 40 }), (raws) => {
+          const reactor = new Reactor();
+          reactor.register(name, term, roots, 50, registry);
+          for (const d of build(raws)) {
+            const before = reactor.evalCountOf(name);
+            reactor.ingest(d);
+            if (reactor.evalCountOf(name) === before) skipped++;
+            for (const root of roots) {
+              const batch = evalTerm(term, reactor.snapshot(), 50, root, registry);
+              expect(reactor.materializedHex(name, root)).toBe(resultCanonicalHex(batch));
+            }
+          }
+        }),
+        { numRuns: 120, seed: 23 },
+      );
+      // The dispatch is narrow: some ingests touch no root's scope and refresh nothing.
+      expect(skipped).toBeGreaterThan(50);
+    });
+  }
+});
+
+describe("a static anchor dispatches: a grant landing after a strike refreshes the view", () => {
+  it("granting the striker makes the strike bind, and the warm view follows", () => {
+    const term = parseTerm(TERMS["trust"]);
+    const reactor = new Reactor();
+    reactor.register("trust", term, ["e0"], 50, registry);
+    const fact = makeDelta({
+      timestamp: 1,
+      validFrom: 1,
+      author: AUTHORS[0]!,
+      pointers: [
+        { role: "subject", target: { kind: "entity", entity: { id: "e0", context: "name" } } },
+      ],
+    });
+    reactor.ingest(fact);
+    reactor.ingest(makeDelta(makeNegationClaims(AUTHORS[1]!, 2, fact.id)));
+    const ungranted = reactor.materializedHex("trust", "e0");
+    reactor.ingest(
+      makeDelta({
+        timestamp: 3,
+        validFrom: 3,
+        author: AUTHORS[0]!,
+        pointers: [
+          {
+            role: "subject",
+            target: { kind: "entity", entity: { id: "grants", context: "grant" } },
+          },
+          { role: "grantee", target: { kind: "primitive", value: AUTHORS[1]! } },
+        ],
+      }),
+    );
+    const granted = reactor.materializedHex("trust", "e0");
+    expect(granted).not.toBe(ungranted);
+    expect(granted).toBe(
+      resultCanonicalHex(evalTerm(term, reactor.snapshot(), 50, "e0", registry)),
+    );
+  });
+});
+
+describe("a lowered program dispatches by scope only when its hook names its dependencies", () => {
+  const term = parseTerm(TERMS["leaf"]);
+  const unrelated = makeDelta({
+    timestamp: 1,
+    validFrom: 1,
+    author: AUTHORS[0]!,
+    pointers: [
+      { role: "subject", target: { kind: "entity", entity: { id: "e5", context: "name" } } },
+    ],
+  });
+  const dependency = makeDelta({
+    timestamp: 1,
+    validFrom: 1,
+    author: AUTHORS[0]!,
+    pointers: [
+      { role: "subject", target: { kind: "entity", entity: { id: "grants", context: "grant" } } },
+    ],
+  });
+  const refreshes = (deps: readonly string[] | undefined, delta: Delta) => {
+    const reactor = new Reactor();
+    reactor.register("lowered", term, ["e0"], 50, registry, (t, _input, _now, r) => ({
+      term: t,
+      ...(r === undefined ? {} : { registry: r }),
+      ...(deps === undefined ? {} : { deps }),
+    }));
+    const before = reactor.evalCountOf("lowered");
+    reactor.ingest(delta);
+    return reactor.evalCountOf("lowered") - before;
+  };
+
+  it("without deps, every ingest refreshes (the reactor cannot see what the lowering read)", () => {
+    expect(refreshes(undefined, unrelated)).toBe(1);
+  });
+  it("with deps, an unrelated ingest refreshes nothing", () => {
+    expect(refreshes(["grants"], unrelated)).toBe(0);
+  });
+  it("with deps, an ingest at a dependency refreshes", () => {
+    expect(refreshes(["grants"], dependency)).toBe(1);
+  });
+});

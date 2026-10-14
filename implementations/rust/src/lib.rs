@@ -75,7 +75,7 @@ pub use eval::{
 pub use http::{offer_for, pull_from_url, serve_peer};
 pub use hview::{hview_canonical_hex, HVEntry, HView};
 pub use lens_binding::{load_lens_binding, publish_lens_binding_claims, LensBinding};
-pub use materialize::{is_root_anchored, MaterializationChange};
+pub use materialize::{is_root_anchored, LoweredProgram, MaterializationChange};
 pub use pack::{pack_id, pack_set, unpack_set};
 pub use parse_error::{ParseError, ParseErrorKind};
 pub use peer::{sync_both, Peer, SyncReport};

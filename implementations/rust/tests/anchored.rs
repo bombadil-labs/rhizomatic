@@ -300,3 +300,150 @@ proptest! {
         }
     }
 }
+
+// Incremental equivalence under scope dispatch (SPEC-4 §1, SPEC-17 §6): after every single
+// ingest, each warm view equals a batch evaluation.
+proptest! {
+    #![proptest_config(ProptestConfig { cases: 120, ..ProptestConfig::default() })]
+
+    #[test]
+    fn warm_views_stay_equal_to_batch(raws in prop::collection::vec(raw(), 1..40)) {
+        let registry = property_registry();
+        let roots: Vec<String> = ["e0", "e1", "e2"].iter().map(|s| s.to_string()).collect();
+        let mut reactor = Reactor::new();
+        let terms = property_terms();
+        for (name, json) in &terms {
+            reactor
+                .register_at(name, parse_term(json).unwrap(), &roots, 50.0, Some(registry.clone()))
+                .unwrap();
+        }
+        for d in build(&raws) {
+            reactor.ingest(d);
+            for (name, json) in &terms {
+                let term = parse_term(json).unwrap();
+                for root in &roots {
+                    let batch = eval_term_at(&term, &reactor.snapshot(), 50.0, Some(root), Some(&registry), None)
+                        .unwrap();
+                    let expected = result_canonical_hex(&batch);
+                    prop_assert_eq!(
+                        reactor.materialized_hex(name, root).unwrap(),
+                        expected.as_str(),
+                        "{} at {}", name, root
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn a_grant_after_a_strike_refreshes_the_trust_view() {
+    let registry = property_registry();
+    let (_, json) = property_terms()
+        .into_iter()
+        .find(|(n, _)| *n == "trust")
+        .unwrap();
+    let term = parse_term(&json).unwrap();
+    let mut reactor = Reactor::new();
+    reactor
+        .register_at(
+            "trust",
+            term.clone(),
+            &["e0".to_string()],
+            50.0,
+            Some(registry.clone()),
+        )
+        .unwrap();
+    let entity = |id: &str, context: &str| Pointer {
+        role: "subject".to_string(),
+        target: Target::Entity(EntityRef {
+            id: id.to_string(),
+            context: Some(context.to_string()),
+        }),
+    };
+    let claims = |author: &str, t: f64, pointers: Vec<Pointer>| Claims {
+        timestamp: t,
+        valid_from: t,
+        valid_until: None,
+        author: author.to_string(),
+        pointers,
+    };
+    let fact = make_delta(claims(AUTHORS[0], 1.0, vec![entity("e0", "name")]), None).unwrap();
+    reactor.ingest(fact.clone());
+    reactor
+        .ingest(make_delta(make_negation_claims(AUTHORS[1], 2.0, &fact.id, None), None).unwrap());
+    let ungranted = reactor.materialized_hex("trust", "e0").unwrap().to_string();
+    let grant = Pointer {
+        role: "grantee".to_string(),
+        target: Target::Primitive(Primitive::Str(AUTHORS[1].to_string())),
+    };
+    reactor.ingest(
+        make_delta(
+            claims(AUTHORS[0], 3.0, vec![entity("grants", "grant"), grant]),
+            None,
+        )
+        .unwrap(),
+    );
+    let granted = reactor.materialized_hex("trust", "e0").unwrap().to_string();
+    assert_ne!(granted, ungranted);
+    let batch = eval_term_at(
+        &term,
+        &reactor.snapshot(),
+        50.0,
+        Some("e0"),
+        Some(&registry),
+        None,
+    )
+    .unwrap();
+    assert_eq!(granted, result_canonical_hex(&batch));
+}
+
+fn lowered_refreshes(deps: Option<Vec<String>>, at: &str) -> u64 {
+    let registry = property_registry();
+    let mut reactor = Reactor::new();
+    reactor
+        .register_at_lowered_with_deps(
+            "lowered",
+            parse_term(&leaf()).unwrap(),
+            &["e0".to_string()],
+            50.0,
+            Some(registry),
+            move |t, _input, _now, r| Ok((t.clone(), r.cloned(), deps.clone())),
+        )
+        .unwrap();
+    let before = reactor.eval_count_of("lowered");
+    let delta = make_delta(
+        Claims {
+            timestamp: 1.0,
+            valid_from: 1.0,
+            valid_until: None,
+            author: AUTHORS[0].to_string(),
+            pointers: vec![Pointer {
+                role: "subject".to_string(),
+                target: Target::Entity(EntityRef {
+                    id: at.to_string(),
+                    context: Some("name".to_string()),
+                }),
+            }],
+        },
+        None,
+    )
+    .unwrap();
+    reactor.ingest(delta);
+    reactor.eval_count_of("lowered") - before
+}
+
+#[test]
+fn a_lowered_program_dispatches_by_scope_only_with_deps() {
+    assert_eq!(lowered_refreshes(None, "e5"), 1, "no deps: broad");
+    assert_eq!(
+        lowered_refreshes(Some(vec!["grants".into()]), "e5"),
+        0,
+        "deps: unrelated"
+    );
+    assert_eq!(
+        lowered_refreshes(Some(vec!["grants".into()]), "grants"),
+        1,
+        "deps: dependency"
+    );
+}

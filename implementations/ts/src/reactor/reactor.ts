@@ -8,7 +8,12 @@ import { bytesToHex } from "../delta/hash.js";
 import { hvEntryToCbor, hviewCanonicalHex, type HView } from "../algebra/hview.js";
 import { collectRefs } from "../schema/schema.js";
 import { comparePrimitives, type Bindings, type Pred, type ValMatch } from "../syntax/pred.js";
-import { evalAnchored, type Admits, type AnchoredRead } from "../resolve/anchored.js";
+import {
+  anchorAnalysis,
+  evalAnchored,
+  type Admits,
+  type AnchoredRead,
+} from "../resolve/anchored.js";
 import { viewCanonicalHex } from "../resolve-kernel/resolution.js";
 import type { SchemaRegistry } from "../schema/schema.js";
 import { DeltaSet } from "../delta/set.js";
@@ -40,14 +45,28 @@ interface Materialization {
         input: DeltaSet,
         now: number,
         registry?: SchemaRegistry,
-      ) => { readonly term: Term; readonly registry?: SchemaRegistry })
+      ) => LoweredProgram)
     | undefined;
   now: number;
   readonly views: Map<string, HView>;
   readonly hexes: Map<string, string>;
   readonly propHexes: Map<string, Map<string, string>>;
-  readonly supportEntities: Map<string, Set<string>>;
+  // Per root: the anchored scope of its last refresh, or BROAD when that program was unanchored.
+  readonly supportEntities: Map<string, Set<string> | typeof BROAD>;
   evalCount: number;
+}
+
+const BROAD = Symbol("broad dispatch");
+
+/**
+ * What a host's lowering returns. `deps` names every entity whose deltas can change the lowering
+ * (SPEC-17 §6). With it, an anchored program dispatches by its scope plus those entities; without
+ * it, the reactor cannot see what the lowering read, and the program dispatches broadly.
+ */
+export interface LoweredProgram {
+  readonly term: Term;
+  readonly registry?: SchemaRegistry;
+  readonly deps?: readonly string[];
 }
 
 export type IngestResult =
@@ -359,7 +378,7 @@ export class Reactor {
       input: DeltaSet,
       now: number,
       registry?: SchemaRegistry,
-    ) => { readonly term: Term; readonly registry?: SchemaRegistry },
+    ) => LoweredProgram,
   ): void {
     if (!Number.isFinite(now)) throw new Error("now must be a finite number");
     if (this.materializations.has(name)) throw new Error(`duplicate materialization: ${name}`);
@@ -368,8 +387,9 @@ export class Reactor {
       term,
       roots: [...roots],
       registry,
-      // A lowered predicate can depend on principal evidence anywhere in the set.
-      rootAnchored: lowerTerm === undefined && isRootAnchored(term, registry),
+      // A lowered program's support also needs the lowering's own dependencies; each refresh
+      // learns them from the hook, or falls back to broad dispatch.
+      rootAnchored: anchorAnalysis(term, registry).anchored,
       lowerTerm,
       now,
       views: new Map(),
@@ -468,11 +488,26 @@ export class Reactor {
   }
 
   private refresh(mat: Materialization, root: string): string[] | undefined {
-    const program = mat.lowerTerm?.(mat.term, this.set, mat.now, mat.registry) ?? {
-      term: mat.term,
-      registry: mat.registry,
-    };
-    const result = evalTerm(program.term, this.set, mat.now, root, program.registry);
+    const lowered = mat.lowerTerm?.(mat.term, this.set, mat.now, mat.registry);
+    const program = lowered ?? { term: mat.term, registry: mat.registry };
+    // An anchored program refreshes over its own scope, and that scope is exactly what a later
+    // delta must touch to change this root (SPEC-17 §6). Anything else reads the whole set and
+    // dispatches broadly.
+    let result: EvalResult;
+    let support: Set<string> | typeof BROAD;
+    if (anchorAnalysis(program.term, program.registry).anchored) {
+      const read = evalAnchored(program.term, this, mat.now, root, program.registry);
+      result = read.result;
+      support =
+        lowered === undefined
+          ? new Set(read.scope)
+          : lowered.deps === undefined
+            ? BROAD
+            : new Set([...read.scope, ...lowered.deps]);
+    } else {
+      result = evalTerm(program.term, this.set, mat.now, root, program.registry);
+      support = BROAD;
+    }
     if (result.sort !== "hview") throw new Error("materialized terms must be HView-sort");
     mat.evalCount += 1;
     const hex = hviewCanonicalHex(result.hview);
@@ -484,9 +519,7 @@ export class Reactor {
     mat.views.set(root, result.hview);
     mat.hexes.set(root, hex);
     mat.propHexes.set(root, newPropHexes);
-    const entities = new Set<string>([root]);
-    collectNestedIds(result.hview, entities);
-    mat.supportEntities.set(root, entities);
+    mat.supportEntities.set(root, support);
     return changedProps;
   }
 
@@ -518,6 +551,7 @@ export class Reactor {
   private affects(delta: Delta, mat: Materialization, root: string): boolean {
     if (!mat.rootAnchored) return true; // broad dispatch for non-anchored terms (V5)
     const support = mat.supportEntities.get(root) ?? new Set([root]);
+    if (support === BROAD) return true;
     if (this.targetsSupport(delta, support)) return true;
     // negation chains: walk each negates target downward toward base data (V5)
     for (const ptr of delta.claims.pointers) {
@@ -694,19 +728,6 @@ function diffProps(before: Map<string, string>, after: Map<string, string>): str
   return [...changed].sort();
 }
 
-// Collect every nested (expanded) HView id, recursively — the support-entity set (V5).
-function collectNestedIds(h: HView, out: Set<string>): void {
-  for (const entries of h.props.values()) {
-    for (const e of entries) {
-      if (e.expanded === undefined) continue;
-      for (const nested of e.expanded.values()) {
-        out.add(nested.id);
-        collectNestedIds(nested, out);
-      }
-    }
-  }
-}
-
 // Does this predicate conjunctively REQUIRE a pointer at $root? (V5 anchoring analyzer)
 function predRequiresRoot(pred: Pred): boolean {
   switch (pred.kind) {
@@ -752,7 +773,8 @@ function termAnchored(t: Term): boolean {
   }
 }
 
-// Root anchoring across the term and every transitively referenced schema body (V5).
+// Root anchoring across the term and every transitively referenced schema body (V5). Dispatch now
+// uses `anchorAnalysis` (SPEC-17), which is sound and more precise; this analyzer stays exported.
 // A reflective term (SPEC-2 §3.1) is never root-anchored: its reflected set may change with any
 // ingest, so it takes the broad-dispatch path (SPEC-4 §4.1, correctness first).
 export function isRootAnchored(term: Term, registry: SchemaRegistry | undefined): boolean {

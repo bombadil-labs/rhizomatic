@@ -118,6 +118,15 @@ over D, so the anchors found are true anchors. Each round adds at least one enti
 number of rounds is at most the expansion depth plus one. An implementation MAY grow the scope
 lazily inside one evaluation instead of in rounds; the result is the same set.
 
+**Maintenance.** A warm view refreshes over its scope, and that scope replaces the V5 support
+set (SPEC-4 ERRATA V5): a new delta can change a root only when it points at an entity in the
+root's scope or reaches a member through a negation chain. That is the same relevance test V5
+already runs, with a more precise anchor check (`anchorAnalysis` instead of the V5 analyzer). A
+lowered program (a host `lowerTerm`) still dispatches broadly unless the host declares the
+entities its lowering reads (`lowerDeps`); those entities join every root's support set. An
+unanchored program dispatches broadly, as before. The aliased side finding in §9 is closed by
+this: an aliased term is unanchored.
+
 **Native reads.** A reactor or store evaluates an anchored read this way. Its cost is
 O(rounds × |S(E*)| × term size). An unanchored term keeps today's full evaluation and is not
 footprint-bounded; a host that serves one must say so (it is a P7 violation to fix, not a mode).
@@ -183,17 +192,17 @@ The maintained (M3) lifecycle still captures full snapshots. Scoping it per root
 - **Alias.** `aliased` needs a value-index first hop (`rhizomatic.alias.fragment == name`) to be
   anchored. Until then, an aliased term is unanchored.
 - **Maintained reads (M3).** Per-root scoped captures for install, refresh and read.
-- **Write side.** Warm-view refresh re-evaluates over the whole set; it should use anchored
-  evaluation. Loam's journal catch-up rereads the whole journal after a foreign write.
-- **Side finding.** `isRootAnchored` ignores `aliased`, so an aliased root-anchored select gets
-  narrow dispatch and a new alias mapping does not re-dispatch it (SPEC-9 says it must). It needs
-  a vector.
+- **Write side.** Loam's journal catch-up rereads the whole journal after a foreign write.
+- **Side finding (closed by slice R1b).** `isRootAnchored` ignores `aliased`, so an aliased
+  root-anchored select got narrow dispatch and a new alias mapping did not re-dispatch it (SPEC-9
+  says it must). Dispatch now uses `anchorAnalysis`, which treats `aliased` as unanchored.
 
 ## 10. Slices
 
 | Slice | Repo | Content |
 |---|---|---|
 | R1 | rhizomatic | Delta source, `S(E)`, the anchored check, anchored evaluation with discovery, in TS and Rust. Vectors: scope construction, anchored equals full, classification. Property test: anchored equals full on random stores. |
+| R1b | rhizomatic | Warm-view refresh over the scope, and scope dispatch (§6 Maintenance), in TS and Rust. Property test: every warm view equals batch after every ingest. |
 | R2 | rhizomatic | The SPEC-16 amendment: scoped profile, scope field, scoped revision and current check, `scope-miss`, structural and program checks, verified-appearance memo, producer, and the quadratic inventory check fixed. Vectors in both witnesses. Release C. |
 | L1 | Loam | Ordinary native reads on anchored evaluation; the per-read lookup and cache fixes. |
 | L2 | Loam | The portable door on scoped snapshots through the producer. |

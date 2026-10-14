@@ -5096,6 +5096,7 @@
   }
 
   // src/reactor/reactor.ts
+  var BROAD = /* @__PURE__ */ Symbol("broad dispatch");
   var height = (node) => node?.height ?? 0;
   var boundaryNode = (at2, left, right) => ({
     at: at2,
@@ -5333,7 +5334,7 @@
     lastChanges = [];
     // Register a live materialization: an HView-sort term (a function of $root) kept
     // incrementally equal to batch evaluation at each root (SPEC-4 §1).
-    register(name, term, roots, now, registry, lowerTerm) {
+    register(name, term, roots, now, registry, lowerTerm, lowerDeps) {
       if (!Number.isFinite(now)) throw new Error("now must be a finite number");
       if (this.materializations.has(name)) throw new Error(`duplicate materialization: ${name}`);
       const mat = {
@@ -5341,9 +5342,10 @@
         term,
         roots: [...roots],
         registry,
-        // A lowered predicate can depend on principal evidence anywhere in the set.
-        rootAnchored: lowerTerm === void 0 && isRootAnchored(term, registry),
+        // A lowered predicate can depend on evidence anywhere in the set, unless the host names it.
+        rootAnchored: anchorAnalysis(term, registry).anchored && (lowerTerm === void 0 || lowerDeps !== void 0),
         lowerTerm,
+        lowerDeps: lowerDeps === void 0 ? void 0 : [...lowerDeps],
         now,
         views: /* @__PURE__ */ new Map(),
         hexes: /* @__PURE__ */ new Map(),
@@ -5436,7 +5438,16 @@
         term: mat.term,
         registry: mat.registry
       };
-      const result = evalTerm(program.term, this.set, mat.now, root, program.registry);
+      let result;
+      let support;
+      if (anchorAnalysis(program.term, program.registry).anchored) {
+        const read = evalAnchored(program.term, this, mat.now, root, program.registry);
+        result = read.result;
+        support = /* @__PURE__ */ new Set([...read.scope, ...mat.lowerDeps ?? []]);
+      } else {
+        result = evalTerm(program.term, this.set, mat.now, root, program.registry);
+        support = BROAD;
+      }
       if (result.sort !== "hview") throw new Error("materialized terms must be HView-sort");
       mat.evalCount += 1;
       const hex = hviewCanonicalHex(result.hview);
@@ -5446,9 +5457,7 @@
       mat.views.set(root, result.hview);
       mat.hexes.set(root, hex);
       mat.propHexes.set(root, newPropHexes);
-      const entities = /* @__PURE__ */ new Set([root]);
-      collectNestedIds(result.hview, entities);
-      mat.supportEntities.set(root, entities);
+      mat.supportEntities.set(root, support);
       return changedProps;
     }
     // Sound dispatch (V5): over-match allowed, under-match forbidden.
@@ -5478,6 +5487,7 @@
     affects(delta, mat, root) {
       if (!mat.rootAnchored) return true;
       const support = mat.supportEntities.get(root) ?? /* @__PURE__ */ new Set([root]);
+      if (support === BROAD) return true;
       if (this.targetsSupport(delta, support)) return true;
       for (const ptr of delta.claims.pointers) {
         if (ptr.role !== "negates" || ptr.target.kind !== "delta") continue;
@@ -5607,74 +5617,6 @@
     for (const [prop, hex] of after) if (before.get(prop) !== hex) changed.add(prop);
     for (const prop of before.keys()) if (!after.has(prop)) changed.add(prop);
     return [...changed].sort();
-  }
-  function collectNestedIds(h, out) {
-    for (const entries of h.props.values()) {
-      for (const e of entries) {
-        if (e.expanded === void 0) continue;
-        for (const nested of e.expanded.values()) {
-          out.add(nested.id);
-          collectNestedIds(nested, out);
-        }
-      }
-    }
-  }
-  function predRequiresRoot(pred) {
-    switch (pred.kind) {
-      case "hasPointer":
-        return pred.ppred.targetEntity?.kind === "root";
-      case "and":
-        return predRequiresRoot(pred.left) || predRequiresRoot(pred.right);
-      case "or":
-        return predRequiresRoot(pred.left) && predRequiresRoot(pred.right);
-      default:
-        return false;
-    }
-  }
-  function pipelineAnchored(t) {
-    switch (t.kind) {
-      case "input":
-        return false;
-      case "select":
-        return predRequiresRoot(t.pred) || pipelineAnchored(t.of);
-      case "mask":
-        return pipelineAnchored(t.of);
-      case "union":
-        return pipelineAnchored(t.left) && pipelineAnchored(t.right);
-      default:
-        return false;
-    }
-  }
-  function termAnchored(t) {
-    switch (t.kind) {
-      case "group":
-        return pipelineAnchored(t.of);
-      case "prune":
-      case "expand":
-      case "resolve":
-        return termAnchored(t.of);
-      case "fix":
-        return true;
-      // anchoring of the referenced schema is checked via the registry walk below
-      default:
-        return false;
-    }
-  }
-  function isRootAnchored(term, registry) {
-    if (!termAnchored(term) || termContainsInView(term)) return false;
-    const seen = /* @__PURE__ */ new Set();
-    const queue = [...collectRefs(term)];
-    while (queue.length > 0) {
-      const ref = queue.pop();
-      const key = ref.kind === "name" ? `n:${ref.name}` : `h:${ref.hash}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      const schema = registry?.resolve(ref);
-      if (schema === void 0) return false;
-      if (!termAnchored(schema.body) || termContainsInView(schema.body)) return false;
-      queue.push(...collectRefs(schema.body));
-    }
-    return true;
   }
 
   // src/federation/peer.ts

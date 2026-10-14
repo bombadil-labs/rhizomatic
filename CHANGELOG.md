@@ -25,8 +25,23 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 - Shared vectors `vectors/l1-eval/eval-anchored.json`: scope closure, anchor analysis and anchored
   reads.
 
-Nothing existing changes behavior. `evalTerm`, `Reactor.eval` and the materialization profile still
-scan their whole input; callers move to anchored reads explicitly.
+- Warm views refresh over their own scope (slice R1b), in TypeScript and Rust. A materialization
+  root re-evaluates with anchored evaluation, and its support set for dispatch is that scope. An
+  ingest that touches no root's scope refreshes nothing, and a refresh no longer reads the whole
+  store. `Reactor.register` takes an optional `lowerDeps` (Rust: `register_at_lowered_with_deps`):
+  the entities a host's lowering reads. With it, a lowered anchored program dispatches by scope;
+  without it, it dispatches broadly as before.
+
+### Changed
+
+- Materialization dispatch uses `anchorAnalysis` instead of the V5 analyzer (SPEC-4 ERRATA V5,
+  amended). It is more precise: an author-keyed select under a root `group` and `intersect` /
+  `difference` no longer force broad dispatch. It is also stricter where V5 was unsound: an
+  `aliased` term now dispatches broadly, so a new alias mapping refreshes it (SPEC-9). Answers do
+  not change; only the number of refreshes does.
+
+`evalTerm`, `Reactor.eval` and the materialization profile still scan their whole input; callers
+move to anchored reads explicitly.
 
 ## 0.11.0-next.9 — 2026-10-14
 

@@ -197,6 +197,7 @@ export {
   makeManifestClaims,
   manifestMemberIds,
   type IngestResult,
+  type LoweredProgram,
   type MaterializationChange,
   type Suppression,
 } from "./reactor.js";

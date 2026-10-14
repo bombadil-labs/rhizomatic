@@ -19,6 +19,10 @@ Folded into SPEC-4 §2 (2026-06-11); history in git.
 
 ## V5 — v0 incremental maintenance: root-localized recomputation with sound dispatch
 
+> **Amended by the SPEC-17 proposal (2026-10-14).** Refresh evaluates over the root's anchored
+> scope, and the support set is that scope (plus any host-declared lowering entities). Anchoring
+> is decided by `anchorAnalysis`. The relevance test below is unchanged.
+
 SPEC-4 §4.3 allows non-monotone repair by localized recomputation; v0 adopts it wholesale: a
 materialization is `(term, roots, registry)` plus per-root HViews, and maintenance re-evaluates an
 affected root with the batch evaluator. Incremental equivalence then holds by construction *for

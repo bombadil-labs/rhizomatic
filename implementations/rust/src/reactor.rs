@@ -4,10 +4,10 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
-use crate::anchored::{eval_anchored, AnchoredRead, DeltaSource};
+use crate::anchored::{eval_anchored, AnchoredRead, DeltaSource, IndexedSource};
 use crate::eval::{eval_term, eval_term_at, EvalResult, Term};
 use crate::hview::HView;
-use crate::materialize::{Materialization, MaterializationChange};
+use crate::materialize::{LoweredProgram, Materialization, MaterializationChange};
 use crate::pred::{compare_primitives, Bindings};
 use crate::resolution::{view_canonical_hex, View};
 use crate::schema::SchemaRegistry;
@@ -327,7 +327,7 @@ impl Reactor {
         }
         let mut mat = Materialization::new(name, term, roots, None, registry, None);
         for root in mat.roots.clone() {
-            mat.refresh(&self.set, &root)?;
+            mat.refresh(&self.indexed(), &root)?;
         }
         self.materializations.insert(name.to_string(), mat);
         Ok(())
@@ -350,7 +350,7 @@ impl Reactor {
         }
         let mut mat = Materialization::new(name, term, roots, Some(now), registry, None);
         for root in mat.roots.clone() {
-            mat.refresh(&self.set, &root)?;
+            mat.refresh(&self.indexed(), &root)?;
         }
         self.materializations.insert(name.to_string(), mat);
         Ok(())
@@ -378,6 +378,28 @@ impl Reactor {
             + Sync
             + 'static,
     {
+        self.register_at_lowered_with_deps(name, term, roots, now, registry, move |t, s, n, r| {
+            lower_term(t, s, n, r).map(|(term, registry)| (term, registry, None))
+        })
+    }
+
+    /// The same, with a lowering that also names the entities its result depends on (SPEC-17 §6).
+    /// An anchored program then dispatches by its scope plus those entities instead of broadly.
+    pub fn register_at_lowered_with_deps<F>(
+        &mut self,
+        name: &str,
+        term: Term,
+        roots: &[String],
+        now: f64,
+        registry: Option<SchemaRegistry>,
+        lower_term: F,
+    ) -> Result<(), String>
+    where
+        F: Fn(&Term, &DeltaSet, f64, Option<&SchemaRegistry>) -> Result<LoweredProgram, String>
+            + Send
+            + Sync
+            + 'static,
+    {
         if !now.is_finite() {
             return Err("now must be a finite number".to_string());
         }
@@ -393,7 +415,7 @@ impl Reactor {
             Some(Arc::new(lower_term)),
         );
         for root in mat.roots.clone() {
-            mat.refresh(&self.set, &root)?;
+            mat.refresh(&self.indexed(), &root)?;
         }
         self.materializations.insert(name.to_string(), mat);
         Ok(())
@@ -429,7 +451,20 @@ impl Reactor {
             return Err("now must be a finite number".to_string());
         }
         let mut changes = Vec::new();
-        for mat in self.materializations.values_mut() {
+        let Self {
+            set,
+            target_index,
+            negation_index,
+            materializations,
+            validity_boundaries,
+            ..
+        } = &mut *self;
+        let source = IndexedSource {
+            set,
+            targets: target_index,
+            negators: negation_index,
+        };
+        for mat in materializations.values_mut() {
             let Some(previous) = mat.now else { continue };
             if previous == now {
                 continue;
@@ -438,8 +473,7 @@ impl Reactor {
             use std::ops::Bound::{Excluded, Included};
             let lower = boundary_key(previous.min(now));
             let upper = boundary_key(previous.max(now));
-            let crossed_boundary = self
-                .validity_boundaries
+            let crossed_boundary = validity_boundaries
                 .range((Excluded(lower), Included(upper)))
                 .next()
                 .is_some();
@@ -448,7 +482,7 @@ impl Reactor {
                 continue;
             }
             for root in mat.roots.clone() {
-                if let Some(changed_props) = mat.refresh(&self.set, &root)? {
+                if let Some(changed_props) = mat.refresh(&source, &root)? {
                     changes.push(MaterializationChange {
                         materialization: mat.name.clone(),
                         root: root.clone(),
@@ -480,9 +514,16 @@ impl Reactor {
         // Split borrows: materializations is mutated while the set is read.
         let Self {
             set,
+            target_index,
+            negation_index,
             materializations,
             ..
         } = self;
+        let source = IndexedSource {
+            set,
+            targets: target_index,
+            negators: negation_index,
+        };
         let responsible: Vec<String> = deltas.iter().map(|d| d.id.clone()).collect();
         let mut changes = Vec::new();
         for mat in materializations.values_mut() {
@@ -494,7 +535,7 @@ impl Reactor {
                 .collect();
             for root in affected {
                 if let Some(changed_props) = mat
-                    .refresh(set, &root)
+                    .refresh(&source, &root)
                     .expect("registered terms stay evaluable")
                 {
                     changes.push(MaterializationChange {
@@ -670,20 +711,24 @@ impl DeltaSource for Reactor {
     }
 
     fn targets(&self, entity: &str) -> Vec<String> {
-        self.target_index
-            .get(entity)
-            .map(|b| b.iter().cloned().collect())
-            .unwrap_or_default()
+        self.indexed().targets(entity)
     }
 
     fn negators(&self, id: &str) -> Vec<String> {
-        self.negation_index
-            .get(id)
-            .map(|b| b.iter().cloned().collect())
-            .unwrap_or_default()
+        self.indexed().negators(id)
     }
 
     fn subset(&self, ids: &[String]) -> DeltaSet {
         self.set.subset(ids)
+    }
+}
+
+impl Reactor {
+    fn indexed(&self) -> IndexedSource<'_> {
+        IndexedSource {
+            set: &self.set,
+            targets: &self.target_index,
+            negators: &self.negation_index,
+        }
     }
 }

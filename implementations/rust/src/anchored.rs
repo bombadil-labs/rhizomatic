@@ -4,9 +4,11 @@
 //! answer identical: S(E) is closed under every negation chain that decides a member.
 //! Mirrors ../ts/src/resolve/anchored.ts.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
-use crate::eval::{eval_term_at, EvalResult, GroupKey, MaskPolicy, PruneKeep, SchemaRef, Term};
+use crate::eval::{
+    eval_term, eval_term_at, EvalResult, GroupKey, MaskPolicy, PruneKeep, SchemaRef, Term,
+};
 use crate::hview::HView;
 use crate::pred::{Bindings, EntityMatch, Pred, StrMatch};
 use crate::schema::SchemaRegistry;
@@ -26,6 +28,38 @@ pub trait DeltaSource {
     fn subset(&self, ids: &[String]) -> DeltaSet {
         DeltaSet::from_deltas(ids.iter().filter_map(|id| self.get(id).cloned()))
             .expect("a delta source holds only content-addressed deltas")
+    }
+}
+
+/// A delta source over borrowed indexes: lets a reactor hand its set and indexes to a refresh while
+/// its materializations are borrowed mutably.
+pub struct IndexedSource<'a> {
+    pub set: &'a DeltaSet,
+    pub targets: &'a BTreeMap<String, BTreeSet<String>>,
+    pub negators: &'a BTreeMap<String, BTreeSet<String>>,
+}
+
+impl DeltaSource for IndexedSource<'_> {
+    fn get(&self, id: &str) -> Option<&Delta> {
+        self.set.get(id)
+    }
+
+    fn targets(&self, entity: &str) -> Vec<String> {
+        self.targets
+            .get(entity)
+            .map(|b| b.iter().cloned().collect())
+            .unwrap_or_default()
+    }
+
+    fn negators(&self, id: &str) -> Vec<String> {
+        self.negators
+            .get(id)
+            .map(|b| b.iter().cloned().collect())
+            .unwrap_or_default()
+    }
+
+    fn subset(&self, ids: &[String]) -> DeltaSet {
+        self.set.subset(ids)
     }
 }
 
@@ -310,6 +344,20 @@ pub fn eval_anchored(
     bindings: Option<&Bindings>,
     admits: Option<&dyn Fn(&Delta) -> bool>,
 ) -> Result<AnchoredRead, String> {
+    anchored_read(term, source, Some(now), root, registry, bindings, admits)
+}
+
+/// The same read with an optional instant: `None` evaluates raw, as `eval_term` does, for the
+/// reactor's untimed materializations.
+pub(crate) fn anchored_read(
+    term: &Term,
+    source: &impl DeltaSource,
+    now: Option<f64>,
+    root: &str,
+    registry: Option<&SchemaRegistry>,
+    bindings: Option<&Bindings>,
+    admits: Option<&dyn Fn(&Delta) -> bool>,
+) -> Result<AnchoredRead, String> {
     let anchors = match anchor_analysis(term, registry, bindings) {
         AnchorAnalysis::Anchored { anchors } => anchors,
         AnchorAnalysis::Unanchored(r) => {
@@ -320,12 +368,16 @@ pub fn eval_anchored(
         Term::Resolve { of, .. } => of.as_ref(),
         t => t,
     };
+    let evaluate = |t: &Term, set: &DeltaSet| match now {
+        Some(at) => eval_term_at(t, set, at, Some(root), registry, bindings),
+        None => eval_term(t, set, Some(root), registry, bindings),
+    };
     let mut scope: BTreeSet<String> = anchors.into_iter().collect();
     scope.insert(root.to_string());
     loop {
         let members = scope_ids(source, scope.iter().map(String::as_str), admits);
         let set = source.subset(&members);
-        let gathered = eval_term_at(gather, &set, now, Some(root), registry, bindings)?;
+        let gathered = evaluate(gather, &set)?;
         let EvalResult::HView(h) = &gathered else {
             return Err("term is not anchored: result-sort".to_string());
         };
@@ -336,7 +388,7 @@ pub fn eval_anchored(
             let result = if std::ptr::eq(gather, term) {
                 gathered
             } else {
-                eval_term_at(term, &set, now, Some(root), registry, bindings)?
+                evaluate(term, &set)?
             };
             return Ok(AnchoredRead {
                 result,
