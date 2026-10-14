@@ -22,15 +22,47 @@ export const array = (v: readonly CborValue[]): CborValue => ({ t: "array", v })
 export const map = (v: ReadonlyArray<readonly [string, CborValue]>): CborValue => ({ t: "map", v });
 
 class ByteSink {
-  private readonly bytes: number[] = [];
+  private buf = new Uint8Array(64);
+  private len = 0;
+  private reserve(n: number): void {
+    if (this.len + n <= this.buf.length) return;
+    let size = this.buf.length * 2;
+    while (size < this.len + n) size *= 2;
+    const next = new Uint8Array(size);
+    next.set(this.buf.subarray(0, this.len));
+    this.buf = next;
+  }
   push(...b: number[]): void {
-    for (const x of b) this.bytes.push(x & 0xff);
+    this.reserve(b.length);
+    for (const x of b) this.buf[this.len++] = x & 0xff;
+  }
+  /** Text whose every code unit is below 0x80: its UTF-8 bytes are its code units. */
+  pushAscii(text: string): boolean {
+    const start = this.len;
+    this.reserve(text.length);
+    for (let i = 0; i < text.length; i++) {
+      const c = text.charCodeAt(i);
+      if (c >= 0x80) {
+        this.len = start;
+        return false;
+      }
+      this.buf[this.len++] = c;
+    }
+    return true;
   }
   pushBytes(arr: Uint8Array): void {
-    for (const x of arr) this.bytes.push(x);
+    this.reserve(arr.length);
+    this.buf.set(arr, this.len);
+    this.len += arr.length;
+  }
+  get length(): number {
+    return this.len;
+  }
+  truncate(length: number): void {
+    this.len = length;
   }
   toUint8Array(): Uint8Array {
-    return Uint8Array.from(this.bytes);
+    return this.buf.slice(0, this.len);
   }
 }
 
@@ -189,6 +221,11 @@ export function cborTextByteLength(value: string): number {
 function encodeInto(sink: ByteSink, val: CborValue): void {
   switch (val.t) {
     case "tstr": {
+      // The head's length is the UTF-8 byte count, which equals the string length for ASCII.
+      const mark = sink.length;
+      writeHead(sink, 3, val.v.length);
+      if (sink.pushAscii(val.v)) return;
+      sink.truncate(mark);
       if (!wellFormedUnicode(val.v)) throw new Error("cbor: text is not well-formed Unicode");
       const bytes = utf8.encode(val.v); // byte-honest: no normalization at encode (D16)
       writeHead(sink, 3, bytes.length);

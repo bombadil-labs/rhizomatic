@@ -68,20 +68,30 @@ export function verifySigStrict(sig: Uint8Array, msg: Uint8Array, pub: Uint8Arra
   return lhs.equals(rhs);
 }
 
+// Successful strict checks, keyed by id and signature. The id commits to the claims and so to the
+// author, which makes the check a pure function of this key once the id is recomputed. Only
+// successes enter. The set is bounded; clearing it costs only repeated work.
+const verifiedSigs = new Set<string>();
+const VERIFIED_SIGS_MAX = 65536;
+
 // Full verification per ERRATA D9: content addressing must hold, then the signature must verify
 // over the raw id bytes against the key named in `author`, under the §5.1 strict criterion.
 export function verifyDelta(delta: Delta): Verification {
   if (computeId(delta.claims) !== delta.id) return "invalid";
   if (delta.sig === undefined) return "unsigned";
   if (!delta.claims.author.startsWith(AUTHOR_PREFIX)) return "invalid";
+  const key = delta.id + delta.sig;
+  if (verifiedSigs.has(key)) return "verified";
   const pubHex = delta.claims.author.slice(AUTHOR_PREFIX.length);
   try {
-    return verifySigStrict(hexToBytes(delta.sig), hexToBytes(delta.id), hexToBytes(pubHex))
-      ? "verified"
-      : "invalid";
+    if (!verifySigStrict(hexToBytes(delta.sig), hexToBytes(delta.id), hexToBytes(pubHex)))
+      return "invalid";
   } catch {
     return "invalid";
   }
+  if (verifiedSigs.size >= VERIFIED_SIGS_MAX) verifiedSigs.clear();
+  verifiedSigs.add(key);
+  return "verified";
 }
 
 /** Strict debug-profile appearance verification; preserves the legacy byte verifier API. */

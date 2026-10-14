@@ -59,6 +59,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 
 - The snapshot and basis decoders checked each component's operand ids against its raw ids with
   a nested scan, quadratic in the inventory. They use a set.
+- TypeScript checked the same signature again at each layer a delta crossed: at ingest, in the
+  snapshot producer, in each HView envelope decode. `verifyDelta` now remembers successful strict
+  checks, keyed by id and signature (bounded at 65536). It still recomputes the id each time, so
+  other claims never reuse a remembered success. A 400-delta portable read went from 11.8 s to
+  4.0 s in the Loam trial.
+- The TypeScript CBOR encoder wrote into a JavaScript number array, one byte at a time. It writes
+  into a growing byte buffer, and writes ASCII text without `TextEncoder`. The bytes do not change;
+  every shared vector still matches.
 
 `evalTerm`, `Reactor.eval` and the full-source materialization profile still scan their whole
 input; callers move to anchored reads and scoped captures explicitly.

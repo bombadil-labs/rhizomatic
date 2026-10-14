@@ -8,15 +8,47 @@
   var array = (v) => ({ t: "array", v });
   var map = (v) => ({ t: "map", v });
   var ByteSink = class {
-    bytes = [];
+    buf = new Uint8Array(64);
+    len = 0;
+    reserve(n) {
+      if (this.len + n <= this.buf.length) return;
+      let size = this.buf.length * 2;
+      while (size < this.len + n) size *= 2;
+      const next = new Uint8Array(size);
+      next.set(this.buf.subarray(0, this.len));
+      this.buf = next;
+    }
     push(...b) {
-      for (const x of b) this.bytes.push(x & 255);
+      this.reserve(b.length);
+      for (const x of b) this.buf[this.len++] = x & 255;
+    }
+    /** Text whose every code unit is below 0x80: its UTF-8 bytes are its code units. */
+    pushAscii(text) {
+      const start = this.len;
+      this.reserve(text.length);
+      for (let i = 0; i < text.length; i++) {
+        const c = text.charCodeAt(i);
+        if (c >= 128) {
+          this.len = start;
+          return false;
+        }
+        this.buf[this.len++] = c;
+      }
+      return true;
     }
     pushBytes(arr) {
-      for (const x of arr) this.bytes.push(x);
+      this.reserve(arr.length);
+      this.buf.set(arr, this.len);
+      this.len += arr.length;
+    }
+    get length() {
+      return this.len;
+    }
+    truncate(length) {
+      this.len = length;
     }
     toUint8Array() {
-      return Uint8Array.from(this.bytes);
+      return this.buf.slice(0, this.len);
     }
   };
   function writeHead(sink, major, arg) {
@@ -117,6 +149,10 @@
   function encodeInto(sink, val) {
     switch (val.t) {
       case "tstr": {
+        const mark = sink.length;
+        writeHead(sink, 3, val.v.length);
+        if (sink.pushAscii(val.v)) return;
+        sink.truncate(mark);
         if (!wellFormedUnicode(val.v)) throw new Error("cbor: text is not well-formed Unicode");
         const bytes = utf8.encode(val.v);
         writeHead(sink, 3, bytes.length);
@@ -2850,16 +2886,24 @@
     const rhs = R.add(A2.multiplyUnsafe(k));
     return lhs.equals(rhs);
   }
+  var verifiedSigs = /* @__PURE__ */ new Set();
+  var VERIFIED_SIGS_MAX = 65536;
   function verifyDelta(delta) {
     if (computeId(delta.claims) !== delta.id) return "invalid";
     if (delta.sig === void 0) return "unsigned";
     if (!delta.claims.author.startsWith(AUTHOR_PREFIX)) return "invalid";
+    const key = delta.id + delta.sig;
+    if (verifiedSigs.has(key)) return "verified";
     const pubHex = delta.claims.author.slice(AUTHOR_PREFIX.length);
     try {
-      return verifySigStrict(hexToBytes(delta.sig), hexToBytes(delta.id), hexToBytes(pubHex)) ? "verified" : "invalid";
+      if (!verifySigStrict(hexToBytes(delta.sig), hexToBytes(delta.id), hexToBytes(pubHex)))
+        return "invalid";
     } catch {
       return "invalid";
     }
+    if (verifiedSigs.size >= VERIFIED_SIGS_MAX) verifiedSigs.clear();
+    verifiedSigs.add(key);
+    return "verified";
   }
 
   // src/derivation/derivation.ts
