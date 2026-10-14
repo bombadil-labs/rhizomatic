@@ -184,11 +184,15 @@ The maintained (M3) lifecycle still captures full snapshots. Scoping it per root
 
 ## 9. Open items
 
-- **Keyed reflection.** The governed trust mask reads `inView` over the grants entity. That
-  entity holds every grant, so its scope grows with the number of users. The predicate only
-  needs, for each striker in the footprint, whether a standing grant names that striker. A keyed
-  form (look up grants by subject through an index) would bound it by the strikers. It needs an
-  operator decision.
+- **Maintained trust state (Myk, 2026-10-14: "snapshot trust state and patch it as deltas
+  flow").** The governed trust mask reflects over the grants entity, which holds every grant, so
+  a read's scope grows with the number of users. The direction: trust state becomes accumulated
+  state. A maintained snapshot (the set of lawful strikers, with the revision it reflects) is
+  built once and patched by each grant, revocation or negation that arrives, at a cost bounded by
+  that delta's own negation chain. A read consults the snapshot by key (is this striker trusted at
+  this revision?) instead of re-reflecting every grant. Open questions: how the snapshot is
+  represented so both witnesses produce the same bytes; how an as-of read gets the snapshot at a
+  past cut; and whether the snapshot is itself a delta-backed artifact or private reactor state.
 - **Alias.** `aliased` needs a value-index first hop (`rhizomatic.alias.fragment == name`) to be
   anchored. Until then, an aliased term is unanchored.
 - **Maintained reads (M3).** Per-root scoped captures for install, refresh and read.
