@@ -45,11 +45,14 @@ for(const file of readdirSync(fixtures).filter(f=>f.endsWith('.json')).sort()){
  assert.deepEqual(Object.keys(pair[0].phases).sort(),Object.keys(pair[1].phases).sort());
  // Native loops may differ, and counts are measured rather than substituted from expectations.
  const n=metadata.selectedAppearances;
- if(metadata.fixture.id.startsWith('source_')&&n<=4096)for(const measured of pair){
-  assert.equal(measured.phases.gather.strictSignatureVerifications,2*n+11,'one source decode + generated envelope per gather');
-  assert.equal(measured.phases['gather-readback'].strictSignatureVerifications,2*n+24,'independent source decode + envelope per readback');
-  assert.equal(measured.phases.resolve.strictSignatureVerifications,n+15,'resolve unchanged');
-  assert.equal(measured.phases['resolve-readback'].strictSignatureVerifications,2*n+25,'independent source decode + envelope per readback');
+ // Rust verifies afresh at every call: its counts are exact. TypeScript remembers successful strict
+ // checks within a process (CHANGELOG, SPEC-16 ERRATA E13), so the same formulas bound it from above.
+ if(metadata.fixture.id.startsWith('source_')&&n<=4096)for(const [measured,exact] of [[pair[0],false],[pair[1],true]]){
+  const calls=(phase,bound,label)=>{const c=measured.phases[phase].strictSignatureVerifications;if(exact)assert.equal(c,bound,label);else assert.ok(Number.isInteger(c)&&c>=0&&c<=bound,label+': '+c+' > '+bound)};
+  calls('gather',2*n+11,'one source decode + generated envelope per gather');
+  calls('gather-readback',2*n+24,'independent source decode + envelope per readback');
+  calls('resolve',n+15,'resolve unchanged');
+  calls('resolve-readback',2*n+25,'independent source decode + envelope per readback');
  }
  const endpointRefusals=[];
  if(n===4097){

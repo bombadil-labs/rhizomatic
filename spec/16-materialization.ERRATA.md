@@ -356,4 +356,8 @@ text it reads and the shared step or tower that pins it.
   `vectors/materialization/scoped-source.json`.
 - **Rust and the memo.** The memo is a MAY. TypeScript keeps one; Rust does not, because its
   boundary gate forbids shared mutable statics in semantic modules. Answers never differ.
+- **Strict signature checks.** TypeScript also remembers successful strict signature checks by id
+  and signature, within a process, bounded at 65536 entries. It recomputes the id first, so other
+  claims never reuse a success. The M2 call counts are therefore exact for Rust and an upper bound
+  for TypeScript (`tools/measure-materialization.mjs`).
 
