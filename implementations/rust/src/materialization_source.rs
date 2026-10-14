@@ -1,4 +1,5 @@
 //! SPEC-16 MR-09/10: full source testimony. No serialized object installs a native grant.
+use crate::anchored::{scope_ids, DeltaSource};
 use crate::cbor::{encode, CborPathPart, CborValue};
 use crate::delta::canonical_bytes;
 use crate::evidence_codec::{bytes, canonical_guard, fields, get, text, EvidenceCodecError};
@@ -7,7 +8,7 @@ use crate::json_profile::parse_claims;
 use crate::set::DeltaSet;
 use crate::sign::{verify_canonical_delta, Verification};
 use crate::term_io::cbor_to_json;
-use crate::types::Delta;
+use crate::types::{Delta, Target};
 use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -82,6 +83,29 @@ pub trait MaterializationSourceCapability {
         cutoff: Option<f64>,
         required_support: &[String],
     ) -> std::result::Result<(), MaterializationSourceFailure>;
+    /// The current check for a scoped capture (SPEC-17 §7.5): `scope` names the captured
+    /// entities, so the host recomputes the revision from its index. Hosts that serve only full
+    /// captures keep the default.
+    #[allow(clippy::too_many_arguments)]
+    fn check_current_scoped(
+        &mut self,
+        binding_id: &str,
+        revision: &str,
+        authority: &str,
+        serving_at: f64,
+        cutoff: Option<f64>,
+        required_support: &[String],
+        _scope: Option<&[String]>,
+    ) -> std::result::Result<(), MaterializationSourceFailure> {
+        self.check_current(
+            binding_id,
+            revision,
+            authority,
+            serving_at,
+            cutoff,
+            required_support,
+        )
+    }
     fn reacquire_snapshot(
         &mut self,
         binding_id: &str,
@@ -113,6 +137,8 @@ pub struct MaterializationSourceSnapshot {
     pub appearance_digest: String,
     pub serving_at: f64,
     pub historical_cutoff: Option<f64>,
+    /// Present for a scoped capture (SPEC-17 §7): the entities whose scope S(E) the operands are.
+    pub scope: Option<Vec<String>>,
     pub components: Vec<CborValue>,
     pub deltas: Vec<Delta>,
 }
@@ -268,6 +294,71 @@ pub fn decode_materialization_appearance(
     require(encode_materialization_appearance(&d, limits)? == input)?;
     Ok(d)
 }
+/// The full authorized source (MR-09), or one read's scope S(E) (SPEC-17 §7).
+pub const SCOPED_SNAPSHOT_PROFILE: &str = "scoped-snapshot/1";
+const SOURCE_PROFILES: [&str; 2] = ["host-authorized-snapshot/1", SCOPED_SNAPSHOT_PROFILE];
+/// Does this binding's selection promise scoped captures?
+pub fn materialization_binding_scoped(spec: &MaterializationBindingSpec) -> bool {
+    exact(&spec.selection, &["profile", "parameters"], &[])
+        .and_then(|s| Ok(text(get(&s, "profile")?)? == SCOPED_SNAPSHOT_PROFILE))
+        .unwrap_or(false)
+}
+// A scope is a nonempty, distinct list of entity ids in UTF-8 byte order (MR-10a, SPEC-17 §7.2);
+// `str` ordering is UTF-8 byte order.
+fn scope_of(v: &CborValue, limits: MaterializationSourceLimits) -> Result<Vec<String>> {
+    let xs = list(v)?
+        .iter()
+        .map(|x| text(x).map(str::to_string).map_err(|_| INVALID))
+        .collect::<Result<Vec<_>>>()?;
+    limit(xs.len(), limits.inventory_ids)?;
+    require(!xs.is_empty() && xs.iter().all(|x| !x.is_empty()))?;
+    ordered(&xs)?;
+    Ok(xs)
+}
+// The operands as a delta source, indexed once: the scope check reads them, never the store.
+struct OperandSource<'a> {
+    by_id: BTreeMap<&'a str, &'a Delta>,
+    targets: BTreeMap<String, Vec<String>>,
+    negators: BTreeMap<String, Vec<String>>,
+}
+impl<'a> OperandSource<'a> {
+    fn new(deltas: &'a [Delta]) -> Self {
+        let mut source = OperandSource {
+            by_id: deltas.iter().map(|d| (d.id.as_str(), d)).collect(),
+            targets: BTreeMap::new(),
+            negators: BTreeMap::new(),
+        };
+        for d in deltas {
+            for ptr in &d.claims.pointers {
+                match &ptr.target {
+                    Target::Entity(e) => source
+                        .targets
+                        .entry(e.id.clone())
+                        .or_default()
+                        .push(d.id.clone()),
+                    Target::Delta(r) if ptr.role == "negates" => source
+                        .negators
+                        .entry(r.delta.clone())
+                        .or_default()
+                        .push(d.id.clone()),
+                    _ => {}
+                }
+            }
+        }
+        source
+    }
+}
+impl DeltaSource for OperandSource<'_> {
+    fn get(&self, id: &str) -> Option<&Delta> {
+        self.by_id.get(id).copied()
+    }
+    fn targets(&self, entity: &str) -> Vec<String> {
+        self.targets.get(entity).cloned().unwrap_or_default()
+    }
+    fn negators(&self, id: &str) -> Vec<String> {
+        self.negators.get(id).cloned().unwrap_or_default()
+    }
+}
 pub fn decode_materialization_binding_spec(
     input: &[u8],
     max: usize,
@@ -281,7 +372,7 @@ pub fn decode_materialization_binding_spec(
     let selection = get(&f, "selection")?;
     let s = exact(selection, &["profile", "parameters"], &[])?;
     let source_id = text(get(&f, "sourceId")?)?;
-    require(!source_id.is_empty() && text(get(&s, "profile")?)? == "host-authorized-snapshot/1")?;
+    require(!source_id.is_empty() && SOURCE_PROFILES.contains(&text(get(&s, "profile")?)?))?;
     require(matches!(
         canonical(bytes(get(&s, "parameters")?)?, max)?,
         CborValue::Map(_)
@@ -352,7 +443,7 @@ pub fn decode_materialization_snapshot(
         }
         Ok(())
     })?;
-    let f = exact(&value, SNAPSHOT_FIELDS, &["historicalCutoff"])?;
+    let f = exact(&value, SNAPSHOT_FIELDS, &["historicalCutoff", "scope"])?;
     require(text(get(&f, "format")?)? == "rhizomatic.source-snapshot/1")?;
     let get_id = |k| -> Result<String> { id(text(get(&f, k)?)?) };
     let binding = get_id("binding")?;
@@ -363,6 +454,7 @@ pub fn decode_materialization_snapshot(
     let appearance_digest = get_id("appearanceDigest")?;
     let serving_at = number(get(&f, "servingAt")?)?;
     let historical_cutoff = f.get("historicalCutoff").map(|x| number(x)).transpose()?;
+    let scope = f.get("scope").map(|x| scope_of(x, limits)).transpose()?;
     let components = list(get(&f, "components")?)?;
     require(!components.is_empty())?;
     let mut raw: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
@@ -381,7 +473,8 @@ pub fn decode_materialization_snapshot(
         number(get(&fs, "capturedAt")?)?;
         let raws = ids(get(&fs, "rawIds")?, false)?;
         let ops = ids(get(&fs, "operandIds")?, false)?;
-        require(ops.iter().all(|x| raws.contains(x)))?;
+        let raw_set: BTreeSet<&String> = raws.iter().collect();
+        require(ops.iter().all(|x| raw_set.contains(x)))?;
         for x in raws {
             raw.entry(x).or_default().insert(p.clone());
         }
@@ -484,8 +577,21 @@ pub fn decode_materialization_snapshot(
         ("membership", string(&membership)),
         ("appearanceDigest", string(&appearance_digest)),
         ("exclusions", get(&f, "exclusions")?.clone()),
-    ])));
+    ]
+    .into_iter()
+    .chain(scope.as_ref().map(|_| ("scope", f["scope"].clone())))
+    .collect())));
     require(revision == expected)?;
+    // A scoped capture carries exactly S(scope) over its own operands: nothing outside the scope's
+    // closure rides along. Completeness against the host's store stays host testimony (MR-10).
+    if let Some(scope) = &scope {
+        let closed = scope_ids(
+            &OperandSource::new(&deltas),
+            scope.iter().map(String::as_str),
+            None,
+        );
+        require(closed == operand_ids)?;
+    }
     Ok(MaterializationSourceSnapshot {
         value: value.clone(),
         binding,
@@ -496,6 +602,7 @@ pub fn decode_materialization_snapshot(
         appearance_digest,
         serving_at,
         historical_cutoff,
+        scope,
         components: components.to_vec(),
         deltas,
     })
@@ -522,6 +629,7 @@ pub struct MaterializationCaptureBasis {
     pub revision: String,
     pub serving_at: f64,
     pub historical_cutoff: Option<f64>,
+    pub scope: Option<Vec<String>>,
     pub membership: String,
     pub appearance_digest: String,
     pub snapshot: String,
@@ -571,7 +679,7 @@ pub fn decode_materialization_capture_basis(
         }
         Ok(())
     })?;
-    let f = exact(&value, CAPTURE_BASIS_FIELDS, &["historicalCutoff"])?;
+    let f = exact(&value, CAPTURE_BASIS_FIELDS, &["historicalCutoff", "scope"])?;
     require(text(get(&f, "format")?)? == "rhizomatic.source-basis/1")?;
     let get_id = |k| -> Result<String> { id(text(get(&f, k)?)?) };
     let binding = get_id("binding")?;
@@ -583,6 +691,7 @@ pub fn decode_materialization_capture_basis(
     let snapshot = get_id("snapshot")?;
     let serving_at = number(get(&f, "servingAt")?)?;
     let historical_cutoff = f.get("historicalCutoff").map(|x| number(x)).transpose()?;
+    let scope = f.get("scope").map(|x| scope_of(x, limits)).transpose()?;
     let components = list(get(&f, "components")?)?;
     require(!components.is_empty())?;
     // The same inventory rules as the snapshot: every operand and exclusion names exactly the
@@ -603,7 +712,8 @@ pub fn decode_materialization_capture_basis(
         number(get(&fs, "capturedAt")?)?;
         let raws = ids(get(&fs, "rawIds")?, false)?;
         let ops = ids(get(&fs, "operandIds")?, false)?;
-        require(ops.iter().all(|x| raws.contains(x)))?;
+        let raw_set: BTreeSet<&String> = raws.iter().collect();
+        require(ops.iter().all(|x| raw_set.contains(x)))?;
         for x in raws {
             raw.entry(x).or_default().insert(p.clone());
         }
@@ -666,18 +776,23 @@ pub fn decode_materialization_capture_basis(
                 used.iter().map(|k| string(k)).collect(),
             ))) == appearance_digest,
     )?;
-    let expected = content_address(&encode(&CborValue::Map(vec![
-        ("binding".into(), CborValue::Tstr(binding.clone())),
-        ("authority".into(), CborValue::Tstr(authority.clone())),
-        ("selection".into(), CborValue::Tstr(selection.clone())),
-        ("components".into(), CborValue::Array(component_bases)),
-        ("membership".into(), CborValue::Tstr(membership.clone())),
-        (
-            "appearanceDigest".into(),
-            CborValue::Tstr(appearance_digest.clone()),
-        ),
-        ("exclusions".into(), get(&f, "exclusions")?.clone()),
-    ])));
+    let expected = content_address(&encode(&CborValue::Map(
+        vec![
+            ("binding".into(), CborValue::Tstr(binding.clone())),
+            ("authority".into(), CborValue::Tstr(authority.clone())),
+            ("selection".into(), CborValue::Tstr(selection.clone())),
+            ("components".into(), CborValue::Array(component_bases)),
+            ("membership".into(), CborValue::Tstr(membership.clone())),
+            (
+                "appearanceDigest".into(),
+                CborValue::Tstr(appearance_digest.clone()),
+            ),
+            ("exclusions".into(), get(&f, "exclusions")?.clone()),
+        ]
+        .into_iter()
+        .chain(scope.as_ref().map(|_| ("scope".into(), f["scope"].clone())))
+        .collect(),
+    )));
     require(revision == expected)?;
     Ok(MaterializationCaptureBasis {
         binding,
@@ -686,6 +801,7 @@ pub fn decode_materialization_capture_basis(
         revision,
         serving_at,
         historical_cutoff,
+        scope,
         membership,
         appearance_digest,
         snapshot,
@@ -781,4 +897,197 @@ fn capture_checker_owns_its_basis_after_native_source_mutation() {
     assert_eq!(checker.validate(&[0]).unwrap_err(), INVALID);
     // New calls always re-enter raw decode: no receipt/proof argument exists.
     assert!(decode_materialization_snapshot_evidence(&raw, Default::default()).is_err());
+}
+/// One peer's contribution to a produced capture (MR-10).
+#[derive(Debug, Clone, PartialEq)]
+pub struct MaterializationSourceComponentInput {
+    pub peer: String,
+    /// A host-attested identity covering this peer's inventory and authority (MR-10).
+    pub revision: String,
+    pub captured_at: f64,
+    /// The operands this peer contributes: signed, admitted deltas.
+    pub operands: Vec<Delta>,
+    /// Ids this peer holds but does not contribute (raw only). An id no peer contributes must
+    /// also be named in `exclusions`.
+    pub held_ids: Vec<String>,
+}
+#[derive(Debug, Clone, PartialEq)]
+pub struct MaterializationSourceInput {
+    pub binding: String,
+    pub authority: String,
+    /// The binding's selection map, exactly as its spec carries it.
+    pub selection: CborValue,
+    pub serving_at: f64,
+    pub historical_cutoff: Option<f64>,
+    /// A scoped capture's entities (SPEC-17 §7); operands must then be exactly S(scope).
+    pub scope: Option<Vec<String>>,
+    pub components: Vec<MaterializationSourceComponentInput>,
+    /// (id, reason) for every id no peer contributes.
+    pub exclusions: Vec<(String, String)>,
+}
+#[derive(Debug, Clone, PartialEq)]
+pub struct ProducedMaterializationSource {
+    pub snapshot_bytes: Vec<u8>,
+    pub basis_bytes: Vec<u8>,
+    pub revision: String,
+}
+/// Produce source-snapshot/1 and source-basis/1 bytes from a host's selection (MR-10, SPEC-17
+/// §7). The host supplies what it selected and its testimony; the library owns the format, the
+/// digests and the revision. The result is decoded once before it is returned, so a producer can
+/// never emit bytes the decoder refuses.
+pub fn produce_materialization_snapshot(
+    input: &MaterializationSourceInput,
+    limits: MaterializationSourceLimits,
+) -> Result<ProducedMaterializationSource> {
+    let mut components = input.components.clone();
+    components.sort_by(|a, b| a.peer.cmp(&b.peer));
+    // One appearance per operand id: the lexically least signature among the contributors (MR-10).
+    let mut chosen: BTreeMap<String, (Delta, Vec<u8>, String)> = BTreeMap::new();
+    let mut contributors: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+    let mut holders: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+    let mut component_maps = Vec::new();
+    for c in &components {
+        let mut ops = BTreeSet::new();
+        for d in &c.operands {
+            let bytes = encode_materialization_appearance(d, limits)?;
+            let replace = chosen
+                .get(&d.id)
+                .is_none_or(|(held, _, _)| d.sig < held.sig);
+            if replace {
+                let key = content_address(&bytes);
+                chosen.insert(d.id.clone(), (d.clone(), bytes, key));
+            }
+            contributors
+                .entry(d.id.clone())
+                .or_default()
+                .insert(c.peer.clone());
+            holders
+                .entry(d.id.clone())
+                .or_default()
+                .insert(c.peer.clone());
+            ops.insert(d.id.clone());
+        }
+        for x in &c.held_ids {
+            holders.entry(x.clone()).or_default().insert(c.peer.clone());
+        }
+        let raws: BTreeSet<String> = ops.iter().cloned().chain(c.held_ids.clone()).collect();
+        component_maps.push(map(vec![
+            ("peer", string(&c.peer)),
+            ("revision", string(&c.revision)),
+            ("capturedAt", CborValue::Float(c.captured_at)),
+            (
+                "rawIds",
+                CborValue::Array(raws.iter().map(|x| string(x)).collect()),
+            ),
+            (
+                "operandIds",
+                CborValue::Array(ops.iter().map(|x| string(x)).collect()),
+            ),
+        ]));
+    }
+    let strings = |xs: &BTreeSet<String>| CborValue::Array(xs.iter().map(|x| string(x)).collect());
+    let operands: Vec<CborValue> = chosen
+        .iter()
+        .map(|(i, (_, _, key))| {
+            map(vec![
+                ("id", string(i)),
+                ("appearance", string(key)),
+                ("peers", strings(&contributors[i])),
+            ])
+        })
+        .collect();
+    let mut exclusions = input.exclusions.clone();
+    exclusions.sort();
+    let exclusions = CborValue::Array(
+        exclusions
+            .iter()
+            .map(|(i, reason)| {
+                map(vec![
+                    ("id", string(i)),
+                    ("peers", strings(holders.get(i).unwrap_or(&BTreeSet::new()))),
+                    ("reason", string(reason)),
+                ])
+            })
+            .collect(),
+    );
+    let keys: BTreeSet<String> = chosen.values().map(|(_, _, k)| k.clone()).collect();
+    let membership = content_address(&encode(&CborValue::Array(
+        chosen.keys().map(|k| string(k)).collect(),
+    )));
+    let appearance_digest = content_address(&encode(&CborValue::Array(
+        keys.iter().map(|k| string(k)).collect(),
+    )));
+    let selection = content_address(&encode(&input.selection));
+    // A scope is a set: the producer writes it distinct and in UTF-8 byte order (MR-10a).
+    let scope = input.scope.as_ref().map(|xs| {
+        let set: std::collections::BTreeSet<&str> = xs.iter().map(String::as_str).collect();
+        CborValue::Array(set.into_iter().map(string).collect())
+    });
+    let bases = component_maps
+        .iter()
+        .map(|c| match c {
+            CborValue::Map(fs) => CborValue::Map(
+                fs.iter()
+                    .filter(|(k, _)| k != "capturedAt")
+                    .cloned()
+                    .collect(),
+            ),
+            other => other.clone(),
+        })
+        .collect();
+    let revision = content_address(&encode(&map(vec![
+        ("binding", string(&input.binding)),
+        ("authority", string(&input.authority)),
+        ("selection", string(&selection)),
+        ("components", CborValue::Array(bases)),
+        ("membership", string(&membership)),
+        ("appearanceDigest", string(&appearance_digest)),
+        ("exclusions", exclusions.clone()),
+    ]
+    .into_iter()
+    .chain(scope.clone().map(|s| ("scope", s)))
+    .collect())));
+    let by_key: BTreeMap<&String, &Vec<u8>> = chosen
+        .values()
+        .map(|(_, bytes, key)| (key, bytes))
+        .collect();
+    let mut fields = vec![
+        ("format", string("rhizomatic.source-snapshot/1")),
+        ("binding", string(&input.binding)),
+        ("authority", string(&input.authority)),
+        ("selection", string(&selection)),
+        ("revision", string(&revision)),
+        ("servingAt", CborValue::Float(input.serving_at)),
+        ("components", CborValue::Array(component_maps)),
+        ("operands", CborValue::Array(operands)),
+        ("exclusions", exclusions),
+        ("membership", string(&membership)),
+        ("appearanceDigest", string(&appearance_digest)),
+        (
+            "appearances",
+            CborValue::Array(
+                keys.iter()
+                    .map(|k| {
+                        map(vec![
+                            ("key", string(k)),
+                            ("value", CborValue::Bstr(by_key[k].clone())),
+                        ])
+                    })
+                    .collect(),
+            ),
+        ),
+    ];
+    if let Some(cutoff) = input.historical_cutoff {
+        fields.push(("historicalCutoff", CborValue::Float(cutoff)));
+    }
+    if let Some(scope) = scope {
+        fields.push(("scope", scope));
+    }
+    let snapshot_bytes = encode(&map(fields));
+    let basis_bytes = materialization_capture_basis(&snapshot_bytes, limits)?;
+    Ok(ProducedMaterializationSource {
+        snapshot_bytes,
+        basis_bytes,
+        revision,
+    })
 }

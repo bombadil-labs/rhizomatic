@@ -108,3 +108,25 @@ describe("signed delta vectors (ERRATA D8-D9)", () => {
     expect(() => signClaims(claims, key.seedHex)).toThrow(/author must be/);
   });
 });
+
+describe("verification memo", () => {
+  const seed = "42".repeat(32);
+  const claims = {
+    author: `ed25519:${publicKeyFromSeed(seed)}`,
+    timestamp: 1,
+    validFrom: 0,
+    pointers: [{ role: "r", target: { kind: "primitive" as const, value: 1 } }],
+  };
+  it("a remembered success never admits other claims or another signature", () => {
+    const good = signClaims(claims, seed);
+    expect(verifyDelta(good)).toBe("verified");
+    expect(verifyDelta(good)).toBe("verified");
+    // Same id and signature, different claims: the id no longer matches.
+    expect(verifyDelta({ ...good, claims: { ...claims, timestamp: 2 } })).toBe("invalid");
+    // Same id, another signature: checked afresh.
+    const flipped = (good.sig![0] === "0" ? "1" : "0") + good.sig!.slice(1);
+    expect(verifyDelta({ ...good, sig: flipped })).toBe("invalid");
+    const other = signClaims({ ...claims, timestamp: 2 }, seed);
+    expect(verifyDelta({ ...good, sig: other.sig! })).toBe("invalid");
+  });
+});

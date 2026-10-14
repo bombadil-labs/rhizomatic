@@ -26,6 +26,7 @@ import {
   decodeMaterializationAppearance,
   decodeMaterializationAuthoritySpec,
   decodeMaterializationBindingSpec,
+  materializationBindingScoped,
   decodeMaterializationSnapshotEvidence,
   encodeMaterializationAppearance,
   MaterializationSourceError,
@@ -368,6 +369,8 @@ function checkSourceStructure(
       commandBytes(readMaterializationDescription(binding), "spec"),
       c.limits.artifactBytes,
     );
+    // Maintained reads keep full captures for now; a scoped binding serves batch gather only.
+    if (materializationBindingScoped(spec)) mFail("unsupported-operation");
     const capture = fresh ? p.capture! : stored!.capture!;
     const cf = readMaterializationDescription(capture);
     const authority = fresh ? p.supplied.get(commandRef(cf, "authority")) : stored!.authority;
@@ -393,7 +396,8 @@ function checkSourceStructure(
       capture.claims.validFrom !== snapshot.servingAt ||
       !materializationValidAt(capture, snapshot.servingAt) ||
       !materializationValidAt(authority, receivedAt) ||
-      snapshot.historicalCutoff !== undefined
+      snapshot.historicalCutoff !== undefined ||
+      snapshot.scope !== undefined
     )
       throw Error();
     // The committed capture commits to the exact snapshot bytes (MR-10); a fresh carrier may

@@ -146,18 +146,21 @@ it("snapshot evidence checker owns basis and source independently of returned mu
     "invalid-source",
   );
 });
-it("snapshot evidence verifies each fresh factory but never re-verifies for its basis", async () => {
+it("snapshot evidence verifies each appearance once per process (MR-09b), never for its basis", async () => {
   const sign = await import("../src/delta/sign.js");
   const spy = vi.spyOn(sign, "verifyCanonicalDelta");
+  // Limits no other test uses: the memo keys on them, so this decode is the process's first.
+  const limits = { ...DEFAULT_MATERIALIZATION_SOURCE_LIMITS, artifactBytes: 16777215 };
   try {
     const f = vectors.positives.find((f) => f.id === "one")!;
-    const h = decodeMaterializationSnapshotEvidence(bytes(f.snapshotHex));
+    const h = decodeMaterializationSnapshotEvidence(bytes(f.snapshotHex), limits);
     expect(spy).toHaveBeenCalledTimes(h.snapshot.deltas.length);
     h.validateCaptureBasis(bytes(f.basisHex));
     h.validateCaptureBasis(bytes(f.basisHex));
     expect(spy).toHaveBeenCalledTimes(h.snapshot.deltas.length);
-    decodeMaterializationSnapshotEvidence(bytes(f.snapshotHex));
-    expect(spy).toHaveBeenCalledTimes(2 * h.snapshot.deltas.length);
+    // The same bytes under the same limits were fully verified: the memo skips repeated work.
+    decodeMaterializationSnapshotEvidence(bytes(f.snapshotHex), limits);
+    expect(spy).toHaveBeenCalledTimes(h.snapshot.deltas.length);
   } finally {
     spy.mockRestore();
   }

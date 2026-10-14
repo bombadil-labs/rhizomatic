@@ -599,6 +599,7 @@ pub const REFUSAL_CODES: &[&str] = &[
     "write-conflict",
     "source-changed",
     "source-unavailable",
+    "scope-miss",
     "precondition-failed",
     "resource-limit",
     "resource-exhausted",

@@ -1,4 +1,5 @@
 //! Release-A gather/resolve and pure supplied-input preflight; no maintained control runtime.
+use crate::anchored::{anchor_analysis, hview_anchors, AnchorAnalysis};
 use crate::cbor::{encode, CborValue};
 use crate::delta::canonical_bytes;
 use crate::eval::{bind_program_reading, eval_materialization_term_at, EvalResult};
@@ -248,13 +249,14 @@ impl<'a> MaterializationEndpoint<'a> {
         self.source_grants
             .get_mut(binding)
             .ok_or("unauthorized")?
-            .check_current(
+            .check_current_scoped(
                 binding,
                 &snapshot.revision,
                 &snapshot.authority,
                 at,
                 snapshot.historical_cutoff,
                 required_support,
+                snapshot.scope.as_deref(),
             )
             .map_err(|e| {
                 match e {
@@ -302,6 +304,23 @@ impl<'a> MaterializationEndpoint<'a> {
             let source =
                 DeltaSet::from_deltas(snap.deltas.clone()).map_err(|_| "invalid-source")?;
             let root = materialization_entity(&p.fields, "root")?;
+            // A scoped capture serves only an anchored program, and only when it covers the root
+            // and every constant anchor (SPEC-17 §7.7-8).
+            if let Some(scope) = &snap.scope {
+                let AnchorAnalysis::Anchored { anchors } = anchor_analysis(
+                    &program.selected.gather.body,
+                    Some(&program.selected.registry),
+                    Some(&program.bindings),
+                ) else {
+                    return Err("unsupported-operation".into());
+                };
+                require(
+                    std::iter::once(&root)
+                        .chain(anchors.iter())
+                        .all(|e| scope.contains(e)),
+                    "scope-miss",
+                )?;
+            }
             let gathered = eval_materialization_term_at(
                 &program.selected.gather.body,
                 &source,
@@ -326,6 +345,14 @@ impl<'a> MaterializationEndpoint<'a> {
             let EvalResult::HView(hview) = gathered else {
                 return Err("execution-failed".into());
             };
+            // Every anchor the evaluation reached must lie in the captured scope; otherwise a child
+            // was read over a source that was never promised complete for it.
+            if let Some(scope) = &snap.scope {
+                require(
+                    hview_anchors(&hview).iter().all(|e| scope.contains(e)),
+                    "scope-miss",
+                )?;
+            }
             let envelope = encode_hview_envelope(&hview, envelope_limits(&self.catalog.limits))
                 .map_err(|e| e.to_string())?;
             map(vec![

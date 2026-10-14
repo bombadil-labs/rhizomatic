@@ -22,15 +22,47 @@ export const array = (v: readonly CborValue[]): CborValue => ({ t: "array", v })
 export const map = (v: ReadonlyArray<readonly [string, CborValue]>): CborValue => ({ t: "map", v });
 
 class ByteSink {
-  private readonly bytes: number[] = [];
+  private buf = new Uint8Array(64);
+  private len = 0;
+  private reserve(n: number): void {
+    if (this.len + n <= this.buf.length) return;
+    let size = this.buf.length * 2;
+    while (size < this.len + n) size *= 2;
+    const next = new Uint8Array(size);
+    next.set(this.buf.subarray(0, this.len));
+    this.buf = next;
+  }
   push(...b: number[]): void {
-    for (const x of b) this.bytes.push(x & 0xff);
+    this.reserve(b.length);
+    for (const x of b) this.buf[this.len++] = x & 0xff;
+  }
+  /** Text whose every code unit is below 0x80: its UTF-8 bytes are its code units. */
+  pushAscii(text: string): boolean {
+    const start = this.len;
+    this.reserve(text.length);
+    for (let i = 0; i < text.length; i++) {
+      const c = text.charCodeAt(i);
+      if (c >= 0x80) {
+        this.len = start;
+        return false;
+      }
+      this.buf[this.len++] = c;
+    }
+    return true;
   }
   pushBytes(arr: Uint8Array): void {
-    for (const x of arr) this.bytes.push(x);
+    this.reserve(arr.length);
+    this.buf.set(arr, this.len);
+    this.len += arr.length;
+  }
+  get length(): number {
+    return this.len;
+  }
+  truncate(length: number): void {
+    this.len = length;
   }
   toUint8Array(): Uint8Array {
-    return Uint8Array.from(this.bytes);
+    return this.buf.slice(0, this.len);
   }
 }
 
@@ -121,6 +153,24 @@ function writeFloat(sink: Pick<ByteSink, "push">, value: number): void {
   }
 }
 
+/**
+ * Compare two well-formed strings in UTF-8 byte order, which is code point order. JavaScript's own
+ * `<` compares UTF-16 code units, which disagrees above U+FFFF: U+10000 sorts before U+E000 there.
+ * Every ordered list of free text on the wire uses this order, as Rust's `str` ordering does.
+ */
+export function compareUtf8(a: string, b: string): number {
+  const n = Math.min(a.length, b.length);
+  for (let i = 0; i < n; i++) {
+    const x = a.charCodeAt(i),
+      y = b.charCodeAt(i);
+    if (x !== y) return rank(x) - rank(y);
+  }
+  return a.length - b.length;
+}
+// A surrogate unit starts a code point above U+FFFF, so it ranks after U+E000..U+FFFF.
+const rank = (unit: number): number =>
+  unit >= 0xd800 && unit <= 0xdfff ? unit + 0x2000 : unit >= 0xe000 ? unit - 0x800 : unit;
+
 function cmpBytes(a: Uint8Array, b: Uint8Array): number {
   const n = Math.min(a.length, b.length);
   for (let i = 0; i < n; i++) {
@@ -189,6 +239,11 @@ export function cborTextByteLength(value: string): number {
 function encodeInto(sink: ByteSink, val: CborValue): void {
   switch (val.t) {
     case "tstr": {
+      // The head's length is the UTF-8 byte count, which equals the string length for ASCII.
+      const mark = sink.length;
+      writeHead(sink, 3, val.v.length);
+      if (sink.pushAscii(val.v)) return;
+      sink.truncate(mark);
       if (!wellFormedUnicode(val.v)) throw new Error("cbor: text is not well-formed Unicode");
       const bytes = utf8.encode(val.v); // byte-honest: no normalization at encode (D16)
       writeHead(sink, 3, bytes.length);

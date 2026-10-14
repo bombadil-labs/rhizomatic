@@ -315,6 +315,7 @@ export const COMMAND_REFUSALS = [
   "write-conflict",
   "source-changed",
   "source-unavailable",
+  "scope-miss",
   "precondition-failed",
   "resource-limit",
   "resource-exhausted",

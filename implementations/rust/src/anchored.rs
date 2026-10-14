@@ -328,6 +328,13 @@ fn visible_anchors(h: &HView, out: &mut BTreeSet<String>) {
     }
 }
 
+/// The anchors an HView shows, sorted: its root and every expanded child (SPEC-17 §6).
+pub fn hview_anchors(h: &HView) -> Vec<String> {
+    let mut out = BTreeSet::new();
+    visible_anchors(h, &mut out);
+    out.into_iter().collect()
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct AnchoredRead {
     pub result: EvalResult,

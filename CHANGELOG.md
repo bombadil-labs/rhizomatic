@@ -40,8 +40,41 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
   `aliased` term now dispatches broadly, so a new alias mapping refreshes it (SPEC-9). Answers do
   not change; only the number of refreshes does.
 
-`evalTerm`, `Reactor.eval` and the materialization profile still scan their whole input; callers
-move to anchored reads explicitly.
+- Scoped sources for batch gather (slice R2, SPEC-16 §4a), in TypeScript and Rust:
+  - A binding may select `scoped-snapshot/1`. Its captures carry a `scope`, which joins the
+    revision; the operands must be exactly S(scope), checked from the snapshot itself.
+  - `checkCurrent` receives the scope (Rust: `check_current_scoped`, defaulted).
+  - A scoped gather refuses an unanchored program (`unsupported-operation`) and a scope that misses
+    the root, a constant anchor or an expanded child (`scope-miss`, a new refusal code).
+  - Lifecycle verbs refuse a scoped binding (`unsupported-operation`).
+  - `produceMaterializationSnapshot` / `produce_materialization_snapshot` build snapshot and basis
+    bytes from a host's selection. Hosts no longer assemble MR-10 documents by hand.
+  - TypeScript keeps a bounded memo of verified appearances, so one read stops checking every
+    signature four times.
+  - Shared vectors `vectors/materialization/scoped-source.json` (codec) and
+    `vectors/materialization/scoped-commands.json` (six endpoint deliveries; Rust reproduces every
+    TypeScript outcome byte for byte).
+
+### Fixed
+
+- The snapshot and basis decoders checked each component's operand ids against its raw ids with
+  a nested scan, quadratic in the inventory. They use a set.
+- A scope array is ordered by UTF-8 bytes in both witnesses (SPEC-16 MR-10a). TypeScript compared
+  entity ids by UTF-16 code units, so a scope holding U+E000 and U+10000 was accepted by one
+  witness and refused by the other. `compareUtf8` is the shared comparator; both producers write
+  a scope as a set in that order. New vectors: `scoped_supplementary_order` and
+  `utf16_ordered_scope`.
+- TypeScript checked the same signature again at each layer a delta crossed: at ingest, in the
+  snapshot producer, in each HView envelope decode. `verifyDelta` now remembers successful strict
+  checks, keyed by id and signature (bounded at 65536). It still recomputes the id each time, so
+  other claims never reuse a remembered success. A 400-delta portable read went from 11.8 s to
+  4.0 s in the Loam trial.
+- The TypeScript CBOR encoder wrote into a JavaScript number array, one byte at a time. It writes
+  into a growing byte buffer, and writes ASCII text without `TextEncoder`. The bytes do not change;
+  every shared vector still matches.
+
+`evalTerm`, `Reactor.eval` and the full-source materialization profile still scan their whole
+input; callers move to anchored reads and scoped captures explicitly.
 
 ## 0.11.0-next.9 — 2026-10-14
 
