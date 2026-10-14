@@ -40,12 +40,7 @@ interface Materialization {
   readonly registry: SchemaRegistry | undefined;
   readonly rootAnchored: boolean;
   readonly lowerTerm:
-    | ((
-        term: Term,
-        input: DeltaSet,
-        now: number,
-        registry?: SchemaRegistry,
-      ) => LoweredProgram)
+    | ((term: Term, input: DeltaSet, now: number, registry?: SchemaRegistry) => LoweredProgram)
     | undefined;
   now: number;
   readonly views: Map<string, HView>;
