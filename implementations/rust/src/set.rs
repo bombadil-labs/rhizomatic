@@ -109,6 +109,18 @@ impl DeltaSet {
         next
     }
 
+    /// The members with these ids, carried without re-verification; absent ids are skipped. Cost
+    /// is the number of ids, not the size of this set (SPEC-17 §3).
+    pub fn subset(&self, ids: &[String]) -> Self {
+        let mut next = Self::new();
+        for id in ids {
+            if let Some(delta) = self.by_id.get(id) {
+                next.by_id.insert(id.clone(), delta.clone());
+            }
+        }
+        next
+    }
+
     /// Sorted lexicographically — the canonical enumeration order (BTreeMap key order).
     pub fn ids(&self) -> Vec<&str> {
         self.by_id.keys().map(String::as_str).collect()

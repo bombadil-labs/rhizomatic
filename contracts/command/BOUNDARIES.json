@@ -263,7 +263,8 @@
       "source_mapping": {
         "ts": "implementations/ts/src/resolve",
         "rust_candidate_modules": [
-          "eval.rs"
+          "eval.rs",
+          "anchored.rs"
         ]
       },
       "lower_binding": "Bind term, complete input set, root, time, registry and variables to a deterministic result sort.",

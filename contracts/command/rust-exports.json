@@ -186,6 +186,1789 @@
     },
     {
       "form": "syn-external-import",
+      "owner": "resolve",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "std::collections::BTreeMap"
+    },
+    {
+      "form": "syn-external-import",
+      "owner": "resolve",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "std::collections::BTreeSet"
+    },
+    {
+      "form": "syn-import",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::EvalResult",
+      "resolvedTarget": "crate::eval::EvalResult",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::eval::EvalResult",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-import",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::GroupKey",
+      "resolvedTarget": "crate::eval::GroupKey",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::eval::GroupKey",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-import",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::MaskPolicy",
+      "resolvedTarget": "crate::eval::MaskPolicy",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::eval::MaskPolicy",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-import",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::PruneKeep",
+      "resolvedTarget": "crate::eval::PruneKeep",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::eval::PruneKeep",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-import",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::SchemaRef",
+      "resolvedTarget": "crate::eval::SchemaRef",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::eval::SchemaRef",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-import",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::Term",
+      "resolvedTarget": "crate::eval::Term",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::eval::Term",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-import",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::eval_term",
+      "resolvedTarget": "crate::eval::eval_term",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::eval::eval_term",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-import",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::eval_term_at",
+      "resolvedTarget": "crate::eval::eval_term_at",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::eval::eval_term_at",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-import",
+      "owner": "resolve",
+      "rawTarget": "crate::hview::HView",
+      "resolvedTarget": "crate::hview::HView",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::hview::HView",
+      "targetOwner": "algebra"
+    },
+    {
+      "form": "syn-import",
+      "owner": "resolve",
+      "rawTarget": "crate::pred::Bindings",
+      "resolvedTarget": "crate::pred::Bindings",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::pred::Bindings",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-import",
+      "owner": "resolve",
+      "rawTarget": "crate::pred::EntityMatch",
+      "resolvedTarget": "crate::pred::EntityMatch",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::pred::EntityMatch",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-import",
+      "owner": "resolve",
+      "rawTarget": "crate::pred::Pred",
+      "resolvedTarget": "crate::pred::Pred",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::pred::Pred",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-import",
+      "owner": "resolve",
+      "rawTarget": "crate::pred::StrMatch",
+      "resolvedTarget": "crate::pred::StrMatch",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::pred::StrMatch",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-import",
+      "owner": "resolve",
+      "rawTarget": "crate::schema::SchemaRegistry",
+      "resolvedTarget": "crate::schema::SchemaRegistry",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::schema::SchemaRegistry",
+      "targetOwner": "schema"
+    },
+    {
+      "form": "syn-import",
+      "owner": "resolve",
+      "rawTarget": "crate::set::DeltaSet",
+      "resolvedTarget": "crate::set::DeltaSet",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::set::DeltaSet",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-import",
+      "owner": "resolve",
+      "rawTarget": "crate::types::Delta",
+      "resolvedTarget": "crate::types::Delta",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::types::Delta",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-import",
+      "owner": "resolve",
+      "rawTarget": "crate::types::Primitive",
+      "resolvedTarget": "crate::types::Primitive",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::types::Primitive",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::types::Delta",
+      "resolvedTarget": "crate::types::Delta",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DeltaSource::get",
+      "target": "crate::types::Delta",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::set::DeltaSet",
+      "resolvedTarget": "crate::set::DeltaSet",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DeltaSource::subset",
+      "target": "crate::set::DeltaSet",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::set::DeltaSet::from_deltas",
+      "resolvedTarget": "crate::set::DeltaSet::from_deltas",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DeltaSource::subset",
+      "target": "crate::set::DeltaSet::from_deltas",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::set::DeltaSet",
+      "resolvedTarget": "crate::set::DeltaSet",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "IndexedSource",
+      "target": "crate::set::DeltaSet",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "resolve",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "IndexedSource",
+      "target": "std::collections::BTreeMap"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "resolve",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "IndexedSource",
+      "target": "std::collections::BTreeSet"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::DeltaSource",
+      "resolvedTarget": "crate::anchored::DeltaSource",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "IndexedSource",
+      "target": "crate::anchored::DeltaSource",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::IndexedSource",
+      "resolvedTarget": "crate::anchored::IndexedSource",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "IndexedSource",
+      "target": "crate::anchored::IndexedSource",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::IndexedSource",
+      "resolvedTarget": "crate::anchored::IndexedSource",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "IndexedSource::get",
+      "target": "crate::anchored::IndexedSource",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::types::Delta",
+      "resolvedTarget": "crate::types::Delta",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "IndexedSource::get",
+      "target": "crate::types::Delta",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::IndexedSource",
+      "resolvedTarget": "crate::anchored::IndexedSource",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "IndexedSource::negators",
+      "target": "crate::anchored::IndexedSource",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::IndexedSource",
+      "resolvedTarget": "crate::anchored::IndexedSource",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "IndexedSource::subset",
+      "target": "crate::anchored::IndexedSource",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::set::DeltaSet",
+      "resolvedTarget": "crate::set::DeltaSet",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "IndexedSource::subset",
+      "target": "crate::set::DeltaSet",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::IndexedSource",
+      "resolvedTarget": "crate::anchored::IndexedSource",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "IndexedSource::targets",
+      "target": "crate::anchored::IndexedSource",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::DeltaSource",
+      "resolvedTarget": "crate::anchored::DeltaSource",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "scope_ids",
+      "target": "crate::anchored::DeltaSource",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::types::Delta",
+      "resolvedTarget": "crate::types::Delta",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "scope_ids",
+      "target": "crate::types::Delta",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "resolve",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "scope_ids",
+      "target": "std::collections::BTreeSet"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "resolve",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "scope_ids",
+      "target": "std::collections::BTreeSet::new"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "resolve",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "scope_ids",
+      "target": "std::vec::Vec::new"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::UnanchoredReason",
+      "resolvedTarget": "crate::anchored::UnanchoredReason",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "UnanchoredReason",
+      "target": "crate::anchored::UnanchoredReason",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::UnanchoredReason",
+      "resolvedTarget": "crate::anchored::UnanchoredReason",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "UnanchoredReason::as_str",
+      "target": "crate::anchored::UnanchoredReason",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::UnanchoredReason::ActsFor",
+      "resolvedTarget": "crate::anchored::UnanchoredReason::ActsFor",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "UnanchoredReason::as_str",
+      "target": "crate::anchored::UnanchoredReason::ActsFor",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::UnanchoredReason::Aliased",
+      "resolvedTarget": "crate::anchored::UnanchoredReason::Aliased",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "UnanchoredReason::as_str",
+      "target": "crate::anchored::UnanchoredReason::Aliased",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::UnanchoredReason::ConstGroup",
+      "resolvedTarget": "crate::anchored::UnanchoredReason::ConstGroup",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "UnanchoredReason::as_str",
+      "target": "crate::anchored::UnanchoredReason::ConstGroup",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::UnanchoredReason::Reflection",
+      "resolvedTarget": "crate::anchored::UnanchoredReason::Reflection",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "UnanchoredReason::as_str",
+      "target": "crate::anchored::UnanchoredReason::Reflection",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::UnanchoredReason::ResultSort",
+      "resolvedTarget": "crate::anchored::UnanchoredReason::ResultSort",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "UnanchoredReason::as_str",
+      "target": "crate::anchored::UnanchoredReason::ResultSort",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::UnanchoredReason::UnknownSchema",
+      "resolvedTarget": "crate::anchored::UnanchoredReason::UnknownSchema",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "UnanchoredReason::as_str",
+      "target": "crate::anchored::UnanchoredReason::UnknownSchema",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::UnanchoredReason",
+      "resolvedTarget": "crate::anchored::UnanchoredReason",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "AnchorAnalysis",
+      "target": "crate::anchored::UnanchoredReason",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::conjuncts",
+      "resolvedTarget": "crate::anchored::conjuncts",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "conjuncts",
+      "target": "crate::anchored::conjuncts",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::pred::Pred",
+      "resolvedTarget": "crate::pred::Pred",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "conjuncts",
+      "target": "crate::pred::Pred",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::pred::Pred::And",
+      "resolvedTarget": "crate::pred::Pred::And",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "conjuncts",
+      "target": "crate::pred::Pred::And",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "vec"
+      ],
+      "owner": "resolve",
+      "source": "implementations/rust/src/anchored.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "conjuncts"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::Pin",
+      "resolvedTarget": "crate::anchored::Pin",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "entity_of",
+      "target": "crate::anchored::Pin",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::Pin::Ambient",
+      "resolvedTarget": "crate::anchored::Pin::Ambient",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "entity_of",
+      "target": "crate::anchored::Pin::Ambient",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::Pin::Entity",
+      "resolvedTarget": "crate::anchored::Pin::Entity",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "entity_of",
+      "target": "crate::anchored::Pin::Entity",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::pred::Bindings",
+      "resolvedTarget": "crate::pred::Bindings",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "entity_of",
+      "target": "crate::pred::Bindings",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::pred::EntityMatch",
+      "resolvedTarget": "crate::pred::EntityMatch",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "entity_of",
+      "target": "crate::pred::EntityMatch",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::pred::EntityMatch::Const",
+      "resolvedTarget": "crate::pred::EntityMatch::Const",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "entity_of",
+      "target": "crate::pred::EntityMatch::Const",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::pred::EntityMatch::Hole",
+      "resolvedTarget": "crate::pred::EntityMatch::Hole",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "entity_of",
+      "target": "crate::pred::EntityMatch::Hole",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::pred::EntityMatch::Root",
+      "resolvedTarget": "crate::pred::EntityMatch::Root",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "entity_of",
+      "target": "crate::pred::EntityMatch::Root",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::types::Primitive::Str",
+      "resolvedTarget": "crate::types::Primitive::Str",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "entity_of",
+      "target": "crate::types::Primitive::Str",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::Pin",
+      "resolvedTarget": "crate::anchored::Pin",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "pinned_entity",
+      "target": "crate::anchored::Pin",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::conjuncts",
+      "resolvedTarget": "crate::anchored::conjuncts",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "pinned_entity",
+      "target": "crate::anchored::conjuncts",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::entity_of",
+      "resolvedTarget": "crate::anchored::entity_of",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "pinned_entity",
+      "target": "crate::anchored::entity_of",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::pred::Bindings",
+      "resolvedTarget": "crate::pred::Bindings",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "pinned_entity",
+      "target": "crate::pred::Bindings",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::pred::Pred",
+      "resolvedTarget": "crate::pred::Pred",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "pinned_entity",
+      "target": "crate::pred::Pred",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::pred::Pred::HasPointer",
+      "resolvedTarget": "crate::pred::Pred::HasPointer",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "pinned_entity",
+      "target": "crate::pred::Pred::HasPointer",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::schema::SchemaRegistry",
+      "resolvedTarget": "crate::schema::SchemaRegistry",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Analyzer",
+      "target": "crate::schema::SchemaRegistry",
+      "targetOwner": "schema"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "resolve",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Analyzer",
+      "target": "std::collections::BTreeSet"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::UnanchoredReason",
+      "resolvedTarget": "crate::anchored::UnanchoredReason",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Walk",
+      "target": "crate::anchored::UnanchoredReason",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::UnanchoredReason::Aliased",
+      "resolvedTarget": "crate::anchored::UnanchoredReason::Aliased",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "check_str",
+      "target": "crate::anchored::UnanchoredReason::Aliased",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::Walk",
+      "resolvedTarget": "crate::anchored::Walk",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "check_str",
+      "target": "crate::anchored::Walk",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::pred::StrMatch",
+      "resolvedTarget": "crate::pred::StrMatch",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "check_str",
+      "target": "crate::pred::StrMatch",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::pred::StrMatch::Aliased",
+      "resolvedTarget": "crate::pred::StrMatch::Aliased",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "check_str",
+      "target": "crate::pred::StrMatch::Aliased",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::Analyzer",
+      "resolvedTarget": "crate::anchored::Analyzer",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Analyzer",
+      "target": "crate::anchored::Analyzer",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::Analyzer",
+      "resolvedTarget": "crate::anchored::Analyzer",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Analyzer::pred",
+      "target": "crate::anchored::Analyzer",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::Pin::Entity",
+      "resolvedTarget": "crate::anchored::Pin::Entity",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Analyzer::pred",
+      "target": "crate::anchored::Pin::Entity",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::UnanchoredReason::ActsFor",
+      "resolvedTarget": "crate::anchored::UnanchoredReason::ActsFor",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Analyzer::pred",
+      "target": "crate::anchored::UnanchoredReason::ActsFor",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::UnanchoredReason::Reflection",
+      "resolvedTarget": "crate::anchored::UnanchoredReason::Reflection",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Analyzer::pred",
+      "target": "crate::anchored::UnanchoredReason::Reflection",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::Walk",
+      "resolvedTarget": "crate::anchored::Walk",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Analyzer::pred",
+      "target": "crate::anchored::Walk",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::check_str",
+      "resolvedTarget": "crate::anchored::check_str",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Analyzer::pred",
+      "target": "crate::anchored::check_str",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::pinned_entity",
+      "resolvedTarget": "crate::anchored::pinned_entity",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Analyzer::pred",
+      "target": "crate::anchored::pinned_entity",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::Term::Select",
+      "resolvedTarget": "crate::eval::Term::Select",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Analyzer::pred",
+      "target": "crate::eval::Term::Select",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::pred::Bindings",
+      "resolvedTarget": "crate::pred::Bindings",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Analyzer::pred",
+      "target": "crate::pred::Bindings",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::pred::Pred",
+      "resolvedTarget": "crate::pred::Pred",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Analyzer::pred",
+      "target": "crate::pred::Pred",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::pred::Pred::ActsFor",
+      "resolvedTarget": "crate::pred::Pred::ActsFor",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Analyzer::pred",
+      "target": "crate::pred::Pred::ActsFor",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::pred::Pred::And",
+      "resolvedTarget": "crate::pred::Pred::And",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Analyzer::pred",
+      "target": "crate::pred::Pred::And",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::pred::Pred::HasPointer",
+      "resolvedTarget": "crate::pred::Pred::HasPointer",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Analyzer::pred",
+      "target": "crate::pred::Pred::HasPointer",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::pred::Pred::InView",
+      "resolvedTarget": "crate::pred::Pred::InView",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Analyzer::pred",
+      "target": "crate::pred::Pred::InView",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::pred::Pred::Not",
+      "resolvedTarget": "crate::pred::Pred::Not",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Analyzer::pred",
+      "target": "crate::pred::Pred::Not",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::pred::Pred::Or",
+      "resolvedTarget": "crate::pred::Pred::Or",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Analyzer::pred",
+      "target": "crate::pred::Pred::Or",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::Analyzer",
+      "resolvedTarget": "crate::anchored::Analyzer",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Analyzer::schema",
+      "target": "crate::anchored::Analyzer",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::UnanchoredReason::UnknownSchema",
+      "resolvedTarget": "crate::anchored::UnanchoredReason::UnknownSchema",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Analyzer::schema",
+      "target": "crate::anchored::UnanchoredReason::UnknownSchema",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::Walk",
+      "resolvedTarget": "crate::anchored::Walk",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Analyzer::schema",
+      "target": "crate::anchored::Walk",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::SchemaRef",
+      "resolvedTarget": "crate::eval::SchemaRef",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Analyzer::schema",
+      "target": "crate::eval::SchemaRef",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::SchemaRef::Name",
+      "resolvedTarget": "crate::eval::SchemaRef::Name",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Analyzer::schema",
+      "target": "crate::eval::SchemaRef::Name",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::SchemaRef::Pinned",
+      "resolvedTarget": "crate::eval::SchemaRef::Pinned",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Analyzer::schema",
+      "target": "crate::eval::SchemaRef::Pinned",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::pred::Bindings",
+      "resolvedTarget": "crate::pred::Bindings",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Analyzer::schema",
+      "target": "crate::pred::Bindings",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::Analyzer",
+      "resolvedTarget": "crate::anchored::Analyzer",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Analyzer::walk",
+      "target": "crate::anchored::Analyzer",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::Pin::Entity",
+      "resolvedTarget": "crate::anchored::Pin::Entity",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Analyzer::walk",
+      "target": "crate::anchored::Pin::Entity",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::UnanchoredReason::ConstGroup",
+      "resolvedTarget": "crate::anchored::UnanchoredReason::ConstGroup",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Analyzer::walk",
+      "target": "crate::anchored::UnanchoredReason::ConstGroup",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::Walk",
+      "resolvedTarget": "crate::anchored::Walk",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Analyzer::walk",
+      "target": "crate::anchored::Walk",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::check_str",
+      "resolvedTarget": "crate::anchored::check_str",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Analyzer::walk",
+      "target": "crate::anchored::check_str",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::pinned_entity",
+      "resolvedTarget": "crate::anchored::pinned_entity",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Analyzer::walk",
+      "target": "crate::anchored::pinned_entity",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::GroupKey::Const",
+      "resolvedTarget": "crate::eval::GroupKey::Const",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Analyzer::walk",
+      "target": "crate::eval::GroupKey::Const",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::MaskPolicy::Trust",
+      "resolvedTarget": "crate::eval::MaskPolicy::Trust",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Analyzer::walk",
+      "target": "crate::eval::MaskPolicy::Trust",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::PruneKeep::Match",
+      "resolvedTarget": "crate::eval::PruneKeep::Match",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Analyzer::walk",
+      "target": "crate::eval::PruneKeep::Match",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::Term",
+      "resolvedTarget": "crate::eval::Term",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Analyzer::walk",
+      "target": "crate::eval::Term",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::Term::Difference",
+      "resolvedTarget": "crate::eval::Term::Difference",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Analyzer::walk",
+      "target": "crate::eval::Term::Difference",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::Term::Expand",
+      "resolvedTarget": "crate::eval::Term::Expand",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Analyzer::walk",
+      "target": "crate::eval::Term::Expand",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::Term::Fix",
+      "resolvedTarget": "crate::eval::Term::Fix",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Analyzer::walk",
+      "target": "crate::eval::Term::Fix",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::Term::Group",
+      "resolvedTarget": "crate::eval::Term::Group",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Analyzer::walk",
+      "target": "crate::eval::Term::Group",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::Term::Input",
+      "resolvedTarget": "crate::eval::Term::Input",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Analyzer::walk",
+      "target": "crate::eval::Term::Input",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::Term::Intersect",
+      "resolvedTarget": "crate::eval::Term::Intersect",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Analyzer::walk",
+      "target": "crate::eval::Term::Intersect",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::Term::Mask",
+      "resolvedTarget": "crate::eval::Term::Mask",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Analyzer::walk",
+      "target": "crate::eval::Term::Mask",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::Term::Prune",
+      "resolvedTarget": "crate::eval::Term::Prune",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Analyzer::walk",
+      "target": "crate::eval::Term::Prune",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::Term::Resolve",
+      "resolvedTarget": "crate::eval::Term::Resolve",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Analyzer::walk",
+      "target": "crate::eval::Term::Resolve",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::Term::Select",
+      "resolvedTarget": "crate::eval::Term::Select",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Analyzer::walk",
+      "target": "crate::eval::Term::Select",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::Term::Union",
+      "resolvedTarget": "crate::eval::Term::Union",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Analyzer::walk",
+      "target": "crate::eval::Term::Union",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::pred::Bindings",
+      "resolvedTarget": "crate::pred::Bindings",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Analyzer::walk",
+      "target": "crate::pred::Bindings",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "format"
+      ],
+      "owner": "resolve",
+      "source": "implementations/rust/src/anchored.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "Analyzer::schema"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::Analyzer",
+      "resolvedTarget": "crate::anchored::Analyzer",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "anchor_analysis",
+      "target": "crate::anchored::Analyzer",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::AnchorAnalysis",
+      "resolvedTarget": "crate::anchored::AnchorAnalysis",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "anchor_analysis",
+      "target": "crate::anchored::AnchorAnalysis",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::AnchorAnalysis::Anchored",
+      "resolvedTarget": "crate::anchored::AnchorAnalysis::Anchored",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "anchor_analysis",
+      "target": "crate::anchored::AnchorAnalysis::Anchored",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::AnchorAnalysis::Unanchored",
+      "resolvedTarget": "crate::anchored::AnchorAnalysis::Unanchored",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "anchor_analysis",
+      "target": "crate::anchored::AnchorAnalysis::Unanchored",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::UnanchoredReason::ResultSort",
+      "resolvedTarget": "crate::anchored::UnanchoredReason::ResultSort",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "anchor_analysis",
+      "target": "crate::anchored::UnanchoredReason::ResultSort",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::Term",
+      "resolvedTarget": "crate::eval::Term",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "anchor_analysis",
+      "target": "crate::eval::Term",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::Term::Expand",
+      "resolvedTarget": "crate::eval::Term::Expand",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "anchor_analysis",
+      "target": "crate::eval::Term::Expand",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::Term::Fix",
+      "resolvedTarget": "crate::eval::Term::Fix",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "anchor_analysis",
+      "target": "crate::eval::Term::Fix",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::Term::Group",
+      "resolvedTarget": "crate::eval::Term::Group",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "anchor_analysis",
+      "target": "crate::eval::Term::Group",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::Term::Prune",
+      "resolvedTarget": "crate::eval::Term::Prune",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "anchor_analysis",
+      "target": "crate::eval::Term::Prune",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::Term::Resolve",
+      "resolvedTarget": "crate::eval::Term::Resolve",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "anchor_analysis",
+      "target": "crate::eval::Term::Resolve",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::pred::Bindings",
+      "resolvedTarget": "crate::pred::Bindings",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "anchor_analysis",
+      "target": "crate::pred::Bindings",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::schema::SchemaRegistry",
+      "resolvedTarget": "crate::schema::SchemaRegistry",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "anchor_analysis",
+      "target": "crate::schema::SchemaRegistry",
+      "targetOwner": "schema"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "resolve",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "anchor_analysis",
+      "target": "std::collections::BTreeSet::new"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "matches"
+      ],
+      "owner": "resolve",
+      "source": "implementations/rust/src/anchored.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "anchor_analysis"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::visible_anchors",
+      "resolvedTarget": "crate::anchored::visible_anchors",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "visible_anchors",
+      "target": "crate::anchored::visible_anchors",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::hview::HView",
+      "resolvedTarget": "crate::hview::HView",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "visible_anchors",
+      "target": "crate::hview::HView",
+      "targetOwner": "algebra"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "resolve",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "visible_anchors",
+      "target": "std::collections::BTreeSet"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::EvalResult",
+      "resolvedTarget": "crate::eval::EvalResult",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "AnchoredRead",
+      "target": "crate::eval::EvalResult",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::AnchoredRead",
+      "resolvedTarget": "crate::anchored::AnchoredRead",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "eval_anchored",
+      "target": "crate::anchored::AnchoredRead",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::DeltaSource",
+      "resolvedTarget": "crate::anchored::DeltaSource",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "eval_anchored",
+      "target": "crate::anchored::DeltaSource",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::anchored_read",
+      "resolvedTarget": "crate::anchored::anchored_read",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "eval_anchored",
+      "target": "crate::anchored::anchored_read",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::Term",
+      "resolvedTarget": "crate::eval::Term",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "eval_anchored",
+      "target": "crate::eval::Term",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::pred::Bindings",
+      "resolvedTarget": "crate::pred::Bindings",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "eval_anchored",
+      "target": "crate::pred::Bindings",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::schema::SchemaRegistry",
+      "resolvedTarget": "crate::schema::SchemaRegistry",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "eval_anchored",
+      "target": "crate::schema::SchemaRegistry",
+      "targetOwner": "schema"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::types::Delta",
+      "resolvedTarget": "crate::types::Delta",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "eval_anchored",
+      "target": "crate::types::Delta",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::AnchorAnalysis::Anchored",
+      "resolvedTarget": "crate::anchored::AnchorAnalysis::Anchored",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "anchored_read",
+      "target": "crate::anchored::AnchorAnalysis::Anchored",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::AnchorAnalysis::Unanchored",
+      "resolvedTarget": "crate::anchored::AnchorAnalysis::Unanchored",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "anchored_read",
+      "target": "crate::anchored::AnchorAnalysis::Unanchored",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::AnchoredRead",
+      "resolvedTarget": "crate::anchored::AnchoredRead",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "anchored_read",
+      "target": "crate::anchored::AnchoredRead",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::DeltaSource",
+      "resolvedTarget": "crate::anchored::DeltaSource",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "anchored_read",
+      "target": "crate::anchored::DeltaSource",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::anchor_analysis",
+      "resolvedTarget": "crate::anchored::anchor_analysis",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "anchored_read",
+      "target": "crate::anchored::anchor_analysis",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::scope_ids",
+      "resolvedTarget": "crate::anchored::scope_ids",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "anchored_read",
+      "target": "crate::anchored::scope_ids",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::visible_anchors",
+      "resolvedTarget": "crate::anchored::visible_anchors",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "anchored_read",
+      "target": "crate::anchored::visible_anchors",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::EvalResult::HView",
+      "resolvedTarget": "crate::eval::EvalResult::HView",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "anchored_read",
+      "target": "crate::eval::EvalResult::HView",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::Term",
+      "resolvedTarget": "crate::eval::Term",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "anchored_read",
+      "target": "crate::eval::Term",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::Term::Resolve",
+      "resolvedTarget": "crate::eval::Term::Resolve",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "anchored_read",
+      "target": "crate::eval::Term::Resolve",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::eval_term",
+      "resolvedTarget": "crate::eval::eval_term",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "anchored_read",
+      "target": "crate::eval::eval_term",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::eval_term_at",
+      "resolvedTarget": "crate::eval::eval_term_at",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "anchored_read",
+      "target": "crate::eval::eval_term_at",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::pred::Bindings",
+      "resolvedTarget": "crate::pred::Bindings",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "anchored_read",
+      "target": "crate::pred::Bindings",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::schema::SchemaRegistry",
+      "resolvedTarget": "crate::schema::SchemaRegistry",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "anchored_read",
+      "target": "crate::schema::SchemaRegistry",
+      "targetOwner": "schema"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::set::DeltaSet",
+      "resolvedTarget": "crate::set::DeltaSet",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "anchored_read",
+      "target": "crate::set::DeltaSet",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::types::Delta",
+      "resolvedTarget": "crate::types::Delta",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "anchored_read",
+      "target": "crate::types::Delta",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "resolve",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "anchored_read",
+      "target": "std::collections::BTreeSet"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "resolve",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "anchored_read",
+      "target": "std::collections::BTreeSet::new"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "resolve",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "anchored_read",
+      "target": "std::string::String::as_str"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "format"
+      ],
+      "owner": "resolve",
+      "source": "implementations/rust/src/anchored.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "anchored_read"
+    },
+    {
+      "form": "syn-external-import",
       "owner": "federation",
       "source": "implementations/rust/src/arrival.rs",
       "sourceRegion": "semantic-owner",
@@ -20762,6 +22545,17 @@
       "symbol": "<import>",
       "target": "crate::lens_binding::publish_lens_binding_claims",
       "targetOwner": "schema-load"
+    },
+    {
+      "form": "syn-import",
+      "owner": "delta",
+      "rawTarget": "crate::materialize::LoweredProgram",
+      "resolvedTarget": "crate::materialize::LoweredProgram",
+      "source": "implementations/rust/src/lib.rs",
+      "sourceRegion": "compatibility-aggregate",
+      "symbol": "<import>",
+      "target": "crate::materialize::LoweredProgram",
+      "targetOwner": "reactor"
     },
     {
       "form": "syn-import",
@@ -42193,6 +43987,50 @@
     {
       "form": "syn-import",
       "owner": "reactor",
+      "rawTarget": "crate::anchored::AnchorAnalysis",
+      "resolvedTarget": "crate::anchored::AnchorAnalysis",
+      "source": "implementations/rust/src/materialize.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::anchored::AnchorAnalysis",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-import",
+      "owner": "reactor",
+      "rawTarget": "crate::anchored::IndexedSource",
+      "resolvedTarget": "crate::anchored::IndexedSource",
+      "source": "implementations/rust/src/materialize.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::anchored::IndexedSource",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-import",
+      "owner": "reactor",
+      "rawTarget": "crate::anchored::anchor_analysis",
+      "resolvedTarget": "crate::anchored::anchor_analysis",
+      "source": "implementations/rust/src/materialize.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::anchored::anchor_analysis",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-import",
+      "owner": "reactor",
+      "rawTarget": "crate::anchored::anchored_read",
+      "resolvedTarget": "crate::anchored::anchored_read",
+      "source": "implementations/rust/src/materialize.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::anchored::anchored_read",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-import",
+      "owner": "reactor",
       "rawTarget": "crate::cbor::CborValue",
       "resolvedTarget": "crate::cbor::CborValue",
       "source": "implementations/rust/src/materialize.rs",
@@ -42452,9 +44290,42 @@
       "resolvedTarget": "crate::eval::Term",
       "source": "implementations/rust/src/materialize.rs",
       "sourceRegion": "semantic-owner",
+      "symbol": "LoweredProgram",
+      "target": "crate::eval::Term",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::schema::SchemaRegistry",
+      "resolvedTarget": "crate::schema::SchemaRegistry",
+      "source": "implementations/rust/src/materialize.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "LoweredProgram",
+      "target": "crate::schema::SchemaRegistry",
+      "targetOwner": "schema"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::eval::Term",
+      "resolvedTarget": "crate::eval::Term",
+      "source": "implementations/rust/src/materialize.rs",
+      "sourceRegion": "semantic-owner",
       "symbol": "TermLowerer",
       "target": "crate::eval::Term",
       "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::materialize::LoweredProgram",
+      "resolvedTarget": "crate::materialize::LoweredProgram",
+      "source": "implementations/rust/src/materialize.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "TermLowerer",
+      "target": "crate::materialize::LoweredProgram",
+      "targetOwner": "reactor"
     },
     {
       "form": "syn-resolved-path",
@@ -42612,6 +44483,28 @@
     {
       "form": "syn-resolved-path",
       "owner": "reactor",
+      "rawTarget": "crate::anchored::AnchorAnalysis::Anchored",
+      "resolvedTarget": "crate::anchored::AnchorAnalysis::Anchored",
+      "source": "implementations/rust/src/materialize.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Materialization::new",
+      "target": "crate::anchored::AnchorAnalysis::Anchored",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::anchored::anchor_analysis",
+      "resolvedTarget": "crate::anchored::anchor_analysis",
+      "source": "implementations/rust/src/materialize.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Materialization::new",
+      "target": "crate::anchored::anchor_analysis",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
       "rawTarget": "crate::eval::Term",
       "resolvedTarget": "crate::eval::Term",
       "source": "implementations/rust/src/materialize.rs",
@@ -42645,17 +44538,6 @@
     {
       "form": "syn-resolved-path",
       "owner": "reactor",
-      "rawTarget": "crate::materialize::is_root_anchored",
-      "resolvedTarget": "crate::materialize::is_root_anchored",
-      "source": "implementations/rust/src/materialize.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "Materialization::new",
-      "target": "crate::materialize::is_root_anchored",
-      "targetOwner": "reactor"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "reactor",
       "rawTarget": "crate::schema::SchemaRegistry",
       "resolvedTarget": "crate::schema::SchemaRegistry",
       "source": "implementations/rust/src/materialize.rs",
@@ -42679,6 +44561,50 @@
       "sourceRegion": "semantic-owner",
       "symbol": "Materialization::new",
       "target": "std::sync::Arc"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::anchored::AnchorAnalysis::Anchored",
+      "resolvedTarget": "crate::anchored::AnchorAnalysis::Anchored",
+      "source": "implementations/rust/src/materialize.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Materialization::refresh",
+      "target": "crate::anchored::AnchorAnalysis::Anchored",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::anchored::IndexedSource",
+      "resolvedTarget": "crate::anchored::IndexedSource",
+      "source": "implementations/rust/src/materialize.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Materialization::refresh",
+      "target": "crate::anchored::IndexedSource",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::anchored::anchor_analysis",
+      "resolvedTarget": "crate::anchored::anchor_analysis",
+      "source": "implementations/rust/src/materialize.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Materialization::refresh",
+      "target": "crate::anchored::anchor_analysis",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::anchored::anchored_read",
+      "resolvedTarget": "crate::anchored::anchored_read",
+      "source": "implementations/rust/src/materialize.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Materialization::refresh",
+      "target": "crate::anchored::anchored_read",
+      "targetOwner": "resolve"
     },
     {
       "form": "syn-resolved-path",
@@ -42738,17 +44664,6 @@
     {
       "form": "syn-resolved-path",
       "owner": "reactor",
-      "rawTarget": "crate::materialize::collect_nested_ids",
-      "resolvedTarget": "crate::materialize::collect_nested_ids",
-      "source": "implementations/rust/src/materialize.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "Materialization::refresh",
-      "target": "crate::materialize::collect_nested_ids",
-      "targetOwner": "reactor"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "reactor",
       "rawTarget": "crate::materialize::diff_props",
       "resolvedTarget": "crate::materialize::diff_props",
       "source": "implementations/rust/src/materialize.rs",
@@ -42769,17 +44684,6 @@
       "targetOwner": "reactor"
     },
     {
-      "form": "syn-resolved-path",
-      "owner": "reactor",
-      "rawTarget": "crate::set::DeltaSet",
-      "resolvedTarget": "crate::set::DeltaSet",
-      "source": "implementations/rust/src/materialize.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "Materialization::refresh",
-      "target": "crate::set::DeltaSet",
-      "targetOwner": "delta"
-    },
-    {
       "form": "syn-external-path",
       "owner": "reactor",
       "source": "implementations/rust/src/materialize.rs",
@@ -42788,12 +44692,24 @@
       "target": "std::collections::BTreeMap::new"
     },
     {
-      "form": "syn-external-path",
+      "form": "macro-region",
+      "macros": [
+        "matches"
+      ],
       "owner": "reactor",
       "source": "implementations/rust/src/materialize.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "Materialization::refresh",
-      "target": "std::collections::BTreeSet::new"
+      "status": "parsed-known-macro-arguments",
+      "symbol": "Materialization::new"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "matches"
+      ],
+      "owner": "reactor",
+      "source": "implementations/rust/src/materialize.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "Materialization::refresh"
     },
     {
       "form": "syn-resolved-path",
@@ -42885,36 +44801,6 @@
       "source": "implementations/rust/src/materialize.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "chain_touches_support",
-      "target": "std::collections::BTreeSet"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "reactor",
-      "rawTarget": "crate::hview::HView",
-      "resolvedTarget": "crate::hview::HView",
-      "source": "implementations/rust/src/materialize.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "collect_nested_ids",
-      "target": "crate::hview::HView",
-      "targetOwner": "algebra"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "reactor",
-      "rawTarget": "crate::materialize::collect_nested_ids",
-      "resolvedTarget": "crate::materialize::collect_nested_ids",
-      "source": "implementations/rust/src/materialize.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "collect_nested_ids",
-      "target": "crate::materialize::collect_nested_ids",
-      "targetOwner": "reactor"
-    },
-    {
-      "form": "syn-external-path",
-      "owner": "reactor",
-      "source": "implementations/rust/src/materialize.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "collect_nested_ids",
       "target": "std::collections::BTreeSet"
     },
     {
@@ -57247,6 +59133,50 @@
     {
       "form": "syn-import",
       "owner": "reactor",
+      "rawTarget": "crate::anchored::AnchoredRead",
+      "resolvedTarget": "crate::anchored::AnchoredRead",
+      "source": "implementations/rust/src/reactor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::anchored::AnchoredRead",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-import",
+      "owner": "reactor",
+      "rawTarget": "crate::anchored::DeltaSource",
+      "resolvedTarget": "crate::anchored::DeltaSource",
+      "source": "implementations/rust/src/reactor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::anchored::DeltaSource",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-import",
+      "owner": "reactor",
+      "rawTarget": "crate::anchored::IndexedSource",
+      "resolvedTarget": "crate::anchored::IndexedSource",
+      "source": "implementations/rust/src/reactor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::anchored::IndexedSource",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-import",
+      "owner": "reactor",
+      "rawTarget": "crate::anchored::eval_anchored",
+      "resolvedTarget": "crate::anchored::eval_anchored",
+      "source": "implementations/rust/src/reactor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::anchored::eval_anchored",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-import",
+      "owner": "reactor",
       "rawTarget": "crate::eval::EvalResult",
       "resolvedTarget": "crate::eval::EvalResult",
       "source": "implementations/rust/src/reactor.rs",
@@ -57302,6 +59232,17 @@
     {
       "form": "syn-import",
       "owner": "reactor",
+      "rawTarget": "crate::materialize::LoweredProgram",
+      "resolvedTarget": "crate::materialize::LoweredProgram",
+      "source": "implementations/rust/src/reactor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::materialize::LoweredProgram",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-import",
+      "owner": "reactor",
       "rawTarget": "crate::materialize::Materialization",
       "resolvedTarget": "crate::materialize::Materialization",
       "source": "implementations/rust/src/reactor.rs",
@@ -57320,6 +59261,17 @@
       "symbol": "<import>",
       "target": "crate::materialize::MaterializationChange",
       "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-import",
+      "owner": "reactor",
+      "rawTarget": "crate::pred::Bindings",
+      "resolvedTarget": "crate::pred::Bindings",
+      "source": "implementations/rust/src/reactor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::pred::Bindings",
+      "targetOwner": "syntax"
     },
     {
       "form": "syn-import",
@@ -57690,6 +59642,17 @@
     {
       "form": "syn-resolved-path",
       "owner": "reactor",
+      "rawTarget": "crate::anchored::IndexedSource",
+      "resolvedTarget": "crate::anchored::IndexedSource",
+      "source": "implementations/rust/src/reactor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Reactor::advance_time",
+      "target": "crate::anchored::IndexedSource",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
       "rawTarget": "crate::materialize::MaterializationChange",
       "resolvedTarget": "crate::materialize::MaterializationChange",
       "source": "implementations/rust/src/reactor.rs",
@@ -57903,6 +59866,17 @@
     {
       "form": "syn-resolved-path",
       "owner": "reactor",
+      "rawTarget": "crate::anchored::IndexedSource",
+      "resolvedTarget": "crate::anchored::IndexedSource",
+      "source": "implementations/rust/src/reactor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Reactor::dispatch_and_update",
+      "target": "crate::anchored::IndexedSource",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
       "rawTarget": "crate::materialize::MaterializationChange",
       "resolvedTarget": "crate::materialize::MaterializationChange",
       "source": "implementations/rust/src/reactor.rs",
@@ -58006,6 +59980,83 @@
       "symbol": "Reactor::eval",
       "target": "crate::schema::SchemaRegistry",
       "targetOwner": "schema"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::anchored::AnchoredRead",
+      "resolvedTarget": "crate::anchored::AnchoredRead",
+      "source": "implementations/rust/src/reactor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Reactor::eval_anchored",
+      "target": "crate::anchored::AnchoredRead",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::anchored::eval_anchored",
+      "resolvedTarget": "crate::anchored::eval_anchored",
+      "source": "implementations/rust/src/reactor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Reactor::eval_anchored",
+      "target": "crate::anchored::eval_anchored",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::eval::Term",
+      "resolvedTarget": "crate::eval::Term",
+      "source": "implementations/rust/src/reactor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Reactor::eval_anchored",
+      "target": "crate::eval::Term",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::pred::Bindings",
+      "resolvedTarget": "crate::pred::Bindings",
+      "source": "implementations/rust/src/reactor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Reactor::eval_anchored",
+      "target": "crate::pred::Bindings",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::reactor::Reactor",
+      "resolvedTarget": "crate::reactor::Reactor",
+      "source": "implementations/rust/src/reactor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Reactor::eval_anchored",
+      "target": "crate::reactor::Reactor",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::schema::SchemaRegistry",
+      "resolvedTarget": "crate::schema::SchemaRegistry",
+      "source": "implementations/rust/src/reactor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Reactor::eval_anchored",
+      "target": "crate::schema::SchemaRegistry",
+      "targetOwner": "schema"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::types::Delta",
+      "resolvedTarget": "crate::types::Delta",
+      "source": "implementations/rust/src/reactor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Reactor::eval_anchored",
+      "target": "crate::types::Delta",
+      "targetOwner": "delta"
     },
     {
       "form": "syn-resolved-path",
@@ -58857,17 +60908,6 @@
     {
       "form": "syn-resolved-path",
       "owner": "reactor",
-      "rawTarget": "crate::materialize::Materialization::new",
-      "resolvedTarget": "crate::materialize::Materialization::new",
-      "source": "implementations/rust/src/reactor.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "Reactor::register_at_lowered",
-      "target": "crate::materialize::Materialization::new",
-      "targetOwner": "reactor"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "reactor",
       "rawTarget": "crate::reactor::Reactor",
       "resolvedTarget": "crate::reactor::Reactor",
       "source": "implementations/rust/src/reactor.rs",
@@ -58899,11 +60939,77 @@
       "targetOwner": "delta"
     },
     {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::eval::Term",
+      "resolvedTarget": "crate::eval::Term",
+      "source": "implementations/rust/src/reactor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Reactor::register_at_lowered_with_deps",
+      "target": "crate::eval::Term",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::materialize::LoweredProgram",
+      "resolvedTarget": "crate::materialize::LoweredProgram",
+      "source": "implementations/rust/src/reactor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Reactor::register_at_lowered_with_deps",
+      "target": "crate::materialize::LoweredProgram",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::materialize::Materialization::new",
+      "resolvedTarget": "crate::materialize::Materialization::new",
+      "source": "implementations/rust/src/reactor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Reactor::register_at_lowered_with_deps",
+      "target": "crate::materialize::Materialization::new",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::reactor::Reactor",
+      "resolvedTarget": "crate::reactor::Reactor",
+      "source": "implementations/rust/src/reactor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Reactor::register_at_lowered_with_deps",
+      "target": "crate::reactor::Reactor",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::schema::SchemaRegistry",
+      "resolvedTarget": "crate::schema::SchemaRegistry",
+      "source": "implementations/rust/src/reactor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Reactor::register_at_lowered_with_deps",
+      "target": "crate::schema::SchemaRegistry",
+      "targetOwner": "schema"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::set::DeltaSet",
+      "resolvedTarget": "crate::set::DeltaSet",
+      "source": "implementations/rust/src/reactor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Reactor::register_at_lowered_with_deps",
+      "target": "crate::set::DeltaSet",
+      "targetOwner": "delta"
+    },
+    {
       "form": "syn-external-path",
       "owner": "reactor",
       "source": "implementations/rust/src/reactor.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "Reactor::register_at_lowered",
+      "symbol": "Reactor::register_at_lowered_with_deps",
       "target": "std::sync::Arc::new"
     },
     {
@@ -58986,7 +61092,7 @@
       "owner": "reactor",
       "source": "implementations/rust/src/reactor.rs",
       "status": "parsed-known-macro-arguments",
-      "symbol": "Reactor::register_at_lowered"
+      "symbol": "Reactor::register_at_lowered_with_deps"
     },
     {
       "form": "syn-import",
@@ -59139,6 +61245,127 @@
       "source": "implementations/rust/src/reactor.rs",
       "status": "parsed-known-macro-arguments",
       "symbol": "manifest_member_ids"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::anchored::DeltaSource",
+      "resolvedTarget": "crate::anchored::DeltaSource",
+      "source": "implementations/rust/src/reactor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Reactor",
+      "target": "crate::anchored::DeltaSource",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::reactor::Reactor",
+      "resolvedTarget": "crate::reactor::Reactor",
+      "source": "implementations/rust/src/reactor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Reactor",
+      "target": "crate::reactor::Reactor",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::reactor::Reactor",
+      "resolvedTarget": "crate::reactor::Reactor",
+      "source": "implementations/rust/src/reactor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Reactor::get",
+      "target": "crate::reactor::Reactor",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::types::Delta",
+      "resolvedTarget": "crate::types::Delta",
+      "source": "implementations/rust/src/reactor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Reactor::get",
+      "target": "crate::types::Delta",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::reactor::Reactor",
+      "resolvedTarget": "crate::reactor::Reactor",
+      "source": "implementations/rust/src/reactor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Reactor::negators",
+      "target": "crate::reactor::Reactor",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::reactor::Reactor",
+      "resolvedTarget": "crate::reactor::Reactor",
+      "source": "implementations/rust/src/reactor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Reactor::subset",
+      "target": "crate::reactor::Reactor",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::set::DeltaSet",
+      "resolvedTarget": "crate::set::DeltaSet",
+      "source": "implementations/rust/src/reactor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Reactor::subset",
+      "target": "crate::set::DeltaSet",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::reactor::Reactor",
+      "resolvedTarget": "crate::reactor::Reactor",
+      "source": "implementations/rust/src/reactor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Reactor::targets",
+      "target": "crate::reactor::Reactor",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::reactor::Reactor",
+      "resolvedTarget": "crate::reactor::Reactor",
+      "source": "implementations/rust/src/reactor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Reactor",
+      "target": "crate::reactor::Reactor",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::anchored::IndexedSource",
+      "resolvedTarget": "crate::anchored::IndexedSource",
+      "source": "implementations/rust/src/reactor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Reactor::indexed",
+      "target": "crate::anchored::IndexedSource",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::reactor::Reactor",
+      "resolvedTarget": "crate::reactor::Reactor",
+      "source": "implementations/rust/src/reactor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Reactor::indexed",
+      "target": "crate::reactor::Reactor",
+      "targetOwner": "reactor"
     },
     {
       "form": "syn-import",
@@ -68001,6 +70228,28 @@
       "sourceRegion": "semantic-owner",
       "symbol": "DeltaSet::new",
       "target": "crate::set::DeltaSet::default",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::set::DeltaSet",
+      "resolvedTarget": "crate::set::DeltaSet",
+      "source": "implementations/rust/src/set.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DeltaSet::subset",
+      "target": "crate::set::DeltaSet",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::set::DeltaSet::new",
+      "resolvedTarget": "crate::set::DeltaSet::new",
+      "source": "implementations/rust/src/set.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "DeltaSet::subset",
+      "target": "crate::set::DeltaSet::new",
       "targetOwner": "delta"
     },
     {
@@ -76989,6 +79238,160 @@
     {
       "cfg": [],
       "classification": "native_extension",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "definition": "enum",
+      "id": "rust:anchored:AnchorAnalysis",
+      "owner": "resolve",
+      "semantics": "Native anchored::AnchorAnalysis implements SPEC-2 pure term evaluation. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "source": "implementations/rust/src/anchored.rs",
+      "symbol": "AnchorAnalysis"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "definition": "struct",
+      "id": "rust:anchored:AnchoredRead",
+      "owner": "resolve",
+      "semantics": "Native anchored::AnchoredRead implements SPEC-2 pure term evaluation. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "source": "implementations/rust/src/anchored.rs",
+      "symbol": "AnchoredRead"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "definition": "trait",
+      "id": "rust:anchored:DeltaSource",
+      "owner": "resolve",
+      "semantics": "Native anchored::DeltaSource implements SPEC-2 pure term evaluation. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "source": "implementations/rust/src/anchored.rs",
+      "symbol": "DeltaSource"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "definition": "trait-method",
+      "id": "rust:anchored:DeltaSource::get",
+      "owner": "resolve",
+      "semantics": "Native anchored::DeltaSource::get implements SPEC-2 pure term evaluation. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "source": "implementations/rust/src/anchored.rs",
+      "symbol": "DeltaSource::get"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "definition": "trait-method",
+      "id": "rust:anchored:DeltaSource::negators",
+      "owner": "resolve",
+      "semantics": "Native anchored::DeltaSource::negators implements SPEC-2 pure term evaluation. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "source": "implementations/rust/src/anchored.rs",
+      "symbol": "DeltaSource::negators"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "definition": "trait-method",
+      "id": "rust:anchored:DeltaSource::subset",
+      "owner": "resolve",
+      "semantics": "Native anchored::DeltaSource::subset implements SPEC-2 pure term evaluation. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "source": "implementations/rust/src/anchored.rs",
+      "symbol": "DeltaSource::subset"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "definition": "trait-method",
+      "id": "rust:anchored:DeltaSource::targets",
+      "owner": "resolve",
+      "semantics": "Native anchored::DeltaSource::targets implements SPEC-2 pure term evaluation. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "source": "implementations/rust/src/anchored.rs",
+      "symbol": "DeltaSource::targets"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "definition": "struct",
+      "id": "rust:anchored:IndexedSource",
+      "owner": "resolve",
+      "semantics": "Native anchored::IndexedSource implements SPEC-2 pure term evaluation. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "source": "implementations/rust/src/anchored.rs",
+      "symbol": "IndexedSource"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "definition": "enum",
+      "id": "rust:anchored:UnanchoredReason",
+      "owner": "resolve",
+      "semantics": "Native anchored::UnanchoredReason implements SPEC-2 pure term evaluation. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "source": "implementations/rust/src/anchored.rs",
+      "symbol": "UnanchoredReason"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "definition": "method",
+      "id": "rust:anchored:UnanchoredReason::as_str",
+      "owner": "resolve",
+      "semantics": "Native anchored::UnanchoredReason::as_str implements SPEC-2 pure term evaluation. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "source": "implementations/rust/src/anchored.rs",
+      "symbol": "UnanchoredReason::as_str"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "definition": "function",
+      "id": "rust:anchored:anchor_analysis",
+      "owner": "resolve",
+      "semantics": "Native anchored::anchor_analysis implements SPEC-2 pure term evaluation. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "source": "implementations/rust/src/anchored.rs",
+      "symbol": "anchor_analysis"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "definition": "module",
+      "id": "rust:anchored:anchored",
+      "owner": "resolve",
+      "semantics": "Native anchored::anchored implements SPEC-2 pure term evaluation. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "source": "implementations/rust/src/lib.rs",
+      "symbol": "anchored"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "definition": "function",
+      "id": "rust:anchored:eval_anchored",
+      "owner": "resolve",
+      "semantics": "Native anchored::eval_anchored implements SPEC-2 pure term evaluation. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "source": "implementations/rust/src/anchored.rs",
+      "symbol": "eval_anchored"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "definition": "function",
+      "id": "rust:anchored:scope_ids",
+      "owner": "resolve",
+      "semantics": "Native anchored::scope_ids implements SPEC-2 pure term evaluation. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "source": "implementations/rust/src/anchored.rs",
+      "symbol": "scope_ids"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
       "contract": "rhizomatic.federation/native-api/1",
       "definition": "struct",
       "id": "rust:arrival:ArrivalCursor",
@@ -79088,6 +81491,18 @@
       "source": "implementations/rust/src/lib.rs",
       "symbol": "LooseEntryStatus",
       "target": "crate::entry::LooseEntryStatus"
+    },
+    {
+      "cfg": [],
+      "classification": "compatibility_reexport",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "definition": "reexport",
+      "id": "rust:lib:LoweredProgram",
+      "owner": "reactor",
+      "semantics": "Native lib::LoweredProgram implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
+      "source": "implementations/rust/src/lib.rs",
+      "symbol": "LoweredProgram",
+      "target": "crate::materialize::LoweredProgram"
     },
     {
       "cfg": [],
@@ -82215,6 +84630,17 @@
       "cfg": [],
       "classification": "native_extension",
       "contract": "rhizomatic.reactor/native-api/1",
+      "definition": "type",
+      "id": "rust:materialize:LoweredProgram",
+      "owner": "reactor",
+      "semantics": "Native materialize::LoweredProgram implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "source": "implementations/rust/src/materialize.rs",
+      "symbol": "LoweredProgram"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.reactor/native-api/1",
       "definition": "method",
       "id": "rust:materialize:Materialization::affects",
       "owner": "reactor",
@@ -83914,6 +86340,17 @@
       "classification": "native_extension",
       "contract": "rhizomatic.reactor/native-api/1",
       "definition": "method",
+      "id": "rust:reactor:Reactor::eval_anchored",
+      "owner": "reactor",
+      "semantics": "Native reactor::Reactor::eval_anchored implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "source": "implementations/rust/src/reactor.rs",
+      "symbol": "Reactor::eval_anchored"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "definition": "method",
       "id": "rust:reactor:Reactor::eval_at",
       "owner": "reactor",
       "semantics": "Native reactor::Reactor::eval_at implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
@@ -84106,6 +86543,17 @@
       "semantics": "Native reactor::Reactor::register_at_lowered implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/reactor.rs",
       "symbol": "Reactor::register_at_lowered"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "definition": "method",
+      "id": "rust:reactor:Reactor::register_at_lowered_with_deps",
+      "owner": "reactor",
+      "semantics": "Native reactor::Reactor::register_at_lowered_with_deps implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "source": "implementations/rust/src/reactor.rs",
+      "symbol": "Reactor::register_at_lowered_with_deps"
     },
     {
       "cfg": [],
@@ -84893,6 +87341,17 @@
       "semantics": "Native set::DeltaSet::new implements SPEC-1 identity/canonical codecs and SPEC-8 neutral membership. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/set.rs",
       "symbol": "DeltaSet::new"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.delta/native-api/1",
+      "definition": "method",
+      "id": "rust:set:DeltaSet::subset",
+      "owner": "delta",
+      "semantics": "Native set::DeltaSet::subset implements SPEC-1 identity/canonical codecs and SPEC-8 neutral membership. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "source": "implementations/rust/src/set.rs",
+      "symbol": "DeltaSet::subset"
     },
     {
       "cfg": [],

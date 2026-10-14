@@ -1077,6 +1077,16 @@
       for (const [id, delta] of this.byId) if (p(delta)) s.byId.set(id, delta);
       return s;
     }
+    // The members with these ids, carried without re-verification; absent ids are skipped. Cost is
+    // the number of ids, not the size of this set (SPEC-17 §3).
+    subset(ids) {
+      const s = new _DeltaSet();
+      for (const id of ids) {
+        const delta = this.byId.get(id);
+        if (delta !== void 0) s.byId.set(id, delta);
+      }
+      return s;
+    }
     union(other) {
       const s = this.copy();
       for (const [id, delta] of other.byId) if (!s.byId.has(id)) s.byId.set(id, delta);
@@ -4917,7 +4927,177 @@
     }
   };
 
+  // src/resolve/anchored.ts
+  function scopeIds(source, entities, admits) {
+    const members = /* @__PURE__ */ new Set();
+    const pending = [];
+    const consider = (id) => {
+      if (members.has(id)) return;
+      const delta = source.get(id);
+      if (delta === void 0 || admits !== void 0 && !admits(delta)) return;
+      members.add(id);
+      pending.push(id);
+    };
+    for (const entity of entities) for (const id of source.targets(entity)) consider(id);
+    while (pending.length > 0) {
+      const id = pending.pop();
+      for (const negator of source.negators(id)) consider(negator);
+    }
+    return [...members].sort();
+  }
+  var Unanchored = class extends Error {
+    constructor(reason) {
+      super(`term is not anchored: ${reason}`);
+      this.reason = reason;
+    }
+    reason;
+  };
+  var conjuncts = (pred) => pred.kind === "and" ? [...conjuncts(pred.left), ...conjuncts(pred.right)] : [pred];
+  var AMBIENT = /* @__PURE__ */ Symbol("ambient root");
+  function pinnedEntity(pred, bindings) {
+    for (const c of conjuncts(pred)) {
+      if (c.kind !== "hasPointer" || c.ppred.targetEntity === void 0) continue;
+      const entity = entityOf(c.ppred.targetEntity, bindings);
+      if (entity !== void 0) return entity;
+    }
+    return void 0;
+  }
+  function entityOf(m, bindings) {
+    if (m.kind === "const") return m.id;
+    if (m.kind === "root") return AMBIENT;
+    const bound = bindings?.get(m.name);
+    return typeof bound === "string" ? bound : void 0;
+  }
+  var checkStr = (m) => {
+    if (m?.kind === "aliased") throw new Unanchored("aliased");
+  };
+  function anchorAnalysis(term, registry, bindings) {
+    const anchors = /* @__PURE__ */ new Set();
+    const seen = /* @__PURE__ */ new Set();
+    const pred = (p, b) => {
+      switch (p.kind) {
+        case "and":
+        case "or":
+          pred(p.left, b);
+          pred(p.right, b);
+          return;
+        case "not":
+          pred(p.pred, b);
+          return;
+        case "hasPointer":
+          checkStr(p.ppred.role);
+          checkStr(p.ppred.context);
+          return;
+        case "actsFor":
+          throw new Unanchored("acts-for");
+        case "inView": {
+          const sub = p.term;
+          const entity = sub.kind === "select" ? pinnedEntity(sub.pred, b) : void 0;
+          if (entity === void 0) throw new Unanchored("reflection");
+          if (entity !== AMBIENT) anchors.add(entity);
+          walk(sub, b);
+          return;
+        }
+        default:
+          return;
+      }
+    };
+    const schema = (ref, b) => {
+      const body = registry?.resolve(ref)?.body;
+      if (body === void 0) throw new Unanchored("unknown-schema");
+      const key = `${ref.kind === "name" ? ref.name : ref.hash}|${JSON.stringify([...b ?? []])}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      walk(body, b);
+    };
+    const walk = (t, b) => {
+      switch (t.kind) {
+        case "input":
+          return;
+        case "select":
+          pred(t.pred, b);
+          walk(t.of, b);
+          return;
+        case "union":
+        case "intersect":
+          walk(t.left, b);
+          walk(t.right, b);
+          return;
+        case "difference":
+          walk(t.of, b);
+          walk(t.without, b);
+          return;
+        case "mask":
+          if (t.policy.kind === "trust") pred(t.policy.pred, b);
+          walk(t.of, b);
+          return;
+        case "group": {
+          if (t.key.kind === "const") {
+            const entity = t.of.kind === "select" ? pinnedEntity(t.of.pred, b) : void 0;
+            if (entity === void 0) throw new Unanchored("const-group");
+            if (entity !== AMBIENT) anchors.add(entity);
+          }
+          walk(t.of, b);
+          return;
+        }
+        case "prune":
+          if (t.keep !== "all") checkStr(t.keep);
+          walk(t.of, b);
+          return;
+        case "expand":
+          checkStr(t.role);
+          walk(t.of, b);
+          schema(t.schema, b);
+          return;
+        case "fix":
+          anchors.add(t.entity);
+          schema(t.schema, t.bindings ?? b);
+          return;
+        case "resolve":
+          walk(t.of, b);
+          return;
+      }
+    };
+    const top = term.kind === "resolve" ? term.of : term;
+    if (top.kind !== "group" && top.kind !== "prune" && top.kind !== "expand" && top.kind !== "fix")
+      return { anchored: false, reason: "result-sort" };
+    try {
+      walk(term, bindings);
+    } catch (e) {
+      if (e instanceof Unanchored) return { anchored: false, reason: e.reason };
+      throw e;
+    }
+    return { anchored: true, anchors: [...anchors].sort() };
+  }
+  function visibleAnchors(hview, out) {
+    out.add(hview.id);
+    for (const entries of hview.props.values())
+      for (const entry of entries)
+        for (const child of entry.expanded?.values() ?? []) visibleAnchors(child, out);
+  }
+  function evalAnchored(term, source, now, root, registry, bindings, admits) {
+    const analysis = anchorAnalysis(term, registry, bindings);
+    if (!analysis.anchored) throw new Error(`term is not anchored: ${analysis.reason}`);
+    const gather = term.kind === "resolve" ? term.of : term;
+    const scope = /* @__PURE__ */ new Set([root, ...analysis.anchors]);
+    for (; ; ) {
+      const members = scopeIds(source, scope, admits);
+      const set = source.subset?.(members) ?? DeltaSet.from(members.map((id) => source.get(id)).filter((d) => d !== void 0));
+      const gathered = evalTerm(gather, set, now, root, registry, bindings);
+      if (gathered.sort !== "hview") throw new Error("term is not anchored: result-sort");
+      const seen = /* @__PURE__ */ new Set();
+      visibleAnchors(gathered.hview, seen);
+      const missing = [...seen].filter((e) => !scope.has(e));
+      if (missing.length === 0) {
+        const result = gather === term ? gathered : evalTerm(term, set, now, root, registry, bindings);
+        return { result, scope: [...scope].sort(), members };
+      }
+      for (const e of missing) scope.add(e);
+    }
+  }
+
   // src/reactor/reactor.ts
+  var BROAD = /* @__PURE__ */ Symbol("broad dispatch");
   var height = (node) => node?.height ?? 0;
   var boundaryNode = (at2, left, right) => ({
     at: at2,
@@ -5122,6 +5302,20 @@
     get(id) {
       return this.set.get(id);
     }
+    // --- the delta source (SPEC-17 §3): index reads, never a scan of the set ---
+    targets(entityId) {
+      return this.targetIndex.get(entityId) ?? [];
+    }
+    negators(deltaId) {
+      return this.negationIndex.get(deltaId) ?? [];
+    }
+    subset(ids) {
+      return this.set.subset(ids);
+    }
+    // An anchored read (SPEC-17 §6): the same answer as `eval`, at the cost of the read's scope.
+    evalAnchored(term, now, root, registry, bindings, admits) {
+      return evalAnchored(term, this, now, root, registry, bindings, admits);
+    }
     // Arrival order — a transport artifact, never consulted by evaluation (SPEC-4 §2).
     arrivalLog() {
       return this.log;
@@ -5149,8 +5343,9 @@
         term,
         roots: [...roots],
         registry,
-        // A lowered predicate can depend on principal evidence anywhere in the set.
-        rootAnchored: lowerTerm === void 0 && isRootAnchored(term, registry),
+        // A lowered program's support also needs the lowering's own dependencies; each refresh
+        // learns them from the hook, or falls back to broad dispatch.
+        rootAnchored: anchorAnalysis(term, registry).anchored,
         lowerTerm,
         now,
         views: /* @__PURE__ */ new Map(),
@@ -5240,11 +5435,18 @@
       return boundaryAfter(this.validityBoundaries, now);
     }
     refresh(mat, root) {
-      const program = mat.lowerTerm?.(mat.term, this.set, mat.now, mat.registry) ?? {
-        term: mat.term,
-        registry: mat.registry
-      };
-      const result = evalTerm(program.term, this.set, mat.now, root, program.registry);
+      const lowered = mat.lowerTerm?.(mat.term, this.set, mat.now, mat.registry);
+      const program = lowered ?? { term: mat.term, registry: mat.registry };
+      let result;
+      let support;
+      if (anchorAnalysis(program.term, program.registry).anchored) {
+        const read = evalAnchored(program.term, this, mat.now, root, program.registry);
+        result = read.result;
+        support = lowered === void 0 ? new Set(read.scope) : lowered.deps === void 0 ? BROAD : /* @__PURE__ */ new Set([...read.scope, ...lowered.deps]);
+      } else {
+        result = evalTerm(program.term, this.set, mat.now, root, program.registry);
+        support = BROAD;
+      }
       if (result.sort !== "hview") throw new Error("materialized terms must be HView-sort");
       mat.evalCount += 1;
       const hex = hviewCanonicalHex(result.hview);
@@ -5254,9 +5456,7 @@
       mat.views.set(root, result.hview);
       mat.hexes.set(root, hex);
       mat.propHexes.set(root, newPropHexes);
-      const entities = /* @__PURE__ */ new Set([root]);
-      collectNestedIds(result.hview, entities);
-      mat.supportEntities.set(root, entities);
+      mat.supportEntities.set(root, support);
       return changedProps;
     }
     // Sound dispatch (V5): over-match allowed, under-match forbidden.
@@ -5286,6 +5486,7 @@
     affects(delta, mat, root) {
       if (!mat.rootAnchored) return true;
       const support = mat.supportEntities.get(root) ?? /* @__PURE__ */ new Set([root]);
+      if (support === BROAD) return true;
       if (this.targetsSupport(delta, support)) return true;
       for (const ptr of delta.claims.pointers) {
         if (ptr.role !== "negates" || ptr.target.kind !== "delta") continue;
@@ -5415,74 +5616,6 @@
     for (const [prop, hex] of after) if (before.get(prop) !== hex) changed.add(prop);
     for (const prop of before.keys()) if (!after.has(prop)) changed.add(prop);
     return [...changed].sort();
-  }
-  function collectNestedIds(h, out) {
-    for (const entries of h.props.values()) {
-      for (const e of entries) {
-        if (e.expanded === void 0) continue;
-        for (const nested of e.expanded.values()) {
-          out.add(nested.id);
-          collectNestedIds(nested, out);
-        }
-      }
-    }
-  }
-  function predRequiresRoot(pred) {
-    switch (pred.kind) {
-      case "hasPointer":
-        return pred.ppred.targetEntity?.kind === "root";
-      case "and":
-        return predRequiresRoot(pred.left) || predRequiresRoot(pred.right);
-      case "or":
-        return predRequiresRoot(pred.left) && predRequiresRoot(pred.right);
-      default:
-        return false;
-    }
-  }
-  function pipelineAnchored(t) {
-    switch (t.kind) {
-      case "input":
-        return false;
-      case "select":
-        return predRequiresRoot(t.pred) || pipelineAnchored(t.of);
-      case "mask":
-        return pipelineAnchored(t.of);
-      case "union":
-        return pipelineAnchored(t.left) && pipelineAnchored(t.right);
-      default:
-        return false;
-    }
-  }
-  function termAnchored(t) {
-    switch (t.kind) {
-      case "group":
-        return pipelineAnchored(t.of);
-      case "prune":
-      case "expand":
-      case "resolve":
-        return termAnchored(t.of);
-      case "fix":
-        return true;
-      // anchoring of the referenced schema is checked via the registry walk below
-      default:
-        return false;
-    }
-  }
-  function isRootAnchored(term, registry) {
-    if (!termAnchored(term) || termContainsInView(term)) return false;
-    const seen = /* @__PURE__ */ new Set();
-    const queue = [...collectRefs(term)];
-    while (queue.length > 0) {
-      const ref = queue.pop();
-      const key = ref.kind === "name" ? `n:${ref.name}` : `h:${ref.hash}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      const schema = registry?.resolve(ref);
-      if (schema === void 0) return false;
-      if (!termAnchored(schema.body) || termContainsInView(schema.body)) return false;
-      queue.push(...collectRefs(schema.body));
-    }
-    return true;
   }
 
   // src/federation/peer.ts

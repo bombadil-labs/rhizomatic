@@ -61,7 +61,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "check": "node ../../tools/check-package-graph.mjs && npm run format:check && npm run lint && npm run typecheck && npm test",
-    "gen-vectors": "tsx tools/gen-vectors.ts && tsx tools/gen-principal-vectors.ts && tsx tools/gen-pack-invalid-index-vectors.ts && tsx tools/gen-peer-durable-state-vectors.ts && tsx tools/gen-peer-single-peer-api-vectors.ts && tsx tools/gen-peer-ordinary-journal-vectors.ts && tsx tools/gen-peer-permanent-journal-vectors.ts",
+    "gen-vectors": "tsx tools/gen-vectors.ts && tsx tools/gen-anchored-vectors.ts && tsx tools/gen-principal-vectors.ts && tsx tools/gen-pack-invalid-index-vectors.ts && tsx tools/gen-peer-durable-state-vectors.ts && tsx tools/gen-peer-single-peer-api-vectors.ts && tsx tools/gen-peer-ordinary-journal-vectors.ts && tsx tools/gen-peer-permanent-journal-vectors.ts",
     "gen-command-vectors": "tsx tools/gen-command-vectors.ts && tsx tools/gen-command-execution-vectors.ts && tsx tools/gen-command-tower-vectors.ts",
     "demo": "tsx demo/demo.ts",
     "playground:build": "esbuild demo/playground/playground.ts --bundle --format=iife --outfile=demo/playground/bundle.js",

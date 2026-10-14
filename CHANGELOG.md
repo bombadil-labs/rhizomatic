@@ -6,6 +6,43 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 
 ## Unreleased
 
+### Added
+
+- Anchored reads (SPEC-17 proposal, slice R1), in TypeScript and Rust. A read now costs its
+  footprint, not the store:
+  - `DeltaSource` is the read side of a store: `get`, `targets(entity)` and `negators(id)`, each
+    answered from an index. `Reactor` implements it with its existing target and negation indexes.
+  - `scopeIds` / `scope_ids` builds S(E): every delta pointing at an entity in E, closed under its
+    negation chains, with an optional per-delta selection (`admits`).
+  - `anchorAnalysis` / `anchor_analysis` decides statically whether a gather is anchored, and names
+    its constant anchors. Unanchored reasons: `aliased`, `reflection`, `const-group`, `acts-for`,
+    `unknown-schema`, `result-sort`.
+  - `evalAnchored` / `eval_anchored` (and `Reactor.evalAnchored` / `Reactor::eval_anchored`)
+    evaluate an anchored gather over its discovered scope. The answer is byte-identical to a
+    whole-set evaluation; the shared vectors and a property test in each witness check it.
+  - `DeltaSet.subset` / `DeltaSet::subset` carries already-verified members without hashing them
+    again.
+- Shared vectors `vectors/l1-eval/eval-anchored.json`: scope closure, anchor analysis and anchored
+  reads.
+
+- Warm views refresh over their own scope (slice R1b), in TypeScript and Rust. A materialization
+  root re-evaluates with anchored evaluation, and its support set for dispatch is that scope. An
+  ingest that touches no root's scope refreshes nothing, and a refresh no longer reads the whole
+  store. `Reactor.register` takes an optional `lowerDeps` (Rust: `register_at_lowered_with_deps`):
+  the entities a host's lowering reads. With it, a lowered anchored program dispatches by scope;
+  without it, it dispatches broadly as before.
+
+### Changed
+
+- Materialization dispatch uses `anchorAnalysis` instead of the V5 analyzer (SPEC-4 ERRATA V5,
+  amended). It is more precise: an author-keyed select under a root `group` and `intersect` /
+  `difference` no longer force broad dispatch. It is also stricter where V5 was unsound: an
+  `aliased` term now dispatches broadly, so a new alias mapping refreshes it (SPEC-9). Answers do
+  not change; only the number of refreshes does.
+
+`evalTerm`, `Reactor.eval` and the materialization profile still scan their whole input; callers
+move to anchored reads explicitly.
+
 ## 0.11.0-next.9 — 2026-10-14
 
 Release B: the maintained materialization lifecycle (SPEC-16 M3) and its cumulative acceptance
@@ -27,6 +64,11 @@ store; a configuration that installs a lifecycle verb needs one (`controlStore` 
 
 ### Fixed
 
+- Anchor analysis (both witnesses) kept the ambient root as the string `"root"`, so a constant or
+  bound hole naming an entity called `root` dropped out of the static anchors. An anchored read,
+  and a warm view refreshed by one, then answered empty where whole evaluation had data. The
+  ambient root is now a tagged value. New `eval-anchored` vectors cover a const group, an `inView`
+  and a bound hole naming `root`, and both witnesses check a warm view against it.
 - Materialization gather in TypeScript returns a signed `resource-limit` refusal when a produced
   definition appearance exceeds `artifactBytes`; it previously threw with no outcome while Rust
   refused. Pinned by the shared `definition_appearance_bytes_over` vector.

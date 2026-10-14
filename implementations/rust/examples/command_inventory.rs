@@ -60,7 +60,7 @@ fn owner(module: &str, symbol: &str) -> &'static str {
         "schema" => "schema",
         "schema_deltas" if symbol == "VOCAB_PREFIX" => "delta",
         "schema_deltas" | "lens_binding" => "schema-load",
-        "evaluation_budget" => "resolve",
+        "evaluation_budget" | "anchored" => "resolve",
         "eval" => {
             if matches!(
                 symbol,

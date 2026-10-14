@@ -5,6 +5,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
+use crate::anchored::{anchor_analysis, anchored_read, AnchorAnalysis, IndexedSource};
 use crate::cbor::{encode, CborValue};
 use crate::eval::{eval_term, eval_term_at, term_contains_in_view, EvalResult, SchemaRef, Term};
 use crate::hview::{hv_entry_to_cbor, hview_canonical_hex, HView};
@@ -34,18 +35,20 @@ pub(crate) struct Materialization {
     pub views: BTreeMap<String, HView>,
     pub hexes: BTreeMap<String, String>,
     pub prop_hexes: BTreeMap<String, BTreeMap<String, String>>,
-    pub support_entities: BTreeMap<String, BTreeSet<String>>,
+    /// Per root: the anchored scope of its last refresh, or None when that program was
+    /// unanchored and dispatches broadly.
+    pub support_entities: BTreeMap<String, Option<BTreeSet<String>>>,
     pub eval_count: u64,
     pub registry: Option<SchemaRegistry>,
     pub lower_term: Option<Arc<TermLowerer>>,
 }
 
-pub(crate) type TermLowerer = dyn Fn(
-        &Term,
-        &DeltaSet,
-        f64,
-        Option<&SchemaRegistry>,
-    ) -> Result<(Term, Option<SchemaRegistry>), String>
+/// A host lowering: the lowered term, its registry, and the entities whose deltas can change the
+/// lowering (SPEC-17 §6). With deps, an anchored program dispatches by scope plus those entities;
+/// without them, the reactor cannot see what the lowering read, and the program dispatches broadly.
+pub type LoweredProgram = (Term, Option<SchemaRegistry>, Option<Vec<String>>);
+
+pub(crate) type TermLowerer = dyn Fn(&Term, &DeltaSet, f64, Option<&SchemaRegistry>) -> Result<LoweredProgram, String>
     + Send
     + Sync;
 
@@ -70,7 +73,12 @@ impl Materialization {
     ) -> Self {
         Self {
             name: name.to_string(),
-            root_anchored: lower_term.is_none() && is_root_anchored(&term, registry.as_ref()),
+            // A lowered program's support also needs the lowering's own dependencies; each
+            // refresh learns them from the hook, or falls back to broad dispatch.
+            root_anchored: matches!(
+                anchor_analysis(&term, registry.as_ref(), None),
+                AnchorAnalysis::Anchored { .. }
+            ),
             term,
             roots: roots.to_vec(),
             now,
@@ -85,7 +93,12 @@ impl Materialization {
     }
 
     /// Re-evaluate one root with the batch evaluator; Some(changed property paths) on change.
-    pub fn refresh(&mut self, set: &DeltaSet, root: &str) -> Result<Option<Vec<String>>, String> {
+    pub fn refresh(
+        &mut self,
+        source: &IndexedSource<'_>,
+        root: &str,
+    ) -> Result<Option<Vec<String>>, String> {
+        let set = source.set;
         let lowered = match (&self.lower_term, self.now) {
             (Some(lower), Some(now)) => Some(lower(&self.term, set, now, self.registry.as_ref())?),
             (Some(_), None) => {
@@ -94,12 +107,31 @@ impl Materialization {
             (None, _) => None,
         };
         let (term, registry) = match &lowered {
-            Some((term, registry)) => (term, registry.as_ref()),
+            Some((term, registry, _)) => (term, registry.as_ref()),
             None => (&self.term, self.registry.as_ref()),
         };
-        let result = match self.now {
-            Some(now) => eval_term_at(term, set, now, Some(root), registry, None)?,
-            None => eval_term(term, set, Some(root), registry, None)?,
+        // An anchored program refreshes over its own scope, and that scope is exactly what a later
+        // delta must touch to change this root (SPEC-17 §6). Anything else reads the whole set and
+        // dispatches broadly.
+        let (result, support) = if matches!(
+            anchor_analysis(term, registry, None),
+            AnchorAnalysis::Anchored { .. }
+        ) {
+            let read = anchored_read(term, source, self.now, root, registry, None, None)?;
+            let support = match &lowered {
+                None => Some(read.scope.into_iter().collect()),
+                Some((_, _, None)) => None,
+                Some((_, _, Some(deps))) => {
+                    Some(read.scope.into_iter().chain(deps.iter().cloned()).collect())
+                }
+            };
+            (read.result, support)
+        } else {
+            let result = match self.now {
+                Some(now) => eval_term_at(term, set, now, Some(root), registry, None)?,
+                None => eval_term(term, set, Some(root), registry, None)?,
+            };
+            (result, None)
         };
         let EvalResult::HView(h) = result else {
             return Err("materialized terms must be HView-sort".to_string());
@@ -115,10 +147,7 @@ impl Materialization {
         } else {
             None
         };
-        let mut entities = BTreeSet::new();
-        entities.insert(root.to_string());
-        collect_nested_ids(&h, &mut entities);
-        self.support_entities.insert(root.to_string(), entities);
+        self.support_entities.insert(root.to_string(), support);
         self.views.insert(root.to_string(), h);
         self.hexes.insert(root.to_string(), hex);
         self.prop_hexes.insert(root.to_string(), new_prop_hexes);
@@ -131,7 +160,11 @@ impl Materialization {
             return true; // broad dispatch for non-anchored terms
         }
         let fallback = BTreeSet::from([root.to_string()]);
-        let support = self.support_entities.get(root).unwrap_or(&fallback);
+        let support = match self.support_entities.get(root) {
+            Some(Some(support)) => support,
+            Some(None) => return true,
+            None => &fallback,
+        };
         if targets_support(delta, support) {
             return true;
         }
@@ -182,18 +215,6 @@ fn chain_touches_support(id: &str, support: &BTreeSet<String>, set: &DeltaSet, d
     false
 }
 
-/// Collect every nested (expanded) HView id, recursively — the support-entity set (V5).
-fn collect_nested_ids(h: &HView, out: &mut BTreeSet<String>) {
-    for entries in h.props.values() {
-        for e in entries {
-            for nested in e.expanded.values() {
-                out.insert(nested.id.clone());
-                collect_nested_ids(nested, out);
-            }
-        }
-    }
-}
-
 /// Does this predicate conjunctively REQUIRE a pointer at $root? (V5 anchoring analyzer)
 fn pred_requires_root(pred: &Pred) -> bool {
     match pred {
@@ -227,7 +248,8 @@ fn term_anchored(t: &Term) -> bool {
     }
 }
 
-/// Root anchoring across the term and every transitively referenced schema body (V5).
+/// Root anchoring across the term and every transitively referenced schema body (V5). Dispatch now
+/// uses `anchor_analysis` (SPEC-17), which is sound and more precise; this analyzer stays exported.
 /// A reflective term (SPEC-2 §3.1) is never root-anchored: its reflected set may change with any
 /// ingest, so it takes the broad-dispatch path (SPEC-4 §4.1, correctness first).
 pub fn is_root_anchored(term: &Term, registry: Option<&SchemaRegistry>) -> bool {

@@ -56,6 +56,17 @@ export class DeltaSet implements Iterable<Delta> {
     return s;
   }
 
+  // The members with these ids, carried without re-verification; absent ids are skipped. Cost is
+  // the number of ids, not the size of this set (SPEC-17 §3).
+  subset(ids: Iterable<string>): DeltaSet {
+    const s = new DeltaSet();
+    for (const id of ids) {
+      const delta = this.byId.get(id);
+      if (delta !== undefined) s.byId.set(id, delta);
+    }
+    return s;
+  }
+
   union(other: DeltaSet): DeltaSet {
     const s = this.copy();
     for (const [id, delta] of other.byId) if (!s.byId.has(id)) s.byId.set(id, delta);

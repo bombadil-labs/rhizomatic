@@ -26061,6 +26061,636 @@
       "contract": "rhizomatic.materialization/1/capture",
       "classification": "portable_contract",
       "semantics": "MaterializationCaptureBasis.snapshot: Exact boot binding plus metadata-only capture/authority testimony and separate full snapshot; host grant required. MR-08, MR-09, MR-10, MR-11, MR-12, MR-19, MR-20, MR-21, MR-22; definition implementations/ts/src/federation/materialization-source.ts."
+    },
+    {
+      "id": "ts:delta/set.ts:DeltaSet#subset",
+      "owner": "delta",
+      "symbol": "DeltaSet.subset",
+      "source": "implementations/ts/src/delta/set.ts",
+      "definition": "implementations/ts/src/delta/set.ts",
+      "contract": "rhizomatic.delta/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native delta API DeltaSet.subset implements SPEC-1 Delta identity/JSON/CBOR; SPEC-8 container-neutral membership at implementations/ts/src/delta/set.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:index.ts:DeltaSet#subset",
+      "owner": "delta",
+      "symbol": "DeltaSet.subset",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/delta/set.ts",
+      "contract": "rhizomatic.delta/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native delta API DeltaSet.subset implements SPEC-1 Delta identity/JSON/CBOR; SPEC-8 container-neutral membership at implementations/ts/src/delta/set.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:anchorAnalysis",
+      "owner": "resolve",
+      "symbol": "anchorAnalysis",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/resolve/anchored.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native resolve API anchorAnalysis implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/anchored.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:evalAnchored",
+      "owner": "resolve",
+      "symbol": "evalAnchored",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/resolve/anchored.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native resolve API evalAnchored implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/anchored.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:scopeIds",
+      "owner": "resolve",
+      "symbol": "scopeIds",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/resolve/anchored.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native resolve API scopeIds implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/anchored.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:Admits",
+      "owner": "resolve",
+      "symbol": "Admits",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/resolve/anchored.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native resolve API Admits implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/anchored.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:AnchorAnalysis",
+      "owner": "resolve",
+      "symbol": "AnchorAnalysis",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/resolve/anchored.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native resolve API AnchorAnalysis implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/anchored.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:AnchorAnalysis#anchored",
+      "owner": "resolve",
+      "symbol": "AnchorAnalysis.anchored",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/resolve/anchored.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native resolve API AnchorAnalysis.anchored implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/anchored.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:AnchorAnalysis#anchors",
+      "owner": "resolve",
+      "symbol": "AnchorAnalysis.anchors",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/resolve/anchored.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native resolve API AnchorAnalysis.anchors implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/anchored.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:AnchorAnalysis#reason",
+      "owner": "resolve",
+      "symbol": "AnchorAnalysis.reason",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/resolve/anchored.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native resolve API AnchorAnalysis.reason implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/anchored.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:AnchoredRead",
+      "owner": "resolve",
+      "symbol": "AnchoredRead",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/resolve/anchored.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native resolve API AnchoredRead implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/anchored.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:AnchoredRead#result",
+      "owner": "resolve",
+      "symbol": "AnchoredRead.result",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/resolve/anchored.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native resolve API AnchoredRead.result implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/anchored.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:AnchoredRead#scope",
+      "owner": "resolve",
+      "symbol": "AnchoredRead.scope",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/resolve/anchored.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native resolve API AnchoredRead.scope implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/anchored.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:AnchoredRead#members",
+      "owner": "resolve",
+      "symbol": "AnchoredRead.members",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/resolve/anchored.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native resolve API AnchoredRead.members implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/anchored.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:DeltaSource",
+      "owner": "resolve",
+      "symbol": "DeltaSource",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/resolve/anchored.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native resolve API DeltaSource implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/anchored.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:DeltaSource#get",
+      "owner": "resolve",
+      "symbol": "DeltaSource.get",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/resolve/anchored.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native resolve API DeltaSource.get implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/anchored.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:DeltaSource#targets",
+      "owner": "resolve",
+      "symbol": "DeltaSource.targets",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/resolve/anchored.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native resolve API DeltaSource.targets implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/anchored.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:DeltaSource#negators",
+      "owner": "resolve",
+      "symbol": "DeltaSource.negators",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/resolve/anchored.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native resolve API DeltaSource.negators implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/anchored.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:DeltaSource#subset",
+      "owner": "resolve",
+      "symbol": "DeltaSource.subset",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/resolve/anchored.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native resolve API DeltaSource.subset implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/anchored.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:UnanchoredReason",
+      "owner": "resolve",
+      "symbol": "UnanchoredReason",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/resolve/anchored.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native resolve API UnanchoredReason implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/anchored.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:Reactor#targets",
+      "owner": "reactor",
+      "symbol": "Reactor.targets",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/reactor.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API Reactor.targets implements SPEC-4 explicit reactor/materialization lifecycle at implementations/ts/src/reactor/reactor.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:Reactor#negators",
+      "owner": "reactor",
+      "symbol": "Reactor.negators",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/reactor.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API Reactor.negators implements SPEC-4 explicit reactor/materialization lifecycle at implementations/ts/src/reactor/reactor.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:Reactor#subset",
+      "owner": "reactor",
+      "symbol": "Reactor.subset",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/reactor.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API Reactor.subset implements SPEC-4 explicit reactor/materialization lifecycle at implementations/ts/src/reactor/reactor.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:Reactor#evalAnchored",
+      "owner": "reactor",
+      "symbol": "Reactor.evalAnchored",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/reactor.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API Reactor.evalAnchored implements SPEC-4 explicit reactor/materialization lifecycle at implementations/ts/src/reactor/reactor.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:LoweredProgram",
+      "owner": "reactor",
+      "symbol": "LoweredProgram",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/reactor.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API LoweredProgram implements SPEC-4 explicit reactor/materialization lifecycle at implementations/ts/src/reactor/reactor.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:LoweredProgram#term",
+      "owner": "reactor",
+      "symbol": "LoweredProgram.term",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/reactor.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API LoweredProgram.term implements SPEC-4 explicit reactor/materialization lifecycle at implementations/ts/src/reactor/reactor.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:LoweredProgram#registry",
+      "owner": "reactor",
+      "symbol": "LoweredProgram.registry",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/reactor.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API LoweredProgram.registry implements SPEC-4 explicit reactor/materialization lifecycle at implementations/ts/src/reactor/reactor.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:LoweredProgram#deps",
+      "owner": "reactor",
+      "symbol": "LoweredProgram.deps",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/reactor.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API LoweredProgram.deps implements SPEC-4 explicit reactor/materialization lifecycle at implementations/ts/src/reactor/reactor.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:reactor.ts:LoweredProgram",
+      "owner": "reactor",
+      "symbol": "LoweredProgram",
+      "source": "implementations/ts/src/reactor.ts",
+      "definition": "implementations/ts/src/reactor/reactor.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API LoweredProgram implements SPEC-4 explicit reactor/materialization lifecycle at implementations/ts/src/reactor/reactor.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:reactor.ts:LoweredProgram#term",
+      "owner": "reactor",
+      "symbol": "LoweredProgram.term",
+      "source": "implementations/ts/src/reactor.ts",
+      "definition": "implementations/ts/src/reactor/reactor.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API LoweredProgram.term implements SPEC-4 explicit reactor/materialization lifecycle at implementations/ts/src/reactor/reactor.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:reactor.ts:LoweredProgram#registry",
+      "owner": "reactor",
+      "symbol": "LoweredProgram.registry",
+      "source": "implementations/ts/src/reactor.ts",
+      "definition": "implementations/ts/src/reactor/reactor.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API LoweredProgram.registry implements SPEC-4 explicit reactor/materialization lifecycle at implementations/ts/src/reactor/reactor.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:reactor.ts:LoweredProgram#deps",
+      "owner": "reactor",
+      "symbol": "LoweredProgram.deps",
+      "source": "implementations/ts/src/reactor.ts",
+      "definition": "implementations/ts/src/reactor/reactor.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API LoweredProgram.deps implements SPEC-4 explicit reactor/materialization lifecycle at implementations/ts/src/reactor/reactor.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:reactor.ts:Reactor#targets",
+      "owner": "reactor",
+      "symbol": "Reactor.targets",
+      "source": "implementations/ts/src/reactor.ts",
+      "definition": "implementations/ts/src/reactor/reactor.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API Reactor.targets implements SPEC-4 explicit reactor/materialization lifecycle at implementations/ts/src/reactor/reactor.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:reactor.ts:Reactor#negators",
+      "owner": "reactor",
+      "symbol": "Reactor.negators",
+      "source": "implementations/ts/src/reactor.ts",
+      "definition": "implementations/ts/src/reactor/reactor.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API Reactor.negators implements SPEC-4 explicit reactor/materialization lifecycle at implementations/ts/src/reactor/reactor.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:reactor.ts:Reactor#subset",
+      "owner": "reactor",
+      "symbol": "Reactor.subset",
+      "source": "implementations/ts/src/reactor.ts",
+      "definition": "implementations/ts/src/reactor/reactor.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API Reactor.subset implements SPEC-4 explicit reactor/materialization lifecycle at implementations/ts/src/reactor/reactor.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:reactor.ts:Reactor#evalAnchored",
+      "owner": "reactor",
+      "symbol": "Reactor.evalAnchored",
+      "source": "implementations/ts/src/reactor.ts",
+      "definition": "implementations/ts/src/reactor/reactor.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API Reactor.evalAnchored implements SPEC-4 explicit reactor/materialization lifecycle at implementations/ts/src/reactor/reactor.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:reactor/reactor.ts:LoweredProgram",
+      "owner": "reactor",
+      "symbol": "LoweredProgram",
+      "source": "implementations/ts/src/reactor/reactor.ts",
+      "definition": "implementations/ts/src/reactor/reactor.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API LoweredProgram implements SPEC-4 explicit reactor/materialization lifecycle at implementations/ts/src/reactor/reactor.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/reactor.ts:LoweredProgram#term",
+      "owner": "reactor",
+      "symbol": "LoweredProgram.term",
+      "source": "implementations/ts/src/reactor/reactor.ts",
+      "definition": "implementations/ts/src/reactor/reactor.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API LoweredProgram.term implements SPEC-4 explicit reactor/materialization lifecycle at implementations/ts/src/reactor/reactor.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/reactor.ts:LoweredProgram#registry",
+      "owner": "reactor",
+      "symbol": "LoweredProgram.registry",
+      "source": "implementations/ts/src/reactor/reactor.ts",
+      "definition": "implementations/ts/src/reactor/reactor.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API LoweredProgram.registry implements SPEC-4 explicit reactor/materialization lifecycle at implementations/ts/src/reactor/reactor.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/reactor.ts:LoweredProgram#deps",
+      "owner": "reactor",
+      "symbol": "LoweredProgram.deps",
+      "source": "implementations/ts/src/reactor/reactor.ts",
+      "definition": "implementations/ts/src/reactor/reactor.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API LoweredProgram.deps implements SPEC-4 explicit reactor/materialization lifecycle at implementations/ts/src/reactor/reactor.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/reactor.ts:Reactor#targets",
+      "owner": "reactor",
+      "symbol": "Reactor.targets",
+      "source": "implementations/ts/src/reactor/reactor.ts",
+      "definition": "implementations/ts/src/reactor/reactor.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API Reactor.targets implements SPEC-4 explicit reactor/materialization lifecycle at implementations/ts/src/reactor/reactor.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/reactor.ts:Reactor#negators",
+      "owner": "reactor",
+      "symbol": "Reactor.negators",
+      "source": "implementations/ts/src/reactor/reactor.ts",
+      "definition": "implementations/ts/src/reactor/reactor.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API Reactor.negators implements SPEC-4 explicit reactor/materialization lifecycle at implementations/ts/src/reactor/reactor.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/reactor.ts:Reactor#subset",
+      "owner": "reactor",
+      "symbol": "Reactor.subset",
+      "source": "implementations/ts/src/reactor/reactor.ts",
+      "definition": "implementations/ts/src/reactor/reactor.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API Reactor.subset implements SPEC-4 explicit reactor/materialization lifecycle at implementations/ts/src/reactor/reactor.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/reactor.ts:Reactor#evalAnchored",
+      "owner": "reactor",
+      "symbol": "Reactor.evalAnchored",
+      "source": "implementations/ts/src/reactor/reactor.ts",
+      "definition": "implementations/ts/src/reactor/reactor.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API Reactor.evalAnchored implements SPEC-4 explicit reactor/materialization lifecycle at implementations/ts/src/reactor/reactor.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:resolve/anchored.ts:scopeIds",
+      "owner": "resolve",
+      "symbol": "scopeIds",
+      "source": "implementations/ts/src/resolve/anchored.ts",
+      "definition": "implementations/ts/src/resolve/anchored.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native resolve API scopeIds implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/anchored.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:resolve/anchored.ts:anchorAnalysis",
+      "owner": "resolve",
+      "symbol": "anchorAnalysis",
+      "source": "implementations/ts/src/resolve/anchored.ts",
+      "definition": "implementations/ts/src/resolve/anchored.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native resolve API anchorAnalysis implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/anchored.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:resolve/anchored.ts:evalAnchored",
+      "owner": "resolve",
+      "symbol": "evalAnchored",
+      "source": "implementations/ts/src/resolve/anchored.ts",
+      "definition": "implementations/ts/src/resolve/anchored.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native resolve API evalAnchored implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/anchored.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:resolve/anchored.ts:DeltaSource",
+      "owner": "resolve",
+      "symbol": "DeltaSource",
+      "source": "implementations/ts/src/resolve/anchored.ts",
+      "definition": "implementations/ts/src/resolve/anchored.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native resolve API DeltaSource implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/anchored.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:resolve/anchored.ts:DeltaSource#get",
+      "owner": "resolve",
+      "symbol": "DeltaSource.get",
+      "source": "implementations/ts/src/resolve/anchored.ts",
+      "definition": "implementations/ts/src/resolve/anchored.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native resolve API DeltaSource.get implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/anchored.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:resolve/anchored.ts:DeltaSource#targets",
+      "owner": "resolve",
+      "symbol": "DeltaSource.targets",
+      "source": "implementations/ts/src/resolve/anchored.ts",
+      "definition": "implementations/ts/src/resolve/anchored.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native resolve API DeltaSource.targets implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/anchored.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:resolve/anchored.ts:DeltaSource#negators",
+      "owner": "resolve",
+      "symbol": "DeltaSource.negators",
+      "source": "implementations/ts/src/resolve/anchored.ts",
+      "definition": "implementations/ts/src/resolve/anchored.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native resolve API DeltaSource.negators implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/anchored.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:resolve/anchored.ts:DeltaSource#subset",
+      "owner": "resolve",
+      "symbol": "DeltaSource.subset",
+      "source": "implementations/ts/src/resolve/anchored.ts",
+      "definition": "implementations/ts/src/resolve/anchored.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native resolve API DeltaSource.subset implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/anchored.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:resolve/anchored.ts:Admits",
+      "owner": "resolve",
+      "symbol": "Admits",
+      "source": "implementations/ts/src/resolve/anchored.ts",
+      "definition": "implementations/ts/src/resolve/anchored.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native resolve API Admits implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/anchored.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:resolve/anchored.ts:UnanchoredReason",
+      "owner": "resolve",
+      "symbol": "UnanchoredReason",
+      "source": "implementations/ts/src/resolve/anchored.ts",
+      "definition": "implementations/ts/src/resolve/anchored.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native resolve API UnanchoredReason implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/anchored.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:resolve/anchored.ts:AnchorAnalysis",
+      "owner": "resolve",
+      "symbol": "AnchorAnalysis",
+      "source": "implementations/ts/src/resolve/anchored.ts",
+      "definition": "implementations/ts/src/resolve/anchored.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native resolve API AnchorAnalysis implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/anchored.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:resolve/anchored.ts:AnchorAnalysis#anchored",
+      "owner": "resolve",
+      "symbol": "AnchorAnalysis.anchored",
+      "source": "implementations/ts/src/resolve/anchored.ts",
+      "definition": "implementations/ts/src/resolve/anchored.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native resolve API AnchorAnalysis.anchored implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/anchored.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:resolve/anchored.ts:AnchorAnalysis#anchors",
+      "owner": "resolve",
+      "symbol": "AnchorAnalysis.anchors",
+      "source": "implementations/ts/src/resolve/anchored.ts",
+      "definition": "implementations/ts/src/resolve/anchored.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native resolve API AnchorAnalysis.anchors implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/anchored.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:resolve/anchored.ts:AnchorAnalysis#reason",
+      "owner": "resolve",
+      "symbol": "AnchorAnalysis.reason",
+      "source": "implementations/ts/src/resolve/anchored.ts",
+      "definition": "implementations/ts/src/resolve/anchored.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native resolve API AnchorAnalysis.reason implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/anchored.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:resolve/anchored.ts:AnchoredRead",
+      "owner": "resolve",
+      "symbol": "AnchoredRead",
+      "source": "implementations/ts/src/resolve/anchored.ts",
+      "definition": "implementations/ts/src/resolve/anchored.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native resolve API AnchoredRead implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/anchored.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:resolve/anchored.ts:AnchoredRead#result",
+      "owner": "resolve",
+      "symbol": "AnchoredRead.result",
+      "source": "implementations/ts/src/resolve/anchored.ts",
+      "definition": "implementations/ts/src/resolve/anchored.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native resolve API AnchoredRead.result implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/anchored.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:resolve/anchored.ts:AnchoredRead#scope",
+      "owner": "resolve",
+      "symbol": "AnchoredRead.scope",
+      "source": "implementations/ts/src/resolve/anchored.ts",
+      "definition": "implementations/ts/src/resolve/anchored.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native resolve API AnchoredRead.scope implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/anchored.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:resolve/anchored.ts:AnchoredRead#members",
+      "owner": "resolve",
+      "symbol": "AnchoredRead.members",
+      "source": "implementations/ts/src/resolve/anchored.ts",
+      "definition": "implementations/ts/src/resolve/anchored.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native resolve API AnchoredRead.members implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/anchored.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:set.ts:DeltaSet#subset",
+      "owner": "delta",
+      "symbol": "DeltaSet.subset",
+      "source": "implementations/ts/src/set.ts",
+      "definition": "implementations/ts/src/delta/set.ts",
+      "contract": "rhizomatic.delta/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native delta API DeltaSet.subset implements SPEC-1 Delta identity/JSON/CBOR; SPEC-8 container-neutral membership at implementations/ts/src/delta/set.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
     }
   ]
 }
