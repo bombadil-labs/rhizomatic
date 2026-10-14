@@ -51,7 +51,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
     bytes from a host's selection. Hosts no longer assemble MR-10 documents by hand.
   - TypeScript keeps a bounded memo of verified appearances, so one read stops checking every
     signature four times.
-  - Shared vectors `vectors/materialization/scoped-source.json`.
+  - Shared vectors `vectors/materialization/scoped-source.json` (codec) and
+    `vectors/materialization/scoped-commands.json` (six endpoint deliveries; Rust reproduces every
+    TypeScript outcome byte for byte).
 
 ### Fixed
 
