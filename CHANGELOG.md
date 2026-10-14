@@ -6,6 +6,25 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 
 ## Unreleased
 
+## 0.11.0-next.9 — 2026-10-14
+
+Release B: the maintained materialization lifecycle (SPEC-16 M3) and its cumulative acceptance
+(M4) in TypeScript and Rust. Install, replace-source, advance-time, retire, read and restore run
+over an explicit control store, with fault points, support erasure and configuration rotation.
+All M0–M4 cases are executed in both witnesses and independently reviewed. Elixir and Haskell
+remain Level 0. A release-A configuration (gather and resolve only) still boots without a control
+store; a configuration that installs a lifecycle verb needs one (`controlStore` /
+`boot_maintained`). Loam's selected batch-read trial (M5) follows against this release.
+
+### Known limits
+
+- No performance promise. The M4 baseline measured a 4,096-appearance install at about 24 s in
+  TypeScript and 1 s in Rust, with whole-process peak memory near 1 GiB and 136 MiB. The nested
+  32-plant Bed fixture installs in about 1.2 s and 0.1 s. See `contracts/materialization/M4.md`.
+- Journal-backed published Plant and Bed counts are not measured yet; they are owed at M5.
+- Source and control writes are not atomic with each other, and evidence is not a proof of
+  execution.
+
 ### Fixed
 
 - Materialization gather in TypeScript returns a signed `resource-limit` refusal when a produced
