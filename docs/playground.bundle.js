@@ -4333,7 +4333,7 @@
     lastChanges = [];
     // Register a live materialization: an HView-sort term (a function of $root) kept
     // incrementally equal to batch evaluation at each root (SPEC-4 §1).
-    register(name, term, roots, now, registry, lowerTerm, lowerDeps) {
+    register(name, term, roots, now, registry, lowerTerm) {
       if (!Number.isFinite(now)) throw new Error("now must be a finite number");
       if (this.materializations.has(name)) throw new Error(`duplicate materialization: ${name}`);
       const mat = {
@@ -4341,10 +4341,10 @@
         term,
         roots: [...roots],
         registry,
-        // A lowered predicate can depend on evidence anywhere in the set, unless the host names it.
-        rootAnchored: anchorAnalysis(term, registry).anchored && (lowerTerm === void 0 || lowerDeps !== void 0),
+        // A lowered program's support also needs the lowering's own dependencies; each refresh
+        // learns them from the hook, or falls back to broad dispatch.
+        rootAnchored: anchorAnalysis(term, registry).anchored,
         lowerTerm,
-        lowerDeps: lowerDeps === void 0 ? void 0 : [...lowerDeps],
         now,
         views: /* @__PURE__ */ new Map(),
         hexes: /* @__PURE__ */ new Map(),
@@ -4433,16 +4433,14 @@
       return boundaryAfter(this.validityBoundaries, now);
     }
     refresh(mat, root) {
-      const program = mat.lowerTerm?.(mat.term, this.set, mat.now, mat.registry) ?? {
-        term: mat.term,
-        registry: mat.registry
-      };
+      const lowered = mat.lowerTerm?.(mat.term, this.set, mat.now, mat.registry);
+      const program = lowered ?? { term: mat.term, registry: mat.registry };
       let result;
       let support;
       if (anchorAnalysis(program.term, program.registry).anchored) {
         const read = evalAnchored(program.term, this, mat.now, root, program.registry);
         result = read.result;
-        support = /* @__PURE__ */ new Set([...read.scope, ...mat.lowerDeps ?? []]);
+        support = lowered === void 0 ? new Set(read.scope) : lowered.deps === void 0 ? BROAD : /* @__PURE__ */ new Set([...read.scope, ...lowered.deps]);
       } else {
         result = evalTerm(program.term, this.set, mat.now, root, program.registry);
         support = BROAD;
