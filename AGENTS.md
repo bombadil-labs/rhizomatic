@@ -114,6 +114,13 @@ When implementation contradicts specification, **the contradiction is the delive
   the selected Loam PRIMARY batch-read trial, which Loam builds against the published release B.
   Everything after `0.11.0-next.8` is unreleased.
 
+- **Active work, 2026-10-14: anchored reads ([spec/17-anchored-reads.PROPOSAL.md](spec/17-anchored-reads.PROPOSAL.md)).**
+  Myk ruled that no behavior may have a cost that scales with system size (P7 in that proposal),
+  and assigned this work, including the SPEC-16 amendment, to Claude. The M5 Loam trial
+  measured the portable read at O(store) per read; the audit found that native reads are
+  O(store) too. Slices R1 (anchored evaluation) and R2 (scoped snapshots, release C) come before
+  the Loam slices L1 and L2. A design that is correct only at small sizes is not correct.
+
 ## Independent T3 review
 
 - Sol builds Rhizomatic and uses the existing dedicated Claude Opus review thread for every frozen,
