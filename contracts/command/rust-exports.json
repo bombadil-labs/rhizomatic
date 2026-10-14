@@ -726,6 +726,39 @@
     {
       "form": "syn-resolved-path",
       "owner": "resolve",
+      "rawTarget": "crate::anchored::Pin",
+      "resolvedTarget": "crate::anchored::Pin",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "entity_of",
+      "target": "crate::anchored::Pin",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::Pin::Ambient",
+      "resolvedTarget": "crate::anchored::Pin::Ambient",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "entity_of",
+      "target": "crate::anchored::Pin::Ambient",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::Pin::Entity",
+      "resolvedTarget": "crate::anchored::Pin::Entity",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "entity_of",
+      "target": "crate::anchored::Pin::Entity",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
       "rawTarget": "crate::pred::Bindings",
       "resolvedTarget": "crate::pred::Bindings",
       "source": "implementations/rust/src/anchored.rs",
@@ -788,6 +821,17 @@
       "symbol": "entity_of",
       "target": "crate::types::Primitive::Str",
       "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::Pin",
+      "resolvedTarget": "crate::anchored::Pin",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "pinned_entity",
+      "target": "crate::anchored::Pin",
+      "targetOwner": "resolve"
     },
     {
       "form": "syn-resolved-path",
@@ -938,6 +982,17 @@
       "sourceRegion": "semantic-owner",
       "symbol": "Analyzer::pred",
       "target": "crate::anchored::Analyzer",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::Pin::Entity",
+      "resolvedTarget": "crate::anchored::Pin::Entity",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Analyzer::pred",
+      "target": "crate::anchored::Pin::Entity",
       "targetOwner": "resolve"
     },
     {
@@ -1180,6 +1235,17 @@
       "sourceRegion": "semantic-owner",
       "symbol": "Analyzer::walk",
       "target": "crate::anchored::Analyzer",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::anchored::Pin::Entity",
+      "resolvedTarget": "crate::anchored::Pin::Entity",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Analyzer::walk",
+      "target": "crate::anchored::Pin::Entity",
       "targetOwner": "resolve"
     },
     {
@@ -44026,6 +44092,14 @@
       "sourceRegion": "semantic-owner",
       "symbol": "produce_materialization_snapshot",
       "target": "std::collections::BTreeSet::new"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "federation",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "produce_materialization_snapshot",
+      "target": "std::string::String::as_str"
     },
     {
       "form": "syn-external-path",
