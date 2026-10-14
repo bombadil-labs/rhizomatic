@@ -86,3 +86,17 @@ Local final profile1 acceptance still requires actual hosted exact-SHA four-witn
 unsupported local toolchains cannot manufacture that report. Fable's pinned independent review
 and supervisor integration remain required before release A. See [M2.md](M2.md) for API and
 measurement boundaries and [M2-RESULTS.md](M2-RESULTS.md) for local execution.
+
+## M4 executable wiring
+
+The materialization-m4 job needs every existing gate and the M1, M2 and M3 jobs of the same run.
+It downloads their retained bundles and runs `tools/check-materialization-m4.mjs`: artifact
+integrity, three replayed plans and both fixed routes per required scenario, independent goldens
+over the retained outputs, the capability gate against each real manifest, a common wrong answer
+the oracle must turn red, exact replay against a mutated bundle, and each runner's harness
+proofs. Before the checker, it runs `tools/measure-materialization-lifecycle.mjs`, the lifecycle
+resource baseline for the nested Bed fixture and the source sweep in both witnesses, and the
+checker validates that report with exact phase sequences. The checker also requires each
+milestone's REPORT and COVERAGE to name every required case, pins every bundle to this checkout's
+clean commit and tree, and checks every executed record against its plan role and witness. It
+uploads M4-CUMULATIVE, MEASUREMENTS-LIFECYCLE and REPORT. See [M4.md](M4.md) and [M4-CASES.json](M4-CASES.json).

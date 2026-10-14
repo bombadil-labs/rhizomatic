@@ -90,22 +90,29 @@ When implementation contradicts specification, **the contradiction is the delive
 
 ## Current refactor
 
-- Myk's current order is step 6 to completion in both Rhizomatic and Loam, then step 7 to
-  completion in both. Do not start step 8 while pursuing this order.
+- Myk's refactor order is step 6 to completion in both Rhizomatic and Loam, then step 7 to
+  completion in both. Do not start step 8 while pursuing this order. Status in this file can age;
+  check open PRs and `CHANGELOG.md` before acting.
 - The original M0–M5 build order is complete. [PROGRESS.md](PROGRESS.md) records that older arc;
   its July "RESUME HERE" notes are history, not the current task list.
-- Step 6 is greenfield peer admission with a durable ordinary journal. Its working contract is
-  [spec/06-peer-admission.PROPOSAL.md](spec/06-peer-admission.PROPOSAL.md), and the implementation
-  is on draft [PR #53](https://github.com/bombadil-labs/rhizomatic/pull/53). Check the PR's current
-  head before acting; status in this file can age.
-- Myk's 2026-09-29 greenfield ruling excludes migration and handoff of existing pools. Each new
-  peer starts on empty storage under its own key. A backend with rows but no journal is refused
-  at boot; it is not replayed into peer state. No barrier, carry, import, acknowledgement or
-  cutover API is part of step 6.
-- The typed journal API, mixed signed-loose erasure admission, rebase, purge settlement, and
-  writable degraded open are implemented in both witnesses. Freeze them with shared vectors,
-  green gates, independent review, and a published prerelease before claiming Loam readiness.
-  Loam then runs its host and fresh pools through the journal and refuses old unjournaled pools.
+- **Step 6 is complete in both repositories.** Greenfield peer admission with a durable ordinary
+  journal merged here in [PR #53](https://github.com/bombadil-labs/rhizomatic/pull/53)
+  (2026-09-29) and shipped in `0.11.0-next.6`. Its contract is
+  [spec/06-peer-admission.PROPOSAL.md](spec/06-peer-admission.PROPOSAL.md). Loam closed step 6 on
+  2026-09-30 with the container split (Loam #678–#681). Myk's 2026-09-29 greenfield ruling
+  stands: no migration or handoff of existing pools, each new peer starts on empty storage under
+  its own key, and a backend with rows but no journal is refused at boot.
+- **Step 7 has not started.** It covers publish and subscribe, the signed wire envelope and
+  publish-side closure audit (spec/06-peer-admission.PROPOSAL.md), and registry discovery and
+  locator transport (Loam `refactor/README.md`, ruling 9).
+- **Active work: the SPEC-16 portable read and materialization contract.** The packet is
+  [contracts/materialization/](contracts/materialization/README.md); its normative text is
+  [spec/16-materialization.md](spec/16-materialization.md), with readings in
+  `spec/16-materialization.ERRATA.md`. Milestones M0–M3 are on main (PRs #62–#70, last merged
+  2026-10-12): all 33 M3 cases and 6 variants execute in both witnesses. Next is **M4**, the
+  cumulative acceptance gate that makes release B eligible after independent review; then **M5**,
+  the selected Loam PRIMARY batch-read trial, which Loam builds against the published release B.
+  Everything after `0.11.0-next.8` is unreleased.
 
 ## Independent T3 review
 

@@ -262,3 +262,43 @@ jobs:
           name: materialization-m3-evidence
           path: ${{ runner.temp }}/materialization-m3
           if-no-files-found: error
+
+  materialization-m4:
+    name: Materialization M4 cumulative towers and gates
+    needs: [typescript, rust, haskell, elixir, command, materialization-m1, materialization-m2, materialization-m3]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: implementations/ts/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: implementations/rust
+      - run: npm ci --ignore-scripts --prefix implementations/ts
+      - name: Retained M1, M2 and M3 bundles from this run
+        uses: actions/download-artifact@v4
+        with:
+          pattern: materialization-m[123]-evidence
+          path: ${{ runner.temp }}/bundles
+      - name: M4 cumulative towers, capability gate, oracle, replay and harness probes
+        env:
+          M1_ARTIFACT_DIR: ${{ runner.temp }}/bundles/materialization-m1-evidence
+          M2_ARTIFACT_DIR: ${{ runner.temp }}/bundles/materialization-m2-evidence
+          M3_ARTIFACT_DIR: ${{ runner.temp }}/bundles/materialization-m3-evidence
+          M4_ARTIFACT_DIR: ${{ runner.temp }}/materialization-m4
+          CI_COMMIT: ${{ github.sha }}
+          CI_RESULTS: ${{ toJSON(needs) }}
+        run: |
+          node tools/measure-materialization-lifecycle.mjs
+          node tools/check-materialization-m4.mjs
+      - name: Retain concrete M4 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: materialization-m4-evidence
+          path: ${{ runner.temp }}/materialization-m4
+          if-no-files-found: error

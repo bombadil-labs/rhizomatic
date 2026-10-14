@@ -40,7 +40,8 @@ function validateCrossing(v,produced,received){
 function crossing(v,write,read){
  const produced=run(write,{mode:'encode',native:v.native});
  const received=run(read,{mode:'decode',envelopeHex:produced.envelopeHex});validateCrossing(v,produced,received);
- return {input:{mode:'encode',native:v.native},produced,received};
+ // The executing witnesses are part of the record, so a cumulative gate can tie it to its plan.
+ return {input:{mode:'encode',native:v.native},write,read,produced,received};
 }
 for(const v of fixtures)for(const [write,read]of[['ts','rust'],['rust','ts']]){const data=crossing(v,write,read);const path=`fixed-${v.variant}-${write}-${read}.json`;writeFileSync(join(outdir,path),canonicalJson(data)+'\n');evidence.fixed.push({caseId:'env_fixed_mixed_routes',variant:v.variant,write,read,artifact:path,sha256:hash(join(outdir,path))});}
 for(const v of fixtures){

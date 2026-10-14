@@ -17,6 +17,26 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 
 ### Added
 
+- SPEC-16 M4 slice M4a: a cumulative gate over the M1, M2 and M3 bundles of one CI run checks
+  artifact integrity, three replayed mixed plans and both fixed routes per required scenario,
+  shared goldens, the capability gate against each real manifest, a common wrong answer the
+  oracle must refuse, and exact replay against a mutated bundle. The M3 runner gains
+  control-edge corruption probes in both directions, a tower-isolation probe and the
+  unsupported-stage and missing-evidence negatives. Seven of the nine M4 cases are executed.
+- SPEC-16 M4 slice M4b: a lifecycle resource baseline. For the fixed nested Bed fixture (32
+  plants, four buckets each, two expansion levels) and at 0, 128, 1024, 4096 and 4097 selected
+  source appearances, both witnesses run install, equal-size replacement, fresh restore and fresh
+  read, each step from a cold boot over its stored image. The report records byte lengths, wall
+  time, strict signature verifications, source checks and peak memory. Byte lengths agree between
+  the witnesses; 4097 refuses at install before any source check. No thresholds are set. Eight of
+  the nine M4 cases are executed.
+- SPEC-16 M4 review round 1: the cumulative gate now requires each milestone's report and coverage
+  to name every required case, variant, tower, refusal branch and fault branch; pins every bundle
+  to one clean source (the CI checkout in CI); checks every executed record against its plan role
+  and witness; and requires exact measurement phase sequences. M1 crossings record their writer
+  and reader, and M3 records name the plan role whose witness ran them. Each new check has a
+  refusal probe. The independent re-review of this head found no remaining findings, so all nine
+  M4 cases are executed.
 - SPEC-16 M3 groundwork in TypeScript and Rust: the reactor-owned `rhizomatic.materialization-control/1`
   image codec and pure transition planner, the storage-owned control store seam, a federation
   facade, and the `registration/1`, `state/1` and `control-image/1` descriptions plus the six
