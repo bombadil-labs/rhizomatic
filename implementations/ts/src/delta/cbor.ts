@@ -153,6 +153,24 @@ function writeFloat(sink: Pick<ByteSink, "push">, value: number): void {
   }
 }
 
+/**
+ * Compare two well-formed strings in UTF-8 byte order, which is code point order. JavaScript's own
+ * `<` compares UTF-16 code units, which disagrees above U+FFFF: U+10000 sorts before U+E000 there.
+ * Every ordered list of free text on the wire uses this order, as Rust's `str` ordering does.
+ */
+export function compareUtf8(a: string, b: string): number {
+  const n = Math.min(a.length, b.length);
+  for (let i = 0; i < n; i++) {
+    const x = a.charCodeAt(i),
+      y = b.charCodeAt(i);
+    if (x !== y) return rank(x) - rank(y);
+  }
+  return a.length - b.length;
+}
+// A surrogate unit starts a code point above U+FFFF, so it ranks after U+E000..U+FFFF.
+const rank = (unit: number): number =>
+  unit >= 0xd800 && unit <= 0xdfff ? unit + 0x2000 : unit >= 0xe000 ? unit - 0x800 : unit;
+
 function cmpBytes(a: Uint8Array, b: Uint8Array): number {
   const n = Math.min(a.length, b.length);
   for (let i = 0; i < n; i++) {

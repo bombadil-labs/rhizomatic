@@ -530,8 +530,9 @@ cannot run at all. This section adds a second selection profile; MR-09 and MR-10
 **MR-09a.** A binding selection's `profile` is `host-authorized-snapshot/1` or
 `scoped-snapshot/1`. A scoped binding promises that each capture covers one declared scope.
 
-**MR-10a.** A snapshot and its basis MAY carry `scope`: a nonempty, sorted, distinct array of
-entity ids. It is present exactly when the binding is scoped; otherwise the source is
+**MR-10a.** A snapshot and its basis MAY carry `scope`: a nonempty, distinct array of entity ids,
+strictly increasing in UTF-8 byte order (which is code point order, not UTF-16 code unit order).
+A producer writes the scope as a set in that order. It is present exactly when the binding is scoped; otherwise the source is
 `invalid-source`. When present it joins the revision: `revision =
 H(C({binding, authority, selection, components, membership, appearanceDigest, exclusions,
 scope}))`. Operands are exactly S(scope) over the host's selection (SPEC-17 §4), computed from

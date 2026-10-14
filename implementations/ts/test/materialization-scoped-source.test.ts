@@ -1,7 +1,7 @@
 // Scoped source snapshots (SPEC-17 §7): the shared corpus both witnesses must decode alike.
 import { readFileSync } from "node:fs";
 import { expect, it } from "vitest";
-import { bstr, encode, map, tstr, type CborValue } from "../src/delta/cbor.js";
+import { bstr, compareUtf8, encode, map, tstr, type CborValue } from "../src/delta/cbor.js";
 import { bytesToHex } from "../src/delta/hash.js";
 import {
   decodeMaterializationBindingSpec,
@@ -69,7 +69,11 @@ const selectionOf = (profile: string) =>
     ["parameters", bstr(encode(map([])))],
   ]);
 const fieldsOf = (v: CborValue): Map<string, CborValue> => new Map(v.t === "map" ? v.v : []);
-function reproduce(snapshotHex: string, profile: string) {
+function reproduce(
+  snapshotHex: string,
+  profile: string,
+  scopeOf: (scope: readonly string[]) => readonly string[] = (scope) => scope,
+) {
   const s = decodeMaterializationSnapshot(bytes(snapshotHex));
   const fields = new Map(s.value.t === "map" ? s.value.v : []);
   const exclusions = (fields.get("exclusions")!.v as CborValue[]).map((e) => {
@@ -108,7 +112,7 @@ function reproduce(snapshotHex: string, profile: string) {
     selection: selectionOf(profile),
     servingAt: s.servingAt,
     ...(s.historicalCutoff === undefined ? {} : { historicalCutoff: s.historicalCutoff }),
-    ...(s.scope === undefined ? {} : { scope: s.scope }),
+    ...(s.scope === undefined ? {} : { scope: scopeOf(s.scope) }),
     components,
     exclusions: exclusions.map((e) => ({ id: e.id, reason: e.reason })),
   });
@@ -121,6 +125,21 @@ for (const f of vectors.positives)
     expect(bytesToHex(produced.basisBytes)).toBe(f.basisHex);
     expect(produced.revision).toBe(f.expected.revision);
   });
+
+it("the producer writes a scope as a set in UTF-8 byte order", () => {
+  const f = vectors.positives.find((p) => p.id === "scoped_supplementary_order")!;
+  const shuffled = (scope: readonly string[]) => [...scope].reverse().concat(scope[0]!);
+  const produced = reproduce(f.snapshotHex, "scoped-snapshot/1", shuffled);
+  expect(bytesToHex(produced.snapshotBytes)).toBe(f.snapshotHex);
+  expect(produced.revision).toBe(f.expected.revision);
+});
+
+it("UTF-8 byte order is code point order, not UTF-16 code unit order", () => {
+  const ids = ["\u{10000}", "\uE000", "z", "\uFFFF", "\u{10FFFF}", "\u00E9", ""];
+  const utf8 = (x: string) => bytesToHex(new TextEncoder().encode(x));
+  expect([...ids].sort(compareUtf8)).toEqual([...ids].sort((a, b) => (utf8(a) < utf8(b) ? -1 : 1)));
+  expect(compareUtf8("\uE000", "\u{10000}")).toBeLessThan(0);
+});
 
 const full = JSON.parse(
   readFileSync(

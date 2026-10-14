@@ -4,6 +4,7 @@
 // answer identical: S(E) is closed under every negation chain that decides a member.
 
 import type { HView } from "../algebra/hview.js";
+import { compareUtf8 } from "../delta/cbor.js";
 import { DeltaSet } from "../delta/set.js";
 import type { Delta } from "../delta/types.js";
 import type { SchemaRegistry } from "../schema/schema.js";
@@ -203,7 +204,7 @@ export function anchorAnalysis(
     if (e instanceof Unanchored) return { anchored: false, reason: e.reason };
     throw e;
   }
-  return { anchored: true, anchors: [...anchors].sort() };
+  return { anchored: true, anchors: [...anchors].sort(compareUtf8) };
 }
 
 /** The anchors an HView shows: its root and every expanded child, at any depth. */
@@ -218,7 +219,7 @@ function visibleAnchors(hview: HView, out: Set<string>): void {
 export function hviewAnchors(hview: HView): string[] {
   const out = new Set<string>();
   visibleAnchors(hview, out);
-  return [...out].sort();
+  return [...out].sort(compareUtf8);
 }
 
 export interface AnchoredRead {
@@ -260,7 +261,7 @@ export function evalAnchored(
     if (missing.length === 0) {
       const result =
         gather === term ? gathered : evalTerm(term, set, now, root, registry, bindings);
-      return { result, scope: [...scope].sort(), members };
+      return { result, scope: [...scope].sort(compareUtf8), members };
     }
     for (const e of missing) scope.add(e);
   }

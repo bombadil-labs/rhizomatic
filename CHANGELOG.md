@@ -59,6 +59,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 
 - The snapshot and basis decoders checked each component's operand ids against its raw ids with
   a nested scan, quadratic in the inventory. They use a set.
+- A scope array is ordered by UTF-8 bytes in both witnesses (SPEC-16 MR-10a). TypeScript compared
+  entity ids by UTF-16 code units, so a scope holding U+E000 and U+10000 was accepted by one
+  witness and refused by the other. `compareUtf8` is the shared comparator; both producers write
+  a scope as a set in that order. New vectors: `scoped_supplementary_order` and
+  `utf16_ordered_scope`.
 - TypeScript checked the same signature again at each layer a delta crossed: at ingest, in the
   snapshot producer, in each HView envelope decode. `verifyDelta` now remembers successful strict
   checks, keyed by id and signature (bounded at 65536). It still recomputes the id each time, so

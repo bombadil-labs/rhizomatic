@@ -89,6 +89,14 @@ fn texts(v: &CborValue) -> Vec<String> {
 }
 
 fn reproduce(snapshot_hex: &str, profile: &str) -> (Vec<u8>, Vec<u8>) {
+    reproduce_with(snapshot_hex, profile, |scope| scope)
+}
+
+fn reproduce_with(
+    snapshot_hex: &str,
+    profile: &str,
+    scope_of: impl Fn(Vec<String>) -> Vec<String>,
+) -> (Vec<u8>, Vec<u8>) {
     let limits = MaterializationSourceLimits::default();
     let s = decode_materialization_snapshot(&hex::decode(snapshot_hex).unwrap(), limits).unwrap();
     let top = fields(&s.value);
@@ -152,7 +160,7 @@ fn reproduce(snapshot_hex: &str, profile: &str) -> (Vec<u8>, Vec<u8>) {
             ]),
             serving_at: s.serving_at,
             historical_cutoff: s.historical_cutoff,
-            scope: s.scope.clone(),
+            scope: s.scope.clone().map(scope_of),
             components,
             exclusions: exclusions
                 .into_iter()
@@ -184,4 +192,28 @@ fn the_producer_reproduces_every_shared_fixture() {
             assert_eq!(hex::encode(basis), f["basisHex"], "{}", f["id"]);
         }
     }
+}
+
+#[test]
+fn the_producer_writes_a_scope_as_a_set_in_utf8_byte_order() {
+    let v: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../vectors/materialization/scoped-source.json"
+    ))
+    .unwrap();
+    let f = v["positives"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["id"] == "scoped_supplementary_order")
+        .unwrap();
+    let (snapshot, _) = reproduce_with(
+        f["snapshotHex"].as_str().unwrap(),
+        "scoped-snapshot/1",
+        |s| {
+            let mut shuffled: Vec<String> = s.iter().rev().cloned().collect();
+            shuffled.push(s[0].clone());
+            shuffled
+        },
+    );
+    assert_eq!(hex::encode(snapshot), f["snapshotHex"]);
 }

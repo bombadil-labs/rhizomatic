@@ -138,8 +138,8 @@ These changes replace the "full authorized source" model for batch gather.
 1. **Selection profile.** Add `rhizomatic.scoped-snapshot/1`. A binding with this profile says
    that each capture covers one declared scope, not the whole source. The existing
    `host-authorized-snapshot/1` keeps its meaning.
-2. **Scope field.** source-snapshot/1 and source-basis/1 gain `scope`: a sorted, distinct,
-   nonempty array of entity ids. It contains the request root and every static anchor of the
+2. **Scope field.** source-snapshot/1 and source-basis/1 gain `scope`: a distinct, nonempty
+   array of entity ids in UTF-8 byte order (SPEC-16 MR-10a). It contains the request root and every static anchor of the
    program.
 3. **Membership.** For a scoped capture, each component's `operandIds` is `S(scope)` over the
    host's selection, and `rawIds` is `S(scope)` over the unfiltered store. `exclusions` is

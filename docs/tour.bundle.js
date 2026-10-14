@@ -126,6 +126,15 @@
       );
     }
   }
+  function compareUtf8(a, b) {
+    const n = Math.min(a.length, b.length);
+    for (let i = 0; i < n; i++) {
+      const x = a.charCodeAt(i), y = b.charCodeAt(i);
+      if (x !== y) return rank(x) - rank(y);
+    }
+    return a.length - b.length;
+  }
+  var rank = (unit) => unit >= 55296 && unit <= 57343 ? unit + 8192 : unit >= 57344 ? unit - 2048 : unit;
   function cmpBytes(a, b) {
     const n = Math.min(a.length, b.length);
     for (let i = 0; i < n; i++) {
@@ -3616,11 +3625,11 @@
         return 0;
       }
       case "byAuthorRank": {
-        const rank = (author) => {
+        const rank2 = (author) => {
           const i = order.authors.indexOf(author);
           return i === -1 ? order.authors.length : i;
         };
-        return rank(a.delta.claims.author) - rank(b.delta.claims.author);
+        return rank2(a.delta.claims.author) - rank2(b.delta.claims.author);
       }
       case "byPred": {
         const am = evalPred(order.pred, a.delta) ? 0 : 1;
@@ -5110,7 +5119,7 @@
       if (e instanceof Unanchored) return { anchored: false, reason: e.reason };
       throw e;
     }
-    return { anchored: true, anchors: [...anchors].sort() };
+    return { anchored: true, anchors: [...anchors].sort(compareUtf8) };
   }
   function visibleAnchors(hview, out) {
     out.add(hview.id);
@@ -5133,7 +5142,7 @@
       const missing = [...seen].filter((e) => !scope.has(e));
       if (missing.length === 0) {
         const result = gather === term ? gathered : evalTerm(term, set, now, root, registry, bindings);
-        return { result, scope: [...scope].sort(), members };
+        return { result, scope: [...scope].sort(compareUtf8), members };
       }
       for (const e of missing) scope.add(e);
     }

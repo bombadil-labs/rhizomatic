@@ -140,6 +140,8 @@ const positives = [
   { id: "scoped_one", scope: ["fern"], rows: [fact] },
   { id: "scoped_with_negation_chain", scope: ["fern"], rows: [fact, strike] },
   { id: "scoped_two_entities", scope: ["fern", "moss"], rows: [fact] },
+  // UTF-8 byte order, which is code point order: U+E000 before U+10000.
+  { id: "scoped_supplementary_order", scope: ["fern", "\uE000", "\u{10000}"], rows: [fact] },
 ].map((c) => {
   const value = snapshot(c.scope, c.rows);
   if (value.t !== "map") throw Error();
@@ -162,6 +164,8 @@ const negatives = [
   // A negator whose target is not an operand is not in S(scope) either.
   { id: "stray_negator", value: snapshot(["fern"], [strike]) },
   { id: "unsorted_scope", value: snapshot(["moss", "fern"], [fact]) },
+  // UTF-16 code unit order puts U+10000 (a surrogate pair) before U+E000; the wire order is UTF-8.
+  { id: "utf16_ordered_scope", value: snapshot(["fern", "\u{10000}", "\uE000"], [fact]) },
   { id: "empty_scope", value: snapshot([], []) },
   // The revision must commit to the scope.
   { id: "revision_without_scope", value: snapshot(["fern"], [fact], null) },

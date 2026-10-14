@@ -2,6 +2,7 @@
 import {
   array,
   bstr,
+  compareUtf8,
   decodeWithGuard,
   encode,
   float,
@@ -121,8 +122,9 @@ const number = (v: CborValue | undefined): number =>
   v?.t === "float" && Number.isFinite(v.v) ? v.v : invalid();
 const list = (v: CborValue | undefined): readonly CborValue[] =>
   v?.t === "array" ? v.v : invalid();
+// Strictly increasing in UTF-8 byte order (MR-10a), the order Rust's `str` comparison uses.
 function ordered(xs: readonly string[]): void {
-  if (xs.some((x, i) => i > 0 && xs[i - 1]! >= x)) invalid();
+  if (xs.some((x, i) => i > 0 && compareUtf8(xs[i - 1]!, x) >= 0)) invalid();
 }
 function ids(v: CborValue | undefined, key: (s: string) => string = id): string[] {
   const xs = list(v).map((x) => key(text(x)));
@@ -781,7 +783,11 @@ export function produceMaterializationSnapshot(
   const membership = contentAddress(encode(array(operandIds.map(tstr)))),
     appearanceDigest = contentAddress(encode(array(keys.map(tstr)))),
     selection = contentAddress(encode(input.selection));
-  const scope = input.scope === undefined ? undefined : array(input.scope.map(tstr));
+  // A scope is a set: the producer writes it distinct and in UTF-8 byte order (MR-10a).
+  const scope =
+    input.scope === undefined
+      ? undefined
+      : array([...new Set(input.scope)].sort(compareUtf8).map(tstr));
   const revision = contentAddress(
     encode(
       map([

@@ -303,7 +303,8 @@ pub fn materialization_binding_scoped(spec: &MaterializationBindingSpec) -> bool
         .and_then(|s| Ok(text(get(&s, "profile")?)? == SCOPED_SNAPSHOT_PROFILE))
         .unwrap_or(false)
 }
-// A scope is a nonempty, sorted, distinct list of entity ids (SPEC-17 §7.2).
+// A scope is a nonempty, distinct list of entity ids in UTF-8 byte order (MR-10a, SPEC-17 §7.2);
+// `str` ordering is UTF-8 byte order.
 fn scope_of(v: &CborValue, limits: MaterializationSourceLimits) -> Result<Vec<String>> {
     let xs = list(v)?
         .iter()
@@ -1017,10 +1018,11 @@ pub fn produce_materialization_snapshot(
         keys.iter().map(|k| string(k)).collect(),
     )));
     let selection = content_address(&encode(&input.selection));
-    let scope = input
-        .scope
-        .as_ref()
-        .map(|xs| CborValue::Array(xs.iter().map(|x| string(x)).collect()));
+    // A scope is a set: the producer writes it distinct and in UTF-8 byte order (MR-10a).
+    let scope = input.scope.as_ref().map(|xs| {
+        let set: std::collections::BTreeSet<&str> = xs.iter().map(String::as_str).collect();
+        CborValue::Array(set.into_iter().map(string).collect())
+    });
     let bases = component_maps
         .iter()
         .map(|c| match c {
