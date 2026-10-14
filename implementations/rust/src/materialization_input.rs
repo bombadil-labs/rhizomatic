@@ -13,7 +13,8 @@ use crate::materialization_data::{
 };
 use crate::materialization_source::{
     decode_materialization_authority_spec, decode_materialization_binding_spec,
-    decode_materialization_snapshot_evidence, MaterializationSourceSnapshot,
+    decode_materialization_snapshot_evidence, materialization_binding_scoped,
+    MaterializationSourceSnapshot,
 };
 use crate::materialization_values::{
     cbor, field, limit, object, require, s, source_limits, text, Result,
@@ -486,7 +487,9 @@ pub(crate) fn validate_source(
                 && capture.claims.valid_from == snap.serving_at
                 && valid_at(capture, snap.serving_at)
                 && valid_at(authority, received_at)
-                && snap.historical_cutoff == cutoff,
+                && snap.historical_cutoff == cutoff
+                // A scoped binding promises scoped captures, and a full binding promises full ones.
+                && materialization_binding_scoped(&spec) == snap.scope.is_some(),
             "invalid-source",
         )?;
         checker

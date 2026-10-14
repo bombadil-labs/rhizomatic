@@ -1,11 +1,21 @@
 // SPEC-16 MR-09/10: represented source testimony, separate from native host grants.
-import { array, bstr, decodeWithGuard, encode, map, tstr, type CborValue } from "../delta/cbor.js";
+import {
+  array,
+  bstr,
+  decodeWithGuard,
+  encode,
+  float,
+  map,
+  tstr,
+  type CborValue,
+} from "../delta/cbor.js";
 import { canonicalBytes } from "../delta/delta.js";
 import { contentAddress, bytesToHex } from "../delta/hash.js";
 import { parseClaims } from "../delta/json-profile.js";
 import { verifyCanonicalDelta } from "../delta/sign.js";
 import { DeltaSet } from "../delta/set.js";
 import type { Delta } from "../delta/types.js";
+import { scopeIds } from "../resolve/anchored.js";
 import { cborToJson } from "../syntax/term-io.js";
 
 export class MaterializationSourceError extends Error {
@@ -45,6 +55,8 @@ export interface MaterializationSourceCapability {
     servingAt: number,
     cutoff: number | undefined,
     requiredSupport: readonly string[],
+    /** The captured scope of a scoped capture: recompute its revision from the index (SPEC-17). */
+    scope?: readonly string[],
   ): Promise<{ status: "current" } | { status: MaterializationSourceFailure }>;
   reacquireSnapshot(
     bindingId: string,
@@ -70,6 +82,8 @@ export interface MaterializationSourceSnapshot {
   readonly appearanceDigest: string;
   readonly servingAt: number;
   readonly historicalCutoff?: number;
+  /** Present for a scoped capture (SPEC-17 §7): the entities whose scope S(E) the operands are. */
+  readonly scope?: readonly string[];
   readonly components: readonly CborValue[];
   readonly deltas: readonly Delta[];
 }
@@ -167,6 +181,12 @@ export function encodeMaterializationAppearance(
     return result;
   });
 }
+// Appearances this process has fully verified, keyed by their exact bytes and the limits they were
+// checked under (SPEC-17 §7.10). Verification is a pure function of that key, so a hit skips only
+// repeated work: the signature, the content address and the canonical re-encoding. Only successes
+// enter. The set is bounded; clearing it costs only repeated work.
+const verifiedAppearances = new Set<string>();
+const VERIFIED_APPEARANCES_MAX = 65536;
 export function decodeMaterializationAppearance(
   input: Uint8Array,
   limits: MaterializationSourceLimits = DEFAULT_MATERIALIZATION_SOURCE_LIMITS,
@@ -183,9 +203,23 @@ export function decodeMaterializationAppearance(
       claims: parseClaims(cborToJson(claims)),
       sig: bytesToHex(bytes(f.get("sig"))),
     };
+    const key = `${contentAddress(input)}:${limits.artifactBytes}:${limits.pointers}`;
+    if (verifiedAppearances.has(key)) return delta;
     if (bytesToHex(encodeMaterializationAppearance(delta, limits)) !== bytesToHex(input)) invalid();
+    if (verifiedAppearances.size >= VERIFIED_APPEARANCES_MAX) verifiedAppearances.clear();
+    verifiedAppearances.add(key);
     return delta;
   });
+}
+/** The full authorized source (MR-09), or one read's scope S(E) (SPEC-17 §7). */
+export const SCOPED_SNAPSHOT_PROFILE = "scoped-snapshot/1";
+const SOURCE_PROFILES = ["host-authorized-snapshot/1", SCOPED_SNAPSHOT_PROFILE];
+/** Does this binding's selection promise scoped captures? */
+export function materializationBindingScoped(spec: MaterializationBindingSpec): boolean {
+  return (
+    text(fields(spec.selection, ["profile", "parameters"]).get("profile")) ===
+    SCOPED_SNAPSHOT_PROFILE
+  );
 }
 export function decodeMaterializationBindingSpec(
   input: Uint8Array,
@@ -200,8 +234,7 @@ export function decodeMaterializationBindingSpec(
     ]);
     const selection = f.get("selection")!;
     const s = fields(selection, ["profile", "parameters"]);
-    if (!text(f.get("sourceId")) || text(s.get("profile")) !== "host-authorized-snapshot/1")
-      invalid();
+    if (!text(f.get("sourceId")) || !SOURCE_PROFILES.includes(text(s.get("profile")))) invalid();
     if (canonical(bytes(s.get("parameters")), maximum).t !== "map") invalid();
     return {
       sourceId: text(f.get("sourceId")),
@@ -223,6 +256,36 @@ export function decodeMaterializationAuthoritySpec(
       invalid();
     return { root: id(text(f.get("root"))), epoch, context };
   });
+}
+// A scope is a nonempty, sorted, distinct list of entity ids (SPEC-17 §7.2).
+function scopeOf(v: CborValue | undefined, limits: MaterializationSourceLimits): string[] {
+  const xs = list(v).map((x) => text(x));
+  limit(xs.length, limits.inventoryIds);
+  if (!xs.length || xs.some((x) => !x)) invalid();
+  ordered(xs);
+  return xs;
+}
+// The operands as a delta source, indexed once: the scope check reads them, never the store.
+function operandSource(deltas: readonly Delta[]) {
+  const byId = new Map(deltas.map((d) => [d.id, d]));
+  const targets = new Map<string, string[]>(),
+    negators = new Map<string, string[]>();
+  const push = (m: Map<string, string[]>, k: string, v: string) => {
+    const list = m.get(k);
+    if (list === undefined) m.set(k, [v]);
+    else list.push(v);
+  };
+  for (const d of deltas)
+    for (const ptr of d.claims.pointers) {
+      if (ptr.target.kind === "entity") push(targets, ptr.target.entity.id, d.id);
+      else if (ptr.target.kind === "delta" && ptr.role === "negates")
+        push(negators, ptr.target.deltaRef.delta, d.id);
+    }
+  return {
+    get: (i: string) => byId.get(i),
+    targets: (e: string) => targets.get(e) ?? [],
+    negators: (i: string) => negators.get(i) ?? [],
+  };
 }
 const SNAPSHOT_FIELDS = [
   "format",
@@ -255,7 +318,7 @@ export function decodeMaterializationSnapshot(
         limit(length, limits.inventoryIds);
       if (path.at(-1) === "peers") limit(length, limits.components);
     });
-    const f = fields(value, SNAPSHOT_FIELDS, ["historicalCutoff"]);
+    const f = fields(value, SNAPSHOT_FIELDS, ["historicalCutoff", "scope"]);
     if (text(f.get("format")) !== "rhizomatic.source-snapshot/1") invalid();
     const getId = (k: string) => id(text(f.get(k)));
     const binding = getId("binding"),
@@ -268,6 +331,7 @@ export function decodeMaterializationSnapshot(
     const historicalCutoff = f.has("historicalCutoff")
       ? number(f.get("historicalCutoff"))
       : undefined;
+    const scope = f.has("scope") ? scopeOf(f.get("scope"), limits) : undefined;
     const components = list(f.get("components"));
     if (!components.length) invalid();
     const raw = new Map<string, Set<string>>(),
@@ -282,7 +346,8 @@ export function decodeMaterializationSnapshot(
       number(fs.get("capturedAt"));
       const raws = ids(fs.get("rawIds")),
         ops = ids(fs.get("operandIds"));
-      if (ops.some((x) => !raws.includes(x))) invalid();
+      const rawSet = new Set(raws);
+      if (ops.some((x) => !rawSet.has(x))) invalid();
       for (const x of raws) {
         if (!raw.has(x)) raw.set(x, new Set());
         raw.get(x)!.add(p);
@@ -360,6 +425,10 @@ export function decodeMaterializationSnapshot(
       contentAddress(encode(array(tableKeys.map(tstr)))) !== appearanceDigest
     )
       invalid();
+    // A scoped capture carries exactly S(scope) over its own operands: nothing outside the scope's
+    // closure rides along. Completeness against the host's store stays host testimony (MR-10).
+    if (scope !== undefined && scopeIds(operandSource(deltas), scope).join() !== operandIds.join())
+      invalid();
     const expected = contentAddress(
       encode(
         map([
@@ -370,6 +439,7 @@ export function decodeMaterializationSnapshot(
           ["membership", tstr(membership)],
           ["appearanceDigest", tstr(appearanceDigest)],
           ["exclusions", f.get("exclusions")!],
+          ...(scope === undefined ? [] : [["scope", f.get("scope")!] as const]),
         ]),
       ),
     );
@@ -384,6 +454,7 @@ export function decodeMaterializationSnapshot(
       appearanceDigest,
       servingAt,
       ...(historicalCutoff === undefined ? {} : { historicalCutoff }),
+      ...(scope === undefined ? {} : { scope }),
       components,
       deltas,
     };
@@ -397,6 +468,7 @@ export interface MaterializationCaptureBasis {
   readonly revision: string;
   readonly servingAt: number;
   readonly historicalCutoff?: number;
+  readonly scope?: readonly string[];
   readonly membership: string;
   readonly appearanceDigest: string;
   readonly snapshot: string;
@@ -438,7 +510,7 @@ export function decodeMaterializationCaptureBasis(
         limit(length, limits.inventoryIds);
       if (path.at(-1) === "peers") limit(length, limits.components);
     });
-    const f = fields(value, CAPTURE_BASIS_FIELDS, ["historicalCutoff"]);
+    const f = fields(value, CAPTURE_BASIS_FIELDS, ["historicalCutoff", "scope"]);
     if (text(f.get("format")) !== "rhizomatic.source-basis/1") invalid();
     const getId = (k: string) => id(text(f.get(k)));
     const binding = getId("binding"),
@@ -452,6 +524,7 @@ export function decodeMaterializationCaptureBasis(
     const historicalCutoff = f.has("historicalCutoff")
       ? number(f.get("historicalCutoff"))
       : undefined;
+    const scope = f.has("scope") ? scopeOf(f.get("scope"), limits) : undefined;
     const components = list(f.get("components"));
     if (!components.length) invalid();
     // The same inventory rules as the snapshot: every operand and exclusion names exactly the
@@ -468,7 +541,8 @@ export function decodeMaterializationCaptureBasis(
       number(fs.get("capturedAt"));
       const raws = ids(fs.get("rawIds")),
         ops = ids(fs.get("operandIds"));
-      if (ops.some((x) => !raws.includes(x))) invalid();
+      const rawSet = new Set(raws);
+      if (ops.some((x) => !rawSet.has(x))) invalid();
       for (const x of raws) {
         if (!raw.has(x)) raw.set(x, new Set());
         raw.get(x)!.add(p);
@@ -525,6 +599,7 @@ export function decodeMaterializationCaptureBasis(
           ["membership", tstr(membership)],
           ["appearanceDigest", tstr(appearanceDigest)],
           ["exclusions", f.get("exclusions")!],
+          ...(scope === undefined ? [] : [["scope", f.get("scope")!] as const]),
         ]),
       ),
     );
@@ -536,6 +611,7 @@ export function decodeMaterializationCaptureBasis(
       revision,
       servingAt,
       ...(historicalCutoff === undefined ? {} : { historicalCutoff }),
+      ...(scope === undefined ? {} : { scope }),
       membership,
       appearanceDigest,
       snapshot,
@@ -612,4 +688,154 @@ export function materializationComponentCommitments(
       return map(["peer", "revision", "capturedAt"].map((k) => [k, fs.get(k)!]));
     }),
   );
+}
+/** One peer's contribution to a produced capture (MR-10). */
+export interface MaterializationSourceComponentInput {
+  readonly peer: string;
+  /** A host-attested identity covering this peer's inventory and authority (MR-10). */
+  readonly revision: string;
+  readonly capturedAt: number;
+  /** The operands this peer contributes: signed, admitted deltas. */
+  readonly operands: readonly Delta[];
+  /**
+   * Ids this peer holds but does not contribute (raw only). An id no peer contributes must also be
+   * named in `exclusions`.
+   */
+  readonly heldIds?: readonly string[];
+}
+export interface MaterializationSourceInput {
+  readonly binding: string;
+  readonly authority: string;
+  /** The binding's selection map, exactly as its spec carries it. */
+  readonly selection: CborValue;
+  readonly servingAt: number;
+  readonly historicalCutoff?: number;
+  /** A scoped capture's entities (SPEC-17 §7); operands must then be exactly S(scope). */
+  readonly scope?: readonly string[];
+  readonly components: readonly MaterializationSourceComponentInput[];
+  readonly exclusions?: readonly { readonly id: string; readonly reason: string }[];
+}
+export interface ProducedMaterializationSource {
+  readonly snapshotBytes: Uint8Array;
+  readonly basisBytes: Uint8Array;
+  readonly revision: string;
+}
+/**
+ * Produce source-snapshot/1 and source-basis/1 bytes from a host's selection (MR-10, SPEC-17 §7).
+ * The host supplies what it selected and its testimony; the library owns the format, the digests
+ * and the revision. The result is decoded once before it is returned, so a producer can never
+ * emit bytes the decoder refuses.
+ */
+export function produceMaterializationSnapshot(
+  input: MaterializationSourceInput,
+  limits: MaterializationSourceLimits = DEFAULT_MATERIALIZATION_SOURCE_LIMITS,
+): ProducedMaterializationSource {
+  const components = [...input.components].sort((a, b) => (a.peer < b.peer ? -1 : 1));
+  // One appearance per operand id: the lexically least signature among the contributors (MR-10).
+  const chosen = new Map<string, { delta: Delta; bytes: Uint8Array; key: string }>();
+  const contributors = new Map<string, string[]>(),
+    holders = new Map<string, string[]>();
+  const add = (m: Map<string, string[]>, k: string, v: string) =>
+    m.set(k, [...(m.get(k) ?? []), v]);
+  for (const c of components) {
+    for (const d of c.operands) {
+      const bytes = encodeMaterializationAppearance(d, limits);
+      const held = chosen.get(d.id);
+      if (held === undefined || d.sig! < held.delta.sig!)
+        chosen.set(d.id, { delta: d, bytes, key: contentAddress(bytes) });
+      add(contributors, d.id, c.peer);
+      add(holders, d.id, c.peer);
+    }
+    for (const x of c.heldIds ?? []) add(holders, x, c.peer);
+  }
+  const sortedIds = (xs: Iterable<string>) => [...new Set(xs)].sort();
+  const componentMaps = components.map((c) => {
+    const ops = sortedIds(c.operands.map((d) => d.id));
+    return map([
+      ["peer", tstr(c.peer)],
+      ["revision", tstr(c.revision)],
+      ["capturedAt", float(c.capturedAt)],
+      ["rawIds", array(sortedIds([...ops, ...(c.heldIds ?? [])]).map(tstr))],
+      ["operandIds", array(ops.map(tstr))],
+    ]);
+  });
+  const operandIds = [...chosen.keys()].sort();
+  const operands = operandIds.map((i) =>
+    map([
+      ["id", tstr(i)],
+      ["appearance", tstr(chosen.get(i)!.key)],
+      ["peers", array(sortedIds(contributors.get(i)!).map(tstr))],
+    ]),
+  );
+  const exclusions = [...(input.exclusions ?? [])]
+    .sort((a, b) => (a.id < b.id ? -1 : 1))
+    .map((e) =>
+      map([
+        ["id", tstr(e.id)],
+        ["peers", array(sortedIds(holders.get(e.id) ?? []).map(tstr))],
+        ["reason", tstr(e.reason)],
+      ]),
+    );
+  const keys = operandIds.map((i) => chosen.get(i)!.key).sort();
+  const byKey = new Map([...chosen.values()].map((c) => [c.key, c.bytes]));
+  const membership = contentAddress(encode(array(operandIds.map(tstr)))),
+    appearanceDigest = contentAddress(encode(array(keys.map(tstr)))),
+    selection = contentAddress(encode(input.selection));
+  const scope = input.scope === undefined ? undefined : array(input.scope.map(tstr));
+  const revision = contentAddress(
+    encode(
+      map([
+        ["binding", tstr(input.binding)],
+        ["authority", tstr(input.authority)],
+        ["selection", tstr(selection)],
+        [
+          "components",
+          array(
+            componentMaps.map((c) =>
+              c.t === "map" ? map(c.v.filter(([k]) => k !== "capturedAt")) : c,
+            ),
+          ),
+        ],
+        ["membership", tstr(membership)],
+        ["appearanceDigest", tstr(appearanceDigest)],
+        ["exclusions", array(exclusions)],
+        ...(scope === undefined ? [] : [["scope", scope] as const]),
+      ]),
+    ),
+  );
+  const common: (readonly [string, CborValue])[] = [
+    ["binding", tstr(input.binding)],
+    ["authority", tstr(input.authority)],
+    ["selection", tstr(selection)],
+    ["revision", tstr(revision)],
+    ["servingAt", float(input.servingAt)],
+    ...(input.historicalCutoff === undefined
+      ? []
+      : [["historicalCutoff", float(input.historicalCutoff)] as const]),
+    ...(scope === undefined ? [] : [["scope", scope] as const]),
+    ["components", array(componentMaps)],
+    ["operands", array(operands)],
+    ["exclusions", array(exclusions)],
+    ["membership", tstr(membership)],
+    ["appearanceDigest", tstr(appearanceDigest)],
+  ];
+  const snapshotBytes = encode(
+    map([
+      ["format", tstr("rhizomatic.source-snapshot/1")],
+      ...common,
+      [
+        "appearances",
+        array(
+          keys.map((k) =>
+            map([
+              ["key", tstr(k)],
+              ["value", bstr(byKey.get(k)!)],
+            ]),
+          ),
+        ),
+      ],
+    ]),
+  );
+  const basisBytes = materializationCaptureBasis(snapshotBytes, limits);
+  return { snapshotBytes, basisBytes, revision };
 }

@@ -30,7 +30,8 @@ use crate::materialization_source::{
     decode_materialization_appearance, decode_materialization_authority_spec,
     decode_materialization_binding_spec, decode_materialization_capture_basis,
     decode_materialization_snapshot_evidence, encode_materialization_appearance,
-    MaterializationSourceCapability, MaterializationSourceFailure, MaterializationSourceSnapshot,
+    materialization_binding_scoped, MaterializationSourceCapability, MaterializationSourceFailure,
+    MaterializationSourceSnapshot,
 };
 use crate::materialization_values::{
     envelope_limits, limit, map, require, s, source_limits, Result,
@@ -424,6 +425,11 @@ fn check_source_structure(
             c.limits["artifactBytes"],
         )
         .map_err(|e| e.to_string())?;
+        // Maintained reads keep full captures for now; a scoped binding serves batch gather only.
+        require(
+            !materialization_binding_scoped(&spec),
+            "unsupported-operation",
+        )?;
         let capture = if fresh {
             p.capture.clone().ok_or("invalid-source")?
         } else {
@@ -470,7 +476,8 @@ fn check_source_structure(
                 && capture.claims.valid_from == snap.serving_at
                 && valid_at(&capture, snap.serving_at)
                 && valid_at(&authority, received_at)
-                && snap.historical_cutoff.is_none(),
+                && snap.historical_cutoff.is_none()
+                && snap.scope.is_none(),
             "invalid-source",
         )?;
         // The committed capture commits to the exact snapshot bytes (MR-10); a fresh carrier may
@@ -492,7 +499,7 @@ fn check_source_structure(
         })
     };
     validate().map_err(|e| {
-        if e == "resource-limit" {
+        if e == "resource-limit" || e == "unsupported-operation" {
             e
         } else {
             "invalid-source".into()

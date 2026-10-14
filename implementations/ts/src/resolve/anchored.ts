@@ -214,6 +214,13 @@ function visibleAnchors(hview: HView, out: Set<string>): void {
       for (const child of entry.expanded?.values() ?? []) visibleAnchors(child, out);
 }
 
+/** The anchors an HView shows, sorted: its root and every expanded child (SPEC-17 §6). */
+export function hviewAnchors(hview: HView): string[] {
+  const out = new Set<string>();
+  visibleAnchors(hview, out);
+  return [...out].sort();
+}
+
 export interface AnchoredRead {
   readonly result: EvalResult;
   /** The scope E*: the root, the static anchors and every dynamic anchor, sorted. */

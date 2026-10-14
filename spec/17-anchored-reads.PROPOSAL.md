@@ -153,10 +153,10 @@ These changes replace the "full authorized source" model for batch gather.
    host's store stays host testimony, as today (MR-10).
 7. **Program check.** A gather under a scoped binding whose program is unanchored refuses
    `unsupported-operation` before evaluation.
-8. **Scope miss.** If evaluation reaches a dynamic anchor that is not in the declared scope, the
-   gather refuses with the new code `scope-miss`. The body lists the missing entities, sorted.
-   A host widens the scope and makes a new invocation. The evaluator finishes the pass with an
-   empty child at each missed anchor so that it reports every miss at once.
+8. **Scope miss.** If the scope lacks the root or a constant anchor, or evaluation reaches a
+   dynamic anchor outside it, the gather refuses with the new code `scope-miss`. The refusal
+   carries the code alone: the host holds the index and widens the scope by its own discovery
+   (§6), then makes a new invocation.
 9. **Limits.** The `appearances` and `inventoryIds` limits count the scoped snapshot. The text
    "including the full authorized source rather than the facts a particular root happens to use"
    and "A profile deliberately starts with full snapshots" is removed. Over-capacity now means
@@ -170,8 +170,9 @@ These changes replace the "full authorized source" model for batch gather.
     carrier, given the binding, the authority, the scope, the components and a signer. Hosts
     supply the selection and the key; the library owns the format, the digests and the revision.
 
-The maintained (M3) lifecycle still captures full snapshots. Scoping it per root is a follow-up;
-§9 tracks it.
+The maintained (M3) lifecycle still captures full snapshots, and its verbs refuse a scoped binding
+with `unsupported-operation`. Scoping it per root is a follow-up; §9 tracks it. The normative
+text is SPEC-16 §4a.
 
 ## 8. Loam
 
@@ -190,9 +191,28 @@ The maintained (M3) lifecycle still captures full snapshots. Scoping it per root
   state. A maintained snapshot (the set of lawful strikers, with the revision it reflects) is
   built once and patched by each grant, revocation or negation that arrives, at a cost bounded by
   that delta's own negation chain. A read consults the snapshot by key (is this striker trusted at
-  this revision?) instead of re-reflecting every grant. Open questions: how the snapshot is
-  represented so both witnesses produce the same bytes; how an as-of read gets the snapshot at a
-  past cut; and whether the snapshot is itself a delta-backed artifact or private reactor state.
+  this revision?) instead of re-reflecting every grant. Settled with Myk:
+  - **Bytes.** The snapshot uses the existing reified-state rule: a canonical CBOR map and its
+    content address, pinned by shared vectors (like HView envelopes and control images).
+  - **Deltas and state.** Both, as a HyperSchema is both: the grant deltas are the truth, and the
+    snapshot is compiled state over them. Because the snapshot is derived, not authored, a peer
+    may publish it as a signed checkpoint and any peer can verify it by recomputation.
+  - **Access is present.** Who may read is decided by present trust. A revoked reader cannot use
+    an as-of read to recover what they lost.
+  - **Testimony stands (Myk, 2026-10-14).** A strike made while its author was trusted keeps
+    binding after the author's trust is revoked. So trust is time-indexed: the snapshot maps each
+    author to the intervals in which they were trusted, a strike binds when its author was trusted
+    at the strike's moment, and each grant or revocation patches one author's intervals. A read
+    looks a striker up; an as-of read uses the same intervals, so no historical snapshot is needed.
+  - **Open (Myk): which moment.** A delta's timestamp is a claim (SPEC-1 §6). Judged by claimed
+    time, a revoked author could sign a new strike, backdate it into a trusted interval, and have
+    it bind. "While trusted" therefore needs a moment the author cannot set: when this peer
+    admitted the strike (arrival testimony). Evaluation sees only claims today, so this needs an
+    admitted-position input to evaluation.
+  - **Repudiation (Myk, optional operation).** An operator act that negates every delta an
+    untrusted author ever wrote, their negations included (which reinstates what they struck). It
+    must be bounded by that author's own deltas, which needs an index by author; and like Loam's
+    erasure reports it states exactly what it negates before it acts.
 - **Alias.** `aliased` needs a value-index first hop (`rhizomatic.alias.fragment == name`) to be
   anchored. Until then, an aliased term is unanchored.
 - **Maintained reads (M3).** Per-root scoped captures for install, refresh and read.
@@ -207,6 +227,6 @@ The maintained (M3) lifecycle still captures full snapshots. Scoping it per root
 |---|---|---|
 | R1 | rhizomatic | Delta source, `S(E)`, the anchored check, anchored evaluation with discovery, in TS and Rust. Vectors: scope construction, anchored equals full, classification. Property test: anchored equals full on random stores. |
 | R1b | rhizomatic | Warm-view refresh over the scope, and scope dispatch (§6 Maintenance), in TS and Rust. Property test: every warm view equals batch after every ingest. |
-| R2 | rhizomatic | The SPEC-16 amendment: scoped profile, scope field, scoped revision and current check, `scope-miss`, structural and program checks, verified-appearance memo, producer, and the quadratic inventory check fixed. Vectors in both witnesses. Release C. |
+| R2 | rhizomatic | The SPEC-16 amendment (SPEC-16 §4a): scoped profile, scope field, scoped revision and current check, `scope-miss`, structural and program checks, verified-appearance memo (TS), producer, and the quadratic inventory check fixed. Vectors in both witnesses. Release C. |
 | L1 | Loam | Ordinary native reads on anchored evaluation; the per-read lookup and cache fixes. |
 | L2 | Loam | The portable door on scoped snapshots through the producer. |

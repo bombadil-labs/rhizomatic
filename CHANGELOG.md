@@ -40,8 +40,26 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
   `aliased` term now dispatches broadly, so a new alias mapping refreshes it (SPEC-9). Answers do
   not change; only the number of refreshes does.
 
-`evalTerm`, `Reactor.eval` and the materialization profile still scan their whole input; callers
-move to anchored reads explicitly.
+- Scoped sources for batch gather (slice R2, SPEC-16 §4a), in TypeScript and Rust:
+  - A binding may select `scoped-snapshot/1`. Its captures carry a `scope`, which joins the
+    revision; the operands must be exactly S(scope), checked from the snapshot itself.
+  - `checkCurrent` receives the scope (Rust: `check_current_scoped`, defaulted).
+  - A scoped gather refuses an unanchored program (`unsupported-operation`) and a scope that misses
+    the root, a constant anchor or an expanded child (`scope-miss`, a new refusal code).
+  - Lifecycle verbs refuse a scoped binding (`unsupported-operation`).
+  - `produceMaterializationSnapshot` / `produce_materialization_snapshot` build snapshot and basis
+    bytes from a host's selection. Hosts no longer assemble MR-10 documents by hand.
+  - TypeScript keeps a bounded memo of verified appearances, so one read stops checking every
+    signature four times.
+  - Shared vectors `vectors/materialization/scoped-source.json`.
+
+### Fixed
+
+- The snapshot and basis decoders checked each component's operand ids against its raw ids with
+  a nested scan, quadratic in the inventory. They use a set.
+
+`evalTerm`, `Reactor.eval` and the full-source materialization profile still scan their whole
+input; callers move to anchored reads and scoped captures explicitly.
 
 ## 0.11.0-next.9 — 2026-10-14
 

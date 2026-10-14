@@ -1606,6 +1606,36 @@
     {
       "form": "syn-resolved-path",
       "owner": "resolve",
+      "rawTarget": "crate::anchored::visible_anchors",
+      "resolvedTarget": "crate::anchored::visible_anchors",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "hview_anchors",
+      "target": "crate::anchored::visible_anchors",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::hview::HView",
+      "resolvedTarget": "crate::hview::HView",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "hview_anchors",
+      "target": "crate::hview::HView",
+      "targetOwner": "algebra"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "resolve",
+      "source": "implementations/rust/src/anchored.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "hview_anchors",
+      "target": "std::collections::BTreeSet::new"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
       "rawTarget": "crate::eval::EvalResult",
       "resolvedTarget": "crate::eval::EvalResult",
       "source": "implementations/rust/src/anchored.rs",
@@ -25478,6 +25508,39 @@
     {
       "form": "syn-import",
       "owner": "command",
+      "rawTarget": "crate::anchored::AnchorAnalysis",
+      "resolvedTarget": "crate::anchored::AnchorAnalysis",
+      "source": "implementations/rust/src/materialization_command.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::anchored::AnchorAnalysis",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-import",
+      "owner": "command",
+      "rawTarget": "crate::anchored::anchor_analysis",
+      "resolvedTarget": "crate::anchored::anchor_analysis",
+      "source": "implementations/rust/src/materialization_command.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::anchored::anchor_analysis",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-import",
+      "owner": "command",
+      "rawTarget": "crate::anchored::hview_anchors",
+      "resolvedTarget": "crate::anchored::hview_anchors",
+      "source": "implementations/rust/src/materialization_command.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::anchored::hview_anchors",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-import",
+      "owner": "command",
       "rawTarget": "crate::cbor::CborValue",
       "resolvedTarget": "crate::cbor::CborValue",
       "source": "implementations/rust/src/materialization_command.rs",
@@ -26382,6 +26445,39 @@
     {
       "form": "syn-resolved-path",
       "owner": "command",
+      "rawTarget": "crate::anchored::AnchorAnalysis::Anchored",
+      "resolvedTarget": "crate::anchored::AnchorAnalysis::Anchored",
+      "source": "implementations/rust/src/materialization_command.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "MaterializationEndpoint::attempt",
+      "target": "crate::anchored::AnchorAnalysis::Anchored",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "command",
+      "rawTarget": "crate::anchored::anchor_analysis",
+      "resolvedTarget": "crate::anchored::anchor_analysis",
+      "source": "implementations/rust/src/materialization_command.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "MaterializationEndpoint::attempt",
+      "target": "crate::anchored::anchor_analysis",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "command",
+      "rawTarget": "crate::anchored::hview_anchors",
+      "resolvedTarget": "crate::anchored::hview_anchors",
+      "source": "implementations/rust/src/materialization_command.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "MaterializationEndpoint::attempt",
+      "target": "crate::anchored::hview_anchors",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "command",
       "rawTarget": "crate::cbor::CborValue::Bstr",
       "resolvedTarget": "crate::cbor::CborValue::Bstr",
       "source": "implementations/rust/src/materialization_command.rs",
@@ -26790,6 +26886,14 @@
       "sourceRegion": "semantic-owner",
       "symbol": "MaterializationEndpoint::attempt",
       "target": "serde_json::Value"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "command",
+      "source": "implementations/rust/src/materialization_command.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "MaterializationEndpoint::attempt",
+      "target": "std::iter::once"
     },
     {
       "form": "syn-resolved-path",
@@ -32312,6 +32416,17 @@
     {
       "form": "syn-import",
       "owner": "command",
+      "rawTarget": "crate::materialization_source::materialization_binding_scoped",
+      "resolvedTarget": "crate::materialization_source::materialization_binding_scoped",
+      "source": "implementations/rust/src/materialization_input.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::materialization_source::materialization_binding_scoped",
+      "targetOwner": "federation"
+    },
+    {
+      "form": "syn-import",
+      "owner": "command",
       "rawTarget": "crate::materialization_values::Result",
       "resolvedTarget": "crate::materialization_values::Result",
       "source": "implementations/rust/src/materialization_input.rs",
@@ -33548,6 +33663,17 @@
     {
       "form": "syn-resolved-path",
       "owner": "command",
+      "rawTarget": "crate::materialization_source::materialization_binding_scoped",
+      "resolvedTarget": "crate::materialization_source::materialization_binding_scoped",
+      "source": "implementations/rust/src/materialization_input.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "validate_source",
+      "target": "crate::materialization_source::materialization_binding_scoped",
+      "targetOwner": "federation"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "command",
       "rawTarget": "crate::materialization_values::Result",
       "resolvedTarget": "crate::materialization_values::Result",
       "source": "implementations/rust/src/materialization_input.rs",
@@ -34357,6 +34483,17 @@
       "sourceRegion": "semantic-owner",
       "symbol": "<import>",
       "target": "crate::materialization_source::encode_materialization_appearance",
+      "targetOwner": "federation"
+    },
+    {
+      "form": "syn-import",
+      "owner": "command",
+      "rawTarget": "crate::materialization_source::materialization_binding_scoped",
+      "resolvedTarget": "crate::materialization_source::materialization_binding_scoped",
+      "source": "implementations/rust/src/materialization_lifecycle.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::materialization_source::materialization_binding_scoped",
       "targetOwner": "federation"
     },
     {
@@ -35769,6 +35906,17 @@
       "sourceRegion": "semantic-owner",
       "symbol": "check_source_structure",
       "target": "crate::materialization_source::decode_materialization_snapshot_evidence",
+      "targetOwner": "federation"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "command",
+      "rawTarget": "crate::materialization_source::materialization_binding_scoped",
+      "resolvedTarget": "crate::materialization_source::materialization_binding_scoped",
+      "source": "implementations/rust/src/materialization_lifecycle.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "check_source_structure",
+      "target": "crate::materialization_source::materialization_binding_scoped",
       "targetOwner": "federation"
     },
     {
@@ -40240,6 +40388,28 @@
     {
       "form": "syn-import",
       "owner": "federation",
+      "rawTarget": "crate::anchored::DeltaSource",
+      "resolvedTarget": "crate::anchored::DeltaSource",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::anchored::DeltaSource",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-import",
+      "owner": "federation",
+      "rawTarget": "crate::anchored::scope_ids",
+      "resolvedTarget": "crate::anchored::scope_ids",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::anchored::scope_ids",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-import",
+      "owner": "federation",
       "rawTarget": "crate::cbor::CborPathPart",
       "resolvedTarget": "crate::cbor::CborPathPart",
       "source": "implementations/rust/src/materialization_source.rs",
@@ -40422,6 +40592,17 @@
       "sourceRegion": "semantic-owner",
       "symbol": "<import>",
       "target": "crate::types::Delta",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-import",
+      "owner": "federation",
+      "rawTarget": "crate::types::Target",
+      "resolvedTarget": "crate::types::Target",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::types::Target",
       "targetOwner": "delta"
     },
     {
@@ -40725,6 +40906,25 @@
       "source": "implementations/rust/src/materialization_source.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "MaterializationSourceCapability::check_current",
+      "target": "std::result::Result"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::materialization_source::MaterializationSourceFailure",
+      "resolvedTarget": "crate::materialization_source::MaterializationSourceFailure",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "MaterializationSourceCapability::check_current_scoped",
+      "target": "crate::materialization_source::MaterializationSourceFailure",
+      "targetOwner": "federation"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "federation",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "MaterializationSourceCapability::check_current_scoped",
       "target": "std::result::Result"
     },
     {
@@ -41682,6 +41882,349 @@
     {
       "form": "syn-resolved-path",
       "owner": "federation",
+      "rawTarget": "crate::materialization_source::SCOPED_SNAPSHOT_PROFILE",
+      "resolvedTarget": "crate::materialization_source::SCOPED_SNAPSHOT_PROFILE",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "SOURCE_PROFILES",
+      "target": "crate::materialization_source::SCOPED_SNAPSHOT_PROFILE",
+      "targetOwner": "federation"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::evidence_codec::get",
+      "resolvedTarget": "crate::evidence_codec::get",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "materialization_binding_scoped",
+      "target": "crate::evidence_codec::get",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::evidence_codec::text",
+      "resolvedTarget": "crate::evidence_codec::text",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "materialization_binding_scoped",
+      "target": "crate::evidence_codec::text",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::materialization_source::MaterializationBindingSpec",
+      "resolvedTarget": "crate::materialization_source::MaterializationBindingSpec",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "materialization_binding_scoped",
+      "target": "crate::materialization_source::MaterializationBindingSpec",
+      "targetOwner": "federation"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::materialization_source::SCOPED_SNAPSHOT_PROFILE",
+      "resolvedTarget": "crate::materialization_source::SCOPED_SNAPSHOT_PROFILE",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "materialization_binding_scoped",
+      "target": "crate::materialization_source::SCOPED_SNAPSHOT_PROFILE",
+      "targetOwner": "federation"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::materialization_source::exact",
+      "resolvedTarget": "crate::materialization_source::exact",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "materialization_binding_scoped",
+      "target": "crate::materialization_source::exact",
+      "targetOwner": "federation"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "federation",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "scope_of",
+      "target": "core::primitive::str::to_string"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::cbor::CborValue",
+      "resolvedTarget": "crate::cbor::CborValue",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "scope_of",
+      "target": "crate::cbor::CborValue",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::evidence_codec::text",
+      "resolvedTarget": "crate::evidence_codec::text",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "scope_of",
+      "target": "crate::evidence_codec::text",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::materialization_source::INVALID",
+      "resolvedTarget": "crate::materialization_source::INVALID",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "scope_of",
+      "target": "crate::materialization_source::INVALID",
+      "targetOwner": "federation"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::materialization_source::MaterializationSourceLimits",
+      "resolvedTarget": "crate::materialization_source::MaterializationSourceLimits",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "scope_of",
+      "target": "crate::materialization_source::MaterializationSourceLimits",
+      "targetOwner": "federation"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::materialization_source::Result",
+      "resolvedTarget": "crate::materialization_source::Result",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "scope_of",
+      "target": "crate::materialization_source::Result",
+      "targetOwner": "federation"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::materialization_source::limit",
+      "resolvedTarget": "crate::materialization_source::limit",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "scope_of",
+      "target": "crate::materialization_source::limit",
+      "targetOwner": "federation"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::materialization_source::list",
+      "resolvedTarget": "crate::materialization_source::list",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "scope_of",
+      "target": "crate::materialization_source::list",
+      "targetOwner": "federation"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::materialization_source::ordered",
+      "resolvedTarget": "crate::materialization_source::ordered",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "scope_of",
+      "target": "crate::materialization_source::ordered",
+      "targetOwner": "federation"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::materialization_source::require",
+      "resolvedTarget": "crate::materialization_source::require",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "scope_of",
+      "target": "crate::materialization_source::require",
+      "targetOwner": "federation"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::types::Delta",
+      "resolvedTarget": "crate::types::Delta",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "OperandSource",
+      "target": "crate::types::Delta",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "federation",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "OperandSource",
+      "target": "std::collections::BTreeMap"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::materialization_source::OperandSource",
+      "resolvedTarget": "crate::materialization_source::OperandSource",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "OperandSource",
+      "target": "crate::materialization_source::OperandSource",
+      "targetOwner": "federation"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::materialization_source::OperandSource",
+      "resolvedTarget": "crate::materialization_source::OperandSource",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "OperandSource::new",
+      "target": "crate::materialization_source::OperandSource",
+      "targetOwner": "federation"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::types::Delta",
+      "resolvedTarget": "crate::types::Delta",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "OperandSource::new",
+      "target": "crate::types::Delta",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::types::Target::Delta",
+      "resolvedTarget": "crate::types::Target::Delta",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "OperandSource::new",
+      "target": "crate::types::Target::Delta",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::types::Target::Entity",
+      "resolvedTarget": "crate::types::Target::Entity",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "OperandSource::new",
+      "target": "crate::types::Target::Entity",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "federation",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "OperandSource::new",
+      "target": "std::collections::BTreeMap::new"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::anchored::DeltaSource",
+      "resolvedTarget": "crate::anchored::DeltaSource",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "OperandSource",
+      "target": "crate::anchored::DeltaSource",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::materialization_source::OperandSource",
+      "resolvedTarget": "crate::materialization_source::OperandSource",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "OperandSource",
+      "target": "crate::materialization_source::OperandSource",
+      "targetOwner": "federation"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::materialization_source::OperandSource",
+      "resolvedTarget": "crate::materialization_source::OperandSource",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "OperandSource::get",
+      "target": "crate::materialization_source::OperandSource",
+      "targetOwner": "federation"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::materialization_source::id",
+      "resolvedTarget": "crate::materialization_source::id",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "OperandSource::get",
+      "target": "crate::materialization_source::id",
+      "targetOwner": "federation"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::types::Delta",
+      "resolvedTarget": "crate::types::Delta",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "OperandSource::get",
+      "target": "crate::types::Delta",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::materialization_source::OperandSource",
+      "resolvedTarget": "crate::materialization_source::OperandSource",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "OperandSource::negators",
+      "target": "crate::materialization_source::OperandSource",
+      "targetOwner": "federation"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::materialization_source::id",
+      "resolvedTarget": "crate::materialization_source::id",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "OperandSource::negators",
+      "target": "crate::materialization_source::id",
+      "targetOwner": "federation"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::materialization_source::OperandSource",
+      "resolvedTarget": "crate::materialization_source::OperandSource",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "OperandSource::targets",
+      "target": "crate::materialization_source::OperandSource",
+      "targetOwner": "federation"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
       "rawTarget": "crate::cbor::CborValue::Map",
       "resolvedTarget": "crate::cbor::CborValue::Map",
       "source": "implementations/rust/src/materialization_source.rs",
@@ -41743,6 +42286,17 @@
       "sourceRegion": "semantic-owner",
       "symbol": "decode_materialization_binding_spec",
       "target": "crate::materialization_source::Result",
+      "targetOwner": "federation"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::materialization_source::SOURCE_PROFILES",
+      "resolvedTarget": "crate::materialization_source::SOURCE_PROFILES",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "decode_materialization_binding_spec",
+      "target": "crate::materialization_source::SOURCE_PROFILES",
       "targetOwner": "federation"
     },
     {
@@ -41944,6 +42498,17 @@
     {
       "form": "syn-resolved-path",
       "owner": "federation",
+      "rawTarget": "crate::anchored::scope_ids",
+      "resolvedTarget": "crate::anchored::scope_ids",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "decode_materialization_snapshot",
+      "target": "crate::anchored::scope_ids",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
       "rawTarget": "crate::cbor::CborPathPart::Key",
       "resolvedTarget": "crate::cbor::CborPathPart::Key",
       "source": "implementations/rust/src/materialization_source.rs",
@@ -42071,6 +42636,17 @@
       "sourceRegion": "semantic-owner",
       "symbol": "decode_materialization_snapshot",
       "target": "crate::materialization_source::MaterializationSourceSnapshot",
+      "targetOwner": "federation"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::materialization_source::OperandSource::new",
+      "resolvedTarget": "crate::materialization_source::OperandSource::new",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "decode_materialization_snapshot",
+      "target": "crate::materialization_source::OperandSource::new",
       "targetOwner": "federation"
     },
     {
@@ -42252,6 +42828,17 @@
     {
       "form": "syn-resolved-path",
       "owner": "federation",
+      "rawTarget": "crate::materialization_source::scope_of",
+      "resolvedTarget": "crate::materialization_source::scope_of",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "decode_materialization_snapshot",
+      "target": "crate::materialization_source::scope_of",
+      "targetOwner": "federation"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
       "rawTarget": "crate::materialization_source::string",
       "resolvedTarget": "crate::materialization_source::string",
       "source": "implementations/rust/src/materialization_source.rs",
@@ -42302,6 +42889,14 @@
       "sourceRegion": "semantic-owner",
       "symbol": "decode_materialization_snapshot",
       "target": "std::collections::BTreeSet::new"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "federation",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "decode_materialization_snapshot",
+      "target": "std::string::String::as_str"
     },
     {
       "form": "syn-external-path",
@@ -42649,6 +43244,17 @@
       "sourceRegion": "semantic-owner",
       "symbol": "decode_materialization_capture_basis",
       "target": "crate::materialization_source::require",
+      "targetOwner": "federation"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::materialization_source::scope_of",
+      "resolvedTarget": "crate::materialization_source::scope_of",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "decode_materialization_capture_basis",
+      "target": "crate::materialization_source::scope_of",
       "targetOwner": "federation"
     },
     {
@@ -43157,6 +43763,287 @@
       "source": "implementations/rust/src/materialization_source.rs",
       "status": "parsed-known-macro-arguments",
       "symbol": "capture_checker_owns_its_basis_after_native_source_mutation"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::types::Delta",
+      "resolvedTarget": "crate::types::Delta",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "MaterializationSourceComponentInput",
+      "target": "crate::types::Delta",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::cbor::CborValue",
+      "resolvedTarget": "crate::cbor::CborValue",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "MaterializationSourceInput",
+      "target": "crate::cbor::CborValue",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::materialization_source::MaterializationSourceComponentInput",
+      "resolvedTarget": "crate::materialization_source::MaterializationSourceComponentInput",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "MaterializationSourceInput",
+      "target": "crate::materialization_source::MaterializationSourceComponentInput",
+      "targetOwner": "federation"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::cbor::CborValue",
+      "resolvedTarget": "crate::cbor::CborValue",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "produce_materialization_snapshot",
+      "target": "crate::cbor::CborValue",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::cbor::CborValue::Array",
+      "resolvedTarget": "crate::cbor::CborValue::Array",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "produce_materialization_snapshot",
+      "target": "crate::cbor::CborValue::Array",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::cbor::CborValue::Bstr",
+      "resolvedTarget": "crate::cbor::CborValue::Bstr",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "produce_materialization_snapshot",
+      "target": "crate::cbor::CborValue::Bstr",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::cbor::CborValue::Float",
+      "resolvedTarget": "crate::cbor::CborValue::Float",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "produce_materialization_snapshot",
+      "target": "crate::cbor::CborValue::Float",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::cbor::CborValue::Map",
+      "resolvedTarget": "crate::cbor::CborValue::Map",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "produce_materialization_snapshot",
+      "target": "crate::cbor::CborValue::Map",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::cbor::encode",
+      "resolvedTarget": "crate::cbor::encode",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "produce_materialization_snapshot",
+      "target": "crate::cbor::encode",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::evidence_codec::bytes",
+      "resolvedTarget": "crate::evidence_codec::bytes",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "produce_materialization_snapshot",
+      "target": "crate::evidence_codec::bytes",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::evidence_codec::fields",
+      "resolvedTarget": "crate::evidence_codec::fields",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "produce_materialization_snapshot",
+      "target": "crate::evidence_codec::fields",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::hash::content_address",
+      "resolvedTarget": "crate::hash::content_address",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "produce_materialization_snapshot",
+      "target": "crate::hash::content_address",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::materialization_source::MaterializationSourceInput",
+      "resolvedTarget": "crate::materialization_source::MaterializationSourceInput",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "produce_materialization_snapshot",
+      "target": "crate::materialization_source::MaterializationSourceInput",
+      "targetOwner": "federation"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::materialization_source::MaterializationSourceLimits",
+      "resolvedTarget": "crate::materialization_source::MaterializationSourceLimits",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "produce_materialization_snapshot",
+      "target": "crate::materialization_source::MaterializationSourceLimits",
+      "targetOwner": "federation"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::materialization_source::ProducedMaterializationSource",
+      "resolvedTarget": "crate::materialization_source::ProducedMaterializationSource",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "produce_materialization_snapshot",
+      "target": "crate::materialization_source::ProducedMaterializationSource",
+      "targetOwner": "federation"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::materialization_source::Result",
+      "resolvedTarget": "crate::materialization_source::Result",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "produce_materialization_snapshot",
+      "target": "crate::materialization_source::Result",
+      "targetOwner": "federation"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::materialization_source::encode_materialization_appearance",
+      "resolvedTarget": "crate::materialization_source::encode_materialization_appearance",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "produce_materialization_snapshot",
+      "target": "crate::materialization_source::encode_materialization_appearance",
+      "targetOwner": "federation"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::materialization_source::map",
+      "resolvedTarget": "crate::materialization_source::map",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "produce_materialization_snapshot",
+      "target": "crate::materialization_source::map",
+      "targetOwner": "federation"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::materialization_source::materialization_capture_basis",
+      "resolvedTarget": "crate::materialization_source::materialization_capture_basis",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "produce_materialization_snapshot",
+      "target": "crate::materialization_source::materialization_capture_basis",
+      "targetOwner": "federation"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::materialization_source::string",
+      "resolvedTarget": "crate::materialization_source::string",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "produce_materialization_snapshot",
+      "target": "crate::materialization_source::string",
+      "targetOwner": "federation"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "federation",
+      "rawTarget": "crate::types::Delta",
+      "resolvedTarget": "crate::types::Delta",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "produce_materialization_snapshot",
+      "target": "crate::types::Delta",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "federation",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "produce_materialization_snapshot",
+      "target": "std::collections::BTreeMap"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "federation",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "produce_materialization_snapshot",
+      "target": "std::collections::BTreeMap::new"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "federation",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "produce_materialization_snapshot",
+      "target": "std::collections::BTreeSet"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "federation",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "produce_materialization_snapshot",
+      "target": "std::collections::BTreeSet::new"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "federation",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "produce_materialization_snapshot",
+      "target": "std::vec::Vec::new"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "vec"
+      ],
+      "owner": "federation",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "produce_materialization_snapshot"
     },
     {
       "form": "syn-resolved-path",
@@ -79317,6 +80204,17 @@
       "classification": "native_extension",
       "contract": "rhizomatic.resolve/native-api/1",
       "definition": "function",
+      "id": "rust:anchored:hview_anchors",
+      "owner": "resolve",
+      "semantics": "Native anchored::hview_anchors implements SPEC-2 pure term evaluation. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "source": "implementations/rust/src/anchored.rs",
+      "symbol": "hview_anchors"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "definition": "function",
       "id": "rust:anchored:scope_ids",
       "owner": "resolve",
       "semantics": "Native anchored::scope_ids implements SPEC-2 pure term evaluation. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
@@ -84312,11 +85210,33 @@
       "classification": "portable_contract",
       "contract": "rhizomatic.materialization/1/capture",
       "definition": "trait-method",
+      "id": "rust:materialization_source:MaterializationSourceCapability::check_current_scoped",
+      "owner": "federation",
+      "semantics": "materialization_source::MaterializationSourceCapability::check_current_scoped: Exact boot binding plus metadata-only capture/authority testimony and separate full snapshot; host grant required. MR-08, MR-09, MR-10, MR-11, MR-12, MR-19, MR-20, MR-21, MR-22.",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "symbol": "MaterializationSourceCapability::check_current_scoped"
+    },
+    {
+      "cfg": [],
+      "classification": "portable_contract",
+      "contract": "rhizomatic.materialization/1/capture",
+      "definition": "trait-method",
       "id": "rust:materialization_source:MaterializationSourceCapability::reacquire_snapshot",
       "owner": "federation",
       "semantics": "materialization_source::MaterializationSourceCapability::reacquire_snapshot: Exact boot binding plus metadata-only capture/authority testimony and separate full snapshot; host grant required. MR-08, MR-09, MR-10, MR-11, MR-12, MR-19, MR-20, MR-21, MR-22.",
       "source": "implementations/rust/src/materialization_source.rs",
       "symbol": "MaterializationSourceCapability::reacquire_snapshot"
+    },
+    {
+      "cfg": [],
+      "classification": "portable_contract",
+      "contract": "rhizomatic.materialization/1/capture",
+      "definition": "struct",
+      "id": "rust:materialization_source:MaterializationSourceComponentInput",
+      "owner": "federation",
+      "semantics": "materialization_source::MaterializationSourceComponentInput: Exact boot binding plus metadata-only capture/authority testimony and separate full snapshot; host grant required. MR-08, MR-09, MR-10, MR-11, MR-12, MR-19, MR-20, MR-21, MR-22.",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "symbol": "MaterializationSourceComponentInput"
     },
     {
       "cfg": [],
@@ -84345,6 +85265,17 @@
       "classification": "portable_contract",
       "contract": "rhizomatic.materialization/1/capture",
       "definition": "struct",
+      "id": "rust:materialization_source:MaterializationSourceInput",
+      "owner": "federation",
+      "semantics": "materialization_source::MaterializationSourceInput: Exact boot binding plus metadata-only capture/authority testimony and separate full snapshot; host grant required. MR-08, MR-09, MR-10, MR-11, MR-12, MR-19, MR-20, MR-21, MR-22.",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "symbol": "MaterializationSourceInput"
+    },
+    {
+      "cfg": [],
+      "classification": "portable_contract",
+      "contract": "rhizomatic.materialization/1/capture",
+      "definition": "struct",
       "id": "rust:materialization_source:MaterializationSourceLimits",
       "owner": "federation",
       "semantics": "materialization_source::MaterializationSourceLimits: Exact boot binding plus metadata-only capture/authority testimony and separate full snapshot; host grant required. MR-08, MR-09, MR-10, MR-11, MR-12, MR-19, MR-20, MR-21, MR-22.",
@@ -84361,6 +85292,28 @@
       "semantics": "materialization_source::MaterializationSourceSnapshot: Exact boot binding plus metadata-only capture/authority testimony and separate full snapshot; host grant required. MR-08, MR-09, MR-10, MR-11, MR-12, MR-19, MR-20, MR-21, MR-22.",
       "source": "implementations/rust/src/materialization_source.rs",
       "symbol": "MaterializationSourceSnapshot"
+    },
+    {
+      "cfg": [],
+      "classification": "portable_contract",
+      "contract": "rhizomatic.materialization/1/capture",
+      "definition": "struct",
+      "id": "rust:materialization_source:ProducedMaterializationSource",
+      "owner": "federation",
+      "semantics": "materialization_source::ProducedMaterializationSource: Exact boot binding plus metadata-only capture/authority testimony and separate full snapshot; host grant required. MR-08, MR-09, MR-10, MR-11, MR-12, MR-19, MR-20, MR-21, MR-22.",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "symbol": "ProducedMaterializationSource"
+    },
+    {
+      "cfg": [],
+      "classification": "portable_contract",
+      "contract": "rhizomatic.materialization/1/capture",
+      "definition": "constant",
+      "id": "rust:materialization_source:SCOPED_SNAPSHOT_PROFILE",
+      "owner": "federation",
+      "semantics": "materialization_source::SCOPED_SNAPSHOT_PROFILE: Exact boot binding plus metadata-only capture/authority testimony and separate full snapshot; host grant required. MR-08, MR-09, MR-10, MR-11, MR-12, MR-19, MR-20, MR-21, MR-22.",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "symbol": "SCOPED_SNAPSHOT_PROFILE"
     },
     {
       "cfg": [],
@@ -84433,6 +85386,17 @@
       "classification": "portable_contract",
       "contract": "rhizomatic.materialization/1/capture",
       "definition": "function",
+      "id": "rust:materialization_source:materialization_binding_scoped",
+      "owner": "federation",
+      "semantics": "materialization_source::materialization_binding_scoped: Exact boot binding plus metadata-only capture/authority testimony and separate full snapshot; host grant required. MR-08, MR-09, MR-10, MR-11, MR-12, MR-19, MR-20, MR-21, MR-22.",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "symbol": "materialization_binding_scoped"
+    },
+    {
+      "cfg": [],
+      "classification": "portable_contract",
+      "contract": "rhizomatic.materialization/1/capture",
+      "definition": "function",
       "id": "rust:materialization_source:materialization_capture_basis",
       "owner": "federation",
       "semantics": "materialization_source::materialization_capture_basis: Exact boot binding plus metadata-only capture/authority testimony and separate full snapshot; host grant required. MR-08, MR-09, MR-10, MR-11, MR-12, MR-19, MR-20, MR-21, MR-22.",
@@ -84460,6 +85424,17 @@
       "semantics": "materialization_source::materialization_source: Exact boot binding plus metadata-only capture/authority testimony and separate full snapshot; host grant required. MR-08, MR-09, MR-10, MR-11, MR-12, MR-19, MR-20, MR-21, MR-22.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "materialization_source"
+    },
+    {
+      "cfg": [],
+      "classification": "portable_contract",
+      "contract": "rhizomatic.materialization/1/capture",
+      "definition": "function",
+      "id": "rust:materialization_source:produce_materialization_snapshot",
+      "owner": "federation",
+      "semantics": "materialization_source::produce_materialization_snapshot: Exact boot binding plus metadata-only capture/authority testimony and separate full snapshot; host grant required. MR-08, MR-09, MR-10, MR-11, MR-12, MR-19, MR-20, MR-21, MR-22.",
+      "source": "implementations/rust/src/materialization_source.rs",
+      "symbol": "produce_materialization_snapshot"
     },
     {
       "cfg": [],

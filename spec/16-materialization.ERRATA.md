@@ -343,3 +343,17 @@ text it reads and the shared step or tower that pins it.
   `read_state_other_configuration`); a description without the role is refused
   (`command-descriptions::state_missing_configuration`). state/1 had not shipped in a release, so
   no consumer carries the old bytes.
+
+## E13 — Scoped sources: the full-source premise is withdrawn (SPEC-17)
+
+- **Contradiction.** MR-04's limits text and the M5 contract assumed every batch read captures
+  the full authorized source ("rather than the facts a particular root happens to use"). The M5
+  trial measured that as O(store) per read, and impossible above 4096 appearances. Myk ruled
+  (2026-10-14) that no operation may cost the size of the system.
+- **Resolution.** §4a adds `scoped-snapshot/1`, the `scope` field, the scoped revision, the
+  structural S(scope) check, `scope-miss`, a bounded verified-appearance memo and a library
+  producer. The full-source profile is unchanged and its vectors keep their bytes. Shared vectors:
+  `vectors/materialization/scoped-source.json`.
+- **Rust and the memo.** The memo is a MAY. TypeScript keeps one; Rust does not, because its
+  boundary gate forbids shared mutable statics in semantic modules. Answers never differ.
+

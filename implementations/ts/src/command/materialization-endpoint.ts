@@ -14,6 +14,7 @@ import { materializationDescriptionClaims } from "../command-data/materializatio
 import type { MaterializationSourceCapability } from "../federation/materialization-source.js";
 import { EvaluationResourceLimit } from "../resolve/evaluation-budget.js";
 import { evalMaterializationTerm } from "../resolve/eval.js";
+import { anchorAnalysis, hviewAnchors } from "../resolve/anchored.js";
 import { encodeHViewEnvelope, hviewCanonicalHex } from "../resolve/evidence.js";
 import { bindReadingVariables } from "../syntax/bind-reading.js";
 import { resolveView, viewCanonicalHex } from "../resolve-kernel/resolution.js";
@@ -148,6 +149,7 @@ export class MaterializationEndpoint {
           receivedAt,
           snapshot!.historicalCutoff,
           Object.freeze([...p.requiredSupport]),
+          snapshot!.scope,
         );
         if (result.status !== "current") mFail(result.status);
       };
@@ -159,6 +161,19 @@ export class MaterializationEndpoint {
         await check();
       }
       const program = validateMaterializationInputProgram(c, p);
+      const root = p.verb === "gather" ? commandEntity(p.fields, "root") : "";
+      const scope = p.verb === "gather" ? snapshot!.scope : undefined;
+      // A scoped capture serves only an anchored program, and only when it covers the root and
+      // every constant anchor (SPEC-17 §7.7-8).
+      if (scope !== undefined) {
+        const analysis = anchorAnalysis(
+          program.selected.hyper.body,
+          program.selected.registry,
+          program.bindings,
+        );
+        if (!analysis.anchored) mFail("unsupported-operation");
+        if (![root, ...analysis.anchors].every((e) => scope.includes(e))) mFail("scope-miss");
+      }
       let body;
       if (p.verb === "gather") {
         let gathered;
@@ -178,6 +193,10 @@ export class MaterializationEndpoint {
           mFail("execution-failed");
         }
         if (gathered.sort !== "hview") mFail("execution-failed");
+        // Every anchor the evaluation reached must lie in the captured scope; otherwise a child was
+        // read over a source that was never promised complete for it.
+        if (scope !== undefined && hviewAnchors(gathered.hview).some((e) => !scope.includes(e)))
+          mFail("scope-miss");
         let envelope;
         try {
           envelope = encodeHViewEnvelope(gathered.hview, {

@@ -86,10 +86,11 @@ apply independently to EACH envelope; never sum these structural counters across
 artifactBytes applies to the entire result body, including all root envelopes/Views and the one
 shared basis/definition closure. definitions and syntax counters apply to one complete program
 closure, not once per root; roots counts the complete root partition. Snapshot appearance and
-inventory counters apply to that snapshot, including the full authorized source rather than the
-facts a particular root happens to use. MR-21 pins the first decode/produce stage of each limit.
-A profile deliberately starts with full snapshots and full results; performance
-work cannot replace these with patches or relax validation. Physical execution exhaustion is
+inventory counters apply to that snapshot. Under `host-authorized-snapshot/1` the snapshot is
+the full authorized source; under `scoped-snapshot/1` (§4a) it is one read's scope S(E), so
+these limits bound one read's footprint, never the size of the store. MR-21 pins the first
+decode/produce stage of each limit. Performance work never relaxes validation. Physical
+execution exhaustion is
 `resource-exhausted`, distinguished from deterministic input `resource-limit`.
 
 Syntax budgets count semantic AST occurrences in these families: Schema, Term, Policy, Order,
@@ -519,6 +520,48 @@ read/replace/advance/retire except the explicit new capture/authority for replac
 the other support comes from verified durable control, and explicitly supplying
 them again is unexpected-support. Install must supply the complete descriptor closure. Missing
 then extra supports refuse; no ambient registry/database lookup repairs a missing support act.
+
+## 4a. Scoped sources (SPEC-17 amendment, 2026-10-14)
+
+Myk's ruling: no operation's cost may grow with the size of the system (SPEC-17 P7). A batch
+read over the full authorized source costs the store per read, and above the appearance limit it
+cannot run at all. This section adds a second selection profile; MR-09 and MR-10 otherwise stand.
+
+**MR-09a.** A binding selection's `profile` is `host-authorized-snapshot/1` or
+`scoped-snapshot/1`. A scoped binding promises that each capture covers one declared scope.
+
+**MR-10a.** A snapshot and its basis MAY carry `scope`: a nonempty, sorted, distinct array of
+entity ids. It is present exactly when the binding is scoped; otherwise the source is
+`invalid-source`. When present it joins the revision: `revision =
+H(C({binding, authority, selection, components, membership, appearanceDigest, exclusions,
+scope}))`. Operands are exactly S(scope) over the host's selection (SPEC-17 §4), computed from
+the operands themselves: an operand that neither points at a scope entity nor negates a member
+of S(scope), transitively, is `invalid-source`. Completeness against the host's store remains
+host testimony. `rawIds` are the ids each peer holds within that scope.
+
+**MR-10b.** `checkCurrent` receives the captured scope. A host recomputes the scoped revision
+from its indexes, in O(|S(scope)|), and never rebuilds the whole source.
+
+**MR-11a.** A gather under a scoped capture requires an anchored program (SPEC-17 §5); an
+unanchored program refuses `unsupported-operation` before evaluation. The scope must contain the
+request root and every constant anchor of the program; otherwise the gather refuses `scope-miss`
+before evaluation. After evaluation, every anchor the HView shows (its root and every expanded
+child) must lie in the scope; otherwise the gather refuses `scope-miss`. A host that receives
+`scope-miss` widens the scope from its index and makes a new invocation.
+
+**MR-16a.** Lifecycle verbs under a scoped binding refuse `unsupported-operation`; maintained
+reads keep full captures until per-root scoped captures are specified.
+
+**MR-09b.** The rule that each call establishes its own verification boundary is relaxed for
+appearances only: an implementation MAY keep a bounded process-local set of appearance keys,
+`(H(canonical appearance bytes), artifactBytes, pointers)`, that it has fully verified, and MAY
+skip the content-address, signature and re-encoding checks for a key in that set. Only successes
+enter. This skips repeated work and relaxes no check.
+
+**MR-10c.** The library produces source-snapshot/1 and source-basis/1 bytes from a host's
+selection (`produceMaterializationSnapshot` / `produce_materialization_snapshot`). The host
+supplies the binding, authority, selection, scope, components and operand deltas; the library
+owns the format, the digests and the revision, and decodes its own output before returning it.
 
 ## 5. M3: represented durable control state
 

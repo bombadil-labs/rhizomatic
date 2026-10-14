@@ -96,6 +96,7 @@ const REFUSALS = [
   "invalid-source",
   "source-changed",
   "source-unavailable",
+  "scope-miss",
   "invalid-definition",
   "pin-mismatch",
   "ambiguous-definition",
