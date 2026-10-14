@@ -2,6 +2,7 @@
 //! Module names mirror `../ts/src` to aid cross-reading. See the root CLAUDE.md.
 
 pub mod alias;
+pub mod anchored;
 pub mod arrival;
 pub mod b64u;
 pub mod cbor;

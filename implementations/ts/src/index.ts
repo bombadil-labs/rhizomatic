@@ -44,6 +44,16 @@ export {
   type MaskPolicy,
   type Term,
 } from "./eval.js";
+export {
+  anchorAnalysis,
+  evalAnchored,
+  scopeIds,
+  type Admits,
+  type AnchorAnalysis,
+  type AnchoredRead,
+  type DeltaSource,
+  type UnanchoredReason,
+} from "./resolve/anchored.js";
 export { relationSignature, relationSignatureCanonicalHex } from "./alias.js";
 export { hviewCanonicalHex, type HVEntry, type HView } from "./hview.js";
 export { SchemaRegistry, collectRefs, collectReadingRefs, type HyperSchema } from "./schema.js";

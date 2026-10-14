@@ -6,6 +6,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 
 ## Unreleased
 
+### Added
+
+- Anchored reads (SPEC-17 proposal, slice R1), in TypeScript and Rust. A read now costs its
+  footprint, not the store:
+  - `DeltaSource` is the read side of a store: `get`, `targets(entity)` and `negators(id)`, each
+    answered from an index. `Reactor` implements it with its existing target and negation indexes.
+  - `scopeIds` / `scope_ids` builds S(E): every delta pointing at an entity in E, closed under its
+    negation chains, with an optional per-delta selection (`admits`).
+  - `anchorAnalysis` / `anchor_analysis` decides statically whether a gather is anchored, and names
+    its constant anchors. Unanchored reasons: `aliased`, `reflection`, `const-group`, `acts-for`,
+    `unknown-schema`, `result-sort`.
+  - `evalAnchored` / `eval_anchored` (and `Reactor.evalAnchored` / `Reactor::eval_anchored`)
+    evaluate an anchored gather over its discovered scope. The answer is byte-identical to a
+    whole-set evaluation; the shared vectors and a property test in each witness check it.
+  - `DeltaSet.subset` / `DeltaSet::subset` carries already-verified members without hashing them
+    again.
+- Shared vectors `vectors/l1-eval/eval-anchored.json`: scope closure, anchor analysis and anchored
+  reads.
+
+Nothing existing changes behavior. `evalTerm`, `Reactor.eval` and the materialization profile still
+scan their whole input; callers move to anchored reads explicitly.
+
 ## 0.11.0-next.9 — 2026-10-14
 
 Release B: the maintained materialization lifecycle (SPEC-16 M3) and its cumulative acceptance

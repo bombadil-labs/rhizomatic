@@ -7,7 +7,8 @@ import { array, encode } from "../delta/cbor.js";
 import { bytesToHex } from "../delta/hash.js";
 import { hvEntryToCbor, hviewCanonicalHex, type HView } from "../algebra/hview.js";
 import { collectRefs } from "../schema/schema.js";
-import { comparePrimitives, type Pred, type ValMatch } from "../syntax/pred.js";
+import { comparePrimitives, type Bindings, type Pred, type ValMatch } from "../syntax/pred.js";
+import { evalAnchored, type Admits, type AnchoredRead } from "../resolve/anchored.js";
 import { viewCanonicalHex } from "../resolve-kernel/resolution.js";
 import type { SchemaRegistry } from "../schema/schema.js";
 import { DeltaSet } from "../delta/set.js";
@@ -294,6 +295,32 @@ export class Reactor {
 
   get(id: string): Delta | undefined {
     return this.set.get(id);
+  }
+
+  // --- the delta source (SPEC-17 §3): index reads, never a scan of the set ---
+
+  targets(entityId: string): Iterable<string> {
+    return this.targetIndex.get(entityId) ?? [];
+  }
+
+  negators(deltaId: string): Iterable<string> {
+    return this.negationIndex.get(deltaId) ?? [];
+  }
+
+  subset(ids: Iterable<string>): DeltaSet {
+    return this.set.subset(ids);
+  }
+
+  // An anchored read (SPEC-17 §6): the same answer as `eval`, at the cost of the read's scope.
+  evalAnchored(
+    term: Term,
+    now: number,
+    root: string,
+    registry?: SchemaRegistry,
+    bindings?: Bindings,
+    admits?: Admits,
+  ): AnchoredRead {
+    return evalAnchored(term, this, now, root, registry, bindings, admits);
   }
 
   // Arrival order — a transport artifact, never consulted by evaluation (SPEC-4 §2).

@@ -4,10 +4,11 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
+use crate::anchored::{eval_anchored, AnchoredRead, DeltaSource};
 use crate::eval::{eval_term, eval_term_at, EvalResult, Term};
 use crate::hview::HView;
 use crate::materialize::{Materialization, MaterializationChange};
-use crate::pred::compare_primitives;
+use crate::pred::{compare_primitives, Bindings};
 use crate::resolution::{view_canonical_hex, View};
 use crate::schema::SchemaRegistry;
 use crate::set::DeltaSet;
@@ -268,6 +269,20 @@ impl Reactor {
 
     pub fn digest(&self) -> String {
         self.set.digest()
+    }
+
+    /// An anchored read (SPEC-17 §6): the same answer as `eval_at`, at the cost of the read's
+    /// scope.
+    pub fn eval_anchored(
+        &self,
+        term: &Term,
+        now: f64,
+        root: &str,
+        registry: Option<&SchemaRegistry>,
+        bindings: Option<&Bindings>,
+        admits: Option<&dyn Fn(&Delta) -> bool>,
+    ) -> Result<AnchoredRead, String> {
+        eval_anchored(term, self, now, root, registry, bindings, admits)
     }
 
     pub fn snapshot(&self) -> DeltaSet {
@@ -646,4 +661,29 @@ pub fn manifest_member_ids(manifest: &Delta) -> Vec<String> {
             }
         })
         .collect()
+}
+
+/// The delta source (SPEC-17 §3): index reads, never a scan of the set.
+impl DeltaSource for Reactor {
+    fn get(&self, id: &str) -> Option<&Delta> {
+        self.set.get(id)
+    }
+
+    fn targets(&self, entity: &str) -> Vec<String> {
+        self.target_index
+            .get(entity)
+            .map(|b| b.iter().cloned().collect())
+            .unwrap_or_default()
+    }
+
+    fn negators(&self, id: &str) -> Vec<String> {
+        self.negation_index
+            .get(id)
+            .map(|b| b.iter().cloned().collect())
+            .unwrap_or_default()
+    }
+
+    fn subset(&self, ids: &[String]) -> DeltaSet {
+        self.set.subset(ids)
+    }
 }
