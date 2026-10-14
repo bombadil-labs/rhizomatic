@@ -1,14 +1,86 @@
 # The parity contract, enforced mechanically: every witness must pass its full green-gate,
 # and the committed vectors must be exactly what the generator produces (no stale vectors).
+#
+# Two tiers (Myk, 2026-10-14). The FAST tier runs on every pull request and every push to main:
+# the four witness green-gates and the static contract checks. The HEAVY tier (command towers and
+# materialization M1-M4 acceptance) proves what a release promises, so it runs only for a release
+# candidate: a manual dispatch, a pull request labelled `release-candidate`, or release.yml, which
+# calls this workflow on the exact tag before it publishes. A change to Markdown alone skips both
+# tiers. A newer push to a pull request cancels its older run.
 name: ci
 
 on:
   push:
     branches: [main]
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
+  workflow_dispatch:
+    inputs:
+      heavy:
+        description: "Run the heavy release-candidate tier too"
+        type: boolean
+        default: true
+      ref:
+        description: "Branch, tag or commit to check (default: the dispatched ref)"
+        type: string
+        default: ""
+  workflow_call:
+    inputs:
+      heavy:
+        type: boolean
+        default: true
+      ref:
+        type: string
+        default: ""
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || inputs.ref || github.ref }}-${{ inputs.heavy && 'heavy' || 'fast' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  changes:
+    name: Decide what runs
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.decide.outputs.code }}
+      heavy: ${{ steps.decide.outputs.heavy }}
+      sha: ${{ steps.decide.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 0
+      - id: decide
+        env:
+          EVENT: ${{ github.event_name }}
+          HEAVY_INPUT: ${{ inputs.heavy }}
+          RC_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'release-candidate') }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          ACTION: ${{ github.event.action }}
+          LABEL: ${{ github.event.label.name }}
+        run: |
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          heavy=false
+          if [ "$HEAVY_INPUT" = "true" ] || [ "$RC_LABEL" = "true" ]; then heavy=true; fi
+          base=""
+          if [ "$EVENT" = "pull_request" ]; then base="$PR_BASE"; fi
+          if [ "$EVENT" = "push" ]; then base="$PUSH_BEFORE"; fi
+          code=true
+          if [ -n "$base" ] && git cat-file -e "$base^{commit}" 2>/dev/null; then
+            # Markdown alone changes no witness, vector, bundle or contract.
+            if ! git diff --name-only "$base" HEAD | grep -qvE '\.md$'; then code=false; fi
+          fi
+          if [ "$heavy" = "true" ]; then code=true; fi
+          # Any other label changes nothing that CI checks.
+          if [ "$ACTION" = "labeled" ] && [ "$LABEL" != "release-candidate" ]; then code=false; heavy=false; fi
+          echo "heavy=$heavy" >> "$GITHUB_OUTPUT"
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "code=$code heavy=$heavy base=${base:-none}"
+
   typescript:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     name: TypeScript witness
     runs-on: ubuntu-latest
     defaults:
@@ -16,6 +88,8 @@ jobs:
         working-directory: implementations/ts
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
       - uses: actions/setup-node@v7
         with:
           node-version: 22
@@ -40,6 +114,8 @@ jobs:
           git diff --exit-code ../../contracts/command/coverage.json ../../contracts/command/TOWERS.json
 
   rust:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     name: Rust witness
     runs-on: ubuntu-latest
     defaults:
@@ -47,6 +123,8 @@ jobs:
         working-directory: implementations/rust
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
@@ -71,6 +149,8 @@ jobs:
           if-no-files-found: error
 
   haskell:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     name: Haskell witness (L0)
     runs-on: ubuntu-latest
     defaults:
@@ -78,6 +158,8 @@ jobs:
         working-directory: implementations/haskell
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
       - uses: haskell-actions/setup@v2
         with:
           ghc-version: "9.4"
@@ -85,6 +167,8 @@ jobs:
         run: node check.mjs
 
   elixir:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     name: Elixir witness (L0)
     runs-on: ubuntu-latest
     defaults:
@@ -92,6 +176,8 @@ jobs:
         working-directory: implementations/elixir
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
       - uses: erlef/setup-beam@v1
         with:
           otp-version: "27"
@@ -101,12 +187,44 @@ jobs:
           mix format --check-formatted
           mix test
 
-  command:
-    name: Command profile and mixed towers
-    needs: [typescript, rust, haskell, elixir]
+  contracts:
+    name: Contracts, inventories and harness tests
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: implementations/ts/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: implementations/rust
+      - run: npm ci --ignore-scripts --prefix implementations/ts
+      - name: M0 packet, live owner inventories and package graph
+        run: |
+          node contracts/materialization/validate.mjs --self-test
+          node tools/check-command-contracts.mjs --self-test
+          node tools/check-package-graph.mjs
+          node tools/check-rust-command-boundaries.mjs
+      - name: Harness, planning and accounting regressions
+        run: |
+          node --test tools/command-tower*.test.mjs tools/check-rust-command-boundaries.test.mjs tools/check-command-bootstrap.test.mjs tools/check-command-acceptance.test.mjs tools/command-inventory.test.mjs tools/check-materialization-accounting.test.mjs
+
+  command:
+    name: Command profile and mixed towers
+    needs: [changes, typescript, rust, haskell, elixir]
+    if: needs.changes.outputs.heavy == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
       - uses: actions/setup-node@v7
         with:
           node-version: 22
@@ -122,7 +240,7 @@ jobs:
           node --test tools/command-tower*.test.mjs tools/check-rust-command-boundaries.test.mjs tools/check-command-bootstrap.test.mjs tools/check-command-acceptance.test.mjs tools/command-inventory.test.mjs
       - name: Record exact checked-out existing witness results
         env:
-          CI_COMMIT: ${{ github.sha }}
+          CI_COMMIT: ${{ needs.changes.outputs.sha }}
           CI_RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
           CI_TS: ${{ needs.typescript.result }}
           CI_RUST: ${{ needs.rust.result }}
@@ -156,10 +274,13 @@ jobs:
 
   materialization-m1:
     name: Materialization M0 structure and M1 codec crossings
-    needs: [typescript, rust, haskell, elixir]
+    needs: [changes, typescript, rust, haskell, elixir]
+    if: needs.changes.outputs.heavy == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
       - uses: actions/setup-node@v7
         with:
           node-version: 22
@@ -179,7 +300,7 @@ jobs:
       - name: M1 cases, fixed crossings, three seeded towers and exact replay
         env:
           M1_ARTIFACT_DIR: ${{ runner.temp }}/materialization-m1
-          M1_SEED: m1:${{ github.run_id }}:${{ github.run_attempt }}:${{ github.sha }}
+          M1_SEED: m1:${{ github.run_id }}:${{ github.run_attempt }}:${{ needs.changes.outputs.sha }}
         run: |
           node tools/check-evidence-acceptance.mjs
           node tools/check-evidence-towers.mjs --replay "$M1_ARTIFACT_DIR"
@@ -193,10 +314,13 @@ jobs:
 
   materialization-m2:
     name: Materialization M2 batch commands and mixed crossings
-    needs: [typescript, rust, haskell, elixir]
+    needs: [changes, typescript, rust, haskell, elixir]
+    if: needs.changes.outputs.heavy == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
       - uses: actions/setup-node@v7
         with:
           node-version: 22
@@ -217,7 +341,7 @@ jobs:
       - name: M2 batch cases, fixed crossings, three towers and retained replay
         env:
           M2_ARTIFACT_DIR: ${{ runner.temp }}/materialization-m2
-          M2_SEED: m2:${{ github.run_id }}:${{ github.run_attempt }}:${{ github.sha }}
+          M2_SEED: m2:${{ github.run_id }}:${{ github.run_attempt }}:${{ needs.changes.outputs.sha }}
         run: |
           node tools/check-materialization-acceptance.mjs
           node tools/check-materialization-towers.mjs --replay "$M2_ARTIFACT_DIR"
@@ -232,10 +356,13 @@ jobs:
 
   materialization-m3:
     name: Materialization M3 control image, lifecycle verbs and readback
-    needs: [typescript, rust]
+    needs: [changes, typescript, rust]
+    if: needs.changes.outputs.heavy == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
       - uses: actions/setup-node@v7
         with:
           node-version: 22
@@ -251,7 +378,7 @@ jobs:
       - name: M3 shared schedule receipts, durable crossings, fault points and retained replay
         env:
           M3_ARTIFACT_DIR: ${{ runner.temp }}/materialization-m3
-          M3_SEED: m3:${{ github.run_id }}:${{ github.run_attempt }}:${{ github.sha }}
+          M3_SEED: m3:${{ github.run_id }}:${{ github.run_attempt }}:${{ needs.changes.outputs.sha }}
         run: |
           node tools/check-materialization-m3-acceptance.mjs
           node tools/check-materialization-m3-towers.mjs --replay "$M3_ARTIFACT_DIR"
@@ -265,10 +392,13 @@ jobs:
 
   materialization-m4:
     name: Materialization M4 cumulative towers and gates
-    needs: [typescript, rust, haskell, elixir, command, materialization-m1, materialization-m2, materialization-m3]
+    needs: [changes, typescript, rust, haskell, elixir, command, materialization-m1, materialization-m2, materialization-m3]
+    if: needs.changes.outputs.heavy == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
       - uses: actions/setup-node@v7
         with:
           node-version: 22
@@ -290,7 +420,7 @@ jobs:
           M2_ARTIFACT_DIR: ${{ runner.temp }}/bundles/materialization-m2-evidence
           M3_ARTIFACT_DIR: ${{ runner.temp }}/bundles/materialization-m3-evidence
           M4_ARTIFACT_DIR: ${{ runner.temp }}/materialization-m4
-          CI_COMMIT: ${{ github.sha }}
+          CI_COMMIT: ${{ needs.changes.outputs.sha }}
           CI_RESULTS: ${{ toJSON(needs) }}
         run: |
           node tools/measure-materialization-lifecycle.mjs

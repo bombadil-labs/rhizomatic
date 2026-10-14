@@ -4,6 +4,8 @@
 # half lives in the package's npmjs.com settings: Trusted Publisher = GitHub Actions,
 # bombadil-labs/rhizomatic, workflow release.yml. Provenance is automatic under OIDC.
 # workflow_dispatch exists for re-running a tag whose push predated this workflow.
+# Before anything publishes, `verify` runs the whole CI workflow on the exact tag, the heavy
+# release-candidate tier included: nothing ships that the full suite has not passed.
 name: release
 
 on:
@@ -20,8 +22,16 @@ permissions:
   id-token: write # the OIDC token IS the publish credential
 
 jobs:
+  verify:
+    name: Full suite on the tag
+    uses: ./.github/workflows/ci.yml
+    with:
+      heavy: true
+      ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+
   publish:
     name: Publish @bombadil/rhizomatic
+    needs: verify
     runs-on: ubuntu-latest
     defaults:
       run:

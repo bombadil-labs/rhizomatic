@@ -168,15 +168,25 @@ GitHub issues when useful; coordinate design changes with Myk and Loam's owner.
   witnesses from `implementations/*/witness.json`; pass names to filter (`node tools/check-all.mjs ts elixir`)
 - Elixir: `cd implementations/elixir && mix test`
 - Haskell: `cd implementations/haskell && node check.mjs` (needs GHC ≥ 9.4 on PATH; no cabal, no deps)
-- CI: `.github/workflows/ci.yml` runs all four witness gates + docs- and vector-freshness checks on
-  every push. Any TS source change also requires `npm run docs:build` (the tour + playground
-  bundles under `docs/` are committed bytes and CI diffs them) — regenerate and commit alongside.
+- Before every push: `node tools/precheck.mjs` from the repo root (a few minutes). It runs the
+  contract and inventory checks, the package graph, the Rust boundaries, TS format/lint/types,
+  Rust fmt/clippy, and regenerates every generated file to prove the committed bytes are fresh.
+  A red push costs a CI cycle; this catches the cheap failures first.
+- CI has two tiers (Myk, 2026-10-14). `.github/workflows/ci.yml` runs the FAST tier on every pull
+  request and every push to main: the four witness gates, docs and vector freshness, and the
+  contract checks. The HEAVY tier (command towers, materialization M1-M4 acceptance) runs only for
+  a release candidate: dispatch `ci.yml` with `heavy: true`, or label a pull request
+  `release-candidate`. A Markdown-only change skips both tiers, and a newer push to a pull request
+  cancels its older run. Any TS source change also requires `npm run docs:build` (the tour and
+  playground bundles under `docs/` are committed bytes and CI diffs them).
 
 ## Releasing (`@bombadil/rhizomatic` to npm)
 
 Publishing is cutting a tag; CI does the rest. When asked to cut a release:
 
-1. Preconditions: main is green (CI passed on the head commit), tree clean, work already merged —
+1. Preconditions: main is green on the head commit **with the heavy tier** (dispatch `ci.yml` with
+   `heavy: true` on main and wait for it; `release.yml` runs the full suite again on the tag and
+   refuses to publish if it fails), tree clean, work already merged —
    the release commit should contain nothing but the version bump. **[CHANGELOG.md](CHANGELOG.md)
    must already carry an entry for the new version** — add it *with the work* (in the feature PR),
    never in the version-bump commit. Call out any breaking change under a `⚠️ Breaking` heading with
