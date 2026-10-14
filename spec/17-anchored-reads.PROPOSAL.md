@@ -90,7 +90,8 @@ name. The static check below decides it. A term that fails the check is **unanch
 | `actsFor` | already refused by core/1 |
 
 A term's **static anchors** are its constant `inView` and `group const` entities and its `fix`
-entities. Its **dynamic anchors** at a root r over D are r and every entity at which the
+entities. A constant or a bound hole always names an entity, even the entity named `root`; only
+`{var: "root"}` means the ambient root, which is a dynamic anchor. Its **dynamic anchors** at a root r over D are r and every entity at which the
 evaluation runs a schema (expanded children).
 
 ## 6. Anchored evaluation

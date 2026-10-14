@@ -76,8 +76,12 @@ class Unanchored extends Error {
 const conjuncts = (pred: Pred): Pred[] =>
   pred.kind === "and" ? [...conjuncts(pred.left), ...conjuncts(pred.right)] : [pred];
 
-// The entity a conjunct pins, when it pins one: "root" for the ambient root.
-function pinnedEntity(pred: Pred, bindings: Bindings | undefined): string | undefined {
+// The ambient root, kept apart from every entity id: an entity may be named "root".
+const AMBIENT = Symbol("ambient root");
+type Pin = string | typeof AMBIENT;
+
+// The entity a conjunct pins, when it pins one: AMBIENT for the ambient root.
+function pinnedEntity(pred: Pred, bindings: Bindings | undefined): Pin | undefined {
   for (const c of conjuncts(pred)) {
     if (c.kind !== "hasPointer" || c.ppred.targetEntity === undefined) continue;
     const entity = entityOf(c.ppred.targetEntity, bindings);
@@ -86,9 +90,9 @@ function pinnedEntity(pred: Pred, bindings: Bindings | undefined): string | unde
   return undefined;
 }
 
-function entityOf(m: EntityMatch, bindings: Bindings | undefined): string | undefined {
+function entityOf(m: EntityMatch, bindings: Bindings | undefined): Pin | undefined {
   if (m.kind === "const") return m.id;
-  if (m.kind === "root") return "root";
+  if (m.kind === "root") return AMBIENT;
   const bound = bindings?.get(m.name);
   return typeof bound === "string" ? bound : undefined;
 }
@@ -129,7 +133,7 @@ export function anchorAnalysis(
         const sub = p.term;
         const entity = sub.kind === "select" ? pinnedEntity(sub.pred, b) : undefined;
         if (entity === undefined) throw new Unanchored("reflection");
-        if (entity !== "root") anchors.add(entity);
+        if (entity !== AMBIENT) anchors.add(entity);
         walk(sub, b);
         return;
       }
@@ -170,7 +174,7 @@ export function anchorAnalysis(
         if (t.key.kind === "const") {
           const entity = t.of.kind === "select" ? pinnedEntity(t.of.pred, b) : undefined;
           if (entity === undefined) throw new Unanchored("const-group");
-          if (entity !== "root") anchors.add(entity);
+          if (entity !== AMBIENT) anchors.add(entity);
         }
         walk(t.of, b);
         return;

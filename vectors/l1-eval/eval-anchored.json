@@ -446,6 +446,28 @@
             }
           ]
         }
+      },
+      {
+        "name": "literal-root-name",
+        "id": "1e20b1b44207d01ddf7a2f0d59e6935d17b0fb7905c6797dd1725b577d508f041ff8",
+        "claims": {
+          "timestamp": 8,
+          "validFrom": 8,
+          "author": "did:key:zAlice",
+          "pointers": [
+            {
+              "role": "subject",
+              "target": {
+                "id": "root",
+                "context": "name"
+              }
+            },
+            {
+              "role": "value",
+              "target": "a plant named root"
+            }
+          ]
+        }
       }
     ]
   },
@@ -470,6 +492,27 @@
             "policy": "drop",
             "in": "input"
           }
+        }
+      }
+    },
+    {
+      "name": "PinnedByHole",
+      "alg": 1,
+      "body": {
+        "op": "group",
+        "key": {
+          "const": "all"
+        },
+        "in": {
+          "op": "select",
+          "pred": {
+            "hasPointer": {
+              "targetEntity": {
+                "hole": "who"
+              }
+            }
+          },
+          "in": "input"
         }
       }
     },
@@ -811,6 +854,94 @@
       }
     },
     {
+      "name": "a const group pinned to the entity named root",
+      "term": {
+        "op": "group",
+        "key": {
+          "const": "all"
+        },
+        "in": {
+          "op": "select",
+          "pred": {
+            "hasPointer": {
+              "targetEntity": "root"
+            }
+          },
+          "in": "input"
+        }
+      },
+      "expected": {
+        "anchored": true,
+        "anchors": [
+          "root"
+        ]
+      }
+    },
+    {
+      "name": "an inView pinned to the entity named root",
+      "term": {
+        "op": "group",
+        "key": "byTargetContext",
+        "in": {
+          "op": "select",
+          "pred": {
+            "hasPointer": {
+              "targetEntity": {
+                "var": "root"
+              }
+            }
+          },
+          "in": {
+            "op": "mask",
+            "policy": {
+              "trust": {
+                "inView": {
+                  "term": {
+                    "op": "select",
+                    "pred": {
+                      "hasPointer": {
+                        "targetEntity": "root"
+                      }
+                    },
+                    "in": "input"
+                  },
+                  "field": "author",
+                  "extract": {
+                    "field": "author"
+                  }
+                }
+              }
+            },
+            "in": "input"
+          }
+        }
+      },
+      "expected": {
+        "anchored": true,
+        "anchors": [
+          "root"
+        ]
+      }
+    },
+    {
+      "name": "a hole bound to the entity named root",
+      "term": {
+        "op": "fix",
+        "schema": "PinnedByHole",
+        "entity": "plant:a",
+        "bindings": {
+          "who": "root"
+        }
+      },
+      "expected": {
+        "anchored": true,
+        "anchors": [
+          "plant:a",
+          "root"
+        ]
+      }
+    },
+    {
       "name": "a DSet result",
       "term": {
         "op": "select",
@@ -1105,6 +1236,69 @@
       ],
       "expectedMembers": [],
       "expectedCanonicalHex": "a26269646d706c616e743a6e6f77686572656570726f7073a0"
+    },
+    {
+      "name": "the entity named root, read at another root",
+      "term": {
+        "op": "group",
+        "key": {
+          "const": "all"
+        },
+        "in": {
+          "op": "select",
+          "pred": {
+            "hasPointer": {
+              "targetEntity": "root"
+            }
+          },
+          "in": "input"
+        }
+      },
+      "root": "plant:a",
+      "now": 38,
+      "expectedScope": [
+        "plant:a",
+        "root"
+      ],
+      "expectedMembers": [
+        "a-height-12",
+        "a-height-12-struck-by-carol",
+        "a-height-99",
+        "a-height-10",
+        "bed1-has-a",
+        "a-height-99-struck",
+        "literal-root-name",
+        "a-has-cutting"
+      ],
+      "expectedCanonicalHex": "a262696467706c616e743a616570726f7073a163616c6c81a26269647844316532306231623434323037643031646466376132663064353965363933356431376230666237393035633637393764643137323562353737643530386630343166663866636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a262696464726f6f7467636f6e74657874646e616d65a264726f6c656576616c756566746172676574726120706c616e74206e616d656420726f6f746974696d657374616d70f94800"
+    },
+    {
+      "name": "a hole bound to the entity named root",
+      "term": {
+        "op": "fix",
+        "schema": "PinnedByHole",
+        "entity": "plant:a",
+        "bindings": {
+          "who": "root"
+        }
+      },
+      "root": "plant:a",
+      "now": 38,
+      "expectedScope": [
+        "plant:a",
+        "root"
+      ],
+      "expectedMembers": [
+        "a-height-12",
+        "a-height-12-struck-by-carol",
+        "a-height-99",
+        "a-height-10",
+        "bed1-has-a",
+        "a-height-99-struck",
+        "literal-root-name",
+        "a-has-cutting"
+      ],
+      "expectedCanonicalHex": "a262696467706c616e743a616570726f7073a163616c6c81a26269647844316532306231623434323037643031646466376132663064353965363933356431376230666237393035633637393764643137323562353737643530386630343166663866636c61696d73a366617574686f726e6469643a6b65793a7a416c69636568706f696e7465727382a264726f6c65677375626a65637466746172676574a262696464726f6f7467636f6e74657874646e616d65a264726f6c656576616c756566746172676574726120706c616e74206e616d656420726f6f746974696d657374616d70f94800"
     }
   ]
 }

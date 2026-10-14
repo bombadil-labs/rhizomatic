@@ -81,6 +81,8 @@ const carolGrant = add(
   ]),
 );
 add("grant-carol-revoked", makeNegationClaims(ALICE, 7, carolGrant.id));
+// An entity may be named "root". It is an ordinary entity, never the ambient root.
+add("literal-root-name", fact(ALICE, 8, [at("root", "name"), value("a plant named root")]));
 void carolStrike;
 
 const nameOf = new Map(named.map((n) => [n.delta.id, n.name]));
@@ -129,8 +131,22 @@ const lawful = {
     },
   },
 };
+const pinnedToRoot = {
+  op: "group",
+  key: { const: "all" },
+  in: { op: "select", pred: { hasPointer: { targetEntity: "root" } }, in: "input" },
+};
 const schemas = [
   { name: "Plant", alg: 1, body: leaf },
+  {
+    name: "PinnedByHole",
+    alg: 1,
+    body: {
+      op: "group",
+      key: { const: "all" },
+      in: { op: "select", pred: { hasPointer: { targetEntity: { hole: "who" } } }, in: "input" },
+    },
+  },
   {
     name: "PlantWithCuttings",
     alg: 1,
@@ -231,6 +247,39 @@ const analysisCases: { name: string; term: unknown; expected: unknown }[] = [
     expected: { anchored: true, anchors: ["grants"] },
   },
   {
+    name: "a const group pinned to the entity named root",
+    term: pinnedToRoot,
+    expected: { anchored: true, anchors: ["root"] },
+  },
+  {
+    name: "an inView pinned to the entity named root",
+    term: {
+      ...lawful,
+      in: {
+        ...lawful.in,
+        in: {
+          op: "mask",
+          policy: {
+            trust: {
+              inView: {
+                term: { op: "select", pred: { hasPointer: { targetEntity: "root" } }, in: "input" },
+                field: "author",
+                extract: { field: "author" },
+              },
+            },
+          },
+          in: "input",
+        },
+      },
+    },
+    expected: { anchored: true, anchors: ["root"] },
+  },
+  {
+    name: "a hole bound to the entity named root",
+    term: { op: "fix", schema: "PinnedByHole", entity: "plant:a", bindings: { who: "root" } },
+    expected: { anchored: true, anchors: ["plant:a", "root"] },
+  },
+  {
     name: "a DSet result",
     term: { op: "select", pred: { hasPointer: { targetEntity: { var: "root" } } }, in: "input" },
     expected: { anchored: false, reason: "result-sort" },
@@ -262,6 +311,12 @@ const readCases = [
   { name: "a reinstated name and an expired note", term: leaf, root: "plant:b" },
   { name: "lawful strikers: a revoked grantee's strike is inert", term: lawful, root: "plant:a" },
   { name: "a root with no deltas", term: leaf, root: "plant:nowhere" },
+  { name: "the entity named root, read at another root", term: pinnedToRoot, root: "plant:a" },
+  {
+    name: "a hole bound to the entity named root",
+    term: { op: "fix", schema: "PinnedByHole", entity: "plant:a", bindings: { who: "root" } },
+    root: "plant:a",
+  },
 ].map((c) => {
   const term = parseTerm(c.term);
   const read = reactor.evalAnchored(term, NOW, c.root, registry);

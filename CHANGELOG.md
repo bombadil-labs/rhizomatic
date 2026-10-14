@@ -64,6 +64,11 @@ store; a configuration that installs a lifecycle verb needs one (`controlStore` 
 
 ### Fixed
 
+- Anchor analysis (both witnesses) kept the ambient root as the string `"root"`, so a constant or
+  bound hole naming an entity called `root` dropped out of the static anchors. An anchored read,
+  and a warm view refreshed by one, then answered empty where whole evaluation had data. The
+  ambient root is now a tagged value. New `eval-anchored` vectors cover a const group, an `inView`
+  and a bound hole naming `root`, and both witnesses check a warm view against it.
 - Materialization gather in TypeScript returns a signed `resource-limit` refusal when a produced
   definition appearance exceeds `artifactBytes`; it previously threw with no outcome while Rust
   refused. Pinned by the shared `definition_appearance_bytes_over` vector.

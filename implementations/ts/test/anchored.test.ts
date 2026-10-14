@@ -495,6 +495,32 @@ describe("a static anchor dispatches: a grant landing after a strike refreshes t
   });
 });
 
+describe("an entity named root is an ordinary anchor, never the ambient root", () => {
+  it("a warm view at e0 that reads the entity named root follows a fact landing there", () => {
+    const term = parseTerm({
+      op: "group",
+      key: { const: "all" },
+      in: { op: "select", pred: { hasPointer: { targetEntity: "root" } }, in: "input" },
+    });
+    const reactor = new Reactor();
+    reactor.register("pinned", term, ["e0"], 50, registry);
+    const empty = reactor.materializedHex("pinned", "e0");
+    reactor.ingest(
+      makeDelta({
+        timestamp: 1,
+        validFrom: 1,
+        author: AUTHORS[0]!,
+        pointers: [
+          { role: "subject", target: { kind: "entity", entity: { id: "root", context: "name" } } },
+        ],
+      }),
+    );
+    const warm = reactor.materializedHex("pinned", "e0");
+    expect(warm).not.toBe(empty);
+    expect(warm).toBe(resultCanonicalHex(evalTerm(term, reactor.snapshot(), 50, "e0", registry)));
+  });
+});
+
 describe("a lowered program dispatches by scope only when its hook names its dependencies", () => {
   const term = parseTerm(TERMS["leaf"]);
   const unrelated = makeDelta({
