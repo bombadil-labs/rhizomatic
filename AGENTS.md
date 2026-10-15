@@ -121,6 +121,11 @@ When implementation contradicts specification, **the contradiction is the delive
   O(store) too. Slices R1 (anchored evaluation) and R2 (scoped snapshots, release C) come before
   the Loam slices L1 and L2. A design that is correct only at small sizes is not correct.
 
+- **Proposed, 2026-10-15: the store ([spec/18-store.PROPOSAL.md](spec/18-store.PROPOSAL.md),
+  issue #75).** One store interface with declared capabilities and specialized implementations,
+  so that no operation, open included, costs O(store). It waits on Myk's answers to its open
+  questions, including whether it goes before step 7.
+
 ## Independent T3 review
 
 - Sol builds Rhizomatic and uses the existing dedicated Claude Opus review thread for every frozen,
