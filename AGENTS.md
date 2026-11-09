@@ -104,27 +104,27 @@ When implementation contradicts specification, **the contradiction is the delive
   its own key, and a backend with rows but no journal is refused at boot.
 - **Step 7 has not started.** It covers publish and subscribe, the signed wire envelope and
   publish-side closure audit (spec/06-peer-admission.PROPOSAL.md), and registry discovery and
-  locator transport (Loam `refactor/README.md`, ruling 9).
-- **Active work: the SPEC-16 portable read and materialization contract.** The packet is
+  locator transport (Loam `refactor/README.md`, ruling 9). **It begins after the store arc
+  (SPEC-18 slices 1–5) has landed** (Myk, 2026-11-09).
+- **Done: the SPEC-16 portable read and materialization contract.** The packet is
   [contracts/materialization/](contracts/materialization/README.md); its normative text is
   [spec/16-materialization.md](spec/16-materialization.md), with readings in
-  `spec/16-materialization.ERRATA.md`. Milestones M0–M3 are on main (PRs #62–#70, last merged
-  2026-10-12): all 33 M3 cases and 6 variants execute in both witnesses. Next is **M4**, the
-  cumulative acceptance gate that makes release B eligible after independent review; then **M5**,
-  the selected Loam PRIMARY batch-read trial, which Loam builds against the published release B.
-  Everything after `0.11.0-next.8` is unreleased.
+  `spec/16-materialization.ERRATA.md`. M0–M4 are on main (M4: PR #71). Release B
+  (`0.11.0-next.9`) and release C (`0.11.0-next.10`, anchored reads and scoped sources) are
+  published. The M5 Loam batch-read trial landed in Loam on 2026-11-09 (Loam #689).
 
-- **Active work, 2026-10-14: anchored reads ([spec/17-anchored-reads.PROPOSAL.md](spec/17-anchored-reads.PROPOSAL.md)).**
+- **Done, 2026-10-14: anchored reads ([spec/17-anchored-reads.PROPOSAL.md](spec/17-anchored-reads.PROPOSAL.md)).**
   Myk ruled that no behavior may have a cost that scales with system size (P7 in that proposal),
   and assigned this work, including the SPEC-16 amendment, to Claude. The M5 Loam trial
   measured the portable read at O(store) per read; the audit found that native reads are
   O(store) too. Slices R1 (anchored evaluation) and R2 (scoped snapshots, release C) come before
   the Loam slices L1 and L2. A design that is correct only at small sizes is not correct.
 
-- **Proposed, 2026-10-15: the store ([spec/18-store.PROPOSAL.md](spec/18-store.PROPOSAL.md),
-  issue #75).** One store interface with declared capabilities and specialized implementations,
-  so that no operation, open included, costs O(store). It waits on Myk's answers to its open
-  questions, including whether it goes before step 7.
+- **Active work: the store ([spec/18-store.PROPOSAL.md](spec/18-store.PROPOSAL.md), issue #75).**
+  One store interface with declared capabilities and specialized implementations, so that no
+  operation, open included, costs O(store). Myk settled every open question on 2026-11-09; §12 of
+  the proposal records the decisions and §10 lists the five slices. Start with slice 1 (interface,
+  memory reference store, store vectors, TS and Rust). All five slices land before step 7.
 
 ## Independent T3 review
 

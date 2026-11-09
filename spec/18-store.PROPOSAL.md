@@ -1,14 +1,13 @@
 # SPEC-18 proposal: the store
 
-**Status:** Proposal (2026-10-15). Myk asked for durable, indexed storage with one coherent
-interface and specialized implementations (issue #75). This document is the working contract
-until its parts are promoted into `spec/04-reactor.md`, `spec/06-peer-admission.PROPOSAL.md`
-and a store chapter with shared vectors. The package that carries the interface is
-`rhizomatic-store`.
+**Status:** Proposal. Drafted 2026-10-15 (issue #75). Myk settled every open design question on
+2026-11-09; §12 records each answer. This document is the working contract until its parts are
+promoted into `spec/04-reactor.md`, `spec/06-peer-admission.PROPOSAL.md` and a store chapter
+with shared vectors. **Order:** all five slices in §10 land before step 7 begins.
 
 **Depends on:** SPEC-1 (content addressing), SPEC-2 (predicates, `ValMatch`), SPEC-4 (reactor),
-SPEC-6 vNext (peers, journal, arrival, erasure), SPEC-8 (packs), SPEC-17 (P7, delta source,
-scope of a read).
+SPEC-6 vNext (peers, journal, arrival, erasure), SPEC-8 (packs), SPEC-9 (aliases), SPEC-17 (P7,
+delta source, scope of a read).
 
 ---
 
@@ -23,14 +22,14 @@ memory instead. A durable store is only a backup that is read whole at open.
 - Erasure recovery, catch-up and federation sync read whole sets.
 
 SPEC-17 made one read cost its footprint, but only because the in-memory indexes exist. P7 also
-applies to the store as a whole: **no operation, including open, may cost O(store).**
+applies to a peer's whole delta set: **no operation, including open, may cost O(store).**
 
 This proposal does not choose one database. It defines what any store must answer, what it may
 optionally answer, and how a host finds out which it is talking to. Implementations specialize.
 
 ## 2. What a store serves
 
-Each requirement below comes from a rule rhizomatic already has.
+Each requirement comes from a rule rhizomatic already has.
 
 | # | Requirement | Source |
 |---|---|---|
@@ -40,36 +39,41 @@ Each requirement below comes from a rule rhizomatic already has.
 | R4 | Value ranges over `(role, primitive)`, ordered, for `ValMatch` | SPEC-2 §3, SPEC-4 §3 |
 | R5 | Three time axes. Signed time and validity are fields of the delta (no index needed). Arrival is per-peer testimony and needs an index | SPEC-6 vNext §3 |
 | R6 | Peers: one membership set per peer over shared bytes; one writer per peer; head compare-and-set | SPEC-6 vNext §1, §2 |
-| R7 | Erasure: physical removal with a proof per storage surface, or an honest `unproven` | SPEC-6 vNext §1, §2 |
-| R8 | Change: a revision, and the changes between two revisions in O(changes) | SPEC-4 §5, this proposal |
-| R9 | Maintained views: persisted views, found by the entities they depend on | SPEC-4 §4, SPEC-17 §6 |
+| R7 | Erasure: physical removal with a proof per storage surface, or an honest `unproven`, declared before data is written | SPEC-6 vNext §1, §2; §4.7.2 |
+| R8 | Change: a revision, and the changes between two revisions in O(changes) | SPEC-4 §5 |
+| R9 | Maintained views and derived indexes, found by what they depend on | SPEC-4 §4, SPEC-17 §6 |
 | R10 | Federation: set reconciliation without a whole-set scan | SPEC-6, step 7 |
 | R11 | Platforms: server, browser, embedded, object storage, memory | portability (README) |
+
+**Surface.** Every read runs inside one peer, under one authorization. Its **surface** is the
+deltas that peer holds and this reader may see. A peer may be a whole host or a pool many levels
+down; each has its own surface. "Full-surface" below means the reader's surface, never the
+physical store.
 
 ## 3. Design rules
 
 1. **The contract is logical; the layout is free.** As in SPEC-8, the content address is the
-   contract. Two stores that answer every operation with the same ids are equivalent,
-   whatever their tables, keys or files.
+   contract. Two stores that answer every operation with the same ids are equivalent, whatever
+   their tables, keys or files.
 2. **A small required core, plus declared capabilities.** Every store implements the core
-   (§4.1–§4.6). Other operations are capabilities (§4.7). A store declares its capabilities in
-   a profile. A host checks the profile at open and refuses to start when a capability it needs
-   is absent. It never falls back to a scan.
-3. **Whole-store operations live on a separate object.** Listing every id, exporting, repacking
-   and backup are on an `Exporter` that `openAdmin()` returns. The serving path never receives
-   one. A P7 violation then needs a visible type change, not a stray loop.
+   (§4.1–§4.6). Other operations are capabilities (§4.7). A store declares its capabilities in a
+   profile (§4.8). A host checks the profile and refuses to start when a capability it needs is
+   absent. It never falls back to a scan.
+3. **Whole-store operations live on a separate object.** Listing every id, exporting, repacking,
+   backup and `fsck` are on an `Exporter` that `openAdmin()` returns. The serving path never
+   receives one, except for a declared full-surface read (§6.6).
 4. **The boundary is batch-shaped and asynchronous; evaluation stays synchronous.** A read
-   fetches its whole scope in one call per discovery round, then evaluates in memory. The scope
-   is footprint-bounded, so holding it in memory is allowed. This keeps the evaluator
-   synchronous and lets a store answer a scope in one SQL statement or one network request.
+   fetches its scope one round at a time and evaluates in memory between rounds (§4.4). The
+   scope is footprint-bounded, so holding it in memory is allowed. The Rust witness uses
+   synchronous store traits; the batch shape fits both.
 5. **Composition follows from union.** The delta set is a grow-only set, so the union of two
-   stores is a store. Tiers, caches, replicas and multi-peer views are compositions (§5.6), not
-   special cases.
+   stores is a store. Tiers, caches, replicas, delegated indexes and multi-peer views are
+   compositions (§5.6), not special cases.
 
 ## 4. The interface
 
-The shapes below are written in TypeScript. The Rust witness mirrors them as traits in its own
-idiom. Operation results are sets of delta ids unless stated. "Exact" means the conformance
+The shapes below are written in TypeScript. The Rust witness mirrors them as synchronous traits
+in its own idiom. Results are sets of delta ids unless stated. "Exact" means the conformance
 vectors compare the result byte for byte with the memory reference store (§5.1).
 
 ### 4.1 Open and peers
@@ -78,9 +82,10 @@ vectors compare the result byte for byte with the memory reference store (§5.1)
 interface Store {
   readonly profile: StoreProfile;          // §4.8
   peer(id: PeerId): PeerStore;             // one peer's logical store
-  openAdmin(): Exporter;                   // whole-store operations, §4.7
+  openAdmin(): Exporter;                   // whole-store operations, §4.7.6
   close(): Promise<void>;
 }
+function openStore(url: string, options?: OpenOptions): Promise<Store>;   // §4.10
 ```
 
 A store holds the bytes of every delta once. Each peer has its own membership, indexes,
@@ -93,15 +98,15 @@ O(holdings).
 ```ts
 interface PeerStore {
   read(): Promise<Snapshot>;               // a consistent, repeatable view at one revision
-  append(batch: Admission): Promise<AppendResult>;   // §4.5
-  changes(from: Revision, to?: Revision): Promise<ChangePage>;  // §4.6
+  append(batch: Admission): Promise<AppendResult>;               // §4.5
+  changes(from: Revision, to?: Revision): Promise<ChangePage>;   // §4.6
 }
 interface Snapshot {
   readonly revision: Revision;
   get(ids: readonly Id[]): Promise<readonly Delta[]>;            // exact, held ids only
   targets(entities: readonly Entity[]): Promise<readonly Id[]>;  // exact, union over entities
   negators(ids: readonly Id[]): Promise<readonly Id[]>;          // exact, direct negators only
-  scope(entities: readonly Entity[], selection?: Pushdown): Promise<ScopeResult>;  // §4.3
+  scope(request: ScopeRequest): Promise<ScopeResult>;            // §4.3
   release(): void;
 }
 ```
@@ -109,31 +114,36 @@ interface Snapshot {
 - A revision is a peer-local value that increases with each committed append or purge. Two
   snapshots at the same revision answer every operation identically.
 - Every operation on one snapshot sees the same revision. An implementation without native
-  read transactions can meet this with a revision check after each batch, retrying the batch
-  or failing with `snapshot-moved`.
-- A synchronous implementation MAY also expose the SPEC-17 `DeltaSource` directly. The batch
-  form above is the portable one.
+  read transactions meets this with a revision check after each batch, failing with
+  `snapshot-moved`.
+- A synchronous implementation MAY also expose the SPEC-17 `DeltaSource` directly.
 
 **Cost.** `get`, `targets` and `negators` cost O(k × log N + result), where k is the number of
 keys asked. No core operation may cost O(N).
 
 ### 4.3 The scope query
 
-`scope(E, p)` returns the deltas a read over E needs, in one call.
+```ts
+type ScopeRequest = {
+  anchors: readonly Anchor[];   // §4.7.1: entities, value lookups, derived indexes
+  pushdown?: Pushdown;
+  exclude?: readonly Id[];      // ids the read already holds (§4.4)
+};
+```
 
 - Let H be the peer's held set, and Hp the members of H that pass the pushdown selection p.
-- The result R MUST satisfy `S(E over Hp) ⊆ R ⊆ S(E over H)`, where S is SPEC-17 §4.
-- The result also returns the delta bytes for R, so the host needs no second round trip.
+- Let S(A over D) be SPEC-17's scope generalized to anchors: every delta in D an anchor yields,
+  closed under negators in D.
+- The result R MUST satisfy `S(A over Hp) \ exclude ⊆ R ⊆ S(A over H)`. It carries the delta
+  bytes for R, so the host needs no second round trip.
 
-**Trim lemma.** S is monotone in the delta set: if D′ ⊆ D then `S(E over D′) ⊆ S(E over D)`.
-So a host with a residual selection `a` (anything it did not push down) computes the exact
-scope as `S(E over R ∩ a)`, in memory, from R alone. Every negation chain it needs is already
-in R. The conformance vectors pin this: the trimmed result equals the memory reference's
-`S(E over Hp ∩ a)` for every case.
+**Trim lemma.** S is monotone in the delta set: if D′ ⊆ D then `S(A over D′) ⊆ S(A over D)`.
+So a host with a residual selection `a` (anything it did not push down) computes the exact scope
+as `S(A over R ∩ a)` in memory, from R and what it already holds. Every negation chain it needs
+is already there. Conformance vectors pin this against the memory reference.
 
-A store MAY return more than `S(E over Hp)` (for example, closure computed before the pushdown
-filter). It MUST NOT return less, and it MUST NOT return ids outside `S(E over H)`. That upper
-bound keeps the cost footprint-bounded.
+A store MAY return more than `S(A over Hp)`. It MUST NOT return less, and it MUST NOT return ids
+outside `S(A over H)`. That upper bound keeps the cost footprint-bounded.
 
 **Pushdown.** A selection the store can apply itself:
 
@@ -141,19 +151,37 @@ bound keeps the cost footprint-bounded.
 type Pushdown = {
   timestampAtMost?: number;     // signed creation time ≤ t (as-of on signed time)
   arrivalAtMost?: ArrivalSeq;   // arrived at or before this sequence (as-of on arrival)
-  exclude?: readonly Id[];      // a small explicit set, e.g. a read closure
+  excludeIds?: readonly Id[];   // a small explicit set, e.g. a read closure
 };
 ```
 
 A store that cannot apply a field ignores it and reports so in `ScopeResult.applied`. The host
-applies the rest as a residual selection (trim lemma). Pushdown is an optimization, never a
-correctness dependency.
+applies the rest as a residual selection. Pushdown is an optimization, never a correctness
+dependency.
 
-### 4.4 Validity is not indexed
+### 4.4 A read: rounds and in-read caches
 
-Signed time and the validity interval are fields of each delta. Evaluation at an explicit `now`
-applies them per delta, inside the scope. A store does not index them. The exception is the
-expiry of a maintained view (§4.7.4), which the view records itself.
+A read evaluates in rounds (SPEC-17 §6). All rounds of one read run on **one snapshot**, so
+nothing a read caches can go stale during the read.
+
+1. **Fetch.** One `scope` call for the anchors not yet fetched, with `exclude` set to the ids
+   already held. The fetched set only grows.
+2. **Evaluate** synchronously over the fetched set. Expansion that reaches an entity not yet
+   fetched adds it to the next round's anchors.
+3. Stop when a round adds no anchor. Rounds are at most the expansion depth plus one.
+
+**Evaluation memo.** Each child evaluation is memoized by (program, schema, root). A child is
+**final** once every anchor of its whole subtree has been fetched: by the SPEC-17 closure lemma,
+its result over the fetched set equals its result over the surface. Only final children enter
+the memo. A later round re-assembles the top level and evaluates the children it has not
+finished.
+
+**Across reads,** cached results are keyed by revision and invalidated through the change feed
+(§4.6). This is the stored-view mechanism (§4.7.4); it needs nothing new.
+
+**Later, optional:** an *expansion pushdown* capability lets a store follow `expand` roles
+itself, so a SQL store can answer a two-level read in one round. It is added only if a benchmark
+shows the need.
 
 ### 4.5 Write
 
@@ -161,21 +189,23 @@ expiry of a maintained view (§4.7.4), which the view records itself.
 type Admission = {
   expectedHead: Head | null;        // journal compare-and-set, SPEC-6 vNext §2
   nextHead: Head;
-  frame: Uint8Array | null;         // the canonical journal frame
+  frame: Uint8Array | null;         // the canonical journal frame (§4.7.3)
   added: readonly VerifiedDelta[];  // admitted ids with their arrival records
   erased?: readonly Id[];           // effective erasure targets (§4.7.2)
 };
 ```
 
-- An append is atomic per peer. The new head, frame, membership, all four indexes, arrivals and
-  one change record become visible together, or none of them do.
+- An append is atomic per peer. The new head, frame, membership, indexes (including every active
+  derived index, §4.7.5), arrivals, holdings digest and one change record become visible
+  together, or none of them do.
 - It is idempotent by id: an id the peer already holds adds nothing.
 - One writer per peer. A head mismatch returns `conflict`. An uncertain commit returns
   `uncertain`. The caller reopens and replans (SPEC-6 vNext §2).
 - The store receives deltas that admission has already verified. It stores canonical bytes and
   never re-signs or repairs them.
 
-**Cost.** O(Σ|delta| × log N) for the batch. Nothing in an append may read the whole set.
+**Cost.** O(Σ|delta| × log N + active derived indexes) for the batch. Nothing in an append may
+read the whole set.
 
 ### 4.6 Change feed
 
@@ -184,28 +214,46 @@ type Admission = {
 
 - Its cost is O(changes returned), never O(store).
 - A store MAY drop records older than its retention window. A request older than the window
-  returns `resync-required`. The caller then rebuilds only the views it holds (§6), not the
-  store.
-- The feed replaces three things: the reactor's in-memory dispatch log, `deltasSince(knownIds)`
-  catch-up, and Loam's `data_version` detection of other writers. A reader in another process
-  follows the feed and sees the other writer's commits.
+  returns `resync-required`. The caller then rebuilds only what it holds (views, derived
+  indexes), not the store.
+- The feed replaces the reactor's in-memory dispatch log, `deltasSince(knownIds)` catch-up and
+  Loam's `data_version` detection of other writers. A reader in another process follows the feed.
 
-**Freshness check.** A portable read captured at revision r is still current at revision r′
-when no change in `changes(r, r′)` touches its scope: no added delta points at an entity in E
-or negates a member, and no removed id is a member. This costs O(changes since capture), not
-O(scope) and not O(store). It replaces SPEC-16's recompute-the-whole-scope check.
+**Freshness check.** A capture at revision r is current at r′ when no change in `changes(r, r′)`
+touches its scope: no added delta is yielded by one of its anchors or negates a member, and no
+removed id is a member. This costs O(changes since capture). It replaces SPEC-16's recompute-the-
+whole-scope check.
 
 ### 4.7 Capabilities
 
-#### 4.7.1 Values
+#### 4.7.1 Anchors and the value index
+
+An **anchor** is anything the store can turn into delta ids from an index. There are three kinds:
+
+| Anchor | Index | Example |
+|---|---|---|
+| Entity | target index | the root, a constant, an expanded child |
+| Value lookup | value index on (role, primitive) | `releaseYear between 1990 and 1999` |
+| Derived index | a registered hyperschema's selection (§4.7.5) | "authors in any group" |
+
+`anchorAnalysis` (SPEC-17 §5) is extended to accept all three. A selection whose only unindexed
+part is a value comparison on an indexed role becomes anchored.
 
 ```ts
 values(role: string, range: ValRange, page: PageToken): Promise<ValuePage>;
 ```
 
-Ordered by the SPEC-5 §4 canonical type order, then id. O(log N + page). This makes a value
-range an anchor, like an entity: a read selected by `releaseYear between 1990–1999` costs
-its result, not the store. (This is an extension of SPEC-17 §5, listed as open question 6.)
+Ordered by the SPEC-5 §4 canonical type order, then id. O(log N + page).
+
+**Lazy value indexes.** A store keeps a value index for a role only while some active
+hyperschema uses a value comparison on that role (the SPEC-4 §3 rule). The profile lists the
+indexed roles. A value comparison on an unindexed role is not an anchor.
+
+**`aliased` is anchored.** An `aliased` matcher (SPEC-9 §4) resolves in two indexed hops: a value
+lookup on the role `rhizomatic.alias.fragment` finds the mappings for the name and their slots,
+then `targets(slot)` finds every mapping to those slots. `via` adds entity lookups at the concept;
+`trust` is a per-delta selection. The fragment role's value index is active whenever an active
+hyperschema uses `aliased`.
 
 #### 4.7.2 Erasure
 
@@ -215,113 +263,188 @@ purge(ids: readonly Id[]): Promise<PurgeReport>;
 
 - Removes the target bytes from this peer. Bytes another peer still holds stay. The report says
   `held-by-other-peer` for those, without naming the other peer.
-- Removes the target's index entries and arrival rows for this peer, and writes one change
-  record (`removed`).
+- Removes the target's index entries, derived-index entries and arrival rows for this peer,
+  updates the holdings digest, and writes one change record (`removed`).
 - `PurgeReport` lists each declared storage surface (rows, index entries, journal frames,
   checkpoints, freed pages, write-ahead logs, segment files, caches) with `absent`, `owed` or
   `unprovable`.
-- The profile declares the erasure class:
-  - **`proven`**: every surface can prove absence (for example SQLite with `secure_delete` and a
-    truncated WAL, or a file per delta).
-  - **`unprovable`**: some surface cannot prove absence (for example IndexedDB, an LSM tree
-    before compaction, or a versioned object bucket). The store still deletes, but the host MUST
-    report `unproven` for every erasure. It fails closed (SPEC-6 vNext §1).
+
+**Erasure class.** The profile declares one:
+
+- **`proven`**: every surface can prove absence.
+- **`unprovable`**: some surface cannot. The store still removes the delta from every index and
+  attempts physical removal, but every erasure report says `unproven`. Reports fail closed.
+
+**Declared before data is written.** A peer declares its erasure posture when it is created.
+
+- A peer that promises proven erasure **refuses to be created or opened** on a store whose class
+  is not `proven`.
+- A peer with a weaker posture records, at creation, that its store is `unprovable`. Its operator
+  acknowledges this before the first write, not at the first erasure.
+- Step 7 adds the peer's erasure class to its published peer description, so a sender can refuse
+  to share data with a peer that cannot erase it.
+
+**The boundary of "absent".** Absence covers the files and objects the store controls. It does not
+cover filesystem or SSD remanence after a file is unlinked, or backups made outside the store.
+Every erasure report states this boundary.
+
+**Later extensions, not in scope now:**
+
+- `attested`: an operator signs a declaration of out-of-band conditions (no WAL archive, no
+  replicas). Reports would say "attested by X", never "proven".
+- Erasure by key destruction: payloads encrypted at rest, keys held in a provable key store.
+  Known open problem: indexes repeat payload (values, entity ids), and their remnants in an
+  unprovable engine still leak unless index keys are protected, which breaks range queries.
 
 #### 4.7.3 Journal
 
-The SPEC-6 vNext durable journal (`DurableOrdinaryJournalStore`) is this capability, with one
-change: **open reads the checkpoint and the frames after it, not the whole chain.** The checkpoint
-cadence is bounded, so the tail is bounded.
+The SPEC-6 vNext durable journal (`DurableOrdinaryJournalStore`) is this capability, changed as
+follows (decided 2026-11-09; greenfield, no migration):
 
-This needs a change in SPEC-6 vNext. Today the checkpoint image (`encodeDurablePeerState`) carries
-the whole admitted delta set and every arrival record. That makes the checkpoint itself O(store). Under this proposal
-the journal image keeps only the head, refusals, purge obligations and counters. Holdings and
-arrivals live in the store's indexed tables, written in the same atomic append (§4.5). See open
-question 4.
+- **The journal stays small.** It keeps the head chain, refusals, purge obligations and counters.
+  Today the checkpoint image (`encodeDurablePeerState`) carries the whole admitted delta set and
+  every arrival record; that ends.
+- **Holdings and arrivals live in the store's indexed tables,** written in the same atomic append
+  as the frame.
+- **Each frame commits a Merkle root over the peer's holdings,** maintained incrementally at
+  O(log N) per change (the digest capability, §4.7.6). The head chain therefore still commits to
+  the exact admitted set.
+- **Open reads the head, the checkpoint and the frames after it.** Its cost is the tail.
+- **Verification moves from boot to use.** A missing or altered row is found when a read touches
+  it (the read fails visibly; nothing is served silently) or by `fsck`, an explicit whole-surface
+  admin operation on the `Exporter`. A read MAY verify a row's Merkle proof in O(log N). A
+  read-only background scrub is a later option; it writes nothing on a quiet cycle.
+- **A format-version marker** in the store replaces any boot-time scan for old record formats.
+  Open checks it in O(1) and refuses an older format.
 
-#### 4.7.4 Views
+#### 4.7.4 Stored views
 
 ```ts
 interface ViewStore {
   get(key: ViewKey): Promise<StoredView | undefined>;
   put(key: ViewKey, view: StoredView): Promise<void>;
-  affected(entities: readonly Entity[], ids: readonly Id[]): Promise<readonly ViewKey[]>;
+  affected(anchors: readonly Anchor[], ids: readonly Id[]): Promise<readonly ViewKey[]>;
   drop(key: ViewKey): Promise<void>;
 }
 type StoredView = {
   hview: Uint8Array;           // canonical HView bytes
-  scope: readonly Entity[];    // E* of the read that produced it (SPEC-17 §6)
-  members: Digest;             // S(E*) membership digest
+  anchors: readonly Anchor[];  // the read's final anchor set
+  members: Digest;             // scope membership digest
   revision: Revision;          // the snapshot it was evaluated at
   expiresAt?: number;          // next validFrom/validUntil boundary inside the scope
 };
 ```
 
-`ViewKey` is (term hash, root, pin set, reading hash). `affected` answers "which stored views
-include one of these entities in their scope", through a durable scope index. This is the
-SPEC-4 §4.1 dispatch structure, held on disk. Cost O(k × log N + result).
+`ViewKey` is (term hash, root, pin set, schema hash). `affected` answers "which stored views
+depend on one of these anchors", through a durable anchor index. This is the SPEC-4 §4.1 dispatch
+structure, held on disk. Cost O(k × log N + result).
 
-#### 4.7.5 Digest
+#### 4.7.5 Derived indexes
+
+**A hyperschema is an index plus meaning.** When a registered hyperschema's selection is not
+covered by entity or value anchors, the store keeps a **derived index** for that selection.
+
+- **Created at registration.** Registration runs one full-surface backfill and reports its cost
+  and the new index in the registration response. Registering is the opt-in; there is no
+  separate "promote" step.
+- **Maintained per write.** Each append checks every active derived index's predicate against
+  each new delta. Predicates see one delta at a time (SPEC-2 §3), so this is O(1) per write per
+  index, independent of the surface. Negations and purges update membership the same way.
+- **Shared.** Two hyperschemas with the same selection share one index, keyed by the canonical
+  selection hash and the surface. It is reference-counted by the active hyperschemas that use it.
+- **Lifecycle.**
+
+  | State | When | Cost per write | Cost to use |
+  |---|---|---|---|
+  | Active | any active hyperschema uses it | one predicate check | footprint-bounded |
+  | Dormant | no active user; kept for a while | none | catch up from the change feed, O(changes since) |
+  | Dropped | dormant too long, or under budget pressure | none | a full-surface backfill |
+
+  An index that drives an active hyperschema never goes dormant. Last-used time is local store
+  metadata, never a signed delta.
+- **A cache, not a rule.** A derived index is unsigned, local to its surface, rebuildable and
+  never federated as data. The registered hyperschema is the signed rule; the index is its cost.
+- **Delegation.** A peer MAY delegate a derived index to another peer, which serves the index read
+  for one or many peers and grows on its own (a union composition, §5.6). Open details before it
+  is built: authorization (an index peer must never return one peer's deltas to another peer's
+  reader); completeness (returned deltas are checkable by id and signature, omissions are not, so
+  a delegate is trusted by configuration until completeness proofs exist; the holdings digest is
+  the starting point); freshness (the read's revision is a pair).
+
+#### 4.7.6 Digest and export
 
 ```ts
 digest(prefix: IdPrefix): Promise<{ count: number; hash: Uint8Array }>;
 ```
 
-A hash over the sorted held ids that share an id prefix, maintained incrementally (a Merkle
-tree over id prefixes). Two peers reconcile by comparing digests top-down, in
-O(differences × log N). This is for step 7 (federation). It is not needed before then.
-
-#### 4.7.6 Export
+A hash over the sorted held ids that share an id prefix, maintained incrementally (a Merkle tree
+over id prefixes). The journal commits its root (§4.7.3). Two peers reconcile by comparing digests
+top-down in O(differences × log N); that use is for step 7.
 
 ```ts
 interface Exporter {
   ids(): AsyncIterable<Id>;
   deltas(): AsyncIterable<Delta>;
+  fsck(): Promise<FsckReport>;
   repack?(): Promise<void>;
 }
 ```
 
-O(N) by definition. Only admin, backup, repack and unanchored-term paths may use it (§6.5).
+O(surface) by definition. Only admin, backup, `fsck`, repack, derived-index backfill and declared
+full-surface reads (§6.6) use it.
 
 ### 4.8 Profile
 
 ```ts
 type StoreProfile = {
   capabilities: { values: boolean; arrival: boolean; journal: boolean; views: boolean;
-                  digest: boolean; erasure: "proven" | "unprovable" | "none" };
-  pushdown: { timestampAtMost: boolean; arrivalAtMost: boolean; exclude: boolean };
+                  derivedIndexes: boolean; digest: boolean;
+                  erasure: "proven" | "unprovable" | "none" };
+  indexedValueRoles: readonly string[];
+  pushdown: { timestampAtMost: boolean; arrivalAtMost: boolean; excludeIds: boolean };
   writers: "one-process" | "many-processes";   // who may append concurrently, per peer
   atRest: "trusted" | "untrusted";             // §4.9
   changeRetention: "unbounded" | { revisions: number };
+  formatVersion: string;                       // §4.7.3
 };
 ```
 
-A host names the capabilities it requires. Open fails with a message that names each missing
-one. A store never claims a capability it implements by scanning.
+A host names the capabilities it requires. Open fails with a message that names each missing one.
+A store never claims a capability it implements by scanning.
 
 ### 4.9 Trust at rest
 
-- **`trusted`**: the bytes on this store are only written by admission in this host. Reads
-  check the content id, which is cheap. They do not re-verify signatures.
-- **`untrusted`**: other parties can write the medium (a shared bucket, a remote replica).
-  Reads verify the content id and the signature. A verified (id, signature) pair is cached, as
+- **`trusted`**: only admission in this host writes the medium. Reads check the content id.
+  They do not re-verify signatures.
+- **`untrusted`**: other parties can write the medium (a shared bucket, a remote store). Reads
+  verify the content id and the signature. A verified (id, signature) pair is cached, as
   `verifyDelta` already does.
+
+### 4.10 Opening a store
+
+- `openStore(url)` selects an implementation by URL scheme: `memory:`, `sqlite:///path/file.db`,
+  `opfs:name`, `postgres://…`, and so on as implementations land. It returns the store with its
+  profile.
+- `registerStoreScheme(scheme, factory)` adds a consumer's own implementation.
+- `runStoreConformance(factory)` runs the shared store vectors (§8) against any implementation, so
+  a consumer's own store is tested exactly as the built-in ones are.
+- A connection string can carry credentials. The opener never logs or echoes it, and errors name
+  the scheme only.
 
 ## 5. Architectures
 
 Each architecture implements the same interface. They differ in layout, capabilities and cost
-constants. The comparison table is at the end of this section.
+constants.
 
 ### 5.1 Memory (reference)
 
 Maps and sorted arrays: `id → delta`, `entity → ids`, `negated → ids`, `(role, value) → ids`,
-`peer → holdings and arrivals`, and a change array.
+derived-index sets, `peer → holdings and arrivals`, and a change array.
 
 - **Use:** conformance vectors, tests, the browser playground, short-lived processes.
-- **Profile:** every capability except `erasure: proven` (process memory cannot prove absence;
-  it declares `unprovable`). `writers: one-process`. `atRest: trusted`.
+- **Profile:** every capability; erasure `unprovable` (process memory cannot prove absence);
+  `writers: one-process`; `atRest: trusted`.
 - **Role:** the reference. Every other store must give the same ids for the same operations.
-- **Limit:** RAM. This is today's model, kept as one choice instead of the only one.
 
 ### 5.2 Relational (SQLite, Postgres)
 
@@ -330,28 +453,29 @@ delta   (rowid INTEGER PRIMARY KEY, id BLOB UNIQUE, bytes BLOB, refs INTEGER)  -
 pointer (peer, delta, role, entity, context, ref, num, str, bool)              -- one row per pointer
         INDEX (peer, entity, delta)                   -- targets
         INDEX (peer, ref, delta) WHERE role='negates' -- negators
-        INDEX (peer, role, num, delta), (peer, role, str, delta)  -- values
+        INDEX (peer, role, num, delta), (peer, role, str, delta)  -- values, lazily per role
 holding (peer, delta, seq, transfer, arrived_at, sender)  PRIMARY KEY (peer, delta)
         INDEX (peer, seq)                             -- as-of on arrival
+digest  (peer, prefix, count, hash)                   -- holdings Merkle tree
+derived (peer, index_key, delta)  INDEX (peer, index_key, delta)
 change  (peer, revision, added BLOB, removed BLOB)    PRIMARY KEY (peer, revision)
 view    (peer, key, hview, members, revision, expires_at)
-view_scope (peer, entity, key)  INDEX (peer, entity)  -- ViewStore.affected
-journal tables as today (head, frames, checkpoint, debts)
+view_anchor (peer, anchor, key)  INDEX (peer, anchor)  -- ViewStore.affected
+meta    (key, value)                                   -- format version
+journal tables (head, frames, small checkpoint, debts)
 ```
 
-- **Scope in one statement.** A recursive common table expression computes S(E): the first
-  term selects pointer rows at E, and the recursive term follows `negates` rows. Pushdown is a
-  `JOIN holding … WHERE seq <= ?`.
-- **Atomic append** is one transaction. A head mismatch is detected inside it.
-- **Per-peer index rows:** the `peer` column leads every index, so one peer's reads never pay for
-  another peer's rows. Bytes stay shared and reference-counted.
-- **Erasure:** SQLite with `secure_delete = ON` and a truncated WAL proves absence for rows and
-  pages (Loam already does this). Postgres cannot prove that freed pages are gone without
-  `VACUUM FULL` and no replicas, so it declares `unprovable` unless the operator configures and
-  attests otherwise.
-- **Use:** servers and CLIs. SQLite also runs in browsers through WASM with OPFS persistence.
-- **`writers`:** SQLite `many-processes` (WAL, one writer at a time; the change feed shows other
-  writers). Postgres `many-processes`.
+- **Scope in one statement:** a recursive common table expression selects pointer rows at the
+  anchors, then follows `negates` rows. Pushdown is a `JOIN holding … WHERE seq <= ?`.
+- **Atomic append** is one transaction; a head mismatch is detected inside it.
+- **Per-peer index rows:** `peer` leads every index, so one peer's reads never pay for another
+  peer's rows. A container that is a fence inside a peer, not its own peer, scans that peer's
+  indexes and filters; its cost is the peer's, not the container's.
+- **Erasure:** SQLite with `secure_delete = ON` and a truncated WAL is `proven` (Loam does this
+  today). Postgres keeps dead rows until `VACUUM`, and even `VACUUM FULL` leaves WAL archives,
+  replicas and backups, so it is `unprovable`.
+- **Use:** servers and CLIs. SQLite also runs in browsers as WebAssembly over OPFS, where
+  `secure_delete` works the same way; that is the browser path to `proven`.
 
 ### 5.3 Ordered key-value (IndexedDB, LMDB, RocksDB, FoundationDB)
 
@@ -364,25 +488,24 @@ H/<peer>/<id>                   → arrival record
 A/<peer>/<seq>                  → id                        (as-of on arrival)
 T/<peer>/<entity>/<id>          → ∅                         (targets)
 N/<peer>/<negated>/<id>         → ∅                         (negators)
-V/<peer>/<role>/<ordered value>/<id> → ∅                    (values)
+V/<peer>/<role>/<ordered value>/<id> → ∅                    (values, lazily per role)
+X/<peer>/<index key>/<id>       → ∅                         (derived indexes)
+D/<peer>/<prefix>               → digest node
 C/<peer>/<revision>             → change record
-W/<peer>/<view key>             → stored view;  S/<peer>/<entity>/<view key> → ∅
+W/<peer>/<view key>             → stored view;  S/<peer>/<anchor>/<view key> → ∅
 J/<peer>/…                      → journal
 ```
 
 - Values use an order-preserving byte encoding: a type tag in SPEC-5 §4 order, then sortable
-  number bytes or UTF-8 bytes. Entity and id components are length-prefixed so that prefixes
-  cannot collide.
-- **Scope** runs iteratively: one batch of `T/` scans, then rounds of `N/` scans until the
-  closure stops growing. It takes one read transaction and depth+1 rounds.
-- **Use:** browsers (IndexedDB), embedded and edge hosts (LMDB), large single-node servers
-  (RocksDB), distributed stores (FoundationDB).
-- **Trap:** an IndexedDB transaction commits as soon as the code awaits anything that is not an
-  IndexedDB request. A snapshot must issue all of one round's requests before it awaits. The
-  adapter enforces this with its batch shape (design rule 4).
-- **Erasure:** an LSM tree (RocksDB) keeps deleted values in old files until compaction. It can
-  prove absence after a targeted compaction of the key range, so it declares `proven` only when
-  it runs that compaction inside `purge`. IndexedDB declares `unprovable`.
+  number bytes or UTF-8 bytes. Components are length-prefixed so prefixes cannot collide.
+- **Scope** runs iteratively in one read transaction: anchor scans, then `N/` rounds until the
+  closure stops growing.
+- **Trap:** an IndexedDB transaction commits as soon as code awaits anything that is not an
+  IndexedDB request. The adapter issues all of a round's requests before it awaits.
+- **Erasure:** LMDB keeps old bytes in freed pages until reuse; it is `proven` only after a
+  compacting copy replaces the file inside `purge`. RocksDB keeps deleted values in old files
+  until compaction; it is `proven` only with a forced compaction of the key range inside `purge`.
+  IndexedDB is `unprovable`: the browser owns the engine underneath.
 
 ### 5.4 Immutable segments (packs plus a sidecar index)
 
@@ -391,45 +514,41 @@ an id table, `entity → ids`, `negated → ids`, `(role, value) → ids`, and a
 class. A small **manifest** lists the live segments at each revision.
 
 - **Writes** go to a mutable head tier, which is another store (§5.6 overlay). A compactor seals
-  the head into a segment and merges segments by size tiers, as in an LSM tree. The segment
-  count stays O(log N), so a lookup costs O(log² N).
+  the head into a segment and merges segments by size tiers. The segment count stays O(log N), so
+  a lookup costs O(log² N).
 - **Reads** need only range requests. A segment set on object storage or a CDN is a read-only
-  peer that anyone can query with anchored reads. That is the read side of federation as query
-  (NOTE-11).
+  peer that anyone can query with anchored reads (the read side of NOTE-11).
 - **Erasure** rewrites each segment that holds a target, then deletes the old object. A size cap
-  per segment bounds the cost. Absence is `proven` only on a bucket with no versioning and no
-  retention lock. Otherwise it is `unprovable`.
-- **Use:** archives, cold tiers, published read replicas, backups that stay queryable.
+  per segment bounds the cost. `proven` only on a bucket with no versioning and no retention lock.
 - **`atRest`:** `untrusted` when the bucket is shared.
 
 ### 5.5 Remote
 
 A store whose operations are requests to another host, which runs any store. `scope` is one
-request. The profile is the server's profile, minus whatever the protocol does not carry.
-`atRest` is `untrusted`. This is the transport for read replicas and for step 7's federation
-reads. It is defined here only as an interface consumer; its wire format belongs to step 7.
+request. The profile is the server's, minus whatever the protocol does not carry. `atRest` is
+`untrusted`. Its wire format belongs to step 7.
 
 ### 5.6 Compositions
 
 The set is a grow-only union, so compositions are sound by construction:
 
-- **Union** of stores A and B: `targets`, `negators` and `scope` return the union of results.
-  The revision is the pair of revisions. This is used for tiers and multi-source reads.
+- **Union** of stores A and B: anchor lookups and `scope` return the union of results. The
+  revision is the pair of revisions. Used for tiers, multi-source reads and delegated indexes.
 - **Overlay** (hot over cold): reads are a union. Writes go to hot. A mover seals settled data
   into cold. A purge MUST reach both, and the report combines both surfaces.
-- **Cache** over any store: memory entries keyed by revision, invalidated by the change feed. It
-  is bounded by size, never by the store.
+- **Cache** over any store: memory entries keyed by revision, invalidated by the change feed,
+  bounded by size.
 
 ### 5.7 Comparison
 
 | | Memory | Relational | Ordered KV | Segments | Remote |
 |---|---|---|---|---|---|
-| Platforms | any | server, CLI, WASM | browser, embedded, edge, server | object storage, CDN | any client |
-| Scope round trips | 0 | 1 (recursive CTE) | depth + 1 | depth + 1 | 1 |
+| Platforms | any | server, CLI, WASM + OPFS | browser, embedded, edge, server | object storage, CDN | any client |
+| Scope round trips per round | 0 | 1 (recursive CTE) | closure depth + 1 | closure depth + 1 | 1 |
 | Read cost | O(result) | O(log N + result) | O(log N + result) | O(log² N + result) | server's + network |
 | Append | O(batch) | O(batch log N) | O(batch log N) | head tier + compaction | not offered |
 | Change feed | yes | yes | yes | manifest log | yes |
-| Erasure class | unprovable | SQLite proven; Postgres unprovable by default | LMDB proven; RocksDB proven with compaction; IndexedDB unprovable | proven on unversioned buckets | server's |
+| Erasure class | unprovable | SQLite proven; Postgres unprovable | LMDB, RocksDB proven with compaction in `purge`; IndexedDB unprovable | proven on unversioned buckets | server's |
 | Writers | one process | many processes | engine-specific | one compactor | none |
 | At rest | trusted | trusted | trusted | trusted or untrusted | untrusted |
 
@@ -438,160 +557,116 @@ The set is a grow-only union, so compositions are sound by construction:
 The reactor stops holding the delta set. It holds a store, the registered terms, and a bounded
 cache.
 
-1. **Open.** Open the store and check its profile. Load registered terms by hash when a read or
-   dispatch first needs them. No replay.
-2. **Read** (SPEC-17 §6). Each discovery round makes one `scope(E_i, pushdown)` call on one
-   snapshot, trims with the residual selection, and evaluates synchronously in memory. A read
-   holds at most its own scope in memory.
-3. **Ingest.** Admission validates and verifies. Then `append` commits atomically. Then dispatch
-   reads the new change record. For each added delta it calls `ViewStore.affected` with the
-   delta's target entities. For a negation of x, it uses x's target entities, from `get(x)`.
-   Each affected view is evaluated again over its scope, or marked stale and evaluated on its
-   next read.
-4. **Views.** A maintained view is a stored, anchored read. It is current when its revision is
-   current for its scope (§4.6) and `now` is before `expiresAt`. Incremental equivalence
+1. **Open.** Open the store and check its profile and format version. Load registered terms by
+   hash when a read or dispatch first needs them. No replay.
+2. **Read.** Rounds with both in-read caches (§4.4). A read holds at most its own scope in memory.
+3. **Ingest.** Admission validates and verifies. `append` commits atomically, maintaining derived
+   indexes. Dispatch reads the new change record: for each added delta it calls
+   `ViewStore.affected` with the anchors the delta touches (its target entities, its indexed
+   values, the derived indexes it entered). For a negation of x, it uses x's anchors, from
+   `get(x)`. Each affected view is evaluated again over its scope, or marked stale and evaluated
+   on its next read.
+4. **Views.** A maintained view is a stored, anchored read. It is current when no change since its
+   revision touches its anchors (§4.6) and `now` is before `expiresAt`. Incremental equivalence
    (SPEC-4 §1) still holds: a view evaluated again over its scope equals a batch evaluation over
-   the full set (SPEC-17 §6 theorem).
-5. **Subscriptions.** A subscription to a view is told when dispatch touches that view. A
-   subscription to the raw stream reads the change feed from its last revision. A reconnecting
-   subscriber resumes from a revision. When that revision is past retention, it receives
-   `resync-required` and re-reads its views.
-6. **Unanchored terms.** An unanchored term needs the whole set. A host evaluates it through the
-   `Exporter` and dispatches it on every change. This mode is an explicit P7 exception. It is
-   never silent: the host declares each such term at registration, and it may refuse them
-   (open question 5).
+   the surface (SPEC-17 §6 theorem). A very large view is evaluated again whole when it changes;
+   finer maintenance is an optimization, not a contract change.
+5. **Subscriptions.** A view subscription is told when dispatch touches that view. A raw-stream
+   subscription reads the change feed from its last revision. A reconnecting subscriber resumes
+   from a revision; past retention it receives `resync-required` and re-reads its views.
+6. **Full-surface reads.** A read with a part that no anchor covers is a full-surface read.
+   - A **registered** hyperschema never stays full-surface: registration creates its derived index
+     (§4.7.5).
+   - An **ad hoc** query that is never registered may run as a full-surface read only with an
+     explicit flag. It reads the surface through the `Exporter`, is marked unoptimized in its
+     route report and response, and leaves nothing behind.
 
-## 7. Conformance
+## 7. Peers and erasure on a shared store
 
-- **Store vectors** (`vectors/store/*.json`) are operation scripts: open peers, append batches
-  (including negation chains, negations before their targets and duplicates), purge, then
-  query. Each step names its expected ids or report. Every store adapter in every witness runs
-  them. The memory reference store generates them.
-- **Scope vectors** pin the trim lemma: for each case, `S(E over R ∩ a)` equals the reference
-  exactly, with and without each pushdown field.
-- **Cost rails** count store calls, not milliseconds, as Loam's anchored-read rail does: the
-  same read against a store with 0 and with N unrelated deltas makes the same calls with the
-  same key counts.
-- **Adapter rails** stay local to each adapter: crash during append (all or nothing), a
-  second-process writer seen through the feed, and erasure surface proofs on real files.
-- **Witness levels.** The store interface is an L2/L4 concern. The Elixir and Haskell witnesses
-  at L0 are unaffected.
+- Bytes are stored once and reference-counted by holdings. Indexes, derived indexes, arrivals,
+  digests and change feeds are per peer.
+- A purge removes a peer's index entries and holding at once. It removes bytes only when no other
+  peer holds them, and its report says so without naming the other peer.
+- A peer's erasure posture and its store's erasure class are both fixed and recorded before its
+  first write (§4.7.2).
 
-## 8. Packaging
+## 8. Conformance
 
-- `rhizomatic-store` holds the interface, the profile, the memory reference store, the
-  composition helpers and the vector runner. It depends only on `delta`. It replaces today's
-  `storage` package, which already depends only on `delta`.
-- `reactor` gains a dependency on `rhizomatic-store`. `federation` keeps its dependency on
-  storage.
-- Adapters are separate packages so that a browser bundle does not carry SQLite:
-  `rhizomatic-store-sqlite` (Node and Rust), later `-indexeddb`, `-segments`, `-postgres`.
-- Rust mirrors the interface as traits. Its SQLite adapter uses `rusqlite`, so both witnesses
-  run the same store vectors against a real durable store.
+- **Store vectors** (`vectors/store/*.json`) are operation scripts: create peers with a posture,
+  append batches (negation chains, negations before their targets, duplicates), register and
+  retire derived indexes, purge, then query. Each step names its expected ids or report. The memory
+  reference store generates them. `runStoreConformance` runs them against any implementation.
+- **Scope vectors** pin the trim lemma, generalized anchors and `aliased` anchoring: for each case,
+  `S(A over R ∩ a)` equals the reference exactly, with and without each pushdown field.
+- **Round vectors** pin that the fetch and evaluation caches change no answer: a read with caches
+  equals the same read evaluated over the full surface.
+- **Cost rails** count store calls, not milliseconds: the same read against a surface with 0 and
+  with N unrelated deltas makes the same calls with the same key counts. Open counts O(tail).
+- **Adapter rails** stay local to each implementation: crash during append (all or nothing), a
+  second-process writer seen through the feed, erasure surface proofs on real files, and refusal
+  to create a proven-posture peer on an `unprovable` store.
+- **Witness levels.** The store is an L2/L4 concern. The Elixir and Haskell witnesses at L0 are
+  unaffected.
 
-## 9. Slices
+## 9. Packaging
 
-1. **Interface and reference.** This document, the TS and Rust interfaces, the memory reference
-   store, the store vectors, the scope and trim vectors. Nothing else changes.
-2. **Reactor over a store.** Reads in rounds through `scope`; `snapshot()` moves to the
-   `Exporter`. Every existing vector passes on the memory store. TS and Rust in lockstep.
-3. **Views and the change feed.** Stored views, durable dispatch through `affected`,
-   subscriptions from the feed, view expiry. The incremental-equivalence oracle stays.
-4. **SQLite adapters** (TS and Rust) with proven erasure. Holdings and arrivals move out of the
-   journal image into indexed tables (SPEC-6 vNext change). Open reads checkpoint plus tail.
-5. **Loam adoption.** Loam's gateway runs on `rhizomatic-store-sqlite`. Its replay at boot, its
-   own SQLite backend and its `data_version` check are deleted.
-6. **Later, by need.** IndexedDB (Loam in the browser), segments and the remote store (with
-   step 7), the digest capability (with step 7), Postgres.
+- **TypeScript:** one npm package, `@bombadil/rhizomatic`, as today. The store interface, the
+  memory store, compositions, `openStore` and the conformance runner live in the `storage`
+  package boundary, which depends only on `delta`. Each implementation is a subpath export, for
+  example `@bombadil/rhizomatic/store/sqlite`. Native and platform dependencies (`better-sqlite3`,
+  and later others) are optional peer dependencies, so a browser bundle never pulls SQLite.
+- **Rust:** the store traits in the core crate; each implementation behind a cargo feature
+  (`sqlite` pulls `rusqlite`).
+- **The `reactor` boundary** gains a dependency on `storage`.
+- **Every store implementation lives in this repo** and runs the store vectors in CI. Consumers
+  keep their own application state on top. Loam keeps its quarantine and repair layer (Loam SPEC
+  §25), built on a generic integrity-fault report from the store.
 
-## 10. What this replaces
+## 10. Slices
 
-- The SPEC-4 §3 normative minimum moves here. The four indexes become store obligations, not
-  reactor fields.
+All five land before step 7 begins.
+
+| Slice | Contents |
+|---|---|
+| 1 | Interface, profile, memory reference store, `openStore`, `registerStoreScheme`, `runStoreConformance`, store and scope vectors. TS and Rust. |
+| 2 | Reactor reads through a store: rounds, fetch cache and evaluation memo; `snapshot()` moves to the `Exporter`. Every existing vector passes on the memory store. |
+| 3 | Change feed and revisions; stored views and durable dispatch; derived indexes and their lifecycle; generalized anchors, lazy value indexes and `aliased` anchoring. May split into feed-first, then views and indexes. |
+| 4 | SQLite stores (TS and Rust) with proven erasure and posture gating; the journal split (small checkpoint, holdings Merkle root, open from the tail, `fsck`, format marker). |
+| 5 | Loam moves onto `@bombadil/rhizomatic/store/sqlite`. Its boot replay, its generic SQLite code and its `data_version` check are deleted; its repair layer stays. |
+| later | SQLite WASM over OPFS, IndexedDB (unprovable), Postgres, segments, the remote store, digest reconciliation, delegated index peers, `attested`, key destruction, expansion pushdown, background scrub. |
+
+## 11. What this replaces
+
+- The SPEC-4 §3 normative minimum moves here. The indexes become store obligations, not reactor
+  fields.
 - SPEC-4 §4.4 checkpoints become stored views (§4.7.4).
+- SPEC-6 vNext's checkpoint image no longer carries holdings or arrivals (§4.7.3).
 - SPEC-16's current-source check by recomputation becomes the feed check (§4.6).
+- SPEC-17's anchors grow from entities to entities, value lookups and derived indexes (§4.7.1).
 - `deltasSince(knownIds)` becomes `changes(from)`.
-- Loam's `StoreBackend` and its `revision()` check become a `rhizomatic-store` adapter.
+- Loam's `StoreBackend`, its boot replay and its `revision()` check become this store.
 
-## 11. Open questions (Myk)
+## 12. Decision record (Myk, 2026-11-09)
 
-1. **The async boundary.** Recommended: batch-async calls at the store, synchronous evaluation
-   over a fetched scope (design rule 4). The alternative is an async evaluator, which changes
-   every operator and is slower per delta. Agree?
-2. **Order.** Slices 1–4 before step 7, so step 7's subscribe and catch-up are built on the change
-   feed, not on whole-journal reads?
-3. **Where adapters live.** Recommended: SQLite in this repo (both witnesses need a durable store
-   for parity), browser and cloud adapters as separate packages here too, Loam-specific storage
-   nowhere. Agree?
-4. **The journal image.** Moving holdings and arrivals out of the journal image changes the step
-   6 profile that just shipped (SPEC-6 vNext §2, "Greenfield durable journal profile"). It is
-   greenfield, so there is no migration. Is that change acceptable?
-5. **Unanchored terms on a durable store.** Allow them as a declared exception (§6.6), or refuse
-   them at registration when the store is not in memory?
-6. **Value ranges as anchors.** Extend SPEC-17 so a `select` with a `ValMatch` range is anchored
-   through the value capability (§4.7.1)? This makes "all plants taller than 30" a
-   footprint-bounded read.
-7. **Erasure honesty for engines that cannot prove absence.** Recommended: they declare
-   `unprovable` and every erasure report says `unproven`. The alternative is to forbid them for
-   peers with a `permanent` erasure posture. Which?
+| # | Question | Decision |
+|---|---|---|
+| 1 | The async boundary | Batch-async store calls; synchronous evaluation in rounds over one snapshot, with a fetch cache and an evaluation memo of final children; cross-read caching by revision. Rust uses synchronous traits. |
+| 2 | The journal checkpoint | The journal stays small; holdings and arrivals move to indexed tables in the same atomic append; each frame commits a holdings Merkle root; open reads the tail; verification moves from boot to use and `fsck`; a format-version marker replaces boot scans. |
+| 3 | Unanchored terms | "Full-surface", measured against the reader's surface. A hyperschema is an index plus meaning: registration creates its derived index (one backfill, cost reported). Ad hoc full-surface reads need an explicit flag and are marked unoptimized. Derived indexes are shared, reference-counted caches; active while a hyperschema uses them, then dormant, then dropped. Index work may be delegated to another peer. |
+| 4 | Value ranges as anchors | Yes. Anchors are entities, value lookups and derived indexes. Value indexes are lazy, per role. `aliased` is anchored through the fragment role's value index. |
+| 5 | Erasure where absence is unprovable | Gate by posture: a peer promising proven erasure refuses a store that is not `proven`. Others run anywhere and report `unproven`. The posture and the store's class are fixed before the first write. `attested` and key destruction are later. |
+| 6 | Where implementations live | All in this repo: subpath exports in one npm package with optional peer dependencies; cargo features in Rust. `openStore(url)` with ready-made schemes; a published interface and conformance runner for consumers' own stores. Loam keeps its repair layer. |
+| 7 | Order relative to step 7 | Slices 1–5 first; step 7 begins once they have landed. |
 
-## 12. Not in scope
+**Open items carried forward** (not blocking slice 1):
+
+- Delegated index peers: authorization per reader surface, completeness proofs, freshness.
+- A container that is a fence inside a peer pays the peer's index cost on scans (§5.2).
+- Dormancy timing for orphaned derived indexes, and the per-peer budget.
+- Step 7 publishes each peer's erasure class in its peer description.
+
+## 13. Not in scope
 
 - The L0 pack format (SPEC-8). Segments reuse it unchanged.
 - Partitioning one peer across machines. The interface does not prevent it; no slice builds it.
-- A query planner for ad hoc unregistered terms (SPEC-4 §8 "cold queries").
-
-## 13. Decision record (in progress)
-
-Myk and Claude are working through §11. This section records each answer as it lands; the body
-above is revised to match once all questions are settled.
-
-### Q1 async boundary — DECIDED: Option A
-- Batch-async calls at the store; evaluation stays synchronous over a fetched scope (SPEC-17 rounds).
-- Two in-read caches, sound because all rounds of one read use one snapshot/revision:
-  - fetch cache: each round fetches only new entities; store excludes already-held deltas.
-  - evaluation memo: completed child evaluations keyed (program, reading, root); a child is final
-    only when its whole subtree's anchors are fetched (closure lemma).
-- Across reads: cache by revision, invalidated through the change feed (stored views).
-- Later optional capability: expansion pushdown (SQL follows expand roles in one round).
-- Rust witness: synchronous store traits (assumed agreed; Myk did not object).
-
-### Q2 journal checkpoint (proposal Q4) — DECIDED: Option A + format-version marker
-- Journal keeps head chain, refusals, purge obligations, counters; small.
-- Holdings and arrivals move to the store's indexed tables, same atomic transaction as the frame.
-- Each frame commits a Merkle root over holdings (digest capability, O(log N) per change).
-- Open = head + checkpoint + tail. Full verification = explicit fsck; per-row Merkle proof on read optional.
-- Boot-time old-format check (Loam #690 slate scan) becomes an O(1) format-version marker.
-- Myk: boot is an arbitrary place to verify; verify on read / on demand is cleaner.
-- Optional later: read-only background scrub.
-
-### Q3 unanchored terms (proposal Q5) — DECIDED
-- Terminology: not "whole store" but the reader's **surface** (peer holdings ∩ authorization);
-  a "full-surface read". Wrinkle: a bound container that is a fence inside a peer (not its own
-  peer) scans the peer's indexes, not just its own surface.
-- A hyperschema = an index plus semantics. Registering a hyperschema whose selection no existing
-  anchor covers creates its backing index (one full-surface backfill at registration). The
-  registration response states backfill cost and the new maintained index. Registration is the opt-in.
-- Maintenance is per-write predicate check, O(1) per index, independent of store size.
-- Ad hoc unregistered full-surface queries: allowed with an explicit flag, marked unoptimized,
-  never persisted.
-- Identical selections share one index (keyed by canonical selection hash + surface), ref-counted
-  by active hyperschemas.
-- Lifecycle: index active while any active hyperschema uses it; orphaned index goes dormant
-  (kept, catches up from the change feed on revival), then dropped.
-- Derived indexes are caches (unsigned, per peer, rebuildable, never federated as data); registered
-  lenses are signed rules. Indexes extend the anchor vocabulary.
-- Myk: index capability can be delegated to another peer (federated index caches serving one or
-  many peers, growing independently). Open details: authorization per reader surface,
-  completeness (trusted delegate unless proofs; Merkle digest is the start), freshness (revision pair).
-- `aliased` becomes anchored via value index (fragment role) + targets(slot) — pending Q4.
-
-### Q4 value ranges as anchors (proposal Q6) — PENDING (asked)
-- Recommendation: yes, value lookups are anchors; anchors = entities ∪ value lookups ∪ derived indexes.
-- Sub-question: value index for every role, or lazy (only roles an active hyperschema uses)?
-  Recommendation: lazy (SPEC-4 rule).
-
-### Remaining, not yet discussed
-- Q5 erasure on engines that cannot prove absence (proposal Q7).
-- Q6 where adapters live (proposal Q3).
-- Q7 order relative to step 7 (proposal Q2).
+- A query planner for ad hoc unregistered terms beyond full-surface reads (SPEC-4 §8).
