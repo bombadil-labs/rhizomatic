@@ -3,7 +3,7 @@
 **Status:** Proposal. Drafted 2026-10-15 (issue #75). Myk settled every open design question on
 2026-11-09; §12 records each answer. This document is the working contract until its parts are
 promoted into `spec/04-reactor.md`, `spec/06-peer-admission.PROPOSAL.md` and a store chapter
-with shared vectors. **Order:** all five slices in §10 land before step 7 begins.
+with shared vectors. **Order:** all six slices in §10 land before step 7 begins.
 
 **Depends on:** SPEC-1 (content addressing), SPEC-2 (predicates, `ValMatch`), SPEC-4 (reactor),
 SPEC-6 vNext (peers, journal, arrival, erasure), SPEC-8 (packs), SPEC-9 (aliases), SPEC-17 (P7,
@@ -316,6 +316,9 @@ follows (decided 2026-11-09; greenfield, no migration):
   read-only background scrub is a later option; it writes nothing on a quiet cycle.
 - **A format-version marker** in the store replaces any boot-time scan for old record formats.
   Open checks it in O(1) and refuses an older format.
+- **A consumer keeps its own marker beside it.** `meta` holds one application format string per
+  peer, set at creation and returned by open in O(1). A consumer that retires one of its own record
+  formats changes that string and refuses the old one. It needs no scan.
 
 #### 4.7.4 Stored views
 
@@ -624,16 +627,62 @@ cache.
 
 ## 10. Slices
 
-All five land before step 7 begins.
+All six land before step 7 begins. The order puts a real consumer on the store as early as
+possible: Loam moves in slice 5, before stored views and derived indexes exist.
 
 | Slice | Contents |
 |---|---|
 | 1 | Interface, profile, memory reference store, `openStore`, `registerStoreScheme`, `runStoreConformance`, store and scope vectors. TS and Rust. |
 | 2 | Reactor reads through a store: rounds, fetch cache and evaluation memo; `snapshot()` moves to the `Exporter`. Every existing vector passes on the memory store. |
-| 3 | Change feed and revisions; stored views and durable dispatch; derived indexes and their lifecycle; generalized anchors, lazy value indexes and `aliased` anchoring. May split into feed-first, then views and indexes. |
-| 4 | SQLite stores (TS and Rust) with proven erasure and posture gating; the journal split (small checkpoint, holdings Merkle root, open from the tail, `fsck`, format marker). |
-| 5 | Loam moves onto `@bombadil/rhizomatic/store/sqlite`. Its boot replay, its generic SQLite code and its `data_version` check are deleted; its repair layer stays. |
+| 3 | Revisions and the change feed: `changes(from, to)`, retention, `resync-required`, the freshness check, raw-stream subscriptions from a revision. |
+| 4 | SQLite stores (TS and Rust) with proven erasure and posture gating; the journal split (small checkpoint, holdings Merkle root, open from the tail, `fsck`, format markers). |
+| 5 | Loam moves onto `@bombadil/rhizomatic/store/sqlite` (§10.1). Its boot replay, its generic SQLite code and its `data_version` check are deleted; its repair layer stays. |
+| 6 | Stored views and durable dispatch; derived indexes and their lifecycle; generalized anchors, lazy value indexes and `aliased` anchoring. |
 | later | SQLite WASM over OPFS, IndexedDB (unprovable), Postgres, segments, the remote store, digest reconciliation, delegated index peers, `attested`, key destruction, expansion pushdown, background scrub. |
+
+**Between slice 2 and slice 6** the capabilities `views` and `derivedIndexes` are absent from
+every profile. During that time:
+
+- A maintained view is a memory cache. It is keyed by revision and invalidated through the change
+  feed once slice 3 lands. A process rebuilds it on first use after open. Open stays O(tail).
+- A registered term that entity anchors do not cover runs as a full-surface read. Its route report
+  marks it unoptimized. This is the cost such a term has today; slice 6 removes it.
+- A value comparison is a residual selection, never an anchor.
+
+### 10.1 What slice 5 covers in Loam
+
+Slice 5 is more than a move. Measured on Loam main at `6cce5a25` (2026-11-09):
+
+| Loam `src` | Count |
+|---|---|
+| Synchronous `reactor.get` calls | 125 |
+| `reactor.snapshot()` calls | 46 |
+| `byTarget` and `negationsOf` calls | 53 |
+| `deltasSince` calls | 23 |
+| Caches keyed on the reactor object | 7 |
+
+- **Synchronous reads.** Loam's read and law code calls the reactor directly and synchronously.
+  The store boundary is asynchronous. Each call site becomes one of three things: part of a read's
+  scope (fetched in a round, then evaluated synchronously), an indexed store call, or an admin
+  operation on the `Exporter`. Slice 2 defines the read shape Loam will use; slice 5 applies it.
+- **Law reads are anchored reads.** Grants, erasure orders, slates, registrations and user roots
+  each live at known entities. Loam reads each as a scope, once per request, and evaluates over
+  it synchronously.
+- **Caches key on the revision.** Loam's caches key on the reactor object or its size, and they
+  rely on erasure replacing the reactor. A purge is now in place and writes a change record. Each
+  cache keys on the peer's revision, or follows the change feed.
+- **Reseat goes away.** Erasure no longer rebuilds the process state from the backend.
+- **The other drivers.** Loam has five `StoreBackend` drivers: memory, SQLite, archive, mirror and
+  local storage. Memory and SQLite become the store's own. Mirror becomes the overlay or union
+  composition (§5.6) where it still has a use. Archive and local storage are decided in slice 5:
+  each becomes a store implementation with a declared profile, or it is deleted.
+- **Erasure rails on memory.** The memory store's class is `unprovable`. A Loam rail that asserts
+  a proven erasure runs on SQLite. A rail on memory asserts the index-level removal and an
+  `unproven` report.
+- **Loam's own format marker.** Loam's check for retired slate records runs inside boot replay
+  today. It becomes Loam's application format string (§4.7.3).
+- **Review.** Slice 5 moves erasure code. It may not widen what a purge removes. Every erasure
+  rail stays two-sided: the target is gone and a named bystander survives.
 
 ## 11. What this replaces
 
@@ -656,9 +705,18 @@ All five land before step 7 begins.
 | 4 | Value ranges as anchors | Yes. Anchors are entities, value lookups and derived indexes. Value indexes are lazy, per role. `aliased` is anchored through the fragment role's value index. |
 | 5 | Erasure where absence is unprovable | Gate by posture: a peer promising proven erasure refuses a store that is not `proven`. Others run anywhere and report `unproven`. The posture and the store's class are fixed before the first write. `attested` and key destruction are later. |
 | 6 | Where implementations live | All in this repo: subpath exports in one npm package with optional peer dependencies; cargo features in Rust. `openStore(url)` with ready-made schemes; a published interface and conformance runner for consumers' own stores. Loam keeps its repair layer. |
-| 7 | Order relative to step 7 | Slices 1–5 first; step 7 begins once they have landed. |
+| 7 | Order relative to step 7 | The store arc first; step 7 begins once it has landed. |
+
+**Amendment (Claude as steward of both repositories, 2026-11-09).** The former slice 3 is split.
+The change feed stays slice 3. Stored views, derived indexes and generalized anchors move to
+slice 6, after Loam is on the store. No content is removed, and the whole arc still lands before
+step 7. The reason: slice 5 depends on the feed and on nothing else in the former slice 3, and a
+consumer on the store tests the interface before the largest slice is built on it. §10.1 lists
+what slice 5 covers in Loam.
 
 **Open items carried forward** (not blocking slice 1):
+
+- Loam's archive and local-storage drivers: a store implementation each, or deletion (slice 5).
 
 - Delegated index peers: authorization per reader surface, completeness proofs, freshness.
 - A container that is a fence inside a peer pays the peer's index cost on scans (§5.2).

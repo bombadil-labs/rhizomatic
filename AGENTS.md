@@ -105,7 +105,7 @@ When implementation contradicts specification, **the contradiction is the delive
 - **Step 7 has not started.** It covers publish and subscribe, the signed wire envelope and
   publish-side closure audit (spec/06-peer-admission.PROPOSAL.md), and registry discovery and
   locator transport (Loam `refactor/README.md`, ruling 9). **It begins after the store arc
-  (SPEC-18 slices 1–5) has landed** (Myk, 2026-11-09).
+  (SPEC-18 slices 1–6) has landed** (Myk, 2026-11-09).
 - **Done: the SPEC-16 portable read and materialization contract.** The packet is
   [contracts/materialization/](contracts/materialization/README.md); its normative text is
   [spec/16-materialization.md](spec/16-materialization.md), with readings in
@@ -123,23 +123,26 @@ When implementation contradicts specification, **the contradiction is the delive
 - **Active work: the store ([spec/18-store.PROPOSAL.md](spec/18-store.PROPOSAL.md), issue #75).**
   One store interface with declared capabilities and specialized implementations, so that no
   operation, open included, costs O(store). Myk settled every open question on 2026-11-09; §12 of
-  the proposal records the decisions and §10 lists the five slices. Start with slice 1 (interface,
-  memory reference store, store vectors, TS and Rust). All five slices land before step 7.
+  the proposal records the decisions and §10 lists the six slices. Start with slice 1 (interface,
+  memory reference store, store vectors, TS and Rust). All six slices land before step 7. Loam
+  moves onto the store in slice 5; §10.1 lists what that covers.
 
 ## Independent T3 review
 
-- Sol builds Rhizomatic and uses the existing dedicated Claude Opus review thread for every frozen,
-  reviewable head. Opus builds Loam and uses its existing dedicated Codex Sol review thread.
-  Keep both reviewers at high effort with full access; do not create a replacement thread or
-  archive the dedicated thread between rounds.
+- **Claude is the steward of both Rhizomatic and Loam** (Myk, 2026-11-09). The earlier split,
+  with Sol as Rhizomatic's builder and a dedicated review thread per repository, is set aside
+  until Myk restores it. Claude builds in both repositories.
+- The builder never reviews its own diff. Each reviewable head goes to a reviewer in a fresh
+  context that did not write it: a separate agent with the commit, the spec and the vectors. Use a
+  reviewer from another model family when one is available, and say in the PR which kind reviewed.
 - Give the reviewer the exact
   commit, PR, applicable spec and vectors, and the behavioral question. Do not copy the builder's
   conversation, conclusions, or proposed proof into the review prompt.
 - The reviewer reads a pinned commit in a separate checkout and makes no edits or pushes. It
   reports concrete findings with file/line, reproducer or counterexample, expected behavior, and
   uncertainty. A clean review says what it checked and what it did not check.
-- The builder verifies findings, makes fixes, and requests another review of the new head in the
-  same dedicated thread when the change warrants it. Green checks and an independent review precede a consumer
+- The builder verifies findings, makes fixes, and requests another review of the new head
+  when the change warrants it. Green checks and an independent review precede a consumer
   trial or a claim that an API is ready. The Loam trial also checks integration against a pinned
   Rhizomatic build; it does not replace either repository's own review.
 - Wait for the reviewer to finish and collect its report. Keep work threads separate. Use PRs,
