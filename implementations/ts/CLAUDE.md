@@ -49,7 +49,7 @@ src/
   resolve/          terminal term evaluation, including resolve composition
   schema-load/      self-hosted schema delta adapter
   reactor/          indexed log and materializations
-  storage/          pack encoding and rehydration
+  storage/          pack encoding and rehydration; the store interface, memory store and conformance runner
   federation/       peer and HTTP bindings
   derivation/       derived author host
 test/

@@ -6,6 +6,33 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 
 ## Unreleased
 
+The store, slice 1 (SPEC-18 proposal): one store interface with declared capabilities, and the
+memory reference store. TypeScript only so far; the Rust witness follows against the same
+vectors. Nothing existing changes behavior, and the reactor does not use the store yet.
+
+### Added
+
+- The store interface types: `Store`, `PeerStore`, `Snapshot`, `ScopeRequest`, `ScopeResult`,
+  `Pushdown`, `Admission`, `AppendResult`, `PurgeReport`, `Revision`, `StoreProfile`, `Exporter`,
+  and `StoreError` with its codes.
+- `createMemoryStore()`, the reference store. Its profile reports only what slice 1 implements:
+  entity anchors, arrival records, the three pushdown fields, erasure class `unprovable`. It
+  serves no change feed, journal, value index, stored view, derived index or digest yet.
+- Peers are created with a declared erasure posture (`createPeer(id, { erasure })`). A peer that
+  promises proven erasure is refused on a store whose class is not `proven`.
+- `openStore(url)` with the `memory:` scheme, and `registerStoreScheme(scheme, factory)`. Errors
+  name the scheme and never the URL.
+- `scopeSource(members)`: a synchronous SPEC-17 delta source over a fetched scope.
+- `runStoreConformance(factory)`: runs the shared store vectors against any store. `storeVectors()`
+  returns those vectors.
+- Shared vectors `vectors/store/scripts.json` and `vectors/store/scope.json`, with their format in
+  `vectors/store/README.md`.
+
+### Changed
+
+- `ArrivalRecord` is defined in the `storage` package boundary. `federation` and the package root
+  still export it; no import needs to change.
+
 ## 0.11.0-next.10 — 2026-10-14
 
 Release C: reads cost their footprint, not the store (SPEC-17 proposal, slices R1, R1b and R2),

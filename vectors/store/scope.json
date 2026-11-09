@@ -1,0 +1,1167 @@
+{
+  "format": "rhizomatic-store-scope/1",
+  "note": "SPEC-18 proposal §4.3: the trim lemma. For each case and each subset of the selection pushed down, the trimmed scope equals the scope under the whole selection. See vectors/store/README.md.",
+  "reference": {
+    "formatVersion": "rhizomatic.store.memory/1"
+  },
+  "peers": {
+    "A": "ed25519:c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+    "B": "ed25519:a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+    "C": "ed25519:b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+    "P": "ed25519:d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4"
+  },
+  "deltas": [
+    {
+      "name": "a-height",
+      "id": "1e2095f703753fa06a8765c8ee3fd5adbb64ec586e31c29951aba785c9c6a577dede",
+      "claims": {
+        "timestamp": 10,
+        "validFrom": 10,
+        "author": "did:key:zAlice",
+        "pointers": [
+          {
+            "role": "subject",
+            "target": {
+              "id": "plant:a",
+              "context": "height"
+            }
+          },
+          {
+            "role": "value",
+            "target": 10
+          }
+        ]
+      }
+    },
+    {
+      "name": "a-name",
+      "id": "1e2025697ac043c0e81c7ac81e173ac2b2cb3d648bdbdfa0942928bfde3a628073be",
+      "claims": {
+        "timestamp": 20,
+        "validFrom": 20,
+        "author": "did:key:zAlice",
+        "pointers": [
+          {
+            "role": "subject",
+            "target": {
+              "id": "plant:a",
+              "context": "name"
+            }
+          },
+          {
+            "role": "value",
+            "target": "fern"
+          }
+        ]
+      }
+    },
+    {
+      "name": "a-height-neg",
+      "id": "1e20935f23967a50ddda14ff23dc4ee1dda2416b29da53e8b08f7bf8322991f3fd3e",
+      "claims": {
+        "timestamp": 30,
+        "validFrom": 30,
+        "author": "did:key:zBob",
+        "pointers": [
+          {
+            "role": "negates",
+            "target": {
+              "delta": "1e2095f703753fa06a8765c8ee3fd5adbb64ec586e31c29951aba785c9c6a577dede"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "a-height-neg-neg",
+      "id": "1e20c0125dfc5fae2dbfb3f26a861681db42381197f96a69fb021a4018fe419ab78d",
+      "claims": {
+        "timestamp": 40,
+        "validFrom": 40,
+        "author": "did:key:zAlice",
+        "pointers": [
+          {
+            "role": "negates",
+            "target": {
+              "delta": "1e20935f23967a50ddda14ff23dc4ee1dda2416b29da53e8b08f7bf8322991f3fd3e"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "a-height-neg-neg-neg",
+      "id": "1e204ba60181852f23f66f1054f5966934ef98a68c58d5ea212cf7f343c5803afd31",
+      "claims": {
+        "timestamp": 60,
+        "validFrom": 60,
+        "author": "did:key:zBob",
+        "pointers": [
+          {
+            "role": "negates",
+            "target": {
+              "delta": "1e20c0125dfc5fae2dbfb3f26a861681db42381197f96a69fb021a4018fe419ab78d"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "b-name",
+      "id": "1e2014a249035549ab90fb47ec237160e5cc2be1c1d32c1205ec8837b52ce4c756a9",
+      "claims": {
+        "timestamp": 15,
+        "validFrom": 15,
+        "author": "did:key:zAlice",
+        "pointers": [
+          {
+            "role": "subject",
+            "target": {
+              "id": "plant:b",
+              "context": "name"
+            }
+          },
+          {
+            "role": "value",
+            "target": "moss"
+          }
+        ]
+      }
+    },
+    {
+      "name": "b-name-neg",
+      "id": "1e200cd2b540c150e41dedf9c5e29610d9ae195ef930d9b55320101f0df56f602c31",
+      "claims": {
+        "timestamp": 35,
+        "validFrom": 35,
+        "author": "did:key:zBob",
+        "pointers": [
+          {
+            "role": "negates",
+            "target": {
+              "delta": "1e2014a249035549ab90fb47ec237160e5cc2be1c1d32c1205ec8837b52ce4c756a9"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "bed-link",
+      "id": "1e208cd88fe1294fb13beb96511117c303190595120ee72adb4ec891fab2488eda27",
+      "claims": {
+        "timestamp": 25,
+        "validFrom": 25,
+        "author": "did:key:zAlice",
+        "pointers": [
+          {
+            "role": "subject",
+            "target": {
+              "id": "bed:1",
+              "context": "plants"
+            }
+          },
+          {
+            "role": "plant",
+            "target": {
+              "id": "plant:a",
+              "context": "bed"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "a-twice",
+      "id": "1e20929f22618e6fdb3044b5cbebb92d490ae470e04844a7ee53f8be94c3ab8557a6",
+      "claims": {
+        "timestamp": 26,
+        "validFrom": 26,
+        "author": "did:key:zAlice",
+        "pointers": [
+          {
+            "role": "subject",
+            "target": {
+              "id": "plant:a",
+              "context": "tag"
+            }
+          },
+          {
+            "role": "also",
+            "target": {
+              "id": "plant:a",
+              "context": "label"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "ghost",
+      "id": "1e20ca5191ecdf74d2c3d59b7edc92b9430ee769eb0389ffd4e8ffe0138c56a18df5",
+      "claims": {
+        "timestamp": 5,
+        "validFrom": 5,
+        "author": "did:key:zAlice",
+        "pointers": [
+          {
+            "role": "subject",
+            "target": {
+              "id": "plant:a",
+              "context": "note"
+            }
+          },
+          {
+            "role": "value",
+            "target": "early"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ghost-neg",
+      "id": "1e2062185cb08c001f03263470e774f158ce11776b607b8be45dc1ed6e2584d8519a",
+      "claims": {
+        "timestamp": 45,
+        "validFrom": 45,
+        "author": "did:key:zBob",
+        "pointers": [
+          {
+            "role": "negates",
+            "target": {
+              "delta": "1e20ca5191ecdf74d2c3d59b7edc92b9430ee769eb0389ffd4e8ffe0138c56a18df5"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "far",
+      "id": "1e20cbc2cd575ea2c57ad4a64cf2472f6ef782bebe8751b8f0038e715ee59ad60efe",
+      "claims": {
+        "timestamp": 50,
+        "validFrom": 50,
+        "author": "did:key:zAlice",
+        "pointers": [
+          {
+            "role": "subject",
+            "target": {
+              "id": "elsewhere",
+              "context": "name"
+            }
+          },
+          {
+            "role": "value",
+            "target": "far"
+          }
+        ]
+      }
+    },
+    {
+      "name": "cites-a-height",
+      "id": "1e20b8123f157b31f416a1a79dc338e08a09db8b98bbbcdb9a775caeca75bc88aa2a",
+      "claims": {
+        "timestamp": 55,
+        "validFrom": 55,
+        "author": "did:key:zBob",
+        "pointers": [
+          {
+            "role": "subject",
+            "target": {
+              "id": "elsewhere",
+              "context": "source"
+            }
+          },
+          {
+            "role": "cites",
+            "target": {
+              "delta": "1e2095f703753fa06a8765c8ee3fd5adbb64ec586e31c29951aba785c9c6a577dede"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "negates-entity",
+      "id": "1e202b4588c53e58779001faaa8d8bba56a788cc0b44dfd75a66b25caff948647915",
+      "claims": {
+        "timestamp": 56,
+        "validFrom": 56,
+        "author": "did:key:zBob",
+        "pointers": [
+          {
+            "role": "negates",
+            "target": {
+              "id": "plant:b",
+              "context": "x"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "k-note",
+      "id": "1e206fae1969ad8d1a40c7e384acf35a12377672d4237e3c57f5ea20cd849effd0b8",
+      "claims": {
+        "timestamp": 12,
+        "validFrom": 12,
+        "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+        "pointers": [
+          {
+            "role": "subject",
+            "target": {
+              "id": "plant:a",
+              "context": "note"
+            }
+          },
+          {
+            "role": "value",
+            "target": "signed"
+          }
+        ]
+      }
+    },
+    {
+      "name": "k-note-signed",
+      "id": "1e206fae1969ad8d1a40c7e384acf35a12377672d4237e3c57f5ea20cd849effd0b8",
+      "claims": {
+        "timestamp": 12,
+        "validFrom": 12,
+        "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+        "pointers": [
+          {
+            "role": "subject",
+            "target": {
+              "id": "plant:a",
+              "context": "note"
+            }
+          },
+          {
+            "role": "value",
+            "target": "signed"
+          }
+        ]
+      },
+      "sig": "f61fd7313814ecbf85367142e71fa374ef3e14822093aba05e3f83becc97b3d0f9efb3bb197cced8424416fe4cde58bae685887508905d61395a9aab0d884405"
+    },
+    {
+      "name": "forged",
+      "id": "1e2025697ac043c0e81c7ac81e173ac2b2cb3d648bdbdfa0942928bfde3a628073be",
+      "claims": {
+        "timestamp": 50,
+        "validFrom": 50,
+        "author": "did:key:zAlice",
+        "pointers": [
+          {
+            "role": "subject",
+            "target": {
+              "id": "elsewhere",
+              "context": "name"
+            }
+          },
+          {
+            "role": "value",
+            "target": "far"
+          }
+        ]
+      },
+      "forged": true
+    }
+  ],
+  "setup": [
+    {
+      "op": "createPeer",
+      "peer": "A",
+      "erasure": "unproven",
+      "expect": {
+        "status": "created"
+      }
+    },
+    {
+      "op": "createPeer",
+      "peer": "B",
+      "erasure": "unproven",
+      "expect": {
+        "status": "created"
+      }
+    },
+    {
+      "op": "append",
+      "peer": "A",
+      "expectedHead": null,
+      "nextHead": "a-head-1",
+      "frame": null,
+      "added": [
+        {
+          "delta": "a-height-neg-neg",
+          "arrival": {
+            "at": 1001,
+            "sequence": 1,
+            "transfer": 1,
+            "sender": "local"
+          }
+        },
+        {
+          "delta": "bed-link",
+          "arrival": {
+            "at": 1002,
+            "sequence": 2,
+            "transfer": 1,
+            "sender": "local"
+          }
+        },
+        {
+          "delta": "a-height",
+          "arrival": {
+            "at": 1003,
+            "sequence": 3,
+            "transfer": 1,
+            "sender": "local"
+          }
+        },
+        {
+          "delta": "b-name-neg",
+          "arrival": {
+            "at": 1004,
+            "sequence": 4,
+            "transfer": 1,
+            "sender": "local"
+          }
+        },
+        {
+          "delta": "far",
+          "arrival": {
+            "at": 1005,
+            "sequence": 5,
+            "transfer": 1,
+            "sender": "local"
+          }
+        }
+      ],
+      "expect": {
+        "status": "committed",
+        "added": [
+          "b-name-neg",
+          "bed-link",
+          "a-height",
+          "a-height-neg-neg",
+          "far"
+        ],
+        "revisionAdvanced": true
+      }
+    },
+    {
+      "op": "append",
+      "peer": "A",
+      "expectedHead": "a-head-1",
+      "nextHead": "a-head-2",
+      "frame": null,
+      "added": [
+        {
+          "delta": "a-name",
+          "arrival": {
+            "at": 1006,
+            "sequence": 6,
+            "transfer": 2,
+            "sender": "local"
+          }
+        },
+        {
+          "delta": "a-height-neg",
+          "arrival": {
+            "at": 1007,
+            "sequence": 7,
+            "transfer": 2,
+            "sender": "local"
+          }
+        },
+        {
+          "delta": "b-name",
+          "arrival": {
+            "at": 1008,
+            "sequence": 8,
+            "transfer": 2,
+            "sender": "local"
+          }
+        },
+        {
+          "delta": "a-height-neg-neg-neg",
+          "arrival": {
+            "at": 1009,
+            "sequence": 9,
+            "transfer": 2,
+            "sender": "local"
+          }
+        },
+        {
+          "delta": "a-twice",
+          "arrival": {
+            "at": 1010,
+            "sequence": 10,
+            "transfer": 2,
+            "sender": "local"
+          }
+        },
+        {
+          "delta": "ghost-neg",
+          "arrival": {
+            "at": 1011,
+            "sequence": 11,
+            "transfer": 2,
+            "sender": "local"
+          }
+        }
+      ],
+      "expect": {
+        "status": "committed",
+        "added": [
+          "b-name",
+          "a-name",
+          "a-height-neg-neg-neg",
+          "ghost-neg",
+          "a-twice",
+          "a-height-neg"
+        ],
+        "revisionAdvanced": true
+      }
+    },
+    {
+      "op": "append",
+      "peer": "B",
+      "expectedHead": null,
+      "nextHead": "b-head-1",
+      "frame": null,
+      "added": [
+        {
+          "delta": "ghost",
+          "arrival": {
+            "at": 1001,
+            "sequence": 1,
+            "transfer": 3,
+            "sender": "local"
+          }
+        },
+        {
+          "delta": "k-note-signed",
+          "arrival": {
+            "at": 1002,
+            "sequence": 2,
+            "transfer": 3,
+            "sender": "local"
+          }
+        },
+        {
+          "delta": "a-height",
+          "arrival": {
+            "at": 1003,
+            "sequence": 3,
+            "transfer": 3,
+            "sender": "local"
+          }
+        },
+        {
+          "delta": "cites-a-height",
+          "arrival": {
+            "at": 1004,
+            "sequence": 4,
+            "transfer": 3,
+            "sender": "local"
+          }
+        }
+      ],
+      "expect": {
+        "status": "committed",
+        "added": [
+          "k-note-signed",
+          "a-height",
+          "cites-a-height",
+          "ghost"
+        ],
+        "revisionAdvanced": true
+      }
+    }
+  ],
+  "cases": [
+    {
+      "name": "no-selection",
+      "spec": "SPEC-18 §4.3",
+      "peer": "A",
+      "anchors": [
+        {
+          "kind": "entity",
+          "entity": "plant:a"
+        }
+      ],
+      "selection": {},
+      "held": [],
+      "scopes": [
+        {
+          "fields": [],
+          "ids": [
+            "a-name",
+            "a-height-neg-neg-neg",
+            "bed-link",
+            "a-twice",
+            "a-height-neg",
+            "a-height",
+            "a-height-neg-neg"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "two-anchors",
+      "spec": "SPEC-18 §4.3",
+      "peer": "A",
+      "anchors": [
+        {
+          "kind": "entity",
+          "entity": "plant:a"
+        },
+        {
+          "kind": "entity",
+          "entity": "plant:b"
+        }
+      ],
+      "selection": {},
+      "held": [],
+      "scopes": [
+        {
+          "fields": [],
+          "ids": [
+            "b-name-neg",
+            "b-name",
+            "a-name",
+            "a-height-neg-neg-neg",
+            "bed-link",
+            "a-twice",
+            "a-height-neg",
+            "a-height",
+            "a-height-neg-neg"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "an-anchor-nothing-points-at",
+      "spec": "SPEC-18 §4.3",
+      "peer": "A",
+      "anchors": [
+        {
+          "kind": "entity",
+          "entity": "nowhere"
+        }
+      ],
+      "selection": {
+        "timestampAtMost": 30
+      },
+      "held": [],
+      "scopes": [
+        {
+          "fields": [],
+          "ids": []
+        },
+        {
+          "fields": [
+            "timestampAtMost"
+          ],
+          "ids": []
+        }
+      ]
+    },
+    {
+      "name": "no-anchors",
+      "spec": "SPEC-18 §4.3",
+      "peer": "A",
+      "anchors": [],
+      "selection": {},
+      "held": [],
+      "scopes": [
+        {
+          "fields": [],
+          "ids": []
+        }
+      ]
+    },
+    {
+      "name": "signed-time-cuts-a-chain",
+      "spec": "SPEC-18 §4.3",
+      "peer": "A",
+      "anchors": [
+        {
+          "kind": "entity",
+          "entity": "plant:a"
+        }
+      ],
+      "selection": {
+        "timestampAtMost": 30
+      },
+      "held": [],
+      "scopes": [
+        {
+          "fields": [],
+          "ids": [
+            "a-name",
+            "a-height-neg-neg-neg",
+            "bed-link",
+            "a-twice",
+            "a-height-neg",
+            "a-height",
+            "a-height-neg-neg"
+          ]
+        },
+        {
+          "fields": [
+            "timestampAtMost"
+          ],
+          "ids": [
+            "a-name",
+            "bed-link",
+            "a-twice",
+            "a-height-neg",
+            "a-height"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "arrival-cuts-a-chain",
+      "spec": "SPEC-18 §4.3",
+      "peer": "A",
+      "anchors": [
+        {
+          "kind": "entity",
+          "entity": "plant:a"
+        }
+      ],
+      "selection": {
+        "arrivalAtMost": 6
+      },
+      "held": [],
+      "scopes": [
+        {
+          "fields": [],
+          "ids": [
+            "a-name",
+            "a-height-neg-neg-neg",
+            "bed-link",
+            "a-twice",
+            "a-height-neg",
+            "a-height",
+            "a-height-neg-neg"
+          ]
+        },
+        {
+          "fields": [
+            "arrivalAtMost"
+          ],
+          "ids": [
+            "a-name",
+            "bed-link",
+            "a-height"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "excluded-ids-cut-a-chain",
+      "spec": "SPEC-18 §4.3",
+      "peer": "A",
+      "anchors": [
+        {
+          "kind": "entity",
+          "entity": "plant:a"
+        }
+      ],
+      "selection": {
+        "excludeIds": [
+          "a-height-neg"
+        ]
+      },
+      "held": [],
+      "scopes": [
+        {
+          "fields": [],
+          "ids": [
+            "a-name",
+            "a-height-neg-neg-neg",
+            "bed-link",
+            "a-twice",
+            "a-height-neg",
+            "a-height",
+            "a-height-neg-neg"
+          ]
+        },
+        {
+          "fields": [
+            "excludeIds"
+          ],
+          "ids": [
+            "a-name",
+            "bed-link",
+            "a-twice",
+            "a-height"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "a-negator-without-its-target",
+      "spec": "SPEC-18 §4.3",
+      "peer": "A",
+      "anchors": [
+        {
+          "kind": "entity",
+          "entity": "plant:b"
+        }
+      ],
+      "selection": {
+        "arrivalAtMost": 5
+      },
+      "held": [],
+      "scopes": [
+        {
+          "fields": [],
+          "ids": [
+            "b-name-neg",
+            "b-name"
+          ]
+        },
+        {
+          "fields": [
+            "arrivalAtMost"
+          ],
+          "ids": []
+        }
+      ]
+    },
+    {
+      "name": "every-field",
+      "spec": "SPEC-18 §4.3",
+      "peer": "A",
+      "anchors": [
+        {
+          "kind": "entity",
+          "entity": "plant:a"
+        },
+        {
+          "kind": "entity",
+          "entity": "plant:b"
+        }
+      ],
+      "selection": {
+        "timestampAtMost": 40,
+        "arrivalAtMost": 9,
+        "excludeIds": [
+          "a-name",
+          "far"
+        ]
+      },
+      "held": [],
+      "scopes": [
+        {
+          "fields": [],
+          "ids": [
+            "b-name-neg",
+            "b-name",
+            "a-name",
+            "a-height-neg-neg-neg",
+            "bed-link",
+            "a-twice",
+            "a-height-neg",
+            "a-height",
+            "a-height-neg-neg"
+          ]
+        },
+        {
+          "fields": [
+            "timestampAtMost"
+          ],
+          "ids": [
+            "b-name-neg",
+            "b-name",
+            "a-name",
+            "bed-link",
+            "a-twice",
+            "a-height-neg",
+            "a-height",
+            "a-height-neg-neg"
+          ]
+        },
+        {
+          "fields": [
+            "arrivalAtMost"
+          ],
+          "ids": [
+            "b-name-neg",
+            "b-name",
+            "a-name",
+            "a-height-neg-neg-neg",
+            "bed-link",
+            "a-height-neg",
+            "a-height",
+            "a-height-neg-neg"
+          ]
+        },
+        {
+          "fields": [
+            "timestampAtMost",
+            "arrivalAtMost"
+          ],
+          "ids": [
+            "b-name-neg",
+            "b-name",
+            "a-name",
+            "bed-link",
+            "a-height-neg",
+            "a-height",
+            "a-height-neg-neg"
+          ]
+        },
+        {
+          "fields": [
+            "excludeIds"
+          ],
+          "ids": [
+            "b-name-neg",
+            "b-name",
+            "a-height-neg-neg-neg",
+            "bed-link",
+            "a-twice",
+            "a-height-neg",
+            "a-height",
+            "a-height-neg-neg"
+          ]
+        },
+        {
+          "fields": [
+            "timestampAtMost",
+            "excludeIds"
+          ],
+          "ids": [
+            "b-name-neg",
+            "b-name",
+            "bed-link",
+            "a-twice",
+            "a-height-neg",
+            "a-height",
+            "a-height-neg-neg"
+          ]
+        },
+        {
+          "fields": [
+            "arrivalAtMost",
+            "excludeIds"
+          ],
+          "ids": [
+            "b-name-neg",
+            "b-name",
+            "a-height-neg-neg-neg",
+            "bed-link",
+            "a-height-neg",
+            "a-height",
+            "a-height-neg-neg"
+          ]
+        },
+        {
+          "fields": [
+            "timestampAtMost",
+            "arrivalAtMost",
+            "excludeIds"
+          ],
+          "ids": [
+            "b-name-neg",
+            "b-name",
+            "bed-link",
+            "a-height-neg",
+            "a-height",
+            "a-height-neg-neg"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "the-selection-admits-nothing",
+      "spec": "SPEC-18 §4.3",
+      "peer": "A",
+      "anchors": [
+        {
+          "kind": "entity",
+          "entity": "plant:a"
+        }
+      ],
+      "selection": {
+        "timestampAtMost": 1
+      },
+      "held": [],
+      "scopes": [
+        {
+          "fields": [],
+          "ids": [
+            "a-name",
+            "a-height-neg-neg-neg",
+            "bed-link",
+            "a-twice",
+            "a-height-neg",
+            "a-height",
+            "a-height-neg-neg"
+          ]
+        },
+        {
+          "fields": [
+            "timestampAtMost"
+          ],
+          "ids": []
+        }
+      ]
+    },
+    {
+      "name": "held-middle-of-a-chain",
+      "spec": "SPEC-18 §4.3",
+      "peer": "A",
+      "anchors": [
+        {
+          "kind": "entity",
+          "entity": "plant:a"
+        }
+      ],
+      "selection": {},
+      "held": [
+        "a-height-neg",
+        "a-name"
+      ],
+      "scopes": [
+        {
+          "fields": [],
+          "ids": [
+            "a-name",
+            "a-height-neg-neg-neg",
+            "bed-link",
+            "a-twice",
+            "a-height-neg",
+            "a-height",
+            "a-height-neg-neg"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "held-ids-that-fail-the-selection",
+      "spec": "SPEC-18 §4.3",
+      "peer": "A",
+      "anchors": [
+        {
+          "kind": "entity",
+          "entity": "plant:a"
+        },
+        {
+          "kind": "entity",
+          "entity": "plant:b"
+        }
+      ],
+      "selection": {
+        "timestampAtMost": 30,
+        "arrivalAtMost": 8
+      },
+      "held": [
+        "a-height-neg-neg",
+        "a-height",
+        "b-name",
+        "far"
+      ],
+      "scopes": [
+        {
+          "fields": [],
+          "ids": [
+            "b-name-neg",
+            "b-name",
+            "a-name",
+            "a-height-neg-neg-neg",
+            "bed-link",
+            "a-twice",
+            "a-height-neg",
+            "a-height",
+            "a-height-neg-neg"
+          ]
+        },
+        {
+          "fields": [
+            "timestampAtMost"
+          ],
+          "ids": [
+            "b-name",
+            "a-name",
+            "bed-link",
+            "a-twice",
+            "a-height-neg",
+            "a-height"
+          ]
+        },
+        {
+          "fields": [
+            "arrivalAtMost"
+          ],
+          "ids": [
+            "b-name-neg",
+            "b-name",
+            "a-name",
+            "bed-link",
+            "a-height-neg",
+            "a-height",
+            "a-height-neg-neg"
+          ]
+        },
+        {
+          "fields": [
+            "timestampAtMost",
+            "arrivalAtMost"
+          ],
+          "ids": [
+            "b-name",
+            "a-name",
+            "bed-link",
+            "a-height-neg",
+            "a-height"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "held-the-whole-scope",
+      "spec": "SPEC-18 §4.3",
+      "peer": "A",
+      "anchors": [
+        {
+          "kind": "entity",
+          "entity": "plant:b"
+        }
+      ],
+      "selection": {
+        "excludeIds": [
+          "a-height"
+        ]
+      },
+      "held": [
+        "b-name",
+        "b-name-neg"
+      ],
+      "scopes": [
+        {
+          "fields": [],
+          "ids": [
+            "b-name-neg",
+            "b-name"
+          ]
+        },
+        {
+          "fields": [
+            "excludeIds"
+          ],
+          "ids": [
+            "b-name-neg",
+            "b-name"
+          ]
+        }
+      ]
+    }
+  ]
+}
