@@ -81,12 +81,21 @@ vectors compare the result byte for byte with the memory reference store (§5.1)
 ```ts
 interface Store {
   readonly profile: StoreProfile;          // §4.8
-  peer(id: PeerId): PeerStore;             // one peer's logical store
+  createPeer(id: PeerId, options: { erasure: "proven" | "unproven" }): Promise<PeerStore>;
+  peer(id: PeerId): Promise<PeerStore>;    // opens an existing peer's logical store
   openAdmin(): Exporter;                   // whole-store operations, §4.7.6
   close(): Promise<void>;
 }
 function openStore(url: string, options?: OpenOptions): Promise<Store>;   // §4.10
 ```
+
+- `createPeer` makes a peer with no holdings. Its erasure posture is a required argument, so it
+  is fixed before the first write (§4.7.2). It refuses `posture-refused` when the posture is
+  `proven` and the store's erasure class is not, and `peer-exists` when the id is taken.
+- `peer` opens an existing peer and refuses `peer-absent`. It never creates one: a peer without a
+  declared posture cannot exist.
+- A `PeerStore` exposes `erasure: { posture, storeClass }`, the posture and the store's class
+  recorded at creation.
 
 A store holds the bytes of every delta once. Each peer has its own membership, indexes,
 arrivals, journal, revision and change feed (R6). A peer's operations never return another
@@ -99,11 +108,15 @@ O(holdings).
 interface PeerStore {
   read(): Promise<Snapshot>;               // a consistent, repeatable view at one revision
   append(batch: Admission): Promise<AppendResult>;               // §4.5
-  changes(from: Revision, to?: Revision): Promise<ChangePage>;   // §4.6
+  purge(ids: readonly Id[]): Promise<PurgeReport>;               // §4.7.2
+  changes(from: Revision, to?: Revision): Promise<ChangePage>;   // §4.6, from slice 3
 }
 interface Snapshot {
   readonly revision: Revision;
+  readonly head: Head | null;              // the journal head at this revision
+  readonly count: number;                  // how many deltas the peer holds, O(1)
   get(ids: readonly Id[]): Promise<readonly Delta[]>;            // exact, held ids only
+  arrivals(ids: readonly Id[]): Promise<readonly ArrivalRecord[]>; // exact, held ids only
   targets(entities: readonly Entity[]): Promise<readonly Id[]>;  // exact, union over entities
   negators(ids: readonly Id[]): Promise<readonly Id[]>;          // exact, direct negators only
   scope(request: ScopeRequest): Promise<ScopeResult>;            // §4.3
@@ -111,12 +124,20 @@ interface Snapshot {
 }
 ```
 
-- A revision is a peer-local value that increases with each committed append or purge. Two
-  snapshots at the same revision answer every operation identically.
+- A revision is a peer-local value that increases with each committed append or purge that
+  changes what a snapshot can observe: the holdings or the head. Two snapshots at the same
+  revision answer every operation identically.
+- Every list a store returns is ascending by the UTF-8 bytes of the id, with no id twice.
+- **Probes.** "Does this peer hold x" and "which of these does it hold" are `get` or `arrivals`
+  with those ids. "Does it hold anything" is `count`.
 - Every operation on one snapshot sees the same revision. An implementation without native
   read transactions meets this with a revision check after each batch, failing with
   `snapshot-moved`.
 - A synchronous implementation MAY also expose the SPEC-17 `DeltaSource` directly.
+- `scopeSource(members)` builds a synchronous `DeltaSource` over the members one read has
+  fetched (`ScopeResult.deltas`, from one or several rounds). It answers `get`, `targets` and
+  `negators` restricted to the fetched set, and each member's arrival record. Code that must
+  evaluate synchronously fetches once, then reads this.
 
 **Cost.** `get`, `targets` and `negators` cost O(k × log N + result), where k is the number of
 keys asked. No core operation may cost O(N).
@@ -134,8 +155,18 @@ type ScopeRequest = {
 - Let H be the peer's held set, and Hp the members of H that pass the pushdown selection p.
 - Let S(A over D) be SPEC-17's scope generalized to anchors: every delta in D an anchor yields,
   closed under negators in D.
-- The result R MUST satisfy `S(A over Hp) \ exclude ⊆ R ⊆ S(A over H)`. It carries the delta
-  bytes for R, so the host needs no second round trip.
+- Let q be the part of p the store reports applied (`ScopeResult.applied`), and Hq the members
+  of H that pass q.
+- The result R MUST satisfy `S(A over Hp) \ exclude ⊆ R ⊆ S(A over Hq)`. It carries the delta
+  bytes and this peer's arrival record for each member of R, so the host needs no second round
+  trip.
+
+```ts
+type ScopeResult = {
+  deltas: readonly VerifiedDelta[];   // R: each delta with this peer's arrival record
+  applied: { timestampAtMost: boolean; arrivalAtMost: boolean; excludeIds: boolean };
+};
+```
 
 **Trim lemma.** S is monotone in the delta set: if D′ ⊆ D then `S(A over D′) ⊆ S(A over D)`.
 So a host with a residual selection `a` (anything it did not push down) computes the exact scope
@@ -143,7 +174,14 @@ as `S(A over R ∩ a)` in memory, from R and what it already holds. Every negati
 is already there. Conformance vectors pin this against the memory reference.
 
 A store MAY return more than `S(A over Hp)`. It MUST NOT return less, and it MUST NOT return ids
-outside `S(A over H)`. That upper bound keeps the cost footprint-bounded.
+outside `S(A over Hq)`. That upper bound keeps the cost footprint-bounded, and it is what makes
+the trim lemma exact: the host re-applies only what the store did not, so a store that reports a
+field applied MUST NOT return a member that fails it. A field is reported applied only when it
+was requested.
+
+`exclude` and `Pushdown.excludeIds` differ. `exclude` only lets the store leave ids out of R;
+negation chains still run through them. `excludeIds` is a selection: a chain stops at a dropped
+id. The host applies its whole selection to the deltas it already holds before it trims.
 
 **Pushdown.** A selection the store can apply itself:
 
@@ -190,15 +228,32 @@ type Admission = {
   expectedHead: Head | null;        // journal compare-and-set, SPEC-6 vNext §2
   nextHead: Head;
   frame: Uint8Array | null;         // the canonical journal frame (§4.7.3)
-  added: readonly VerifiedDelta[];  // admitted ids with their arrival records
-  erased?: readonly Id[];           // effective erasure targets (§4.7.2)
+  added: readonly VerifiedDelta[];  // admitted deltas with their arrival records
 };
+type VerifiedDelta = { delta: Delta; arrival: ArrivalRecord };
+type AppendResult =
+  | { status: "committed"; revision: Revision; added: readonly Id[] }   // ids newly held
+  | { status: "conflict" }
+  | { status: "uncertain"; fault: string };
 ```
+
+**One path for removal.** `purge` (§4.7.2) is the only operation that removes a delta from a
+peer. An earlier draft also carried `erased` on `Admission`; it is not offered. An erasure is two
+calls: `append` admits the order, then `purge` removes its targets. Slice 4 decides whether the
+journal needs both in one commit, and adds that then.
 
 - An append is atomic per peer. The new head, frame, membership, indexes (including every active
   derived index, §4.7.5), arrivals, holdings digest and one change record become visible
   together, or none of them do.
-- It is idempotent by id: an id the peer already holds adds nothing.
+- It is idempotent by id: an id the peer already holds adds nothing, and keeps its first arrival
+  record. A second appearance of an id inside one batch is ignored the same way.
+- The store checks that each delta's id recomputes from its claims, and refuses
+  `invalid-admission` otherwise. Claims are shared across peers by id, so an unchecked id would
+  let one peer's append change what another peer reads. It does not check signatures.
+- The store checks each new arrival record: it names its delta, and its sequence is greater than
+  every sequence the peer has committed. A refused batch commits nothing.
+- A store without the `journal` capability refuses a non-null `frame` with `capability-absent`.
+  It still keeps the head and runs the compare-and-set.
 - One writer per peer. A head mismatch returns `conflict`. An uncertain commit returns
   `uncertain`. The caller reopens and replans (SPEC-6 vNext §2).
 - The store receives deltas that admission has already verified. It stores canonical bytes and
@@ -258,11 +313,23 @@ hyperschema uses `aliased`.
 #### 4.7.2 Erasure
 
 ```ts
-purge(ids: readonly Id[]): Promise<PurgeReport>;
+purge(ids: readonly Id[]): Promise<PurgeReport>;   // on PeerStore
+type PurgeReport = {
+  claim: "proven" | "unproven";
+  boundary: "store-controlled-surfaces";
+  revision: Revision;
+  targets: readonly { id: Id; outcome: "removed" | "held-by-other-peer" | "not-held" }[];
+  surfaces: readonly { surface: string; state: "absent" | "owed" | "unprovable" }[];
+};
 ```
 
 - Removes the target bytes from this peer. Bytes another peer still holds stay. The report says
   `held-by-other-peer` for those, without naming the other peer.
+- A peer that purged an id while another peer held the bytes **owes** that id. A later purge of
+  the same id reports `removed` once the bytes are gone, and `held-by-other-peer` until then. An
+  append that makes the peer hold the id again ends the debt.
+- A peer that never held an id gets `not-held`, whoever else holds it. A purge never tells a
+  peer about holdings it did not have.
 - Removes the target's index entries, derived-index entries and arrival rows for this peer,
   updates the holdings digest, and writes one change record (`removed`).
 - `PurgeReport` lists each declared storage surface (rows, index entries, journal frames,
@@ -386,12 +453,20 @@ top-down in O(differences × log N); that use is for step 7.
 
 ```ts
 interface Exporter {
-  ids(): AsyncIterable<Id>;
-  deltas(): AsyncIterable<Delta>;
-  fsck(): Promise<FsckReport>;
+  peers(): AsyncIterable<PeerId>;
+  peer(id: PeerId): PeerExporter;        // one peer's holdings
+  storedIds(): AsyncIterable<Id>;        // every id the store keeps bytes for
+  fsck(): Promise<FsckReport>;           // from slice 4
   repack?(): Promise<void>;
 }
+interface PeerExporter {
+  ids(): AsyncIterable<Id>;
+  deltas(): AsyncIterable<Delta>;        // each as this peer admitted it
+}
 ```
+
+A listing is one peer's holdings unless its name says `stored`. `storedIds` names other peers'
+deltas, so nothing may use it to choose what one peer purges or serves.
 
 O(surface) by definition. Only admin, backup, `fsck`, repack, derived-index backfill and declared
 full-surface reads (§6.6) use it.
@@ -407,7 +482,7 @@ type StoreProfile = {
   pushdown: { timestampAtMost: boolean; arrivalAtMost: boolean; excludeIds: boolean };
   writers: "one-process" | "many-processes";   // who may append concurrently, per peer
   atRest: "trusted" | "untrusted";             // §4.9
-  changeRetention: "unbounded" | { revisions: number };
+  changeRetention: "none" | "unbounded" | { revisions: number };   // none: no change feed
   formatVersion: string;                       // §4.7.3
 };
 ```
@@ -433,6 +508,64 @@ A store never claims a capability it implements by scanning.
   a consumer's own store is tested exactly as the built-in ones are.
 - A connection string can carry credentials. The opener never logs or echoes it, and errors name
   the scheme only.
+
+### 4.11 Slice 1 readings
+
+Slice 1 built §4.1–§4.5, §4.7.2, the `Exporter` listings and §4.8–§4.10 on the memory store. Where
+the text above was silent, slice 1 decided as follows. The shared vectors and
+`vectors/store/README.md` pin each point.
+
+1. **Peer creation.** `createPeer(id, { erasure })` and an async `peer(id)` (§4.1). Declaring
+   `unproven` is the operator's acknowledgement of §4.7.2; there is no second flag. A peer id is
+   an opaque non-empty string to the store.
+2. **Refusals** are a `StoreError` with a `code`: `store-closed`, `unknown-scheme`,
+   `invalid-url`, `scheme-exists`, `open-failed`, `capability-absent`, `peer-absent`,
+   `peer-exists`, `posture-refused`, `invalid-admission`, `invalid-request`, `snapshot-moved`,
+   `snapshot-released`.
+3. **Revisions** are integers in the TypeScript witness. The contract is only their order inside
+   one peer. A revision advances when the holdings or the head change, and at no other time: a
+   committed append that adds nothing and keeps the head, a purge that removes nothing, and the
+   settling of a purge debt do not advance it.
+4. **The head** is readable on a snapshot (`Snapshot.head`). Without it a caller could not replan
+   after `conflict` on a store that has no journal capability.
+5. **Signatures are per peer.** Claims are stored once per id. The signature belongs to the
+   holding, so a peer reads the appearance it admitted, also when another peer admitted the same
+   id unsigned.
+6. **The scope bounds** use the applied selection for the upper bound (§4.3). The first draft's
+   upper bound, `S(A over H)`, let a store report a field applied and still return members that
+   fail it; the trim lemma is false for such a store.
+7. **A moved snapshot** refuses with `snapshot-moved` on the memory store. A store with read
+   transactions answers at the snapshot's revision instead. Both conform; answering from the
+   later state does not. `head` and `count` are fixed at read and never refuse.
+8. **Removal** has one path, `purge` (§4.5).
+9. **Purge debts** and `not-held` (§4.7.2). The memory store declares three surfaces: `rows`,
+   `index-entries` (targets, negators and arrival rows) and `process-memory`. `rows` is `owed`
+   while another peer holds a target's bytes. `process-memory` is always `unprovable`, so the
+   claim is always `unproven`.
+10. **The change feed is absent.** `changes` is not on the slice-1 `PeerStore`, and the memory
+    profile says `changeRetention: "none"`. `StoreRequirement` `changes` fails at open.
+11. **Requirements at open.** `openStore(url, { requires })` takes names from: `values`,
+    `arrival`, `journal`, `views`, `derivedIndexes`, `digest`, `changes`, `purge`,
+    `erasure-proven`. It closes the store and refuses `capability-absent`, naming each missing
+    one.
+12. **Schemes.** `memory:` takes no address; each open is a new empty store.
+    `registerStoreScheme` returns a function that removes the scheme, refuses a scheme that is
+    taken, and cannot replace a built-in. An error a factory throws that is not a `StoreError`
+    is replaced by `open-failed` with the scheme name, because a driver's message may quote the
+    URL.
+13. **The memory profile in slice 1** reports `values`, `journal`, `views`, `derivedIndexes` and
+    `digest` false, and `arrival` true. §5.1's "every capability" is the target for slice 6.
+14. **Anchors** are a tagged union with one member, `{ kind: "entity", entity }`. A store refuses
+    an anchor kind it has no index for with `capability-absent`.
+15. **`ArrivalRecord`** moved from the `federation` package boundary to `storage`, which stores
+    it. `federation` re-exports it. `storage` still depends only on `delta`.
+16. **Conformance.** `runStoreConformance(factory, vectors?)` runs each script on a new store,
+    returns what passed and what the profile made it skip, and throws listing every failure. The
+    default vectors are generated in memory from the same model that writes `vectors/store/`.
+17. **The cost rail** counts the memory store's index work through one counting door over every
+    map (`StoreMeter`: keyed lookups, members visited, whole-map scans). The same operations
+    over the same footprint make the same counts with 0 and with N unrelated deltas, and no core
+    operation scans. Only the `Exporter` scans.
 
 ## 5. Architectures
 
@@ -722,6 +855,17 @@ what slice 5 covers in Loam.
 - A container that is a fence inside a peer pays the peer's index cost on scans (§5.2).
 - Dormancy timing for orphaned derived indexes, and the per-peer budget.
 - Step 7 publishes each peer's erasure class in its peer description.
+- **Arrival history after a purge.** §4.7.2 removes the arrival row with the delta, and slice 1
+  does so. Loam's arrival history keeps the id after erasure, and its recovery reads it. Whether
+  a purge leaves a marker that an id once arrived is not decided (SPEC-6 vNext §3 requires a
+  per-id marker when earlier arrival metadata is purged). Slice 1 adds no tombstone.
+- **Ids by arrival range.** Slice 1 reads the arrival record of a held id (`arrivals`, and with
+  each scope member) and selects by `arrivalAtMost`. It has no query that lists ids in an arrival
+  range; that needs the ordered arrival index (§5.2 `INDEX (peer, seq)`).
+- **Erasure in one commit.** Whether an erasure order and the removal of its targets must commit
+  together (the dropped `Admission.erased`), decided with the journal split in slice 4.
+- **Purge is not under the head compare-and-set.** A purge changes holdings without moving the
+  journal head. Slice 4 decides how the journal frame of a purge and the removal commit together.
 
 ## 13. Not in scope
 
