@@ -850,7 +850,6 @@ what slice 5 covers in Loam.
 **Open items carried forward** (not blocking slice 1):
 
 - Loam's archive and local-storage drivers: a store implementation each, or deletion (slice 5).
-
 - Delegated index peers: authorization per reader surface, completeness proofs, freshness.
 - A container that is a fence inside a peer pays the peer's index cost on scans (§5.2).
 - Dormancy timing for orphaned derived indexes, and the per-peer budget.
@@ -866,6 +865,38 @@ what slice 5 covers in Loam.
   together (the dropped `Admission.erased`), decided with the journal split in slice 4.
 - **Purge is not under the head compare-and-set.** A purge changes holdings without moving the
   journal head. Slice 4 decides how the journal frame of a purge and the removal commit together.
+
+**Gaps found by the Loam call-site inventory** (Loam `refactor/store-move-inventory.md`, 2026-11-09).
+Each needs an answer before the slice named. None changes slice 1.
+
+- **Context anchors (slice 5 or 6).** Loam files law under one context at many entities, and reads
+  "every delta with a pointer in context C". No anchor kind covers that. Either Loam files law at
+  fixed entities (a Loam wire change), or the store gains a context anchor.
+- **A reference index (slice 5).** "Every delta that references id X by any role." `negators`
+  covers the role `negates` only. Loam's erasure tiers and slate members need the wider read.
+- **Counts (slice 5).** A count of held deltas per author, for Loam's append budget. `count` on a
+  snapshot answers only the total.
+- **A whole-peer version address (slice 3 or 4).** Loam hashes every member of a pool to name its
+  version. The holdings Merkle root (§4.7.6) can serve, if consumers accept that hash as the address.
+- **Peer deletion (slice 4).** Dropping a pool removes a whole peer. The interface has no such
+  operation. It must not be built as "purge every id the store-wide listing names": that listing
+  covers other peers. The per-peer listing of slice 1 is the only safe input.
+- **Reads that span peers (slice 5).** A pool reads its host's users. A scoped query composes a host
+  and its pools. A negation closure crosses both. §4.4 gives one snapshot per read. The union
+  composition (§5.6) is the likely answer; its revision is a pair.
+- **The next validity boundary (slice 3).** Loam asks one whole-set question: when does any held
+  delta next start or stop being valid? `expiresAt` on a stored view arrives only in slice 6.
+- **A replica composition (slice 5).** Loam's mirror writes both stores, reads one, purges both and
+  heals one from the other. §5.6 lists union, overlay and cache only.
+- **The integrity-fault report (slice 4).** §9 names it and gives it no shape. Loam's repair layer
+  is built on it.
+- **Who builds the frame and the next head (slice 4).** `Admission` carries both. A consumer that
+  admits through the journal peer never sees a frame. The journal peer builds the admission; the
+  store only commits it. §4.5 should say so.
+- **Posture of a default memory pool (slice 5).** Loam defaults a pool to a memory store, and its
+  erase verdict needs every pool clean. Memory is `unprovable`.
+- **Journal frames and payload (slice 4).** Whether a frame still carries delta bytes after the
+  split decides whether the journal is an erasure surface.
 
 ## 13. Not in scope
 
