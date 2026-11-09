@@ -540,3 +540,58 @@ cache.
 - The L0 pack format (SPEC-8). Segments reuse it unchanged.
 - Partitioning one peer across machines. The interface does not prevent it; no slice builds it.
 - A query planner for ad hoc unregistered terms (SPEC-4 §8 "cold queries").
+
+## 13. Decision record (in progress)
+
+Myk and Claude are working through §11. This section records each answer as it lands; the body
+above is revised to match once all questions are settled.
+
+### Q1 async boundary — DECIDED: Option A
+- Batch-async calls at the store; evaluation stays synchronous over a fetched scope (SPEC-17 rounds).
+- Two in-read caches, sound because all rounds of one read use one snapshot/revision:
+  - fetch cache: each round fetches only new entities; store excludes already-held deltas.
+  - evaluation memo: completed child evaluations keyed (program, reading, root); a child is final
+    only when its whole subtree's anchors are fetched (closure lemma).
+- Across reads: cache by revision, invalidated through the change feed (stored views).
+- Later optional capability: expansion pushdown (SQL follows expand roles in one round).
+- Rust witness: synchronous store traits (assumed agreed; Myk did not object).
+
+### Q2 journal checkpoint (proposal Q4) — DECIDED: Option A + format-version marker
+- Journal keeps head chain, refusals, purge obligations, counters; small.
+- Holdings and arrivals move to the store's indexed tables, same atomic transaction as the frame.
+- Each frame commits a Merkle root over holdings (digest capability, O(log N) per change).
+- Open = head + checkpoint + tail. Full verification = explicit fsck; per-row Merkle proof on read optional.
+- Boot-time old-format check (Loam #690 slate scan) becomes an O(1) format-version marker.
+- Myk: boot is an arbitrary place to verify; verify on read / on demand is cleaner.
+- Optional later: read-only background scrub.
+
+### Q3 unanchored terms (proposal Q5) — DECIDED
+- Terminology: not "whole store" but the reader's **surface** (peer holdings ∩ authorization);
+  a "full-surface read". Wrinkle: a bound container that is a fence inside a peer (not its own
+  peer) scans the peer's indexes, not just its own surface.
+- A hyperschema = an index plus semantics. Registering a hyperschema whose selection no existing
+  anchor covers creates its backing index (one full-surface backfill at registration). The
+  registration response states backfill cost and the new maintained index. Registration is the opt-in.
+- Maintenance is per-write predicate check, O(1) per index, independent of store size.
+- Ad hoc unregistered full-surface queries: allowed with an explicit flag, marked unoptimized,
+  never persisted.
+- Identical selections share one index (keyed by canonical selection hash + surface), ref-counted
+  by active hyperschemas.
+- Lifecycle: index active while any active hyperschema uses it; orphaned index goes dormant
+  (kept, catches up from the change feed on revival), then dropped.
+- Derived indexes are caches (unsigned, per peer, rebuildable, never federated as data); registered
+  lenses are signed rules. Indexes extend the anchor vocabulary.
+- Myk: index capability can be delegated to another peer (federated index caches serving one or
+  many peers, growing independently). Open details: authorization per reader surface,
+  completeness (trusted delegate unless proofs; Merkle digest is the start), freshness (revision pair).
+- `aliased` becomes anchored via value index (fragment role) + targets(slot) — pending Q4.
+
+### Q4 value ranges as anchors (proposal Q6) — PENDING (asked)
+- Recommendation: yes, value lookups are anchors; anchors = entities ∪ value lookups ∪ derived indexes.
+- Sub-question: value index for every role, or lazy (only roles an active hyperschema uses)?
+  Recommendation: lazy (SPEC-4 rule).
+
+### Remaining, not yet discussed
+- Q5 erasure on engines that cannot prove absence (proposal Q7).
+- Q6 where adapters live (proposal Q3).
+- Q7 order relative to step 7 (proposal Q2).
