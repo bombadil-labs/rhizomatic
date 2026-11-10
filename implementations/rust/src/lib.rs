@@ -96,9 +96,7 @@ pub use principal::{
     PrincipalReadOptions, PrincipalResolver, PrincipalResult, PrincipalSuppression, ScopePolicy,
     ValidityInterval,
 };
-pub use reactor::{
-    make_manifest_claims, manifest_member_ids, IngestResult, NegationReader, Reactor,
-};
+pub use reactor::{make_manifest_claims, manifest_member_ids, IngestResult, Reactor};
 pub use resolution::{
     apply_policy, decode_view, first_by_order, resolve_view, view_canonical_hex, MergeFn, Order,
     Policy, Schema, View,
@@ -108,8 +106,10 @@ pub use schema_deltas::{
     hyper_schema_schema, load_governed_hyper_schema, load_governed_schema, load_hyper_schema,
     load_schema, publish_hyper_schema_claims, publish_schema_claims, schema_schema, VOCAB_PREFIX,
 };
-pub use set::DeltaSource;
 pub use set::{federate, fork, make_delta, make_negation_claims, merge, DeltaSet};
+pub use set::{
+    negation_predicate, negation_reader, negation_witnesses, DeltaSource, NegationReader,
+};
 pub use sign::{sign_claims, verify_delta, Verification};
 pub use store::{
     missing_requirements, scope_source, signature_form, Admission, Anchor, AppendResult, AtRest,

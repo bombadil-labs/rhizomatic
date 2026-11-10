@@ -11,7 +11,8 @@ use crate::materialize::{LoweredProgram, Materialization, MaterializationChange}
 use crate::pred::{compare_primitives, Bindings};
 use crate::resolution::{view_canonical_hex, View};
 use crate::schema::SchemaRegistry;
-use crate::set::DeltaSet;
+pub use crate::set::NegationReader;
+use crate::set::{negation_reader, DeltaSet};
 use crate::sign::{verify_delta, Verification};
 use crate::types::{Delta, Primitive, Target};
 
@@ -59,63 +60,7 @@ pub struct Reactor {
     materializations: BTreeMap<String, Materialization>,
     validity_boundaries: BTreeSet<u64>,
     last_changes: Vec<MaterializationChange>,
-}
-
-/// A read-time negation query. Rust's shared borrow prevents ingest while this reader lives,
-/// so its memo needs no membership revision check.
-pub struct NegationReader<'a, F>
-where
-    F: Fn(&Delta, &Delta) -> bool,
-{
-    reactor: &'a Reactor,
-    now: f64,
-    suppression: F,
-    memo: BTreeMap<String, Vec<Delta>>,
-    visiting: BTreeSet<String>,
-}
-
-impl<F> NegationReader<'_, F>
-where
-    F: Fn(&Delta, &Delta) -> bool,
-{
-    /// Effective direct negations, in ascending delta-id order. Target validity is independent.
-    /// The suppression callback must not invoke this reader recursively; compute trust first.
-    pub fn witnesses(&mut self, id: &str) -> Vec<Delta> {
-        if let Some(cached) = self.memo.get(id) {
-            return cached.clone();
-        }
-        let Some(target) = self.reactor.get(id).cloned() else {
-            return Vec::new();
-        };
-        if !self.visiting.insert(id.to_string()) {
-            return Vec::new();
-        }
-        let mut effective = Vec::new();
-        for negation_id in self.reactor.negations_of(id) {
-            let Some(negation) = self.reactor.get(&negation_id).cloned() else {
-                continue;
-            };
-            if negation.claims.valid_from > self.now
-                || negation
-                    .claims
-                    .valid_until
-                    .is_some_and(|end| self.now >= end)
-            {
-                continue;
-            }
-            if !(self.suppression)(&negation, &target) || !self.witnesses(&negation_id).is_empty() {
-                continue;
-            }
-            effective.push(negation);
-        }
-        self.visiting.remove(id);
-        self.memo.insert(id.to_string(), effective.clone());
-        effective
-    }
-
-    pub fn is_negated(&mut self, id: &str) -> bool {
-        !self.witnesses(id).is_empty()
-    }
+    membership_revision: u64,
 }
 
 fn mat_affects(mat: &Materialization, delta: &Delta, root: &str, set: &DeltaSet) -> bool {
@@ -132,20 +77,19 @@ impl Reactor {
         &self,
         now: f64,
         suppression: F,
-    ) -> Result<NegationReader<'_, F>, String>
+    ) -> Result<NegationReader<'_, Self, F>, String>
     where
         F: Fn(&Delta, &Delta) -> bool,
     {
-        if !now.is_finite() {
-            return Err("now must be a finite number".to_string());
-        }
-        Ok(NegationReader {
-            reactor: self,
-            now,
-            suppression,
-            memo: BTreeMap::new(),
-            visiting: BTreeSet::new(),
-        })
+        negation_reader(self, now, suppression)
+    }
+
+    /// The membership counter. It rises by one for each `ingest`, `ingest_batch` or
+    /// `ingest_bundle` call that answers `Accepted`, which is each call that adds at least one
+    /// member. A `Duplicate` or `Rejected` answer leaves it unchanged, and so does every other
+    /// method. Two values compare only within one reactor object; this is not a store revision.
+    pub fn revision(&self) -> u64 {
+        self.membership_revision
     }
 
     /// Validate -> persist -> index. Idempotent by id; rejected deltas leave no trace (V3).
@@ -166,6 +110,7 @@ impl Reactor {
         self.index(&delta);
         self.last_changes = self.dispatch_and_update(std::slice::from_ref(&delta));
         self.log.push(delta);
+        self.membership_revision += 1;
         IngestResult::Accepted
     }
 
@@ -584,6 +529,7 @@ impl Reactor {
             self.log.push(d.clone());
         }
         self.last_changes = self.dispatch_and_update(&fresh);
+        self.membership_revision += 1;
         IngestResult::Accepted
     }
 
@@ -626,6 +572,7 @@ impl Reactor {
             self.log.push(d.clone());
         }
         self.last_changes = self.dispatch_and_update(&fresh);
+        self.membership_revision += 1;
         IngestResult::Accepted
     }
 

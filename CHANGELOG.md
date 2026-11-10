@@ -58,6 +58,14 @@ the one read type for consumers.
   `run_store_conformance`. It passes every script and scope case of `vectors/store/`. A Rust host
   owns its scheme registry as a value; there is no process-wide table.
 
+- Rust witness, slice 2: `NegationReader` is generic over any `DeltaSource` and lives in `set`,
+  with the free functions `negation_reader`, `negation_witnesses` and `negation_predicate`.
+  `Reactor::negation_reader` builds the same reader over the reactor; `reactor` still exports the
+  type. No answer changes.
+- Rust witness, slice 2: `Reactor::revision()`, the membership counter. It rises by one for each
+  `ingest`, `ingest_batch` or `ingest_bundle` call that adds at least one member, and at no other
+  time. It compares only within one reactor object; it is not a store revision.
+
 ### Changed
 
 - `DeltaSource` and `Suppression` are defined in the TypeScript `delta` package boundary.

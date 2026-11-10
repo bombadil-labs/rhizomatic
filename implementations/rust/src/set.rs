@@ -164,7 +164,11 @@ pub fn federate(a: &DeltaSet, b: &DeltaSet, p: impl Fn(&Delta) -> bool) -> Delta
 }
 
 /// The read side of a store (SPEC-17 §3). `targets` and `negators` answer from indexes; neither
-/// may scan the store.
+/// may scan the store. Each list holds each id once, ascending by the UTF-8 bytes of the id
+/// (SPEC-18 §4.2); Rust `String` order is that order.
+///
+/// A source over a fetched scope answers only from what was fetched: it cannot tell an absent
+/// delta from one that was not fetched. A caller fetches the anchors of everything it asks about.
 pub trait DeltaSource {
     fn get(&self, id: &str) -> Option<&Delta>;
     /// Ids of every delta with a pointer whose target is the entity `entity`, any role or context.
@@ -177,4 +181,120 @@ pub trait DeltaSource {
         DeltaSet::from_deltas(ids.iter().filter_map(|id| self.get(id).cloned()))
             .expect("a delta source holds only content-addressed deltas")
     }
+}
+
+/// A read-time negation query over any delta source. It reads only `get` and `negators`. The
+/// shared borrow of the source prevents a change of membership while this reader lives, so its
+/// memo needs no membership revision check.
+///
+/// An id the source does not hold has no witnesses, and a negation the source does not hold is
+/// not counted. Over a fetched scope S(E) the answers for the members of S(E) equal the answers
+/// over the whole surface, because S(E) is closed under held negators.
+pub struct NegationReader<'a, S, F>
+where
+    S: DeltaSource + ?Sized,
+    F: Fn(&Delta, &Delta) -> bool,
+{
+    source: &'a S,
+    now: f64,
+    suppression: F,
+    memo: BTreeMap<String, Vec<Delta>>,
+    visiting: BTreeSet<String>,
+}
+
+impl<S, F> NegationReader<'_, S, F>
+where
+    S: DeltaSource + ?Sized,
+    F: Fn(&Delta, &Delta) -> bool,
+{
+    /// Effective direct negations, in ascending delta-id order. Target validity is independent.
+    /// The suppression callback must not invoke this reader recursively; compute trust first.
+    pub fn witnesses(&mut self, id: &str) -> Vec<Delta> {
+        if let Some(cached) = self.memo.get(id) {
+            return cached.clone();
+        }
+        let Some(target) = self.source.get(id).cloned() else {
+            return Vec::new();
+        };
+        if !self.visiting.insert(id.to_string()) {
+            return Vec::new();
+        }
+        let mut effective = Vec::new();
+        for negation_id in self.source.negators(id) {
+            let Some(negation) = self.source.get(&negation_id).cloned() else {
+                continue;
+            };
+            if negation.claims.valid_from > self.now
+                || negation
+                    .claims
+                    .valid_until
+                    .is_some_and(|end| self.now >= end)
+            {
+                continue;
+            }
+            if !(self.suppression)(&negation, &target) || !self.witnesses(&negation_id).is_empty() {
+                continue;
+            }
+            effective.push(negation);
+        }
+        self.visiting.remove(id);
+        self.memo.insert(id.to_string(), effective.clone());
+        effective
+    }
+
+    pub fn is_negated(&mut self, id: &str) -> bool {
+        !self.witnesses(id).is_empty()
+    }
+}
+
+/// Build a memoized negation query over held targets and valid negation edges at an explicit
+/// time. `suppression(negation, target)` says whether that negation may suppress that target.
+pub fn negation_reader<S, F>(
+    source: &S,
+    now: f64,
+    suppression: F,
+) -> Result<NegationReader<'_, S, F>, String>
+where
+    S: DeltaSource + ?Sized,
+    F: Fn(&Delta, &Delta) -> bool,
+{
+    if !now.is_finite() {
+        return Err("now must be a finite number".to_string());
+    }
+    Ok(NegationReader {
+        source,
+        now,
+        suppression,
+        memo: BTreeMap::new(),
+        visiting: BTreeSet::new(),
+    })
+}
+
+/// The effective direct negations of one delta, in ascending delta-id order. For several ids
+/// build one [`negation_reader`], which shares its memo between them.
+pub fn negation_witnesses<S, F>(
+    source: &S,
+    id: &str,
+    now: f64,
+    suppression: F,
+) -> Result<Vec<Delta>, String>
+where
+    S: DeltaSource + ?Sized,
+    F: Fn(&Delta, &Delta) -> bool,
+{
+    Ok(negation_reader(source, now, suppression)?.witnesses(id))
+}
+
+/// A predicate `is this id negated at now`, memoized across its calls.
+pub fn negation_predicate<'a, S, F>(
+    source: &'a S,
+    now: f64,
+    suppression: F,
+) -> Result<impl FnMut(&str) -> bool + 'a, String>
+where
+    S: DeltaSource + ?Sized,
+    F: Fn(&Delta, &Delta) -> bool + 'a,
+{
+    let mut reader = negation_reader(source, now, suppression)?;
+    Ok(move |id: &str| reader.is_negated(id))
 }
