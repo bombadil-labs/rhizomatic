@@ -62,7 +62,10 @@ physical store.
 3. **Whole-store operations live on a separate object.** Listing every id, exporting, repacking,
    backup and `fsck` are on an `Exporter` that `openAdmin()` returns. The serving path never
    receives one, except for a declared full-surface read (§6.6).
-4. **The boundary is batch-shaped and asynchronous; evaluation stays synchronous.** A read
+4. **The boundary is batch-shaped and asynchronous; evaluation stays synchronous.** Handles
+   (a peer's store, a snapshot) are owned values: they stay usable after later writes and after
+   the peer is opened again, so `snapshot-moved` and `snapshot-released` are run-time refusals in
+   every witness. A read
    fetches its scope one round at a time and evaluates in memory between rounds (§4.4). The
    scope is footprint-bounded, so holding it in memory is allowed. The Rust witness uses
    synchronous store traits; the batch shape fits both.
@@ -94,6 +97,10 @@ function openStore(url: string, options?: OpenOptions): Promise<Store>;   // §4
   `proven` and the store's erasure class is not, and `peer-exists` when the id is taken.
 - `peer` opens an existing peer and refuses `peer-absent`. It never creates one: a peer without a
   declared posture cannot exist.
+- **A store owns what it holds; no caller holds a reference into it.** It keeps its own copy of
+  every delta, signature and arrival record, holding only the canonical fields of the claims. A
+  caller that changes a value after appending it, or a value a read returned, changes nothing in
+  the store, for any peer.
 - A `PeerStore` exposes `erasure: { posture, storeClass }`, the posture and the store's class
   recorded at creation.
 
@@ -182,6 +189,10 @@ was requested.
 `exclude` and `Pushdown.excludeIds` differ. `exclude` only lets the store leave ids out of R;
 negation chains still run through them. `excludeIds` is a selection: a chain stops at a dropped
 id. The host applies its whole selection to the deltas it already holds before it trims.
+
+The lemma needs the deltas the host "already holds" to come from the **same snapshot** as R:
+earlier rounds of the same read. Deltas kept from another snapshot can name negations that are no
+longer held, or miss ones that arrived since.
 
 **Pushdown.** A selection the store can apply itself:
 
@@ -315,7 +326,7 @@ hyperschema uses `aliased`.
 ```ts
 purge(ids: readonly Id[]): Promise<PurgeReport>;   // on PeerStore
 type PurgeReport = {
-  claim: "proven" | "unproven";
+  claim: "proven" | "unproven" | "nothing-removed";
   boundary: "store-controlled-surfaces";
   revision: Revision;
   targets: readonly { id: Id; outcome: "removed" | "held-by-other-peer" | "not-held" }[];
@@ -330,6 +341,16 @@ type PurgeReport = {
   append that makes the peer hold the id again ends the debt.
 - A peer that never held an id gets `not-held`, whoever else holds it. A purge never tells a
   peer about holdings it did not have.
+- **What a purge reveals, by design.** `held-by-other-peer` tells a peer that some other peer
+  holds an id this peer itself admitted, and, by asking again, when that holder lets go. It never
+  tells who. A report may not say bytes are gone while they remain, so the peer must learn that
+  they remain. This is the price of an honest report.
+- **The claim covers only the targets a report marks `removed`.** With no such target the claim
+  is `nothing-removed` and asserts nothing about bytes. `proven` needs the store's class to be
+  `proven`, at least one declared surface, and every surface `absent`. A store may always claim
+  less (`unproven` for `proven`), never more. Surface states speak for the removed targets; a
+  target another peer holds is told by its outcome.
+- A store whose erasure class is `none` refuses `purge` with `capability-absent`.
 - Removes the target's index entries, derived-index entries and arrival rows for this peer,
   updates the holdings digest, and writes one change record (`removed`).
 - `PurgeReport` lists each declared storage surface (rows, index entries, journal frames,
@@ -506,8 +527,14 @@ A store never claims a capability it implements by scanning.
 - `registerStoreScheme(scheme, factory)` adds a consumer's own implementation.
 - `runStoreConformance(factory)` runs the shared store vectors (§8) against any implementation, so
   a consumer's own store is tested exactly as the built-in ones are.
-- A connection string can carry credentials. The opener never logs or echoes it, and errors name
-  the scheme only.
+- A connection string can carry credentials. The opener never logs or echoes it. A scheme is
+  `ALPHA *( ALPHA / DIGIT / "+" / "-" / "." )` before the first colon (RFC 3986 §3.1), compared
+  without regard to case. An error names a scheme only when that scheme is registered. For
+  anything else, a missing scheme or an unregistered one, the error is one fixed message that
+  echoes nothing: the text before the first colon of a malformed connection string can be a
+  credential.
+- A factory's own `StoreError` passes through unchanged; the factory owns its messages. Any other
+  error from a factory, and any error from `close` on the missing-capability path, is replaced.
 
 ### 4.11 Slice 1 readings
 
@@ -539,9 +566,8 @@ the text above was silent, slice 1 decided as follows. The shared vectors and
    later state does not. `head` and `count` are fixed at read and never refuse.
 8. **Removal** has one path, `purge` (§4.5).
 9. **Purge debts** and `not-held` (§4.7.2). The memory store declares three surfaces: `rows`,
-   `index-entries` (targets, negators and arrival rows) and `process-memory`. `rows` is `owed`
-   while another peer holds a target's bytes. `process-memory` is always `unprovable`, so the
-   claim is always `unproven`.
+   `index-entries` (targets, negators and arrival rows) and `process-memory`. `process-memory` is
+   always `unprovable`, so the memory store never claims `proven` (see reading 24).
 10. **The change feed is absent.** `changes` is not on the slice-1 `PeerStore`, and the memory
     profile says `changeRetention: "none"`. `StoreRequirement` `changes` fails at open.
 11. **Requirements at open.** `openStore(url, { requires })` takes names from: `values`,
@@ -552,7 +578,8 @@ the text above was silent, slice 1 decided as follows. The shared vectors and
     `registerStoreScheme` returns a function that removes the scheme, refuses a scheme that is
     taken, and cannot replace a built-in. An error a factory throws that is not a `StoreError`
     is replaced by `open-failed` with the scheme name, because a driver's message may quote the
-    URL.
+    URL. A URL with no scheme or an unregistered one is refused `unknown-scheme` with one fixed
+    message (§4.10).
 13. **The memory profile in slice 1** reports `values`, `journal`, `views`, `derivedIndexes` and
     `digest` false, and `arrival` true. §5.1's "every capability" is the target for slice 6.
 14. **Anchors** are a tagged union with one member, `{ kind: "entity", entity }`. A store refuses
@@ -566,6 +593,37 @@ the text above was silent, slice 1 decided as follows. The shared vectors and
     map (`StoreMeter`: keyed lookups, members visited, whole-map scans). The same operations
     over the same footprint make the same counts with 0 and with N unrelated deltas, and no core
     operation scans. Only the `Exporter` scans.
+18. **Ownership** (§4.1). The memory store copies claims, signature and arrival at append and
+    again on every read, because a bytes payload cannot be frozen. Fields outside the canonical
+    claims are dropped at append.
+19. **Order of checks in `append`.** Two orders are pinned: the head compare-and-set comes before
+    the batch is looked at, and every entry is checked (id, signature form, arrival record) even
+    when its id is already held. Nothing else is ordered: an empty next head or an unstorable
+    frame against a stale head may answer either way. Refusals on a snapshot that is released,
+    moved and on a closed store are not ordered either. Where two causes coincide in a vector,
+    the vector lists every code that conforms.
+20. **Numbers.** `sequence` and `transfer` are integers from 1 to 2^53 − 1 in every witness. `at`
+    is a finite number of milliseconds and may be fractional (SPEC-6 vNext §3 does not restrict
+    it). A signature, when present, is 128 lowercase hex characters; the store checks the form
+    only. A violation is `invalid-admission`.
+21. **`invalid-request`, the closed list:** `createPeer` with an empty peer id or without a
+    posture; `scope` with a non-finite `timestampAtMost`; `scope` with an `arrivalAtMost` that is
+    not an integer from 0 to 2^53 − 1; an unknown requirement name at open; `scopeSource` given a
+    member whose id does not recompute.
+22. **Requirements are an allow-list.** A name outside it is refused and named, never looked up
+    on the profile. A capability counts only when it is exactly true.
+23. **Handles.** An older `PeerStore` stays valid when the peer is opened again; both are views
+    of one peer.
+24. **The purge claim** (§4.7.2) replaces reading 9's "the claim is always `unproven`": the memory
+    store says `unproven` when it removed a target and `nothing-removed` otherwise. Its `rows`
+    surface no longer says `owed` for a target another peer holds; the outcome says that.
+25. **Conformance covers both documents.** `runStoreConformance` runs the scripts and the scope
+    cases by default. The scripts alone do not hold a store to the exact upper bound. Each
+    witness also runs both against the reference store with every subset of pushdown fields
+    switched off (8 runs).
+26. **Scheme case** (§4.10). `MEMORY:` opens the memory store. `registerStoreScheme` stores the
+    lowercase form.
+
 
 ## 5. Architectures
 
@@ -730,8 +788,10 @@ cache.
 
 - **Store vectors** (`vectors/store/*.json`) are operation scripts: create peers with a posture,
   append batches (negation chains, negations before their targets, duplicates), register and
-  retire derived indexes, purge, then query. Each step names its expected ids or report. The memory
-  reference store generates them. `runStoreConformance` runs them against any implementation.
+  retire derived indexes, purge, then query. Each step names its expected ids or report. An
+  independent model that scans plain lists generates them, and the memory reference store must
+  pass them before the generator writes. `runStoreConformance` runs them against any
+  implementation.
 - **Scope vectors** pin the trim lemma, generalized anchors and `aliased` anchoring: for each case,
   `S(A over R ∩ a)` equals the reference exactly, with and without each pushdown field.
 - **Round vectors** pin that the fetch and evaluation caches change no answer: a read with caches
