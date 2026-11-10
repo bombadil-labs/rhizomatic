@@ -23041,17 +23041,6 @@
     {
       "form": "syn-import",
       "owner": "delta",
-      "rawTarget": "crate::reactor::NegationReader",
-      "resolvedTarget": "crate::reactor::NegationReader",
-      "source": "implementations/rust/src/lib.rs",
-      "sourceRegion": "compatibility-aggregate",
-      "symbol": "<import>",
-      "target": "crate::reactor::NegationReader",
-      "targetOwner": "reactor"
-    },
-    {
-      "form": "syn-import",
-      "owner": "delta",
       "rawTarget": "crate::reactor::Reactor",
       "resolvedTarget": "crate::reactor::Reactor",
       "source": "implementations/rust/src/lib.rs",
@@ -23338,17 +23327,6 @@
     {
       "form": "syn-import",
       "owner": "delta",
-      "rawTarget": "crate::set::DeltaSource",
-      "resolvedTarget": "crate::set::DeltaSource",
-      "source": "implementations/rust/src/lib.rs",
-      "sourceRegion": "compatibility-aggregate",
-      "symbol": "<import>",
-      "target": "crate::set::DeltaSource",
-      "targetOwner": "delta"
-    },
-    {
-      "form": "syn-import",
-      "owner": "delta",
       "rawTarget": "crate::set::DeltaSet",
       "resolvedTarget": "crate::set::DeltaSet",
       "source": "implementations/rust/src/lib.rs",
@@ -23410,6 +23388,61 @@
       "sourceRegion": "compatibility-aggregate",
       "symbol": "<import>",
       "target": "crate::set::merge",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-import",
+      "owner": "delta",
+      "rawTarget": "crate::set::DeltaSource",
+      "resolvedTarget": "crate::set::DeltaSource",
+      "source": "implementations/rust/src/lib.rs",
+      "sourceRegion": "compatibility-aggregate",
+      "symbol": "<import>",
+      "target": "crate::set::DeltaSource",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-import",
+      "owner": "delta",
+      "rawTarget": "crate::set::NegationReader",
+      "resolvedTarget": "crate::set::NegationReader",
+      "source": "implementations/rust/src/lib.rs",
+      "sourceRegion": "compatibility-aggregate",
+      "symbol": "<import>",
+      "target": "crate::set::NegationReader",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-import",
+      "owner": "delta",
+      "rawTarget": "crate::set::negation_predicate",
+      "resolvedTarget": "crate::set::negation_predicate",
+      "source": "implementations/rust/src/lib.rs",
+      "sourceRegion": "compatibility-aggregate",
+      "symbol": "<import>",
+      "target": "crate::set::negation_predicate",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-import",
+      "owner": "delta",
+      "rawTarget": "crate::set::negation_reader",
+      "resolvedTarget": "crate::set::negation_reader",
+      "source": "implementations/rust/src/lib.rs",
+      "sourceRegion": "compatibility-aggregate",
+      "symbol": "<import>",
+      "target": "crate::set::negation_reader",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-import",
+      "owner": "delta",
+      "rawTarget": "crate::set::negation_witnesses",
+      "resolvedTarget": "crate::set::negation_witnesses",
+      "source": "implementations/rust/src/lib.rs",
+      "sourceRegion": "compatibility-aggregate",
+      "symbol": "<import>",
+      "target": "crate::set::negation_witnesses",
       "targetOwner": "delta"
     },
     {
@@ -64462,12 +64495,34 @@
     {
       "form": "syn-import",
       "owner": "reactor",
+      "rawTarget": "crate::set::NegationReader",
+      "resolvedTarget": "crate::set::NegationReader",
+      "source": "implementations/rust/src/reactor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::set::NegationReader",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-import",
+      "owner": "reactor",
       "rawTarget": "crate::set::DeltaSet",
       "resolvedTarget": "crate::set::DeltaSet",
       "source": "implementations/rust/src/reactor.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "<import>",
       "target": "crate::set::DeltaSet",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-import",
+      "owner": "reactor",
+      "rawTarget": "crate::set::negation_reader",
+      "resolvedTarget": "crate::set::negation_reader",
+      "source": "implementations/rust/src/reactor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::set::negation_reader",
       "targetOwner": "delta"
     },
     {
@@ -64603,107 +64658,6 @@
       "sourceRegion": "semantic-owner",
       "symbol": "Reactor",
       "target": "std::collections::BTreeSet"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "reactor",
-      "rawTarget": "crate::reactor::Reactor",
-      "resolvedTarget": "crate::reactor::Reactor",
-      "source": "implementations/rust/src/reactor.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "NegationReader",
-      "target": "crate::reactor::Reactor",
-      "targetOwner": "reactor"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "reactor",
-      "rawTarget": "crate::types::Delta",
-      "resolvedTarget": "crate::types::Delta",
-      "source": "implementations/rust/src/reactor.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "NegationReader",
-      "target": "crate::types::Delta",
-      "targetOwner": "delta"
-    },
-    {
-      "form": "syn-external-path",
-      "owner": "reactor",
-      "source": "implementations/rust/src/reactor.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "NegationReader",
-      "target": "std::collections::BTreeMap"
-    },
-    {
-      "form": "syn-external-path",
-      "owner": "reactor",
-      "source": "implementations/rust/src/reactor.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "NegationReader",
-      "target": "std::collections::BTreeSet"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "reactor",
-      "rawTarget": "crate::reactor::NegationReader",
-      "resolvedTarget": "crate::reactor::NegationReader",
-      "source": "implementations/rust/src/reactor.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "NegationReader",
-      "target": "crate::reactor::NegationReader",
-      "targetOwner": "reactor"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "reactor",
-      "rawTarget": "crate::types::Delta",
-      "resolvedTarget": "crate::types::Delta",
-      "source": "implementations/rust/src/reactor.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "NegationReader",
-      "target": "crate::types::Delta",
-      "targetOwner": "delta"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "reactor",
-      "rawTarget": "crate::reactor::NegationReader",
-      "resolvedTarget": "crate::reactor::NegationReader",
-      "source": "implementations/rust/src/reactor.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "NegationReader::is_negated",
-      "target": "crate::reactor::NegationReader",
-      "targetOwner": "reactor"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "reactor",
-      "rawTarget": "crate::reactor::NegationReader",
-      "resolvedTarget": "crate::reactor::NegationReader",
-      "source": "implementations/rust/src/reactor.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "NegationReader::witnesses",
-      "target": "crate::reactor::NegationReader",
-      "targetOwner": "reactor"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "reactor",
-      "rawTarget": "crate::types::Delta",
-      "resolvedTarget": "crate::types::Delta",
-      "source": "implementations/rust/src/reactor.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "NegationReader::witnesses",
-      "target": "crate::types::Delta",
-      "targetOwner": "delta"
-    },
-    {
-      "form": "syn-external-path",
-      "owner": "reactor",
-      "source": "implementations/rust/src/reactor.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "NegationReader::witnesses",
-      "target": "std::vec::Vec::new"
     },
     {
       "form": "syn-resolved-path",
@@ -65820,17 +65774,6 @@
     {
       "form": "syn-resolved-path",
       "owner": "reactor",
-      "rawTarget": "crate::reactor::NegationReader",
-      "resolvedTarget": "crate::reactor::NegationReader",
-      "source": "implementations/rust/src/reactor.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "Reactor::negation_reader",
-      "target": "crate::reactor::NegationReader",
-      "targetOwner": "reactor"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "reactor",
       "rawTarget": "crate::reactor::Reactor",
       "resolvedTarget": "crate::reactor::Reactor",
       "source": "implementations/rust/src/reactor.rs",
@@ -65842,6 +65785,28 @@
     {
       "form": "syn-resolved-path",
       "owner": "reactor",
+      "rawTarget": "crate::set::NegationReader",
+      "resolvedTarget": "crate::set::NegationReader",
+      "source": "implementations/rust/src/reactor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Reactor::negation_reader",
+      "target": "crate::set::NegationReader",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::set::negation_reader",
+      "resolvedTarget": "crate::set::negation_reader",
+      "source": "implementations/rust/src/reactor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Reactor::negation_reader",
+      "target": "crate::set::negation_reader",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
       "rawTarget": "crate::types::Delta",
       "resolvedTarget": "crate::types::Delta",
       "source": "implementations/rust/src/reactor.rs",
@@ -65849,22 +65814,6 @@
       "symbol": "Reactor::negation_reader",
       "target": "crate::types::Delta",
       "targetOwner": "delta"
-    },
-    {
-      "form": "syn-external-path",
-      "owner": "reactor",
-      "source": "implementations/rust/src/reactor.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "Reactor::negation_reader",
-      "target": "std::collections::BTreeMap::new"
-    },
-    {
-      "form": "syn-external-path",
-      "owner": "reactor",
-      "source": "implementations/rust/src/reactor.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "Reactor::negation_reader",
-      "target": "std::collections::BTreeSet::new"
     },
     {
       "form": "syn-resolved-path",
@@ -66153,6 +66102,17 @@
       "sourceRegion": "semantic-owner",
       "symbol": "Reactor::register_at_lowered_with_deps",
       "target": "std::sync::Arc::new"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::reactor::Reactor",
+      "resolvedTarget": "crate::reactor::Reactor",
+      "source": "implementations/rust/src/reactor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Reactor::revision",
+      "target": "crate::reactor::Reactor",
+      "targetOwner": "reactor"
     },
     {
       "form": "syn-resolved-path",
@@ -75542,6 +75502,233 @@
       "sourceRegion": "semantic-owner",
       "symbol": "DeltaSource::subset",
       "target": "crate::set::DeltaSet::from_deltas",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::set::DeltaSource",
+      "resolvedTarget": "crate::set::DeltaSource",
+      "source": "implementations/rust/src/set.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "NegationReader",
+      "target": "crate::set::DeltaSource",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::types::Delta",
+      "resolvedTarget": "crate::types::Delta",
+      "source": "implementations/rust/src/set.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "NegationReader",
+      "target": "crate::types::Delta",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "delta",
+      "source": "implementations/rust/src/set.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "NegationReader",
+      "target": "std::collections::BTreeMap"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "delta",
+      "source": "implementations/rust/src/set.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "NegationReader",
+      "target": "std::collections::BTreeSet"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::set::DeltaSource",
+      "resolvedTarget": "crate::set::DeltaSource",
+      "source": "implementations/rust/src/set.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "NegationReader",
+      "target": "crate::set::DeltaSource",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::set::NegationReader",
+      "resolvedTarget": "crate::set::NegationReader",
+      "source": "implementations/rust/src/set.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "NegationReader",
+      "target": "crate::set::NegationReader",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::types::Delta",
+      "resolvedTarget": "crate::types::Delta",
+      "source": "implementations/rust/src/set.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "NegationReader",
+      "target": "crate::types::Delta",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::set::NegationReader",
+      "resolvedTarget": "crate::set::NegationReader",
+      "source": "implementations/rust/src/set.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "NegationReader::is_negated",
+      "target": "crate::set::NegationReader",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::set::NegationReader",
+      "resolvedTarget": "crate::set::NegationReader",
+      "source": "implementations/rust/src/set.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "NegationReader::witnesses",
+      "target": "crate::set::NegationReader",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::types::Delta",
+      "resolvedTarget": "crate::types::Delta",
+      "source": "implementations/rust/src/set.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "NegationReader::witnesses",
+      "target": "crate::types::Delta",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "delta",
+      "source": "implementations/rust/src/set.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "NegationReader::witnesses",
+      "target": "std::vec::Vec::new"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::set::DeltaSource",
+      "resolvedTarget": "crate::set::DeltaSource",
+      "source": "implementations/rust/src/set.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "negation_reader",
+      "target": "crate::set::DeltaSource",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::set::NegationReader",
+      "resolvedTarget": "crate::set::NegationReader",
+      "source": "implementations/rust/src/set.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "negation_reader",
+      "target": "crate::set::NegationReader",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::types::Delta",
+      "resolvedTarget": "crate::types::Delta",
+      "source": "implementations/rust/src/set.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "negation_reader",
+      "target": "crate::types::Delta",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "delta",
+      "source": "implementations/rust/src/set.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "negation_reader",
+      "target": "std::collections::BTreeMap::new"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "delta",
+      "source": "implementations/rust/src/set.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "negation_reader",
+      "target": "std::collections::BTreeSet::new"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::set::DeltaSource",
+      "resolvedTarget": "crate::set::DeltaSource",
+      "source": "implementations/rust/src/set.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "negation_witnesses",
+      "target": "crate::set::DeltaSource",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::set::negation_reader",
+      "resolvedTarget": "crate::set::negation_reader",
+      "source": "implementations/rust/src/set.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "negation_witnesses",
+      "target": "crate::set::negation_reader",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::types::Delta",
+      "resolvedTarget": "crate::types::Delta",
+      "source": "implementations/rust/src/set.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "negation_witnesses",
+      "target": "crate::types::Delta",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::set::DeltaSource",
+      "resolvedTarget": "crate::set::DeltaSource",
+      "source": "implementations/rust/src/set.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "negation_predicate",
+      "target": "crate::set::DeltaSource",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::set::negation_reader",
+      "resolvedTarget": "crate::set::negation_reader",
+      "source": "implementations/rust/src/set.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "negation_predicate",
+      "target": "crate::set::negation_reader",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "delta",
+      "rawTarget": "crate::types::Delta",
+      "resolvedTarget": "crate::types::Delta",
+      "source": "implementations/rust/src/set.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "negation_predicate",
+      "target": "crate::types::Delta",
       "targetOwner": "delta"
     },
     {
@@ -93302,15 +93489,15 @@
     },
     {
       "cfg": [],
+      "classification": "compatibility_reexport",
+      "contract": "rhizomatic.storage/native-api/1",
       "definition": "reexport",
       "id": "rust:lib:MAX_ARRIVAL_COUNTER",
       "owner": "storage",
+      "semantics": "Native lib::MAX_ARRIVAL_COUNTER implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "MAX_ARRIVAL_COUNTER",
-      "target": "crate::store::MAX_ARRIVAL_COUNTER",
-      "contract": "rhizomatic.storage/native-api/1",
-      "classification": "compatibility_reexport",
-      "semantics": "Native lib::MAX_ARRIVAL_COUNTER implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner."
+      "target": "crate::store::MAX_ARRIVAL_COUNTER"
     },
     {
       "cfg": [],
@@ -93627,14 +93814,14 @@
     {
       "cfg": [],
       "classification": "compatibility_reexport",
-      "contract": "rhizomatic.reactor/native-api/1",
+      "contract": "rhizomatic.delta/native-api/1",
       "definition": "reexport",
       "id": "rust:lib:NegationReader",
-      "owner": "reactor",
-      "semantics": "Native lib::NegationReader implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
+      "owner": "delta",
+      "semantics": "Native lib::NegationReader implements SPEC-1 identity/canonical codecs and SPEC-8 neutral membership. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "NegationReader",
-      "target": "crate::reactor::NegationReader"
+      "target": "crate::set::NegationReader"
     },
     {
       "cfg": [],
@@ -94310,15 +94497,15 @@
     },
     {
       "cfg": [],
+      "classification": "compatibility_reexport",
+      "contract": "rhizomatic.storage/native-api/1",
       "definition": "reexport",
       "id": "rust:lib:UNKNOWN_SCHEME_MESSAGE",
       "owner": "storage",
+      "semantics": "Native lib::UNKNOWN_SCHEME_MESSAGE implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "UNKNOWN_SCHEME_MESSAGE",
-      "target": "crate::store_open::UNKNOWN_SCHEME_MESSAGE",
-      "contract": "rhizomatic.storage/native-api/1",
-      "classification": "compatibility_reexport",
-      "semantics": "Native lib::UNKNOWN_SCHEME_MESSAGE implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner."
+      "target": "crate::store_open::UNKNOWN_SCHEME_MESSAGE"
     },
     {
       "cfg": [],
@@ -95053,6 +95240,42 @@
       "target": "crate::store::missing_requirements"
     },
     {
+      "cfg": [],
+      "classification": "compatibility_reexport",
+      "contract": "rhizomatic.delta/native-api/1",
+      "definition": "reexport",
+      "id": "rust:lib:negation_predicate",
+      "owner": "delta",
+      "semantics": "Native lib::negation_predicate implements SPEC-1 identity/canonical codecs and SPEC-8 neutral membership. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
+      "source": "implementations/rust/src/lib.rs",
+      "symbol": "negation_predicate",
+      "target": "crate::set::negation_predicate"
+    },
+    {
+      "cfg": [],
+      "classification": "compatibility_reexport",
+      "contract": "rhizomatic.delta/native-api/1",
+      "definition": "reexport",
+      "id": "rust:lib:negation_reader",
+      "owner": "delta",
+      "semantics": "Native lib::negation_reader implements SPEC-1 identity/canonical codecs and SPEC-8 neutral membership. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
+      "source": "implementations/rust/src/lib.rs",
+      "symbol": "negation_reader",
+      "target": "crate::set::negation_reader"
+    },
+    {
+      "cfg": [],
+      "classification": "compatibility_reexport",
+      "contract": "rhizomatic.delta/native-api/1",
+      "definition": "reexport",
+      "id": "rust:lib:negation_witnesses",
+      "owner": "delta",
+      "semantics": "Native lib::negation_witnesses implements SPEC-1 identity/canonical codecs and SPEC-8 neutral membership. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
+      "source": "implementations/rust/src/lib.rs",
+      "symbol": "negation_witnesses",
+      "target": "crate::set::negation_witnesses"
+    },
+    {
       "cfg": [
         "Meta::List { path: Path { leading_colon: None, segments: [PathSegment { ident: Ident(cfg), arguments: PathArguments::None }] }, delimiter: MacroDelimiter::Paren(Paren), tokens: TokenStream [Ident { sym: not }, Group { delimiter: Parenthesis, stream: TokenStream [Ident { sym: target_arch }, Punct { char: '=', spacing: Alone }, Literal { lit: \"wasm32\" }] }] }"
       ],
@@ -95456,15 +95679,15 @@
     },
     {
       "cfg": [],
+      "classification": "compatibility_reexport",
+      "contract": "rhizomatic.storage/native-api/1",
       "definition": "reexport",
       "id": "rust:lib:signature_form",
       "owner": "storage",
+      "semantics": "Native lib::signature_form implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "signature_form",
-      "target": "crate::store::signature_form",
-      "contract": "rhizomatic.storage/native-api/1",
-      "classification": "compatibility_reexport",
-      "semantics": "Native lib::signature_form implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner."
+      "target": "crate::store::signature_form"
     },
     {
       "cfg": [],
@@ -98706,36 +98929,15 @@
     },
     {
       "cfg": [],
-      "classification": "native_extension",
-      "contract": "rhizomatic.reactor/native-api/1",
-      "definition": "struct",
+      "classification": "compatibility_reexport",
+      "contract": "rhizomatic.delta/native-api/1",
+      "definition": "reexport",
       "id": "rust:reactor:NegationReader",
-      "owner": "reactor",
-      "semantics": "Native reactor::NegationReader implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "owner": "delta",
+      "semantics": "Native reactor::NegationReader implements SPEC-1 identity/canonical codecs and SPEC-8 neutral membership. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
       "source": "implementations/rust/src/reactor.rs",
-      "symbol": "NegationReader"
-    },
-    {
-      "cfg": [],
-      "classification": "native_extension",
-      "contract": "rhizomatic.reactor/native-api/1",
-      "definition": "method",
-      "id": "rust:reactor:NegationReader::is_negated",
-      "owner": "reactor",
-      "semantics": "Native reactor::NegationReader::is_negated implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
-      "source": "implementations/rust/src/reactor.rs",
-      "symbol": "NegationReader::is_negated"
-    },
-    {
-      "cfg": [],
-      "classification": "native_extension",
-      "contract": "rhizomatic.reactor/native-api/1",
-      "definition": "method",
-      "id": "rust:reactor:NegationReader::witnesses",
-      "owner": "reactor",
-      "semantics": "Native reactor::NegationReader::witnesses implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
-      "source": "implementations/rust/src/reactor.rs",
-      "symbol": "NegationReader::witnesses"
+      "symbol": "NegationReader",
+      "target": "crate::set::NegationReader"
     },
     {
       "cfg": [],
@@ -99066,6 +99268,17 @@
       "semantics": "Native reactor::Reactor::register_at_lowered_with_deps implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/reactor.rs",
       "symbol": "Reactor::register_at_lowered_with_deps"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "definition": "method",
+      "id": "rust:reactor:Reactor::revision",
+      "owner": "reactor",
+      "semantics": "Native reactor::Reactor::revision implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "source": "implementations/rust/src/reactor.rs",
+      "symbol": "Reactor::revision"
     },
     {
       "cfg": [],
@@ -99924,6 +100137,39 @@
       "cfg": [],
       "classification": "native_extension",
       "contract": "rhizomatic.delta/native-api/1",
+      "definition": "struct",
+      "id": "rust:set:NegationReader",
+      "owner": "delta",
+      "semantics": "Native set::NegationReader implements SPEC-1 identity/canonical codecs and SPEC-8 neutral membership. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "source": "implementations/rust/src/set.rs",
+      "symbol": "NegationReader"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.delta/native-api/1",
+      "definition": "method",
+      "id": "rust:set:NegationReader::is_negated",
+      "owner": "delta",
+      "semantics": "Native set::NegationReader::is_negated implements SPEC-1 identity/canonical codecs and SPEC-8 neutral membership. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "source": "implementations/rust/src/set.rs",
+      "symbol": "NegationReader::is_negated"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.delta/native-api/1",
+      "definition": "method",
+      "id": "rust:set:NegationReader::witnesses",
+      "owner": "delta",
+      "semantics": "Native set::NegationReader::witnesses implements SPEC-1 identity/canonical codecs and SPEC-8 neutral membership. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "source": "implementations/rust/src/set.rs",
+      "symbol": "NegationReader::witnesses"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.delta/native-api/1",
       "definition": "function",
       "id": "rust:set:federate",
       "owner": "delta",
@@ -99974,6 +100220,39 @@
       "semantics": "Native set::merge implements SPEC-1 identity/canonical codecs and SPEC-8 neutral membership. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/set.rs",
       "symbol": "merge"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.delta/native-api/1",
+      "definition": "function",
+      "id": "rust:set:negation_predicate",
+      "owner": "delta",
+      "semantics": "Native set::negation_predicate implements SPEC-1 identity/canonical codecs and SPEC-8 neutral membership. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "source": "implementations/rust/src/set.rs",
+      "symbol": "negation_predicate"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.delta/native-api/1",
+      "definition": "function",
+      "id": "rust:set:negation_reader",
+      "owner": "delta",
+      "semantics": "Native set::negation_reader implements SPEC-1 identity/canonical codecs and SPEC-8 neutral membership. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "source": "implementations/rust/src/set.rs",
+      "symbol": "negation_reader"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.delta/native-api/1",
+      "definition": "function",
+      "id": "rust:set:negation_witnesses",
+      "owner": "delta",
+      "semantics": "Native set::negation_witnesses implements SPEC-1 identity/canonical codecs and SPEC-8 neutral membership. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "source": "implementations/rust/src/set.rs",
+      "symbol": "negation_witnesses"
     },
     {
       "cfg": [],
@@ -100544,14 +100823,14 @@
     },
     {
       "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.storage/native-api/1",
       "definition": "constant",
       "id": "rust:store:MAX_ARRIVAL_COUNTER",
       "owner": "storage",
+      "semantics": "Native store::MAX_ARRIVAL_COUNTER implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/store.rs",
-      "symbol": "MAX_ARRIVAL_COUNTER",
-      "contract": "rhizomatic.storage/native-api/1",
-      "classification": "native_extension",
-      "semantics": "Native store::MAX_ARRIVAL_COUNTER implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred."
+      "symbol": "MAX_ARRIVAL_COUNTER"
     },
     {
       "cfg": [],
@@ -101105,14 +101384,14 @@
     },
     {
       "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.storage/native-api/1",
       "definition": "associated-constant",
       "id": "rust:store:StoreRequirement::ALL",
       "owner": "storage",
+      "semantics": "Native store::StoreRequirement::ALL implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/store.rs",
-      "symbol": "StoreRequirement::ALL",
-      "contract": "rhizomatic.storage/native-api/1",
-      "classification": "native_extension",
-      "semantics": "Native store::StoreRequirement::ALL implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred."
+      "symbol": "StoreRequirement::ALL"
     },
     {
       "cfg": [],
@@ -101138,14 +101417,14 @@
     },
     {
       "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.storage/native-api/1",
       "definition": "method",
       "id": "rust:store:StoreRequirement::parse",
       "owner": "storage",
+      "semantics": "Native store::StoreRequirement::parse implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/store.rs",
-      "symbol": "StoreRequirement::parse",
-      "contract": "rhizomatic.storage/native-api/1",
-      "classification": "native_extension",
-      "semantics": "Native store::StoreRequirement::parse implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred."
+      "symbol": "StoreRequirement::parse"
     },
     {
       "cfg": [],
@@ -101226,14 +101505,14 @@
     },
     {
       "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.storage/native-api/1",
       "definition": "function",
       "id": "rust:store:signature_form",
       "owner": "storage",
+      "semantics": "Native store::signature_form implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/store.rs",
-      "symbol": "signature_form",
-      "contract": "rhizomatic.storage/native-api/1",
-      "classification": "native_extension",
-      "semantics": "Native store::signature_form implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred."
+      "symbol": "signature_form"
     },
     {
       "cfg": [],
@@ -101435,14 +101714,14 @@
     },
     {
       "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.storage/native-api/1",
       "definition": "constant",
       "id": "rust:store_open:UNKNOWN_SCHEME_MESSAGE",
       "owner": "storage",
+      "semantics": "Native store_open::UNKNOWN_SCHEME_MESSAGE implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/store_open.rs",
-      "symbol": "UNKNOWN_SCHEME_MESSAGE",
-      "contract": "rhizomatic.storage/native-api/1",
-      "classification": "native_extension",
-      "semantics": "Native store_open::UNKNOWN_SCHEME_MESSAGE implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred."
+      "symbol": "UNKNOWN_SCHEME_MESSAGE"
     },
     {
       "cfg": [],
