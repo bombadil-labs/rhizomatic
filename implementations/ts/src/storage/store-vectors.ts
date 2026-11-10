@@ -84,10 +84,23 @@ function corpus(): Named[] {
   // The role `negates` on an entity target is not a negation either.
   add("negates-entity", fact(BOB, 56, [at("plant:b", "x", "negates")]));
 
+  // A negation signed before its target. A cut on signed time between the two keeps the
+  // negation and drops the target, so the negation is in no scope.
+  const cLate = add("c-late", fact(ALICE, 70, [at("plant:c", "name"), value("late")]));
+  add("c-early-neg", makeNegationClaims(BOB, 65, cLate.id));
+
   // One id in two appearances: unsigned, and signed by its author.
   const keyClaims = fact(authorForSeed(KEY_SEED), 12, [at("plant:a", "note"), value("signed")]);
   named.push({ name: "k-note", delta: makeDelta(keyClaims) });
   named.push({ name: "k-note-signed", delta: signClaims(keyClaims, KEY_SEED) });
+
+  // Signatures no store accepts: too short, and a real one in uppercase.
+  const signed = named.find((n) => n.name === "k-note-signed")!.delta;
+  named.push({ name: "k-note-upper", delta: { ...signed, sig: signed.sig!.toUpperCase() } });
+  named.push({
+    name: "short-sig",
+    delta: { ...makeDelta(fact(ALICE, 13, [at("plant:a", "note"), value("x")])), sig: "abc" },
+  });
 
   // Claims that do not hash to the id they carry: a-name's id over far's claims.
   named.push({
@@ -104,6 +117,8 @@ const PEERS: Readonly<Record<string, string>> = {
   B: `ed25519:${"a1".repeat(32)}`,
   C: `ed25519:${"b2".repeat(32)}`,
   P: `ed25519:${"d4".repeat(32)}`,
+  // Not a peer id: a store refuses to create a peer under the empty name.
+  EMPTY: "",
 };
 
 // ---- the model ----------------------------------------------------------------------------
@@ -129,12 +144,20 @@ type Added = {
   readonly sequence: number;
   readonly arrivalId?: string;
   readonly sender?: string;
+  readonly transfer?: number;
+  readonly at?: number;
 };
+
+const SIG = /^[0-9a-f]{128}$/;
+const MAX_COUNT = 2 ** 53 - 1;
+const isCount = (n: number): boolean => Number.isInteger(n) && n >= 1 && n <= MAX_COUNT;
 
 class Model {
   readonly steps: StoreVectorStep[] = [];
   private readonly byName: Map<string, Named>;
   private readonly peers = new Map<string, ModelPeer>();
+  /** Handle name to peer name. A peer's first handle carries the peer's own name. */
+  private readonly handles = new Map<string, string>();
   private readonly snapshots = new Map<string, ModelSnapshot>();
   private transfer = 0;
 
@@ -160,16 +183,25 @@ class Model {
     );
   }
 
+  private handle(handle: string): ModelPeer {
+    return this.peers.get(this.handles.get(handle) ?? handle)!;
+  }
+
   createPeer(peer: string, erasure: ErasurePosture): void {
     const step = { op: "createPeer", peer, erasure } as const;
-    if (erasure === "proven") {
-      // The model is a store of class `unprovable`. A `proven` store creates this peer; no
-      // later step uses it.
+    const exists = this.peers.has(peer);
+    if (PEERS[peer] === "") {
+      this.steps.push({ ...step, expect: { error: "invalid-request" } });
+    } else if (erasure === "proven") {
+      // The model is a store of class `unprovable`. A `proven` store creates this peer, or
+      // refuses it as existing; no later step uses it.
       this.steps.push({
         ...step,
-        expect: { error: "posture-refused", unlessStoreErasure: "proven" },
+        expect: exists
+          ? { error: ["posture-refused", "peer-exists"] }
+          : { error: "posture-refused", unlessStoreErasure: "proven" },
       });
-    } else if (this.peers.has(peer)) {
+    } else if (exists) {
       this.steps.push({ ...step, expect: { error: "peer-exists" } });
     } else {
       this.peers.set(peer, {
@@ -180,15 +212,19 @@ class Model {
         held: [],
         owed: new Set(),
       });
+      this.handles.set(peer, peer);
       this.steps.push({ ...step, expect: { status: "created" } });
     }
   }
 
-  openPeer(peer: string): void {
+  /** With `handle`, the new handle gets that name and the earlier one stays in use. */
+  openPeer(peer: string, handle?: string): void {
     const state = this.peers.get(peer);
+    if (state !== undefined && handle !== undefined) this.handles.set(handle, peer);
     this.steps.push({
       op: "openPeer",
       peer,
+      ...(handle === undefined ? {} : { handle }),
       expect:
         state === undefined
           ? { error: "peer-absent" }
@@ -203,24 +239,29 @@ class Model {
     added: readonly Added[],
     frame: string | null = null,
   ): void {
-    const state = this.peers.get(peer)!;
+    const state = this.handle(peer);
     const transfer = ++this.transfer;
     const batch = added.map((a) => {
       const arrival: VectorArrival = {
-        at: 1000 + a.sequence,
+        at: a.at ?? 1000 + a.sequence,
         sequence: a.sequence,
-        transfer,
+        transfer: a.transfer ?? transfer,
         sender: a.sender ?? "local",
         ...(a.arrivalId === undefined ? {} : { id: a.arrivalId }),
       };
       return { delta: a.delta, arrival };
     });
     const step = { op: "append", peer, expectedHead, nextHead, frame, added: batch } as const;
+    const refuse = (code: "invalid-admission" | "capability-absent"): void => {
+      // Against a stale expected head a store may answer `conflict` instead. That pair has no
+      // fixed order, so no vector reaches it.
+      if (state.head !== expectedHead) throw new Error("vector: two causes in one append");
+      this.steps.push({ ...step, expect: { error: code } });
+    };
 
-    if (frame !== null) {
-      this.steps.push({ ...step, expect: { error: "capability-absent" } });
-      return;
-    }
+    if (nextHead === "") return refuse("invalid-admission");
+    if (frame !== null) return refuse("capability-absent");
+    // A stale writer learns it is stale before the store looks at its batch.
     if (state.head !== expectedHead) {
       this.steps.push({ ...step, expect: { status: "conflict" } });
       return;
@@ -232,8 +273,12 @@ class Model {
       const invalid = (): void => {
         this.steps.push({ ...step, expect: { error: "invalid-admission" } });
       };
+      // Every entry is checked, also one whose id the peer already holds.
       if (entry.forged === true) return invalid();
+      if (entry.delta.sig !== undefined && !SIG.test(entry.delta.sig)) return invalid();
       if (arrival.id !== undefined && this.id(arrival.id) !== entry.delta.id) return invalid();
+      if (!isCount(arrival.sequence) || !isCount(arrival.transfer) || arrival.sender === "")
+        return invalid();
       const id = entry.delta.id;
       if (fresh.some((e) => e.delta.id === id) || state.held.some((e) => e.delta.id === id))
         continue;
@@ -267,7 +312,7 @@ class Model {
   }
 
   purge(peer: string, names: readonly string[]): void {
-    const state = this.peers.get(peer)!;
+    const state = this.handle(peer);
     const distinct = new Map<string, string>();
     for (const name of names) if (!distinct.has(this.id(name))) distinct.set(this.id(name), name);
     const targets: { delta: string; outcome: PurgeOutcome }[] = [];
@@ -286,7 +331,8 @@ class Model {
       targets.push({ delta: distinct.get(id)!, outcome });
     }
     if (changed) state.revision++;
-    const shared = targets.some((t) => t.outcome === "held-by-other-peer");
+    // The claim speaks only for targets this report removed. With none, it asserts nothing.
+    const removed = targets.some((t) => t.outcome === "removed");
     this.steps.push({
       op: "purge",
       peer,
@@ -294,9 +340,11 @@ class Model {
       expect: {
         targets,
         revisionAdvanced: changed,
-        claim: { unprovable: "unproven", proven: shared ? "unproven" : "proven" },
+        claim: removed
+          ? { unprovable: "unproven", proven: "proven" }
+          : { unprovable: "nothing-removed", proven: "nothing-removed" },
         referenceSurfaces: [
-          { surface: "rows", state: shared ? "owed" : "absent" },
+          { surface: "rows", state: "absent" },
           { surface: "index-entries", state: "absent" },
           { surface: "process-memory", state: "unprovable" },
         ],
@@ -305,7 +353,7 @@ class Model {
   }
 
   read(peer: string, snapshot: string): void {
-    const state = this.peers.get(peer)!;
+    const state = this.handle(peer);
     this.snapshots.set(snapshot, {
       peer: state,
       revision: state.revision,
@@ -326,14 +374,18 @@ class Model {
   }
 
   // A released snapshot refuses. A snapshot the peer has moved past either refuses with
-  // `snapshot-moved` or answers as it would have at its own revision.
+  // `snapshot-moved` or answers as it would have at its own revision. One that is both may
+  // refuse with either code.
   private answer<T extends object>(
     snapshot: string,
     answer: (held: readonly Entry[]) => T,
-  ): (T & { orError?: "snapshot-moved" }) | { error: "snapshot-released" } {
+  ):
+    | (T & { orError?: "snapshot-moved" })
+    | { error: "snapshot-released" | ["snapshot-released", "snapshot-moved"] } {
     const state = this.snapshots.get(snapshot)!;
-    if (state.released) return { error: "snapshot-released" };
     const moved = state.peer.revision !== state.revision;
+    if (state.released)
+      return { error: moved ? ["snapshot-released", "snapshot-moved"] : "snapshot-released" };
     return { ...answer(state.held), ...(moved ? { orError: "snapshot-moved" as const } : {}) };
   }
 
@@ -414,18 +466,23 @@ class Model {
     exclude?: readonly string[],
   ): void {
     const omit = (exclude ?? []).map((n) => this.id(n));
+    const bound = pushdown?.arrivalAtMost;
+    const malformed =
+      bound !== undefined && !(Number.isInteger(bound) && bound >= 0 && bound <= MAX_COUNT);
     this.steps.push({
       op: "scope",
       snapshot,
       anchors: entities.map((entity) => ({ kind: "entity", entity })),
       ...(pushdown === undefined ? {} : { pushdown }),
       ...(exclude === undefined ? {} : { exclude: [...exclude] }),
-      expect: this.answer(snapshot, (held) => ({
-        lower: this.scopeNames(held, entities, pushdown ?? {}, PUSHDOWN_FIELDS).filter(
-          (name) => !omit.includes(this.id(name)),
-        ),
-        upper: this.scopeNames(held, entities, {}, []),
-      })),
+      expect: malformed
+        ? { error: "invalid-request" }
+        : this.answer(snapshot, (held) => ({
+            lower: this.scopeNames(held, entities, pushdown ?? {}, PUSHDOWN_FIELDS).filter(
+              (name) => !omit.includes(this.id(name)),
+            ),
+            upper: this.scopeNames(held, entities, {}, []),
+          })),
     });
   }
 
@@ -475,7 +532,7 @@ class Model {
     selection: VectorPushdown,
     held: readonly string[] = [],
   ): StoreScopeCase {
-    const state = this.peers.get(peer)!;
+    const state = this.handle(peer);
     const present = PUSHDOWN_FIELDS.filter((field) => selection[field] !== undefined);
     const subsets = present.reduce<PushdownField[][]>(
       (all, field) => [...all, ...all.map((subset) => [...subset, field])],
@@ -805,6 +862,152 @@ function scripts(named: readonly Named[]): StoreScript[] {
       m.arrivals("s2", ["a-height"]);
       m.negators("s2", ["a-height"]);
       m.scope("s2", ["plant:a"]);
+      m.head("s2");
+      m.count("s2");
+      // Released and moved at once: either refusal conforms.
+      m.release("s1");
+      m.targets("s1", ["plant:a"]);
+      m.scope("s1", ["plant:a"]);
+    }),
+    s(
+      "a-snapshot-across-a-purge",
+      "SPEC-18 §4.2, §4.7.2",
+      (m) => {
+        m.createPeer("A", "unproven");
+        m.append("A", null, "head-1", seq(1, "a-height", "a-height-neg", "a-name"));
+        m.read("A", "s");
+        m.purge("A", ["a-height-neg"]);
+        // A purge moves the peer as an append does. The old snapshot never shows the removal.
+        m.head("s");
+        m.count("s");
+        m.get("s", ["a-height-neg", "a-name"]);
+        m.arrivals("s", ["a-height-neg"]);
+        m.targets("s", ["plant:a"]);
+        m.negators("s", ["a-height"]);
+        m.scope("s", ["plant:a"]);
+        m.read("A", "s2");
+        m.count("s2");
+        m.scope("s2", ["plant:a"]);
+      },
+      ["purge"],
+    ),
+    s(
+      "the-last-sequence-survives-a-purge",
+      "SPEC-18 §4.5; SPEC-6 vNext §3",
+      (m) => {
+        m.createPeer("A", "unproven");
+        m.append("A", null, "head-1", [
+          { delta: "a-height", sequence: 1 },
+          { delta: "a-name", sequence: 5 },
+        ]);
+        m.purge("A", ["a-name"]);
+        // The peer holds nothing above sequence 1, and 5 is still spent.
+        m.append("A", "head-1", "head-2", [{ delta: "b-name", sequence: 5 }]);
+        m.append("A", "head-1", "head-2", [{ delta: "b-name", sequence: 3 }]);
+        m.append("A", "head-1", "head-2", [{ delta: "a-name", sequence: 5 }]);
+        m.append("A", "head-1", "head-2", [{ delta: "b-name", sequence: 6 }]);
+        m.read("A", "s");
+        m.arrivals("s", ["a-height", "a-name", "b-name"]);
+      },
+      ["purge"],
+    ),
+    s("the-first-appearance-is-kept", "SPEC-18 §4.5, §4.11", (m) => {
+      m.createPeer("A", "unproven");
+      m.createPeer("B", "unproven");
+      m.createPeer("C", "unproven");
+      // Unsigned first, then the signed appearance of the same id: nothing is added.
+      m.append("A", null, "a-head-1", seq(1, "k-note"));
+      m.append("A", "a-head-1", "a-head-2", seq(2, "k-note-signed"));
+      // The reverse order on another peer.
+      m.append("B", null, "b-head-1", seq(1, "k-note-signed"));
+      m.append("B", "b-head-1", "b-head-2", seq(2, "k-note"));
+      // Both appearances in one batch: the first entry is the one held.
+      m.append("C", null, "c-head-1", seq(1, "k-note-signed", "k-note"));
+      for (const peer of ["A", "B", "C"]) {
+        m.read(peer, peer.toLowerCase());
+        m.get(peer.toLowerCase(), ["k-note"]);
+        m.arrivals(peer.toLowerCase(), ["k-note"]);
+        m.scope(peer.toLowerCase(), ["plant:a"]);
+        m.export(peer);
+      }
+      m.exportStored();
+    }),
+    s("an-older-handle-stays-valid", "SPEC-18 §3, §4.1", (m) => {
+      m.createPeer("A", "unproven");
+      m.append("A", null, "head-1", seq(1, "a-height"));
+      // A second handle of the same peer. Both stay usable, and each sees the other's writes.
+      m.openPeer("A", "A2");
+      m.append("A2", "head-1", "head-2", seq(2, "a-name"));
+      m.read("A", "s");
+      m.head("s");
+      m.count("s");
+      m.targets("s", ["plant:a"]);
+      m.append("A", "head-1", "head-3", seq(3, "b-name"));
+      m.append("A", "head-2", "head-3", seq(3, "b-name"));
+      m.read("A2", "s2");
+      m.head("s2");
+      m.count("s2");
+      m.arrivals("s2", ["a-height", "a-name", "b-name"]);
+      // The snapshot read through the first handle moved when either handle wrote.
+      m.targets("s", ["plant:a", "plant:b"]);
+    }),
+    s("append-checks-before-and-after-the-head", "SPEC-18 §4.5", (m) => {
+      m.createPeer("A", "unproven");
+      m.append("A", null, "head-1", seq(1, "a-name"));
+      // A stale writer learns it is stale first, whatever its batch holds.
+      m.append("A", "head-0", "head-2", [{ delta: "forged", sequence: 2 }]);
+      m.append("A", null, "head-2", [{ delta: "b-name", sequence: 2, sender: "" }]);
+      // With the right head every entry is checked, also one whose id is already held.
+      // `forged` carries a-name's id, which A holds.
+      m.append("A", "head-1", "head-2", [{ delta: "forged", sequence: 2 }]);
+      m.append("A", "head-1", "head-2", [{ delta: "a-name", sequence: 2, sender: "" }]);
+      m.append("A", "head-1", "head-2", [{ delta: "a-name", sequence: 2, arrivalId: "far" }]);
+      m.append("A", "head-1", "head-2", [{ delta: "a-name", sequence: 0 }]);
+      // A held id with a well-formed record is skipped; its sequence is not compared.
+      m.append("A", "head-1", "head-2", [{ delta: "a-name", sequence: 1 }]);
+      m.read("A", "s");
+      m.head("s");
+      m.count("s");
+      m.arrivals("s", ["a-name"]);
+    }),
+    s("requests-a-store-refuses", "SPEC-18 §4.3, §4.5, §4.11", (m) => {
+      m.createPeer("EMPTY", "unproven");
+      m.createPeer("A", "unproven");
+      // Two causes at once: the posture and the taken id. Either refusal conforms.
+      m.createPeer("A", "proven");
+      m.append("A", null, "", seq(1, "a-height"));
+      const one = (patch: Partial<Added>, delta = "a-height"): void =>
+        m.append("A", null, "head-1", [{ delta, sequence: 1, ...patch }]);
+      one({ sender: "" });
+      one({ sequence: 0 });
+      one({ sequence: -1 });
+      one({ sequence: 1.5 });
+      one({ sequence: 2 ** 53 });
+      one({ transfer: 0 });
+      one({ transfer: 1.5 });
+      one({ transfer: 2 ** 53 });
+      one({}, "short-sig");
+      one({}, "k-note-upper");
+      m.read("A", "s0");
+      m.head("s0");
+      m.count("s0");
+      m.exportStored();
+      // The largest sequence and transfer a store accepts, and a fractional arrival time.
+      m.append("A", null, "head-1", [
+        { delta: "a-height", sequence: 7, at: 1000.5 },
+        { delta: "a-name", sequence: MAX_COUNT, transfer: MAX_COUNT },
+      ]);
+      m.read("A", "s");
+      m.arrivals("s", ["a-height", "a-name"]);
+      m.scope("s", ["plant:a"], { arrivalAtMost: 0 });
+      m.scope("s", ["plant:a"], { arrivalAtMost: 7 });
+      m.scope("s", ["plant:a"], { arrivalAtMost: MAX_COUNT });
+      m.scope("s", ["plant:a"], { arrivalAtMost: 1.5 });
+      m.scope("s", ["plant:a"], { arrivalAtMost: -1 });
+      m.scope("s", ["plant:a"], { arrivalAtMost: 2 ** 53 });
+      m.scope("s", ["plant:a"], { timestampAtMost: -1.5 });
+      // No sequence is left above the largest one.
+      m.append("A", "head-1", "head-2", [{ delta: "b-name", sequence: MAX_COUNT }]);
     }),
     s("scope-pushdown-and-exclude", "SPEC-18 §4.3", (m) => {
       m.createPeer("A", "unproven");
@@ -862,6 +1065,7 @@ function scopeDocument(named: readonly Named[]): {
     "a-head-2",
     seq(6, "a-name", "a-height-neg", "b-name", "a-height-neg-neg-neg", "a-twice", "ghost-neg"),
   );
+  m.append("A", "a-head-2", "a-head-3", seq(12, "c-late", "c-early-neg"));
   // Another peer holds deltas at the same anchors. They never appear in A's scopes.
   m.append("B", null, "b-head-1", seq(1, "ghost", "k-note-signed", "a-height", "cites-a-height"));
   const setup = [...m.steps];
@@ -884,6 +1088,11 @@ function scopeDocument(named: readonly Named[]): {
       timestampAtMost: 40,
       arrivalAtMost: 9,
       excludeIds: ["a-name", "far"],
+    }),
+    // c-early-neg (t=65) passes and its target c-late (t=70) does not. A store that walks the
+    // chain first and filters afterwards returns the negation, outside the upper bound.
+    m.scopeCase("a-negation-signed-before-its-target", spec, "A", ["plant:c"], {
+      timestampAtMost: 67,
     }),
     m.scopeCase("the-selection-admits-nothing", spec, "A", ["plant:a"], { timestampAtMost: 1 }),
     // The read holds the middle of a chain. The store must still return what negates it.

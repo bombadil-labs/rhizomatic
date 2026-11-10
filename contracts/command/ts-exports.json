@@ -31211,6 +31211,36 @@
       "contract": "rhizomatic.storage/native-api/1",
       "classification": "native_extension",
       "semantics": "Native storage API PeerExporter.deltas implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vector-format.ts:VectorRefusal",
+      "owner": "storage",
+      "symbol": "VectorRefusal",
+      "source": "implementations/ts/src/storage/store-vector-format.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API VectorRefusal implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vector-format.ts:OpenPeerStep#handle",
+      "owner": "storage",
+      "symbol": "OpenPeerStep.handle",
+      "source": "implementations/ts/src/storage/store-vector-format.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API OpenPeerStep.handle implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vector-format.ts:StoreVectorStep#handle",
+      "owner": "storage",
+      "symbol": "StoreVectorStep.handle",
+      "source": "implementations/ts/src/storage/store-vector-format.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API StoreVectorStep.handle implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
     }
   ]
 }

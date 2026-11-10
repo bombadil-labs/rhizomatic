@@ -22,6 +22,7 @@ import type {
   Store,
   StoreProfile,
 } from "../src/storage/store.js";
+import { StoreError } from "../src/storage/store.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const load = <T>(name: string): T =>
@@ -67,18 +68,24 @@ describe("store vectors: the memory reference store", () => {
 describe("store vectors: a store that ignores pushdown still conforms", () => {
   // The trim lemma (§4.3): whatever a store does not apply, the host applies, and the scope
   // is the same. These stores report `applied: false` and return the wider set.
+  // The reference store may be configured with any subset of the three fields; all 8 run.
   const fields = ["timestampAtMost", "arrivalAtMost", "excludeIds"] as const;
-  const cases = [
-    ...fields.map((field) => ({ [field]: false })),
-    { timestampAtMost: false, arrivalAtMost: false, excludeIds: false },
-  ];
-  for (const pushdown of cases) {
-    it(`without ${Object.keys(pushdown).join(", ")}`, async () => {
+  const subsets = fields.reduce<(typeof fields)[number][][]>(
+    (all, field) => [...all, ...all.map((subset) => [...subset, field])],
+    [[]],
+  );
+  expect(subsets).toHaveLength(8);
+  for (const applied of subsets) {
+    it(`applying {${applied.join(", ")}}`, async () => {
+      const pushdown = Object.fromEntries(fields.map((f) => [f, applied.includes(f)]));
       const report = await runStoreConformance(
         async () => createMemoryStore({ pushdown }),
         vectors,
       );
       expect(report.skipped).toEqual([]);
+      expect(report.passed).toHaveLength(
+        vectors.scripts.scripts.length + vectors.scope.cases.length,
+      );
     });
   }
 });
@@ -183,6 +190,54 @@ const faults: Record<string, Break> = {
             ...result,
             applied: { ...result.applied, excludeIds: pushdown?.excludeIds !== undefined },
           })),
+    }),
+  },
+  "a scope that walks the chain first and filters on signed time afterwards": {
+    snapshot: (s) => ({
+      scope: async ({ pushdown, ...request }) => {
+        const { timestampAtMost, ...rest } = pushdown ?? {};
+        const result = await s.scope({ ...request, pushdown: rest });
+        return {
+          deltas: result.deltas.filter(
+            (d) => timestampAtMost === undefined || d.delta.claims.timestamp <= timestampAtMost,
+          ),
+          applied: { ...result.applied, timestampAtMost: timestampAtMost !== undefined },
+        };
+      },
+    }),
+  },
+  "a scope that accepts a fractional arrival bound": {
+    snapshot: (s) => ({
+      scope: async ({ pushdown, ...request }) =>
+        s.scope({
+          ...request,
+          ...(pushdown === undefined
+            ? {}
+            : {
+                pushdown: {
+                  ...pushdown,
+                  ...(pushdown.arrivalAtMost === undefined
+                    ? {}
+                    : { arrivalAtMost: Math.max(0, Math.floor(pushdown.arrivalAtMost)) }),
+                },
+              }),
+        }),
+    }),
+  },
+  "an append that answers uncertain": {
+    peer: (peer) => ({
+      append: async (batch) => {
+        const result = await peer.append(batch);
+        return result.status === "committed" ? { status: "uncertain", fault: "test" } : result;
+      },
+    }),
+  },
+  "a purge that says unproven when it removed nothing": {
+    peer: (peer) => ({
+      purge: async (ids): Promise<PurgeReport> => ({
+        ...(await peer.purge(ids)),
+        claim: "unproven",
+      }),
     }),
   },
   "a scope that reports applied for a field nobody asked for": {
@@ -294,6 +349,56 @@ const faults: Record<string, Break> = {
           throw error;
         }),
     }),
+  },
+  "a refusal with a code the vector does not list": {
+    store: (store) => ({
+      createPeer: async (id, options) =>
+        store.createPeer(id, options).catch((error: unknown) => {
+          if ((error as { code?: string }).code === "peer-exists")
+            throw new StoreError("invalid-request", "wrong code");
+          throw error;
+        }),
+    }),
+  },
+  "an arrival sequence that is reusable after a purge": {
+    peer: (peer) => {
+      let purged = false;
+      return {
+        purge: async (ids) => {
+          purged = true;
+          return peer.purge(ids);
+        },
+        append: async (batch) => {
+          const result = await peer.append(batch).catch((error: unknown) => {
+            if (!purged) throw error;
+            return { status: "committed" as const, revision: 0, added: [] };
+          });
+          return result;
+        },
+      };
+    },
+  },
+  "an older handle that stops working when the peer is opened again": {
+    store: (store) => {
+      const live = new Map<string, object>();
+      const guard = (id: string, peer: PeerStore): PeerStore => {
+        const token = {};
+        live.set(id, token);
+        const check = (): void => {
+          if (live.get(id) !== token) throw new StoreError("store-closed", "stale handle");
+        };
+        return {
+          ...peer,
+          read: async () => (check(), peer.read()),
+          append: async (batch) => (check(), peer.append(batch)),
+          purge: async (ids) => (check(), peer.purge(ids)),
+        };
+      };
+      return {
+        createPeer: async (id, options) => guard(id, await store.createPeer(id, options)),
+        peer: async (id) => guard(id, await store.peer(id)),
+      };
+    },
   },
   "a peer opened into existence": {
     store: (store) => ({
@@ -429,10 +534,12 @@ describe("store vectors: each broken store fails", () => {
 });
 
 describe("store vectors: what the profile changes", () => {
-  it("a store of class proven creates the proven-posture peer and may claim proven", async () => {
-    // A stand-in, not a store: it relabels the memory store's class and reports so the
-    // runner's `proven` rules run before a real proven store exists.
-    const proven = broken({
+  // A stand-in, not a store: it relabels the memory store's class and reports so the runner's
+  // `proven` rules run before a real proven store exists.
+  const proven = (
+    report: (report: PurgeReport, surfaces: PurgeReport["surfaces"]) => PurgeReport,
+  ): (() => Promise<Store>) =>
+    broken({
       profile: (p) => ({
         ...p,
         formatVersion: "test.proven/1",
@@ -447,18 +554,63 @@ describe("store vectors: what the profile changes", () => {
       peer: (peer) => ({
         erasure: { ...peer.erasure, storeClass: "proven" },
         purge: async (ids) => {
-          const report = await peer.purge(ids);
-          const surfaces = report.surfaces.filter((s) => s.surface !== "process-memory");
-          return {
-            ...report,
-            surfaces,
-            claim: surfaces.every((s) => s.state === "absent") ? "proven" : "unproven",
-          };
+          const inner = await peer.purge(ids);
+          return report(
+            inner,
+            inner.surfaces.filter((s) => s.surface !== "process-memory"),
+          );
         },
       }),
     });
-    const report = await runStoreConformance(proven, vectors);
-    expect(report.skipped).toEqual([]);
+  const removedAny = (r: PurgeReport): boolean => r.targets.some((t) => t.outcome === "removed");
+
+  it("a store of class proven creates the proven-posture peer and may claim proven", async () => {
+    const store = proven((r, surfaces) => ({
+      ...r,
+      surfaces,
+      claim: removedAny(r) ? "proven" : "nothing-removed",
+    }));
+    expect((await runStoreConformance(store, vectors)).skipped).toEqual([]);
+  });
+
+  it("a store of class proven may claim less: unproven where the vector allows proven", async () => {
+    const store = proven((r, surfaces) => ({
+      ...r,
+      surfaces,
+      claim: removedAny(r) ? "unproven" : "nothing-removed",
+    }));
+    expect((await runStoreConformance(store, vectors)).skipped).toEqual([]);
+  });
+
+  const failures = async (store: () => Promise<Store>): Promise<string> => {
+    const error = (await runStoreConformance(store, vectors).catch(
+      (e: unknown) => e,
+    )) as StoreConformanceError;
+    expect(error).toBeInstanceOf(StoreConformanceError);
+    return error.failures.map((f) => `${f.name}: ${f.message}`).join("\n");
+  };
+
+  it("proven is refused where nothing was removed", async () => {
+    const store = proven((r, surfaces) => ({ ...r, surfaces, claim: "proven" }));
+    expect(await failures(store)).toContain("the report claims proven, expected nothing-removed");
+  });
+
+  it("proven is refused with an empty surface list", async () => {
+    const store = proven((r) => ({
+      ...r,
+      surfaces: [],
+      claim: removedAny(r) ? "proven" : "nothing-removed",
+    }));
+    expect(await failures(store)).toContain("claims proven without surfaces that are all absent");
+  });
+
+  it("proven is refused while a surface is owed", async () => {
+    const store = proven((r, surfaces) => ({
+      ...r,
+      surfaces: surfaces.map((s) => ({ ...s, state: "owed" })),
+      claim: removedAny(r) ? "proven" : "nothing-removed",
+    }));
+    expect(await failures(store)).toContain("claims proven without surfaces that are all absent");
   });
 
   it("a store without purge skips the purge scripts and says so", async () => {
@@ -467,10 +619,12 @@ describe("store vectors: what the profile changes", () => {
       peer: (peer) => ({ erasure: { ...peer.erasure, storeClass: "none" } }),
     });
     const report = await runStoreConformance(none, vectors);
-    expect(report.skipped).toEqual([
-      { name: "scripts/purge", missing: "purge" },
-      { name: "scripts/purge-clears-a-debt-on-append", missing: "purge" },
-    ]);
+    expect(report.skipped).toEqual(
+      vectors.scripts.scripts
+        .filter((script) => script.requires.includes("purge"))
+        .map((script) => ({ name: `scripts/${script.name}`, missing: "purge" })),
+    );
+    expect(report.skipped).toHaveLength(4);
   });
 
   it("a store with a journal skips the script that needs its absence", async () => {

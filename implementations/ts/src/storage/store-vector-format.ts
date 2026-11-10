@@ -46,7 +46,9 @@ export type VectorPushdown = {
 };
 export type VectorRequirement = "purge" | "journal-absent";
 
-type Refusal = { readonly error: StoreErrorCode };
+/** One code, or a list when more than one cause applies and any listed code conforms. */
+export type VectorRefusal = StoreErrorCode | readonly StoreErrorCode[];
+type Refusal = { readonly error: VectorRefusal };
 type Stale = { readonly orError?: "snapshot-moved" };
 
 export type CreatePeerStep = {
@@ -55,11 +57,12 @@ export type CreatePeerStep = {
   readonly erasure: ErasurePosture;
   readonly expect:
     | { readonly status: "created" }
-    | { readonly error: StoreErrorCode; readonly unlessStoreErasure?: "proven" };
+    | { readonly error: VectorRefusal; readonly unlessStoreErasure?: "proven" };
 };
 export type OpenPeerStep = {
   readonly op: "openPeer";
   readonly peer: string;
+  readonly handle?: string;
   readonly expect: { readonly status: "opened"; readonly posture: ErasurePosture } | Refusal;
 };
 export type AppendStep = {
@@ -85,7 +88,9 @@ export type PurgeStep = {
   readonly expect: {
     readonly targets: readonly { readonly delta: string; readonly outcome: PurgeOutcome }[];
     readonly revisionAdvanced: boolean;
-    readonly claim: { readonly unprovable: "unproven"; readonly proven: "proven" | "unproven" };
+    readonly claim:
+      | { readonly unprovable: "unproven"; readonly proven: "proven" }
+      | { readonly unprovable: "nothing-removed"; readonly proven: "nothing-removed" };
     readonly referenceSurfaces: readonly {
       readonly surface: string;
       readonly state: SurfaceState;

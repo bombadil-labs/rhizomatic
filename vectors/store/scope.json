@@ -8,7 +8,8 @@
     "A": "ed25519:c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
     "B": "ed25519:a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
     "C": "ed25519:b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
-    "P": "ed25519:d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4"
+    "P": "ed25519:d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4",
+    "EMPTY": ""
   },
   "deltas": [
     {
@@ -299,6 +300,45 @@
       }
     },
     {
+      "name": "c-late",
+      "id": "1e2042f0e1d10c7ca2a6af988a169ca5b9c24c8f3efd1f943fc3dda855013d0d34b4",
+      "claims": {
+        "timestamp": 70,
+        "validFrom": 70,
+        "author": "did:key:zAlice",
+        "pointers": [
+          {
+            "role": "subject",
+            "target": {
+              "id": "plant:c",
+              "context": "name"
+            }
+          },
+          {
+            "role": "value",
+            "target": "late"
+          }
+        ]
+      }
+    },
+    {
+      "name": "c-early-neg",
+      "id": "1e20733bd1029a60273cd37c002c82d589e5b114c53e884736f2bc301da565b02158",
+      "claims": {
+        "timestamp": 65,
+        "validFrom": 65,
+        "author": "did:key:zBob",
+        "pointers": [
+          {
+            "role": "negates",
+            "target": {
+              "delta": "1e2042f0e1d10c7ca2a6af988a169ca5b9c24c8f3efd1f943fc3dda855013d0d34b4"
+            }
+          }
+        ]
+      }
+    },
+    {
       "name": "k-note",
       "id": "1e206fae1969ad8d1a40c7e384acf35a12377672d4237e3c57f5ea20cd849effd0b8",
       "claims": {
@@ -342,6 +382,52 @@
         ]
       },
       "sig": "f61fd7313814ecbf85367142e71fa374ef3e14822093aba05e3f83becc97b3d0f9efb3bb197cced8424416fe4cde58bae685887508905d61395a9aab0d884405"
+    },
+    {
+      "name": "k-note-upper",
+      "id": "1e206fae1969ad8d1a40c7e384acf35a12377672d4237e3c57f5ea20cd849effd0b8",
+      "claims": {
+        "timestamp": 12,
+        "validFrom": 12,
+        "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+        "pointers": [
+          {
+            "role": "subject",
+            "target": {
+              "id": "plant:a",
+              "context": "note"
+            }
+          },
+          {
+            "role": "value",
+            "target": "signed"
+          }
+        ]
+      },
+      "sig": "F61FD7313814ECBF85367142E71FA374EF3E14822093ABA05E3F83BECC97B3D0F9EFB3BB197CCED8424416FE4CDE58BAE685887508905D61395A9AAB0D884405"
+    },
+    {
+      "name": "short-sig",
+      "id": "1e20a7df2d9e39082bd7ada6373ce8609da7fe4d1d05c60c24c57eab573d9114be71",
+      "claims": {
+        "timestamp": 13,
+        "validFrom": 13,
+        "author": "did:key:zAlice",
+        "pointers": [
+          {
+            "role": "subject",
+            "target": {
+              "id": "plant:a",
+              "context": "note"
+            }
+          },
+          {
+            "role": "value",
+            "target": "x"
+          }
+        ]
+      },
+      "sig": "abc"
     },
     {
       "name": "forged",
@@ -526,6 +612,41 @@
     },
     {
       "op": "append",
+      "peer": "A",
+      "expectedHead": "a-head-2",
+      "nextHead": "a-head-3",
+      "frame": null,
+      "added": [
+        {
+          "delta": "c-late",
+          "arrival": {
+            "at": 1012,
+            "sequence": 12,
+            "transfer": 3,
+            "sender": "local"
+          }
+        },
+        {
+          "delta": "c-early-neg",
+          "arrival": {
+            "at": 1013,
+            "sequence": 13,
+            "transfer": 3,
+            "sender": "local"
+          }
+        }
+      ],
+      "expect": {
+        "status": "committed",
+        "added": [
+          "c-late",
+          "c-early-neg"
+        ],
+        "revisionAdvanced": true
+      }
+    },
+    {
+      "op": "append",
       "peer": "B",
       "expectedHead": null,
       "nextHead": "b-head-1",
@@ -536,7 +657,7 @@
           "arrival": {
             "at": 1001,
             "sequence": 1,
-            "transfer": 3,
+            "transfer": 4,
             "sender": "local"
           }
         },
@@ -545,7 +666,7 @@
           "arrival": {
             "at": 1002,
             "sequence": 2,
-            "transfer": 3,
+            "transfer": 4,
             "sender": "local"
           }
         },
@@ -554,7 +675,7 @@
           "arrival": {
             "at": 1003,
             "sequence": 3,
-            "transfer": 3,
+            "transfer": 4,
             "sender": "local"
           }
         },
@@ -563,7 +684,7 @@
           "arrival": {
             "at": 1004,
             "sequence": 4,
-            "transfer": 3,
+            "transfer": 4,
             "sender": "local"
           }
         }
@@ -976,6 +1097,36 @@
             "a-height",
             "a-height-neg-neg"
           ]
+        }
+      ]
+    },
+    {
+      "name": "a-negation-signed-before-its-target",
+      "spec": "SPEC-18 §4.3",
+      "peer": "A",
+      "anchors": [
+        {
+          "kind": "entity",
+          "entity": "plant:c"
+        }
+      ],
+      "selection": {
+        "timestampAtMost": 67
+      },
+      "held": [],
+      "scopes": [
+        {
+          "fields": [],
+          "ids": [
+            "c-late",
+            "c-early-neg"
+          ]
+        },
+        {
+          "fields": [
+            "timestampAtMost"
+          ],
+          "ids": []
         }
       ]
     },

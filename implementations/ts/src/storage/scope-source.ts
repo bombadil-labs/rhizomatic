@@ -3,9 +3,10 @@
 // evaluates over it without another store call.
 
 import { compareUtf8 } from "../delta/cbor.js";
+import { computeId } from "../delta/delta.js";
 import type { Delta } from "../delta/types.js";
 import type { ArrivalRecord } from "./arrival-record.js";
-import type { Entity, Id, VerifiedDelta } from "./store.js";
+import { StoreError, type Entity, type Id, type VerifiedDelta } from "./store.js";
 
 /**
  * The SPEC-17 §3 delta source, answered from a fetched set, plus each member's arrival. It is
@@ -23,7 +24,9 @@ export interface ScopeSource {
 
 /**
  * Indexes fetched members once, at a cost of their total size. Pass `ScopeResult.deltas`, or
- * the members of several rounds of one read; a repeated id keeps its first appearance.
+ * the members of several rounds of one read; a repeated id keeps its first appearance. Refuses
+ * `invalid-request` for a member whose id does not recompute from its claims: the source files
+ * members by id, and evaluation trusts that id.
  */
 export function scopeSource(members: Iterable<VerifiedDelta>): ScopeSource {
   const held = new Map<Id, VerifiedDelta>();
@@ -37,6 +40,17 @@ export function scopeSource(members: Iterable<VerifiedDelta>): ScopeSource {
   for (const member of members) {
     const id = member.delta.id;
     if (held.has(id)) continue;
+    let recomputed: string | undefined;
+    try {
+      recomputed = computeId(member.delta.claims);
+    } catch {
+      recomputed = undefined;
+    }
+    if (recomputed !== id)
+      throw new StoreError(
+        "invalid-request",
+        "scopeSource: a member's id does not match its claims",
+      );
     held.set(id, member);
     for (const pointer of member.delta.claims.pointers) {
       if (pointer.target.kind === "entity") file(targets, pointer.target.entity.id, id);

@@ -12,13 +12,15 @@ export type OpenOptions = {
 /** Builds a store from its URL. It must not put the URL in any error it throws. */
 export type StoreFactory = (url: string, options: OpenOptions) => Promise<Store>;
 
-const SCHEME = /^([a-z][a-z0-9+.-]*):/;
+// RFC 3986 §3.1. A scheme is case-insensitive; lookups use its lowercase form.
+const SCHEME = /^([A-Za-z][A-Za-z0-9+.-]*):/;
+const UNKNOWN = "no store is registered for this URL's scheme";
 
 const schemes = new Map<string, StoreFactory>([
   [
     "memory",
     async (url) => {
-      if (url !== "memory:")
+      if (url.length !== "memory:".length)
         throw new StoreError(
           "invalid-url",
           'store scheme "memory" takes no address: use "memory:"',
@@ -32,9 +34,13 @@ const schemes = new Map<string, StoreFactory>([
  * Adds a consumer's store implementation under a URL scheme. Returns a function that removes
  * it. A scheme can have one factory; the built-in schemes cannot be replaced.
  */
-export function registerStoreScheme(scheme: string, factory: StoreFactory): () => void {
-  if (!SCHEME.test(`${scheme}:`) || scheme.includes(":"))
-    throw new StoreError("invalid-url", "a store scheme is lowercase letters, digits, +, . or -");
+export function registerStoreScheme(name: string, factory: StoreFactory): () => void {
+  if (typeof name !== "string" || SCHEME.exec(`${name}:`)?.[1] !== name)
+    throw new StoreError(
+      "invalid-url",
+      "a store scheme is a letter, then letters, digits, +, . or -",
+    );
+  const scheme = name.toLowerCase();
   if (schemes.has(scheme))
     throw new StoreError("scheme-exists", `store scheme "${scheme}" is already registered`);
   schemes.set(scheme, factory);
@@ -44,12 +50,12 @@ export function registerStoreScheme(scheme: string, factory: StoreFactory): () =
 }
 
 export async function openStore(url: string, options: OpenOptions = {}): Promise<Store> {
-  const scheme = typeof url === "string" ? SCHEME.exec(url)?.[1] : undefined;
-  if (scheme === undefined)
-    throw new StoreError("invalid-url", "a store URL starts with a scheme, as in memory:");
-  const factory = schemes.get(scheme);
-  if (factory === undefined)
-    throw new StoreError("unknown-scheme", `no store is registered for scheme "${scheme}"`);
+  const scheme = typeof url === "string" ? SCHEME.exec(url)?.[1]?.toLowerCase() : undefined;
+  const factory = scheme === undefined ? undefined : schemes.get(scheme);
+  // One fixed message whether the text has no scheme or an unregistered one. What stands before
+  // the first colon of a malformed connection string can be a user name or a password.
+  if (scheme === undefined || factory === undefined)
+    throw new StoreError("unknown-scheme", UNKNOWN);
   let store: Store;
   try {
     store = await factory(url, options);
@@ -58,9 +64,16 @@ export async function openStore(url: string, options: OpenOptions = {}): Promise
     // A driver's own error text may quote the connection string. It stops here.
     throw new StoreError("open-failed", `store scheme "${scheme}": the store did not open`);
   }
-  const missing = missingRequirements(store.profile, options.requires ?? []);
+  let missing: readonly string[];
+  try {
+    missing = missingRequirements(store.profile, options.requires ?? []);
+  } catch (error) {
+    await store.close().catch(() => undefined);
+    throw error;
+  }
   if (missing.length > 0) {
-    await store.close();
+    // A failing close must not replace this refusal with a driver's own text.
+    await store.close().catch(() => undefined);
     throw new StoreError(
       "capability-absent",
       `store scheme "${scheme}" lacks required capabilities: ${missing.join(", ")}`,

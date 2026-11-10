@@ -20,8 +20,13 @@ behavior, and the reactor does not use the store yet.
   serves no change feed, journal, value index, stored view, derived index or digest yet.
 - Peers are created with a declared erasure posture (`createPeer(id, { erasure })`). A peer that
   promises proven erasure is refused on a store whose class is not `proven`.
-- `openStore(url)` with the `memory:` scheme, and `registerStoreScheme(scheme, factory)`. Errors
-  name the scheme and never the URL.
+- `openStore(url)` with the `memory:` scheme, and `registerStoreScheme(scheme, factory)`. Schemes
+  match without regard to case. An error names a scheme only when it is registered, and never
+  the URL.
+- A store owns what it holds: it copies what it is given and what it returns, so no caller can
+  change stored state through a reference.
+- A purge report's `claim` is `proven`, `unproven` or `nothing-removed`, and covers only the
+  targets that report removed.
 - `scopeSource(members)`: a synchronous SPEC-17 delta source over a fetched scope.
 - `runStoreConformance(factory)`: runs the shared store vectors against any store. `storeVectors()`
   returns those vectors.

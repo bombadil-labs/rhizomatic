@@ -15,7 +15,6 @@ import {
   type Pushdown,
   type Snapshot,
   type Store,
-  type StoreErrorCode,
   type VerifiedDelta,
 } from "./store.js";
 import {
@@ -30,6 +29,7 @@ import {
   type StoreVectors,
   type VectorHeader,
   type VectorPushdown,
+  type VectorRefusal,
   type VectorRequirement,
 } from "./store-vector-format.js";
 import { storeVectors } from "./store-vectors.js";
@@ -67,6 +67,19 @@ function check(condition: boolean, message: string): asserts condition {
   if (!condition) throw new Error(message);
 }
 
+const codes = (refusal: VectorRefusal): readonly string[] =>
+  typeof refusal === "string" ? [refusal] : refusal;
+
+/** The outcome must be a refusal with one of the codes the vector lists. */
+function refused(outcome: { value: unknown } | { error: string }, refusal: VectorRefusal): void {
+  const allowed = codes(refusal);
+  check("error" in outcome, `expected a refusal: ${allowed.join(" or ")}`);
+  check(
+    allowed.includes(outcome.error),
+    `refused with ${outcome.error}, expected ${allowed.join(" or ")}`,
+  );
+}
+
 /** Runs `action`; returns the store error code it refused with, or its value. */
 async function attempt<T>(action: () => Promise<T>): Promise<{ value: T } | { error: string }> {
   try {
@@ -79,7 +92,9 @@ async function attempt<T>(action: () => Promise<T>): Promise<{ value: T } | { er
 
 class Run {
   private readonly corpus = new Map<string, Delta>();
+  /** Peer handles by handle name, and the peer name each belongs to. */
   private readonly peers = new Map<string, PeerStore>();
+  private readonly owners = new Map<string, string>();
   private readonly snapshots = new Map<string, { peer: string; snapshot: Snapshot }>();
   /** What each peer holds, with the arrival it was first admitted under. */
   readonly holdings = new Map<string, Map<string, VerifiedDelta>>();
@@ -122,6 +137,10 @@ class Run {
     const peer = this.peers.get(name);
     check(peer !== undefined, `the vector uses peer ${name} before creating it`);
     return peer;
+  }
+  /** The bookkeeping of the peer a handle belongs to. */
+  held(handle: string): Map<string, VerifiedDelta> {
+    return this.holdings.get(this.owners.get(handle)!)!;
   }
   snapshot(name: string): { peer: string; snapshot: Snapshot } {
     const snapshot = this.snapshots.get(name);
@@ -205,17 +224,14 @@ class Run {
 
   private async query(
     snapshotName: string,
-    expect: { readonly error?: StoreErrorCode; readonly orError?: "snapshot-moved" },
+    expect: { readonly error?: VectorRefusal; readonly orError?: "snapshot-moved" },
     action: (peer: string, snapshot: Snapshot) => Promise<void>,
   ): Promise<void> {
     const { peer, snapshot } = this.snapshot(snapshotName);
     const outcome = await attempt(() => action(peer, snapshot));
-    if ("error" in outcome) {
-      check(
-        outcome.error === (expect.error ?? expect.orError),
-        `the query refused with ${outcome.error}`,
-      );
-    } else check(expect.error === undefined, `expected the query to refuse with ${expect.error}`);
+    if (expect.error !== undefined) refused(outcome, expect.error);
+    else if ("error" in outcome)
+      check(outcome.error === expect.orError, `the query refused with ${outcome.error}`);
   }
 
   async step(step: StoreVectorStep): Promise<void> {
@@ -236,25 +252,19 @@ class Run {
             "the peer did not record its store's erasure class",
           );
           this.peers.set(step.peer, outcome.value);
+          this.owners.set(step.peer, step.peer);
           this.holdings.set(step.peer, new Map());
-        } else {
-          const expected = "error" in step.expect ? step.expect.error : undefined;
-          check("error" in outcome && outcome.error === expected, `expected ${expected}`);
-        }
+        } else if ("error" in step.expect) refused(outcome, step.expect.error);
         return;
       }
       case "openPeer": {
         const outcome = await attempt(() => this.store.peer(this.peerId(step.peer)));
-        if ("error" in step.expect) {
-          check(
-            "error" in outcome && outcome.error === step.expect.error,
-            `expected ${step.expect.error}`,
-          );
-          return;
-        }
+        if ("error" in step.expect) return refused(outcome, step.expect.error);
         check("value" in outcome, "expected the peer to open");
         check(outcome.value.erasure.posture === step.expect.posture, "the posture differs");
-        this.peers.set(step.peer, outcome.value);
+        // With `handle`, the earlier handle stays in use under the peer's own name.
+        this.peers.set(step.handle ?? step.peer, outcome.value);
+        this.owners.set(step.handle ?? step.peer, step.peer);
         return;
       }
       case "append": {
@@ -277,10 +287,7 @@ class Run {
         );
         const after = await this.revision(step.peer);
         if ("error" in step.expect) {
-          check(
-            "error" in outcome && outcome.error === step.expect.error,
-            `expected ${step.expect.error}`,
-          );
+          refused(outcome, step.expect.error);
           check(after === before, "a refused append moved the revision");
           return;
         }
@@ -301,7 +308,7 @@ class Run {
           step.expect.revisionAdvanced ? after > before : after === before,
           `the revision ${step.expect.revisionAdvanced ? "did not advance" : "advanced"}`,
         );
-        const held = this.holdings.get(step.peer)!;
+        const held = this.held(step.peer);
         for (const entry of added)
           if (result.added.includes(entry.delta.id) && !held.has(entry.delta.id))
             held.set(entry.delta.id, entry);
@@ -322,9 +329,13 @@ class Run {
         check(report.boundary === PURGE_BOUNDARY, "the report does not state its boundary");
         const storeClass = this.store.profile.capabilities.erasure;
         check(storeClass !== "none", "a store with erasure class none answered a purge");
+        // A store may claim less than a vector allows, never more: `unproven` is accepted
+        // where `proven` is expected, and nothing else is exchanged.
+        const expectedClaim = step.expect.claim[storeClass];
         check(
-          report.claim === step.expect.claim[storeClass],
-          `the report claims ${report.claim} on a store whose class is ${storeClass}`,
+          report.claim === expectedClaim ||
+            (expectedClaim === "proven" && report.claim === "unproven"),
+          `the report claims ${report.claim}, expected ${expectedClaim} on a store of class ${storeClass}`,
         );
         const states: readonly string[] = ["absent", "owed", "unprovable"];
         check(
@@ -332,8 +343,9 @@ class Run {
           "a surface reports an unknown state",
         );
         check(
-          report.claim !== "proven" || report.surfaces.every((s) => s.state === "absent"),
-          "the report claims proven while a surface is not absent",
+          report.claim !== "proven" ||
+            (report.surfaces.length > 0 && report.surfaces.every((s) => s.state === "absent")),
+          "the report claims proven without surfaces that are all absent",
         );
         if (this.reference)
           check(
@@ -343,13 +355,13 @@ class Run {
             ),
             "the reference store's surfaces differ",
           );
-        const held = this.holdings.get(step.peer)!;
+        const held = this.held(step.peer);
         for (const target of report.targets) held.delete(target.id);
         return;
       }
       case "read":
         this.snapshots.set(step.snapshot, {
-          peer: step.peer,
+          peer: this.owners.get(step.peer) ?? step.peer,
           snapshot: await this.peer(step.peer).read(),
         });
         return;
@@ -437,13 +449,7 @@ class Run {
           for await (const delta of exporter.deltas()) deltas.push(delta);
           return { ids, deltas };
         });
-        if ("error" in step.expect) {
-          check(
-            "error" in outcome && outcome.error === step.expect.error,
-            `expected ${step.expect.error}`,
-          );
-          return;
-        }
+        if ("error" in step.expect) return refused(outcome, step.expect.error);
         check("value" in outcome, "the export refused");
         const names = step.expect.deltas;
         const { ids, deltas } = outcome.value;

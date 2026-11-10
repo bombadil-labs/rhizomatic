@@ -9,6 +9,7 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { makeDelta, makeNegationClaims } from "../src/delta/set.js";
+import { authorForSeed, signClaims } from "../src/delta/sign.js";
 import type { Delta, Pointer } from "../src/delta/types.js";
 import { Reactor } from "../src/reactor/reactor.js";
 import { scopeIds, type DeltaSource } from "../src/resolve/anchored.js";
@@ -121,6 +122,32 @@ describe("the memory store's profile", () => {
   });
 });
 
+describe("requirements are an allow-list", () => {
+  const profile = createMemoryStore().profile;
+  it("refuses a name that is not a requirement, and names it", () => {
+    // `erasure` holds a string and the others are inherited: none may read as satisfied.
+    for (const name of ["erasure", "constructor", "toString", "__proto__", "hasOwnProperty", ""]) {
+      const attempt = (): unknown => missingRequirements(profile, [name as "values"]);
+      expect(attempt).toThrow(StoreError);
+      expect(attempt).toThrow(`unknown store requirement: ${name}`);
+    }
+  });
+
+  it("openStore refuses an unknown requirement instead of opening", async () => {
+    expect(await code(() => openStore("memory:", { requires: ["erasure" as "purge"] }))).toBe(
+      "invalid-request",
+    );
+  });
+
+  it("a capability counts only when it is exactly true", () => {
+    const odd = {
+      ...profile,
+      capabilities: { ...profile.capabilities, journal: "yes" as unknown as boolean },
+    };
+    expect(missingRequirements(odd, ["journal"])).toEqual(["journal"]);
+  });
+});
+
 describe("openStore", () => {
   const SECRET = "hunter2-do-not-print";
 
@@ -132,24 +159,85 @@ describe("openStore", () => {
     expect(await code(() => two.peer(A))).toBe("peer-absent");
   });
 
-  it("refuses with the scheme only, never the URL", async () => {
+  it("echoes nothing from a URL it cannot route", async () => {
+    // The text before the first colon of a malformed connection string can be a credential.
     const urls = [
       `postgres://admin:${SECRET}@db.example/loam`,
-      `memory:${SECRET}`,
+      `${SECRET}:5432/loam`,
       `${SECRET}`,
       `://${SECRET}`,
+      ` ${SECRET}:x`,
+      "",
     ];
+    const messages = new Set<string>();
     for (const url of urls) {
-      const error = await openStore(url).catch((e: unknown) => e);
+      const error = (await openStore(url).catch((e: unknown) => e)) as StoreError;
       expect(error).toBeInstanceOf(StoreError);
-      expect(String((error as Error).message)).not.toContain(SECRET);
-      expect(String((error as Error).stack)).not.toContain(SECRET);
+      expect(error.code).toBe("unknown-scheme");
+      expect(error.message + String(error.stack)).not.toContain(SECRET);
+      expect(error.message).not.toContain("postgres");
+      messages.add(error.message);
     }
-    expect(await code(() => openStore(urls[0]!))).toBe("unknown-scheme");
-    expect(await code(() => openStore(urls[1]!))).toBe("invalid-url");
-    expect(await code(() => openStore(urls[2]!))).toBe("invalid-url");
-    const unknown = await openStore(urls[0]!).catch((e: Error) => e.message);
-    expect(unknown).toContain('"postgres"');
+    expect(messages.size).toBe(1);
+    expect(await code(() => openStore(undefined as unknown as string))).toBe("unknown-scheme");
+  });
+
+  it("a registered scheme may be named; its address is not echoed", async () => {
+    const error = (await openStore(`memory:${SECRET}`).catch((e: unknown) => e)) as StoreError;
+    expect(error.code).toBe("invalid-url");
+    expect(error.message).toContain('"memory"');
+    expect(error.message).not.toContain(SECRET);
+  });
+
+  it("matches the scheme without regard to case", async () => {
+    for (const url of ["MEMORY:", "Memory:", "mEmOrY:"])
+      expect((await openStore(url)).profile.formatVersion).toBe(MEMORY_STORE_FORMAT);
+    const seen: string[] = [];
+    const remove = registerStoreScheme("Mixed+Case", async (url) => {
+      seen.push(url);
+      return createMemoryStore();
+    });
+    try {
+      await openStore("mixed+case://x");
+      await openStore("MIXED+CASE://y");
+      expect(seen).toEqual(["mixed+case://x", "MIXED+CASE://y"]);
+      expect(() => registerStoreScheme("mixed+case", async () => createMemoryStore())).toThrow(
+        /already registered/,
+      );
+    } finally {
+      remove();
+    }
+  });
+
+  it("a close that fails does not replace the missing-capability refusal", async () => {
+    const remove = registerStoreScheme("badclose", async (url) => ({
+      ...createMemoryStore(),
+      close: async () => {
+        throw new Error(`cannot close ${url}`);
+      },
+    }));
+    try {
+      const error = (await openStore(`badclose://u:${SECRET}@h`, {
+        requires: ["journal"],
+      }).catch((e: unknown) => e)) as StoreError;
+      expect(error).toBeInstanceOf(StoreError);
+      expect(error.code).toBe("capability-absent");
+      expect(error.message).not.toContain(SECRET);
+    } finally {
+      remove();
+    }
+  });
+
+  it("passes a factory's own StoreError through", async () => {
+    const remove = registerStoreScheme("own", async () => {
+      throw new StoreError("invalid-url", "the factory's own words");
+    });
+    try {
+      const error = (await openStore("own:x").catch((e: unknown) => e)) as StoreError;
+      expect([error.code, error.message]).toEqual(["invalid-url", "the factory's own words"]);
+    } finally {
+      remove();
+    }
   });
 
   it("hides a factory's own error text, which may quote the URL", async () => {
@@ -183,8 +271,11 @@ describe("openStore", () => {
   it("does not let a consumer replace a built-in scheme or register a malformed one", () => {
     const factory = async (): Promise<Store> => createMemoryStore();
     expect(() => registerStoreScheme("memory", factory)).toThrow(/already registered/);
-    for (const scheme of ["", "Memory", "a:b", "1abc", "a b"])
+    expect(() => registerStoreScheme("MEMORY", factory)).toThrow(/already registered/);
+    for (const scheme of ["", "a:b", "1abc", "a b", "é"]) {
       expect(() => registerStoreScheme(scheme, factory)).toThrow(StoreError);
+      if (scheme !== "") expect(() => registerStoreScheme(scheme, factory)).not.toThrow(scheme);
+    }
   });
 
   it("refuses to open when a required capability is absent, naming each", async () => {
@@ -256,6 +347,242 @@ describe("the memory store", () => {
       entity: string;
     };
     expect(await code(() => snapshot.scope({ anchors: [value] }))).toBe("capability-absent");
+  });
+});
+
+describe("a store owns what it holds", () => {
+  const signedClaims = (): Delta["claims"] => ({
+    timestamp: 5,
+    validFrom: 5,
+    author: authorForSeed("01".repeat(32)),
+    pointers: [
+      { role: "subject", target: { kind: "entity", entity: { id: "e", context: "v" } } },
+      { role: "value", target: { kind: "primitive", value: "original" } },
+      { role: "blob", target: { kind: "bytes", mime: "x/y", value: new Uint8Array([1, 2, 3]) } },
+    ],
+  });
+
+  /** Two peers that both admitted one signed delta, from separate caller objects. */
+  async function twoPeers(): Promise<{
+    a: PeerStore;
+    b: PeerStore;
+    id: string;
+    given: VerifiedDelta;
+    pristine: string;
+  }> {
+    const store = createMemoryStore();
+    const a = await store.createPeer(A, { erasure: "unproven" });
+    const b = await store.createPeer(B, { erasure: "unproven" });
+    const delta = signClaims(signedClaims(), "01".repeat(32));
+    const given: VerifiedDelta = {
+      delta,
+      arrival: { id: delta.id, at: 10, sequence: 1, transfer: 1, sender: "local" },
+    };
+    const head = { expectedHead: null, nextHead: "h", frame: null };
+    expect((await a.append({ ...head, added: [given] })).status).toBe("committed");
+    const other = signClaims(signedClaims(), "01".repeat(32));
+    expect(
+      (
+        await b.append({
+          ...head,
+          added: [{ delta: other, arrival: { ...given.arrival, sequence: 4, sender: A } }],
+        })
+      ).status,
+    ).toBe("committed");
+    return { a, b, id: delta.id, given, pristine: JSON.stringify(await view(a, delta.id)) };
+  }
+
+  /** Everything a reader can see of one id, bytes included. */
+  async function view(peer: PeerStore, id: string): Promise<unknown> {
+    const snapshot = await peer.read();
+    const [delta] = await snapshot.get([id]);
+    const [arrival] = await snapshot.arrivals([id]);
+    const scope = await snapshot.scope({ anchors: [{ kind: "entity", entity: "e" }] });
+    const plain = (d: Delta | undefined): unknown =>
+      d && {
+        id: d.id,
+        sig: d.sig,
+        claims: {
+          ...d.claims,
+          pointers: d.claims.pointers.map((p) =>
+            p.target.kind === "bytes"
+              ? { ...p, target: { ...p.target, value: [...p.target.value] } }
+              : p,
+          ),
+        },
+      };
+    return {
+      delta: plain(delta),
+      arrival,
+      scope: scope.deltas.map((m) => [plain(m.delta), m.arrival]),
+      targets: await snapshot.targets(["e", "moved"]),
+    };
+  }
+
+  type Loose = {
+    -readonly [K in keyof VerifiedDelta]: {
+      -readonly [F in keyof VerifiedDelta[K]]: unknown;
+    };
+  };
+  /** Changes every part of an object a caller holds: claims, bytes, signature, arrival. */
+  function vandalize(entry: VerifiedDelta): void {
+    const loose = entry as unknown as Loose;
+    const claims = entry.delta.claims as unknown as {
+      timestamp: number;
+      author: string;
+      pointers: { role: string; target: Record<string, unknown> }[];
+    };
+    claims.timestamp = 999;
+    claims.author = "did:key:zMallory";
+    (claims.pointers[0]!.target["entity"] as { id: string }).id = "moved";
+    claims.pointers[1]!.target["value"] = "changed";
+    (claims.pointers[2]!.target["value"] as Uint8Array)[0] = 9;
+    claims.pointers.push({ role: "extra", target: { kind: "primitive", value: 1 } });
+    loose.delta.sig = "00".repeat(64);
+    loose.delta.id = "1e20" + "00".repeat(32);
+    const arrival = loose.arrival as Record<string, unknown>;
+    arrival["sequence"] = 77;
+    arrival["sender"] = "mallory";
+    arrival["at"] = -1;
+    arrival["id"] = "other";
+  }
+
+  it("changing an object after appending it changes nothing in the store", async () => {
+    const { a, b, id, given, pristine } = await twoPeers();
+    const before = JSON.stringify(await view(b, id));
+    vandalize(given);
+    expect(JSON.stringify(await view(a, id))).toBe(pristine);
+    expect(JSON.stringify(await view(b, id))).toBe(before);
+  });
+
+  it("changing what a read returned changes nothing in the store, for either peer", async () => {
+    const { a, b, id, pristine } = await twoPeers();
+    const before = JSON.stringify(await view(b, id));
+    const snapshot = await a.read();
+    const [delta] = await snapshot.get([id]);
+    const [arrival] = await snapshot.arrivals([id]);
+    const scope = await snapshot.scope({ anchors: [{ kind: "entity", entity: "e" }] });
+    vandalize({ delta: delta!, arrival: arrival! });
+    vandalize(scope.deltas[0]!);
+    expect(JSON.stringify(await view(a, id))).toBe(pristine);
+    expect(JSON.stringify(await view(b, id))).toBe(before);
+    // Each peer still reads its own arrival record, not the other's.
+    expect(
+      [(await view(a, id)) as { arrival: { sequence: number } }].map((v) => v.arrival.sequence),
+    ).toEqual([1]);
+    expect(
+      [(await view(b, id)) as { arrival: { sequence: number } }].map((v) => v.arrival.sequence),
+    ).toEqual([4]);
+  });
+
+  it("changing what the exporter returned changes nothing in the store", async () => {
+    const store = createMemoryStore();
+    const peer = await store.createPeer(A, { erasure: "unproven" });
+    const delta = makeDelta(signedClaims());
+    await fill(peer, [delta]);
+    const pristine = JSON.stringify(await view(peer, delta.id));
+    for await (const exported of store.openAdmin().peer(A).deltas())
+      vandalize({
+        delta: exported,
+        arrival: { id: "", at: 0, sequence: 0, transfer: 0, sender: "" },
+      });
+    expect(JSON.stringify(await view(peer, delta.id))).toBe(pristine);
+  });
+
+  it("fields outside the canonical claims are not stored and not served", async () => {
+    const store = createMemoryStore();
+    const a = await store.createPeer(A, { erasure: "unproven" });
+    const b = await store.createPeer(B, { erasure: "unproven" });
+    const clean = fact("e", 1);
+    const padded = {
+      ...clean,
+      note: "on the delta",
+      claims: {
+        ...clean.claims,
+        secret: "on the claims",
+        pointers: clean.claims.pointers.map((p) => ({
+          ...p,
+          hidden: 1,
+          target: { ...p.target, smuggled: true },
+        })),
+      },
+    } as unknown as Delta;
+    const arrival = { id: clean.id, at: 1, sequence: 1, transfer: 1, sender: "local", extra: "x" };
+    const head = { expectedHead: null, nextHead: "h", frame: null };
+    await a.append({ ...head, added: [{ delta: padded, arrival }] });
+    await b.append({ ...head, added: [{ delta: clean, arrival }] });
+    for (const peer of [a, b]) {
+      const snapshot = await peer.read();
+      const seen = JSON.stringify([
+        await snapshot.get([clean.id]),
+        await snapshot.arrivals([clean.id]),
+        await snapshot.scope({ anchors: [{ kind: "entity", entity: "e" }] }),
+      ]);
+      for (const word of ["secret", "hidden", "smuggled", "note", "extra"])
+        expect(seen).not.toContain(word);
+      expect((await snapshot.get([clean.id]))[0]).toEqual(clean);
+    }
+  });
+});
+
+describe("numbers a store refuses", () => {
+  it("a scope bound that is not a finite number, or not a whole arrival sequence", async () => {
+    const store = createMemoryStore();
+    const peer = await store.createPeer(A, { erasure: "unproven" });
+    const snapshot = await peer.read();
+    const scope = (pushdown: object): Promise<unknown> => snapshot.scope({ anchors: [], pushdown });
+    for (const timestampAtMost of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY])
+      expect(await code(() => scope({ timestampAtMost }))).toBe("invalid-request");
+    for (const arrivalAtMost of [Number.NaN, Number.POSITIVE_INFINITY, 1.5, -1, 2 ** 53])
+      expect(await code(() => scope({ arrivalAtMost }))).toBe("invalid-request");
+    for (const pushdown of [
+      { timestampAtMost: -3.5 },
+      { arrivalAtMost: 0 },
+      { arrivalAtMost: 2 ** 53 - 1 },
+    ])
+      expect(await code(() => scope(pushdown))).toBe("no error");
+  });
+
+  it("an arrival time that is not finite, which JSON vectors cannot carry", async () => {
+    const store = createMemoryStore();
+    const peer = await store.createPeer(A, { erasure: "unproven" });
+    const delta = fact("e", 1);
+    for (const at of [
+      Number.NaN,
+      Number.POSITIVE_INFINITY,
+      Number.NEGATIVE_INFINITY,
+      "1" as unknown as number,
+    ])
+      expect(
+        await code(() =>
+          peer.append({
+            expectedHead: null,
+            nextHead: "h",
+            frame: null,
+            added: [
+              { delta, arrival: { id: delta.id, at, sequence: 1, transfer: 1, sender: "x" } },
+            ],
+          }),
+        ),
+      ).toBe("invalid-admission");
+    expect((await peer.read()).count).toBe(0);
+  });
+
+  it("a signature that is not a string", async () => {
+    const store = createMemoryStore();
+    const peer = await store.createPeer(A, { erasure: "unproven" });
+    const delta = { ...fact("e", 1), sig: 7 as unknown as string };
+    const arrival = { id: delta.id, at: 1, sequence: 1, transfer: 1, sender: "x" };
+    expect(
+      await code(() =>
+        peer.append({
+          expectedHead: null,
+          nextHead: "h",
+          frame: null,
+          added: [{ delta, arrival }],
+        }),
+      ),
+    ).toBe("invalid-admission");
   });
 });
 
@@ -380,6 +707,18 @@ describe("scopeSource: a synchronous delta source over a fetched scope", () => {
       }),
       { numRuns: 100 },
     );
+  });
+
+  it("refuses a member whose id does not match its claims", () => {
+    const real = fact("e", 1);
+    const forged: VerifiedDelta = {
+      delta: { id: real.id, claims: fact("e", 2).claims },
+      arrival: { id: real.id, at: 1, sequence: 1, transfer: 1, sender: "local" },
+    };
+    expect(() => scopeSource([forged])).toThrow(StoreError);
+    expect(() => scopeSource([forged])).toThrow(/does not match its claims/);
+    const broken = { ...forged, delta: { id: real.id, claims: {} as Delta["claims"] } };
+    expect(() => scopeSource([broken])).toThrow(StoreError);
   });
 
   it("keeps the first appearance of an id fetched in two rounds", () => {

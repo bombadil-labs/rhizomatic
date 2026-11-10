@@ -82,26 +82,41 @@ export type StoreRequirement =
   | "purge"
   | "erasure-proven";
 
-/** The requirements this profile does not meet, in the order asked. */
+// Each name maps to its own test. A name outside this table is refused, never looked up on the
+// profile: `erasure` holds a string and `constructor` is inherited, and both would read as met.
+const REQUIREMENTS: { readonly [K in StoreRequirement]: (profile: StoreProfile) => boolean } = {
+  values: (profile) => profile.capabilities.values === true,
+  arrival: (profile) => profile.capabilities.arrival === true,
+  journal: (profile) => profile.capabilities.journal === true,
+  views: (profile) => profile.capabilities.views === true,
+  derivedIndexes: (profile) => profile.capabilities.derivedIndexes === true,
+  digest: (profile) => profile.capabilities.digest === true,
+  changes: (profile) => profile.changeRetention !== "none",
+  purge: (profile) => profile.capabilities.erasure !== "none",
+  "erasure-proven": (profile) => profile.capabilities.erasure === "proven",
+};
+
+/**
+ * The requirements this profile does not meet, in the order asked. Refuses `invalid-request`,
+ * naming it, for a requirement that is not a `StoreRequirement`.
+ */
 export function missingRequirements(
   profile: StoreProfile,
   requires: readonly StoreRequirement[],
 ): StoreRequirement[] {
-  const has = (requirement: StoreRequirement): boolean => {
-    switch (requirement) {
-      case "changes":
-        return profile.changeRetention !== "none";
-      case "purge":
-        return profile.capabilities.erasure !== "none";
-      case "erasure-proven":
-        return profile.capabilities.erasure === "proven";
-      default:
-        return profile.capabilities[requirement];
-    }
-  };
-  return requires.filter((requirement) => !has(requirement));
+  return requires.filter((requirement) => {
+    if (typeof requirement !== "string" || !Object.hasOwn(REQUIREMENTS, requirement))
+      throw new StoreError("invalid-request", `unknown store requirement: ${String(requirement)}`);
+    return !REQUIREMENTS[requirement](profile);
+  });
 }
 
+/**
+ * A store owns what it holds; no caller holds a reference into it. It keeps its own copy of
+ * every delta and arrival record it is given, and what it returns can be changed by the caller
+ * without changing the store. Handles (`PeerStore`, `Snapshot`) stay usable after later writes
+ * through any handle of the same peer.
+ */
 export interface Store {
   readonly profile: StoreProfile;
   /**
@@ -230,13 +245,21 @@ export type SurfaceState = "absent" | "owed" | "unprovable";
 export const PURGE_BOUNDARY = "store-controlled-surfaces";
 
 export type PurgeReport = {
-  /** `proven` only when the store's class is `proven` and every surface is `absent`. */
-  readonly claim: "proven" | "unproven";
+  /**
+   * What the store asserts about the bytes of the targets this report marks `removed`, and
+   * about no other target. `nothing-removed`: no target has that outcome, so nothing is
+   * asserted. `proven`: the store's class is `proven`, it declares at least one surface, and
+   * every surface is `absent`. A store may always say `unproven` instead of `proven`.
+   */
+  readonly claim: "proven" | "unproven" | "nothing-removed";
   readonly boundary: typeof PURGE_BOUNDARY;
   readonly revision: Revision;
   /** One entry per distinct requested id, ascending by id. */
   readonly targets: readonly { readonly id: Id; readonly outcome: PurgeOutcome }[];
-  /** Every storage surface the store declares, in the store's fixed order. */
+  /**
+   * Every storage surface the store declares, in the store's fixed order, with its state for
+   * the `removed` targets. A target another peer still holds is told by its outcome, not here.
+   */
   readonly surfaces: readonly { readonly surface: string; readonly state: SurfaceState }[];
 };
 

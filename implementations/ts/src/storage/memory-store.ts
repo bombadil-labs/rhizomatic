@@ -29,7 +29,6 @@ import {
   type Snapshot,
   type Store,
   type StoreProfile,
-  type SurfaceState,
   type VerifiedDelta,
 } from "./store.js";
 
@@ -101,18 +100,85 @@ function indexKeys(claims: Claims): { entities: Entity[]; negated: Id[] } {
   return { entities, negated };
 }
 
-function checkArrival(entry: VerifiedDelta): void {
-  const { arrival, delta } = entry;
+// The store's own copy of a delta's claims: the canonical fields and nothing else. A caller's
+// object never enters the store and a stored object never leaves it, so no caller can change
+// what a peer reads. A bytes payload cannot be frozen, which is why reads copy too.
+function copyClaims(claims: Claims): Claims {
+  return {
+    timestamp: claims.timestamp,
+    validFrom: claims.validFrom,
+    ...(claims.validUntil === undefined ? {} : { validUntil: claims.validUntil }),
+    author: claims.author,
+    pointers: claims.pointers.map(({ role, target }) => {
+      switch (target.kind) {
+        case "primitive":
+          return { role, target: { kind: "primitive", value: target.value } };
+        case "entity":
+          return {
+            role,
+            target: {
+              kind: "entity",
+              entity:
+                target.entity.context === undefined
+                  ? { id: target.entity.id }
+                  : { id: target.entity.id, context: target.entity.context },
+            },
+          };
+        case "delta":
+          return {
+            role,
+            target: {
+              kind: "delta",
+              deltaRef:
+                target.deltaRef.context === undefined
+                  ? { delta: target.deltaRef.delta }
+                  : { delta: target.deltaRef.delta, context: target.deltaRef.context },
+            },
+          };
+        case "bytes":
+          return {
+            role,
+            target: { kind: "bytes", mime: target.mime, value: target.value.slice() },
+          };
+      }
+    }),
+  };
+}
+
+const SIG = /^[0-9a-f]{128}$/;
+
+/** A checked copy of one admitted entry. Refuses `invalid-admission`. */
+function admit(entry: VerifiedDelta): { id: Id; claims: Claims; holding: Holding } {
+  const refuse = (what: string): never => {
+    throw new StoreError("invalid-admission", `append: ${what}`);
+  };
+  let claims: Claims;
+  let id: string;
+  try {
+    claims = copyClaims(entry.delta.claims);
+    id = computeId(claims);
+  } catch {
+    return refuse("a delta's claims are malformed");
+  }
+  // Claims are shared across peers by id. An id that does not recompute would let one peer's
+  // append change what another peer reads.
+  if (id !== entry.delta.id) refuse("a delta id does not match its claims");
+  const sig = entry.delta.sig;
+  if (sig !== undefined && (typeof sig !== "string" || !SIG.test(sig)))
+    refuse("a signature is not 128 lowercase hex characters");
+  const { id: arrivalId, at, sequence, transfer, sender } = entry.arrival;
   const count = (n: number): boolean => Number.isSafeInteger(n) && n >= 1;
   if (
-    arrival.id !== delta.id ||
-    !count(arrival.sequence) ||
-    !count(arrival.transfer) ||
-    !Number.isFinite(arrival.at) ||
-    typeof arrival.sender !== "string" ||
-    arrival.sender.length === 0
+    arrivalId !== id ||
+    !count(sequence) ||
+    !count(transfer) ||
+    typeof at !== "number" ||
+    !Number.isFinite(at) ||
+    typeof sender !== "string" ||
+    sender.length === 0
   )
-    throw new StoreError("invalid-admission", "append: an arrival record is malformed");
+    refuse("an arrival record is malformed");
+  return { id, claims, holding: { sig, arrival: { id, at, sequence, transfer, sender } } };
 }
 
 class MemoryStore implements Store {
@@ -223,11 +289,15 @@ class MemoryStore implements Store {
     // A holding without its row means the reference count is wrong. Serving nothing would
     // hide it, so the read fails.
     if (row === undefined) throw new Error("memory store: a held delta has no stored claims");
+    return this.served(id, row.claims, holding);
+  }
+
+  // What a reader receives is a copy. The stored claims and arrival stay the store's own.
+  private served(id: Id, stored: Claims, holding: Holding): VerifiedDelta {
+    const claims = copyClaims(stored);
     const delta: Delta =
-      holding.sig === undefined
-        ? { id, claims: row.claims }
-        : { id, claims: row.claims, sig: holding.sig };
-    return { delta, arrival: holding.arrival };
+      holding.sig === undefined ? { id, claims } : { id, claims, sig: holding.sig };
+    return { delta, arrival: { ...holding.arrival } };
   }
 
   private snapshot(state: PeerState): Snapshot {
@@ -252,7 +322,7 @@ class MemoryStore implements Store {
         const found: ArrivalRecord[] = [];
         for (const id of sorted(ids)) {
           const holding = state.holdings.get(id);
-          if (holding !== undefined) found.push(holding.arrival);
+          if (holding !== undefined) found.push({ ...holding.arrival });
         }
         return found;
       },
@@ -285,6 +355,13 @@ class MemoryStore implements Store {
 
   private scope(state: PeerState, request: ScopeRequest): ScopeResult {
     const asked = request.pushdown ?? {};
+    if (asked.timestampAtMost !== undefined && !Number.isFinite(asked.timestampAtMost))
+      throw new StoreError("invalid-request", "scope: timestampAtMost must be a finite number");
+    if (
+      asked.arrivalAtMost !== undefined &&
+      !(Number.isSafeInteger(asked.arrivalAtMost) && asked.arrivalAtMost >= 0)
+    )
+      throw new StoreError("invalid-request", "scope: arrivalAtMost must be an integer, 0 or more");
     const can = this.profile.pushdown;
     const applied: AppliedPushdown = {
       timestampAtMost: asked.timestampAtMost !== undefined && can.timestampAtMost,
@@ -333,41 +410,33 @@ class MemoryStore implements Store {
     if (state.head !== batch.expectedHead) return { status: "conflict" };
 
     // Validate the whole batch before the first write, so a refusal leaves nothing behind.
-    const fresh = new Map<Id, VerifiedDelta>();
+    // Every entry is checked, also one whose id is already held: a forged repeat is refused.
+    const fresh = new Map<Id, { claims: Claims; holding: Holding }>();
     const sequences = new Set<number>();
     for (const entry of batch.added) {
-      // Claims are shared across peers by id. An id that does not recompute would let one
-      // peer's append change what another peer reads.
-      let id: string;
-      try {
-        id = computeId(entry.delta.claims);
-      } catch {
-        throw new StoreError("invalid-admission", "append: a delta's claims are malformed");
-      }
-      if (id !== entry.delta.id)
-        throw new StoreError("invalid-admission", "append: a delta id does not match its claims");
-      checkArrival(entry);
+      const { id, claims, holding } = admit(entry);
       if (fresh.has(id) || state.holdings.get(id) !== undefined) continue;
-      if (entry.arrival.sequence <= state.lastSequence || sequences.has(entry.arrival.sequence))
+      const sequence = holding.arrival.sequence;
+      if (sequence <= state.lastSequence || sequences.has(sequence))
         throw new StoreError(
           "invalid-admission",
           "append: an arrival sequence does not pass the peer's last sequence",
         );
-      sequences.add(entry.arrival.sequence);
-      fresh.set(id, entry);
+      sequences.add(sequence);
+      fresh.set(id, { claims, holding });
     }
 
-    for (const [id, { delta, arrival }] of fresh) {
+    for (const [id, { claims, holding }] of fresh) {
       const row = this.rows.get(id);
-      if (row === undefined) this.rows.set(id, { claims: delta.claims, holders: 1 });
+      if (row === undefined) this.rows.set(id, { claims, holders: 1 });
       else row.holders++;
-      state.holdings.set(id, { sig: delta.sig, arrival });
+      state.holdings.set(id, holding);
       state.count++;
       state.owed.delete(id);
-      const keys = indexKeys(delta.claims);
+      const keys = indexKeys(claims);
       for (const entity of keys.entities) this.file(state.targets, entity, id);
       for (const negated of keys.negated) this.file(state.negators, negated, id);
-      state.lastSequence = Math.max(state.lastSequence, arrival.sequence);
+      state.lastSequence = Math.max(state.lastSequence, holding.arrival.sequence);
     }
     if (fresh.size > 0 || state.head !== batch.nextHead) state.revision++;
     state.head = batch.nextHead;
@@ -421,20 +490,21 @@ class MemoryStore implements Store {
           outcome = "removed";
         } else outcome = "held-by-other-peer";
       } else outcome = "not-held";
-      rowsOwed ||= outcome === "held-by-other-peer";
+      // The surfaces speak for the removed targets only: a row that outlived its removal.
+      rowsOwed ||= outcome === "removed" && this.rows.get(id) !== undefined;
       targets.push({ id, outcome });
     }
     if (changed) state.revision++;
-    const state_ = (owed: boolean): SurfaceState => (owed ? "owed" : "absent");
+    const removed = targets.some((target) => target.outcome === "removed");
     return {
       // Process memory cannot prove absence, so this store never says `proven`.
-      claim: "unproven",
+      claim: removed ? "unproven" : "nothing-removed",
       boundary: PURGE_BOUNDARY,
       revision: state.revision,
       targets,
       surfaces: [
-        { surface: "rows", state: state_(rowsOwed) },
-        { surface: "index-entries", state: state_(indexesOwed) },
+        { surface: "rows", state: rowsOwed ? "owed" : "absent" },
+        { surface: "index-entries", state: indexesOwed ? "owed" : "absent" },
         { surface: "process-memory", state: "unprovable" },
       ],
     };

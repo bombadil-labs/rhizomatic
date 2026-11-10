@@ -8,7 +8,8 @@
     "A": "ed25519:c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
     "B": "ed25519:a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
     "C": "ed25519:b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
-    "P": "ed25519:d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4"
+    "P": "ed25519:d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4",
+    "EMPTY": ""
   },
   "deltas": [
     {
@@ -299,6 +300,45 @@
       }
     },
     {
+      "name": "c-late",
+      "id": "1e2042f0e1d10c7ca2a6af988a169ca5b9c24c8f3efd1f943fc3dda855013d0d34b4",
+      "claims": {
+        "timestamp": 70,
+        "validFrom": 70,
+        "author": "did:key:zAlice",
+        "pointers": [
+          {
+            "role": "subject",
+            "target": {
+              "id": "plant:c",
+              "context": "name"
+            }
+          },
+          {
+            "role": "value",
+            "target": "late"
+          }
+        ]
+      }
+    },
+    {
+      "name": "c-early-neg",
+      "id": "1e20733bd1029a60273cd37c002c82d589e5b114c53e884736f2bc301da565b02158",
+      "claims": {
+        "timestamp": 65,
+        "validFrom": 65,
+        "author": "did:key:zBob",
+        "pointers": [
+          {
+            "role": "negates",
+            "target": {
+              "delta": "1e2042f0e1d10c7ca2a6af988a169ca5b9c24c8f3efd1f943fc3dda855013d0d34b4"
+            }
+          }
+        ]
+      }
+    },
+    {
       "name": "k-note",
       "id": "1e206fae1969ad8d1a40c7e384acf35a12377672d4237e3c57f5ea20cd849effd0b8",
       "claims": {
@@ -342,6 +382,52 @@
         ]
       },
       "sig": "f61fd7313814ecbf85367142e71fa374ef3e14822093aba05e3f83becc97b3d0f9efb3bb197cced8424416fe4cde58bae685887508905d61395a9aab0d884405"
+    },
+    {
+      "name": "k-note-upper",
+      "id": "1e206fae1969ad8d1a40c7e384acf35a12377672d4237e3c57f5ea20cd849effd0b8",
+      "claims": {
+        "timestamp": 12,
+        "validFrom": 12,
+        "author": "ed25519:8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c",
+        "pointers": [
+          {
+            "role": "subject",
+            "target": {
+              "id": "plant:a",
+              "context": "note"
+            }
+          },
+          {
+            "role": "value",
+            "target": "signed"
+          }
+        ]
+      },
+      "sig": "F61FD7313814ECBF85367142E71FA374EF3E14822093ABA05E3F83BECC97B3D0F9EFB3BB197CCED8424416FE4CDE58BAE685887508905D61395A9AAB0D884405"
+    },
+    {
+      "name": "short-sig",
+      "id": "1e20a7df2d9e39082bd7ada6373ce8609da7fe4d1d05c60c24c57eab573d9114be71",
+      "claims": {
+        "timestamp": 13,
+        "validFrom": 13,
+        "author": "did:key:zAlice",
+        "pointers": [
+          {
+            "role": "subject",
+            "target": {
+              "id": "plant:a",
+              "context": "note"
+            }
+          },
+          {
+            "role": "value",
+            "target": "x"
+          }
+        ]
+      },
+      "sig": "abc"
     },
     {
       "name": "forged",
@@ -2547,12 +2633,12 @@
             "revisionAdvanced": true,
             "claim": {
               "unprovable": "unproven",
-              "proven": "unproven"
+              "proven": "proven"
             },
             "referenceSurfaces": [
               {
                 "surface": "rows",
-                "state": "owed"
+                "state": "absent"
               },
               {
                 "surface": "index-entries",
@@ -2762,8 +2848,8 @@
             ],
             "revisionAdvanced": false,
             "claim": {
-              "unprovable": "unproven",
-              "proven": "proven"
+              "unprovable": "nothing-removed",
+              "proven": "nothing-removed"
             },
             "referenceSurfaces": [
               {
@@ -2796,13 +2882,13 @@
             ],
             "revisionAdvanced": false,
             "claim": {
-              "unprovable": "unproven",
-              "proven": "unproven"
+              "unprovable": "nothing-removed",
+              "proven": "nothing-removed"
             },
             "referenceSurfaces": [
               {
                 "surface": "rows",
-                "state": "owed"
+                "state": "absent"
               },
               {
                 "surface": "index-entries",
@@ -2898,8 +2984,8 @@
             ],
             "revisionAdvanced": false,
             "claim": {
-              "unprovable": "unproven",
-              "proven": "proven"
+              "unprovable": "nothing-removed",
+              "proven": "nothing-removed"
             },
             "referenceSurfaces": [
               {
@@ -2997,8 +3083,8 @@
             "targets": [],
             "revisionAdvanced": false,
             "claim": {
-              "unprovable": "unproven",
-              "proven": "proven"
+              "unprovable": "nothing-removed",
+              "proven": "nothing-removed"
             },
             "referenceSurfaces": [
               {
@@ -3106,13 +3192,13 @@
             ],
             "revisionAdvanced": true,
             "claim": {
-              "unprovable": "unproven",
-              "proven": "unproven"
+              "unprovable": "nothing-removed",
+              "proven": "nothing-removed"
             },
             "referenceSurfaces": [
               {
                 "surface": "rows",
-                "state": "owed"
+                "state": "absent"
               },
               {
                 "surface": "index-entries",
@@ -3165,13 +3251,13 @@
             ],
             "revisionAdvanced": true,
             "claim": {
-              "unprovable": "unproven",
-              "proven": "unproven"
+              "unprovable": "nothing-removed",
+              "proven": "nothing-removed"
             },
             "referenceSurfaces": [
               {
                 "surface": "rows",
-                "state": "owed"
+                "state": "absent"
               },
               {
                 "surface": "index-entries",
@@ -3233,8 +3319,8 @@
             ],
             "revisionAdvanced": false,
             "claim": {
-              "unprovable": "unproven",
-              "proven": "proven"
+              "unprovable": "nothing-removed",
+              "proven": "nothing-removed"
             },
             "referenceSurfaces": [
               {
@@ -3606,6 +3692,1730 @@
           ],
           "expect": {
             "error": "snapshot-released"
+          }
+        },
+        {
+          "op": "head",
+          "snapshot": "s2",
+          "expect": {
+            "head": "head-2"
+          }
+        },
+        {
+          "op": "count",
+          "snapshot": "s2",
+          "expect": {
+            "count": 4
+          }
+        },
+        {
+          "op": "release",
+          "snapshot": "s1"
+        },
+        {
+          "op": "targets",
+          "snapshot": "s1",
+          "entities": [
+            "plant:a"
+          ],
+          "expect": {
+            "error": [
+              "snapshot-released",
+              "snapshot-moved"
+            ]
+          }
+        },
+        {
+          "op": "scope",
+          "snapshot": "s1",
+          "anchors": [
+            {
+              "kind": "entity",
+              "entity": "plant:a"
+            }
+          ],
+          "expect": {
+            "error": [
+              "snapshot-released",
+              "snapshot-moved"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "a-snapshot-across-a-purge",
+      "spec": "SPEC-18 §4.2, §4.7.2",
+      "requires": [
+        "purge"
+      ],
+      "steps": [
+        {
+          "op": "createPeer",
+          "peer": "A",
+          "erasure": "unproven",
+          "expect": {
+            "status": "created"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": null,
+          "nextHead": "head-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-height",
+              "arrival": {
+                "at": 1001,
+                "sequence": 1,
+                "transfer": 1,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "a-height-neg",
+              "arrival": {
+                "at": 1002,
+                "sequence": 2,
+                "transfer": 1,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "a-name",
+              "arrival": {
+                "at": 1003,
+                "sequence": 3,
+                "transfer": 1,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-name",
+              "a-height-neg",
+              "a-height"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "read",
+          "peer": "A",
+          "snapshot": "s"
+        },
+        {
+          "op": "purge",
+          "peer": "A",
+          "ids": [
+            "a-height-neg"
+          ],
+          "expect": {
+            "targets": [
+              {
+                "delta": "a-height-neg",
+                "outcome": "removed"
+              }
+            ],
+            "revisionAdvanced": true,
+            "claim": {
+              "unprovable": "unproven",
+              "proven": "proven"
+            },
+            "referenceSurfaces": [
+              {
+                "surface": "rows",
+                "state": "absent"
+              },
+              {
+                "surface": "index-entries",
+                "state": "absent"
+              },
+              {
+                "surface": "process-memory",
+                "state": "unprovable"
+              }
+            ]
+          }
+        },
+        {
+          "op": "head",
+          "snapshot": "s",
+          "expect": {
+            "head": "head-1"
+          }
+        },
+        {
+          "op": "count",
+          "snapshot": "s",
+          "expect": {
+            "count": 3
+          }
+        },
+        {
+          "op": "get",
+          "snapshot": "s",
+          "ids": [
+            "a-height-neg",
+            "a-name"
+          ],
+          "expect": {
+            "deltas": [
+              "a-name",
+              "a-height-neg"
+            ],
+            "orError": "snapshot-moved"
+          }
+        },
+        {
+          "op": "arrivals",
+          "snapshot": "s",
+          "ids": [
+            "a-height-neg"
+          ],
+          "expect": {
+            "ids": [
+              "a-height-neg"
+            ],
+            "orError": "snapshot-moved"
+          }
+        },
+        {
+          "op": "targets",
+          "snapshot": "s",
+          "entities": [
+            "plant:a"
+          ],
+          "expect": {
+            "ids": [
+              "a-name",
+              "a-height"
+            ],
+            "orError": "snapshot-moved"
+          }
+        },
+        {
+          "op": "negators",
+          "snapshot": "s",
+          "ids": [
+            "a-height"
+          ],
+          "expect": {
+            "ids": [
+              "a-height-neg"
+            ],
+            "orError": "snapshot-moved"
+          }
+        },
+        {
+          "op": "scope",
+          "snapshot": "s",
+          "anchors": [
+            {
+              "kind": "entity",
+              "entity": "plant:a"
+            }
+          ],
+          "expect": {
+            "lower": [
+              "a-name",
+              "a-height-neg",
+              "a-height"
+            ],
+            "upper": [
+              "a-name",
+              "a-height-neg",
+              "a-height"
+            ],
+            "orError": "snapshot-moved"
+          }
+        },
+        {
+          "op": "read",
+          "peer": "A",
+          "snapshot": "s2"
+        },
+        {
+          "op": "count",
+          "snapshot": "s2",
+          "expect": {
+            "count": 2
+          }
+        },
+        {
+          "op": "scope",
+          "snapshot": "s2",
+          "anchors": [
+            {
+              "kind": "entity",
+              "entity": "plant:a"
+            }
+          ],
+          "expect": {
+            "lower": [
+              "a-name",
+              "a-height"
+            ],
+            "upper": [
+              "a-name",
+              "a-height"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "the-last-sequence-survives-a-purge",
+      "spec": "SPEC-18 §4.5; SPEC-6 vNext §3",
+      "requires": [
+        "purge"
+      ],
+      "steps": [
+        {
+          "op": "createPeer",
+          "peer": "A",
+          "erasure": "unproven",
+          "expect": {
+            "status": "created"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": null,
+          "nextHead": "head-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-height",
+              "arrival": {
+                "at": 1001,
+                "sequence": 1,
+                "transfer": 1,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "a-name",
+              "arrival": {
+                "at": 1005,
+                "sequence": 5,
+                "transfer": 1,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-name",
+              "a-height"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "purge",
+          "peer": "A",
+          "ids": [
+            "a-name"
+          ],
+          "expect": {
+            "targets": [
+              {
+                "delta": "a-name",
+                "outcome": "removed"
+              }
+            ],
+            "revisionAdvanced": true,
+            "claim": {
+              "unprovable": "unproven",
+              "proven": "proven"
+            },
+            "referenceSurfaces": [
+              {
+                "surface": "rows",
+                "state": "absent"
+              },
+              {
+                "surface": "index-entries",
+                "state": "absent"
+              },
+              {
+                "surface": "process-memory",
+                "state": "unprovable"
+              }
+            ]
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "head-1",
+          "nextHead": "head-2",
+          "frame": null,
+          "added": [
+            {
+              "delta": "b-name",
+              "arrival": {
+                "at": 1005,
+                "sequence": 5,
+                "transfer": 2,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "error": "invalid-admission"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "head-1",
+          "nextHead": "head-2",
+          "frame": null,
+          "added": [
+            {
+              "delta": "b-name",
+              "arrival": {
+                "at": 1003,
+                "sequence": 3,
+                "transfer": 3,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "error": "invalid-admission"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "head-1",
+          "nextHead": "head-2",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-name",
+              "arrival": {
+                "at": 1005,
+                "sequence": 5,
+                "transfer": 4,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "error": "invalid-admission"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "head-1",
+          "nextHead": "head-2",
+          "frame": null,
+          "added": [
+            {
+              "delta": "b-name",
+              "arrival": {
+                "at": 1006,
+                "sequence": 6,
+                "transfer": 5,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "status": "committed",
+            "added": [
+              "b-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "read",
+          "peer": "A",
+          "snapshot": "s"
+        },
+        {
+          "op": "arrivals",
+          "snapshot": "s",
+          "ids": [
+            "a-height",
+            "a-name",
+            "b-name"
+          ],
+          "expect": {
+            "ids": [
+              "b-name",
+              "a-height"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "the-first-appearance-is-kept",
+      "spec": "SPEC-18 §4.5, §4.11",
+      "requires": [],
+      "steps": [
+        {
+          "op": "createPeer",
+          "peer": "A",
+          "erasure": "unproven",
+          "expect": {
+            "status": "created"
+          }
+        },
+        {
+          "op": "createPeer",
+          "peer": "B",
+          "erasure": "unproven",
+          "expect": {
+            "status": "created"
+          }
+        },
+        {
+          "op": "createPeer",
+          "peer": "C",
+          "erasure": "unproven",
+          "expect": {
+            "status": "created"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": null,
+          "nextHead": "a-head-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "k-note",
+              "arrival": {
+                "at": 1001,
+                "sequence": 1,
+                "transfer": 1,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "status": "committed",
+            "added": [
+              "k-note"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "a-head-1",
+          "nextHead": "a-head-2",
+          "frame": null,
+          "added": [
+            {
+              "delta": "k-note-signed",
+              "arrival": {
+                "at": 1002,
+                "sequence": 2,
+                "transfer": 2,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "status": "committed",
+            "added": [],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "append",
+          "peer": "B",
+          "expectedHead": null,
+          "nextHead": "b-head-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "k-note-signed",
+              "arrival": {
+                "at": 1001,
+                "sequence": 1,
+                "transfer": 3,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "status": "committed",
+            "added": [
+              "k-note-signed"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "append",
+          "peer": "B",
+          "expectedHead": "b-head-1",
+          "nextHead": "b-head-2",
+          "frame": null,
+          "added": [
+            {
+              "delta": "k-note",
+              "arrival": {
+                "at": 1002,
+                "sequence": 2,
+                "transfer": 4,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "status": "committed",
+            "added": [],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "append",
+          "peer": "C",
+          "expectedHead": null,
+          "nextHead": "c-head-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "k-note-signed",
+              "arrival": {
+                "at": 1001,
+                "sequence": 1,
+                "transfer": 5,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "k-note",
+              "arrival": {
+                "at": 1002,
+                "sequence": 2,
+                "transfer": 5,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "status": "committed",
+            "added": [
+              "k-note-signed"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "read",
+          "peer": "A",
+          "snapshot": "a"
+        },
+        {
+          "op": "get",
+          "snapshot": "a",
+          "ids": [
+            "k-note"
+          ],
+          "expect": {
+            "deltas": [
+              "k-note"
+            ]
+          }
+        },
+        {
+          "op": "arrivals",
+          "snapshot": "a",
+          "ids": [
+            "k-note"
+          ],
+          "expect": {
+            "ids": [
+              "k-note"
+            ]
+          }
+        },
+        {
+          "op": "scope",
+          "snapshot": "a",
+          "anchors": [
+            {
+              "kind": "entity",
+              "entity": "plant:a"
+            }
+          ],
+          "expect": {
+            "lower": [
+              "k-note"
+            ],
+            "upper": [
+              "k-note"
+            ]
+          }
+        },
+        {
+          "op": "export",
+          "peer": "A",
+          "expect": {
+            "deltas": [
+              "k-note"
+            ]
+          }
+        },
+        {
+          "op": "read",
+          "peer": "B",
+          "snapshot": "b"
+        },
+        {
+          "op": "get",
+          "snapshot": "b",
+          "ids": [
+            "k-note"
+          ],
+          "expect": {
+            "deltas": [
+              "k-note-signed"
+            ]
+          }
+        },
+        {
+          "op": "arrivals",
+          "snapshot": "b",
+          "ids": [
+            "k-note"
+          ],
+          "expect": {
+            "ids": [
+              "k-note-signed"
+            ]
+          }
+        },
+        {
+          "op": "scope",
+          "snapshot": "b",
+          "anchors": [
+            {
+              "kind": "entity",
+              "entity": "plant:a"
+            }
+          ],
+          "expect": {
+            "lower": [
+              "k-note-signed"
+            ],
+            "upper": [
+              "k-note-signed"
+            ]
+          }
+        },
+        {
+          "op": "export",
+          "peer": "B",
+          "expect": {
+            "deltas": [
+              "k-note-signed"
+            ]
+          }
+        },
+        {
+          "op": "read",
+          "peer": "C",
+          "snapshot": "c"
+        },
+        {
+          "op": "get",
+          "snapshot": "c",
+          "ids": [
+            "k-note"
+          ],
+          "expect": {
+            "deltas": [
+              "k-note-signed"
+            ]
+          }
+        },
+        {
+          "op": "arrivals",
+          "snapshot": "c",
+          "ids": [
+            "k-note"
+          ],
+          "expect": {
+            "ids": [
+              "k-note-signed"
+            ]
+          }
+        },
+        {
+          "op": "scope",
+          "snapshot": "c",
+          "anchors": [
+            {
+              "kind": "entity",
+              "entity": "plant:a"
+            }
+          ],
+          "expect": {
+            "lower": [
+              "k-note-signed"
+            ],
+            "upper": [
+              "k-note-signed"
+            ]
+          }
+        },
+        {
+          "op": "export",
+          "peer": "C",
+          "expect": {
+            "deltas": [
+              "k-note-signed"
+            ]
+          }
+        },
+        {
+          "op": "exportStored",
+          "expect": {
+            "ids": [
+              "k-note"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "an-older-handle-stays-valid",
+      "spec": "SPEC-18 §3, §4.1",
+      "requires": [],
+      "steps": [
+        {
+          "op": "createPeer",
+          "peer": "A",
+          "erasure": "unproven",
+          "expect": {
+            "status": "created"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": null,
+          "nextHead": "head-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-height",
+              "arrival": {
+                "at": 1001,
+                "sequence": 1,
+                "transfer": 1,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-height"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "openPeer",
+          "peer": "A",
+          "handle": "A2",
+          "expect": {
+            "status": "opened",
+            "posture": "unproven"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A2",
+          "expectedHead": "head-1",
+          "nextHead": "head-2",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-name",
+              "arrival": {
+                "at": 1002,
+                "sequence": 2,
+                "transfer": 2,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "read",
+          "peer": "A",
+          "snapshot": "s"
+        },
+        {
+          "op": "head",
+          "snapshot": "s",
+          "expect": {
+            "head": "head-2"
+          }
+        },
+        {
+          "op": "count",
+          "snapshot": "s",
+          "expect": {
+            "count": 2
+          }
+        },
+        {
+          "op": "targets",
+          "snapshot": "s",
+          "entities": [
+            "plant:a"
+          ],
+          "expect": {
+            "ids": [
+              "a-name",
+              "a-height"
+            ]
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "head-1",
+          "nextHead": "head-3",
+          "frame": null,
+          "added": [
+            {
+              "delta": "b-name",
+              "arrival": {
+                "at": 1003,
+                "sequence": 3,
+                "transfer": 3,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "status": "conflict"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "head-2",
+          "nextHead": "head-3",
+          "frame": null,
+          "added": [
+            {
+              "delta": "b-name",
+              "arrival": {
+                "at": 1003,
+                "sequence": 3,
+                "transfer": 4,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "status": "committed",
+            "added": [
+              "b-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "read",
+          "peer": "A2",
+          "snapshot": "s2"
+        },
+        {
+          "op": "head",
+          "snapshot": "s2",
+          "expect": {
+            "head": "head-3"
+          }
+        },
+        {
+          "op": "count",
+          "snapshot": "s2",
+          "expect": {
+            "count": 3
+          }
+        },
+        {
+          "op": "arrivals",
+          "snapshot": "s2",
+          "ids": [
+            "a-height",
+            "a-name",
+            "b-name"
+          ],
+          "expect": {
+            "ids": [
+              "b-name",
+              "a-name",
+              "a-height"
+            ]
+          }
+        },
+        {
+          "op": "targets",
+          "snapshot": "s",
+          "entities": [
+            "plant:a",
+            "plant:b"
+          ],
+          "expect": {
+            "ids": [
+              "a-name",
+              "a-height"
+            ],
+            "orError": "snapshot-moved"
+          }
+        }
+      ]
+    },
+    {
+      "name": "append-checks-before-and-after-the-head",
+      "spec": "SPEC-18 §4.5",
+      "requires": [],
+      "steps": [
+        {
+          "op": "createPeer",
+          "peer": "A",
+          "erasure": "unproven",
+          "expect": {
+            "status": "created"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": null,
+          "nextHead": "head-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-name",
+              "arrival": {
+                "at": 1001,
+                "sequence": 1,
+                "transfer": 1,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "head-0",
+          "nextHead": "head-2",
+          "frame": null,
+          "added": [
+            {
+              "delta": "forged",
+              "arrival": {
+                "at": 1002,
+                "sequence": 2,
+                "transfer": 2,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "status": "conflict"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": null,
+          "nextHead": "head-2",
+          "frame": null,
+          "added": [
+            {
+              "delta": "b-name",
+              "arrival": {
+                "at": 1002,
+                "sequence": 2,
+                "transfer": 3,
+                "sender": ""
+              }
+            }
+          ],
+          "expect": {
+            "status": "conflict"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "head-1",
+          "nextHead": "head-2",
+          "frame": null,
+          "added": [
+            {
+              "delta": "forged",
+              "arrival": {
+                "at": 1002,
+                "sequence": 2,
+                "transfer": 4,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "error": "invalid-admission"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "head-1",
+          "nextHead": "head-2",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-name",
+              "arrival": {
+                "at": 1002,
+                "sequence": 2,
+                "transfer": 5,
+                "sender": ""
+              }
+            }
+          ],
+          "expect": {
+            "error": "invalid-admission"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "head-1",
+          "nextHead": "head-2",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-name",
+              "arrival": {
+                "at": 1002,
+                "sequence": 2,
+                "transfer": 6,
+                "sender": "local",
+                "id": "far"
+              }
+            }
+          ],
+          "expect": {
+            "error": "invalid-admission"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "head-1",
+          "nextHead": "head-2",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-name",
+              "arrival": {
+                "at": 1000,
+                "sequence": 0,
+                "transfer": 7,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "error": "invalid-admission"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "head-1",
+          "nextHead": "head-2",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-name",
+              "arrival": {
+                "at": 1001,
+                "sequence": 1,
+                "transfer": 8,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "status": "committed",
+            "added": [],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "read",
+          "peer": "A",
+          "snapshot": "s"
+        },
+        {
+          "op": "head",
+          "snapshot": "s",
+          "expect": {
+            "head": "head-2"
+          }
+        },
+        {
+          "op": "count",
+          "snapshot": "s",
+          "expect": {
+            "count": 1
+          }
+        },
+        {
+          "op": "arrivals",
+          "snapshot": "s",
+          "ids": [
+            "a-name"
+          ],
+          "expect": {
+            "ids": [
+              "a-name"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "requests-a-store-refuses",
+      "spec": "SPEC-18 §4.3, §4.5, §4.11",
+      "requires": [],
+      "steps": [
+        {
+          "op": "createPeer",
+          "peer": "EMPTY",
+          "erasure": "unproven",
+          "expect": {
+            "error": "invalid-request"
+          }
+        },
+        {
+          "op": "createPeer",
+          "peer": "A",
+          "erasure": "unproven",
+          "expect": {
+            "status": "created"
+          }
+        },
+        {
+          "op": "createPeer",
+          "peer": "A",
+          "erasure": "proven",
+          "expect": {
+            "error": [
+              "posture-refused",
+              "peer-exists"
+            ]
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": null,
+          "nextHead": "",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-height",
+              "arrival": {
+                "at": 1001,
+                "sequence": 1,
+                "transfer": 1,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "error": "invalid-admission"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": null,
+          "nextHead": "head-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-height",
+              "arrival": {
+                "at": 1001,
+                "sequence": 1,
+                "transfer": 2,
+                "sender": ""
+              }
+            }
+          ],
+          "expect": {
+            "error": "invalid-admission"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": null,
+          "nextHead": "head-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-height",
+              "arrival": {
+                "at": 1000,
+                "sequence": 0,
+                "transfer": 3,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "error": "invalid-admission"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": null,
+          "nextHead": "head-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-height",
+              "arrival": {
+                "at": 999,
+                "sequence": -1,
+                "transfer": 4,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "error": "invalid-admission"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": null,
+          "nextHead": "head-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-height",
+              "arrival": {
+                "at": 1001.5,
+                "sequence": 1.5,
+                "transfer": 5,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "error": "invalid-admission"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": null,
+          "nextHead": "head-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-height",
+              "arrival": {
+                "at": 9007199254741992,
+                "sequence": 9007199254740992,
+                "transfer": 6,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "error": "invalid-admission"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": null,
+          "nextHead": "head-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-height",
+              "arrival": {
+                "at": 1001,
+                "sequence": 1,
+                "transfer": 0,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "error": "invalid-admission"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": null,
+          "nextHead": "head-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-height",
+              "arrival": {
+                "at": 1001,
+                "sequence": 1,
+                "transfer": 1.5,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "error": "invalid-admission"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": null,
+          "nextHead": "head-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-height",
+              "arrival": {
+                "at": 1001,
+                "sequence": 1,
+                "transfer": 9007199254740992,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "error": "invalid-admission"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": null,
+          "nextHead": "head-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "short-sig",
+              "arrival": {
+                "at": 1001,
+                "sequence": 1,
+                "transfer": 10,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "error": "invalid-admission"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": null,
+          "nextHead": "head-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "k-note-upper",
+              "arrival": {
+                "at": 1001,
+                "sequence": 1,
+                "transfer": 11,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "error": "invalid-admission"
+          }
+        },
+        {
+          "op": "read",
+          "peer": "A",
+          "snapshot": "s0"
+        },
+        {
+          "op": "head",
+          "snapshot": "s0",
+          "expect": {
+            "head": null
+          }
+        },
+        {
+          "op": "count",
+          "snapshot": "s0",
+          "expect": {
+            "count": 0
+          }
+        },
+        {
+          "op": "exportStored",
+          "expect": {
+            "ids": []
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": null,
+          "nextHead": "head-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-height",
+              "arrival": {
+                "at": 1000.5,
+                "sequence": 7,
+                "transfer": 12,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "a-name",
+              "arrival": {
+                "at": 9007199254741992,
+                "sequence": 9007199254740991,
+                "transfer": 9007199254740991,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-name",
+              "a-height"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "read",
+          "peer": "A",
+          "snapshot": "s"
+        },
+        {
+          "op": "arrivals",
+          "snapshot": "s",
+          "ids": [
+            "a-height",
+            "a-name"
+          ],
+          "expect": {
+            "ids": [
+              "a-name",
+              "a-height"
+            ]
+          }
+        },
+        {
+          "op": "scope",
+          "snapshot": "s",
+          "anchors": [
+            {
+              "kind": "entity",
+              "entity": "plant:a"
+            }
+          ],
+          "pushdown": {
+            "arrivalAtMost": 0
+          },
+          "expect": {
+            "lower": [],
+            "upper": [
+              "a-name",
+              "a-height"
+            ]
+          }
+        },
+        {
+          "op": "scope",
+          "snapshot": "s",
+          "anchors": [
+            {
+              "kind": "entity",
+              "entity": "plant:a"
+            }
+          ],
+          "pushdown": {
+            "arrivalAtMost": 7
+          },
+          "expect": {
+            "lower": [
+              "a-height"
+            ],
+            "upper": [
+              "a-name",
+              "a-height"
+            ]
+          }
+        },
+        {
+          "op": "scope",
+          "snapshot": "s",
+          "anchors": [
+            {
+              "kind": "entity",
+              "entity": "plant:a"
+            }
+          ],
+          "pushdown": {
+            "arrivalAtMost": 9007199254740991
+          },
+          "expect": {
+            "lower": [
+              "a-name",
+              "a-height"
+            ],
+            "upper": [
+              "a-name",
+              "a-height"
+            ]
+          }
+        },
+        {
+          "op": "scope",
+          "snapshot": "s",
+          "anchors": [
+            {
+              "kind": "entity",
+              "entity": "plant:a"
+            }
+          ],
+          "pushdown": {
+            "arrivalAtMost": 1.5
+          },
+          "expect": {
+            "error": "invalid-request"
+          }
+        },
+        {
+          "op": "scope",
+          "snapshot": "s",
+          "anchors": [
+            {
+              "kind": "entity",
+              "entity": "plant:a"
+            }
+          ],
+          "pushdown": {
+            "arrivalAtMost": -1
+          },
+          "expect": {
+            "error": "invalid-request"
+          }
+        },
+        {
+          "op": "scope",
+          "snapshot": "s",
+          "anchors": [
+            {
+              "kind": "entity",
+              "entity": "plant:a"
+            }
+          ],
+          "pushdown": {
+            "arrivalAtMost": 9007199254740992
+          },
+          "expect": {
+            "error": "invalid-request"
+          }
+        },
+        {
+          "op": "scope",
+          "snapshot": "s",
+          "anchors": [
+            {
+              "kind": "entity",
+              "entity": "plant:a"
+            }
+          ],
+          "pushdown": {
+            "timestampAtMost": -1.5
+          },
+          "expect": {
+            "lower": [],
+            "upper": [
+              "a-name",
+              "a-height"
+            ]
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "head-1",
+          "nextHead": "head-2",
+          "frame": null,
+          "added": [
+            {
+              "delta": "b-name",
+              "arrival": {
+                "at": 9007199254741992,
+                "sequence": 9007199254740991,
+                "transfer": 13,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "error": "invalid-admission"
           }
         }
       ]
