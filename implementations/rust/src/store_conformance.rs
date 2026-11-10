@@ -13,8 +13,8 @@ use crate::json_profile::parse_claims;
 use crate::store::{
     negated_ids, target_entities, Admission, Anchor, AppendResult, ArrivalRecord, ErasureClaim,
     ErasureClass, ErasurePosture, PeerStore, Pushdown, PushdownFields, Revision, ScopeRequest,
-    ScopeResult, Snapshot, Store, StoreError, StoreProfile, SurfaceState, VerifiedDelta,
-    PURGE_BOUNDARY,
+    ScopeResult, Snapshot, Store, StoreError, StoreErrorCode, StoreProfile, SurfaceState,
+    VerifiedDelta, PURGE_BOUNDARY,
 };
 use crate::types::Delta;
 
@@ -261,24 +261,47 @@ struct Run<'a> {
     store: Box<dyn Store>,
     profile: StoreProfile,
     reference: bool,
-    peers: BTreeMap<String, Box<dyn PeerStore>>,
+    /// Handle name to the peer name it belongs to and the handle. A peer's first handle has the
+    /// peer's own name (§3.2).
+    handles: BTreeMap<String, (String, Box<dyn PeerStore>)>,
     snapshots: BTreeMap<String, (String, Box<dyn Snapshot>)>,
     books: BTreeMap<String, BTreeMap<String, VerifiedDelta>>,
 }
 
-fn code_of(expect: &Value) -> Option<&str> {
-    expect.get("error").and_then(Value::as_str)
+/// The codes an `expect` accepts as a refusal (§3, "Refusals"): one code, or a list when several
+/// causes apply and their order is free.
+fn codes_of(expect: &Value) -> Option<Vec<&str>> {
+    match expect.get("error")? {
+        Value::Array(codes) => Some(codes.iter().filter_map(Value::as_str).collect()),
+        code => Some(code.as_str().into_iter().collect()),
+    }
 }
 
-fn refused<T>(result: Result<T, StoreError>, code: &str) -> Check {
+fn refused<T>(result: Result<T, StoreError>, codes: &[&str]) -> Check {
+    let wanted = codes.join("` or `");
     match result {
-        Err(e) if e.code.as_str() == code => Ok(()),
+        Err(e) if codes.contains(&e.code.as_str()) => Ok(()),
         Err(e) => Err(format!(
-            "expected a refusal `{code}`, the store refused `{}`",
+            "expected a refusal `{wanted}`, the store refused `{}`",
             e.code.as_str()
         )),
-        Ok(_) => Err(format!("expected a refusal `{code}`, the store answered")),
+        Ok(_) => Err(format!("expected a refusal `{wanted}`, the store answered")),
     }
+}
+
+/// A value the vector carries and this witness's types cannot hold. The step counts as refused
+/// with this code at the witness's own boundary (§3.3, §3.7); the store is not called.
+fn unrepresentable(code: StoreErrorCode, what: &str) -> StoreError {
+    StoreError::new(code, format!("{what} does not fit this witness's type"))
+}
+
+/// A whole number as written, or the boundary refusal when the number is not one a `u64` holds.
+fn whole_as_written(v: &Value, key: &str, code: StoreErrorCode) -> Check<Result<u64, StoreError>> {
+    let value = field(v, key)?;
+    if !value.is_number() {
+        return Err(format!("`{key}` is not a number"));
+    }
+    Ok(value.as_u64().ok_or_else(|| unrepresentable(code, key)))
 }
 
 /// The three `expect` shapes of a query (§3.7): a result, a result or one refusal, a refusal.
@@ -287,8 +310,8 @@ fn answered<T>(
     result: Result<T, StoreError>,
     check: impl FnOnce(T) -> Check,
 ) -> Check {
-    if let Some(code) = code_of(expect) {
-        return refused(result, code);
+    if let Some(codes) = codes_of(expect) {
+        return refused(result, &codes);
     }
     match result {
         Ok(answer) => check(answer),
@@ -353,7 +376,7 @@ impl<'a> Run<'a> {
             reference: profile.format_version == corpus.reference_format,
             profile,
             store,
-            peers: BTreeMap::new(),
+            handles: BTreeMap::new(),
             snapshots: BTreeMap::new(),
             books: BTreeMap::new(),
         })
@@ -377,11 +400,19 @@ impl<'a> Run<'a> {
         Ok(None)
     }
 
-    fn peer(&self, name: &str) -> Check<&dyn PeerStore> {
-        self.peers
-            .get(name)
-            .map(Box::as_ref)
-            .ok_or_else(|| format!("the script has no handle for peer {name}"))
+    fn peer(&self, handle: &str) -> Check<&dyn PeerStore> {
+        self.handles
+            .get(handle)
+            .map(|(_, peer)| peer.as_ref())
+            .ok_or_else(|| format!("the script has no handle named {handle}"))
+    }
+
+    /// The peer a handle belongs to. The bookkeeping is per peer, not per handle.
+    fn peer_name(&self, handle: &str) -> Check<String> {
+        self.handles
+            .get(handle)
+            .map(|(peer, _)| peer.clone())
+            .ok_or_else(|| format!("the script has no handle named {handle}"))
     }
 
     fn snapshot(&self, step: &Value) -> Check<(&str, &dyn Snapshot)> {
@@ -392,9 +423,9 @@ impl<'a> Run<'a> {
             .ok_or_else(|| format!("the script has no snapshot named {name}"))
     }
 
-    fn revision(&self, peer: &str) -> Check<Revision> {
+    fn revision(&self, handle: &str) -> Check<Revision> {
         let mut snapshot = self
-            .peer(peer)?
+            .peer(handle)?
             .read()
             .map_err(|e| format!("read refused `{}`", e.code.as_str()))?;
         let revision = snapshot.revision();
@@ -433,14 +464,14 @@ impl<'a> Run<'a> {
             "append" => self.append(step),
             "purge" => self.purge(step),
             "read" => {
-                let peer = text(step, "peer")?;
+                let handle = text(step, "peer")?;
                 let snapshot = self
-                    .peer(peer)?
+                    .peer(handle)?
                     .read()
                     .map_err(|e| format!("read refused `{}`", e.code.as_str()))?;
                 self.snapshots.insert(
                     text(step, "snapshot")?.to_string(),
-                    (peer.to_string(), snapshot),
+                    (self.peer_name(handle)?, snapshot),
                 );
                 Ok(())
             }
@@ -495,27 +526,32 @@ impl<'a> Run<'a> {
 
     fn create_peer(&mut self, step: &Value) -> Check {
         let name = text(step, "peer")?;
-        let posture = match text(step, "erasure")? {
-            "proven" => ErasurePosture::Proven,
-            "unproven" => ErasurePosture::Unproven,
-            other => return Err(format!("unknown posture `{other}`")),
+        // A missing posture, or a value that is not one, cannot reach a typed store.
+        let posture = match step.get("erasure").and_then(Value::as_str) {
+            Some("proven") => Ok(ErasurePosture::Proven),
+            Some("unproven") => Ok(ErasurePosture::Unproven),
+            _ => Err(unrepresentable(StoreErrorCode::InvalidRequest, "erasure")),
         };
         let expect = field(step, "expect")?;
         let class = self.profile.capabilities.erasure;
-        let result = self.store.create_peer(self.corpus.peer(name)?, posture);
+        let id = self.corpus.peer(name)?;
+        let result = posture
+            .clone()
+            .and_then(|posture| self.store.create_peer(id, posture));
         let excepted =
             expect.get("unlessStoreErasure").and_then(Value::as_str) == Some(class.as_str());
-        if let (Some(code), false) = (code_of(expect), excepted) {
-            return refused(result, code);
+        if let (Some(codes), false) = (codes_of(expect), excepted) {
+            return refused(result, &codes);
         }
         let handle = result.map_err(|e| format!("createPeer refused `{}`", e.code.as_str()))?;
         let erasure = handle.erasure();
-        if erasure.posture != posture || erasure.store_class != class {
+        if Ok(erasure.posture) != posture || erasure.store_class != class {
             return Err(
                 "the new peer does not report its posture and the store's erasure class".into(),
             );
         }
-        self.peers.insert(name.to_string(), handle);
+        self.handles
+            .insert(name.to_string(), (name.to_string(), handle));
         Ok(())
     }
 
@@ -523,19 +559,28 @@ impl<'a> Run<'a> {
         let name = text(step, "peer")?;
         let expect = field(step, "expect")?;
         let result = self.store.peer(self.corpus.peer(name)?);
-        if let Some(code) = code_of(expect) {
-            return refused(result, code);
+        if let Some(codes) = codes_of(expect) {
+            return refused(result, &codes);
         }
         let handle = result.map_err(|e| format!("peer refused `{}`", e.code.as_str()))?;
         if handle.erasure().posture.as_str() != text(expect, "posture")? {
             return Err("the opened peer does not report the posture it was created with".into());
         }
-        self.peers.insert(name.to_string(), handle);
+        // With `handle`, the older handle stays under its own name; both are one peer.
+        let kept_as = match step.get("handle") {
+            Some(_) => text(step, "handle")?,
+            None => name,
+        };
+        self.handles
+            .insert(kept_as.to_string(), (name.to_string(), handle));
         Ok(())
     }
 
-    fn admission(&self, step: &Value) -> Check<Admission> {
+    /// The batch as written. A counter this witness's record cannot hold (`1.5`, `-1`) makes the
+    /// whole step a boundary refusal.
+    fn admission(&self, step: &Value) -> Check<Result<Admission, StoreError>> {
         let mut added = Vec::new();
+        let code = StoreErrorCode::InvalidAdmission;
         for entry in list(step, "added")? {
             let delta = self.corpus.delta(text(entry, "delta")?)?.clone();
             let arrival = field(entry, "arrival")?;
@@ -548,8 +593,14 @@ impl<'a> Run<'a> {
                 at: field(arrival, "at")?
                     .as_f64()
                     .ok_or("`at` is not a number")?,
-                sequence: whole(arrival, "sequence")?,
-                transfer: whole(arrival, "transfer")?,
+                sequence: match whole_as_written(arrival, "sequence", code)? {
+                    Ok(sequence) => sequence,
+                    Err(refusal) => return Ok(Err(refusal)),
+                },
+                transfer: match whole_as_written(arrival, "transfer", code)? {
+                    Ok(transfer) => transfer,
+                    Err(refusal) => return Ok(Err(refusal)),
+                },
                 sender: text(arrival, "sender")?.to_string(),
             };
             added.push(VerifiedDelta { delta, arrival });
@@ -561,12 +612,12 @@ impl<'a> Run<'a> {
                     .map_err(|_| "`frame` is not hex")?,
             ),
         };
-        Ok(Admission {
+        Ok(Ok(Admission {
             expected_head: field(step, "expectedHead")?.as_str().map(str::to_string),
             next_head: text(step, "nextHead")?.to_string(),
             frame,
             added,
-        })
+        }))
     }
 
     fn append(&mut self, step: &Value) -> Check {
@@ -574,12 +625,16 @@ impl<'a> Run<'a> {
         let expect = field(step, "expect")?;
         let batch = self.admission(step)?;
         let before = self.revision(name)?;
-        let result = self.peer(name)?.append(&batch);
+        let result = match &batch {
+            Ok(batch) => self.peer(name)?.append(batch),
+            Err(refusal) => Err(refusal.clone()),
+        };
         let after = self.revision(name)?;
-        if let Some(code) = code_of(expect) {
-            refused(result, code)?;
+        if let Some(codes) = codes_of(expect) {
+            refused(result, &codes)?;
             return Self::moved(expect, before, after);
         }
+        let added_entries = batch.map(|batch| batch.added).unwrap_or_default();
         let result =
             result.map_err(|e| format!("append refused `{}`: {}", e.code.as_str(), e.message))?;
         match (text(expect, "status")?, result) {
@@ -592,9 +647,9 @@ impl<'a> Run<'a> {
                     );
                 }
                 Self::moved(expect, before, after)?;
-                let book = self.books.entry(name.to_string()).or_default();
+                let book = self.books.entry(self.peer_name(name)?).or_default();
                 for id in added {
-                    if let Some(first) = batch.added.iter().find(|entry| entry.delta.id == id) {
+                    if let Some(first) = added_entries.iter().find(|entry| entry.delta.id == id) {
                         book.insert(id, first.clone());
                     }
                 }
@@ -645,21 +700,27 @@ impl<'a> Run<'a> {
                 report.boundary
             ));
         }
+        // A store may claim less than it could, never more: `unproven` stands in for `proven`,
+        // and nothing else is exchanged.
         let class = self.profile.capabilities.erasure.as_str();
         let claim = text(field(expect, "claim")?, class)?;
-        if report.claim.as_str() != claim {
+        let got = report.claim.as_str();
+        if got != claim && !(claim == "proven" && got == "unproven") {
             return Err(format!(
-                "expected claim `{claim}`, the store claimed `{}`",
-                report.claim.as_str()
+                "expected claim `{claim}`, the store claimed `{got}`"
             ));
         }
         if report.claim == ErasureClaim::Proven
-            && report
-                .surfaces
-                .iter()
-                .any(|s| s.state != SurfaceState::Absent)
+            && (report.surfaces.is_empty()
+                || report
+                    .surfaces
+                    .iter()
+                    .any(|s| s.state != SurfaceState::Absent))
         {
-            return Err("the report claims `proven` with a surface that is not absent".into());
+            return Err(
+                "the report claims `proven` without a surface, or with one that is not absent"
+                    .into(),
+            );
         }
         if self.reference {
             let want: Vec<(String, String)> = list(expect, "referenceSurfaces")?
@@ -682,7 +743,7 @@ impl<'a> Run<'a> {
                 ));
             }
         }
-        if let Some(book) = self.books.get_mut(name) {
+        if let Some(book) = self.books.get_mut(&self.peer_name(name)?) {
             for target in &report.targets {
                 book.remove(&target.id);
             }
@@ -748,21 +809,27 @@ impl<'a> Run<'a> {
         })
     }
 
-    fn pushdown(&self, v: &Value) -> Check<Pushdown> {
-        Ok(Pushdown {
+    /// The selection as written. An `arrivalAtMost` this witness's type cannot hold (`1.5`,
+    /// `-1`) is a boundary refusal.
+    fn pushdown(&self, v: &Value) -> Check<Result<Pushdown, StoreError>> {
+        let arrival_at_most = match v.get(FIELDS[1]) {
+            Some(_) => match whole_as_written(v, FIELDS[1], StoreErrorCode::InvalidRequest)? {
+                Ok(bound) => Some(bound),
+                Err(refusal) => return Ok(Err(refusal)),
+            },
+            None => None,
+        };
+        Ok(Ok(Pushdown {
             timestamp_at_most: match v.get(FIELDS[0]) {
                 Some(t) => Some(t.as_f64().ok_or("`timestampAtMost` is not a number")?),
                 None => None,
             },
-            arrival_at_most: match v.get(FIELDS[1]) {
-                Some(_) => Some(whole(v, FIELDS[1])?),
-                None => None,
-            },
+            arrival_at_most,
             exclude_ids: match v.get(FIELDS[2]) {
                 Some(_) => Some(self.corpus.ids(v, FIELDS[2])?),
                 None => None,
             },
-        })
+        }))
     }
 
     fn anchors(step: &Value) -> Check<Vec<Anchor>> {
@@ -809,7 +876,11 @@ impl<'a> Run<'a> {
     fn scope(&self, step: &Value) -> Check {
         let expect = field(step, "expect")?;
         let (peer, snapshot) = self.snapshot(step)?;
-        let pushdown = step.get("pushdown").map(|p| self.pushdown(p)).transpose()?;
+        let pushdown = match step.get("pushdown").map(|p| self.pushdown(p)).transpose()? {
+            Some(Err(refusal)) => return answered(expect, Err(refusal), |_: ScopeResult| Ok(())),
+            Some(Ok(pushdown)) => Some(pushdown),
+            None => None,
+        };
         let request = ScopeRequest {
             anchors: Self::anchors(step)?,
             exclude: match step.get("exclude") {
@@ -870,7 +941,8 @@ impl<'a> Run<'a> {
 
     /// One scope case (§4): every subset of the selection pushed down, and the trim lemma.
     fn case(&self, case: &Value) -> Check {
-        let peer = text(case, "peer")?;
+        let handle = text(case, "peer")?;
+        let peer = &self.peer_name(handle)?;
         let anchors = Self::anchors(case)?;
         let entities: BTreeSet<&str> = anchors
             .iter()
@@ -878,7 +950,9 @@ impl<'a> Run<'a> {
                 Anchor::Entity { entity } => entity.as_str(),
             })
             .collect();
-        let selection = self.pushdown(field(case, "selection")?)?;
+        let selection = self
+            .pushdown(field(case, "selection")?)?
+            .map_err(|_| "the case's selection is out of range")?;
         let held_ids = self.corpus.ids(case, "held")?;
         let held: Vec<&VerifiedDelta> = held_ids
             .iter()
@@ -900,7 +974,7 @@ impl<'a> Run<'a> {
             .get(&all)
             .ok_or("the case has no entry for the whole selection")?;
         let mut snapshot = self
-            .peer(peer)?
+            .peer(handle)?
             .read()
             .map_err(|e| format!("read refused `{}`", e.code.as_str()))?;
         let outcome = scopes.iter().try_for_each(|(fields, ids)| {

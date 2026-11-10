@@ -8,12 +8,12 @@ use std::sync::{Arc, Mutex};
 
 use crate::delta::compute_id;
 use crate::store::{
-    negated_ids, target_entities, Admission, Anchor, AppendResult, ArrivalRecord, AtRest,
-    ChangeRetention, ErasureClaim, ErasureClass, ErasurePosture, Exporter, Listing, PeerErasure,
-    PeerExporter, PeerStore, PurgeOutcome, PurgeReport, PurgeSurface, PurgeTarget, Pushdown,
-    PushdownFields, Revision, ScopeRequest, ScopeResult, Snapshot, Store, StoreCapabilities,
-    StoreError, StoreErrorCode, StoreProfile, StoreWriters, SurfaceState, VerifiedDelta,
-    PURGE_BOUNDARY,
+    negated_ids, signature_form, target_entities, Admission, Anchor, AppendResult, ArrivalRecord,
+    AtRest, ChangeRetention, ErasureClaim, ErasureClass, ErasurePosture, Exporter, Listing,
+    PeerErasure, PeerExporter, PeerStore, PurgeOutcome, PurgeReport, PurgeSurface, PurgeTarget,
+    Pushdown, PushdownFields, Revision, ScopeRequest, ScopeResult, Snapshot, Store,
+    StoreCapabilities, StoreError, StoreErrorCode, StoreProfile, StoreWriters, SurfaceState,
+    VerifiedDelta, MAX_ARRIVAL_COUNTER, PURGE_BOUNDARY,
 };
 use crate::types::{Claims, Delta};
 
@@ -210,8 +210,19 @@ impl State {
                     format!("an arrival record does not name its delta {}", delta.id),
                 );
             }
-            if arrival.sequence < 1
-                || arrival.transfer < 1
+            if delta.sig.as_deref().is_some_and(|sig| !signature_form(sig)) {
+                return refuse(
+                    StoreErrorCode::InvalidAdmission,
+                    format!(
+                        "the signature of {} is not 128 lowercase hex characters",
+                        delta.id
+                    ),
+                );
+            }
+            let counters = [arrival.sequence, arrival.transfer];
+            if counters
+                .iter()
+                .any(|n| !(1..=MAX_ARRIVAL_COUNTER).contains(n))
                 || !arrival.at.is_finite()
                 || arrival.sender.is_empty()
             {
@@ -333,28 +344,25 @@ impl State {
         if released {
             peer.revision += 1;
         }
-        let owed = targets
-            .iter()
-            .any(|t| t.outcome == PurgeOutcome::HeldByOtherPeer);
+        let removed = targets.iter().any(|t| t.outcome == PurgeOutcome::Removed);
         let surface = |surface: &str, state| PurgeSurface {
             surface: surface.to_string(),
             state,
         };
         Ok(PurgeReport {
-            // Process memory cannot prove absence, so this store never claims it.
-            claim: ErasureClaim::Unproven,
+            // The claim covers only removed targets. Process memory cannot prove absence, so
+            // this store never says `proven`.
+            claim: if removed {
+                ErasureClaim::Unproven
+            } else {
+                ErasureClaim::NothingRemoved
+            },
             boundary: PURGE_BOUNDARY.to_string(),
             revision: Revision(peer.revision),
             targets,
+            // A target another peer still holds is told by its outcome, not by a surface.
             surfaces: vec![
-                surface(
-                    "rows",
-                    if owed {
-                        SurfaceState::Owed
-                    } else {
-                        SurfaceState::Absent
-                    },
-                ),
+                surface("rows", SurfaceState::Absent),
                 surface("index-entries", SurfaceState::Absent),
                 surface("process-memory", SurfaceState::Unprovable),
             ],
@@ -769,15 +777,23 @@ impl Snapshot for MemorySnapshot {
     }
 
     fn scope(&self, request: &ScopeRequest) -> Result<ScopeResult, StoreError> {
-        if request
-            .pushdown
-            .as_ref()
+        let pushdown = request.pushdown.as_ref();
+        if pushdown
             .and_then(|p| p.timestamp_at_most)
-            .is_some_and(|t| t.is_nan())
+            .is_some_and(|t| !t.is_finite())
         {
             return refuse(
                 StoreErrorCode::InvalidRequest,
-                "timestampAtMost must be a number",
+                "timestampAtMost must be a finite number",
+            );
+        }
+        if pushdown
+            .and_then(|p| p.arrival_at_most)
+            .is_some_and(|n| n > MAX_ARRIVAL_COUNTER)
+        {
+            return refuse(
+                StoreErrorCode::InvalidRequest,
+                "arrivalAtMost must be an integer from 0 to 2^53 - 1",
             );
         }
         self.query(|view| State::scope(view, request))

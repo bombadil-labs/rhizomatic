@@ -37,7 +37,7 @@ fn the_memory_store_passes_every_store_vector() {
     let mut expected = names(&vectors.scripts, "scripts", "scripts");
     expected.extend(names(&vectors.scope, "cases", "scope"));
     assert_eq!(report.passed, expected);
-    assert_eq!(report.passed.len(), 13 + 13);
+    assert_eq!(report.passed.len(), 19 + 14);
 }
 
 /// A memory store that applies only some pushdown fields is still a reference store. It must
@@ -60,6 +60,6 @@ fn the_memory_store_passes_with_every_subset_of_pushdown_fields() {
             &vectors,
         )
         .unwrap_or_else(|failures| panic!("{pushdown:?}: {failures}"));
-        assert_eq!((report.passed.len(), report.skipped.len()), (26, 0));
+        assert_eq!((report.passed.len(), report.skipped.len()), (33, 0));
     }
 }

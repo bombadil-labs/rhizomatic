@@ -23558,6 +23558,17 @@
     {
       "form": "syn-import",
       "owner": "delta",
+      "rawTarget": "crate::store::MAX_ARRIVAL_COUNTER",
+      "resolvedTarget": "crate::store::MAX_ARRIVAL_COUNTER",
+      "source": "implementations/rust/src/lib.rs",
+      "sourceRegion": "compatibility-aggregate",
+      "symbol": "<import>",
+      "target": "crate::store::MAX_ARRIVAL_COUNTER",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "delta",
       "rawTarget": "crate::store::PURGE_BOUNDARY",
       "resolvedTarget": "crate::store::PURGE_BOUNDARY",
       "source": "implementations/rust/src/lib.rs",
@@ -23844,6 +23855,17 @@
     {
       "form": "syn-import",
       "owner": "delta",
+      "rawTarget": "crate::store::signature_form",
+      "resolvedTarget": "crate::store::signature_form",
+      "source": "implementations/rust/src/lib.rs",
+      "sourceRegion": "compatibility-aggregate",
+      "symbol": "<import>",
+      "target": "crate::store::signature_form",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "delta",
       "rawTarget": "crate::store_conformance::SkippedScript",
       "resolvedTarget": "crate::store_conformance::SkippedScript",
       "source": "implementations/rust/src/lib.rs",
@@ -23960,6 +23982,17 @@
       "sourceRegion": "compatibility-aggregate",
       "symbol": "<import>",
       "target": "crate::store_open::StoreSchemes",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "delta",
+      "rawTarget": "crate::store_open::UNKNOWN_SCHEME_MESSAGE",
+      "resolvedTarget": "crate::store_open::UNKNOWN_SCHEME_MESSAGE",
+      "source": "implementations/rust/src/lib.rs",
+      "sourceRegion": "compatibility-aggregate",
+      "symbol": "<import>",
+      "target": "crate::store_open::UNKNOWN_SCHEME_MESSAGE",
       "targetOwner": "storage"
     },
     {
@@ -46876,6 +46909,17 @@
     {
       "form": "syn-import",
       "owner": "storage",
+      "rawTarget": "crate::store::MAX_ARRIVAL_COUNTER",
+      "resolvedTarget": "crate::store::MAX_ARRIVAL_COUNTER",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::store::MAX_ARRIVAL_COUNTER",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "storage",
       "rawTarget": "crate::store::PURGE_BOUNDARY",
       "resolvedTarget": "crate::store::PURGE_BOUNDARY",
       "source": "implementations/rust/src/memory_store.rs",
@@ -47124,6 +47168,17 @@
       "sourceRegion": "semantic-owner",
       "symbol": "<import>",
       "target": "crate::store::negated_ids",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "storage",
+      "rawTarget": "crate::store::signature_form",
+      "resolvedTarget": "crate::store::signature_form",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::store::signature_form",
       "targetOwner": "storage"
     },
     {
@@ -47705,6 +47760,17 @@
     {
       "form": "syn-resolved-path",
       "owner": "storage",
+      "rawTarget": "crate::store::MAX_ARRIVAL_COUNTER",
+      "resolvedTarget": "crate::store::MAX_ARRIVAL_COUNTER",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "State::append",
+      "target": "crate::store::MAX_ARRIVAL_COUNTER",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
       "rawTarget": "crate::store::Revision",
       "resolvedTarget": "crate::store::Revision",
       "source": "implementations/rust/src/memory_store.rs",
@@ -47777,6 +47843,17 @@
       "sourceRegion": "semantic-owner",
       "symbol": "State::append",
       "target": "crate::store::negated_ids",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::signature_form",
+      "resolvedTarget": "crate::store::signature_form",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "State::append",
+      "target": "crate::store::signature_form",
       "targetOwner": "storage"
     },
     {
@@ -47960,6 +48037,17 @@
     {
       "form": "syn-resolved-path",
       "owner": "storage",
+      "rawTarget": "crate::store::ErasureClaim::NothingRemoved",
+      "resolvedTarget": "crate::store::ErasureClaim::NothingRemoved",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "State::purge",
+      "target": "crate::store::ErasureClaim::NothingRemoved",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
       "rawTarget": "crate::store::ErasureClaim::Unproven",
       "resolvedTarget": "crate::store::ErasureClaim::Unproven",
       "source": "implementations/rust/src/memory_store.rs",
@@ -48087,17 +48175,6 @@
       "sourceRegion": "semantic-owner",
       "symbol": "State::purge",
       "target": "crate::store::SurfaceState::Absent",
-      "targetOwner": "storage"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "storage",
-      "rawTarget": "crate::store::SurfaceState::Owed",
-      "resolvedTarget": "crate::store::SurfaceState::Owed",
-      "source": "implementations/rust/src/memory_store.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "State::purge",
-      "target": "crate::store::SurfaceState::Owed",
       "targetOwner": "storage"
     },
     {
@@ -49767,6 +49844,17 @@
       "sourceRegion": "semantic-owner",
       "symbol": "MemorySnapshot::scope",
       "target": "crate::memory_store::refuse",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::MAX_ARRIVAL_COUNTER",
+      "resolvedTarget": "crate::store::MAX_ARRIVAL_COUNTER",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "MemorySnapshot::scope",
+      "target": "crate::store::MAX_ARRIVAL_COUNTER",
       "targetOwner": "storage"
     },
     {
@@ -78447,6 +78535,116 @@
       "resolvedTarget": "crate::store::StoreRequirement",
       "source": "implementations/rust/src/store.rs",
       "sourceRegion": "semantic-owner",
+      "symbol": "StoreRequirement::ALL",
+      "target": "crate::store::StoreRequirement",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreRequirement::Arrival",
+      "resolvedTarget": "crate::store::StoreRequirement::Arrival",
+      "source": "implementations/rust/src/store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreRequirement::ALL",
+      "target": "crate::store::StoreRequirement::Arrival",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreRequirement::Changes",
+      "resolvedTarget": "crate::store::StoreRequirement::Changes",
+      "source": "implementations/rust/src/store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreRequirement::ALL",
+      "target": "crate::store::StoreRequirement::Changes",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreRequirement::DerivedIndexes",
+      "resolvedTarget": "crate::store::StoreRequirement::DerivedIndexes",
+      "source": "implementations/rust/src/store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreRequirement::ALL",
+      "target": "crate::store::StoreRequirement::DerivedIndexes",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreRequirement::Digest",
+      "resolvedTarget": "crate::store::StoreRequirement::Digest",
+      "source": "implementations/rust/src/store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreRequirement::ALL",
+      "target": "crate::store::StoreRequirement::Digest",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreRequirement::ErasureProven",
+      "resolvedTarget": "crate::store::StoreRequirement::ErasureProven",
+      "source": "implementations/rust/src/store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreRequirement::ALL",
+      "target": "crate::store::StoreRequirement::ErasureProven",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreRequirement::Journal",
+      "resolvedTarget": "crate::store::StoreRequirement::Journal",
+      "source": "implementations/rust/src/store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreRequirement::ALL",
+      "target": "crate::store::StoreRequirement::Journal",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreRequirement::Purge",
+      "resolvedTarget": "crate::store::StoreRequirement::Purge",
+      "source": "implementations/rust/src/store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreRequirement::ALL",
+      "target": "crate::store::StoreRequirement::Purge",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreRequirement::Values",
+      "resolvedTarget": "crate::store::StoreRequirement::Values",
+      "source": "implementations/rust/src/store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreRequirement::ALL",
+      "target": "crate::store::StoreRequirement::Values",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreRequirement::Views",
+      "resolvedTarget": "crate::store::StoreRequirement::Views",
+      "source": "implementations/rust/src/store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreRequirement::ALL",
+      "target": "crate::store::StoreRequirement::Views",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreRequirement",
+      "resolvedTarget": "crate::store::StoreRequirement",
+      "source": "implementations/rust/src/store.rs",
+      "sourceRegion": "semantic-owner",
       "symbol": "StoreRequirement::as_str",
       "target": "crate::store::StoreRequirement",
       "targetOwner": "storage"
@@ -78707,6 +78905,71 @@
     {
       "form": "syn-resolved-path",
       "owner": "storage",
+      "rawTarget": "crate::store::StoreError",
+      "resolvedTarget": "crate::store::StoreError",
+      "source": "implementations/rust/src/store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreRequirement::parse",
+      "target": "crate::store::StoreError",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreError::new",
+      "resolvedTarget": "crate::store::StoreError::new",
+      "source": "implementations/rust/src/store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreRequirement::parse",
+      "target": "crate::store::StoreError::new",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreErrorCode::InvalidRequest",
+      "resolvedTarget": "crate::store::StoreErrorCode::InvalidRequest",
+      "source": "implementations/rust/src/store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreRequirement::parse",
+      "target": "crate::store::StoreErrorCode::InvalidRequest",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreRequirement",
+      "resolvedTarget": "crate::store::StoreRequirement",
+      "source": "implementations/rust/src/store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreRequirement::parse",
+      "target": "crate::store::StoreRequirement",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreRequirement::ALL",
+      "resolvedTarget": "crate::store::StoreRequirement::ALL",
+      "source": "implementations/rust/src/store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreRequirement::parse",
+      "target": "crate::store::StoreRequirement::ALL",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "format"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/store.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "StoreRequirement::parse"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
       "rawTarget": "crate::store::StoreProfile",
       "resolvedTarget": "crate::store::StoreProfile",
       "source": "implementations/rust/src/store.rs",
@@ -78733,6 +78996,16 @@
       "sourceRegion": "semantic-owner",
       "symbol": "missing_requirements",
       "target": "std::vec::Vec::new"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "matches"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/store.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "signature_form"
     },
     {
       "form": "syn-resolved-path",
@@ -78842,6 +79115,17 @@
       "sourceRegion": "semantic-owner",
       "symbol": "ErasureClaim::as_str",
       "target": "crate::store::ErasureClaim",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::ErasureClaim::NothingRemoved",
+      "resolvedTarget": "crate::store::ErasureClaim::NothingRemoved",
+      "source": "implementations/rust/src/store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "ErasureClaim::as_str",
+      "target": "crate::store::ErasureClaim::NothingRemoved",
       "targetOwner": "storage"
     },
     {
@@ -80070,6 +80354,17 @@
     {
       "form": "syn-import",
       "owner": "storage",
+      "rawTarget": "crate::store::StoreErrorCode",
+      "resolvedTarget": "crate::store::StoreErrorCode",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::store::StoreErrorCode",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "storage",
       "rawTarget": "crate::store::StoreProfile",
       "resolvedTarget": "crate::store::StoreProfile",
       "source": "implementations/rust/src/store_conformance.rs",
@@ -81011,7 +81306,7 @@
       "owner": "storage",
       "source": "implementations/rust/src/store_conformance.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "code_of",
+      "symbol": "codes_of",
       "target": "serde_json::Value"
     },
     {
@@ -81019,7 +81314,15 @@
       "owner": "storage",
       "source": "implementations/rust/src/store_conformance.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "code_of",
+      "symbol": "codes_of",
+      "target": "serde_json::Value::Array"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "storage",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "codes_of",
       "target": "serde_json::Value::as_str"
     },
     {
@@ -81061,6 +81364,122 @@
       "resolvedTarget": "crate::store::StoreError",
       "source": "implementations/rust/src/store_conformance.rs",
       "sourceRegion": "semantic-owner",
+      "symbol": "unrepresentable",
+      "target": "crate::store::StoreError",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreError::new",
+      "resolvedTarget": "crate::store::StoreError::new",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "unrepresentable",
+      "target": "crate::store::StoreError::new",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreErrorCode",
+      "resolvedTarget": "crate::store::StoreErrorCode",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "unrepresentable",
+      "target": "crate::store::StoreErrorCode",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "format"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "unrepresentable"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreError",
+      "resolvedTarget": "crate::store::StoreError",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "whole_as_written",
+      "target": "crate::store::StoreError",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreErrorCode",
+      "resolvedTarget": "crate::store::StoreErrorCode",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "whole_as_written",
+      "target": "crate::store::StoreErrorCode",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::Check",
+      "resolvedTarget": "crate::store_conformance::Check",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "whole_as_written",
+      "target": "crate::store_conformance::Check",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::field",
+      "resolvedTarget": "crate::store_conformance::field",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "whole_as_written",
+      "target": "crate::store_conformance::field",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::unrepresentable",
+      "resolvedTarget": "crate::store_conformance::unrepresentable",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "whole_as_written",
+      "target": "crate::store_conformance::unrepresentable",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "storage",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "whole_as_written",
+      "target": "serde_json::Value"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "format"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "whole_as_written"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreError",
+      "resolvedTarget": "crate::store::StoreError",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
       "symbol": "answered",
       "target": "crate::store::StoreError",
       "targetOwner": "storage"
@@ -81079,12 +81498,12 @@
     {
       "form": "syn-resolved-path",
       "owner": "storage",
-      "rawTarget": "crate::store_conformance::code_of",
-      "resolvedTarget": "crate::store_conformance::code_of",
+      "rawTarget": "crate::store_conformance::codes_of",
+      "resolvedTarget": "crate::store_conformance::codes_of",
       "source": "implementations/rust/src/store_conformance.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "answered",
-      "target": "crate::store_conformance::code_of",
+      "target": "crate::store_conformance::codes_of",
       "targetOwner": "storage"
     },
     {
@@ -81254,6 +81673,28 @@
     {
       "form": "syn-resolved-path",
       "owner": "storage",
+      "rawTarget": "crate::store::StoreError",
+      "resolvedTarget": "crate::store::StoreError",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Run::admission",
+      "target": "crate::store::StoreError",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreErrorCode::InvalidAdmission",
+      "resolvedTarget": "crate::store::StoreErrorCode::InvalidAdmission",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Run::admission",
+      "target": "crate::store::StoreErrorCode::InvalidAdmission",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
       "rawTarget": "crate::store::VerifiedDelta",
       "resolvedTarget": "crate::store::VerifiedDelta",
       "source": "implementations/rust/src/store_conformance.rs",
@@ -81320,12 +81761,12 @@
     {
       "form": "syn-resolved-path",
       "owner": "storage",
-      "rawTarget": "crate::store_conformance::whole",
-      "resolvedTarget": "crate::store_conformance::whole",
+      "rawTarget": "crate::store_conformance::whole_as_written",
+      "resolvedTarget": "crate::store_conformance::whole_as_written",
       "source": "implementations/rust/src/store_conformance.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "Run::admission",
-      "target": "crate::store_conformance::whole",
+      "target": "crate::store_conformance::whole_as_written",
       "targetOwner": "storage"
     },
     {
@@ -81481,12 +81922,12 @@
     {
       "form": "syn-resolved-path",
       "owner": "storage",
-      "rawTarget": "crate::store_conformance::code_of",
-      "resolvedTarget": "crate::store_conformance::code_of",
+      "rawTarget": "crate::store_conformance::codes_of",
+      "resolvedTarget": "crate::store_conformance::codes_of",
       "source": "implementations/rust/src/store_conformance.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "Run::append",
-      "target": "crate::store_conformance::code_of",
+      "target": "crate::store_conformance::codes_of",
       "targetOwner": "storage"
     },
     {
@@ -81826,6 +82267,17 @@
     {
       "form": "syn-resolved-path",
       "owner": "storage",
+      "rawTarget": "crate::store::StoreErrorCode::InvalidRequest",
+      "resolvedTarget": "crate::store::StoreErrorCode::InvalidRequest",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Run::create_peer",
+      "target": "crate::store::StoreErrorCode::InvalidRequest",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
       "rawTarget": "crate::store_conformance::Check",
       "resolvedTarget": "crate::store_conformance::Check",
       "source": "implementations/rust/src/store_conformance.rs",
@@ -81848,12 +82300,12 @@
     {
       "form": "syn-resolved-path",
       "owner": "storage",
-      "rawTarget": "crate::store_conformance::code_of",
-      "resolvedTarget": "crate::store_conformance::code_of",
+      "rawTarget": "crate::store_conformance::codes_of",
+      "resolvedTarget": "crate::store_conformance::codes_of",
       "source": "implementations/rust/src/store_conformance.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "Run::create_peer",
-      "target": "crate::store_conformance::code_of",
+      "target": "crate::store_conformance::codes_of",
       "targetOwner": "storage"
     },
     {
@@ -81887,6 +82339,17 @@
       "sourceRegion": "semantic-owner",
       "symbol": "Run::create_peer",
       "target": "crate::store_conformance::text",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::unrepresentable",
+      "resolvedTarget": "crate::store_conformance::unrepresentable",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Run::create_peer",
+      "target": "crate::store_conformance::unrepresentable",
       "targetOwner": "storage"
     },
     {
@@ -82407,12 +82870,12 @@
     {
       "form": "syn-resolved-path",
       "owner": "storage",
-      "rawTarget": "crate::store_conformance::code_of",
-      "resolvedTarget": "crate::store_conformance::code_of",
+      "rawTarget": "crate::store_conformance::codes_of",
+      "resolvedTarget": "crate::store_conformance::codes_of",
       "source": "implementations/rust/src/store_conformance.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "Run::open_peer",
-      "target": "crate::store_conformance::code_of",
+      "target": "crate::store_conformance::codes_of",
       "targetOwner": "storage"
     },
     {
@@ -82490,12 +82953,26 @@
       "targetOwner": "storage"
     },
     {
-      "form": "syn-external-path",
+      "form": "syn-resolved-path",
       "owner": "storage",
+      "rawTarget": "crate::store_conformance::Check",
+      "resolvedTarget": "crate::store_conformance::Check",
       "source": "implementations/rust/src/store_conformance.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "Run::peer",
-      "target": "std::boxed::Box::as_ref"
+      "symbol": "Run::peer_name",
+      "target": "crate::store_conformance::Check",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::Run",
+      "resolvedTarget": "crate::store_conformance::Run",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Run::peer_name",
+      "target": "crate::store_conformance::Run",
+      "targetOwner": "storage"
     },
     {
       "form": "syn-resolved-path",
@@ -82618,6 +83095,28 @@
     {
       "form": "syn-resolved-path",
       "owner": "storage",
+      "rawTarget": "crate::store::StoreError",
+      "resolvedTarget": "crate::store::StoreError",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Run::pushdown",
+      "target": "crate::store::StoreError",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreErrorCode::InvalidRequest",
+      "resolvedTarget": "crate::store::StoreErrorCode::InvalidRequest",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Run::pushdown",
+      "target": "crate::store::StoreErrorCode::InvalidRequest",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
       "rawTarget": "crate::store_conformance::Check",
       "resolvedTarget": "crate::store_conformance::Check",
       "source": "implementations/rust/src/store_conformance.rs",
@@ -82651,12 +83150,12 @@
     {
       "form": "syn-resolved-path",
       "owner": "storage",
-      "rawTarget": "crate::store_conformance::whole",
-      "resolvedTarget": "crate::store_conformance::whole",
+      "rawTarget": "crate::store_conformance::whole_as_written",
+      "resolvedTarget": "crate::store_conformance::whole_as_written",
       "source": "implementations/rust/src/store_conformance.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "Run::pushdown",
-      "target": "crate::store_conformance::whole",
+      "target": "crate::store_conformance::whole_as_written",
       "targetOwner": "storage"
     },
     {
@@ -82761,6 +83260,17 @@
       "sourceRegion": "semantic-owner",
       "symbol": "Run::scope",
       "target": "crate::store::ScopeRequest",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::ScopeResult",
+      "resolvedTarget": "crate::store::ScopeResult",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Run::scope",
+      "target": "crate::store::ScopeResult",
       "targetOwner": "storage"
     },
     {
@@ -83213,6 +83723,16 @@
       "source": "implementations/rust/src/store_conformance.rs",
       "status": "parsed-known-macro-arguments",
       "symbol": "Run::peer"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "format"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "Run::peer_name"
     },
     {
       "form": "macro-region",
@@ -83772,6 +84292,17 @@
       "sourceRegion": "semantic-owner",
       "symbol": "StoreSchemes::open",
       "target": "crate::store_open::StoreSchemes",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_open::UNKNOWN_SCHEME_MESSAGE",
+      "resolvedTarget": "crate::store_open::UNKNOWN_SCHEME_MESSAGE",
+      "source": "implementations/rust/src/store_open.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreSchemes::open",
+      "target": "crate::store_open::UNKNOWN_SCHEME_MESSAGE",
       "targetOwner": "storage"
     },
     {
@@ -92771,6 +93302,18 @@
     },
     {
       "cfg": [],
+      "definition": "reexport",
+      "id": "rust:lib:MAX_ARRIVAL_COUNTER",
+      "owner": "storage",
+      "source": "implementations/rust/src/lib.rs",
+      "symbol": "MAX_ARRIVAL_COUNTER",
+      "target": "crate::store::MAX_ARRIVAL_COUNTER",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native lib::MAX_ARRIVAL_COUNTER implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner."
+    },
+    {
+      "cfg": [],
       "classification": "compatibility_reexport",
       "contract": "rhizomatic.storage/native-api/1",
       "definition": "reexport",
@@ -93764,6 +94307,18 @@
       "source": "implementations/rust/src/lib.rs",
       "symbol": "TransferUnit",
       "target": "crate::preflight::TransferUnit"
+    },
+    {
+      "cfg": [],
+      "definition": "reexport",
+      "id": "rust:lib:UNKNOWN_SCHEME_MESSAGE",
+      "owner": "storage",
+      "source": "implementations/rust/src/lib.rs",
+      "symbol": "UNKNOWN_SCHEME_MESSAGE",
+      "target": "crate::store_open::UNKNOWN_SCHEME_MESSAGE",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native lib::UNKNOWN_SCHEME_MESSAGE implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner."
     },
     {
       "cfg": [],
@@ -94898,6 +95453,18 @@
       "source": "implementations/rust/src/lib.rs",
       "symbol": "sign_claims",
       "target": "crate::sign::sign_claims"
+    },
+    {
+      "cfg": [],
+      "definition": "reexport",
+      "id": "rust:lib:signature_form",
+      "owner": "storage",
+      "source": "implementations/rust/src/lib.rs",
+      "symbol": "signature_form",
+      "target": "crate::store::signature_form",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native lib::signature_form implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner."
     },
     {
       "cfg": [],
@@ -96606,14 +97173,14 @@
     },
     {
       "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.storage/native-api/1",
       "definition": "method",
       "id": "rust:memory_store:MemoryStore::with_pushdown",
       "owner": "storage",
+      "semantics": "Native memory_store::MemoryStore::with_pushdown implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/memory_store.rs",
-      "symbol": "MemoryStore::with_pushdown",
-      "contract": "rhizomatic.storage/native-api/1",
-      "classification": "native_extension",
-      "semantics": "Native memory_store::MemoryStore::with_pushdown implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred."
+      "symbol": "MemoryStore::with_pushdown"
     },
     {
       "cfg": [],
@@ -99977,6 +100544,17 @@
     },
     {
       "cfg": [],
+      "definition": "constant",
+      "id": "rust:store:MAX_ARRIVAL_COUNTER",
+      "owner": "storage",
+      "source": "implementations/rust/src/store.rs",
+      "symbol": "MAX_ARRIVAL_COUNTER",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native store::MAX_ARRIVAL_COUNTER implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred."
+    },
+    {
+      "cfg": [],
       "classification": "native_extension",
       "contract": "rhizomatic.storage/native-api/1",
       "definition": "constant",
@@ -100065,14 +100643,14 @@
     },
     {
       "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.storage/native-api/1",
       "definition": "trait-method",
       "id": "rust:store:PeerStore::id",
       "owner": "storage",
+      "semantics": "Native store::PeerStore::id implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/store.rs",
-      "symbol": "PeerStore::id",
-      "contract": "rhizomatic.storage/native-api/1",
-      "classification": "native_extension",
-      "semantics": "Native store::PeerStore::id implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred."
+      "symbol": "PeerStore::id"
     },
     {
       "cfg": [],
@@ -100241,14 +100819,14 @@
     },
     {
       "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.storage/native-api/1",
       "definition": "method",
       "id": "rust:store:ScopeSource::ids",
       "owner": "storage",
+      "semantics": "Native store::ScopeSource::ids implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/store.rs",
-      "symbol": "ScopeSource::ids",
-      "contract": "rhizomatic.storage/native-api/1",
-      "classification": "native_extension",
-      "semantics": "Native store::ScopeSource::ids implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred."
+      "symbol": "ScopeSource::ids"
     },
     {
       "cfg": [],
@@ -100527,6 +101105,17 @@
     },
     {
       "cfg": [],
+      "definition": "associated-constant",
+      "id": "rust:store:StoreRequirement::ALL",
+      "owner": "storage",
+      "source": "implementations/rust/src/store.rs",
+      "symbol": "StoreRequirement::ALL",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native store::StoreRequirement::ALL implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred."
+    },
+    {
+      "cfg": [],
       "classification": "native_extension",
       "contract": "rhizomatic.storage/native-api/1",
       "definition": "method",
@@ -100546,6 +101135,17 @@
       "semantics": "Native store::StoreRequirement::holds implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/store.rs",
       "symbol": "StoreRequirement::holds"
+    },
+    {
+      "cfg": [],
+      "definition": "method",
+      "id": "rust:store:StoreRequirement::parse",
+      "owner": "storage",
+      "source": "implementations/rust/src/store.rs",
+      "symbol": "StoreRequirement::parse",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native store::StoreRequirement::parse implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred."
     },
     {
       "cfg": [],
@@ -100623,6 +101223,17 @@
       "semantics": "Native store::scope_source implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/store.rs",
       "symbol": "scope_source"
+    },
+    {
+      "cfg": [],
+      "definition": "function",
+      "id": "rust:store:signature_form",
+      "owner": "storage",
+      "source": "implementations/rust/src/store.rs",
+      "symbol": "signature_form",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native store::signature_form implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred."
     },
     {
       "cfg": [],
@@ -100821,6 +101432,17 @@
       "semantics": "Native store_open::StoreSchemes::unregister implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/store_open.rs",
       "symbol": "StoreSchemes::unregister"
+    },
+    {
+      "cfg": [],
+      "definition": "constant",
+      "id": "rust:store_open:UNKNOWN_SCHEME_MESSAGE",
+      "owner": "storage",
+      "source": "implementations/rust/src/store_open.rs",
+      "symbol": "UNKNOWN_SCHEME_MESSAGE",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native store_open::UNKNOWN_SCHEME_MESSAGE implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred."
     },
     {
       "cfg": [],

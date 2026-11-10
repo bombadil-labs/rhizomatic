@@ -1,5 +1,6 @@
 //! Opening a store by URL scheme (SPEC-18 proposal §4.10). A connection string can carry
-//! credentials, so nothing here logs or echoes the URL: every error names the scheme only.
+//! credentials, so nothing here logs or echoes the URL. An error names a scheme only when that
+//! scheme is registered; a missing or unregistered scheme gets one fixed message.
 //! The registry is a value the host owns. There is no process-wide scheme table.
 
 use std::collections::BTreeMap;
@@ -27,6 +28,11 @@ pub type StoreFactory = Box<dyn Fn(&str, &OpenOptions) -> Result<Box<dyn Store>,
 pub struct StoreSchemes {
     registered: BTreeMap<String, StoreFactory>,
 }
+
+/// The one message for a URL with no scheme or an unregistered one. It echoes nothing: the text
+/// before the first colon of a malformed connection string can be a credential.
+pub const UNKNOWN_SCHEME_MESSAGE: &str =
+    "the store URL has no scheme, or no store is registered for its scheme";
 
 /// The lowercase scheme of a URL, or `None` when the text has no well-formed scheme.
 fn scheme_of(url: &str) -> Option<(String, &str)> {
@@ -76,11 +82,9 @@ impl StoreSchemes {
     /// Opens the store the URL's scheme names, then checks the host's requirements against its
     /// profile. A store that misses one is closed before the refusal.
     pub fn open(&self, url: &str, options: &OpenOptions) -> Result<Box<dyn Store>, StoreError> {
+        let unknown = || StoreError::new(StoreErrorCode::UnknownScheme, UNKNOWN_SCHEME_MESSAGE);
         let Some((scheme, address)) = scheme_of(url) else {
-            return Err(StoreError::new(
-                StoreErrorCode::InvalidUrl,
-                "a store URL starts with a scheme and a colon",
-            ));
+            return Err(unknown());
         };
         let store: Box<dyn Store> = if scheme == MEMORY_SCHEME {
             if !address.is_empty() {
@@ -92,10 +96,7 @@ impl StoreSchemes {
             Box::new(MemoryStore::new())
         } else {
             let Some(factory) = self.registered.get(&scheme) else {
-                return Err(StoreError::new(
-                    StoreErrorCode::UnknownScheme,
-                    format!("no store is registered for the scheme {scheme}"),
-                ));
+                return Err(unknown());
             };
             factory(url, options).map_err(|failure| match failure.downcast::<StoreError>() {
                 Ok(refusal) => *refusal,

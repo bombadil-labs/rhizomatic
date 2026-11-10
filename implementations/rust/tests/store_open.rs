@@ -12,13 +12,13 @@ use rhizomatic::schema::{HyperSchema, SchemaRegistry};
 use rhizomatic::set::make_delta;
 use rhizomatic::store::{
     missing_requirements, scope_source, Admission, Anchor, AppendResult, ArrivalRecord, AtRest,
-    ChangeRetention, ErasureClass, ErasurePosture, PushdownFields, Revision, ScopeRequest, Store,
-    StoreCapabilities, StoreError, StoreErrorCode, StoreProfile, StoreRequirement, StoreWriters,
-    VerifiedDelta,
+    ChangeRetention, ErasureClaim, ErasureClass, ErasurePosture, PurgeOutcome, Pushdown,
+    PushdownFields, Revision, ScopeRequest, Store, StoreCapabilities, StoreError, StoreErrorCode,
+    StoreProfile, StoreRequirement, StoreWriters, VerifiedDelta, MAX_ARRIVAL_COUNTER,
 };
-use rhizomatic::store_open::{open_store, OpenOptions, StoreSchemes};
+use rhizomatic::store_open::{open_store, OpenOptions, StoreSchemes, UNKNOWN_SCHEME_MESSAGE};
 use rhizomatic::term_json::parse_term;
-use rhizomatic::types::Delta;
+use rhizomatic::types::{Claims, Delta, EntityRef, Pointer, Target};
 use serde_json::Value;
 
 const SECRET_URL: &str = "vault://admin:hunter2@db.example/prod";
@@ -83,33 +83,46 @@ fn memory_opens_a_new_empty_store_with_the_slice_1_profile() {
 
 #[test]
 fn open_refuses_by_scheme_and_never_echoes_the_url() {
-    let schemes = StoreSchemes::new();
+    let mut schemes = StoreSchemes::new();
     let options = OpenOptions::default();
-    let unknown = schemes.open(SECRET_URL, &options).err().unwrap();
-    assert_eq!(unknown.code, StoreErrorCode::UnknownScheme);
-    assert!(unknown.message.contains("vault"));
-    for refusal in [
-        unknown,
-        schemes
-            .open("no scheme here hunter2", &options)
-            .err()
-            .unwrap(),
-        schemes.open("memory:hunter2", &options).err().unwrap(),
-        schemes.open("9x:hunter2", &options).err().unwrap(),
+    // A missing scheme and an unregistered one get the same code and one fixed message. The
+    // text before the first colon can be a credential, so nothing of the input comes back.
+    let fixed = StoreError::new(StoreErrorCode::UnknownScheme, UNKNOWN_SCHEME_MESSAGE);
+    for url in [
+        SECRET_URL,
+        "hunter2:rest",
+        "no scheme here hunter2",
+        "no-colon",
+        ":x",
+        "9x:hunter2",
+        "hunter 2:x",
+        "",
     ] {
-        assert!(!refusal.to_string().contains("hunter2"), "{refusal}");
+        assert_eq!(
+            schemes.open(url, &options).err(),
+            Some(fixed.clone()),
+            "{url}"
+        );
     }
+    assert!(!UNKNOWN_SCHEME_MESSAGE.contains("vault"));
+
+    // A registered scheme may be named. Its address is still never echoed.
+    let addressed = schemes.open("memory:hunter2", &options).err().unwrap();
+    assert_eq!(addressed.code, StoreErrorCode::InvalidUrl);
+    assert!(addressed.message.contains("memory") && !addressed.to_string().contains("hunter2"));
+
+    // Schemes compare without regard to case, on both sides.
+    assert!(schemes.open("MEMORY:", &options).is_ok());
+    assert!(schemes.open("Memory:", &options).is_ok());
+    let factory = || {
+        Box::new(|_: &str, _: &OpenOptions| Ok(Box::new(MemoryStore::new()) as Box<dyn Store>)) as _
+    };
+    schemes.register("Vault", factory()).unwrap();
+    assert!(schemes.open("VAULT://x", &options).is_ok());
+    assert!(schemes.open("vault://x", &options).is_ok());
     assert_eq!(
-        code(schemes.open("no-colon", &options)),
-        StoreErrorCode::InvalidUrl
-    );
-    assert_eq!(
-        code(schemes.open(":x", &options)),
-        StoreErrorCode::InvalidUrl
-    );
-    assert_eq!(
-        code(schemes.open("memory:addr", &options)),
-        StoreErrorCode::InvalidUrl
+        code(schemes.register("vAULT", factory())),
+        StoreErrorCode::SchemeExists
     );
 }
 
@@ -561,4 +574,354 @@ fn append_refusals_the_shared_scripts_do_not_reach() {
         peer.append(&batch("h-1", &|_| {})),
         Ok(AppendResult::Committed { .. })
     ));
+}
+
+/// Requirement names are an allow-list (SPEC-18 §4.11 reading 22). A name outside it is refused
+/// and named; it is never looked up on the profile.
+#[test]
+fn requirement_names_are_an_allow_list() {
+    let names: Vec<&str> = StoreRequirement::ALL.iter().map(|r| r.as_str()).collect();
+    assert_eq!(
+        names,
+        [
+            "values",
+            "arrival",
+            "journal",
+            "views",
+            "derivedIndexes",
+            "digest",
+            "changes",
+            "purge",
+            "erasure-proven"
+        ]
+    );
+    for requirement in StoreRequirement::ALL {
+        assert_eq!(
+            StoreRequirement::parse(requirement.as_str()),
+            Ok(requirement)
+        );
+    }
+    for unknown in [
+        "",
+        "Values",
+        "erasure",
+        "derived_indexes",
+        "formatVersion",
+        "capabilities",
+        "toString",
+    ] {
+        let refusal = StoreRequirement::parse(unknown).err().unwrap();
+        assert_eq!(refusal.code, StoreErrorCode::InvalidRequest, "{unknown}");
+        assert!(
+            refusal.message.ends_with(&format!(": {unknown}")),
+            "{refusal}"
+        );
+    }
+}
+
+fn entry(delta: &Delta, sequence: u64) -> VerifiedDelta {
+    VerifiedDelta {
+        delta: delta.clone(),
+        arrival: ArrivalRecord {
+            id: delta.id.clone(),
+            at: 1000.5,
+            sequence,
+            transfer: 1,
+            sender: "local".into(),
+        },
+    }
+}
+
+fn batch(head: (Option<&str>, &str), added: Vec<VerifiedDelta>) -> Admission {
+    Admission {
+        expected_head: head.0.map(str::to_string),
+        next_head: head.1.into(),
+        frame: None,
+        added,
+    }
+}
+
+fn plant(context: &str, mime: &str, payload: &[u8]) -> Delta {
+    let claims = Claims {
+        timestamp: 10.0,
+        valid_from: 10.0,
+        valid_until: None,
+        author: "did:key:zA".into(),
+        pointers: vec![
+            Pointer {
+                role: "subject".into(),
+                target: Target::Entity(EntityRef {
+                    id: "plant:a".into(),
+                    context: Some(context.into()),
+                }),
+            },
+            Pointer {
+                role: "photo".into(),
+                target: Target::Bytes {
+                    mime: mime.into(),
+                    value: payload.to_vec(),
+                },
+            },
+        ],
+    };
+    make_delta(claims, None).unwrap()
+}
+
+/// The numbers JSON cannot carry, and the bounds at their edges (README §1.2, reading 20–21).
+#[test]
+fn non_finite_and_out_of_range_numbers_are_refused() {
+    let store = MemoryStore::new();
+    let peer = store
+        .create_peer("peer:a", ErasurePosture::Unproven)
+        .unwrap();
+    let delta = plant("photo", "image/png", &[1, 2, 3]);
+    let other = plant("thumb", "image/png", &[4]);
+
+    for at in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+        let mut bad = entry(&delta, 1);
+        bad.arrival.at = at;
+        assert_eq!(
+            code(peer.append(&batch((None, "h-1"), vec![bad]))),
+            StoreErrorCode::InvalidAdmission
+        );
+    }
+    for (sequence, transfer) in [
+        (MAX_ARRIVAL_COUNTER + 1, 1),
+        (1, MAX_ARRIVAL_COUNTER + 1),
+        (u64::MAX, 1),
+        (0, 1),
+        (1, 0),
+    ] {
+        let mut bad = entry(&delta, sequence);
+        bad.arrival.transfer = transfer;
+        assert_eq!(
+            code(peer.append(&batch((None, "h-1"), vec![bad]))),
+            StoreErrorCode::InvalidAdmission
+        );
+    }
+    assert_eq!(peer.read().unwrap().count(), 0);
+
+    // The largest legal counters commit, and a fractional `at` is kept as it is.
+    let mut edge = entry(&delta, MAX_ARRIVAL_COUNTER);
+    edge.arrival.transfer = MAX_ARRIVAL_COUNTER;
+    assert!(matches!(
+        peer.append(&batch((None, "h-1"), vec![edge.clone()])),
+        Ok(AppendResult::Committed { .. })
+    ));
+    let snapshot = peer.read().unwrap();
+    assert_eq!(
+        snapshot.arrivals(std::slice::from_ref(&delta.id)).unwrap(),
+        [edge.arrival]
+    );
+    // The largest sequence is spent, so no later delta can arrive at this peer.
+    let late = batch(
+        (Some("h-1"), "h-2"),
+        vec![entry(&other, MAX_ARRIVAL_COUNTER)],
+    );
+    assert_eq!(code(peer.append(&late)), StoreErrorCode::InvalidAdmission);
+
+    let scope = |pushdown: Pushdown| {
+        snapshot.scope(&ScopeRequest {
+            anchors: vec![Anchor::Entity {
+                entity: "plant:a".into(),
+            }],
+            pushdown: Some(pushdown),
+            exclude: vec![],
+        })
+    };
+    for t in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+        let refused = scope(Pushdown {
+            timestamp_at_most: Some(t),
+            ..Pushdown::default()
+        });
+        assert_eq!(code(refused), StoreErrorCode::InvalidRequest);
+    }
+    for n in [MAX_ARRIVAL_COUNTER + 1, u64::MAX] {
+        let refused = scope(Pushdown {
+            arrival_at_most: Some(n),
+            ..Pushdown::default()
+        });
+        assert_eq!(code(refused), StoreErrorCode::InvalidRequest);
+    }
+    let none = scope(Pushdown {
+        arrival_at_most: Some(0),
+        ..Pushdown::default()
+    })
+    .unwrap();
+    assert!(none.deltas.is_empty() && none.applied.arrival_at_most);
+    let all = scope(Pushdown {
+        arrival_at_most: Some(MAX_ARRIVAL_COUNTER),
+        ..Pushdown::default()
+    })
+    .unwrap();
+    assert_eq!(all.deltas.len(), 1);
+    let early = scope(Pushdown {
+        timestamp_at_most: Some(-1.5),
+        ..Pushdown::default()
+    })
+    .unwrap();
+    assert!(early.deltas.is_empty());
+}
+
+/// A signature is 128 lowercase hex characters or the entry is refused, also when the peer
+/// already holds the id (README §1.3 (c), steps 1–3 run before step 4).
+#[test]
+fn a_malformed_signature_is_refused_even_for_a_held_id() {
+    let store = MemoryStore::new();
+    let peer = store
+        .create_peer("peer:a", ErasurePosture::Unproven)
+        .unwrap();
+    let delta = plant("photo", "image/png", &[1]);
+    let good = "0123456789abcdef".repeat(8);
+    let mut signed = entry(&delta, 1);
+    signed.delta.sig = Some(good.clone());
+    assert!(matches!(
+        peer.append(&batch((None, "h-1"), vec![signed])),
+        Ok(AppendResult::Committed { .. })
+    ));
+
+    let bad_forms = [
+        String::new(),
+        "abc".into(),
+        good.to_uppercase(),
+        format!("{}g", &good[..127]),
+        format!("{good}0"),
+        good[..127].to_string(),
+        format!("{}é", &good[..126]),
+    ];
+    for sig in bad_forms {
+        let mut again = entry(&delta, 2);
+        again.delta.sig = Some(sig.clone());
+        let refused = peer.append(&batch((Some("h-1"), "h-2"), vec![again]));
+        assert_eq!(code(refused), StoreErrorCode::InvalidAdmission, "{sig:?}");
+    }
+    let snapshot = peer.read().unwrap();
+    assert_eq!(snapshot.head(), Some("h-1"));
+    assert_eq!(
+        snapshot.get(std::slice::from_ref(&delta.id)).unwrap()[0].sig,
+        Some(good)
+    );
+}
+
+/// A store owns what it holds (SPEC-18 §4.1). A caller that changes a value after appending it,
+/// or a value any read returned, changes nothing in the store, for this peer or another. This
+/// fails if any answer aliased stored state: every read is compared with the first one after
+/// the caller has overwritten everything it was given, the bytes payload included.
+#[test]
+fn a_caller_cannot_reach_into_what_the_store_holds() {
+    let store = MemoryStore::new();
+    let a = store
+        .create_peer("peer:a", ErasurePosture::Unproven)
+        .unwrap();
+    let b = store
+        .create_peer("peer:b", ErasurePosture::Unproven)
+        .unwrap();
+    let delta = plant("photo", "image/png", &[1, 2, 3]);
+    let ids = vec![delta.id.clone()];
+    let sig = "ab".repeat(64);
+
+    let mut given = entry(&delta, 1);
+    given.delta.sig = Some(sig.clone());
+    let mut admission = batch((None, "h-1"), vec![given.clone()]);
+    a.append(&admission).unwrap();
+    b.append(&batch((None, "h-1"), vec![entry(&delta, 1)]))
+        .unwrap();
+
+    fn scribble(delta: &mut Delta) {
+        delta.sig = Some("ff".repeat(64));
+        delta.claims.author = "did:key:zMallory".into();
+        delta.claims.timestamp = 99.0;
+        for pointer in &mut delta.claims.pointers {
+            pointer.role.push('!');
+            if let Target::Bytes { mime, value } = &mut pointer.target {
+                mime.push('!');
+                value.iter_mut().for_each(|byte| *byte = 0xff);
+                value.push(0xff);
+            }
+        }
+    }
+    fn scribble_arrival(arrival: &mut ArrivalRecord) {
+        arrival.at = -1.0;
+        arrival.sequence = 77;
+        arrival.sender = "mallory".into();
+    }
+
+    // The value that was appended.
+    scribble(&mut admission.added[0].delta);
+    scribble_arrival(&mut admission.added[0].arrival);
+    admission.next_head.push('!');
+
+    let anchors = vec![Anchor::Entity {
+        entity: "plant:a".into(),
+    }];
+    let request = ScopeRequest {
+        anchors,
+        ..ScopeRequest::default()
+    };
+    let admin = store.open_admin();
+    let exported = |peer: &str| -> Vec<Delta> {
+        admin
+            .peer(peer)
+            .unwrap()
+            .deltas()
+            .collect::<Result<_, _>>()
+            .unwrap()
+    };
+    for round in 0..2 {
+        let snapshot = a.read().unwrap();
+        assert_eq!(snapshot.head(), Some("h-1"), "round {round}");
+        let mut got = snapshot.get(&ids).unwrap();
+        let mut arrivals = snapshot.arrivals(&ids).unwrap();
+        let mut scoped = snapshot.scope(&request).unwrap();
+        let mut listed = exported("peer:a");
+        for answer in [&got[0], &scoped.deltas[0].delta, &listed[0]] {
+            assert_eq!(answer, &given.delta, "round {round}");
+        }
+        assert_eq!(arrivals[0], given.arrival, "round {round}");
+        assert_eq!(scoped.deltas[0].arrival, given.arrival, "round {round}");
+        // The other peer holds the same claims without the signature.
+        let other = b.read().unwrap().get(&ids).unwrap();
+        assert_eq!(other, std::slice::from_ref(&delta), "round {round}");
+        assert_eq!(
+            exported("peer:b"),
+            std::slice::from_ref(&delta),
+            "round {round}"
+        );
+
+        // Every value a read returned.
+        scribble(&mut got[0]);
+        scribble(&mut scoped.deltas[0].delta);
+        scribble(&mut listed[0]);
+        scribble_arrival(&mut arrivals[0]);
+        scribble_arrival(&mut scoped.deltas[0].arrival);
+        // A source over a fetched scope keeps its own copy as well.
+        let mut members = snapshot.scope(&request).unwrap().deltas;
+        let source = scope_source(&members).unwrap();
+        scribble(&mut members[0].delta);
+        scribble_arrival(&mut members[0].arrival);
+        assert_eq!(source.get(&ids[0]), Some(&given.delta), "round {round}");
+        assert_eq!(
+            source.arrival(&ids[0]),
+            Some(&given.arrival),
+            "round {round}"
+        );
+    }
+
+    // A purge report is the caller's too.
+    let mut report = a.purge(&ids).unwrap();
+    assert_eq!(
+        (report.claim, report.targets[0].outcome),
+        (ErasureClaim::NothingRemoved, PurgeOutcome::HeldByOtherPeer)
+    );
+    report.targets[0].id.push('!');
+    assert_eq!(
+        b.read().unwrap().get(&ids).unwrap(),
+        std::slice::from_ref(&delta)
+    );
+    let last = b.purge(&ids).unwrap();
+    assert_eq!(
+        (last.claim, last.targets[0].outcome),
+        (ErasureClaim::Unproven, PurgeOutcome::Removed)
+    );
+    assert_eq!(admin.stored_ids().count(), 0);
 }

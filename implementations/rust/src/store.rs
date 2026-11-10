@@ -190,6 +190,32 @@ pub enum StoreRequirement {
 }
 
 impl StoreRequirement {
+    /// Every requirement name a host may ask for. Nothing outside this list is looked up.
+    pub const ALL: [Self; 9] = [
+        Self::Values,
+        Self::Arrival,
+        Self::Journal,
+        Self::Views,
+        Self::DerivedIndexes,
+        Self::Digest,
+        Self::Changes,
+        Self::Purge,
+        Self::ErasureProven,
+    ];
+
+    /// The requirement a name spells. Refuses `invalid-request`, naming the unknown name.
+    pub fn parse(name: &str) -> Result<Self, StoreError> {
+        Self::ALL
+            .into_iter()
+            .find(|requirement| requirement.as_str() == name)
+            .ok_or_else(|| {
+                StoreError::new(
+                    StoreErrorCode::InvalidRequest,
+                    format!("unknown store requirement: {name}"),
+                )
+            })
+    }
+
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Values => "values",
@@ -234,6 +260,16 @@ pub fn missing_requirements(
     missing
 }
 
+/// The largest arrival `sequence` and `transfer`, and the largest `arrivalAtMost`: 2^53 − 1, the
+/// largest integer every witness carries exactly.
+pub const MAX_ARRIVAL_COUNTER: u64 = (1 << 53) - 1;
+
+/// Whether a signature has the stored form: 128 lowercase hexadecimal characters. The store
+/// checks the form, never the signature.
+pub fn signature_form(sig: &str) -> bool {
+    sig.len() == 128 && sig.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
+}
+
 /// A peer-local value that increases with each commit that changes the holdings or the head.
 /// Only its order inside one peer is contract.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -250,9 +286,9 @@ pub enum Anchor {
 /// A selection the store may apply itself (SPEC-18 §4.3). An absent field does not select.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct Pushdown {
-    /// Signed creation time at most this.
+    /// Signed creation time at most this. A finite number.
     pub timestamp_at_most: Option<f64>,
-    /// Arrival sequence at this peer at most this.
+    /// Arrival sequence at this peer at most this: 0 to [`MAX_ARRIVAL_COUNTER`]. 0 selects nothing.
     pub arrival_at_most: Option<u64>,
     /// Ids the selection drops. A negation chain stops at a dropped id.
     pub exclude_ids: Option<Vec<String>>,
@@ -307,6 +343,8 @@ pub enum AppendResult {
 pub enum ErasureClaim {
     Proven,
     Unproven,
+    /// No target of the report is `removed`. The report asserts nothing about bytes.
+    NothingRemoved,
 }
 
 impl ErasureClaim {
@@ -314,6 +352,7 @@ impl ErasureClaim {
         match self {
             Self::Proven => "proven",
             Self::Unproven => "unproven",
+            Self::NothingRemoved => "nothing-removed",
         }
     }
 }
@@ -367,7 +406,9 @@ pub struct PurgeSurface {
 /// The only boundary a purge report states: the files and objects the store controls.
 pub const PURGE_BOUNDARY: &str = "store-controlled-surfaces";
 
-/// What one purge did (SPEC-18 §4.7.2). `proven` needs a proven store and every surface absent.
+/// What one purge did (SPEC-18 §4.7.2). The claim and the surface states speak only for the
+/// targets marked `removed`. `proven` needs a proven store, at least one surface, and every
+/// surface absent. A store may claim less than it could, never more.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PurgeReport {
     pub claim: ErasureClaim,

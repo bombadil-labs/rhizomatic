@@ -112,18 +112,20 @@ pub use set::DeltaSource;
 pub use set::{federate, fork, make_delta, make_negation_claims, merge, DeltaSet};
 pub use sign::{sign_claims, verify_delta, Verification};
 pub use store::{
-    missing_requirements, scope_source, Admission, Anchor, AppendResult, AtRest, ChangeRetention,
-    ErasureClaim, ErasureClass, ErasurePosture, Exporter, Listing, PeerErasure, PeerExporter,
-    PeerStore, PurgeOutcome, PurgeReport, PurgeSurface, PurgeTarget, Pushdown, PushdownFields,
-    Revision, ScopeRequest, ScopeResult, ScopeSource, Snapshot, Store, StoreCapabilities,
-    StoreError, StoreErrorCode, StoreProfile, StoreRequirement, StoreWriters, SurfaceState,
-    VerifiedDelta, PURGE_BOUNDARY,
+    missing_requirements, scope_source, signature_form, Admission, Anchor, AppendResult, AtRest,
+    ChangeRetention, ErasureClaim, ErasureClass, ErasurePosture, Exporter, Listing, PeerErasure,
+    PeerExporter, PeerStore, PurgeOutcome, PurgeReport, PurgeSurface, PurgeTarget, Pushdown,
+    PushdownFields, Revision, ScopeRequest, ScopeResult, ScopeSource, Snapshot, Store,
+    StoreCapabilities, StoreError, StoreErrorCode, StoreProfile, StoreRequirement, StoreWriters,
+    SurfaceState, VerifiedDelta, MAX_ARRIVAL_COUNTER, PURGE_BOUNDARY,
 };
 pub use store_conformance::{
     run_store_conformance, SkippedScript, StoreConformanceError, StoreConformanceFailure,
     StoreConformanceReport, StoreFactoryFn, StoreVectors,
 };
-pub use store_open::{open_store, OpenOptions, StoreFactory, StoreSchemes, MEMORY_SCHEME};
+pub use store_open::{
+    open_store, OpenOptions, StoreFactory, StoreSchemes, MEMORY_SCHEME, UNKNOWN_SCHEME_MESSAGE,
+};
 pub use term_io::{
     cbor_to_json, json_to_cbor, schema_canonical_hex, schema_hash, term_canonical_hex, term_hash,
     term_to_json,

@@ -10,9 +10,9 @@ use std::rc::Rc;
 
 use rhizomatic::memory_store::MemoryStore;
 use rhizomatic::store::{
-    Admission, Anchor, AppendResult, ArrivalRecord, ErasurePosture, Exporter, Listing, PeerErasure,
-    PeerExporter, PeerStore, PurgeReport, PushdownFields, Revision, ScopeRequest, ScopeResult,
-    Snapshot, Store, StoreError, StoreProfile,
+    Admission, Anchor, AppendResult, ArrivalRecord, ErasureClaim, ErasurePosture, Exporter,
+    Listing, PeerErasure, PeerExporter, PeerStore, PurgeReport, PushdownFields, Revision,
+    ScopeRequest, ScopeResult, Snapshot, Store, StoreError, StoreProfile,
 };
 use rhizomatic::store_conformance::{run_store_conformance, StoreConformanceError, StoreVectors};
 use rhizomatic::types::Delta;
@@ -27,6 +27,8 @@ enum Fault {
     ReturnsOutsideTheScope,
     /// `scope` reports every requested pushdown field applied and applies none.
     ClaimsPushdown,
+    /// `scope` walks the chains over every holding and applies the selection afterwards.
+    FiltersAfterTheWalk,
     /// A peer's export lists every id the store keeps.
     ListsOtherPeers,
     /// `append` commits whatever the expected head is.
@@ -35,6 +37,8 @@ enum Fault {
     KeepsLastArrival,
     /// `append` reports held ids as newly added.
     ReportsHeldAsAdded,
+    /// `purge` claims `proven` whatever it did, on a store that cannot prove absence.
+    ClaimsProven,
 }
 
 type Latest = Rc<RefCell<BTreeMap<(String, String), ArrivalRecord>>>;
@@ -137,7 +141,11 @@ impl PeerStore for FaultyPeer {
         Ok(AppendResult::Committed { revision, added })
     }
     fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreError> {
-        self.inner.purge(ids)
+        let mut report = self.inner.purge(ids)?;
+        if self.fault == Fault::ClaimsProven {
+            report.claim = ErasureClaim::Proven;
+        }
+        Ok(report)
     }
 }
 
@@ -187,7 +195,11 @@ impl Snapshot for FaultySnapshot {
             Fault::ReturnsOutsideTheScope => asked.anchors.push(Anchor::Entity {
                 entity: "elsewhere".into(),
             }),
-            Fault::ClaimsPushdown => asked.pushdown = None,
+            Fault::ClaimsPushdown | Fault::FiltersAfterTheWalk => {
+                // An illegal bound is still refused; a legal one is dropped.
+                self.inner.scope(request)?;
+                asked.pushdown = None
+            }
             _ => {}
         }
         let mut answer = self.inner.scope(&asked)?;
@@ -196,8 +208,20 @@ impl Snapshot for FaultySnapshot {
                 let mut pointers = member.delta.claims.pointers.iter();
                 !pointers.any(|p| p.role == "negates")
             }),
-            Fault::ClaimsPushdown => {
+            Fault::ClaimsPushdown | Fault::FiltersAfterTheWalk => {
                 let requested = request.pushdown.clone().unwrap_or_default();
+                if self.fault == Fault::FiltersAfterTheWalk {
+                    answer.deltas.retain(|member| {
+                        let dropped = requested.exclude_ids.iter().flatten();
+                        requested
+                            .timestamp_at_most
+                            .is_none_or(|t| member.delta.claims.timestamp <= t)
+                            && requested
+                                .arrival_at_most
+                                .is_none_or(|n| member.arrival.sequence <= n)
+                            && !dropped.into_iter().any(|id| *id == member.delta.id)
+                    });
+                }
                 answer.applied = PushdownFields {
                     timestamp_at_most: requested.timestamp_at_most.is_some(),
                     arrival_at_most: requested.arrival_at_most.is_some(),
@@ -282,12 +306,14 @@ fn run(fault: Fault) -> Result<usize, StoreConformanceError> {
     .map(|report| report.passed.len())
 }
 
-/// The failed names, and a check that every failure message carries the intended reason.
-fn failed(fault: Fault, reason: &str) -> Vec<String> {
+/// The failed names, and a check that every failure message carries one of the intended reasons.
+fn failed(fault: Fault, reasons: &[&str]) -> Vec<String> {
     let error = run(fault).expect_err("a broken store must fail conformance");
     for failure in &error.failures {
         assert!(
-            failure.message.contains(reason),
+            reasons
+                .iter()
+                .any(|reason| failure.message.contains(reason)),
             "{fault:?} failed {} for another reason: {}",
             failure.name,
             failure.message
@@ -298,12 +324,15 @@ fn failed(fault: Fault, reason: &str) -> Vec<String> {
 
 #[test]
 fn a_faithful_store_that_is_not_the_reference_passes() {
-    assert_eq!(run(Fault::None).unwrap(), 26);
+    assert_eq!(run(Fault::None).unwrap(), 33);
 }
 
 #[test]
 fn a_store_that_drops_a_negator_from_scope_fails_the_lower_bound() {
-    let names = failed(Fault::DropsNegators, "lower bound: the scope answer lacks");
+    let names = failed(
+        Fault::DropsNegators,
+        &["lower bound: the scope answer lacks"],
+    );
     assert_eq!(
         names,
         [
@@ -319,6 +348,7 @@ fn a_store_that_drops_a_negator_from_scope_fails_the_lower_bound() {
             "scope/excluded-ids-cut-a-chain",
             "scope/a-negator-without-its-target",
             "scope/every-field",
+            "scope/a-negation-signed-before-its-target",
             "scope/the-selection-admits-nothing",
             "scope/held-middle-of-a-chain",
             "scope/held-ids-that-fail-the-selection",
@@ -330,7 +360,7 @@ fn a_store_that_drops_a_negator_from_scope_fails_the_lower_bound() {
 fn a_store_that_returns_ids_outside_the_scope_fails_the_upper_bound() {
     let names = failed(
         Fault::ReturnsOutsideTheScope,
-        "upper bound: the scope answer holds",
+        &["upper bound: the scope answer holds"],
     );
     assert!(names.contains(&"scripts/negation-chains".to_string()));
     assert!(names.contains(&"scope/no-anchors".to_string()));
@@ -341,7 +371,7 @@ fn a_store_that_returns_ids_outside_the_scope_fails_the_upper_bound() {
 fn a_store_that_claims_a_pushdown_it_did_not_apply_fails_the_exact_upper_bound() {
     // The scripts check only the loose bound S(A over H), so they cannot see this fault. The
     // scope cases can: an answer member fails a field the store reported applied.
-    let names = failed(Fault::ClaimsPushdown, "fails a field reported applied");
+    let names = failed(Fault::ClaimsPushdown, &["fails a field reported applied"]);
     assert_eq!(
         names,
         [
@@ -350,6 +380,7 @@ fn a_store_that_claims_a_pushdown_it_did_not_apply_fails_the_exact_upper_bound()
             "scope/excluded-ids-cut-a-chain",
             "scope/a-negator-without-its-target",
             "scope/every-field",
+            "scope/a-negation-signed-before-its-target",
             "scope/the-selection-admits-nothing",
             "scope/held-ids-that-fail-the-selection",
         ]
@@ -357,25 +388,94 @@ fn a_store_that_claims_a_pushdown_it_did_not_apply_fails_the_exact_upper_bound()
 }
 
 #[test]
+fn a_store_that_selects_after_the_walk_fails_the_exact_upper_bound() {
+    // Every member it returns passes the selection, and still the answer is too large: it keeps
+    // a negation whose target the selection dropped.
+    let names = failed(
+        Fault::FiltersAfterTheWalk,
+        &["fails a field reported applied"],
+    );
+    for case in [
+        "scope/a-negator-without-its-target",
+        "scope/a-negation-signed-before-its-target",
+    ] {
+        assert!(names.contains(&case.to_string()), "{names:?}");
+    }
+    assert!(
+        names.iter().all(|name| name.starts_with("scope/")),
+        "{names:?}"
+    );
+}
+
+#[test]
 fn a_store_that_lists_another_peers_ids_fails_export() {
-    let names = failed(Fault::ListsOtherPeers, "export ids: expected ids");
+    let names = failed(Fault::ListsOtherPeers, &["export ids: expected ids"]);
     assert_eq!(names, ["scripts/two-peers-share-bytes", "scripts/purge"]);
 }
 
 #[test]
 fn a_store_that_ignores_the_head_fails_the_compare_and_set() {
-    let names = failed(Fault::IgnoresHead, "expected status `conflict`");
-    assert_eq!(names, ["scripts/head-compare-and-set"]);
+    // A stale head must answer `conflict` whatever the batch holds. This store commits a good
+    // batch and refuses a bad one; both are wrong.
+    let reasons = [
+        "expected status `conflict`, the store answered",
+        "append refused `invalid-admission`",
+    ];
+    let names = failed(Fault::IgnoresHead, &reasons);
+    assert_eq!(
+        names,
+        [
+            "scripts/head-compare-and-set",
+            "scripts/an-older-handle-stays-valid",
+            "scripts/append-checks-before-and-after-the-head",
+        ]
+    );
 }
 
 #[test]
 fn a_store_that_replaces_an_arrival_record_fails_idempotence() {
-    let names = failed(Fault::KeepsLastArrival, "first admitted");
-    assert_eq!(names, ["scripts/duplicates-add-nothing"]);
+    let names = failed(Fault::KeepsLastArrival, &["first admitted"]);
+    assert_eq!(
+        names,
+        [
+            "scripts/duplicates-add-nothing",
+            "scripts/the-first-appearance-is-kept",
+            "scripts/append-checks-before-and-after-the-head",
+        ]
+    );
 }
 
 #[test]
 fn a_store_that_reports_held_ids_as_added_fails_idempotence() {
-    let names = failed(Fault::ReportsHeldAsAdded, "append added: expected ids");
-    assert_eq!(names, ["scripts/duplicates-add-nothing"]);
+    let names = failed(Fault::ReportsHeldAsAdded, &["append added: expected ids"]);
+    assert_eq!(
+        names,
+        [
+            "scripts/duplicates-add-nothing",
+            "scripts/the-first-appearance-is-kept",
+            "scripts/append-checks-before-and-after-the-head",
+        ]
+    );
+}
+
+#[test]
+fn a_store_that_claims_proof_it_cannot_give_fails_every_purge() {
+    // The first purge of each purge script fails, whether it removed a target (`unproven`
+    // expected) or not (`nothing-removed` expected). A store may claim less, never more.
+    let names = failed(
+        Fault::ClaimsProven,
+        &[
+            "expected claim `unproven`, the store claimed `proven`",
+            "expected claim `nothing-removed`, the store claimed `proven`",
+        ],
+    );
+    assert_eq!(
+        names,
+        [
+            "scripts/purge",
+            "scripts/purge-clears-a-debt-on-append",
+            "scripts/a-snapshot-across-a-purge",
+            "scripts/the-last-sequence-survives-a-purge",
+        ]
+    );
 }
