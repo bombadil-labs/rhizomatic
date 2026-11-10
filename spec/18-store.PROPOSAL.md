@@ -623,6 +623,25 @@ the text above was silent, slice 1 decided as follows. The shared vectors and
     switched off (8 runs).
 26. **Scheme case** (§4.10). `MEMORY:` opens the memory store. `registerStoreScheme` stores the
     lowercase form.
+27. **Shape before state on a snapshot.** A `scope` whose bound is outside its legal values is
+    refused `invalid-request` before the snapshot's state is consulted, also on a moved or a
+    released snapshot. This matches `append`, where the shape of the call comes first.
+28. **A typed witness and a stale head.** Where a witness's types cannot hold a vector's value,
+    its runner answers for the store at the boundary, head first: a mismatch of `expectedHead`
+    is `conflict`; only otherwise is the answer `invalid-admission`. The head wins in every
+    witness.
+29. **`invalid-url` has two causes:** `memory:` with an address, and a malformed scheme name at
+    registration. A malformed or schemeless URL at open is `unknown-scheme`.
+30. **`scopeSource` and a repeated id.** The first appearance is kept and checked; a repeated id
+    is not examined. A refused call builds nothing. The source owns its members: it copies them
+    in, copies out what `get` and `arrival` return, and its id lists are frozen.
+31. **Ownership reaches the profile and the payload.** The public `profile` is a deep-frozen
+    copy; the store decides by a private one. A bytes payload is copied with the `Uint8Array`
+    constructor, because `slice` on a Node `Buffer` returns a view.
+32. **Sequences.** A skipped entry (held, or repeated in the batch) spends no sequence and does
+    not raise the peer's largest committed sequence. That largest sequence survives a purge that
+    empties the peer. Heads compare byte for byte, and null is not the empty string. A forged
+    entry is refused also when its arrival record names the claims' real id.
 
 
 ## 5. Architectures

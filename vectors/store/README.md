@@ -26,7 +26,9 @@ synchronous; "refuses with `code`" means it returns an error value that carries 
 **A store owns what it holds; no caller holds a reference into it.** A store keeps its own copy
 of every delta, signature and arrival record it is given. Changing a value after it was appended
 changes nothing in the store. Changing a value a store returned changes nothing in the store, for
-this peer or any other. A store keeps only the canonical fields of a delta's claims (SPEC-1 §2);
+this peer or any other. This holds for every part of a delta, a bytes payload included: a copy
+must not share memory with what the caller holds. It holds for the store's profile too: the
+profile a caller reads is not the object the store decides by. A store keeps only the canonical fields of a delta's claims (SPEC-1 §2);
 anything else a caller attached is not stored and not served.
 
 **Handles are owned.** A peer handle and a snapshot stay usable for as long as the store is open.
@@ -50,6 +52,7 @@ time in every witness, never something a type system rules out.
 - **Held delta**: a delta with the arrival record of the peer that holds it.
 - **Head**: an opaque non-empty string, or null when the peer never committed an append. Two
   heads are equal when they are the same string, byte for byte. No case folding, no trimming.
+  Null is not the empty string: an `expectedHead` of `""` never matches.
 - **Revision**: a value with a total order inside one peer. The vectors use only "equal" and
   "greater".
 - **Order.** Every list of ids, deltas or arrival records a store returns is ascending by the
@@ -91,7 +94,10 @@ id that exists), `posture-refused` and `peer-exists` both conform.
    selects nothing, because sequences start at 1.)
 4. A requirement name at open that is not in the store's list of requirement names.
 5. The synchronous source over a fetched scope (`scopeSource`), given a member whose id does not
-   recompute from its claims.
+   recompute from its claims. The first appearance of an id is kept and checked; a repeated id
+   is not examined. A refused call adds nothing: the source is unchanged, or is not built. The
+   source owns its members as a store does: it copies them in, and what it returns cannot be
+   used to change it.
 
 A witness whose types make a case unrepresentable (a missing posture, a NaN in an integer field)
 satisfies it. Vectors cover the empty peer id and the three `arrivalAtMost` refusals. JSON cannot
@@ -118,7 +124,9 @@ The checks:
      The peer keeps the appearance and the arrival record it already has; this entry's signature
      and arrival record are ignored.
   5. `sequence` is not greater than the largest sequence this peer ever committed, or equals the
-     sequence of an earlier new entry of this batch: refuse `invalid-admission`.
+     sequence of an earlier **new** entry of this batch: refuse `invalid-admission`. A skipped
+     entry (step 4) spends no sequence: its sequence is not compared with anything, a later new
+     entry may carry the same number, and it does not raise the peer's largest committed sequence.
   6. Otherwise the entry is **new**.
 - **(d) Commit**, all together: the peer holds every new delta with its arrival record and
   signature; the head becomes `nextHead`. Answer `committed` with the new ids (ascending) and the
@@ -130,13 +138,17 @@ The checks:
 - Steps 1–3 of (c) run for every entry, before step 4. A forged or malformed entry is refused
   even when the peer already holds its id.
 
+A store never repairs. An entry whose id does not recompute is refused also when its arrival
+record names the id the claims really have; the claims are never filed under the recomputed id.
+
 Nothing else is ordered. When (a) and (b) both apply, the refusal of (a) and `conflict` both
 conform; no vector reaches that case. When several entries of one batch are bad, the code is the
 same.
 
 A refusal commits nothing: no delta of the batch is held, and the head and revision do not move.
 The revision advances exactly when the commit adds an id or changes the head. The largest
-committed sequence never decreases, also not after a purge: a purged delta's sequence stays spent.
+committed sequence never decreases, also not after a purge: a purged delta's sequence stays spent,
+also when the purge leaves the peer holding nothing.
 
 The store checks sequences for two things only: greater than the peer's largest, and distinct
 inside the batch. That sequences follow ascending id inside a transfer, and that one batch shares
@@ -184,6 +196,10 @@ Repeated ids or entities in a request change nothing. Unknown ids and entities y
 
 **Refusals on a snapshot** are `snapshot-released`, `snapshot-moved` and, after the store closes,
 `store-closed`. When more than one applies, any of them conforms; their order is not pinned.
+
+**The shape of a request comes first**, as in `append`. A `scope` with a bound outside its legal
+values (§1.2) is refused `invalid-request` whatever the snapshot's state: on a moved snapshot and
+on a released one too. This order is pinned by vector.
 
 **Repeatability.** When the peer's revision has passed the snapshot's, an operation MUST either
 refuse `snapshot-moved` or answer exactly as it would have at the snapshot's revision. It MUST NOT
@@ -358,7 +374,8 @@ On `opened`, the handle reports that posture.
 - With `handle`, keep the new handle under that name, and **keep the older handle** under the name
   it has. Both belong to the same peer and share one bookkeeping record (§3.3).
 
-In `append`, `purge` and `read`, the `peer` key is a **handle name**. A peer's first handle has the
+In `append`, `purge` and `read`, and in a scope case of `scope.json` (§4), the `peer` key is a
+**handle name**. The bookkeeping is always that of the peer the handle belongs to. A peer's first handle has the
 peer's own name, so most steps read the same either way. In `createPeer`, `openPeer` and `export`
 the `peer` key is a name from `peers`.
 
@@ -375,8 +392,11 @@ the `peer` key is a name from `peers`.
 - `added[].delta`: a corpus name. The store receives that appearance.
 - `added[].arrival`: the arrival record, passed to the store as written, also when a field is
   out of range (`sequence: 0`, `sequence: 1.5`, `sender: ""`, `transfer: 9007199254740992`). A
-  witness whose record type cannot hold such a value treats the step as refused with
-  `invalid-admission` at its own boundary. Its `id` is the delta's id, unless the arrival object has
+  witness whose record type cannot hold such a value answers for the store at its own boundary,
+  **head first**: it reads the peer's current head; when the step's `expectedHead` differs, the
+  step's answer is `conflict`; only otherwise is it the refusal `invalid-admission`. A stale
+  writer gets `conflict` whatever its batch holds, in every witness. No vector combines a
+  non-null `frame` with such a value, so that order stays free. Its `id` is the delta's id, unless the arrival object has
   an `id` key; then that key is a corpus name and the record carries that entry's id.
 - `expect`, one of:
   - `{"status": "committed", "added": [names], "revisionAdvanced": bool}`. The result's ids equal
@@ -530,6 +550,8 @@ Then run every case against that store. Cases only read.
 A case:
 
 - `selection`: the read's whole selection, in pushdown form (§1.4.1). Its present fields are P.
+- `peer`: a handle name (§3.2). The setup opens a second handle of one peer, and one case reads
+  through it.
 - `held`: ids the read already holds. The peer holds all of them. They stand for what earlier
   rounds of the **same read on the same snapshot** fetched. The lemma does not hold for deltas
   held from another snapshot.
