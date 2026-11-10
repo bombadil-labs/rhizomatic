@@ -6,6 +6,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
+use crate::delta::compute_id;
 use crate::set::{DeltaSet, DeltaSource};
 use crate::types::{Claims, Delta, Target};
 
@@ -522,32 +523,42 @@ pub struct ScopeSource {
 }
 
 impl ScopeSource {
-    /// Adds members from another round. A member already present keeps its first appearance.
-    /// Refuses a member whose id does not recompute from its claims.
+    /// Adds members from another round. A member already present keeps its first appearance,
+    /// and a repeated id is not examined. Refuses a member whose id does not recompute from its
+    /// claims; a refused call adds nothing.
     pub fn extend(&mut self, members: &[VerifiedDelta]) -> Result<(), StoreError> {
+        // Check every first appearance before anything is added.
+        let mut fresh: BTreeMap<&str, &VerifiedDelta> = BTreeMap::new();
         for member in members {
-            let added = self.set.add(member.delta.clone()).map_err(|reason| {
-                StoreError::new(
-                    StoreErrorCode::InvalidRequest,
-                    format!("a scope member is not content-addressed: {reason}"),
-                )
-            })?;
-            if !added {
+            let id = member.delta.id.as_str();
+            if self.set.contains(id) || fresh.contains_key(id) {
                 continue;
             }
-            let id = &member.delta.id;
-            self.arrivals.insert(id.clone(), member.arrival.clone());
+            if compute_id(&member.delta.claims).ok().as_deref() != Some(id) {
+                return Err(StoreError::new(
+                    StoreErrorCode::InvalidRequest,
+                    format!("scope member {id} does not recompute from its claims"),
+                ));
+            }
+            fresh.insert(id, member);
+        }
+        for (id, member) in fresh {
+            // The check pass recomputed this id, so the set's own check cannot refuse it.
+            self.set
+                .add(member.delta.clone())
+                .expect("the member was checked before the commit pass");
+            self.arrivals.insert(id.to_string(), member.arrival.clone());
             for entity in target_entities(&member.delta.claims) {
                 self.targets
                     .entry(entity.to_string())
                     .or_default()
-                    .insert(id.clone());
+                    .insert(id.to_string());
             }
             for negated in negated_ids(&member.delta.claims) {
                 self.negators
                     .entry(negated.to_string())
                     .or_default()
-                    .insert(id.clone());
+                    .insert(id.to_string());
             }
         }
         Ok(())

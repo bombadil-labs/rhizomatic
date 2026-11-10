@@ -77994,6 +77994,17 @@
     {
       "form": "syn-import",
       "owner": "storage",
+      "rawTarget": "crate::delta::compute_id",
+      "resolvedTarget": "crate::delta::compute_id",
+      "source": "implementations/rust/src/store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::delta::compute_id",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-import",
+      "owner": "storage",
       "rawTarget": "crate::set::DeltaSet",
       "resolvedTarget": "crate::set::DeltaSet",
       "source": "implementations/rust/src/store.rs",
@@ -79823,6 +79834,17 @@
     {
       "form": "syn-resolved-path",
       "owner": "storage",
+      "rawTarget": "crate::delta::compute_id",
+      "resolvedTarget": "crate::delta::compute_id",
+      "source": "implementations/rust/src/store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "ScopeSource::extend",
+      "target": "crate::delta::compute_id",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
       "rawTarget": "crate::store::ScopeSource",
       "resolvedTarget": "crate::store::ScopeSource",
       "source": "implementations/rust/src/store.rs",
@@ -79896,6 +79918,22 @@
       "symbol": "ScopeSource::extend",
       "target": "crate::store::target_entities",
       "targetOwner": "storage"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "storage",
+      "source": "implementations/rust/src/store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "ScopeSource::extend",
+      "target": "std::collections::BTreeMap"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "storage",
+      "source": "implementations/rust/src/store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "ScopeSource::extend",
+      "target": "std::collections::BTreeMap::new"
     },
     {
       "form": "syn-resolved-path",
@@ -93302,15 +93340,15 @@
     },
     {
       "cfg": [],
+      "classification": "compatibility_reexport",
+      "contract": "rhizomatic.storage/native-api/1",
       "definition": "reexport",
       "id": "rust:lib:MAX_ARRIVAL_COUNTER",
       "owner": "storage",
+      "semantics": "Native lib::MAX_ARRIVAL_COUNTER implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "MAX_ARRIVAL_COUNTER",
-      "target": "crate::store::MAX_ARRIVAL_COUNTER",
-      "contract": "rhizomatic.storage/native-api/1",
-      "classification": "compatibility_reexport",
-      "semantics": "Native lib::MAX_ARRIVAL_COUNTER implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner."
+      "target": "crate::store::MAX_ARRIVAL_COUNTER"
     },
     {
       "cfg": [],
@@ -94310,15 +94348,15 @@
     },
     {
       "cfg": [],
+      "classification": "compatibility_reexport",
+      "contract": "rhizomatic.storage/native-api/1",
       "definition": "reexport",
       "id": "rust:lib:UNKNOWN_SCHEME_MESSAGE",
       "owner": "storage",
+      "semantics": "Native lib::UNKNOWN_SCHEME_MESSAGE implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "UNKNOWN_SCHEME_MESSAGE",
-      "target": "crate::store_open::UNKNOWN_SCHEME_MESSAGE",
-      "contract": "rhizomatic.storage/native-api/1",
-      "classification": "compatibility_reexport",
-      "semantics": "Native lib::UNKNOWN_SCHEME_MESSAGE implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner."
+      "target": "crate::store_open::UNKNOWN_SCHEME_MESSAGE"
     },
     {
       "cfg": [],
@@ -95456,15 +95494,15 @@
     },
     {
       "cfg": [],
+      "classification": "compatibility_reexport",
+      "contract": "rhizomatic.storage/native-api/1",
       "definition": "reexport",
       "id": "rust:lib:signature_form",
       "owner": "storage",
+      "semantics": "Native lib::signature_form implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "signature_form",
-      "target": "crate::store::signature_form",
-      "contract": "rhizomatic.storage/native-api/1",
-      "classification": "compatibility_reexport",
-      "semantics": "Native lib::signature_form implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner."
+      "target": "crate::store::signature_form"
     },
     {
       "cfg": [],
@@ -100544,14 +100582,14 @@
     },
     {
       "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.storage/native-api/1",
       "definition": "constant",
       "id": "rust:store:MAX_ARRIVAL_COUNTER",
       "owner": "storage",
+      "semantics": "Native store::MAX_ARRIVAL_COUNTER implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/store.rs",
-      "symbol": "MAX_ARRIVAL_COUNTER",
-      "contract": "rhizomatic.storage/native-api/1",
-      "classification": "native_extension",
-      "semantics": "Native store::MAX_ARRIVAL_COUNTER implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred."
+      "symbol": "MAX_ARRIVAL_COUNTER"
     },
     {
       "cfg": [],
@@ -101105,14 +101143,14 @@
     },
     {
       "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.storage/native-api/1",
       "definition": "associated-constant",
       "id": "rust:store:StoreRequirement::ALL",
       "owner": "storage",
+      "semantics": "Native store::StoreRequirement::ALL implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/store.rs",
-      "symbol": "StoreRequirement::ALL",
-      "contract": "rhizomatic.storage/native-api/1",
-      "classification": "native_extension",
-      "semantics": "Native store::StoreRequirement::ALL implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred."
+      "symbol": "StoreRequirement::ALL"
     },
     {
       "cfg": [],
@@ -101138,14 +101176,14 @@
     },
     {
       "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.storage/native-api/1",
       "definition": "method",
       "id": "rust:store:StoreRequirement::parse",
       "owner": "storage",
+      "semantics": "Native store::StoreRequirement::parse implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/store.rs",
-      "symbol": "StoreRequirement::parse",
-      "contract": "rhizomatic.storage/native-api/1",
-      "classification": "native_extension",
-      "semantics": "Native store::StoreRequirement::parse implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred."
+      "symbol": "StoreRequirement::parse"
     },
     {
       "cfg": [],
@@ -101226,14 +101264,14 @@
     },
     {
       "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.storage/native-api/1",
       "definition": "function",
       "id": "rust:store:signature_form",
       "owner": "storage",
+      "semantics": "Native store::signature_form implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/store.rs",
-      "symbol": "signature_form",
-      "contract": "rhizomatic.storage/native-api/1",
-      "classification": "native_extension",
-      "semantics": "Native store::signature_form implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred."
+      "symbol": "signature_form"
     },
     {
       "cfg": [],
@@ -101435,14 +101473,14 @@
     },
     {
       "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.storage/native-api/1",
       "definition": "constant",
       "id": "rust:store_open:UNKNOWN_SCHEME_MESSAGE",
       "owner": "storage",
+      "semantics": "Native store_open::UNKNOWN_SCHEME_MESSAGE implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/store_open.rs",
-      "symbol": "UNKNOWN_SCHEME_MESSAGE",
-      "contract": "rhizomatic.storage/native-api/1",
-      "classification": "native_extension",
-      "semantics": "Native store_open::UNKNOWN_SCHEME_MESSAGE implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred."
+      "symbol": "UNKNOWN_SCHEME_MESSAGE"
     },
     {
       "cfg": [],

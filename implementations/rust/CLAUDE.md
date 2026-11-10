@@ -75,6 +75,7 @@ tests/
   vectors.rs    loads ../../vectors/l0-delta and asserts byte-exact parity
   store_vectors.rs  every script and scope case of ../../vectors/store on the memory store
   store_broken.rs   stores with one fault each; the conformance runner must fail each one
+  store_runner.rs   the conformance runner's own rules, against a class-proven stand-in store
   store_cost.rs     the cost rail: index work does not grow with unrelated deltas; nothing scans
   store_open.rs     schemes, requirements, close, and an anchored read over a fetched scope
 ```

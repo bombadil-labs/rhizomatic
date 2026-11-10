@@ -472,8 +472,10 @@ struct SnapshotView<'a> {
 type Shared = Arc<Mutex<State>>;
 
 fn with<R>(state: &Shared, f: impl FnOnce(&mut State) -> R) -> R {
-    // Every mutation plans first and then commits without a fallible step, so a poisoned lock
-    // still guards a consistent state.
+    // `append` plans its whole batch and then commits without a fallible step. `purge` has no
+    // plan: it removes one id at a time, and each id's removal is complete before the next
+    // starts. Neither has a step that can panic between two writes of one id, so a poisoned
+    // lock still guards a state whose indexes agree with its holdings.
     let mut guard = match state.lock() {
         Ok(guard) => guard,
         Err(poisoned) => poisoned.into_inner(),

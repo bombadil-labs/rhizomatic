@@ -290,7 +290,7 @@ fn refused<T>(result: Result<T, StoreError>, codes: &[&str]) -> Check {
 }
 
 /// A value the vector carries and this witness's types cannot hold. The step counts as refused
-/// with this code at the witness's own boundary (§3.3, §3.7); the store is not called.
+/// with this code at the witness's own boundary (§3.3, §3.7). An append compares the head first.
 fn unrepresentable(code: StoreErrorCode, what: &str) -> StoreError {
     StoreError::new(code, format!("{what} does not fit this witness's type"))
 }
@@ -627,7 +627,21 @@ impl<'a> Run<'a> {
         let before = self.revision(name)?;
         let result = match &batch {
             Ok(batch) => self.peer(name)?.append(batch),
-            Err(refusal) => Err(refusal.clone()),
+            // The witness answers for the store at its boundary, head first: a stale writer
+            // gets `conflict` whatever its batch holds (§3.3).
+            Err(refusal) => {
+                let mut snapshot = self
+                    .peer(name)?
+                    .read()
+                    .map_err(|e| format!("read refused `{}`", e.code.as_str()))?;
+                let stale = snapshot.head() != field(step, "expectedHead")?.as_str();
+                snapshot.release();
+                if stale {
+                    Ok(AppendResult::Conflict)
+                } else {
+                    Err(refusal.clone())
+                }
+            }
         };
         let after = self.revision(name)?;
         if let Some(codes) = codes_of(expect) {

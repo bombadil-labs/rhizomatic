@@ -925,3 +925,187 @@ fn a_caller_cannot_reach_into_what_the_store_holds() {
     );
     assert_eq!(admin.stored_ids().count(), 0);
 }
+
+/// A refused `extend` adds nothing, and a repeated id is not examined (README §1.2 item 5).
+#[test]
+fn a_refused_scope_source_call_adds_nothing() {
+    let first = entry(&plant("photo", "image/png", &[1]), 1);
+    let second = entry(&plant("thumb", "image/png", &[2]), 2);
+    let third = entry(&plant("scan", "image/png", &[3]), 3);
+    let mut forged = entry(&plant("x-ray", "image/png", &[4]), 4);
+    forged.delta.claims.timestamp += 1.0;
+
+    let mut source = scope_source(std::slice::from_ref(&first)).unwrap();
+    let before = (source.ids().len(), source.targets("plant:a"));
+
+    // Good members before and after the forged one: none of them may enter.
+    let round = [second.clone(), forged.clone(), third.clone()];
+    assert_eq!(code(source.extend(&round)), StoreErrorCode::InvalidRequest);
+    assert_eq!((source.ids().len(), source.targets("plant:a")), before);
+    assert_eq!(source.get(&second.delta.id), None);
+    assert_eq!(source.arrival(&third.delta.id), None);
+    assert_eq!(source.len(), 1);
+    // A source is not built at all from a refused first call.
+    assert_eq!(code(scope_source(&round)), StoreErrorCode::InvalidRequest);
+
+    // A repeated id is not examined: the first appearance is kept, whatever the repeat holds.
+    let mut repeat_of_held = first.clone();
+    repeat_of_held.delta.claims.timestamp += 1.0;
+    repeat_of_held.arrival.sequence = 99;
+    let mut repeat_in_call = second.clone();
+    repeat_in_call.delta.claims.timestamp += 1.0;
+    source
+        .extend(&[repeat_of_held, second.clone(), repeat_in_call])
+        .unwrap();
+    assert_eq!(source.len(), 2);
+    assert_eq!(source.get(&first.delta.id), Some(&first.delta));
+    assert_eq!(source.arrival(&first.delta.id), Some(&first.arrival));
+    assert_eq!(source.get(&second.delta.id), Some(&second.delta));
+    // A forged first appearance is refused even when a good repeat follows it.
+    let mut forged_third = third.clone();
+    forged_third.delta.claims.timestamp += 1.0;
+    assert_eq!(
+        code(source.extend(&[forged_third, third])),
+        StoreErrorCode::InvalidRequest
+    );
+    assert_eq!(source.len(), 2);
+}
+
+/// The shape of a request comes before the snapshot's state (README §1.4, reading 27): a bound
+/// outside its legal values is `invalid-request` on a moved snapshot and on a released one.
+#[test]
+fn an_invalid_scope_bound_is_refused_before_snapshot_state() {
+    let store = MemoryStore::new();
+    let peer = store
+        .create_peer("peer:a", ErasurePosture::Unproven)
+        .unwrap();
+    let delta = plant("photo", "image/png", &[1]);
+    peer.append(&batch((None, "h-1"), vec![entry(&delta, 1)]))
+        .unwrap();
+    let mut snapshot = peer.read().unwrap();
+    let scope = |snapshot: &dyn rhizomatic::store::Snapshot, pushdown: Option<Pushdown>| {
+        snapshot.scope(&ScopeRequest {
+            anchors: vec![Anchor::Entity {
+                entity: "plant:a".into(),
+            }],
+            pushdown,
+            exclude: vec![],
+        })
+    };
+    let bad_bounds = [
+        Pushdown {
+            arrival_at_most: Some(MAX_ARRIVAL_COUNTER + 1),
+            ..Pushdown::default()
+        },
+        Pushdown {
+            timestamp_at_most: Some(f64::NAN),
+            ..Pushdown::default()
+        },
+        Pushdown {
+            timestamp_at_most: Some(f64::INFINITY),
+            ..Pushdown::default()
+        },
+    ];
+
+    peer.append(&batch((Some("h-1"), "h-2"), vec![])).unwrap();
+    assert_eq!(
+        code(scope(snapshot.as_ref(), None)),
+        StoreErrorCode::SnapshotMoved
+    );
+    for bound in &bad_bounds {
+        assert_eq!(
+            code(scope(snapshot.as_ref(), Some(bound.clone()))),
+            StoreErrorCode::InvalidRequest
+        );
+    }
+    snapshot.release();
+    assert_eq!(
+        code(scope(snapshot.as_ref(), None)),
+        StoreErrorCode::SnapshotReleased
+    );
+    for bound in &bad_bounds {
+        assert_eq!(
+            code(scope(snapshot.as_ref(), Some(bound.clone()))),
+            StoreErrorCode::InvalidRequest
+        );
+    }
+}
+
+/// Reading 32 in one place: heads compare byte for byte and `""` is not null; a skipped entry
+/// spends no sequence; the largest sequence survives a peer that holds nothing; a forged entry
+/// is refused also when its arrival record names the id its claims really have.
+#[test]
+fn heads_sequences_and_forged_entries() {
+    let store = MemoryStore::new();
+    let peer = store
+        .create_peer("peer:a", ErasurePosture::Unproven)
+        .unwrap();
+    let one = plant("photo", "image/png", &[1]);
+    let two = plant("thumb", "image/png", &[2]);
+    let three = plant("scan", "image/png", &[3]);
+
+    // A new peer's head is null, and the empty string is not null.
+    let empty_head = batch((Some(""), "h-1"), vec![entry(&one, 5)]);
+    assert_eq!(peer.append(&empty_head), Ok(AppendResult::Conflict));
+    peer.append(&batch((None, "h-1"), vec![entry(&one, 5)]))
+        .unwrap();
+    for stale in ["", "H-1", " h-1", "h-1 ", "h-1\0"] {
+        let attempt = batch((Some(stale), "h-2"), vec![entry(&two, 6)]);
+        assert_eq!(
+            peer.append(&attempt),
+            Ok(AppendResult::Conflict),
+            "{stale:?}"
+        );
+    }
+
+    // A skipped entry's sequence is compared with nothing and raises nothing: 900 is not spent,
+    // and a new entry of the same batch may carry the skipped entry's number.
+    let skipped = batch(
+        (Some("h-1"), "h-2"),
+        vec![entry(&one, 900), entry(&two, 900)],
+    );
+    assert!(
+        matches!(&peer.append(&skipped), Ok(AppendResult::Committed { added, .. }) if *added == [two.id.clone()])
+    );
+    let held_only = batch((Some("h-2"), "h-3"), vec![entry(&one, 5000)]);
+    assert!(
+        matches!(&peer.append(&held_only), Ok(AppendResult::Committed { added, .. }) if added.is_empty())
+    );
+    let ids = vec![one.id.clone(), two.id.clone()];
+    let sequences: Vec<u64> = peer
+        .read()
+        .unwrap()
+        .arrivals(&ids)
+        .unwrap()
+        .iter()
+        .map(|a| a.sequence)
+        .collect();
+    let mut sorted = sequences.clone();
+    sorted.sort();
+    assert_eq!(sorted, [5, 900]);
+
+    // The largest sequence, 900, survives a purge that empties the peer.
+    peer.purge(&ids).unwrap();
+    assert_eq!(peer.read().unwrap().count(), 0);
+    for spent in [5, 900] {
+        let late = batch((Some("h-3"), "h-4"), vec![entry(&three, spent)]);
+        assert_eq!(code(peer.append(&late)), StoreErrorCode::InvalidAdmission);
+    }
+
+    // A store never repairs: these claims recompute to `three`'s id, the delta says `one`'s,
+    // and the arrival record names the real id. Nothing is filed under either id.
+    let mut forged = entry(&three, 901);
+    forged.delta.id = one.id.clone();
+    assert_eq!(forged.arrival.id, three.id);
+    assert_eq!(
+        code(peer.append(&batch((Some("h-3"), "h-4"), vec![forged]))),
+        StoreErrorCode::InvalidAdmission
+    );
+    let all = vec![one.id.clone(), three.id.clone()];
+    assert_eq!(peer.read().unwrap().get(&all).unwrap(), []);
+    assert_eq!(store.open_admin().stored_ids().count(), 0);
+    assert!(matches!(
+        peer.append(&batch((Some("h-3"), "h-4"), vec![entry(&three, 901)])),
+        Ok(AppendResult::Committed { .. })
+    ));
+}
