@@ -33,6 +33,7 @@ pub mod hview;
 pub mod json_profile;
 pub mod lens_binding;
 pub mod materialize;
+pub mod memory_store;
 #[doc(hidden)]
 pub mod ordinary_quota;
 pub mod pack;
@@ -55,6 +56,9 @@ pub mod schema_deltas;
 pub mod set;
 pub mod sign;
 pub mod single_peer;
+pub mod store;
+pub mod store_conformance;
+pub mod store_open;
 pub mod strict;
 pub mod term_io;
 pub mod term_json;
@@ -76,6 +80,7 @@ pub use http::{offer_for, pull_from_url, serve_peer};
 pub use hview::{hview_canonical_hex, HVEntry, HView};
 pub use lens_binding::{load_lens_binding, publish_lens_binding_claims, LensBinding};
 pub use materialize::{is_root_anchored, LoweredProgram, MaterializationChange};
+pub use memory_store::{memory_store_profile, MemoryStore, StoreMeter, MEMORY_STORE_FORMAT};
 pub use pack::{pack_id, pack_set, unpack_set};
 pub use parse_error::{ParseError, ParseErrorKind};
 pub use peer::{sync_both, Peer, SyncReport};
@@ -103,8 +108,22 @@ pub use schema_deltas::{
     hyper_schema_schema, load_governed_hyper_schema, load_governed_schema, load_hyper_schema,
     load_schema, publish_hyper_schema_claims, publish_schema_claims, schema_schema, VOCAB_PREFIX,
 };
+pub use set::DeltaSource;
 pub use set::{federate, fork, make_delta, make_negation_claims, merge, DeltaSet};
 pub use sign::{sign_claims, verify_delta, Verification};
+pub use store::{
+    missing_requirements, scope_source, Admission, Anchor, AppendResult, AtRest, ChangeRetention,
+    ErasureClaim, ErasureClass, ErasurePosture, Exporter, Listing, PeerErasure, PeerExporter,
+    PeerStore, PurgeOutcome, PurgeReport, PurgeSurface, PurgeTarget, Pushdown, PushdownFields,
+    Revision, ScopeRequest, ScopeResult, ScopeSource, Snapshot, Store, StoreCapabilities,
+    StoreError, StoreErrorCode, StoreProfile, StoreRequirement, StoreWriters, SurfaceState,
+    VerifiedDelta, PURGE_BOUNDARY,
+};
+pub use store_conformance::{
+    run_store_conformance, SkippedScript, StoreConformanceError, StoreConformanceFailure,
+    StoreConformanceReport, StoreFactoryFn, StoreVectors,
+};
+pub use store_open::{open_store, OpenOptions, StoreFactory, StoreSchemes, MEMORY_SCHEME};
 pub use term_io::{
     cbor_to_json, json_to_cbor, schema_canonical_hex, schema_hash, term_canonical_hex, term_hash,
     term_to_json,

@@ -445,7 +445,11 @@
       "source_mapping": {
         "ts": "implementations/ts/src/storage",
         "rust_candidate_modules": [
-          "pack.rs"
+          "pack.rs",
+          "store.rs",
+          "memory_store.rs",
+          "store_open.rs",
+          "store_conformance.rs"
         ]
       },
       "lower_binding": "Bind stored canonical deltas to the specified pack representation and reverse reader.",
@@ -454,7 +458,8 @@
       "observable_state_and_reconstruction": "Rehydrate unchanged claims, signature, bytes targets and validity; rebuilt indexes preserve answers.",
       "forbidden_semantics": "Raw stored rows do not establish admitted membership, authority or invocation.",
       "existing_vector_families": [
-        "l0-pack"
+        "l0-pack",
+        "store"
       ],
       "ledger_families": [
         "B0",

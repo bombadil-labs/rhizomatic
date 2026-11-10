@@ -7,8 +7,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 ## Unreleased
 
 The store, slice 1 (SPEC-18 proposal): one store interface with declared capabilities, and the
-memory reference store. TypeScript only so far; the Rust witness follows against the same
-vectors. Nothing existing changes behavior, and the reactor does not use the store yet.
+memory reference store, in both witnesses against the same vectors. Nothing existing changes
+behavior, and the reactor does not use the store yet.
 
 ### Added
 
@@ -28,10 +28,16 @@ vectors. Nothing existing changes behavior, and the reactor does not use the sto
 - Shared vectors `vectors/store/scripts.json` and `vectors/store/scope.json`, with their format in
   `vectors/store/README.md`.
 
+- Rust witness: the same interface as synchronous traits (`Store`, `PeerStore`, `Snapshot`,
+  `Exporter`), `MemoryStore`, `StoreSchemes` and `open_store`, `scope_source`, and
+  `run_store_conformance`. It passes every script and scope case of `vectors/store/`. A Rust host
+  owns its scheme registry as a value; there is no process-wide table.
+
 ### Changed
 
 - `ArrivalRecord` is defined in the `storage` package boundary. `federation` and the package root
-  still export it; no import needs to change.
+  still export it; no import needs to change. The Rust witness does the same, and its
+  `DeltaSource` trait now lives in `set` (`anchored` still exports it).
 
 ## 0.11.0-next.10 — 2026-10-14
 

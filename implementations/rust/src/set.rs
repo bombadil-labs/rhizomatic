@@ -162,3 +162,19 @@ pub fn fork(a: &DeltaSet, p: impl Fn(&Delta) -> bool) -> DeltaSet {
 pub fn federate(a: &DeltaSet, b: &DeltaSet, p: impl Fn(&Delta) -> bool) -> DeltaSet {
     merge(a, &fork(b, p))
 }
+
+/// The read side of a store (SPEC-17 §3). `targets` and `negators` answer from indexes; neither
+/// may scan the store.
+pub trait DeltaSource {
+    fn get(&self, id: &str) -> Option<&Delta>;
+    /// Ids of every delta with a pointer whose target is the entity `entity`, any role or context.
+    fn targets(&self, entity: &str) -> Vec<String>;
+    /// Ids of every delta with a pointer `{role: "negates", target: DeltaRef(id)}`.
+    fn negators(&self, id: &str) -> Vec<String>;
+    /// The members with these ids. A source that verified its members on the way in overrides
+    /// this to skip hashing them again.
+    fn subset(&self, ids: &[String]) -> DeltaSet {
+        DeltaSet::from_deltas(ids.iter().filter_map(|id| self.get(id).cloned()))
+            .expect("a delta source holds only content-addressed deltas")
+    }
+}

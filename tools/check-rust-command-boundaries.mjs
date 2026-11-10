@@ -27,6 +27,8 @@ function externalAllowed(d) {
     if (fileHosts.has(location(d)) && ['std::fs', 'std::io::Write'].some(p => under(normalized, p))) return true;
     if (httpHosts.has(location(d)) && ['std::thread', 'std::sync::Mutex'].some(p => under(normalized, p))) return true;
     if (module === 'http' && d.symbol === '<import>' && path === 'std::sync::Mutex') return true;
+    // The memory store's handles share one in-process state behind one lock. No clock, file or thread.
+    if (module === 'memory_store' && under(normalized, 'std::sync::Mutex')) return true;
     return module === 'wasm' && d.symbol === 'rhz_call' && path === 'std::ptr::copy_nonoverlapping';
   }
   if (external === 'hex') return ['hex::encode', 'hex::decode'].includes(path);

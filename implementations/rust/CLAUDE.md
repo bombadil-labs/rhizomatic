@@ -66,7 +66,15 @@ src/
   cbor.rs     deterministic CBOR encoder (must match ../ts/src/cbor.ts)
   hash.rs     BLAKE3-256 + multihash wrapping
   delta.rs    canonical bytes, id computation, delta-set ops
+  store.rs    the SPEC-18 store interface: synchronous traits, profile, errors, `scope_source`
+  memory_store.rs       the memory reference store; every map sits behind one counting door
+  store_open.rs         `StoreSchemes` and `open_store` (errors name the scheme, never the URL)
+  store_conformance.rs  `run_store_conformance`: the shared store vectors against any store
 tests/
   cbor.rs       encoder vs. external ground-truth (RFC 8949 Appendix A)
   vectors.rs    loads ../../vectors/l0-delta and asserts byte-exact parity
+  store_vectors.rs  every script and scope case of ../../vectors/store on the memory store
+  store_broken.rs   stores with one fault each; the conformance runner must fail each one
+  store_cost.rs     the cost rail: index work does not grow with unrelated deltas; nothing scans
+  store_open.rs     schemes, requirements, close, and an anchored read over a fetched scope
 ```
