@@ -10,8 +10,28 @@ The store, slice 1 (SPEC-18 proposal): one store interface with declared capabil
 memory reference store, in both witnesses against the same vectors. Nothing existing changes
 behavior, and the reactor does not use the store yet.
 
+The store, slice 2 (SPEC-18 proposal), has started in the TypeScript witness: the delta source is
+the one read type for consumers.
+
+### ⚠️ Breaking
+
+- `DeltaSource.targets` and `DeltaSource.negators` return `readonly string[]`: each id once,
+  ascending by the UTF-8 bytes of the id (SPEC-17 §3). They returned `Iterable<string>` in any
+  order. An implementer that returns a `Set`, or a list in arrival order, no longer conforms; sort
+  with `compareUtf8`. `Reactor.targets` and `Reactor.negators` now return sorted arrays, where
+  they returned the index sets in arrival order.
+
 ### Added
 
+- `negationWitnesses(source, now, suppression)` and `negationPredicate(source, now, suppression)`:
+  the reactor's negation readers as free functions over any `DeltaSource`, such as a
+  `scopeSource` of a fetched scope. A free reader keeps its memo for its whole life; build a new
+  one when the source changes. The `Reactor` methods delegate to them and still follow ingests.
+- `Reactor.revision`: the membership counter. It rises by one for each accepted `ingest`,
+  `ingestBatch` or `ingestBundle` call and at no other time. It is comparable only within one
+  reactor object and is not a store `Revision`.
+- `ScopeReads`: the input type of `scopeIds` and `evalAnchored`. It is a `DeltaSource` without the
+  order rule, because scope computation sorts its own answer. Every `DeltaSource` is one.
 - The store interface types: `Store`, `PeerStore`, `Snapshot`, `ScopeRequest`, `ScopeResult`,
   `Pushdown`, `Admission`, `AppendResult`, `PurgeReport`, `Revision`, `StoreProfile`, `Exporter`,
   and `StoreError` with its codes.
@@ -40,6 +60,9 @@ behavior, and the reactor does not use the store yet.
 
 ### Changed
 
+- `DeltaSource` and `Suppression` are defined in the TypeScript `delta` package boundary.
+  `resolve/anchored`, `reactor` and the package root still export them; no import needs to
+  change. `ScopeSource` extends `DeltaSource`.
 - `ArrivalRecord` is defined in the `storage` package boundary. `federation` and the package root
   still export it; no import needs to change. The Rust witness does the same, and its
   `DeltaSource` trait now lives in `set` (`anchored` still exports it).

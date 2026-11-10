@@ -3,7 +3,7 @@
 // M2.2; this layer guarantees idempotence and order-convergence.
 
 import { evalTerm, termContainsInView, type EvalResult, type Term } from "../resolve/eval.js";
-import { array, encode } from "../delta/cbor.js";
+import { array, compareUtf8, encode } from "../delta/cbor.js";
 import { bytesToHex } from "../delta/hash.js";
 import { hvEntryToCbor, hviewCanonicalHex, type HView } from "../algebra/hview.js";
 import { collectRefs } from "../schema/schema.js";
@@ -13,10 +13,14 @@ import {
   evalAnchored,
   type Admits,
   type AnchoredRead,
+  type ScopeReads,
 } from "../resolve/anchored.js";
 import { viewCanonicalHex } from "../resolve-kernel/resolution.js";
 import type { SchemaRegistry } from "../schema/schema.js";
+import { negationWitnesses as witnessesOver, type Suppression } from "../delta/negation.js";
+export type { Suppression } from "../delta/negation.js";
 import { DeltaSet } from "../delta/set.js";
+import type { DeltaSource } from "../delta/source.js";
 import { VOCAB_PREFIX } from "../delta/vocab.js";
 import { manifestMemberIds } from "../delta/manifest.js";
 export { manifestMemberIds } from "../delta/manifest.js";
@@ -68,9 +72,6 @@ export type IngestResult =
   | { readonly status: "accepted" }
   | { readonly status: "duplicate" }
   | { readonly status: "rejected"; readonly reason: string };
-
-/** Whether a valid negation has authority to suppress its held target at this read. */
-export type Suppression = (negation: Delta, target: Delta) => boolean;
 
 interface BoundaryNode {
   readonly at: number;
@@ -131,7 +132,7 @@ function boundaryAfter(node: BoundaryNode | undefined, now: number): number | un
   return next;
 }
 
-export class Reactor {
+export class Reactor implements DeltaSource {
   // The append-only log in arrival order (v0: in-memory; the log is still the truth — V2).
   private readonly log: Delta[] = [];
   private readonly set = new DeltaSet();
@@ -236,41 +237,17 @@ export class Reactor {
    * callback must not invoke this reader recursively; compute a trust set in a prior pass.
    */
   negationWitnesses(now: number, suppression: Suppression): (id: string) => readonly Delta[] {
-    if (!Number.isFinite(now)) throw new Error("now must be a finite number");
+    // The free reader memoizes for its whole life; a new one per membership revision is the
+    // invalidation.
     let revision = this.membershipRevision;
-    const memo = new Map<string, readonly Delta[]>();
-    const visiting = new Set<string>();
-    const valid = (delta: Delta): boolean =>
-      delta.claims.validFrom <= now &&
-      (delta.claims.validUntil === undefined || now < delta.claims.validUntil);
-    const witnesses = (id: string): readonly Delta[] => {
+    let reader = witnessesOver(this, now, suppression);
+    return (id) => {
       if (revision !== this.membershipRevision) {
-        memo.clear();
-        visiting.clear();
+        reader = witnessesOver(this, now, suppression);
         revision = this.membershipRevision;
       }
-      const cached = memo.get(id);
-      if (cached !== undefined) return cached;
-      const target = this.set.get(id);
-      if (target === undefined) return [];
-      if (visiting.has(id)) throw new Error("negation reader re-entered during suppression");
-      visiting.add(id);
-      const effective: Delta[] = [];
-      try {
-        for (const negationId of this.negationsOf(id)) {
-          const negation = this.set.get(negationId);
-          if (negation === undefined || !valid(negation)) continue;
-          if (!suppression(negation, target) || witnesses(negationId).length > 0) continue;
-          effective.push(negation);
-        }
-      } finally {
-        visiting.delete(id);
-      }
-      const result = Object.freeze(effective);
-      memo.set(id, result);
-      return result;
+      return reader(id);
     };
-    return witnesses;
   }
 
   /** A memoized yes/no form of negationWitnesses for repeated checks in one read. */
@@ -303,6 +280,21 @@ export class Reactor {
     return this.set.size;
   }
 
+  /**
+   * The membership counter. It starts at 0 and rises by exactly one for each `ingest`,
+   * `ingestBatch` or `ingestBundle` call that answers `accepted`, whatever the number of deltas
+   * the call added. A call that answers `duplicate` or `rejected` adds no member and leaves it
+   * unchanged, and nothing else moves it: not time, not a refresh, not a registration. Inside an
+   * accepted call it rises after every new member is indexed and before any subscriber runs.
+   *
+   * Equal values from one reactor mean the same membership. The value is comparable only within
+   * one reactor object: two reactors that hold the same deltas can report different values. It
+   * is not a store `Revision` (SPEC-18).
+   */
+  get revision(): number {
+    return this.membershipRevision;
+  }
+
   has(id: string): boolean {
     return this.set.has(id);
   }
@@ -313,17 +305,29 @@ export class Reactor {
 
   // --- the delta source (SPEC-17 §3): index reads, never a scan of the set ---
 
-  targets(entityId: string): Iterable<string> {
-    return this.targetIndex.get(entityId) ?? [];
+  // Each id once, ascending by UTF-8 bytes: the source's order contract. The indexes keep
+  // arrival order, so each call sorts its own answer.
+
+  targets(entityId: string): readonly string[] {
+    return [...(this.targetIndex.get(entityId) ?? [])].sort(compareUtf8);
   }
 
-  negators(deltaId: string): Iterable<string> {
-    return this.negationIndex.get(deltaId) ?? [];
+  negators(deltaId: string): readonly string[] {
+    return [...(this.negationIndex.get(deltaId) ?? [])].sort(compareUtf8);
   }
 
   subset(ids: Iterable<string>): DeltaSet {
     return this.set.subset(ids);
   }
+
+  // Scope computation sorts its own answer, so the reactor's anchored reads take the index
+  // buckets as they are and skip the sort above. Nothing else may read this.
+  private readonly unsorted: ScopeReads = {
+    get: (id) => this.set.get(id),
+    targets: (entityId) => this.targetIndex.get(entityId) ?? [],
+    negators: (deltaId) => this.negationIndex.get(deltaId) ?? [],
+    subset: (ids) => this.set.subset(ids),
+  };
 
   // An anchored read (SPEC-17 §6): the same answer as `eval`, at the cost of the read's scope.
   evalAnchored(
@@ -334,7 +338,7 @@ export class Reactor {
     bindings?: Bindings,
     admits?: Admits,
   ): AnchoredRead {
-    return evalAnchored(term, this, now, root, registry, bindings, admits);
+    return evalAnchored(term, this.unsorted, now, root, registry, bindings, admits);
   }
 
   // Arrival order — a transport artifact, never consulted by evaluation (SPEC-4 §2).
@@ -491,7 +495,7 @@ export class Reactor {
     let result: EvalResult;
     let support: Set<string> | typeof BROAD;
     if (anchorAnalysis(program.term, program.registry).anchored) {
-      const read = evalAnchored(program.term, this, mat.now, root, program.registry);
+      const read = evalAnchored(program.term, this.unsorted, mat.now, root, program.registry);
       result = read.result;
       support =
         lowered === undefined

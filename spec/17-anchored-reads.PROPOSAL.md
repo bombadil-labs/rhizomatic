@@ -44,6 +44,10 @@ A **delta source** is the read side of a store. It has three operations:
 | `targets(e)` | the ids of every delta with at least one pointer whose target is the entity `e`, any role, any context | O(log N + result) |
 | `negators(x)` | the ids of every delta with a pointer `{role: "negates", target: DeltaRef(x)}` | O(log N + result) |
 
+`targets` and `negators` return each id once, ascending by the UTF-8 bytes of the id. An answer
+in arrival order, or one that repeats an id, does not conform. The rule matches the list rule of
+SPEC-18 §4.2, so one reader runs over a store snapshot, a fetched scope and a reactor.
+
 The reactor implements all three with its existing indexes. A SQL store implements them with
 two secondary indexes (pointer target entity, negated delta id). This is the read contract that
 a future `rhizomatic-store` package exposes; it adds nothing a well-indexed table cannot answer.

@@ -5149,6 +5149,37 @@
     }
   }
 
+  // src/delta/negation.ts
+  function negationWitnesses(source, now, suppression) {
+    if (!Number.isFinite(now)) throw new Error("now must be a finite number");
+    const memo = /* @__PURE__ */ new Map();
+    const visiting = /* @__PURE__ */ new Set();
+    const valid = (delta) => delta.claims.validFrom <= now && (delta.claims.validUntil === void 0 || now < delta.claims.validUntil);
+    const witnesses = (id) => {
+      const cached = memo.get(id);
+      if (cached !== void 0) return cached;
+      const target = source.get(id);
+      if (target === void 0) return [];
+      if (visiting.has(id)) throw new Error("negation reader re-entered during suppression");
+      visiting.add(id);
+      const effective = [];
+      try {
+        for (const negationId of source.negators(id)) {
+          const negation = source.get(negationId);
+          if (negation === void 0 || !valid(negation)) continue;
+          if (!suppression(negation, target) || witnesses(negationId).length > 0) continue;
+          effective.push(negation);
+        }
+      } finally {
+        visiting.delete(id);
+      }
+      const result = Object.freeze(effective);
+      memo.set(id, result);
+      return result;
+    };
+    return witnesses;
+  }
+
   // src/reactor/reactor.ts
   var BROAD = /* @__PURE__ */ Symbol("broad dispatch");
   var height = (node) => node?.height ?? 0;
@@ -5290,39 +5321,15 @@
      * callback must not invoke this reader recursively; compute a trust set in a prior pass.
      */
     negationWitnesses(now, suppression) {
-      if (!Number.isFinite(now)) throw new Error("now must be a finite number");
       let revision = this.membershipRevision;
-      const memo = /* @__PURE__ */ new Map();
-      const visiting = /* @__PURE__ */ new Set();
-      const valid = (delta) => delta.claims.validFrom <= now && (delta.claims.validUntil === void 0 || now < delta.claims.validUntil);
-      const witnesses = (id) => {
+      let reader = negationWitnesses(this, now, suppression);
+      return (id) => {
         if (revision !== this.membershipRevision) {
-          memo.clear();
-          visiting.clear();
+          reader = negationWitnesses(this, now, suppression);
           revision = this.membershipRevision;
         }
-        const cached = memo.get(id);
-        if (cached !== void 0) return cached;
-        const target = this.set.get(id);
-        if (target === void 0) return [];
-        if (visiting.has(id)) throw new Error("negation reader re-entered during suppression");
-        visiting.add(id);
-        const effective = [];
-        try {
-          for (const negationId of this.negationsOf(id)) {
-            const negation = this.set.get(negationId);
-            if (negation === void 0 || !valid(negation)) continue;
-            if (!suppression(negation, target) || witnesses(negationId).length > 0) continue;
-            effective.push(negation);
-          }
-        } finally {
-          visiting.delete(id);
-        }
-        const result = Object.freeze(effective);
-        memo.set(id, result);
-        return result;
+        return reader(id);
       };
-      return witnesses;
     }
     /** A memoized yes/no form of negationWitnesses for repeated checks in one read. */
     negationPredicate(now, suppression) {
@@ -5349,6 +5356,20 @@
     get size() {
       return this.set.size;
     }
+    /**
+     * The membership counter. It starts at 0 and rises by exactly one for each `ingest`,
+     * `ingestBatch` or `ingestBundle` call that answers `accepted`, whatever the number of deltas
+     * the call added. A call that answers `duplicate` or `rejected` adds no member and leaves it
+     * unchanged, and nothing else moves it: not time, not a refresh, not a registration. Inside an
+     * accepted call it rises after every new member is indexed and before any subscriber runs.
+     *
+     * Equal values from one reactor mean the same membership. The value is comparable only within
+     * one reactor object: two reactors that hold the same deltas can report different values. It
+     * is not a store `Revision` (SPEC-18).
+     */
+    get revision() {
+      return this.membershipRevision;
+    }
     has(id) {
       return this.set.has(id);
     }
@@ -5356,18 +5377,28 @@
       return this.set.get(id);
     }
     // --- the delta source (SPEC-17 §3): index reads, never a scan of the set ---
+    // Each id once, ascending by UTF-8 bytes: the source's order contract. The indexes keep
+    // arrival order, so each call sorts its own answer.
     targets(entityId) {
-      return this.targetIndex.get(entityId) ?? [];
+      return [...this.targetIndex.get(entityId) ?? []].sort(compareUtf8);
     }
     negators(deltaId) {
-      return this.negationIndex.get(deltaId) ?? [];
+      return [...this.negationIndex.get(deltaId) ?? []].sort(compareUtf8);
     }
     subset(ids) {
       return this.set.subset(ids);
     }
+    // Scope computation sorts its own answer, so the reactor's anchored reads take the index
+    // buckets as they are and skip the sort above. Nothing else may read this.
+    unsorted = {
+      get: (id) => this.set.get(id),
+      targets: (entityId) => this.targetIndex.get(entityId) ?? [],
+      negators: (deltaId) => this.negationIndex.get(deltaId) ?? [],
+      subset: (ids) => this.set.subset(ids)
+    };
     // An anchored read (SPEC-17 §6): the same answer as `eval`, at the cost of the read's scope.
     evalAnchored(term, now, root, registry, bindings, admits) {
-      return evalAnchored(term, this, now, root, registry, bindings, admits);
+      return evalAnchored(term, this.unsorted, now, root, registry, bindings, admits);
     }
     // Arrival order — a transport artifact, never consulted by evaluation (SPEC-4 §2).
     arrivalLog() {
@@ -5493,7 +5524,7 @@
       let result;
       let support;
       if (anchorAnalysis(program.term, program.registry).anchored) {
-        const read = evalAnchored(program.term, this, mat.now, root, program.registry);
+        const read = evalAnchored(program.term, this.unsorted, mat.now, root, program.registry);
         result = read.result;
         support = lowered === void 0 ? new Set(read.scope) : lowered.deps === void 0 ? BROAD : /* @__PURE__ */ new Set([...read.scope, ...lowered.deps]);
       } else {

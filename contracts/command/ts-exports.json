@@ -9324,13 +9324,13 @@
     },
     {
       "id": "ts:index.ts:Suppression",
-      "owner": "reactor",
+      "owner": "delta",
       "symbol": "Suppression",
       "source": "implementations/ts/src/index.ts",
-      "definition": "implementations/ts/src/reactor/reactor.ts",
-      "contract": "rhizomatic.reactor/native-api/1",
+      "definition": "implementations/ts/src/delta/negation.ts",
+      "contract": "rhizomatic.delta/native-api/1",
       "classification": "compatibility_reexport",
-      "semantics": "Native reactor API Suppression implements SPEC-4 explicit reactor/materialization lifecycle at implementations/ts/src/reactor/reactor.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+      "semantics": "Native delta API Suppression implements SPEC-1 Delta identity/JSON/CBOR; SPEC-8 container-neutral membership at implementations/ts/src/delta/negation.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
     },
     {
       "id": "ts:index.ts:decodeView",
@@ -11464,13 +11464,13 @@
     },
     {
       "id": "ts:reactor.ts:Suppression",
-      "owner": "reactor",
+      "owner": "delta",
       "symbol": "Suppression",
       "source": "implementations/ts/src/reactor.ts",
-      "definition": "implementations/ts/src/reactor/reactor.ts",
-      "contract": "rhizomatic.reactor/native-api/1",
+      "definition": "implementations/ts/src/delta/negation.ts",
+      "contract": "rhizomatic.delta/native-api/1",
       "classification": "compatibility_reexport",
-      "semantics": "Native reactor API Suppression implements SPEC-4 explicit reactor/materialization lifecycle at implementations/ts/src/reactor/reactor.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+      "semantics": "Native delta API Suppression implements SPEC-1 Delta identity/JSON/CBOR; SPEC-8 container-neutral membership at implementations/ts/src/delta/negation.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
     },
     {
       "id": "ts:reactor.ts:Reactor",
@@ -11864,13 +11864,13 @@
     },
     {
       "id": "ts:reactor/reactor.ts:Suppression",
-      "owner": "reactor",
+      "owner": "delta",
       "symbol": "Suppression",
       "source": "implementations/ts/src/reactor/reactor.ts",
-      "definition": "implementations/ts/src/reactor/reactor.ts",
-      "contract": "rhizomatic.reactor/native-api/1",
-      "classification": "native_extension",
-      "semantics": "Native reactor API Suppression implements SPEC-4 explicit reactor/materialization lifecycle at implementations/ts/src/reactor/reactor.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+      "definition": "implementations/ts/src/delta/negation.ts",
+      "contract": "rhizomatic.delta/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native delta API Suppression implements SPEC-1 Delta identity/JSON/CBOR; SPEC-8 container-neutral membership at implementations/ts/src/delta/negation.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
     },
     {
       "id": "ts:reactor/reactor.ts:Reactor",
@@ -26204,53 +26204,53 @@
     },
     {
       "id": "ts:index.ts:DeltaSource",
-      "owner": "resolve",
+      "owner": "delta",
       "symbol": "DeltaSource",
       "source": "implementations/ts/src/index.ts",
-      "definition": "implementations/ts/src/resolve/anchored.ts",
-      "contract": "rhizomatic.resolve/native-api/1",
+      "definition": "implementations/ts/src/delta/source.ts",
+      "contract": "rhizomatic.delta/native-api/1",
       "classification": "compatibility_reexport",
-      "semantics": "Native resolve API DeltaSource implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/anchored.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+      "semantics": "Native delta API DeltaSource implements SPEC-1 Delta identity/JSON/CBOR; SPEC-8 container-neutral membership at implementations/ts/src/delta/source.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
     },
     {
       "id": "ts:index.ts:DeltaSource#get",
-      "owner": "resolve",
+      "owner": "delta",
       "symbol": "DeltaSource.get",
       "source": "implementations/ts/src/index.ts",
-      "definition": "implementations/ts/src/resolve/anchored.ts",
-      "contract": "rhizomatic.resolve/native-api/1",
+      "definition": "implementations/ts/src/delta/source.ts",
+      "contract": "rhizomatic.delta/native-api/1",
       "classification": "compatibility_reexport",
-      "semantics": "Native resolve API DeltaSource.get implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/anchored.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+      "semantics": "Native delta API DeltaSource.get implements SPEC-1 Delta identity/JSON/CBOR; SPEC-8 container-neutral membership at implementations/ts/src/delta/source.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
     },
     {
       "id": "ts:index.ts:DeltaSource#targets",
-      "owner": "resolve",
+      "owner": "delta",
       "symbol": "DeltaSource.targets",
       "source": "implementations/ts/src/index.ts",
-      "definition": "implementations/ts/src/resolve/anchored.ts",
-      "contract": "rhizomatic.resolve/native-api/1",
+      "definition": "implementations/ts/src/delta/source.ts",
+      "contract": "rhizomatic.delta/native-api/1",
       "classification": "compatibility_reexport",
-      "semantics": "Native resolve API DeltaSource.targets implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/anchored.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+      "semantics": "Native delta API DeltaSource.targets implements SPEC-1 Delta identity/JSON/CBOR; SPEC-8 container-neutral membership at implementations/ts/src/delta/source.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
     },
     {
       "id": "ts:index.ts:DeltaSource#negators",
-      "owner": "resolve",
+      "owner": "delta",
       "symbol": "DeltaSource.negators",
       "source": "implementations/ts/src/index.ts",
-      "definition": "implementations/ts/src/resolve/anchored.ts",
-      "contract": "rhizomatic.resolve/native-api/1",
+      "definition": "implementations/ts/src/delta/source.ts",
+      "contract": "rhizomatic.delta/native-api/1",
       "classification": "compatibility_reexport",
-      "semantics": "Native resolve API DeltaSource.negators implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/anchored.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+      "semantics": "Native delta API DeltaSource.negators implements SPEC-1 Delta identity/JSON/CBOR; SPEC-8 container-neutral membership at implementations/ts/src/delta/source.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
     },
     {
       "id": "ts:index.ts:DeltaSource#subset",
-      "owner": "resolve",
+      "owner": "delta",
       "symbol": "DeltaSource.subset",
       "source": "implementations/ts/src/index.ts",
-      "definition": "implementations/ts/src/resolve/anchored.ts",
-      "contract": "rhizomatic.resolve/native-api/1",
+      "definition": "implementations/ts/src/delta/source.ts",
+      "contract": "rhizomatic.delta/native-api/1",
       "classification": "compatibility_reexport",
-      "semantics": "Native resolve API DeltaSource.subset implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/anchored.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+      "semantics": "Native delta API DeltaSource.subset implements SPEC-1 Delta identity/JSON/CBOR; SPEC-8 container-neutral membership at implementations/ts/src/delta/source.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
     },
     {
       "id": "ts:index.ts:UnanchoredReason",
@@ -26534,53 +26534,53 @@
     },
     {
       "id": "ts:resolve/anchored.ts:DeltaSource",
-      "owner": "resolve",
+      "owner": "delta",
       "symbol": "DeltaSource",
       "source": "implementations/ts/src/resolve/anchored.ts",
-      "definition": "implementations/ts/src/resolve/anchored.ts",
-      "contract": "rhizomatic.resolve/native-api/1",
-      "classification": "native_extension",
-      "semantics": "Native resolve API DeltaSource implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/anchored.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+      "definition": "implementations/ts/src/delta/source.ts",
+      "contract": "rhizomatic.delta/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native delta API DeltaSource implements SPEC-1 Delta identity/JSON/CBOR; SPEC-8 container-neutral membership at implementations/ts/src/delta/source.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
     },
     {
       "id": "ts:resolve/anchored.ts:DeltaSource#get",
-      "owner": "resolve",
+      "owner": "delta",
       "symbol": "DeltaSource.get",
       "source": "implementations/ts/src/resolve/anchored.ts",
-      "definition": "implementations/ts/src/resolve/anchored.ts",
-      "contract": "rhizomatic.resolve/native-api/1",
-      "classification": "native_extension",
-      "semantics": "Native resolve API DeltaSource.get implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/anchored.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+      "definition": "implementations/ts/src/delta/source.ts",
+      "contract": "rhizomatic.delta/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native delta API DeltaSource.get implements SPEC-1 Delta identity/JSON/CBOR; SPEC-8 container-neutral membership at implementations/ts/src/delta/source.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
     },
     {
       "id": "ts:resolve/anchored.ts:DeltaSource#targets",
-      "owner": "resolve",
+      "owner": "delta",
       "symbol": "DeltaSource.targets",
       "source": "implementations/ts/src/resolve/anchored.ts",
-      "definition": "implementations/ts/src/resolve/anchored.ts",
-      "contract": "rhizomatic.resolve/native-api/1",
-      "classification": "native_extension",
-      "semantics": "Native resolve API DeltaSource.targets implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/anchored.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+      "definition": "implementations/ts/src/delta/source.ts",
+      "contract": "rhizomatic.delta/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native delta API DeltaSource.targets implements SPEC-1 Delta identity/JSON/CBOR; SPEC-8 container-neutral membership at implementations/ts/src/delta/source.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
     },
     {
       "id": "ts:resolve/anchored.ts:DeltaSource#negators",
-      "owner": "resolve",
+      "owner": "delta",
       "symbol": "DeltaSource.negators",
       "source": "implementations/ts/src/resolve/anchored.ts",
-      "definition": "implementations/ts/src/resolve/anchored.ts",
-      "contract": "rhizomatic.resolve/native-api/1",
-      "classification": "native_extension",
-      "semantics": "Native resolve API DeltaSource.negators implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/anchored.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+      "definition": "implementations/ts/src/delta/source.ts",
+      "contract": "rhizomatic.delta/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native delta API DeltaSource.negators implements SPEC-1 Delta identity/JSON/CBOR; SPEC-8 container-neutral membership at implementations/ts/src/delta/source.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
     },
     {
       "id": "ts:resolve/anchored.ts:DeltaSource#subset",
-      "owner": "resolve",
+      "owner": "delta",
       "symbol": "DeltaSource.subset",
       "source": "implementations/ts/src/resolve/anchored.ts",
-      "definition": "implementations/ts/src/resolve/anchored.ts",
-      "contract": "rhizomatic.resolve/native-api/1",
-      "classification": "native_extension",
-      "semantics": "Native resolve API DeltaSource.subset implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/anchored.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+      "definition": "implementations/ts/src/delta/source.ts",
+      "contract": "rhizomatic.delta/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native delta API DeltaSource.subset implements SPEC-1 Delta identity/JSON/CBOR; SPEC-8 container-neutral membership at implementations/ts/src/delta/source.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
     },
     {
       "id": "ts:resolve/anchored.ts:Admits",
@@ -31241,6 +31241,256 @@
       "contract": "rhizomatic.storage/native-api/1",
       "classification": "native_extension",
       "semantics": "Native storage API StoreVectorStep.handle implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:delta/negation.ts:negationWitnesses",
+      "owner": "delta",
+      "symbol": "negationWitnesses",
+      "source": "implementations/ts/src/delta/negation.ts",
+      "definition": "implementations/ts/src/delta/negation.ts",
+      "contract": "rhizomatic.delta/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native delta API negationWitnesses implements SPEC-1 Delta identity/JSON/CBOR; SPEC-8 container-neutral membership at implementations/ts/src/delta/negation.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:delta/negation.ts:negationPredicate",
+      "owner": "delta",
+      "symbol": "negationPredicate",
+      "source": "implementations/ts/src/delta/negation.ts",
+      "definition": "implementations/ts/src/delta/negation.ts",
+      "contract": "rhizomatic.delta/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native delta API negationPredicate implements SPEC-1 Delta identity/JSON/CBOR; SPEC-8 container-neutral membership at implementations/ts/src/delta/negation.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:delta/negation.ts:Suppression",
+      "owner": "delta",
+      "symbol": "Suppression",
+      "source": "implementations/ts/src/delta/negation.ts",
+      "definition": "implementations/ts/src/delta/negation.ts",
+      "contract": "rhizomatic.delta/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native delta API Suppression implements SPEC-1 Delta identity/JSON/CBOR; SPEC-8 container-neutral membership at implementations/ts/src/delta/negation.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:delta/source.ts:DeltaSource",
+      "owner": "delta",
+      "symbol": "DeltaSource",
+      "source": "implementations/ts/src/delta/source.ts",
+      "definition": "implementations/ts/src/delta/source.ts",
+      "contract": "rhizomatic.delta/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native delta API DeltaSource implements SPEC-1 Delta identity/JSON/CBOR; SPEC-8 container-neutral membership at implementations/ts/src/delta/source.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:delta/source.ts:DeltaSource#get",
+      "owner": "delta",
+      "symbol": "DeltaSource.get",
+      "source": "implementations/ts/src/delta/source.ts",
+      "definition": "implementations/ts/src/delta/source.ts",
+      "contract": "rhizomatic.delta/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native delta API DeltaSource.get implements SPEC-1 Delta identity/JSON/CBOR; SPEC-8 container-neutral membership at implementations/ts/src/delta/source.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:delta/source.ts:DeltaSource#targets",
+      "owner": "delta",
+      "symbol": "DeltaSource.targets",
+      "source": "implementations/ts/src/delta/source.ts",
+      "definition": "implementations/ts/src/delta/source.ts",
+      "contract": "rhizomatic.delta/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native delta API DeltaSource.targets implements SPEC-1 Delta identity/JSON/CBOR; SPEC-8 container-neutral membership at implementations/ts/src/delta/source.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:delta/source.ts:DeltaSource#negators",
+      "owner": "delta",
+      "symbol": "DeltaSource.negators",
+      "source": "implementations/ts/src/delta/source.ts",
+      "definition": "implementations/ts/src/delta/source.ts",
+      "contract": "rhizomatic.delta/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native delta API DeltaSource.negators implements SPEC-1 Delta identity/JSON/CBOR; SPEC-8 container-neutral membership at implementations/ts/src/delta/source.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:delta/source.ts:DeltaSource#subset",
+      "owner": "delta",
+      "symbol": "DeltaSource.subset",
+      "source": "implementations/ts/src/delta/source.ts",
+      "definition": "implementations/ts/src/delta/source.ts",
+      "contract": "rhizomatic.delta/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native delta API DeltaSource.subset implements SPEC-1 Delta identity/JSON/CBOR; SPEC-8 container-neutral membership at implementations/ts/src/delta/source.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:index.ts:ScopeReads",
+      "owner": "resolve",
+      "symbol": "ScopeReads",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/resolve/anchored.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native resolve API ScopeReads implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/anchored.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:ScopeReads#get",
+      "owner": "resolve",
+      "symbol": "ScopeReads.get",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/resolve/anchored.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native resolve API ScopeReads.get implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/anchored.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:ScopeReads#targets",
+      "owner": "resolve",
+      "symbol": "ScopeReads.targets",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/resolve/anchored.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native resolve API ScopeReads.targets implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/anchored.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:ScopeReads#negators",
+      "owner": "resolve",
+      "symbol": "ScopeReads.negators",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/resolve/anchored.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native resolve API ScopeReads.negators implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/anchored.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:ScopeReads#subset",
+      "owner": "resolve",
+      "symbol": "ScopeReads.subset",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/resolve/anchored.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native resolve API ScopeReads.subset implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/anchored.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:negationPredicate",
+      "owner": "delta",
+      "symbol": "negationPredicate",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/delta/negation.ts",
+      "contract": "rhizomatic.delta/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native delta API negationPredicate implements SPEC-1 Delta identity/JSON/CBOR; SPEC-8 container-neutral membership at implementations/ts/src/delta/negation.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:negationWitnesses",
+      "owner": "delta",
+      "symbol": "negationWitnesses",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/delta/negation.ts",
+      "contract": "rhizomatic.delta/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native delta API negationWitnesses implements SPEC-1 Delta identity/JSON/CBOR; SPEC-8 container-neutral membership at implementations/ts/src/delta/negation.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:ScopeSource#subset",
+      "owner": "storage",
+      "symbol": "ScopeSource.subset",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/delta/source.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API ScopeSource.subset implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/delta/source.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:Reactor#revision",
+      "owner": "reactor",
+      "symbol": "Reactor.revision",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/reactor.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API Reactor.revision implements SPEC-4 explicit reactor/materialization lifecycle at implementations/ts/src/reactor/reactor.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:reactor.ts:Reactor#revision",
+      "owner": "reactor",
+      "symbol": "Reactor.revision",
+      "source": "implementations/ts/src/reactor.ts",
+      "definition": "implementations/ts/src/reactor/reactor.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API Reactor.revision implements SPEC-4 explicit reactor/materialization lifecycle at implementations/ts/src/reactor/reactor.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:reactor/reactor.ts:Reactor#revision",
+      "owner": "reactor",
+      "symbol": "Reactor.revision",
+      "source": "implementations/ts/src/reactor/reactor.ts",
+      "definition": "implementations/ts/src/reactor/reactor.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API Reactor.revision implements SPEC-4 explicit reactor/materialization lifecycle at implementations/ts/src/reactor/reactor.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:resolve/anchored.ts:ScopeReads",
+      "owner": "resolve",
+      "symbol": "ScopeReads",
+      "source": "implementations/ts/src/resolve/anchored.ts",
+      "definition": "implementations/ts/src/resolve/anchored.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native resolve API ScopeReads implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/anchored.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:resolve/anchored.ts:ScopeReads#get",
+      "owner": "resolve",
+      "symbol": "ScopeReads.get",
+      "source": "implementations/ts/src/resolve/anchored.ts",
+      "definition": "implementations/ts/src/resolve/anchored.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native resolve API ScopeReads.get implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/anchored.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:resolve/anchored.ts:ScopeReads#targets",
+      "owner": "resolve",
+      "symbol": "ScopeReads.targets",
+      "source": "implementations/ts/src/resolve/anchored.ts",
+      "definition": "implementations/ts/src/resolve/anchored.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native resolve API ScopeReads.targets implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/anchored.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:resolve/anchored.ts:ScopeReads#negators",
+      "owner": "resolve",
+      "symbol": "ScopeReads.negators",
+      "source": "implementations/ts/src/resolve/anchored.ts",
+      "definition": "implementations/ts/src/resolve/anchored.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native resolve API ScopeReads.negators implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/anchored.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:resolve/anchored.ts:ScopeReads#subset",
+      "owner": "resolve",
+      "symbol": "ScopeReads.subset",
+      "source": "implementations/ts/src/resolve/anchored.ts",
+      "definition": "implementations/ts/src/resolve/anchored.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native resolve API ScopeReads.subset implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/anchored.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/scope-source.ts:ScopeSource#subset",
+      "owner": "storage",
+      "symbol": "ScopeSource.subset",
+      "source": "implementations/ts/src/storage/scope-source.ts",
+      "definition": "implementations/ts/src/delta/source.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API ScopeSource.subset implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/delta/source.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
     }
   ]
 }

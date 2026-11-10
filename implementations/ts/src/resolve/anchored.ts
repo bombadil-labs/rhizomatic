@@ -12,16 +12,15 @@ import type { SchemaRefT, Term } from "../syntax/model.js";
 import type { Bindings, EntityMatch, Pred, StrMatch } from "../syntax/pred.js";
 import { evalTerm, type EvalResult } from "./eval.js";
 
+export type { DeltaSource } from "../delta/source.js";
+
 /**
- * The read side of a store (SPEC-17 §3). `targets` and `negators` answer from indexes; neither
- * may scan the store. `subset`, when present, builds a set from members the source has already
- * verified, without hashing them again.
+ * What scope computation reads of a source. It sorts its own answer, so it accepts index answers
+ * in any order. Every `DeltaSource` is one; a source may also offer its indexes unsorted here.
  */
-export interface DeltaSource {
+export interface ScopeReads {
   get(id: string): Delta | undefined;
-  /** Ids of every delta with a pointer whose target is the entity `entity`, any role or context. */
   targets(entity: string): Iterable<string>;
-  /** Ids of every delta with a pointer `{role: "negates", target: DeltaRef(id)}`. */
   negators(id: string): Iterable<string>;
   subset?(ids: Iterable<string>): DeltaSet;
 }
@@ -34,7 +33,7 @@ export type Admits = (delta: Delta) => boolean;
  * transitively. Sorted ids. Cost is O(|S(E)|) index lookups.
  */
 export function scopeIds(
-  source: DeltaSource,
+  source: ScopeReads,
   entities: Iterable<string>,
   admits?: Admits,
 ): string[] {
@@ -241,7 +240,7 @@ export interface AnchoredRead {
  */
 export function evalAnchored(
   term: Term,
-  source: DeltaSource,
+  source: ScopeReads,
   now: number,
   root: string,
   registry?: SchemaRegistry,

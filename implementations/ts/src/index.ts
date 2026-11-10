@@ -52,9 +52,11 @@ export {
   type Admits,
   type AnchorAnalysis,
   type AnchoredRead,
-  type DeltaSource,
+  type ScopeReads,
   type UnanchoredReason,
 } from "./resolve/anchored.js";
+export { type DeltaSource } from "./delta/source.js";
+export { negationPredicate, negationWitnesses } from "./delta/negation.js";
 export { relationSignature, relationSignatureCanonicalHex } from "./alias.js";
 export { hviewCanonicalHex, type HVEntry, type HView } from "./hview.js";
 export { SchemaRegistry, collectRefs, collectReadingRefs, type HyperSchema } from "./schema.js";

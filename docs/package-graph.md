@@ -53,6 +53,10 @@ derivation   → reactor, algebra, delta
 store conformance runner. It defines `ArrivalRecord`, which the store keeps per peer;
 `federation` re-exports it. `storage` still depends only on `delta`.
 
+`delta` owns the read type every consumer shares: the SPEC-17 `DeltaSource` (`delta/source.ts`)
+and the negation readers over it (`delta/negation.ts`). They name only `Delta` and `DeltaSet`, so
+`storage`, `resolve` and `reactor` each reach them over an edge they already have.
+
 `schema-load` is the registry adapter for self-hosted schema deltas. The `resolve` package owns
 the terminal `resolve` term composition and public `evalTerm` entry point. `resolve-kernel` owns
 pure View policy evaluation below that composition; `algebra` owns HView serialization. This

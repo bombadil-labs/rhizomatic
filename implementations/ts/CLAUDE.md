@@ -41,7 +41,7 @@ npm run format       # prettier --write; format:check to verify
 ```
 src/
   index.ts          aggregate public barrel; all old root module paths are compatibility re-exports
-  delta/            claims, canonical CBOR, content addresses, signatures, sets, manifest vocabulary
+  delta/            claims, canonical CBOR, content addresses, signatures, sets, manifest vocabulary, the delta source and negation readers
   syntax/           term and policy types, JSON and CBOR syntax, predicates
   schema/           in-memory registry
   algebra/          HyperView representation
