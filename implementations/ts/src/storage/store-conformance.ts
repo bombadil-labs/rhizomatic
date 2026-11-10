@@ -489,8 +489,9 @@ class Run {
 
   /** The trim lemma (§4.3) for one case, once per subset of its selection's fields. */
   async scopeCase(scopeCase: StoreScopeCase): Promise<void> {
-    const peer = scopeCase.peer;
-    const snapshot = await this.peer(peer).read();
+    // `peer` is a handle name, as in `read`. The bookkeeping is the peer's it belongs to.
+    const peer = this.owners.get(scopeCase.peer) ?? scopeCase.peer;
+    const snapshot = await this.peer(scopeCase.peer).read();
     const entities = scopeCase.anchors.map((anchor) => anchor.entity);
     const byFields = new Map(scopeCase.scopes.map((s) => [key(s.fields), this.ids(s.ids)]));
     const present = PUSHDOWN_FIELDS.filter((field) => scopeCase.selection[field] !== undefined);

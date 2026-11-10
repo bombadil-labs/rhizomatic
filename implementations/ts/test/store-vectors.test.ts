@@ -400,6 +400,24 @@ const faults: Record<string, Break> = {
       };
     },
   },
+  "heads compared after trimming": {
+    peer: (peer) => ({
+      append: async (batch) =>
+        peer.append({
+          ...batch,
+          expectedHead: batch.expectedHead === null ? null : batch.expectedHead.trim(),
+        }),
+    }),
+  },
+  "the empty string taken for no head": {
+    peer: (peer) => ({
+      append: async (batch) =>
+        peer.append({
+          ...batch,
+          expectedHead: batch.expectedHead === "" ? null : batch.expectedHead,
+        }),
+    }),
+  },
   "a peer opened into existence": {
     store: (store) => ({
       peer: async (id) => store.peer(id).catch(() => store.createPeer(id, { erasure: "unproven" })),
@@ -624,7 +642,7 @@ describe("store vectors: what the profile changes", () => {
         .filter((script) => script.requires.includes("purge"))
         .map((script) => ({ name: `scripts/${script.name}`, missing: "purge" })),
     );
-    expect(report.skipped).toHaveLength(4);
+    expect(report.skipped).toHaveLength(5);
   });
 
   it("a store with a journal skips the script that needs its absence", async () => {

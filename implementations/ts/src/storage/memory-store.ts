@@ -6,6 +6,7 @@ import { compareUtf8 } from "../delta/cbor.js";
 import { computeId } from "../delta/delta.js";
 import type { Claims, Delta } from "../delta/types.js";
 import type { ArrivalRecord } from "./arrival-record.js";
+import { copyClaims } from "./copy.js";
 import {
   PURGE_BOUNDARY,
   StoreError,
@@ -100,51 +101,6 @@ function indexKeys(claims: Claims): { entities: Entity[]; negated: Id[] } {
   return { entities, negated };
 }
 
-// The store's own copy of a delta's claims: the canonical fields and nothing else. A caller's
-// object never enters the store and a stored object never leaves it, so no caller can change
-// what a peer reads. A bytes payload cannot be frozen, which is why reads copy too.
-function copyClaims(claims: Claims): Claims {
-  return {
-    timestamp: claims.timestamp,
-    validFrom: claims.validFrom,
-    ...(claims.validUntil === undefined ? {} : { validUntil: claims.validUntil }),
-    author: claims.author,
-    pointers: claims.pointers.map(({ role, target }) => {
-      switch (target.kind) {
-        case "primitive":
-          return { role, target: { kind: "primitive", value: target.value } };
-        case "entity":
-          return {
-            role,
-            target: {
-              kind: "entity",
-              entity:
-                target.entity.context === undefined
-                  ? { id: target.entity.id }
-                  : { id: target.entity.id, context: target.entity.context },
-            },
-          };
-        case "delta":
-          return {
-            role,
-            target: {
-              kind: "delta",
-              deltaRef:
-                target.deltaRef.context === undefined
-                  ? { delta: target.deltaRef.delta }
-                  : { delta: target.deltaRef.delta, context: target.deltaRef.context },
-            },
-          };
-        case "bytes":
-          return {
-            role,
-            target: { kind: "bytes", mime: target.mime, value: target.value.slice() },
-          };
-      }
-    }),
-  };
-}
-
 const SIG = /^[0-9a-f]{128}$/;
 
 /** A checked copy of one admitted entry. Refuses `invalid-admission`. */
@@ -181,8 +137,23 @@ function admit(entry: VerifiedDelta): { id: Id; claims: Claims; holding: Holding
   return { id, claims, holding: { sig, arrival: { id, at, sequence, transfer, sender } } };
 }
 
+function checkScopeRequest(request: ScopeRequest): void {
+  const asked = request.pushdown ?? {};
+  if (asked.timestampAtMost !== undefined && !Number.isFinite(asked.timestampAtMost))
+    throw new StoreError("invalid-request", "scope: timestampAtMost must be a finite number");
+  if (
+    asked.arrivalAtMost !== undefined &&
+    !(Number.isSafeInteger(asked.arrivalAtMost) && asked.arrivalAtMost >= 0)
+  )
+    throw new StoreError("invalid-request", "scope: arrivalAtMost must be an integer, 0 or more");
+}
+
 class MemoryStore implements Store {
+  /** What callers see: a frozen copy. The store never reads it back. */
   readonly profile: StoreProfile;
+  // What the store decides by. A caller who forces a write into `profile` must not be able to
+  // switch off the posture gate or change what a scope applies.
+  private readonly own: StoreProfile;
   private readonly meter: StoreMeter;
   private readonly rows: Index<Row>;
   private readonly peers: Index<PeerState>;
@@ -192,7 +163,7 @@ class MemoryStore implements Store {
     this.meter = options.meter ?? { lookups: 0, visited: 0, scans: 0 };
     this.rows = new Index(this.meter);
     this.peers = new Index(this.meter);
-    this.profile = {
+    this.own = {
       capabilities: {
         values: false,
         arrival: true,
@@ -204,15 +175,21 @@ class MemoryStore implements Store {
       },
       indexedValueRoles: [],
       pushdown: {
-        timestampAtMost: options.pushdown?.timestampAtMost ?? true,
-        arrivalAtMost: options.pushdown?.arrivalAtMost ?? true,
-        excludeIds: options.pushdown?.excludeIds ?? true,
+        timestampAtMost: options.pushdown?.timestampAtMost !== false,
+        arrivalAtMost: options.pushdown?.arrivalAtMost !== false,
+        excludeIds: options.pushdown?.excludeIds !== false,
       },
       writers: "one-process",
       atRest: "trusted",
       changeRetention: "none",
       formatVersion: MEMORY_STORE_FORMAT,
     };
+    this.profile = Object.freeze({
+      ...this.own,
+      capabilities: Object.freeze({ ...this.own.capabilities }),
+      indexedValueRoles: Object.freeze([...this.own.indexedValueRoles]),
+      pushdown: Object.freeze({ ...this.own.pushdown }),
+    });
   }
 
   private open(): void {
@@ -225,7 +202,7 @@ class MemoryStore implements Store {
       throw new StoreError("invalid-request", "createPeer: the peer id must not be empty");
     if (options.erasure !== "proven" && options.erasure !== "unproven")
       throw new StoreError("invalid-request", "createPeer: declare the erasure posture");
-    const storeClass: ErasureClass = this.profile.capabilities.erasure;
+    const storeClass: ErasureClass = this.own.capabilities.erasure;
     if (options.erasure === "proven" && storeClass !== "proven")
       throw new StoreError(
         "posture-refused",
@@ -259,7 +236,7 @@ class MemoryStore implements Store {
   private handle(state: PeerState): PeerStore {
     return {
       id: state.id,
-      erasure: { posture: state.posture, storeClass: this.profile.capabilities.erasure },
+      erasure: { posture: state.posture, storeClass: this.own.capabilities.erasure },
       read: async () => {
         this.open();
         return this.snapshot(state);
@@ -344,6 +321,9 @@ class MemoryStore implements Store {
         return sorted([...new Set(ids)].flatMap((id) => [...this.members(state.negators, id)]));
       },
       scope: async (request) => {
+        // The shape of the request comes first, as in append: a malformed bound is refused
+        // the same way on a current, a moved and a released snapshot.
+        checkScopeRequest(request);
         guard();
         return this.scope(state, request);
       },
@@ -355,14 +335,7 @@ class MemoryStore implements Store {
 
   private scope(state: PeerState, request: ScopeRequest): ScopeResult {
     const asked = request.pushdown ?? {};
-    if (asked.timestampAtMost !== undefined && !Number.isFinite(asked.timestampAtMost))
-      throw new StoreError("invalid-request", "scope: timestampAtMost must be a finite number");
-    if (
-      asked.arrivalAtMost !== undefined &&
-      !(Number.isSafeInteger(asked.arrivalAtMost) && asked.arrivalAtMost >= 0)
-    )
-      throw new StoreError("invalid-request", "scope: arrivalAtMost must be an integer, 0 or more");
-    const can = this.profile.pushdown;
+    const can = this.own.pushdown;
     const applied: AppliedPushdown = {
       timestampAtMost: asked.timestampAtMost !== undefined && can.timestampAtMost,
       arrivalAtMost: asked.arrivalAtMost !== undefined && can.arrivalAtMost,

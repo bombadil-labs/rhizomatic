@@ -189,6 +189,23 @@ describe("openStore", () => {
     expect(error.message).not.toContain(SECRET);
   });
 
+  it("invalid-url has two causes; a URL that cannot be routed is unknown-scheme", async () => {
+    expect(await code(() => openStore("memory:somewhere"))).toBe("invalid-url");
+    const register = (name: string): string => {
+      try {
+        registerStoreScheme(name, async () => createMemoryStore())();
+        return "registered";
+      } catch (error) {
+        return (error as StoreError).code;
+      }
+    };
+    expect(register("1abc")).toBe("invalid-url");
+    expect(register("a b")).toBe("invalid-url");
+    expect(register("fine+scheme")).toBe("registered");
+    for (const url of ["", "no scheme here", "1abc:x", "a b:x", "nobody:x"])
+      expect(await code(() => openStore(url))).toBe("unknown-scheme");
+  });
+
   it("matches the scheme without regard to case", async () => {
     for (const url of ["MEMORY:", "Memory:", "mEmOrY:"])
       expect((await openStore(url)).profile.formatVersion).toBe(MEMORY_STORE_FORMAT);
@@ -489,6 +506,84 @@ describe("a store owns what it holds", () => {
     expect(JSON.stringify(await view(peer, delta.id))).toBe(pristine);
   });
 
+  it("a Buffer payload is copied, not viewed: two peers, after append and after read", async () => {
+    // `Buffer.prototype.slice` returns a view of the same memory, unlike Uint8Array's.
+    const store = createMemoryStore();
+    const a = await store.createPeer(A, { erasure: "unproven" });
+    const b = await store.createPeer(B, { erasure: "unproven" });
+    const payload = Buffer.from([1, 2, 3, 4]);
+    const delta = makeDelta({
+      timestamp: 1,
+      validFrom: 1,
+      author: "did:key:zA",
+      pointers: [
+        { role: "subject", target: { kind: "entity", entity: { id: "e" } } },
+        { role: "blob", target: { kind: "bytes", mime: "x/y", value: payload } },
+      ],
+    });
+    await fill(a, [delta]);
+    await fill(b, [delta]);
+    const bytes = async (peer: PeerStore): Promise<Uint8Array> => {
+      const [held] = await (await peer.read()).get([delta.id]);
+      const target = held!.claims.pointers[1]!.target;
+      if (target.kind !== "bytes") throw new Error("not a bytes target");
+      return target.value;
+    };
+    payload[0] = 99;
+    payload.fill(7, 1);
+    expect([...(await bytes(a))]).toEqual([1, 2, 3, 4]);
+    expect([...(await bytes(b))]).toEqual([1, 2, 3, 4]);
+
+    const read = await bytes(a);
+    read[0] = 55;
+    Buffer.from(read.buffer).fill(66);
+    expect([...(await bytes(a))]).toEqual([1, 2, 3, 4]);
+    expect([...(await bytes(b))]).toEqual([1, 2, 3, 4]);
+    const scope = await (await b.read()).scope({ anchors: [{ kind: "entity", entity: "e" }] });
+    const scoped = scope.deltas[0]!.delta.claims.pointers[1]!.target;
+    expect(scoped.kind === "bytes" && [...scoped.value]).toEqual([1, 2, 3, 4]);
+  });
+
+  it("the public profile is not what the store decides by", async () => {
+    const store = createMemoryStore();
+    type Loose = { capabilities: { erasure: string }; pushdown: Record<string, boolean> };
+    const loose = store.profile as unknown as Loose;
+    // A write to a frozen object throws in a module. Either way it must change nothing.
+    expect(() => {
+      loose.capabilities.erasure = "proven";
+    }).toThrow(TypeError);
+    expect(() => {
+      loose.pushdown["timestampAtMost"] = false;
+    }).toThrow(TypeError);
+    expect(() => {
+      (store.profile as unknown as { capabilities: object }).capabilities = { erasure: "proven" };
+    }).toThrow(TypeError);
+    expect(store.profile.capabilities.erasure).toBe("unprovable");
+    expect(Object.isFrozen(store.profile.indexedValueRoles)).toBe(true);
+
+    // Even a caller who replaces the public object outright does not move the gate.
+    Object.defineProperty(store, "profile", {
+      value: {
+        ...store.profile,
+        capabilities: { ...store.profile.capabilities, erasure: "proven" },
+        pushdown: { timestampAtMost: false, arrivalAtMost: false, excludeIds: false },
+      },
+    });
+    expect(store.profile.capabilities.erasure).toBe("proven");
+    expect(await code(() => store.createPeer(A, { erasure: "proven" }))).toBe("posture-refused");
+    const peer = await store.createPeer(A, { erasure: "unproven" });
+    expect(peer.erasure.storeClass).toBe("unprovable");
+    await fill(peer, [fact("e", 5), fact("e", 50)]);
+    const result = await (
+      await peer.read()
+    ).scope({
+      anchors: [{ kind: "entity", entity: "e" }],
+      pushdown: { timestampAtMost: 10 },
+    });
+    expect(result.applied.timestampAtMost).toBe(true);
+    expect(result.deltas).toHaveLength(1);
+  });
+
   it("fields outside the canonical claims are not stored and not served", async () => {
     const store = createMemoryStore();
     const a = await store.createPeer(A, { erasure: "unproven" });
@@ -541,6 +636,20 @@ describe("numbers a store refuses", () => {
       { arrivalAtMost: 2 ** 53 - 1 },
     ])
       expect(await code(() => scope(pushdown))).toBe("no error");
+  });
+
+  it("a malformed bound is invalid-request on a moved and on a released snapshot too", async () => {
+    const store = createMemoryStore();
+    const peer = await store.createPeer(A, { erasure: "unproven" });
+    const moved = await peer.read();
+    await fill(peer, [fact("e", 1)]);
+    const released = await peer.read();
+    released.release();
+    for (const snapshot of [moved, released])
+      for (const pushdown of [{ timestampAtMost: Number.NaN }, { arrivalAtMost: 1.5 }])
+        expect(await code(() => snapshot.scope({ anchors: [], pushdown }))).toBe("invalid-request");
+    expect(await code(() => moved.scope({ anchors: [] }))).toBe("snapshot-moved");
+    expect(await code(() => released.scope({ anchors: [] }))).toBe("snapshot-released");
   });
 
   it("an arrival time that is not finite, which JSON vectors cannot carry", async () => {
@@ -719,6 +828,71 @@ describe("scopeSource: a synchronous delta source over a fetched scope", () => {
     expect(() => scopeSource([forged])).toThrow(/does not match its claims/);
     const broken = { ...forged, delta: { id: real.id, claims: {} as Delta["claims"] } };
     expect(() => scopeSource([broken])).toThrow(StoreError);
+  });
+
+  it("owns its members and its lists: nothing a caller holds reaches inside", () => {
+    const payload = Buffer.from([1, 2, 3]);
+    const delta = makeDelta({
+      timestamp: 1,
+      validFrom: 1,
+      author: "did:key:zA",
+      pointers: [
+        { role: "subject", target: { kind: "entity", entity: { id: "e" } } },
+        { role: "blob", target: { kind: "bytes", mime: "x/y", value: payload } },
+      ],
+    });
+    const negation = strike(delta, 2);
+    const member = (d: Delta, sequence: number): VerifiedDelta => ({
+      delta: d,
+      arrival: { id: d.id, at: 1, sequence, transfer: 1, sender: "local" },
+    });
+    const given = [member(delta, 1), member(negation, 2)];
+    const source = scopeSource(given);
+    const state = (): string =>
+      JSON.stringify([
+        source.ids(),
+        source.targets("e"),
+        source.targets("moved"),
+        source.negators(delta.id),
+        source.ids().map((id) => [source.get(id), source.arrival(id)]),
+      ]);
+    const pristine = state();
+
+    // What the caller gave.
+    payload.fill(9);
+    (given[0]!.arrival as { sequence: number }).sequence = 99;
+    (given[0]!.delta.claims.pointers[0]!.target as { entity: { id: string } }).entity.id = "moved";
+    expect(state()).toBe(pristine);
+
+    // What the source returned.
+    for (const list of [source.ids(), source.targets("e"), source.negators(delta.id)]) {
+      expect(() => (list as string[]).push("x")).toThrow(TypeError);
+      expect(() => {
+        (list as string[]).length = 0;
+      }).toThrow(TypeError);
+    }
+    expect(() => (source.targets("nowhere") as string[]).push("x")).toThrow(TypeError);
+    expect(source.targets("nowhere")).toEqual([]);
+    const got = source.get(delta.id)!;
+    (got.claims as { timestamp: number }).timestamp = 5;
+    const target = got.claims.pointers[1]!.target;
+    if (target.kind === "bytes") target.value.fill(4);
+    (source.arrival(delta.id) as { sender: string }).sender = "mallory";
+    expect(state()).toBe(pristine);
+  });
+
+  it("a repeated id is not examined, and a refusal builds nothing", () => {
+    const real = fact("e", 1);
+    const arrival = { id: real.id, at: 1, sequence: 1, transfer: 1, sender: "local" };
+    const forgedRepeat: VerifiedDelta = {
+      delta: { id: real.id, claims: fact("e", 2).claims },
+      arrival,
+    };
+    // After a good first appearance, the forged repeat is skipped unread.
+    const source = scopeSource([{ delta: real, arrival }, forgedRepeat]);
+    expect(source.get(real.id)).toEqual(real);
+    // First, it is refused; the call returns no source at all.
+    expect(() => scopeSource([forgedRepeat, { delta: real, arrival }])).toThrow(StoreError);
   });
 
   it("keeps the first appearance of an id fetched in two rounds", () => {

@@ -695,11 +695,16 @@ function scripts(named: readonly Named[]): StoreScript[] {
     s("head-compare-and-set", "SPEC-18 §4.5; SPEC-6 vNext §2", (m) => {
       m.createPeer("A", "unproven");
       m.append("A", "head-0", "head-1", seq(1, "a-height"));
+      // No head is null. The empty string is not null.
+      m.append("A", "", "head-1", seq(1, "a-height"));
       m.append("A", null, "head-1", seq(1, "a-height"));
       m.append("A", null, "head-2", seq(2, "a-name"));
       m.append("A", "head-2", "head-2", seq(2, "a-name"));
       m.append("A", "head-1", "head-2", seq(2, "a-name"));
       m.append("A", "head-1", "head-3", seq(3, "b-name"));
+      // Heads are equal only byte for byte: no trimming, no case folding.
+      for (const near of [" head-2", "head-2 ", "head-2\n", "HEAD-2", "head-2\u0000", ""])
+        m.append("A", near, "head-3", seq(3, "b-name"));
       m.read("A", "s");
       m.head("s");
       m.get("s", ["a-height", "a-name", "b-name"]);
@@ -713,6 +718,9 @@ function scripts(named: readonly Named[]): StoreScript[] {
         { delta: "b-name", sequence: 2 },
         { delta: "forged", sequence: 3 },
       ]);
+      // The forged entry again, with an arrival record that names the id its claims really
+      // have (far's). The store refuses; it never files the claims under the recomputed id.
+      m.append("A", "head-1", "head-2", [{ delta: "forged", sequence: 2, arrivalId: "far" }]);
       // The arrival record names another delta.
       m.append("A", "head-1", "head-2", [{ delta: "b-name", sequence: 2, arrivalId: "far" }]);
       // The sequence does not pass the peer's last one.
@@ -864,6 +872,12 @@ function scripts(named: readonly Named[]): StoreScript[] {
       m.scope("s2", ["plant:a"]);
       m.head("s2");
       m.count("s2");
+      // The shape of a request is checked before the snapshot's state: a malformed bound is
+      // `invalid-request` on a moved snapshot (s1) and on a released one (s2).
+      m.scope("s1", ["plant:a"], { arrivalAtMost: 1.5 });
+      m.scope("s1", ["plant:a"], { arrivalAtMost: -1 });
+      m.scope("s2", ["plant:a"], { arrivalAtMost: 1.5 });
+      m.scope("s2", ["plant:a"], { arrivalAtMost: 2 ** 53 });
       // Released and moved at once: either refusal conforms.
       m.release("s1");
       m.targets("s1", ["plant:a"]);
@@ -911,6 +925,55 @@ function scripts(named: readonly Named[]): StoreScript[] {
       },
       ["purge"],
     ),
+    s(
+      "the-last-sequence-survives-an-empty-peer",
+      "SPEC-18 §4.5; SPEC-6 vNext §3",
+      (m) => {
+        m.createPeer("A", "unproven");
+        m.append("A", null, "head-1", [
+          { delta: "a-height", sequence: 2 },
+          { delta: "a-name", sequence: 4 },
+        ]);
+        m.purge("A", ["a-height", "a-name"]);
+        m.read("A", "s");
+        m.count("s");
+        m.head("s");
+        // The peer holds nothing. Its spent sequences stay spent.
+        m.append("A", "head-1", "head-2", [{ delta: "a-height", sequence: 4 }]);
+        m.append("A", "head-1", "head-2", [{ delta: "b-name", sequence: 1 }]);
+        m.append("A", "head-1", "head-2", [{ delta: "a-height", sequence: 5 }]);
+        m.read("A", "s2");
+        m.arrivals("s2", ["a-height"]);
+      },
+      ["purge"],
+    ),
+    s("a-skipped-entry-spends-no-sequence", "SPEC-18 §4.5", (m) => {
+      m.createPeer("A", "unproven");
+      m.append("A", null, "head-1", seq(1, "a-name"));
+      // The second a-height is a repeat inside the batch and is skipped. Its sequence, 6, is
+      // not taken: b-name may use it.
+      m.append("A", "head-1", "head-2", [
+        { delta: "a-height", sequence: 5 },
+        { delta: "a-height", sequence: 6 },
+        { delta: "b-name", sequence: 6 },
+      ]);
+      // a-name is held and is skipped. A new entry may share its sequence, 9.
+      m.append("A", "head-2", "head-3", [
+        { delta: "a-name", sequence: 9 },
+        { delta: "far", sequence: 9 },
+      ]);
+      // A skipped entry does not raise the largest committed sequence either.
+      m.append("A", "head-3", "head-4", [{ delta: "a-name", sequence: 500 }]);
+      m.append("A", "head-4", "head-5", [{ delta: "bed-link", sequence: 10 }]);
+      // The largest committed sequence is 10: 9 is spent, also for a skipped entry's neighbour.
+      m.append("A", "head-5", "head-6", [
+        { delta: "a-name", sequence: 9 },
+        { delta: "a-twice", sequence: 10 },
+      ]);
+      m.read("A", "s");
+      m.head("s");
+      m.arrivals("s", ["a-name", "a-height", "b-name", "far", "bed-link", "a-twice"]);
+    }),
     s("the-first-appearance-is-kept", "SPEC-18 §4.5, §4.11", (m) => {
       m.createPeer("A", "unproven");
       m.createPeer("B", "unproven");
@@ -957,6 +1020,10 @@ function scripts(named: readonly Named[]): StoreScript[] {
       // A stale writer learns it is stale first, whatever its batch holds.
       m.append("A", "head-0", "head-2", [{ delta: "forged", sequence: 2 }]);
       m.append("A", null, "head-2", [{ delta: "b-name", sequence: 2, sender: "" }]);
+      // Also when the batch holds a value a typed witness cannot represent.
+      m.append("A", "head-0", "head-2", [{ delta: "b-name", sequence: -1 }]);
+      m.append("A", "head-0", "head-2", [{ delta: "b-name", sequence: 1.5 }]);
+      m.append("A", "head-0", "head-2", [{ delta: "b-name", sequence: 2, transfer: 2 ** 53 }]);
       // With the right head every entry is checked, also one whose id is already held.
       // `forged` carries a-name's id, which A holds.
       m.append("A", "head-1", "head-2", [{ delta: "forged", sequence: 2 }]);
@@ -1068,11 +1135,16 @@ function scopeDocument(named: readonly Named[]): {
   m.append("A", "a-head-2", "a-head-3", seq(12, "c-late", "c-early-neg"));
   // Another peer holds deltas at the same anchors. They never appear in A's scopes.
   m.append("B", null, "b-head-1", seq(1, "ghost", "k-note-signed", "a-height", "cites-a-height"));
+  // A second handle of A. One case reads through it; its bookkeeping is A's.
+  m.openPeer("A", "A2");
   const setup = [...m.steps];
   const spec = "SPEC-18 §4.3";
   const cases = [
     m.scopeCase("no-selection", spec, "A", ["plant:a"], {}),
     m.scopeCase("two-anchors", spec, "A", ["plant:a", "plant:b"], {}),
+    m.scopeCase("through-a-second-handle", spec, "A2", ["plant:a"], { arrivalAtMost: 7 }, [
+      "a-height",
+    ]),
     m.scopeCase("an-anchor-nothing-points-at", spec, "A", ["nowhere"], { timestampAtMost: 30 }),
     m.scopeCase("no-anchors", spec, "A", [], {}),
     // a-height-neg-neg (t=40) is cut, so a-height-neg stands alone.
