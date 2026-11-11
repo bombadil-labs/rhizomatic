@@ -416,8 +416,8 @@ function reads(): (RoundsRead & { name: string; note: string })[] {
       "garden:1",
     ),
     read(
-      "lawful-strikers-before-the-grant",
-      "grant-bob (t=5) passes, but c1-height-neg-neg (arrival 1) is the only strike of a strike here that arrives early.",
+      "lawful-strikers-as-of-the-first-admission",
+      "Only the first admission is admitted. grant-bob (arrival 14) is in it. plant:2 is a child, because the strike of its link arrives later; so is the strike of c2-tag-neg-at-b1, which therefore shows at bed:1.",
       { op: "fix", schema: "LawfulTree3", entity: "garden:1" },
       "garden:1",
       { arrivalAtMost: 20 },
@@ -755,7 +755,7 @@ function checkFixture(document: StoreRoundsDocument, registry: SchemaRegistry): 
   need(find("the-selection-admits-nothing").expect.members.length === 0, "the empty selection");
   const lawful = differs("lawful-strikers");
   need(lawful.expect.rounds[0]!.anchors.includes("grants"), "the static anchor");
-  differs("lawful-strikers-before-the-grant");
+  differs("lawful-strikers-as-of-the-first-admission");
   need(
     find("a-hole-bound-by-the-request").expect.rounds[0]!.anchors.length === 2,
     "the bound hole",

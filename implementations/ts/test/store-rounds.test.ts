@@ -593,7 +593,7 @@ describe("round vectors: a wrong reader fails a case", () => {
       "an-excluded-negation-held-before-its-target",
       "every-field",
       "the-selection-admits-nothing",
-      "lawful-strikers-before-the-grant",
+      "lawful-strikers-as-of-the-first-admission",
     ])
       expect(none.answers, name).toContain(name);
     // Each field alone is caught when it is the one the store leaves out.

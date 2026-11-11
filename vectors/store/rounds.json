@@ -2898,8 +2898,8 @@
       }
     },
     {
-      "name": "lawful-strikers-before-the-grant",
-      "note": "grant-bob (t=5) passes, but c1-height-neg-neg (arrival 1) is the only strike of a strike here that arrives early.",
+      "name": "lawful-strikers-as-of-the-first-admission",
+      "note": "Only the first admission is admitted. grant-bob (arrival 14) is in it. plant:2 is a child, because the strike of its link arrives later; so is the strike of c2-tag-neg-at-b1, which therefore shows at bed:1.",
       "term": {
         "op": "fix",
         "schema": "LawfulTree3",
