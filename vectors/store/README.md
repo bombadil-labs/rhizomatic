@@ -28,8 +28,18 @@ of every delta, signature and arrival record it is given. Changing a value after
 changes nothing in the store. Changing a value a store returned changes nothing in the store, for
 this peer or any other. This holds for every part of a delta, a bytes payload included: a copy
 must not share memory with what the caller holds. It holds for the store's profile too: the
-profile a caller reads is not the object the store decides by. A store keeps only the canonical fields of a delta's claims (SPEC-1 §2);
-anything else a caller attached is not stored and not served.
+profile a caller reads is not the object the store decides by, and no caller can reach that
+object. A store keeps only the canonical fields of a delta's claims (SPEC-1 §2); anything else a
+caller attached is not stored and not served.
+
+**A store never converts what it is given.** It takes a value only when the value has the type
+its position requires, and refuses every other value. A bytes payload must be the witness's byte
+array type; a buffer the payload could be built from, a number, a list of numbers and an array of
+another element size are refused, not turned into bytes. The claims a store hashes are the claims
+it keeps: it checks and hashes its own copy, so nothing the caller does between the check and the
+copy can put other claims under an id. The refusal is `invalid-admission` in `append` and
+`invalid-request` everywhere else. A witness whose types cannot hold a wrong value satisfies the
+rule by its types. No vector reaches this rule (§5).
 
 **Handles are owned.** A peer handle and a snapshot stay usable for as long as the store is open.
 Opening a peer again does not end an older handle of that peer: both are views of one peer, and
@@ -94,10 +104,15 @@ id that exists), `posture-refused` and `peer-exists` both conform.
    selects nothing, because sequences start at 1.)
 4. A requirement name at open that is not in the store's list of requirement names.
 5. The synchronous source over a fetched scope (`scopeSource`), given a member whose id does not
-   recompute from its claims. The first appearance of an id is kept and checked; a repeated id
-   is not examined. A refused call adds nothing: the source is unchanged, or is not built. The
-   source owns its members as a store does: it copies them in, and what it returns cannot be
-   used to change it.
+   recompute from its claims, or a member with a value that is not of its type. The first
+   appearance of an id is kept and checked; a repeated id is not examined. A refused call adds
+   nothing: the source is unchanged, or is not built. The source owns its members as a store
+   does: it copies them in without converting, and what it returns cannot be used to change it.
+   Building the source costs the total size of its members: N members at one entity, or N
+   negations of one delta, cost N steps and not N² (each witness has a rail that counts this).
+6. In a dynamically typed witness only: a request with a value that is not of its type. A list of
+   ids or entities that is not a list of strings, an anchor that is not an object with a kind, a
+   `createPeer` without options. A typed witness cannot receive one.
 
 A witness whose types make a case unrepresentable (a missing posture, a NaN in an integer field)
 satisfies it. Vectors cover the empty peer id and the three `arrivalAtMost` refusals. JSON cannot
@@ -111,11 +126,15 @@ carry NaN or an infinity, so a non-finite `timestampAtMost` or `at` is a unit te
 The checks:
 
 - **(a) Shape of the call.** `nextHead` is empty: refuse `invalid-admission`. `frame` is not null
-  and the profile's `journal` capability is false: refuse `capability-absent`.
+  and the profile's `journal` capability is false: refuse `capability-absent`. In a dynamically
+  typed witness, a call that is not an object, or a `nextHead` that is not a string, is refused
+  `invalid-admission` here; an `added` that is not a list is refused in (c), after the head.
 - **(b) The head.** The peer's head is not equal to `expectedHead`: answer `conflict`. Nothing
   changes.
 - **(c) The batch.** Walk `added` in order. For each entry:
-  1. The id does not recompute from the claims (SPEC-1 §4): refuse `invalid-admission`.
+  1. The entry, its delta, its claims, its signature or its arrival record holds a value that is
+     not of its type (a dynamically typed witness only); or the id does not recompute from the
+     claims (SPEC-1 §4): refuse `invalid-admission`.
   2. A signature is present and is not 128 lowercase hex characters: refuse `invalid-admission`.
   3. The arrival record's `id` is not the delta's id; or `sequence` or `transfer` is not an
      integer from 1 to 2^53 − 1; or `at` is not a finite number; or `sender` is empty: refuse
@@ -127,6 +146,8 @@ The checks:
      sequence of an earlier **new** entry of this batch: refuse `invalid-admission`. A skipped
      entry (step 4) spends no sequence: its sequence is not compared with anything, a later new
      entry may carry the same number, and it does not raise the peer's largest committed sequence.
+     This holds for both kinds of skipped entry, and a vector pins each: an entry whose id the
+     peer held before the batch, and a repeat of an id inside the batch.
   6. Otherwise the entry is **new**.
 - **(d) Commit**, all together: the peer holds every new delta with its arrival record and
   signature; the head becomes `nextHead`. Answer `committed` with the new ids (ascending) and the
@@ -151,7 +172,7 @@ committed sequence never decreases, also not after a purge: a purged delta's seq
 also when the purge leaves the peer holding nothing.
 
 The store checks sequences for two things only: greater than the peer's largest, and distinct
-inside the batch. That sequences follow ascending id inside a transfer, and that one batch shares
+among the batch's new entries. That sequences follow ascending id inside a transfer, and that one batch shares
 one transfer ordinal, are admission's rules (SPEC-6 vNext §3). The store does not check them.
 
 A store that cannot tell whether an append committed answers `uncertain`. The memory reference
@@ -199,7 +220,11 @@ Repeated ids or entities in a request change nothing. Unknown ids and entities y
 
 **The shape of a request comes first**, as in `append`. A `scope` with a bound outside its legal
 values (§1.2) is refused `invalid-request` whatever the snapshot's state: on a moved snapshot and
-on a released one too. This order is pinned by vector.
+on a released one too. This order is pinned by vector with three bounds on each of the two
+snapshots: `1.5`, `-1` and 2^53 (9007199254740992). The first two stop at the boundary of a
+witness whose bound is an unsigned integer, so for that witness they pin its runner (§3.7), not
+its store. 2^53 fits an unsigned 64-bit field: it reaches the store in every witness, and it is
+the bound that pins this order for a typed store.
 
 **Repeatability.** When the peer's revision has passed the snapshot's, an operation MUST either
 refuse `snapshot-moved` or answer exactly as it would have at the snapshot's revision. It MUST NOT
@@ -436,6 +461,7 @@ none is.
 
 Checks:
 
+- The purge answers. A refusal fails the step.
 - The report's `targets` equal `expect.targets`, in order, by id and outcome.
 - The report's `revision` is the peer's revision after the step; `revisionAdvanced` as in §3.3.
 - `boundary` is `store-controlled-surfaces`.
@@ -481,6 +507,9 @@ released snapshot.
   "expect": { "lower": ["a-height-neg"], "upper": ["a-name", "a-height-neg", "a-height"] } }
 ```
 
+Ask the store first and judge the answer afterwards: a store that answers where the step expects
+a refusal fails for that, whatever it answered.
+
 `expect` is one of three shapes:
 
 1. A result, as below. The operation must answer, and the answer must match.
@@ -499,7 +528,8 @@ Result checks:
 - `scope`: `pushdown` and `exclude` are optional; their id lists are corpus names. A bound is
   passed as written, also when it is out of range (`arrivalAtMost: 1.5`, `-1`,
   `9007199254740992`); a witness whose type cannot hold the value refuses `invalid-request` at its
-  own boundary. Then:
+  own boundary. A witness whose type can hold the value MUST pass it to the store: its runner
+  does not answer for the store. Then:
   - R is ascending by id with no id twice.
   - Every member of R is held by the snapshot's peer per the bookkeeping, has claims that
     recompute to its id, carries the signature of the appearance that peer admitted, and carries
@@ -572,8 +602,9 @@ For each entry f of `scopes`, on one snapshot of `peer`:
    offers, and R equals `scopes[q].ids` minus `held` exactly.
 7. **Trim lemma.** The host's residual selection is the fields of P not in q. Build the set
    D′ = (members of R that pass the residual fields) ∪ (the held deltas of `held`, with the
-   arrival records from the bookkeeping, that pass every field of P). Compute S(A over D′) in the
-   runner. It MUST equal the exact scope.
+   arrival records from the bookkeeping, that pass every field of P). The held deltas are the
+   appearances the peer admitted: a runner takes them from its bookkeeping, or reads them with
+   `get` on the same snapshot. Compute S(A over D′) in the runner. It MUST equal the exact scope.
 
 Step 7 is the lemma: whatever the store applied, the host reaches the same scope from R and what
 it already holds. A store that reports an applied field but returns members that fail it breaks
@@ -585,8 +616,92 @@ step 5. A store that drops a member the selection keeps breaks step 4.
   anchors, digests. Slice 1 has none of them.
 - An unknown anchor kind, a missing posture, and non-finite numbers (§1.2, §1.4.1). JSON or a
   typed witness cannot express them; each witness tests what its language can express.
+- **Ownership** (§1, "A store owns what it holds", "A store never converts"). A conformance run
+  hands a store values and compares what comes back; it never changes a value afterwards and
+  never passes a value of the wrong type. A store that keeps the caller's objects, returns its
+  own, or shares a payload's memory passes every vector. Ownership is an obligation of each
+  witness and of each store, with its own tests (§6).
+- A purge on a store of class `none`. The scripts that purge are skipped for such a store, so no
+  shared step shows that it refuses. Each witness tests that refusal for its own stores.
 - Proof of physical absence. The memory reference store is `unprovable`. A `proven` store adds
   its own adapter rails for its surfaces (SPEC-18 §8).
 - Cost. Each witness asserts by counting index work that no core operation walks a whole set
-  (SPEC-18 §8, "cost rails"); a JSON file cannot.
+  (SPEC-18 §8, "cost rails"); a JSON file cannot. The same holds for building `scopeSource`.
 - `store-closed`, `openStore` and URL schemes. These are host API, tested per witness.
+- The runner. The vectors judge a store through a runner, and nothing in the vectors judges the
+  runner (§7).
+
+## 6. What a store tests for itself: ownership
+
+A store that passes the vectors has not shown that it owns what it holds. Whoever writes a store,
+a witness or a consumer, tests these for that store. Each test changes a value the test still
+holds and then reads the store again; the store's answers MUST NOT change.
+
+1. **After append.** Append a signed delta with a bytes payload, to two peers. Then change every
+   part of what was appended: each claims field, a pointer's role and target, the list of
+   pointers, the payload's bytes, the signature, the id, each field of the arrival record. Every
+   read of both peers answers as before.
+2. **After a read.** Change every part of what `get`, `arrivals`, `scope` and the exporter
+   returned, the payload's bytes and the memory behind them included. Every later read, of this
+   peer and of every other peer that holds the id, answers as before. Two reads of one id share
+   no memory with each other.
+3. **Payload memory.** For every byte container the language has, append a payload held in it,
+   then write to the caller's memory. The store's bytes do not change. In TypeScript the
+   containers are a plain `Uint8Array`, a Node `Buffer`, a subclass, a view of part of a larger
+   buffer, and a view over shared memory; in Rust the type system gives this for owned vectors,
+   and a store that takes shared or borrowed bytes tests it.
+4. **No conversion** (a dynamically typed witness). For each position of an entry, pass a value
+   of another type that a lenient store could convert: a buffer or a list of numbers for a
+   payload, a numeric string for a number, a string object for a string, an object with indexes
+   for a list. Use the id the converted form would have. The store refuses and holds nothing.
+5. **One read of each field** (a witness whose objects can answer differently on each read). Pass
+   claims with a field that gives the honest value on one read and another value on the others.
+   The store may admit or refuse. It MUST NOT hold the id over claims that do not recompute.
+6. **The profile.** Change the profile a caller reads, or replace it. The posture gate and the
+   applied pushdown fields do not change. Nothing the store decides by is reachable from a
+   handle.
+7. **`scopeSource`.** Tests 1 to 5 again for the members given to it and for what it returns.
+
+## 7. What a witness tests for itself: the runner
+
+A runner that stops checking a rule still passes the memory store, so the vectors cannot hold a
+runner to this page. Each witness keeps a table of wrong stores, one per rule of §3 and §4. A
+wrong store is the memory store behind a thin wrapper that breaks that one rule and nothing a
+script meets before it. For each, the conformance run MUST fail, in the expected document, with
+the message of that rule. Asserting the message matters: a script stops at its first failing
+step, and many wrong answers are caught by a later, unrelated check when the rule's own check is
+gone.
+
+The table covers at least:
+
+- **Refusals:** a code outside the step's list, for `createPeer`, `openPeer`, `append`, a query
+  and `export`; an answer where a refusal is expected; a refusal where an answer is expected; on
+  a moved snapshot, a refusal that is not `snapshot-moved`.
+- **Peers:** a created or opened handle with another posture; a created handle with another
+  erasure class than the profile; `unlessStoreErasure` in both directions.
+- **Append:** each answer that is not the expected one, `uncertain` included; the added ids, and
+  their order; the result's revision; a refused append or a `conflict` that moves the revision;
+  `revisionAdvanced` in both directions.
+- **Purge:** outcomes (not ids only), their order, a repeated id; the report's revision;
+  `revisionAdvanced` in both directions; the boundary text, exactly; each claim that is not the
+  expected one; `proven` with no surface and with a surface that is not `absent`; a surface state
+  outside the three; a store of class `none` that answers.
+- **The bookkeeping:** the first entry of a batch with an id is the one held; a purge forgets
+  the id, so an id appended again is held under its new arrival record.
+- **Point reads:** `head`, `count`; ids and their order for `get`, `arrivals`, `targets`,
+  `negators`; a returned delta's signature and claims; each of the four fields of an arrival
+  record.
+- **Scope members:** order, a repeat, claims, the arrival record's id and fields, the signature,
+  a member the peer does not hold.
+- **Scope bounds:** `applied` ⊆ requested; the lower and the upper bound in a script and in a
+  scope case; the trim comparison.
+- **Reference rules:** the applied fields, the exact ids in a script and in a scope case, the
+  surfaces. For each, the same wrong answer under another `formatVersion` conforms.
+- **Export:** ids, their order, the count of deltas, a delta's appearance; the stored listing
+  and the peer listing.
+- **Requirements:** each one skips exactly its scripts and reports them; each script gets a new
+  store.
+- **Documents:** an unknown `format`; a corpus id that does not recompute and is not `forged`.
+
+A rule a wrapped store cannot reach is listed by name in the test file, with the reason. Then the
+table itself is checked once: for each check of the runner, remove it and see the table go red.

@@ -609,14 +609,15 @@ the text above was silent, slice 1 decided as follows. The shared vectors and
 21. **`invalid-request`, the closed list:** `createPeer` with an empty peer id or without a
     posture; `scope` with a non-finite `timestampAtMost`; `scope` with an `arrivalAtMost` that is
     not an integer from 0 to 2^53 − 1; an unknown requirement name at open; `scopeSource` given a
-    member whose id does not recompute.
+    member whose id does not recompute, or a malformed member; and, in a dynamically typed
+    witness, a request with a value that is not of its type (reading 34).
 22. **Requirements are an allow-list.** A name outside it is refused and named, never looked up
     on the profile. A capability counts only when it is exactly true.
 23. **Handles.** An older `PeerStore` stays valid when the peer is opened again; both are views
     of one peer.
-24. **The purge claim** (§4.7.2) replaces reading 9's "the claim is always `unproven`": the memory
-    store says `unproven` when it removed a target and `nothing-removed` otherwise. Its `rows`
-    surface no longer says `owed` for a target another peer holds; the outcome says that.
+24. **The purge claim** (§4.7.2). The memory store says `unproven` when it removed a target and
+    `nothing-removed` otherwise; it never says `proven` (reading 9). Its `rows` surface does not
+    say `owed` for a target another peer holds; the outcome says that.
 25. **Conformance covers both documents.** `runStoreConformance` runs the scripts and the scope
     cases by default. The scripts alone do not hold a store to the exact upper bound. Each
     witness also runs both against the reference store with every subset of pushdown fields
@@ -625,7 +626,8 @@ the text above was silent, slice 1 decided as follows. The shared vectors and
     lowercase form.
 27. **Shape before state on a snapshot.** A `scope` whose bound is outside its legal values is
     refused `invalid-request` before the snapshot's state is consulted, also on a moved or a
-    released snapshot. This matches `append`, where the shape of the call comes first.
+    released snapshot. This matches `append`, where the shape of the call comes first. Reading 37
+    names the bound that pins this for a typed store.
 28. **A typed witness and a stale head.** Where a witness's types cannot hold a vector's value,
     its runner answers for the store at the boundary, head first: a mismatch of `expectedHead`
     is `conflict`; only otherwise is the answer `invalid-admission`. The head wins in every
@@ -637,11 +639,42 @@ the text above was silent, slice 1 decided as follows. The shared vectors and
     in, copies out what `get` and `arrival` return, and its id lists are frozen.
 31. **Ownership reaches the profile and the payload.** The public `profile` is a deep-frozen
     copy; the store decides by a private one. A bytes payload is copied with the `Uint8Array`
-    constructor, because `slice` on a Node `Buffer` returns a view.
+    constructor, because `slice` on a Node `Buffer` returns a view. Reading 33 says when that
+    constructor copies, and reading 35 what "private" means.
 32. **Sequences.** A skipped entry (held, or repeated in the batch) spends no sequence and does
     not raise the peer's largest committed sequence. That largest sequence survives a purge that
     empties the peer. Heads compare byte for byte, and null is not the empty string. A forged
-    entry is refused also when its arrival record names the claims' real id.
+    entry is refused also when its arrival record names the claims' real id. A vector pins each
+    kind of skipped entry apart: after a batch `[x at 11, x at 60]`, an append at 12 commits.
+33. **A store never converts** (§4.1, §4.5 "never repairs"). A store takes a value only when it
+    has the type its position requires, and refuses every other value: `invalid-admission` in
+    `append`, `invalid-request` elsewhere. The TypeScript witness reads each field of an entry
+    once, checks its type, and only then takes it; it computes the id over its own copy, so the
+    claims it hashes are the claims it keeps. A bytes payload must be a `Uint8Array` of this
+    realm (a `Buffer` and a subclass are). An `ArrayBuffer`, a `SharedArrayBuffer`, an array of
+    another element size, a number and a list are refused: the `Uint8Array` constructor would
+    view the first two and convert the others. Round 3 asked for "validate, then copy"; the
+    witness copies without converting and validates the copy, because an object can answer
+    differently between a check and a later copy.
+34. **Requests are owned too.** A store reads each field of a request once. A list of ids or
+    entities that is not a list of strings, an anchor without a kind, and a batch that is not of
+    its shape are refused (the closed list, reading 21, gains this for dynamically typed
+    witnesses). An `expectedHead` of any other type is a `conflict`: it is not the peer's head.
+35. **Private means unreachable.** What the memory store decides by (its own profile, the stored
+    claims, the peers, the closed flag) is not a property of the store object. A cast, or a
+    property planted under the old name, reaches nothing.
+36. **`scopeSource` builds in the size of its members.** N members at one entity, or N negations
+    of one delta, cost N steps. A rail in each witness counts the work; it does not time it.
+37. **A bound that reaches every store.** The vectors refuse `arrivalAtMost: 2^53` on a moved and
+    on a released snapshot (reading 27). A typed runner answers `1.5` and `-1` at its own
+    boundary; an unsigned 64-bit field holds 2^53, so that bound pins the store.
+38. **Ownership is not a vector.** A conformance run never changes a value after it hands it
+    over, so a store that aliases passes. `vectors/store/README.md` §6 lists what each store
+    tests for itself.
+39. **The runner has rules, and a table holds it to them.** Each witness keeps one wrong store
+    per runner rule and asserts that the run fails with that rule's message
+    (`vectors/store/README.md` §7). A runner asks the store first and judges the answer
+    afterwards. A purge that refuses fails its step.
 
 
 ## 5. Architectures
