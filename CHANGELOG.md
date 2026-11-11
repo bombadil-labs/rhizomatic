@@ -10,8 +10,8 @@ The store, slice 1 (SPEC-18 proposal): one store interface with declared capabil
 memory reference store, in both witnesses against the same vectors. Nothing existing changes
 behavior, and the reactor does not use the store yet.
 
-The store, slice 2 (SPEC-18 proposal), has started in the TypeScript witness: the delta source is
-the one read type for consumers.
+The store, slice 2 (SPEC-18 proposal), has started in both witnesses: the delta source is the one
+read type for consumers, and the principal reads take it.
 
 ### ⚠️ Breaking
 
@@ -65,6 +65,16 @@ the one read type for consumers.
 - Rust witness, slice 2: `Reactor::revision()`, the membership counter. It rises by one for each
   `ingest`, `ingest_batch` or `ingest_bundle` call that adds at least one member, and at no other
   time. It compares only within one reactor object; it is not a store revision.
+- `resolvePrincipal`, `authorsForPrincipal` and `associatedKeys` take a `DeltaSource` as their
+  first parameter, where they took a `Reactor`. A `Reactor` is a `DeltaSource`, so no call
+  changes. Each read asks only for the scope of one entity, the principal root: over a
+  `scopeSource` of `scope({ anchors: [root] })` it answers the same as over the whole set. A
+  source fetched for another entity holds no evidence, and the read then answers as for an empty
+  set. Rust witness: `resolve_principal`, `authors_for_principal` and `associated_keys` are
+  generic over `S: DeltaSource + ?Sized`, so they take `&Reactor`, `&ScopeSource` or
+  `&dyn DeltaSource`. No answer changes in either witness.
+- The shared principal cases and history cases (`vectors/principal/evidence.json`) run a second
+  time in each witness, over a scope fetched from a memory store peer.
 
 ### Changed
 

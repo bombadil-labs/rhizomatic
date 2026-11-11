@@ -62029,6 +62029,28 @@
       "targetOwner": "delta"
     },
     {
+      "form": "syn-import",
+      "owner": "principal",
+      "rawTarget": "crate::set::DeltaSource",
+      "resolvedTarget": "crate::set::DeltaSource",
+      "source": "implementations/rust/src/principal.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::set::DeltaSource",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-import",
+      "owner": "principal",
+      "rawTarget": "crate::set::negation_reader",
+      "resolvedTarget": "crate::set::negation_reader",
+      "source": "implementations/rust/src/principal.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::set::negation_reader",
+      "targetOwner": "delta"
+    },
+    {
       "form": "syn-resolved-path",
       "owner": "principal",
       "rawTarget": "crate::principal::PrincipalSuppression",
@@ -62459,13 +62481,13 @@
     {
       "form": "syn-resolved-path",
       "owner": "principal",
-      "rawTarget": "crate::reactor::Reactor",
-      "resolvedTarget": "crate::reactor::Reactor",
+      "rawTarget": "crate::set::DeltaSource",
+      "resolvedTarget": "crate::set::DeltaSource",
       "source": "implementations/rust/src/principal.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "evidence",
-      "target": "crate::reactor::Reactor",
-      "targetOwner": "reactor"
+      "target": "crate::set::DeltaSource",
+      "targetOwner": "delta"
     },
     {
       "form": "syn-resolved-path",
@@ -62909,17 +62931,6 @@
       "targetOwner": "principal"
     },
     {
-      "form": "syn-resolved-path",
-      "owner": "principal",
-      "rawTarget": "crate::reactor::Reactor",
-      "resolvedTarget": "crate::reactor::Reactor",
-      "source": "implementations/rust/src/principal.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "resolve_principal",
-      "target": "crate::reactor::Reactor",
-      "targetOwner": "reactor"
-    },
-    {
       "form": "syn-external-path",
       "owner": "principal",
       "source": "implementations/rust/src/principal.rs",
@@ -62934,6 +62945,28 @@
       "sourceRegion": "semantic-owner",
       "symbol": "resolve_principal",
       "target": "std::collections::BTreeSet"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "principal",
+      "source": "implementations/rust/src/principal.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "resolve_principal",
+      "target": "crate::set::DeltaSource",
+      "rawTarget": "crate::set::DeltaSource",
+      "resolvedTarget": "crate::set::DeltaSource",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "principal",
+      "source": "implementations/rust/src/principal.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "resolve_principal",
+      "target": "crate::set::negation_reader",
+      "rawTarget": "crate::set::negation_reader",
+      "resolvedTarget": "crate::set::negation_reader",
+      "targetOwner": "delta"
     },
     {
       "form": "syn-resolved-path",
@@ -62960,13 +62993,13 @@
     {
       "form": "syn-resolved-path",
       "owner": "principal",
-      "rawTarget": "crate::reactor::Reactor",
-      "resolvedTarget": "crate::reactor::Reactor",
+      "rawTarget": "crate::set::DeltaSource",
+      "resolvedTarget": "crate::set::DeltaSource",
       "source": "implementations/rust/src/principal.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "authors_for_principal",
-      "target": "crate::reactor::Reactor",
-      "targetOwner": "reactor"
+      "target": "crate::set::DeltaSource",
+      "targetOwner": "delta"
     },
     {
       "form": "syn-resolved-path",
@@ -63048,13 +63081,24 @@
     {
       "form": "syn-resolved-path",
       "owner": "principal",
-      "rawTarget": "crate::reactor::Reactor",
-      "resolvedTarget": "crate::reactor::Reactor",
+      "rawTarget": "crate::set::DeltaSource",
+      "resolvedTarget": "crate::set::DeltaSource",
       "source": "implementations/rust/src/principal.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "associated_keys",
-      "target": "crate::reactor::Reactor",
-      "targetOwner": "reactor"
+      "target": "crate::set::DeltaSource",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "principal",
+      "rawTarget": "crate::set::negation_reader",
+      "resolvedTarget": "crate::set::negation_reader",
+      "source": "implementations/rust/src/principal.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "associated_keys",
+      "target": "crate::set::negation_reader",
+      "targetOwner": "delta"
     },
     {
       "form": "syn-resolved-path",
