@@ -146,6 +146,21 @@ export {
   type StoreFactory,
 } from "./storage/open-store.js";
 export { scopeSource, type ScopeSource } from "./storage/scope-source.js";
+export { createFetchCache, type FetchCache } from "./storage/fetch-cache.js";
+export {
+  SNAPSHOT_RETRIES,
+  StoreReactor,
+  UnanchoredTermError,
+  fetchScope,
+  readAnchored,
+  type FetchedScope,
+  type StoreAdmits,
+  type StoreReactorRead,
+  type StoreRead,
+  type StoreReadRequest,
+  type StoreRoundReport,
+  type StoreSelection,
+} from "./reactor/store-read.js";
 export {
   StoreConformanceError,
   runStoreConformance,

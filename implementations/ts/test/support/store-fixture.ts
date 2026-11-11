@@ -5,7 +5,7 @@ import { compareUtf8 } from "../../src/delta/cbor.js";
 import type { Delta } from "../../src/delta/types.js";
 import { createMemoryStore, type StoreMeter } from "../../src/storage/memory-store.js";
 import { scopeSource, type ScopeSource } from "../../src/storage/scope-source.js";
-import type { PeerStore } from "../../src/storage/store.js";
+import type { PeerStore, Snapshot } from "../../src/storage/store.js";
 
 export const FIXTURE_PEER = `ed25519:${"0a".repeat(32)}`;
 export const FIXTURE_SENDER = "fixture";
@@ -67,4 +67,49 @@ export async function fetchEntities(
   } finally {
     snapshot.release();
   }
+}
+
+/** One store read call: which operation, how many keys it named, how many ids it excluded. */
+export type StoreCall = {
+  readonly op: string;
+  readonly keyCount: number;
+  readonly excludeCount: number;
+};
+
+/** A snapshot that records every read call made on it. It changes no answer. */
+export function countingSnapshot(snapshot: Snapshot, trace: StoreCall[]): Snapshot {
+  const note = (op: string, keyCount: number, excludeCount = 0): void => {
+    trace.push({ op, keyCount, excludeCount });
+  };
+  return {
+    revision: snapshot.revision,
+    head: snapshot.head,
+    count: snapshot.count,
+    get: (ids) => (note("get", ids.length), snapshot.get(ids)),
+    arrivals: (ids) => (note("arrivals", ids.length), snapshot.arrivals(ids)),
+    targets: (entities) => (note("targets", entities.length), snapshot.targets(entities)),
+    negators: (ids) => (note("negators", ids.length), snapshot.negators(ids)),
+    scope: (request) => (
+      note("scope", request.anchors.length, request.exclude?.length ?? 0),
+      snapshot.scope(request)
+    ),
+    release: () => {
+      note("release", 0);
+      snapshot.release();
+    },
+  };
+}
+
+/** A peer whose snapshots count their calls. `read` itself is recorded as `read`. */
+export function countingPeer(peer: PeerStore, trace: StoreCall[]): PeerStore {
+  return {
+    id: peer.id,
+    erasure: peer.erasure,
+    read: async () => {
+      trace.push({ op: "read", keyCount: 0, excludeCount: 0 });
+      return countingSnapshot(await peer.read(), trace);
+    },
+    append: (batch) => peer.append(batch),
+    purge: (ids) => peer.purge(ids),
+  };
 }

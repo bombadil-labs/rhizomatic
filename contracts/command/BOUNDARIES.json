@@ -352,6 +352,7 @@
         "algebra",
         "schema",
         "syntax",
+        "storage",
         "delta"
       ],
       "source_mapping": {

@@ -77,6 +77,20 @@ read type for consumers, and the principal reads take it.
 - Rust witness, slice 2: `Reactor::revision()`, the membership counter. It rises by one for each
   `ingest`, `ingest_batch` or `ingest_bundle` call that adds at least one member, and at no other
   time. It compares only within one reactor object; it is not a store revision.
+- Slice 2, TypeScript: the store-backed read. `readAnchored(snapshot, request)` is an anchored
+  read in rounds on one snapshot (SPEC-18 §4.4): one `scope` call per round for the anchors not
+  yet fetched, a fetch cache, and the residual selection applied in memory. It answers the same
+  bytes as `evalTerm` over everything the peer holds that the selection admits, and returns the
+  scope, the members, the snapshot's revision and a report per round. It throws
+  `UnanchoredTermError` for an unanchored term before any store call, and never scans.
+  `fetchScope(snapshot, entities, selection?)` makes one fetch and returns a synchronous source
+  over the exact scope. `StoreReactor.open(peerStore)` reads nothing; its `read` and `fetch` take
+  a snapshot each, release it, and start again on `snapshot-moved` up to `SNAPSHOT_RETRIES`
+  (three) times. `createFetchCache()` is the growing, verified set behind them. The evaluation
+  memo is not built yet. The memory `Reactor` is unchanged.
+- Shared vectors `vectors/store/rounds.json`: reads in rounds, with the anchors of each round,
+  interleaved appends and refusals. Format in `vectors/store/README.md` §5. The TypeScript
+  witness runs them; the Rust witness follows.
 - `resolvePrincipal`, `authorsForPrincipal` and `associatedKeys` take a `DeltaSource` as their
   first parameter, where they took a `Reactor`. A `Reactor` is a `DeltaSource`, so no call
   changes. Each read asks only for the scope of one entity, the principal root: over a

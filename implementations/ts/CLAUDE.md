@@ -48,7 +48,7 @@ src/
   resolve-kernel/   pure View policy evaluation
   resolve/          terminal term evaluation, including resolve composition
   schema-load/      self-hosted schema delta adapter
-  reactor/          indexed log and materializations
+  reactor/          indexed log and materializations; the store-backed read in rounds
   storage/          pack encoding and rehydration; the store interface, memory store and conformance runner
   federation/       peer and HTTP bindings
   derivation/       derived author host

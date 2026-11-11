@@ -624,6 +624,78 @@ the text above was silent, slice 1 decided as follows. The shared vectors and
 26. **Scheme case** (§4.10). `MEMORY:` opens the memory store. `registerStoreScheme` stores the
     lowercase form.
 
+### 4.12 Slice 2 readings
+
+Slice 2 builds the read of §4.4 and §6.2 beside the memory reactor
+(`18-store.SLICE-2.PLAN.md`). Where §4.3, §4.4 and the plan were silent, the store-backed read
+decided as follows. `vectors/store/rounds.json` and `vectors/store/README.md` §5 pin each point
+that a vector can pin.
+
+1. **The selection of a read** has two parts: a `pushdown` (§4.3), which the store may apply, and
+   a host predicate `admits(delta, arrival)`, which it never sees. The predicate receives the
+   delta's arrival record at this peer, so a host can select on arrival without a pushdown. Both
+   are pointwise (SPEC-17 §3).
+2. **The residual selection** is `admits` plus every pushdown field that the answer of **some**
+   round of this read did not report applied. A field stays residual for the rest of the read.
+   The host applies the residual to everything it holds. A member the store did trim passes the
+   field anyway, so applying it again changes nothing.
+3. **A round evaluates over the exact members**, `S(anchors so far over cache ∩ residual)`, and
+   never over the whole fetch cache. The cache also holds members that fail the residual and
+   members a store returned beyond the scope; they must not reach the evaluator.
+4. **Why a round asks only for its new anchors.** Let A be the anchors of earlier rounds, B the
+   new ones, p the selection and C the cache. Each earlier answer contains
+   `S(A_k over H_p) \ C_k`, so `C ⊇ S(A over H_p)`. The new answer contains
+   `S(B over H_p) \ C`. So the cache afterwards contains `S(A over H_p) ∪ S(B over H_p)`, which is
+   `S(A ∪ B over H_p)` because S is a union over anchors of closures. Every member of the cache
+   that passes the residual is in `H_p`, so by monotonicity `S(A ∪ B over cache ∩ residual)` is
+   inside `S(A ∪ B over H_p)`; and it contains it, because all of `S(A ∪ B over H_p)` is in the
+   cache and passes the residual. The two are equal. All of it needs one snapshot (§4.3).
+5. **Where `exclude` must not cut a chain.** A store that returns exactly closed scopes never
+   shows the difference between `exclude` and `excludeIds` to a read in rounds: what the read
+   holds is then closed under the negations its selection admits. The difference shows when a
+   store returns a member beyond the scope without that member's negators, which §4.3 allows.
+   Example: x fails the selection, d negates x and passes, n negates d, and d also points at an
+   anchor of a later round. A store that leaves the field to the host may return d early. The
+   later round owes n, and the read already holds d. The round vectors hold this shape
+   (`b1-late-note-neg-at-c2`), and each witness tests it with a store that returns d alone.
+6. **The rounds are normative** (plan O3). The first round asks for the request root and the
+   term's static anchors. Each later round asks for the anchors the last evaluation shows that
+   no round has asked for. SPEC-17 §6 allows lazy growth inside one evaluation; a store-backed
+   read does not use it, so two witnesses make the same store calls.
+7. **A read makes no store call but `scope`,** one per round. `exclude` names every id held,
+   also the ones that fail the residual. Its order is free.
+8. **An unanchored term** is refused before any store call, with the SPEC-17 §5 reason
+   (TypeScript: `UnanchoredTermError`, with `reason`, and the message
+   `term is not anchored: <reason>`). A gather that does not evaluate to an HView is refused
+   `result-sort`.
+9. **The answer** carries the result, the scope (every anchor asked for), the exact members of
+   the last round, the snapshot's revision, and one report per round: its anchors, how many
+   deltas came back, how many the read holds, how many are members, and what the store reported
+   applied.
+10. **The round hook** runs after each round's evaluation and before the next `scope` call,
+    also after the last round. The read waits for it. The interleaved vectors need it.
+11. **A moved snapshot.** `readAnchored` passes `snapshot-moved` up and keeps nothing.
+    `StoreReactor.read` and `StoreReactor.fetch` then start again on a new snapshot, with a new
+    cache: at most three more times, so at most four snapshots. Any other refusal passes up at
+    once. Every snapshot is released, also on a refusal. The answer says how many snapshots it
+    took.
+12. **`fetchScope`** makes one `scope` call and returns a source that knows **exactly**
+    `S(entities)` under the selection. A delta the store returned beyond that is not in the
+    source. Entities are asked once each, ascending.
+13. **The fetch cache checks every id** against its claims as a member enters, once. A member
+    whose id does not recompute is refused `invalid-request`. This joins the closed list of
+    §4.11 reading 21.
+14. **The read with no fetch cache** (mode 2 of the round vectors) asks for every anchor so far
+    in every round and sends no `exclude`, so each answer alone carries the whole scope so far.
+    It exists so the vectors can show that the cache changes no answer. Whether such a reader
+    also drops what earlier rounds returned cannot be observed and is free.
+15. **`StoreReactor`** holds a peer handle and nothing else. `open` makes no store call. It has
+    `read` and `fetch`, and no `snapshot`, `arrivalLog`, `digest` or `eval`.
+16. **Package edge.** The TypeScript `reactor` boundary may import `storage`. The round-vector
+    model needs the evaluator, so it lives with the generator and not in `storage`.
+17. **Not built yet in slice 2:** the evaluation memo (it wraps the per-round evaluation),
+    `readFullSurface`, and the second run of the existing read families.
+
 
 ## 5. Architectures
 
