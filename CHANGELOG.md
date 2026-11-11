@@ -24,7 +24,9 @@ behavior, and the reactor does not use the store yet.
   match without regard to case. An error names a scheme only when it is registered, and never
   the URL.
 - A store owns what it holds: it copies what it is given and what it returns, so no caller can
-  change stored state through a reference.
+  change stored state through a reference. It never converts: a value that is not of its type (an
+  `ArrayBuffer` where a `Uint8Array` payload belongs, a numeric string, a list that is not a
+  list) is refused `invalid-admission` in `append` and `invalid-request` elsewhere.
 - A purge report's `claim` is `proven`, `unproven` or `nothing-removed`, and covers only the
   targets that report removed.
 - `scopeSource(members)`: a synchronous SPEC-17 delta source over a fetched scope.

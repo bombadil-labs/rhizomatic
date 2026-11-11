@@ -819,6 +819,7 @@ function scripts(named: readonly Named[]): StoreScript[] {
         // A purged id may be appended again. It arrives anew.
         m.append("A", "a-head-1", "a-head-2", seq(9, "a-height-neg"));
         m.read("A", "a2");
+        m.arrivals("a2", ["a-height-neg"]);
         m.negators("a2", ["a-height-neg"]);
         m.scope("a2", ["plant:a"]);
         m.purge("A", []);
@@ -873,11 +874,12 @@ function scripts(named: readonly Named[]): StoreScript[] {
       m.head("s2");
       m.count("s2");
       // The shape of a request is checked before the snapshot's state: a malformed bound is
-      // `invalid-request` on a moved snapshot (s1) and on a released one (s2).
-      m.scope("s1", ["plant:a"], { arrivalAtMost: 1.5 });
-      m.scope("s1", ["plant:a"], { arrivalAtMost: -1 });
-      m.scope("s2", ["plant:a"], { arrivalAtMost: 1.5 });
-      m.scope("s2", ["plant:a"], { arrivalAtMost: 2 ** 53 });
+      // `invalid-request` on a moved snapshot (s1) and on a released one (s2). 2^53 is the
+      // value that reaches the store in every witness: an unsigned 64-bit field holds it, so a
+      // typed runner cannot answer for the store at its own boundary.
+      for (const snapshot of ["s1", "s2"])
+        for (const arrivalAtMost of [1.5, -1, 2 ** 53])
+          m.scope(snapshot, ["plant:a"], { arrivalAtMost });
       // Released and moved at once: either refusal conforms.
       m.release("s1");
       m.targets("s1", ["plant:a"]);
@@ -970,9 +972,16 @@ function scripts(named: readonly Named[]): StoreScript[] {
         { delta: "a-name", sequence: 9 },
         { delta: "a-twice", sequence: 10 },
       ]);
+      // A repeat inside the batch does not raise it either. The second a-twice carries 60 and
+      // is skipped; the largest committed sequence is 11, so 12 is free.
+      m.append("A", "head-5", "head-6", [
+        { delta: "a-twice", sequence: 11 },
+        { delta: "a-twice", sequence: 60 },
+      ]);
+      m.append("A", "head-6", "head-7", [{ delta: "ghost", sequence: 12 }]);
       m.read("A", "s");
       m.head("s");
-      m.arrivals("s", ["a-name", "a-height", "b-name", "far", "bed-link", "a-twice"]);
+      m.arrivals("s", ["a-name", "a-height", "b-name", "far", "bed-link", "a-twice", "ghost"]);
     }),
     s("the-first-appearance-is-kept", "SPEC-18 §4.5, §4.11", (m) => {
       m.createPeer("A", "unproven");

@@ -3213,6 +3213,18 @@
           "snapshot": "a2"
         },
         {
+          "op": "arrivals",
+          "snapshot": "a2",
+          "ids": [
+            "a-height-neg"
+          ],
+          "expect": {
+            "ids": [
+              "a-height-neg"
+            ]
+          }
+        },
+        {
           "op": "negators",
           "snapshot": "a2",
           "ids": [
@@ -3911,6 +3923,22 @@
         },
         {
           "op": "scope",
+          "snapshot": "s1",
+          "anchors": [
+            {
+              "kind": "entity",
+              "entity": "plant:a"
+            }
+          ],
+          "pushdown": {
+            "arrivalAtMost": 9007199254740992
+          },
+          "expect": {
+            "error": "invalid-request"
+          }
+        },
+        {
+          "op": "scope",
           "snapshot": "s2",
           "anchors": [
             {
@@ -3920,6 +3948,22 @@
           ],
           "pushdown": {
             "arrivalAtMost": 1.5
+          },
+          "expect": {
+            "error": "invalid-request"
+          }
+        },
+        {
+          "op": "scope",
+          "snapshot": "s2",
+          "anchors": [
+            {
+              "kind": "entity",
+              "entity": "plant:a"
+            }
+          ],
+          "pushdown": {
+            "arrivalAtMost": -1
           },
           "expect": {
             "error": "invalid-request"
@@ -4784,6 +4828,65 @@
           }
         },
         {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "head-5",
+          "nextHead": "head-6",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-twice",
+              "arrival": {
+                "at": 1011,
+                "sequence": 11,
+                "transfer": 7,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "a-twice",
+              "arrival": {
+                "at": 1060,
+                "sequence": 60,
+                "transfer": 7,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-twice"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "head-6",
+          "nextHead": "head-7",
+          "frame": null,
+          "added": [
+            {
+              "delta": "ghost",
+              "arrival": {
+                "at": 1012,
+                "sequence": 12,
+                "transfer": 8,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "status": "committed",
+            "added": [
+              "ghost"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
           "op": "read",
           "peer": "A",
           "snapshot": "s"
@@ -4792,7 +4895,7 @@
           "op": "head",
           "snapshot": "s",
           "expect": {
-            "head": "head-5"
+            "head": "head-7"
           }
         },
         {
@@ -4804,14 +4907,17 @@
             "b-name",
             "far",
             "bed-link",
-            "a-twice"
+            "a-twice",
+            "ghost"
           ],
           "expect": {
             "ids": [
               "b-name",
               "a-name",
               "bed-link",
+              "a-twice",
               "a-height",
+              "ghost",
               "far"
             ]
           }
