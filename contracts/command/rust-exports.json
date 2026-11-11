@@ -75661,6 +75661,16 @@
       "target": "std::vec::Vec::new"
     },
     {
+      "form": "macro-region",
+      "owner": "delta",
+      "source": "implementations/rust/src/set.rs",
+      "symbol": "NegationReader::witnesses",
+      "macros": [
+        "assert"
+      ],
+      "status": "parsed-known-macro-arguments"
+    },
+    {
       "form": "syn-resolved-path",
       "owner": "delta",
       "rawTarget": "crate::set::DeltaSource",

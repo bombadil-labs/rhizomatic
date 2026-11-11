@@ -169,6 +169,11 @@ pub fn federate(a: &DeltaSet, b: &DeltaSet, p: impl Fn(&Delta) -> bool) -> Delta
 ///
 /// A source over a fetched scope answers only from what was fetched: it cannot tell an absent
 /// delta from one that was not fetched. A caller fetches the anchors of everything it asks about.
+///
+/// A source holds content-addressed deltas: each id recomputes from its claims. Negation chains
+/// over such deltas cannot form a cycle, and the readers rely on that; a reader that meets a
+/// cycle panics. `targets` and `negators` list only ids the source holds, so `get` returns each
+/// one. A reader skips a listed id that `get` cannot return, and does not count it.
 pub trait DeltaSource {
     fn get(&self, id: &str) -> Option<&Delta>;
     /// Ids of every delta with a pointer whose target is the entity `entity`, any role or context.
@@ -190,6 +195,9 @@ pub trait DeltaSource {
 /// An id the source does not hold has no witnesses, and a negation the source does not hold is
 /// not counted. Over a fetched scope S(E) the answers for the members of S(E) equal the answers
 /// over the whole surface, because S(E) is closed under held negators.
+///
+/// The source must hold content-addressed deltas ([`DeltaSource`]). A negator the source lists
+/// but cannot `get` is not counted.
 pub struct NegationReader<'a, S, F>
 where
     S: DeltaSource + ?Sized,
@@ -209,6 +217,11 @@ where
 {
     /// Effective direct negations, in ascending delta-id order. Target validity is independent.
     /// The suppression callback must not invoke this reader recursively; compute trust first.
+    ///
+    /// # Panics
+    ///
+    /// Panics on a negation cycle. Content-addressed deltas cannot form one, so a cycle means
+    /// the source broke the [`DeltaSource`] contract; an answer would depend on the walk order.
     pub fn witnesses(&mut self, id: &str) -> Vec<Delta> {
         if let Some(cached) = self.memo.get(id) {
             return cached.clone();
@@ -216,9 +229,10 @@ where
         let Some(target) = self.source.get(id).cloned() else {
             return Vec::new();
         };
-        if !self.visiting.insert(id.to_string()) {
-            return Vec::new();
-        }
+        assert!(
+            self.visiting.insert(id.to_string()),
+            "negation cycle: the delta source holds deltas that are not content-addressed"
+        );
         let mut effective = Vec::new();
         for negation_id in self.source.negators(id) {
             let Some(negation) = self.source.get(&negation_id).cloned() else {

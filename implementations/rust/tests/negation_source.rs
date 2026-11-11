@@ -403,3 +403,82 @@ fn revision_rises_once_for_each_call_that_adds_a_member() {
         "the counter belongs to one reactor"
     );
 }
+
+/// A hand-written source. Its deltas carry ids that do not recompute from their claims, which
+/// no reactor, store or scope source admits.
+struct Stub {
+    held: Vec<Delta>,
+    negators: Vec<(&'static str, Vec<&'static str>)>,
+}
+
+impl DeltaSource for Stub {
+    fn get(&self, id: &str) -> Option<&Delta> {
+        self.held.iter().find(|delta| delta.id == id)
+    }
+    fn targets(&self, _entity: &str) -> Vec<String> {
+        Vec::new()
+    }
+    fn negators(&self, id: &str) -> Vec<String> {
+        self.negators
+            .iter()
+            .filter(|(target, _)| *target == id)
+            .flat_map(|(_, ids)| ids.iter().map(|id| id.to_string()))
+            .collect()
+    }
+}
+
+fn forged(id: &str, of: &Delta) -> Delta {
+    Delta {
+        id: id.to_string(),
+        ..of.clone()
+    }
+}
+
+#[test]
+#[should_panic(
+    expected = "negation cycle: the delta source holds deltas that are not content-addressed"
+)]
+fn a_negation_cycle_panics_and_names_the_cause() {
+    let any = about("e0", "ann", 1.0);
+    let source = Stub {
+        held: vec![forged("a", &any), forged("b", &any)],
+        negators: vec![("a", vec!["b"]), ("b", vec!["a"])],
+    };
+    negation_reader(&source, 10.0, any_author)
+        .unwrap()
+        .witnesses("a");
+}
+
+#[test]
+#[should_panic(expected = "negation cycle")]
+fn a_delta_that_negates_itself_panics() {
+    let any = about("e0", "ann", 1.0);
+    let source = Stub {
+        held: vec![forged("s", &any)],
+        negators: vec![("s", vec!["s"])],
+    };
+    let _ = negation_predicate(&source, 10.0, any_author).unwrap()("s");
+}
+
+#[test]
+fn a_negator_the_source_lists_but_cannot_get_is_not_counted() {
+    let any = about("e0", "ann", 1.0);
+    // `negators` lists an id that `get` does not return.
+    let only_ghost = Stub {
+        held: vec![forged("x", &any)],
+        negators: vec![("x", vec!["ghost"])],
+    };
+    let mut reader = negation_reader(&only_ghost, 10.0, any_author).unwrap();
+    assert!(reader.witnesses("x").is_empty());
+    assert!(!reader.is_negated("x"));
+    assert!(negation_witnesses(&only_ghost, "x", 10.0, any_author)
+        .unwrap()
+        .is_empty());
+
+    let both = Stub {
+        held: vec![forged("x", &any), forged("held", &any)],
+        negators: vec![("x", vec!["ghost", "held"])],
+    };
+    let mut reader = negation_reader(&both, 10.0, any_author).unwrap();
+    assert_eq!(ids(&reader.witnesses("x")), vec!["held".to_string()]);
+}

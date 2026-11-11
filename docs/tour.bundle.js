@@ -5150,24 +5150,47 @@
   }
 
   // src/delta/negation.ts
-  function negationWitnesses(source, now, suppression) {
+  function negationWitnesses(source, now, suppression, epoch) {
     if (!Number.isFinite(now)) throw new Error("now must be a finite number");
     const memo = /* @__PURE__ */ new Map();
     const visiting = /* @__PURE__ */ new Set();
+    let seen = epoch?.();
+    let inSuppression = false;
     const valid = (delta) => delta.claims.validFrom <= now && (delta.claims.validUntil === void 0 || now < delta.claims.validUntil);
     const witnesses = (id) => {
+      if (epoch !== void 0) {
+        const current = epoch();
+        if (current !== seen) {
+          memo.clear();
+          visiting.clear();
+          seen = current;
+        }
+      }
       const cached = memo.get(id);
       if (cached !== void 0) return cached;
       const target = source.get(id);
       if (target === void 0) return [];
-      if (visiting.has(id)) throw new Error("negation reader re-entered during suppression");
+      if (visiting.has(id)) {
+        if (inSuppression) throw new Error("negation reader re-entered during suppression");
+        throw new Error(
+          "negation cycle: the delta source holds deltas that are not content-addressed"
+        );
+      }
       visiting.add(id);
       const effective = [];
       try {
         for (const negationId of source.negators(id)) {
           const negation = source.get(negationId);
           if (negation === void 0 || !valid(negation)) continue;
-          if (!suppression(negation, target) || witnesses(negationId).length > 0) continue;
+          const outer = inSuppression;
+          inSuppression = true;
+          let grants;
+          try {
+            grants = suppression(negation, target);
+          } finally {
+            inSuppression = outer;
+          }
+          if (!grants || witnesses(negationId).length > 0) continue;
           effective.push(negation);
         }
       } finally {
@@ -5321,15 +5344,7 @@
      * callback must not invoke this reader recursively; compute a trust set in a prior pass.
      */
     negationWitnesses(now, suppression) {
-      let revision = this.membershipRevision;
-      let reader = negationWitnesses(this, now, suppression);
-      return (id) => {
-        if (revision !== this.membershipRevision) {
-          reader = negationWitnesses(this, now, suppression);
-          revision = this.membershipRevision;
-        }
-        return reader(id);
-      };
+      return negationWitnesses(this, now, suppression, () => this.membershipRevision);
     }
     /** A memoized yes/no form of negationWitnesses for repeated checks in one read. */
     negationPredicate(now, suppression) {
@@ -5357,15 +5372,16 @@
       return this.set.size;
     }
     /**
-     * The membership counter. It starts at 0 and rises by exactly one for each `ingest`,
-     * `ingestBatch` or `ingestBundle` call that answers `accepted`, whatever the number of deltas
-     * the call added. A call that answers `duplicate` or `rejected` adds no member and leaves it
-     * unchanged, and nothing else moves it: not time, not a refresh, not a registration. Inside an
-     * accepted call it rises after every new member is indexed and before any subscriber runs.
+     * The membership counter. Equal values from one reactor mean the same membership. It starts
+     * at 0 and rises by exactly one for each `ingest`, `ingestBatch` or `ingestBundle` call that
+     * adds at least one member, whatever the number of deltas the call added. Nothing else moves
+     * it: not a call that adds no member (`duplicate`, `rejected`), not time, not a refresh, not a
+     * registration. Inside a call it rises after every new member is indexed and before any
+     * subscriber runs. A subscriber that throws makes the call throw and not answer `accepted`;
+     * the members are held by then and the counter has risen.
      *
-     * Equal values from one reactor mean the same membership. The value is comparable only within
-     * one reactor object: two reactors that hold the same deltas can report different values. It
-     * is not a store `Revision` (SPEC-18).
+     * The value is comparable only within one reactor object: two reactors that hold the same
+     * deltas can report different values. It is not a store `Revision` (SPEC-18).
      */
     get revision() {
       return this.membershipRevision;

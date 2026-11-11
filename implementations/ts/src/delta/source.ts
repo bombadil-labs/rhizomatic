@@ -11,6 +11,11 @@ import type { Delta } from "./types.js";
  * the UTF-8 bytes of the id (`compareUtf8`), as an array the caller must not change. A `Set`, or
  * a list in arrival order, does not conform. `subset`, when present, builds a set from members
  * the source has already verified, without hashing them again.
+ *
+ * A source holds content-addressed deltas: each id recomputes from its claims. Negation chains
+ * over such deltas cannot form a cycle, and the readers rely on that; a reader that meets a
+ * cycle throws. `targets` and `negators` list only ids the source holds, so `get` returns each
+ * one. A reader skips a listed id that `get` cannot return, and does not count it.
  */
 export interface DeltaSource {
   get(id: string): Delta | undefined;

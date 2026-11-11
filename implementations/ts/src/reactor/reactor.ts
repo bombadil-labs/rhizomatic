@@ -237,17 +237,9 @@ export class Reactor implements DeltaSource {
    * callback must not invoke this reader recursively; compute a trust set in a prior pass.
    */
   negationWitnesses(now: number, suppression: Suppression): (id: string) => readonly Delta[] {
-    // The free reader memoizes for its whole life; a new one per membership revision is the
-    // invalidation.
-    let revision = this.membershipRevision;
-    let reader = witnessesOver(this, now, suppression);
-    return (id) => {
-      if (revision !== this.membershipRevision) {
-        reader = witnessesOver(this, now, suppression);
-        revision = this.membershipRevision;
-      }
-      return reader(id);
-    };
+    // The membership revision is the reader's epoch: it drops its memo at any step of a walk
+    // that finds the revision moved, also when a suppression callback ingested.
+    return witnessesOver(this, now, suppression, () => this.membershipRevision);
   }
 
   /** A memoized yes/no form of negationWitnesses for repeated checks in one read. */
@@ -281,15 +273,16 @@ export class Reactor implements DeltaSource {
   }
 
   /**
-   * The membership counter. It starts at 0 and rises by exactly one for each `ingest`,
-   * `ingestBatch` or `ingestBundle` call that answers `accepted`, whatever the number of deltas
-   * the call added. A call that answers `duplicate` or `rejected` adds no member and leaves it
-   * unchanged, and nothing else moves it: not time, not a refresh, not a registration. Inside an
-   * accepted call it rises after every new member is indexed and before any subscriber runs.
+   * The membership counter. Equal values from one reactor mean the same membership. It starts
+   * at 0 and rises by exactly one for each `ingest`, `ingestBatch` or `ingestBundle` call that
+   * adds at least one member, whatever the number of deltas the call added. Nothing else moves
+   * it: not a call that adds no member (`duplicate`, `rejected`), not time, not a refresh, not a
+   * registration. Inside a call it rises after every new member is indexed and before any
+   * subscriber runs. A subscriber that throws makes the call throw and not answer `accepted`;
+   * the members are held by then and the counter has risen.
    *
-   * Equal values from one reactor mean the same membership. The value is comparable only within
-   * one reactor object: two reactors that hold the same deltas can report different values. It
-   * is not a store `Revision` (SPEC-18).
+   * The value is comparable only within one reactor object: two reactors that hold the same
+   * deltas can report different values. It is not a store `Revision` (SPEC-18).
    */
   get revision(): number {
     return this.membershipRevision;

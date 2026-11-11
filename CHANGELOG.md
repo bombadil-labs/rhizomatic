@@ -27,9 +27,21 @@ read type for consumers, and the principal reads take it.
   the reactor's negation readers as free functions over any `DeltaSource`, such as a
   `scopeSource` of a fetched scope. A free reader keeps its memo for its whole life; build a new
   one when the source changes. The `Reactor` methods delegate to them and still follow ingests.
-- `Reactor.revision`: the membership counter. It rises by one for each accepted `ingest`,
-  `ingestBatch` or `ingestBundle` call and at no other time. It is comparable only within one
-  reactor object and is not a store `Revision`.
+  An optional fourth argument `epoch: () => number` makes a free reader follow a source that
+  changes: the reader looks at the value at every step of a walk and drops its memo when it
+  moved. The `Reactor` methods pass the membership revision, so a suppression callback that
+  ingests in the middle of a walk gets a fresh answer in the same call.
+- A `DeltaSource` holds content-addressed deltas, and `targets` and `negators` list only ids it
+  holds. A negation reader does not count a listed negator that `get` cannot return. A negation
+  cycle, which only a source with forged ids can hold, fails loudly: TypeScript throws
+  `negation cycle: the delta source holds deltas that are not content-addressed`, and Rust
+  `NegationReader::witnesses` panics with the same message, where it returned an empty list
+  that depended on the walk order. The TypeScript error `negation reader re-entered during
+  suppression` now names only a suppression callback that calls its own reader.
+- `Reactor.revision`: the membership counter. Equal values on one reactor mean equal membership.
+  It rises by one for each `ingest`, `ingestBatch` or `ingestBundle` call that adds at least one
+  member, including a call whose subscriber then throws, and at no other time. It is comparable
+  only within one reactor object and is not a store `Revision`.
 - `ScopeReads`: the input type of `scopeIds` and `evalAnchored`. It is a `DeltaSource` without the
   order rule, because scope computation sorts its own answer. Every `DeltaSource` is one.
 - The store interface types: `Store`, `PeerStore`, `Snapshot`, `ScopeRequest`, `ScopeResult`,

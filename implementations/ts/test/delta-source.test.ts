@@ -425,3 +425,172 @@ describe("Reactor.revision", () => {
     expect([one.revision, other.revision]).toEqual([2, 1]);
   });
 });
+
+describe("Reactor.revision and a subscriber that throws", () => {
+  it("has risen, and the member is held, when ingest throws from a raw subscriber", () => {
+    const fact = makeDelta({
+      timestamp: 1,
+      validFrom: 0,
+      author: AUTHORS[0]!,
+      pointers: [entityPointer("e0")],
+    });
+    const r = new Reactor();
+    r.subscribeRaw(() => {
+      throw new Error("subscriber failed");
+    });
+    // The call does not answer `accepted`; it throws.
+    expect(() => r.ingest(fact)).toThrow("subscriber failed");
+    expect(r.revision).toBe(1);
+    expect(r.has(fact.id)).toBe(true);
+    expect(r.targets("e0")).toEqual([fact.id]);
+    // The same delta again adds no member: the counter stays.
+    expect(r.ingest(fact)).toEqual({ status: "duplicate" });
+    expect(r.revision).toBe(1);
+  });
+});
+
+describe("the Reactor's negation reader and an ingest in the middle of a walk", () => {
+  const fact = (n: number): Delta =>
+    makeDelta({
+      timestamp: n,
+      validFrom: 0,
+      author: AUTHORS[0]!,
+      pointers: [entityPointer("e0")],
+    });
+  const strikeOf = (target: Delta, n: number): Delta =>
+    makeDelta({ timestamp: n, validFrom: 0, author: AUTHORS[1]!, pointers: [negates(target.id)] });
+
+  for (const form of ["witnesses", "predicate"] as const) {
+    it(`${form}: a suppression callback that ingests gets a fresh answer in the same call`, () => {
+      const x = fact(1);
+      const n1 = strikeOf(x, 2);
+      const n0 = strikeOf(n1, 3);
+      const reactor = new Reactor();
+      reactor.ingest(x);
+      reactor.ingest(n1);
+      // When the walk asks about (n1, x), a negation of n1 arrives.
+      const suppression: Suppression = (negation, target) => {
+        if (negation.id === n1.id && target.id === x.id) reactor.ingest(n0);
+        return true;
+      };
+      const count =
+        form === "witnesses"
+          ? (
+              (read) => (id: string) =>
+                read(id).length
+            )(reactor.negationWitnesses(1, suppression))
+          : ((read) => (id: string) => (read(id) ? 1 : 0))(
+              reactor.negationPredicate(1, suppression),
+            );
+      // The reader has answered n1 before the walk: not negated.
+      expect(count(n1.id)).toBe(0);
+      expect(reactor.has(n0.id)).toBe(false);
+      // n0 arrives inside this call, and the answer already counts it: n1 is negated, x is not.
+      expect(count(x.id)).toBe(0);
+      expect(reactor.has(n0.id)).toBe(true);
+      expect(count(x.id)).toBe(0);
+      expect(count(n1.id)).toBe(1);
+    });
+  }
+
+  it("a free reader with no epoch keeps its memo through the same ingest", () => {
+    const x = fact(1);
+    const n1 = strikeOf(x, 2);
+    const n0 = strikeOf(n1, 3);
+    const reactor = new Reactor();
+    reactor.ingest(x);
+    reactor.ingest(n1);
+    const suppression: Suppression = (negation, target) => {
+      if (negation.id === n1.id && target.id === x.id) reactor.ingest(n0);
+      return true;
+    };
+    const free = negationWitnesses(reactor, 1, suppression);
+    expect(free(n1.id)).toEqual([]);
+    expect(idsOf(free(x.id))).toEqual([n1.id]);
+    // With an epoch the same free reader follows the change.
+    const other = new Reactor();
+    other.ingest(x);
+    other.ingest(n1);
+    const followed = negationWitnesses(
+      other,
+      1,
+      (negation, target) => {
+        if (negation.id === n1.id && target.id === x.id) other.ingest(n0);
+        return true;
+      },
+      () => other.revision,
+    );
+    expect(followed(n1.id)).toEqual([]);
+    expect(followed(x.id)).toEqual([]);
+  });
+});
+
+describe("negation readers over a source that breaks the contract", () => {
+  // A hand-written source. Its deltas carry ids that do not recompute from their claims, which
+  // no reactor, store or scope source admits.
+  const forged = (id: string, pointers: Pointer[]): Delta => ({
+    id,
+    claims: { timestamp: 1, validFrom: 0, author: AUTHORS[0]!, pointers },
+  });
+  const stub = (held: readonly Delta[], negators: Record<string, string[]>): DeltaSource => ({
+    get: (id) => held.find((d) => d.id === id),
+    targets: () => [],
+    negators: (id) => negators[id] ?? [],
+  });
+
+  it("throws on a negation cycle, and names the cause", () => {
+    const a = forged("a", [negates("b")]);
+    const b = forged("b", [negates("a")]);
+    const self = forged("s", [negates("s")]);
+    const source = stub([a, b, self], { a: ["b"], b: ["a"], s: ["s"] });
+    for (const id of ["a", "b", "s"]) {
+      expect(() => negationWitnesses(source, 1, SUPPRESSIONS.always!)(id)).toThrow(
+        "negation cycle: the delta source holds deltas that are not content-addressed",
+      );
+      expect(() => negationPredicate(source, 1, SUPPRESSIONS.always!)(id)).toThrow(
+        /negation cycle/,
+      );
+    }
+  });
+
+  it("keeps the re-entry error for a suppression callback that calls the reader", () => {
+    const reactor = new Reactor();
+    const x = makeDelta({
+      timestamp: 1,
+      validFrom: 0,
+      author: AUTHORS[0]!,
+      pointers: [entityPointer("e0")],
+    });
+    const n = makeDelta({
+      timestamp: 2,
+      validFrom: 0,
+      author: AUTHORS[0]!,
+      pointers: [negates(x.id)],
+    });
+    reactor.ingest(x);
+    reactor.ingest(n);
+    const reader: (id: string) => readonly Delta[] = negationWitnesses(reactor, 1, () => {
+      reader(x.id);
+      return true;
+    });
+    expect(() => reader(x.id)).toThrow("negation reader re-entered during suppression");
+  });
+
+  it("does not count a negator the source lists but cannot get", () => {
+    const x = forged("x", [entityPointer("e0")]);
+    const held = forged("held", [negates("x")]);
+    const calls: string[] = [];
+    const suppression: Suppression = (negation) => {
+      calls.push(negation.id);
+      return true;
+    };
+    // `negators` lists an id that `get` does not return.
+    const onlyGhost = stub([x], { x: ["ghost"] });
+    expect(negationWitnesses(onlyGhost, 1, suppression)("x")).toEqual([]);
+    expect(negationPredicate(onlyGhost, 1, suppression)("x")).toBe(false);
+    const both = stub([x, held], { x: ["ghost", "held"] });
+    expect(idsOf(negationWitnesses(both, 1, suppression)("x"))).toEqual(["held"]);
+    // The reader never asked the suppression rule about the id it could not get.
+    expect(calls).toEqual(["held"]);
+  });
+});
