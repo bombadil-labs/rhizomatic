@@ -10,8 +10,13 @@ The store, slice 1 (SPEC-18 proposal): one store interface with declared capabil
 memory reference store, in both witnesses against the same vectors. Nothing existing changes
 behavior, and the reactor does not use the store yet.
 
-The store, slice 2 (SPEC-18 proposal), has started in both witnesses: the delta source is the one
-read type for consumers, and the principal reads take it.
+The store, slice 2 (SPEC-18 proposal): the reactor reads through a store. An anchored read runs in
+rounds on one snapshot, with a fetch cache and an evaluation memo; a term with no anchor runs only
+as an explicit full-surface read through the exporter. The delta source is the one read type for
+consumers. Every existing read vector family runs a second time through a memory store with the
+same expected bytes. The memory `Reactor` keeps its whole-set methods, deprecated, until Loam moves
+in slice 5. The store is read-only in slice 2: only test fixtures fill one. The TypeScript witness
+is complete; the Rust witness follows the same documents.
 
 ### ⚠️ Breaking
 
@@ -141,6 +146,31 @@ read type for consumers, and the principal reads take it.
   `&dyn DeltaSource`. No answer changes in either witness.
 - The shared principal cases and history cases (`vectors/principal/evidence.json`) run a second
   time in each witness, over a scope fetched from a memory store peer.
+- Slice 2, TypeScript: `readFullSurface(peerExporter, request)`, the explicit full-surface read of
+  SPEC-18 §6.6. It lists the peer through its exporter, keeps what the selection admits, and
+  evaluates any term, anchored or not, over that. Its `route` says `optimized: false` and how many
+  deltas it listed and admitted. It takes `timestampAtMost` and `excludeIds` and refuses
+  `invalid-request`, before it lists anything, for `arrivalAtMost` or `admits`: a listing carries
+  no arrival record. A `StoreReactor` holds no exporter, so a serving path cannot reach it.
+  `collectDeltaSet(peerExporter)` lists one peer into a `DeltaSet`, recomputing each id.
+- Slice 2, TypeScript: `StoreRead.memoStored`, the number of child evaluations the read's memo
+  held when it ended, and 0 with the memo off (SPEC-18 §4.12 reading 27). The memo changes no
+  answer, so this is how a test sees whether a read used it.
+- Slice 2, TypeScript: the existing read families run a second time through a memory store: every
+  evaluation case of `vectors/l1-eval` (56 anchored ones through `readAnchored`, 56 unanchored
+  ones through `readFullSurface`), the SPEC-17 read and scope cases through `readAnchored` and
+  `fetchScope`, and the negation-witness cases of `vectors/l2-reactor/governed.json` over a
+  fetched scope. Ingest, dispatch and journal families wait for slices 3 and 4.
+- `Reactor.legacyHoldings()`: the whole held set, its arrival order and its digest, for the memory
+  `Peer` of `federation` only. Not a read path.
+
+### Deprecated
+
+- `Reactor.snapshot()`, `Reactor.arrivalLog()`, `Reactor.digest()` and `Reactor.eval()`: each
+  reads the whole set. Use `readAnchored` or `fetchScope` over a store snapshot,
+  `Reactor.evalAnchored`, `readFullSurface` for a term with no anchor, `Snapshot.arrivals`, and
+  `collectDeltaSet` for a whole listing. They stay until Loam moves to a store (slice 5). Nothing
+  in the package calls them any more; a rail holds that.
 
 ### Changed
 

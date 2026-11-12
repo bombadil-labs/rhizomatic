@@ -5,13 +5,15 @@ import { compareUtf8 } from "../../src/delta/cbor.js";
 import type { Delta } from "../../src/delta/types.js";
 import { createMemoryStore, type StoreMeter } from "../../src/storage/memory-store.js";
 import { scopeSource, type ScopeSource } from "../../src/storage/scope-source.js";
-import type { PeerStore, Snapshot } from "../../src/storage/store.js";
+import type { PeerStore, Snapshot, Store } from "../../src/storage/store.js";
 
 export const FIXTURE_PEER = `ed25519:${"0a".repeat(32)}`;
 export const FIXTURE_SENDER = "fixture";
 export const FIXTURE_HEAD = "fixture-head";
 
 export interface LoadedPeer {
+  /** The store that holds the peer; `store.openAdmin().peer(FIXTURE_PEER)` lists it. */
+  readonly store: Store;
   readonly peer: PeerStore;
   /** Counts the store's index work from the moment the peer is loaded. */
   readonly meter: StoreMeter;
@@ -41,7 +43,7 @@ export async function loadPeer(deltas: Iterable<Delta>): Promise<LoadedPeer> {
   meter.lookups = 0;
   meter.visited = 0;
   meter.scans = 0;
-  return { peer, meter };
+  return { store, peer, meter };
 }
 
 /** Which snapshot reads one fetch made, in order. */

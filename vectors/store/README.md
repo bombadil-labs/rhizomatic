@@ -776,8 +776,9 @@ a `fix`. The memo works as follows.
 2. The key is (schema reference, bindings, root). The schema reference is the name or the pinned
    hash, as the term writes it. The bindings are the ones in effect: the request's, or those of
    the nearest enclosing `fix` that has `bindings`. Compare them by identity within the read (one
-   object, or one place in the term); two binding sets with the same entries may share a key or
-   not. The root is the entity id.
+   object, or one place in the term) or by content, entry by entry (a number by its bits); two
+   binding sets with the same entries may share a key or not. Two binding sets that differ in any
+   entry must never share a key. The root is the entity id.
 3. Before it evaluates a child, the evaluator looks up the key. On a hit it uses the stored HView
    and evaluates nothing under that child.
 4. After it evaluates a child, it stores the HView only when the child is **final**: every anchor
@@ -979,6 +980,11 @@ The JSON cannot express these; each witness builds them over this fixture.
   evaluation per stored-or-refused child, measures: `the-whole-garden` 159 without the memo and
   62 with it (18 keys, 18 stored, 44 not final, 42 hits); `one-child-under-two-bindings` 38 and 24
   (11 keys, 11 stored, 13 not final, 12 hits).
+- **What the read reports about its memo** (SPEC-18 §4.12 reading 27). The answer of a read
+  carries the number of child evaluations its memo held when it ended (TypeScript
+  `StoreRead.memoStored`). The standard read of `the-whole-garden` (mode 5) reports 18; the same
+  read with the memo off (mode 3) reports 0, and so does mode 2. No vector can see a read that
+  ignores the memo switch, because the memo changes no answer; this count can.
 - **The memo and a budget.** An evaluation with a budget and a memo never calls the memo; the
   same evaluation without the budget does.
 - **The memo changes no report.** For every case, the round reports of modes 3 and 5, and of

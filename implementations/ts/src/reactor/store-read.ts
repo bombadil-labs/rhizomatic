@@ -23,9 +23,11 @@ import { createReadCache, type HeldMembers } from "../storage/fetch-cache.js";
 import type { ScopeSource } from "../storage/scope-source.js";
 import {
   StoreError,
+  collectDeltaSet,
   type AppliedPushdown,
   type Entity,
   type Id,
+  type PeerExporter,
   type PeerStore,
   type Pushdown,
   type Revision,
@@ -96,6 +98,17 @@ export interface StoreRoundReport {
 export interface StoreRead extends AnchoredRead {
   readonly revision: Revision;
   readonly rounds: readonly StoreRoundReport[];
+  /**
+   * How many child evaluations the evaluation memo held when the read ended (SPEC-18 §4.12
+   * reading 27). 0 when the memo is off. The memo changes no answer, so this is the one place a
+   * read shows whether it used one.
+   */
+  readonly memoStored: number;
+}
+
+/** The evaluation memo of one attempt, and how many child evaluations it holds. */
+export interface ReadMemo extends ChildMemo {
+  readonly stored: number;
 }
 
 type PushdownField = keyof AppliedPushdown;
@@ -124,7 +137,7 @@ export interface RoundPolicy {
    * the attempt starts. `fetched` is every anchor asked for so far; it grows as the rounds go.
    * Absent: every round evaluates every child it reaches.
    */
-  readonly memo?: (fetched: ReadonlySet<Entity>) => ChildMemo;
+  readonly memo?: (fetched: ReadonlySet<Entity>) => ReadMemo;
 }
 
 const entityAnchors = (entities: readonly Entity[]): ScopeRequest["anchors"] =>
@@ -158,7 +171,7 @@ function finalIn(fetched: ReadonlySet<Entity>, known: WeakSet<HView>, hview: HVi
  * and no later round of the attempt can change it (§4.12 reading 22). A child that is not final
  * is evaluated again by the next round that reaches it.
  */
-export function finalChildMemo(fetched: ReadonlySet<Entity>): ChildMemo {
+export function finalChildMemo(fetched: ReadonlySet<Entity>): ReadMemo {
   const kept = new Map<string, HView>();
   const known = new WeakSet<HView>();
   // Bindings by identity: the term holds each bindings object for the whole read (reading 21).
@@ -176,6 +189,9 @@ export function finalChildMemo(fetched: ReadonlySet<Entity>): ChildMemo {
     get: (schema, bindings, root) => kept.get(key(schema, bindings, root)),
     put: (schema, bindings, root, hview) => {
       if (finalIn(fetched, known, hview)) kept.set(key(schema, bindings, root), hview);
+    },
+    get stored() {
+      return kept.size;
     },
   };
 }
@@ -332,6 +348,7 @@ export async function readAnchoredWith(
         members,
         revision: snapshot.revision,
         rounds,
+        memoStored: memo?.stored ?? 0,
       };
     }
   }
@@ -347,6 +364,76 @@ export async function readAnchoredWith(
  */
 export function readAnchored(snapshot: Snapshot, request: StoreReadRequest): Promise<StoreRead> {
   return readAnchoredWith(snapshot, request, STANDARD_ROUNDS);
+}
+
+/** A full-surface read: no anchors, so the host applies its whole selection itself. */
+export interface FullSurfaceRequest {
+  readonly term: Term;
+  /** Absent for a term that reads no root. */
+  readonly root?: string;
+  readonly now: number;
+  readonly registry?: SchemaRegistry;
+  readonly bindings?: Bindings;
+  /**
+   * Applied by the host to each listed delta. A dropped delta is absent, and negation chains stop
+   * at it. No `arrivalAtMost` and no `admits`: a listing carries no arrival record (§4.7.6).
+   */
+  readonly pushdown?: Omit<Pushdown, "arrivalAtMost">;
+}
+
+/** How a full-surface read went. It is never optimized: it read everything the peer holds. */
+export interface FullSurfaceRoute {
+  readonly optimized: false;
+  /** How many deltas the listing gave. */
+  readonly listed: number;
+  /** How many of them passed the selection and were evaluated over. */
+  readonly admitted: number;
+}
+
+export interface FullSurfaceRead {
+  readonly result: EvalResult;
+  readonly route: FullSurfaceRoute;
+}
+
+/**
+ * The explicit full-surface read of SPEC-18 §6.6: list every delta the peer holds through its
+ * exporter, keep those the selection admits, and evaluate the term over them. O(surface), for
+ * any term, anchored or not. It needs a `PeerExporter`, so a serving path that was never given
+ * one (a `StoreReactor`, a snapshot) cannot reach it. It keeps nothing.
+ *
+ * Refuses `invalid-request`, before it lists anything, for a selection that names
+ * `arrivalAtMost` or `admits`: the listing has no arrival record to decide them by.
+ */
+export async function readFullSurface(
+  peer: PeerExporter,
+  request: FullSurfaceRequest,
+): Promise<FullSurfaceRead> {
+  const untyped = request as FullSurfaceRequest & { pushdown?: Pushdown; admits?: unknown };
+  if (untyped.pushdown?.arrivalAtMost !== undefined || untyped.admits !== undefined)
+    throw new StoreError(
+      "invalid-request",
+      "a full-surface read cannot select by arrival: a peer listing carries no arrival record",
+    );
+  const whole = await collectDeltaSet(peer);
+  const { timestampAtMost, excludeIds } = request.pushdown ?? {};
+  const dropped = new Set(excludeIds);
+  const admitted =
+    timestampAtMost === undefined && dropped.size === 0
+      ? whole
+      : whole.filtered(
+          (delta) =>
+            !dropped.has(delta.id) &&
+            (timestampAtMost === undefined || delta.claims.timestamp <= timestampAtMost),
+        );
+  const result = evalTerm(
+    request.term,
+    admitted,
+    request.now,
+    request.root,
+    request.registry,
+    request.bindings,
+  );
+  return { result, route: { optimized: false, listed: whole.size, admitted: admitted.size } };
 }
 
 /** A fetched scope: a synchronous source over its exact members, and the revision it is of. */

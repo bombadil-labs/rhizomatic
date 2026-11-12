@@ -802,8 +802,9 @@ that a vector can pin.
     `read` and `fetch`, and no `snapshot`, `arrivalLog`, `digest` or `eval`.
 16. **Package edge.** The TypeScript `reactor` boundary may import `storage`. The round-vector
     model needs the evaluator, so it lives with the generator and not in `storage`.
-17. **Not built yet in slice 2:** `readFullSurface`, and the second run of the existing read
-    families. The evaluation memo is readings 21 to 26.
+17. **What slice 2 builds.** The read in rounds (readings 1 to 20), the evaluation memo (readings
+    21 to 27), the full-surface read (reading 28), and the second run of the existing read
+    families (reading 29).
 18. **The read trusts `applied`.** It does not check again a field that the store reported
     applied. A check costs work on every honest read, and §4.3 makes a false `applied` a store
     defect that the store vectors catch. Over a store that reports a field applied and does not
@@ -820,14 +821,17 @@ that a vector can pin.
     at one root: each child of an `expand`, and the body of a `fix`. The memo maps a key to the
     HView of a child evaluation. The key is (schema reference, bindings, root):
     - the schema reference as the term writes it: the name, or the pinned hash;
-    - the bindings in effect, compared by **identity** within the read. They are the request's
-      bindings, or the `bindings` of the nearest enclosing `fix` that has them. Each is one object
-      for the whole read, because the term and the registry do not change during it. Two binding
-      objects with the same entries get two keys; the memo then shares less, and no answer
-      changes. Identity is enough only because a bindings object does not change during a read.
-      A caller must not change a bindings object while a read uses it; the type is read-only.
-      Such a change breaks the read with or without the memo: the anchor analysis runs once, at
-      the start of the read, over the bindings as they were then;
+    - the bindings in effect: the request's bindings, or the `bindings` of the nearest enclosing
+      `fix` that has them. Each is one object for the whole read, because the term and the
+      registry do not change during it. A witness keys them by **identity** within the read
+      (TypeScript) or by **content**, entry by entry (Rust; a number by its bits). Two binding
+      objects with the same entries may share a key or not. Both are safe, because the evaluator
+      reads bindings only as values: a hit on equal content returns what the same evaluation
+      returns, and a miss only evaluates again. A key must **never** let two bindings that differ
+      in any entry share an entry. Identity is enough only because a bindings object does not
+      change during a read. A caller must not change a bindings object while a read uses it; the
+      type is read-only. Such a change breaks the read with or without the memo: the anchor
+      analysis runs once, at the start of the read, over the bindings as they were then;
     - the root entity.
 
     The term, the registry, `now` and the selection are the same in every round of one read, so
@@ -928,6 +932,36 @@ that a vector can pin.
     So a read with the memo evaluates each key once as final, plus once for each time a round
     reaches it while it is not final. A read without the memo evaluates every child it reaches in
     every round. A witness counts both through its memo hook, not by timing.
+27. **The answer reports what the memo stored.** The memo changes no answer, so no case can see a
+    read that ignores the memo switch, or that uses a memo when the switch is off. The answer
+    therefore carries the number of child evaluations its memo held when the read ended
+    (TypeScript `StoreRead.memoStored`): 0 with the memo off, and the number of keys stored with
+    it on. Over the round vectors, `the-whole-garden` stores 18 with the memo and 0 without. The
+    count is of the last attempt; a read that starts again starts a new memo (reading 25).
+28. **The full-surface read** (§6.6). `readFullSurface(peerExporter, request)` lists the peer
+    through its `PeerExporter`, keeps the deltas the selection admits, and evaluates the term
+    over them with the ordinary evaluator. It takes any term, anchored or not, and its route
+    report says `optimized: false`, with how many deltas it listed and how many it admitted. It
+    keeps nothing. Calling it is the explicit flag of §6.6: it needs an exporter, and a serving
+    path that holds only a peer handle (`StoreReactor`, a snapshot) has none. A listing carries
+    no arrival record (§4.7.6), so the read applies `timestampAtMost` and `excludeIds` itself and
+    refuses `invalid-request`, before it lists anything, a selection with `arrivalAtMost` or a
+    host predicate. A listing whose id does not recompute is refused, not repaired.
+    `collectDeltaSet(peerExporter)` is the listing as a set. A store that keeps arrival records
+    in its listing in a later slice can lift the refusal.
+29. **The existing read families run a second time through a store** (plan §5, O2). Each witness
+    loads each family's deltas into a memory store peer with its fixture loader and expects the
+    family's own bytes: every evaluation case of `vectors/l1-eval` (an anchored term through
+    `readAnchored`, from the case's root or else its first static anchor; an unanchored one
+    through `readFullSurface`), the SPEC-17 read cases through `readAnchored` with their scope
+    and members, its scope cases through `fetchScope` with the exclusions as a pushdown, the
+    negation-witness cases of `vectors/l2-reactor/governed.json` over the scope of the entities
+    the target points at, and the principal cases (slice 2 step 3). Of the 112 evaluation cases,
+    56 are anchored and 56 are not. The rejects, the parse and strict-key files, the schema
+    loads and the whole-set `governed` and `latestByKey` cases are not run again: a store adds
+    nothing to a refusal, and a whole-set load is a full-surface read. Ingest, dispatch and the
+    journal (transaction, atomic-transfer, materialization, command and peer families) move in
+    slices 3 and 4.
 
 
 ## 5. Architectures

@@ -33021,6 +33021,516 @@
       "contract": "rhizomatic.storage/native-api/1",
       "classification": "native_extension",
       "semantics": "Native storage API copyDelta implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/copy.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:index.ts:collectDeltaSet",
+      "owner": "storage",
+      "symbol": "collectDeltaSet",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native storage API collectDeltaSet implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:readFullSurface",
+      "owner": "reactor",
+      "symbol": "readFullSurface",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-read.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API readFullSurface implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-read.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:FullSurfaceRead",
+      "owner": "reactor",
+      "symbol": "FullSurfaceRead",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-read.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API FullSurfaceRead implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-read.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:FullSurfaceRead#result",
+      "owner": "reactor",
+      "symbol": "FullSurfaceRead.result",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-read.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API FullSurfaceRead.result implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-read.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:FullSurfaceRead#route",
+      "owner": "reactor",
+      "symbol": "FullSurfaceRead.route",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-read.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API FullSurfaceRead.route implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-read.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:FullSurfaceRequest",
+      "owner": "reactor",
+      "symbol": "FullSurfaceRequest",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-read.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API FullSurfaceRequest implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-read.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:FullSurfaceRequest#term",
+      "owner": "reactor",
+      "symbol": "FullSurfaceRequest.term",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-read.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API FullSurfaceRequest.term implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-read.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:FullSurfaceRequest#root",
+      "owner": "reactor",
+      "symbol": "FullSurfaceRequest.root",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-read.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API FullSurfaceRequest.root implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-read.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:FullSurfaceRequest#now",
+      "owner": "reactor",
+      "symbol": "FullSurfaceRequest.now",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-read.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API FullSurfaceRequest.now implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-read.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:FullSurfaceRequest#registry",
+      "owner": "reactor",
+      "symbol": "FullSurfaceRequest.registry",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-read.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API FullSurfaceRequest.registry implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-read.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:FullSurfaceRequest#bindings",
+      "owner": "reactor",
+      "symbol": "FullSurfaceRequest.bindings",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-read.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API FullSurfaceRequest.bindings implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-read.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:FullSurfaceRequest#pushdown",
+      "owner": "reactor",
+      "symbol": "FullSurfaceRequest.pushdown",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-read.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API FullSurfaceRequest.pushdown implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-read.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:FullSurfaceRoute",
+      "owner": "reactor",
+      "symbol": "FullSurfaceRoute",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-read.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API FullSurfaceRoute implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-read.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:FullSurfaceRoute#optimized",
+      "owner": "reactor",
+      "symbol": "FullSurfaceRoute.optimized",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-read.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API FullSurfaceRoute.optimized implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-read.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:FullSurfaceRoute#listed",
+      "owner": "reactor",
+      "symbol": "FullSurfaceRoute.listed",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-read.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API FullSurfaceRoute.listed implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-read.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:FullSurfaceRoute#admitted",
+      "owner": "reactor",
+      "symbol": "FullSurfaceRoute.admitted",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-read.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API FullSurfaceRoute.admitted implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-read.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:StoreReactorRead#memoStored",
+      "owner": "reactor",
+      "symbol": "StoreReactorRead.memoStored",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-read.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API StoreReactorRead.memoStored implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-read.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:StoreRead#memoStored",
+      "owner": "reactor",
+      "symbol": "StoreRead.memoStored",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-read.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API StoreRead.memoStored implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-read.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:Reactor#legacyHoldings",
+      "owner": "reactor",
+      "symbol": "Reactor.legacyHoldings",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/reactor.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API Reactor.legacyHoldings implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/reactor.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:reactor.ts:LegacyHoldings",
+      "owner": "reactor",
+      "symbol": "LegacyHoldings",
+      "source": "implementations/ts/src/reactor.ts",
+      "definition": "implementations/ts/src/reactor/reactor.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API LegacyHoldings implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/reactor.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:reactor.ts:LegacyHoldings#set",
+      "owner": "reactor",
+      "symbol": "LegacyHoldings.set",
+      "source": "implementations/ts/src/reactor.ts",
+      "definition": "implementations/ts/src/reactor/reactor.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API LegacyHoldings.set implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/reactor.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:reactor.ts:LegacyHoldings#arrivals",
+      "owner": "reactor",
+      "symbol": "LegacyHoldings.arrivals",
+      "source": "implementations/ts/src/reactor.ts",
+      "definition": "implementations/ts/src/reactor/reactor.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API LegacyHoldings.arrivals implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/reactor.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:reactor.ts:LegacyHoldings#digest",
+      "owner": "reactor",
+      "symbol": "LegacyHoldings.digest",
+      "source": "implementations/ts/src/reactor.ts",
+      "definition": "implementations/ts/src/reactor/reactor.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API LegacyHoldings.digest implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/reactor.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:reactor.ts:Reactor#legacyHoldings",
+      "owner": "reactor",
+      "symbol": "Reactor.legacyHoldings",
+      "source": "implementations/ts/src/reactor.ts",
+      "definition": "implementations/ts/src/reactor/reactor.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API Reactor.legacyHoldings implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/reactor.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:reactor/reactor.ts:LegacyHoldings",
+      "owner": "reactor",
+      "symbol": "LegacyHoldings",
+      "source": "implementations/ts/src/reactor/reactor.ts",
+      "definition": "implementations/ts/src/reactor/reactor.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API LegacyHoldings implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/reactor.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/reactor.ts:LegacyHoldings#set",
+      "owner": "reactor",
+      "symbol": "LegacyHoldings.set",
+      "source": "implementations/ts/src/reactor/reactor.ts",
+      "definition": "implementations/ts/src/reactor/reactor.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API LegacyHoldings.set implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/reactor.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/reactor.ts:LegacyHoldings#arrivals",
+      "owner": "reactor",
+      "symbol": "LegacyHoldings.arrivals",
+      "source": "implementations/ts/src/reactor/reactor.ts",
+      "definition": "implementations/ts/src/reactor/reactor.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API LegacyHoldings.arrivals implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/reactor.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/reactor.ts:LegacyHoldings#digest",
+      "owner": "reactor",
+      "symbol": "LegacyHoldings.digest",
+      "source": "implementations/ts/src/reactor/reactor.ts",
+      "definition": "implementations/ts/src/reactor/reactor.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API LegacyHoldings.digest implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/reactor.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/reactor.ts:Reactor#legacyHoldings",
+      "owner": "reactor",
+      "symbol": "Reactor.legacyHoldings",
+      "source": "implementations/ts/src/reactor/reactor.ts",
+      "definition": "implementations/ts/src/reactor/reactor.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API Reactor.legacyHoldings implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/reactor.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-read.ts:readFullSurface",
+      "owner": "reactor",
+      "symbol": "readFullSurface",
+      "source": "implementations/ts/src/reactor/store-read.ts",
+      "definition": "implementations/ts/src/reactor/store-read.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API readFullSurface implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-read.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-read.ts:StoreRead#memoStored",
+      "owner": "reactor",
+      "symbol": "StoreRead.memoStored",
+      "source": "implementations/ts/src/reactor/store-read.ts",
+      "definition": "implementations/ts/src/reactor/store-read.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API StoreRead.memoStored implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-read.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-read.ts:ReadMemo",
+      "owner": "reactor",
+      "symbol": "ReadMemo",
+      "source": "implementations/ts/src/reactor/store-read.ts",
+      "definition": "implementations/ts/src/reactor/store-read.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ReadMemo implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-read.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-read.ts:ReadMemo#stored",
+      "owner": "reactor",
+      "symbol": "ReadMemo.stored",
+      "source": "implementations/ts/src/reactor/store-read.ts",
+      "definition": "implementations/ts/src/reactor/store-read.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ReadMemo.stored implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-read.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-read.ts:ReadMemo#get",
+      "owner": "reactor",
+      "symbol": "ReadMemo.get",
+      "source": "implementations/ts/src/reactor/store-read.ts",
+      "definition": "implementations/ts/src/resolve/eval.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API ReadMemo.get implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/resolve/eval.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:reactor/store-read.ts:ReadMemo#put",
+      "owner": "reactor",
+      "symbol": "ReadMemo.put",
+      "source": "implementations/ts/src/reactor/store-read.ts",
+      "definition": "implementations/ts/src/resolve/eval.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API ReadMemo.put implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/resolve/eval.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:reactor/store-read.ts:FullSurfaceRequest",
+      "owner": "reactor",
+      "symbol": "FullSurfaceRequest",
+      "source": "implementations/ts/src/reactor/store-read.ts",
+      "definition": "implementations/ts/src/reactor/store-read.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API FullSurfaceRequest implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-read.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-read.ts:FullSurfaceRequest#term",
+      "owner": "reactor",
+      "symbol": "FullSurfaceRequest.term",
+      "source": "implementations/ts/src/reactor/store-read.ts",
+      "definition": "implementations/ts/src/reactor/store-read.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API FullSurfaceRequest.term implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-read.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-read.ts:FullSurfaceRequest#root",
+      "owner": "reactor",
+      "symbol": "FullSurfaceRequest.root",
+      "source": "implementations/ts/src/reactor/store-read.ts",
+      "definition": "implementations/ts/src/reactor/store-read.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API FullSurfaceRequest.root implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-read.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-read.ts:FullSurfaceRequest#now",
+      "owner": "reactor",
+      "symbol": "FullSurfaceRequest.now",
+      "source": "implementations/ts/src/reactor/store-read.ts",
+      "definition": "implementations/ts/src/reactor/store-read.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API FullSurfaceRequest.now implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-read.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-read.ts:FullSurfaceRequest#registry",
+      "owner": "reactor",
+      "symbol": "FullSurfaceRequest.registry",
+      "source": "implementations/ts/src/reactor/store-read.ts",
+      "definition": "implementations/ts/src/reactor/store-read.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API FullSurfaceRequest.registry implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-read.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-read.ts:FullSurfaceRequest#bindings",
+      "owner": "reactor",
+      "symbol": "FullSurfaceRequest.bindings",
+      "source": "implementations/ts/src/reactor/store-read.ts",
+      "definition": "implementations/ts/src/reactor/store-read.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API FullSurfaceRequest.bindings implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-read.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-read.ts:FullSurfaceRequest#pushdown",
+      "owner": "reactor",
+      "symbol": "FullSurfaceRequest.pushdown",
+      "source": "implementations/ts/src/reactor/store-read.ts",
+      "definition": "implementations/ts/src/reactor/store-read.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API FullSurfaceRequest.pushdown implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-read.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-read.ts:FullSurfaceRoute",
+      "owner": "reactor",
+      "symbol": "FullSurfaceRoute",
+      "source": "implementations/ts/src/reactor/store-read.ts",
+      "definition": "implementations/ts/src/reactor/store-read.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API FullSurfaceRoute implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-read.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-read.ts:FullSurfaceRoute#optimized",
+      "owner": "reactor",
+      "symbol": "FullSurfaceRoute.optimized",
+      "source": "implementations/ts/src/reactor/store-read.ts",
+      "definition": "implementations/ts/src/reactor/store-read.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API FullSurfaceRoute.optimized implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-read.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-read.ts:FullSurfaceRoute#listed",
+      "owner": "reactor",
+      "symbol": "FullSurfaceRoute.listed",
+      "source": "implementations/ts/src/reactor/store-read.ts",
+      "definition": "implementations/ts/src/reactor/store-read.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API FullSurfaceRoute.listed implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-read.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-read.ts:FullSurfaceRoute#admitted",
+      "owner": "reactor",
+      "symbol": "FullSurfaceRoute.admitted",
+      "source": "implementations/ts/src/reactor/store-read.ts",
+      "definition": "implementations/ts/src/reactor/store-read.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API FullSurfaceRoute.admitted implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-read.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-read.ts:FullSurfaceRead",
+      "owner": "reactor",
+      "symbol": "FullSurfaceRead",
+      "source": "implementations/ts/src/reactor/store-read.ts",
+      "definition": "implementations/ts/src/reactor/store-read.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API FullSurfaceRead implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-read.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-read.ts:FullSurfaceRead#result",
+      "owner": "reactor",
+      "symbol": "FullSurfaceRead.result",
+      "source": "implementations/ts/src/reactor/store-read.ts",
+      "definition": "implementations/ts/src/reactor/store-read.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API FullSurfaceRead.result implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-read.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-read.ts:FullSurfaceRead#route",
+      "owner": "reactor",
+      "symbol": "FullSurfaceRead.route",
+      "source": "implementations/ts/src/reactor/store-read.ts",
+      "definition": "implementations/ts/src/reactor/store-read.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API FullSurfaceRead.route implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-read.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-read.ts:StoreReactorRead#memoStored",
+      "owner": "reactor",
+      "symbol": "StoreReactorRead.memoStored",
+      "source": "implementations/ts/src/reactor/store-read.ts",
+      "definition": "implementations/ts/src/reactor/store-read.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API StoreReactorRead.memoStored implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-read.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store.ts:collectDeltaSet",
+      "owner": "storage",
+      "symbol": "collectDeltaSet",
+      "source": "implementations/ts/src/storage/store.ts",
+      "definition": "implementations/ts/src/storage/store.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API collectDeltaSet implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
     }
   ]
 }

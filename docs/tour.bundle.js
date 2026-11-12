@@ -5436,19 +5436,49 @@
       return evalAnchored(term, this.unsorted, now, root, registry, bindings, admits);
     }
     // Arrival order — a transport artifact, never consulted by evaluation (SPEC-4 §2).
+    /**
+     * @deprecated A whole-set listing. A store keeps one arrival record per held delta: read them
+     * with `Snapshot.arrivals`, or list the peer with `PeerExporter.ids` (SPEC-18 §4.7.6). Stays on
+     * the memory reactor until Loam moves to a store (slice 5).
+     */
     arrivalLog() {
       return this.log;
     }
+    /**
+     * @deprecated A digest of the whole set. A store has no digest yet (SPEC-18 §4.7.6, a later
+     * slice); until then use `collectDeltaSet(peerExporter).digest()`, which says it is O(surface).
+     */
     digest() {
       return this.set.digest();
     }
+    /**
+     * @deprecated A copy of the whole set. Read a scope with `readAnchored` or `fetchScope` over a
+     * store snapshot; list everything with `collectDeltaSet(peerExporter)` (SPEC-18 §4.7.6).
+     */
     snapshot() {
       return DeltaSet.from(this.set);
     }
     // Batch evaluation over the current set — the oracle hookup (SPEC-4 §1). Read-your-writes
     // holds trivially: ingest is synchronous, so an accepted delta is visible immediately (§6).
+    /**
+     * @deprecated A whole-set evaluation with no flag to say so. Use `evalAnchored` for an anchored
+     * term, or `readAnchored` over a store; use `readFullSurface`, the explicit full-surface read
+     * of SPEC-18 §6.6, when a term has no anchor.
+     */
     eval(term, now, root, registry) {
       return evalTerm(term, this.set, now, root, registry);
+    }
+    /**
+     * The whole held set, for the memory `Peer` of `federation/peer.ts` and its HTTP binding only:
+     * they sync by listing everything. Not a read path and not for new callers; it goes when they
+     * move to a store (slice 5). Each call reads the reactor as it is then.
+     */
+    legacyHoldings() {
+      return {
+        set: () => DeltaSet.from(this.set),
+        arrivals: () => this.log,
+        digest: () => this.set.digest()
+      };
     }
     // --- materializations (SPEC-4 §4, ERRATA-4 V5) ---
     lastChanges = [];
@@ -5764,14 +5794,14 @@
     }
     // The offered set: eval(lens, log) — lens fidelity is a tested invariant (F4).
     offeredSet() {
-      const result = evalTermRaw(this.offeredLens, this.reactor.snapshot());
+      const result = evalTermRaw(this.offeredLens, this.reactor.legacyHoldings().set());
       if (result.sort !== "dset") throw new Error("a lens must be a DSet-sort term (F4)");
       return [...result.set];
     }
     // Pull from another peer: WANT(my ids) -> OFFER/BUNDLE -> verify -> admission -> ingest (§5).
     pullFrom(other) {
       const have = /* @__PURE__ */ new Set();
-      for (const d of this.reactor.arrivalLog()) have.add(d.id);
+      for (const d of this.reactor.legacyHoldings().arrivals()) have.add(d.id);
       const offered = other.offeredSet().filter((d) => !have.has(d.id));
       const offeredIds = new Set(offered.map((d) => d.id));
       const isSignedManifest = (d) => d.sig !== void 0 && verifyDelta(d) === "verified" && manifestMemberIds(d).length > 0;
@@ -5819,11 +5849,12 @@
     }
   };
   function syncBoth(a, b) {
+    const digests = () => a.reactor.legacyHoldings().digest() + b.reactor.legacyHoldings().digest();
     for (let i = 0; i < 4; i++) {
-      const before = a.reactor.digest() + b.reactor.digest();
+      const before = digests();
       a.pullFrom(b);
       b.pullFrom(a);
-      if (a.reactor.digest() + b.reactor.digest() === before) return;
+      if (digests() === before) return;
     }
   }
 

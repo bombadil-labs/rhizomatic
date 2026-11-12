@@ -27,7 +27,9 @@ import {
   finalChildMemo,
   readAnchored,
   readAnchoredWith,
+  readFullSurface,
   unappliedFields,
+  type ReadMemo,
   type RoundPolicy,
   type StoreAdmits,
   type StoreRead,
@@ -55,6 +57,8 @@ import {
 } from "../src/storage/store-vector-format.js";
 import {
   StoreError,
+  collectDeltaSet,
+  type PeerExporter,
   type PeerStore,
   type Pushdown,
   type Snapshot,
@@ -959,7 +963,7 @@ const RIGHT: MemoRule = { finalOnly: true, keyBindings: true, keyRoot: true };
 /** A memo written beside the witness's, so each rule can be broken alone. */
 const ruledMemo =
   (rule: MemoRule) =>
-  (fetched: ReadonlySet<string>): ChildMemo => {
+  (fetched: ReadonlySet<string>): ReadMemo => {
     const kept = rule.kept ?? new Map<string, HView>();
     const ids = new Map<Bindings, number>();
     const idOfBindings = (bindings: Bindings | undefined): number => {
@@ -978,6 +982,9 @@ const ruledMemo =
       put: (schema, bindings, root, hview) => {
         if (!rule.finalOnly || hviewAnchors(hview).every((entity) => fetched.has(entity)))
           kept.set(key(schema, bindings, root), hview);
+      },
+      get stored() {
+        return kept.size;
       },
     };
   };
@@ -1004,8 +1011,8 @@ const newCount = (): MemoCount => ({
 });
 /** Counts through the hook. With no inner memo it keeps nothing: the read without a memo. */
 const counted =
-  (count: MemoCount, inner?: (fetched: ReadonlySet<string>) => ChildMemo) =>
-  (fetched: ReadonlySet<string>): ChildMemo => {
+  (count: MemoCount, inner?: (fetched: ReadonlySet<string>) => ReadMemo) =>
+  (fetched: ReadonlySet<string>): ReadMemo => {
     const memo = inner?.(fetched);
     const keyOf = (schema: SchemaRefT, bindings: Bindings | undefined, root: string): string =>
       JSON.stringify([schema, [...(bindings ?? [])], root]);
@@ -1025,6 +1032,9 @@ const counted =
           count.final += 1;
           count.finalKeys.push(key);
         } else count.notFinal += 1;
+      },
+      get stored() {
+        return memo?.stored ?? 0;
       },
     };
   };
@@ -1204,6 +1214,27 @@ describe("the evaluation memo", () => {
     });
   });
 
+  it("reports how many children it stored: more than none with the memo, none without", async () => {
+    // The memo changes no answer, so no case can see a read that ignores the switch. The count
+    // can (SPEC-18 §4.12 reading 27).
+    const loaded = await load();
+    const c = pick("the-whole-garden");
+    expect(c.expect.rounds, "a case of depth three").toHaveLength(4);
+    const on = await onSnapshot(loaded.peer, (snapshot) => readAnchored(snapshot, requestOf(c)));
+    const off = await onSnapshot(loaded.peer, (snapshot) =>
+      readAnchoredWith(snapshot, requestOf(c), CACHED_ROUNDS),
+    );
+    expect(answerOf(on)).toEqual(answerOf(off));
+    // The keys of the case, each stored once (the reference numbers above).
+    expect(on.memoStored).toBe(18);
+    expect(off.memoStored).toBe(0);
+    expect((await StoreReactor.open(loaded.peer).read(requestOf(c))).memoStored).toBe(18);
+    const uncached = await onSnapshot(loaded.peer, (snapshot) =>
+      readAnchoredWith(snapshot, requestOf(c), UNCACHED_ROUNDS),
+    );
+    expect(uncached.memoStored).toBe(0);
+  });
+
   it("is not consulted when an evaluation budget is present", () => {
     const c = pick("the-whole-garden");
     const request = requestOf(c);
@@ -1268,6 +1299,104 @@ function unrelated(count: number): Delta[] {
     .map((fact, i) => makeDelta(makeNegationClaims("did:key:zStriker", 9000 + i, fact.id)));
   return [...facts, ...strikes];
 }
+
+describe("readFullSurface: the explicit full-surface read (SPEC-18 §6.6)", () => {
+  const exporterOf = (loaded: Loaded): PeerExporter =>
+    loaded.store.openAdmin().peer(document.load.peer);
+
+  it("answers each case whose selection needs no arrival record, and says it is unoptimized", async () => {
+    const loaded = await load();
+    const ran: string[] = [];
+    for (const c of document.cases) {
+      const { term, root, now, bindings, pushdown } = requestOf(c);
+      if (pushdown?.arrivalAtMost !== undefined) continue;
+      const got = await readFullSurface(exporterOf(loaded), {
+        term,
+        root,
+        now,
+        registry,
+        ...(bindings === undefined ? {} : { bindings }),
+        ...(pushdown === undefined ? {} : { pushdown }),
+      });
+      expect(resultCanonicalHex(got.result), c.name).toBe(c.expect.canonicalHex);
+      expect(got.route.optimized, c.name).toBe(false);
+      expect(got.route.listed, c.name).toBe(loaded.held.length);
+      const admitted = loaded.held.filter((entry) =>
+        passesSelection(entry, pushdown ?? {}, PUSHDOWN_FIELDS),
+      ).length;
+      expect(got.route.admitted, c.name).toBe(admitted);
+      ran.push(c.name);
+    }
+    // Both host-applied fields, and a selection that admits nothing, are among them.
+    expect(ran).toContain("signed-time-cuts-a-link-and-a-strike");
+    expect(ran).toContain("an-excluded-id-in-the-middle-of-a-chain");
+    expect(ran).toContain("the-selection-admits-nothing");
+    expect(ran).toHaveLength(18);
+  });
+
+  it("refuses a selection by arrival before it lists anything", async () => {
+    let listed = 0;
+    const exporter: PeerExporter = {
+      ids: () => {
+        throw new Error("the read listed ids");
+      },
+      deltas: () => {
+        listed += 1;
+        return (async function* () {})();
+      },
+    };
+    const c = pick("arrival-cuts-a-strike-so-a-child-appears");
+    const { term, root, now, pushdown } = requestOf(c);
+    for (const request of [
+      { term, root, now, registry, pushdown: pushdown as never },
+      { term, root, now, registry, admits: (() => true) as never },
+    ]) {
+      const refused = await readFullSurface(exporter, request).then(
+        () => undefined,
+        (error: unknown) => error,
+      );
+      expect(refused).toBeInstanceOf(StoreError);
+      expect((refused as StoreError).code).toBe("invalid-request");
+    }
+    expect(listed).toBe(0);
+    // The control: the same exporter is listed once for a selection it can apply.
+    await readFullSurface(exporter, { term, root, now, registry });
+    expect(listed).toBe(1);
+  });
+
+  it("passes up the exporter's refusal of a peer it does not hold", async () => {
+    const loaded = await load();
+    const refused = await readFullSurface(loaded.store.openAdmin().peer("ed25519:absent"), {
+      term: requestOf(pick("the-whole-garden")).term,
+      root: "garden:1",
+      now: 100,
+      registry,
+    }).then(
+      () => undefined,
+      (error: unknown) => error,
+    );
+    expect((refused as StoreError).code).toBe("peer-absent");
+  });
+
+  it("collectDeltaSet holds every listed delta, and refuses one whose id does not recompute", async () => {
+    const loaded = await load();
+    const set = await collectDeltaSet(exporterOf(loaded));
+    expect(set.ids()).toEqual(loaded.held.map((entry) => entry.delta.id).sort(compareUtf8));
+    const [first, second] = loaded.held;
+    const forged: PeerExporter = {
+      ids: async function* () {},
+      deltas: async function* () {
+        yield { ...first!.delta, id: second!.delta.id };
+      },
+    };
+    await expect(collectDeltaSet(forged)).rejects.toThrow(/does not match its claims/);
+  });
+
+  it("is not reachable from a StoreReactor, which holds no exporter", () => {
+    const methods = Object.getOwnPropertyNames(StoreReactor.prototype).sort();
+    expect(methods).toEqual(["constructor", "fetch", "onSnapshot", "read"]);
+  });
+});
 
 describe("the store-backed read: cost", () => {
   const measure = async (read: RoundsRead, extra: Delta[]) => {
