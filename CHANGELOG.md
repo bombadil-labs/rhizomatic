@@ -90,10 +90,14 @@ read type for consumers, and the principal reads take it.
   `fetchScope(snapshot, entities, selection?)` makes one fetch and returns a synchronous source
   over the exact scope. `StoreReactor.open(peerStore)` reads nothing; its `read` and `fetch` take
   a snapshot each, release it, and start again on `snapshot-moved` up to `SNAPSHOT_RETRIES`
-  (three) times. `createFetchCache()` is the growing, verified set behind them. The evaluation
-  memo is not built yet. The memory `Reactor` is unchanged.
+  (three) times. `createFetchCache()` is the growing, verified set behind them. It owns what it
+  holds: it checks and copies each member as `scopeSource` does, refuses a member whose arrival
+  record is missing or names another id, adds nothing on a refused call, and hands out copies or
+  frozen lists only. It has no `subset`; use `source(ids)`. Each `StoreRoundReport` carries the
+  `attempt` and the snapshot `revision`. The evaluation memo is not built yet. The memory
+  `Reactor` is unchanged.
 - Shared vectors `vectors/store/rounds.json`: reads in rounds, with the anchors of each round,
-  interleaved appends and refusals. Format in `vectors/store/README.md` §5. Both witnesses run
+  interleaved appends, a purge between two rounds, and refusals. Format in `vectors/store/README.md` §5. Both witnesses run
   them.
 - Slice 2, Rust: the store-backed read, in the new module `store_read` (reactor boundary).
   `read_anchored(&dyn Snapshot, ReadRequest)` reads in rounds on one snapshot, with a fetch cache

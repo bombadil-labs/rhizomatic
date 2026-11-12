@@ -46,11 +46,14 @@ export type RoundsCase = RoundsRead & {
   readonly note: string;
   readonly expect: RoundsAnswer;
 };
+/** Exactly one of `append` and `purge`: what changes the peer between two rounds. */
 export type RoundsInterleavedCase = RoundsRead & {
   readonly name: string;
   readonly note: string;
   readonly afterRound: number;
-  readonly append: RoundsAdmission;
+  readonly append?: RoundsAdmission;
+  /** Corpus names, ascending by id. */
+  readonly purge?: readonly string[];
   readonly expect: { readonly before: RoundsAnswer; readonly after: RoundsAnswer };
 };
 export type RoundsRefusal = {
@@ -144,6 +147,11 @@ function corpus(): Named[] {
   const lateNoteStrike = add("b1-late-note-neg-at-c2", strikeAt(BOB, 57, lateNote.id, "cutting:2"));
   add("b1-late-note-neg-neg", makeNegationClaims(ALICE, 58, lateNoteStrike.id));
   add("b2-has-ps", fact(ALICE, 23, child("bed:2", "plants", "plant:s")));
+  // Two pointers at one entity: indexed at bed:2 once.
+  add(
+    "b2-name-twice",
+    fact(ALICE, 26, [at("bed:2", "name"), at("bed:2", "label"), value("South bed")]),
+  );
   const b2p2 = add("b2-has-p2", fact(ALICE, 24, child("bed:2", "plants", "plant:2")));
   add("b2-has-p2-neg", makeNegationClaims(ALICE, 25, b2p2.id));
 
@@ -170,6 +178,15 @@ function corpus(): Named[] {
   const c2n1 = add("c2-size-n1", makeNegationClaims(BOB, 51, c2Size.id));
   const c2n2 = add("c2-size-n2", makeNegationClaims(ALICE, 52, c2n1.id));
   add("c2-size-n3", makeNegationClaims(BOB, 53, c2n2.id));
+  // A pointer at a delta whose role is not `negates`: it is no negator of c2-size.
+  add(
+    "c2-size-remark",
+    fact(ALICE, 59, [
+      { role: "annotates", target: { kind: "delta", deltaRef: { delta: c2Size.id } } },
+      at("cutting:2", "remark"),
+      value("measured"),
+    ]),
+  );
   // A negation that points at bed:1, so round 2 fetches it two rounds before its target.
   const c2Tag = add("c2-tag", fact(ALICE, 54, [at("cutting:2", "tag"), value("gift")]));
   const c2TagStrike = add("c2-tag-neg-at-b1", strikeAt(BOB, 55, c2Tag.id, "bed:1"));
@@ -238,13 +255,19 @@ const SECOND_ADMISSION = [
   "far-name-neg",
   "b1-late-note-neg-at-c2",
   "b1-late-note-neg-neg",
-  // The last four arrive after sequence 38, the cut the arrival cases use.
+  // Everything from here on arrives after sequence 38, the cut the arrival cases use.
   "b1-late-note",
   "p1-has-c3",
   "b2-has-p2-neg",
   "c2-tag-neg-neg",
+  "b2-name-twice",
+  "c2-size-remark",
 ];
 const ARRIVAL_CUT = 38;
+// The resolve cases cut exactly at a delta: Carol's strike of c1-note is signed at 44 and
+// arrives at 30. A cut at its own value keeps it (`<=`), so c1-note stays struck.
+const STRIKE_TIME = 44;
+const STRIKE_ARRIVAL = 30;
 const LATE_APPEND = ["late-g-note", "late-seed1-note", "late-c1-height-neg"];
 
 const leaf = {
@@ -312,6 +335,11 @@ const SCHEMAS = [
   { name: "LawfulTree3", alg: 1, body: expandInto("LawfulTree2", lawfulLeaf) },
 ];
 const garden = { op: "fix", schema: "Tree3", entity: "garden:1" };
+const resolvedLeaf = {
+  op: "resolve",
+  schema: { default: { pick: { order: { byTimestamp: "desc" } } } },
+  in: { op: "fix", schema: "Leaf", entity: "cutting:1" },
+};
 
 type Entry = VerifiedDelta & { readonly name: string };
 
@@ -433,12 +461,29 @@ function reads(): (RoundsRead & { name: string; note: string })[] {
     read(
       "a-resolved-tree",
       "A resolve over the gather: the rounds run on the gather, and the result is a View.",
-      {
-        op: "resolve",
-        schema: { default: { pick: { order: { byTimestamp: "desc" } } } },
-        in: { op: "fix", schema: "Leaf", entity: "cutting:1" },
-      },
+      resolvedLeaf,
       "cutting:1",
+    ),
+    read(
+      "a-resolved-tree-cut-at-a-strike",
+      "timestampAtMost equals the time of c1-note-neg-by-carol, which is kept, so c1-note stays struck. c1-has-seed (t=45) is cut, so the View has no seeds. The resolve runs over the members, not over all that the read holds.",
+      resolvedLeaf,
+      "cutting:1",
+      { timestampAtMost: STRIKE_TIME },
+    ),
+    read(
+      "a-resolved-tree-as-of-an-arrival",
+      "arrivalAtMost equals the arrival of c1-note-neg-by-carol, which is kept. c1-has-seed (arrival 31) is cut.",
+      resolvedLeaf,
+      "cutting:1",
+      { arrivalAtMost: STRIKE_ARRIVAL },
+    ),
+    read(
+      "a-resolved-tree-without-a-link",
+      "c1-has-seed is excluded, so the View has no seeds.",
+      resolvedLeaf,
+      "cutting:1",
+      { excludeIds: ["c1-has-seed"] },
     ),
   ];
 }
@@ -627,15 +672,35 @@ export function roundVectors(): StoreRoundsDocument {
   const after = holdings([...admissions, lateAppend]);
   const cases: RoundsCase[] = reads().map((read) => ({ ...read, expect: answer(base, read) }));
 
-  const interleave = (name: string, note: string, afterRound: number): RoundsInterleavedCase => {
-    const read: RoundsRead = { term: garden, root: "garden:1", now: NOW, selection: {} };
+  const read: RoundsRead = { term: garden, root: "garden:1", now: NOW, selection: {} };
+  const interleave = (name: string, note: string, afterRound: number): RoundsInterleavedCase => ({
+    name,
+    note,
+    ...read,
+    afterRound,
+    append: lateAppend,
+    expect: { before: answer(base, read), after: answer(after, read) },
+  });
+  const purgeAfter = (
+    name: string,
+    note: string,
+    afterRound: number,
+    names: readonly string[],
+  ): RoundsInterleavedCase => {
+    const gone = new Set(names);
     return {
       name,
       note,
       ...read,
       afterRound,
-      append: lateAppend,
-      expect: { before: answer(base, read), after: answer(after, read) },
+      purge: [...names].sort((a, b) => compareUtf8(idOf(a), idOf(b))),
+      expect: {
+        before: answer(base, read),
+        after: answer(
+          base.filter((entry) => !gone.has(entry.name)),
+          read,
+        ),
+      },
     };
   };
   const interleaved = [
@@ -654,6 +719,12 @@ export function roundVectors(): StoreRoundsDocument {
       "The read has made its last store call. It answers `before`.",
       4,
     ),
+    purgeAfter(
+      "a-purge-after-the-first-round",
+      "g-features-c1-neg-neg is fetched in round 1, then purged. Without it, Bob's strike of the featured link stands. A reader that starts again on a new snapshot but keeps its old cache still holds the purged delta: it answers `before` at the new revision, which is neither answer.",
+      1,
+      ["g-features-c1-neg-neg"],
+    ),
   ];
 
   const document: StoreRoundsDocument = {
@@ -671,6 +742,44 @@ export function roundVectors(): StoreRoundsDocument {
     refusals: REFUSALS,
   };
   checkFixture(document, registry);
+  // The resolve cases: the selection changes the View (so the final evaluation must run over
+  // the members, not over all the read holds), and a cut one step short changes it again (so
+  // each bound keeps a delta at its own value).
+  const need = (condition: boolean, what: string): void => {
+    if (!condition) throw new Error(`round vectors: the fixture lost ${what}`);
+  };
+  for (const [name, short] of [
+    ["a-resolved-tree-cut-at-a-strike", { timestampAtMost: STRIKE_TIME - 1 }],
+    ["a-resolved-tree-as-of-an-arrival", { arrivalAtMost: STRIKE_ARRIVAL - 1 }],
+    ["a-resolved-tree-without-a-link", undefined],
+  ] as const) {
+    const c = cases.find((x) => x.name === name)!;
+    need(
+      answer(base, { ...c, selection: {} }).canonicalHex !== c.expect.canonicalHex,
+      `the effect of ${name}'s selection on the View`,
+    );
+    if (short !== undefined)
+      need(
+        answer(base, { ...c, selection: short }).canonicalHex !== c.expect.canonicalHex,
+        `the boundary of ${name}`,
+      );
+  }
+  // A member sits exactly on each bound.
+  const onBound = (name: string, at: (entry: Entry) => number, bound: number): void => {
+    const members = new Set(cases.find((x) => x.name === name)!.expect.members);
+    need(
+      base.some((entry) => members.has(entry.name) && at(entry) === bound),
+      `a member on the bound of ${name}`,
+    );
+  };
+  onBound("a-resolved-tree-cut-at-a-strike", (e) => e.delta.claims.timestamp, STRIKE_TIME);
+  onBound("a-resolved-tree-as-of-an-arrival", (e) => e.arrival.sequence, STRIKE_ARRIVAL);
+  const [, , , purged] = interleaved;
+  need(
+    purged!.purge!.every((name) => scopeOver(base, ["garden:1"]).includes(idOf(name))) &&
+      purged!.expect.before.canonicalHex !== purged!.expect.after.canonicalHex,
+    "the purge of a delta round 1 fetches",
+  );
   return document;
 }
 
@@ -711,6 +820,11 @@ function checkFixture(document: StoreRoundsDocument, registry: SchemaRegistry): 
     "the child at two depths",
   );
   need(whole.expect.members.includes("c2-size-n3"), "the chain of three negations");
+  need(
+    whole.expect.members.includes("b2-name-twice") &&
+      whole.expect.members.includes("c2-size-remark"),
+    "the two index shapes of the fetch cache",
+  );
   need(roundOf(whole, "plant:2") === 0, "the struck child link");
   for (const refusal of document.refusals) {
     const analysis = anchorAnalysis(parseTerm(refusal.term), registry);

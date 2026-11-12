@@ -31583,16 +31583,6 @@
       "semantics": "Native storage API FetchCache.ids implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/fetch-cache.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
     },
     {
-      "id": "ts:index.ts:FetchCache#subset",
-      "owner": "storage",
-      "symbol": "FetchCache.subset",
-      "source": "implementations/ts/src/index.ts",
-      "definition": "implementations/ts/src/storage/fetch-cache.ts",
-      "contract": "rhizomatic.storage/native-api/1",
-      "classification": "compatibility_reexport",
-      "semantics": "Native storage API FetchCache.subset implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/fetch-cache.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
-    },
-    {
       "id": "ts:index.ts:FetchCache#source",
       "owner": "storage",
       "symbol": "FetchCache.source",
@@ -32663,16 +32653,6 @@
       "semantics": "Native storage API FetchCache.ids implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/fetch-cache.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
     },
     {
-      "id": "ts:storage/fetch-cache.ts:FetchCache#subset",
-      "owner": "storage",
-      "symbol": "FetchCache.subset",
-      "source": "implementations/ts/src/storage/fetch-cache.ts",
-      "definition": "implementations/ts/src/storage/fetch-cache.ts",
-      "contract": "rhizomatic.storage/native-api/1",
-      "classification": "native_extension",
-      "semantics": "Native storage API FetchCache.subset implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/fetch-cache.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
-    },
-    {
       "id": "ts:storage/fetch-cache.ts:FetchCache#source",
       "owner": "storage",
       "symbol": "FetchCache.source",
@@ -32711,6 +32691,116 @@
       "contract": "rhizomatic.storage/native-api/1",
       "classification": "native_extension",
       "semantics": "Native storage API copyMember implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/copy.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:index.ts:StoreRoundReport#attempt",
+      "owner": "reactor",
+      "symbol": "StoreRoundReport.attempt",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-read.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API StoreRoundReport.attempt implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-read.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:StoreRoundReport#revision",
+      "owner": "reactor",
+      "symbol": "StoreRoundReport.revision",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-read.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API StoreRoundReport.revision implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-read.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:reactor/store-read.ts:StoreRoundReport#attempt",
+      "owner": "reactor",
+      "symbol": "StoreRoundReport.attempt",
+      "source": "implementations/ts/src/reactor/store-read.ts",
+      "definition": "implementations/ts/src/reactor/store-read.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API StoreRoundReport.attempt implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-read.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-read.ts:StoreRoundReport#revision",
+      "owner": "reactor",
+      "symbol": "StoreRoundReport.revision",
+      "source": "implementations/ts/src/reactor/store-read.ts",
+      "definition": "implementations/ts/src/reactor/store-read.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API StoreRoundReport.revision implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-read.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/fetch-cache.ts:createReadCache",
+      "owner": "storage",
+      "symbol": "createReadCache",
+      "source": "implementations/ts/src/storage/fetch-cache.ts",
+      "definition": "implementations/ts/src/storage/fetch-cache.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API createReadCache implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/fetch-cache.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/fetch-cache.ts:HeldMembers",
+      "owner": "storage",
+      "symbol": "HeldMembers",
+      "source": "implementations/ts/src/storage/fetch-cache.ts",
+      "definition": "implementations/ts/src/storage/fetch-cache.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API HeldMembers implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/fetch-cache.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/fetch-cache.ts:HeldMembers#get",
+      "owner": "storage",
+      "symbol": "HeldMembers.get",
+      "source": "implementations/ts/src/storage/fetch-cache.ts",
+      "definition": "implementations/ts/src/storage/fetch-cache.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API HeldMembers.get implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/fetch-cache.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/fetch-cache.ts:HeldMembers#arrival",
+      "owner": "storage",
+      "symbol": "HeldMembers.arrival",
+      "source": "implementations/ts/src/storage/fetch-cache.ts",
+      "definition": "implementations/ts/src/storage/fetch-cache.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API HeldMembers.arrival implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/fetch-cache.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/fetch-cache.ts:HeldMembers#targets",
+      "owner": "storage",
+      "symbol": "HeldMembers.targets",
+      "source": "implementations/ts/src/storage/fetch-cache.ts",
+      "definition": "implementations/ts/src/storage/fetch-cache.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API HeldMembers.targets implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/fetch-cache.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/fetch-cache.ts:HeldMembers#negators",
+      "owner": "storage",
+      "symbol": "HeldMembers.negators",
+      "source": "implementations/ts/src/storage/fetch-cache.ts",
+      "definition": "implementations/ts/src/storage/fetch-cache.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API HeldMembers.negators implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/fetch-cache.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/fetch-cache.ts:HeldMembers#subset",
+      "owner": "storage",
+      "symbol": "HeldMembers.subset",
+      "source": "implementations/ts/src/storage/fetch-cache.ts",
+      "definition": "implementations/ts/src/storage/fetch-cache.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API HeldMembers.subset implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/fetch-cache.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
     }
   ]
 }

@@ -718,25 +718,37 @@ that a vector can pin.
    also the ones that fail the residual. Its order is free.
 8. **An unanchored term** is refused before any store call, with the SPEC-17 §5 reason
    (TypeScript: `UnanchoredTermError`, with `reason`, and the message
-   `term is not anchored: <reason>`). A gather that does not evaluate to an HView is refused
+   `term is not anchored: <reason>`). Taking a snapshot is a store call, so `StoreReactor`
+   refuses before it opens one. A gather that does not evaluate to an HView is refused
    `result-sort`.
 9. **The answer** carries the result, the scope (every anchor asked for), the exact members of
-   the last round, the snapshot's revision, and one report per round: its anchors, how many
-   deltas came back, how many the read holds, how many are members, and what the store reported
-   applied.
+   the last round, the snapshot's revision, and one report per round: its number (from 1 on
+   each snapshot), the attempt (1 for the first snapshot; `StoreReactor` counts up when it
+   starts again), the revision of the snapshot it ran on, its anchors, how many deltas came
+   back, how many the read holds, how many are members, and what the store reported applied.
 10. **The round hook** runs after each round's evaluation and before the next `scope` call,
-    also after the last round. The read waits for it. The interleaved vectors need it.
+    also after the last round. The read waits for it. The interleaved vectors need it. No vector
+    can see a hook that skips the last round, so each witness asserts, for every case, that the
+    hook's reports equal the read's own round reports.
 11. **A moved snapshot.** `readAnchored` passes `snapshot-moved` up and keeps nothing.
     `StoreReactor.read` and `StoreReactor.fetch` then start again on a new snapshot, with a new
     cache: at most three more times, so at most four snapshots. Any other refusal passes up at
-    once. Every snapshot is released, also on a refusal. The answer says how many snapshots it
-    took.
+    once, after one attempt. Every snapshot is released, also on a refusal. The answer says how
+    many snapshots it took. A cache never outlives its snapshot. A wrapper that starts again but
+    keeps its old cache still answers `after` under appends alone, because what it kept is
+    still held; after a purge it shows a delta the peer no longer holds. The interleaved purge
+    vector catches it.
 12. **`fetchScope`** makes one `scope` call and returns a source that knows **exactly**
     `S(entities)` under the selection. A delta the store returned beyond that is not in the
     source. Entities are asked once each, ascending.
-13. **The fetch cache checks every id** against its claims as a member enters, once. A member
-    whose id does not recompute is refused `invalid-request`. This joins the closed list of
-    §4.11 reading 21.
+13. **The fetch cache owns what it holds** (§4.1, §4.11 readings 33–34). It checks and copies
+    each member with the same rule as `scopeSource` (each field read once and type-checked, bytes
+    only as the byte array type and never converted) and computes the id over its own copy,
+    once. It refuses `invalid-request` for a member that is malformed, whose id does not
+    recompute, or whose arrival record is missing or names another id; a refused call adds
+    nothing. Everything it hands out is a copy or cannot be changed. A delta with two pointers
+    at one entity is listed there once; a pointer at a delta is a negation only with the role
+    `negates`. This joins the closed list of §4.11 reading 21.
 14. **The read with no fetch cache** (mode 2 of the round vectors) asks for every anchor so far
     in every round and sends no `exclude`, so each answer alone carries the whole scope so far.
     It exists so the vectors can show that the cache changes no answer. Whether such a reader
@@ -747,6 +759,18 @@ that a vector can pin.
     model needs the evaluator, so it lives with the generator and not in `storage`.
 17. **Not built yet in slice 2:** the evaluation memo (it wraps the per-round evaluation),
     `readFullSurface`, and the second run of the existing read families.
+18. **The read trusts `applied`.** It does not check again a field that the store reported
+    applied. A check costs work on every honest read, and §4.3 makes a false `applied` a store
+    defect that the store vectors catch. Over a store that reports a field applied and does not
+    apply it, the read is wrong; each witness has a rail that shows this, so the trust is a
+    stated assumption.
+19. **The whole-surface mode of the round vectors** (mode 1) derives its scope from the request
+    root, the term's static anchors and the anchors that the gather's HView shows. For a
+    `resolve` term the gather is the operand: the View shows no anchors. This scope equals the
+    scope of the rounds, because SPEC-17 discovery finds only true anchors.
+20. **A sticky residual has no vector.** A memory profile is the same in every round, so each
+    witness tests reading 2 with a store double that leaves a field to the host in alternate
+    rounds, in both parities.
 
 
 ## 5. Architectures

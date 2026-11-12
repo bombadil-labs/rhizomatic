@@ -18,7 +18,7 @@ import type { SchemaRegistry } from "../schema/schema.js";
 import type { Term } from "../syntax/model.js";
 import type { Bindings } from "../syntax/pred.js";
 import type { ArrivalRecord } from "../storage/arrival-record.js";
-import { createFetchCache, type FetchCache } from "../storage/fetch-cache.js";
+import { createReadCache, type HeldMembers } from "../storage/fetch-cache.js";
 import type { ScopeSource } from "../storage/scope-source.js";
 import {
   StoreError,
@@ -70,8 +70,15 @@ export interface StoreReadRequest extends StoreSelection {
 
 /** What one round did. */
 export interface StoreRoundReport {
-  /** 1 for the first round. */
+  /** 1 for the first round of each attempt. */
   readonly round: number;
+  /**
+   * Which snapshot of the read this round ran on: 1 for the first. `StoreReactor.read` counts
+   * up when it starts again after `snapshot-moved`; `readAnchored` always reports 1.
+   */
+  readonly attempt: number;
+  /** The revision of the snapshot this round ran on. */
+  readonly revision: Revision;
   /** The entities this round's `scope` call asked for, ascending. */
   readonly anchors: readonly Entity[];
   /** How many deltas the store returned for this round. */
@@ -152,7 +159,7 @@ export const UNCACHED_ROUNDS: RoundPolicy = {
 // The host half of a selection over what the read holds: `admits`, and each pushdown field the
 // store left to the host. Pointwise, so the trim lemma applies (§4.3).
 function residualSelection(
-  cache: FetchCache,
+  cache: HeldMembers,
   sent: Pushdown | undefined,
   fields: ReadonlySet<PushdownField>,
   admits: StoreAdmits | undefined,
@@ -200,19 +207,21 @@ function evaluateRound(
 
 /**
  * `readAnchored` under a given round policy. Not part of the package surface: the conformance
- * harness and the rails use it.
+ * harness and the rails use it. `attempt` is the number each round report carries.
  */
 export async function readAnchoredWith(
   snapshot: Snapshot,
   request: StoreReadRequest,
   policy: RoundPolicy,
+  attempt = 1,
 ): Promise<StoreRead> {
   const { term, root, registry, bindings } = request;
   const analysis = anchorAnalysis(term, registry, bindings);
   if (!analysis.anchored) throw new UnanchoredTermError(analysis.reason);
   const gather = term.kind === "resolve" ? term.of : term;
 
-  const cache = createFetchCache();
+  // The cache is this read's alone; evaluation reads what it keeps without a copy.
+  const { cache, held } = createReadCache();
   const unapplied = new Set<PushdownField>();
   const anchors = new Set<Entity>();
   const rounds: StoreRoundReport[] = [];
@@ -234,14 +243,16 @@ export async function readAnchoredWith(
 
     // The exact scope of every anchor so far: S(anchors) over what is held, under the residual.
     const members = scopeIds(
-      cache,
+      held,
       anchors,
-      residualSelection(cache, asked.pushdown, unapplied, request.admits),
+      residualSelection(held, asked.pushdown, unapplied, request.admits),
     );
-    const set = cache.subset(members);
+    const set = held.subset(members);
     const gathered = evaluateRound(gather, set, request);
     const report: StoreRoundReport = {
       round: rounds.length + 1,
+      attempt,
+      revision: snapshot.revision,
       anchors: asked.anchors.map((anchor) => anchor.entity),
       fetched: answer.deltas.length,
       held: cache.size,
@@ -302,13 +313,13 @@ export async function fetchScope(
     ...(selection.pushdown === undefined ? {} : { pushdown: selection.pushdown }),
   };
   const answer = await snapshot.scope(asked);
-  const cache = createFetchCache();
+  const { cache, held } = createReadCache();
   cache.add(answer.deltas);
   const unapplied = new Set(unappliedFields(asked.pushdown, answer.applied));
   const members = scopeIds(
-    cache,
+    held,
     anchors,
-    residualSelection(cache, asked.pushdown, unapplied, selection.admits),
+    residualSelection(held, asked.pushdown, unapplied, selection.admits),
   );
   return { source: cache.source(members), revision: snapshot.revision };
 }
@@ -344,8 +355,8 @@ export class StoreReactor {
     // An unanchored term is refused before the first store call; opening a snapshot is one.
     const analysis = anchorAnalysis(request.term, request.registry, request.bindings);
     if (!analysis.anchored) throw new UnanchoredTermError(analysis.reason);
-    const { value, attempts } = await this.onSnapshot((snapshot) =>
-      readAnchored(snapshot, request),
+    const { value, attempts } = await this.onSnapshot((snapshot, attempt) =>
+      readAnchoredWith(snapshot, request, STANDARD_ROUNDS, attempt),
     );
     return { ...value, attempts };
   }
@@ -357,12 +368,12 @@ export class StoreReactor {
   }
 
   private async onSnapshot<T>(
-    run: (snapshot: Snapshot) => Promise<T>,
+    run: (snapshot: Snapshot, attempt: number) => Promise<T>,
   ): Promise<{ value: T; attempts: number }> {
     for (let attempts = 1; ; attempts += 1) {
       const snapshot = await this.peer.read();
       try {
-        return { value: await run(snapshot), attempts };
+        return { value: await run(snapshot, attempts), attempts };
       } catch (error) {
         const moved = error instanceof StoreError && error.code === "snapshot-moved";
         if (!moved || attempts > SNAPSHOT_RETRIES) throw error;

@@ -675,7 +675,8 @@ Names here are neutral; a witness spells them its own way. The reader takes a sn
 a root, `now`, optional bindings and a selection, and works as follows.
 
 1. **Classify.** Run the SPEC-17 §5 anchor analysis of the term, with the bindings. An unanchored
-   term is refused with the analysis reason, **before any store call** (§5.6).
+   term is refused with the analysis reason, **before any store call** (§5.6). Taking a snapshot
+   is a store call: a reader that opens its own snapshot refuses before it opens one.
 2. **First anchors.** The request root and the term's static anchors, as a set, ascending.
 3. **One round.**
    1. Make **one** `scope` call (§1.4.1). `anchors` is exactly the entities no earlier round
@@ -683,7 +684,10 @@ a root, `now`, optional bindings and a selection, and works as follows.
       rounds, in any order; it may be omitted when the read holds nothing.
    2. Add every returned delta to the **fetch cache**, with its arrival record. The cache keeps
       a delta that fails the selection: the next round's `exclude` names it, so the store does
-      not send it again.
+      not send it again. The cache owns what it holds, as a store does (§1, §7): it checks and
+      copies each member, computes the id over its copy, and refuses `invalid-request` for a
+      member that is malformed, whose id does not recompute, or whose arrival record is
+      missing or names another id. A refused call adds nothing.
    3. Compute the **exact members**: S(E over C′), where E is every anchor asked for so far, C
       is the cache, and C′ is the members of C that pass the **residual selection**. The
       residual is each selection field that some round's answer did not report applied, plus any
@@ -731,13 +735,16 @@ by §5.2. Every mode MUST give `canonicalHex`, `scope` and `members`.
 
 | # | Mode | How |
 |---|---|---|
-| 1 | Whole surface | List the peer's deltas through the exporter (`openAdmin().peer(id).deltas()`), keep those that pass `selection`, evaluate the term over all of them with the ordinary evaluator. The exporter lists no arrival record: take each delta's arrival from the load (§5.2). Derive the scope from the result (root, static anchors, anchors shown) and the members by scanning. |
+| 1 | Whole surface | List the peer's deltas through the exporter (`openAdmin().peer(id).deltas()`), keep those that pass `selection`, evaluate the term over all of them with the ordinary evaluator. The exporter lists no arrival record: take each delta's arrival from the load (§5.2). The scope is the request root, the term's static anchors, and the anchors that the gather's HView shows when the gather is evaluated over the same deltas (for a `resolve` term the gather is its operand; the View itself shows no anchors). The members are the scope of those entities, found by scanning. |
 | 2 | Rounds, no cache | §5.3, but every round asks for **every** anchor so far and sends no `exclude`. Each answer alone then carries the whole scope so far; nothing an earlier round fetched is needed. |
 | 3 | Rounds, fetch cache | §5.3 as written. |
 | 4 | Rounds, evaluation memo, no fetch cache | Mode 2 with the memo of SPEC-18 §4.4. |
 | 5 | Rounds, both caches | Mode 3 with the memo. |
 
 Modes 4 and 5 exist once a witness has the evaluation memo; until then it runs 1 to 3.
+
+Mode 1's scope equals the scope of the rounds. SPEC-17 discovery finds only true anchors, so the
+whole-surface gather shows exactly the anchors that the rounds reach, and no others.
 
 `expect.rounds` is **normative for modes 3 and 5**: the number of `scope` calls and the anchors
 of each. In modes 2 and 4, round i asks for the union of `rounds[0..i]`.
@@ -767,6 +774,14 @@ What the fixture holds, so a reader that gets one of these wrong fails a case:
   removes an anchor.
 - A static anchor (`grants`) in round 1, a hole bound by the request, a `resolve` term, a root
   nothing points at, and a selection that admits nothing.
+- A `resolve` term under each pushdown field (`a-resolved-tree-*`). Each selection changes the
+  View, so a reader that evaluates the final `resolve` over everything it holds, and not over
+  the members, fails under a profile that leaves the field to the host.
+- A member on each bound. `c1-note-neg-by-carol` has timestamp 44 and arrival sequence 30, and
+  the two cuts there keep it (`timestamp <= timestampAtMost`, `sequence <= arrivalAtMost`). A
+  strict comparison drops it, and `c1-note` shows.
+- Two index shapes: `b2-name-twice` points at `bed:2` twice, and `c2-size-remark` points at
+  `c2-size` with the role `annotates`, which is no negation.
 
 ### 5.5 An interleaved case
 
@@ -776,15 +791,27 @@ What the fixture holds, so a reader that gets one of these wrong fails a case:
   "afterRound": 1,
   "append": { "expectedHead": "rounds-head-2", "nextHead": "rounds-head-3", "added": [ … ] },
   "expect": { "before": <expect, as in §5.4>, "after": <expect, as in §5.4> } }
+
+{ "name": "a-purge-after-the-first-round", "note": "…",
+  "term": <term>, "root": "garden:1", "now": 100, "selection": {},
+  "afterRound": 1,
+  "purge": ["g-features-c1-neg-neg"],
+  "expect": { "before": <expect, as in §5.4>, "after": <expect, as in §5.4> } }
 ```
+
+A case has exactly one of `append` and `purge`. `purge` holds corpus names, ascending by id.
 
 The peer moves while a read is between two rounds. A reader needs a **hook** for this: a
 callback it runs after each round's evaluation (§5.3 step 3.4) and before the next `scope` call,
-also after the last round. The hook receives at least the round number, counted from 1.
+also after the last round. The hook receives at least the round number (counted from 1 on each
+snapshot), the attempt (1 for the first snapshot of a read; a wrapper that starts again counts
+up) and the revision of the snapshot the round ran on.
 
 For each case, on a newly loaded peer (§5.2), take a snapshot and start the read (mode 3). When
-the hook reports round `afterRound`, apply `append` to the peer by the load rule (it MUST
-commit), once, then let the read go on. The read MUST end in one of two ways:
+the hook reports round `afterRound`, change the peer once, then let the read go on. To change it,
+apply `append` by the load rule (it MUST commit), or call `purge` with the ids that `purge`
+names (every target MUST report `removed`). `after` is the read over the holdings after the
+change. The read MUST end in one of two ways:
 
 - it is refused with `snapshot-moved`; or
 - it answers `expect.before` exactly (bytes, scope, members, rounds), at the revision of the
@@ -792,14 +819,17 @@ commit), once, then let the read go on. The read MUST end in one of two ways:
 
 Anything else fails, in particular `expect.after` from a reader given one snapshot, and any
 answer that is neither. The appended deltas are chosen so that a reader which goes on against the
-later state shows some of them and not others, which is neither answer. A store without read
+later state shows some of them and not others, which is neither answer. The purged delta is one
+that round 1 fetches. A store without read
 transactions (the memory reference) refuses when a store call follows the append, and answers
 `before` when `afterRound` is the last round. A store with read transactions answers `before`
 every time.
 
 A witness that offers a wrapper which opens the snapshot itself and starts again on
 `snapshot-moved` (TypeScript: `StoreReactor.read`) runs each case through it too. It MUST answer
-`before` at the first revision or `after` at a later revision, and never mix.
+`before` at the first revision or `after` at a later revision, and never mix. `before` at a later
+revision fails: it is what a wrapper answers when it starts again but keeps the old cache, and
+the purge case shows it.
 
 ### 5.6 A refusal
 
@@ -827,12 +857,43 @@ makes **no** store call. It does not fall back to another way of reading.
 
 The JSON cannot express these; each witness builds them over this fixture.
 
-- **Wrong readers.** Each must fail at least one case: a reader that sends the held ids as
-  `pushdown.excludeIds` (fails where the store leaves that field to the host, and against a store
-  that returns the unclosed extra of §5.4's `b1-late-note-neg-at-c2`); a reader that skips the
-  residual selection (fails under a switched-off field); a reader that keeps its fetch cache
-  across two snapshots (fails an interleaved case with an answer that is neither); a reader that
-  asks for every anchor in every round with the cache on (right answers, fails `expect.rounds`).
+- **Wrong readers.** Each must fail at least one case:
+  - A reader that sends the held ids as `pushdown.excludeIds` and not as `exclude`. Two things
+    hide it. Against a store that leaves `excludeIds` to the host, it fails only if it also
+    applies those ids as part of its residual selection, and so drops what it holds. Against a
+    store that applies the field, it fails only if the store returns an unclosed extra (the
+    `b1-late-note-neg-at-c2` shape of §5.4) and the read already holds it when a later round owes
+    its negators. The rail needs both stores.
+  - A reader that skips the residual selection. It fails under a switched-off field.
+  - A reader that goes on in the middle of a read on a new snapshot, with its cache and its
+    anchors. It fails an append case with an answer that is neither.
+  - A wrapper that starts again on a new snapshot but keeps its old cache. Under appends alone it
+    answers `after` exactly, because everything it kept is still held. It fails the purge case: it
+    answers `before` at the later revision.
+  - A reader that asks for every anchor in every round with the cache on. Its answers are right;
+    it fails `expect.rounds`.
+- **A sticky residual.** No vector pins it, because a memory profile is the same in every round.
+  Each witness reads every case against a store double that leaves one field to the host in the
+  odd rounds only, and again in the even rounds only. The standard reader passes both; a control
+  that never applies the field fails. A reader that keeps only the last round's residual, or
+  only the first's, passes one parity and fails the other, so both parities are needed.
+- **The hook.** For every case, the hook ran once per round, also after the last round, and its
+  reports equal the read's own round reports. A read that a wrapper started again reports each
+  attempt, and the reports of two attempts differ in `attempt` and `revision`.
+- **Refusals.** A store double that refuses one `scope` call with `snapshot-released`, and one
+  with `capability-absent`. The wrapper (`read` and `fetch`) passes the refusal up after one
+  attempt and releases the snapshot.
+- **A store that lies about `applied`.** A double that drops `timestampAtMost` and reports it
+  applied. The read trusts `applied` (SPEC-18 §4.12 reading 18), so its answer is wrong. The rail
+  shows that this trust is a stated assumption: the store vectors, not the read, catch the lie.
+- **The fetch cache.** The ownership tests of §7 for the cache and for each source it hands out:
+  a driver that writes into its byte array after `scope` returns, a caller that changes a
+  returned delta, payload, arrival record or index list, bytes that are not the byte array type.
+  A member with no arrival record, and one whose arrival names another id, is refused, and a
+  refused call adds nothing. Index rules: a delta with two pointers at one entity is listed
+  once, and a pointer at a delta whose role is not `negates` makes no negator. No vector reaches
+  these: the reader computes members as a set, and a correct store never returns the second
+  shape where it could matter.
 - **Cost.** With a snapshot wrapper that records `{op, keyCount, excludeCount}` for every call:
   the same read beside 0 and beside at least 4000 unrelated deltas makes the same calls, and the
   memory store's meter moves by the same amounts with no scan; each round is one `scope` call

@@ -30,6 +30,7 @@ import {
   type StoreAdmits,
   type StoreRead,
   type StoreReadRequest,
+  type StoreRoundReport,
 } from "../src/reactor/store-read.js";
 import { anchorAnalysis, hviewAnchors } from "../src/resolve/anchored.js";
 import { evalTerm, resultCanonicalHex, type EvalResult } from "../src/resolve/eval.js";
@@ -300,10 +301,19 @@ describe("round vectors: one read, every way, every pushdown profile", () => {
     const revision = await onSnapshot(loaded.peer, async (snapshot) => snapshot.revision);
     for (const c of document.cases) {
       trace.length = 0;
-      const read = await reactor.read(requestOf(c));
+      const hooked: StoreRoundReport[] = [];
+      const read = await reactor.read(
+        requestOf(c, { onRound: (round) => void hooked.push(round) }),
+      );
       expect(answerOf(read), c.name).toEqual(c.expect);
       expect(read.revision, c.name).toBe(revision);
       expect(read.attempts, c.name).toBe(1);
+      // The hook ran once per round, the last round included, with the read's own reports.
+      expect(hooked, c.name).toEqual(read.rounds);
+      expect(
+        read.rounds.map((round) => [round.round, round.attempt, round.revision]),
+        c.name,
+      ).toEqual(c.expect.rounds.map((_, i) => [i + 1, 1, revision]));
       expect(
         trace.map((call) => call.op),
         c.name,
@@ -352,7 +362,15 @@ describe("round vectors: refusals", () => {
 type Interleaved = StoreRoundsDocument["interleaved"][number];
 type Outcome = { answer: Required<Answer>; revision: number } | { refused: string };
 
-/** Runs the read with the case's append made once, after round `afterRound` of the first pass. */
+/** Applies the case's change to the peer: its append by the load rule, or its purge. */
+async function change(peer: PeerStore, c: Interleaved): Promise<void> {
+  if (c.append !== undefined) return admit(peer, c.append);
+  const ids = c.purge!.map(idOf);
+  const report = await peer.purge(ids);
+  expect(report.targets).toEqual(ids.map((id) => ({ id, outcome: "removed" })));
+}
+
+/** Runs the read with the case's change made once, after round `afterRound` of the first pass. */
 async function interleave(
   c: Interleaved,
   read: (peer: PeerStore, request: StoreReadRequest) => Promise<StoreRead>,
@@ -366,7 +384,7 @@ async function interleave(
       appended = true;
       // The append lands a turn later: a read that does not wait for its hook misses it.
       await new Promise((done) => setImmediate(done));
-      await admit(loaded.peer, c.append);
+      await change(loaded.peer, c);
     },
   });
   const outcome = await read(loaded.peer, request).then(
@@ -399,7 +417,59 @@ function driftingSnapshot(peer: PeerStore, first: Snapshot): Snapshot {
   };
 }
 
-describe("round vectors: an append between two rounds", () => {
+/**
+ * A wrong reader: on `snapshot-moved` it starts again on a new snapshot, but keeps every member
+ * the first attempt fetched, as a fetch cache kept across snapshots would. It excludes them in
+ * its first new call and adds them to that call's answer.
+ */
+async function staleRestart(peer: PeerStore, request: StoreReadRequest): Promise<StoreRead> {
+  const kept = new Map<string, VerifiedDelta>();
+  const first = await peer.read();
+  try {
+    return await readAnchored(
+      {
+        ...first,
+        scope: async (asked) => {
+          const answer = await first.scope(asked);
+          for (const entry of answer.deltas) kept.set(entry.delta.id, entry);
+          return answer;
+        },
+      },
+      request,
+    );
+  } catch (error) {
+    if (!(error instanceof StoreError && error.code === "snapshot-moved")) throw error;
+  } finally {
+    first.release();
+  }
+  const second = await peer.read();
+  try {
+    return await readAnchored(
+      {
+        ...second,
+        scope: async (asked) => {
+          const carried = [...kept.values()];
+          kept.clear();
+          const answer = await second.scope({
+            ...asked,
+            exclude: [...new Set([...(asked.exclude ?? []), ...carried.map((e) => e.delta.id)])],
+          });
+          return {
+            ...answer,
+            deltas: [...answer.deltas, ...carried].sort((a, b) =>
+              compareUtf8(a.delta.id, b.delta.id),
+            ),
+          };
+        },
+      },
+      request,
+    );
+  } finally {
+    second.release();
+  }
+}
+
+describe("round vectors: a change between two rounds", () => {
   for (const c of document.interleaved) {
     const last = c.afterRound === c.expect.before.rounds.length;
 
@@ -420,20 +490,46 @@ describe("round vectors: an append between two rounds", () => {
       else expect(outcome).toEqual({ answer: c.expect.after, revision: end });
     });
 
-    it(`${c.name}: a read that keeps its cache across two snapshots is caught`, async () => {
-      const { outcome } = await interleave(c, (peer, request) =>
-        onSnapshot(peer, (snapshot) => readAnchored(driftingSnapshot(peer, snapshot), request)),
-      );
-      if (!("answer" in outcome)) throw new Error("the drifting read refused");
-      if (last) {
-        // No store call follows the append, so there is nothing to mix.
-        expect(outcome.answer).toEqual(c.expect.before);
-        return;
+    // A reader that goes on mid-read on a new snapshot, with its cache and its anchors. An
+    // append below the anchors already fetched is what shows it.
+    if (c.append !== undefined)
+      it(`${c.name}: a read that goes on with its cache on a new snapshot is caught`, async () => {
+        const { outcome } = await interleave(c, (peer, request) =>
+          onSnapshot(peer, (snapshot) => readAnchored(driftingSnapshot(peer, snapshot), request)),
+        );
+        if (!("answer" in outcome)) throw new Error("the drifting read refused");
+        if (last) {
+          // No store call follows the append, so there is nothing to mix.
+          expect(outcome.answer).toEqual(c.expect.before);
+          return;
+        }
+        expect(outcome.answer.canonicalHex).not.toBe(c.expect.before.canonicalHex);
+        expect(outcome.answer.canonicalHex).not.toBe(c.expect.after.canonicalHex);
+      });
+
+    // A reader that starts again on a new snapshot but keeps the cache of the first. Appends
+    // alone cannot show it: what it kept is still held. A purge can.
+    it(`${c.name}: a read that starts again with its old cache`, async () => {
+      const { outcome, start, end } = await interleave(c, staleRestart);
+      if (last) expect(outcome).toEqual({ answer: c.expect.before, revision: start });
+      else if (c.append !== undefined)
+        expect(outcome).toEqual({ answer: c.expect.after, revision: end });
+      else {
+        // It shows the purged delta at the later revision: neither answer.
+        expect(outcome).toEqual({ answer: c.expect.before, revision: end });
+        expect(c.expect.before).not.toEqual(c.expect.after);
       }
-      expect(outcome.answer.canonicalHex).not.toBe(c.expect.before.canonicalHex);
-      expect(outcome.answer.canonicalHex).not.toBe(c.expect.after.canonicalHex);
     });
   }
+
+  it("the vectors have a purge between two rounds", () => {
+    expect(document.interleaved.filter((c) => c.purge !== undefined).length).toBeGreaterThan(0);
+    for (const c of document.interleaved)
+      expect(
+        [c.append, c.purge].filter((x) => x !== undefined),
+        c.name,
+      ).toHaveLength(1);
+  });
 
   it("retries three times, then passes snapshot-moved up; every snapshot is released", async () => {
     const c = document.interleaved[0]!;
@@ -469,13 +565,65 @@ describe("round vectors: an append between two rounds", () => {
 
   it("a second attempt that holds still answers, and says it took two", async () => {
     const c = document.interleaved[0]!;
-    const { outcome, end } = await interleave(c, async (peer, request) => {
-      const read = await StoreReactor.open(peer).read(request);
+    const reports: StoreRoundReport[] = [];
+    let rounds: readonly StoreRoundReport[] = [];
+    const { outcome, start, end } = await interleave(c, async (peer, request) => {
+      const read = await StoreReactor.open(peer).read({
+        ...request,
+        onRound: async (round) => {
+          reports.push(round);
+          await request.onRound?.(round);
+        },
+      });
       expect(read.attempts).toBe(2);
+      rounds = read.rounds;
       return read;
     });
     expect(outcome).toEqual({ answer: c.expect.after, revision: end });
+    expect(rounds.every((round) => round.attempt === 2 && round.revision === end)).toBe(true);
+    // The hook saw both attempts, and each report says which one it was.
+    expect(reports.map((r) => [r.attempt, r.round, r.revision])).toEqual([
+      [1, 1, start],
+      ...c.expect.after.rounds.map((_, i) => [2, i + 1, end]),
+    ]);
   });
+
+  for (const code of ["snapshot-released", "capability-absent"] as const)
+    it(`a ${code} refusal passes up after one attempt`, async () => {
+      const loaded = await load();
+      const refusing = (peer: PeerStore): PeerStore => {
+        let refused = false;
+        return {
+          ...peer,
+          read: async () => {
+            const snapshot = await peer.read();
+            return {
+              ...snapshot,
+              scope: async (asked) => {
+                if (refused) return snapshot.scope(asked);
+                refused = true;
+                throw new StoreError(code, `once: ${code}`);
+              },
+            };
+          },
+        };
+      };
+      for (const run of [
+        (reactor: StoreReactor) => reactor.read(requestOf(pick("a-subtree"))),
+        (reactor: StoreReactor) => reactor.fetch(["cutting:2"]),
+      ]) {
+        const trace: StoreCall[] = [];
+        const failure = await run(
+          StoreReactor.open(countingPeer(refusing(loaded.peer), trace)),
+        ).then(
+          () => undefined,
+          (error: unknown) => error,
+        );
+        expect(failure).toBeInstanceOf(StoreError);
+        expect((failure as StoreError).code).toBe(code);
+        expect(trace.map((call) => call.op)).toEqual(["read", "scope", "release"]);
+      }
+    });
 });
 
 // ---- readers that are wrong on purpose ----------------------------------------------------
@@ -680,6 +828,96 @@ describe("round vectors: a wrong reader fails a case", () => {
     expect((await failures(forgetful, ALL, firstRoundLoose)).answers).toContain(
       "signed-time-cuts-a-link-and-a-strike",
     );
+  });
+});
+
+describe("round vectors: what the read trusts and what it keeps", () => {
+  const ALL = PUSHDOWN_FIELDS;
+  /** A store that ignores `timestampAtMost` in the rounds `loose` picks, and says so honestly. */
+  const timeLooseOn =
+    (loose: (call: number) => boolean) =>
+    (peer: PeerStore): PeerStore => ({
+      ...peer,
+      read: async () => {
+        const snapshot = await peer.read();
+        let calls = 0;
+        return {
+          ...snapshot,
+          scope: async (request) => {
+            calls += 1;
+            if (!loose(calls) || request.pushdown?.timestampAtMost === undefined)
+              return snapshot.scope(request);
+            const { arrivalAtMost, excludeIds } = request.pushdown;
+            const wide = await snapshot.scope({
+              ...request,
+              pushdown: {
+                ...(arrivalAtMost === undefined ? {} : { arrivalAtMost }),
+                ...(excludeIds === undefined ? {} : { excludeIds }),
+              },
+            });
+            return { ...wide, applied: { ...wide.applied, timestampAtMost: false } };
+          },
+        };
+      },
+    });
+
+  it("a field stays residual for the rest of the read, whichever rounds leave it to the host", async () => {
+    // Both parities: the odd rounds leave the field to the host, then the even rounds. A
+    // reader that keeps only the last round's residual, or only the first's, fails one of them.
+    for (const parity of [1, 0])
+      expect(
+        await failures(
+          STANDARD_ROUNDS,
+          ALL,
+          timeLooseOn((call) => call % 2 === parity),
+        ),
+        `parity ${parity}`,
+      ).toEqual({ answers: [], rounds: [] });
+    // The control: these stores do return members past the cut in a read of several rounds.
+    const forgetful: RoundPolicy = {
+      ...STANDARD_ROUNDS,
+      residual: (sent, applied) =>
+        unappliedFields(sent, applied).filter((field) => field !== "timestampAtMost"),
+    };
+    for (const parity of [1, 0])
+      expect(
+        (
+          await failures(
+            forgetful,
+            ALL,
+            timeLooseOn((call) => call % 2 === parity),
+          )
+        ).answers,
+        `parity ${parity}`,
+      ).toContain("signed-time-cuts-a-link-and-a-strike");
+  });
+
+  it("the read trusts `applied`: a store that lies about it gets a wrong answer", async () => {
+    // SPEC-18 §4.12 reading 18. The store drops `timestampAtMost` and reports it applied. The
+    // read does not check the members again, so the cut does not happen. The store vectors,
+    // not the read, catch such a store.
+    const lying = (peer: PeerStore): PeerStore => ({
+      ...peer,
+      read: async () => {
+        const snapshot = await peer.read();
+        return {
+          ...snapshot,
+          scope: async (request) => {
+            const { timestampAtMost, ...rest } = request.pushdown ?? {};
+            const answer = await snapshot.scope({ ...request, pushdown: rest });
+            return {
+              ...answer,
+              applied: { ...answer.applied, timestampAtMost: timestampAtMost !== undefined },
+            };
+          },
+        };
+      },
+    });
+    const { answers } = await failures(STANDARD_ROUNDS, ALL, lying);
+    expect(answers).toContain("signed-time-cuts-a-link-and-a-strike");
+    expect(answers).toContain("a-resolved-tree-cut-at-a-strike");
+    // A case with no time cut is not touched by the lie.
+    expect(answers).not.toContain("the-whole-garden");
   });
 });
 
@@ -920,6 +1158,153 @@ describe("the fetch cache", () => {
     expect(source.negators(idOf("c2-size-n1"))).toEqual([idOf("c2-size-n2")]);
     expect(source.get(idOf("c2-size-n1"))).toBeUndefined();
     expect(source.arrival(idOf("c2-size-n1"))).toBeUndefined();
+  });
+
+  const refusal = (run: () => unknown): string | undefined => {
+    try {
+      run();
+    } catch (error) {
+      return error instanceof StoreError ? error.code : String(error);
+    }
+    return undefined;
+  };
+  const bytesMember = (payload: unknown): VerifiedDelta => {
+    const delta = makeDelta({
+      timestamp: 1,
+      validFrom: 1,
+      author: "did:key:zAlice",
+      pointers: [
+        { role: "subject", target: { kind: "entity", entity: { id: "box:1", context: "blob" } } },
+        {
+          role: "value",
+          target: {
+            kind: "bytes",
+            mime: "application/octet-stream",
+            value: new Uint8Array([1, 2, 3]),
+          },
+        },
+      ],
+    });
+    const claims = {
+      ...delta.claims,
+      pointers: [
+        delta.claims.pointers[0]!,
+        {
+          role: "value",
+          target: { kind: "bytes", mime: "application/octet-stream", value: payload },
+        },
+      ],
+    };
+    return {
+      delta: { id: delta.id, claims: claims as Delta["claims"] },
+      arrival: { id: delta.id, at: 1, sequence: 1, transfer: 1, sender: "s" },
+    };
+  };
+  const payloadOf = (delta: Delta | undefined): Uint8Array => {
+    const target = delta!.claims.pointers[1]!.target;
+    if (target.kind !== "bytes") throw new Error("not a bytes target");
+    return target.value;
+  };
+
+  it("refuses a member with no arrival record, or one that names another id", () => {
+    const cache = createFetchCache();
+    const bare = { delta: entry("g-name").delta } as unknown as VerifiedDelta;
+    expect(refusal(() => cache.add([bare]))).toBe("invalid-request");
+    const other = {
+      ...entry("g-name"),
+      arrival: { ...entry("g-name").arrival, id: idOf("b1-name") },
+    };
+    expect(refusal(() => cache.add([other]))).toBe("invalid-request");
+    expect(cache.size).toBe(0);
+    expect(cache.add([entry("g-name")])).toBe(1);
+  });
+
+  it("refuses bytes that are not a Uint8Array, and never converts them", () => {
+    const cache = createFetchCache();
+    expect(refusal(() => cache.add([bytesMember([1, 2, 3])]))).toBe("invalid-request");
+    expect(refusal(() => cache.add([bytesMember(new Uint8Array([1, 2, 3]).buffer)]))).toBe(
+      "invalid-request",
+    );
+    expect(cache.size).toBe(0);
+  });
+
+  it("a refused call files nothing, also the good members before the bad one", () => {
+    const cache = createFetchCache();
+    const forged = { ...entry("g-name"), delta: { ...entry("g-name").delta, id: idOf("b1-name") } };
+    expect(refusal(() => cache.add([entry("c2-size"), entry("c2-size-n1"), forged]))).toBe(
+      "invalid-request",
+    );
+    expect(cache.size).toBe(0);
+    expect([...cache.ids()]).toEqual([]);
+    expect([...cache.negators(idOf("c2-size"))]).toEqual([]);
+  });
+
+  it("owns what it holds: bytes the driver reuses after `scope` change nothing", async () => {
+    const member = bytesMember(new Uint8Array([1, 2, 3]));
+    const cache = createFetchCache();
+    cache.add([member]);
+    payloadOf(member.delta).fill(9);
+    expect(payloadOf(cache.get(member.delta.id))).toEqual(new Uint8Array([1, 2, 3]));
+    // Through fetchScope: the driver writes into its buffer once the answer is handed over.
+    const fresh = bytesMember(new Uint8Array([1, 2, 3]));
+    const snapshot = {
+      revision: 1,
+      scope: async () => ({
+        deltas: [fresh],
+        applied: { timestampAtMost: false, arrivalAtMost: false, excludeIds: false },
+      }),
+    } as unknown as Snapshot;
+    const { source } = await fetchScope(snapshot, ["box:1"]);
+    payloadOf(fresh.delta).fill(7);
+    expect(payloadOf(source.get(fresh.delta.id))).toEqual(new Uint8Array([1, 2, 3]));
+  });
+
+  it("owns what it holds: a caller that changes an answer changes no later answer", () => {
+    const cache = createFetchCache();
+    cache.add([entry("c2-size"), entry("c2-size-n1"), bytesMember(new Uint8Array([1, 2, 3]))]);
+    const box = bytesMember(new Uint8Array()).delta.id;
+    const source = cache.source([idOf("c2-size"), idOf("c2-size-n1"), box]);
+    // An index answer cannot be pushed into.
+    for (const list of [
+      source.targets("cutting:2"),
+      source.negators(idOf("c2-size")),
+      source.ids(),
+    ])
+      expect(() => (list as string[]).push("forged")).toThrow(TypeError);
+    expect(cache.targets("cutting:2")).not.toBeInstanceOf(Set);
+    expect([...cache.targets("cutting:2")]).toEqual([idOf("c2-size")]);
+    // A delta, its claims, its payload and its arrival record are copies.
+    for (const get of [(id: string) => cache.get(id), (id: string) => source.get(id)]) {
+      const got = get(idOf("c2-size"))!;
+      (got.claims as { timestamp: number }).timestamp = 0;
+      (got.claims.pointers as unknown[]).length = 0;
+      payloadOf(get(box)).fill(5);
+    }
+    for (const arrival of [cache.arrival(idOf("c2-size"))!, source.arrival(idOf("c2-size"))!])
+      (arrival as { sequence: number }).sequence = 99;
+    for (const get of [(id: string) => cache.get(id), (id: string) => source.get(id)]) {
+      expect(get(idOf("c2-size"))).toEqual(entry("c2-size").delta);
+      expect(payloadOf(get(box))).toEqual(new Uint8Array([1, 2, 3]));
+    }
+    expect(cache.arrival(idOf("c2-size"))?.sequence).toBe(1);
+    expect(source.arrival(idOf("c2-size"))?.sequence).toBe(1);
+    expect(source.targets("cutting:2")).toEqual([idOf("c2-size")]);
+    // Two reads of one id share nothing.
+    expect(cache.get(box)).not.toBe(cache.get(box));
+    expect(payloadOf(source.get(box))).not.toBe(payloadOf(source.get(box)));
+  });
+
+  it("indexes a delta with two pointers at one entity once, and no other pointer at a delta as a negation", () => {
+    const cache = createFetchCache();
+    cache.add([entry("b2-name-twice"), entry("c2-size"), entry("c2-size-remark")]);
+    expect([...cache.targets("bed:2")]).toEqual([idOf("b2-name-twice")]);
+    expect([...cache.negators(idOf("c2-size"))]).toEqual([]);
+    const source = cache.source([...cache.ids()]);
+    expect(source.targets("bed:2")).toEqual([idOf("b2-name-twice")]);
+    expect(source.negators(idOf("c2-size"))).toEqual([]);
+    expect(source.targets("cutting:2")).toEqual(
+      [idOf("c2-size"), idOf("c2-size-remark")].sort(compareUtf8),
+    );
   });
 
   it("unappliedFields is the requested fields the store did not report applied", () => {

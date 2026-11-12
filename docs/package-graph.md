@@ -53,8 +53,10 @@ derivation   → reactor, algebra, delta
 store conformance runner. It defines `ArrivalRecord`, which the store keeps per peer;
 `federation` re-exports it. `storage` still depends only on `delta`.
 
-`reactor → storage` is the store-backed read (SPEC-18 slice 2, `reactor/store-read.ts`): rounds
-over a `Snapshot`, with the fetch cache of `storage/fetch-cache.ts`. The memory `Reactor` itself
+`reactor → storage` is the store-backed read (SPEC-18 slice 2): rounds over a `Snapshot`, with a
+fetch cache. In TypeScript the read is `reactor/store-read.ts` and the cache
+`storage/fetch-cache.ts`; in Rust the read is `src/store_read.rs` (owner `reactor`) and the cache
+is the `ScopeSource` of `src/store.rs` (owner `storage`). The memory `Reactor` itself
 imports nothing from `storage`. `storage` sits below `reactor` and never imports it, so the round
 vector model, which needs the evaluator, lives in `implementations/ts/tools/`.
 
