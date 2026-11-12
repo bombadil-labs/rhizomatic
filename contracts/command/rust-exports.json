@@ -95603,7 +95603,7 @@
       "definition": "reexport",
       "id": "rust:lib:IngestResult",
       "owner": "reactor",
-      "semantics": "Native lib::IngestResult implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
+      "semantics": "Native lib::IngestResult implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "IngestResult",
       "target": "crate::reactor::IngestResult"
@@ -95651,7 +95651,7 @@
       "definition": "reexport",
       "id": "rust:lib:LoweredProgram",
       "owner": "reactor",
-      "semantics": "Native lib::LoweredProgram implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
+      "semantics": "Native lib::LoweredProgram implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "LoweredProgram",
       "target": "crate::materialize::LoweredProgram"
@@ -95747,7 +95747,7 @@
       "definition": "reexport",
       "id": "rust:lib:MaterializationChange",
       "owner": "reactor",
-      "semantics": "Native lib::MaterializationChange implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
+      "semantics": "Native lib::MaterializationChange implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "MaterializationChange",
       "target": "crate::materialize::MaterializationChange"
@@ -96299,7 +96299,7 @@
       "definition": "reexport",
       "id": "rust:lib:Reactor",
       "owner": "reactor",
-      "semantics": "Native lib::Reactor implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
+      "semantics": "Native lib::Reactor implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "Reactor",
       "target": "crate::reactor::Reactor"
@@ -97259,7 +97259,7 @@
       "definition": "reexport",
       "id": "rust:lib:is_root_anchored",
       "owner": "reactor",
-      "semantics": "Native lib::is_root_anchored implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
+      "semantics": "Native lib::is_root_anchored implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "is_root_anchored",
       "target": "crate::materialize::is_root_anchored"
@@ -98786,7 +98786,7 @@
       "definition": "reexport",
       "id": "rust:materialization_peer:MATERIALIZATION_CONTROL_EMPTY_REVISION",
       "owner": "reactor",
-      "semantics": "Native materialization_peer::MATERIALIZATION_CONTROL_EMPTY_REVISION implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
+      "semantics": "Native materialization_peer::MATERIALIZATION_CONTROL_EMPTY_REVISION implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
       "source": "implementations/rust/src/materialization_peer.rs",
       "symbol": "MATERIALIZATION_CONTROL_EMPTY_REVISION",
       "target": "crate::materialization_control::MATERIALIZATION_CONTROL_EMPTY_REVISION"
@@ -98798,7 +98798,7 @@
       "definition": "reexport",
       "id": "rust:materialization_peer:MATERIALIZATION_CONTROL_FORMAT",
       "owner": "reactor",
-      "semantics": "Native materialization_peer::MATERIALIZATION_CONTROL_FORMAT implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
+      "semantics": "Native materialization_peer::MATERIALIZATION_CONTROL_FORMAT implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
       "source": "implementations/rust/src/materialization_peer.rs",
       "symbol": "MATERIALIZATION_CONTROL_FORMAT",
       "target": "crate::materialization_control::MATERIALIZATION_CONTROL_FORMAT"
@@ -98810,7 +98810,7 @@
       "definition": "reexport",
       "id": "rust:materialization_peer:MaterializationControlActive",
       "owner": "reactor",
-      "semantics": "Native materialization_peer::MaterializationControlActive implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
+      "semantics": "Native materialization_peer::MaterializationControlActive implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
       "source": "implementations/rust/src/materialization_peer.rs",
       "symbol": "MaterializationControlActive",
       "target": "crate::materialization_control::MaterializationControlActive"
@@ -98822,7 +98822,7 @@
       "definition": "reexport",
       "id": "rust:materialization_peer:MaterializationControlEntry",
       "owner": "reactor",
-      "semantics": "Native materialization_peer::MaterializationControlEntry implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
+      "semantics": "Native materialization_peer::MaterializationControlEntry implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
       "source": "implementations/rust/src/materialization_peer.rs",
       "symbol": "MaterializationControlEntry",
       "target": "crate::materialization_control::MaterializationControlEntry"
@@ -98834,7 +98834,7 @@
       "definition": "reexport",
       "id": "rust:materialization_peer:MaterializationControlError",
       "owner": "reactor",
-      "semantics": "Native materialization_peer::MaterializationControlError implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
+      "semantics": "Native materialization_peer::MaterializationControlError implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
       "source": "implementations/rust/src/materialization_peer.rs",
       "symbol": "MaterializationControlError",
       "target": "crate::materialization_control::MaterializationControlError"
@@ -98846,7 +98846,7 @@
       "definition": "reexport",
       "id": "rust:materialization_peer:MaterializationControlImage",
       "owner": "reactor",
-      "semantics": "Native materialization_peer::MaterializationControlImage implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
+      "semantics": "Native materialization_peer::MaterializationControlImage implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
       "source": "implementations/rust/src/materialization_peer.rs",
       "symbol": "MaterializationControlImage",
       "target": "crate::materialization_control::MaterializationControlImage"
@@ -98870,7 +98870,7 @@
       "definition": "reexport",
       "id": "rust:materialization_peer:MaterializationControlLimits",
       "owner": "reactor",
-      "semantics": "Native materialization_peer::MaterializationControlLimits implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
+      "semantics": "Native materialization_peer::MaterializationControlLimits implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
       "source": "implementations/rust/src/materialization_peer.rs",
       "symbol": "MaterializationControlLimits",
       "target": "crate::materialization_control::MaterializationControlLimits"
@@ -98882,7 +98882,7 @@
       "definition": "reexport",
       "id": "rust:materialization_peer:MaterializationControlPlan",
       "owner": "reactor",
-      "semantics": "Native materialization_peer::MaterializationControlPlan implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
+      "semantics": "Native materialization_peer::MaterializationControlPlan implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
       "source": "implementations/rust/src/materialization_peer.rs",
       "symbol": "MaterializationControlPlan",
       "target": "crate::materialization_control::MaterializationControlPlan"
@@ -98906,7 +98906,7 @@
       "definition": "reexport",
       "id": "rust:materialization_peer:MaterializationControlRefusal",
       "owner": "reactor",
-      "semantics": "Native materialization_peer::MaterializationControlRefusal implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
+      "semantics": "Native materialization_peer::MaterializationControlRefusal implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
       "source": "implementations/rust/src/materialization_peer.rs",
       "symbol": "MaterializationControlRefusal",
       "target": "crate::materialization_control::MaterializationControlRefusal"
@@ -98918,7 +98918,7 @@
       "definition": "reexport",
       "id": "rust:materialization_peer:MaterializationControlSelected",
       "owner": "reactor",
-      "semantics": "Native materialization_peer::MaterializationControlSelected implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
+      "semantics": "Native materialization_peer::MaterializationControlSelected implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
       "source": "implementations/rust/src/materialization_peer.rs",
       "symbol": "MaterializationControlSelected",
       "target": "crate::materialization_control::MaterializationControlSelected"
@@ -98930,7 +98930,7 @@
       "definition": "reexport",
       "id": "rust:materialization_peer:MaterializationControlSelection",
       "owner": "reactor",
-      "semantics": "Native materialization_peer::MaterializationControlSelection implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
+      "semantics": "Native materialization_peer::MaterializationControlSelection implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
       "source": "implementations/rust/src/materialization_peer.rs",
       "symbol": "MaterializationControlSelection",
       "target": "crate::materialization_control::MaterializationControlSelection"
@@ -98942,7 +98942,7 @@
       "definition": "reexport",
       "id": "rust:materialization_peer:MaterializationControlStatus",
       "owner": "reactor",
-      "semantics": "Native materialization_peer::MaterializationControlStatus implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
+      "semantics": "Native materialization_peer::MaterializationControlStatus implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
       "source": "implementations/rust/src/materialization_peer.rs",
       "symbol": "MaterializationControlStatus",
       "target": "crate::materialization_control::MaterializationControlStatus"
@@ -98966,7 +98966,7 @@
       "definition": "reexport",
       "id": "rust:materialization_peer:MaterializationControlTransition",
       "owner": "reactor",
-      "semantics": "Native materialization_peer::MaterializationControlTransition implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
+      "semantics": "Native materialization_peer::MaterializationControlTransition implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
       "source": "implementations/rust/src/materialization_peer.rs",
       "symbol": "MaterializationControlTransition",
       "target": "crate::materialization_control::MaterializationControlTransition"
@@ -98990,7 +98990,7 @@
       "definition": "reexport",
       "id": "rust:materialization_peer:decode_materialization_control",
       "owner": "reactor",
-      "semantics": "Native materialization_peer::decode_materialization_control implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
+      "semantics": "Native materialization_peer::decode_materialization_control implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
       "source": "implementations/rust/src/materialization_peer.rs",
       "symbol": "decode_materialization_control",
       "target": "crate::materialization_control::decode_materialization_control"
@@ -99002,7 +99002,7 @@
       "definition": "reexport",
       "id": "rust:materialization_peer:empty_materialization_control",
       "owner": "reactor",
-      "semantics": "Native materialization_peer::empty_materialization_control implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
+      "semantics": "Native materialization_peer::empty_materialization_control implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
       "source": "implementations/rust/src/materialization_peer.rs",
       "symbol": "empty_materialization_control",
       "target": "crate::materialization_control::empty_materialization_control"
@@ -99014,7 +99014,7 @@
       "definition": "reexport",
       "id": "rust:materialization_peer:encode_materialization_control",
       "owner": "reactor",
-      "semantics": "Native materialization_peer::encode_materialization_control implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
+      "semantics": "Native materialization_peer::encode_materialization_control implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
       "source": "implementations/rust/src/materialization_peer.rs",
       "symbol": "encode_materialization_control",
       "target": "crate::materialization_control::encode_materialization_control"
@@ -99026,7 +99026,7 @@
       "definition": "reexport",
       "id": "rust:materialization_peer:materialization_appearance_key",
       "owner": "reactor",
-      "semantics": "Native materialization_peer::materialization_appearance_key implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
+      "semantics": "Native materialization_peer::materialization_appearance_key implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
       "source": "implementations/rust/src/materialization_peer.rs",
       "symbol": "materialization_appearance_key",
       "target": "crate::materialization_control::materialization_appearance_key"
@@ -99038,7 +99038,7 @@
       "definition": "reexport",
       "id": "rust:materialization_peer:materialization_control_image",
       "owner": "reactor",
-      "semantics": "Native materialization_peer::materialization_control_image implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
+      "semantics": "Native materialization_peer::materialization_control_image implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
       "source": "implementations/rust/src/materialization_peer.rs",
       "symbol": "materialization_control_image",
       "target": "crate::materialization_control::materialization_control_image"
@@ -99050,7 +99050,7 @@
       "definition": "reexport",
       "id": "rust:materialization_peer:materialization_control_revision",
       "owner": "reactor",
-      "semantics": "Native materialization_peer::materialization_control_revision implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
+      "semantics": "Native materialization_peer::materialization_control_revision implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
       "source": "implementations/rust/src/materialization_peer.rs",
       "symbol": "materialization_control_revision",
       "target": "crate::materialization_control::materialization_control_revision"
@@ -99073,7 +99073,7 @@
       "definition": "reexport",
       "id": "rust:materialization_peer:plan_materialization_control",
       "owner": "reactor",
-      "semantics": "Native materialization_peer::plan_materialization_control implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
+      "semantics": "Native materialization_peer::plan_materialization_control implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
       "source": "implementations/rust/src/materialization_peer.rs",
       "symbol": "plan_materialization_control",
       "target": "crate::materialization_control::plan_materialization_control"
@@ -99558,7 +99558,7 @@
       "definition": "type",
       "id": "rust:materialize:LoweredProgram",
       "owner": "reactor",
-      "semantics": "Native materialize::LoweredProgram implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "semantics": "Native materialize::LoweredProgram implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/materialize.rs",
       "symbol": "LoweredProgram"
     },
@@ -99569,7 +99569,7 @@
       "definition": "method",
       "id": "rust:materialize:Materialization::affects",
       "owner": "reactor",
-      "semantics": "Native materialize::Materialization::affects implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "semantics": "Native materialize::Materialization::affects implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/materialize.rs",
       "symbol": "Materialization::affects"
     },
@@ -99580,7 +99580,7 @@
       "definition": "method",
       "id": "rust:materialize:Materialization::new",
       "owner": "reactor",
-      "semantics": "Native materialize::Materialization::new implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "semantics": "Native materialize::Materialization::new implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/materialize.rs",
       "symbol": "Materialization::new"
     },
@@ -99591,7 +99591,7 @@
       "definition": "method",
       "id": "rust:materialize:Materialization::refresh",
       "owner": "reactor",
-      "semantics": "Native materialize::Materialization::refresh implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "semantics": "Native materialize::Materialization::refresh implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/materialize.rs",
       "symbol": "Materialization::refresh"
     },
@@ -99602,7 +99602,7 @@
       "definition": "struct",
       "id": "rust:materialize:MaterializationChange",
       "owner": "reactor",
-      "semantics": "Native materialize::MaterializationChange implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "semantics": "Native materialize::MaterializationChange implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/materialize.rs",
       "symbol": "MaterializationChange"
     },
@@ -99613,7 +99613,7 @@
       "definition": "function",
       "id": "rust:materialize:is_root_anchored",
       "owner": "reactor",
-      "semantics": "Native materialize::is_root_anchored implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "semantics": "Native materialize::is_root_anchored implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/materialize.rs",
       "symbol": "is_root_anchored"
     },
@@ -99624,7 +99624,7 @@
       "definition": "module",
       "id": "rust:materialize:materialize",
       "owner": "reactor",
-      "semantics": "Native materialize::materialize implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "semantics": "Native materialize::materialize implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "materialize"
     },
@@ -101212,7 +101212,7 @@
       "definition": "enum",
       "id": "rust:reactor:IngestResult",
       "owner": "reactor",
-      "semantics": "Native reactor::IngestResult implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "semantics": "Native reactor::IngestResult implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/reactor.rs",
       "symbol": "IngestResult"
     },
@@ -101235,7 +101235,7 @@
       "definition": "struct",
       "id": "rust:reactor:Reactor",
       "owner": "reactor",
-      "semantics": "Native reactor::Reactor implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "semantics": "Native reactor::Reactor implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/reactor.rs",
       "symbol": "Reactor"
     },
@@ -101246,7 +101246,7 @@
       "definition": "method",
       "id": "rust:reactor:Reactor::advance_time",
       "owner": "reactor",
-      "semantics": "Native reactor::Reactor::advance_time implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "semantics": "Native reactor::Reactor::advance_time implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/reactor.rs",
       "symbol": "Reactor::advance_time"
     },
@@ -101257,7 +101257,7 @@
       "definition": "method",
       "id": "rust:reactor:Reactor::arrival_log",
       "owner": "reactor",
-      "semantics": "Native reactor::Reactor::arrival_log implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "semantics": "Native reactor::Reactor::arrival_log implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/reactor.rs",
       "symbol": "Reactor::arrival_log"
     },
@@ -101268,7 +101268,7 @@
       "definition": "method",
       "id": "rust:reactor:Reactor::by_target",
       "owner": "reactor",
-      "semantics": "Native reactor::Reactor::by_target implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "semantics": "Native reactor::Reactor::by_target implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/reactor.rs",
       "symbol": "Reactor::by_target"
     },
@@ -101279,7 +101279,7 @@
       "definition": "method",
       "id": "rust:reactor:Reactor::by_value",
       "owner": "reactor",
-      "semantics": "Native reactor::Reactor::by_value implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "semantics": "Native reactor::Reactor::by_value implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/reactor.rs",
       "symbol": "Reactor::by_value"
     },
@@ -101290,7 +101290,7 @@
       "definition": "method",
       "id": "rust:reactor:Reactor::by_value_between",
       "owner": "reactor",
-      "semantics": "Native reactor::Reactor::by_value_between implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "semantics": "Native reactor::Reactor::by_value_between implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/reactor.rs",
       "symbol": "Reactor::by_value_between"
     },
@@ -101301,7 +101301,7 @@
       "definition": "method",
       "id": "rust:reactor:Reactor::changes_from_last_ingest",
       "owner": "reactor",
-      "semantics": "Native reactor::Reactor::changes_from_last_ingest implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "semantics": "Native reactor::Reactor::changes_from_last_ingest implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/reactor.rs",
       "symbol": "Reactor::changes_from_last_ingest"
     },
@@ -101312,7 +101312,7 @@
       "definition": "method",
       "id": "rust:reactor:Reactor::contains",
       "owner": "reactor",
-      "semantics": "Native reactor::Reactor::contains implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "semantics": "Native reactor::Reactor::contains implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/reactor.rs",
       "symbol": "Reactor::contains"
     },
@@ -101323,7 +101323,7 @@
       "definition": "method",
       "id": "rust:reactor:Reactor::digest",
       "owner": "reactor",
-      "semantics": "Native reactor::Reactor::digest implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "semantics": "Native reactor::Reactor::digest implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/reactor.rs",
       "symbol": "Reactor::digest"
     },
@@ -101334,7 +101334,7 @@
       "definition": "method",
       "id": "rust:reactor:Reactor::eval",
       "owner": "reactor",
-      "semantics": "Native reactor::Reactor::eval implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "semantics": "Native reactor::Reactor::eval implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/reactor.rs",
       "symbol": "Reactor::eval"
     },
@@ -101345,7 +101345,7 @@
       "definition": "method",
       "id": "rust:reactor:Reactor::eval_anchored",
       "owner": "reactor",
-      "semantics": "Native reactor::Reactor::eval_anchored implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "semantics": "Native reactor::Reactor::eval_anchored implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/reactor.rs",
       "symbol": "Reactor::eval_anchored"
     },
@@ -101356,7 +101356,7 @@
       "definition": "method",
       "id": "rust:reactor:Reactor::eval_at",
       "owner": "reactor",
-      "semantics": "Native reactor::Reactor::eval_at implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "semantics": "Native reactor::Reactor::eval_at implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/reactor.rs",
       "symbol": "Reactor::eval_at"
     },
@@ -101367,7 +101367,7 @@
       "definition": "method",
       "id": "rust:reactor:Reactor::eval_count_of",
       "owner": "reactor",
-      "semantics": "Native reactor::Reactor::eval_count_of implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "semantics": "Native reactor::Reactor::eval_count_of implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/reactor.rs",
       "symbol": "Reactor::eval_count_of"
     },
@@ -101378,7 +101378,7 @@
       "definition": "method",
       "id": "rust:reactor:Reactor::get",
       "owner": "reactor",
-      "semantics": "Native reactor::Reactor::get implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "semantics": "Native reactor::Reactor::get implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/reactor.rs",
       "symbol": "Reactor::get"
     },
@@ -101389,7 +101389,7 @@
       "definition": "method",
       "id": "rust:reactor:Reactor::holds_all_members",
       "owner": "reactor",
-      "semantics": "Native reactor::Reactor::holds_all_members implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "semantics": "Native reactor::Reactor::holds_all_members implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/reactor.rs",
       "symbol": "Reactor::holds_all_members"
     },
@@ -101400,7 +101400,7 @@
       "definition": "method",
       "id": "rust:reactor:Reactor::ingest",
       "owner": "reactor",
-      "semantics": "Native reactor::Reactor::ingest implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "semantics": "Native reactor::Reactor::ingest implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/reactor.rs",
       "symbol": "Reactor::ingest"
     },
@@ -101411,7 +101411,7 @@
       "definition": "method",
       "id": "rust:reactor:Reactor::ingest_batch",
       "owner": "reactor",
-      "semantics": "Native reactor::Reactor::ingest_batch implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "semantics": "Native reactor::Reactor::ingest_batch implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/reactor.rs",
       "symbol": "Reactor::ingest_batch"
     },
@@ -101422,7 +101422,7 @@
       "definition": "method",
       "id": "rust:reactor:Reactor::ingest_bundle",
       "owner": "reactor",
-      "semantics": "Native reactor::Reactor::ingest_bundle implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "semantics": "Native reactor::Reactor::ingest_bundle implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/reactor.rs",
       "symbol": "Reactor::ingest_bundle"
     },
@@ -101433,7 +101433,7 @@
       "definition": "method",
       "id": "rust:reactor:Reactor::is_empty",
       "owner": "reactor",
-      "semantics": "Native reactor::Reactor::is_empty implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "semantics": "Native reactor::Reactor::is_empty implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/reactor.rs",
       "symbol": "Reactor::is_empty"
     },
@@ -101444,7 +101444,7 @@
       "definition": "method",
       "id": "rust:reactor:Reactor::len",
       "owner": "reactor",
-      "semantics": "Native reactor::Reactor::len implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "semantics": "Native reactor::Reactor::len implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/reactor.rs",
       "symbol": "Reactor::len"
     },
@@ -101455,7 +101455,7 @@
       "definition": "method",
       "id": "rust:reactor:Reactor::materialized_hex",
       "owner": "reactor",
-      "semantics": "Native reactor::Reactor::materialized_hex implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "semantics": "Native reactor::Reactor::materialized_hex implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/reactor.rs",
       "symbol": "Reactor::materialized_hex"
     },
@@ -101466,7 +101466,7 @@
       "definition": "method",
       "id": "rust:reactor:Reactor::materialized_view",
       "owner": "reactor",
-      "semantics": "Native reactor::Reactor::materialized_view implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "semantics": "Native reactor::Reactor::materialized_view implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/reactor.rs",
       "symbol": "Reactor::materialized_view"
     },
@@ -101477,7 +101477,7 @@
       "definition": "method",
       "id": "rust:reactor:Reactor::negation_reader",
       "owner": "reactor",
-      "semantics": "Native reactor::Reactor::negation_reader implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "semantics": "Native reactor::Reactor::negation_reader implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/reactor.rs",
       "symbol": "Reactor::negation_reader"
     },
@@ -101488,7 +101488,7 @@
       "definition": "method",
       "id": "rust:reactor:Reactor::negations_of",
       "owner": "reactor",
-      "semantics": "Native reactor::Reactor::negations_of implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "semantics": "Native reactor::Reactor::negations_of implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/reactor.rs",
       "symbol": "Reactor::negations_of"
     },
@@ -101499,7 +101499,7 @@
       "definition": "method",
       "id": "rust:reactor:Reactor::new",
       "owner": "reactor",
-      "semantics": "Native reactor::Reactor::new implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "semantics": "Native reactor::Reactor::new implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/reactor.rs",
       "symbol": "Reactor::new"
     },
@@ -101510,7 +101510,7 @@
       "definition": "method",
       "id": "rust:reactor:Reactor::next_validity_boundary",
       "owner": "reactor",
-      "semantics": "Native reactor::Reactor::next_validity_boundary implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "semantics": "Native reactor::Reactor::next_validity_boundary implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/reactor.rs",
       "symbol": "Reactor::next_validity_boundary"
     },
@@ -101521,7 +101521,7 @@
       "definition": "method",
       "id": "rust:reactor:Reactor::register",
       "owner": "reactor",
-      "semantics": "Native reactor::Reactor::register implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "semantics": "Native reactor::Reactor::register implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/reactor.rs",
       "symbol": "Reactor::register"
     },
@@ -101532,7 +101532,7 @@
       "definition": "method",
       "id": "rust:reactor:Reactor::register_at",
       "owner": "reactor",
-      "semantics": "Native reactor::Reactor::register_at implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "semantics": "Native reactor::Reactor::register_at implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/reactor.rs",
       "symbol": "Reactor::register_at"
     },
@@ -101543,7 +101543,7 @@
       "definition": "method",
       "id": "rust:reactor:Reactor::register_at_lowered",
       "owner": "reactor",
-      "semantics": "Native reactor::Reactor::register_at_lowered implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "semantics": "Native reactor::Reactor::register_at_lowered implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/reactor.rs",
       "symbol": "Reactor::register_at_lowered"
     },
@@ -101554,7 +101554,7 @@
       "definition": "method",
       "id": "rust:reactor:Reactor::register_at_lowered_with_deps",
       "owner": "reactor",
-      "semantics": "Native reactor::Reactor::register_at_lowered_with_deps implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "semantics": "Native reactor::Reactor::register_at_lowered_with_deps implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/reactor.rs",
       "symbol": "Reactor::register_at_lowered_with_deps"
     },
@@ -101565,7 +101565,7 @@
       "definition": "method",
       "id": "rust:reactor:Reactor::revision",
       "owner": "reactor",
-      "semantics": "Native reactor::Reactor::revision implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "semantics": "Native reactor::Reactor::revision implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/reactor.rs",
       "symbol": "Reactor::revision"
     },
@@ -101576,7 +101576,7 @@
       "definition": "method",
       "id": "rust:reactor:Reactor::snapshot",
       "owner": "reactor",
-      "semantics": "Native reactor::Reactor::snapshot implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "semantics": "Native reactor::Reactor::snapshot implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/reactor.rs",
       "symbol": "Reactor::snapshot"
     },
@@ -101609,7 +101609,7 @@
       "definition": "module",
       "id": "rust:reactor:reactor",
       "owner": "reactor",
-      "semantics": "Native reactor::reactor implements SPEC-4 explicit ingest/materialization lifecycle. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "semantics": "Native reactor::reactor implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/lib.rs",
       "symbol": "reactor"
     },
