@@ -32681,6 +32681,36 @@
       "contract": "rhizomatic.storage/native-api/1",
       "classification": "native_extension",
       "semantics": "Native storage API FetchCache.source implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/fetch-cache.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/copy.ts:copyClaims",
+      "owner": "storage",
+      "symbol": "copyClaims",
+      "source": "implementations/ts/src/storage/copy.ts",
+      "definition": "implementations/ts/src/storage/copy.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API copyClaims implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/copy.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/copy.ts:copyArrival",
+      "owner": "storage",
+      "symbol": "copyArrival",
+      "source": "implementations/ts/src/storage/copy.ts",
+      "definition": "implementations/ts/src/storage/copy.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API copyArrival implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/copy.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/copy.ts:copyMember",
+      "owner": "storage",
+      "symbol": "copyMember",
+      "source": "implementations/ts/src/storage/copy.ts",
+      "definition": "implementations/ts/src/storage/copy.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API copyMember implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/copy.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
     }
   ]
 }

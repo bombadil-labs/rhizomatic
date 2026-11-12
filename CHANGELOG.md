@@ -56,7 +56,9 @@ read type for consumers, and the principal reads take it.
   match without regard to case. An error names a scheme only when it is registered, and never
   the URL.
 - A store owns what it holds: it copies what it is given and what it returns, so no caller can
-  change stored state through a reference.
+  change stored state through a reference. It never converts: a value that is not of its type (an
+  `ArrayBuffer` where a `Uint8Array` payload belongs, a numeric string, a list that is not a
+  list) is refused `invalid-admission` in `append` and `invalid-request` elsewhere.
 - A purge report's `claim` is `proven`, `unproven` or `nothing-removed`, and covers only the
   targets that report removed.
 - `scopeSource(members)`: a synchronous SPEC-17 delta source over a fetched scope.
@@ -68,7 +70,9 @@ read type for consumers, and the principal reads take it.
 - Rust witness: the same interface as synchronous traits (`Store`, `PeerStore`, `Snapshot`,
   `Exporter`), `MemoryStore`, `StoreSchemes` and `open_store`, `scope_source`, and
   `run_store_conformance`. It passes every script and scope case of `vectors/store/`. A Rust host
-  owns its scheme registry as a value; there is no process-wide table.
+  owns its scheme registry as a value; there is no process-wide table. `ScopeSource::meter()`
+  counts the index work of a build, and a table of wrong stores holds the Rust runner to each of
+  its rules.
 
 - Rust witness, slice 2: `NegationReader` is generic over any `DeltaSource` and lives in `set`,
   with the free functions `negation_reader`, `negation_witnesses` and `negation_predicate`.

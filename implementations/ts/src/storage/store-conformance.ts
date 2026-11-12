@@ -222,16 +222,27 @@ class Run {
     return applied;
   }
 
-  private async query(
+  // The store is asked first and the answer is judged afterwards, so a store that answers
+  // where it must refuse fails for that, whatever it answered.
+  private async query<T>(
     snapshotName: string,
     expect: { readonly error?: VectorRefusal; readonly orError?: "snapshot-moved" },
-    action: (peer: string, snapshot: Snapshot) => Promise<void>,
+    ask: (snapshot: Snapshot) => Promise<T>,
+    judge: (answer: T, peer: string) => void,
   ): Promise<void> {
     const { peer, snapshot } = this.snapshot(snapshotName);
-    const outcome = await attempt(() => action(peer, snapshot));
+    const outcome = await attempt(() => ask(snapshot));
     if (expect.error !== undefined) refused(outcome, expect.error);
-    else if ("error" in outcome)
-      check(outcome.error === expect.orError, `the query refused with ${outcome.error}`);
+    else if ("value" in outcome) judge(outcome.value, peer);
+    else
+      check(
+        outcome.error === expect.orError,
+        `the query refused with ${outcome.error}, and ${
+          expect.orError === undefined
+            ? "it must answer"
+            : `only ${expect.orError} or an answer conforms`
+        }`,
+      );
   }
 
   async step(step: StoreVectorStep): Promise<void> {
@@ -316,7 +327,12 @@ class Run {
       }
       case "purge": {
         const before = await this.revision(step.peer);
-        const report = await this.peer(step.peer).purge(this.ids(step.ids));
+        const purged = await attempt(() => this.peer(step.peer).purge(this.ids(step.ids)));
+        check(
+          "value" in purged,
+          `the purge refused${"error" in purged ? ` with ${purged.error}` : ""}`,
+        );
+        const report = purged.value;
         const after = await this.revision(step.peer);
         const expected = step.expect.targets.map((t) => `${this.delta(t.delta).id} ${t.outcome}`);
         const actual = report.targets.map((t) => `${t.id} ${t.outcome}`);
@@ -374,72 +390,100 @@ class Run {
         return;
       }
       case "get":
-        return this.query(step.snapshot, step.expect, async (_peer, snapshot) => {
-          const deltas = await snapshot.get(this.ids(step.ids));
-          const names = "deltas" in step.expect ? step.expect.deltas : [];
-          check(
-            same(
-              deltas.map((d) => d.id),
-              this.ids(names),
-            ),
-            `get answered ${show(deltas.map((d) => d.id))}, expected ${show(this.ids(names))}`,
-          );
-          deltas.forEach((delta, i) => this.matches(delta, names[i]!));
-        });
-      case "targets":
-        return this.query(step.snapshot, step.expect, async (_peer, snapshot) => {
-          const ids = await snapshot.targets(step.entities);
-          const expected = this.ids("ids" in step.expect ? step.expect.ids : []);
-          check(same(ids, expected), `targets answered ${show(ids)}, expected ${show(expected)}`);
-        });
-      case "negators":
-        return this.query(step.snapshot, step.expect, async (_peer, snapshot) => {
-          const ids = await snapshot.negators(this.ids(step.ids));
-          const expected = this.ids("ids" in step.expect ? step.expect.ids : []);
-          check(same(ids, expected), `negators answered ${show(ids)}, expected ${show(expected)}`);
-        });
-      case "scope":
-        return this.query(step.snapshot, step.expect, async (peer, snapshot) => {
-          const pushdown =
-            step.pushdown === undefined ? undefined : this.pushdown(step.pushdown, PUSHDOWN_FIELDS);
-          const result = await snapshot.scope({
-            anchors: step.anchors,
-            ...(pushdown === undefined ? {} : { pushdown }),
-            ...(step.exclude === undefined ? {} : { exclude: this.ids(step.exclude) }),
-          });
-          const ids = this.members(peer, result.deltas);
-          const applied = this.applied(result.applied, pushdown ?? {});
-          if (!("lower" in step.expect)) return;
-          const lower = this.ids(step.expect.lower);
-          const upper = new Set(this.ids(step.expect.upper));
-          check(
-            lower.every((id) => ids.includes(id)),
-            `scope ${show(ids)} lacks a member of ${show(lower)}`,
-          );
-          check(
-            ids.every((id) => upper.has(id)),
-            `scope ${show(ids)} leaves the upper bound`,
-          );
-          const requested = PUSHDOWN_FIELDS.filter((f) => pushdown?.[f] !== undefined);
-          if (this.reference && applied.length === requested.length)
+        return this.query(
+          step.snapshot,
+          step.expect,
+          (snapshot) => snapshot.get(this.ids(step.ids)),
+          (deltas) => {
+            const names = "deltas" in step.expect ? step.expect.deltas : [];
             check(
-              same(ids, lower),
-              `the reference store answered ${show(ids)}, not ${show(lower)}`,
+              same(
+                deltas.map((d) => d.id),
+                this.ids(names),
+              ),
+              `get answered ${show(deltas.map((d) => d.id))}, expected ${show(this.ids(names))}`,
             );
-        });
+            deltas.forEach((delta, i) => this.matches(delta, names[i]!));
+          },
+        );
+      case "targets":
+        return this.query(
+          step.snapshot,
+          step.expect,
+          (snapshot) => snapshot.targets(step.entities),
+          (ids) => {
+            const expected = this.ids("ids" in step.expect ? step.expect.ids : []);
+            check(same(ids, expected), `targets answered ${show(ids)}, expected ${show(expected)}`);
+          },
+        );
+      case "negators":
+        return this.query(
+          step.snapshot,
+          step.expect,
+          (snapshot) => snapshot.negators(this.ids(step.ids)),
+          (ids) => {
+            const expected = this.ids("ids" in step.expect ? step.expect.ids : []);
+            check(
+              same(ids, expected),
+              `negators answered ${show(ids)}, expected ${show(expected)}`,
+            );
+          },
+        );
+      case "scope": {
+        const pushdown =
+          step.pushdown === undefined ? undefined : this.pushdown(step.pushdown, PUSHDOWN_FIELDS);
+        return this.query(
+          step.snapshot,
+          step.expect,
+          (snapshot) =>
+            snapshot.scope({
+              anchors: step.anchors,
+              ...(pushdown === undefined ? {} : { pushdown }),
+              ...(step.exclude === undefined ? {} : { exclude: this.ids(step.exclude) }),
+            }),
+          (result, peer) => {
+            const ids = this.members(peer, result.deltas);
+            const applied = this.applied(result.applied, pushdown ?? {});
+            if (!("lower" in step.expect)) return;
+            const lower = this.ids(step.expect.lower);
+            const upper = new Set(this.ids(step.expect.upper));
+            check(
+              lower.every((id) => ids.includes(id)),
+              `scope ${show(ids)} lacks a member of ${show(lower)}`,
+            );
+            check(
+              ids.every((id) => upper.has(id)),
+              `scope ${show(ids)} leaves the upper bound`,
+            );
+            const requested = PUSHDOWN_FIELDS.filter((f) => pushdown?.[f] !== undefined);
+            if (this.reference && applied.length === requested.length)
+              check(
+                same(ids, lower),
+                `the reference store answered ${show(ids)}, not ${show(lower)}`,
+              );
+          },
+        );
+      }
       case "count": {
         const { snapshot } = this.snapshot(step.snapshot);
         check(snapshot.count === step.expect.count, `the snapshot counts ${snapshot.count}`);
         return;
       }
       case "arrivals":
-        return this.query(step.snapshot, step.expect, async (peer, snapshot) => {
-          const arrivals = await snapshot.arrivals(this.ids(step.ids));
-          const expected = this.ids("ids" in step.expect ? step.expect.ids : []);
-          const ids = arrivals.map((arrival) => arrival.id);
-          check(same(ids, expected), `arrivals answered ${show(ids)}, expected ${show(expected)}`);
-          for (const arrival of arrivals) this.sameArrival(peer, arrival);
-        });
+        return this.query(
+          step.snapshot,
+          step.expect,
+          (snapshot) => snapshot.arrivals(this.ids(step.ids)),
+          (arrivals, peer) => {
+            const expected = this.ids("ids" in step.expect ? step.expect.ids : []);
+            const ids = arrivals.map((arrival) => arrival.id);
+            check(
+              same(ids, expected),
+              `arrivals answered ${show(ids)}, expected ${show(expected)}`,
+            );
+            for (const arrival of arrivals) this.sameArrival(peer, arrival);
+          },
+        );
       case "export": {
         const exporter = this.store.openAdmin().peer(this.peerId(step.peer));
         const outcome = await attempt(async () => {
@@ -489,8 +533,9 @@ class Run {
 
   /** The trim lemma (§4.3) for one case, once per subset of its selection's fields. */
   async scopeCase(scopeCase: StoreScopeCase): Promise<void> {
-    const peer = scopeCase.peer;
-    const snapshot = await this.peer(peer).read();
+    // `peer` is a handle name, as in `read`. The bookkeeping is the peer's it belongs to.
+    const peer = this.owners.get(scopeCase.peer) ?? scopeCase.peer;
+    const snapshot = await this.peer(scopeCase.peer).read();
     const entities = scopeCase.anchors.map((anchor) => anchor.entity);
     const byFields = new Map(scopeCase.scopes.map((s) => [key(s.fields), this.ids(s.ids)]));
     const present = PUSHDOWN_FIELDS.filter((field) => scopeCase.selection[field] !== undefined);

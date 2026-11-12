@@ -7,6 +7,7 @@ import { computeId } from "../delta/delta.js";
 import type { DeltaSource } from "../delta/source.js";
 import type { Delta } from "../delta/types.js";
 import type { ArrivalRecord } from "./arrival-record.js";
+import { copyArrival, copyMember } from "./copy.js";
 import { StoreError, type Entity, type Id, type VerifiedDelta } from "./store.js";
 
 /**
@@ -24,47 +25,66 @@ export interface ScopeSource extends DeltaSource {
 
 /**
  * Indexes fetched members once, at a cost of their total size. Pass `ScopeResult.deltas`, or
- * the members of several rounds of one read; a repeated id keeps its first appearance. Refuses
- * `invalid-request` for a member whose id does not recompute from its claims: the source files
- * members by id, and evaluation trusts that id.
+ * the members of several rounds of one read. A repeated id keeps its first appearance, and the
+ * repeat is not examined. The source copies each member in and copies out what it returns. A
+ * refusal builds nothing. Refuses `invalid-request` for a member that is malformed or whose id
+ * does not recompute from its claims: the source files members by id, and evaluation trusts
+ * that id. It never repairs a member.
  */
 export function scopeSource(members: Iterable<VerifiedDelta>): ScopeSource {
   const held = new Map<Id, VerifiedDelta>();
-  const targets = new Map<Entity, Id[]>();
-  const negators = new Map<Id, Id[]>();
-  const file = (index: Map<string, Id[]>, key: string, id: Id): void => {
+  // Buckets are sets while they are built. A list here would be searched once for each
+  // insert, and many members at one entity would cost the square of their number.
+  const building = { targets: new Map<Entity, Set<Id>>(), negators: new Map<Id, Set<Id>>() };
+  const file = (index: Map<string, Set<Id>>, key: string, id: Id): void => {
     const bucket = index.get(key);
-    if (bucket === undefined) index.set(key, [id]);
-    else if (!bucket.includes(id)) bucket.push(id);
+    if (bucket === undefined) index.set(key, new Set([id]));
+    else bucket.add(id);
   };
   for (const member of members) {
-    const id = member.delta.id;
-    if (held.has(id)) continue;
-    let recomputed: string | undefined;
+    // The source keeps its own copy. The claims that are hashed are the claims it files.
+    let own: VerifiedDelta | undefined;
     try {
-      recomputed = computeId(member.delta.claims);
+      // A repeated id is skipped before anything else of the member is read.
+      if (held.has(member.delta.id)) continue;
+      own = copyMember(member);
+      if (held.has(own.delta.id)) continue;
+      if (computeId(own.delta.claims) !== own.delta.id) own = undefined;
     } catch {
-      recomputed = undefined;
+      own = undefined;
     }
-    if (recomputed !== id)
+    if (own === undefined)
       throw new StoreError(
         "invalid-request",
-        "scopeSource: a member's id does not match its claims",
+        "scopeSource: a member is malformed, or its id does not match its claims",
       );
-    held.set(id, member);
-    for (const pointer of member.delta.claims.pointers) {
-      if (pointer.target.kind === "entity") file(targets, pointer.target.entity.id, id);
+    const id = own.delta.id;
+    held.set(id, own);
+    for (const pointer of own.delta.claims.pointers) {
+      if (pointer.target.kind === "entity") file(building.targets, pointer.target.entity.id, id);
       else if (pointer.target.kind === "delta" && pointer.role === "negates")
-        file(negators, pointer.target.deltaRef.delta, id);
+        file(building.negators, pointer.target.deltaRef.delta, id);
     }
   }
-  for (const bucket of [...targets.values(), ...negators.values()]) bucket.sort(compareUtf8);
-  const ids = [...held.keys()].sort(compareUtf8);
+  const frozen = (index: Map<string, Set<Id>>): Map<string, readonly Id[]> =>
+    new Map([...index].map(([key, bucket]) => [key, Object.freeze([...bucket].sort(compareUtf8))]));
+  const targets = frozen(building.targets);
+  const negators = frozen(building.negators);
+  const ids = Object.freeze([...held.keys()].sort(compareUtf8));
+  const none: readonly Id[] = Object.freeze([]);
+  // Lists are frozen and members are copied out, so nothing a caller does to an answer
+  // changes a later answer.
   return {
-    get: (id) => held.get(id)?.delta,
-    arrival: (id) => held.get(id)?.arrival,
-    targets: (entity) => targets.get(entity) ?? [],
-    negators: (id) => negators.get(id) ?? [],
+    get: (id) => {
+      const member = held.get(id);
+      return member === undefined ? undefined : copyMember(member).delta;
+    },
+    arrival: (id) => {
+      const member = held.get(id);
+      return member === undefined ? undefined : copyArrival(member.arrival);
+    },
+    targets: (entity) => targets.get(entity) ?? none,
+    negators: (id) => negators.get(id) ?? none,
     ids: () => ids,
   };
 }

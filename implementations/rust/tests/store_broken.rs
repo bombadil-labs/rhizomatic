@@ -324,7 +324,7 @@ fn failed(fault: Fault, reasons: &[&str]) -> Vec<String> {
 
 #[test]
 fn a_faithful_store_that_is_not_the_reference_passes() {
-    assert_eq!(run(Fault::None).unwrap(), 33);
+    assert_eq!(run(Fault::None).unwrap(), 21 + 15);
 }
 
 #[test]
@@ -343,6 +343,7 @@ fn a_store_that_drops_a_negator_from_scope_fails_the_lower_bound() {
             "scripts/scope-pushdown-and-exclude",
             "scope/no-selection",
             "scope/two-anchors",
+            "scope/through-a-second-handle",
             "scope/signed-time-cuts-a-chain",
             "scope/arrival-cuts-a-chain",
             "scope/excluded-ids-cut-a-chain",
@@ -375,6 +376,7 @@ fn a_store_that_claims_a_pushdown_it_did_not_apply_fails_the_exact_upper_bound()
     assert_eq!(
         names,
         [
+            "scope/through-a-second-handle",
             "scope/signed-time-cuts-a-chain",
             "scope/arrival-cuts-a-chain",
             "scope/excluded-ids-cut-a-chain",
@@ -439,6 +441,7 @@ fn a_store_that_replaces_an_arrival_record_fails_idempotence() {
         names,
         [
             "scripts/duplicates-add-nothing",
+            "scripts/a-skipped-entry-spends-no-sequence",
             "scripts/the-first-appearance-is-kept",
             "scripts/append-checks-before-and-after-the-head",
         ]
@@ -452,6 +455,7 @@ fn a_store_that_reports_held_ids_as_added_fails_idempotence() {
         names,
         [
             "scripts/duplicates-add-nothing",
+            "scripts/a-skipped-entry-spends-no-sequence",
             "scripts/the-first-appearance-is-kept",
             "scripts/append-checks-before-and-after-the-head",
         ]
@@ -476,6 +480,7 @@ fn a_store_that_claims_proof_it_cannot_give_fails_every_purge() {
             "scripts/purge-clears-a-debt-on-append",
             "scripts/a-snapshot-across-a-purge",
             "scripts/the-last-sequence-survives-a-purge",
+            "scripts/the-last-sequence-survives-an-empty-peer",
         ]
     );
 }

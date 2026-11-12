@@ -23,6 +23,7 @@ import type {
   StoreProfile,
 } from "../src/storage/store.js";
 import { StoreError } from "../src/storage/store.js";
+import { broken, type Break } from "./support/broken-store.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const load = <T>(name: string): T =>
@@ -91,37 +92,6 @@ describe("store vectors: a store that ignores pushdown still conforms", () => {
 });
 
 // ---- broken stores ------------------------------------------------------------------------
-
-type Break = {
-  profile?: (profile: StoreProfile) => StoreProfile;
-  store?: (store: Store, inner: Store) => Partial<Store>;
-  peer?: (peer: PeerStore, store: Store) => Partial<PeerStore>;
-  snapshot?: (snapshot: Snapshot, peer: PeerStore) => Partial<Snapshot>;
-};
-
-function broken(fault: Break): () => Promise<Store> {
-  return async () => {
-    const inner = createMemoryStore();
-    const wrapPeer = (peer: PeerStore): PeerStore => {
-      const withSnapshots: PeerStore = {
-        ...peer,
-        read: async () => {
-          const snapshot = await peer.read();
-          return { ...snapshot, ...fault.snapshot?.(snapshot, peer) };
-        },
-      };
-      return { ...withSnapshots, ...fault.peer?.(withSnapshots, inner) };
-    };
-    const store: Store = {
-      profile: fault.profile?.(inner.profile) ?? inner.profile,
-      createPeer: async (id, options) => wrapPeer(await inner.createPeer(id, options)),
-      peer: async (id) => wrapPeer(await inner.peer(id)),
-      openAdmin: () => inner.openAdmin(),
-      close: () => inner.close(),
-    };
-    return { ...store, ...fault.store?.(store, inner) };
-  };
-}
 
 const scopeFault =
   (change: (result: ScopeResult, snapshot: Snapshot) => ScopeResult | Promise<ScopeResult>) =>
@@ -271,6 +241,31 @@ const faults: Record<string, Break> = {
       },
     }),
   },
+  "a snapshot whose head and count follow the peer": {
+    peer: (peer) => {
+      // What the peer looks like now, refreshed after each write through this handle.
+      let now: { head: string | null; count: number } | undefined;
+      const after = async <T>(result: T): Promise<T> => {
+        now = await peer.read();
+        return result;
+      };
+      return {
+        append: async (batch) => after(await peer.append(batch)),
+        purge: async (ids) => after(await peer.purge(ids)),
+        read: async () => {
+          const first = await peer.read();
+          now = first;
+          return Object.defineProperties(
+            { ...first },
+            {
+              head: { get: () => now!.head, enumerable: true },
+              count: { get: () => now!.count, enumerable: true },
+            },
+          );
+        },
+      };
+    },
+  },
   "a released snapshot that still answers": {
     snapshot: () => ({ release: () => {} }),
   },
@@ -400,6 +395,24 @@ const faults: Record<string, Break> = {
       };
     },
   },
+  "heads compared after trimming": {
+    peer: (peer) => ({
+      append: async (batch) =>
+        peer.append({
+          ...batch,
+          expectedHead: batch.expectedHead === null ? null : batch.expectedHead.trim(),
+        }),
+    }),
+  },
+  "the empty string taken for no head": {
+    peer: (peer) => ({
+      append: async (batch) =>
+        peer.append({
+          ...batch,
+          expectedHead: batch.expectedHead === "" ? null : batch.expectedHead,
+        }),
+    }),
+  },
   "a peer opened into existence": {
     store: (store) => ({
       peer: async (id) => store.peer(id).catch(() => store.createPeer(id, { erasure: "unproven" })),
@@ -527,6 +540,85 @@ describe("store vectors: each broken store fails", () => {
     expect(error.failures.map((f) => f.name)).toContain("scope/signed-time-cuts-a-chain");
   });
 
+  /** The failures of one script, as `step N (op): message` lines. */
+  const failuresIn = async (script: string, fault: Break): Promise<string[]> => {
+    const error = (await runStoreConformance(broken(fault), vectors).catch(
+      (e: unknown) => e,
+    )) as StoreConformanceError;
+    expect(error).toBeInstanceOf(StoreConformanceError);
+    return error.failures.filter((f) => f.name === `scripts/${script}`).map((f) => f.message);
+  };
+
+  it("a repeat inside a batch does not raise the largest committed sequence", async () => {
+    // This store counts the sequence of every entry it did not hold before the batch, a
+    // repeat inside the batch included. After [x at 11, x at 60] it refuses y at 12.
+    const fault: Break = {
+      peer: (peer) => {
+        let largest = 0;
+        return {
+          append: async (batch) => {
+            const snapshot = await peer.read();
+            const held = new Set(
+              (await snapshot.get(batch.added.map((a) => a.delta.id))).map((d) => d.id),
+            );
+            const stale = snapshot.head !== batch.expectedHead;
+            const seen = new Set<string>();
+            for (const { delta, arrival } of batch.added) {
+              if (held.has(delta.id) || seen.has(delta.id)) continue;
+              seen.add(delta.id);
+              if (!stale && arrival.sequence <= largest)
+                throw new StoreError("invalid-admission", "below the raised mark");
+            }
+            const result = await peer.append(batch);
+            if (result.status === "committed")
+              for (const { delta, arrival } of batch.added)
+                if (!held.has(delta.id)) largest = Math.max(largest, arrival.sequence);
+            return result;
+          },
+        };
+      },
+    };
+    const lines = await failuresIn("a-skipped-entry-spends-no-sequence", fault);
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain("(append): the append refused");
+    // It is the step after the batch with the repeat, and no other script notices.
+    const script = vectors.scripts.scripts.find(
+      (s) => s.name === "a-skipped-entry-spends-no-sequence",
+    )!;
+    const step = Number(/^step (\d+) /.exec(lines[0]!)![1]);
+    expect(script.steps[step - 1]).toMatchObject({
+      op: "append",
+      added: [{ arrival: { sequence: 11 } }, { arrival: { sequence: 60 } }],
+    });
+    expect(script.steps[step]).toMatchObject({ added: [{ arrival: { sequence: 12 } }] });
+  });
+
+  it("a bound a 64-bit field can hold is refused before a moved snapshot's state", async () => {
+    // 2^53 reaches the store in every witness; 1.5 and -1 stop at a typed runner's own
+    // boundary. This store refuses a moved snapshot before it looks at such a bound.
+    const fault: Break = {
+      snapshot: (s) => ({
+        scope: async (request) => {
+          const bound = request.pushdown?.arrivalAtMost;
+          if (bound !== undefined && Number.isInteger(bound) && bound > Number.MAX_SAFE_INTEGER)
+            await s.targets([]).catch((error: unknown) => {
+              if ((error as { code?: string }).code === "snapshot-moved") throw error;
+            });
+          return s.scope(request);
+        },
+      }),
+    };
+    const lines = await failuresIn("snapshots", fault);
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain("(scope): refused with snapshot-moved, expected invalid-request");
+    const script = vectors.scripts.scripts.find((s) => s.name === "snapshots")!;
+    const step = Number(/^step (\d+) /.exec(lines[0]!)![1]);
+    expect(script.steps[step]).toMatchObject({
+      snapshot: "s1",
+      pushdown: { arrivalAtMost: 2 ** 53 },
+    });
+  });
+
   it("the wrapper itself changes nothing", async () => {
     const report = await runStoreConformance(broken({}), vectors);
     expect(report.skipped).toEqual([]);
@@ -624,7 +716,7 @@ describe("store vectors: what the profile changes", () => {
         .filter((script) => script.requires.includes("purge"))
         .map((script) => ({ name: `scripts/${script.name}`, missing: "purge" })),
     );
-    expect(report.skipped).toHaveLength(4);
+    expect(report.skipped).toHaveLength(5);
   });
 
   it("a store with a journal skips the script that needs its absence", async () => {

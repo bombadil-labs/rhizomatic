@@ -699,6 +699,15 @@
         ],
         "revisionAdvanced": true
       }
+    },
+    {
+      "op": "openPeer",
+      "peer": "A",
+      "handle": "A2",
+      "expect": {
+        "status": "opened",
+        "posture": "unproven"
+      }
     }
   ],
   "cases": [
@@ -755,6 +764,49 @@
             "a-height-neg-neg-neg",
             "bed-link",
             "a-twice",
+            "a-height-neg",
+            "a-height",
+            "a-height-neg-neg"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "through-a-second-handle",
+      "spec": "SPEC-18 §4.3",
+      "peer": "A2",
+      "anchors": [
+        {
+          "kind": "entity",
+          "entity": "plant:a"
+        }
+      ],
+      "selection": {
+        "arrivalAtMost": 7
+      },
+      "held": [
+        "a-height"
+      ],
+      "scopes": [
+        {
+          "fields": [],
+          "ids": [
+            "a-name",
+            "a-height-neg-neg-neg",
+            "bed-link",
+            "a-twice",
+            "a-height-neg",
+            "a-height",
+            "a-height-neg-neg"
+          ]
+        },
+        {
+          "fields": [
+            "arrivalAtMost"
+          ],
+          "ids": [
+            "a-name",
+            "bed-link",
             "a-height-neg",
             "a-height",
             "a-height-neg-neg"

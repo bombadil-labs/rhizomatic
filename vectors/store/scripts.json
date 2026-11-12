@@ -1661,7 +1661,7 @@
         {
           "op": "append",
           "peer": "A",
-          "expectedHead": null,
+          "expectedHead": "",
           "nextHead": "head-1",
           "frame": null,
           "added": [
@@ -1671,6 +1671,27 @@
                 "at": 1001,
                 "sequence": 1,
                 "transfer": 2,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "status": "conflict"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": null,
+          "nextHead": "head-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-height",
+              "arrival": {
+                "at": 1001,
+                "sequence": 1,
+                "transfer": 3,
                 "sender": "local"
               }
             }
@@ -1695,7 +1716,7 @@
               "arrival": {
                 "at": 1002,
                 "sequence": 2,
-                "transfer": 3,
+                "transfer": 4,
                 "sender": "local"
               }
             }
@@ -1716,7 +1737,7 @@
               "arrival": {
                 "at": 1002,
                 "sequence": 2,
-                "transfer": 4,
+                "transfer": 5,
                 "sender": "local"
               }
             }
@@ -1737,7 +1758,7 @@
               "arrival": {
                 "at": 1002,
                 "sequence": 2,
-                "transfer": 5,
+                "transfer": 6,
                 "sender": "local"
               }
             }
@@ -1762,7 +1783,133 @@
               "arrival": {
                 "at": 1003,
                 "sequence": 3,
-                "transfer": 6,
+                "transfer": 7,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "status": "conflict"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": " head-2",
+          "nextHead": "head-3",
+          "frame": null,
+          "added": [
+            {
+              "delta": "b-name",
+              "arrival": {
+                "at": 1003,
+                "sequence": 3,
+                "transfer": 8,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "status": "conflict"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "head-2 ",
+          "nextHead": "head-3",
+          "frame": null,
+          "added": [
+            {
+              "delta": "b-name",
+              "arrival": {
+                "at": 1003,
+                "sequence": 3,
+                "transfer": 9,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "status": "conflict"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "head-2\n",
+          "nextHead": "head-3",
+          "frame": null,
+          "added": [
+            {
+              "delta": "b-name",
+              "arrival": {
+                "at": 1003,
+                "sequence": 3,
+                "transfer": 10,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "status": "conflict"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "HEAD-2",
+          "nextHead": "head-3",
+          "frame": null,
+          "added": [
+            {
+              "delta": "b-name",
+              "arrival": {
+                "at": 1003,
+                "sequence": 3,
+                "transfer": 11,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "status": "conflict"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "head-2\u0000",
+          "nextHead": "head-3",
+          "frame": null,
+          "added": [
+            {
+              "delta": "b-name",
+              "arrival": {
+                "at": 1003,
+                "sequence": 3,
+                "transfer": 12,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "status": "conflict"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "",
+          "nextHead": "head-3",
+          "frame": null,
+          "added": [
+            {
+              "delta": "b-name",
+              "arrival": {
+                "at": 1003,
+                "sequence": 3,
+                "transfer": 13,
                 "sender": "local"
               }
             }
@@ -1890,7 +2037,7 @@
           "frame": null,
           "added": [
             {
-              "delta": "b-name",
+              "delta": "forged",
               "arrival": {
                 "at": 1002,
                 "sequence": 2,
@@ -1914,9 +2061,31 @@
             {
               "delta": "b-name",
               "arrival": {
+                "at": 1002,
+                "sequence": 2,
+                "transfer": 4,
+                "sender": "local",
+                "id": "far"
+              }
+            }
+          ],
+          "expect": {
+            "error": "invalid-admission"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "head-1",
+          "nextHead": "head-2",
+          "frame": null,
+          "added": [
+            {
+              "delta": "b-name",
+              "arrival": {
                 "at": 1001,
                 "sequence": 1,
-                "transfer": 4,
+                "transfer": 5,
                 "sender": "local"
               }
             }
@@ -1937,7 +2106,7 @@
               "arrival": {
                 "at": 1002,
                 "sequence": 2,
-                "transfer": 5,
+                "transfer": 6,
                 "sender": "local"
               }
             },
@@ -1946,7 +2115,7 @@
               "arrival": {
                 "at": 1002,
                 "sequence": 2,
-                "transfer": 5,
+                "transfer": 6,
                 "sender": "local"
               }
             }
@@ -2016,7 +2185,7 @@
               "arrival": {
                 "at": 1002,
                 "sequence": 2,
-                "transfer": 6,
+                "transfer": 7,
                 "sender": "local"
               }
             },
@@ -2025,7 +2194,7 @@
               "arrival": {
                 "at": 1003,
                 "sequence": 3,
-                "transfer": 6,
+                "transfer": 7,
                 "sender": "local"
               }
             }
@@ -3044,6 +3213,18 @@
           "snapshot": "a2"
         },
         {
+          "op": "arrivals",
+          "snapshot": "a2",
+          "ids": [
+            "a-height-neg"
+          ],
+          "expect": {
+            "ids": [
+              "a-height-neg"
+            ]
+          }
+        },
+        {
           "op": "negators",
           "snapshot": "a2",
           "ids": [
@@ -3709,6 +3890,102 @@
           }
         },
         {
+          "op": "scope",
+          "snapshot": "s1",
+          "anchors": [
+            {
+              "kind": "entity",
+              "entity": "plant:a"
+            }
+          ],
+          "pushdown": {
+            "arrivalAtMost": 1.5
+          },
+          "expect": {
+            "error": "invalid-request"
+          }
+        },
+        {
+          "op": "scope",
+          "snapshot": "s1",
+          "anchors": [
+            {
+              "kind": "entity",
+              "entity": "plant:a"
+            }
+          ],
+          "pushdown": {
+            "arrivalAtMost": -1
+          },
+          "expect": {
+            "error": "invalid-request"
+          }
+        },
+        {
+          "op": "scope",
+          "snapshot": "s1",
+          "anchors": [
+            {
+              "kind": "entity",
+              "entity": "plant:a"
+            }
+          ],
+          "pushdown": {
+            "arrivalAtMost": 9007199254740992
+          },
+          "expect": {
+            "error": "invalid-request"
+          }
+        },
+        {
+          "op": "scope",
+          "snapshot": "s2",
+          "anchors": [
+            {
+              "kind": "entity",
+              "entity": "plant:a"
+            }
+          ],
+          "pushdown": {
+            "arrivalAtMost": 1.5
+          },
+          "expect": {
+            "error": "invalid-request"
+          }
+        },
+        {
+          "op": "scope",
+          "snapshot": "s2",
+          "anchors": [
+            {
+              "kind": "entity",
+              "entity": "plant:a"
+            }
+          ],
+          "pushdown": {
+            "arrivalAtMost": -1
+          },
+          "expect": {
+            "error": "invalid-request"
+          }
+        },
+        {
+          "op": "scope",
+          "snapshot": "s2",
+          "anchors": [
+            {
+              "kind": "entity",
+              "entity": "plant:a"
+            }
+          ],
+          "pushdown": {
+            "arrivalAtMost": 9007199254740992
+          },
+          "expect": {
+            "error": "invalid-request"
+          }
+        },
+        {
           "op": "release",
           "snapshot": "s1"
         },
@@ -4157,6 +4434,491 @@
             "ids": [
               "b-name",
               "a-height"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "the-last-sequence-survives-an-empty-peer",
+      "spec": "SPEC-18 §4.5; SPEC-6 vNext §3",
+      "requires": [
+        "purge"
+      ],
+      "steps": [
+        {
+          "op": "createPeer",
+          "peer": "A",
+          "erasure": "unproven",
+          "expect": {
+            "status": "created"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": null,
+          "nextHead": "head-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-height",
+              "arrival": {
+                "at": 1002,
+                "sequence": 2,
+                "transfer": 1,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "a-name",
+              "arrival": {
+                "at": 1004,
+                "sequence": 4,
+                "transfer": 1,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-name",
+              "a-height"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "purge",
+          "peer": "A",
+          "ids": [
+            "a-height",
+            "a-name"
+          ],
+          "expect": {
+            "targets": [
+              {
+                "delta": "a-name",
+                "outcome": "removed"
+              },
+              {
+                "delta": "a-height",
+                "outcome": "removed"
+              }
+            ],
+            "revisionAdvanced": true,
+            "claim": {
+              "unprovable": "unproven",
+              "proven": "proven"
+            },
+            "referenceSurfaces": [
+              {
+                "surface": "rows",
+                "state": "absent"
+              },
+              {
+                "surface": "index-entries",
+                "state": "absent"
+              },
+              {
+                "surface": "process-memory",
+                "state": "unprovable"
+              }
+            ]
+          }
+        },
+        {
+          "op": "read",
+          "peer": "A",
+          "snapshot": "s"
+        },
+        {
+          "op": "count",
+          "snapshot": "s",
+          "expect": {
+            "count": 0
+          }
+        },
+        {
+          "op": "head",
+          "snapshot": "s",
+          "expect": {
+            "head": "head-1"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "head-1",
+          "nextHead": "head-2",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-height",
+              "arrival": {
+                "at": 1004,
+                "sequence": 4,
+                "transfer": 2,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "error": "invalid-admission"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "head-1",
+          "nextHead": "head-2",
+          "frame": null,
+          "added": [
+            {
+              "delta": "b-name",
+              "arrival": {
+                "at": 1001,
+                "sequence": 1,
+                "transfer": 3,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "error": "invalid-admission"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "head-1",
+          "nextHead": "head-2",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-height",
+              "arrival": {
+                "at": 1005,
+                "sequence": 5,
+                "transfer": 4,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-height"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "read",
+          "peer": "A",
+          "snapshot": "s2"
+        },
+        {
+          "op": "arrivals",
+          "snapshot": "s2",
+          "ids": [
+            "a-height"
+          ],
+          "expect": {
+            "ids": [
+              "a-height"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "a-skipped-entry-spends-no-sequence",
+      "spec": "SPEC-18 §4.5",
+      "requires": [],
+      "steps": [
+        {
+          "op": "createPeer",
+          "peer": "A",
+          "erasure": "unproven",
+          "expect": {
+            "status": "created"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": null,
+          "nextHead": "head-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-name",
+              "arrival": {
+                "at": 1001,
+                "sequence": 1,
+                "transfer": 1,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "head-1",
+          "nextHead": "head-2",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-height",
+              "arrival": {
+                "at": 1005,
+                "sequence": 5,
+                "transfer": 2,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "a-height",
+              "arrival": {
+                "at": 1006,
+                "sequence": 6,
+                "transfer": 2,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "b-name",
+              "arrival": {
+                "at": 1006,
+                "sequence": 6,
+                "transfer": 2,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "status": "committed",
+            "added": [
+              "b-name",
+              "a-height"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "head-2",
+          "nextHead": "head-3",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-name",
+              "arrival": {
+                "at": 1009,
+                "sequence": 9,
+                "transfer": 3,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "far",
+              "arrival": {
+                "at": 1009,
+                "sequence": 9,
+                "transfer": 3,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "status": "committed",
+            "added": [
+              "far"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "head-3",
+          "nextHead": "head-4",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-name",
+              "arrival": {
+                "at": 1500,
+                "sequence": 500,
+                "transfer": 4,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "status": "committed",
+            "added": [],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "head-4",
+          "nextHead": "head-5",
+          "frame": null,
+          "added": [
+            {
+              "delta": "bed-link",
+              "arrival": {
+                "at": 1010,
+                "sequence": 10,
+                "transfer": 5,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "status": "committed",
+            "added": [
+              "bed-link"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "head-5",
+          "nextHead": "head-6",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-name",
+              "arrival": {
+                "at": 1009,
+                "sequence": 9,
+                "transfer": 6,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "a-twice",
+              "arrival": {
+                "at": 1010,
+                "sequence": 10,
+                "transfer": 6,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "error": "invalid-admission"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "head-5",
+          "nextHead": "head-6",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-twice",
+              "arrival": {
+                "at": 1011,
+                "sequence": 11,
+                "transfer": 7,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "a-twice",
+              "arrival": {
+                "at": 1060,
+                "sequence": 60,
+                "transfer": 7,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-twice"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "head-6",
+          "nextHead": "head-7",
+          "frame": null,
+          "added": [
+            {
+              "delta": "ghost",
+              "arrival": {
+                "at": 1012,
+                "sequence": 12,
+                "transfer": 8,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "status": "committed",
+            "added": [
+              "ghost"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "read",
+          "peer": "A",
+          "snapshot": "s"
+        },
+        {
+          "op": "head",
+          "snapshot": "s",
+          "expect": {
+            "head": "head-7"
+          }
+        },
+        {
+          "op": "arrivals",
+          "snapshot": "s",
+          "ids": [
+            "a-name",
+            "a-height",
+            "b-name",
+            "far",
+            "bed-link",
+            "a-twice",
+            "ghost"
+          ],
+          "expect": {
+            "ids": [
+              "b-name",
+              "a-name",
+              "bed-link",
+              "a-twice",
+              "a-height",
+              "ghost",
+              "far"
             ]
           }
         }
@@ -4784,6 +5546,69 @@
         {
           "op": "append",
           "peer": "A",
+          "expectedHead": "head-0",
+          "nextHead": "head-2",
+          "frame": null,
+          "added": [
+            {
+              "delta": "b-name",
+              "arrival": {
+                "at": 999,
+                "sequence": -1,
+                "transfer": 4,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "status": "conflict"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "head-0",
+          "nextHead": "head-2",
+          "frame": null,
+          "added": [
+            {
+              "delta": "b-name",
+              "arrival": {
+                "at": 1001.5,
+                "sequence": 1.5,
+                "transfer": 5,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "status": "conflict"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "head-0",
+          "nextHead": "head-2",
+          "frame": null,
+          "added": [
+            {
+              "delta": "b-name",
+              "arrival": {
+                "at": 1002,
+                "sequence": 2,
+                "transfer": 9007199254740992,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "status": "conflict"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
           "expectedHead": "head-1",
           "nextHead": "head-2",
           "frame": null,
@@ -4793,7 +5618,7 @@
               "arrival": {
                 "at": 1002,
                 "sequence": 2,
-                "transfer": 4,
+                "transfer": 7,
                 "sender": "local"
               }
             }
@@ -4814,7 +5639,7 @@
               "arrival": {
                 "at": 1002,
                 "sequence": 2,
-                "transfer": 5,
+                "transfer": 8,
                 "sender": ""
               }
             }
@@ -4835,7 +5660,7 @@
               "arrival": {
                 "at": 1002,
                 "sequence": 2,
-                "transfer": 6,
+                "transfer": 9,
                 "sender": "local",
                 "id": "far"
               }
@@ -4857,7 +5682,7 @@
               "arrival": {
                 "at": 1000,
                 "sequence": 0,
-                "transfer": 7,
+                "transfer": 10,
                 "sender": "local"
               }
             }
@@ -4878,7 +5703,7 @@
               "arrival": {
                 "at": 1001,
                 "sequence": 1,
-                "transfer": 8,
+                "transfer": 11,
                 "sender": "local"
               }
             }

@@ -6,6 +6,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
+use crate::delta::compute_id;
 use crate::set::{DeltaSet, DeltaSource};
 use crate::types::{Claims, Delta, Target};
 
@@ -510,6 +511,14 @@ pub fn negated_ids(claims: &Claims) -> BTreeSet<&str> {
         .collect()
 }
 
+/// The work a [`ScopeSource`] did to build its indexes (SPEC-18 §4.11 reading 36): one step per
+/// member written under one key, plus one per index member that a write reads. A write reads
+/// none, so N members cost N steps, also when every member lands in one index entry.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct SourceMeter {
+    pub steps: u64,
+}
+
 /// A synchronous delta source over the members one read has fetched (SPEC-18 §4.2). It answers
 /// `get`, `targets` and `negators` restricted to the fetched set, and each member's arrival
 /// record. Code that must evaluate synchronously fetches once, then reads this.
@@ -519,65 +528,96 @@ pub struct ScopeSource {
     arrivals: BTreeMap<String, ArrivalRecord>,
     targets: BTreeMap<String, BTreeSet<String>>,
     negators: BTreeMap<String, BTreeSet<String>>,
+    meter: SourceMeter,
+}
+
+/// The one door into a source's indexes. A set per key keeps the write logarithmic in the
+/// entry's size; a list searched before each insert would make one entry cost N².
+fn index_member(
+    index: &mut BTreeMap<String, BTreeSet<String>>,
+    meter: &mut SourceMeter,
+    key: &str,
+    member: &str,
+) {
+    meter.steps += 1;
+    index
+        .entry(key.to_string())
+        .or_default()
+        .insert(member.to_string());
 }
 
 impl ScopeSource {
-    /// Adds members from another round. A member already present keeps its first appearance.
-    /// Refuses a member whose id does not recompute from its claims.
+    /// Adds members from another round. A member already present keeps its first appearance,
+    /// and a repeated id is not examined. Refuses a member whose id does not recompute from its
+    /// claims; a refused call adds nothing.
     pub fn extend(&mut self, members: &[VerifiedDelta]) -> Result<(), StoreError> {
+        // Check every first appearance before anything is added.
+        let mut fresh: BTreeMap<&str, &VerifiedDelta> = BTreeMap::new();
         for member in members {
-            let added = self.set.add(member.delta.clone()).map_err(|reason| {
-                StoreError::new(
-                    StoreErrorCode::InvalidRequest,
-                    format!("a scope member is not content-addressed: {reason}"),
-                )
-            })?;
-            if !added {
+            let id = member.delta.id.as_str();
+            if self.set.contains(id) || fresh.contains_key(id) {
                 continue;
             }
-            let id = &member.delta.id;
-            self.arrivals.insert(id.clone(), member.arrival.clone());
-            for entity in target_entities(&member.delta.claims) {
-                self.targets
-                    .entry(entity.to_string())
-                    .or_default()
-                    .insert(id.clone());
+            if compute_id(&member.delta.claims).ok().as_deref() != Some(id) {
+                return Err(StoreError::new(
+                    StoreErrorCode::InvalidRequest,
+                    format!("scope member {id} does not recompute from its claims"),
+                ));
             }
-            for negated in negated_ids(&member.delta.claims) {
-                self.negators
-                    .entry(negated.to_string())
-                    .or_default()
-                    .insert(id.clone());
-            }
+            fresh.insert(id, member);
+        }
+        for member in fresh.into_values() {
+            // The check pass recomputed this id, so the set's own check cannot refuse it.
+            self.set
+                .add(member.delta.clone())
+                .expect("the member was checked before the commit pass");
+            self.index(&member.delta, member.arrival.clone());
         }
         Ok(())
     }
 
-    /// A source over the members of this one with these ids, each with its arrival record. The
-    /// members are not hashed again; ids this source does not hold are skipped.
-    pub fn restrict(&self, ids: &[String]) -> ScopeSource {
-        let set = self.set.subset(ids);
-        let mut next = ScopeSource::default();
-        for delta in set.iter() {
-            let id = &delta.id;
-            if let Some(arrival) = self.arrivals.get(id) {
-                next.arrivals.insert(id.clone(), arrival.clone());
-            }
-            for entity in target_entities(&delta.claims) {
-                next.targets
-                    .entry(entity.to_string())
-                    .or_default()
-                    .insert(id.clone());
-            }
-            for negated in negated_ids(&delta.claims) {
-                next.negators
-                    .entry(negated.to_string())
-                    .or_default()
-                    .insert(id.clone());
-            }
+    /// Records one member's arrival and writes its index entries, metered. Every member enters a
+    /// source through this, after its id has been checked.
+    fn index(&mut self, delta: &Delta, arrival: ArrivalRecord) {
+        let id = delta.id.as_str();
+        self.arrivals.insert(id.to_string(), arrival);
+        for entity in target_entities(&delta.claims) {
+            index_member(&mut self.targets, &mut self.meter, entity, id);
         }
-        next.set = set;
+        for negated in negated_ids(&delta.claims) {
+            index_member(&mut self.negators, &mut self.meter, negated, id);
+        }
+    }
+
+    /// A source over the members of this one with these ids, each with its arrival record. The
+    /// members were checked when they entered this source, so they are not hashed again; ids
+    /// this source does not hold are skipped. The new source meters its own index work.
+    pub fn restrict(&self, ids: &[String]) -> ScopeSource {
+        let mut next = ScopeSource {
+            set: self.set.subset(ids),
+            ..ScopeSource::default()
+        };
+        let members: Vec<(Delta, ArrivalRecord)> = next
+            .set
+            .iter()
+            .map(|delta| {
+                let arrival = self
+                    .arrivals
+                    .get(&delta.id)
+                    .expect("every member of a source has its arrival record")
+                    .clone();
+                (delta.clone(), arrival)
+            })
+            .collect();
+        for (delta, arrival) in &members {
+            next.index(delta, arrival.clone());
+        }
         next
+    }
+
+    /// The index work every build and extension of this source has done.
+    pub fn meter(&self) -> SourceMeter {
+        self.meter
     }
 
     pub fn arrival(&self, id: &str) -> Option<&ArrivalRecord> {
