@@ -309,22 +309,68 @@ fn crowded(n: usize) -> (Vec<VerifiedDelta>, Vec<VerifiedDelta>, String) {
     )
 }
 
-/// The fastest of three builds of a scope source over `members`, timed from outside.
-fn fastest_build(members: &[VerifiedDelta]) -> Duration {
-    (0..3)
-        .map(|_| {
-            let start = Instant::now();
-            let source = scope_source(members).unwrap();
-            let took = start.elapsed();
-            black_box(source);
-            took
+/// One member with `n` pointers, each to its own entity.
+fn wide(n: usize) -> Vec<VerifiedDelta> {
+    let pointers = (0..n)
+        .map(|i| Pointer {
+            role: "subject".into(),
+            target: Target::Entity(EntityRef {
+                id: format!("wide:{i}"),
+                context: Some("v".into()),
+            }),
         })
-        .min()
-        .unwrap()
+        .collect();
+    let claims = Claims {
+        timestamp: 1.0,
+        valid_from: 1.0,
+        valid_until: None,
+        author: "did:key:zCost".into(),
+        pointers,
+    };
+    vec![member(make_delta(claims, None).unwrap(), 1)]
 }
 
-/// The members of one crowded shape: N facts about one entity, or N negations of one delta.
-type Shape = fn(usize) -> Vec<VerifiedDelta>;
+/// `n` appearances of four ids, in turn: every appearance after the fourth is a repeat. Each
+/// delta has one primitive pointer, so that 8N appearances stay small in memory.
+fn four_ids(n: usize) -> Vec<VerifiedDelta> {
+    let four: Vec<VerifiedDelta> = (1..=4u64)
+        .map(|i| {
+            let claims = Claims {
+                timestamp: i as f64,
+                valid_from: i as f64,
+                valid_until: None,
+                author: "did:key:zCost".into(),
+                pointers: vec![Pointer {
+                    role: "value".into(),
+                    target: Target::Primitive(Primitive::Num(i as f64)),
+                }],
+            };
+            member(make_delta(claims, None).unwrap(), i)
+        })
+        .collect();
+    (0..n).map(|i| four[i % 4].clone()).collect()
+}
+
+/// The fastest of up to `runs` builds of a scope source over `members`, timed from outside. It
+/// stops at the first build faster than `enough`: the fastest is under a bound exactly when one
+/// build is.
+fn fastest_build(members: &[VerifiedDelta], runs: usize, enough: Duration) -> Duration {
+    let mut best = Duration::MAX;
+    for _ in 0..runs {
+        if best < enough {
+            break;
+        }
+        let start = Instant::now();
+        let source = scope_source(members).unwrap();
+        best = best.min(start.elapsed());
+        black_box(source);
+    }
+    best
+}
+
+/// One shape: its name, its members at a size, and the largest N it calibrates to. The cap
+/// keeps 8N members in memory; the repeats are cheap to build and costly to hold.
+type Shape = (&'static str, fn(usize) -> Vec<VerifiedDelta>, usize);
 
 fn at_one_entity(n: usize) -> Vec<VerifiedDelta> {
     crowded(n).0
@@ -334,44 +380,65 @@ fn negating_one_delta(n: usize) -> Vec<VerifiedDelta> {
     crowded(n).1
 }
 
-/// The smallest power-of-two N whose build of this shape takes at least 50 ms here.
-fn calibrated_n(shape: Shape) -> usize {
+/// The smallest power-of-two N from 256 whose build takes 50 ms or more here, or the cap, and
+/// the fastest of five builds at that N.
+fn calibrated(members: fn(usize) -> Vec<VerifiedDelta>, cap: usize) -> (usize, Duration) {
     let mut n = 256;
-    while n < 1 << 20 && fastest_build(&shape(n)) < Duration::from_millis(50) {
+    loop {
+        let at_n = fastest_build(&members(n), 5, Duration::ZERO);
+        if at_n >= Duration::from_millis(50) || n >= cap {
+            return (n, at_n);
+        }
         n *= 2;
     }
-    n
 }
 
 /// Building a scope source costs the size of its members (README §1.2 item 5 and §5 "Cost",
-/// SPEC-18 §4.11 reading 36): N members at one entity, or N negations of one delta, cost N steps
-/// and not N². This times the build from outside with a monotonic clock, at N and at 8N, the
-/// fastest of three builds each. Linear work gives a ratio near 8 and quadratic work near 64;
-/// the rail holds the ratio below 24. Each shape calibrates its own N, the smallest power of two
-/// whose build takes 50 ms or more on this host and in this profile (debug under `cargo test`),
-/// so a quadratic build also stays short enough to fail rather than hang. It is a coarse scaling
-/// check, not a count: a quadratic term too small to show at that N passes.
+/// SPEC-18 §4.11 reading 36). Four shapes cost N steps and not N²: N members at one entity, N
+/// negations of one delta, one member with N entity pointers, and N appearances of four ids.
+/// This times each build from outside with a monotonic clock, at N and at 8N. Linear work gives
+/// a ratio near 8 and quadratic work near 64; the rail holds the ratio below 24.
+///
+/// Each shape calibrates its own N: the smallest power of two whose build takes 50 ms or more on
+/// this host and in this profile (debug under `cargo test`), so a quadratic build reaches 50 ms
+/// at a small N and fails rather than hangs. The appearances of four ids stop at a cap of 2^17,
+/// where 8N clones of a member still fit in memory; there the build at N takes less than 50 ms.
+/// The build at N is the fastest of five. The build at 8N is the fastest of three, stopped at
+/// the first under the bound.
+///
+/// It is a coarse scaling check, not a count, and coarse in one direction. A stall must slow
+/// all three builds at 8N to fail correct code. A stall during every build at N lowers the
+/// ratio, so a loaded machine can let a quadratic build pass. A quadratic term too small to show
+/// at that N passes.
 #[test]
 fn a_scope_source_builds_in_the_size_of_its_members() {
     let (facts, strikes, target) = crowded(300);
     assert_eq!(scope_source(&facts).unwrap().targets("plant:a").len(), 300);
     assert_eq!(scope_source(&strikes).unwrap().negators(&target).len(), 300);
+    let one = scope_source(&wide(300)).unwrap();
+    assert_eq!(one.len(), 1);
+    assert_eq!(one.targets("wide:0").len(), 1);
+    assert_eq!(one.targets("wide:299").len(), 1);
+    assert_eq!(scope_source(&four_ids(300)).unwrap().len(), 4);
 
-    let shapes: [(&str, Shape); 2] = [
-        ("members at one entity", at_one_entity),
-        ("negations of one delta", negating_one_delta),
+    let shapes: [Shape; 4] = [
+        ("members at one entity", at_one_entity, 1 << 20),
+        ("negations of one delta", negating_one_delta, 1 << 20),
+        ("entity pointers of one member", wide, 1 << 20),
+        ("appearances of four ids", four_ids, 1 << 17),
     ];
+    const BOUND: f64 = 24.0;
     let slow: Vec<String> = shapes
         .into_iter()
-        .filter_map(|(shape, members)| {
-            let n = calibrated_n(members);
-            let (at_n, at_8n) = (fastest_build(&members(n)), fastest_build(&members(8 * n)));
+        .filter_map(|(shape, members, cap)| {
+            let (n, at_n) = calibrated(members, cap);
+            let at_8n = fastest_build(&members(8 * n), 3, at_n.mul_f64(BOUND));
             let ratio = at_8n.as_secs_f64() / at_n.as_secs_f64();
             println!("scope source, {shape}: N = {n}, {at_n:?} and {at_8n:?}, ratio {ratio:.2}");
-            (ratio >= 24.0).then(|| {
+            (ratio >= BOUND).then(|| {
                 format!(
-                    "{shape}: building from {} members took {ratio:.1} times as long as from \
-                     {n} ({at_8n:?} against {at_n:?}); linear work gives about 8",
+                    "{shape}: building at 8N = {} took {ratio:.1} times as long as at N = {n} \
+                     ({at_8n:?} against {at_n:?}); linear work gives about 8",
                     8 * n
                 )
             })

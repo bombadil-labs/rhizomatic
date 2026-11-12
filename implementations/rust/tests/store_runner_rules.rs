@@ -95,6 +95,7 @@ enum Wrong {
     ServesPurged,
     StaleAfterRemoved,
     StaleAfterOtherHolds,
+    StaleAfterSettledDebt,
     // Point reads.
     Head,
     HeadEmpty,
@@ -185,6 +186,9 @@ struct Books {
     /// The arrival record each peer held an id under when a purge ended that holding, and the
     /// outcome that ended it.
     stale: BTreeMap<(String, String), (PurgeOutcome, ArrivalRecord)>,
+    /// The stale records a `held-by-other-peer` purge left as a debt, which a later purge then
+    /// settled (`removed` for an id the peer no longer held).
+    settled: BTreeSet<(String, String)>,
 }
 
 type Shared = Rc<RefCell<Books>>;
@@ -408,13 +412,20 @@ impl PeerStore for RigPeer {
             .unwrap_or_default();
         let ended = match self.wrong {
             Wrong::StaleAfterRemoved => Some(PurgeOutcome::Removed),
-            Wrong::StaleAfterOtherHolds => Some(PurgeOutcome::HeldByOtherPeer),
+            Wrong::StaleAfterOtherHolds | Wrong::StaleAfterSettledDebt => {
+                Some(PurgeOutcome::HeldByOtherPeer)
+            }
             _ => None,
         };
+        let settled_only = self.wrong == Wrong::StaleAfterSettledDebt;
         let stale = books
             .stale
             .iter()
-            .filter(|((peer, _), (outcome, _))| *peer == self.id && Some(*outcome) == ended)
+            .filter(|(key, (outcome, _))| {
+                key.0 == self.id
+                    && Some(*outcome) == ended
+                    && (!settled_only || books.settled.contains(*key))
+            })
             .map(|((_, id), (_, arrival))| (id.clone(), arrival.clone()))
             .collect();
         drop(books);
@@ -531,15 +542,19 @@ impl PeerStore for RigPeer {
                 target.outcome,
                 PurgeOutcome::Removed | PurgeOutcome::HeldByOtherPeer
             );
-            if let Some(arrival) = arrivals
-                .iter()
-                .find(|a| a.id == target.id)
-                .filter(|_| ended)
+            let key = (self.id.clone(), target.id.clone());
+            let held = arrivals.iter().find(|a| a.id == target.id);
+            if let Some(arrival) = held.filter(|_| ended) {
+                books.settled.remove(&key);
+                books.stale.insert(key, (target.outcome, arrival.clone()));
+            } else if held.is_none()
+                && target.outcome == PurgeOutcome::Removed
+                && matches!(
+                    books.stale.get(&key),
+                    Some((PurgeOutcome::HeldByOtherPeer, _))
+                )
             {
-                books.stale.insert(
-                    (self.id.clone(), target.id.clone()),
-                    (target.outcome, arrival.clone()),
-                );
+                books.settled.insert(key);
             }
         }
         let ghosts = books.purged.entry(self.id.clone()).or_default();
@@ -1052,6 +1067,11 @@ fn an_unknown_requirement(vectors: &mut StoreVectors) {
     vectors.scripts["scripts"][0]["requires"] = serde_json::json!(["values"]);
 }
 
+/// A script whose `requires` is null: not a list of names, so not "none" either.
+fn a_null_requirement_list(vectors: &mut StoreVectors) {
+    vectors.scripts["scripts"][0]["requires"] = serde_json::Value::Null;
+}
+
 struct Row {
     rule: &'static str,
     wrong: Wrong,
@@ -1417,6 +1437,13 @@ const TABLE: &[Row] = &[
         &["first admitted (field `"],
         S,
     ),
+    row(
+        "bookkeeping: an arrival record that outlives a settled debt",
+        W::StaleAfterSettledDebt,
+        PLAIN,
+        &["first admitted (field `"],
+        S,
+    ),
     // Point reads (§3.6, §3.7).
     row(
         "head",
@@ -1769,6 +1796,13 @@ const TABLE: &[Row] = &[
         W::Nothing,
         an_unknown_requirement,
         &["unknown script requirement `values`"],
+        &["scripts"],
+    ),
+    doc_row(
+        "documents: a null script requirement list",
+        W::Nothing,
+        a_null_requirement_list,
+        &["`requires` is not a list"],
         &["scripts"],
     ),
 ];
