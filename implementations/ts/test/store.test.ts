@@ -1207,6 +1207,62 @@ describe("a store refuses what is not of its type, and converts nothing", () => 
     });
   }
 
+  // README §6 test 5 inside the claims: every claims field, the list of pointers, each pointer,
+  // and each part of each kind of target. Honest on the first read, of the right type and
+  // another value on every later one; the kept claims recompute to the id.
+  type Place = (claims: Loose) => Loose;
+  const claimsAt: Place = (c) => c;
+  const at =
+    (index: number, ...path: string[]): Place =>
+    (c) =>
+      path.reduce<Loose>((o, key) => o[key] as Loose, pointer(c, index) as unknown as Loose);
+  const inner: Readonly<Record<string, [place: Place, field: string, wrong: unknown]>> = {
+    validFrom: [claimsAt, "validFrom", 6],
+    validUntil: [claimsAt, "validUntil", 10],
+    "the author": [claimsAt, "author", "did:key:zOther"],
+    "the list of pointers": [claimsAt, "pointers", []],
+    "a pointer": [
+      (c) => c["pointers"] as Loose,
+      "0",
+      { role: "x", target: { kind: "primitive", value: 1 } },
+    ],
+    "a pointer's role": [at(0), "role", "object"],
+    "a pointer's target": [at(0), "target", { kind: "primitive", value: 1 }],
+    "a target's kind": [at(0, "target"), "kind", "primitive"],
+    "an entity id": [at(0, "target", "entity"), "id", "f"],
+    "an entity context": [at(0, "target", "entity"), "context", "w"],
+    "a primitive value": [at(1, "target"), "value", "w"],
+    "a delta reference": [at(2, "target"), "deltaRef", { delta: "1e20bb" }],
+    "a delta reference's id": [at(2, "target", "deltaRef"), "delta", "1e20bb"],
+    "a delta reference's context": [at(2, "target", "deltaRef"), "context", "d"],
+    "a mime type": [at(3, "target"), "mime", "x/z"],
+    "a bytes payload": [at(3, "target"), "value", new Uint8Array([2])],
+  };
+  for (const [name, [place, field, wrong]] of Object.entries(inner)) {
+    it(`${name} is read once: the kept claims recompute to the id`, async () => {
+      let reads = 0;
+      const { entry, id } = entryWith(({ claims }) => {
+        const owner = place(claims);
+        const honest = owner[field];
+        Object.defineProperty(owner, field, {
+          enumerable: true,
+          get: () => (reads++ === 0 ? honest : wrong),
+        });
+      });
+      const store = createMemoryStore();
+      const peer = await store.createPeer(A, { erasure: "unproven" });
+      expect(await code(() => peer.append({ ...head, added: [entry] }))).toBe("no error");
+      expect(reads).toBe(1);
+      const [delta] = await (await peer.read()).get([id]);
+      expect(computeId(delta!.claims)).toBe(id);
+
+      reads = 0;
+      const source = scopeSource([entry]);
+      expect(reads).toBe(1);
+      expect(computeId(source.get(id)!.claims)).toBe(id);
+    });
+  }
+
   it("the fields of a request are read once: ids, entities, anchors and exclude", async () => {
     const store = createMemoryStore();
     const peer = await store.createPeer(A, { erasure: "unproven" });
@@ -1358,8 +1414,33 @@ describe("a store refuses what is not of its type, and converts nothing", () => 
       expect(
         await code(() => snapshot.scope({ anchors: [], pushdown: { arrivalAtMost } as never })),
       ).toBe("invalid-request");
-    for (const options of [null, undefined, "unproven", { erasure: new String("unproven") }])
-      expect(await code(() => store.createPeer(B, options as never))).toBe("invalid-request");
+    const listWithPosture = Object.assign([], { erasure: "unproven" });
+    class Options {
+      erasure = "unproven";
+    }
+    const throwing = {
+      get erasure(): never {
+        throw new Error("a getter that throws");
+      },
+    };
+    for (const options of [
+      null,
+      undefined,
+      "unproven",
+      { erasure: new String("unproven") },
+      listWithPosture,
+      new Options(),
+      Object.create({ erasure: "unproven" }) as object,
+      throwing,
+    ]) {
+      const refusal = await store.createPeer(B, options as never).then(
+        () => undefined,
+        (error: unknown) => error,
+      );
+      expect(refusal, String(options)).toBeInstanceOf(StoreError);
+      expect((refusal as StoreError).code).toBe("invalid-request");
+    }
+    await expect(store.peer(B)).rejects.toThrow(StoreError);
     for (const id of [5, null, undefined, new String(B)])
       expect(await code(() => store.createPeer(id as never, { erasure: "unproven" }))).toBe(
         "invalid-request",
@@ -1369,6 +1450,60 @@ describe("a store refuses what is not of its type, and converts nothing", () => 
     // The refusals changed nothing.
     expect((await peer.read()).count).toBe(1);
     expect(await snapshot.targets(["e"])).toHaveLength(1);
+  });
+
+  it("a plain object from another realm is plain; a list or an instance from it is not", async () => {
+    // Plainness is the shape of the prototype chain, as `Array.isArray` is for a list.
+    const foreign = <T>(source: string): T => runInNewContext(source) as T;
+    const store = createMemoryStore();
+    const peer = await store.createPeer(A, foreign("({ erasure: 'unproven' })"));
+    expect(peer.erasure.posture).toBe("unproven");
+    await store.createPeer(
+      B,
+      foreign("Object.assign(Object.create(null), { erasure: 'unproven' })"),
+    );
+    await fill(peer, [fact("e", 1)]);
+    const snapshot = await peer.read();
+    const anchors = [{ kind: "entity", entity: "e" }] as const;
+    const result = await snapshot.scope({
+      anchors,
+      pushdown: foreign("({ timestampAtMost: 0 })"),
+    });
+    expect(result.applied.timestampAtMost).toBe(true);
+    expect(result.deltas).toHaveLength(0);
+    expect(
+      (await openStore("memory:", foreign("({ requires: ['arrival'] })"))).profile.formatVersion,
+    ).toBe(MEMORY_STORE_FORMAT);
+    await expect(openStore("memory:", foreign("({ requires: ['journal'] })"))).rejects.toThrow(
+      "journal",
+    );
+    for (const source of [
+      "[]",
+      "Object.assign([], { erasure: 'unproven' })",
+      "new (class Options { erasure = 'unproven' })()",
+      "Object.create({ erasure: 'unproven' })",
+      "new Map()",
+    ]) {
+      expect(await code(() => store.createPeer("C", foreign(source))), source).toBe(
+        "invalid-request",
+      );
+      expect(await code(() => snapshot.scope({ anchors, pushdown: foreign(source) })), source).toBe(
+        "invalid-request",
+      );
+      expect(await code(() => openStore("memory:", foreign(source))), source).toBe(
+        "invalid-request",
+      );
+    }
+    // An object that only borrows a realm's `constructor` is not that realm's Object.prototype.
+    const impostor = Object.create(Object.assign(Object.create(null), { constructor: Object }));
+    // A prototype with a null prototype that belongs to a constructor of another name.
+    const Other = function Other(): void {};
+    Other.prototype = Object.assign(Object.create(null), { constructor: Other });
+    const instance = Object.create(Other.prototype as object);
+    for (const pushdown of [impostor, instance])
+      expect(await code(() => snapshot.scope({ anchors, pushdown: pushdown as never }))).toBe(
+        "invalid-request",
+      );
   });
 
   it("a request that reads differently each time is read once", async () => {
@@ -1684,28 +1819,88 @@ describe("scopeSource: a synchronous delta source over a fetched scope", () => {
 
 describe("cost rail: scopeSource builds in the size of its members", () => {
   // A coarse scaling check, timed from outside: the code under test keeps no meter of its own,
-  // so a build that copies or searches a bucket per insert cannot hide its work. N members at
-  // one entity, then 8N; likewise N and 8N negations of one delta. Linear work scales by about
-  // 8, quadratic by about 64; the rail fails at 24. Each size takes the fastest of three
-  // builds, so a stall on a shared machine only slows a run and cannot pass a slow build.
-  // N is sized so that the build at N takes tens of milliseconds, well above timer noise. What
-  // this cannot see: a cost that is quadratic only with a tiny constant at these sizes.
-  const N = 4000;
+  // so a build that copies or searches a list per insert cannot hide its work. Four shapes, at
+  // N and at 8N: members at one entity, negations of one delta, entity pointers of one member,
+  // and appearances of four ids (every one after the fourth a repeat). Linear work scales by
+  // about 8, quadratic by about 64; the rail fails at 24.
+  //
+  // N is the smallest power of two whose build takes 50 ms or more, so a quadratic build finds
+  // a small N and fails rather than hangs. The build at N is the fastest of five; the build at
+  // 8N passes when any of three is under the bound, which is the fastest of three, stopped
+  // early. The rail is coarse in one direction. A stall during the 8N builds raises the ratio
+  // only if it slows all three, so correct code under load stays green. A stall during every
+  // build at N lowers the ratio, so a loaded machine can let a quadratic build pass. And a cost
+  // that is quadratic only with a tiny constant at these sizes passes.
   const BOUND = 24;
   const member = (delta: Delta, sequence: number): VerifiedDelta => ({
     delta,
     arrival: { id: delta.id, at: 1, sequence, transfer: 1, sender: "local" },
   });
   const struck = fact("struck", 0);
-  const shapes = {
-    "members at one entity": () =>
-      Array.from({ length: 8 * N }, (_, i) => member(fact("crowded", i + 1), i + 1)),
-    "negations of one delta": () =>
-      Array.from({ length: 8 * N }, (_, i) => member(strike(struck, i + 1), i + 1)),
+  /** The first `n` of a list built on demand, `make(i)` at index i. */
+  const prefix = <T>(make: (i: number) => T): ((n: number) => T[]) => {
+    const made: T[] = [];
+    return (n) => {
+      while (made.length < n) made.push(make(made.length));
+      return made.slice(0, n);
+    };
   };
-  const fastest = (members: readonly VerifiedDelta[]): number => {
+  const wide = (n: number): Delta =>
+    makeDelta({
+      timestamp: 1,
+      validFrom: 1,
+      author: "did:key:zA",
+      pointers: Array.from({ length: n }, (_, i) => ({
+        role: "subject",
+        target: { kind: "entity", entity: { id: `wide:${i}`, context: "v" } },
+      })),
+    });
+  const four = [1, 2, 3, 4].map((i) => member(fact("four", i), i));
+  type Shape = {
+    members: (n: number) => Iterable<VerifiedDelta>;
+    /** What a build over `n` holds: the shape reaches the index it names. */
+    holds: (n: number) => void;
+  };
+  const shapes: Record<string, Shape> = {
+    "members at one entity": {
+      members: prefix((i) => member(fact("crowded", i + 1), i + 1)),
+      holds: (n) =>
+        expect(
+          scopeSource(shapes["members at one entity"]!.members(n)).targets("crowded"),
+        ).toHaveLength(n),
+    },
+    "negations of one delta": {
+      members: prefix((i) => member(strike(struck, i + 1), i + 1)),
+      holds: (n) =>
+        expect(
+          scopeSource(shapes["negations of one delta"]!.members(n)).negators(struck.id),
+        ).toHaveLength(n),
+    },
+    "entity pointers of one member": {
+      members: (n) => [member(wide(n), 1)],
+      holds: (n) => {
+        const source = scopeSource(shapes["entity pointers of one member"]!.members(n));
+        expect(source.ids()).toHaveLength(1);
+        for (const i of [0, n - 1]) expect(source.targets(`wide:${i}`)).toHaveLength(1);
+      },
+    },
+    // A list that yields its members again on each walk, without holding 8N of them.
+    "appearances of four ids": {
+      members: (n) => ({
+        *[Symbol.iterator]() {
+          for (let i = 0; i < n; i++) yield four[i % 4]!;
+        },
+      }),
+      holds: (n) =>
+        expect(scopeSource(shapes["appearances of four ids"]!.members(n)).ids()).toHaveLength(
+          Math.min(n, 4),
+        ),
+    },
+  };
+  /** The fastest of `runs` builds; it stops at the first build faster than `enough`. */
+  const fastest = (members: Iterable<VerifiedDelta>, runs: number, enough = 0): number => {
     let best = Number.POSITIVE_INFINITY;
-    for (let run = 0; run < 3; run++) {
+    for (let run = 0; run < runs && best >= enough; run++) {
       const start = performance.now();
       scopeSource(members);
       best = Math.min(best, performance.now() - start);
@@ -1713,17 +1908,18 @@ describe("cost rail: scopeSource builds in the size of its members", () => {
     return best;
   };
 
-  for (const [shape, make] of Object.entries(shapes)) {
+  for (const [shape, { members, holds }] of Object.entries(shapes)) {
     it(`8 times the ${shape} cost less than ${BOUND} times the time`, () => {
-      const members = make();
-      const source = scopeSource(members);
-      const bucket = shape.startsWith("members")
-        ? source.targets("crowded")
-        : source.negators(struck.id);
-      expect(bucket).toHaveLength(8 * N);
-      const small = fastest(members.slice(0, N));
-      const large = fastest(members);
-      expect(large / small, `${small.toFixed(1)} ms, then ${large.toFixed(1)} ms`).toBeLessThan(
+      holds(300);
+      let n = 256;
+      let small = fastest(members(n), 5);
+      while (small < 50 && n < 1 << 24) small = fastest(members((n *= 2)), 5);
+      const large = fastest(members(8 * n), 3, BOUND * small);
+      const ratio = large / small;
+      console.log(
+        `scope source, ${shape}: N = ${n}, ${small.toFixed(1)} ms and ${large.toFixed(1)} ms, ratio ${ratio.toFixed(2)}`,
+      );
+      expect(ratio, `N = ${n}: ${small.toFixed(1)} ms, then ${large.toFixed(1)} ms`).toBeLessThan(
         BOUND,
       );
     }, 600_000);

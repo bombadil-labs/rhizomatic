@@ -45,7 +45,7 @@ import type {
 } from "../src/storage/store.js";
 import { StoreError } from "../src/storage/store.js";
 import type { Delta } from "../src/delta/types.js";
-import { broken, stale, type Break } from "./support/broken-store.js";
+import { broken, stale, staleAfterSettledDebt, type Break } from "./support/broken-store.js";
 
 const vectors = storeVectors();
 
@@ -743,6 +743,11 @@ const RULES: Readonly<Record<string, Rule>> = {
     says: /\((arrivals|scope)\): .*carries another arrival record/,
     store: stale((outcome) => outcome !== "held-by-other-peer"),
   },
+  "an arrival record that outlives a settled debt": {
+    doc: "scripts",
+    says: /\((arrivals|scope)\): .*carries another arrival record/,
+    store: staleAfterSettledDebt(),
+  },
 
   // -- snapshot fields (§3.6) --
   "a snapshot with another head": {
@@ -1383,7 +1388,7 @@ describe("runner rules: a wrong document", () => {
     (s) => s.name === "purge-clears-a-debt-on-append",
   )!;
   /** The purge script, with the claim of its first purge step replaced. */
-  const purgeClaim = (claim: object): StoreVectors => {
+  const purgeClaim = (claim: object | null | undefined): StoreVectors => {
     const first = purgeScript.steps.findIndex((step) => step.op === "purge");
     const steps = purgeScript.steps.map((step, i) =>
       i === first && step.op === "purge"
@@ -1444,6 +1449,14 @@ describe("runner rules: a wrong document", () => {
       vectors: purgeClaim({ unprovable: "unproven", proven: "proven", none: "nothing-removed" }),
       says: "the vector's purge claim has keys none, proven, unprovable, not unprovable and proven",
     },
+    "a purge step without a claim": {
+      vectors: purgeClaim(undefined),
+      says: "the vector's purge claim is missing or not an object, not unprovable and proven",
+    },
+    "a purge claim that is null": {
+      vectors: purgeClaim(null),
+      says: "the vector's purge claim is missing or not an object, not unprovable and proven",
+    },
     "a purge claim without the key proven": {
       vectors: purgeClaim({ unprovable: "unproven" }),
       says: "the vector's purge claim has keys unprovable, not unprovable and proven",
@@ -1454,6 +1467,10 @@ describe("runner rules: a wrong document", () => {
     },
     "a script requirement list that is not a list": {
       vectors: requiring("purge"),
+      says: "the script's requires is not a list",
+    },
+    "a script requirement list that is null, which is not none": {
+      vectors: requiring(null),
       says: "the script's requires is not a list",
     },
     "a scope case without the scope of an applied subset": {
@@ -1472,6 +1489,39 @@ describe("runner rules: a wrong document", () => {
       await expect(runStoreConformance(store ?? memory, document)).rejects.toThrow(message);
     });
   }
+
+  // A wrong `requires` fails its script, as a failure of the run that names the script, and the
+  // run still closes that script's store. A runner that read `requires` outside its guard would
+  // throw the same text as a raw error and leave the store open.
+  for (const [requires, says] of [
+    [["values"], "unknown script requirement values"],
+    ["purge", "the script's requires is not a list"],
+    [null, "the script's requires is not a list"],
+  ] as const)
+    it(`requires ${JSON.stringify(requires)} fails its script, and the store is closed`, async () => {
+      let opened = 0;
+      let closed = 0;
+      const counted = broken({
+        store: (s) => {
+          opened++;
+          return {
+            close: async () => {
+              closed++;
+              await s.close();
+            },
+          };
+        },
+      });
+      const failure: unknown = await runStoreConformance(counted, requiring(requires)).then(
+        () => undefined,
+        (error: unknown) => error,
+      );
+      expect(failure).toBeInstanceOf(StoreConformanceError);
+      expect((failure as StoreConformanceError).failures).toEqual([
+        { name: `scripts/${purgeScript.name}`, message: says },
+      ]);
+      expect([opened, closed]).toEqual([2, 2]);
+    });
 
   it("a script without requires runs on every store, and is not skipped", async () => {
     const bare: typeof purgeScript = { ...purgeScript };

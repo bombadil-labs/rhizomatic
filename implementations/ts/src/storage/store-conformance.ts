@@ -327,7 +327,12 @@ class Run {
       }
       case "purge": {
         // A document defect, whatever the store: the claim names the two classes that purge.
-        const claimKeys = Object.keys(step.expect.claim).sort();
+        const claim: unknown = step.expect.claim;
+        check(
+          typeof claim === "object" && claim !== null && !Array.isArray(claim),
+          "the vector's purge claim is missing or not an object, not unprovable and proven",
+        );
+        const claimKeys = Object.keys(claim).sort();
         check(
           same(claimKeys, ["proven", "unprovable"]),
           `the vector's purge claim has keys ${claimKeys.join(", ")}, not unprovable and proven`,

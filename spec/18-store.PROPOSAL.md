@@ -665,11 +665,14 @@ the text above was silent, slice 1 decided as follows. The shared vectors and
 35. **Private means unreachable.** What the memory store decides by (its own profile, the stored
     claims, the peers, the closed flag) is not a property of the store object. A cast, or a
     property planted under the old name, reaches nothing.
-36. **`scopeSource` builds in the size of its members.** N members at one entity, or N negations
-    of one delta, cost N steps. A rail in each witness times the build from outside with a
-    monotonic clock: N members and 8N, the fastest of three builds each, and the ratio below 24
-    (linear is about 8, quadratic about 64). N is large enough that the build at N takes about
-    50 ms. It is a coarse scaling check, not a count. Round 3 had each witness count the work
+36. **`scopeSource` builds in the size of its members.** N members at one entity, N negations
+    of one delta, one member with N entity pointers, and N appearances of a few ids each cost N
+    steps. A rail in each witness times the build of each of these four shapes from outside with
+    a monotonic clock, at N and at 8N, and holds the ratio below 24 (linear is about 8,
+    quadratic about 64). N is the smallest power of two whose build takes 50 ms or more; the
+    build at N is the fastest of five, the build at 8N the fastest of three
+    (`vectors/store/README.md` §5). It is a coarse scaling check, not a count, and a stall during
+    the builds at N can let a quadratic build pass. Round 3 had each witness count the work
     with a meter the code under test incremented; a build that copied its bucket on every
     insert was quadratic and passed, because the meter counted calls, not work.
 37. **A bound that reaches every store.** The vectors refuse `arrivalAtMost: 2^53` on a moved and
@@ -686,7 +689,12 @@ the text above was silent, slice 1 decided as follows. The shared vectors and
     `undefined`) means none. Anything else that is not a plain object (`null`, a list, a number,
     a string, a boolean, a function, a class instance) is refused `invalid-request`; a store
     never reads it as an empty object, because that answers as if nothing had been asked. In
-    slice 1 this is `scope`'s `pushdown` and the options of `openStore`.
+    slice 1 this is `scope`'s `pushdown` and the options of `openStore`. The options of
+    `createPeer` are required and follow the same rule: options that are not a plain object, or
+    whose `erasure` cannot be read, declare no posture and are refused `invalid-request`.
+    Plainness is the shape of the prototype chain, not the identity of one realm's
+    `Object.prototype`: a plain object from another realm is plain, as a list from another
+    realm is a list.
 41. **`openStore` options.** Absent options mean none, and so does an absent `requires`.
     Otherwise the options are a plain object and `requires` is a list of strings; anything else
     is `invalid-request` with one fixed message. The options are read once, before the scheme,
@@ -696,7 +704,9 @@ the text above was silent, slice 1 decided as follows. The shared vectors and
     peer holds the id no longer, as after `removed`. An append of the id again holds it under
     the new appearance and arrival record. A vector reads the record back after exactly that
     sequence; until round 4 no vector did, and a store that served the first record again
-    passed. The runner's bookkeeping forgets every target of a purge.
+    passed. The runner's bookkeeping forgets every target of a purge. A second vector appends
+    the id again after the debt settles through a later purge (`removed` for an id the peer no
+    longer held), and reads the new record back.
 43. **Class `none` is not a runner rule.** A store of class `none` refuses every purge with
     `capability-absent`. The scripts that purge require `purge` and are skipped for it, so no
     shared step reaches the refusal: each witness that has such a store tests it

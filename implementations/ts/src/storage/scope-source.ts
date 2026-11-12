@@ -24,7 +24,10 @@ export interface ScopeSource {
 }
 
 /**
- * Indexes fetched members once, at a cost of their total size. Pass `ScopeResult.deltas`, or
+ * Indexes fetched members once. A cost rail (`test/store.test.ts`) times the build at N and 8N
+ * in four shapes and holds each to linear scaling: members at one entity, negations of one
+ * delta, entity pointers of one member, and repeated appearances of a few ids. It checks no
+ * other shape, and cannot see a quadratic term too small to show. Pass `ScopeResult.deltas`, or
  * the members of several rounds of one read. A repeated id keeps its first appearance, and the
  * repeat is not examined. The source copies each member in and copies out what it returns. A
  * refusal builds nothing. Refuses `invalid-request` for a member that is malformed or whose id

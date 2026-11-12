@@ -846,7 +846,14 @@ function scripts(named: readonly Named[]): StoreScript[] {
         // A holds the id again, so this removes it; it does not settle the old debt.
         m.purge("A", ["a-name"]);
         m.purge("A", ["a-name"]);
+        // B's debt settles here: the bytes are gone. B appends the id again, and it arrives
+        // anew: the record B held before its first purge is not served again.
         m.purge("B", ["a-name"]);
+        m.append("B", "b-head-1", "b-head-2", seq(2, "a-name"));
+        m.read("B", "settled");
+        m.arrivals("settled", ["a-name"]);
+        m.scope("settled", ["plant:a"]);
+        m.release("settled");
         m.exportStored();
       },
       ["purge"],
