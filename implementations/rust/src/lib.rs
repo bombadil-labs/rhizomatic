@@ -74,7 +74,7 @@ pub use derivation::{verify_pure_derivation, BindingSpec, DerivationHost};
 pub use entry::{bundle_entry_status, loose_entry_status, LooseEntryStatus};
 pub use eval::{
     alias_closure, eval_term, expand_aliased, governed_deltas, latest_by_key, result_canonical_hex,
-    EvalResult, GroupKey, MaskPolicy, PruneKeep, Term,
+    ChildKey, ChildMemo, ChildValue, EvalResult, GroupKey, MaskPolicy, PruneKeep, Term,
 };
 #[cfg(not(target_arch = "wasm32"))]
 pub use http::{offer_for, pull_from_url, serve_peer};
@@ -128,8 +128,9 @@ pub use store_open::{
     open_store, OpenOptions, StoreFactory, StoreSchemes, MEMORY_SCHEME, UNKNOWN_SCHEME_MESSAGE,
 };
 pub use store_read::{
-    fetch_scope, read_anchored, FetchCache, FetchedScope, ReadRequest, RoundReport, Selection,
-    StoreReactor, StoreRead, StoreReadError, SNAPSHOT_RETRIES,
+    fetch_scope, read_anchored, read_anchored_with_memo, EvalMemo, FetchCache, FetchedScope,
+    FinalChildMemo, ReadRequest, RoundMemo, RoundReport, Selection, StoreReactor, StoreRead,
+    StoreReadError, SNAPSHOT_RETRIES,
 };
 pub use term_io::{
     cbor_to_json, json_to_cbor, schema_canonical_hex, schema_hash, term_canonical_hex, term_hash,

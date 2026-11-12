@@ -1,23 +1,28 @@
 //! The read in rounds over a store (SPEC-18 proposal §4.4, §4.12; `vectors/store/README.md` §5).
-//! Every case of `vectors/store/rounds.json` is read three ways on the memory store under every
-//! subset of pushdown fields: over the whole surface, in rounds with no fetch cache, and in rounds
-//! with the fetch cache. All three must give the expected bytes, scope and members; the rounds
-//! with the cache must make exactly the expected `scope` calls.
+//! Every case of `vectors/store/rounds.json` is read five ways on the memory store under every
+//! subset of pushdown fields: over the whole surface, and in rounds with each pair of the fetch
+//! cache and the evaluation memo, on or off (README §5.4 modes 1 to 5). All five must give the
+//! expected bytes, scope and members; the rounds with the cache must make exactly the expected
+//! `scope` calls, and the memo must change no round report.
 //!
 //! Interleaved cases move the peer between two rounds, by an append or a purge (README §5.5).
 //!
 //! The rails of README §5.8: five wrong readers that must each fail a case, a store that returns
 //! an unclosed extra, a sticky residual in both parities, the hook, refusals, a store that lies
 //! about `applied`, the fetch cache's index and arrival rules, call traces and meter deltas beside
-//! 0 and 4400 unrelated deltas, and an open that reads nothing. The evaluation memo (modes 4 and
-//! 5) is not built, so it is not tested here.
+//! 0 and 4400 unrelated deltas, and an open that reads nothing. For the memo: five wrong memos
+//! that must each fail the case README §5.8 names, and the count of what the memo saves. The
+//! budget rail is in `src/eval.rs`, because a budget is not reachable through a store read.
 
 use std::cell::{Cell, RefCell};
 use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
 
 use rhizomatic::anchored::{anchor_analysis, hview_anchors, scope_ids, AnchorAnalysis};
-use rhizomatic::eval::{eval_term_at, result_canonical_hex, EvalResult, Term};
+use rhizomatic::eval::{
+    eval_term_at, result_canonical_hex, ChildKey, ChildMemo, ChildValue, EvalResult, SchemaRef,
+    Term,
+};
 use rhizomatic::json_profile::parse_claims;
 use rhizomatic::memory_store::{MemoryStore, StoreMeter};
 use rhizomatic::pred::Bindings;
@@ -29,8 +34,9 @@ use rhizomatic::store::{
     ScopeResult, ScopeSource, Snapshot, Store, StoreError, StoreErrorCode, VerifiedDelta,
 };
 use rhizomatic::store_read::{
-    fetch_scope, read_anchored, FetchCache, ReadRequest, RoundReport, Selection, StoreReactor,
-    StoreRead, StoreReadError, SNAPSHOT_RETRIES,
+    fetch_scope, read_anchored, read_anchored_with_memo, EvalMemo, FetchCache, FinalChildMemo,
+    ReadRequest, RoundMemo, RoundReport, Selection, StoreReactor, StoreRead, StoreReadError,
+    SNAPSHOT_RETRIES,
 };
 use rhizomatic::term_json::parse_term;
 use rhizomatic::types::{Claims, Delta, EntityRef, Pointer, Primitive, Target};
@@ -310,6 +316,7 @@ impl Change {
 }
 
 /// One interleaved case, read from the document.
+#[derive(Clone)]
 struct Interleaved {
     case: Case,
     after_round: usize,
@@ -444,7 +451,17 @@ fn profiles() -> Vec<PushdownFields> {
         .collect()
 }
 
+/// A read of a case with the memo off (modes 2 and 3).
 fn request<'a>(fx: &'a Fixture, case: &'a Case, cache: FetchCache) -> ReadRequest<'a> {
+    request_with(fx, case, cache, EvalMemo::Off)
+}
+
+fn request_with<'a>(
+    fx: &'a Fixture,
+    case: &'a Case,
+    cache: FetchCache,
+    memo: EvalMemo,
+) -> ReadRequest<'a> {
     ReadRequest {
         registry: Some(&fx.registry),
         bindings: case.bindings.as_ref(),
@@ -453,9 +470,28 @@ fn request<'a>(fx: &'a Fixture, case: &'a Case, cache: FetchCache) -> ReadReques
             admits: None,
         },
         cache,
+        memo,
         ..ReadRequest::new(&case.term, &case.root, case.now)
     }
 }
+
+/// The four modes in rounds (README §5.4): the fetch cache and the memo, each on or off.
+const ROUND_MODES: [(&str, FetchCache, EvalMemo, Rounds); 4] = [
+    (
+        "no-cache",
+        FetchCache::Off,
+        EvalMemo::Off,
+        Rounds::Cumulative,
+    ),
+    ("cache", FetchCache::On, EvalMemo::Off, Rounds::Exact),
+    (
+        "memo-no-cache",
+        FetchCache::Off,
+        EvalMemo::On,
+        Rounds::Cumulative,
+    ),
+    ("memo-cache", FetchCache::On, EvalMemo::On, Rounds::Exact),
+];
 
 fn passes_all(p: &Pushdown, delta: &Delta, arrival: &ArrivalRecord) -> bool {
     p.timestamp_at_most
@@ -941,7 +977,7 @@ fn profile_stores(fx: &Rc<Fixture>) -> Vec<(String, Opener)> {
 // ---------------------------------------------------------------------------------------------
 
 #[test]
-fn every_round_case_reads_the_same_three_ways_under_every_pushdown_profile() {
+fn every_round_case_reads_the_same_five_ways_under_every_pushdown_profile() {
     let fx = fixture();
     let cases = fx.cases("cases");
     assert!(!cases.is_empty());
@@ -958,18 +994,29 @@ fn every_round_case_reads_the_same_three_ways_under_every_pushdown_profile() {
                 e,
                 Rounds::None,
             );
-            for (mode, cache, rule) in [
-                ("no-cache", FetchCache::Off, Rounds::Cumulative),
-                ("cache", FetchCache::On, Rounds::Exact),
-            ] {
+            let mut reports: Vec<Vec<RoundReport>> = Vec::new();
+            for (mode, cache, memo, rule) in ROUND_MODES {
                 let mut snapshot = peer.read().unwrap();
-                let read = read_anchored(snapshot.as_ref(), request(&fx, case, cache))
-                    .unwrap_or_else(|err| panic!("{}: {err}", label(mode)));
+                let mut seen = Vec::new();
+                let mut hook = |r: &RoundReport| seen.push(r.clone());
+                let read = read_anchored(
+                    snapshot.as_ref(),
+                    ReadRequest {
+                        on_round: Some(&mut hook),
+                        ..request_with(&fx, case, cache, memo)
+                    },
+                )
+                .unwrap_or_else(|err| panic!("{}: {err}", label(mode)));
                 assert_eq!(read.revision, snapshot.revision());
                 assert_eq!(read.snapshots, 1);
                 check(&fx, &label(mode), &Answer::of(&read), e, rule);
+                assert_eq!(seen, read.rounds, "{}: the hook", label(mode));
+                reports.push(read.rounds);
                 snapshot.release();
             }
+            // The memo changes no report (README §5.8): modes 2 and 4, and modes 3 and 5.
+            assert_eq!(reports[0], reports[2], "{}", label("memo-no-cache reports"));
+            assert_eq!(reports[1], reports[3], "{}", label("memo-cache reports"));
         }
     }
 }
@@ -1391,8 +1438,11 @@ fn the_interleaved_vectors_hold_both_kinds_of_change() {
 #[test]
 fn a_change_between_rounds_answers_snapshot_moved_or_the_old_answer() {
     let fx = fixture();
-    for c in interleaved(&fx) {
-        let name = &c.case.name;
+    for (c, memo) in interleaved(&fx)
+        .into_iter()
+        .flat_map(|c| [(c.clone(), EvalMemo::Off), (c, EvalMemo::On)])
+    {
+        let name = &format!("{}/{memo:?}", c.case.name);
         let last = c.after_round == c.before.rounds.len();
 
         // One snapshot: snapshot-moved, or `before` at the snapshot's revision.
@@ -1412,7 +1462,7 @@ fn a_change_between_rounds_answers_snapshot_moved_or_the_old_answer() {
             snapshot.as_ref(),
             ReadRequest {
                 on_round: Some(&mut hook),
-                ..request(&fx, &c.case, FetchCache::On)
+                ..request_with(&fx, &c.case, FetchCache::On, memo)
             },
         );
         match outcome {
@@ -1468,7 +1518,7 @@ fn a_change_between_rounds_answers_snapshot_moved_or_the_old_answer() {
         let read = reactor
             .read(ReadRequest {
                 on_round: Some(&mut hook),
-                ..request(&fx, &c.case, FetchCache::On)
+                ..request_with(&fx, &c.case, FetchCache::On, memo)
             })
             .unwrap();
         wrapper_verdict(
@@ -2220,4 +2270,422 @@ fn a_member_whose_arrival_names_another_id_is_refused_and_adds_nothing() {
     });
     let err = read_anchored(snapshot.as_ref(), request(&fx, case, FetchCache::On)).unwrap_err();
     assert_eq!(err.store_code(), Some(StoreErrorCode::InvalidRequest));
+}
+
+// ---------------------------------------------------------------------------------------------
+// The evaluation memo (README §5.4 modes 4 and 5; §5.8 wrong memos and what the memo saves)
+// ---------------------------------------------------------------------------------------------
+
+/// A fault a model memo can carry (README §5.8, "Wrong evaluation memos").
+#[derive(Debug, Clone, Copy, Default)]
+struct MemoFaults {
+    /// Stores every child, final or not.
+    stores_every_child: bool,
+    /// Its key leaves out the bindings.
+    key_without_bindings: bool,
+    /// Its key leaves out the root.
+    key_without_root: bool,
+}
+
+/// A key written apart from the witness: the schema reference, the bindings by their entries, and
+/// the root, less what a fault leaves out.
+fn model_key(key: &ChildKey<'_>, faults: MemoFaults) -> String {
+    let schema = match key.schema {
+        SchemaRef::Name(name) => format!("name:{name}"),
+        SchemaRef::Pinned(hash) => format!("pinned:{hash}"),
+    };
+    let bindings = if faults.key_without_bindings {
+        String::new()
+    } else {
+        format!("{:?}", key.bindings)
+    };
+    let root = if faults.key_without_root {
+        ""
+    } else {
+        key.root
+    };
+    format!("{schema}|{bindings}|{root}")
+}
+
+fn shows_only(value: &ChildValue, asked: &BTreeSet<String>) -> bool {
+    hview_anchors(value.view())
+        .iter()
+        .all(|anchor| asked.contains(anchor))
+}
+
+/// The memo of README §5.4, written apart from the witness, with a fault switched on.
+#[derive(Default)]
+struct ModelMemo {
+    faults: MemoFaults,
+    asked: BTreeSet<String>,
+    entries: BTreeMap<String, ChildValue>,
+}
+
+impl ChildMemo for ModelMemo {
+    fn get(&mut self, key: &ChildKey<'_>) -> Option<ChildValue> {
+        self.entries.get(&model_key(key, self.faults)).cloned()
+    }
+    fn put(&mut self, key: &ChildKey<'_>, value: &ChildValue) {
+        if self.faults.stores_every_child || shows_only(value, &self.asked) {
+            self.entries
+                .entry(model_key(key, self.faults))
+                .or_insert_with(|| value.clone());
+        }
+    }
+}
+
+impl RoundMemo for ModelMemo {
+    fn round(&mut self, asked: &BTreeSet<String>) {
+        self.asked.clone_from(asked);
+    }
+}
+
+/// Did this read answer the case? Bytes, scope, members, and the rounds of its mode.
+fn answers(got: &Result<StoreRead, StoreReadError>, e: &Expect, cache: FetchCache) -> bool {
+    let Ok(read) = got else { return false };
+    let got = Answer::of(read);
+    let rounds = match cache {
+        FetchCache::On => e.rounds.clone(),
+        FetchCache::Off => cumulative(&e.rounds),
+    };
+    got.same_read(e) && got.rounds == rounds
+}
+
+/// The cases a memo fails in modes 4 and 5 under every profile. `memo_for` gives the memo of
+/// each read: a new one per read, or the same one each time.
+fn memo_failures(
+    fx: &Fixture,
+    cases: &[Case],
+    memo_for: &mut dyn FnMut() -> Rc<RefCell<dyn RoundMemo>>,
+) -> BTreeSet<String> {
+    let mut failed = BTreeSet::new();
+    for profile in profiles() {
+        let store = MemoryStore::with_pushdown(profile);
+        let peer = fx.load(&store);
+        for cache in [FetchCache::Off, FetchCache::On] {
+            for case in cases {
+                let memo = memo_for();
+                let snapshot = peer.read().unwrap();
+                let got = read_anchored_with_memo(
+                    snapshot.as_ref(),
+                    request_with(fx, case, cache, EvalMemo::Off),
+                    &mut *memo.borrow_mut(),
+                );
+                if !answers(&got, case.expect.as_ref().unwrap(), cache) {
+                    failed.insert(case.name.clone());
+                }
+            }
+        }
+    }
+    failed
+}
+
+fn fresh(faults: MemoFaults) -> impl FnMut() -> Rc<RefCell<dyn RoundMemo>> {
+    move || {
+        Rc::new(RefCell::new(ModelMemo {
+            faults,
+            ..ModelMemo::default()
+        }))
+    }
+}
+
+#[test]
+fn the_model_memo_with_no_fault_fails_no_case() {
+    let fx = fixture();
+    let cases = fx.cases("cases");
+    assert_eq!(
+        memo_failures(&fx, &cases, &mut fresh(MemoFaults::default())),
+        BTreeSet::new()
+    );
+}
+
+/// Round 1 evaluates the beds over the garden's scope alone; a memo that keeps that answer shows
+/// empty beds (README §5.8).
+#[test]
+fn a_memo_that_stores_every_child_fails_the_whole_garden() {
+    let fx = fixture();
+    let cases = fx.cases("cases");
+    let failed = memo_failures(
+        &fx,
+        &cases,
+        &mut fresh(MemoFaults {
+            stores_every_child: true,
+            ..MemoFaults::default()
+        }),
+    );
+    println!("wrong-memo:stores-every-child:{failed:?}");
+    assert!(failed.contains("the-whole-garden"), "{failed:?}");
+}
+
+/// One child under two bindings in one round (README §5.4): only that case can tell.
+#[test]
+fn a_memo_whose_key_leaves_out_the_bindings_fails_only_the_two_bindings_case() {
+    let fx = fixture();
+    let cases = fx.cases("cases");
+    let failed = memo_failures(
+        &fx,
+        &cases,
+        &mut fresh(MemoFaults {
+            key_without_bindings: true,
+            ..MemoFaults::default()
+        }),
+    );
+    assert_eq!(
+        failed,
+        BTreeSet::from(["one-child-under-two-bindings".to_string()])
+    );
+}
+
+#[test]
+fn a_memo_whose_key_leaves_out_the_root_fails_the_whole_garden() {
+    let fx = fixture();
+    let cases = fx.cases("cases");
+    let failed = memo_failures(
+        &fx,
+        &cases,
+        &mut fresh(MemoFaults {
+            key_without_root: true,
+            ..MemoFaults::default()
+        }),
+    );
+    println!("wrong-memo:key-without-root:{failed:?}");
+    assert!(failed.contains("the-whole-garden"), "{failed:?}");
+}
+
+/// The witness's own memo, kept across every read of a run: one memo for every case, in document
+/// order, per profile and mode. A case whose selection differs from an earlier case's sees
+/// children stored under the other selection (SPEC-18 §4.12 reading 25).
+#[test]
+fn a_memo_kept_across_two_reads_fails_a_case_with_another_selection() {
+    let fx = fixture();
+    let cases = fx.cases("cases");
+    let mut failed = BTreeSet::new();
+    for profile in profiles() {
+        let store = MemoryStore::with_pushdown(profile);
+        let peer = fx.load(&store);
+        for cache in [FetchCache::Off, FetchCache::On] {
+            let mut kept = FinalChildMemo::new();
+            for case in &cases {
+                let snapshot = peer.read().unwrap();
+                let got = read_anchored_with_memo(
+                    snapshot.as_ref(),
+                    request_with(&fx, case, cache, EvalMemo::Off),
+                    &mut kept,
+                );
+                if !answers(&got, case.expect.as_ref().unwrap(), cache) {
+                    failed.insert(case.name.clone());
+                }
+            }
+        }
+    }
+    println!("wrong-memo:kept-across-reads:{failed:?}");
+    assert!(
+        failed.contains("signed-time-cuts-a-link-and-a-strike"),
+        "{failed:?}"
+    );
+    // The first case of a run reads on an empty memo.
+    assert!(!failed.contains(&cases[0].name), "{failed:?}");
+}
+
+/// A wrapper that starts again on `snapshot-moved` with a new cache but keeps its memo (README
+/// §5.8; SPEC-18 §4.12 reading 25). After round 3 the memo holds `Leaf` at `cutting:1`, and the
+/// append strikes `c1-height` there, so the second attempt answers neither. Round 1 finishes no
+/// child, so the cases that change the peer after round 1 answer right.
+#[test]
+fn a_wrapper_that_keeps_its_memo_when_it_starts_again_fails_the_third_round_append() {
+    let fx = fixture();
+    let mut verdicts = BTreeMap::new();
+    for c in interleaved(&fx) {
+        let store = MemoryStore::new();
+        let peer = fx.load(&store);
+        let start = peer.read().unwrap().revision();
+        let writer = store.peer(fx.peer_id()).unwrap();
+        let mut changed = false;
+        let mut hook = |r: &RoundReport| {
+            if r.round == c.after_round && !changed {
+                changed = true;
+                c.change.apply(writer.as_ref());
+            }
+        };
+        let mut memo = FinalChildMemo::new();
+        let mut attempts = 0;
+        let read = loop {
+            attempts += 1;
+            let snapshot = peer.read().unwrap();
+            match read_anchored_with_memo(
+                snapshot.as_ref(),
+                ReadRequest {
+                    on_round: Some(&mut hook),
+                    ..request_with(&fx, &c.case, FetchCache::On, EvalMemo::Off)
+                },
+                &mut memo,
+            ) {
+                Ok(read) => break read,
+                Err(e) if e.store_code() == Some(StoreErrorCode::SnapshotMoved) => continue,
+                Err(e) => panic!("{}: {e}", c.case.name),
+            }
+        };
+        let verdict = wrapper_verdict(
+            &Answer::of(&read),
+            read.revision,
+            start,
+            &c.before,
+            &c.after,
+        );
+        verdicts.insert(c.case.name.clone(), (verdict, attempts));
+    }
+    println!("wrong-memo:kept-across-snapshots:{verdicts:?}");
+    let (third, attempts) = &verdicts["an-append-after-the-third-round"];
+    assert_eq!(*attempts, 2);
+    assert_eq!(
+        third.as_ref().unwrap_err(),
+        "neither `before` at the first revision nor `after` at a later one"
+    );
+    for name in [
+        "an-append-after-the-first-round",
+        "a-purge-after-the-first-round",
+    ] {
+        assert_eq!(verdicts[name], (Ok(()), 2), "{name}");
+    }
+}
+
+/// Counts through the memo hook (README §5.8, "What the memo saves"): one evaluation per child
+/// the evaluator evaluates (each `put`), one hit per lookup that finds its key, and whether each
+/// evaluated child was stored. Finality is decided here apart from the memo, so a memo that
+/// stores a child that is not final, or refuses one that is, fails the count.
+#[derive(Default)]
+struct Counting {
+    /// The memo under count; none counts a memo that stores nothing.
+    inner: Option<FinalChildMemo>,
+    asked: BTreeSet<String>,
+    keys: BTreeSet<String>,
+    stored_keys: Vec<String>,
+    evaluations: usize,
+    hits: usize,
+    not_final: usize,
+}
+
+impl ChildMemo for Counting {
+    fn get(&mut self, key: &ChildKey<'_>) -> Option<ChildValue> {
+        self.keys.insert(model_key(key, MemoFaults::default()));
+        let found = self.inner.as_mut().and_then(|m| m.get(key));
+        self.hits += usize::from(found.is_some());
+        found
+    }
+    fn put(&mut self, key: &ChildKey<'_>, value: &ChildValue) {
+        self.evaluations += 1;
+        let is_final = shows_only(value, &self.asked);
+        self.not_final += usize::from(!is_final);
+        if let Some(m) = self.inner.as_mut() {
+            let before = m.stored();
+            m.put(key, value);
+            let stored = m.stored() > before;
+            assert_eq!(
+                stored, is_final,
+                "the memo stores exactly the final children"
+            );
+            if stored {
+                self.stored_keys.push(model_key(key, MemoFaults::default()));
+            }
+        }
+    }
+}
+
+impl RoundMemo for Counting {
+    fn round(&mut self, asked: &BTreeSet<String>) {
+        self.asked.clone_from(asked);
+        if let Some(m) = self.inner.as_mut() {
+            m.round(asked);
+        }
+    }
+}
+
+/// (evaluations without the memo, evaluations with it, keys, stored, not final, hits).
+type Saved = (usize, usize, usize, usize, usize, usize);
+
+fn count(fx: &Fixture, peer: &dyn PeerStore, case: &Case, cache: FetchCache) -> Saved {
+    let run = |inner: Option<FinalChildMemo>| {
+        let mut memo = Counting {
+            inner,
+            ..Counting::default()
+        };
+        let snapshot = peer.read().unwrap();
+        let read = read_anchored_with_memo(
+            snapshot.as_ref(),
+            request_with(fx, case, cache, EvalMemo::Off),
+            &mut memo,
+        )
+        .unwrap();
+        assert!(answers(&Ok(read), case.expect.as_ref().unwrap(), cache));
+        memo
+    };
+    let without = run(None);
+    let with = run(Some(FinalChildMemo::new()));
+    let unique: BTreeSet<&String> = with.stored_keys.iter().collect();
+    assert_eq!(
+        unique.len(),
+        with.stored_keys.len(),
+        "{}: a key stored twice",
+        case.name
+    );
+    assert_eq!(
+        with.evaluations,
+        with.stored_keys.len() + with.not_final,
+        "{}: evaluations are the stored ones plus the ones not final",
+        case.name
+    );
+    assert_eq!(
+        without.keys, with.keys,
+        "{}: the memo reaches the same keys",
+        case.name
+    );
+    (
+        without.evaluations,
+        with.evaluations,
+        with.keys.len(),
+        with.stored_keys.len(),
+        with.not_final,
+        with.hits,
+    )
+}
+
+#[test]
+fn the_memo_saves_child_evaluations() {
+    let fx = fixture();
+    let store = MemoryStore::new();
+    let peer = fx.load(&store);
+    for case in fx.cases("cases") {
+        for cache in [FetchCache::Off, FetchCache::On] {
+            let saved = count(&fx, peer.as_ref(), &case, cache);
+            println!("memo-count:{}:{cache:?}:{saved:?}", case.name);
+            assert!(saved.1 <= saved.0, "{}: {saved:?}", case.name);
+            // Depth three: four rounds, so the memo makes strictly fewer evaluations.
+            if case.expect.as_ref().unwrap().rounds.len() == 4 {
+                assert!(saved.1 < saved.0, "{}: {saved:?}", case.name);
+            }
+            // The final `resolve` evaluation uses the memo of the read (README §5.4 step 5): its
+            // children are final, so it evaluates none of them again.
+            if matches!(case.term, Term::Resolve { .. }) && saved.0 > 0 {
+                assert!(saved.1 < saved.0, "{}: {saved:?}", case.name);
+            }
+        }
+    }
+    // The reference numbers of README §5.8, measured in the TypeScript witness.
+    for (name, reference) in [
+        ("the-whole-garden", (159, 62, 18, 18, 44, 42)),
+        ("one-child-under-two-bindings", (38, 24, 11, 11, 13, 12)),
+    ] {
+        let case = fx
+            .cases("cases")
+            .into_iter()
+            .find(|c| c.name == name)
+            .unwrap();
+        for cache in [FetchCache::Off, FetchCache::On] {
+            assert_eq!(
+                count(&fx, peer.as_ref(), &case, cache),
+                reference,
+                "{name}/{cache:?}"
+            );
+        }
+    }
 }

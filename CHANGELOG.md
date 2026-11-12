@@ -121,7 +121,16 @@ read type for consumers, and the principal reads take it.
   `revision`, and its `round` counts from 1 on each snapshot. `ScopeSource::extend` refuses
   `InvalidRequest` for a member whose arrival record names another id, and a refused call adds
   nothing. `ScopeSource::restrict(ids)` is a source over some of its members, without a second
-  hash. The evaluation memo is not built.
+  hash.
+- Slice 2, Rust: the evaluation memo of the store-backed read (SPEC-18 §4.4, §4.12 readings 21
+  to 26). `ReadRequest.memo` is `EvalMemo::On` (the default) or `EvalMemo::Off`. With it on,
+  `read_anchored` and each attempt of `StoreReactor::read` keep a new `FinalChildMemo`. It stores
+  a child evaluation under (schema reference, bindings by their entries, root) only when every
+  anchor the child's HView shows has been asked for, and a later round and the final `resolve`
+  evaluation use it. `read_anchored_with_memo(snapshot, request, &mut dyn RoundMemo)` reads with
+  a memo the caller owns. The evaluator hook is `eval::ChildMemo` (`get`, `put`) over a
+  `ChildKey` and a `ChildValue`; `eval_term_at_with_memo` takes one. An evaluation budget turns
+  the hook off. No answer, scope, member or round report changes.
 - `resolvePrincipal`, `authorsForPrincipal` and `associatedKeys` take a `DeltaSource` as their
   first parameter, where they took a `Reactor`. A `Reactor` is a `DeltaSource`, so no call
   changes. Each read asks only for the scope of one entity, the principal root: over a
