@@ -9,6 +9,7 @@
 use rhizomatic::http::pull_from_url;
 use rhizomatic::peer::Peer;
 
+#[allow(deprecated)] // prints the whole-set digest of a legacy memory peer
 fn main() {
     let url = std::env::args()
         .nth(1)

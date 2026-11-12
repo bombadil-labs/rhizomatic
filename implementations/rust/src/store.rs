@@ -487,6 +487,24 @@ pub trait PeerExporter {
     fn deltas(&self) -> Listing<'_, Delta>;
 }
 
+/// One peer's listing as a set (SPEC-18 §4.12 reading 28). It reads the whole listing, so it
+/// costs the peer's surface. Each id is recomputed from its claims; a listed delta whose id does
+/// not recompute is refused `invalid-request`, never repaired. A listing refusal passes up.
+pub fn collect_delta_set(exporter: &dyn PeerExporter) -> Result<DeltaSet, StoreError> {
+    let mut set = DeltaSet::new();
+    for listed in exporter.deltas() {
+        let delta = listed?;
+        let id = delta.id.clone();
+        set.add(delta).map_err(|_| {
+            StoreError::new(
+                StoreErrorCode::InvalidRequest,
+                format!("listed delta {id} does not recompute from its claims"),
+            )
+        })?;
+    }
+    Ok(set)
+}
+
 /// The entities these claims point at, each once.
 pub fn target_entities(claims: &Claims) -> BTreeSet<&str> {
     claims

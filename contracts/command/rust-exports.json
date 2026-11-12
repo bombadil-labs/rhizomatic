@@ -24591,6 +24591,17 @@
     {
       "form": "syn-import",
       "owner": "delta",
+      "rawTarget": "crate::store::collect_delta_set",
+      "resolvedTarget": "crate::store::collect_delta_set",
+      "source": "implementations/rust/src/lib.rs",
+      "sourceRegion": "compatibility-aggregate",
+      "symbol": "<import>",
+      "target": "crate::store::collect_delta_set",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "delta",
       "rawTarget": "crate::store::missing_requirements",
       "resolvedTarget": "crate::store::missing_requirements",
       "source": "implementations/rust/src/lib.rs",
@@ -25636,6 +25647,39 @@
     {
       "form": "syn-import",
       "owner": "delta",
+      "rawTarget": "crate::store_read::FullSurfaceRead",
+      "resolvedTarget": "crate::store_read::FullSurfaceRead",
+      "source": "implementations/rust/src/lib.rs",
+      "sourceRegion": "compatibility-aggregate",
+      "symbol": "<import>",
+      "target": "crate::store_read::FullSurfaceRead",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-import",
+      "owner": "delta",
+      "rawTarget": "crate::store_read::FullSurfaceRequest",
+      "resolvedTarget": "crate::store_read::FullSurfaceRequest",
+      "source": "implementations/rust/src/lib.rs",
+      "sourceRegion": "compatibility-aggregate",
+      "symbol": "<import>",
+      "target": "crate::store_read::FullSurfaceRequest",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-import",
+      "owner": "delta",
+      "rawTarget": "crate::store_read::FullSurfaceRoute",
+      "resolvedTarget": "crate::store_read::FullSurfaceRoute",
+      "source": "implementations/rust/src/lib.rs",
+      "sourceRegion": "compatibility-aggregate",
+      "symbol": "<import>",
+      "target": "crate::store_read::FullSurfaceRoute",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-import",
+      "owner": "delta",
       "rawTarget": "crate::store_read::RoundMemo",
       "resolvedTarget": "crate::store_read::RoundMemo",
       "source": "implementations/rust/src/lib.rs",
@@ -25653,6 +25697,17 @@
       "sourceRegion": "compatibility-aggregate",
       "symbol": "<import>",
       "target": "crate::store_read::read_anchored_with_memo",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-import",
+      "owner": "delta",
+      "rawTarget": "crate::store_read::read_full_surface",
+      "resolvedTarget": "crate::store_read::read_full_surface",
+      "source": "implementations/rust/src/lib.rs",
+      "sourceRegion": "compatibility-aggregate",
+      "symbol": "<import>",
+      "target": "crate::store_read::read_full_surface",
       "targetOwner": "reactor"
     },
     {
@@ -66693,6 +66748,50 @@
       "resolvedTarget": "crate::reactor::Reactor",
       "source": "implementations/rust/src/reactor.rs",
       "sourceRegion": "semantic-owner",
+      "symbol": "Reactor::legacy_log",
+      "target": "crate::reactor::Reactor",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::types::Delta",
+      "resolvedTarget": "crate::types::Delta",
+      "source": "implementations/rust/src/reactor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Reactor::legacy_log",
+      "target": "crate::types::Delta",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::reactor::Reactor",
+      "resolvedTarget": "crate::reactor::Reactor",
+      "source": "implementations/rust/src/reactor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Reactor::legacy_set",
+      "target": "crate::reactor::Reactor",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::set::DeltaSet",
+      "resolvedTarget": "crate::set::DeltaSet",
+      "source": "implementations/rust/src/reactor.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Reactor::legacy_set",
+      "target": "crate::set::DeltaSet",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::reactor::Reactor",
+      "resolvedTarget": "crate::reactor::Reactor",
+      "source": "implementations/rust/src/reactor.rs",
+      "sourceRegion": "semantic-owner",
       "symbol": "Reactor::len",
       "target": "crate::reactor::Reactor",
       "targetOwner": "reactor"
@@ -80867,6 +80966,82 @@
     {
       "form": "syn-resolved-path",
       "owner": "storage",
+      "rawTarget": "crate::set::DeltaSet",
+      "resolvedTarget": "crate::set::DeltaSet",
+      "source": "implementations/rust/src/store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "collect_delta_set",
+      "target": "crate::set::DeltaSet",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::set::DeltaSet::new",
+      "resolvedTarget": "crate::set::DeltaSet::new",
+      "source": "implementations/rust/src/store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "collect_delta_set",
+      "target": "crate::set::DeltaSet::new",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::PeerExporter",
+      "resolvedTarget": "crate::store::PeerExporter",
+      "source": "implementations/rust/src/store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "collect_delta_set",
+      "target": "crate::store::PeerExporter",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreError",
+      "resolvedTarget": "crate::store::StoreError",
+      "source": "implementations/rust/src/store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "collect_delta_set",
+      "target": "crate::store::StoreError",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreError::new",
+      "resolvedTarget": "crate::store::StoreError::new",
+      "source": "implementations/rust/src/store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "collect_delta_set",
+      "target": "crate::store::StoreError::new",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::StoreErrorCode::InvalidRequest",
+      "resolvedTarget": "crate::store::StoreErrorCode::InvalidRequest",
+      "source": "implementations/rust/src/store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "collect_delta_set",
+      "target": "crate::store::StoreErrorCode::InvalidRequest",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "format"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/store.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "collect_delta_set"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
       "rawTarget": "crate::types::Claims",
       "resolvedTarget": "crate::types::Claims",
       "source": "implementations/rust/src/store.rs",
@@ -85951,6 +86126,17 @@
     {
       "form": "syn-import",
       "owner": "reactor",
+      "rawTarget": "crate::eval::eval_term_at",
+      "resolvedTarget": "crate::eval::eval_term_at",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::eval::eval_term_at",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-import",
+      "owner": "reactor",
       "rawTarget": "crate::pred::Bindings",
       "resolvedTarget": "crate::pred::Bindings",
       "source": "implementations/rust/src/store_read.rs",
@@ -85984,6 +86170,17 @@
     {
       "form": "syn-import",
       "owner": "reactor",
+      "rawTarget": "crate::set::fork",
+      "resolvedTarget": "crate::set::fork",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::set::fork",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-import",
+      "owner": "reactor",
       "rawTarget": "crate::store::Anchor",
       "resolvedTarget": "crate::store::Anchor",
       "source": "implementations/rust/src/store_read.rs",
@@ -86001,6 +86198,17 @@
       "sourceRegion": "semantic-owner",
       "symbol": "<import>",
       "target": "crate::store::ArrivalRecord",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "reactor",
+      "rawTarget": "crate::store::PeerExporter",
+      "resolvedTarget": "crate::store::PeerExporter",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::store::PeerExporter",
       "targetOwner": "storage"
     },
     {
@@ -86100,6 +86308,17 @@
       "sourceRegion": "semantic-owner",
       "symbol": "<import>",
       "target": "crate::store::StoreErrorCode",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "reactor",
+      "rawTarget": "crate::store::collect_delta_set",
+      "resolvedTarget": "crate::store::collect_delta_set",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::store::collect_delta_set",
       "targetOwner": "storage"
     },
     {
@@ -87341,6 +87560,258 @@
       "sourceRegion": "semantic-owner",
       "symbol": "fetch_scope",
       "target": "std::vec::Vec::new"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::eval::Term",
+      "resolvedTarget": "crate::eval::Term",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "FullSurfaceRequest",
+      "target": "crate::eval::Term",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::pred::Bindings",
+      "resolvedTarget": "crate::pred::Bindings",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "FullSurfaceRequest",
+      "target": "crate::pred::Bindings",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::schema::SchemaRegistry",
+      "resolvedTarget": "crate::schema::SchemaRegistry",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "FullSurfaceRequest",
+      "target": "crate::schema::SchemaRegistry",
+      "targetOwner": "schema"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::Selection",
+      "resolvedTarget": "crate::store_read::Selection",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "FullSurfaceRequest",
+      "target": "crate::store_read::Selection",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::FullSurfaceRequest",
+      "resolvedTarget": "crate::store_read::FullSurfaceRequest",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "FullSurfaceRequest",
+      "target": "crate::store_read::FullSurfaceRequest",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::eval::Term",
+      "resolvedTarget": "crate::eval::Term",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "FullSurfaceRequest::new",
+      "target": "crate::eval::Term",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::FullSurfaceRequest",
+      "resolvedTarget": "crate::store_read::FullSurfaceRequest",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "FullSurfaceRequest::new",
+      "target": "crate::store_read::FullSurfaceRequest",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::Selection::default",
+      "resolvedTarget": "crate::store_read::Selection::default",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "FullSurfaceRequest::new",
+      "target": "crate::store_read::Selection::default",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::eval::EvalResult",
+      "resolvedTarget": "crate::eval::EvalResult",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "FullSurfaceRead",
+      "target": "crate::eval::EvalResult",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::FullSurfaceRoute",
+      "resolvedTarget": "crate::store_read::FullSurfaceRoute",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "FullSurfaceRead",
+      "target": "crate::store_read::FullSurfaceRoute",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::eval::eval_term_at",
+      "resolvedTarget": "crate::eval::eval_term_at",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_full_surface",
+      "target": "crate::eval::eval_term_at",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::set::fork",
+      "resolvedTarget": "crate::set::fork",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_full_surface",
+      "target": "crate::set::fork",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store::PeerExporter",
+      "resolvedTarget": "crate::store::PeerExporter",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_full_surface",
+      "target": "crate::store::PeerExporter",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store::StoreError::new",
+      "resolvedTarget": "crate::store::StoreError::new",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_full_surface",
+      "target": "crate::store::StoreError::new",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store::StoreErrorCode::InvalidRequest",
+      "resolvedTarget": "crate::store::StoreErrorCode::InvalidRequest",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_full_surface",
+      "target": "crate::store::StoreErrorCode::InvalidRequest",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store::collect_delta_set",
+      "resolvedTarget": "crate::store::collect_delta_set",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_full_surface",
+      "target": "crate::store::collect_delta_set",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::FullSurfaceRead",
+      "resolvedTarget": "crate::store_read::FullSurfaceRead",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_full_surface",
+      "target": "crate::store_read::FullSurfaceRead",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::FullSurfaceRequest",
+      "resolvedTarget": "crate::store_read::FullSurfaceRequest",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_full_surface",
+      "target": "crate::store_read::FullSurfaceRequest",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::FullSurfaceRoute",
+      "resolvedTarget": "crate::store_read::FullSurfaceRoute",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_full_surface",
+      "target": "crate::store_read::FullSurfaceRoute",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::StoreReadError",
+      "resolvedTarget": "crate::store_read::StoreReadError",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_full_surface",
+      "target": "crate::store_read::StoreReadError",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::StoreReadError::Eval",
+      "resolvedTarget": "crate::store_read::StoreReadError::Eval",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_full_surface",
+      "target": "crate::store_read::StoreReadError::Eval",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::StoreReadError::Store",
+      "resolvedTarget": "crate::store_read::StoreReadError::Store",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_full_surface",
+      "target": "crate::store_read::StoreReadError::Store",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "format"
+      ],
+      "owner": "reactor",
+      "source": "implementations/rust/src/store_read.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "read_full_surface"
     },
     {
       "form": "syn-resolved-path",
@@ -97150,6 +97621,42 @@
     {
       "cfg": [],
       "classification": "compatibility_reexport",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "definition": "reexport",
+      "id": "rust:lib:FullSurfaceRead",
+      "owner": "reactor",
+      "semantics": "Native lib::FullSurfaceRead implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
+      "source": "implementations/rust/src/lib.rs",
+      "symbol": "FullSurfaceRead",
+      "target": "crate::store_read::FullSurfaceRead"
+    },
+    {
+      "cfg": [],
+      "classification": "compatibility_reexport",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "definition": "reexport",
+      "id": "rust:lib:FullSurfaceRequest",
+      "owner": "reactor",
+      "semantics": "Native lib::FullSurfaceRequest implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
+      "source": "implementations/rust/src/lib.rs",
+      "symbol": "FullSurfaceRequest",
+      "target": "crate::store_read::FullSurfaceRequest"
+    },
+    {
+      "cfg": [],
+      "classification": "compatibility_reexport",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "definition": "reexport",
+      "id": "rust:lib:FullSurfaceRoute",
+      "owner": "reactor",
+      "semantics": "Native lib::FullSurfaceRoute implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
+      "source": "implementations/rust/src/lib.rs",
+      "symbol": "FullSurfaceRoute",
+      "target": "crate::store_read::FullSurfaceRoute"
+    },
+    {
+      "cfg": [],
+      "classification": "compatibility_reexport",
       "contract": "rhizomatic.syntax/native-api/1",
       "definition": "reexport",
       "id": "rust:lib:GroupKey",
@@ -98578,6 +99085,18 @@
     {
       "cfg": [],
       "classification": "compatibility_reexport",
+      "contract": "rhizomatic.storage/native-api/1",
+      "definition": "reexport",
+      "id": "rust:lib:collect_delta_set",
+      "owner": "storage",
+      "semantics": "Native lib::collect_delta_set implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
+      "source": "implementations/rust/src/lib.rs",
+      "symbol": "collect_delta_set",
+      "target": "crate::store::collect_delta_set"
+    },
+    {
+      "cfg": [],
+      "classification": "compatibility_reexport",
       "contract": "rhizomatic.schema/native-api/1",
       "definition": "reexport",
       "id": "rust:lib:collect_reading_refs",
@@ -99430,6 +99949,18 @@
       "source": "implementations/rust/src/lib.rs",
       "symbol": "read_anchored_with_memo",
       "target": "crate::store_read::read_anchored_with_memo"
+    },
+    {
+      "cfg": [],
+      "classification": "compatibility_reexport",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "definition": "reexport",
+      "id": "rust:lib:read_full_surface",
+      "owner": "reactor",
+      "semantics": "Native lib::read_full_surface implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
+      "source": "implementations/rust/src/lib.rs",
+      "symbol": "read_full_surface",
+      "target": "crate::store_read::read_full_surface"
     },
     {
       "cfg": [],
@@ -105434,6 +105965,17 @@
       "classification": "native_extension",
       "contract": "rhizomatic.storage/native-api/1",
       "definition": "function",
+      "id": "rust:store:collect_delta_set",
+      "owner": "storage",
+      "semantics": "Native store::collect_delta_set implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "source": "implementations/rust/src/store.rs",
+      "symbol": "collect_delta_set"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.storage/native-api/1",
+      "definition": "function",
       "id": "rust:store:missing_requirements",
       "owner": "storage",
       "semantics": "Native store::missing_requirements implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
@@ -105774,12 +106316,45 @@
       "cfg": [],
       "classification": "native_extension",
       "contract": "rhizomatic.reactor/native-api/1",
-      "definition": "method",
-      "id": "rust:store_read:FinalChildMemo::stored",
+      "definition": "struct",
+      "id": "rust:store_read:FullSurfaceRead",
       "owner": "reactor",
-      "semantics": "Native store_read::FinalChildMemo::stored implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "semantics": "Native store_read::FullSurfaceRead implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/store_read.rs",
-      "symbol": "FinalChildMemo::stored"
+      "symbol": "FullSurfaceRead"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "definition": "struct",
+      "id": "rust:store_read:FullSurfaceRequest",
+      "owner": "reactor",
+      "semantics": "Native store_read::FullSurfaceRequest implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "source": "implementations/rust/src/store_read.rs",
+      "symbol": "FullSurfaceRequest"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "definition": "method",
+      "id": "rust:store_read:FullSurfaceRequest::new",
+      "owner": "reactor",
+      "semantics": "Native store_read::FullSurfaceRequest::new implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "source": "implementations/rust/src/store_read.rs",
+      "symbol": "FullSurfaceRequest::new"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "definition": "struct",
+      "id": "rust:store_read:FullSurfaceRoute",
+      "owner": "reactor",
+      "semantics": "Native store_read::FullSurfaceRoute implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "source": "implementations/rust/src/store_read.rs",
+      "symbol": "FullSurfaceRoute"
     },
     {
       "cfg": [],
@@ -105835,6 +106410,17 @@
       "semantics": "Native store_read::RoundMemo::round implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/store_read.rs",
       "symbol": "RoundMemo::round"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "definition": "trait-method",
+      "id": "rust:store_read:RoundMemo::stored",
+      "owner": "reactor",
+      "semantics": "Native store_read::RoundMemo::stored implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "source": "implementations/rust/src/store_read.rs",
+      "symbol": "RoundMemo::stored"
     },
     {
       "cfg": [],
@@ -105989,6 +106575,17 @@
       "semantics": "Native store_read::read_anchored_with_memo implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/store_read.rs",
       "symbol": "read_anchored_with_memo"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "definition": "function",
+      "id": "rust:store_read:read_full_surface",
+      "owner": "reactor",
+      "semantics": "Native store_read::read_full_surface implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "source": "implementations/rust/src/store_read.rs",
+      "symbol": "read_full_surface"
     },
     {
       "cfg": [],

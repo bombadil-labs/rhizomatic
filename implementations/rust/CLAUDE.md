@@ -71,7 +71,8 @@ src/
   store_open.rs         `StoreSchemes` and `open_store` (errors name the scheme, never the URL)
   store_conformance.rs  `run_store_conformance`: the shared store vectors against any store
   store_read.rs         the store-backed read (reactor boundary): rounds over one snapshot with a
-                        fetch cache and an evaluation memo, `fetch_scope`, and `StoreReactor`
+                        fetch cache and an evaluation memo, `fetch_scope`, `StoreReactor`, and
+                        the explicit `read_full_surface` through a peer exporter
 tests/
   cbor.rs       encoder vs. external ground-truth (RFC 8949 Appendix A)
   vectors.rs    loads ../../vectors/l0-delta and asserts byte-exact parity
@@ -84,4 +85,7 @@ tests/
   store_open.rs     schemes, requirements, close, and an anchored read over a fetched scope
   store_rounds.rs   every case of ../../vectors/store/rounds.json read five ways, wrong readers,
                     wrong memos, what the memo saves, cost
+                    the memo count a read reports, the full-surface read
+  store_read_families.rs  the existing read families a second time through a memory store
+  reactor_deprecations.rs  the whole-set Reactor methods are deprecated; the crate forbids their use
 ```

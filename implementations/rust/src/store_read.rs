@@ -8,6 +8,9 @@
 //! for) over the cache under the residual; the gather is evaluated over exactly those members;
 //! the next anchors are the anchors the result shows that no round has asked for.
 //!
+//! A term with no anchor is read only by `read_full_surface`, which needs the peer's exporter and
+//! lists the whole surface (§6.6, §4.12 reading 28).
+//!
 //! The evaluation memo (§4.12 readings 21 to 26) keeps, for one attempt of one read, each child
 //! evaluation that is final: every anchor its HView shows has been asked for. A later round, and
 //! the final `resolve` evaluation, use it and do not evaluate that child again.
@@ -19,14 +22,15 @@ use crate::anchored::{
     anchor_analysis, hview_anchors, scope_ids, AnchorAnalysis, UnanchoredReason,
 };
 use crate::eval::{
-    eval_term_at_with_memo, ChildKey, ChildMemo, ChildValue, EvalResult, SchemaRef, Term,
+    eval_term_at, eval_term_at_with_memo, ChildKey, ChildMemo, ChildValue, EvalResult, SchemaRef,
+    Term,
 };
 use crate::pred::Bindings;
 use crate::schema::SchemaRegistry;
-use crate::set::DeltaSource;
+use crate::set::{fork, DeltaSource};
 use crate::store::{
-    Anchor, ArrivalRecord, PeerStore, Pushdown, PushdownFields, Revision, ScopeRequest,
-    ScopeSource, Snapshot, StoreError, StoreErrorCode,
+    collect_delta_set, Anchor, ArrivalRecord, PeerExporter, PeerStore, Pushdown, PushdownFields,
+    Revision, ScopeRequest, ScopeSource, Snapshot, StoreError, StoreErrorCode,
 };
 use crate::types::{Delta, Primitive};
 
@@ -79,6 +83,8 @@ pub enum EvalMemo {
 /// evaluation, every anchor asked for so far in the read.
 pub trait RoundMemo: ChildMemo {
     fn round(&mut self, asked: &BTreeSet<String>);
+    /// How many child evaluations the memo holds now. The read reports it when it ends.
+    fn stored(&self) -> usize;
 }
 
 /// A primitive as a memo key: a number by its bits, so that two keys are equal only when the
@@ -130,11 +136,6 @@ impl FinalChildMemo {
     pub fn new() -> Self {
         Self::default()
     }
-
-    /// How many children the memo holds.
-    pub fn stored(&self) -> usize {
-        self.entries.len()
-    }
 }
 
 impl ChildMemo for FinalChildMemo {
@@ -157,6 +158,10 @@ impl ChildMemo for FinalChildMemo {
 impl RoundMemo for FinalChildMemo {
     fn round(&mut self, asked: &BTreeSet<String>) {
         self.asked.clone_from(asked);
+    }
+
+    fn stored(&self) -> usize {
+        self.entries.len()
     }
 }
 
@@ -230,6 +235,11 @@ pub struct StoreRead {
     /// How many snapshots the read took: 1 for `read_anchored`, up to `SNAPSHOT_RETRIES + 1`
     /// for `StoreReactor::read`.
     pub snapshots: usize,
+    /// How many child evaluations the read's memo held when the read ended: 0 with the memo
+    /// off, and the number of keys stored with it on (SPEC-18 §4.12 reading 27). The memo
+    /// changes no answer, so this count is how a caller sees whether a read used it. It counts
+    /// the last attempt only; each attempt starts a new memo.
+    pub memo_stored: usize,
 }
 
 /// Why a store-backed read failed.
@@ -491,6 +501,7 @@ fn read_rounds(
                 revision: snapshot.revision(),
                 rounds,
                 snapshots: 1,
+                memo_stored: memo.as_deref().map_or(0, |m| m.stored()),
             });
         }
         next = shown;
@@ -527,6 +538,106 @@ pub fn fetch_scope(
     Ok(FetchedScope {
         source: cache.restrict(&members),
         revision: snapshot.revision(),
+    })
+}
+
+/// One explicit full-surface read (SPEC-18 §6.6, §4.12 reading 28). The term may be anchored or
+/// not, and the root is optional because an unanchored term need not read one.
+pub struct FullSurfaceRequest<'a> {
+    pub term: &'a Term,
+    pub root: Option<&'a str>,
+    pub now: f64,
+    pub registry: Option<&'a SchemaRegistry>,
+    pub bindings: Option<&'a Bindings>,
+    /// Only `timestamp_at_most` and `exclude_ids` are taken. A listing carries no arrival
+    /// record, so `arrival_at_most` and a host predicate are refused.
+    pub selection: Selection<'a>,
+}
+
+impl<'a> FullSurfaceRequest<'a> {
+    /// A read of `term` at `now`, with no root, registry, bindings or selection.
+    pub fn new(term: &'a Term, now: f64) -> Self {
+        Self {
+            term,
+            root: None,
+            now,
+            registry: None,
+            bindings: None,
+            selection: Selection::default(),
+        }
+    }
+}
+
+/// How a full-surface read went. It is never optimized: it listed the whole peer.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FullSurfaceRoute {
+    /// Always `false`.
+    pub optimized: bool,
+    /// How many deltas the listing gave.
+    pub listed: usize,
+    /// How many of them the selection admitted.
+    pub admitted: usize,
+}
+
+/// The answer of a full-surface read.
+#[derive(Debug, Clone, PartialEq)]
+pub struct FullSurfaceRead {
+    pub result: EvalResult,
+    pub route: FullSurfaceRoute,
+}
+
+/// The explicit full-surface read (SPEC-18 §6.6, §4.12 reading 28): list the peer through its
+/// exporter, keep what the selection admits, and evaluate the term over that with the ordinary
+/// evaluator. It costs the peer's whole surface and keeps nothing. Only a caller that holds an
+/// exporter can call it; `StoreReactor` and a snapshot hold none.
+///
+/// A selection with `arrival_at_most` or a host predicate is refused `invalid-request` before
+/// anything is listed. A listed delta whose id does not recompute is refused, not repaired.
+pub fn read_full_surface(
+    exporter: &dyn PeerExporter,
+    request: FullSurfaceRequest<'_>,
+) -> Result<FullSurfaceRead, StoreReadError> {
+    let pushdown = request.selection.pushdown;
+    let refuse = |field: &str| {
+        StoreReadError::Store(StoreError::new(
+            StoreErrorCode::InvalidRequest,
+            format!(
+                "a full-surface read cannot select by {field}: a listing carries no arrival record"
+            ),
+        ))
+    };
+    if pushdown.is_some_and(|p| p.arrival_at_most.is_some()) {
+        return Err(refuse("arrivalAtMost"));
+    }
+    if request.selection.admits.is_some() {
+        return Err(refuse("a host predicate"));
+    }
+    let listed = collect_delta_set(exporter)?;
+    let kept = fork(&listed, |delta| {
+        pushdown.is_none_or(|p| {
+            p.timestamp_at_most
+                .is_none_or(|t| delta.claims.timestamp <= t)
+                && p.exclude_ids
+                    .as_ref()
+                    .is_none_or(|ids| !ids.contains(&delta.id))
+        })
+    });
+    let result = eval_term_at(
+        request.term,
+        &kept,
+        request.now,
+        request.root,
+        request.registry,
+        request.bindings,
+    )
+    .map_err(StoreReadError::Eval)?;
+    Ok(FullSurfaceRead {
+        result,
+        route: FullSurfaceRoute {
+            optimized: false,
+            listed: listed.len(),
+            admitted: kept.len(),
+        },
     })
 }
 

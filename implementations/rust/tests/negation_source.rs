@@ -216,6 +216,7 @@ proptest! {
 
     // The order contract of a delta source (SPEC-18 §4.2): each id once, ascending.
     #[test]
+    #[allow(deprecated)] // the deprecated whole-set reactor methods are this test's oracle or subject
     fn both_sources_list_each_id_once_ascending(raws in prop::collection::vec(raw(), 1..50)) {
         let mut reactor = Reactor::new();
         for (delta, _, _) in build(&raws).into_iter().rev() {
@@ -317,6 +318,7 @@ fn a_chain_reads_the_same_over_a_fetched_scope() {
 }
 
 #[test]
+#[allow(deprecated)] // the deprecated whole-set reactor methods are this test's oracle or subject
 fn revision_rises_once_for_each_call_that_adds_a_member() {
     let a = about("e0", "ann", 1.0);
     let b = about("e1", "ann", 2.0);

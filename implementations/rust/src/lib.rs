@@ -1,6 +1,11 @@
 //! Rhizomatic reference implementation (Rust) — one of two parallel witnesses to the spec.
 //! Module names mirror `../ts/src` to aid cross-reading. See the root CLAUDE.md.
 
+// Nothing in the crate may call a deprecated item: the whole-set `Reactor` methods stay for
+// consumers until slice 5, and the crate reads through the store or `pub(crate)` accessors.
+// `tests/reactor_deprecations.rs` measures that this holds for every way a call can be written.
+#![forbid(deprecated)]
+
 pub mod alias;
 pub mod anchored;
 pub mod arrival;
@@ -113,12 +118,12 @@ pub use set::{
 };
 pub use sign::{sign_claims, verify_delta, Verification};
 pub use store::{
-    missing_requirements, scope_source, signature_form, Admission, Anchor, AppendResult, AtRest,
-    ChangeRetention, ErasureClaim, ErasureClass, ErasurePosture, Exporter, Listing, PeerErasure,
-    PeerExporter, PeerStore, PurgeOutcome, PurgeReport, PurgeSurface, PurgeTarget, Pushdown,
-    PushdownFields, Revision, ScopeRequest, ScopeResult, ScopeSource, Snapshot, Store,
-    StoreCapabilities, StoreError, StoreErrorCode, StoreProfile, StoreRequirement, StoreWriters,
-    SurfaceState, VerifiedDelta, MAX_ARRIVAL_COUNTER, PURGE_BOUNDARY,
+    collect_delta_set, missing_requirements, scope_source, signature_form, Admission, Anchor,
+    AppendResult, AtRest, ChangeRetention, ErasureClaim, ErasureClass, ErasurePosture, Exporter,
+    Listing, PeerErasure, PeerExporter, PeerStore, PurgeOutcome, PurgeReport, PurgeSurface,
+    PurgeTarget, Pushdown, PushdownFields, Revision, ScopeRequest, ScopeResult, ScopeSource,
+    Snapshot, Store, StoreCapabilities, StoreError, StoreErrorCode, StoreProfile, StoreRequirement,
+    StoreWriters, SurfaceState, VerifiedDelta, MAX_ARRIVAL_COUNTER, PURGE_BOUNDARY,
 };
 pub use store_conformance::{
     run_store_conformance, SkippedScript, StoreConformanceError, StoreConformanceFailure,
@@ -128,9 +133,10 @@ pub use store_open::{
     open_store, OpenOptions, StoreFactory, StoreSchemes, MEMORY_SCHEME, UNKNOWN_SCHEME_MESSAGE,
 };
 pub use store_read::{
-    fetch_scope, read_anchored, read_anchored_with_memo, EvalMemo, FetchCache, FetchedScope,
-    FinalChildMemo, ReadRequest, RoundMemo, RoundReport, Selection, StoreReactor, StoreRead,
-    StoreReadError, SNAPSHOT_RETRIES,
+    fetch_scope, read_anchored, read_anchored_with_memo, read_full_surface, EvalMemo, FetchCache,
+    FetchedScope, FinalChildMemo, FullSurfaceRead, FullSurfaceRequest, FullSurfaceRoute,
+    ReadRequest, RoundMemo, RoundReport, Selection, StoreReactor, StoreRead, StoreReadError,
+    SNAPSHOT_RETRIES,
 };
 pub use term_io::{
     cbor_to_json, json_to_cbor, schema_canonical_hex, schema_hash, term_canonical_hex, term_hash,
