@@ -6,7 +6,7 @@ import { compareUtf8 } from "../delta/cbor.js";
 import { computeId } from "../delta/delta.js";
 import type { Claims, Delta } from "../delta/types.js";
 import type { ArrivalRecord } from "./arrival-record.js";
-import { copyArrival, copyClaims, copyMember } from "./copy.js";
+import { copyArrival, copyClaims, copyMember, isPlainObject } from "./copy.js";
 import {
   PURGE_BOUNDARY,
   StoreError,
@@ -183,6 +183,9 @@ function takeScope(request: ScopeRequest): OwnScope {
   try {
     const { anchors: list, pushdown, exclude: omit } = request;
     exclude = omit;
+    // Absent means no pushdown. Anything else that is not a plain object is refused, never
+    // read as an empty one.
+    if (pushdown !== undefined && !isPlainObject(pushdown)) throw new TypeError("pushdown");
     const { timestampAtMost, arrivalAtMost, excludeIds } = (pushdown ?? {}) as Pushdown;
     bounds = { timestampAtMost, arrivalAtMost, excludeIds };
     if (!Array.isArray(list)) throw new TypeError("anchors");

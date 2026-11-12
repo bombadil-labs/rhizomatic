@@ -25,6 +25,16 @@ function record(value: unknown, what: string): Record<string, unknown> {
     ? (value as Record<string, unknown>)
     : malformed(`${what} is not an object`);
 }
+/**
+ * A plain object: not null, not a list, not a function, and made by an object literal or with a
+ * null prototype. An optional object field of a request takes nothing else.
+ */
+export function isPlainObject(value: unknown): value is Record<string, unknown> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  const prototype: unknown = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
 function context(value: unknown): { context?: string } {
   return value === undefined ? {} : { context: text(value, "a context") };
 }
@@ -123,12 +133,21 @@ export function copyArrival(given: ArrivalRecord): ArrivalRecord {
  */
 export function copyMember(given: VerifiedDelta): VerifiedDelta {
   const from = record(given, "a member");
-  const delta = record(from["delta"], "a delta");
+  const delta: unknown = from["delta"];
+  const id: unknown = record(delta, "a delta")["id"];
+  return { delta: copyDelta(delta, id), arrival: copyArrival(from["arrival"] as ArrivalRecord) };
+}
+
+/**
+ * A delta in objects no caller holds, given its id already read from it. The id is not read
+ * again, so a caller that decided by the id copies the delta under that same id.
+ */
+export function copyDelta(given: unknown, id: unknown): Delta {
+  const delta = record(given, "a delta");
   const sig = delta["sig"];
-  const copy: Delta = {
-    id: text(delta["id"], "a delta id"),
+  return {
+    id: text(id, "a delta id"),
     claims: copyClaims(delta["claims"] as Claims),
     ...(sig === undefined ? {} : { sig: text(sig, "a signature") }),
   };
-  return { delta: copy, arrival: copyArrival(from["arrival"] as ArrivalRecord) };
 }

@@ -177,7 +177,8 @@ export type StoreVectorStep =
 export type StoreScript = {
   readonly name: string;
   readonly spec: string;
-  readonly requires: readonly VectorRequirement[];
+  /** Absent means none. */
+  readonly requires?: readonly VectorRequirement[];
   readonly steps: readonly StoreVectorStep[];
 };
 export type VectorHeader = {

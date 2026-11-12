@@ -3418,6 +3418,45 @@
           }
         },
         {
+          "op": "read",
+          "peer": "A",
+          "snapshot": "again"
+        },
+        {
+          "op": "arrivals",
+          "snapshot": "again",
+          "ids": [
+            "a-name"
+          ],
+          "expect": {
+            "ids": [
+              "a-name"
+            ]
+          }
+        },
+        {
+          "op": "scope",
+          "snapshot": "again",
+          "anchors": [
+            {
+              "kind": "entity",
+              "entity": "plant:a"
+            }
+          ],
+          "expect": {
+            "lower": [
+              "a-name"
+            ],
+            "upper": [
+              "a-name"
+            ]
+          }
+        },
+        {
+          "op": "release",
+          "snapshot": "again"
+        },
+        {
           "op": "purge",
           "peer": "B",
           "ids": [

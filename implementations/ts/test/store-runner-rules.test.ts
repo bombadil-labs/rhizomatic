@@ -12,8 +12,9 @@
 //   recompute, a step that names an unknown delta, peer or snapshot, a scope case without the
 //   scope of a subset). No store answer leads there. "a wrong document" below covers them with
 //   wrong documents.
-// - "a store with erasure class none answered a purge" is reached with a document of this
-//   file. The shared scripts that purge are skipped for such a store (README §5).
+// - "the vector's purge claim has no entry for erasure class none" is reached with a document of
+//   this file. The shared scripts that purge are skipped for such a store (README §3.4, §5); its
+//   refusal is a test of each witness (README §6, test 8), not a rule of the runner.
 // - In a scope case, "the case lacks a scope for the applied fields" cannot fail for a correct
 //   document: applied ⊆ requested is checked first, and the document holds every subset.
 // - The trim comparison (§4 step 7) follows from the two bounds and the member checks, so a
@@ -44,7 +45,7 @@ import type {
 } from "../src/storage/store.js";
 import { StoreError } from "../src/storage/store.js";
 import type { Delta } from "../src/delta/types.js";
-import { broken, type Break } from "./support/broken-store.js";
+import { broken, stale, type Break } from "./support/broken-store.js";
 
 const vectors = storeVectors();
 
@@ -499,10 +500,20 @@ const RULES: Readonly<Record<string, Rule>> = {
     says: "(append): a refused append moved the revision",
     store: revisions({ append: (outcome) => (outcome === "refused" ? 1 : 0) }),
   },
+  "a refused append moves the revision down": {
+    doc: "scripts",
+    says: "(append): a refused append moved the revision",
+    store: revisions({ append: (outcome) => (outcome === "refused" ? -1 : 0) }),
+  },
   "a conflict moves the revision": {
     doc: "scripts",
     says: "(append): an append that did not commit moved the revision",
     store: revisions({ append: (outcome) => (outcome === "conflict" ? 1 : 0) }),
+  },
+  "a conflict moves the revision down": {
+    doc: "scripts",
+    says: "(append): an append that did not commit moved the revision",
+    store: revisions({ append: (outcome) => (outcome === "conflict" ? -1 : 0) }),
   },
   "an append result states a revision that is not the peer's": {
     doc: "scripts",
@@ -689,7 +700,7 @@ const RULES: Readonly<Record<string, Rule>> = {
   },
   "a store of class none answers a purge": {
     doc: "scripts",
-    says: "(purge): a store with erasure class none answered a purge",
+    says: "(purge): the vector's purge claim has no entry for erasure class none",
     store: {
       profile: (p) => ({ ...p, capabilities: { ...p.capabilities, erasure: "none" } }),
       peer: (peer) => ({ erasure: { ...peer.erasure, storeClass: "none" } }),
@@ -725,44 +736,12 @@ const RULES: Readonly<Record<string, Rule>> = {
   "an arrival record that outlives a purge: the runner's books forget a purged id": {
     doc: "scripts",
     says: /\((arrivals|scope)\): .*carries another arrival record/,
-    store: (() => {
-      const first = new WeakMap<Store, Map<string, VerifiedDelta["arrival"]>>();
-      return {
-        peer: (peer, inner) => {
-          if (!first.has(inner)) first.set(inner, new Map());
-          const kept = first.get(inner)!;
-          const key = (id: string): string => `${peer.id} ${id}`;
-          return {
-            append: async (batch) => {
-              const result = await peer.append(batch);
-              if (result.status === "committed")
-                for (const { arrival } of batch.added)
-                  if (result.added.includes(arrival.id) && !kept.has(key(arrival.id)))
-                    kept.set(key(arrival.id), arrival);
-              return result;
-            },
-            read: async () => {
-              const snapshot = await peer.read();
-              return {
-                ...snapshot,
-                arrivals: async (ids) =>
-                  (await snapshot.arrivals(ids)).map((a) => kept.get(key(a.id)) ?? a),
-                scope: async (request) => {
-                  const result = await snapshot.scope(request);
-                  return {
-                    ...result,
-                    deltas: result.deltas.map((m) => ({
-                      ...m,
-                      arrival: kept.get(key(m.delta.id)) ?? m.arrival,
-                    })),
-                  };
-                },
-              };
-            },
-          };
-        },
-      };
-    })(),
+    store: stale(() => false),
+  },
+  "an arrival record that outlives a held-by-other-peer purge only": {
+    doc: "scripts",
+    says: /\((arrivals|scope)\): .*carries another arrival record/,
+    store: stale((outcome) => outcome !== "held-by-other-peer"),
   },
 
   // -- snapshot fields (§3.6) --
@@ -994,6 +973,16 @@ const RULES: Readonly<Record<string, Rule>> = {
       snapshot: scope(async (result) => result, withoutExclude),
     },
   },
+  "the reference store ignores exclude only when no pushdown is asked, in a script": {
+    doc: "scripts",
+    says: "(scope): the reference store answered",
+    store: {
+      snapshot: scope(
+        async (result) => result,
+        (request) => (request.pushdown === undefined ? withoutExclude(request) : request),
+      ),
+    },
+  },
 
   // -- export (§3.8) --
   "export of an absent peer lists nothing instead of refusing": {
@@ -1043,6 +1032,13 @@ const RULES: Readonly<Record<string, Rule>> = {
     doc: "scripts",
     says: "(export): export deltas and ids disagree",
     store: exporter((listing) => ({ deltas: () => listed(listing.deltas(), (d) => d.slice(1)) })),
+  },
+  "export yields more deltas than ids": {
+    doc: "scripts",
+    says: "(export): export deltas and ids disagree",
+    store: exporter((listing) => ({
+      deltas: () => listed(listing.deltas(), (d) => [...d, ...d.slice(-1)]),
+    })),
   },
   "export yields deltas in another order than ids": {
     doc: "scripts",
@@ -1160,6 +1156,21 @@ const RULES: Readonly<Record<string, Rule>> = {
             ...result,
             deltas: result.deltas.filter((d) => d.delta.claims.timestamp !== latest),
           };
+        },
+      }),
+    }),
+  },
+  "a scope case: the lower bound, a store that leaves out the first id": {
+    doc: "scope",
+    says: /pushdown \{\}: scope \[.*\] lacks a member of/,
+    // Asked for no pushdown, this store leaves out the first member, which is the first id of
+    // the lower bound.
+    store: join(other, {
+      snapshot: (s) => ({
+        scope: async (request) => {
+          const result = await s.scope(request);
+          if (request.pushdown !== undefined) return result;
+          return { ...result, deltas: result.deltas.slice(1) };
         },
       }),
     }),
@@ -1283,7 +1294,7 @@ describe("runner rules: what the profile makes the runner do", () => {
       }),
       vectors,
     );
-    const needPurge = vectors.scripts.scripts.filter((s) => s.requires.includes("purge"));
+    const needPurge = vectors.scripts.scripts.filter((s) => s.requires?.includes("purge") === true);
     expect(needPurge.length).toBeGreaterThan(0);
     expect(report.skipped).toEqual(
       needPurge.map((s) => ({ name: `scripts/${s.name}`, missing: "purge" })),
@@ -1368,6 +1379,28 @@ describe("runner rules: a wrong document", () => {
     scope: { ...vectors.scope, cases: [] },
   });
 
+  const purgeScript = vectors.scripts.scripts.find(
+    (s) => s.name === "purge-clears-a-debt-on-append",
+  )!;
+  /** The purge script, with the claim of its first purge step replaced. */
+  const purgeClaim = (claim: object): StoreVectors => {
+    const first = purgeScript.steps.findIndex((step) => step.op === "purge");
+    const steps = purgeScript.steps.map((step, i) =>
+      i === first && step.op === "purge"
+        ? { ...step, expect: { ...step.expect, claim: claim as never } }
+        : step,
+    );
+    return {
+      scripts: { ...vectors.scripts, scripts: [{ ...purgeScript, steps }] },
+      scope: { ...vectors.scope, cases: [] },
+    };
+  };
+  /** The purge script, with its requirements replaced. */
+  const requiring = (requires: unknown): StoreVectors => ({
+    scripts: { ...vectors.scripts, scripts: [{ ...purgeScript, requires: requires as never }] },
+    scope: { ...vectors.scope, cases: [] },
+  });
+
   type Wrong = { vectors: StoreVectors; says: string; store?: () => Promise<Store> };
   const wrong: Readonly<Record<string, Wrong>> = {
     "an unknown scripts format": {
@@ -1407,6 +1440,22 @@ describe("runner rules: a wrong document", () => {
       vectors: scopeOnly((c) => ({ ...c, scopes: c.scopes.filter((s) => s.fields.length < 3) })),
       says: "the case lacks the scope under its whole selection",
     },
+    "a purge claim with a key other than unprovable and proven": {
+      vectors: purgeClaim({ unprovable: "unproven", proven: "proven", none: "nothing-removed" }),
+      says: "the vector's purge claim has keys none, proven, unprovable, not unprovable and proven",
+    },
+    "a purge claim without the key proven": {
+      vectors: purgeClaim({ unprovable: "unproven" }),
+      says: "the vector's purge claim has keys unprovable, not unprovable and proven",
+    },
+    "an unknown script requirement": {
+      vectors: requiring(["values"]),
+      says: "unknown script requirement values",
+    },
+    "a script requirement list that is not a list": {
+      vectors: requiring("purge"),
+      says: "the script's requires is not a list",
+    },
     "a scope case without the scope of an applied subset": {
       vectors: scopeOnly((c) => ({
         ...c,
@@ -1423,6 +1472,17 @@ describe("runner rules: a wrong document", () => {
       await expect(runStoreConformance(store ?? memory, document)).rejects.toThrow(message);
     });
   }
+
+  it("a script without requires runs on every store, and is not skipped", async () => {
+    const bare: typeof purgeScript = { ...purgeScript };
+    delete (bare as { requires?: unknown }).requires;
+    expect("requires" in bare).toBe(false);
+    const report = await runStoreConformance(memory, {
+      scripts: { ...vectors.scripts, scripts: [bare] },
+      scope: { ...vectors.scope, cases: [] },
+    });
+    expect(report).toEqual({ passed: [`scripts/${purgeScript.name}`], skipped: [] });
+  });
 
   it("a forged corpus entry is not checked: the documents carry one on purpose", async () => {
     expect(vectors.scripts.deltas.filter((d) => d.forged === true)).toHaveLength(1);

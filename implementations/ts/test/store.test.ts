@@ -146,6 +146,68 @@ describe("requirements are an allow-list", () => {
     );
   });
 
+  it("openStore refuses options that are not of their type, with one fixed message", async () => {
+    const message = "openStore: the options must be an object, and requires a list of names";
+    const wrong: unknown[] = [
+      null,
+      "journal",
+      5,
+      [],
+      ["journal"],
+      () => ({}),
+      new Map(),
+      { requires: "journal" },
+      { requires: 5 },
+      { requires: null },
+      { requires: { filter: () => [] } },
+      { requires: new Set(["journal"]) },
+      { requires: [5] },
+      { requires: [new String("journal")] },
+      {
+        get requires(): never {
+          throw new Error("a getter that throws");
+        },
+      },
+    ];
+    for (const options of wrong) {
+      const opening = openStore("memory:", options as never);
+      await expect(opening, String(options)).rejects.toThrow(StoreError);
+      await expect(openStore("memory:", options as never)).rejects.toThrow(message);
+      expect(await code(() => openStore("memory:", options as never))).toBe("invalid-request");
+    }
+    // Absent options, and absent `requires`, mean none.
+    for (const options of [undefined, {}, { requires: undefined }, Object.create(null) as object])
+      expect((await openStore("memory:", options as never)).profile.formatVersion).toBe(
+        MEMORY_STORE_FORMAT,
+      );
+  });
+
+  it("openStore reads its options once and hands the factory its own copy", async () => {
+    let reads = 0;
+    const options = {
+      get requires(): string[] {
+        return reads++ === 0 ? [] : ["journal"];
+      },
+    };
+    expect(await code(() => openStore("memory:", options as never))).toBe("no error");
+    expect(reads).toBe(1);
+
+    const given: unknown[] = [];
+    const remove = registerStoreScheme("read-once", async (_url, seen) => {
+      given.push(seen);
+      return createMemoryStore();
+    });
+    try {
+      const requires: ("arrival" | "journal")[] = ["arrival"];
+      await openStore("read-once:", { requires });
+      expect(given).toHaveLength(1);
+      expect(given[0]).toEqual({ requires: ["arrival"] });
+      expect((given[0] as { requires: unknown }).requires).not.toBe(requires);
+    } finally {
+      remove();
+    }
+  });
+
   it("a capability counts only when it is exactly true", () => {
     const odd = {
       ...profile,
@@ -1103,6 +1165,105 @@ describe("a store refuses what is not of its type, and converts nothing", () => 
     });
   }
 
+  // README §6 test 5 beyond the claims: the signature, the id and every arrival field. Each is
+  // honest on its first read and wrong on every later one. The store reads each once, so it
+  // admits the entry and keeps the honest value; it never keeps a value it did not check.
+  const later: Readonly<
+    Record<string, [part: "delta" | "arrival", field: string, wrong: unknown]>
+  > = {
+    "the signature": ["delta", "sig", "not hex"],
+    "the id": ["delta", "id", "1e20" + "00".repeat(32)],
+    "the arrival id": ["arrival", "id", "1e20" + "00".repeat(32)],
+    "the arrival time": ["arrival", "at", Number.NaN],
+    "the arrival sequence": ["arrival", "sequence", 0],
+    "the arrival transfer": ["arrival", "transfer", 0],
+    "the arrival sender": ["arrival", "sender", ""],
+  };
+  for (const [name, [part, field, wrong]] of Object.entries(later)) {
+    it(`${name} is read once: the checked value is the kept one`, async () => {
+      let reads = 0;
+      const { entry, id } = entryWith((e) => {
+        const honest = e[part][field];
+        Object.defineProperty(e[part], field, {
+          enumerable: true,
+          get: () => (reads++ === 0 ? honest : wrong),
+        });
+      });
+      const store = createMemoryStore();
+      const peer = await store.createPeer(A, { erasure: "unproven" });
+      expect(await code(() => peer.append({ ...head, added: [entry] }))).toBe("no error");
+      expect(reads).toBe(1);
+      const snapshot = await peer.read();
+      const [delta] = await snapshot.get([id]);
+      const [arrival] = await snapshot.arrivals([id]);
+      expect(delta?.sig).toMatch(/^[0-9a-f]{128}$/);
+      expect(arrival).toEqual(local(id));
+
+      reads = 0;
+      const source = scopeSource([entry]);
+      expect(reads).toBe(1);
+      expect(source.get(id)?.sig).toBe(delta?.sig);
+      expect(source.arrival(id)).toEqual(local(id));
+    });
+  }
+
+  it("the fields of a request are read once: ids, entities, anchors and exclude", async () => {
+    const store = createMemoryStore();
+    const peer = await store.createPeer(A, { erasure: "unproven" });
+    const delta = fact("e", 1);
+    await fill(peer, [delta]);
+    const snapshot = await peer.read();
+    let reads = 0;
+    /** A list whose one item is honest on its first read and a number on every later one. */
+    const shifty = (honest: unknown): unknown[] => {
+      const list: unknown[] = [honest];
+      Object.defineProperty(list, 0, { get: () => (reads++ === 0 ? honest : 5) });
+      return list;
+    };
+    const once = async (ask: () => Promise<unknown>): Promise<unknown> => {
+      reads = 0;
+      const answer = await ask();
+      expect(reads).toBe(1);
+      return answer;
+    };
+    expect(await once(() => snapshot.get(shifty(delta.id) as string[]))).toHaveLength(1);
+    expect(await once(() => snapshot.arrivals(shifty(delta.id) as string[]))).toHaveLength(1);
+    expect(await once(() => snapshot.targets(shifty("e") as string[]))).toEqual([delta.id]);
+    expect(await once(() => snapshot.negators(shifty(delta.id) as string[]))).toEqual([]);
+    const anchor = {
+      kind: "entity" as const,
+      get entity(): string {
+        return reads++ === 0 ? "e" : (5 as unknown as string);
+      },
+    };
+    expect(
+      ((await once(() => snapshot.scope({ anchors: [anchor] }))) as { deltas: unknown[] }).deltas,
+    ).toHaveLength(1);
+    expect(
+      (
+        (await once(() =>
+          snapshot.scope({
+            anchors: [{ kind: "entity", entity: "e" }],
+            exclude: shifty(delta.id) as string[],
+          }),
+        )) as { deltas: unknown[] }
+      ).deltas,
+    ).toEqual([]);
+    expect(
+      (
+        (await once(() =>
+          snapshot.scope({
+            anchors: [{ kind: "entity", entity: "e" }],
+            pushdown: { excludeIds: shifty(delta.id) as string[] },
+          }),
+        )) as { deltas: unknown[] }
+      ).deltas,
+    ).toEqual([]);
+    expect(await once(() => peer.purge(shifty(delta.id) as string[]))).toMatchObject({
+      targets: [{ id: delta.id, outcome: "removed" }],
+    });
+  });
+
   it("a call that is not of its shape is refused: the batch, its head, its list", async () => {
     const store = createMemoryStore();
     const peer = await store.createPeer(A, { erasure: "unproven" });
@@ -1172,6 +1333,23 @@ describe("a store refuses what is not of its type, and converts nothing", () => 
     expect(
       await code(() => snapshot.scope({ anchors: [{ kind: "entity", entity: 5 as never }] })),
     ).toBe("invalid-request");
+    // An absent pushdown is none. A pushdown that is not a plain object is refused, never
+    // read as an empty one: that would answer unfiltered.
+    const anchors = [{ kind: "entity" as const, entity: "e" }];
+    for (const pushdown of [5, "abc", true, [], () => ({}), null, new Map(), new Date(0)])
+      expect(
+        await code(() => snapshot.scope({ anchors, pushdown: pushdown as never })),
+        String(pushdown),
+      ).toBe("invalid-request");
+    for (const pushdown of [undefined, {}, Object.create(null) as object]) {
+      const result = await snapshot.scope({ anchors, pushdown: pushdown as never });
+      expect(result.deltas).toHaveLength(1);
+      expect(result.applied).toEqual({
+        timestampAtMost: false,
+        arrivalAtMost: false,
+        excludeIds: false,
+      });
+    }
     for (const timestampAtMost of ["5", null, 5n, new Number(5)])
       expect(
         await code(() => snapshot.scope({ anchors: [], pushdown: { timestampAtMost } as never })),
@@ -1505,73 +1683,50 @@ describe("scopeSource: a synchronous delta source over a fetched scope", () => {
 });
 
 describe("cost rail: scopeSource builds in the size of its members", () => {
-  // Counts work; times nothing. Every search through a list by an array method is charged the
-  // length of the list it searches. A build that looks through a bucket for each insert pays
-  // the square of the bucket. What this cannot see: a search written as a plain loop.
-  const SEARCHES = [
-    "includes",
-    "indexOf",
-    "lastIndexOf",
-    "find",
-    "findIndex",
-    "findLast",
-    "findLastIndex",
-    "some",
-    "every",
-    "filter",
-  ] as const;
-  type Method = (this: unknown[], ...args: unknown[]) => unknown;
-  function searched(build: () => unknown): number {
-    const methods = Array.prototype as unknown as Record<string, Method>;
-    const original = SEARCHES.map((name) => methods[name]!);
-    let work = 0;
-    SEARCHES.forEach((name, i) => {
-      methods[name] = function (...args) {
-        work += this.length;
-        return original[i]!.apply(this, args);
-      };
-    });
-    try {
-      build();
-    } finally {
-      SEARCHES.forEach((name, i) => {
-        methods[name] = original[i]!;
-      });
-    }
-    return work;
-  }
-
+  // A coarse scaling check, timed from outside: the code under test keeps no meter of its own,
+  // so a build that copies or searches a bucket per insert cannot hide its work. N members at
+  // one entity, then 8N; likewise N and 8N negations of one delta. Linear work scales by about
+  // 8, quadratic by about 64; the rail fails at 24. Each size takes the fastest of three
+  // builds, so a stall on a shared machine only slows a run and cannot pass a slow build.
+  // N is sized so that the build at N takes tens of milliseconds, well above timer noise. What
+  // this cannot see: a cost that is quadratic only with a tiny constant at these sizes.
+  const N = 4000;
+  const BOUND = 24;
   const member = (delta: Delta, sequence: number): VerifiedDelta => ({
     delta,
     arrival: { id: delta.id, at: 1, sequence, transfer: 1, sender: "local" },
   });
-  const N = 1500;
-  const atOneEntity = Array.from({ length: 2 * N }, (_, i) => member(fact("crowded", i), i + 1));
   const struck = fact("struck", 0);
-  const negatingOne = Array.from({ length: 2 * N }, (_, i) => member(strike(struck, i), i + 1));
+  const shapes = {
+    "members at one entity": () =>
+      Array.from({ length: 8 * N }, (_, i) => member(fact("crowded", i + 1), i + 1)),
+    "negations of one delta": () =>
+      Array.from({ length: 8 * N }, (_, i) => member(strike(struck, i + 1), i + 1)),
+  };
+  const fastest = (members: readonly VerifiedDelta[]): number => {
+    let best = Number.POSITIVE_INFINITY;
+    for (let run = 0; run < 3; run++) {
+      const start = performance.now();
+      scopeSource(members);
+      best = Math.min(best, performance.now() - start);
+    }
+    return best;
+  };
 
-  it("the counter sees a search", () => {
-    expect(searched(() => [1, 2, 3].includes(9))).toBe(3);
-    expect(searched(() => [1, 2, 3, 4].indexOf(9))).toBe(4);
-    // And it is gone afterwards.
-    expect(searched(() => undefined)).toBe(0);
-    expect(Array.prototype.includes).toBe([].includes);
-  });
-
-  for (const [shape, members, key] of [
-    ["members at one entity", atOneEntity, "crowded"],
-    ["negations of one delta", negatingOne, struck.id],
-  ] as const) {
-    it(`twice the ${shape} cost at most twice the searching`, () => {
-      let source = scopeSource([]);
-      const half = searched(() => (source = scopeSource(members.slice(0, N))));
-      const whole = searched(() => (source = scopeSource(members)));
-      const bucket = shape.startsWith("members") ? source.targets(key) : source.negators(key);
-      expect(bucket).toHaveLength(2 * N);
-      // Linear: a constant per member at most. A search per insert would charge N²/2.
-      expect(half).toBeLessThanOrEqual(8 * N);
-      expect(whole).toBeLessThanOrEqual(2 * half + 8);
-    });
+  for (const [shape, make] of Object.entries(shapes)) {
+    it(`8 times the ${shape} cost less than ${BOUND} times the time`, () => {
+      const members = make();
+      const source = scopeSource(members);
+      const bucket = shape.startsWith("members")
+        ? source.targets("crowded")
+        : source.negators(struck.id);
+      expect(bucket).toHaveLength(8 * N);
+      const small = fastest(members.slice(0, N));
+      const large = fastest(members);
+      expect(large / small, `${small.toFixed(1)} ms, then ${large.toFixed(1)} ms`).toBeLessThan(
+        BOUND,
+      );
+    }, 600_000);
   }
 });
 

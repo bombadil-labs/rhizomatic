@@ -3,7 +3,14 @@
 // members it replaces; everything else passes through to the memory store.
 
 import { createMemoryStore } from "../../src/storage/memory-store.js";
-import type { PeerStore, Snapshot, Store, StoreProfile } from "../../src/storage/store.js";
+import type {
+  PeerStore,
+  PurgeOutcome,
+  Snapshot,
+  Store,
+  StoreProfile,
+  VerifiedDelta,
+} from "../../src/storage/store.js";
 
 export type Break = {
   profile?: (profile: StoreProfile) => StoreProfile;
@@ -33,5 +40,54 @@ export function broken(fault: Break): () => Promise<Store> {
       close: () => inner.close(),
     };
     return { ...store, ...fault.store?.(store, inner) };
+  };
+}
+
+/**
+ * A store that serves a peer's first arrival record for an id again after the id is appended
+ * anew. It forgets the record on a purge only when `forgets` says so for that target's outcome.
+ */
+export function stale(forgets: (outcome: PurgeOutcome) => boolean): Break {
+  const first = new WeakMap<Store, Map<string, VerifiedDelta["arrival"]>>();
+  return {
+    peer: (peer, inner) => {
+      if (!first.has(inner)) first.set(inner, new Map());
+      const kept = first.get(inner)!;
+      const key = (id: string): string => `${peer.id} ${id}`;
+      return {
+        append: async (batch) => {
+          const result = await peer.append(batch);
+          if (result.status === "committed")
+            for (const { arrival } of batch.added)
+              if (result.added.includes(arrival.id) && !kept.has(key(arrival.id)))
+                kept.set(key(arrival.id), arrival);
+          return result;
+        },
+        purge: async (ids) => {
+          const report = await peer.purge(ids);
+          for (const target of report.targets)
+            if (forgets(target.outcome)) kept.delete(key(target.id));
+          return report;
+        },
+        read: async () => {
+          const snapshot = await peer.read();
+          return {
+            ...snapshot,
+            arrivals: async (ids) =>
+              (await snapshot.arrivals(ids)).map((a) => kept.get(key(a.id)) ?? a),
+            scope: async (request) => {
+              const result = await snapshot.scope(request);
+              return {
+                ...result,
+                deltas: result.deltas.map((m) => ({
+                  ...m,
+                  arrival: kept.get(key(m.delta.id)) ?? m.arrival,
+                })),
+              };
+            },
+          };
+        },
+      };
+    },
   };
 }
