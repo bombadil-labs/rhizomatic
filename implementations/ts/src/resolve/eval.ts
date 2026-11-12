@@ -293,10 +293,11 @@ function resolveReflective(
   registry: SchemaRegistry | undefined,
   bindings: Bindings | undefined,
   budget?: EvaluationBudget,
+  memo?: ChildMemo,
 ): Pred {
   switch (pred.kind) {
     case "inView": {
-      const sub = evalTermWithin(pred.term, input, root, registry, bindings, budget);
+      const sub = evalTermWithin(pred.term, input, root, registry, bindings, budget, memo);
       if (sub.sort !== "dset") throw new Error("inView.term must evaluate to a DSet (E9)");
       return {
         kind: "match",
@@ -308,19 +309,19 @@ function resolveReflective(
     case "and":
       return {
         kind: "and",
-        left: resolveReflective(pred.left, input, root, registry, bindings, budget),
-        right: resolveReflective(pred.right, input, root, registry, bindings, budget),
+        left: resolveReflective(pred.left, input, root, registry, bindings, budget, memo),
+        right: resolveReflective(pred.right, input, root, registry, bindings, budget, memo),
       };
     case "or":
       return {
         kind: "or",
-        left: resolveReflective(pred.left, input, root, registry, bindings, budget),
-        right: resolveReflective(pred.right, input, root, registry, bindings, budget),
+        left: resolveReflective(pred.left, input, root, registry, bindings, budget, memo),
+        right: resolveReflective(pred.right, input, root, registry, bindings, budget, memo),
       };
     case "not":
       return {
         kind: "not",
-        pred: resolveReflective(pred.pred, input, root, registry, bindings, budget),
+        pred: resolveReflective(pred.pred, input, root, registry, bindings, budget, memo),
       };
     case "actsFor":
       throw new Error("actsFor requires an explicit principal resolver (SPEC-14)");
@@ -396,13 +397,14 @@ function evalTermWithin(
   registry?: SchemaRegistry,
   bindings?: Bindings,
   budget?: EvaluationBudget,
+  memo?: ChildMemo,
 ): EvalResult {
   switch (term.kind) {
     case "input":
       return dsetResult(input);
     case "select": {
       const of = expectDSet(
-        evalTermWithin(term.of, input, root, registry, bindings, budget),
+        evalTermWithin(term.of, input, root, registry, bindings, budget, memo),
         "select",
       );
       const pred = resolveReflective(
@@ -412,16 +414,17 @@ function evalTermWithin(
         registry,
         bindings,
         budget,
+        memo,
       );
       return dsetResult(fork(of.set, (d) => evalPred(pred, d, root)));
     }
     case "union": {
       const left = expectDSet(
-        evalTermWithin(term.left, input, root, registry, bindings, budget),
+        evalTermWithin(term.left, input, root, registry, bindings, budget, memo),
         "union",
       );
       const right = expectDSet(
-        evalTermWithin(term.right, input, root, registry, bindings, budget),
+        evalTermWithin(term.right, input, root, registry, bindings, budget, memo),
         "union",
       );
       return dsetResult(merge(left.set, right.set));
@@ -430,11 +433,11 @@ function evalTermWithin(
       // left ∩ right, keyed by content-addressed id (SPEC-2 §4.9). Plain DSet result: any
       // mask(annotate) tag channel on an operand is dropped, like select/union (E14).
       const left = expectDSet(
-        evalTermWithin(term.left, input, root, registry, bindings, budget),
+        evalTermWithin(term.left, input, root, registry, bindings, budget, memo),
         "intersect",
       );
       const right = expectDSet(
-        evalTermWithin(term.right, input, root, registry, bindings, budget),
+        evalTermWithin(term.right, input, root, registry, bindings, budget, memo),
         "intersect",
       );
       return dsetResult(fork(left.set, (d) => right.set.has(d.id)));
@@ -442,18 +445,18 @@ function evalTermWithin(
     case "difference": {
       // of ∖ without, keyed by id (SPEC-2 §4.9). Asymmetric operands `of`/`without`.
       const of = expectDSet(
-        evalTermWithin(term.of, input, root, registry, bindings, budget),
+        evalTermWithin(term.of, input, root, registry, bindings, budget, memo),
         "difference",
       );
       const without = expectDSet(
-        evalTermWithin(term.without, input, root, registry, bindings, budget),
+        evalTermWithin(term.without, input, root, registry, bindings, budget, memo),
         "difference",
       );
       return dsetResult(fork(of.set, (d) => !without.set.has(d.id)));
     }
     case "mask": {
       const of = expectDSet(
-        evalTermWithin(term.of, input, root, registry, bindings, budget),
+        evalTermWithin(term.of, input, root, registry, bindings, budget, memo),
         "mask",
       );
       switch (term.policy.kind) {
@@ -473,6 +476,7 @@ function evalTermWithin(
             registry,
             bindings,
             budget,
+            memo,
           );
           const negated = computeNegated(of.set, (n) => evalPred(pred, n, root));
           return dsetResult(fork(of.set, (d) => !negated.has(d.id)));
@@ -483,14 +487,14 @@ function evalTermWithin(
     case "group": {
       if (root === undefined) throw new Error("group requires an ambient root entity (E9)");
       const of = expectDSet(
-        evalTermWithin(term.of, input, root, registry, bindings, budget),
+        evalTermWithin(term.of, input, root, registry, bindings, budget, memo),
         "group",
       );
       return { sort: "hview", hview: evalGroup(term.key, of, root, budget) };
     }
     case "prune": {
       const of = expectHView(
-        evalTermWithin(term.of, input, root, registry, bindings, budget),
+        evalTermWithin(term.of, input, root, registry, bindings, budget, memo),
         "prune",
       );
       if (term.keep === "all") return of;
@@ -505,7 +509,7 @@ function evalTermWithin(
     }
     case "expand": {
       const of = expectHView(
-        evalTermWithin(term.of, input, root, registry, bindings, budget),
+        evalTermWithin(term.of, input, root, registry, bindings, budget, memo),
         "expand",
       );
       const role = expandStrMatch(term.role, input, root);
@@ -542,6 +546,7 @@ function evalTermWithin(
                 registry,
                 bindings,
                 childBudget,
+                memo,
               );
               if (budget && childBudget) {
                 const key = JSON.stringify([prop, entryIndex, i]);
@@ -578,11 +583,12 @@ function evalTermWithin(
           registry,
           term.bindings ?? bindings,
           budget,
+          memo,
         ),
       };
     case "resolve": {
       const of = expectHView(
-        evalTermWithin(term.of, input, root, registry, bindings, budget),
+        evalTermWithin(term.of, input, root, registry, bindings, budget, memo),
         "resolve",
       );
       return {
@@ -603,6 +609,38 @@ export function evalTerm(
   root?: string,
   registry?: SchemaRegistry,
   bindings?: Bindings,
+  memo?: ChildMemo,
+): EvalResult {
+  return evalTermWithHooks(
+    term,
+    input,
+    now,
+    { ...(memo === undefined ? {} : { memo }) },
+    root,
+    registry,
+    bindings,
+  );
+}
+
+/** What an evaluation may carry beside its input. */
+export interface EvalHooks {
+  /** Bounds the work of a materialization gather. Switches the memo off. */
+  readonly budget?: EvaluationBudget;
+  readonly memo?: ChildMemo;
+}
+
+/**
+ * `evalTerm` with an explicit budget and memo. Not part of the package surface: the
+ * materialization gather and the rails use it. A budget switches the memo off.
+ */
+export function evalTermWithHooks(
+  term: Term,
+  input: DeltaSet,
+  now: number,
+  hooks: EvalHooks,
+  root?: string,
+  registry?: SchemaRegistry,
+  bindings?: Bindings,
 ): EvalResult {
   if (!Number.isFinite(now)) throw new Error("now must be a finite number");
   const valid = fork(
@@ -610,7 +648,23 @@ export function evalTerm(
     (d) =>
       d.claims.validFrom <= now && (d.claims.validUntil === undefined || now < d.claims.validUntil),
   );
-  return evalTermRaw(term, valid, root, registry, bindings);
+  return evalTermWithin(term, valid, root, registry, bindings, hooks.budget, hooks.memo);
+}
+
+/**
+ * A memo of child evaluations: one schema body evaluated at one root, as each `expand` child and
+ * each `fix` body is. The evaluator asks `get` before it evaluates a child, and calls `put` with
+ * each child it did evaluate. A hit replaces the whole evaluation below that child.
+ *
+ * The evaluator knows nothing about when a stored child stays right; the memo decides what it
+ * keeps. The key the evaluator offers is the schema reference as written, the bindings object in
+ * effect and the root. Everything else an evaluation reads (the input, `now`, the registry) is
+ * the memo owner's to hold constant: the store-backed read keeps one memo per snapshot and stores
+ * only final children (SPEC-18 §4.12 readings 21 to 26).
+ */
+export interface ChildMemo {
+  get(schema: SchemaRefT, bindings: Bindings | undefined, root: string): HView | undefined;
+  put(schema: SchemaRefT, bindings: Bindings | undefined, root: string, hview: HView): void;
 }
 
 // Evaluate a named schema at a root over the SAME delta set the enclosing evaluation received
@@ -622,16 +676,22 @@ function evalSchema(
   registry: SchemaRegistry | undefined,
   bindings?: Bindings,
   budget?: EvaluationBudget,
+  memo?: ChildMemo,
 ): HView {
   const label = ref.kind === "name" ? ref.name : `pinned:${ref.hash.slice(0, 12)}…`;
   if (registry === undefined)
     throw new Error(`schema ${label} referenced but no registry supplied (E10)`);
   const schema = registry.resolve(ref);
   if (schema === undefined) throw new Error(`unknown schema: ${label} (E10/E13)`);
-  const result = evalTermWithin(schema.body, input, root, registry, bindings, budget);
+  // A hit would return the child without the work the budget counts, so a budget turns it off.
+  const memoized = budget === undefined ? memo : undefined;
+  const kept = memoized?.get(ref, bindings, root);
+  if (kept !== undefined) return kept;
+  const result = evalTermWithin(schema.body, input, root, registry, bindings, budget, memoized);
   if (result.sort !== "hview") {
     throw new Error(`schema ${label} body must be an HView-sort term (E10)`);
   }
+  memoized?.put(ref, bindings, root, result.hview);
   return result.hview;
 }
 
@@ -699,12 +759,15 @@ export function evalMaterializationTerm(
   bindings?: Bindings,
 ): EvalResult {
   if (!Number.isFinite(at)) throw Error("evaluation time must be finite");
-  const valid = fork(
+  return evalTermWithHooks(
+    term,
     input,
-    (d) =>
-      d.claims.validFrom <= at && (d.claims.validUntil === undefined || at < d.claims.validUntil),
+    at,
+    { budget: new EvaluationBudget(limits) },
+    root,
+    registry,
+    bindings,
   );
-  return evalTermWithin(term, valid, root, registry, bindings, new EvaluationBudget(limits));
 }
 
 function combinedSummary(

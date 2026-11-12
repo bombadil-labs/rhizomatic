@@ -32801,6 +32801,206 @@
       "contract": "rhizomatic.storage/native-api/1",
       "classification": "native_extension",
       "semantics": "Native storage API HeldMembers.subset implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/fetch-cache.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:eval.ts:evalTermWithHooks",
+      "owner": "resolve",
+      "symbol": "evalTermWithHooks",
+      "source": "implementations/ts/src/eval.ts",
+      "definition": "implementations/ts/src/resolve/eval.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native resolve API evalTermWithHooks implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/eval.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:eval.ts:EvalHooks",
+      "owner": "resolve",
+      "symbol": "EvalHooks",
+      "source": "implementations/ts/src/eval.ts",
+      "definition": "implementations/ts/src/resolve/eval.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native resolve API EvalHooks implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/eval.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:eval.ts:EvalHooks#budget",
+      "owner": "resolve",
+      "symbol": "EvalHooks.budget",
+      "source": "implementations/ts/src/eval.ts",
+      "definition": "implementations/ts/src/resolve/eval.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native resolve API EvalHooks.budget implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/eval.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:eval.ts:EvalHooks#memo",
+      "owner": "resolve",
+      "symbol": "EvalHooks.memo",
+      "source": "implementations/ts/src/eval.ts",
+      "definition": "implementations/ts/src/resolve/eval.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native resolve API EvalHooks.memo implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/eval.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:eval.ts:ChildMemo",
+      "owner": "resolve",
+      "symbol": "ChildMemo",
+      "source": "implementations/ts/src/eval.ts",
+      "definition": "implementations/ts/src/resolve/eval.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native resolve API ChildMemo implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/eval.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:eval.ts:ChildMemo#get",
+      "owner": "resolve",
+      "symbol": "ChildMemo.get",
+      "source": "implementations/ts/src/eval.ts",
+      "definition": "implementations/ts/src/resolve/eval.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native resolve API ChildMemo.get implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/eval.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:eval.ts:ChildMemo#put",
+      "owner": "resolve",
+      "symbol": "ChildMemo.put",
+      "source": "implementations/ts/src/eval.ts",
+      "definition": "implementations/ts/src/resolve/eval.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native resolve API ChildMemo.put implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/eval.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:reactor/store-read.ts:finalChildMemo",
+      "owner": "reactor",
+      "symbol": "finalChildMemo",
+      "source": "implementations/ts/src/reactor/store-read.ts",
+      "definition": "implementations/ts/src/reactor/store-read.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API finalChildMemo implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-read.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-read.ts:RoundPolicy#memo",
+      "owner": "reactor",
+      "symbol": "RoundPolicy.memo",
+      "source": "implementations/ts/src/reactor/store-read.ts",
+      "definition": "implementations/ts/src/reactor/store-read.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API RoundPolicy.memo implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-read.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-read.ts:CACHED_ROUNDS",
+      "owner": "reactor",
+      "symbol": "CACHED_ROUNDS",
+      "source": "implementations/ts/src/reactor/store-read.ts",
+      "definition": "implementations/ts/src/reactor/store-read.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API CACHED_ROUNDS implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-read.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:resolve/eval.ts:evalTermWithHooks",
+      "owner": "resolve",
+      "symbol": "evalTermWithHooks",
+      "source": "implementations/ts/src/resolve/eval.ts",
+      "definition": "implementations/ts/src/resolve/eval.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native resolve API evalTermWithHooks implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/eval.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:resolve/eval.ts:EvalHooks",
+      "owner": "resolve",
+      "symbol": "EvalHooks",
+      "source": "implementations/ts/src/resolve/eval.ts",
+      "definition": "implementations/ts/src/resolve/eval.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native resolve API EvalHooks implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/eval.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:resolve/eval.ts:EvalHooks#budget",
+      "owner": "resolve",
+      "symbol": "EvalHooks.budget",
+      "source": "implementations/ts/src/resolve/eval.ts",
+      "definition": "implementations/ts/src/resolve/eval.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native resolve API EvalHooks.budget implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/eval.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:resolve/eval.ts:EvalHooks#memo",
+      "owner": "resolve",
+      "symbol": "EvalHooks.memo",
+      "source": "implementations/ts/src/resolve/eval.ts",
+      "definition": "implementations/ts/src/resolve/eval.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native resolve API EvalHooks.memo implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/eval.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:resolve/eval.ts:ChildMemo",
+      "owner": "resolve",
+      "symbol": "ChildMemo",
+      "source": "implementations/ts/src/resolve/eval.ts",
+      "definition": "implementations/ts/src/resolve/eval.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native resolve API ChildMemo implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/eval.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:resolve/eval.ts:ChildMemo#get",
+      "owner": "resolve",
+      "symbol": "ChildMemo.get",
+      "source": "implementations/ts/src/resolve/eval.ts",
+      "definition": "implementations/ts/src/resolve/eval.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native resolve API ChildMemo.get implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/eval.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:resolve/eval.ts:ChildMemo#put",
+      "owner": "resolve",
+      "symbol": "ChildMemo.put",
+      "source": "implementations/ts/src/resolve/eval.ts",
+      "definition": "implementations/ts/src/resolve/eval.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native resolve API ChildMemo.put implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/eval.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:index.ts:ChildMemo",
+      "owner": "resolve",
+      "symbol": "ChildMemo",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/resolve/eval.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native resolve API ChildMemo implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/eval.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:ChildMemo#get",
+      "owner": "resolve",
+      "symbol": "ChildMemo.get",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/resolve/eval.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native resolve API ChildMemo.get implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/eval.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:ChildMemo#put",
+      "owner": "resolve",
+      "symbol": "ChildMemo.put",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/resolve/eval.ts",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native resolve API ChildMemo.put implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/eval.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
     }
   ]
 }

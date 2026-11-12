@@ -4,7 +4,7 @@
 // (tools/store-round-vectors.ts), never from the code under test.
 //
 // Modes here: the whole surface through the exporter; rounds with no fetch cache; rounds with
-// the fetch cache. The evaluation memo adds two modes to `MODES` when it exists.
+// the fetch cache; each of the two with the evaluation memo.
 //
 // Not covered here: the scope bounds of a store (store-vectors.test.ts) and the existing read
 // families run through the store (a later step of slice 2).
@@ -18,11 +18,13 @@ import { parseClaims } from "../src/delta/json-profile.js";
 import { DeltaSet, makeDelta, makeNegationClaims } from "../src/delta/set.js";
 import type { Delta } from "../src/delta/types.js";
 import {
+  CACHED_ROUNDS,
   STANDARD_ROUNDS,
   StoreReactor,
   UNCACHED_ROUNDS,
   UnanchoredTermError,
   fetchScope,
+  finalChildMemo,
   readAnchored,
   readAnchoredWith,
   unappliedFields,
@@ -33,7 +35,15 @@ import {
   type StoreRoundReport,
 } from "../src/reactor/store-read.js";
 import { anchorAnalysis, hviewAnchors } from "../src/resolve/anchored.js";
-import { evalTerm, resultCanonicalHex, type EvalResult } from "../src/resolve/eval.js";
+import type { HView } from "../src/algebra/hview.js";
+import {
+  evalTerm,
+  evalTermWithHooks,
+  resultCanonicalHex,
+  type ChildMemo,
+  type EvalResult,
+} from "../src/resolve/eval.js";
+import { EvaluationBudget } from "../src/resolve/evaluation-budget.js";
 import { SchemaRegistry } from "../src/schema/schema.js";
 import { createFetchCache } from "../src/storage/fetch-cache.js";
 import { createMemoryStore, type StoreMeter } from "../src/storage/memory-store.js";
@@ -51,7 +61,8 @@ import {
   type Store,
   type VerifiedDelta,
 } from "../src/storage/store.js";
-import type { Term } from "../src/syntax/model.js";
+import type { SchemaRefT, Term } from "../src/syntax/model.js";
+import type { Bindings } from "../src/syntax/pred.js";
 import { parseTerm } from "../src/syntax/term-json.js";
 import {
   roundVectors,
@@ -230,6 +241,16 @@ const MODES: readonly Mode[] = [
   {
     name: "rounds with the fetch cache",
     rounds: (expected) => expected,
+    run: ({ peer }, read) => withPolicy(peer, read, CACHED_ROUNDS),
+  },
+  {
+    name: "rounds with the evaluation memo and no fetch cache",
+    rounds: cumulative,
+    run: ({ peer }, read) => withPolicy(peer, read, { ...UNCACHED_ROUNDS, memo: finalChildMemo }),
+  },
+  {
+    name: "rounds with both caches",
+    rounds: (expected) => expected,
     run: ({ peer }, read) => withPolicy(peer, read, STANDARD_ROUNDS),
   },
 ];
@@ -256,8 +277,9 @@ describe("round vectors: the document", () => {
 
   it("has the cases the rails below name", () => {
     expect(document.format).toBe("rhizomatic-store-rounds/1");
-    expect(document.cases.length).toBeGreaterThanOrEqual(17);
-    expect(document.interleaved.length).toBeGreaterThanOrEqual(3);
+    expect(document.cases.length).toBeGreaterThanOrEqual(21);
+    expect(document.interleaved.length).toBeGreaterThanOrEqual(4);
+    expect(MODES).toHaveLength(5);
     expect(document.refusals.length).toBeGreaterThanOrEqual(5);
     expect(FIELD_SUBSETS).toHaveLength(8);
     expect(pick("the-whole-garden").expect.rounds).toHaveLength(4);
@@ -918,6 +940,308 @@ describe("round vectors: what the read trusts and what it keeps", () => {
     expect(answers).toContain("a-resolved-tree-cut-at-a-strike");
     // A case with no time cut is not touched by the lie.
     expect(answers).not.toContain("the-whole-garden");
+  });
+});
+
+// ---- the evaluation memo ------------------------------------------------------------------
+
+/** How a memo under test forms its key and what it keeps (SPEC-18 §4.12 reading 21). */
+type MemoRule = {
+  /** Keep a child only when every anchor its HView shows is fetched. */
+  readonly finalOnly: boolean;
+  readonly keyBindings: boolean;
+  readonly keyRoot: boolean;
+  /** A store kept outside the attempt: across reads, or across the snapshots of one read. */
+  readonly kept?: Map<string, HView>;
+};
+const RIGHT: MemoRule = { finalOnly: true, keyBindings: true, keyRoot: true };
+
+/** A memo written beside the witness's, so each rule can be broken alone. */
+const ruledMemo =
+  (rule: MemoRule) =>
+  (fetched: ReadonlySet<string>): ChildMemo => {
+    const kept = rule.kept ?? new Map<string, HView>();
+    const ids = new Map<Bindings, number>();
+    const idOfBindings = (bindings: Bindings | undefined): number => {
+      if (bindings === undefined || !rule.keyBindings) return 0;
+      if (!ids.has(bindings)) ids.set(bindings, ids.size + 1);
+      return ids.get(bindings)!;
+    };
+    const key = (schema: SchemaRefT, bindings: Bindings | undefined, root: string): string =>
+      JSON.stringify([
+        schema.kind === "name" ? schema.name : schema.hash,
+        idOfBindings(bindings),
+        rule.keyRoot ? root : "",
+      ]);
+    return {
+      get: (schema, bindings, root) => kept.get(key(schema, bindings, root)),
+      put: (schema, bindings, root, hview) => {
+        if (!rule.finalOnly || hviewAnchors(hview).every((entity) => fetched.has(entity)))
+          kept.set(key(schema, bindings, root), hview);
+      },
+    };
+  };
+const withMemo = (rule: MemoRule): RoundPolicy => ({ ...CACHED_ROUNDS, memo: ruledMemo(rule) });
+
+/** What a memo saw: one `put` per child evaluation, and whether the memo kept it. */
+type MemoCount = {
+  gets: number;
+  hits: number;
+  evaluations: number;
+  final: number;
+  notFinal: number;
+  keys: Set<string>;
+  finalKeys: string[];
+};
+const newCount = (): MemoCount => ({
+  gets: 0,
+  hits: 0,
+  evaluations: 0,
+  final: 0,
+  notFinal: 0,
+  keys: new Set(),
+  finalKeys: [],
+});
+/** Counts through the hook. With no inner memo it keeps nothing: the read without a memo. */
+const counted =
+  (count: MemoCount, inner?: (fetched: ReadonlySet<string>) => ChildMemo) =>
+  (fetched: ReadonlySet<string>): ChildMemo => {
+    const memo = inner?.(fetched);
+    const keyOf = (schema: SchemaRefT, bindings: Bindings | undefined, root: string): string =>
+      JSON.stringify([schema, [...(bindings ?? [])], root]);
+    return {
+      get: (schema, bindings, root) => {
+        count.gets += 1;
+        const hit = memo?.get(schema, bindings, root);
+        if (hit !== undefined) count.hits += 1;
+        return hit;
+      },
+      put: (schema, bindings, root, hview) => {
+        count.evaluations += 1;
+        const key = keyOf(schema, bindings, root);
+        count.keys.add(key);
+        memo?.put(schema, bindings, root, hview);
+        if (memo?.get(schema, bindings, root) === hview) {
+          count.final += 1;
+          count.finalKeys.push(key);
+        } else count.notFinal += 1;
+      },
+    };
+  };
+
+describe("the evaluation memo", () => {
+  const ALL = PUSHDOWN_FIELDS;
+
+  it("changes no round report: modes 5 and 4 report what modes 3 and 2 report", async () => {
+    const loaded = await load();
+    for (const c of document.cases)
+      for (const [plain, memo] of [
+        [CACHED_ROUNDS, STANDARD_ROUNDS],
+        [UNCACHED_ROUNDS, { ...UNCACHED_ROUNDS, memo: finalChildMemo }],
+      ] as const) {
+        const reports: (readonly StoreRoundReport[])[] = [];
+        for (const policy of [plain, memo])
+          reports.push(
+            await onSnapshot(loaded.peer, async (snapshot) => {
+              const hooked: StoreRoundReport[] = [];
+              const read = await readAnchoredWith(
+                snapshot,
+                requestOf(c, { onRound: (round) => void hooked.push(round) }),
+                policy,
+              );
+              expect(hooked, c.name).toEqual(read.rounds);
+              return read.rounds;
+            }),
+          );
+        expect(reports[1], c.name).toEqual(reports[0]);
+      }
+  });
+
+  it("a memo written by the rule of reading 21 fails no case (the control for the rails below)", async () => {
+    for (const applied of [[], ALL])
+      expect(await failures(withMemo(RIGHT), applied)).toEqual({ answers: [], rounds: [] });
+  });
+
+  it("a memo that keeps every child, final or not", async () => {
+    const { answers } = await failures(withMemo({ ...RIGHT, finalOnly: false }), ALL);
+    // Round 1 evaluates the beds over the garden's scope alone, and the memo keeps the empty
+    // answer for the rest of the read.
+    expect(answers).toContain("the-whole-garden");
+    expect(answers).toContain("a-subtree");
+    // One round evaluates no child that a later round could need.
+    expect(answers).not.toContain("a-root-nothing-points-at");
+  });
+
+  it("a memo whose key leaves out the bindings", async () => {
+    const { answers } = await failures(withMemo({ ...RIGHT, keyBindings: false }), ALL);
+    expect(answers).toEqual(["one-child-under-two-bindings"]);
+  });
+
+  it("a memo whose key leaves out the root", async () => {
+    const { answers } = await failures(withMemo({ ...RIGHT, keyRoot: false }), ALL);
+    expect(answers).toContain("the-whole-garden");
+    expect(answers).toContain("lawful-strikers");
+  });
+
+  it("a memo kept across two reads", async () => {
+    // One store for every case of the run: each read starts with what the reads before it kept.
+    const kept = new Map<string, HView>();
+    const { answers } = await failures(withMemo({ ...RIGHT, kept }), ALL);
+    expect(kept.size).toBeGreaterThan(0);
+    expect(answers).toContain("signed-time-cuts-a-link-and-a-strike");
+    expect(answers).toContain("every-field");
+    // The first case reads with an empty memo, so it is right.
+    expect(answers).not.toContain(document.cases[0]!.name);
+  });
+
+  it("a memo kept across the snapshots of one read (a retry)", async () => {
+    // A wrapper that starts again on `snapshot-moved`, as StoreReactor.read does. With `share`
+    // set, each new attempt gets the memo of the attempt before it.
+    const restart =
+      (share: boolean) =>
+      async (peer: PeerStore, request: StoreReadRequest): Promise<StoreRead> => {
+        const kept = new Map<string, HView>();
+        for (let attempt = 1; ; attempt += 1) {
+          const policy = share ? withMemo({ ...RIGHT, kept }) : STANDARD_ROUNDS;
+          const snapshot = await peer.read();
+          try {
+            return await readAnchoredWith(snapshot, request, policy, attempt);
+          } catch (error) {
+            const moved = error instanceof StoreError && error.code === "snapshot-moved";
+            if (!moved || attempt > 3) throw error;
+          } finally {
+            snapshot.release();
+          }
+        }
+      };
+    for (const c of document.interleaved) {
+      if (c.afterRound === c.expect.before.rounds.length) continue;
+      const right = await interleave(c, restart(false));
+      expect(right.outcome, c.name).toEqual({ answer: c.expect.after, revision: right.end });
+      const { outcome } = await interleave(c, restart(true));
+      if (!("answer" in outcome)) throw new Error(`${c.name}: the read refused`);
+      expect(outcome.answer.members, c.name).toEqual(c.expect.after.members);
+      if (c.afterRound === 1) {
+        // Round 1 finishes no child, so the memo it hands on is empty and the answer is right.
+        expect(outcome.answer, c.name).toEqual(c.expect.after);
+        continue;
+      }
+      // Round 3 finished Leaf at cutting:1, and the append is under it: the old cutting:1
+      // beside the new members, which is neither answer.
+      expect(c.afterRound, c.name).toBe(3);
+      expect(outcome.answer.canonicalHex, c.name).not.toBe(c.expect.after.canonicalHex);
+      expect(outcome.answer.canonicalHex, c.name).not.toBe(c.expect.before.canonicalHex);
+    }
+  });
+
+  it("evaluates fewer children: each key once as final, plus each time it was not final", async () => {
+    const loaded = await load();
+    const report: Record<string, Record<string, number>> = {};
+    for (const name of ["the-whole-garden", "lawful-strikers", "one-child-under-two-bindings"]) {
+      const c = pick(name);
+      const none = newCount();
+      const memo = newCount();
+      for (const [count, policy] of [
+        [none, { ...CACHED_ROUNDS, memo: counted(none) }],
+        [memo, { ...CACHED_ROUNDS, memo: counted(memo, finalChildMemo) }],
+      ] as const) {
+        const read = await onSnapshot(loaded.peer, (snapshot) =>
+          readAnchoredWith(snapshot, requestOf(c), policy),
+        );
+        expect(answerOf(read), name).toEqual(c.expect);
+        // Every lookup that misses is followed by one evaluation and one `put`.
+        expect(count.gets, name).toBe(count.evaluations + count.hits);
+      }
+      expect(c.expect.rounds.length, name).toBeGreaterThanOrEqual(3);
+      // Without the memo nothing is kept and every child reached is evaluated in every round.
+      expect(none.hits + none.final, name).toBe(0);
+      // With it: strictly fewer evaluations, each key final at most once, and nothing more.
+      expect(memo.evaluations, name).toBeLessThan(none.evaluations);
+      expect(new Set(memo.finalKeys).size, name).toBe(memo.finalKeys.length);
+      expect(memo.evaluations, name).toBe(memo.final + memo.notFinal);
+      expect(memo.evaluations, name).toBeLessThanOrEqual(memo.keys.size + memo.notFinal);
+      expect(memo.hits, name).toBeGreaterThan(0);
+      report[name] = {
+        rounds: c.expect.rounds.length,
+        withoutMemo: none.evaluations,
+        withMemo: memo.evaluations,
+        keys: memo.keys.size,
+        final: memo.final,
+        notFinal: memo.notFinal,
+        hits: memo.hits,
+      };
+    }
+    // The numbers, so a change in what the memo saves is seen. A witness that counts child
+    // evaluations the same way (one per `put`) gets the same ones.
+    expect(report).toEqual({
+      "the-whole-garden": {
+        rounds: 4,
+        withoutMemo: 159,
+        withMemo: 62,
+        keys: 18,
+        final: 18,
+        notFinal: 44,
+        hits: 42,
+      },
+      "lawful-strikers": {
+        rounds: 4,
+        withoutMemo: 159,
+        withMemo: 62,
+        keys: 18,
+        final: 18,
+        notFinal: 44,
+        hits: 42,
+      },
+      "one-child-under-two-bindings": {
+        rounds: 3,
+        withoutMemo: 38,
+        withMemo: 24,
+        keys: 11,
+        final: 11,
+        notFinal: 13,
+        hits: 12,
+      },
+    });
+  });
+
+  it("is not consulted when an evaluation budget is present", () => {
+    const c = pick("the-whole-garden");
+    const request = requestOf(c);
+    const whole = DeltaSet.from([...deltaOf.values()]);
+    const spy = (count: { get: number; put: number }): ChildMemo => ({
+      get: () => {
+        count.get += 1;
+        return undefined;
+      },
+      put: () => void (count.put += 1),
+    });
+    const limits = { nodes: 4096, entries: 16384, buckets: 256, depth: 32 };
+    const plain = resultCanonicalHex(
+      evalTerm(request.term, whole, request.now, request.root, registry),
+    );
+    const budgeted = { get: 0, put: 0 };
+    const result = evalTermWithHooks(
+      request.term,
+      whole,
+      request.now,
+      { budget: new EvaluationBudget(limits), memo: spy(budgeted) },
+      request.root,
+      registry,
+    );
+    expect(resultCanonicalHex(result)).toBe(plain);
+    expect(budgeted).toEqual({ get: 0, put: 0 });
+    // The control: without the budget the same memo is asked about every child.
+    const free = { get: 0, put: 0 };
+    evalTermWithHooks(
+      request.term,
+      whole,
+      request.now,
+      { memo: spy(free) },
+      request.root,
+      registry,
+    );
+    expect(free.get).toBeGreaterThan(0);
+    expect(free.put).toBe(free.get);
   });
 });
 

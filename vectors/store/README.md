@@ -738,10 +738,35 @@ by §5.2. Every mode MUST give `canonicalHex`, `scope` and `members`.
 | 1 | Whole surface | List the peer's deltas through the exporter (`openAdmin().peer(id).deltas()`), keep those that pass `selection`, evaluate the term over all of them with the ordinary evaluator. The exporter lists no arrival record: take each delta's arrival from the load (§5.2). The scope is the request root, the term's static anchors, and the anchors that the gather's HView shows when the gather is evaluated over the same deltas (for a `resolve` term the gather is its operand; the View itself shows no anchors). The members are the scope of those entities, found by scanning. |
 | 2 | Rounds, no cache | §5.3, but every round asks for **every** anchor so far and sends no `exclude`. Each answer alone then carries the whole scope so far; nothing an earlier round fetched is needed. |
 | 3 | Rounds, fetch cache | §5.3 as written. |
-| 4 | Rounds, evaluation memo, no fetch cache | Mode 2 with the memo of SPEC-18 §4.4. |
-| 5 | Rounds, both caches | Mode 3 with the memo. |
+| 4 | Rounds, evaluation memo, no fetch cache | Mode 2 with the memo below. |
+| 5 | Rounds, both caches | Mode 3 with the memo below. |
 
 Modes 4 and 5 exist once a witness has the evaluation memo; until then it runs 1 to 3.
+
+**The evaluation memo** (SPEC-18 §4.4; §4.12 readings 21 to 26 give the proof). A **child
+evaluation** is one schema body evaluated at one root: each child of an `expand`, and the body of
+a `fix`. The memo works as follows.
+
+1. One memo per attempt of one read. It starts empty when the read takes its snapshot. A read that
+   starts again on a new snapshot starts a new memo. No memo serves two reads.
+2. The key is (schema reference, bindings, root). The schema reference is the name or the pinned
+   hash, as the term writes it. The bindings are the ones in effect: the request's, or those of
+   the nearest enclosing `fix` that has `bindings`. Compare them by identity within the read (one
+   object, or one place in the term); two binding sets with the same entries may share a key or
+   not. The root is the entity id.
+3. Before it evaluates a child, the evaluator looks up the key. On a hit it uses the stored HView
+   and evaluates nothing under that child.
+4. After it evaluates a child, it stores the HView only when the child is **final**: every anchor
+   the HView shows has been asked for in this read, in this round or an earlier one. The anchors
+   an HView shows are its id and the id of every child expanded inside it, at any depth (the same
+   set as step 3.5 of §5.3). A child that is not final is not stored; the next round that reaches
+   it evaluates it again.
+5. The final `resolve` evaluation of a `resolve` term uses the same memo.
+6. When an evaluation budget is present, the memo is off: no lookup and no store. A hit would skip
+   the work the budget counts. A store-backed read has no budget.
+
+The memo changes no answer, no scope, no member and no round: modes 4 and 5 have the same round
+anchors as modes 2 and 3.
 
 Mode 1's scope equals the scope of the rounds. SPEC-17 discovery finds only true anchors, so the
 whole-surface gather shows exactly the anchors that the rounds reach, and no others.
@@ -782,6 +807,12 @@ What the fixture holds, so a reader that gets one of these wrong fails a case:
   strict comparison drops it, and `c1-note` shows.
 - Two index shapes: `b2-name-twice` points at `bed:2` twice, and `c2-size-remark` points at
   `c2-size` with the role `annotates`, which is no negation.
+- One child under two bindings (`one-child-under-two-bindings`). `StrikerLeaf` trusts the
+  strikes of the author that the hole `striker` names. The `fix` reads the tree with Alice's
+  strikes; the `expand` over it follows the garden's `star` link to `cutting:1` with the request's
+  bindings, Bob's. Round 2 reaches `cutting:1` under `StrikerLeaf` both ways, and both are final
+  in that round. The two HViews differ: under Bob's strikes `c1-height` is struck. A memo whose
+  key leaves out the bindings serves one for the other and fails this case, and only this case.
 
 ### 5.5 An interleaved case
 
@@ -800,6 +831,11 @@ What the fixture holds, so a reader that gets one of these wrong fails a case:
 ```
 
 A case has exactly one of `append` and `purge`. `purge` holds corpus names, ascending by id.
+
+`an-append-after-the-third-round` appends `late-c1-height-neg` after round 3. Round 3 finishes
+`Leaf` at `cutting:1`, and the append strikes `c1-height` there. A wrapper that starts again but
+keeps its evaluation memo shows the old `cutting:1` beside the new members: neither answer. The
+cases that change the peer after round 1 cannot show it, because round 1 finishes no child.
 
 The peer moves while a read is between two rounds. A reader needs a **hook** for this: a
 callback it runs after each round's evaluation (§5.3 step 3.4) and before the next `scope` call,
@@ -873,10 +909,47 @@ The JSON cannot express these; each witness builds them over this fixture.
   - A reader that asks for every anchor in every round with the cache on. Its answers are right;
     it fails `expect.rounds`.
 - **A sticky residual.** No vector pins it, because a memory profile is the same in every round.
-  Each witness reads every case against a store double that leaves one field to the host in the
-  odd rounds only, and again in the even rounds only. The standard reader passes both; a control
-  that never applies the field fails. A reader that keeps only the last round's residual, or
-  only the first's, passes one parity and fails the other, so both parities are needed.
+  Each witness reads every case against a store double that leaves one field
+  (`timestampAtMost`) to the host in the odd rounds only, and again in the even rounds only. The
+  standard reader passes both parities. The control is a **reader** that never applies that field
+  itself, over the same store double: it fails both parities. (A store that never applies the field
+  is a different check: it is a switched-off profile of §5.4, where every round leaves the field
+  to the host.) Both parities are needed, because a reader that forgets a residual can pass
+  one of them. Measured in the TypeScript witness over the whole case set:
+  - A reader that keeps only the **first** round's residual fails the even parity (round 1
+    applied the field, so it never becomes residual; `signed-time-cuts-a-link-and-a-strike`
+    fails) and **passes** the odd parity, where round 1 left it to the host.
+  - A reader that keeps only the **current** round's residual (each round forgets what the round
+    before it left to the host) fails **both** parities. In a round where the store applied the
+    field, it stops trimming the members that an earlier round fetched past the cut, and the
+    anchors it finds then stay in its scope. The even parity fails
+    `signed-time-cuts-a-link-and-a-strike`; the odd parity fails that case and `every-field`.
+  So the first-round reader is the one that needs both parities. Only a case whose selection has a
+  time cut and that runs more than one round can show any of this.
+- **Wrong evaluation memos.** Each must fail at least one case in mode 4 or 5, and a memo written
+  by the rule of §5.4 must fail none:
+  - A memo that stores every child, final or not. Round 1 evaluates the beds over the garden's
+    scope alone and keeps the empty answer. It fails `the-whole-garden`.
+  - A memo whose key leaves out the bindings. It fails `one-child-under-two-bindings`, and no
+    other case.
+  - A memo whose key leaves out the root. It fails `the-whole-garden`.
+  - A memo kept across two reads: one store for every case of a run. It fails a case whose
+    selection differs from an earlier case's (`signed-time-cuts-a-link-and-a-strike`).
+  - A memo kept across the snapshots of one read, by a wrapper that starts again on
+    `snapshot-moved`. It fails `an-append-after-the-third-round` (§5.5), and answers the round-1
+    cases right.
+- **What the memo saves.** Count through the memo hook, not by timing: one evaluation per child
+  evaluated, a hit for each lookup that finds its key, and whether each evaluated child was
+  stored. Against the same read with a memo that stores nothing: the memo makes strictly fewer
+  child evaluations on a case of depth three; it stores each key at most once; and its evaluations
+  equal the stored ones plus the ones that were not final. The TypeScript witness, counting one
+  evaluation per stored-or-refused child, measures: `the-whole-garden` 159 without the memo and
+  62 with it (18 keys, 18 stored, 44 not final, 42 hits); `one-child-under-two-bindings` 38 and 24
+  (11 keys, 11 stored, 13 not final, 12 hits).
+- **The memo and a budget.** An evaluation with a budget and a memo never calls the memo; the
+  same evaluation without the budget does.
+- **The memo changes no report.** For every case, the round reports of modes 3 and 5, and of
+  modes 2 and 4, are equal.
 - **The hook.** For every case, the hook ran once per round, also after the last round, and its
   reports equal the read's own round reports. A read that a wrapper started again reports each
   attempt, and the reports of two attempts differ in `attempt` and `revision`.

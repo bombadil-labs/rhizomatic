@@ -13,9 +13,10 @@ import {
   type AnchoredRead,
   type UnanchoredReason,
 } from "../resolve/anchored.js";
-import { evalTerm, type EvalResult } from "../resolve/eval.js";
+import type { HView } from "../algebra/hview.js";
+import { evalTerm, type ChildMemo, type EvalResult } from "../resolve/eval.js";
 import type { SchemaRegistry } from "../schema/schema.js";
-import type { Term } from "../syntax/model.js";
+import type { SchemaRefT, Term } from "../syntax/model.js";
 import type { Bindings } from "../syntax/pred.js";
 import type { ArrivalRecord } from "../storage/arrival-record.js";
 import { createReadCache, type HeldMembers } from "../storage/fetch-cache.js";
@@ -118,6 +119,12 @@ export interface RoundPolicy {
   }): ScopeRequest;
   /** The fields of the pushdown that was sent which the host must apply itself. */
   residual(sent: Pushdown | undefined, applied: AppliedPushdown): readonly PushdownField[];
+  /**
+   * The evaluation memo of one attempt of one read (SPEC-18 §4.12 reading 21), made once when
+   * the attempt starts. `fetched` is every anchor asked for so far; it grows as the rounds go.
+   * Absent: every round evaluates every child it reaches.
+   */
+  readonly memo?: (fetched: ReadonlySet<Entity>) => ChildMemo;
 }
 
 const entityAnchors = (entities: readonly Entity[]): ScopeRequest["anchors"] =>
@@ -131,9 +138,51 @@ export function unappliedFields(
   return FIELDS.filter((field) => sent?.[field] !== undefined && !applied[field]);
 }
 
-/** One `scope` call per round, for the new anchors only, naming everything held (§4.4). */
-export const STANDARD_ROUNDS: RoundPolicy = {
-  request: ({ fresh, held, pushdown }) => {
+/** Is every anchor this HView shows fetched? Its id, and every child expanded in it. */
+function finalIn(fetched: ReadonlySet<Entity>, known: WeakSet<HView>, hview: HView): boolean {
+  if (known.has(hview)) return true;
+  if (!fetched.has(hview.id)) return false;
+  for (const entries of hview.props.values())
+    for (const entry of entries)
+      for (const child of entry.expanded?.values() ?? [])
+        if (!finalIn(fetched, known, child)) return false;
+  // Fetched anchors are never dropped within an attempt, so a final HView stays final.
+  known.add(hview);
+  return true;
+}
+
+/**
+ * The evaluation memo of SPEC-18 §4.4 for one attempt of one read. It keeps a child evaluation
+ * under (schema reference, bindings object, root), and only when the child is final: every
+ * anchor its HView shows has been fetched. Such a child equals the child over the whole surface,
+ * and no later round of the attempt can change it (§4.12 reading 22). A child that is not final
+ * is evaluated again by the next round that reaches it.
+ */
+export function finalChildMemo(fetched: ReadonlySet<Entity>): ChildMemo {
+  const kept = new Map<string, HView>();
+  const known = new WeakSet<HView>();
+  // Bindings by identity: the term holds each bindings object for the whole read (reading 21).
+  const bindingIds = new Map<Bindings, number>();
+  const key = (schema: SchemaRefT, bindings: Bindings | undefined, root: string): string => {
+    let id = 0;
+    if (bindings !== undefined) {
+      id = bindingIds.get(bindings) ?? bindingIds.size + 1;
+      bindingIds.set(bindings, id);
+    }
+    const ref = schema.kind === "name" ? `n:${schema.name}` : `h:${schema.hash}`;
+    return JSON.stringify([ref, id, root]);
+  };
+  return {
+    get: (schema, bindings, root) => kept.get(key(schema, bindings, root)),
+    put: (schema, bindings, root, hview) => {
+      if (finalIn(fetched, known, hview)) kept.set(key(schema, bindings, root), hview);
+    },
+  };
+}
+
+// One `scope` call per round, for the new anchors only, naming everything held (§4.4).
+const NEW_ANCHORS_ONLY = {
+  request: ({ fresh, held, pushdown }: Parameters<RoundPolicy["request"]>[0]): ScopeRequest => {
     const exclude = [...held];
     return {
       anchors: entityAnchors(fresh),
@@ -144,9 +193,15 @@ export const STANDARD_ROUNDS: RoundPolicy = {
   residual: unappliedFields,
 };
 
+/** The fetch cache and no evaluation memo: mode 3 of the round vectors. */
+export const CACHED_ROUNDS: RoundPolicy = NEW_ANCHORS_ONLY;
+
+/** The fetch cache and the evaluation memo: the read `readAnchored` makes (mode 5). */
+export const STANDARD_ROUNDS: RoundPolicy = { ...NEW_ANCHORS_ONLY, memo: finalChildMemo };
+
 /**
- * The same read with no use of the fetch cache: every round fetches every anchor again and
- * names nothing as held, so each answer alone carries the whole scope so far.
+ * The same read with no use of the fetch cache and no memo (mode 2): every round fetches every
+ * anchor again and names nothing as held, so each answer alone carries the whole scope so far.
  */
 export const UNCACHED_ROUNDS: RoundPolicy = {
   request: ({ anchors, pushdown }) => ({
@@ -185,13 +240,13 @@ function residualSelection(
   };
 }
 
-// One evaluation of the gather over the exact members of a round. The evaluation memo of the
-// slice 2 plan §3 hooks in here: it wraps this call, keyed by (schema reference, bindings,
-// root), and may keep a child only when every anchor its HView shows has been fetched.
+// One evaluation of the gather over the exact members of a round. With a memo, a child that an
+// earlier round finished is not evaluated again.
 function evaluateRound(
   gather: Term,
   members: DeltaSet,
   request: StoreReadRequest,
+  memo: ChildMemo | undefined,
 ): Extract<EvalResult, { sort: "hview" }> {
   const gathered = evalTerm(
     gather,
@@ -200,6 +255,7 @@ function evaluateRound(
     request.root,
     request.registry,
     request.bindings,
+    memo,
   );
   if (gathered.sort !== "hview") throw new UnanchoredTermError("result-sort");
   return gathered;
@@ -224,6 +280,8 @@ export async function readAnchoredWith(
   const { cache, held } = createReadCache();
   const unapplied = new Set<PushdownField>();
   const anchors = new Set<Entity>();
+  // The memo reads `anchors` as it grows. It lives as long as this attempt and no longer.
+  const memo = policy.memo?.(anchors);
   const rounds: StoreRoundReport[] = [];
   let fresh = [...new Set([root, ...analysis.anchors])].sort(compareUtf8);
   for (;;) {
@@ -248,7 +306,7 @@ export async function readAnchoredWith(
       residualSelection(held, asked.pushdown, unapplied, request.admits),
     );
     const set = held.subset(members);
-    const gathered = evaluateRound(gather, set, request);
+    const gathered = evaluateRound(gather, set, request, memo);
     const report: StoreRoundReport = {
       round: rounds.length + 1,
       attempt,
@@ -267,7 +325,7 @@ export async function readAnchoredWith(
       const result =
         gather === term
           ? gathered
-          : evalTerm(term, set, request.now, root, registry, request.bindings);
+          : evalTerm(term, set, request.now, root, registry, request.bindings, memo);
       return {
         result,
         scope: [...anchors].sort(compareUtf8),

@@ -94,8 +94,15 @@ read type for consumers, and the principal reads take it.
   holds: it checks and copies each member as `scopeSource` does, refuses a member whose arrival
   record is missing or names another id, adds nothing on a refused call, and hands out copies or
   frozen lists only. It has no `subset`; use `source(ids)`. Each `StoreRoundReport` carries the
-  `attempt` and the snapshot `revision`. The evaluation memo is not built yet. The memory
-  `Reactor` is unchanged.
+  `attempt` and the snapshot `revision`. The memory `Reactor` is unchanged.
+- Slice 2, TypeScript: the evaluation memo of the store-backed read (SPEC-18 §4.4, §4.12
+  readings 21 to 26). `readAnchored` keeps one memo per snapshot. It stores a child evaluation
+  under (schema reference, bindings object, root) only when every anchor the child's HView shows
+  has been fetched, and a later round of the same read uses it without evaluating that child
+  again. `evalTerm` takes an optional `ChildMemo` (`get`, `put`) as its last argument; the
+  evaluator asks it before each `expand` child and `fix` body and decides nothing about what
+  stays right. `evalTermWithHooks` carries a budget and a memo together; a budget turns the memo
+  off. No answer changes. The round vectors gain `one-child-under-two-bindings`.
 - Shared vectors `vectors/store/rounds.json`: reads in rounds, with the anchors of each round,
   interleaved appends, a purge between two rounds, and refusals. Format in `vectors/store/README.md` §5. Both witnesses run
   them.

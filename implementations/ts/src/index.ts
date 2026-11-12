@@ -38,6 +38,7 @@ export {
   expandAliased,
   resultCanonicalHex,
   type AliasedSpec,
+  type ChildMemo,
   type EvalResult,
   type AuthorSelection,
   type GroupKey,

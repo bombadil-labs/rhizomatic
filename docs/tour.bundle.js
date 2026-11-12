@@ -3991,10 +3991,10 @@
     }
     return [...out].sort(comparePrimitives);
   }
-  function resolveReflective(pred, input, root, registry, bindings, budget) {
+  function resolveReflective(pred, input, root, registry, bindings, budget, memo) {
     switch (pred.kind) {
       case "inView": {
-        const sub = evalTermWithin(pred.term, input, root, registry, bindings, budget);
+        const sub = evalTermWithin(pred.term, input, root, registry, bindings, budget, memo);
         if (sub.sort !== "dset") throw new Error("inView.term must evaluate to a DSet (E9)");
         return {
           kind: "match",
@@ -4006,19 +4006,19 @@
       case "and":
         return {
           kind: "and",
-          left: resolveReflective(pred.left, input, root, registry, bindings, budget),
-          right: resolveReflective(pred.right, input, root, registry, bindings, budget)
+          left: resolveReflective(pred.left, input, root, registry, bindings, budget, memo),
+          right: resolveReflective(pred.right, input, root, registry, bindings, budget, memo)
         };
       case "or":
         return {
           kind: "or",
-          left: resolveReflective(pred.left, input, root, registry, bindings, budget),
-          right: resolveReflective(pred.right, input, root, registry, bindings, budget)
+          left: resolveReflective(pred.left, input, root, registry, bindings, budget, memo),
+          right: resolveReflective(pred.right, input, root, registry, bindings, budget, memo)
         };
       case "not":
         return {
           kind: "not",
-          pred: resolveReflective(pred.pred, input, root, registry, bindings, budget)
+          pred: resolveReflective(pred.pred, input, root, registry, bindings, budget, memo)
         };
       case "actsFor":
         throw new Error("actsFor requires an explicit principal resolver (SPEC-14)");
@@ -4070,13 +4070,13 @@
   function evalTermRaw(term, input, root, registry, bindings) {
     return evalTermWithin(term, input, root, registry, bindings);
   }
-  function evalTermWithin(term, input, root, registry, bindings, budget) {
+  function evalTermWithin(term, input, root, registry, bindings, budget, memo) {
     switch (term.kind) {
       case "input":
         return dsetResult(input);
       case "select": {
         const of = expectDSet(
-          evalTermWithin(term.of, input, root, registry, bindings, budget),
+          evalTermWithin(term.of, input, root, registry, bindings, budget, memo),
           "select"
         );
         const pred = resolveReflective(
@@ -4085,46 +4085,47 @@
           root,
           registry,
           bindings,
-          budget
+          budget,
+          memo
         );
         return dsetResult(fork(of.set, (d) => evalPred(pred, d, root)));
       }
       case "union": {
         const left = expectDSet(
-          evalTermWithin(term.left, input, root, registry, bindings, budget),
+          evalTermWithin(term.left, input, root, registry, bindings, budget, memo),
           "union"
         );
         const right = expectDSet(
-          evalTermWithin(term.right, input, root, registry, bindings, budget),
+          evalTermWithin(term.right, input, root, registry, bindings, budget, memo),
           "union"
         );
         return dsetResult(merge(left.set, right.set));
       }
       case "intersect": {
         const left = expectDSet(
-          evalTermWithin(term.left, input, root, registry, bindings, budget),
+          evalTermWithin(term.left, input, root, registry, bindings, budget, memo),
           "intersect"
         );
         const right = expectDSet(
-          evalTermWithin(term.right, input, root, registry, bindings, budget),
+          evalTermWithin(term.right, input, root, registry, bindings, budget, memo),
           "intersect"
         );
         return dsetResult(fork(left.set, (d) => right.set.has(d.id)));
       }
       case "difference": {
         const of = expectDSet(
-          evalTermWithin(term.of, input, root, registry, bindings, budget),
+          evalTermWithin(term.of, input, root, registry, bindings, budget, memo),
           "difference"
         );
         const without = expectDSet(
-          evalTermWithin(term.without, input, root, registry, bindings, budget),
+          evalTermWithin(term.without, input, root, registry, bindings, budget, memo),
           "difference"
         );
         return dsetResult(fork(of.set, (d) => !without.set.has(d.id)));
       }
       case "mask": {
         const of = expectDSet(
-          evalTermWithin(term.of, input, root, registry, bindings, budget),
+          evalTermWithin(term.of, input, root, registry, bindings, budget, memo),
           "mask"
         );
         switch (term.policy.kind) {
@@ -4143,7 +4144,8 @@
               root,
               registry,
               bindings,
-              budget
+              budget,
+              memo
             );
             const negated = computeNegated(of.set, (n) => evalPred(pred, n, root));
             return dsetResult(fork(of.set, (d) => !negated.has(d.id)));
@@ -4154,14 +4156,14 @@
       case "group": {
         if (root === void 0) throw new Error("group requires an ambient root entity (E9)");
         const of = expectDSet(
-          evalTermWithin(term.of, input, root, registry, bindings, budget),
+          evalTermWithin(term.of, input, root, registry, bindings, budget, memo),
           "group"
         );
         return { sort: "hview", hview: evalGroup(term.key, of, root, budget) };
       }
       case "prune": {
         const of = expectHView(
-          evalTermWithin(term.of, input, root, registry, bindings, budget),
+          evalTermWithin(term.of, input, root, registry, bindings, budget, memo),
           "prune"
         );
         if (term.keep === "all") return of;
@@ -4176,7 +4178,7 @@
       }
       case "expand": {
         const of = expectHView(
-          evalTermWithin(term.of, input, root, registry, bindings, budget),
+          evalTermWithin(term.of, input, root, registry, bindings, budget, memo),
           "expand"
         );
         const role = expandStrMatch(term.role, input, root);
@@ -4207,7 +4209,8 @@
                   ptr.target.entity.id,
                   registry,
                   bindings,
-                  childBudget
+                  childBudget,
+                  memo
                 );
                 if (budget && childBudget) {
                   const key = JSON.stringify([prop, entryIndex, i]);
@@ -4241,12 +4244,13 @@
             term.entity,
             registry,
             term.bindings ?? bindings,
-            budget
+            budget,
+            memo
           )
         };
       case "resolve": {
         const of = expectHView(
-          evalTermWithin(term.of, input, root, registry, bindings, budget),
+          evalTermWithin(term.of, input, root, registry, bindings, budget, memo),
           "resolve"
         );
         return {
@@ -4256,24 +4260,39 @@
       }
     }
   }
-  function evalTerm(term, input, now, root, registry, bindings) {
+  function evalTerm(term, input, now, root, registry, bindings, memo) {
+    return evalTermWithHooks(
+      term,
+      input,
+      now,
+      { ...memo === void 0 ? {} : { memo } },
+      root,
+      registry,
+      bindings
+    );
+  }
+  function evalTermWithHooks(term, input, now, hooks, root, registry, bindings) {
     if (!Number.isFinite(now)) throw new Error("now must be a finite number");
     const valid = fork(
       input,
       (d) => d.claims.validFrom <= now && (d.claims.validUntil === void 0 || now < d.claims.validUntil)
     );
-    return evalTermRaw(term, valid, root, registry, bindings);
+    return evalTermWithin(term, valid, root, registry, bindings, hooks.budget, hooks.memo);
   }
-  function evalSchema(ref, input, root, registry, bindings, budget) {
+  function evalSchema(ref, input, root, registry, bindings, budget, memo) {
     const label = ref.kind === "name" ? ref.name : `pinned:${ref.hash.slice(0, 12)}\u2026`;
     if (registry === void 0)
       throw new Error(`schema ${label} referenced but no registry supplied (E10)`);
     const schema = registry.resolve(ref);
     if (schema === void 0) throw new Error(`unknown schema: ${label} (E10/E13)`);
-    const result = evalTermWithin(schema.body, input, root, registry, bindings, budget);
+    const memoized2 = budget === void 0 ? memo : void 0;
+    const kept = memoized2?.get(ref, bindings, root);
+    if (kept !== void 0) return kept;
+    const result = evalTermWithin(schema.body, input, root, registry, bindings, budget, memoized2);
     if (result.sort !== "hview") {
       throw new Error(`schema ${label} body must be an HView-sort term (E10)`);
     }
+    memoized2?.put(ref, bindings, root, result.hview);
     return result.hview;
   }
   function lookupReading(ref, registry, bindings) {

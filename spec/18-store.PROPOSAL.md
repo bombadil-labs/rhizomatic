@@ -757,8 +757,8 @@ that a vector can pin.
     `read` and `fetch`, and no `snapshot`, `arrivalLog`, `digest` or `eval`.
 16. **Package edge.** The TypeScript `reactor` boundary may import `storage`. The round-vector
     model needs the evaluator, so it lives with the generator and not in `storage`.
-17. **Not built yet in slice 2:** the evaluation memo (it wraps the per-round evaluation),
-    `readFullSurface`, and the second run of the existing read families.
+17. **Not built yet in slice 2:** `readFullSurface`, and the second run of the existing read
+    families. The evaluation memo is readings 21 to 26.
 18. **The read trusts `applied`.** It does not check again a field that the store reported
     applied. A check costs work on every honest read, and §4.3 makes a false `applied` a store
     defect that the store vectors catch. Over a store that reports a field applied and does not
@@ -771,6 +771,97 @@ that a vector can pin.
 20. **A sticky residual has no vector.** A memory profile is the same in every round, so each
     witness tests reading 2 with a store double that leaves a field to the host in alternate
     rounds, in both parities.
+21. **The evaluation memo** (§4.4, plan §3). A **child evaluation** is one schema body evaluated
+    at one root: each child of an `expand`, and the body of a `fix`. The memo maps a key to the
+    HView of a child evaluation. The key is (schema reference, bindings, root):
+    - the schema reference as the term writes it: the name, or the pinned hash;
+    - the bindings in effect, compared by **identity** within the read. They are the request's
+      bindings, or the `bindings` of the nearest enclosing `fix` that has them. Each is one object
+      for the whole read, because the term and the registry do not change during it. Two binding
+      objects with the same entries get two keys; the memo then shares less, and no answer
+      changes;
+    - the root entity.
+
+    The term, the registry, `now` and the selection are the same in every round of one read, so
+    they are not in the key. A lookup that finds the key returns the stored HView and evaluates
+    nothing under it. A child is **final** when every anchor its HView shows has been fetched:
+    the id of the HView, and the id of every child expanded inside it, at any depth. The memo
+    stores a child evaluation only when it is final. A child that is not final is evaluated again
+    in the next round that reaches it. The static anchors need no check: round 1 fetches all of
+    them (reading 6).
+
+    One memo serves **one attempt of one read**: one snapshot, one selection, one request. A new
+    snapshot starts a new memo, and so does a new read. The memo is **off** when an evaluation
+    budget is present: a hit returns a child without the work the budget counts. The final
+    `resolve` evaluation (reading 9) uses the memo of the read.
+22. **Why a final child is right.** Let D be what the peer holds at the snapshot that the selection
+    admits. By reading 4, the members of round k are exactly `M_k = S(E_k over D)`, where E_k is
+    every anchor asked for in rounds 1 to k. This holds whichever fields were residual in which
+    round. Take a child evaluation (schema R, bindings B, root c) in round k, with HView V, and let
+    `A(V)` be the anchors V shows.
+
+    *Where a schema body reads.* An anchored body (SPEC-17 §5) reads deltas only in these places:
+    a `group` at the evaluation root; an `inView` or a `group const` pinned at the root, at a
+    constant or at a bound hole; a pointwise operator (`select`, `union`, `intersect`,
+    `difference`), whose answer for one delta depends on that delta alone; a `mask`, which decides
+    a delta by its negation chains; an `expand`, which evaluates children; and a `fix`, whose body
+    runs at its own entity. Constants and bound holes are static anchors. The HView-sort spine of
+    a body (`prune` and `expand` over their operand) ends in a `group` or a `fix`. When it ends in
+    a `group`, the HView id is the root. When it ends in a `fix`, the body reads nothing at its
+    own root, and the HView id is the `fix` entity, a static anchor. So every root at which V's
+    evaluation reads is a static anchor or is in `A(V)`, apart from children that a `prune`
+    drops: those are evaluated and not shown, and nothing they return reaches V.
+
+    *The induction.* Go down V from the top. Take a level whose root a is in E_k. Every delta of D
+    that points at a is in `S0(a)`, so it is in `M_k`. So each `group` at a files the same deltas
+    over `M_k` as over D, and each pinned `inView` selects the same deltas. By the SPEC-17 closure
+    lemma, a member of `M_k` has the same negation status in every operand over `M_k` as over D,
+    so each `mask` decides it the same way. A pointwise operator then keeps the same members. The
+    level has the same entries over `M_k` as over D. So it expands the same children, under the
+    same schema and bindings. Finality puts each of those children in E_k, so the argument goes
+    down one level. The schema DAG is finite (SPEC-3 §3), so the induction ends. Therefore **V
+    equals the same child evaluated over D**. This is the SPEC-17 §6 theorem for the term
+    `fix(R, c, B)`: its scope is `E* = static ∪ A(V)`, and `M_k` contains `S(E*)` and is closed
+    under negation.
+
+    *Later rounds.* In a round j > k, `M_j = S(E_j over D)` with `E_j ⊇ E_k ⊇ A(V)`. The same
+    induction runs over `M_j`, so the child over `M_j` equals the child over D, which is V. **No
+    later round can change a final child.** A delta that a later round adds is in `S(E_j)` and not
+    in `S(E_k)`. It does not point at any anchor in `A(V)`, because `S0(a) ⊆ M_k` for each of them,
+    so no `group` of V files it and no pinned `inView` selects it. It negates no member of V's
+    levels either: a negator of such a member x is in `N*(x)`, and `N*(x)` is in the scope of x's
+    anchor, which `M_k` holds. A store that returns deltas beyond the scope changes nothing: the
+    read evaluates only over the exact members (reading 3).
+23. **A child does not depend on members under other anchors.** The members of a round come from
+    every anchor fetched so far, and a child's operands see all of them. They do not change its
+    answer. A `group` files only deltas that point at its own root. A pinned `inView` selects only
+    deltas at its own anchor. A pointwise operator decides each delta alone. A negation that
+    decides one of the child's members is in that member's scope, whatever entity the negation
+    points at. So a final child depends only on `S(static ∪ A(V))` over D, which no later round
+    changes. A delta that points at the child's root and also at an anchor of a later round is in
+    `S0` of the child's root, so it arrives with that root (in the round vectors,
+    `g-features-c1` at `garden:1` and `cutting:1`). The residual selection does not change this:
+    reading 4 makes the members of every round exact over the same D.
+24. **Shapes the key keeps apart.** One entity reached under two schemas, or under two bindings, has
+    two keys and two evaluations. The bindings can change what a `mask trust` or a `select`
+    decides, so one HView cannot serve both. The case `one-child-under-two-bindings` reaches
+    `cutting:1` under one schema with two bindings in one round, and the two HViews differ; a key
+    without the bindings fails it. A diamond under one schema and one bindings object has one key
+    (`plant:s` under `Tree1`, from both beds). Within one round, every evaluation of that key sees
+    the same members and gives the same HView; once it is final, every later round gives that
+    HView too (reading 22).
+25. **The memo never outlives its attempt.** A child stored on one snapshot can be wrong on
+    another, because an append or a purge can change what it reads. The interleaved case
+    `an-append-after-the-third-round` strikes `c1-height` at `cutting:1` after the round that
+    stores `Leaf` at `cutting:1`. A wrapper that starts again but
+    keeps its memo shows the old `cutting:1` beside the new members: neither answer. A change after
+    round 1 cannot show it, because round 1 finishes no child. A memo kept across two reads fails a case for the same
+    reason: the selection, the bindings or the snapshot change the members, and a stored child
+    does not follow.
+26. **What the memo saves.** A key is stored at most once and is not evaluated again after that.
+    So a read with the memo evaluates each key once as final, plus once for each time a round
+    reaches it while it is not final. A read without the memo evaluates every child it reaches in
+    every round. A witness counts both through its memo hook, not by timing.
 
 
 ## 5. Architectures

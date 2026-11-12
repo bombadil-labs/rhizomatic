@@ -10,6 +10,7 @@ import type { Claims, Delta, Pointer, Primitive } from "../src/delta/types.js";
 import { anchorAnalysis, hviewAnchors } from "../src/resolve/anchored.js";
 import { evalTerm, resultCanonicalHex } from "../src/resolve/eval.js";
 import { SchemaRegistry } from "../src/schema/schema.js";
+import type { Bindings } from "../src/syntax/pred.js";
 import { parseTerm } from "../src/syntax/term-json.js";
 import {
   PUSHDOWN_FIELDS,
@@ -309,6 +310,20 @@ const lawfulLeaf = {
     },
   },
 };
+// Whose strikes bind is a hole: one schema, two answers at one root under two bindings.
+const strikerLeaf = {
+  op: "group",
+  key: "byTargetContext",
+  in: {
+    op: "select",
+    pred: { hasPointer: { targetEntity: { var: "root" } } },
+    in: {
+      op: "mask",
+      policy: { trust: { match: { field: "author", cmp: "eq", const: { hole: "striker" } } } },
+      in: "input",
+    },
+  },
+};
 const pinnedByHole = {
   op: "group",
   key: { const: "all" },
@@ -333,8 +348,20 @@ const SCHEMAS = [
   { name: "LawfulTree1", alg: 1, body: expandInto("LawfulLeaf", lawfulLeaf) },
   { name: "LawfulTree2", alg: 1, body: expandInto("LawfulTree1", lawfulLeaf) },
   { name: "LawfulTree3", alg: 1, body: expandInto("LawfulTree2", lawfulLeaf) },
+  { name: "StrikerLeaf", alg: 1, body: strikerLeaf },
+  { name: "StrikerTree1", alg: 1, body: expandInto("StrikerLeaf", strikerLeaf) },
+  { name: "StrikerTree2", alg: 1, body: expandInto("StrikerTree1", strikerLeaf) },
 ];
 const garden = { op: "fix", schema: "Tree3", entity: "garden:1" };
+// The fix reads the tree with Alice's strikes binding. The expand over it follows the garden's
+// `star` link to cutting:1 under the request's bindings, with Bob's. The tree reaches cutting:1
+// too, through plant:s, under the same schema: one root, one schema, two bindings, one round.
+const twoBindings = {
+  op: "expand",
+  role: { exact: "star" },
+  schema: "StrikerLeaf",
+  in: { op: "fix", schema: "StrikerTree2", entity: "garden:1", bindings: { striker: ALICE } },
+};
 const resolvedLeaf = {
   op: "resolve",
   schema: { default: { pick: { order: { byTimestamp: "desc" } } } },
@@ -457,6 +484,14 @@ function reads(): (RoundsRead & { name: string; note: string })[] {
       "garden:1",
       {},
       { who: "plant:s" },
+    ),
+    read(
+      "one-child-under-two-bindings",
+      "StrikerLeaf at cutting:1 is evaluated twice in round 2: under the fix's bindings (Alice's strikes bind, so c1-height stands) and under the request's (Bob's strikes bind, so c1-height is struck). A memo whose key leaves out the bindings serves one for the other.",
+      twoBindings,
+      "garden:1",
+      {},
+      { striker: BOB },
     ),
     read(
       "a-resolved-tree",
@@ -779,6 +814,44 @@ export function roundVectors(): StoreRoundsDocument {
     purged!.purge!.every((name) => scopeOver(base, ["garden:1"]).includes(idOf(name))) &&
       purged!.expect.before.canonicalHex !== purged!.expect.after.canonicalHex,
     "the purge of a delta round 1 fetches",
+  );
+  // The memo cases. Each pins a fixture property that a wrong evaluation memo needs in order to
+  // fail (SPEC-18 §4.12 readings 24 and 25).
+  const evalAt = (held: readonly Entry[], schema: string, entity: string, b?: Bindings) =>
+    resultCanonicalHex(
+      evalTerm(
+        { kind: "fix", schema: { kind: "name", name: schema }, entity, ...(b && { bindings: b }) },
+        DeltaSet.from(held.map((e) => e.delta)),
+        NOW,
+        entity,
+        registry,
+      ),
+    );
+  const two = cases.find((x) => x.name === "one-child-under-two-bindings")!;
+  const roundIn = (rounds: RoundsAnswer["rounds"], entity: string): number =>
+    rounds.findIndex((r) => r.anchors.includes(entity)) + 1;
+  need(
+    evalAt(base, "StrikerLeaf", "cutting:1", new Map([["striker", ALICE]])) !==
+      evalAt(base, "StrikerLeaf", "cutting:1", new Map([["striker", BOB]])),
+    "one child that two bindings read differently",
+  );
+  need(
+    roundIn(two.expect.rounds, "cutting:1") === 2 && roundIn(two.expect.rounds, "plant:s") === 2,
+    "both evaluations of the child finished in one round",
+  );
+  need(
+    answer(base, { ...two, bindings: { striker: ALICE } }).canonicalHex !== two.expect.canonicalHex,
+    "the request's bindings in the answer",
+  );
+  // A change after round 3 under a child that round 3 finished: a memo kept across the retry
+  // shows the old child. Round 3 fetches cutting:1, and the append changes Leaf there.
+  const thirdAppend = interleaved[1]!;
+  const appended = holdings([lateAppend]);
+  need(
+    thirdAppend.afterRound === 3 &&
+      roundIn(thirdAppend.expect.before.rounds, "cutting:1") === 3 &&
+      evalAt(base, "Leaf", "cutting:1") !== evalAt([...base, ...appended], "Leaf", "cutting:1"),
+    "an append under a child that the round before it finished",
   );
   return document;
 }
