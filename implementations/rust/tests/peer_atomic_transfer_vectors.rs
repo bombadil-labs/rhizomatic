@@ -9,6 +9,7 @@ use rhizomatic::types::Delta;
 use serde_json::Value;
 
 #[test]
+#[allow(deprecated)] // the deprecated whole-set reactor methods are this test's oracle or subject
 fn final_peer_additions_are_installed_atomically() {
     let path = format!(
         "{}/../../vectors/peer/atomic-transfer.json",

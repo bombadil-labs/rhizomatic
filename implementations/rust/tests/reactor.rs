@@ -113,6 +113,7 @@ fn governed_slice_filters_authors_and_half_open_validity() {
 }
 
 #[test]
+#[allow(deprecated)] // the deprecated whole-set reactor methods are this test's oracle or subject
 fn ingest_accept_duplicate_reject() {
     let deltas = fixture("l1-eval/eval-basic.json");
     let mut r = Reactor::new();
@@ -188,6 +189,7 @@ fn indexes_agree_with_full_scans() {
 }
 
 #[test]
+#[allow(deprecated)] // the deprecated whole-set reactor methods are this test's oracle or subject
 fn value_index_agrees_with_evaluation() {
     let deltas = fixture("l1-eval/eval-resolve.json");
     let r = ingest_all(&deltas);
@@ -208,6 +210,7 @@ fn value_index_agrees_with_evaluation() {
 
 proptest! {
     #[test]
+    #[allow(deprecated)] // the deprecated whole-set reactor methods are this test's oracle or subject
     fn any_ingestion_order_converges(seed in any::<u64>()) {
         let deltas = fixture("l1-eval/eval-basic.json");
         let reference = ingest_all(&deltas);
@@ -233,6 +236,7 @@ proptest! {
 }
 
 #[test]
+#[allow(deprecated)] // the deprecated whole-set reactor methods are this test's oracle or subject
 fn negation_before_target_converges() {
     let doc = read("l1-eval/eval-basic.json");
     let names: Vec<&str> = doc["fixture"]["deltas"]

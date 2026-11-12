@@ -132,7 +132,7 @@ impl Drop for ServerHandle {
 pub fn pull_from_url(peer: &mut Peer, base_url: &str) -> Result<(usize, usize), String> {
     let have: Vec<String> = peer
         .reactor
-        .arrival_log()
+        .legacy_log()
         .iter()
         .map(|d| d.id.clone())
         .collect();

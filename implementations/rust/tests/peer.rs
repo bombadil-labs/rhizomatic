@@ -30,6 +30,7 @@ fn ptrs(entity: &str, context: &str, value: &str) -> Vec<Pointer> {
 
 proptest! {
     #[test]
+    #[allow(deprecated)] // the deprecated whole-set reactor methods are this test's oracle or subject
     fn random_fork_pairs_converge_to_union(
         avs in proptest::collection::vec((0..1000i64, "[a-z]{0,5}"), 0..6),
         bvs in proptest::collection::vec((1000..2000i64, "[a-z]{0,5}"), 0..6),
@@ -147,6 +148,7 @@ fn admission_policy_declines_unwanted_authors() {
 }
 
 #[test]
+#[allow(deprecated)] // the deprecated whole-set reactor methods are this test's oracle or subject
 fn partition_and_heal_through_a_relay() {
     let mut a = Peer::new(SEED_A);
     let mut b = Peer::new(SEED_B);

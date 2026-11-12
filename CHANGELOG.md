@@ -161,6 +161,23 @@ is complete; the Rust witness follows the same documents.
   ones through `readFullSurface`), the SPEC-17 read and scope cases through `readAnchored` and
   `fetchScope`, and the negation-witness cases of `vectors/l2-reactor/governed.json` over a
   fetched scope. Ingest, dispatch and journal families wait for slices 3 and 4.
+- Slice 2, Rust: `read_full_surface(&dyn PeerExporter, FullSurfaceRequest)`, the explicit
+  full-surface read (SPEC-18 §6.6, §4.12 reading 28). It lists the peer, keeps what the selection
+  admits, and evaluates any term, anchored or not, with an optional root. Its
+  `FullSurfaceRoute` says `optimized: false` and how many deltas it listed and admitted. It takes
+  `timestamp_at_most` and `exclude_ids`, and refuses `InvalidRequest` for `arrival_at_most` or a
+  host predicate before it lists anything. `StoreReactor` holds no exporter.
+  `store::collect_delta_set(&dyn PeerExporter)` lists one peer into a `DeltaSet` and refuses
+  `InvalidRequest` for a listed delta whose id does not recompute.
+- Slice 2, Rust: `StoreRead.memo_stored`, the number of child evaluations the read's memo held
+  when it ended, and 0 with the memo off (§4.12 reading 27). `RoundMemo` gains `stored()`, which
+  a caller-owned memo now implements; `FinalChildMemo::stored` is that trait method.
+- Slice 2, Rust: the existing read families run a second time through a memory store
+  (`tests/store_read_families.rs`): every evaluation case of `vectors/l1-eval`, 56 anchored ones
+  through `read_anchored` and 56 others through `read_full_surface`, with the count per family
+  pinned; the SPEC-17 read and scope cases through `read_anchored` and `fetch_scope`; and the
+  negation-witness cases of `governed.json` over a fetched scope. Every round case of
+  `rounds.json` that has no `arrivalAtMost` also answers its bytes through `read_full_surface`.
 - `Reactor.legacyHoldings()`: the whole held set, its arrival order and its digest, for the memory
   `Peer` of `federation` only. Not a read path.
 
@@ -171,6 +188,11 @@ is complete; the Rust witness follows the same documents.
   `Reactor.evalAnchored`, `readFullSurface` for a term with no anchor, `Snapshot.arrivals`, and
   `collectDeltaSet` for a whole listing. They stay until Loam moves to a store (slice 5). Nothing
   in the package calls them any more; a rail holds that.
+- Rust witness: `Reactor::snapshot`, `arrival_log`, `digest` and `eval` carry `#[deprecated]`,
+  each note naming its replacement. A consumer that calls one gets a deprecation warning. The
+  crate root carries `#![forbid(deprecated)]`, so no call in the crate compiles, however it is
+  written. The legacy memory `Peer` and its HTTP pull read through `pub(crate)` accessors that
+  nothing outside the crate can reach.
 
 ### Changed
 

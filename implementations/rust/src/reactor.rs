@@ -208,12 +208,31 @@ impl Reactor {
     }
 
     /// Arrival order — a transport artifact, never consulted by evaluation (SPEC-4 §2).
+    #[deprecated(
+        note = "reads the whole log; read arrival records with `Snapshot::arrivals` over a store \
+                (SPEC-18 slice 2). Kept until Loam moves to a store (slice 5)"
+    )]
     pub fn arrival_log(&self) -> &[Delta] {
         &self.log
     }
 
+    #[deprecated(
+        note = "reads the whole set; list a peer with `store::collect_delta_set` and take its \
+                digest (SPEC-18 slice 2). Kept until Loam moves to a store (slice 5)"
+    )]
     pub fn digest(&self) -> String {
         self.set.digest()
+    }
+
+    /// The whole log in arrival order, for the legacy memory `Peer` and its HTTP pull only. Not
+    /// a read path, and not reachable outside the crate.
+    pub(crate) fn legacy_log(&self) -> &[Delta] {
+        &self.log
+    }
+
+    /// The whole held set, for the legacy memory `Peer` only. Not reachable outside the crate.
+    pub(crate) fn legacy_set(&self) -> &DeltaSet {
+        &self.set
     }
 
     /// An anchored read (SPEC-17 §6): the same answer as `eval_at`, at the cost of the read's
@@ -230,12 +249,22 @@ impl Reactor {
         eval_anchored(term, self, now, root, registry, bindings, admits)
     }
 
+    #[deprecated(
+        note = "copies the whole set; use `store_read::read_anchored` or `fetch_scope` over a store \
+                snapshot, or `store::collect_delta_set` for a whole listing (SPEC-18 slice 2). Kept \
+                until Loam moves to a store (slice 5)"
+    )]
     pub fn snapshot(&self) -> DeltaSet {
         self.set.clone()
     }
 
     /// Batch evaluation over the current set — the oracle hookup (SPEC-4 §1). Read-your-writes
     /// holds trivially: ingest is synchronous (§6).
+    #[deprecated(
+        note = "evaluates over the whole set; use `Reactor::eval_anchored`, `store_read::read_anchored` \
+                over a store snapshot, or `store_read::read_full_surface` for a term with no anchor \
+                (SPEC-18 slice 2). Kept until Loam moves to a store (slice 5)"
+    )]
     pub fn eval(
         &self,
         term: &Term,

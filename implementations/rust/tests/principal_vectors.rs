@@ -193,6 +193,7 @@ fn principal_history_keeps_negated_associations() {
 }
 
 #[test]
+#[allow(deprecated)] // the deprecated whole-set reactor methods are this test's oracle or subject
 fn principal_predicates_lower_through_an_explicit_resolver() {
     let v = vector();
     let named = fixtures(&v);
@@ -321,6 +322,7 @@ fn principal_fixture_ids_signatures_and_references() {
 }
 
 #[test]
+#[allow(deprecated)] // the deprecated whole-set reactor methods are this test's oracle or subject
 fn principal_materialization_refreshes_on_ingest_and_validity_boundary() {
     let v = vector();
     let named = fixtures(&v);
@@ -405,6 +407,7 @@ fn principal_materialization_refreshes_on_ingest_and_validity_boundary() {
 }
 
 #[test]
+#[allow(deprecated)] // the deprecated whole-set reactor methods are this test's oracle or subject
 fn principal_predicate_lowers_in_named_and_pinned_hyperschemas() {
     let v = vector();
     let named = fixtures(&v);
@@ -476,6 +479,7 @@ fn principal_predicate_lowers_in_named_and_pinned_hyperschemas() {
 }
 
 #[test]
+#[allow(deprecated)] // the deprecated whole-set reactor methods are this test's oracle or subject
 fn indexed_principal_resolver_requires_the_reactors_exact_current_input() {
     let v = vector();
     let named = fixtures(&v);

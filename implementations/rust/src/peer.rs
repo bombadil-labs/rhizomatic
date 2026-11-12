@@ -68,7 +68,7 @@ impl Peer {
     /// The offered set: eval(lens, log) — lens fidelity is a tested invariant (F4).
     pub fn offered_set(&self) -> Vec<Delta> {
         let lens = self.offered_lens.clone().unwrap_or(Term::Input);
-        match eval_term(&lens, &self.reactor.snapshot(), None, None, None).expect("lens evaluates")
+        match eval_term(&lens, self.reactor.legacy_set(), None, None, None).expect("lens evaluates")
         {
             EvalResult::DSet { set, .. } => set.iter().cloned().collect(),
             _ => panic!("a lens must be a DSet-sort term (F4)"),
@@ -79,7 +79,7 @@ impl Peer {
     pub fn pull_from(&mut self, other: &Peer) -> SyncReport {
         let have: BTreeSet<String> = self
             .reactor
-            .arrival_log()
+            .legacy_log()
             .iter()
             .map(|d| d.id.clone())
             .collect();
@@ -168,10 +168,11 @@ impl Peer {
 /// Anti-entropy both ways; repeat until quiescent (bounded — union is monotone).
 pub fn sync_both(a: &mut Peer, b: &mut Peer) {
     for _ in 0..4 {
-        let before = format!("{}{}", a.reactor.digest(), b.reactor.digest());
+        let digest = |p: &Peer| p.reactor.legacy_set().digest();
+        let before = format!("{}{}", digest(a), digest(b));
         a.pull_from(b);
         b.pull_from(a);
-        if format!("{}{}", a.reactor.digest(), b.reactor.digest()) == before {
+        if format!("{}{}", digest(a), digest(b)) == before {
             return;
         }
     }

@@ -29,15 +29,15 @@ use rhizomatic::pred::Bindings;
 use rhizomatic::schema::{HyperSchema, SchemaRegistry};
 use rhizomatic::set::{make_delta, make_negation_claims, DeltaSet, DeltaSource};
 use rhizomatic::store::{
-    negated_ids, scope_source, target_entities, Admission, Anchor, AppendResult, ArrivalRecord,
-    ErasurePosture, PeerErasure, PeerStore, PurgeOutcome, PurgeReport, Pushdown, PushdownFields,
-    Revision, ScopeRequest, ScopeResult, ScopeSource, Snapshot, Store, StoreError, StoreErrorCode,
-    VerifiedDelta,
+    collect_delta_set, negated_ids, scope_source, target_entities, Admission, Anchor, AppendResult,
+    ArrivalRecord, ErasurePosture, PeerErasure, PeerExporter, PeerStore, PurgeOutcome, PurgeReport,
+    Pushdown, PushdownFields, Revision, ScopeRequest, ScopeResult, ScopeSource, Snapshot, Store,
+    StoreError, StoreErrorCode, VerifiedDelta,
 };
 use rhizomatic::store_read::{
-    fetch_scope, read_anchored, read_anchored_with_memo, EvalMemo, FetchCache, FinalChildMemo,
-    ReadRequest, RoundMemo, RoundReport, Selection, StoreReactor, StoreRead, StoreReadError,
-    SNAPSHOT_RETRIES,
+    fetch_scope, read_anchored, read_anchored_with_memo, read_full_surface, EvalMemo, FetchCache,
+    FinalChildMemo, FullSurfaceRequest, FullSurfaceRoute, ReadRequest, RoundMemo, RoundReport,
+    Selection, StoreReactor, StoreRead, StoreReadError, SNAPSHOT_RETRIES,
 };
 use rhizomatic::term_json::parse_term;
 use rhizomatic::types::{Claims, Delta, EntityRef, Pointer, Primitive, Target};
@@ -2356,6 +2356,9 @@ impl RoundMemo for ModelMemo {
     fn round(&mut self, asked: &BTreeSet<String>) {
         self.asked.clone_from(asked);
     }
+    fn stored(&self) -> usize {
+        self.entries.len()
+    }
 }
 
 /// Did this read answer the case? Bytes, scope, members, and the rounds of its mode.
@@ -2616,6 +2619,9 @@ impl RoundMemo for Counting {
             m.round(asked);
         }
     }
+    fn stored(&self) -> usize {
+        self.inner.as_ref().map_or(0, |m| m.stored())
+    }
 }
 
 /// (evaluations without the memo, evaluations with it, keys, stored, not final, hits).
@@ -2706,4 +2712,202 @@ fn the_memo_saves_child_evaluations() {
             );
         }
     }
+}
+
+/// The read reports what its memo stored (SPEC-18 §4.12 reading 27; README §5.8): 18 for the
+/// standard read of `the-whole-garden` (mode 5), and 0 with the memo off (modes 2 and 3). The memo
+/// changes no answer, so this count is the only way to see a read that ignores the memo switch.
+#[test]
+fn the_read_reports_how_many_children_its_memo_stored() {
+    let fx = fixture();
+    let store = MemoryStore::new();
+    let peer = fx.load(&store);
+    let case = fx
+        .cases("cases")
+        .into_iter()
+        .find(|c| c.name == "the-whole-garden")
+        .unwrap();
+    let stored = |cache: FetchCache, memo: EvalMemo| {
+        let snapshot = peer.read().unwrap();
+        let read = read_anchored(snapshot.as_ref(), request_with(&fx, &case, cache, memo)).unwrap();
+        assert!(answers(
+            &Ok(read.clone()),
+            case.expect.as_ref().unwrap(),
+            cache
+        ));
+        read.memo_stored
+    };
+    assert_eq!(stored(FetchCache::On, EvalMemo::On), 18, "mode 5");
+    assert_eq!(stored(FetchCache::Off, EvalMemo::On), 18, "mode 4");
+    assert_eq!(stored(FetchCache::On, EvalMemo::Off), 0, "mode 3");
+    assert_eq!(stored(FetchCache::Off, EvalMemo::Off), 0, "mode 2");
+    // The wrapper reports the memo of its one attempt.
+    let reactor = StoreReactor::open(store.peer(fx.peer_id()).unwrap());
+    for (memo, expected) in [(EvalMemo::On, 18), (EvalMemo::Off, 0)] {
+        let read = reactor
+            .read(request_with(&fx, &case, FetchCache::On, memo))
+            .unwrap();
+        assert_eq!(read.memo_stored, expected, "StoreReactor::read, {memo:?}");
+    }
+    // A caller-owned memo is reported the same way.
+    let snapshot = peer.read().unwrap();
+    let mut memo = FinalChildMemo::new();
+    let read = read_anchored_with_memo(
+        snapshot.as_ref(),
+        request_with(&fx, &case, FetchCache::On, EvalMemo::Off),
+        &mut memo,
+    )
+    .unwrap();
+    assert_eq!((read.memo_stored, memo.stored()), (18, 18));
+}
+
+// ---------------------------------------------------------------------------------------------
+// The full-surface read (SPEC-18 §6.6, §4.12 reading 28)
+// ---------------------------------------------------------------------------------------------
+
+/// A peer exporter that counts how often its listing is opened, and can forge one listed delta.
+struct CountingExporter {
+    inner: Box<dyn PeerExporter>,
+    listings: Rc<Cell<usize>>,
+    forge: bool,
+}
+
+impl PeerExporter for CountingExporter {
+    fn ids(&self) -> rhizomatic::store::Listing<'_, String> {
+        self.listings.set(self.listings.get() + 1);
+        self.inner.ids()
+    }
+    fn deltas(&self) -> rhizomatic::store::Listing<'_, Delta> {
+        self.listings.set(self.listings.get() + 1);
+        let forge = self.forge;
+        Box::new(self.inner.deltas().enumerate().map(move |(i, listed)| {
+            listed.map(|mut delta| {
+                if forge && i == 0 {
+                    delta.claims.timestamp += 1.0;
+                }
+                delta
+            })
+        }))
+    }
+}
+
+fn counting_exporter(fx: &Fixture, store: &MemoryStore, forge: bool) -> CountingExporter {
+    CountingExporter {
+        inner: store.open_admin().peer(fx.peer_id()).unwrap(),
+        listings: Rc::new(Cell::new(0)),
+        forge,
+    }
+}
+
+fn full_surface_request<'a>(
+    fx: &'a Fixture,
+    case: &'a Case,
+    selection: Selection<'a>,
+) -> FullSurfaceRequest<'a> {
+    FullSurfaceRequest {
+        root: Some(&case.root),
+        registry: Some(&fx.registry),
+        bindings: case.bindings.as_ref(),
+        selection,
+        ..FullSurfaceRequest::new(&case.term, case.now)
+    }
+}
+
+/// Every round case through `read_full_surface` (README §5.4 mode 1 by the library's own route):
+/// a case whose selection has no `arrivalAtMost` answers the expected bytes, with a route that is
+/// not optimized and counts what it listed and admitted. A case with `arrivalAtMost` is refused
+/// `invalid-request` before anything is listed: a listing carries no arrival record.
+#[test]
+fn the_full_surface_read_answers_every_round_case_it_can_take() {
+    let fx = fixture();
+    let store = MemoryStore::new();
+    let _peer = fx.load(&store);
+    let (mut answered, mut refused) = (0, 0);
+    for case in fx.cases("cases") {
+        let exporter = counting_exporter(&fx, &store, false);
+        let got = read_full_surface(
+            &exporter,
+            full_surface_request(
+                &fx,
+                &case,
+                Selection {
+                    pushdown: Some(&case.pushdown),
+                    admits: None,
+                },
+            ),
+        );
+        if case.pushdown.arrival_at_most.is_some() {
+            let err = got.expect_err(&case.name);
+            assert_eq!(err.store_code(), Some(StoreErrorCode::InvalidRequest));
+            assert_eq!(exporter.listings.get(), 0, "{}: refused first", case.name);
+            refused += 1;
+            continue;
+        }
+        let read = got.unwrap_or_else(|e| panic!("{}: {e}", case.name));
+        let e = case.expect.as_ref().unwrap();
+        assert_eq!(result_canonical_hex(&read.result), e.hex, "{}", case.name);
+        let admitted = fx
+            .loaded_members()
+            .iter()
+            .filter(|m| passes_all(&case.pushdown, &m.delta, &m.arrival))
+            .count();
+        assert_eq!(
+            read.route,
+            FullSurfaceRoute {
+                optimized: false,
+                listed: fx.loaded(),
+                admitted,
+            },
+            "{}",
+            case.name
+        );
+        assert_eq!(exporter.listings.get(), 1, "{}", case.name);
+        answered += 1;
+    }
+    assert_eq!((answered, refused), (18, 4));
+}
+
+/// A host predicate is refused before anything is listed, as `arrivalAtMost` is.
+#[test]
+fn the_full_surface_read_refuses_a_host_predicate_before_it_lists() {
+    let fx = fixture();
+    let store = MemoryStore::new();
+    let _peer = fx.load(&store);
+    let case = fx.cases("cases").remove(0);
+    let exporter = counting_exporter(&fx, &store, false);
+    let admits = |_: &Delta, _: &ArrivalRecord| true;
+    let err = read_full_surface(
+        &exporter,
+        full_surface_request(
+            &fx,
+            &case,
+            Selection {
+                pushdown: None,
+                admits: Some(&admits),
+            },
+        ),
+    )
+    .unwrap_err();
+    assert_eq!(err.store_code(), Some(StoreErrorCode::InvalidRequest));
+    assert_eq!(exporter.listings.get(), 0);
+}
+
+/// A listing whose id does not recompute is refused, not repaired: by `collect_delta_set` and by
+/// the full-surface read over it.
+#[test]
+fn a_listed_delta_whose_id_does_not_recompute_is_refused() {
+    let fx = fixture();
+    let store = MemoryStore::new();
+    let _peer = fx.load(&store);
+    let honest = collect_delta_set(&counting_exporter(&fx, &store, false)).unwrap();
+    assert_eq!(honest.len(), fx.loaded());
+    let err = collect_delta_set(&counting_exporter(&fx, &store, true)).unwrap_err();
+    assert_eq!(err.code, StoreErrorCode::InvalidRequest);
+    let case = fx.cases("cases").remove(0);
+    let err = read_full_surface(
+        &counting_exporter(&fx, &store, true),
+        full_surface_request(&fx, &case, Selection::default()),
+    )
+    .unwrap_err();
+    assert_eq!(err.store_code(), Some(StoreErrorCode::InvalidRequest));
 }
