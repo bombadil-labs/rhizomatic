@@ -1,6 +1,7 @@
 // Opening a store by URL (SPEC-18 proposal §4.10). A connection string can carry credentials,
 // so nothing here logs it, and every error names the scheme only.
 
+import { isPlainObject } from "./copy.js";
 import { createMemoryStore } from "./memory-store.js";
 import { missingRequirements, StoreError, type Store, type StoreRequirement } from "./store.js";
 
@@ -15,6 +16,7 @@ export type StoreFactory = (url: string, options: OpenOptions) => Promise<Store>
 // RFC 3986 §3.1. A scheme is case-insensitive; lookups use its lowercase form.
 const SCHEME = /^([A-Za-z][A-Za-z0-9+.-]*):/;
 const UNKNOWN = "no store is registered for this URL's scheme";
+const OPTIONS = "openStore: the options must be an object, and requires a list of names";
 
 const schemes = new Map<string, StoreFactory>([
   [
@@ -49,7 +51,32 @@ export function registerStoreScheme(name: string, factory: StoreFactory): () => 
   };
 }
 
-export async function openStore(url: string, options: OpenOptions = {}): Promise<Store> {
+/**
+ * The caller's options, read once into values this module owns. Absent options and an absent
+ * `requires` mean none. Refuses `invalid-request` for anything else that is not of its type.
+ */
+function takeOptions(options: unknown): OpenOptions {
+  if (options === undefined) return Object.freeze({ requires: Object.freeze([]) });
+  try {
+    if (!isPlainObject(options)) throw new TypeError("options");
+    const requires: unknown = options["requires"];
+    if (requires === undefined) return Object.freeze({ requires: Object.freeze([]) });
+    if (!Array.isArray(requires)) throw new TypeError("requires");
+    const own: StoreRequirement[] = [];
+    for (let i = 0; i < requires.length; i++) {
+      const name: unknown = requires[i];
+      if (typeof name !== "string") throw new TypeError("a requirement");
+      own.push(name as StoreRequirement);
+    }
+    return Object.freeze({ requires: Object.freeze(own) });
+  } catch {
+    throw new StoreError("invalid-request", OPTIONS);
+  }
+}
+
+export async function openStore(url: string, options?: OpenOptions): Promise<Store> {
+  // The shape of the call comes first, as in append.
+  const own = takeOptions(options);
   const scheme = typeof url === "string" ? SCHEME.exec(url)?.[1]?.toLowerCase() : undefined;
   const factory = scheme === undefined ? undefined : schemes.get(scheme);
   // One fixed message whether the text has no scheme or an unregistered one. What stands before
@@ -58,7 +85,7 @@ export async function openStore(url: string, options: OpenOptions = {}): Promise
     throw new StoreError("unknown-scheme", UNKNOWN);
   let store: Store;
   try {
-    store = await factory(url, options);
+    store = await factory(url, own);
   } catch (error) {
     if (error instanceof StoreError) throw error;
     // A driver's own error text may quote the connection string. It stops here.
@@ -66,7 +93,7 @@ export async function openStore(url: string, options: OpenOptions = {}): Promise
   }
   let missing: readonly string[];
   try {
-    missing = missingRequirements(store.profile, options.requires ?? []);
+    missing = missingRequirements(store.profile, own.requires ?? []);
   } catch (error) {
     await store.close().catch(() => undefined);
     throw error;

@@ -116,7 +116,7 @@ pub use store::{
     missing_requirements, scope_source, signature_form, Admission, Anchor, AppendResult, AtRest,
     ChangeRetention, ErasureClaim, ErasureClass, ErasurePosture, Exporter, Listing, PeerErasure,
     PeerExporter, PeerStore, PurgeOutcome, PurgeReport, PurgeSurface, PurgeTarget, Pushdown,
-    PushdownFields, Revision, ScopeRequest, ScopeResult, ScopeSource, Snapshot, SourceMeter, Store,
+    PushdownFields, Revision, ScopeRequest, ScopeResult, ScopeSource, Snapshot, Store,
     StoreCapabilities, StoreError, StoreErrorCode, StoreProfile, StoreRequirement, StoreWriters,
     SurfaceState, VerifiedDelta, MAX_ARRIVAL_COUNTER, PURGE_BOUNDARY,
 };

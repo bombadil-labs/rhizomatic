@@ -511,14 +511,6 @@ pub fn negated_ids(claims: &Claims) -> BTreeSet<&str> {
         .collect()
 }
 
-/// The work a [`ScopeSource`] did to build its indexes (SPEC-18 §4.11 reading 36): one step per
-/// member written under one key, plus one per index member that a write reads. A write reads
-/// none, so N members cost N steps, also when every member lands in one index entry.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub struct SourceMeter {
-    pub steps: u64,
-}
-
 /// A synchronous delta source over the members one read has fetched (SPEC-18 §4.2). It answers
 /// `get`, `targets` and `negators` restricted to the fetched set, and each member's arrival
 /// record. Code that must evaluate synchronously fetches once, then reads this.
@@ -528,18 +520,12 @@ pub struct ScopeSource {
     arrivals: BTreeMap<String, ArrivalRecord>,
     targets: BTreeMap<String, BTreeSet<String>>,
     negators: BTreeMap<String, BTreeSet<String>>,
-    meter: SourceMeter,
 }
 
 /// The one door into a source's indexes. A set per key keeps the write logarithmic in the
-/// entry's size; a list searched before each insert would make one entry cost N².
-fn index_member(
-    index: &mut BTreeMap<String, BTreeSet<String>>,
-    meter: &mut SourceMeter,
-    key: &str,
-    member: &str,
-) {
-    meter.steps += 1;
+/// entry's size; a list searched, or a set copied, on each insert would make one entry cost N²
+/// (SPEC-18 §4.11 reading 36; `tests/store_cost.rs` times it).
+fn index_member(index: &mut BTreeMap<String, BTreeSet<String>>, key: &str, member: &str) {
     index
         .entry(key.to_string())
         .or_default()
@@ -585,22 +571,22 @@ impl ScopeSource {
         Ok(())
     }
 
-    /// Records one member's arrival and writes its index entries, metered. Every member enters a
+    /// Records one member's arrival and writes its index entries. Every member enters a
     /// source through this, after its id has been checked.
     fn index(&mut self, delta: &Delta, arrival: ArrivalRecord) {
         let id = delta.id.as_str();
         self.arrivals.insert(id.to_string(), arrival);
         for entity in target_entities(&delta.claims) {
-            index_member(&mut self.targets, &mut self.meter, entity, id);
+            index_member(&mut self.targets, entity, id);
         }
         for negated in negated_ids(&delta.claims) {
-            index_member(&mut self.negators, &mut self.meter, negated, id);
+            index_member(&mut self.negators, negated, id);
         }
     }
 
     /// A source over the members of this one with these ids, each with its arrival record. The
     /// members were checked when they entered this source, so they are not hashed again; ids
-    /// this source does not hold are skipped. The new source meters its own index work.
+    /// this source does not hold are skipped.
     pub fn restrict(&self, ids: &[String]) -> ScopeSource {
         let mut next = ScopeSource {
             set: self.set.subset(ids),
@@ -622,11 +608,6 @@ impl ScopeSource {
             next.index(delta, arrival.clone());
         }
         next
-    }
-
-    /// The index work every build and extension of this source has done.
-    pub fn meter(&self) -> SourceMeter {
-        self.meter
     }
 
     pub fn arrival(&self, id: &str) -> Option<&ArrivalRecord> {

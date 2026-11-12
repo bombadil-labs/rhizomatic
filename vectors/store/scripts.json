@@ -3418,6 +3418,45 @@
           }
         },
         {
+          "op": "read",
+          "peer": "A",
+          "snapshot": "again"
+        },
+        {
+          "op": "arrivals",
+          "snapshot": "again",
+          "ids": [
+            "a-name"
+          ],
+          "expect": {
+            "ids": [
+              "a-name"
+            ]
+          }
+        },
+        {
+          "op": "scope",
+          "snapshot": "again",
+          "anchors": [
+            {
+              "kind": "entity",
+              "entity": "plant:a"
+            }
+          ],
+          "expect": {
+            "lower": [
+              "a-name"
+            ],
+            "upper": [
+              "a-name"
+            ]
+          }
+        },
+        {
+          "op": "release",
+          "snapshot": "again"
+        },
+        {
           "op": "purge",
           "peer": "B",
           "ids": [
@@ -3554,9 +3593,75 @@
           }
         },
         {
+          "op": "append",
+          "peer": "B",
+          "expectedHead": "b-head-1",
+          "nextHead": "b-head-2",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-name",
+              "arrival": {
+                "at": 1002,
+                "sequence": 2,
+                "transfer": 4,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "read",
+          "peer": "B",
+          "snapshot": "settled"
+        },
+        {
+          "op": "arrivals",
+          "snapshot": "settled",
+          "ids": [
+            "a-name"
+          ],
+          "expect": {
+            "ids": [
+              "a-name"
+            ]
+          }
+        },
+        {
+          "op": "scope",
+          "snapshot": "settled",
+          "anchors": [
+            {
+              "kind": "entity",
+              "entity": "plant:a"
+            }
+          ],
+          "expect": {
+            "lower": [
+              "a-name"
+            ],
+            "upper": [
+              "a-name"
+            ]
+          }
+        },
+        {
+          "op": "release",
+          "snapshot": "settled"
+        },
+        {
           "op": "exportStored",
           "expect": {
-            "ids": []
+            "ids": [
+              "a-name"
+            ]
           }
         }
       ]

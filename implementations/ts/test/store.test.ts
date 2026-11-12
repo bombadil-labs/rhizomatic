@@ -146,6 +146,68 @@ describe("requirements are an allow-list", () => {
     );
   });
 
+  it("openStore refuses options that are not of their type, with one fixed message", async () => {
+    const message = "openStore: the options must be an object, and requires a list of names";
+    const wrong: unknown[] = [
+      null,
+      "journal",
+      5,
+      [],
+      ["journal"],
+      () => ({}),
+      new Map(),
+      { requires: "journal" },
+      { requires: 5 },
+      { requires: null },
+      { requires: { filter: () => [] } },
+      { requires: new Set(["journal"]) },
+      { requires: [5] },
+      { requires: [new String("journal")] },
+      {
+        get requires(): never {
+          throw new Error("a getter that throws");
+        },
+      },
+    ];
+    for (const options of wrong) {
+      const opening = openStore("memory:", options as never);
+      await expect(opening, String(options)).rejects.toThrow(StoreError);
+      await expect(openStore("memory:", options as never)).rejects.toThrow(message);
+      expect(await code(() => openStore("memory:", options as never))).toBe("invalid-request");
+    }
+    // Absent options, and absent `requires`, mean none.
+    for (const options of [undefined, {}, { requires: undefined }, Object.create(null) as object])
+      expect((await openStore("memory:", options as never)).profile.formatVersion).toBe(
+        MEMORY_STORE_FORMAT,
+      );
+  });
+
+  it("openStore reads its options once and hands the factory its own copy", async () => {
+    let reads = 0;
+    const options = {
+      get requires(): string[] {
+        return reads++ === 0 ? [] : ["journal"];
+      },
+    };
+    expect(await code(() => openStore("memory:", options as never))).toBe("no error");
+    expect(reads).toBe(1);
+
+    const given: unknown[] = [];
+    const remove = registerStoreScheme("read-once", async (_url, seen) => {
+      given.push(seen);
+      return createMemoryStore();
+    });
+    try {
+      const requires: ("arrival" | "journal")[] = ["arrival"];
+      await openStore("read-once:", { requires });
+      expect(given).toHaveLength(1);
+      expect(given[0]).toEqual({ requires: ["arrival"] });
+      expect((given[0] as { requires: unknown }).requires).not.toBe(requires);
+    } finally {
+      remove();
+    }
+  });
+
   it("a capability counts only when it is exactly true", () => {
     const odd = {
       ...profile,
@@ -1103,6 +1165,161 @@ describe("a store refuses what is not of its type, and converts nothing", () => 
     });
   }
 
+  // README §7 test 5 beyond the claims: the signature, the id and every arrival field. Each is
+  // honest on its first read and wrong on every later one. The store reads each once, so it
+  // admits the entry and keeps the honest value; it never keeps a value it did not check.
+  const later: Readonly<
+    Record<string, [part: "delta" | "arrival", field: string, wrong: unknown]>
+  > = {
+    "the signature": ["delta", "sig", "not hex"],
+    "the id": ["delta", "id", "1e20" + "00".repeat(32)],
+    "the arrival id": ["arrival", "id", "1e20" + "00".repeat(32)],
+    "the arrival time": ["arrival", "at", Number.NaN],
+    "the arrival sequence": ["arrival", "sequence", 0],
+    "the arrival transfer": ["arrival", "transfer", 0],
+    "the arrival sender": ["arrival", "sender", ""],
+  };
+  for (const [name, [part, field, wrong]] of Object.entries(later)) {
+    it(`${name} is read once: the checked value is the kept one`, async () => {
+      let reads = 0;
+      const { entry, id } = entryWith((e) => {
+        const honest = e[part][field];
+        Object.defineProperty(e[part], field, {
+          enumerable: true,
+          get: () => (reads++ === 0 ? honest : wrong),
+        });
+      });
+      const store = createMemoryStore();
+      const peer = await store.createPeer(A, { erasure: "unproven" });
+      expect(await code(() => peer.append({ ...head, added: [entry] }))).toBe("no error");
+      expect(reads).toBe(1);
+      const snapshot = await peer.read();
+      const [delta] = await snapshot.get([id]);
+      const [arrival] = await snapshot.arrivals([id]);
+      expect(delta?.sig).toMatch(/^[0-9a-f]{128}$/);
+      expect(arrival).toEqual(local(id));
+
+      reads = 0;
+      const source = scopeSource([entry]);
+      expect(reads).toBe(1);
+      expect(source.get(id)?.sig).toBe(delta?.sig);
+      expect(source.arrival(id)).toEqual(local(id));
+    });
+  }
+
+  // README §7 test 5 inside the claims: every claims field, the list of pointers, each pointer,
+  // and each part of each kind of target. Honest on the first read, of the right type and
+  // another value on every later one; the kept claims recompute to the id.
+  type Place = (claims: Loose) => Loose;
+  const claimsAt: Place = (c) => c;
+  const at =
+    (index: number, ...path: string[]): Place =>
+    (c) =>
+      path.reduce<Loose>((o, key) => o[key] as Loose, pointer(c, index) as unknown as Loose);
+  const inner: Readonly<Record<string, [place: Place, field: string, wrong: unknown]>> = {
+    validFrom: [claimsAt, "validFrom", 6],
+    validUntil: [claimsAt, "validUntil", 10],
+    "the author": [claimsAt, "author", "did:key:zOther"],
+    "the list of pointers": [claimsAt, "pointers", []],
+    "a pointer": [
+      (c) => c["pointers"] as Loose,
+      "0",
+      { role: "x", target: { kind: "primitive", value: 1 } },
+    ],
+    "a pointer's role": [at(0), "role", "object"],
+    "a pointer's target": [at(0), "target", { kind: "primitive", value: 1 }],
+    "a target's kind": [at(0, "target"), "kind", "primitive"],
+    "an entity id": [at(0, "target", "entity"), "id", "f"],
+    "an entity context": [at(0, "target", "entity"), "context", "w"],
+    "a primitive value": [at(1, "target"), "value", "w"],
+    "a delta reference": [at(2, "target"), "deltaRef", { delta: "1e20bb" }],
+    "a delta reference's id": [at(2, "target", "deltaRef"), "delta", "1e20bb"],
+    "a delta reference's context": [at(2, "target", "deltaRef"), "context", "d"],
+    "a mime type": [at(3, "target"), "mime", "x/z"],
+    "a bytes payload": [at(3, "target"), "value", new Uint8Array([2])],
+  };
+  for (const [name, [place, field, wrong]] of Object.entries(inner)) {
+    it(`${name} is read once: the kept claims recompute to the id`, async () => {
+      let reads = 0;
+      const { entry, id } = entryWith(({ claims }) => {
+        const owner = place(claims);
+        const honest = owner[field];
+        Object.defineProperty(owner, field, {
+          enumerable: true,
+          get: () => (reads++ === 0 ? honest : wrong),
+        });
+      });
+      const store = createMemoryStore();
+      const peer = await store.createPeer(A, { erasure: "unproven" });
+      expect(await code(() => peer.append({ ...head, added: [entry] }))).toBe("no error");
+      expect(reads).toBe(1);
+      const [delta] = await (await peer.read()).get([id]);
+      expect(computeId(delta!.claims)).toBe(id);
+
+      reads = 0;
+      const source = scopeSource([entry]);
+      expect(reads).toBe(1);
+      expect(computeId(source.get(id)!.claims)).toBe(id);
+    });
+  }
+
+  it("the fields of a request are read once: ids, entities, anchors and exclude", async () => {
+    const store = createMemoryStore();
+    const peer = await store.createPeer(A, { erasure: "unproven" });
+    const delta = fact("e", 1);
+    await fill(peer, [delta]);
+    const snapshot = await peer.read();
+    let reads = 0;
+    /** A list whose one item is honest on its first read and a number on every later one. */
+    const shifty = (honest: unknown): unknown[] => {
+      const list: unknown[] = [honest];
+      Object.defineProperty(list, 0, { get: () => (reads++ === 0 ? honest : 5) });
+      return list;
+    };
+    const once = async (ask: () => Promise<unknown>): Promise<unknown> => {
+      reads = 0;
+      const answer = await ask();
+      expect(reads).toBe(1);
+      return answer;
+    };
+    expect(await once(() => snapshot.get(shifty(delta.id) as string[]))).toHaveLength(1);
+    expect(await once(() => snapshot.arrivals(shifty(delta.id) as string[]))).toHaveLength(1);
+    expect(await once(() => snapshot.targets(shifty("e") as string[]))).toEqual([delta.id]);
+    expect(await once(() => snapshot.negators(shifty(delta.id) as string[]))).toEqual([]);
+    const anchor = {
+      kind: "entity" as const,
+      get entity(): string {
+        return reads++ === 0 ? "e" : (5 as unknown as string);
+      },
+    };
+    expect(
+      ((await once(() => snapshot.scope({ anchors: [anchor] }))) as { deltas: unknown[] }).deltas,
+    ).toHaveLength(1);
+    expect(
+      (
+        (await once(() =>
+          snapshot.scope({
+            anchors: [{ kind: "entity", entity: "e" }],
+            exclude: shifty(delta.id) as string[],
+          }),
+        )) as { deltas: unknown[] }
+      ).deltas,
+    ).toEqual([]);
+    expect(
+      (
+        (await once(() =>
+          snapshot.scope({
+            anchors: [{ kind: "entity", entity: "e" }],
+            pushdown: { excludeIds: shifty(delta.id) as string[] },
+          }),
+        )) as { deltas: unknown[] }
+      ).deltas,
+    ).toEqual([]);
+    expect(await once(() => peer.purge(shifty(delta.id) as string[]))).toMatchObject({
+      targets: [{ id: delta.id, outcome: "removed" }],
+    });
+  });
+
   it("a call that is not of its shape is refused: the batch, its head, its list", async () => {
     const store = createMemoryStore();
     const peer = await store.createPeer(A, { erasure: "unproven" });
@@ -1172,6 +1389,23 @@ describe("a store refuses what is not of its type, and converts nothing", () => 
     expect(
       await code(() => snapshot.scope({ anchors: [{ kind: "entity", entity: 5 as never }] })),
     ).toBe("invalid-request");
+    // An absent pushdown is none. A pushdown that is not a plain object is refused, never
+    // read as an empty one: that would answer unfiltered.
+    const anchors = [{ kind: "entity" as const, entity: "e" }];
+    for (const pushdown of [5, "abc", true, [], () => ({}), null, new Map(), new Date(0)])
+      expect(
+        await code(() => snapshot.scope({ anchors, pushdown: pushdown as never })),
+        String(pushdown),
+      ).toBe("invalid-request");
+    for (const pushdown of [undefined, {}, Object.create(null) as object]) {
+      const result = await snapshot.scope({ anchors, pushdown: pushdown as never });
+      expect(result.deltas).toHaveLength(1);
+      expect(result.applied).toEqual({
+        timestampAtMost: false,
+        arrivalAtMost: false,
+        excludeIds: false,
+      });
+    }
     for (const timestampAtMost of ["5", null, 5n, new Number(5)])
       expect(
         await code(() => snapshot.scope({ anchors: [], pushdown: { timestampAtMost } as never })),
@@ -1180,8 +1414,33 @@ describe("a store refuses what is not of its type, and converts nothing", () => 
       expect(
         await code(() => snapshot.scope({ anchors: [], pushdown: { arrivalAtMost } as never })),
       ).toBe("invalid-request");
-    for (const options of [null, undefined, "unproven", { erasure: new String("unproven") }])
-      expect(await code(() => store.createPeer(B, options as never))).toBe("invalid-request");
+    const listWithPosture = Object.assign([], { erasure: "unproven" });
+    class Options {
+      erasure = "unproven";
+    }
+    const throwing = {
+      get erasure(): never {
+        throw new Error("a getter that throws");
+      },
+    };
+    for (const options of [
+      null,
+      undefined,
+      "unproven",
+      { erasure: new String("unproven") },
+      listWithPosture,
+      new Options(),
+      Object.create({ erasure: "unproven" }) as object,
+      throwing,
+    ]) {
+      const refusal = await store.createPeer(B, options as never).then(
+        () => undefined,
+        (error: unknown) => error,
+      );
+      expect(refusal, String(options)).toBeInstanceOf(StoreError);
+      expect((refusal as StoreError).code).toBe("invalid-request");
+    }
+    await expect(store.peer(B)).rejects.toThrow(StoreError);
     for (const id of [5, null, undefined, new String(B)])
       expect(await code(() => store.createPeer(id as never, { erasure: "unproven" }))).toBe(
         "invalid-request",
@@ -1191,6 +1450,60 @@ describe("a store refuses what is not of its type, and converts nothing", () => 
     // The refusals changed nothing.
     expect((await peer.read()).count).toBe(1);
     expect(await snapshot.targets(["e"])).toHaveLength(1);
+  });
+
+  it("a plain object from another realm is plain; a list or an instance from it is not", async () => {
+    // Plainness is the shape of the prototype chain, as `Array.isArray` is for a list.
+    const foreign = <T>(source: string): T => runInNewContext(source) as T;
+    const store = createMemoryStore();
+    const peer = await store.createPeer(A, foreign("({ erasure: 'unproven' })"));
+    expect(peer.erasure.posture).toBe("unproven");
+    await store.createPeer(
+      B,
+      foreign("Object.assign(Object.create(null), { erasure: 'unproven' })"),
+    );
+    await fill(peer, [fact("e", 1)]);
+    const snapshot = await peer.read();
+    const anchors = [{ kind: "entity", entity: "e" }] as const;
+    const result = await snapshot.scope({
+      anchors,
+      pushdown: foreign("({ timestampAtMost: 0 })"),
+    });
+    expect(result.applied.timestampAtMost).toBe(true);
+    expect(result.deltas).toHaveLength(0);
+    expect(
+      (await openStore("memory:", foreign("({ requires: ['arrival'] })"))).profile.formatVersion,
+    ).toBe(MEMORY_STORE_FORMAT);
+    await expect(openStore("memory:", foreign("({ requires: ['journal'] })"))).rejects.toThrow(
+      "journal",
+    );
+    for (const source of [
+      "[]",
+      "Object.assign([], { erasure: 'unproven' })",
+      "new (class Options { erasure = 'unproven' })()",
+      "Object.create({ erasure: 'unproven' })",
+      "new Map()",
+    ]) {
+      expect(await code(() => store.createPeer("C", foreign(source))), source).toBe(
+        "invalid-request",
+      );
+      expect(await code(() => snapshot.scope({ anchors, pushdown: foreign(source) })), source).toBe(
+        "invalid-request",
+      );
+      expect(await code(() => openStore("memory:", foreign(source))), source).toBe(
+        "invalid-request",
+      );
+    }
+    // An object that only borrows a realm's `constructor` is not that realm's Object.prototype.
+    const impostor = Object.create(Object.assign(Object.create(null), { constructor: Object }));
+    // A prototype with a null prototype that belongs to a constructor of another name.
+    const Other = function Other(): void {};
+    Other.prototype = Object.assign(Object.create(null), { constructor: Other });
+    const instance = Object.create(Other.prototype as object);
+    for (const pushdown of [impostor, instance])
+      expect(await code(() => snapshot.scope({ anchors, pushdown: pushdown as never }))).toBe(
+        "invalid-request",
+      );
   });
 
   it("a request that reads differently each time is read once", async () => {
@@ -1505,73 +1818,111 @@ describe("scopeSource: a synchronous delta source over a fetched scope", () => {
 });
 
 describe("cost rail: scopeSource builds in the size of its members", () => {
-  // Counts work; times nothing. Every search through a list by an array method is charged the
-  // length of the list it searches. A build that looks through a bucket for each insert pays
-  // the square of the bucket. What this cannot see: a search written as a plain loop.
-  const SEARCHES = [
-    "includes",
-    "indexOf",
-    "lastIndexOf",
-    "find",
-    "findIndex",
-    "findLast",
-    "findLastIndex",
-    "some",
-    "every",
-    "filter",
-  ] as const;
-  type Method = (this: unknown[], ...args: unknown[]) => unknown;
-  function searched(build: () => unknown): number {
-    const methods = Array.prototype as unknown as Record<string, Method>;
-    const original = SEARCHES.map((name) => methods[name]!);
-    let work = 0;
-    SEARCHES.forEach((name, i) => {
-      methods[name] = function (...args) {
-        work += this.length;
-        return original[i]!.apply(this, args);
-      };
-    });
-    try {
-      build();
-    } finally {
-      SEARCHES.forEach((name, i) => {
-        methods[name] = original[i]!;
-      });
-    }
-    return work;
-  }
-
+  // A coarse scaling check, timed from outside: the code under test keeps no meter of its own,
+  // so a build that copies or searches a list per insert cannot hide its work. Four shapes, at
+  // N and at 8N: members at one entity, negations of one delta, entity pointers of one member,
+  // and appearances of four ids (every one after the fourth a repeat). Linear work scales by
+  // about 8, quadratic by about 64; the rail fails at 24.
+  //
+  // N is the smallest power of two whose build takes 50 ms or more, so a quadratic build finds
+  // a small N and fails rather than hangs. The build at N is the fastest of five; the build at
+  // 8N passes when any of three is under the bound, which is the fastest of three, stopped
+  // early. The rail is coarse in one direction. A stall during the 8N builds raises the ratio
+  // only if it slows all three, so correct code under load stays green. A stall during every
+  // build at N lowers the ratio, so a loaded machine can let a quadratic build pass. And a cost
+  // that is quadratic only with a tiny constant at these sizes passes.
+  const BOUND = 24;
   const member = (delta: Delta, sequence: number): VerifiedDelta => ({
     delta,
     arrival: { id: delta.id, at: 1, sequence, transfer: 1, sender: "local" },
   });
-  const N = 1500;
-  const atOneEntity = Array.from({ length: 2 * N }, (_, i) => member(fact("crowded", i), i + 1));
   const struck = fact("struck", 0);
-  const negatingOne = Array.from({ length: 2 * N }, (_, i) => member(strike(struck, i), i + 1));
-
-  it("the counter sees a search", () => {
-    expect(searched(() => [1, 2, 3].includes(9))).toBe(3);
-    expect(searched(() => [1, 2, 3, 4].indexOf(9))).toBe(4);
-    // And it is gone afterwards.
-    expect(searched(() => undefined)).toBe(0);
-    expect(Array.prototype.includes).toBe([].includes);
-  });
-
-  for (const [shape, members, key] of [
-    ["members at one entity", atOneEntity, "crowded"],
-    ["negations of one delta", negatingOne, struck.id],
-  ] as const) {
-    it(`twice the ${shape} cost at most twice the searching`, () => {
-      let source = scopeSource([]);
-      const half = searched(() => (source = scopeSource(members.slice(0, N))));
-      const whole = searched(() => (source = scopeSource(members)));
-      const bucket = shape.startsWith("members") ? source.targets(key) : source.negators(key);
-      expect(bucket).toHaveLength(2 * N);
-      // Linear: a constant per member at most. A search per insert would charge N²/2.
-      expect(half).toBeLessThanOrEqual(8 * N);
-      expect(whole).toBeLessThanOrEqual(2 * half + 8);
+  /** The first `n` of a list built on demand, `make(i)` at index i. */
+  const prefix = <T>(make: (i: number) => T): ((n: number) => T[]) => {
+    const made: T[] = [];
+    return (n) => {
+      while (made.length < n) made.push(make(made.length));
+      return made.slice(0, n);
+    };
+  };
+  const wide = (n: number): Delta =>
+    makeDelta({
+      timestamp: 1,
+      validFrom: 1,
+      author: "did:key:zA",
+      pointers: Array.from({ length: n }, (_, i) => ({
+        role: "subject",
+        target: { kind: "entity", entity: { id: `wide:${i}`, context: "v" } },
+      })),
     });
+  const four = [1, 2, 3, 4].map((i) => member(fact("four", i), i));
+  type Shape = {
+    members: (n: number) => Iterable<VerifiedDelta>;
+    /** What a build over `n` holds: the shape reaches the index it names. */
+    holds: (n: number) => void;
+  };
+  const shapes: Record<string, Shape> = {
+    "members at one entity": {
+      members: prefix((i) => member(fact("crowded", i + 1), i + 1)),
+      holds: (n) =>
+        expect(
+          scopeSource(shapes["members at one entity"]!.members(n)).targets("crowded"),
+        ).toHaveLength(n),
+    },
+    "negations of one delta": {
+      members: prefix((i) => member(strike(struck, i + 1), i + 1)),
+      holds: (n) =>
+        expect(
+          scopeSource(shapes["negations of one delta"]!.members(n)).negators(struck.id),
+        ).toHaveLength(n),
+    },
+    "entity pointers of one member": {
+      members: (n) => [member(wide(n), 1)],
+      holds: (n) => {
+        const source = scopeSource(shapes["entity pointers of one member"]!.members(n));
+        expect(source.ids()).toHaveLength(1);
+        for (const i of [0, n - 1]) expect(source.targets(`wide:${i}`)).toHaveLength(1);
+      },
+    },
+    // A list that yields its members again on each walk, without holding 8N of them.
+    "appearances of four ids": {
+      members: (n) => ({
+        *[Symbol.iterator]() {
+          for (let i = 0; i < n; i++) yield four[i % 4]!;
+        },
+      }),
+      holds: (n) =>
+        expect(scopeSource(shapes["appearances of four ids"]!.members(n)).ids()).toHaveLength(
+          Math.min(n, 4),
+        ),
+    },
+  };
+  /** The fastest of `runs` builds; it stops at the first build faster than `enough`. */
+  const fastest = (members: Iterable<VerifiedDelta>, runs: number, enough = 0): number => {
+    let best = Number.POSITIVE_INFINITY;
+    for (let run = 0; run < runs && best >= enough; run++) {
+      const start = performance.now();
+      scopeSource(members);
+      best = Math.min(best, performance.now() - start);
+    }
+    return best;
+  };
+
+  for (const [shape, { members, holds }] of Object.entries(shapes)) {
+    it(`8 times the ${shape} cost less than ${BOUND} times the time`, () => {
+      holds(300);
+      let n = 256;
+      let small = fastest(members(n), 5);
+      while (small < 50 && n < 1 << 24) small = fastest(members((n *= 2)), 5);
+      const large = fastest(members(8 * n), 3, BOUND * small);
+      const ratio = large / small;
+      console.log(
+        `scope source, ${shape}: N = ${n}, ${small.toFixed(1)} ms and ${large.toFixed(1)} ms, ratio ${ratio.toFixed(2)}`,
+      );
+      expect(ratio, `N = ${n}: ${small.toFixed(1)} ms, then ${large.toFixed(1)} ms`).toBeLessThan(
+        BOUND,
+      );
+    }, 600_000);
   }
 });
 

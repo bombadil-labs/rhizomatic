@@ -2,7 +2,7 @@
 //! cover: opening by URL scheme, scheme registration, requirements, close, and a synchronous
 //! delta source over a fetched scope.
 //!
-//! Ownership (`vectors/store/README.md` §7). The seven tests a store runs for itself, and how
+//! Ownership (`vectors/store/README.md` §7). The eight tests a store runs for itself, and how
 //! this witness holds each. Where a test cannot fail by construction, this file says so instead
 //! of running it:
 //!
@@ -15,12 +15,31 @@
 //!    borrowed bytes must test this itself. `a_caller_cannot_reach_into_what_the_store_holds`
 //!    still changes every value it was given and every value it read; it shows the per-peer
 //!    signature stays apart, which is not ownership.
-//! 4. No conversion; 5. one read of each field. These are tests for a dynamically typed witness.
-//!    A Rust value has one type, and a plain struct field answers the same on every read.
+//! 4. No conversion. A test for a dynamically typed witness: a Rust value has one type.
+//! 5. One read of each field. Every field the test names holds by construction, because each is
+//!    a plain field of a concrete type (`String`, `f64`, `u64`, `Vec`, `Option`, or a struct or
+//!    enum of these) with no interior mutability, reached through a shared reference. Rust
+//!    forbids a change behind a `&T` while the borrow lives, so a store reads the value it
+//!    checked on every later read of that call. Field by field:
+//!    - the claims (`Claims`: timestamp, validFrom, validUntil, author, each pointer's role and
+//!      target), the signature (`Delta::sig`) and the id (`Delta::id`), in `&Admission`;
+//!    - the five arrival fields (`ArrivalRecord`: id, at, sequence, transfer, sender), in
+//!      `&Admission`;
+//!    - the ids of `get`, `arrivals`, `negators` and `purge`, and the entities of `targets`
+//!      (`&[String]`);
+//!    - the anchors, the bounds (`timestamp_at_most`, `arrival_at_most`), `exclude_ids` and
+//!      `exclude` of `scope` (`&ScopeRequest`).
+//!
+//!    No field needs a test; a type with a getter that answers differently cannot be passed.
 //! 6. The profile. `Store::profile` returns a shared reference to a struct with no interior
 //!    mutability; a caller can change only its own clone. A handle exposes trait methods only.
-//! 7. `scopeSource`. `scope_source` takes `&[VerifiedDelta]` and copies; `ScopeSource` answers
-//!    with shared references and owned lists. Tests 1 to 3 hold for it by the same argument.
+//! 7. `scopeSource`. Its one input is `&[VerifiedDelta]`, which `scope_source` copies; the
+//!    source answers with shared references and owned lists. Tests 1 to 3 hold by the argument of
+//!    1 to 3, tests 4 and 5 by the argument of 4 and 5 (the member's delta and id are plain
+//!    fields behind a shared reference). `a_refused_scope_source_call_adds_nothing` and the
+//!    recompute refusal test that it files no member under an id its claims do not recompute to.
+//! 8. A store of class `none`. Rust has no such store (`MemoryStore` is `unprovable`), so this
+//!    test has nothing to test here.
 
 use std::collections::BTreeMap;
 

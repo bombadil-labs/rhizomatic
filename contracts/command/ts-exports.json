@@ -33001,6 +33001,26 @@
       "contract": "rhizomatic.resolve/native-api/1",
       "classification": "compatibility_reexport",
       "semantics": "Native resolve API ChildMemo.put implements SPEC-2 evaluation and explicit governance at implementations/ts/src/resolve/eval.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:storage/copy.ts:isPlainObject",
+      "owner": "storage",
+      "symbol": "isPlainObject",
+      "source": "implementations/ts/src/storage/copy.ts",
+      "definition": "implementations/ts/src/storage/copy.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API isPlainObject implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/copy.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/copy.ts:copyDelta",
+      "owner": "storage",
+      "symbol": "copyDelta",
+      "source": "implementations/ts/src/storage/copy.ts",
+      "definition": "implementations/ts/src/storage/copy.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API copyDelta implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/copy.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
     }
   ]
 }

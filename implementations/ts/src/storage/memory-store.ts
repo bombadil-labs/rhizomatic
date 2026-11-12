@@ -6,7 +6,7 @@ import { compareUtf8 } from "../delta/cbor.js";
 import { computeId } from "../delta/delta.js";
 import type { Claims, Delta } from "../delta/types.js";
 import type { ArrivalRecord } from "./arrival-record.js";
-import { copyArrival, copyClaims, copyMember } from "./copy.js";
+import { copyArrival, copyClaims, copyMember, isPlainObject } from "./copy.js";
 import {
   PURGE_BOUNDARY,
   StoreError,
@@ -183,6 +183,9 @@ function takeScope(request: ScopeRequest): OwnScope {
   try {
     const { anchors: list, pushdown, exclude: omit } = request;
     exclude = omit;
+    // Absent means no pushdown. Anything else that is not a plain object is refused, never
+    // read as an empty one.
+    if (pushdown !== undefined && !isPlainObject(pushdown)) throw new TypeError("pushdown");
     const { timestampAtMost, arrivalAtMost, excludeIds } = (pushdown ?? {}) as Pushdown;
     bounds = { timestampAtMost, arrivalAtMost, excludeIds };
     if (!Array.isArray(list)) throw new TypeError("anchors");
@@ -267,7 +270,14 @@ class MemoryStore implements Store {
     this.#open();
     if (typeof id !== "string" || id.length === 0)
       throw new StoreError("invalid-request", "createPeer: the peer id must not be empty");
-    const posture: unknown = (options as CreatePeerOptions | undefined)?.erasure;
+    // The options are a plain object, read once. A getter that throws is a posture not
+    // declared, as is anything that is not a plain object (a list included).
+    let posture: unknown;
+    try {
+      if (isPlainObject(options)) posture = options["erasure"];
+    } catch {
+      posture = undefined;
+    }
     if (posture !== "proven" && posture !== "unproven")
       throw new StoreError("invalid-request", "createPeer: declare the erasure posture");
     const storeClass: ErasureClass = this.#own.capabilities.erasure;

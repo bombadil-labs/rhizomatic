@@ -29,9 +29,10 @@ use rhizomatic::pred::Bindings;
 use rhizomatic::schema::{HyperSchema, SchemaRegistry};
 use rhizomatic::set::{make_delta, make_negation_claims, DeltaSet, DeltaSource};
 use rhizomatic::store::{
-    scope_source, Admission, Anchor, AppendResult, ArrivalRecord, ErasurePosture, PeerErasure,
-    PeerStore, PurgeOutcome, PurgeReport, Pushdown, PushdownFields, Revision, ScopeRequest,
-    ScopeResult, ScopeSource, Snapshot, Store, StoreError, StoreErrorCode, VerifiedDelta,
+    negated_ids, scope_source, target_entities, Admission, Anchor, AppendResult, ArrivalRecord,
+    ErasurePosture, PeerErasure, PeerStore, PurgeOutcome, PurgeReport, Pushdown, PushdownFields,
+    Revision, ScopeRequest, ScopeResult, ScopeSource, Snapshot, Store, StoreError, StoreErrorCode,
+    VerifiedDelta,
 };
 use rhizomatic::store_read::{
     fetch_scope, read_anchored, read_anchored_with_memo, EvalMemo, FetchCache, FinalChildMemo,
@@ -2226,16 +2227,33 @@ fn a_member_whose_arrival_names_another_id_is_refused_and_adds_nothing() {
     let fx = fixture();
     let members = fx.loaded_members();
     let mut source = scope_source(&members[..1]).unwrap();
+    let mut misfiled = members[2].clone();
+    misfiled.arrival.id = members[3].delta.id.clone();
+    // Every index entry the refused call could write: the entities its members point at, and
+    // the ids they could negate.
+    let keys: BTreeSet<String> = [&members[1], &misfiled]
+        .iter()
+        .flat_map(|m| {
+            let entities = target_entities(&m.delta.claims)
+                .into_iter()
+                .map(str::to_string);
+            let negated = negated_ids(&m.delta.claims).into_iter().map(str::to_string);
+            entities.chain(negated).collect::<Vec<_>>()
+        })
+        .collect();
+    let indexes = |source: &ScopeSource| -> Vec<(Vec<String>, Vec<String>)> {
+        keys.iter()
+            .map(|k| (source.targets(k), source.negators(k)))
+            .collect()
+    };
     let before = (
         source
             .ids()
             .into_iter()
             .map(str::to_string)
             .collect::<Vec<_>>(),
-        source.meter(),
+        indexes(&source),
     );
-    let mut misfiled = members[2].clone();
-    misfiled.arrival.id = members[3].delta.id.clone();
     let err = source
         .extend(&[members[1].clone(), misfiled.clone()])
         .unwrap_err();
@@ -2247,7 +2265,7 @@ fn a_member_whose_arrival_names_another_id_is_refused_and_adds_nothing() {
                 .into_iter()
                 .map(str::to_string)
                 .collect::<Vec<_>>(),
-            source.meter()
+            indexes(&source)
         ),
         before
     );

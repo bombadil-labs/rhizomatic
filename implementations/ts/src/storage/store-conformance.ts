@@ -326,6 +326,17 @@ class Run {
         return;
       }
       case "purge": {
+        // A document defect, whatever the store: the claim names the two classes that purge.
+        const claim: unknown = step.expect.claim;
+        check(
+          typeof claim === "object" && claim !== null && !Array.isArray(claim),
+          "the vector's purge claim is missing or not an object, not unprovable and proven",
+        );
+        const claimKeys = Object.keys(claim).sort();
+        check(
+          same(claimKeys, ["proven", "unprovable"]),
+          `the vector's purge claim has keys ${claimKeys.join(", ")}, not unprovable and proven`,
+        );
         const before = await this.revision(step.peer);
         const purged = await attempt(() => this.peer(step.peer).purge(this.ids(step.ids)));
         check(
@@ -344,7 +355,12 @@ class Run {
         );
         check(report.boundary === PURGE_BOUNDARY, "the report does not state its boundary");
         const storeClass = this.store.profile.capabilities.erasure;
-        check(storeClass !== "none", "a store with erasure class none answered a purge");
+        // A store of class `none` that answers a purge meets no expectation: the scripts that
+        // purge require `purge`, and the claim has no entry for `none`.
+        check(
+          storeClass !== "none",
+          "the vector's purge claim has no entry for erasure class none",
+        );
         // A store may claim less than a vector allows, never more: `unproven` is accepted
         // where `proven` is expected, and nothing else is exchanged.
         const expectedClaim = step.expect.claim[storeClass];
@@ -371,6 +387,8 @@ class Run {
             ),
             "the reference store's surfaces differ",
           );
+        // Every outcome ends what the peer holds: `removed` and `held-by-other-peer` both stop
+        // the holding, and the others find none. An id appended again is held anew.
         const held = this.held(step.peer);
         for (const target of report.targets) held.delete(target.id);
         return;
@@ -591,15 +609,24 @@ class Run {
   }
 }
 
+/**
+ * The first requirement of a script the store's profile fails. An absent `requires` means
+ * none; a name that is not a requirement is a defect of the document.
+ */
 function missing(
   store: Store,
-  requires: readonly VectorRequirement[],
+  requires: readonly VectorRequirement[] | undefined,
 ): VectorRequirement | undefined {
-  return requires.find((requirement) =>
-    requirement === "purge"
-      ? store.profile.capabilities.erasure === "none"
-      : store.profile.capabilities.journal,
-  );
+  if (requires === undefined) return undefined;
+  check(Array.isArray(requires), "the script's requires is not a list");
+  for (const requirement of requires) {
+    let holds: boolean;
+    if (requirement === "purge") holds = store.profile.capabilities.erasure !== "none";
+    else if (requirement === "journal-absent") holds = !store.profile.capabilities.journal;
+    else throw new Error(`unknown script requirement ${String(requirement)}`);
+    if (!holds) return requirement;
+  }
+  return undefined;
 }
 
 /**
@@ -629,10 +656,16 @@ export async function runStoreConformance(
   for (const script of vectors.scripts.scripts) {
     const name = `scripts/${script.name}`;
     const store = await factory();
-    const lacks = missing(store, script.requires);
-    if (lacks !== undefined) skipped.push({ name, missing: lacks });
-    else if (await guarded(name, () => new Run(store, vectors.scripts).steps(script.steps)))
-      passed.push(name);
+    let lacks: VectorRequirement | undefined;
+    if (
+      await guarded(name, async () => {
+        lacks = missing(store, script.requires);
+      })
+    ) {
+      if (lacks !== undefined) skipped.push({ name, missing: lacks });
+      else if (await guarded(name, () => new Run(store, vectors.scripts).steps(script.steps)))
+        passed.push(name);
+    }
     await store.close();
   }
 

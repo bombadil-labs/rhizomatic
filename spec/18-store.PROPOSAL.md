@@ -610,7 +610,9 @@ the text above was silent, slice 1 decided as follows. The shared vectors and
     posture; `scope` with a non-finite `timestampAtMost`; `scope` with an `arrivalAtMost` that is
     not an integer from 0 to 2^53 − 1; an unknown requirement name at open; `scopeSource` given a
     member whose id does not recompute, or a malformed member; and, in a dynamically typed
-    witness, a request with a value that is not of its type (reading 34).
+    witness, a request with a value that is not of its type (reading 34), an optional object
+    field that is not a plain object (reading 40), and `openStore` options that are not of
+    their type (reading 41).
 22. **Requirements are an allow-list.** A name outside it is refused and named, never looked up
     on the profile. A capability counts only when it is exactly true.
 23. **Handles.** An older `PeerStore` stays valid when the peer is opened again; both are views
@@ -663,8 +665,16 @@ the text above was silent, slice 1 decided as follows. The shared vectors and
 35. **Private means unreachable.** What the memory store decides by (its own profile, the stored
     claims, the peers, the closed flag) is not a property of the store object. A cast, or a
     property planted under the old name, reaches nothing.
-36. **`scopeSource` builds in the size of its members.** N members at one entity, or N negations
-    of one delta, cost N steps. A rail in each witness counts the work; it does not time it.
+36. **`scopeSource` builds in the size of its members.** N members at one entity, N negations
+    of one delta, one member with N entity pointers, and N appearances of a few ids each cost N
+    steps. A rail in each witness times the build of each of these four shapes from outside with
+    a monotonic clock, at N and at 8N, and holds the ratio below 24 (linear is about 8,
+    quadratic about 64). N is the smallest power of two whose build takes 50 ms or more; the
+    build at N is the fastest of five, the build at 8N the fastest of three
+    (`vectors/store/README.md` §6). It is a coarse scaling check, not a count, and a stall during
+    the builds at N can let a quadratic build pass. Round 3 had each witness count the work
+    with a meter the code under test incremented; a build that copied its bucket on every
+    insert was quadratic and passed, because the meter counted calls, not work.
 37. **A bound that reaches every store.** The vectors refuse `arrivalAtMost: 2^53` on a moved and
     on a released snapshot (reading 27). A typed runner answers `1.5` and `-1` at its own
     boundary; an unsigned 64-bit field holds 2^53, so that bound pins the store.
@@ -675,6 +685,41 @@ the text above was silent, slice 1 decided as follows. The shared vectors and
     per runner rule and asserts that the run fails with that rule's message
     (`vectors/store/README.md` §8). A runner asks the store first and judges the answer
     afterwards. A purge that refuses fails its step.
+40. **An optional object field is a plain object or absent.** Absent (in TypeScript,
+    `undefined`) means none. Anything else that is not a plain object (`null`, a list, a number,
+    a string, a boolean, a function, a class instance) is refused `invalid-request`; a store
+    never reads it as an empty object, because that answers as if nothing had been asked. In
+    slice 1 this is `scope`'s `pushdown` and the options of `openStore`. The options of
+    `createPeer` are required and follow the same rule: options that are not a plain object, or
+    whose `erasure` cannot be read, declare no posture and are refused `invalid-request`.
+    Plainness is the shape of the prototype chain, not the identity of one realm's
+    `Object.prototype`: a plain object from another realm is plain, as a list from another
+    realm is a list.
+41. **`openStore` options.** Absent options mean none, and so does an absent `requires`.
+    Otherwise the options are a plain object and `requires` is a list of strings; anything else
+    is `invalid-request` with one fixed message. The options are read once, before the scheme,
+    and the factory receives the opener's own copy. A name that is a string and not a
+    requirement is still refused after the store opens, naming it (reading 22).
+42. **A purge forgets the holding, whatever kept the bytes.** After `held-by-other-peer` the
+    peer holds the id no longer, as after `removed`. An append of the id again holds it under
+    the new appearance and arrival record. A vector reads the record back after exactly that
+    sequence; until round 4 no vector did, and a store that served the first record again
+    passed. The runner's bookkeeping forgets every target of a purge. A second vector appends
+    the id again after the debt settles through a later purge (`removed` for an id the peer no
+    longer held), and reads the new record back.
+43. **Class `none` is not a runner rule.** A store of class `none` refuses every purge with
+    `capability-absent`. The scripts that purge require `purge` and are skipped for it, so no
+    shared step reaches the refusal: each witness that has such a store tests it
+    (`vectors/store/README.md` §7, test 8). A purge `claim` in a document has exactly the keys
+    `unprovable` and `proven`; any other shape is a defect of the document, and a store of
+    class `none` that reaches a purge step fails it for want of an expectation.
+44. **Script requirements are an allow-list too.** An absent `requires` means none. A name
+    outside `purge` and `journal-absent` refuses the script as a defect of the document, in
+    every runner; it is never read as some other requirement.
+45. **One read per field reaches every field.** The rule of reading 33 covers the claims, the
+    signature, the id, the five arrival fields and every field of a request, not the claims
+    alone. `scopeSource` reads a member's delta and its id once each, and decides a repeat on
+    that one read.
 
 ### 4.12 Slice 2 readings
 
@@ -1058,6 +1103,8 @@ cache.
   equals the same read evaluated over the full surface.
 - **Cost rails** count store calls, not milliseconds: the same read against a surface with 0 and
   with N unrelated deltas makes the same calls with the same key counts. Open counts O(tail).
+  A rail on how work scales with its own input, where the code under test could do work it
+  does not count, times that work from outside instead (§4.11, reading 36).
 - **Adapter rails** stay local to each implementation: crash during append (all or nothing), a
   second-process writer seen through the feed, erasure surface proofs on real files, and refusal
   to create a proven-posture peer on an `unprovable` store.

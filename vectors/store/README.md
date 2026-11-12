@@ -114,11 +114,22 @@ id that exists), `posture-refused` and `peer-exists` both conform.
    appearance of an id is kept and checked; a repeated id is not examined. A refused call adds
    nothing: the source is unchanged, or is not built. The source owns its members as a store
    does: it copies them in without converting, and what it returns cannot be used to change it.
-   Building the source costs the total size of its members: N members at one entity, or N
-   negations of one delta, cost N steps and not N² (each witness has a rail that counts this).
+   Building the source costs the total size of its members: N members at one entity, N
+   negations of one delta, one member with N entity pointers, and N appearances of a few ids
+   cost N steps and not N². Each witness has a rail for this (§6, "Cost").
 6. In a dynamically typed witness only: a request with a value that is not of its type. A list of
    ids or entities that is not a list of strings, an anchor that is not an object with a kind, a
-   `createPeer` without options. A typed witness cannot receive one.
+   `createPeer` whose options are absent or not a plain object (item 7), or whose `erasure`
+   throws when read. A typed witness cannot receive one.
+7. In a dynamically typed witness only: an optional object field that is present and is not a
+   plain object. "Absent" means the field is not given (in TypeScript, `undefined`); then it means
+   none. Any other value is refused, also `null`, a list, a number, a string, a boolean and a
+   function: a store never reads such a value as an empty object. Slice 1 has two such fields:
+   the `pushdown` of `scope`, and the options of opening a store (§6, "`openStore`"). A plain
+   object is one whose prototype is null or is some realm's `Object.prototype`, judged by the
+   shape of the chain and not by identity with this realm's: an object literal from another
+   realm is plain, as a list from another realm is a list. A class instance, and an object
+   whose prototype is another object, are not plain.
 
 A witness whose types make a case unrepresentable (a missing posture, a NaN in an integer field)
 satisfies it. Vectors cover the empty peer id and the three `arrivalAtMost` refusals. JSON cannot
@@ -195,7 +206,9 @@ store never does. In a conformance run `uncertain` fails the step.
 | neither holds nor owes it | `not-held` | Nothing changes. |
 
 "Stops holding" removes the id from every answer of §1.4 for this peer, including its arrival
-record. The revision advances exactly when the peer stops holding at least one id. An append that
+record. This holds for `held-by-other-peer` as for `removed`: the bytes stay, the holding ends.
+When the peer appends the id again, it holds it under the new entry's appearance and arrival
+record; nothing of the first holding comes back. The revision advances exactly when the peer stops holding at least one id. An append that
 makes the peer hold an id again ends its debt for that id. A peer that never held an id always
 gets `not-held`, whoever else holds it. A purge never changes another peer's answers or revision.
 A store whose erasure class is `none` refuses every purge with `capability-absent`.
@@ -357,8 +370,11 @@ already in ascending id order; compare element by element.
 
 Run each script on a **new, empty store**. Peer handles and snapshots live for one script.
 
-`requires` lists what the store's profile must offer. Skip the script, and report it as skipped,
-when a requirement fails:
+`requires` lists what the store's profile must offer. An absent `requires` means none. A
+`requires` that is present and not a list of names (`null` included) is a defect of the
+document, and so is a name that is not in the table below: the script fails with a message
+that names the defect, whatever the store. Skip the script, and report it as skipped, when a
+requirement fails:
 
 | Requirement | Holds when |
 |---|---|
@@ -444,8 +460,10 @@ The runner reads the peer's revision by `read()` before and after the step.
 
 **Bookkeeping.** For each peer the runner remembers which appearance and which arrival record each
 held id was admitted with: on `committed`, for each id in the result, the first entry of `added`
-with that id. A purge forgets every id in its report's `targets`. Later steps check store answers
-against this record.
+with that id. A purge forgets every id in its report's `targets`, whatever the outcome: after
+`removed` and after `held-by-other-peer` the peer holds the id no longer, and after the other
+outcomes it held nothing to forget. So an id appended again is checked against its new arrival
+record. Later steps check store answers against this record.
 
 ### 3.4 `purge`
 
@@ -464,7 +482,13 @@ against this record.
 
 `expect.claim` is one of two objects: `{"unprovable": "unproven", "proven": "proven"}` when a
 target is `removed`, and `{"unprovable": "nothing-removed", "proven": "nothing-removed"}` when
-none is.
+none is. A `claim` with any key other than `unprovable` and `proven`, or without one of them, is
+a defect of the document: the step fails, whatever the store answers.
+
+A `claim` has no entry for class `none`. A store of class `none` refuses every purge (§1.3), and
+every script that purges requires `purge`, so the runner skips it for such a store. If a store
+of class `none` reaches a purge step anyway, the step fails: there is no expectation for it. The
+refusal itself is a test of each witness (§7, test 8), not a rule of the runner.
 
 Checks:
 
@@ -993,12 +1017,43 @@ The JSON cannot express these; each witness builds them over this fixture.
   own, or shares a payload's memory passes every vector. Ownership is an obligation of each
   witness and of each store, with its own tests (§7).
 - A purge on a store of class `none`. The scripts that purge are skipped for such a store, so no
-  shared step shows that it refuses. Each witness tests that refusal for its own stores.
+  shared step shows that it refuses. Each witness tests that refusal for its own stores (§7,
+  test 8).
 - Proof of physical absence. The memory reference store is `unprovable`. A `proven` store adds
   its own adapter rails for its surfaces (SPEC-18 §8).
-- Cost. Each witness asserts by counting index work that no core operation walks a whole set
-  (SPEC-18 §8, "cost rails"); a JSON file cannot. The same holds for building `scopeSource`.
-- `store-closed`, `openStore` and URL schemes. These are host API, tested per witness.
+- Cost. A JSON file cannot measure work. Each witness has its own cost rails (SPEC-18 §8):
+  - **Core operations.** A rail asserts that no core operation walks a whole set. A memory store
+    may count its own index work for this, as the reference does.
+  - **Building `scopeSource`.** A rail times the build from outside, with a monotonic clock. It
+    builds the source in four shapes, each at N and at 8N:
+    1. N members, each a fact about one shared entity;
+    2. N members, each a negation of one shared delta;
+    3. one member with N pointers, each to its own entity;
+    4. N appearances of four ids: four members in turn, so every appearance after the fourth is
+       a repeat.
+
+    For each shape, N is the smallest power of two from 256 whose build takes 50 ms or more. A
+    witness may cap N where 8N members would not fit in memory; the rail then names the cap.
+    The build at N is the fastest of five builds. The build at 8N is the fastest of three; the
+    rail may stop at the first build under the bound, because the fastest is under the bound
+    exactly when one build is. The ratio of the two must stay below 24: linear work gives about
+    8, and quadratic work about 64. A quadratic build reaches 50 ms at a small N, so it fails
+    rather than hangs.
+
+    This is a coarse scaling check, not a count. It catches a copy or a search of a list per
+    insert: of a bucket (shapes 1 and 2), of one member's keys (shape 3), of what earlier
+    appearances left (shape 4). It is coarse in one direction. A stall must slow all three
+    builds at 8N to fail correct code, but a stall during every build at N lowers the ratio, so
+    a loaded machine can let a quadratic build pass. It cannot see a quadratic term too small
+    to show at that N. A count kept by the code under test does not serve, because that code
+    can do work it does not count. Each witness measures each shape red once, against a build
+    that does that shape's quadratic work: a list of a member's entity keys searched before
+    each insert (shape 3), and a list of earlier appearances copied on each repeat (shape 4).
+- `store-closed`, `openStore` and URL schemes. These are host API, tested per witness. One rule
+  binds every witness that opens by URL: the options of `openStore` are absent (none) or a plain
+  object, and its `requires` is absent (none) or a list of strings. A dynamically typed witness
+  refuses anything else with `invalid-request` and one fixed message that quotes nothing the
+  caller gave, reads the options once, and hands the store's factory its own copy.
 - The runner. The vectors judge a store through a runner, and nothing in the vectors judges the
   runner (§8).
 
@@ -1025,13 +1080,31 @@ holds and then reads the store again; the store's answers MUST NOT change.
    of another type that a lenient store could convert: a buffer or a list of numbers for a
    payload, a numeric string for a number, a string object for a string, an object with indexes
    for a list. Use the id the converted form would have. The store refuses and holds nothing.
-5. **One read of each field** (a witness whose objects can answer differently on each read). Pass
-   claims with a field that gives the honest value on one read and another value on the others.
-   The store may admit or refuse. It MUST NOT hold the id over claims that do not recompute.
+5. **One read of each field** (a witness whose objects can answer differently on each read). For
+   every field the store keeps or acts on, pass a value that is honest on its first read and
+   wrong on every later read. The fields are: each field of the claims; inside the claims, the
+   list of pointers, each pointer, a pointer's role and target, a target's kind, an entity's id
+   and context, a delta reference and its id and context, a primitive value, a mime type and the
+   payload's bytes; the signature; the delta's id; each of the five fields of the arrival
+   record; and the fields of a request (the ids of `get`, `arrivals`, `negators` and `purge`,
+   the entities of `targets`, and the anchors, the bounds, `excludeIds` and `exclude` of
+   `scope`). The store may admit or refuse. If it admits, what it keeps and answers is a value
+   it checked: it MUST NOT hold the id over claims that do not recompute, keep a signature or
+   an arrival record that its checks would refuse, or answer a request other than the one it
+   checked. A store that reads each field once admits every such entry and keeps the honest
+   values.
 6. **The profile.** Change the profile a caller reads, or replace it. The posture gate and the
    applied pushdown fields do not change. Nothing the store decides by is reachable from a
    handle.
-7. **`scopeSource`.** Tests 1 to 5 again for the members given to it and for what it returns.
+7. **`scopeSource`.** It has one input, the list of members, and its answers. Build a source
+   from a list of members, then repeat tests 1 to 5 against it: change the members and the list
+   after the build, change what `get` and `arrival` return, and pass members whose fields answer
+   differently on each read. Its answers (`get`, `arrival`, `targets`, `negators`, `ids`) MUST
+   NOT change, and it MUST NOT file a member under an id its claims do not recompute to. Test 3
+   applies to the payload of a member. Tests that need two peers do not apply.
+8. **A store of class `none`.** Every `purge` refuses `capability-absent`, an empty purge too,
+   and changes nothing: the holdings, the head and the revision stay. A witness that has no store
+   of class `none` has nothing to test here.
 
 ## 8. What a witness tests for itself: the runner
 
@@ -1051,28 +1124,38 @@ The table covers at least:
 - **Peers:** a created or opened handle with another posture; a created handle with another
   erasure class than the profile; `unlessStoreErasure` in both directions.
 - **Append:** each answer that is not the expected one, `uncertain` included; the added ids, and
-  their order; the result's revision; a refused append or a `conflict` that moves the revision;
-  `revisionAdvanced` in both directions.
+  their order; the result's revision; a refused append or a `conflict` that moves the revision,
+  up and down; `revisionAdvanced` in both directions.
 - **Purge:** outcomes (not ids only), their order, a repeated id; the report's revision;
   `revisionAdvanced` in both directions; the boundary text, exactly; each claim that is not the
   expected one; `proven` with no surface and with a surface that is not `absent`; a surface state
-  outside the three; a store of class `none` that answers.
+  outside the three.
 - **The bookkeeping:** the first entry of a batch with an id is the one held; a purge forgets
-  the id, so an id appended again is held under its new arrival record.
-- **Point reads:** `head`, `count`; ids and their order for `get`, `arrivals`, `targets`,
-  `negators`; a returned delta's signature and claims; each of the four fields of an arrival
-  record.
+  the id, so an id appended again is held under its new arrival record. Both outcomes that end
+  a holding: a store that keeps the old record after `removed`, and one that keeps it after
+  `held-by-other-peer`. And a store that keeps the record while a debt is owed and forgets it
+  when an append clears the debt, but not when a later purge settles it.
+- **Point reads:** `head`, and a new peer's head that is the empty string instead of null;
+  `count`; ids and their order for `get`, `arrivals`, `targets`, `negators`; a returned delta's
+  signature and claims; each of the four fields of an arrival record.
 - **Scope members:** order, a repeat, claims, the arrival record's id and fields, the signature,
   a member the peer does not hold.
 - **Scope bounds:** `applied` ⊆ requested; the lower and the upper bound in a script and in a
-  scope case; the trim comparison.
+  scope case; the trim comparison. In a scope case, the lower bound twice: a store that leaves
+  out the first id of the bound, and one that leaves out a later id.
 - **Reference rules:** the applied fields, the exact ids in a script and in a scope case, the
-  surfaces. For each, the same wrong answer under another `formatVersion` conforms.
-- **Export:** ids, their order, the count of deltas, a delta's appearance; the stored listing
-  and the peer listing.
+  surfaces. For each, the same wrong answer under another `formatVersion` conforms. The exact
+  ids in a script also for a step with no `pushdown`: a store that ignores `exclude` only when
+  no pushdown is asked.
+- **Export:** ids, their order, the count of deltas in both directions (fewer deltas than ids,
+  and more), a delta's appearance; the stored listing and the peer listing.
 - **Requirements:** each one skips exactly its scripts and reports them; each script gets a new
   store.
-- **Documents:** an unknown `format`; a corpus id that does not recompute and is not `forged`.
+- **Documents:** an unknown `format`; a corpus id that does not recompute and is not `forged`; a
+  purge `claim` with a key other than `unprovable` and `proven`; an unknown script requirement;
+  a script `requires` that is `null`. A defect of one script's `requires` is a failure of that
+  script, reported by name with the run's other failures, and the run closes that script's
+  store.
 
 A rule a wrapped store cannot reach is listed by name in the test file, with the reason. Then the
 table itself is checked once: for each check of the runner, remove it and see the table go red.

@@ -23,7 +23,7 @@ import type {
   StoreProfile,
 } from "../src/storage/store.js";
 import { StoreError } from "../src/storage/store.js";
-import { broken, type Break } from "./support/broken-store.js";
+import { broken, stale, type Break } from "./support/broken-store.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const load = <T>(name: string): T =>
@@ -355,6 +355,11 @@ const faults: Record<string, Break> = {
         }),
     }),
   },
+  // A peer that purged an id another peer holds, then appended it again, is served the first
+  // arrival record again. Its holding ended with the purge (README §1.3).
+  "an arrival record that outlives a held-by-other-peer purge": stale(
+    (outcome) => outcome !== "held-by-other-peer",
+  ),
   "an arrival sequence that is reusable after a purge": {
     peer: (peer) => {
       let purged = false;
@@ -713,7 +718,7 @@ describe("store vectors: what the profile changes", () => {
     const report = await runStoreConformance(none, vectors);
     expect(report.skipped).toEqual(
       vectors.scripts.scripts
-        .filter((script) => script.requires.includes("purge"))
+        .filter((script) => script.requires?.includes("purge"))
         .map((script) => ({ name: `scripts/${script.name}`, missing: "purge" })),
     );
     expect(report.skipped).toHaveLength(5);

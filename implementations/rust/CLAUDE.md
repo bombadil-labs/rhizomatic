@@ -80,7 +80,7 @@ tests/
   store_runner.rs   the conformance runner's own rules, against a class-proven stand-in store
   store_runner_rules.rs  the runner-rules table: one wrong store per runner rule (README §8)
   store_cost.rs     the cost rail: index work does not grow with unrelated deltas; nothing scans;
-                    building a scope source costs the size of its members
+                    building a scope source scales linearly, timed at N and 8N
   store_open.rs     schemes, requirements, close, and an anchored read over a fetched scope
   store_rounds.rs   every case of ../../vectors/store/rounds.json read five ways, wrong readers,
                     wrong memos, what the memo saves, cost

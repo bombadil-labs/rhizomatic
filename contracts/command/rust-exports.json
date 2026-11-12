@@ -25581,17 +25581,6 @@
     {
       "form": "syn-import",
       "owner": "delta",
-      "rawTarget": "crate::store::SourceMeter",
-      "resolvedTarget": "crate::store::SourceMeter",
-      "source": "implementations/rust/src/lib.rs",
-      "sourceRegion": "compatibility-aggregate",
-      "symbol": "<import>",
-      "target": "crate::store::SourceMeter",
-      "targetOwner": "storage"
-    },
-    {
-      "form": "syn-import",
-      "owner": "delta",
       "rawTarget": "crate::eval::ChildKey",
       "resolvedTarget": "crate::eval::ChildKey",
       "source": "implementations/rust/src/lib.rs",
@@ -81401,28 +81390,6 @@
       "targetOwner": "storage"
     },
     {
-      "form": "syn-resolved-path",
-      "owner": "storage",
-      "rawTarget": "crate::store::SourceMeter",
-      "resolvedTarget": "crate::store::SourceMeter",
-      "source": "implementations/rust/src/store.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "ScopeSource",
-      "target": "crate::store::SourceMeter",
-      "targetOwner": "storage"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "storage",
-      "rawTarget": "crate::store::SourceMeter",
-      "resolvedTarget": "crate::store::SourceMeter",
-      "source": "implementations/rust/src/store.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "index_member",
-      "target": "crate::store::SourceMeter",
-      "targetOwner": "storage"
-    },
-    {
       "form": "syn-external-path",
       "owner": "storage",
       "source": "implementations/rust/src/store.rs",
@@ -81437,28 +81404,6 @@
       "sourceRegion": "semantic-owner",
       "symbol": "index_member",
       "target": "std::collections::BTreeSet"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "storage",
-      "rawTarget": "crate::store::ScopeSource",
-      "resolvedTarget": "crate::store::ScopeSource",
-      "source": "implementations/rust/src/store.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "ScopeSource::meter",
-      "target": "crate::store::ScopeSource",
-      "targetOwner": "storage"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "storage",
-      "rawTarget": "crate::store::SourceMeter",
-      "resolvedTarget": "crate::store::SourceMeter",
-      "source": "implementations/rust/src/store.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "ScopeSource::meter",
-      "target": "crate::store::SourceMeter",
-      "targetOwner": "storage"
     },
     {
       "form": "syn-resolved-path",
@@ -84441,6 +84386,14 @@
       "sourceRegion": "semantic-owner",
       "symbol": "Run::purge",
       "target": "serde_json::Value"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "storage",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Run::purge",
+      "target": "std::string::String::as_str"
     },
     {
       "form": "syn-resolved-path",
@@ -98159,18 +98112,6 @@
       "classification": "compatibility_reexport",
       "contract": "rhizomatic.storage/native-api/1",
       "definition": "reexport",
-      "id": "rust:lib:SourceMeter",
-      "owner": "storage",
-      "semantics": "Native lib::SourceMeter implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
-      "source": "implementations/rust/src/lib.rs",
-      "symbol": "SourceMeter",
-      "target": "crate::store::SourceMeter"
-    },
-    {
-      "cfg": [],
-      "classification": "compatibility_reexport",
-      "contract": "rhizomatic.storage/native-api/1",
-      "definition": "reexport",
       "id": "rust:lib:SkippedScript",
       "owner": "storage",
       "semantics": "Native lib::SkippedScript implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
@@ -105085,34 +105026,12 @@
       "cfg": [],
       "classification": "native_extension",
       "contract": "rhizomatic.storage/native-api/1",
-      "definition": "struct",
-      "id": "rust:store:SourceMeter",
-      "owner": "storage",
-      "semantics": "Native store::SourceMeter implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
-      "source": "implementations/rust/src/store.rs",
-      "symbol": "SourceMeter"
-    },
-    {
-      "cfg": [],
-      "classification": "native_extension",
-      "contract": "rhizomatic.storage/native-api/1",
       "definition": "method",
       "id": "rust:store:ScopeSource::arrival",
       "owner": "storage",
       "semantics": "Native store::ScopeSource::arrival implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/store.rs",
       "symbol": "ScopeSource::arrival"
-    },
-    {
-      "cfg": [],
-      "classification": "native_extension",
-      "contract": "rhizomatic.storage/native-api/1",
-      "definition": "method",
-      "id": "rust:store:ScopeSource::meter",
-      "owner": "storage",
-      "semantics": "Native store::ScopeSource::meter implements SPEC-8 physical pack encoding and the SPEC-18 store interface. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
-      "source": "implementations/rust/src/store.rs",
-      "symbol": "ScopeSource::meter"
     },
     {
       "cfg": [],

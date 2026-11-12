@@ -70,9 +70,9 @@ read type for consumers, and the principal reads take it.
 - Rust witness: the same interface as synchronous traits (`Store`, `PeerStore`, `Snapshot`,
   `Exporter`), `MemoryStore`, `StoreSchemes` and `open_store`, `scope_source`, and
   `run_store_conformance`. It passes every script and scope case of `vectors/store/`. A Rust host
-  owns its scheme registry as a value; there is no process-wide table. `ScopeSource::meter()`
-  counts the index work of a build, and a table of wrong stores holds the Rust runner to each of
-  its rules.
+  owns its scheme registry as a value; there is no process-wide table. A timed rail holds the
+  build of a `ScopeSource` to linear scaling, and a table of wrong stores holds the Rust runner to
+  each of its rules.
 
 - Rust witness, slice 2: `NegationReader` is generic over any `DeltaSource` and lives in `set`,
   with the free functions `negation_reader`, `negation_witnesses` and `negation_predicate`.
