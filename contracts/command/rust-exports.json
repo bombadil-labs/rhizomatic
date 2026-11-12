@@ -85473,6 +85473,17 @@
     {
       "form": "syn-resolved-path",
       "owner": "reactor",
+      "rawTarget": "crate::store::Revision",
+      "resolvedTarget": "crate::store::Revision",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "RoundReport",
+      "target": "crate::store::Revision",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
       "rawTarget": "crate::store_read::RoundReport",
       "resolvedTarget": "crate::store_read::RoundReport",
       "source": "implementations/rust/src/store_read.rs",
@@ -85971,80 +85982,6 @@
       "targetOwner": "reactor"
     },
     {
-      "form": "syn-external-path",
-      "owner": "reactor",
-      "source": "implementations/rust/src/store_read.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "read_anchored",
-      "target": "core::primitive::str::to_string"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "reactor",
-      "rawTarget": "crate::anchored::UnanchoredReason::ResultSort",
-      "resolvedTarget": "crate::anchored::UnanchoredReason::ResultSort",
-      "source": "implementations/rust/src/store_read.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "read_anchored",
-      "target": "crate::anchored::UnanchoredReason::ResultSort",
-      "targetOwner": "resolve"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "reactor",
-      "rawTarget": "crate::anchored::hview_anchors",
-      "resolvedTarget": "crate::anchored::hview_anchors",
-      "source": "implementations/rust/src/store_read.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "read_anchored",
-      "target": "crate::anchored::hview_anchors",
-      "targetOwner": "resolve"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "reactor",
-      "rawTarget": "crate::eval::EvalResult::HView",
-      "resolvedTarget": "crate::eval::EvalResult::HView",
-      "source": "implementations/rust/src/store_read.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "read_anchored",
-      "target": "crate::eval::EvalResult::HView",
-      "targetOwner": "resolve"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "reactor",
-      "rawTarget": "crate::eval::Term::Resolve",
-      "resolvedTarget": "crate::eval::Term::Resolve",
-      "source": "implementations/rust/src/store_read.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "read_anchored",
-      "target": "crate::eval::Term::Resolve",
-      "targetOwner": "syntax"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "reactor",
-      "rawTarget": "crate::eval::eval_term_at",
-      "resolvedTarget": "crate::eval::eval_term_at",
-      "source": "implementations/rust/src/store_read.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "read_anchored",
-      "target": "crate::eval::eval_term_at",
-      "targetOwner": "resolve"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "reactor",
-      "rawTarget": "crate::store::Anchor::Entity",
-      "resolvedTarget": "crate::store::Anchor::Entity",
-      "source": "implementations/rust/src/store_read.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "read_anchored",
-      "target": "crate::store::Anchor::Entity",
-      "targetOwner": "storage"
-    },
-    {
       "form": "syn-resolved-path",
       "owner": "reactor",
       "rawTarget": "crate::store::ScopeSource::default",
@@ -86069,56 +86006,12 @@
     {
       "form": "syn-resolved-path",
       "owner": "reactor",
-      "rawTarget": "crate::store_read::FetchCache::Off",
-      "resolvedTarget": "crate::store_read::FetchCache::Off",
-      "source": "implementations/rust/src/store_read.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "read_anchored",
-      "target": "crate::store_read::FetchCache::Off",
-      "targetOwner": "reactor"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "reactor",
-      "rawTarget": "crate::store_read::FetchCache::On",
-      "resolvedTarget": "crate::store_read::FetchCache::On",
-      "source": "implementations/rust/src/store_read.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "read_anchored",
-      "target": "crate::store_read::FetchCache::On",
-      "targetOwner": "reactor"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "reactor",
       "rawTarget": "crate::store_read::ReadRequest",
       "resolvedTarget": "crate::store_read::ReadRequest",
       "source": "implementations/rust/src/store_read.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "read_anchored",
       "target": "crate::store_read::ReadRequest",
-      "targetOwner": "reactor"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "reactor",
-      "rawTarget": "crate::store_read::Residual::default",
-      "resolvedTarget": "crate::store_read::Residual::default",
-      "source": "implementations/rust/src/store_read.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "read_anchored",
-      "target": "crate::store_read::Residual::default",
-      "targetOwner": "reactor"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "reactor",
-      "rawTarget": "crate::store_read::RoundReport",
-      "resolvedTarget": "crate::store_read::RoundReport",
-      "source": "implementations/rust/src/store_read.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "read_anchored",
-      "target": "crate::store_read::RoundReport",
       "targetOwner": "reactor"
     },
     {
@@ -86146,11 +86039,206 @@
     {
       "form": "syn-resolved-path",
       "owner": "reactor",
+      "rawTarget": "crate::store_read::read_rounds",
+      "resolvedTarget": "crate::store_read::read_rounds",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_anchored",
+      "target": "crate::store_read::read_rounds",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "reactor",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_rounds",
+      "target": "core::primitive::str::to_string"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::anchored::UnanchoredReason::ResultSort",
+      "resolvedTarget": "crate::anchored::UnanchoredReason::ResultSort",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_rounds",
+      "target": "crate::anchored::UnanchoredReason::ResultSort",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::anchored::hview_anchors",
+      "resolvedTarget": "crate::anchored::hview_anchors",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_rounds",
+      "target": "crate::anchored::hview_anchors",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::eval::EvalResult::HView",
+      "resolvedTarget": "crate::eval::EvalResult::HView",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_rounds",
+      "target": "crate::eval::EvalResult::HView",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::eval::Term::Resolve",
+      "resolvedTarget": "crate::eval::Term::Resolve",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_rounds",
+      "target": "crate::eval::Term::Resolve",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::eval::eval_term_at",
+      "resolvedTarget": "crate::eval::eval_term_at",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_rounds",
+      "target": "crate::eval::eval_term_at",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store::Anchor::Entity",
+      "resolvedTarget": "crate::store::Anchor::Entity",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_rounds",
+      "target": "crate::store::Anchor::Entity",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store::ScopeSource",
+      "resolvedTarget": "crate::store::ScopeSource",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_rounds",
+      "target": "crate::store::ScopeSource",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store::ScopeSource::default",
+      "resolvedTarget": "crate::store::ScopeSource::default",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_rounds",
+      "target": "crate::store::ScopeSource::default",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store::Snapshot",
+      "resolvedTarget": "crate::store::Snapshot",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_rounds",
+      "target": "crate::store::Snapshot",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::FetchCache::Off",
+      "resolvedTarget": "crate::store_read::FetchCache::Off",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_rounds",
+      "target": "crate::store_read::FetchCache::Off",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::FetchCache::On",
+      "resolvedTarget": "crate::store_read::FetchCache::On",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_rounds",
+      "target": "crate::store_read::FetchCache::On",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::ReadRequest",
+      "resolvedTarget": "crate::store_read::ReadRequest",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_rounds",
+      "target": "crate::store_read::ReadRequest",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::Residual::default",
+      "resolvedTarget": "crate::store_read::Residual::default",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_rounds",
+      "target": "crate::store_read::Residual::default",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::RoundReport",
+      "resolvedTarget": "crate::store_read::RoundReport",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_rounds",
+      "target": "crate::store_read::RoundReport",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::StoreRead",
+      "resolvedTarget": "crate::store_read::StoreRead",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_rounds",
+      "target": "crate::store_read::StoreRead",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::StoreReadError",
+      "resolvedTarget": "crate::store_read::StoreReadError",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_rounds",
+      "target": "crate::store_read::StoreReadError",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
       "rawTarget": "crate::store_read::StoreReadError::Eval",
       "resolvedTarget": "crate::store_read::StoreReadError::Eval",
       "source": "implementations/rust/src/store_read.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "read_anchored",
+      "symbol": "read_rounds",
       "target": "crate::store_read::StoreReadError::Eval",
       "targetOwner": "reactor"
     },
@@ -86161,7 +86249,7 @@
       "resolvedTarget": "crate::store_read::StoreReadError::Unanchored",
       "source": "implementations/rust/src/store_read.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "read_anchored",
+      "symbol": "read_rounds",
       "target": "crate::store_read::StoreReadError::Unanchored",
       "targetOwner": "reactor"
     },
@@ -86172,7 +86260,7 @@
       "resolvedTarget": "crate::store_read::classify",
       "source": "implementations/rust/src/store_read.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "read_anchored",
+      "symbol": "read_rounds",
       "target": "crate::store_read::classify",
       "targetOwner": "reactor"
     },
@@ -86183,7 +86271,7 @@
       "resolvedTarget": "crate::store_read::exact_members",
       "source": "implementations/rust/src/store_read.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "read_anchored",
+      "symbol": "read_rounds",
       "target": "crate::store_read::exact_members",
       "targetOwner": "reactor"
     },
@@ -86194,7 +86282,7 @@
       "resolvedTarget": "crate::store_read::scope_request",
       "source": "implementations/rust/src/store_read.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "read_anchored",
+      "symbol": "read_rounds",
       "target": "crate::store_read::scope_request",
       "targetOwner": "reactor"
     },
@@ -86203,7 +86291,7 @@
       "owner": "reactor",
       "source": "implementations/rust/src/store_read.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "read_anchored",
+      "symbol": "read_rounds",
       "target": "std::collections::BTreeSet"
     },
     {
@@ -86211,7 +86299,7 @@
       "owner": "reactor",
       "source": "implementations/rust/src/store_read.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "read_anchored",
+      "symbol": "read_rounds",
       "target": "std::collections::BTreeSet::new"
     },
     {
@@ -86219,7 +86307,7 @@
       "owner": "reactor",
       "source": "implementations/rust/src/store_read.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "read_anchored",
+      "symbol": "read_rounds",
       "target": "std::vec::Vec::new"
     },
     {
@@ -86571,6 +86659,17 @@
     {
       "form": "syn-resolved-path",
       "owner": "reactor",
+      "rawTarget": "crate::store::ScopeSource::default",
+      "resolvedTarget": "crate::store::ScopeSource::default",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreReactor::read",
+      "target": "crate::store::ScopeSource::default",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
       "rawTarget": "crate::store::StoreErrorCode::SnapshotMoved",
       "resolvedTarget": "crate::store::StoreErrorCode::SnapshotMoved",
       "source": "implementations/rust/src/store_read.rs",
@@ -86648,12 +86747,12 @@
     {
       "form": "syn-resolved-path",
       "owner": "reactor",
-      "rawTarget": "crate::store_read::read_anchored",
-      "resolvedTarget": "crate::store_read::read_anchored",
+      "rawTarget": "crate::store_read::read_rounds",
+      "resolvedTarget": "crate::store_read::read_rounds",
       "source": "implementations/rust/src/store_read.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "StoreReactor::read",
-      "target": "crate::store_read::read_anchored",
+      "target": "crate::store_read::read_rounds",
       "targetOwner": "reactor"
     },
     {

@@ -62,8 +62,12 @@ pub enum FetchCache {
 /// What one round did (SPEC-18 §4.12 reading 9).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RoundReport {
-    /// Counted from 1.
+    /// Counted from 1 on each snapshot.
     pub round: usize,
+    /// 1 for the first snapshot of a read; `StoreReactor` counts up when it starts again.
+    pub attempt: usize,
+    /// The revision of the snapshot this round ran on.
+    pub revision: Revision,
     /// The entities of this round's one `scope` call, ascending.
     pub anchors: Vec<String>,
     /// How many deltas the store returned.
@@ -262,7 +266,18 @@ fn classify(request: &ReadRequest<'_>) -> Result<Vec<String>, StoreReadError> {
 /// owns the snapshot and releases it.
 pub fn read_anchored(
     snapshot: &dyn Snapshot,
+    request: ReadRequest<'_>,
+) -> Result<StoreRead, StoreReadError> {
+    read_rounds(snapshot, request, 1, &mut ScopeSource::default())
+}
+
+/// The rounds of one attempt. `cache` must be empty: a cache never outlives its snapshot
+/// (SPEC-18 §4.12 reading 11), and one kept from an earlier snapshot can show a purged delta.
+fn read_rounds(
+    snapshot: &dyn Snapshot,
     mut request: ReadRequest<'_>,
+    attempt: usize,
+    cache: &mut ScopeSource,
 ) -> Result<StoreRead, StoreReadError> {
     let static_anchors = classify(&request)?;
     let (gather, resolves) = match request.term {
@@ -274,7 +289,6 @@ pub fn read_anchored(
     let mut asked: BTreeSet<String> = BTreeSet::new();
     let mut next: BTreeSet<String> = static_anchors.into_iter().collect();
     next.insert(request.root.to_string());
-    let mut cache = ScopeSource::default();
     let mut residual = Residual::default();
     let mut rounds = Vec::new();
     loop {
@@ -286,7 +300,7 @@ pub fn read_anchored(
                 cache.ids().into_iter().map(str::to_string).collect(),
             ),
             FetchCache::Off => {
-                cache = ScopeSource::default();
+                *cache = ScopeSource::default();
                 scope_request(
                     &asked.iter().cloned().collect::<Vec<_>>(),
                     pushdown,
@@ -297,7 +311,7 @@ pub fn read_anchored(
         let answer = snapshot.scope(&call)?;
         cache.extend(&answer.deltas)?;
         residual.record(pushdown, answer.applied);
-        let members = exact_members(&cache, &asked, &selection, residual);
+        let members = exact_members(cache, &asked, &selection, residual);
         let set = cache.subset(&members);
         // The seam for the evaluation memo (SPEC-18 §4.4, plan §3): it wraps this evaluation.
         let gathered = eval_term_at(
@@ -318,6 +332,8 @@ pub fn read_anchored(
             .collect();
         let report = RoundReport {
             round: rounds.len() + 1,
+            attempt,
+            revision: snapshot.revision(),
             anchors: call
                 .anchors
                 .iter()
@@ -419,17 +435,18 @@ impl StoreReactor {
 
     /// Runs `body` on a new snapshot, released on every path. On `snapshot-moved` it starts
     /// again on a new snapshot, at most `SNAPSHOT_RETRIES` more times; any other refusal passes
-    /// up at once. Returns the answer and how many snapshots it took.
+    /// up at once. `body` receives the attempt, counted from 1. Returns the answer and how many
+    /// snapshots it took.
     fn on_snapshots<T, E: From<StoreError>>(
         &self,
-        mut body: impl FnMut(&dyn Snapshot) -> Result<T, E>,
+        mut body: impl FnMut(&dyn Snapshot, usize) -> Result<T, E>,
         moved: impl Fn(&E) -> bool,
     ) -> Result<(T, usize), E> {
         let mut taken = 0;
         loop {
             let snapshot = Held(self.peer.read()?);
             taken += 1;
-            match body(snapshot.0.as_ref()) {
+            match body(snapshot.0.as_ref(), taken) {
                 Err(e) if moved(&e) && taken <= SNAPSHOT_RETRIES => continue,
                 other => return other.map(|answer| (answer, taken)),
             }
@@ -438,13 +455,13 @@ impl StoreReactor {
 
     /// `read_anchored` on a new snapshot, started again with a new cache on `snapshot-moved`.
     /// An unanchored term is refused before any store call, the snapshot included. The hook, when
-    /// given, sees the rounds of every attempt.
+    /// given, sees the rounds of every attempt, each report with its attempt and revision.
     pub fn read(&self, mut request: ReadRequest<'_>) -> Result<StoreRead, StoreReadError> {
         classify(&request)?;
         let mut hook = request.on_round.take();
         let (mut read, taken) = self.on_snapshots(
-            |snapshot| {
-                let attempt = ReadRequest {
+            |snapshot, attempt| {
+                let one = ReadRequest {
                     term: request.term,
                     root: request.root,
                     now: request.now,
@@ -456,7 +473,8 @@ impl StoreReactor {
                         .as_mut()
                         .map(|h| &mut **h as &mut dyn FnMut(&RoundReport)),
                 };
-                read_anchored(snapshot, attempt)
+                // A new cache for every attempt: what an older snapshot held may be purged now.
+                read_rounds(snapshot, one, attempt, &mut ScopeSource::default())
             },
             |e| e.store_code() == Some(StoreErrorCode::SnapshotMoved),
         )?;
@@ -471,7 +489,7 @@ impl StoreReactor {
         selection: Selection<'_>,
     ) -> Result<FetchedScope, StoreError> {
         self.on_snapshots(
-            |snapshot| fetch_scope(snapshot, entities, selection),
+            |snapshot, _| fetch_scope(snapshot, entities, selection),
             |e: &StoreError| e.code == StoreErrorCode::SnapshotMoved,
         )
         .map(|(fetched, _)| fetched)

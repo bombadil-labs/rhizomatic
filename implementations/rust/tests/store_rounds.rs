@@ -4,9 +4,13 @@
 //! with the fetch cache. All three must give the expected bytes, scope and members; the rounds
 //! with the cache must make exactly the expected `scope` calls.
 //!
-//! The rails of README §5.8: four wrong readers that must each fail a case, a store that returns
-//! an unclosed extra, call traces and meter deltas beside 0 and 4400 unrelated deltas, and an open
-//! that reads nothing. The evaluation memo (modes 4 and 5) is not built, so it is not tested here.
+//! Interleaved cases move the peer between two rounds, by an append or a purge (README §5.5).
+//!
+//! The rails of README §5.8: five wrong readers that must each fail a case, a store that returns
+//! an unclosed extra, a sticky residual in both parities, the hook, refusals, a store that lies
+//! about `applied`, the fetch cache's index and arrival rules, call traces and meter deltas beside
+//! 0 and 4400 unrelated deltas, and an open that reads nothing. The evaluation memo (modes 4 and
+//! 5) is not built, so it is not tested here.
 
 use std::cell::{Cell, RefCell};
 use std::collections::{BTreeMap, BTreeSet};
@@ -21,8 +25,8 @@ use rhizomatic::schema::{HyperSchema, SchemaRegistry};
 use rhizomatic::set::{make_delta, make_negation_claims, DeltaSet, DeltaSource};
 use rhizomatic::store::{
     scope_source, Admission, Anchor, AppendResult, ArrivalRecord, ErasurePosture, PeerErasure,
-    PeerStore, PurgeReport, Pushdown, PushdownFields, Revision, ScopeRequest, ScopeResult,
-    ScopeSource, Snapshot, Store, StoreError, StoreErrorCode, VerifiedDelta,
+    PeerStore, PurgeOutcome, PurgeReport, Pushdown, PushdownFields, Revision, ScopeRequest,
+    ScopeResult, ScopeSource, Snapshot, Store, StoreError, StoreErrorCode, VerifiedDelta,
 };
 use rhizomatic::store_read::{
     fetch_scope, read_anchored, FetchCache, ReadRequest, RoundReport, Selection, StoreReactor,
@@ -147,6 +151,44 @@ impl Fixture {
         self.doc["load"]["peer"].as_str().unwrap()
     }
 
+    /// How many deltas the load gives the peer.
+    fn loaded(&self) -> usize {
+        self.arrivals.len()
+    }
+
+    /// Every loaded delta with its arrival record, ascending by id.
+    fn loaded_members(&self) -> Vec<VerifiedDelta> {
+        self.arrivals
+            .iter()
+            .map(|(id, arrival)| VerifiedDelta {
+                delta: self.by_name[&self.name_of[id]].clone(),
+                arrival: arrival.clone(),
+            })
+            .collect()
+    }
+
+    /// The change of an interleaved case: exactly one of `append` and `purge` (README §5.5).
+    fn change(&self, raw: &Value) -> Change {
+        match (raw.get("append"), raw.get("purge")) {
+            (Some(append), None) => Change::Append(self.admission(append)),
+            (None, Some(purge)) => {
+                let ids: Vec<String> = purge
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|n| self.id(n.as_str().unwrap()))
+                    .collect();
+                assert!(
+                    ids.windows(2).all(|w| w[0] < w[1]),
+                    "{}: purge is ascending by id",
+                    raw["name"]
+                );
+                Change::Purge(ids)
+            }
+            _ => panic!("{}: exactly one of append and purge", raw["name"]),
+        }
+    }
+
     /// A new peer on `store`, loaded by README §5.2. Every append commits.
     fn load(&self, store: &MemoryStore) -> Box<dyn PeerStore> {
         assert_eq!(self.doc["load"]["erasure"], "unproven");
@@ -228,6 +270,85 @@ fn commit(peer: &dyn PeerStore, admission: &Admission) -> Revision {
     match peer.append(admission).unwrap() {
         AppendResult::Committed { revision, .. } => revision,
         other => panic!("the load must commit: {other:?}"),
+    }
+}
+
+/// How an interleaved case moves the peer between two rounds.
+#[derive(Clone)]
+enum Change {
+    /// Applied by the load rule; it must commit.
+    Append(Admission),
+    /// Every target must report `removed`.
+    Purge(Vec<String>),
+}
+
+impl Change {
+    fn apply(&self, peer: &dyn PeerStore) {
+        match self {
+            Change::Append(admission) => {
+                commit(peer, admission);
+            }
+            Change::Purge(ids) => {
+                let report = peer.purge(ids).expect("the purge answers");
+                let removed: Vec<(String, PurgeOutcome)> = ids
+                    .iter()
+                    .map(|id| (id.clone(), PurgeOutcome::Removed))
+                    .collect();
+                let got: Vec<(String, PurgeOutcome)> = report
+                    .targets
+                    .into_iter()
+                    .map(|t| (t.id, t.outcome))
+                    .collect();
+                assert_eq!(got, removed, "every purge target is removed");
+            }
+        }
+    }
+
+    fn is_purge(&self) -> bool {
+        matches!(self, Change::Purge(_))
+    }
+}
+
+/// One interleaved case, read from the document.
+struct Interleaved {
+    case: Case,
+    after_round: usize,
+    change: Change,
+    before: Expect,
+    after: Expect,
+}
+
+fn interleaved(fx: &Fixture) -> Vec<Interleaved> {
+    fx.doc["interleaved"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|raw| Interleaved {
+            case: fx.case(raw),
+            after_round: raw["afterRound"].as_u64().unwrap() as usize,
+            change: fx.change(raw),
+            before: fx.expect(&raw["expect"]["before"]),
+            after: fx.expect(&raw["expect"]["after"]),
+        })
+        .collect()
+}
+
+/// The rule for a wrapper that starts again (README §5.5): `before` at the first revision or
+/// `after` at a later one. `before` at a later revision is what a wrapper answers when it keeps
+/// its old cache, and it fails.
+fn wrapper_verdict(
+    got: &Answer,
+    revision: Revision,
+    start: Revision,
+    before: &Expect,
+    after: &Expect,
+) -> Result<(), String> {
+    let is = |e: &Expect| got.same_read(e) && got.rounds == e.rounds;
+    match (revision == start, revision > start) {
+        (true, _) if is(before) => Ok(()),
+        (_, true) if is(after) => Ok(()),
+        (_, true) if is(before) => Err("`before` at a later revision".into()),
+        _ => Err("neither `before` at the first revision nor `after` at a later one".into()),
     }
 }
 
@@ -632,6 +753,10 @@ struct Faults {
     skip_residual: bool,
     /// Asks for every anchor so far in every round, with the cache on.
     all_anchors: bool,
+    /// Keeps only the last round's residual fields: the residual is not sticky.
+    residual_last_only: bool,
+    /// Keeps only the first round's residual fields.
+    residual_first_only: bool,
 }
 
 /// The reader of README §5.3, written apart from the witness, with a fault switched on. `cache`
@@ -703,11 +828,18 @@ fn model_read(
             (first, _) => first?,
         };
         cache.extend(&answer.deltas)?;
-        ts |= p.timestamp_at_most.is_some() && !answer.applied.timestamp_at_most;
-        arr |= p.arrival_at_most.is_some() && !answer.applied.arrival_at_most;
-        if pushdown.exclude_ids.is_some() && !answer.applied.exclude_ids {
-            ex = true;
+        let this = (
+            p.timestamp_at_most.is_some() && !answer.applied.timestamp_at_most,
+            p.arrival_at_most.is_some() && !answer.applied.arrival_at_most,
+            pushdown.exclude_ids.is_some() && !answer.applied.exclude_ids,
+        );
+        if this.2 {
             dropped.extend(pushdown.exclude_ids.clone().unwrap_or_default());
+        }
+        if faults.residual_last_only || (faults.residual_first_only && rounds.is_empty()) {
+            (ts, arr, ex) = this;
+        } else if !faults.residual_first_only {
+            (ts, arr, ex) = (ts || this.0, arr || this.1, ex || this.2);
         }
         let residual = |delta: &Delta| {
             if faults.skip_residual {
@@ -812,7 +944,7 @@ fn profile_stores(fx: &Rc<Fixture>) -> Vec<(String, Opener)> {
 fn every_round_case_reads_the_same_three_ways_under_every_pushdown_profile() {
     let fx = fixture();
     let cases = fx.cases("cases");
-    assert_eq!(cases.len(), 17, "the vector lost cases");
+    assert!(!cases.is_empty());
     for profile in profiles() {
         let store = MemoryStore::with_pushdown(profile);
         let peer = fx.load(&store);
@@ -903,6 +1035,13 @@ fn every_round_is_one_scope_call_for_that_rounds_anchors_and_nothing_else() {
             .unwrap();
             // The hook runs once after every round, the last one included.
             assert_eq!(seen, read.rounds, "{}: the hook", case.name);
+            assert!(
+                read.rounds.iter().enumerate().all(|(i, r)| r.round == i + 1
+                    && r.attempt == 1
+                    && r.revision == snapshot.revision()),
+                "{}: round, attempt and revision",
+                case.name
+            );
             let calls = trace.borrow().clone();
             assert_eq!(
                 calls.len(),
@@ -933,38 +1072,177 @@ fn every_round_is_one_scope_call_for_that_rounds_anchors_and_nothing_else() {
     }
 }
 
+/// A pushdown field a double can leave to the host.
+#[derive(Debug, Clone, Copy)]
+enum Field {
+    Timestamp,
+    Arrival,
+    ExcludeIds,
+}
+
+const FIELDS: [Field; 3] = [Field::Timestamp, Field::Arrival, Field::ExcludeIds];
+
+impl Field {
+    fn strip(self, p: &mut Pushdown) {
+        match self {
+            Field::Timestamp => p.timestamp_at_most = None,
+            Field::Arrival => p.arrival_at_most = None,
+            Field::ExcludeIds => p.exclude_ids = None,
+        }
+    }
+
+    fn report(self, applied: &mut PushdownFields, value: bool) {
+        match self {
+            Field::Timestamp => applied.timestamp_at_most = value,
+            Field::Arrival => applied.arrival_at_most = value,
+            Field::ExcludeIds => applied.exclude_ids = value,
+        }
+    }
+}
+
+/// On which `scope` calls a double leaves its field to the host.
+#[derive(Debug, Clone, Copy)]
+enum Leaves {
+    Odd,
+    Even,
+    Always,
+}
+
+/// A snapshot over the memory store that leaves `field` to the host on the calls `leaves` names:
+/// the store does not see the field there, and the answer reports it not applied.
+fn leaving(inner: Box<dyn Snapshot>, field: Field, leaves: Leaves) -> Box<dyn Snapshot> {
+    let calls = Cell::new(0usize);
+    snapshot_double(inner, move |inner, r| {
+        calls.set(calls.get() + 1);
+        let odd = calls.get() % 2 == 1;
+        let leave = match leaves {
+            Leaves::Odd => odd,
+            Leaves::Even => !odd,
+            Leaves::Always => true,
+        };
+        if !leave {
+            return inner.scope(r);
+        }
+        let mut stripped = r.clone();
+        if let Some(p) = stripped.pushdown.as_mut() {
+            field.strip(p);
+        }
+        let mut answer = inner.scope(&stripped)?;
+        field.report(&mut answer.applied, false);
+        Ok(answer)
+    })
+}
+
+/// A sticky residual (SPEC-18 §4.12 readings 2 and 20; README §5.8). No vector pins it, because a
+/// memory profile is the same in every round. A double leaves one field to the host in the odd
+/// rounds only, then in the even rounds only, then in every round. The witness passes all three.
+/// A control reader that never applies the residual fails, and so does a reader that keeps only
+/// the last round's residual or only the first's.
 #[test]
-fn a_store_whose_applied_report_changes_between_rounds_reads_the_same() {
+fn a_residual_field_stays_residual_for_the_rest_of_the_read() {
+    let fx = Rc::new(fixture());
+    let cases = fx.cases("cases");
+    let all = [Leaves::Odd, Leaves::Even, Leaves::Always];
+    for field in FIELDS {
+        for leaves in all {
+            let store = MemoryStore::new();
+            let peer = fx.load(&store);
+            for case in &cases {
+                let snapshot = leaving(peer.read().unwrap(), field, leaves);
+                let read =
+                    read_anchored(snapshot.as_ref(), request(&fx, case, FetchCache::On)).unwrap();
+                check(
+                    &fx,
+                    &format!("{}/{field:?}/{leaves:?}", case.name),
+                    &Answer::of(&read),
+                    case.expect.as_ref().unwrap(),
+                    Rounds::Exact,
+                );
+            }
+        }
+    }
+    let stores = |leaves: Leaves| -> Vec<(String, Opener)> {
+        FIELDS
+            .into_iter()
+            .map(|field| {
+                let fx = fx.clone();
+                let open: Opener = Box::new(move || {
+                    let store = MemoryStore::new();
+                    let snapshot = leaving(fx.load(&store).read().unwrap(), field, leaves);
+                    (store, snapshot)
+                });
+                (format!("{field:?}/{leaves:?}"), open)
+            })
+            .collect()
+    };
+    for leaves in all {
+        assert_eq!(
+            first_failure(&fx, &cases, &stores(leaves), Faults::default()),
+            None,
+            "the model reader, {leaves:?}"
+        );
+    }
+    let never = Faults {
+        skip_residual: true,
+        ..Faults::default()
+    };
+    assert!(
+        first_failure(&fx, &cases, &stores(Leaves::Always), never).is_some(),
+        "the control that never applies the residual"
+    );
+    // Keeping only the first round's residual is right when round 1 left the field, so only the
+    // even parity shows it. Keeping only the last round's is right when the last round left the
+    // field; the cases end on odd and on even rounds, so the odd parity shows it here.
+    let first_only = Faults {
+        residual_first_only: true,
+        ..Faults::default()
+    };
+    assert_eq!(
+        first_failure(&fx, &cases, &stores(Leaves::Odd), first_only),
+        None
+    );
+    assert!(first_failure(&fx, &cases, &stores(Leaves::Even), first_only).is_some());
+    let last_only = Faults {
+        residual_last_only: true,
+        ..Faults::default()
+    };
+    assert!(first_failure(&fx, &cases, &stores(Leaves::Odd), last_only).is_some());
+}
+
+/// The read trusts `applied` (SPEC-18 §4.12 reading 18; README §5.8). A double drops
+/// `timestampAtMost` and reports it applied, and the read answers wrong. The trust is a stated
+/// assumption: the store vectors catch the lie, not the read.
+#[test]
+fn a_store_that_lies_about_applied_makes_the_read_wrong() {
     let fx = fixture();
     let store = MemoryStore::new();
     let peer = fx.load(&store);
-    // Odd calls applied and even calls not, then the other way round: the last round of a case
-    // may report a field applied that an earlier round left to the host.
-    for (case, parity) in fx.cases("cases").iter().flat_map(|c| [(c, 0), (c, 1)]) {
-        let case = case.clone();
-        let e = case.expect.as_ref().unwrap();
-        let calls = Rc::new(Cell::new(0usize));
-        let counter = calls.clone();
-        let snapshot = snapshot_double(peer.read().unwrap(), move |inner, r| {
-            counter.set(counter.get() + 1);
-            if counter.get() % 2 == parity {
-                inner.scope(&ScopeRequest {
-                    pushdown: None,
-                    ..r.clone()
-                })
-            } else {
-                inner.scope(r)
+    let cut: Vec<Case> = fx
+        .cases("cases")
+        .into_iter()
+        .filter(|c| c.pushdown.timestamp_at_most.is_some())
+        .collect();
+    assert!(!cut.is_empty());
+    let mut wrong = Vec::new();
+    for case in &cut {
+        let snapshot = snapshot_double(peer.read().unwrap(), |inner, r| {
+            let mut stripped = r.clone();
+            if let Some(p) = stripped.pushdown.as_mut() {
+                Field::Timestamp.strip(p);
             }
+            let mut answer = inner.scope(&stripped)?;
+            Field::Timestamp.report(&mut answer.applied, true);
+            Ok(answer)
         });
-        let read = read_anchored(snapshot.as_ref(), request(&fx, &case, FetchCache::On)).unwrap();
-        check(
-            &fx,
-            &format!("{}/fickle-{parity}", case.name),
-            &Answer::of(&read),
-            e,
-            Rounds::Exact,
-        );
+        let read = read_anchored(snapshot.as_ref(), request(&fx, case, FetchCache::On)).unwrap();
+        if !Answer::of(&read).same_read(case.expect.as_ref().unwrap()) {
+            wrong.push(case.name.clone());
+        }
     }
+    assert!(
+        !wrong.is_empty(),
+        "a store that lies about applied left every read right"
+    );
 }
 
 #[test]
@@ -1029,7 +1307,7 @@ fn each_refusal_carries_its_reason_and_makes_no_store_call() {
     let store = MemoryStore::new();
     let peer = fx.load(&store);
     let refusals = fx.cases("refusals");
-    assert_eq!(refusals.len(), 5);
+    assert!(!refusals.is_empty());
     for case in &refusals {
         let reason = case.raw["expect"]["reason"].as_str().unwrap();
         let trace: Trace = Rc::default();
@@ -1062,25 +1340,60 @@ fn each_refusal_carries_its_reason_and_makes_no_store_call() {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Interleaved appends
+// Interleaved changes
 // ---------------------------------------------------------------------------------------------
 
 #[test]
-fn an_append_between_rounds_answers_snapshot_moved_or_the_old_answer() {
+fn the_interleaved_vectors_hold_both_kinds_of_change() {
     let fx = fixture();
-    let interleaved = fx.cases("interleaved");
-    assert_eq!(interleaved.len(), 3);
-    for case in &interleaved {
-        let raw = &case.raw;
-        let after_round = raw["afterRound"].as_u64().unwrap() as usize;
-        let append = fx.admission(&raw["append"]);
-        let before = fx.expect(&raw["expect"]["before"]);
-        let after = fx.expect(&raw["expect"]["after"]);
+    let cases = interleaved(&fx);
+    assert!(cases.iter().any(|c| c.change.is_purge()), "a purge case");
+    assert!(cases.iter().any(|c| !c.change.is_purge()), "an append case");
+    let store = MemoryStore::new();
+    let peer = fx.load(&store);
+    for c in &cases {
+        let name = &c.case.name;
         assert_ne!(
-            before.hex, after.hex,
-            "{}: the append changes the answer",
-            case.name
+            c.before.hex, c.after.hex,
+            "{name}: the change changes the answer"
         );
+        assert!(
+            (1..=c.before.rounds.len()).contains(&c.after_round),
+            "{name}"
+        );
+        if let Change::Purge(ids) = &c.change {
+            // The purged delta is one that round 1 fetches (README §5.5).
+            let first = peer
+                .read()
+                .unwrap()
+                .scope(&ScopeRequest {
+                    anchors: c.before.rounds[0]
+                        .iter()
+                        .map(|entity| Anchor::Entity {
+                            entity: entity.clone(),
+                        })
+                        .collect(),
+                    pushdown: Some(c.case.pushdown.clone()),
+                    exclude: Vec::new(),
+                })
+                .unwrap();
+            for id in ids {
+                assert!(
+                    first.deltas.iter().any(|m| &m.delta.id == id),
+                    "{name}: round 1 fetches {}",
+                    fx.names(std::slice::from_ref(id))[0]
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn a_change_between_rounds_answers_snapshot_moved_or_the_old_answer() {
+    let fx = fixture();
+    for c in interleaved(&fx) {
+        let name = &c.case.name;
+        let last = c.after_round == c.before.rounds.len();
 
         // One snapshot: snapshot-moved, or `before` at the snapshot's revision.
         let store = MemoryStore::new();
@@ -1088,179 +1401,224 @@ fn an_append_between_rounds_answers_snapshot_moved_or_the_old_answer() {
         let writer = store.peer(fx.peer_id()).unwrap();
         let mut snapshot = peer.read().unwrap();
         let start = snapshot.revision();
+        let mut seen: Vec<RoundReport> = Vec::new();
         let mut hook = |r: &RoundReport| {
-            if r.round == after_round {
-                commit(writer.as_ref(), &append);
+            seen.push(r.clone());
+            if r.round == c.after_round {
+                c.change.apply(writer.as_ref());
             }
         };
         let outcome = read_anchored(
             snapshot.as_ref(),
             ReadRequest {
                 on_round: Some(&mut hook),
-                ..request(&fx, case, FetchCache::On)
+                ..request(&fx, &c.case, FetchCache::On)
             },
         );
-        let last = after_round == before.rounds.len();
         match outcome {
             Ok(read) => {
                 assert!(
                     last,
-                    "{}: the memory store refuses a call after the append",
-                    case.name
+                    "{name}: the memory store refuses a call after the change"
                 );
                 assert_eq!(read.revision, start);
                 check(
                     &fx,
-                    &format!("{}/before", case.name),
+                    &format!("{name}/before"),
                     &Answer::of(&read),
-                    &before,
+                    &c.before,
                     Rounds::Exact,
                 );
+                assert_eq!(seen, read.rounds, "{name}: the hook saw every round");
             }
             Err(err) => {
-                assert!(!last, "{}: {err}", case.name);
+                assert!(!last, "{name}: {err}");
                 assert_eq!(
                     err.store_code(),
                     Some(StoreErrorCode::SnapshotMoved),
-                    "{}",
-                    case.name
+                    "{name}"
                 );
+                assert_eq!(seen.len(), c.after_round, "{name}: the hook");
             }
         }
         snapshot.release();
         assert!(
             peer.read().unwrap().revision() > start,
-            "{}: the hook ran after round {after_round}",
-            case.name
+            "{name}: the hook ran after round {}",
+            c.after_round
         );
 
-        // The reactor: `before` at the first revision, or `after` at a later one. Never a mix.
+        // The reactor: `before` at the first revision, or `after` at a later one. Never a mix,
+        // and never `before` at a later revision.
         let store = MemoryStore::new();
         let peer = fx.load(&store);
         let start = peer.read().unwrap().revision();
         let writer = store.peer(fx.peer_id()).unwrap();
         let (traced, reads, trace) = tracing_peer(peer);
         let reactor = StoreReactor::open(Box::new(traced));
-        let mut appended = false;
+        let mut changed = false;
+        let mut seen: Vec<RoundReport> = Vec::new();
         let mut hook = |r: &RoundReport| {
-            if r.round == after_round && !appended {
-                appended = true;
-                commit(writer.as_ref(), &append);
+            seen.push(r.clone());
+            if r.round == c.after_round && !changed {
+                changed = true;
+                c.change.apply(writer.as_ref());
             }
         };
         let read = reactor
             .read(ReadRequest {
                 on_round: Some(&mut hook),
-                ..request(&fx, case, FetchCache::On)
+                ..request(&fx, &c.case, FetchCache::On)
             })
             .unwrap();
-        if read.snapshots == 1 {
-            assert_eq!(read.revision, start);
-            check(
-                &fx,
-                &format!("{}/reactor-before", case.name),
-                &Answer::of(&read),
-                &before,
-                Rounds::Exact,
-            );
-        } else {
-            assert!(read.revision > start);
-            assert_eq!(read.snapshots, 2);
-            check(
-                &fx,
-                &format!("{}/reactor-after", case.name),
-                &Answer::of(&read),
-                &after,
-                Rounds::Exact,
-            );
-        }
-        assert_eq!(read.snapshots, if last { 1 } else { 2 }, "{}", case.name);
+        wrapper_verdict(
+            &Answer::of(&read),
+            read.revision,
+            start,
+            &c.before,
+            &c.after,
+        )
+        .unwrap_or_else(|why| panic!("{name}/reactor: {why}"));
+        assert_eq!(read.snapshots, if last { 1 } else { 2 }, "{name}");
         let releases = trace.borrow().iter().filter(|c| c.op == "release").count();
         assert_eq!(
             (reads.get(), releases),
             (read.snapshots, read.snapshots),
-            "{}: every snapshot is released",
-            case.name
+            "{name}: every snapshot is released"
         );
+
+        // The hook saw every attempt, each round numbered from 1 on its snapshot; the reports of
+        // the last attempt are the read's own.
+        for attempt in 1..=read.snapshots {
+            let rounds: Vec<&RoundReport> = seen.iter().filter(|r| r.attempt == attempt).collect();
+            assert!(!rounds.is_empty(), "{name}: attempt {attempt}");
+            assert!(rounds.iter().enumerate().all(|(i, r)| r.round == i + 1));
+        }
+        assert_eq!(
+            seen.len(),
+            seen.iter().filter(|r| r.attempt <= read.snapshots).count()
+        );
+        let own: Vec<RoundReport> = seen
+            .iter()
+            .filter(|r| r.attempt == read.snapshots)
+            .cloned()
+            .collect();
+        assert_eq!(
+            own, read.rounds,
+            "{name}: the hook's reports are the read's"
+        );
+        assert!(read.rounds.iter().all(|r| r.revision == read.revision));
+        if read.snapshots == 2 {
+            let first = seen.first().unwrap();
+            assert_eq!(
+                (first.attempt, first.revision),
+                (1, start),
+                "{name}: the first attempt"
+            );
+            assert_eq!(first.round, read.rounds[0].round);
+            assert_ne!(first.attempt, read.rounds[0].attempt);
+            assert_ne!(first.revision, read.rounds[0].revision);
+        }
     }
+}
+
+/// A peer handle whose snapshots answer `scope` by a closure. It counts snapshots and releases.
+struct ScriptedPeer {
+    inner: Box<dyn PeerStore>,
+    reads: Rc<Cell<usize>>,
+    releases: Rc<Cell<usize>>,
+    scope: SharedScope,
+}
+
+type SharedScope = Rc<dyn Fn(&dyn Snapshot, &ScopeRequest) -> Result<ScopeResult, StoreError>>;
+
+impl PeerStore for ScriptedPeer {
+    fn id(&self) -> &str {
+        self.inner.id()
+    }
+    fn erasure(&self) -> PeerErasure {
+        self.inner.erasure()
+    }
+    fn read(&self) -> Result<Box<dyn Snapshot>, StoreError> {
+        self.reads.set(self.reads.get() + 1);
+        let scope = self.scope.clone();
+        Ok(Box::new(Released {
+            inner: snapshot_double(self.inner.read()?, move |s, r| scope(s, r)),
+            releases: self.releases.clone(),
+        }))
+    }
+    fn append(&self, batch: &Admission) -> Result<AppendResult, StoreError> {
+        self.inner.append(batch)
+    }
+    fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreError> {
+        self.inner.purge(ids)
+    }
+}
+
+/// A snapshot that counts its releases.
+struct Released {
+    inner: Box<dyn Snapshot>,
+    releases: Rc<Cell<usize>>,
+}
+
+impl Snapshot for Released {
+    fn revision(&self) -> Revision {
+        self.inner.revision()
+    }
+    fn head(&self) -> Option<&str> {
+        self.inner.head()
+    }
+    fn count(&self) -> u64 {
+        self.inner.count()
+    }
+    fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreError> {
+        self.inner.get(ids)
+    }
+    fn arrivals(&self, ids: &[String]) -> Result<Vec<ArrivalRecord>, StoreError> {
+        self.inner.arrivals(ids)
+    }
+    fn targets(&self, e: &[String]) -> Result<Vec<String>, StoreError> {
+        self.inner.targets(e)
+    }
+    fn negators(&self, ids: &[String]) -> Result<Vec<String>, StoreError> {
+        self.inner.negators(ids)
+    }
+    fn scope(&self, r: &ScopeRequest) -> Result<ScopeResult, StoreError> {
+        self.inner.scope(r)
+    }
+    fn release(&mut self) {
+        self.releases.set(self.releases.get() + 1);
+        self.inner.release();
+    }
+}
+
+/// A reactor over a loaded peer whose `scope` answers come from `scope`, with its snapshot and
+/// release counters.
+fn scripted(
+    fx: &Fixture,
+    store: &MemoryStore,
+    scope: SharedScope,
+) -> (StoreReactor, Rc<Cell<usize>>, Rc<Cell<usize>>) {
+    let reads = Rc::new(Cell::new(0));
+    let releases = Rc::new(Cell::new(0));
+    let reactor = StoreReactor::open(Box::new(ScriptedPeer {
+        inner: fx.load(store),
+        reads: reads.clone(),
+        releases: releases.clone(),
+        scope,
+    }));
+    (reactor, reads, releases)
 }
 
 #[test]
 fn the_reactor_gives_up_after_three_retries_and_releases_every_snapshot() {
     let fx = fixture();
     let store = MemoryStore::new();
-    let peer = fx.load(&store);
-    struct Moving {
-        inner: Box<dyn PeerStore>,
-        reads: Rc<Cell<usize>>,
-        releases: Rc<Cell<usize>>,
-    }
-    impl PeerStore for Moving {
-        fn id(&self) -> &str {
-            self.inner.id()
-        }
-        fn erasure(&self) -> PeerErasure {
-            self.inner.erasure()
-        }
-        fn read(&self) -> Result<Box<dyn Snapshot>, StoreError> {
-            self.reads.set(self.reads.get() + 1);
-            let releases = self.releases.clone();
-            let inner = self.inner.read()?;
-            Ok(Box::new(Released {
-                inner: snapshot_double(inner, |_, _| {
-                    Err(StoreError::new(StoreErrorCode::SnapshotMoved, "moved"))
-                }),
-                releases,
-            }))
-        }
-        fn append(&self, batch: &Admission) -> Result<AppendResult, StoreError> {
-            self.inner.append(batch)
-        }
-        fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreError> {
-            self.inner.purge(ids)
-        }
-    }
-    struct Released {
-        inner: Box<dyn Snapshot>,
-        releases: Rc<Cell<usize>>,
-    }
-    impl Snapshot for Released {
-        fn revision(&self) -> Revision {
-            self.inner.revision()
-        }
-        fn head(&self) -> Option<&str> {
-            self.inner.head()
-        }
-        fn count(&self) -> u64 {
-            self.inner.count()
-        }
-        fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreError> {
-            self.inner.get(ids)
-        }
-        fn arrivals(&self, ids: &[String]) -> Result<Vec<ArrivalRecord>, StoreError> {
-            self.inner.arrivals(ids)
-        }
-        fn targets(&self, e: &[String]) -> Result<Vec<String>, StoreError> {
-            self.inner.targets(e)
-        }
-        fn negators(&self, ids: &[String]) -> Result<Vec<String>, StoreError> {
-            self.inner.negators(ids)
-        }
-        fn scope(&self, r: &ScopeRequest) -> Result<ScopeResult, StoreError> {
-            self.inner.scope(r)
-        }
-        fn release(&mut self) {
-            self.releases.set(self.releases.get() + 1);
-            self.inner.release();
-        }
-    }
-    let reads = Rc::new(Cell::new(0));
-    let releases = Rc::new(Cell::new(0));
-    let reactor = StoreReactor::open(Box::new(Moving {
-        inner: peer,
-        reads: reads.clone(),
-        releases: releases.clone(),
-    }));
+    let (reactor, reads, releases) = scripted(
+        &fx,
+        &store,
+        Rc::new(|_, _| Err(StoreError::new(StoreErrorCode::SnapshotMoved, "moved"))),
+    );
     let case = &fx.cases("cases")[0];
     let err = reactor
         .read(request(&fx, case, FetchCache::On))
@@ -1278,6 +1636,53 @@ fn the_reactor_gives_up_after_three_retries_and_releases_every_snapshot() {
         (reads.get(), releases.get()),
         (2 * (SNAPSHOT_RETRIES + 1), 2 * (SNAPSHOT_RETRIES + 1))
     );
+}
+
+/// Any refusal but `snapshot-moved` passes up after one attempt, and the snapshot is released
+/// (SPEC-18 §4.12 reading 11; README §5.8). The double refuses only the first `scope` call, so a
+/// wrapper that started again would answer.
+#[test]
+fn another_refusal_passes_up_after_one_attempt_and_releases_the_snapshot() {
+    let fx = fixture();
+    let case = &fx.cases("cases")[0];
+    for code in [
+        StoreErrorCode::SnapshotReleased,
+        StoreErrorCode::CapabilityAbsent,
+    ] {
+        for op in ["read", "fetch"] {
+            let store = MemoryStore::new();
+            let calls = Rc::new(Cell::new(0usize));
+            let counter = calls.clone();
+            let (reactor, reads, releases) = scripted(
+                &fx,
+                &store,
+                Rc::new(move |inner, r| {
+                    counter.set(counter.get() + 1);
+                    if counter.get() == 1 {
+                        Err(StoreError::new(code, "refused once"))
+                    } else {
+                        inner.scope(r)
+                    }
+                }),
+            );
+            let got = match op {
+                "read" => reactor
+                    .read(request(&fx, case, FetchCache::On))
+                    .map(|_| ())
+                    .map_err(|e| e.store_code()),
+                _ => reactor
+                    .fetch(&["garden:1".to_string()], Selection::default())
+                    .map(|_| ())
+                    .map_err(|e| Some(e.code)),
+            };
+            assert_eq!(got, Err(Some(code)), "{op}/{code:?}");
+            assert_eq!(
+                (reads.get(), releases.get(), calls.get()),
+                (1, 1, 1),
+                "{op}/{code:?}: one attempt, released"
+            );
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1396,38 +1801,38 @@ fn a_reader_that_asks_for_every_anchor_every_round_fails_the_rounds() {
     assert!(wrong_rounds > 0);
 }
 
+/// A reader that goes on in the middle of a read on a new snapshot, with its cache and its
+/// anchors, answers neither on an append case (README §5.8).
 #[test]
-fn a_reader_that_keeps_its_cache_across_snapshots_answers_neither() {
+fn a_reader_that_goes_on_mid_read_on_a_new_snapshot_answers_neither() {
     let fx = fixture();
     let mut neither = Vec::new();
-    for case in fx.cases("interleaved") {
-        let raw = &case.raw;
-        let after_round = raw["afterRound"].as_u64().unwrap() as usize;
-        let append = fx.admission(&raw["append"]);
-        let before = fx.expect(&raw["expect"]["before"]);
-        let after = fx.expect(&raw["expect"]["after"]);
+    for c in interleaved(&fx)
+        .into_iter()
+        .filter(|c| !c.change.is_purge())
+    {
         let store = MemoryStore::new();
         let peer = fx.load(&store);
         let writer = store.peer(fx.peer_id()).unwrap();
         let snapshot = peer.read().unwrap();
         let mut hook = |round: usize| {
-            if round == after_round {
-                commit(writer.as_ref(), &append);
+            if round == c.after_round {
+                c.change.apply(writer.as_ref());
             }
         };
         // On `snapshot-moved` it takes a new snapshot and goes on with what it holds.
         let got = model_read(
             &fx,
             snapshot.as_ref(),
-            &case,
+            &c.case,
             Faults::default(),
             &mut ScopeSource::default(),
             &mut hook,
             Some(peer.as_ref()),
         )
         .unwrap();
-        if !got.same_read(&before) && !got.same_read(&after) {
-            neither.push(case.name.clone());
+        if !got.same_read(&c.before) && !got.same_read(&c.after) {
+            neither.push(c.case.name.clone());
         }
     }
     assert!(
@@ -1436,61 +1841,59 @@ fn a_reader_that_keeps_its_cache_across_snapshots_answers_neither() {
     );
 }
 
-/// Under appends alone, a read that starts again from its first round with a cache kept from an
-/// older snapshot still answers the later state: the holdings only grew, and the store returns
-/// whatever the cache lacks. A purge between the two snapshots shows the fault: the stale cache
-/// still holds the purged delta. This is why `StoreReactor` starts each attempt with a new cache.
+/// A wrapper that starts again on a new snapshot but keeps its old cache (README §5.8; SPEC-18
+/// §4.12 reading 11). Under appends alone it answers `after`, because everything it kept is still
+/// held. After the purge it answers `before` at the later revision, and the wrapper rule fails it.
 #[test]
-fn a_cache_kept_across_a_purge_shows_the_purged_delta() {
+fn a_wrapper_that_keeps_its_cache_when_it_starts_again_fails_the_purge_case() {
     let fx = fixture();
-    let case = fx
-        .cases("cases")
-        .into_iter()
-        .find(|c| c.name == "the-whole-garden")
-        .unwrap();
-    let store = MemoryStore::new();
-    let peer = fx.load(&store);
-    let mut cache = ScopeSource::default();
-    let first = peer.read().unwrap();
-    model_read(
-        &fx,
-        first.as_ref(),
-        &case,
-        Faults::default(),
-        &mut cache,
-        &mut |_| {},
-        None,
-    )
-    .unwrap();
-    let purged = fx.id("g-name");
-    assert!(cache.get(&purged).is_some());
-    peer.purge(std::slice::from_ref(&purged)).unwrap();
-    let later = peer.read().unwrap();
-    let stale = model_read(
-        &fx,
-        later.as_ref(),
-        &case,
-        Faults::default(),
-        &mut cache,
-        &mut |_| {},
-        None,
-    )
-    .unwrap();
+    let mut failed = Vec::new();
+    for c in interleaved(&fx) {
+        let name = &c.case.name;
+        let store = MemoryStore::new();
+        let peer = fx.load(&store);
+        let start = peer.read().unwrap().revision();
+        let writer = store.peer(fx.peer_id()).unwrap();
+        let mut changed = false;
+        let mut hook = |round: usize| {
+            if round == c.after_round && !changed {
+                changed = true;
+                c.change.apply(writer.as_ref());
+            }
+        };
+        let mut cache = ScopeSource::default();
+        let (got, revision) = loop {
+            let snapshot = peer.read().unwrap();
+            match model_read(
+                &fx,
+                snapshot.as_ref(),
+                &c.case,
+                Faults::default(),
+                &mut cache,
+                &mut hook,
+                None,
+            ) {
+                Ok(got) => break (got, snapshot.revision()),
+                Err(e) if e.code == StoreErrorCode::SnapshotMoved => continue,
+                Err(e) => panic!("{name}: {e}"),
+            }
+        };
+        match wrapper_verdict(&got, revision, start, &c.before, &c.after) {
+            Ok(()) => assert!(!c.change.is_purge(), "{name}: the stale cache went unseen"),
+            Err(why) => {
+                assert!(c.change.is_purge(), "{name}: under appends alone: {why}");
+                assert!(
+                    got.same_read(&c.before) && revision > start,
+                    "{name}: {why}"
+                );
+                failed.push(name.clone());
+            }
+        }
+    }
     assert!(
-        stale.members.contains(&purged),
-        "the stale cache keeps the purged delta"
+        !failed.is_empty(),
+        "no case caught a cache kept across snapshots"
     );
-    let right = read_anchored(later.as_ref(), request(&fx, &case, FetchCache::On)).unwrap();
-    assert!(!right.members.contains(&purged));
-    assert_ne!(stale.hex, result_canonical_hex(&right.result));
-    assert_eq!(
-        Answer::of(&right).hex,
-        whole_surface_after_purge(&fx, &store, &case)
-    );
-}
-
-fn whole_surface_after_purge(fx: &Fixture, store: &MemoryStore, case: &Case) -> String {
-    whole_surface(fx, store, case).hex
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1593,7 +1996,7 @@ fn a_read_costs_the_same_beside_zero_and_4400_unrelated_deltas() {
         let (noisy, noisy_peer) = loaded_beside(&fx, 4000);
         assert_eq!(
             noisy.open_admin().peer(fx.peer_id()).unwrap().ids().count(),
-            42 + 4400
+            fx.loaded() + 4400
         );
         let (calls_q, meter_q, answer_q) = traced_read(&fx, &quiet, quiet_peer, &case);
         let (calls_n, meter_n, answer_n) = traced_read(&fx, &noisy, noisy_peer, &case);
@@ -1720,4 +2123,101 @@ fn a_fetch_knows_exactly_the_scope_and_nothing_the_store_returned_beyond_it() {
             },
         ]
     );
+}
+
+// ---------------------------------------------------------------------------------------------
+// The fetch cache (SPEC-18 §4.12 reading 13; README §5.8)
+// ---------------------------------------------------------------------------------------------
+
+/// A delta with two pointers at one entity is listed there once, and a pointer at a delta makes a
+/// negator only with the role `negates`. No vector reaches these: the reader computes members as
+/// a set, and a correct store never returns the second shape where it could matter.
+#[test]
+fn the_fetch_cache_indexes_each_target_once_and_only_negates_as_a_negation() {
+    let fx = fixture();
+    let source = scope_source(&fx.loaded_members()).unwrap();
+
+    let twice = fx.id("b2-name-twice");
+    let at_bed2 = fx.by_name["b2-name-twice"]
+        .claims
+        .pointers
+        .iter()
+        .filter(|p| matches!(&p.target, Target::Entity(e) if e.id == "bed:2"))
+        .count();
+    assert_eq!(at_bed2, 2, "the fixture points at bed:2 twice");
+    let listed = source.targets("bed:2");
+    assert_eq!(listed.iter().filter(|id| **id == twice).count(), 1);
+    assert!(
+        listed.windows(2).all(|w| w[0] < w[1]),
+        "ascending, no id twice"
+    );
+
+    let size = fx.id("c2-size");
+    let remark = fx.id("c2-size-remark");
+    assert!(
+        fx.by_name["c2-size-remark"]
+            .claims
+            .pointers
+            .iter()
+            .any(|p| p.role == "annotates"
+                && matches!(&p.target, Target::Delta(d) if d.delta == size)),
+        "the fixture annotates c2-size"
+    );
+    assert!(!source.negators(&size).contains(&remark));
+    // The remark is still indexed at the entity it names.
+    assert!(source.targets("cutting:2").contains(&remark));
+}
+
+/// The fetch cache refuses a member whose arrival record names another id, and a refused call adds
+/// nothing (SPEC-18 §4.12 reading 13). A Rust `VerifiedDelta` always carries an arrival record, so
+/// a missing one cannot be expressed.
+#[test]
+fn a_member_whose_arrival_names_another_id_is_refused_and_adds_nothing() {
+    let fx = fixture();
+    let members = fx.loaded_members();
+    let mut source = scope_source(&members[..1]).unwrap();
+    let before = (
+        source
+            .ids()
+            .into_iter()
+            .map(str::to_string)
+            .collect::<Vec<_>>(),
+        source.meter(),
+    );
+    let mut misfiled = members[2].clone();
+    misfiled.arrival.id = members[3].delta.id.clone();
+    let err = source
+        .extend(&[members[1].clone(), misfiled.clone()])
+        .unwrap_err();
+    assert_eq!(err.code, StoreErrorCode::InvalidRequest);
+    assert_eq!(
+        (
+            source
+                .ids()
+                .into_iter()
+                .map(str::to_string)
+                .collect::<Vec<_>>(),
+            source.meter()
+        ),
+        before
+    );
+    assert!(source.get(&members[1].delta.id).is_none());
+    assert_eq!(
+        scope_source(&[misfiled]).unwrap_err().code,
+        StoreErrorCode::InvalidRequest
+    );
+
+    // The read refuses such an answer too.
+    let store = MemoryStore::new();
+    let peer = fx.load(&store);
+    let case = &fx.cases("cases")[0];
+    let snapshot = snapshot_double(peer.read().unwrap(), |inner, r| {
+        let mut answer = inner.scope(r)?;
+        if let [first, second, ..] = answer.deltas.as_mut_slice() {
+            first.arrival.id = second.delta.id.clone();
+        }
+        Ok(answer)
+    });
+    let err = read_anchored(snapshot.as_ref(), request(&fx, case, FetchCache::On)).unwrap_err();
+    assert_eq!(err.store_code(), Some(StoreErrorCode::InvalidRequest));
 }

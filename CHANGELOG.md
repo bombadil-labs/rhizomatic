@@ -108,8 +108,12 @@ read type for consumers, and the principal reads take it.
   `fetch_scope(snapshot, entities, selection)` returns a `FetchedScope`: a `ScopeSource` over
   exactly S(entities), and the revision. `StoreReactor::open(peer)` reads nothing; `read` and
   `fetch` take a snapshot, release it on every path, and start again on `snapshot-moved` up to
-  `SNAPSHOT_RETRIES` (three) times. `ScopeSource::restrict(ids)` is a source over some of its
-  members, without a second hash. The evaluation memo is not built.
+  `SNAPSHOT_RETRIES` (three) times, each time with a new fetch cache. Any other refusal passes up
+  after one attempt. Each `RoundReport` carries the `attempt` (from 1) and the snapshot
+  `revision`, and its `round` counts from 1 on each snapshot. `ScopeSource::extend` refuses
+  `InvalidRequest` for a member whose arrival record names another id, and a refused call adds
+  nothing. `ScopeSource::restrict(ids)` is a source over some of its members, without a second
+  hash. The evaluation memo is not built.
 - `resolvePrincipal`, `authorsForPrincipal` and `associatedKeys` take a `DeltaSource` as their
   first parameter, where they took a `Reactor`. A `Reactor` is a `DeltaSource`, so no call
   changes. Each read asks only for the scope of one entity, the principal root: over a

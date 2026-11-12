@@ -549,7 +549,7 @@ fn index_member(
 impl ScopeSource {
     /// Adds members from another round. A member already present keeps its first appearance,
     /// and a repeated id is not examined. Refuses a member whose id does not recompute from its
-    /// claims; a refused call adds nothing.
+    /// claims, or whose arrival record names another id; a refused call adds nothing.
     pub fn extend(&mut self, members: &[VerifiedDelta]) -> Result<(), StoreError> {
         // Check every first appearance before anything is added.
         let mut fresh: BTreeMap<&str, &VerifiedDelta> = BTreeMap::new();
@@ -562,6 +562,15 @@ impl ScopeSource {
                 return Err(StoreError::new(
                     StoreErrorCode::InvalidRequest,
                     format!("scope member {id} does not recompute from its claims"),
+                ));
+            }
+            if member.arrival.id != id {
+                return Err(StoreError::new(
+                    StoreErrorCode::InvalidRequest,
+                    format!(
+                        "scope member {id} carries the arrival record of {}",
+                        member.arrival.id
+                    ),
                 ));
             }
             fresh.insert(id, member);
