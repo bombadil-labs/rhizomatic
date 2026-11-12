@@ -89,8 +89,19 @@ read type for consumers, and the principal reads take it.
   (three) times. `createFetchCache()` is the growing, verified set behind them. The evaluation
   memo is not built yet. The memory `Reactor` is unchanged.
 - Shared vectors `vectors/store/rounds.json`: reads in rounds, with the anchors of each round,
-  interleaved appends and refusals. Format in `vectors/store/README.md` §5. The TypeScript
-  witness runs them; the Rust witness follows.
+  interleaved appends and refusals. Format in `vectors/store/README.md` §5. Both witnesses run
+  them.
+- Slice 2, Rust: the store-backed read, in the new module `store_read` (reactor boundary).
+  `read_anchored(&dyn Snapshot, ReadRequest)` reads in rounds on one snapshot, with a fetch cache
+  (`FetchCache::On`) or without one (`FetchCache::Off`), and returns a `StoreRead`: the result, the
+  scope, the members, the revision, a `RoundReport` per round and the snapshot count. The
+  selection is a `Pushdown` and an optional host predicate over a delta and its arrival record.
+  An unanchored term is refused `StoreReadError::Unanchored(reason)` before any store call.
+  `fetch_scope(snapshot, entities, selection)` returns a `FetchedScope`: a `ScopeSource` over
+  exactly S(entities), and the revision. `StoreReactor::open(peer)` reads nothing; `read` and
+  `fetch` take a snapshot, release it on every path, and start again on `snapshot-moved` up to
+  `SNAPSHOT_RETRIES` (three) times. `ScopeSource::restrict(ids)` is a source over some of its
+  members, without a second hash. The evaluation memo is not built.
 - `resolvePrincipal`, `authorsForPrincipal` and `associatedKeys` take a `DeltaSource` as their
   first parameter, where they took a `Reactor`. A `Reactor` is a `DeltaSource`, so no call
   changes. Each read asks only for the scope of one entity, the principal root: over a

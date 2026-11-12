@@ -59,6 +59,7 @@ pub mod single_peer;
 pub mod store;
 pub mod store_conformance;
 pub mod store_open;
+pub mod store_read;
 pub mod strict;
 pub mod term_io;
 pub mod term_json;
@@ -125,6 +126,10 @@ pub use store_conformance::{
 };
 pub use store_open::{
     open_store, OpenOptions, StoreFactory, StoreSchemes, MEMORY_SCHEME, UNKNOWN_SCHEME_MESSAGE,
+};
+pub use store_read::{
+    fetch_scope, read_anchored, FetchCache, FetchedScope, ReadRequest, RoundReport, Selection,
+    StoreReactor, StoreRead, StoreReadError, SNAPSHOT_RETRIES,
 };
 pub use term_io::{
     cbor_to_json, json_to_cbor, schema_canonical_hex, schema_hash, term_canonical_hex, term_hash,

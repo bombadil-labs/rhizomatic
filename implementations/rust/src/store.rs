@@ -553,6 +553,33 @@ impl ScopeSource {
         Ok(())
     }
 
+    /// A source over the members of this one with these ids, each with its arrival record. The
+    /// members are not hashed again; ids this source does not hold are skipped.
+    pub fn restrict(&self, ids: &[String]) -> ScopeSource {
+        let set = self.set.subset(ids);
+        let mut next = ScopeSource::default();
+        for delta in set.iter() {
+            let id = &delta.id;
+            if let Some(arrival) = self.arrivals.get(id) {
+                next.arrivals.insert(id.clone(), arrival.clone());
+            }
+            for entity in target_entities(&delta.claims) {
+                next.targets
+                    .entry(entity.to_string())
+                    .or_default()
+                    .insert(id.clone());
+            }
+            for negated in negated_ids(&delta.claims) {
+                next.negators
+                    .entry(negated.to_string())
+                    .or_default()
+                    .insert(id.clone());
+            }
+        }
+        next.set = set;
+        next
+    }
+
     pub fn arrival(&self, id: &str) -> Option<&ArrivalRecord> {
         self.arrivals.get(id)
     }

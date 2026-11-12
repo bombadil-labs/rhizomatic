@@ -90,7 +90,7 @@ fn owner(module: &str, symbol: &str) -> &'static str {
         "hview" | "hview_envelope" => "algebra",
         "alias" => "delta",
         "reactor" if matches!(symbol, "manifest_member_ids" | "make_manifest_claims") => "delta",
-        "reactor" | "materialize" => "reactor",
+        "reactor" | "materialize" | "store_read" => "reactor",
         "principal" => "principal",
         "pack" | "store" | "memory_store" | "store_open" | "store_conformance" => "storage",
         "derivation" => "derivation",
