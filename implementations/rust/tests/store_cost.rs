@@ -1,7 +1,11 @@
 //! The cost rail (SPEC-18 proposal §8, §4.11 reading 17). The memory store counts its index work
 //! through one door. The same operations over the same footprint make the same counts beside 0
 //! and beside N unrelated deltas, and no core operation walks a whole map. Only the exporter
-//! scans. This file does not measure time.
+//! scans. Those rails count; the scope-source rail at the end times its build from outside
+//! instead, because the code under test could do work it does not count.
+
+use std::hint::black_box;
+use std::time::{Duration, Instant};
 
 use rhizomatic::memory_store::{MemoryStore, StoreMeter};
 use rhizomatic::set::{make_delta, make_negation_claims, DeltaSource};
@@ -305,24 +309,73 @@ fn crowded(n: usize) -> (Vec<VerifiedDelta>, Vec<VerifiedDelta>, String) {
     )
 }
 
-/// Building a scope source costs the size of its members (README §1.2 item 5, SPEC-18 §4.11
-/// reading 36): N members at one entity, or N negations of one delta, cost N steps and not N².
-/// The source counts its own index work through one door; this test does not measure time.
+/// The fastest of three builds of a scope source over `members`, timed from outside.
+fn fastest_build(members: &[VerifiedDelta]) -> Duration {
+    (0..3)
+        .map(|_| {
+            let start = Instant::now();
+            let source = scope_source(members).unwrap();
+            let took = start.elapsed();
+            black_box(source);
+            took
+        })
+        .min()
+        .unwrap()
+}
+
+/// The members of one crowded shape: N facts about one entity, or N negations of one delta.
+type Shape = fn(usize) -> Vec<VerifiedDelta>;
+
+fn at_one_entity(n: usize) -> Vec<VerifiedDelta> {
+    crowded(n).0
+}
+
+fn negating_one_delta(n: usize) -> Vec<VerifiedDelta> {
+    crowded(n).1
+}
+
+/// The smallest power-of-two N whose build of this shape takes at least 50 ms here.
+fn calibrated_n(shape: Shape) -> usize {
+    let mut n = 256;
+    while n < 1 << 20 && fastest_build(&shape(n)) < Duration::from_millis(50) {
+        n *= 2;
+    }
+    n
+}
+
+/// Building a scope source costs the size of its members (README §1.2 item 5 and §5 "Cost",
+/// SPEC-18 §4.11 reading 36): N members at one entity, or N negations of one delta, cost N steps
+/// and not N². This times the build from outside with a monotonic clock, at N and at 8N, the
+/// fastest of three builds each. Linear work gives a ratio near 8 and quadratic work near 64;
+/// the rail holds the ratio below 24. Each shape calibrates its own N, the smallest power of two
+/// whose build takes 50 ms or more on this host and in this profile (debug under `cargo test`),
+/// so a quadratic build also stays short enough to fail rather than hang. It is a coarse scaling
+/// check, not a count: a quadratic term too small to show at that N passes.
 #[test]
 fn a_scope_source_builds_in_the_size_of_its_members() {
-    for n in [500, 1000, 2000] {
-        let (facts, strikes, target) = crowded(n);
-        let source = scope_source(&facts).unwrap();
-        assert_eq!(source.targets("plant:a").len(), n);
-        assert_eq!(source.meter().steps, n as u64, "{n} members at one entity");
+    let (facts, strikes, target) = crowded(300);
+    assert_eq!(scope_source(&facts).unwrap().targets("plant:a").len(), 300);
+    assert_eq!(scope_source(&strikes).unwrap().negators(&target).len(), 300);
 
-        let source = scope_source(&strikes).unwrap();
-        assert_eq!(source.negators(&target).len(), n);
-        assert_eq!(source.meter().steps, n as u64, "{n} negations of one delta");
-
-        // A second round of the same members adds nothing and costs nothing.
-        let mut source = scope_source(&facts).unwrap();
-        source.extend(&facts).unwrap();
-        assert_eq!(source.meter().steps, n as u64, "{n} repeated members");
-    }
+    let shapes: [(&str, Shape); 2] = [
+        ("members at one entity", at_one_entity),
+        ("negations of one delta", negating_one_delta),
+    ];
+    let slow: Vec<String> = shapes
+        .into_iter()
+        .filter_map(|(shape, members)| {
+            let n = calibrated_n(members);
+            let (at_n, at_8n) = (fastest_build(&members(n)), fastest_build(&members(8 * n)));
+            let ratio = at_8n.as_secs_f64() / at_n.as_secs_f64();
+            println!("scope source, {shape}: N = {n}, {at_n:?} and {at_8n:?}, ratio {ratio:.2}");
+            (ratio >= 24.0).then(|| {
+                format!(
+                    "{shape}: building from {} members took {ratio:.1} times as long as from \
+                     {n} ({at_8n:?} against {at_n:?}); linear work gives about 8",
+                    8 * n
+                )
+            })
+        })
+        .collect();
+    assert!(slow.is_empty(), "{}", slow.join("\n"));
 }

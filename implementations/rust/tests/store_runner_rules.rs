@@ -9,15 +9,14 @@
 //! The reference rules have a control beside them: the same wrong answer under another
 //! `formatVersion` conforms.
 //!
+//! A store of class `none` is not a runner rule (README §3.4, SPEC-18 §4.11 reading 43): the
+//! runner skips every script that purges for it. `a_class_none_store_skips_the_purge_scripts`
+//! holds that skip, and that such a store fails a purge step it reaches anyway.
+//!
 //! Named gaps — rules a wrapped store cannot reach:
 //!
 //! - **A surface state outside the three.** `SurfaceState` is an enum of three values, so no
 //!   store can report a fourth.
-//! - **A store of class `none` that answers a purge.** Every script with a purge step requires
-//!   `purge`, and the runner skips those scripts for a class-`none` store (README §5). No step
-//!   reaches such a store's purge, so a class-`none` store that answers passes. The table holds
-//!   the skip instead (`a_class_none_store_skips_the_purge_scripts`), and the stand-in's own
-//!   refusal is tested directly.
 //! - **The trim comparison against a wrong store.** The runner takes the held deltas of a scope
 //!   case from its own bookkeeping, not from `get`. With held deltas fixed, the case's lower and
 //!   upper bounds imply the trim lemma for any answer, so no store can fail the trim comparison
@@ -72,6 +71,7 @@ enum Wrong {
     AppendReversesAdded,
     AppendResultRevision,
     AppendMovesOnRefusal,
+    AppendMovesDownOnRefusal,
     AppendMovesOnConflict,
     AppendStaysOnCommit,
     AppendMovesOnNoop,
@@ -93,8 +93,11 @@ enum Wrong {
     // The bookkeeping.
     HoldsLastOfBatch,
     ServesPurged,
+    StaleAfterRemoved,
+    StaleAfterOtherHolds,
     // Point reads.
     Head,
+    HeadEmpty,
     Count,
     GetDrops,
     GetReverses,
@@ -124,6 +127,7 @@ enum Wrong {
     // Scope bounds.
     AppliedUnrequested,
     DropsNegators,
+    DropsFirst,
     OutsideScope,
     ClaimsPushdown,
     AppliesNothing,
@@ -131,11 +135,13 @@ enum Wrong {
     // Reference rules.
     ReferenceAppliesLess,
     ReferenceIgnoresExclude,
+    ReferenceIgnoresExcludeUnpushed,
     // Export.
     ExportIdsOther,
     ExportIdsReverse,
     ExportDeltasDrop,
     ExportDeltasReverse,
+    ExportDeltasExtra,
     ExportSig,
     ExportClaims,
     StoredDrop,
@@ -176,6 +182,9 @@ struct Books {
     committed: BTreeMap<String, Vec<VerifiedDelta>>,
     /// The last entry of its batch for each id a peer committed.
     last_of_batch: BTreeMap<(String, String), ArrivalRecord>,
+    /// The arrival record each peer held an id under when a purge ended that holding, and the
+    /// outcome that ended it.
+    stale: BTreeMap<(String, String), (PurgeOutcome, ArrivalRecord)>,
 }
 
 type Shared = Rc<RefCell<Books>>;
@@ -397,6 +406,17 @@ impl PeerStore for RigPeer {
             .get(&self.id)
             .map(|ghosts| ghosts.values().cloned().collect())
             .unwrap_or_default();
+        let ended = match self.wrong {
+            Wrong::StaleAfterRemoved => Some(PurgeOutcome::Removed),
+            Wrong::StaleAfterOtherHolds => Some(PurgeOutcome::HeldByOtherPeer),
+            _ => None,
+        };
+        let stale = books
+            .stale
+            .iter()
+            .filter(|((peer, _), (outcome, _))| *peer == self.id && Some(*outcome) == ended)
+            .map(|((_, id), (_, arrival))| (id.clone(), arrival.clone()))
+            .collect();
         drop(books);
         Ok(Box::new(RigSnapshot {
             revision: self.revision(inner.revision()),
@@ -405,6 +425,7 @@ impl PeerStore for RigPeer {
             others,
             last,
             purged,
+            stale,
         }))
     }
 
@@ -420,6 +441,9 @@ impl PeerStore for RigPeer {
             Err(e) => {
                 if self.wrong == Wrong::AppendMovesOnRefusal {
                     self.shift(1);
+                }
+                if self.wrong == Wrong::AppendMovesDownOnRefusal && self.revision(after).0 > 0 {
+                    self.shift(-1);
                 }
                 Err(match (self.wrong, e.code) {
                     (Wrong::AppendCode, StoreErrorCode::InvalidAdmission) => recode(
@@ -502,6 +526,22 @@ impl PeerStore for RigPeer {
         let after = self.inner_revision()?;
 
         let mut books = self.books.borrow_mut();
+        for target in &report.targets {
+            let ended = matches!(
+                target.outcome,
+                PurgeOutcome::Removed | PurgeOutcome::HeldByOtherPeer
+            );
+            if let Some(arrival) = arrivals
+                .iter()
+                .find(|a| a.id == target.id)
+                .filter(|_| ended)
+            {
+                books.stale.insert(
+                    (self.id.clone(), target.id.clone()),
+                    (target.outcome, arrival.clone()),
+                );
+            }
+        }
         let ghosts = books.purged.entry(self.id.clone()).or_default();
         for (delta, arrival) in deltas.into_iter().zip(arrivals) {
             ghosts.insert(delta.id.clone(), VerifiedDelta { delta, arrival });
@@ -571,6 +611,8 @@ struct RigSnapshot {
     others: Vec<VerifiedDelta>,
     last: BTreeMap<String, ArrivalRecord>,
     purged: Vec<VerifiedDelta>,
+    /// For the stale rules: the record a purge ended, for each id held again since.
+    stale: BTreeMap<String, ArrivalRecord>,
 }
 
 impl RigSnapshot {
@@ -629,6 +671,9 @@ impl RigSnapshot {
                 *arrival = last.clone();
             }
         }
+        if let Some(old) = self.stale.get(&arrival.id) {
+            *arrival = old.clone();
+        }
     }
 }
 
@@ -649,6 +694,7 @@ impl Snapshot for RigSnapshot {
     fn head(&self) -> Option<&str> {
         match self.wrong {
             Wrong::Head => Some("a-head-nobody-wrote"),
+            Wrong::HeadEmpty => self.inner.head().or(Some("")),
             _ => self.inner.head(),
         }
     }
@@ -722,6 +768,9 @@ impl Snapshot for RigSnapshot {
                 asked.pushdown = None;
             }
             Wrong::ReferenceIgnoresExclude => asked.exclude.clear(),
+            Wrong::ReferenceIgnoresExcludeUnpushed if asked.pushdown.is_none() => {
+                asked.exclude.clear()
+            }
             Wrong::BoundReachesStore => {
                 if let Some(pushdown) = &mut asked.pushdown {
                     pushdown.arrival_at_most =
@@ -760,6 +809,9 @@ impl Snapshot for RigSnapshot {
                     arrival_at_most: true,
                     exclude_ids: true,
                 }
+            }
+            Wrong::DropsFirst if !answer.deltas.is_empty() => {
+                answer.deltas.remove(0);
             }
             Wrong::ScopeReverse => answer.deltas.reverse(),
             Wrong::ScopeRepeat => {
@@ -872,6 +924,9 @@ impl PeerExporter for RigPeerExporter {
                 Wrong::ExportDeltasReverse,
                 deltas,
             );
+            if let (Some(first), Wrong::ExportDeltasExtra) = (deltas.first().cloned(), self.wrong) {
+                deltas.push(first);
+            }
             if let Some(first) = deltas.first_mut() {
                 match self.wrong {
                     Wrong::ExportSig => toggle_sig(first),
@@ -962,6 +1017,39 @@ fn an_id_that_does_not_recompute(vectors: &mut StoreVectors) {
             return;
         }
     }
+}
+
+/// The first purge step of every script, for the claim rows.
+fn first_claims(vectors: &mut StoreVectors) -> Vec<&mut serde_json::Map<String, Value>> {
+    vectors.scripts["scripts"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .filter_map(|script| {
+            let steps = script["steps"].as_array_mut().unwrap();
+            let purge = steps.iter_mut().find(|step| step["op"] == "purge")?;
+            purge["expect"]["claim"].as_object_mut()
+        })
+        .collect()
+}
+
+/// A `claim` that also names class `none`.
+fn a_claim_with_another_key(vectors: &mut StoreVectors) {
+    for claim in first_claims(vectors) {
+        claim.insert("none".into(), "nothing-removed".into());
+    }
+}
+
+/// A `claim` without its `proven` key; the runner of an unprovable store never reads that key.
+fn a_claim_without_a_key(vectors: &mut StoreVectors) {
+    for claim in first_claims(vectors) {
+        claim.remove("proven");
+    }
+}
+
+/// A script that requires a name outside the allow-list.
+fn an_unknown_requirement(vectors: &mut StoreVectors) {
+    vectors.scripts["scripts"][0]["requires"] = serde_json::json!(["values"]);
 }
 
 struct Row {
@@ -1174,6 +1262,13 @@ const TABLE: &[Row] = &[
         S,
     ),
     row(
+        "append: a refusal moves the revision down",
+        W::AppendMovesDownOnRefusal,
+        PLAIN,
+        &["append: the revision changed"],
+        S,
+    ),
+    row(
         "append: a conflict moves the revision",
         W::AppendMovesOnConflict,
         PLAIN,
@@ -1308,6 +1403,20 @@ const TABLE: &[Row] = &[
         &["scope: the store answered"],
         S,
     ),
+    row(
+        "bookkeeping: an id appended again after `removed` has its new record",
+        W::StaleAfterRemoved,
+        PLAIN,
+        &["first admitted (field `"],
+        S,
+    ),
+    row(
+        "bookkeeping: an id appended again after `held-by-other-peer` has its new record",
+        W::StaleAfterOtherHolds,
+        PLAIN,
+        &["first admitted (field `"],
+        S,
+    ),
     // Point reads (§3.6, §3.7).
     row(
         "head",
@@ -1315,6 +1424,16 @@ const TABLE: &[Row] = &[
         PLAIN,
         &[
             "expected head",
+            "append: expected a refusal `invalid-admission`, the store answered",
+        ],
+        S,
+    ),
+    row(
+        "head: a new peer's head is null, not the empty string",
+        W::HeadEmpty,
+        PLAIN,
+        &[
+            "expected head None",
             "append: expected a refusal `invalid-admission`, the store answered",
         ],
         S,
@@ -1493,6 +1612,13 @@ const TABLE: &[Row] = &[
         SC,
     ),
     row(
+        "scope: the lower bound, its first id",
+        W::DropsFirst,
+        PLAIN,
+        &["script lower bound", "case lower bound"],
+        SC,
+    ),
+    row(
         "scope: the upper bound",
         W::OutsideScope,
         PLAIN,
@@ -1531,6 +1657,13 @@ const TABLE: &[Row] = &[
         &["reference (script) scope", "reference (case) scope"],
         SC,
     ),
+    row(
+        "reference: the exact ids of a step with no pushdown",
+        W::ReferenceIgnoresExcludeUnpushed,
+        REFERENCE,
+        &["reference (script) scope", "reference (case) scope"],
+        SC,
+    ),
     // Export (§3.8).
     row(
         "export: the ids",
@@ -1549,6 +1682,13 @@ const TABLE: &[Row] = &[
     row(
         "export: the count of deltas",
         W::ExportDeltasDrop,
+        PLAIN,
+        &["export: ids lists"],
+        S,
+    ),
+    row(
+        "export: more deltas than ids",
+        W::ExportDeltasExtra,
         PLAIN,
         &["export: ids lists"],
         S,
@@ -1608,6 +1748,27 @@ const TABLE: &[Row] = &[
         W::Nothing,
         an_id_that_does_not_recompute,
         &["the id does not recompute"],
+        &["scripts"],
+    ),
+    doc_row(
+        "documents: a purge claim with another key",
+        W::Nothing,
+        a_claim_with_another_key,
+        &["purge: the document's `claim` has the keys"],
+        &["scripts"],
+    ),
+    doc_row(
+        "documents: a purge claim without one of its keys",
+        W::Nothing,
+        a_claim_without_a_key,
+        &["purge: the document's `claim` has the keys"],
+        &["scripts"],
+    ),
+    doc_row(
+        "documents: an unknown script requirement",
+        W::Nothing,
+        an_unknown_requirement,
+        &["unknown script requirement `values`"],
         &["scripts"],
     ),
 ];
@@ -1687,6 +1848,7 @@ fn the_same_answers_conform_where_no_rule_forbids_them() {
         (W::AppliesNothing, PLAIN),
         (W::ReferenceAppliesLess, PLAIN),
         (W::ReferenceIgnoresExclude, PLAIN),
+        (W::ReferenceIgnoresExcludeUnpushed, PLAIN),
         (W::ReferenceSurfaces, PLAIN),
     ];
     for (wrong, setup) in controls {
@@ -1718,8 +1880,13 @@ fn skipped(names: &[&str], missing: &str) -> Vec<SkippedScript> {
         .collect()
 }
 
-/// README §3, §5: a class-`none` store refuses every purge with `capability-absent`, and the
-/// runner skips exactly the scripts that require `purge`, and reports them.
+/// README §3 and §3.4: the runner skips exactly the scripts that require `purge` for a store of
+/// class `none`, and reports them. A purge step that reaches such a store anyway, in a script
+/// that does not require `purge`, fails: the claim has no expectation for class `none`.
+///
+/// The rig here is a stand-in, not a store of this crate: Rust has no store of class `none`, so
+/// README §6 test 8 (such a store refuses every purge) has nothing to test. The stand-in's own
+/// refusal is asserted only so the skip below is measured against a store that would refuse.
 #[test]
 fn a_class_none_store_skips_the_purge_scripts() {
     let none = Setup {
@@ -1742,6 +1909,18 @@ fn a_class_none_store_skips_the_purge_scripts() {
         .passed
         .iter()
         .all(|name| !PURGE_SCRIPTS.contains(&name.as_str())));
+
+    let mut unguarded = vectors();
+    for script in unguarded.scripts["scripts"].as_array_mut().unwrap() {
+        script.as_object_mut().unwrap().remove("requires");
+    }
+    let error = run_with(W::Nothing, none, &unguarded).expect_err("a purge step must fail");
+    let failed: Vec<&str> = error.failures.iter().map(|f| f.name.as_str()).collect();
+    assert_eq!(failed, PURGE_SCRIPTS, "{error}");
+    assert!(error
+        .failures
+        .iter()
+        .all(|f| f.message.contains("purge refused `capability-absent`")));
 }
 
 /// README §3: a store with a journal skips the script that requires its absence, and only it.

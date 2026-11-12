@@ -727,6 +727,18 @@ impl<'a> Run<'a> {
         let before = self.revision(name)?;
         let result = self.peer(name)?.purge(&ids);
         let after = self.revision(name)?;
+        // A claim names one expectation per erasure class that purges, and nothing else
+        // (§3.4). Any other shape is a defect of the document, whatever the store answered.
+        let claims = field(expect, "claim")?
+            .as_object()
+            .ok_or("purge: the document's `claim` is not an object; the document is defective")?;
+        let mut keys: Vec<&str> = claims.keys().map(String::as_str).collect();
+        keys.sort_unstable();
+        if keys != ["proven", "unprovable"] {
+            return Err(format!(
+                "purge: the document's `claim` has the keys {keys:?}, and a claim has exactly `unprovable` and `proven`; the document is defective"
+            ));
+        }
         let report =
             result.map_err(|e| format!("purge refused `{}`: {}", e.code.as_str(), e.message))?;
 
