@@ -26,7 +26,7 @@ use rhizomatic::eval::{result_canonical_hex, Term};
 use rhizomatic::json_profile::parse_claims;
 use rhizomatic::memory_store::MemoryStore;
 use rhizomatic::schema::{HyperSchema, SchemaRegistry};
-use rhizomatic::set::{make_delta, negation_witnesses, DeltaSource};
+use rhizomatic::set::{make_delta, negation_predicate, negation_witnesses, DeltaSource};
 use rhizomatic::store::{
     target_entities, Admission, AppendResult, ArrivalRecord, ErasurePosture, PeerStore, Pushdown,
     Store, VerifiedDelta,
@@ -474,6 +474,17 @@ fn the_negation_witness_cases_answer_over_a_fetched_scope() {
         .unwrap();
         let got: Vec<String> = witnesses.into_iter().map(|d| d.id).collect();
         assert_eq!(got, strings(&case["expectedIds"]), "witness case: {case}");
+        let mut negated = negation_predicate(
+            &fetched.source,
+            case["now"].as_f64().unwrap(),
+            |negation: &Delta, _: &Delta| permitted.contains(negation.claims.author.as_str()),
+        )
+        .unwrap();
+        assert_eq!(
+            negated(target_id),
+            !got.is_empty(),
+            "predicate case: {case}"
+        );
         ran += 1;
     }
     assert_eq!(ran, 12);
