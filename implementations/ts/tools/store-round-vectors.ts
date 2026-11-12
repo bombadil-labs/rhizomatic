@@ -12,6 +12,7 @@ import { evalTerm, resultCanonicalHex } from "../src/resolve/eval.js";
 import { SchemaRegistry } from "../src/schema/schema.js";
 import type { Bindings } from "../src/syntax/pred.js";
 import { parseTerm } from "../src/syntax/term-json.js";
+import { termHash } from "../src/syntax/term-io.js";
 import {
   PUSHDOWN_FIELDS,
   passesSelection,
@@ -333,7 +334,9 @@ const pinnedByHole = {
     in: { op: "mask", policy: "drop", in: "input" },
   },
 };
-const expandInto = (schema: string, body: unknown) => ({
+// The leaf filed by role, not by context: at one root, its HView differs from Leaf's.
+const roleLeaf = { ...leaf, key: "byRole" };
+const expandInto = (schema: unknown, body: unknown) => ({
   op: "expand",
   role: { exact: "child" },
   schema,
@@ -351,6 +354,7 @@ const SCHEMAS = [
   { name: "StrikerLeaf", alg: 1, body: strikerLeaf },
   { name: "StrikerTree1", alg: 1, body: expandInto("StrikerLeaf", strikerLeaf) },
   { name: "StrikerTree2", alg: 1, body: expandInto("StrikerTree1", strikerLeaf) },
+  { name: "RoleLeaf", alg: 1, body: roleLeaf },
 ];
 const garden = { op: "fix", schema: "Tree3", entity: "garden:1" };
 // The fix reads the tree with Alice's strikes binding. The expand over it follows the garden's
@@ -362,6 +366,10 @@ const twoBindings = {
   schema: "StrikerLeaf",
   in: { op: "fix", schema: "StrikerTree2", entity: "garden:1", bindings: { striker: ALICE } },
 };
+// Two expands of one `child` link, each under a schema pinned by hash: Leaf and RoleLeaf. Both
+// reach cutting:1 and cutting:2 in round 2, and both children are final there.
+const pin = (body: unknown) => ({ pinned: termHash(parseTerm(body)) });
+const twoPins = expandInto(pin(roleLeaf), expandInto(pin(leaf), leaf));
 const resolvedLeaf = {
   op: "resolve",
   schema: { default: { pick: { order: { byTimestamp: "desc" } } } },
@@ -492,6 +500,12 @@ function reads(): (RoundsRead & { name: string; note: string })[] {
       "garden:1",
       {},
       { striker: BOB },
+    ),
+    read(
+      "one-child-under-two-pinned-schemas",
+      "Two expands follow plant:s's child links, one under Leaf and one under RoleLeaf, each pinned by hash. Both evaluate cutting:1 and cutting:2 in round 2, and both children are final there. The two HViews differ. A memo whose key does not tell two pinned references apart serves one for the other.",
+      twoPins,
+      "plant:s",
     ),
     read(
       "a-resolved-tree",
@@ -843,6 +857,33 @@ export function roundVectors(): StoreRoundsDocument {
     answer(base, { ...two, bindings: { striker: ALICE } }).canonicalHex !== two.expect.canonicalHex,
     "the request's bindings in the answer",
   );
+  // Two pinned references at one root, both final in one round, with two different HViews.
+  const pins = cases.find((x) => x.name === "one-child-under-two-pinned-schemas")!;
+  const pinnedAt = (body: unknown, entity: string) => {
+    const got = evalTerm(
+      { kind: "fix", schema: { kind: "pinned", hash: termHash(parseTerm(body)) }, entity },
+      DeltaSet.from(base.map((e) => e.delta)),
+      NOW,
+      entity,
+      registry,
+    );
+    if (got.sort !== "hview") throw new Error("round vectors: a pinned child is not an HView");
+    return got;
+  };
+  for (const entity of ["cutting:1", "cutting:2"]) {
+    const [byContext, byRole] = [pinnedAt(leaf, entity), pinnedAt(roleLeaf, entity)];
+    need(
+      resultCanonicalHex(byContext) !== resultCanonicalHex(byRole),
+      `two pinned schemas that read ${entity} differently`,
+    );
+    need(
+      roundIn(pins.expect.rounds, entity) === 2 &&
+        [byContext, byRole].every((v) =>
+          hviewAnchors(v.hview).every((a) => roundIn(pins.expect.rounds, a) === 2),
+        ),
+      `both pinned evaluations of ${entity} final in round 2`,
+    );
+  }
   // A change after round 3 under a child that round 3 finished: a memo kept across the retry
   // shows the old child. Round 3 fetches cutting:1, and the append changes Leaf there.
   const thirdAppend = interleaved[1]!;

@@ -102,7 +102,8 @@ read type for consumers, and the principal reads take it.
   again. `evalTerm` takes an optional `ChildMemo` (`get`, `put`) as its last argument; the
   evaluator asks it before each `expand` child and `fix` body and decides nothing about what
   stays right. `evalTermWithHooks` carries a budget and a memo together; a budget turns the memo
-  off. No answer changes. The round vectors gain `one-child-under-two-bindings`.
+  off. No answer changes. The round vectors gain `one-child-under-two-bindings` and
+  `one-child-under-two-pinned-schemas`.
 - Shared vectors `vectors/store/rounds.json`: reads in rounds, with the anchors of each round,
   interleaved appends, a purge between two rounds, and refusals. Format in `vectors/store/README.md` §5. Both witnesses run
   them.

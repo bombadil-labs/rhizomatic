@@ -813,6 +813,12 @@ What the fixture holds, so a reader that gets one of these wrong fails a case:
   bindings, Bob's. Round 2 reaches `cutting:1` under `StrikerLeaf` both ways, and both are final
   in that round. The two HViews differ: under Bob's strikes `c1-height` is struck. A memo whose
   key leaves out the bindings serves one for the other and fails this case, and only this case.
+- One child under two pinned schemas (`one-child-under-two-pinned-schemas`). `RoleLeaf` is
+  `Leaf` filed by role, not by context. Two `expand`s follow the `child` links of `plant:s`, one
+  under `Leaf` and one under `RoleLeaf`, and each names its schema by its pinned hash. Round 2
+  reaches `cutting:1` and `cutting:2` under both, and all four children are final in that round.
+  At each entity the two HViews differ. A memo whose key does not tell two pinned references apart
+  serves one for the other and fails this case.
 
 ### 5.5 An interleaved case
 
@@ -932,6 +938,9 @@ The JSON cannot express these; each witness builds them over this fixture.
     scope alone and keeps the empty answer. It fails `the-whole-garden`.
   - A memo whose key leaves out the bindings. It fails `one-child-under-two-bindings`, and no
     other case.
+  - A memo whose key does not tell two pinned references apart: for example, one that writes
+    every pinned reference as the same key. It fails `one-child-under-two-pinned-schemas`. No
+    other case names a schema by its hash.
   - A memo whose key leaves out the root. It fails `the-whole-garden`.
   - A memo kept across two reads: one store for every case of a run. It fails a case whose
     selection differs from an earlier case's (`signed-time-cuts-a-link-and-a-strike`).

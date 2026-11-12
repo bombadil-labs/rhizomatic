@@ -779,7 +779,10 @@ that a vector can pin.
       bindings, or the `bindings` of the nearest enclosing `fix` that has them. Each is one object
       for the whole read, because the term and the registry do not change during it. Two binding
       objects with the same entries get two keys; the memo then shares less, and no answer
-      changes;
+      changes. Identity is enough only because a bindings object does not change during a read.
+      A caller must not change a bindings object while a read uses it; the type is read-only.
+      Such a change breaks the read with or without the memo: the anchor analysis runs once, at
+      the start of the read, over the bindings as they were then;
     - the root entity.
 
     The term, the registry, `now` and the selection are the same in every round of one read, so
@@ -802,23 +805,38 @@ that a vector can pin.
 
     *Where a schema body reads.* An anchored body (SPEC-17 §5) reads deltas only in these places:
     a `group` at the evaluation root; an `inView` or a `group const` pinned at the root, at a
-    constant or at a bound hole; a pointwise operator (`select`, `union`, `intersect`,
-    `difference`), whose answer for one delta depends on that delta alone; a `mask`, which decides
-    a delta by its negation chains; an `expand`, which evaluates children; and a `fix`, whose body
-    runs at its own entity. Constants and bound holes are static anchors. The HView-sort spine of
+    constant or at a bound hole; a `select`, which decides each delta by its predicate; a `mask`,
+    which decides a delta by its negation chains; a set operator (`union`, `intersect`,
+    `difference`), which decides a delta by its membership in both operands; an `expand`, which
+    evaluates children; and a `fix`, whose body runs at its own entity. Constants and bound holes are static anchors. The HView-sort spine of
     a body (`prune` and `expand` over their operand) ends in a `group` or a `fix`. When it ends in
     a `group`, the HView id is the root. When it ends in a `fix`, the body reads nothing at its
     own root, and the HView id is the `fix` entity, a static anchor. So every root at which V's
     evaluation reads is a static anchor or is in `A(V)`, apart from children that a `prune`
     drops: those are evaluated and not shown, and nothing they return reaches V.
 
+    *The operands.* Take a level whose root a is in E_k. Write `X(M)` for a DSet-sorted subterm X
+    of that level evaluated over the deltas M. Then **`X(M_k) = X(D) ∩ M_k`** for every such X, by
+    structural induction on X:
+    - `input`: `M_k = D ∩ M_k`, because `M_k ⊆ D`.
+    - `select`: its predicate reads the delta itself, and a pinned `inView` at a static anchor
+      or at a. Every delta of D that points at such an anchor is in `M_k`, and the inView's own
+      term obeys this rule, so the inView selects the same deltas over `M_k` as over D. So the
+      predicate decides each delta the same way, and the hypothesis on the operand gives the rule.
+    - `mask`: by the SPEC-17 closure lemma, a member of `M_k` has the same negation status in the
+      operand over `M_k` as over D. So the mask decides each delta of `X(D) ∩ M_k` the same way,
+      and the hypothesis on the operand gives the rule.
+    - `union`, `intersect`, `difference`: these are not pointwise, because whether a delta stays
+      depends on its membership in the other operand. The rule holds by the hypothesis on both
+      operands: intersection with the one set `M_k` distributes over union, intersection and
+      difference, so `(X(D) ∩ M_k) op (Y(D) ∩ M_k) = (X(D) op Y(D)) ∩ M_k`.
+
     *The induction.* Go down V from the top. Take a level whose root a is in E_k. Every delta of D
-    that points at a is in `S0(a)`, so it is in `M_k`. So each `group` at a files the same deltas
-    over `M_k` as over D, and each pinned `inView` selects the same deltas. By the SPEC-17 closure
-    lemma, a member of `M_k` has the same negation status in every operand over `M_k` as over D,
-    so each `mask` decides it the same way. A pointwise operator then keeps the same members. The
-    level has the same entries over `M_k` as over D. So it expands the same children, under the
-    same schema and bindings. Finality puts each of those children in E_k, so the argument goes
+    that points at a is in `S0(a)`, so it is in `M_k`. A `group` at a files only deltas that point
+    at a, and its operand over `M_k` is its operand over D intersected with `M_k` (*The
+    operands*). So each `group` at a files the same deltas over `M_k` as over D, and each pinned
+    `inView` selects the same deltas. The level has the same entries over `M_k` as over D. So it
+    expands the same children, under the same schema and bindings. Finality puts each of those children in E_k, so the argument goes
     down one level. The schema DAG is finite (SPEC-3 §3), so the induction ends. Therefore **V
     equals the same child evaluated over D**. This is the SPEC-17 §6 theorem for the term
     `fix(R, c, B)`: its scope is `E* = static ∪ A(V)`, and `M_k` contains `S(E*)` and is closed
@@ -835,9 +853,10 @@ that a vector can pin.
 23. **A child does not depend on members under other anchors.** The members of a round come from
     every anchor fetched so far, and a child's operands see all of them. They do not change its
     answer. A `group` files only deltas that point at its own root. A pinned `inView` selects only
-    deltas at its own anchor. A pointwise operator decides each delta alone. A negation that
-    decides one of the child's members is in that member's scope, whatever entity the negation
-    points at. So a final child depends only on `S(static ∪ A(V))` over D, which no later round
+    deltas at its own anchor. A `select` decides each delta alone, and a set operator decides it
+    by its membership in operands that obey the same rule (reading 22, *The operands*). A
+    negation that decides one of the child's members is in that member's scope, whatever entity
+    the negation points at. So a final child depends only on `S(static ∪ A(V))` over D, which no later round
     changes. A delta that points at the child's root and also at an anchor of a later round is in
     `S0` of the child's root, so it arrives with that root (in the round vectors,
     `g-features-c1` at `garden:1` and `cutting:1`). The residual selection does not change this:
@@ -846,10 +865,12 @@ that a vector can pin.
     two keys and two evaluations. The bindings can change what a `mask trust` or a `select`
     decides, so one HView cannot serve both. The case `one-child-under-two-bindings` reaches
     `cutting:1` under one schema with two bindings in one round, and the two HViews differ; a key
-    without the bindings fails it. A diamond under one schema and one bindings object has one key
-    (`plant:s` under `Tree1`, from both beds). Within one round, every evaluation of that key sees
-    the same members and gives the same HView; once it is final, every later round gives that
-    HView too (reading 22).
+    without the bindings fails it. Two pinned references are two schemas too: the case
+    `one-child-under-two-pinned-schemas` reaches `cutting:1` and `cutting:2` under two pinned
+    hashes in one round, and a key that does not tell the hashes apart fails it. A diamond under
+    one schema and one bindings object has one key (`plant:s` under `Tree1`, from both beds).
+    Within one round, every evaluation of that key sees the same members and gives the same
+    HView; once it is final, every later round gives that HView too (reading 22).
 25. **The memo never outlives its attempt.** A child stored on one snapshot can be wrong on
     another, because an append or a purge can change what it reads. The interleaved case
     `an-append-after-the-third-round` strikes `c1-height` at `cutting:1` after the round that
