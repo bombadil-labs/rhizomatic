@@ -7,14 +7,20 @@
 //! residual selection so that `exclude` names them; the exact members are S(every anchor asked
 //! for) over the cache under the residual; the gather is evaluated over exactly those members;
 //! the next anchors are the anchors the result shows that no round has asked for.
+//!
+//! The evaluation memo (§4.12 readings 21 to 26) keeps, for one attempt of one read, each child
+//! evaluation that is final: every anchor its HView shows has been asked for. A later round, and
+//! the final `resolve` evaluation, use it and do not evaluate that child again.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
 use crate::anchored::{
     anchor_analysis, hview_anchors, scope_ids, AnchorAnalysis, UnanchoredReason,
 };
-use crate::eval::{eval_term_at, EvalResult, Term};
+use crate::eval::{
+    eval_term_at_with_memo, ChildKey, ChildMemo, ChildValue, EvalResult, SchemaRef, Term,
+};
 use crate::pred::Bindings;
 use crate::schema::SchemaRegistry;
 use crate::set::DeltaSource;
@@ -22,7 +28,7 @@ use crate::store::{
     Anchor, ArrivalRecord, PeerStore, Pushdown, PushdownFields, Revision, ScopeRequest,
     ScopeSource, Snapshot, StoreError, StoreErrorCode,
 };
-use crate::types::Delta;
+use crate::types::{Delta, Primitive};
 
 /// How many times `StoreReactor` starts a read again after `snapshot-moved`. A read therefore
 /// uses at most `SNAPSHOT_RETRIES + 1` snapshots.
@@ -59,6 +65,101 @@ pub enum FetchCache {
     Off,
 }
 
+/// Whether the read keeps an evaluation memo (SPEC-18 §4.12 reading 21). The memo changes no
+/// answer, scope, member or round; it saves child evaluations.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EvalMemo {
+    /// A new `FinalChildMemo` for each attempt.
+    On,
+    /// Every round evaluates every child it reaches.
+    Off,
+}
+
+/// A memo that a read in rounds can carry: a `ChildMemo` that also learns, before each round's
+/// evaluation, every anchor asked for so far in the read.
+pub trait RoundMemo: ChildMemo {
+    fn round(&mut self, asked: &BTreeSet<String>);
+}
+
+/// A primitive as a memo key: a number by its bits, so that two keys are equal only when the
+/// values are the same value.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+enum KeyPrimitive {
+    Str(String),
+    Num(u64),
+    Bool(bool),
+}
+
+type MemoKey = (bool, String, Option<Vec<(String, KeyPrimitive)>>, String);
+
+fn memo_key(key: &ChildKey<'_>) -> MemoKey {
+    let (pinned, schema) = match key.schema {
+        SchemaRef::Name(name) => (false, name.clone()),
+        SchemaRef::Pinned(hash) => (true, hash.clone()),
+    };
+    let bindings = key.bindings.map(|b: &Bindings| {
+        b.iter()
+            .map(|(hole, value)| {
+                let value = match value {
+                    Primitive::Str(s) => KeyPrimitive::Str(s.clone()),
+                    Primitive::Num(n) => KeyPrimitive::Num(n.to_bits()),
+                    Primitive::Bool(b) => KeyPrimitive::Bool(*b),
+                };
+                (hole.clone(), value)
+            })
+            .collect()
+    });
+    (pinned, schema, bindings, key.root.to_string())
+}
+
+/// The evaluation memo of one attempt of one read (SPEC-18 §4.12 reading 21). The key is the
+/// schema reference as the term writes it, the bindings in effect and the root. Bindings are
+/// compared by their entries: the evaluator reads bindings only as values, so two binding objects
+/// with the same entries give the same child, and sharing their key cannot change an answer.
+///
+/// It stores a child only when the child is final: every anchor its HView shows has been asked
+/// for. It stores each key at most once. It must not outlive its attempt: a new snapshot, a new
+/// selection or a new request can change what a stored child reads.
+#[derive(Debug, Default)]
+pub struct FinalChildMemo {
+    asked: BTreeSet<String>,
+    entries: BTreeMap<MemoKey, ChildValue>,
+}
+
+impl FinalChildMemo {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// How many children the memo holds.
+    pub fn stored(&self) -> usize {
+        self.entries.len()
+    }
+}
+
+impl ChildMemo for FinalChildMemo {
+    fn get(&mut self, key: &ChildKey<'_>) -> Option<ChildValue> {
+        self.entries.get(&memo_key(key)).cloned()
+    }
+
+    fn put(&mut self, key: &ChildKey<'_>, value: &ChildValue) {
+        if hview_anchors(value.view())
+            .iter()
+            .all(|anchor| self.asked.contains(anchor))
+        {
+            self.entries
+                .entry(memo_key(key))
+                .or_insert_with(|| value.clone());
+        }
+    }
+}
+
+impl RoundMemo for FinalChildMemo {
+    fn round(&mut self, asked: &BTreeSet<String>) {
+        self.asked.clone_from(asked);
+    }
+}
+
 /// What one round did (SPEC-18 §4.12 reading 9).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RoundReport {
@@ -93,6 +194,7 @@ pub struct ReadRequest<'a> {
     pub bindings: Option<&'a Bindings>,
     pub selection: Selection<'a>,
     pub cache: FetchCache,
+    pub memo: EvalMemo,
     pub on_round: Option<RoundHook<'a>>,
 }
 
@@ -107,6 +209,7 @@ impl<'a> ReadRequest<'a> {
             bindings: None,
             selection: Selection::default(),
             cache: FetchCache::On,
+            memo: EvalMemo::On,
             on_round: None,
         }
     }
@@ -268,7 +371,26 @@ pub fn read_anchored(
     snapshot: &dyn Snapshot,
     request: ReadRequest<'_>,
 ) -> Result<StoreRead, StoreReadError> {
-    read_rounds(snapshot, request, 1, &mut ScopeSource::default())
+    let mut memo = FinalChildMemo::new();
+    let memo = (request.memo == EvalMemo::On).then_some(&mut memo as &mut dyn RoundMemo);
+    read_rounds(snapshot, request, 1, &mut ScopeSource::default(), memo)
+}
+
+/// `read_anchored` with a memo the caller owns, whatever `request.memo` says. The read tells the
+/// memo every anchor asked for before each round's evaluation and never resets it. A memo that
+/// serves more than one attempt of one read can give a wrong answer (SPEC-18 §4.12 reading 25).
+pub fn read_anchored_with_memo(
+    snapshot: &dyn Snapshot,
+    request: ReadRequest<'_>,
+    memo: &mut dyn RoundMemo,
+) -> Result<StoreRead, StoreReadError> {
+    read_rounds(
+        snapshot,
+        request,
+        1,
+        &mut ScopeSource::default(),
+        Some(memo),
+    )
 }
 
 /// The rounds of one attempt. `cache` must be empty: a cache never outlives its snapshot
@@ -278,6 +400,7 @@ fn read_rounds(
     mut request: ReadRequest<'_>,
     attempt: usize,
     cache: &mut ScopeSource,
+    mut memo: Option<&mut dyn RoundMemo>,
 ) -> Result<StoreRead, StoreReadError> {
     let static_anchors = classify(&request)?;
     let (gather, resolves) = match request.term {
@@ -313,16 +436,22 @@ fn read_rounds(
         residual.record(pushdown, answer.applied);
         let members = exact_members(cache, &asked, &selection, residual);
         let set = cache.subset(&members);
-        // The seam for the evaluation memo (SPEC-18 §4.4, plan §3): it wraps this evaluation.
-        let gathered = eval_term_at(
-            gather,
-            &set,
-            request.now,
-            Some(request.root),
-            request.registry,
-            request.bindings,
-        )
-        .map_err(StoreReadError::Eval)?;
+        if let Some(m) = memo.as_deref_mut() {
+            m.round(&asked);
+        }
+        let mut evaluate = |term: &Term| {
+            eval_term_at_with_memo(
+                term,
+                &set,
+                request.now,
+                Some(request.root),
+                request.registry,
+                request.bindings,
+                memo.as_deref_mut().map(|m| m as &mut dyn ChildMemo),
+            )
+            .map_err(StoreReadError::Eval)
+        };
+        let gathered = evaluate(gather)?;
         let EvalResult::HView(view) = &gathered else {
             return Err(StoreReadError::Unanchored(UnanchoredReason::ResultSort));
         };
@@ -349,16 +478,9 @@ fn read_rounds(
         }
         rounds.push(report);
         if shown.is_empty() {
+            // The final `resolve` evaluation uses the memo of the read (reading 21).
             let result = if resolves {
-                eval_term_at(
-                    request.term,
-                    &set,
-                    request.now,
-                    Some(request.root),
-                    request.registry,
-                    request.bindings,
-                )
-                .map_err(StoreReadError::Eval)?
+                evaluate(request.term)?
             } else {
                 gathered
             };
@@ -469,12 +591,16 @@ impl StoreReactor {
                     bindings: request.bindings,
                     selection: request.selection,
                     cache: request.cache,
+                    memo: request.memo,
                     on_round: hook
                         .as_mut()
                         .map(|h| &mut **h as &mut dyn FnMut(&RoundReport)),
                 };
-                // A new cache for every attempt: what an older snapshot held may be purged now.
-                read_rounds(snapshot, one, attempt, &mut ScopeSource::default())
+                // A new cache and a new memo for every attempt: what an older snapshot held may be
+                // purged now, and a child stored on it may read differently on this one.
+                let mut memo = FinalChildMemo::new();
+                let memo = (one.memo == EvalMemo::On).then_some(&mut memo as &mut dyn RoundMemo);
+                read_rounds(snapshot, one, attempt, &mut ScopeSource::default(), memo)
             },
             |e| e.store_code() == Some(StoreErrorCode::SnapshotMoved),
         )?;

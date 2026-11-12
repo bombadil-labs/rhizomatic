@@ -12937,6 +12937,17 @@
     },
     {
       "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::Memo",
+      "resolvedTarget": "crate::eval::Memo",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "resolve_reflective",
+      "target": "crate::eval::Memo",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
       "owner": "syntax",
       "rawTarget": "crate::eval::MaskPolicy::Trust",
       "resolvedTarget": "crate::eval::MaskPolicy::Trust",
@@ -13507,6 +13518,39 @@
     {
       "form": "syn-resolved-path",
       "owner": "resolve",
+      "rawTarget": "crate::eval::ChildKey",
+      "resolvedTarget": "crate::eval::ChildKey",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "eval_schema",
+      "target": "crate::eval::ChildKey",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::ChildValue",
+      "resolvedTarget": "crate::eval::ChildValue",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "eval_schema",
+      "target": "crate::eval::ChildValue",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::Memo",
+      "resolvedTarget": "crate::eval::Memo",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "eval_schema",
+      "target": "crate::eval::Memo",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
       "rawTarget": "crate::eval::SchemaRef",
       "resolvedTarget": "crate::eval::SchemaRef",
       "source": "implementations/rust/src/eval.rs",
@@ -13716,6 +13760,17 @@
       "symbol": "eval_term",
       "target": "crate::set::DeltaSet",
       "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::Memo",
+      "resolvedTarget": "crate::eval::Memo",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "eval_term",
+      "target": "crate::eval::Memo",
+      "targetOwner": "resolve"
     },
     {
       "form": "syn-resolved-path",
@@ -14272,6 +14327,17 @@
     {
       "form": "syn-resolved-path",
       "owner": "resolve",
+      "rawTarget": "crate::eval::Memo",
+      "resolvedTarget": "crate::eval::Memo",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "eval_term_inner",
+      "target": "crate::eval::Memo",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
       "rawTarget": "crate::eval::EvalResult::DSet",
       "resolvedTarget": "crate::eval::EvalResult::DSet",
       "source": "implementations/rust/src/eval.rs",
@@ -14399,17 +14465,6 @@
     {
       "form": "syn-resolved-path",
       "owner": "resolve",
-      "rawTarget": "crate::eval::eval_term",
-      "resolvedTarget": "crate::eval::eval_term",
-      "source": "implementations/rust/src/eval.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "eval_term_at",
-      "target": "crate::eval::eval_term",
-      "targetOwner": "resolve"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "resolve",
       "rawTarget": "crate::pred::Bindings",
       "resolvedTarget": "crate::pred::Bindings",
       "source": "implementations/rust/src/eval.rs",
@@ -14443,24 +14498,13 @@
     {
       "form": "syn-resolved-path",
       "owner": "resolve",
-      "rawTarget": "crate::set::fork",
-      "resolvedTarget": "crate::set::fork",
+      "rawTarget": "crate::eval::eval_term_at_with_memo",
+      "resolvedTarget": "crate::eval::eval_term_at_with_memo",
       "source": "implementations/rust/src/eval.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "eval_term_at",
-      "target": "crate::set::fork",
-      "targetOwner": "delta"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "resolve",
-      "rawTarget": "crate::types::Delta",
-      "resolvedTarget": "crate::types::Delta",
-      "source": "implementations/rust/src/eval.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "eval_term_at",
-      "target": "crate::types::Delta",
-      "targetOwner": "delta"
+      "target": "crate::eval::eval_term_at_with_memo",
+      "targetOwner": "resolve"
     },
     {
       "form": "syn-resolved-path",
@@ -14560,6 +14604,17 @@
       "symbol": "eval_bound_program_at",
       "target": "crate::types::Delta",
       "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::Memo",
+      "resolvedTarget": "crate::eval::Memo",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "eval_bound_program_at",
+      "target": "crate::eval::Memo",
+      "targetOwner": "resolve"
     },
     {
       "form": "syn-resolved-path",
@@ -15542,6 +15597,17 @@
     {
       "form": "syn-resolved-path",
       "owner": "resolve",
+      "rawTarget": "crate::eval::Memo",
+      "resolvedTarget": "crate::eval::Memo",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "eval_materialization_term_at",
+      "target": "crate::eval::Memo",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
       "rawTarget": "crate::cbor::decode",
       "resolvedTarget": "crate::cbor::decode",
       "source": "implementations/rust/src/eval.rs",
@@ -15815,6 +15881,665 @@
       "source": "implementations/rust/src/eval.rs",
       "status": "parsed-known-macro-arguments",
       "symbol": "deterministic_logical_visitation"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::Memo",
+      "resolvedTarget": "crate::eval::Memo",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "deterministic_logical_visitation",
+      "target": "crate::eval::Memo",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::SchemaRef",
+      "resolvedTarget": "crate::eval::SchemaRef",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "ChildKey",
+      "target": "crate::eval::SchemaRef",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::pred::Bindings",
+      "resolvedTarget": "crate::pred::Bindings",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "ChildKey",
+      "target": "crate::pred::Bindings",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::evaluation_budget::LogicalTree",
+      "resolvedTarget": "crate::evaluation_budget::LogicalTree",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "ChildValue",
+      "target": "crate::evaluation_budget::LogicalTree",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::hview::HView",
+      "resolvedTarget": "crate::hview::HView",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "ChildValue",
+      "target": "crate::hview::HView",
+      "targetOwner": "algebra"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::ChildValue",
+      "resolvedTarget": "crate::eval::ChildValue",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "ChildValue",
+      "target": "crate::eval::ChildValue",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::ChildValue",
+      "resolvedTarget": "crate::eval::ChildValue",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "ChildValue::view",
+      "target": "crate::eval::ChildValue",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::hview::HView",
+      "resolvedTarget": "crate::hview::HView",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "ChildValue::view",
+      "target": "crate::hview::HView",
+      "targetOwner": "algebra"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::ChildKey",
+      "resolvedTarget": "crate::eval::ChildKey",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "ChildMemo::get",
+      "target": "crate::eval::ChildKey",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::ChildValue",
+      "resolvedTarget": "crate::eval::ChildValue",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "ChildMemo::get",
+      "target": "crate::eval::ChildValue",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::ChildKey",
+      "resolvedTarget": "crate::eval::ChildKey",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "ChildMemo::put",
+      "target": "crate::eval::ChildKey",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::ChildValue",
+      "resolvedTarget": "crate::eval::ChildValue",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "ChildMemo::put",
+      "target": "crate::eval::ChildValue",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::ChildMemo",
+      "resolvedTarget": "crate::eval::ChildMemo",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Memo",
+      "target": "crate::eval::ChildMemo",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::Memo",
+      "resolvedTarget": "crate::eval::Memo",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Memo",
+      "target": "crate::eval::Memo",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::ChildMemo",
+      "resolvedTarget": "crate::eval::ChildMemo",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Memo::active",
+      "target": "crate::eval::ChildMemo",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::Memo",
+      "resolvedTarget": "crate::eval::Memo",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Memo::active",
+      "target": "crate::eval::Memo",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::evaluation_budget::EvalScope",
+      "resolvedTarget": "crate::evaluation_budget::EvalScope",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Memo::active",
+      "target": "crate::evaluation_budget::EvalScope",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::ChildMemo",
+      "resolvedTarget": "crate::eval::ChildMemo",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "eval_term_at_with_memo",
+      "target": "crate::eval::ChildMemo",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::EvalResult",
+      "resolvedTarget": "crate::eval::EvalResult",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "eval_term_at_with_memo",
+      "target": "crate::eval::EvalResult",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::Memo",
+      "resolvedTarget": "crate::eval::Memo",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "eval_term_at_with_memo",
+      "target": "crate::eval::Memo",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::Term",
+      "resolvedTarget": "crate::eval::Term",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "eval_term_at_with_memo",
+      "target": "crate::eval::Term",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::eval_term_inner",
+      "resolvedTarget": "crate::eval::eval_term_inner",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "eval_term_at_with_memo",
+      "target": "crate::eval::eval_term_inner",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::evaluation_budget::EvalScope::native",
+      "resolvedTarget": "crate::evaluation_budget::EvalScope::native",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "eval_term_at_with_memo",
+      "target": "crate::evaluation_budget::EvalScope::native",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::pred::Bindings",
+      "resolvedTarget": "crate::pred::Bindings",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "eval_term_at_with_memo",
+      "target": "crate::pred::Bindings",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::schema::SchemaRegistry",
+      "resolvedTarget": "crate::schema::SchemaRegistry",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "eval_term_at_with_memo",
+      "target": "crate::schema::SchemaRegistry",
+      "targetOwner": "schema"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::set::DeltaSet",
+      "resolvedTarget": "crate::set::DeltaSet",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "eval_term_at_with_memo",
+      "target": "crate::set::DeltaSet",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::set::fork",
+      "resolvedTarget": "crate::set::fork",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "eval_term_at_with_memo",
+      "target": "crate::set::fork",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::types::Delta",
+      "resolvedTarget": "crate::types::Delta",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "eval_term_at_with_memo",
+      "target": "crate::types::Delta",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::Calls",
+      "resolvedTarget": "crate::eval::Calls",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Calls::get",
+      "target": "crate::eval::Calls",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::ChildKey",
+      "resolvedTarget": "crate::eval::ChildKey",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Calls::get",
+      "target": "crate::eval::ChildKey",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::ChildValue",
+      "resolvedTarget": "crate::eval::ChildValue",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Calls::get",
+      "target": "crate::eval::ChildValue",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "format"
+      ],
+      "owner": "resolve",
+      "source": "implementations/rust/src/eval.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "Calls::get"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::Calls",
+      "resolvedTarget": "crate::eval::Calls",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Calls::put",
+      "target": "crate::eval::Calls",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::ChildKey",
+      "resolvedTarget": "crate::eval::ChildKey",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Calls::put",
+      "target": "crate::eval::ChildKey",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::ChildValue",
+      "resolvedTarget": "crate::eval::ChildValue",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Calls::put",
+      "target": "crate::eval::ChildValue",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "format"
+      ],
+      "owner": "resolve",
+      "source": "implementations/rust/src/eval.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "Calls::put"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::Calls",
+      "resolvedTarget": "crate::eval::Calls",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_budget_turns_the_child_memo_off",
+      "target": "crate::eval::Calls",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::Calls::default",
+      "resolvedTarget": "crate::eval::Calls::default",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_budget_turns_the_child_memo_off",
+      "target": "crate::eval::Calls::default",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::ChildMemo",
+      "resolvedTarget": "crate::eval::ChildMemo",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_budget_turns_the_child_memo_off",
+      "target": "crate::eval::ChildMemo",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::ChildValue",
+      "resolvedTarget": "crate::eval::ChildValue",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_budget_turns_the_child_memo_off",
+      "target": "crate::eval::ChildValue",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::Memo",
+      "resolvedTarget": "crate::eval::Memo",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_budget_turns_the_child_memo_off",
+      "target": "crate::eval::Memo",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::SchemaRef::Name",
+      "resolvedTarget": "crate::eval::SchemaRef::Name",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_budget_turns_the_child_memo_off",
+      "target": "crate::eval::SchemaRef::Name",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::Term::Fix",
+      "resolvedTarget": "crate::eval::Term::Fix",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_budget_turns_the_child_memo_off",
+      "target": "crate::eval::Term::Fix",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::eval_term_inner",
+      "resolvedTarget": "crate::eval::eval_term_inner",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_budget_turns_the_child_memo_off",
+      "target": "crate::eval::eval_term_inner",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::eval::result_canonical_hex",
+      "resolvedTarget": "crate::eval::result_canonical_hex",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_budget_turns_the_child_memo_off",
+      "target": "crate::eval::result_canonical_hex",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::evaluation_budget::EvalScope",
+      "resolvedTarget": "crate::evaluation_budget::EvalScope",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_budget_turns_the_child_memo_off",
+      "target": "crate::evaluation_budget::EvalScope",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::evaluation_budget::EvalScope::bounded",
+      "resolvedTarget": "crate::evaluation_budget::EvalScope::bounded",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_budget_turns_the_child_memo_off",
+      "target": "crate::evaluation_budget::EvalScope::bounded",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::evaluation_budget::EvalScope::native",
+      "resolvedTarget": "crate::evaluation_budget::EvalScope::native",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_budget_turns_the_child_memo_off",
+      "target": "crate::evaluation_budget::EvalScope::native",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::evaluation_budget::MaterializationEvaluationLimits",
+      "resolvedTarget": "crate::evaluation_budget::MaterializationEvaluationLimits",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_budget_turns_the_child_memo_off",
+      "target": "crate::evaluation_budget::MaterializationEvaluationLimits",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::json_profile::parse_claims",
+      "resolvedTarget": "crate::json_profile::parse_claims",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_budget_turns_the_child_memo_off",
+      "target": "crate::json_profile::parse_claims",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::schema::HyperSchema",
+      "resolvedTarget": "crate::schema::HyperSchema",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_budget_turns_the_child_memo_off",
+      "target": "crate::schema::HyperSchema",
+      "targetOwner": "schema"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::schema::SchemaRegistry::build",
+      "resolvedTarget": "crate::schema::SchemaRegistry::build",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_budget_turns_the_child_memo_off",
+      "target": "crate::schema::SchemaRegistry::build",
+      "targetOwner": "schema"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::set::DeltaSet::from_deltas",
+      "resolvedTarget": "crate::set::DeltaSet::from_deltas",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_budget_turns_the_child_memo_off",
+      "target": "crate::set::DeltaSet::from_deltas",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::set::make_delta",
+      "resolvedTarget": "crate::set::make_delta",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_budget_turns_the_child_memo_off",
+      "target": "crate::set::make_delta",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "resolve",
+      "rawTarget": "crate::term_json::parse_term",
+      "resolvedTarget": "crate::term_json::parse_term",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_budget_turns_the_child_memo_off",
+      "target": "crate::term_json::parse_term",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "resolve",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_budget_turns_the_child_memo_off",
+      "target": "serde_json::Value"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "resolve",
+      "source": "implementations/rust/src/eval.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "a_budget_turns_the_child_memo_off",
+      "target": "serde_json::from_str"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "assert"
+      ],
+      "owner": "resolve",
+      "source": "implementations/rust/src/eval.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "a_budget_turns_the_child_memo_off"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "assert_eq"
+      ],
+      "owner": "resolve",
+      "source": "implementations/rust/src/eval.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "a_budget_turns_the_child_memo_off"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "include_str"
+      ],
+      "owner": "resolve",
+      "source": "implementations/rust/src/eval.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "a_budget_turns_the_child_memo_off"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "vec"
+      ],
+      "owner": "resolve",
+      "source": "implementations/rust/src/eval.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "a_budget_turns_the_child_memo_off"
     },
     {
       "form": "syn-external-import",
@@ -24863,6 +25588,83 @@
       "symbol": "<import>",
       "target": "crate::store::SourceMeter",
       "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "delta",
+      "rawTarget": "crate::eval::ChildKey",
+      "resolvedTarget": "crate::eval::ChildKey",
+      "source": "implementations/rust/src/lib.rs",
+      "sourceRegion": "compatibility-aggregate",
+      "symbol": "<import>",
+      "target": "crate::eval::ChildKey",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-import",
+      "owner": "delta",
+      "rawTarget": "crate::eval::ChildMemo",
+      "resolvedTarget": "crate::eval::ChildMemo",
+      "source": "implementations/rust/src/lib.rs",
+      "sourceRegion": "compatibility-aggregate",
+      "symbol": "<import>",
+      "target": "crate::eval::ChildMemo",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-import",
+      "owner": "delta",
+      "rawTarget": "crate::eval::ChildValue",
+      "resolvedTarget": "crate::eval::ChildValue",
+      "source": "implementations/rust/src/lib.rs",
+      "sourceRegion": "compatibility-aggregate",
+      "symbol": "<import>",
+      "target": "crate::eval::ChildValue",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-import",
+      "owner": "delta",
+      "rawTarget": "crate::store_read::EvalMemo",
+      "resolvedTarget": "crate::store_read::EvalMemo",
+      "source": "implementations/rust/src/lib.rs",
+      "sourceRegion": "compatibility-aggregate",
+      "symbol": "<import>",
+      "target": "crate::store_read::EvalMemo",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-import",
+      "owner": "delta",
+      "rawTarget": "crate::store_read::FinalChildMemo",
+      "resolvedTarget": "crate::store_read::FinalChildMemo",
+      "source": "implementations/rust/src/lib.rs",
+      "sourceRegion": "compatibility-aggregate",
+      "symbol": "<import>",
+      "target": "crate::store_read::FinalChildMemo",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-import",
+      "owner": "delta",
+      "rawTarget": "crate::store_read::RoundMemo",
+      "resolvedTarget": "crate::store_read::RoundMemo",
+      "source": "implementations/rust/src/lib.rs",
+      "sourceRegion": "compatibility-aggregate",
+      "symbol": "<import>",
+      "target": "crate::store_read::RoundMemo",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-import",
+      "owner": "delta",
+      "rawTarget": "crate::store_read::read_anchored_with_memo",
+      "resolvedTarget": "crate::store_read::read_anchored_with_memo",
+      "source": "implementations/rust/src/lib.rs",
+      "sourceRegion": "compatibility-aggregate",
+      "symbol": "<import>",
+      "target": "crate::store_read::read_anchored_with_memo",
+      "targetOwner": "reactor"
     },
     {
       "form": "syn-import",
@@ -85196,17 +85998,6 @@
     {
       "form": "syn-import",
       "owner": "reactor",
-      "rawTarget": "crate::eval::eval_term_at",
-      "resolvedTarget": "crate::eval::eval_term_at",
-      "source": "implementations/rust/src/store_read.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "<import>",
-      "target": "crate::eval::eval_term_at",
-      "targetOwner": "resolve"
-    },
-    {
-      "form": "syn-import",
-      "owner": "reactor",
       "rawTarget": "crate::pred::Bindings",
       "resolvedTarget": "crate::pred::Bindings",
       "source": "implementations/rust/src/store_read.rs",
@@ -85367,6 +86158,80 @@
       "sourceRegion": "semantic-owner",
       "symbol": "<import>",
       "target": "crate::types::Delta",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-external-import",
+      "owner": "reactor",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "std::collections::BTreeMap"
+    },
+    {
+      "form": "syn-import",
+      "owner": "reactor",
+      "rawTarget": "crate::eval::ChildKey",
+      "resolvedTarget": "crate::eval::ChildKey",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::eval::ChildKey",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-import",
+      "owner": "reactor",
+      "rawTarget": "crate::eval::ChildMemo",
+      "resolvedTarget": "crate::eval::ChildMemo",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::eval::ChildMemo",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-import",
+      "owner": "reactor",
+      "rawTarget": "crate::eval::ChildValue",
+      "resolvedTarget": "crate::eval::ChildValue",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::eval::ChildValue",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-import",
+      "owner": "reactor",
+      "rawTarget": "crate::eval::SchemaRef",
+      "resolvedTarget": "crate::eval::SchemaRef",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::eval::SchemaRef",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-import",
+      "owner": "reactor",
+      "rawTarget": "crate::eval::eval_term_at_with_memo",
+      "resolvedTarget": "crate::eval::eval_term_at_with_memo",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::eval::eval_term_at_with_memo",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-import",
+      "owner": "reactor",
+      "rawTarget": "crate::types::Primitive",
+      "resolvedTarget": "crate::types::Primitive",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::types::Primitive",
       "targetOwner": "delta"
     },
     {
@@ -85572,6 +86437,17 @@
     {
       "form": "syn-resolved-path",
       "owner": "reactor",
+      "rawTarget": "crate::store_read::EvalMemo",
+      "resolvedTarget": "crate::store_read::EvalMemo",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "ReadRequest",
+      "target": "crate::store_read::EvalMemo",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
       "rawTarget": "crate::eval::Term",
       "resolvedTarget": "crate::eval::Term",
       "source": "implementations/rust/src/store_read.rs",
@@ -85611,6 +86487,17 @@
       "sourceRegion": "semantic-owner",
       "symbol": "ReadRequest::new",
       "target": "crate::store_read::Selection::default",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::EvalMemo::On",
+      "resolvedTarget": "crate::store_read::EvalMemo::On",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "ReadRequest::new",
+      "target": "crate::store_read::EvalMemo::On",
       "targetOwner": "reactor"
     },
     {
@@ -86048,6 +86935,39 @@
       "targetOwner": "reactor"
     },
     {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::EvalMemo::On",
+      "resolvedTarget": "crate::store_read::EvalMemo::On",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_anchored",
+      "target": "crate::store_read::EvalMemo::On",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::FinalChildMemo::new",
+      "resolvedTarget": "crate::store_read::FinalChildMemo::new",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_anchored",
+      "target": "crate::store_read::FinalChildMemo::new",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::RoundMemo",
+      "resolvedTarget": "crate::store_read::RoundMemo",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_anchored",
+      "target": "crate::store_read::RoundMemo",
+      "targetOwner": "reactor"
+    },
+    {
       "form": "syn-external-path",
       "owner": "reactor",
       "source": "implementations/rust/src/store_read.rs",
@@ -86098,17 +87018,6 @@
       "symbol": "read_rounds",
       "target": "crate::eval::Term::Resolve",
       "targetOwner": "syntax"
-    },
-    {
-      "form": "syn-resolved-path",
-      "owner": "reactor",
-      "rawTarget": "crate::eval::eval_term_at",
-      "resolvedTarget": "crate::eval::eval_term_at",
-      "source": "implementations/rust/src/store_read.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "read_rounds",
-      "target": "crate::eval::eval_term_at",
-      "targetOwner": "resolve"
     },
     {
       "form": "syn-resolved-path",
@@ -86309,6 +87218,50 @@
       "sourceRegion": "semantic-owner",
       "symbol": "read_rounds",
       "target": "std::vec::Vec::new"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::eval::ChildMemo",
+      "resolvedTarget": "crate::eval::ChildMemo",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_rounds",
+      "target": "crate::eval::ChildMemo",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::eval::Term",
+      "resolvedTarget": "crate::eval::Term",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_rounds",
+      "target": "crate::eval::Term",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::eval::eval_term_at_with_memo",
+      "resolvedTarget": "crate::eval::eval_term_at_with_memo",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_rounds",
+      "target": "crate::eval::eval_term_at_with_memo",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::RoundMemo",
+      "resolvedTarget": "crate::store_read::RoundMemo",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_rounds",
+      "target": "crate::store_read::RoundMemo",
+      "targetOwner": "reactor"
     },
     {
       "form": "syn-resolved-path",
@@ -86758,6 +87711,39 @@
     {
       "form": "syn-resolved-path",
       "owner": "reactor",
+      "rawTarget": "crate::store_read::EvalMemo::On",
+      "resolvedTarget": "crate::store_read::EvalMemo::On",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreReactor::read",
+      "target": "crate::store_read::EvalMemo::On",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::FinalChildMemo::new",
+      "resolvedTarget": "crate::store_read::FinalChildMemo::new",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreReactor::read",
+      "target": "crate::store_read::FinalChildMemo::new",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::RoundMemo",
+      "resolvedTarget": "crate::store_read::RoundMemo",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "StoreReactor::read",
+      "target": "crate::store_read::RoundMemo",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
       "rawTarget": "crate::store_read::StoreReadError",
       "resolvedTarget": "crate::store_read::StoreReadError",
       "source": "implementations/rust/src/store_read.rs",
@@ -86916,6 +87902,478 @@
       "sourceRegion": "semantic-owner",
       "symbol": "StoreReadError",
       "target": "crate::store_read::StoreReadError",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::eval::ChildMemo",
+      "resolvedTarget": "crate::eval::ChildMemo",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "",
+      "target": "crate::eval::ChildMemo",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "reactor",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "RoundMemo::round",
+      "target": "std::collections::BTreeSet"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::KeyPrimitive",
+      "resolvedTarget": "crate::store_read::KeyPrimitive",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "MemoKey",
+      "target": "crate::store_read::KeyPrimitive",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::eval::ChildKey",
+      "resolvedTarget": "crate::eval::ChildKey",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "memo_key",
+      "target": "crate::eval::ChildKey",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::eval::SchemaRef::Name",
+      "resolvedTarget": "crate::eval::SchemaRef::Name",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "memo_key",
+      "target": "crate::eval::SchemaRef::Name",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::eval::SchemaRef::Pinned",
+      "resolvedTarget": "crate::eval::SchemaRef::Pinned",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "memo_key",
+      "target": "crate::eval::SchemaRef::Pinned",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::pred::Bindings",
+      "resolvedTarget": "crate::pred::Bindings",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "memo_key",
+      "target": "crate::pred::Bindings",
+      "targetOwner": "syntax"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::KeyPrimitive::Bool",
+      "resolvedTarget": "crate::store_read::KeyPrimitive::Bool",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "memo_key",
+      "target": "crate::store_read::KeyPrimitive::Bool",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::KeyPrimitive::Num",
+      "resolvedTarget": "crate::store_read::KeyPrimitive::Num",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "memo_key",
+      "target": "crate::store_read::KeyPrimitive::Num",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::KeyPrimitive::Str",
+      "resolvedTarget": "crate::store_read::KeyPrimitive::Str",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "memo_key",
+      "target": "crate::store_read::KeyPrimitive::Str",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::MemoKey",
+      "resolvedTarget": "crate::store_read::MemoKey",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "memo_key",
+      "target": "crate::store_read::MemoKey",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::types::Primitive::Bool",
+      "resolvedTarget": "crate::types::Primitive::Bool",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "memo_key",
+      "target": "crate::types::Primitive::Bool",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::types::Primitive::Num",
+      "resolvedTarget": "crate::types::Primitive::Num",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "memo_key",
+      "target": "crate::types::Primitive::Num",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::types::Primitive::Str",
+      "resolvedTarget": "crate::types::Primitive::Str",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "memo_key",
+      "target": "crate::types::Primitive::Str",
+      "targetOwner": "delta"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::eval::ChildValue",
+      "resolvedTarget": "crate::eval::ChildValue",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "FinalChildMemo",
+      "target": "crate::eval::ChildValue",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::MemoKey",
+      "resolvedTarget": "crate::store_read::MemoKey",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "FinalChildMemo",
+      "target": "crate::store_read::MemoKey",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "reactor",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "FinalChildMemo",
+      "target": "std::collections::BTreeMap"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "reactor",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "FinalChildMemo",
+      "target": "std::collections::BTreeSet"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::FinalChildMemo",
+      "resolvedTarget": "crate::store_read::FinalChildMemo",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "FinalChildMemo",
+      "target": "crate::store_read::FinalChildMemo",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::eval::ChildMemo",
+      "resolvedTarget": "crate::eval::ChildMemo",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "FinalChildMemo",
+      "target": "crate::eval::ChildMemo",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::FinalChildMemo",
+      "resolvedTarget": "crate::store_read::FinalChildMemo",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "FinalChildMemo",
+      "target": "crate::store_read::FinalChildMemo",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::FinalChildMemo",
+      "resolvedTarget": "crate::store_read::FinalChildMemo",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "FinalChildMemo",
+      "target": "crate::store_read::FinalChildMemo",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::RoundMemo",
+      "resolvedTarget": "crate::store_read::RoundMemo",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "FinalChildMemo",
+      "target": "crate::store_read::RoundMemo",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::FinalChildMemo",
+      "resolvedTarget": "crate::store_read::FinalChildMemo",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "FinalChildMemo::new",
+      "target": "crate::store_read::FinalChildMemo",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::FinalChildMemo::default",
+      "resolvedTarget": "crate::store_read::FinalChildMemo::default",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "FinalChildMemo::new",
+      "target": "crate::store_read::FinalChildMemo::default",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::FinalChildMemo",
+      "resolvedTarget": "crate::store_read::FinalChildMemo",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "FinalChildMemo::stored",
+      "target": "crate::store_read::FinalChildMemo",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::eval::ChildKey",
+      "resolvedTarget": "crate::eval::ChildKey",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "FinalChildMemo::get",
+      "target": "crate::eval::ChildKey",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::eval::ChildValue",
+      "resolvedTarget": "crate::eval::ChildValue",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "FinalChildMemo::get",
+      "target": "crate::eval::ChildValue",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::FinalChildMemo",
+      "resolvedTarget": "crate::store_read::FinalChildMemo",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "FinalChildMemo::get",
+      "target": "crate::store_read::FinalChildMemo",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::memo_key",
+      "resolvedTarget": "crate::store_read::memo_key",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "FinalChildMemo::get",
+      "target": "crate::store_read::memo_key",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::anchored::hview_anchors",
+      "resolvedTarget": "crate::anchored::hview_anchors",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "FinalChildMemo::put",
+      "target": "crate::anchored::hview_anchors",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::eval::ChildKey",
+      "resolvedTarget": "crate::eval::ChildKey",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "FinalChildMemo::put",
+      "target": "crate::eval::ChildKey",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::eval::ChildValue",
+      "resolvedTarget": "crate::eval::ChildValue",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "FinalChildMemo::put",
+      "target": "crate::eval::ChildValue",
+      "targetOwner": "resolve"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::FinalChildMemo",
+      "resolvedTarget": "crate::store_read::FinalChildMemo",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "FinalChildMemo::put",
+      "target": "crate::store_read::FinalChildMemo",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::memo_key",
+      "resolvedTarget": "crate::store_read::memo_key",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "FinalChildMemo::put",
+      "target": "crate::store_read::memo_key",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::FinalChildMemo",
+      "resolvedTarget": "crate::store_read::FinalChildMemo",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "FinalChildMemo::round",
+      "target": "crate::store_read::FinalChildMemo",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "reactor",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "FinalChildMemo::round",
+      "target": "std::collections::BTreeSet"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store::ScopeSource::default",
+      "resolvedTarget": "crate::store::ScopeSource::default",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_anchored_with_memo",
+      "target": "crate::store::ScopeSource::default",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store::Snapshot",
+      "resolvedTarget": "crate::store::Snapshot",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_anchored_with_memo",
+      "target": "crate::store::Snapshot",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::ReadRequest",
+      "resolvedTarget": "crate::store_read::ReadRequest",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_anchored_with_memo",
+      "target": "crate::store_read::ReadRequest",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::RoundMemo",
+      "resolvedTarget": "crate::store_read::RoundMemo",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_anchored_with_memo",
+      "target": "crate::store_read::RoundMemo",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::StoreRead",
+      "resolvedTarget": "crate::store_read::StoreRead",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_anchored_with_memo",
+      "target": "crate::store_read::StoreRead",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::StoreReadError",
+      "resolvedTarget": "crate::store_read::StoreReadError",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_anchored_with_memo",
+      "target": "crate::store_read::StoreReadError",
+      "targetOwner": "reactor"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "reactor",
+      "rawTarget": "crate::store_read::read_rounds",
+      "resolvedTarget": "crate::store_read::read_rounds",
+      "source": "implementations/rust/src/store_read.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_anchored_with_memo",
+      "target": "crate::store_read::read_rounds",
       "targetOwner": "reactor"
     },
     {
@@ -94614,6 +96072,72 @@
       "cfg": [],
       "classification": "native_extension",
       "contract": "rhizomatic.resolve/native-api/1",
+      "definition": "struct",
+      "id": "rust:eval:ChildKey",
+      "owner": "resolve",
+      "semantics": "Native eval::ChildKey implements SPEC-2 pure term evaluation. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "source": "implementations/rust/src/eval.rs",
+      "symbol": "ChildKey"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "definition": "trait",
+      "id": "rust:eval:ChildMemo",
+      "owner": "resolve",
+      "semantics": "Native eval::ChildMemo implements SPEC-2 pure term evaluation. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "source": "implementations/rust/src/eval.rs",
+      "symbol": "ChildMemo"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "definition": "trait-method",
+      "id": "rust:eval:ChildMemo::get",
+      "owner": "resolve",
+      "semantics": "Native eval::ChildMemo::get implements SPEC-2 pure term evaluation. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "source": "implementations/rust/src/eval.rs",
+      "symbol": "ChildMemo::get"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "definition": "trait-method",
+      "id": "rust:eval:ChildMemo::put",
+      "owner": "resolve",
+      "semantics": "Native eval::ChildMemo::put implements SPEC-2 pure term evaluation. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "source": "implementations/rust/src/eval.rs",
+      "symbol": "ChildMemo::put"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "definition": "struct",
+      "id": "rust:eval:ChildValue",
+      "owner": "resolve",
+      "semantics": "Native eval::ChildValue implements SPEC-2 pure term evaluation. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "source": "implementations/rust/src/eval.rs",
+      "symbol": "ChildValue"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "definition": "method",
+      "id": "rust:eval:ChildValue::view",
+      "owner": "resolve",
+      "semantics": "Native eval::ChildValue::view implements SPEC-2 pure term evaluation. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "source": "implementations/rust/src/eval.rs",
+      "symbol": "ChildValue::view"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.resolve/native-api/1",
       "definition": "enum",
       "id": "rust:eval:EvalResult",
       "owner": "resolve",
@@ -94752,6 +96276,17 @@
       "semantics": "Native eval::eval_term_at implements SPEC-2 pure term evaluation. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/eval.rs",
       "symbol": "eval_term_at"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "definition": "function",
+      "id": "rust:eval:eval_term_at_with_memo",
+      "owner": "resolve",
+      "semantics": "Native eval::eval_term_at_with_memo implements SPEC-2 pure term evaluation. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "source": "implementations/rust/src/eval.rs",
+      "symbol": "eval_term_at_with_memo"
     },
     {
       "cfg": [],
@@ -95398,6 +96933,42 @@
     {
       "cfg": [],
       "classification": "compatibility_reexport",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "definition": "reexport",
+      "id": "rust:lib:ChildKey",
+      "owner": "resolve",
+      "semantics": "Native lib::ChildKey implements SPEC-2 pure term evaluation. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
+      "source": "implementations/rust/src/lib.rs",
+      "symbol": "ChildKey",
+      "target": "crate::eval::ChildKey"
+    },
+    {
+      "cfg": [],
+      "classification": "compatibility_reexport",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "definition": "reexport",
+      "id": "rust:lib:ChildMemo",
+      "owner": "resolve",
+      "semantics": "Native lib::ChildMemo implements SPEC-2 pure term evaluation. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
+      "source": "implementations/rust/src/lib.rs",
+      "symbol": "ChildMemo",
+      "target": "crate::eval::ChildMemo"
+    },
+    {
+      "cfg": [],
+      "classification": "compatibility_reexport",
+      "contract": "rhizomatic.resolve/native-api/1",
+      "definition": "reexport",
+      "id": "rust:lib:ChildValue",
+      "owner": "resolve",
+      "semantics": "Native lib::ChildValue implements SPEC-2 pure term evaluation. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
+      "source": "implementations/rust/src/lib.rs",
+      "symbol": "ChildValue",
+      "target": "crate::eval::ChildValue"
+    },
+    {
+      "cfg": [],
+      "classification": "compatibility_reexport",
       "contract": "rhizomatic.delta/native-api/1",
       "definition": "reexport",
       "id": "rust:lib:Claims",
@@ -95542,6 +97113,18 @@
     {
       "cfg": [],
       "classification": "compatibility_reexport",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "definition": "reexport",
+      "id": "rust:lib:EvalMemo",
+      "owner": "reactor",
+      "semantics": "Native lib::EvalMemo implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
+      "source": "implementations/rust/src/lib.rs",
+      "symbol": "EvalMemo",
+      "target": "crate::store_read::EvalMemo"
+    },
+    {
+      "cfg": [],
+      "classification": "compatibility_reexport",
       "contract": "rhizomatic.resolve/native-api/1",
       "definition": "reexport",
       "id": "rust:lib:EvalResult",
@@ -95598,6 +97181,18 @@
       "source": "implementations/rust/src/lib.rs",
       "symbol": "FetchedScope",
       "target": "crate::store_read::FetchedScope"
+    },
+    {
+      "cfg": [],
+      "classification": "compatibility_reexport",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "definition": "reexport",
+      "id": "rust:lib:FinalChildMemo",
+      "owner": "reactor",
+      "semantics": "Native lib::FinalChildMemo implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
+      "source": "implementations/rust/src/lib.rs",
+      "symbol": "FinalChildMemo",
+      "target": "crate::store_read::FinalChildMemo"
     },
     {
       "cfg": [],
@@ -96438,6 +98033,18 @@
       "source": "implementations/rust/src/lib.rs",
       "symbol": "Revision",
       "target": "crate::store::Revision"
+    },
+    {
+      "cfg": [],
+      "classification": "compatibility_reexport",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "definition": "reexport",
+      "id": "rust:lib:RoundMemo",
+      "owner": "reactor",
+      "semantics": "Native lib::RoundMemo implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
+      "source": "implementations/rust/src/lib.rs",
+      "symbol": "RoundMemo",
+      "target": "crate::store_read::RoundMemo"
     },
     {
       "cfg": [],
@@ -97870,6 +99477,18 @@
       "source": "implementations/rust/src/lib.rs",
       "symbol": "read_anchored",
       "target": "crate::store_read::read_anchored"
+    },
+    {
+      "cfg": [],
+      "classification": "compatibility_reexport",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "definition": "reexport",
+      "id": "rust:lib:read_anchored_with_memo",
+      "owner": "reactor",
+      "semantics": "Native lib::read_anchored_with_memo implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred. The reexport preserves its defining owner.",
+      "source": "implementations/rust/src/lib.rs",
+      "symbol": "read_anchored_with_memo",
+      "target": "crate::store_read::read_anchored_with_memo"
     },
     {
       "cfg": [],
@@ -104182,6 +105801,17 @@
       "classification": "native_extension",
       "contract": "rhizomatic.reactor/native-api/1",
       "definition": "enum",
+      "id": "rust:store_read:EvalMemo",
+      "owner": "reactor",
+      "semantics": "Native store_read::EvalMemo implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "source": "implementations/rust/src/store_read.rs",
+      "symbol": "EvalMemo"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "definition": "enum",
       "id": "rust:store_read:FetchCache",
       "owner": "reactor",
       "semantics": "Native store_read::FetchCache implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
@@ -104198,6 +105828,39 @@
       "semantics": "Native store_read::FetchedScope implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/store_read.rs",
       "symbol": "FetchedScope"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "definition": "struct",
+      "id": "rust:store_read:FinalChildMemo",
+      "owner": "reactor",
+      "semantics": "Native store_read::FinalChildMemo implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "source": "implementations/rust/src/store_read.rs",
+      "symbol": "FinalChildMemo"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "definition": "method",
+      "id": "rust:store_read:FinalChildMemo::new",
+      "owner": "reactor",
+      "semantics": "Native store_read::FinalChildMemo::new implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "source": "implementations/rust/src/store_read.rs",
+      "symbol": "FinalChildMemo::new"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "definition": "method",
+      "id": "rust:store_read:FinalChildMemo::stored",
+      "owner": "reactor",
+      "semantics": "Native store_read::FinalChildMemo::stored implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "source": "implementations/rust/src/store_read.rs",
+      "symbol": "FinalChildMemo::stored"
     },
     {
       "cfg": [],
@@ -104231,6 +105894,28 @@
       "semantics": "Native store_read::RoundHook implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/store_read.rs",
       "symbol": "RoundHook"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "definition": "trait",
+      "id": "rust:store_read:RoundMemo",
+      "owner": "reactor",
+      "semantics": "Native store_read::RoundMemo implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "source": "implementations/rust/src/store_read.rs",
+      "symbol": "RoundMemo"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "definition": "trait-method",
+      "id": "rust:store_read:RoundMemo::round",
+      "owner": "reactor",
+      "semantics": "Native store_read::RoundMemo::round implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "source": "implementations/rust/src/store_read.rs",
+      "symbol": "RoundMemo::round"
     },
     {
       "cfg": [],
@@ -104374,6 +106059,17 @@
       "semantics": "Native store_read::read_anchored implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
       "source": "implementations/rust/src/store_read.rs",
       "symbol": "read_anchored"
+    },
+    {
+      "cfg": [],
+      "classification": "native_extension",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "definition": "function",
+      "id": "rust:store_read:read_anchored_with_memo",
+      "owner": "reactor",
+      "semantics": "Native store_read::read_anchored_with_memo implements SPEC-4 explicit ingest/materialization lifecycle and the SPEC-18 store-backed read. Native callbacks/options are explicit caller inputs; no additional serialized portability is inferred.",
+      "source": "implementations/rust/src/store_read.rs",
+      "symbol": "read_anchored_with_memo"
     },
     {
       "cfg": [],

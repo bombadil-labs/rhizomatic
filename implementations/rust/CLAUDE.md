@@ -71,7 +71,7 @@ src/
   store_open.rs         `StoreSchemes` and `open_store` (errors name the scheme, never the URL)
   store_conformance.rs  `run_store_conformance`: the shared store vectors against any store
   store_read.rs         the store-backed read (reactor boundary): rounds over one snapshot with a
-                        fetch cache, `fetch_scope`, and `StoreReactor`
+                        fetch cache and an evaluation memo, `fetch_scope`, and `StoreReactor`
 tests/
   cbor.rs       encoder vs. external ground-truth (RFC 8949 Appendix A)
   vectors.rs    loads ../../vectors/l0-delta and asserts byte-exact parity
@@ -82,5 +82,6 @@ tests/
   store_cost.rs     the cost rail: index work does not grow with unrelated deltas; nothing scans;
                     building a scope source costs the size of its members
   store_open.rs     schemes, requirements, close, and an anchored read over a fetched scope
-  store_rounds.rs   every case of ../../vectors/store/rounds.json read three ways, wrong readers, cost
+  store_rounds.rs   every case of ../../vectors/store/rounds.json read five ways, wrong readers,
+                    wrong memos, what the memo saves, cost
 ```
