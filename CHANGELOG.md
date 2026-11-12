@@ -162,7 +162,7 @@ is complete; the Rust witness follows the same documents.
   `fetchScope`, and the negation-witness cases of `vectors/l2-reactor/governed.json` over a
   fetched scope. Ingest, dispatch and journal families wait for slices 3 and 4.
 - `Reactor.legacyHoldings()`: the whole held set, its arrival order and its digest, for the memory
-  `Peer` of `federation` only. Not a read path.
+  `Peer` of `federation` only. Not a read path. It is deprecated from the start (below).
 
 ### Deprecated
 
@@ -171,6 +171,11 @@ is complete; the Rust witness follows the same documents.
   `Reactor.evalAnchored`, `readFullSurface` for a term with no anchor, `Snapshot.arrivals`, and
   `collectDeltaSet` for a whole listing. They stay until Loam moves to a store (slice 5). Nothing
   in the package calls them any more; a rail holds that.
+- `Reactor.legacyHoldings()`: the same whole-set access, for the legacy in-memory `Peer` and its
+  HTTP binding only. Use the store path: `PeerExporter.ids`, `collectDeltaSet` or `readAnchored`.
+  The rail allows it in `federation/peer.ts` and `federation/http.ts` and nowhere else in the
+  package. The rail judges an access by the type of its receiver, so a call through an interface
+  that `Reactor` satisfies, a destructured method or a template-literal key also counts.
 
 ### Changed
 

@@ -4468,9 +4468,12 @@
       return evalTerm(term, this.set, now, root, registry);
     }
     /**
-     * The whole held set, for the memory `Peer` of `federation/peer.ts` and its HTTP binding only:
-     * they sync by listing everything. Not a read path and not for new callers; it goes when they
-     * move to a store (slice 5). Each call reads the reactor as it is then.
+     * The whole held set. Each call reads the reactor as it is then.
+     *
+     * @deprecated Whole-set access, kept only for the legacy in-memory `Peer` of
+     * `federation/peer.ts` and its HTTP binding, which sync by listing everything. It goes when they
+     * move to a store (slice 5). New callers use the store path: list with `PeerExporter.ids` or
+     * `collectDeltaSet(peerExporter)`, and read a scope with `readAnchored` (SPEC-18 §4.7.6).
      */
     legacyHoldings() {
       return {
