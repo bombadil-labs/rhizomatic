@@ -4,10 +4,10 @@
 //! scans. This file does not measure time.
 
 use rhizomatic::memory_store::{MemoryStore, StoreMeter};
-use rhizomatic::set::{make_delta, make_negation_claims};
+use rhizomatic::set::{make_delta, make_negation_claims, DeltaSource};
 use rhizomatic::store::{
-    Admission, Anchor, AppendResult, ArrivalRecord, ErasurePosture, PeerStore, Pushdown,
-    ScopeRequest, Store, VerifiedDelta,
+    scope_source, Admission, Anchor, AppendResult, ArrivalRecord, ErasurePosture, PeerStore,
+    Pushdown, ScopeRequest, Store, VerifiedDelta,
 };
 use rhizomatic::types::{Claims, Delta, EntityRef, Pointer, Primitive, Target};
 
@@ -270,4 +270,59 @@ fn only_the_exporter_scans() {
     store.reset_meter();
     assert_eq!(admin.peers().count(), 1);
     assert_eq!(store.meter().scans, 1);
+}
+
+fn member(delta: Delta, sequence: u64) -> VerifiedDelta {
+    VerifiedDelta {
+        arrival: ArrivalRecord {
+            id: delta.id.clone(),
+            at: 1000.0,
+            sequence,
+            transfer: 1,
+            sender: "local".into(),
+        },
+        delta,
+    }
+}
+
+/// N facts about one entity, and N negations of one delta: every member lands in one index
+/// entry.
+fn crowded(n: usize) -> (Vec<VerifiedDelta>, Vec<VerifiedDelta>, String) {
+    let facts = (0..n).map(|i| fact("plant:a", "height", i as f64, 1.0));
+    let target = fact("plant:b", "height", 0.0, 1.0);
+    let strikes = (0..n).map(|i| negation(&target, 2.0 + i as f64));
+    let members = |deltas: Vec<Delta>| {
+        deltas
+            .into_iter()
+            .zip(1..)
+            .map(|(d, s)| member(d, s))
+            .collect()
+    };
+    (
+        members(facts.collect()),
+        members(strikes.collect()),
+        target.id,
+    )
+}
+
+/// Building a scope source costs the size of its members (README §1.2 item 5, SPEC-18 §4.11
+/// reading 36): N members at one entity, or N negations of one delta, cost N steps and not N².
+/// The source counts its own index work through one door; this test does not measure time.
+#[test]
+fn a_scope_source_builds_in_the_size_of_its_members() {
+    for n in [500, 1000, 2000] {
+        let (facts, strikes, target) = crowded(n);
+        let source = scope_source(&facts).unwrap();
+        assert_eq!(source.targets("plant:a").len(), n);
+        assert_eq!(source.meter().steps, n as u64, "{n} members at one entity");
+
+        let source = scope_source(&strikes).unwrap();
+        assert_eq!(source.negators(&target).len(), n);
+        assert_eq!(source.meter().steps, n as u64, "{n} negations of one delta");
+
+        // A second round of the same members adds nothing and costs nothing.
+        let mut source = scope_source(&facts).unwrap();
+        source.extend(&facts).unwrap();
+        assert_eq!(source.meter().steps, n as u64, "{n} repeated members");
+    }
 }

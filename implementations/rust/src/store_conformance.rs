@@ -2,6 +2,11 @@
 //! any implementation of the store traits. `vectors/store/README.md` is the contract this file
 //! follows; section numbers below are that page's. The runner reads no file: the caller hands
 //! it the two parsed JSON documents.
+//!
+//! Every step asks the store first and judges the answer afterwards (§3.7). The runner answers
+//! for the store only where this witness's types cannot hold the vector's value (`1.5`, `-1`, a
+//! missing posture); a value a `u64` holds, 2^53 included, goes to the store. Each check has its
+//! own message, and `tests/store_runner_rules.rs` holds the runner to every one (§7).
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
@@ -277,15 +282,19 @@ fn codes_of(expect: &Value) -> Option<Vec<&str>> {
     }
 }
 
-fn refused<T>(result: Result<T, StoreError>, codes: &[&str]) -> Check {
+/// Judges an answer the store already gave against an expected refusal (§3.7: ask first, judge
+/// after).
+fn refused<T>(op: &str, result: Result<T, StoreError>, codes: &[&str]) -> Check {
     let wanted = codes.join("` or `");
     match result {
         Err(e) if codes.contains(&e.code.as_str()) => Ok(()),
         Err(e) => Err(format!(
-            "expected a refusal `{wanted}`, the store refused `{}`",
+            "{op}: expected a refusal `{wanted}`, the store refused `{}`",
             e.code.as_str()
         )),
-        Ok(_) => Err(format!("expected a refusal `{wanted}`, the store answered")),
+        Ok(_) => Err(format!(
+            "{op}: expected a refusal `{wanted}`, the store answered"
+        )),
     }
 }
 
@@ -306,18 +315,19 @@ fn whole_as_written(v: &Value, key: &str, code: StoreErrorCode) -> Check<Result<
 
 /// The three `expect` shapes of a query (§3.7): a result, a result or one refusal, a refusal.
 fn answered<T>(
+    op: &str,
     expect: &Value,
     result: Result<T, StoreError>,
     check: impl FnOnce(T) -> Check,
 ) -> Check {
     if let Some(codes) = codes_of(expect) {
-        return refused(result, &codes);
+        return refused(op, result, &codes);
     }
     match result {
         Ok(answer) => check(answer),
         Err(e) if expect.get("orError").and_then(Value::as_str) == Some(e.code.as_str()) => Ok(()),
         Err(e) => Err(format!(
-            "the store refused `{}`: {}",
+            "{op}: the store refused `{}`: {}",
             e.code.as_str(),
             e.message
         )),
@@ -334,33 +344,56 @@ fn same_ids(what: &str, got: &[String], want: &[String]) -> Check {
 }
 
 fn ascending(ids: &[&str]) -> Check {
-    if ids.windows(2).all(|pair| pair[0] < pair[1]) {
-        return Ok(());
+    if let Some(pair) = ids.windows(2).find(|pair| pair[0] >= pair[1]) {
+        return Err(match pair[0] == pair[1] {
+            true => format!("scope: the answer holds {} twice", pair[0]),
+            false => "scope: the answer is not ascending by id".into(),
+        });
     }
-    Err("the scope answer is not ascending by id with no id twice".into())
+    Ok(())
 }
 
 /// A returned delta is the named appearance: same id, same signature, claims that recompute.
-fn same_appearance(got: &Delta, want: &Delta) -> Check {
+fn same_appearance(op: &str, got: &Delta, want: &Delta) -> Check {
     if got.id != want.id {
         return Err(format!(
-            "expected delta {}, the store answered {}",
+            "{op}: expected delta {}, the store answered {}",
             want.id, got.id
         ));
     }
     if got.sig != want.sig {
         return Err(format!(
-            "delta {} does not carry the signature this peer admitted",
+            "{op}: delta {} does not carry the signature this peer admitted",
             got.id
         ));
     }
     if compute_id(&got.claims).ok().as_deref() != Some(got.id.as_str()) {
         return Err(format!(
-            "the claims of delta {} do not recompute to its id",
+            "{op}: the claims of delta {} do not recompute to its id",
             got.id
         ));
     }
     Ok(())
+}
+
+/// The first field in which a returned arrival record differs from the one the peer admitted.
+fn arrival_differs(got: &ArrivalRecord, want: &ArrivalRecord) -> Option<&'static str> {
+    if got.id != want.id {
+        return Some("id");
+    }
+    if got.at.to_bits() != want.at.to_bits() {
+        return Some("at");
+    }
+    if got.sequence != want.sequence {
+        return Some("sequence");
+    }
+    if got.transfer != want.transfer {
+        return Some("transfer");
+    }
+    if got.sender != want.sender {
+        return Some("sender");
+    }
+    None
 }
 
 fn collect<T>(listing: impl Iterator<Item = Result<T, StoreError>>) -> Result<Vec<T>, StoreError> {
@@ -433,20 +466,22 @@ impl<'a> Run<'a> {
         Ok(revision)
     }
 
-    fn moved(expect: &Value, before: Revision, after: Revision) -> Check {
+    fn moved(op: &str, expect: &Value, before: Revision, after: Revision) -> Check {
         let advanced = expect.get("revisionAdvanced").and_then(Value::as_bool) == Some(true);
         match (advanced, after > before, after == before) {
             (true, true, _) | (false, _, true) => Ok(()),
-            (true, ..) => Err("the revision did not advance".into()),
-            (false, ..) => Err("the revision changed".into()),
+            (true, ..) => Err(format!("{op}: the revision did not advance")),
+            (false, ..) => Err(format!("{op}: the revision changed")),
         }
     }
 
-    fn held(&self, peer: &str, id: &str) -> Check<&VerifiedDelta> {
+    fn held(&self, op: &str, peer: &str, id: &str) -> Check<&VerifiedDelta> {
         self.books
             .get(peer)
             .and_then(|book| book.get(id))
-            .ok_or_else(|| format!("the store answered {id}, which peer {peer} does not hold"))
+            .ok_or_else(|| {
+                format!("{op}: the store answered {id}, which peer {peer} does not hold")
+            })
     }
 
     /// Runs steps in order and stops at the first that fails, naming its index.
@@ -541,14 +576,22 @@ impl<'a> Run<'a> {
         let excepted =
             expect.get("unlessStoreErasure").and_then(Value::as_str) == Some(class.as_str());
         if let (Some(codes), false) = (codes_of(expect), excepted) {
-            return refused(result, &codes);
+            return refused("createPeer", result, &codes);
         }
         let handle = result.map_err(|e| format!("createPeer refused `{}`", e.code.as_str()))?;
         let erasure = handle.erasure();
-        if Ok(erasure.posture) != posture || erasure.store_class != class {
-            return Err(
-                "the new peer does not report its posture and the store's erasure class".into(),
-            );
+        if Ok(erasure.posture) != posture {
+            return Err(format!(
+                "createPeer: the new peer reports posture `{}`, not the one it was created with",
+                erasure.posture.as_str()
+            ));
+        }
+        if erasure.store_class != class {
+            return Err(format!(
+                "createPeer: the new peer reports erasure class `{}`, the store's is `{}`",
+                erasure.store_class.as_str(),
+                class.as_str()
+            ));
         }
         self.handles
             .insert(name.to_string(), (name.to_string(), handle));
@@ -560,11 +603,13 @@ impl<'a> Run<'a> {
         let expect = field(step, "expect")?;
         let result = self.store.peer(self.corpus.peer(name)?);
         if let Some(codes) = codes_of(expect) {
-            return refused(result, &codes);
+            return refused("openPeer", result, &codes);
         }
-        let handle = result.map_err(|e| format!("peer refused `{}`", e.code.as_str()))?;
+        let handle = result.map_err(|e| format!("openPeer refused `{}`", e.code.as_str()))?;
         if handle.erasure().posture.as_str() != text(expect, "posture")? {
-            return Err("the opened peer does not report the posture it was created with".into());
+            return Err(
+                "openPeer: the opened peer does not report the posture it was created with".into(),
+            );
         }
         // With `handle`, the older handle stays under its own name; both are one peer.
         let kept_as = match step.get("handle") {
@@ -645,14 +690,14 @@ impl<'a> Run<'a> {
         };
         let after = self.revision(name)?;
         if let Some(codes) = codes_of(expect) {
-            refused(result, &codes)?;
-            return Self::moved(expect, before, after);
+            refused("append", result, &codes)?;
+            return Self::moved("append", expect, before, after);
         }
         let added_entries = batch.map(|batch| batch.added).unwrap_or_default();
         let result =
             result.map_err(|e| format!("append refused `{}`: {}", e.code.as_str(), e.message))?;
         match (text(expect, "status")?, result) {
-            ("conflict", AppendResult::Conflict) => Self::moved(expect, before, after),
+            ("conflict", AppendResult::Conflict) => Self::moved("append", expect, before, after),
             ("committed", AppendResult::Committed { revision, added }) => {
                 same_ids("append added", &added, &self.corpus.ids(expect, "added")?)?;
                 if revision != after {
@@ -660,7 +705,7 @@ impl<'a> Run<'a> {
                         "the append result's revision is not the peer's revision after it".into(),
                     );
                 }
-                Self::moved(expect, before, after)?;
+                Self::moved("append", expect, before, after)?;
                 let book = self.books.entry(self.peer_name(name)?).or_default();
                 for id in added {
                     if let Some(first) = added_entries.iter().find(|entry| entry.delta.id == id) {
@@ -670,7 +715,7 @@ impl<'a> Run<'a> {
                 Ok(())
             }
             (want, got) => Err(format!(
-                "expected status `{want}`, the store answered {got:?}"
+                "append: expected status `{want}`, the store answered {got:?}"
             )),
         }
     }
@@ -707,7 +752,7 @@ impl<'a> Run<'a> {
         if report.revision != after {
             return Err("the purge report's revision is not the peer's revision after it".into());
         }
-        Self::moved(expect, before, after)?;
+        Self::moved("purge", expect, before, after)?;
         if report.boundary != PURGE_BOUNDARY {
             return Err(format!(
                 "the purge report's boundary is `{}`",
@@ -768,46 +813,36 @@ impl<'a> Run<'a> {
     fn get(&self, step: &Value) -> Check {
         let expect = field(step, "expect")?;
         let (_, snapshot) = self.snapshot(step)?;
-        answered(
-            expect,
-            snapshot.get(&self.corpus.ids(step, "ids")?),
-            |deltas| {
-                let names = texts(expect, "deltas")?;
-                if deltas.len() != names.len() {
-                    let got: Vec<&str> = deltas.iter().map(|d| d.id.as_str()).collect();
-                    return Err(format!(
-                        "get: expected {} deltas, the store answered {got:?}",
-                        names.len()
-                    ));
-                }
-                deltas
-                    .iter()
-                    .zip(&names)
-                    .try_for_each(|(got, name)| same_appearance(got, self.corpus.delta(name)?))
-            },
-        )
+        let result = snapshot.get(&self.corpus.ids(step, "ids")?);
+        answered("get", expect, result, |deltas| {
+            let got: Vec<String> = deltas.iter().map(|d| d.id.clone()).collect();
+            same_ids("get", &got, &self.corpus.ids(expect, "deltas")?)?;
+            let names = texts(expect, "deltas")?;
+            deltas
+                .iter()
+                .zip(&names)
+                .try_for_each(|(got, name)| same_appearance("get", got, self.corpus.delta(name)?))
+        })
     }
 
     fn arrivals(&self, step: &Value) -> Check {
         let expect = field(step, "expect")?;
         let (peer, snapshot) = self.snapshot(step)?;
-        answered(
-            expect,
-            snapshot.arrivals(&self.corpus.ids(step, "ids")?),
-            |records| {
-                let got: Vec<String> = records.iter().map(|r| r.id.clone()).collect();
-                same_ids("arrivals", &got, &self.corpus.ids(expect, "ids")?)?;
-                for record in &records {
-                    if *record != self.held(peer, &record.id)?.arrival {
-                        return Err(format!(
-                            "the arrival record of {} is not the one peer {peer} first admitted",
-                            record.id
-                        ));
-                    }
+        let result = snapshot.arrivals(&self.corpus.ids(step, "ids")?);
+        answered("arrivals", expect, result, |records| {
+            let got: Vec<String> = records.iter().map(|r| r.id.clone()).collect();
+            same_ids("arrivals", &got, &self.corpus.ids(expect, "ids")?)?;
+            for record in &records {
+                let admitted = &self.held("arrivals", peer, &record.id)?.arrival;
+                if let Some(differs) = arrival_differs(record, admitted) {
+                    return Err(format!(
+                        "arrivals: the arrival record of {} is not the one peer {peer} first admitted (field `{differs}`)",
+                        record.id
+                    ));
                 }
-                Ok(())
-            },
-        )
+            }
+            Ok(())
+        })
     }
 
     fn index_read(&self, step: &Value) -> Check {
@@ -818,7 +853,7 @@ impl<'a> Run<'a> {
             "targets" => snapshot.targets(&texts(step, "entities")?),
             _ => snapshot.negators(&self.corpus.ids(step, "ids")?),
         };
-        answered(expect, result, |ids| {
+        answered(op, expect, result, |ids| {
             same_ids(op, &ids, &self.corpus.ids(expect, "ids")?)
         })
     }
@@ -864,17 +899,19 @@ impl<'a> Run<'a> {
         let ids: Vec<&str> = answer.deltas.iter().map(|m| m.delta.id.as_str()).collect();
         ascending(&ids)?;
         for member in &answer.deltas {
-            let held = self.held(peer, &member.delta.id)?;
-            same_appearance(&member.delta, &held.delta)?;
-            if member.arrival != held.arrival {
+            let held = self.held("scope", peer, &member.delta.id)?;
+            same_appearance("scope", &member.delta, &held.delta)?;
+            if let Some(differs) = arrival_differs(&member.arrival, &held.arrival) {
                 return Err(format!(
-                    "scope member {} does not carry the arrival record peer {peer} first admitted",
+                    "scope: member {} does not carry the arrival record peer {peer} first admitted (field `{differs}`)",
                     member.delta.id
                 ));
             }
         }
         if !flags_of(&answer.applied).is_subset(&fields_of(requested)) {
-            return Err("the store reports a pushdown field applied that was not requested".into());
+            return Err(
+                "scope: the store reports a pushdown field applied that was not requested".into(),
+            );
         }
         Ok(())
     }
@@ -891,7 +928,9 @@ impl<'a> Run<'a> {
         let expect = field(step, "expect")?;
         let (peer, snapshot) = self.snapshot(step)?;
         let pushdown = match step.get("pushdown").map(|p| self.pushdown(p)).transpose()? {
-            Some(Err(refusal)) => return answered(expect, Err(refusal), |_: ScopeResult| Ok(())),
+            Some(Err(refusal)) => {
+                return answered("scope", expect, Err(refusal), |_: ScopeResult| Ok(()))
+            }
             Some(Ok(pushdown)) => Some(pushdown),
             None => None,
         };
@@ -904,26 +943,28 @@ impl<'a> Run<'a> {
             pushdown: pushdown.clone(),
         };
         let requested = pushdown.unwrap_or_default();
-        answered(expect, snapshot.scope(&request), |answer| {
+        answered("scope", expect, snapshot.scope(&request), |answer| {
             self.members(peer, &answer, &requested)?;
             let got: Vec<String> = answer.deltas.iter().map(|m| m.delta.id.clone()).collect();
             let lower = self.corpus.ids(expect, "lower")?;
             let upper = self.corpus.ids(expect, "upper")?;
             if let Some(missing) = lower.iter().find(|id| !got.contains(id)) {
-                return Err(format!("lower bound: the scope answer lacks {missing}"));
+                return Err(format!(
+                    "script lower bound: the scope answer lacks {missing}"
+                ));
             }
             if let Some(extra) = got.iter().find(|id| !upper.contains(id)) {
                 return Err(format!(
-                    "upper bound: the scope answer holds {extra}, outside the scope"
+                    "script upper bound: the scope answer holds {extra}, outside the scope"
                 ));
             }
             if self.reference {
                 let applied = flags_of(&answer.applied);
                 if applied != self.reference_applied(&requested) {
-                    return Err("reference: the applied fields are not the requested fields the profile offers".into());
+                    return Err("reference (script): the applied fields are not the requested fields the profile offers".into());
                 }
                 if applied == fields_of(&requested) {
-                    same_ids("reference scope", &got, &lower)?;
+                    same_ids("reference (script) scope", &got, &lower)?;
                 }
             }
             Ok(())
@@ -936,7 +977,7 @@ impl<'a> Run<'a> {
         let listed = admin
             .peer(self.corpus.peer(text(step, "peer")?)?)
             .and_then(|peer| Ok((collect(peer.ids())?, collect(peer.deltas())?)));
-        answered(expect, listed, |(ids, deltas)| {
+        answered("export", expect, listed, |(ids, deltas)| {
             let names = texts(expect, "deltas")?;
             same_ids("export ids", &ids, &self.corpus.ids(expect, "deltas")?)?;
             if deltas.len() != names.len() {
@@ -946,10 +987,9 @@ impl<'a> Run<'a> {
                     deltas.len()
                 ));
             }
-            deltas
-                .iter()
-                .zip(&names)
-                .try_for_each(|(got, name)| same_appearance(got, self.corpus.delta(name)?))
+            deltas.iter().zip(&names).try_for_each(|(got, name)| {
+                same_appearance("export", got, self.corpus.delta(name)?)
+            })
         })
     }
 
@@ -970,7 +1010,7 @@ impl<'a> Run<'a> {
         let held_ids = self.corpus.ids(case, "held")?;
         let held: Vec<&VerifiedDelta> = held_ids
             .iter()
-            .map(|id| self.held(peer, id))
+            .map(|id| self.held("case", peer, id))
             .collect::<Check<_>>()?;
         let mut scopes: BTreeMap<BTreeSet<&str>, Vec<String>> = BTreeMap::new();
         for entry in list(case, "scopes")? {
@@ -1000,28 +1040,28 @@ impl<'a> Run<'a> {
             };
             let answer = snapshot
                 .scope(&request)
-                .map_err(|e| format!("scope refused `{}`: {}", e.code.as_str(), e.message))?;
+                .map_err(|e| format!("case: scope refused `{}`: {}", e.code.as_str(), e.message))?;
             self.members(peer, &answer, &pushed)?;
             let applied = flags_of(&answer.applied);
             let got: Vec<String> = answer.deltas.iter().map(|m| m.delta.id.clone()).collect();
             let wanted = ids.iter().filter(|id| !held_ids.contains(id));
             if let Some(missing) = wanted.clone().find(|id| !got.contains(id)) {
-                return Err(format!("lower bound: the scope answer lacks {missing}"));
+                return Err(format!("case lower bound: the scope answer lacks {missing}"));
             }
             let bound = scopes
                 .get(&applied.iter().copied().collect::<BTreeSet<&str>>())
                 .ok_or("the case has no entry for the applied fields")?;
             if let Some(extra) = got.iter().find(|id| !bound.contains(id)) {
                 return Err(format!(
-                    "upper bound: the scope answer holds {extra}, which fails a field reported applied or lies outside the scope"
+                    "case upper bound: the scope answer holds {extra}, which fails a field reported applied or lies outside the scope"
                 ));
             }
             if self.reference {
                 if applied != self.reference_applied(&pushed) {
-                    return Err("reference: the applied fields are not the requested fields the profile offers".into());
+                    return Err("reference (case): the applied fields are not the requested fields the profile offers".into());
                 }
                 let want: Vec<String> = bound.iter().filter(|id| !held_ids.contains(id)).cloned().collect();
-                same_ids("reference scope", &got, &want)?;
+                same_ids("reference (case) scope", &got, &want)?;
             }
             // The trim lemma: the host applies what the store did not, and reaches the exact
             // scope from the answer and what it already holds.

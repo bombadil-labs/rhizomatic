@@ -1,6 +1,26 @@
 //! The host side of the store (SPEC-18 proposal §4.8–§4.11), which the shared vectors do not
 //! cover: opening by URL scheme, scheme registration, requirements, close, and a synchronous
 //! delta source over a fetched scope.
+//!
+//! Ownership (`vectors/store/README.md` §6). The seven tests a store runs for itself, and how
+//! this witness holds each. Where a test cannot fail by construction, this file says so instead
+//! of running it:
+//!
+//! 1. After append; 2. after a read; 3. payload memory. Every value crosses the trait by shared
+//!    reference in and by owned value out (`&Admission` in; `Vec<Delta>`, `ScopeResult` and the
+//!    listings out), and no store type holds a `Cell`, an `Rc` or a borrow of what it was given.
+//!    A bytes payload is an owned `Vec<u8>`. Safe Rust cannot keep or return a view of the
+//!    caller's memory through these signatures, so a store without `unsafe` cannot alias. The
+//!    memory store has no `unsafe` (implementations/rust/CLAUDE.md). A store that takes shared or
+//!    borrowed bytes must test this itself. `a_caller_cannot_reach_into_what_the_store_holds`
+//!    still changes every value it was given and every value it read; it shows the per-peer
+//!    signature stays apart, which is not ownership.
+//! 4. No conversion; 5. one read of each field. These are tests for a dynamically typed witness.
+//!    A Rust value has one type, and a plain struct field answers the same on every read.
+//! 6. The profile. `Store::profile` returns a shared reference to a struct with no interior
+//!    mutability; a caller can change only its own clone. A handle exposes trait methods only.
+//! 7. `scopeSource`. `scope_source` takes `&[VerifiedDelta]` and copies; `ScopeSource` answers
+//!    with shared references and owned lists. Tests 1 to 3 hold for it by the same argument.
 
 use std::collections::BTreeMap;
 

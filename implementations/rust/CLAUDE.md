@@ -76,6 +76,8 @@ tests/
   store_vectors.rs  every script and scope case of ../../vectors/store on the memory store
   store_broken.rs   stores with one fault each; the conformance runner must fail each one
   store_runner.rs   the conformance runner's own rules, against a class-proven stand-in store
-  store_cost.rs     the cost rail: index work does not grow with unrelated deltas; nothing scans
+  store_runner_rules.rs  the runner-rules table: one wrong store per runner rule (README §7)
+  store_cost.rs     the cost rail: index work does not grow with unrelated deltas; nothing scans;
+                    building a scope source costs the size of its members
   store_open.rs     schemes, requirements, close, and an anchored read over a fetched scope
 ```

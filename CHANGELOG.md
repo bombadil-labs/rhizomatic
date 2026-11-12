@@ -38,7 +38,9 @@ behavior, and the reactor does not use the store yet.
 - Rust witness: the same interface as synchronous traits (`Store`, `PeerStore`, `Snapshot`,
   `Exporter`), `MemoryStore`, `StoreSchemes` and `open_store`, `scope_source`, and
   `run_store_conformance`. It passes every script and scope case of `vectors/store/`. A Rust host
-  owns its scheme registry as a value; there is no process-wide table.
+  owns its scheme registry as a value; there is no process-wide table. `ScopeSource::meter()`
+  counts the index work of a build, and a table of wrong stores holds the Rust runner to each of
+  its rules.
 
 ### Changed
 

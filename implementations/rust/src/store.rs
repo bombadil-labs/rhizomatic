@@ -511,6 +511,14 @@ pub fn negated_ids(claims: &Claims) -> BTreeSet<&str> {
         .collect()
 }
 
+/// The work a [`ScopeSource`] did to build its indexes (SPEC-18 §4.11 reading 36): one step per
+/// member written under one key, plus one per index member that a write reads. A write reads
+/// none, so N members cost N steps, also when every member lands in one index entry.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct SourceMeter {
+    pub steps: u64,
+}
+
 /// A synchronous delta source over the members one read has fetched (SPEC-18 §4.2). It answers
 /// `get`, `targets` and `negators` restricted to the fetched set, and each member's arrival
 /// record. Code that must evaluate synchronously fetches once, then reads this.
@@ -520,6 +528,22 @@ pub struct ScopeSource {
     arrivals: BTreeMap<String, ArrivalRecord>,
     targets: BTreeMap<String, BTreeSet<String>>,
     negators: BTreeMap<String, BTreeSet<String>>,
+    meter: SourceMeter,
+}
+
+/// The one door into a source's indexes. A set per key keeps the write logarithmic in the
+/// entry's size; a list searched before each insert would make one entry cost N².
+fn index_member(
+    index: &mut BTreeMap<String, BTreeSet<String>>,
+    meter: &mut SourceMeter,
+    key: &str,
+    member: &str,
+) {
+    meter.steps += 1;
+    index
+        .entry(key.to_string())
+        .or_default()
+        .insert(member.to_string());
 }
 
 impl ScopeSource {
@@ -549,19 +573,18 @@ impl ScopeSource {
                 .expect("the member was checked before the commit pass");
             self.arrivals.insert(id.to_string(), member.arrival.clone());
             for entity in target_entities(&member.delta.claims) {
-                self.targets
-                    .entry(entity.to_string())
-                    .or_default()
-                    .insert(id.to_string());
+                index_member(&mut self.targets, &mut self.meter, entity, id);
             }
             for negated in negated_ids(&member.delta.claims) {
-                self.negators
-                    .entry(negated.to_string())
-                    .or_default()
-                    .insert(id.to_string());
+                index_member(&mut self.negators, &mut self.meter, negated, id);
             }
         }
         Ok(())
+    }
+
+    /// The index work every build and extension of this source has done.
+    pub fn meter(&self) -> SourceMeter {
+        self.meter
     }
 
     pub fn arrival(&self, id: &str) -> Option<&ArrivalRecord> {
