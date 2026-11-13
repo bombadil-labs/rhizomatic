@@ -2594,7 +2594,7 @@ The JSON cannot express these; each witness builds them.
   3. after N records before the processed position (N head-only commits before the first hold).
 
   A pass that walks the held views, the holdings or the earlier records costs N per round, and
-  the total scales by about 64. The TypeScript witness measured ratios of about 12, 11 and 9; a
+  the total scales by about 64. The TypeScript witness measured ratios of 12 to 14, 10 to 11 and 8 to 9; a
   holder that asks `touching` of every view per page measured 44 on rail 1.
 
 ### 11.7 What the cases hold

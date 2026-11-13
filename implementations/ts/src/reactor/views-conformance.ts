@@ -232,14 +232,14 @@ class ViewsRun {
   constructor(
     private readonly run: Run,
     private readonly witness: ViewWitness,
-    document: StoreViewsDocument,
+    vectors: StoreViewsDocument,
   ) {
-    for (const program of document.programs) {
+    for (const program of vectors.programs) {
       check(!this.programs.has(program.name), `the vector names program ${program.name} twice`);
       this.programs.set(program.name, program);
     }
     this.registry = SchemaRegistry.build(
-      document.schemas.map((s) => ({ name: s.name, alg: s.alg, body: parseTerm(s.body) })),
+      vectors.schemas.map((s) => ({ name: s.name, alg: s.alg, body: parseTerm(s.body) })),
     );
   }
 

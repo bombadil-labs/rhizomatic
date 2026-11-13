@@ -1775,7 +1775,7 @@ that a vector can pin.
     (rule 4). The TypeScript fuzz ran 20,000 sequences (README §11.6); its committed form runs
     2,000.
 85. **The cost.** A pass looks up each record's ids in the inverted index. The TypeScript rails
-    measured ratios of about 12 (held views), 11 (holdings) and 9 (earlier records) for 8N against
+    measured ratios of 12 to 14 (held views), 10 to 11 (holdings) and 8 to 9 (earlier records) for 8N against
     N; a holder that asks `touching` of every view per page measured 44.
 86. **A held view lies outside erasure.** Its bytes can carry a purged delta's payload until the
     next pass. A host that erases calls `refresh` or `drop` before it reports (§4.6, §4.7.2;
