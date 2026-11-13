@@ -38,9 +38,7 @@ use rhizomatic::term_json::parse_term;
 use rhizomatic::types::{Claims, Delta, EntityRef, Pointer, Primitive, Target};
 use serde_json::Value;
 
-#[path = "support/freshness_doubles.rs"]
-#[allow(dead_code)]
-mod doubles;
+use crate::freshness_doubles as doubles;
 use doubles::{DeclaresNoFeed, Odd, Scaled};
 
 fn document() -> Value {

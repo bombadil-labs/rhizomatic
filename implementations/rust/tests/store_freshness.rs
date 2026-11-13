@@ -41,8 +41,7 @@ use rhizomatic::store_read::{capture_scope, fetch_scope, Selection, StoreFreshne
 use rhizomatic::types::{Claims, Delta, EntityRef, Pointer, Primitive, Target};
 use serde_json::Value;
 
-#[path = "support/freshness_doubles.rs"]
-mod doubles;
+use crate::freshness_doubles as doubles;
 use doubles::{DeclaresNoFeed, Fabricated, Odd, ReportsNothingApplied, Scaled};
 
 fn document() -> Value {

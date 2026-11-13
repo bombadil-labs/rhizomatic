@@ -73,7 +73,10 @@ src/
   store_read.rs         the store-backed read (reactor boundary): rounds over one snapshot with a
                         fetch cache and an evaluation memo, `fetch_scope`, `StoreReactor`, and
                         the explicit `read_full_surface` through a peer exporter
-tests/
+tests/          each file is a module of a test program, almost always witness.rs (AGENTS.md, "Build size");
+                run one with `cargo test cbor::`
+  witness.rs    the test program: one `mod` line per file
+  private_source.rs  the second program, for tests that compile private src/ files as modules
   cbor.rs       encoder vs. external ground-truth (RFC 8949 Appendix A)
   vectors.rs    loads ../../vectors/l0-delta and asserts byte-exact parity
   store_vectors.rs  every script and scope case of ../../vectors/store on the memory store

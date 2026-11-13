@@ -20,7 +20,7 @@ const run=(command,args,name)=>{
 };
 const tsLog=run(join(root,'implementations/ts/node_modules/.bin/vitest'),['run','--root','implementations/ts','test/materialization-control.test.ts','test/materialization-lifecycle.test.ts','test/materialization-description.test.ts','--reporter=default','--reporter=json','--outputFile',join(out,'TS-TESTS.json')],'ts');
 const ts=JSON.parse(readFileSync(join(out,'TS-TESTS.json')));assert.equal(ts.success,true);assert.equal(ts.numFailedTests,0);assert.equal(ts.numPendingTests,0);
-const rustLog=run(process.env.CARGO??'cargo',['test','--locked','--manifest-path','implementations/rust/Cargo.toml','--test','materialization_control','--test','materialization_lifecycle','--test','materialization_description','--','--nocapture'],'rust');
+const rustLog=run(process.env.CARGO??'cargo',['test','--locked','--manifest-path','implementations/rust/Cargo.toml','--test','witness','--','materialization_control::','materialization_lifecycle::','materialization_description::','--nocapture'],'rust');
 const m3Corpora=Object.fromEntries(['control-image','lifecycle'].map(name=>[name,readFileSync(join(root,'vectors/materialization',name+'.json'))]));
 const descriptions={'command-descriptions':readFileSync(join(root,'vectors/materialization/command-descriptions.json'))};
 const assertions={format:'rhizomatic.materialization-m3-vector-assertions/1',note:'Counts, corpus identity and missing-evidence probes supplement semantic assertions and independent review, not a proof of arbitrary assertion meaning.'};
@@ -37,7 +37,7 @@ for(const c of [...m3.cases,...m3.variants]){
  for(const w of ['ts','rust'])for(const ref of c.vector_assertions)assert.ok(assertions[w].records.some(r=>r.corpus===ref.corpus&&r.group===ref.group&&r.id===ref.id),c.id+' missing executed vector '+ref.id+' in '+w);
  const [tsName,rustName]=c.native_evidence;
  if(tsName)assert.ok(passed.some(n=>n.includes(tsName)),c.id+' missing native TS walk: '+tsName);
- if(rustName)assert.ok(rustLog.includes('test '+rustName+' ... ok'),c.id+' missing native Rust walk: '+rustName);
+ if(rustName)assert.ok(new RegExp('^test (?:\\w+::)*'+rustName+' \\.\\.\\. ok$','m').test(rustLog),c.id+' missing native Rust walk: '+rustName);
 }
 // Mixed towers and fault branches over durable directories; the replay flag re-checks a prior run.
 const replayIndex=process.argv.indexOf('--replay');
