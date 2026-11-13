@@ -11,6 +11,15 @@ fn load(file: &str) -> Value {
     serde_json::from_str(&std::fs::read_to_string(path).expect("read store vectors")).unwrap()
 }
 
+/// The change-feed scripts (README §3.9). This witness's stores serve no feed yet, so each is
+/// skipped for the requirement `changes`.
+const FEED_SCRIPTS: [&str; 4] = [
+    "scripts/feed-appends-and-head-only-commits",
+    "scripts/feed-purge-and-debts",
+    "scripts/feed-a-debt-ends-on-append",
+    "scripts/feed-two-peers-interleaved",
+];
+
 fn names(doc: &Value, list: &str, prefix: &str) -> Vec<String> {
     doc[list]
         .as_array()
@@ -32,9 +41,16 @@ fn the_memory_store_passes_every_store_vector() {
     )
     .unwrap_or_else(|failures| panic!("{failures}"));
 
-    // Nothing is skipped on the memory store: it purges, and it has no journal.
-    assert_eq!(report.skipped, vec![]);
+    // Only the feed scripts are skipped on the memory store: it purges, it has no journal, and
+    // it serves no change feed yet.
+    let skipped: Vec<(&str, &str)> = report
+        .skipped
+        .iter()
+        .map(|s| (s.name.as_str(), s.missing.as_str()))
+        .collect();
+    assert_eq!(skipped, FEED_SCRIPTS.map(|name| (name, "changes")));
     let mut expected = names(&vectors.scripts, "scripts", "scripts");
+    expected.retain(|name| !FEED_SCRIPTS.contains(&name.as_str()));
     expected.extend(names(&vectors.scope, "cases", "scope"));
     assert_eq!(report.passed, expected);
     assert_eq!(report.passed.len(), 21 + 15);
@@ -60,6 +76,6 @@ fn the_memory_store_passes_with_every_subset_of_pushdown_fields() {
             &vectors,
         )
         .unwrap_or_else(|failures| panic!("{pushdown:?}: {failures}"));
-        assert_eq!((report.passed.len(), report.skipped.len()), (36, 0));
+        assert_eq!((report.passed.len(), report.skipped.len()), (36, 4));
     }
 }

@@ -11,6 +11,7 @@ import {
   PURGE_BOUNDARY,
   StoreError,
   type AppliedPushdown,
+  type ChangeRecord,
   type PeerStore,
   type Pushdown,
   type Snapshot,
@@ -24,6 +25,7 @@ import {
   passesSelection,
   scopeOver,
   type PushdownField,
+  type RevisionRef,
   type StoreScopeCase,
   type StoreVectorStep,
   type StoreVectors,
@@ -90,6 +92,26 @@ async function attempt<T>(action: () => Promise<T>): Promise<{ value: T } | { er
   }
 }
 
+/**
+ * What the runner expects of one peer's change feed (README §3.9), kept from the steps alone.
+ * `revisions` holds the revision at creation and then the revision after each advance, so
+ * `revisions[i + 1]` is `records[i].revision`.
+ */
+type Feed = {
+  readonly revisions: number[];
+  readonly records: ChangeRecord[];
+  head: string | null;
+  /** Every id this peer has held at some time. Its feed may name no other id. */
+  readonly everHeld: Set<string>;
+  /** Each record as the store first answered it, to see a record change after it is written. */
+  readonly seen: Map<number, string>;
+};
+
+const recordText = (r: ChangeRecord): string =>
+  JSON.stringify([r.revision, r.head, r.added, r.removed]);
+const ascending = (ids: readonly string[]): boolean =>
+  ids.every((id, i) => i === 0 || compareUtf8(ids[i - 1]!, id) < 0);
+
 class Run {
   private readonly corpus = new Map<string, Delta>();
   /** Peer handles by handle name, and the peer name each belongs to. */
@@ -98,6 +120,10 @@ class Run {
   private readonly snapshots = new Map<string, { peer: string; snapshot: Snapshot }>();
   /** What each peer holds, with the arrival it was first admitted under. */
   readonly holdings = new Map<string, Map<string, VerifiedDelta>>();
+  /** Each peer's expected feed, by peer name; empty when the store serves no feed. */
+  private readonly feeds = new Map<string, Feed>();
+  /** Revision names (`mark`, `revisionAs`), each with the peer it belongs to. */
+  private readonly named = new Map<string, { peer: string; revision: number }>();
   readonly reference: boolean;
 
   constructor(
@@ -118,6 +144,221 @@ class Run {
       );
     }
     this.reference = store.profile.formatVersion === header.reference.formatVersion;
+  }
+
+  /**
+   * How many records each peer keeps: infinite for `unbounded`, n for `{revisions: n}`, and
+   * undefined when the store serves no feed. A profile with another value fails the script.
+   */
+  private keep(): number | undefined {
+    const retention: unknown = this.store.profile.changeRetention;
+    if (retention === "none") return undefined;
+    if (retention === "unbounded") return Number.POSITIVE_INFINITY;
+    const n: unknown =
+      typeof retention === "object" && retention !== null
+        ? (retention as { revisions?: unknown }).revisions
+        : undefined;
+    check(
+      Number.isSafeInteger(n) && (n as number) >= 1,
+      "the profile's changeRetention is not none, unbounded or {revisions: n}",
+    );
+    return n as number;
+  }
+
+  private feed(peer: string): Feed {
+    return this.feeds.get(peer)!;
+  }
+
+  /** The revision just before the oldest record a peer keeps: a `from` below it is too old. */
+  private floor(feed: Feed): { floor: number; index: number } {
+    const kept = Math.min(feed.records.length, this.keep() ?? 0);
+    const index = feed.records.length - kept;
+    return { floor: feed.revisions[index]!, index };
+  }
+
+  private revisionOf(ref: RevisionRef, peer: string): number {
+    const named = this.named.get(ref.revision);
+    check(named !== undefined, `the vector names an unknown revision ${ref.revision}`);
+    check(named.peer === peer, `the vector names revision ${ref.revision} of another peer`);
+    return named.revision + (ref.ahead ?? 0);
+  }
+
+  private name(as: string, peer: string, revision: number): void {
+    check(!this.named.has(as), `the vector names revision ${as} twice`);
+    this.named.set(as, { peer, revision });
+  }
+
+  /** The feed may name only ids its peer has held. */
+  private ownIds(peer: string, records: readonly ChangeRecord[]): void {
+    const held = this.feed(peer).everHeld;
+    for (const record of records)
+      for (const id of [...record.added, ...record.removed])
+        check(
+          held.has(id),
+          `the feed of ${peer} names ${id.slice(0, 12)}, which ${peer} never held`,
+        );
+  }
+
+  /**
+   * After a step that committed, conflicted or was refused: the records after `before` are
+   * exactly the one record of this step, or none when the revision did not advance. Reads raw
+   * pages; the checks of every page are `pages`'s, after the step.
+   */
+  private async committed(peer: string, handle: PeerStore, before: number): Promise<void> {
+    const feed = this.feed(peer);
+    const current = feed.revisions[feed.revisions.length - 1]!;
+    const records: ChangeRecord[] = [];
+    for (let at = before; ; ) {
+      const outcome = await attempt(() => handle.changes(at));
+      check("value" in outcome, `changes refused with ${"error" in outcome ? outcome.error : ""}`);
+      const page = outcome.value;
+      check(page.status === "ok", "changes from the revision before a commit is not ok");
+      records.push(...page.records);
+      if (page.through <= at || page.through >= current) break;
+      at = page.through;
+    }
+    this.ownIds(peer, records);
+    check(
+      records.every((r) => ascending(r.added) && ascending(r.removed)),
+      "a record's ids are not ascending and distinct",
+    );
+    if (current === before) {
+      check(records.length === 0, "a step that did not advance the revision wrote a record");
+      return;
+    }
+    const expected = feed.records[feed.records.length - 1]!;
+    const headOnly = expected.added.length === 0 && expected.removed.length === 0;
+    check(
+      records.length > 0,
+      `the ${headOnly ? "head-only " : ""}commit to revision ${current} wrote no record`,
+    );
+    check(
+      records.length === 1 && records[0]!.revision === current,
+      `the commit to revision ${current} wrote records at ${records.map((r) => r.revision).join(", ")}`,
+    );
+    const record = records[0]!;
+    check(
+      record.head === expected.head,
+      `the record of revision ${current} has head ${String(record.head)}, expected ${String(expected.head)}`,
+    );
+    check(
+      same(record.added, expected.added),
+      `the record of revision ${current} adds ${show(record.added)}, expected ${show(expected.added)}`,
+    );
+    check(
+      same(record.removed, expected.removed),
+      `the record of revision ${current} removes ${show(record.removed)}, expected ${show(expected.removed)}`,
+    );
+  }
+
+  /**
+   * Every record in `(from, to]`, following pages, each page checked against the expected feed.
+   * Answers `resync` when the first page says so.
+   */
+  private async pages(
+    peer: string,
+    handle: PeerStore,
+    from: number,
+    to: number | undefined,
+  ): Promise<ChangeRecord[] | "resync"> {
+    const feed = this.feed(peer);
+    const current = feed.revisions[feed.revisions.length - 1]!;
+    const end = Math.min(to ?? current, current);
+    const byRevision = new Map(feed.records.map((r) => [r.revision, r]));
+    const out: ChangeRecord[] = [];
+    for (let at = from; ; ) {
+      const outcome = await attempt(() => handle.changes(at, to));
+      check("value" in outcome, `changes refused with ${"error" in outcome ? outcome.error : ""}`);
+      const page = outcome.value;
+      if (page.status === "resync-required") {
+        check(out.length === 0, "changes answered resync-required in the middle of a range");
+        check(
+          page.current === current,
+          `a resync answer carries current ${page.current}, not the peer's revision ${current}`,
+        );
+        return "resync";
+      }
+      check(page.status === "ok", "changes answered neither ok nor resync-required");
+      const records = page.records;
+      this.ownIds(peer, records);
+      check(
+        records.every((r, i) => i === 0 || records[i - 1]!.revision < r.revision),
+        "the page's records are not ascending by revision",
+      );
+      check(
+        records.every((r) => r.revision > at && r.revision <= end),
+        `a record lies outside the range (${at}, ${end}]`,
+      );
+      check(
+        records.every((r) => ascending(r.added) && ascending(r.removed)),
+        "a record's ids are not ascending and distinct",
+      );
+      const last = records.length > 0 ? records[records.length - 1]!.revision : at;
+      const returned = new Set(records.map((r) => r.revision));
+      check(
+        page.through >= last && page.through <= end,
+        `the page's through ${page.through} lies outside [${last}, ${end}]`,
+      );
+      for (const expected of feed.records)
+        if (expected.revision > at && expected.revision <= last)
+          check(
+            returned.has(expected.revision),
+            `the feed has no record for revision ${expected.revision}`,
+          );
+      for (const expected of feed.records)
+        if (expected.revision > last && expected.revision <= page.through)
+          throw new Error(
+            `the page claims through ${page.through} and leaves out the record at ${expected.revision}`,
+          );
+      check(page.through > at || at === end, `the page from ${at} made no progress toward ${end}`);
+      check(
+        page.through === last || page.through === end,
+        `the page's through ${page.through} is past its last record and short of ${end}`,
+      );
+      for (const record of records) {
+        const text = recordText(record);
+        const seen = feed.seen.get(record.revision);
+        check(
+          seen === undefined || seen === text,
+          `the record at revision ${record.revision} changed after it was written`,
+        );
+        feed.seen.set(record.revision, text);
+        const expected = byRevision.get(record.revision);
+        check(
+          expected !== undefined && recordText(expected) === text,
+          `the record at revision ${record.revision} differs from its commit`,
+        );
+      }
+      out.push(...records);
+      if (page.through === end) return out;
+      at = page.through;
+    }
+  }
+
+  /** README §3.9: after every step, each peer's whole kept feed, and the floor below it. */
+  async checkFeeds(): Promise<void> {
+    if (this.keep() === undefined) return;
+    for (const [peer, feed] of this.feeds) {
+      const handle = this.peer(peer);
+      const { floor, index } = this.floor(feed);
+      const records = await this.pages(peer, handle, floor, undefined);
+      check(
+        records !== "resync",
+        `changes answered resync-required from ${floor}, and every record after ${floor} is retained`,
+      );
+      if (index > 0) {
+        const below = feed.revisions[index - 1]!;
+        const outcome = await attempt(() => handle.changes(below));
+        check(
+          "value" in outcome,
+          `changes refused with ${"error" in outcome ? outcome.error : ""}`,
+        );
+        check(
+          outcome.value.status === "resync-required",
+          `changes answered ok from ${below}, below the retention floor ${floor}`,
+        );
+      }
+    }
   }
 
   delta(name: string): Delta {
@@ -265,6 +506,14 @@ class Run {
           this.peers.set(step.peer, outcome.value);
           this.owners.set(step.peer, step.peer);
           this.holdings.set(step.peer, new Map());
+          if (this.keep() !== undefined)
+            this.feeds.set(step.peer, {
+              revisions: [await this.revision(step.peer)],
+              records: [],
+              head: null,
+              everHeld: new Set(),
+              seen: new Map(),
+            });
         } else if ("error" in step.expect) refused(outcome, step.expect.error);
         return;
       }
@@ -297,9 +546,12 @@ class Run {
           }),
         );
         const after = await this.revision(step.peer);
+        const owner = this.owners.get(step.peer)!;
+        const feed = this.feeds.get(owner);
         if ("error" in step.expect) {
           refused(outcome, step.expect.error);
           check(after === before, "a refused append moved the revision");
+          if (feed !== undefined) await this.committed(owner, this.peer(step.peer), before);
           return;
         }
         check("value" in outcome, `the append refused`);
@@ -307,6 +559,7 @@ class Run {
         check(result.status === step.expect.status, `the append answered ${result.status}`);
         if (result.status !== "committed" || step.expect.status !== "committed") {
           check(after === before, "an append that did not commit moved the revision");
+          if (feed !== undefined) await this.committed(owner, this.peer(step.peer), before);
           return;
         }
         const names = step.expect.added;
@@ -323,6 +576,21 @@ class Run {
         for (const entry of added)
           if (result.added.includes(entry.delta.id) && !held.has(entry.delta.id))
             held.set(entry.delta.id, entry);
+        if (step.revisionAs !== undefined) this.name(step.revisionAs, owner, after);
+        if (feed !== undefined) {
+          feed.head = step.nextHead;
+          for (const id of result.added) feed.everHeld.add(id);
+          if (after !== before) {
+            feed.revisions.push(after);
+            feed.records.push({
+              revision: after,
+              head: step.nextHead,
+              added: this.ids(names),
+              removed: [],
+            });
+          }
+          await this.committed(owner, this.peer(step.peer), before);
+        }
         return;
       }
       case "purge": {
@@ -390,7 +658,21 @@ class Run {
         // Every outcome ends what the peer holds: `removed` and `held-by-other-peer` both stop
         // the holding, and the others find none. An id appended again is held anew.
         const held = this.held(step.peer);
+        // The record names the ids that leave the holdings. A settled debt left earlier.
+        const released = report.targets
+          .filter((target) => held.has(target.id))
+          .map((target) => target.id);
         for (const target of report.targets) held.delete(target.id);
+        const owner = this.owners.get(step.peer)!;
+        if (step.revisionAs !== undefined) this.name(step.revisionAs, owner, after);
+        const feed = this.feeds.get(owner);
+        if (feed !== undefined) {
+          if (after !== before) {
+            feed.revisions.push(after);
+            feed.records.push({ revision: after, head: feed.head, added: [], removed: released });
+          }
+          await this.committed(owner, this.peer(step.peer), before);
+        }
         return;
       }
       case "read":
@@ -527,6 +809,54 @@ class Run {
         check(same(ids, expected), `the store keeps ${show(ids)}, expected ${show(expected)}`);
         return;
       }
+      case "mark": {
+        // `revision` reads through the handle, so a peer not yet created fails there.
+        const revision = await this.revision(step.peer);
+        this.name(step.as, this.owners.get(step.peer)!, revision);
+        return;
+      }
+      case "changes": {
+        const handle = this.peer(step.peer);
+        const owner = this.owners.get(step.peer)!;
+        const from = this.revisionOf(step.from, owner);
+        const to = step.to === undefined ? undefined : this.revisionOf(step.to, owner);
+        const expect = step.expect;
+        if ("error" in expect) {
+          refused(await attempt(() => handle.changes(from, to)), expect.error);
+          return;
+        }
+        const feed = this.feeds.get(owner);
+        check(feed !== undefined, "a changes step on a store that serves no feed");
+        const { floor } = this.floor(feed);
+        // On a store that keeps fewer records, a `from` below its floor answers resync-required
+        // whatever the document says about a feed that keeps every record.
+        const resync = expect.status === "resync-required" || from < floor;
+        const answer = await this.pages(owner, handle, from, to);
+        if (resync) {
+          check(
+            answer === "resync",
+            from < floor
+              ? `changes answered ok from ${from}, below the retention floor ${floor}`
+              : `changes answered ok from ${from}, and the step expects resync-required`,
+          );
+          return;
+        }
+        check(
+          answer !== "resync",
+          `changes answered resync-required from ${from}, and every record after ${from} is retained`,
+        );
+        const expected = (expect.status === "ok" ? expect.records : []).map((r) => ({
+          revision: this.revisionOf({ revision: r.revision }, owner),
+          head: r.head,
+          added: this.ids(r.added),
+          removed: this.ids(r.removed),
+        }));
+        check(
+          same(answer.map(recordText), expected.map(recordText)),
+          `changes answered the records of ${answer.map((r) => r.revision).join(", ") || "nothing"}, expected ${expected.map((r) => r.revision).join(", ") || "nothing"}`,
+        );
+        return;
+      }
       case "exportPeers": {
         const peers: string[] = [];
         for await (const id of this.store.openAdmin().peers()) peers.push(id);
@@ -541,6 +871,7 @@ class Run {
     for (const [i, step] of steps.entries()) {
       try {
         await this.step(step);
+        await this.checkFeeds();
       } catch (error) {
         throw new Error(
           `step ${i} (${step.op}): ${error instanceof Error ? error.message : error}`,
@@ -623,6 +954,7 @@ function missing(
     let holds: boolean;
     if (requirement === "purge") holds = store.profile.capabilities.erasure !== "none";
     else if (requirement === "journal-absent") holds = !store.profile.capabilities.journal;
+    else if (requirement === "changes") holds = store.profile.changeRetention !== "none";
     else throw new Error(`unknown script requirement ${String(requirement)}`);
     if (!holds) return requirement;
   }

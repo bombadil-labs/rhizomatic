@@ -6638,6 +6638,2189 @@
           }
         }
       ]
+    },
+    {
+      "name": "feed-appends-and-head-only-commits",
+      "spec": "SPEC-18 §4.6, §4.13",
+      "requires": [
+        "changes"
+      ],
+      "steps": [
+        {
+          "op": "createPeer",
+          "peer": "A",
+          "erasure": "unproven",
+          "expect": {
+            "status": "created"
+          }
+        },
+        {
+          "op": "mark",
+          "peer": "A",
+          "as": "A.0"
+        },
+        {
+          "op": "changes",
+          "peer": "A",
+          "from": {
+            "revision": "A.0"
+          },
+          "expect": {
+            "status": "ok",
+            "records": []
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": null,
+          "nextHead": "head-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-height",
+              "arrival": {
+                "at": 1001,
+                "sequence": 1,
+                "transfer": 1,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "a-name",
+              "arrival": {
+                "at": 1002,
+                "sequence": 2,
+                "transfer": 1,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.1",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-name",
+              "a-height"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "head-1",
+          "nextHead": "head-2",
+          "frame": null,
+          "added": [
+            {
+              "delta": "b-name",
+              "arrival": {
+                "at": 1003,
+                "sequence": 3,
+                "transfer": 2,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.2",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "b-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "head-2",
+          "nextHead": "head-3",
+          "frame": null,
+          "added": [],
+          "revisionAs": "A.3",
+          "expect": {
+            "status": "committed",
+            "added": [],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "head-3",
+          "nextHead": "head-3",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-height",
+              "arrival": {
+                "at": 1004,
+                "sequence": 4,
+                "transfer": 4,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "b-name",
+              "arrival": {
+                "at": 1005,
+                "sequence": 5,
+                "transfer": 4,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "status": "committed",
+            "added": [],
+            "revisionAdvanced": false
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "head-3",
+          "nextHead": "head-4",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-height",
+              "arrival": {
+                "at": 1004,
+                "sequence": 4,
+                "transfer": 5,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.4",
+          "expect": {
+            "status": "committed",
+            "added": [],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "head-4",
+          "nextHead": "head-5",
+          "frame": null,
+          "added": [
+            {
+              "delta": "forged",
+              "arrival": {
+                "at": 1005,
+                "sequence": 5,
+                "transfer": 6,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "error": "invalid-admission"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "head-0",
+          "nextHead": "head-5",
+          "frame": null,
+          "added": [
+            {
+              "delta": "far",
+              "arrival": {
+                "at": 1005,
+                "sequence": 5,
+                "transfer": 7,
+                "sender": "local"
+              }
+            }
+          ],
+          "expect": {
+            "status": "conflict"
+          }
+        },
+        {
+          "op": "mark",
+          "peer": "A",
+          "as": "middle"
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "head-4",
+          "nextHead": "head-5",
+          "frame": null,
+          "added": [
+            {
+              "delta": "far",
+              "arrival": {
+                "at": 1005,
+                "sequence": 5,
+                "transfer": 8,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "bed-link",
+              "arrival": {
+                "at": 1006,
+                "sequence": 6,
+                "transfer": 8,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.5",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "bed-link",
+              "far"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "head-5",
+          "nextHead": "head-6",
+          "frame": null,
+          "added": [],
+          "revisionAs": "A.6",
+          "expect": {
+            "status": "committed",
+            "added": [],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "head-6",
+          "nextHead": "head-7",
+          "frame": null,
+          "added": [],
+          "revisionAs": "A.7",
+          "expect": {
+            "status": "committed",
+            "added": [],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "head-7",
+          "nextHead": "head-8",
+          "frame": null,
+          "added": [],
+          "revisionAs": "A.8",
+          "expect": {
+            "status": "committed",
+            "added": [],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "head-8",
+          "nextHead": "head-9",
+          "frame": null,
+          "added": [],
+          "revisionAs": "A.9",
+          "expect": {
+            "status": "committed",
+            "added": [],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "head-9",
+          "nextHead": "head-10",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-twice",
+              "arrival": {
+                "at": 1007,
+                "sequence": 7,
+                "transfer": 13,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.10",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-twice"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "changes",
+          "peer": "A",
+          "from": {
+            "revision": "A.0"
+          },
+          "expect": {
+            "status": "ok",
+            "records": [
+              {
+                "revision": "A.1",
+                "head": "head-1",
+                "added": [
+                  "a-name",
+                  "a-height"
+                ],
+                "removed": []
+              },
+              {
+                "revision": "A.2",
+                "head": "head-2",
+                "added": [
+                  "b-name"
+                ],
+                "removed": []
+              },
+              {
+                "revision": "A.3",
+                "head": "head-3",
+                "added": [],
+                "removed": []
+              },
+              {
+                "revision": "A.4",
+                "head": "head-4",
+                "added": [],
+                "removed": []
+              },
+              {
+                "revision": "A.5",
+                "head": "head-5",
+                "added": [
+                  "bed-link",
+                  "far"
+                ],
+                "removed": []
+              },
+              {
+                "revision": "A.6",
+                "head": "head-6",
+                "added": [],
+                "removed": []
+              },
+              {
+                "revision": "A.7",
+                "head": "head-7",
+                "added": [],
+                "removed": []
+              },
+              {
+                "revision": "A.8",
+                "head": "head-8",
+                "added": [],
+                "removed": []
+              },
+              {
+                "revision": "A.9",
+                "head": "head-9",
+                "added": [],
+                "removed": []
+              },
+              {
+                "revision": "A.10",
+                "head": "head-10",
+                "added": [
+                  "a-twice"
+                ],
+                "removed": []
+              }
+            ]
+          }
+        },
+        {
+          "op": "changes",
+          "peer": "A",
+          "from": {
+            "revision": "A.1"
+          },
+          "expect": {
+            "status": "ok",
+            "records": [
+              {
+                "revision": "A.2",
+                "head": "head-2",
+                "added": [
+                  "b-name"
+                ],
+                "removed": []
+              },
+              {
+                "revision": "A.3",
+                "head": "head-3",
+                "added": [],
+                "removed": []
+              },
+              {
+                "revision": "A.4",
+                "head": "head-4",
+                "added": [],
+                "removed": []
+              },
+              {
+                "revision": "A.5",
+                "head": "head-5",
+                "added": [
+                  "bed-link",
+                  "far"
+                ],
+                "removed": []
+              },
+              {
+                "revision": "A.6",
+                "head": "head-6",
+                "added": [],
+                "removed": []
+              },
+              {
+                "revision": "A.7",
+                "head": "head-7",
+                "added": [],
+                "removed": []
+              },
+              {
+                "revision": "A.8",
+                "head": "head-8",
+                "added": [],
+                "removed": []
+              },
+              {
+                "revision": "A.9",
+                "head": "head-9",
+                "added": [],
+                "removed": []
+              },
+              {
+                "revision": "A.10",
+                "head": "head-10",
+                "added": [
+                  "a-twice"
+                ],
+                "removed": []
+              }
+            ]
+          }
+        },
+        {
+          "op": "changes",
+          "peer": "A",
+          "from": {
+            "revision": "middle"
+          },
+          "expect": {
+            "status": "ok",
+            "records": [
+              {
+                "revision": "A.5",
+                "head": "head-5",
+                "added": [
+                  "bed-link",
+                  "far"
+                ],
+                "removed": []
+              },
+              {
+                "revision": "A.6",
+                "head": "head-6",
+                "added": [],
+                "removed": []
+              },
+              {
+                "revision": "A.7",
+                "head": "head-7",
+                "added": [],
+                "removed": []
+              },
+              {
+                "revision": "A.8",
+                "head": "head-8",
+                "added": [],
+                "removed": []
+              },
+              {
+                "revision": "A.9",
+                "head": "head-9",
+                "added": [],
+                "removed": []
+              },
+              {
+                "revision": "A.10",
+                "head": "head-10",
+                "added": [
+                  "a-twice"
+                ],
+                "removed": []
+              }
+            ]
+          }
+        },
+        {
+          "op": "changes",
+          "peer": "A",
+          "from": {
+            "revision": "A.1"
+          },
+          "to": {
+            "revision": "A.4"
+          },
+          "expect": {
+            "status": "ok",
+            "records": [
+              {
+                "revision": "A.2",
+                "head": "head-2",
+                "added": [
+                  "b-name"
+                ],
+                "removed": []
+              },
+              {
+                "revision": "A.3",
+                "head": "head-3",
+                "added": [],
+                "removed": []
+              },
+              {
+                "revision": "A.4",
+                "head": "head-4",
+                "added": [],
+                "removed": []
+              }
+            ]
+          }
+        },
+        {
+          "op": "changes",
+          "peer": "A",
+          "from": {
+            "revision": "A.3"
+          },
+          "to": {
+            "revision": "A.4"
+          },
+          "expect": {
+            "status": "ok",
+            "records": [
+              {
+                "revision": "A.4",
+                "head": "head-4",
+                "added": [],
+                "removed": []
+              }
+            ]
+          }
+        },
+        {
+          "op": "changes",
+          "peer": "A",
+          "from": {
+            "revision": "A.2"
+          },
+          "to": {
+            "revision": "A.2"
+          },
+          "expect": {
+            "status": "ok",
+            "records": []
+          }
+        },
+        {
+          "op": "changes",
+          "peer": "A",
+          "from": {
+            "revision": "A.10"
+          },
+          "expect": {
+            "status": "ok",
+            "records": []
+          }
+        },
+        {
+          "op": "changes",
+          "peer": "A",
+          "from": {
+            "revision": "A.10"
+          },
+          "to": {
+            "revision": "A.10",
+            "ahead": 5
+          },
+          "expect": {
+            "status": "ok",
+            "records": []
+          }
+        },
+        {
+          "op": "changes",
+          "peer": "A",
+          "from": {
+            "revision": "A.6"
+          },
+          "to": {
+            "revision": "A.10",
+            "ahead": 3
+          },
+          "expect": {
+            "status": "ok",
+            "records": [
+              {
+                "revision": "A.7",
+                "head": "head-7",
+                "added": [],
+                "removed": []
+              },
+              {
+                "revision": "A.8",
+                "head": "head-8",
+                "added": [],
+                "removed": []
+              },
+              {
+                "revision": "A.9",
+                "head": "head-9",
+                "added": [],
+                "removed": []
+              },
+              {
+                "revision": "A.10",
+                "head": "head-10",
+                "added": [
+                  "a-twice"
+                ],
+                "removed": []
+              }
+            ]
+          }
+        },
+        {
+          "op": "changes",
+          "peer": "A",
+          "from": {
+            "revision": "A.3"
+          },
+          "to": {
+            "revision": "A.1"
+          },
+          "expect": {
+            "error": "invalid-request"
+          }
+        },
+        {
+          "op": "changes",
+          "peer": "A",
+          "from": {
+            "revision": "A.10",
+            "ahead": 2
+          },
+          "to": {
+            "revision": "A.10",
+            "ahead": 1
+          },
+          "expect": {
+            "error": "invalid-request"
+          }
+        },
+        {
+          "op": "changes",
+          "peer": "A",
+          "from": {
+            "revision": "A.10",
+            "ahead": 1
+          },
+          "expect": {
+            "status": "resync-required"
+          }
+        },
+        {
+          "op": "changes",
+          "peer": "A",
+          "from": {
+            "revision": "A.10",
+            "ahead": 1
+          },
+          "to": {
+            "revision": "A.10",
+            "ahead": 4
+          },
+          "expect": {
+            "status": "resync-required"
+          }
+        }
+      ]
+    },
+    {
+      "name": "feed-purge-and-debts",
+      "spec": "SPEC-18 §4.6, §4.7.2, §4.13",
+      "requires": [
+        "changes",
+        "purge"
+      ],
+      "steps": [
+        {
+          "op": "createPeer",
+          "peer": "A",
+          "erasure": "unproven",
+          "expect": {
+            "status": "created"
+          }
+        },
+        {
+          "op": "mark",
+          "peer": "A",
+          "as": "A.0"
+        },
+        {
+          "op": "createPeer",
+          "peer": "B",
+          "erasure": "unproven",
+          "expect": {
+            "status": "created"
+          }
+        },
+        {
+          "op": "mark",
+          "peer": "B",
+          "as": "B.0"
+        },
+        {
+          "op": "createPeer",
+          "peer": "C",
+          "erasure": "unproven",
+          "expect": {
+            "status": "created"
+          }
+        },
+        {
+          "op": "mark",
+          "peer": "C",
+          "as": "C.0"
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": null,
+          "nextHead": "a-head-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-height",
+              "arrival": {
+                "at": 1001,
+                "sequence": 1,
+                "transfer": 1,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "a-height-neg",
+              "arrival": {
+                "at": 1002,
+                "sequence": 2,
+                "transfer": 1,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "a-name",
+              "arrival": {
+                "at": 1003,
+                "sequence": 3,
+                "transfer": 1,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "bed-link",
+              "arrival": {
+                "at": 1004,
+                "sequence": 4,
+                "transfer": 1,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.1",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-name",
+              "bed-link",
+              "a-height-neg",
+              "a-height"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "append",
+          "peer": "B",
+          "expectedHead": null,
+          "nextHead": "b-head-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-height",
+              "arrival": {
+                "at": 1001,
+                "sequence": 1,
+                "transfer": 2,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "a-name",
+              "arrival": {
+                "at": 1002,
+                "sequence": 2,
+                "transfer": 2,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "B.1",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-name",
+              "a-height"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "purge",
+          "peer": "A",
+          "revisionAs": "A.2",
+          "ids": [
+            "a-height-neg",
+            "a-height",
+            "far"
+          ],
+          "expect": {
+            "targets": [
+              {
+                "delta": "a-height-neg",
+                "outcome": "removed"
+              },
+              {
+                "delta": "a-height",
+                "outcome": "held-by-other-peer"
+              },
+              {
+                "delta": "far",
+                "outcome": "not-held"
+              }
+            ],
+            "revisionAdvanced": true,
+            "claim": {
+              "unprovable": "unproven",
+              "proven": "proven"
+            },
+            "referenceSurfaces": [
+              {
+                "surface": "rows",
+                "state": "absent"
+              },
+              {
+                "surface": "index-entries",
+                "state": "absent"
+              },
+              {
+                "surface": "process-memory",
+                "state": "unprovable"
+              }
+            ]
+          }
+        },
+        {
+          "op": "purge",
+          "peer": "A",
+          "ids": [
+            "a-height"
+          ],
+          "expect": {
+            "targets": [
+              {
+                "delta": "a-height",
+                "outcome": "held-by-other-peer"
+              }
+            ],
+            "revisionAdvanced": false,
+            "claim": {
+              "unprovable": "nothing-removed",
+              "proven": "nothing-removed"
+            },
+            "referenceSurfaces": [
+              {
+                "surface": "rows",
+                "state": "absent"
+              },
+              {
+                "surface": "index-entries",
+                "state": "absent"
+              },
+              {
+                "surface": "process-memory",
+                "state": "unprovable"
+              }
+            ]
+          }
+        },
+        {
+          "op": "purge",
+          "peer": "B",
+          "revisionAs": "B.2",
+          "ids": [
+            "a-height"
+          ],
+          "expect": {
+            "targets": [
+              {
+                "delta": "a-height",
+                "outcome": "removed"
+              }
+            ],
+            "revisionAdvanced": true,
+            "claim": {
+              "unprovable": "unproven",
+              "proven": "proven"
+            },
+            "referenceSurfaces": [
+              {
+                "surface": "rows",
+                "state": "absent"
+              },
+              {
+                "surface": "index-entries",
+                "state": "absent"
+              },
+              {
+                "surface": "process-memory",
+                "state": "unprovable"
+              }
+            ]
+          }
+        },
+        {
+          "op": "purge",
+          "peer": "A",
+          "revisionAs": "A.3",
+          "ids": [
+            "a-height",
+            "a-name"
+          ],
+          "expect": {
+            "targets": [
+              {
+                "delta": "a-name",
+                "outcome": "held-by-other-peer"
+              },
+              {
+                "delta": "a-height",
+                "outcome": "removed"
+              }
+            ],
+            "revisionAdvanced": true,
+            "claim": {
+              "unprovable": "unproven",
+              "proven": "proven"
+            },
+            "referenceSurfaces": [
+              {
+                "surface": "rows",
+                "state": "absent"
+              },
+              {
+                "surface": "index-entries",
+                "state": "absent"
+              },
+              {
+                "surface": "process-memory",
+                "state": "unprovable"
+              }
+            ]
+          }
+        },
+        {
+          "op": "purge",
+          "peer": "A",
+          "ids": [
+            "a-name"
+          ],
+          "expect": {
+            "targets": [
+              {
+                "delta": "a-name",
+                "outcome": "held-by-other-peer"
+              }
+            ],
+            "revisionAdvanced": false,
+            "claim": {
+              "unprovable": "nothing-removed",
+              "proven": "nothing-removed"
+            },
+            "referenceSurfaces": [
+              {
+                "surface": "rows",
+                "state": "absent"
+              },
+              {
+                "surface": "index-entries",
+                "state": "absent"
+              },
+              {
+                "surface": "process-memory",
+                "state": "unprovable"
+              }
+            ]
+          }
+        },
+        {
+          "op": "purge",
+          "peer": "B",
+          "revisionAs": "B.3",
+          "ids": [
+            "a-name"
+          ],
+          "expect": {
+            "targets": [
+              {
+                "delta": "a-name",
+                "outcome": "removed"
+              }
+            ],
+            "revisionAdvanced": true,
+            "claim": {
+              "unprovable": "unproven",
+              "proven": "proven"
+            },
+            "referenceSurfaces": [
+              {
+                "surface": "rows",
+                "state": "absent"
+              },
+              {
+                "surface": "index-entries",
+                "state": "absent"
+              },
+              {
+                "surface": "process-memory",
+                "state": "unprovable"
+              }
+            ]
+          }
+        },
+        {
+          "op": "purge",
+          "peer": "A",
+          "ids": [
+            "a-name"
+          ],
+          "expect": {
+            "targets": [
+              {
+                "delta": "a-name",
+                "outcome": "removed"
+              }
+            ],
+            "revisionAdvanced": false,
+            "claim": {
+              "unprovable": "unproven",
+              "proven": "proven"
+            },
+            "referenceSurfaces": [
+              {
+                "surface": "rows",
+                "state": "absent"
+              },
+              {
+                "surface": "index-entries",
+                "state": "absent"
+              },
+              {
+                "surface": "process-memory",
+                "state": "unprovable"
+              }
+            ]
+          }
+        },
+        {
+          "op": "purge",
+          "peer": "C",
+          "ids": [
+            "a-height",
+            "bed-link"
+          ],
+          "expect": {
+            "targets": [
+              {
+                "delta": "bed-link",
+                "outcome": "not-held"
+              },
+              {
+                "delta": "a-height",
+                "outcome": "not-held"
+              }
+            ],
+            "revisionAdvanced": false,
+            "claim": {
+              "unprovable": "nothing-removed",
+              "proven": "nothing-removed"
+            },
+            "referenceSurfaces": [
+              {
+                "surface": "rows",
+                "state": "absent"
+              },
+              {
+                "surface": "index-entries",
+                "state": "absent"
+              },
+              {
+                "surface": "process-memory",
+                "state": "unprovable"
+              }
+            ]
+          }
+        },
+        {
+          "op": "purge",
+          "peer": "A",
+          "ids": [],
+          "expect": {
+            "targets": [],
+            "revisionAdvanced": false,
+            "claim": {
+              "unprovable": "nothing-removed",
+              "proven": "nothing-removed"
+            },
+            "referenceSurfaces": [
+              {
+                "surface": "rows",
+                "state": "absent"
+              },
+              {
+                "surface": "index-entries",
+                "state": "absent"
+              },
+              {
+                "surface": "process-memory",
+                "state": "unprovable"
+              }
+            ]
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "a-head-1",
+          "nextHead": "a-head-2",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-height-neg",
+              "arrival": {
+                "at": 1009,
+                "sequence": 9,
+                "transfer": 3,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.4",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-height-neg"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "purge",
+          "peer": "A",
+          "revisionAs": "A.5",
+          "ids": [
+            "a-height-neg"
+          ],
+          "expect": {
+            "targets": [
+              {
+                "delta": "a-height-neg",
+                "outcome": "removed"
+              }
+            ],
+            "revisionAdvanced": true,
+            "claim": {
+              "unprovable": "unproven",
+              "proven": "proven"
+            },
+            "referenceSurfaces": [
+              {
+                "surface": "rows",
+                "state": "absent"
+              },
+              {
+                "surface": "index-entries",
+                "state": "absent"
+              },
+              {
+                "surface": "process-memory",
+                "state": "unprovable"
+              }
+            ]
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "a-head-2",
+          "nextHead": "a-head-3",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-height-neg",
+              "arrival": {
+                "at": 1010,
+                "sequence": 10,
+                "transfer": 4,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "a-name",
+              "arrival": {
+                "at": 1011,
+                "sequence": 11,
+                "transfer": 4,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.6",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-name",
+              "a-height-neg"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "changes",
+          "peer": "A",
+          "from": {
+            "revision": "A.0"
+          },
+          "expect": {
+            "status": "ok",
+            "records": [
+              {
+                "revision": "A.1",
+                "head": "a-head-1",
+                "added": [
+                  "a-name",
+                  "bed-link",
+                  "a-height-neg",
+                  "a-height"
+                ],
+                "removed": []
+              },
+              {
+                "revision": "A.2",
+                "head": "a-head-1",
+                "added": [],
+                "removed": [
+                  "a-height-neg",
+                  "a-height"
+                ]
+              },
+              {
+                "revision": "A.3",
+                "head": "a-head-1",
+                "added": [],
+                "removed": [
+                  "a-name"
+                ]
+              },
+              {
+                "revision": "A.4",
+                "head": "a-head-2",
+                "added": [
+                  "a-height-neg"
+                ],
+                "removed": []
+              },
+              {
+                "revision": "A.5",
+                "head": "a-head-2",
+                "added": [],
+                "removed": [
+                  "a-height-neg"
+                ]
+              },
+              {
+                "revision": "A.6",
+                "head": "a-head-3",
+                "added": [
+                  "a-name",
+                  "a-height-neg"
+                ],
+                "removed": []
+              }
+            ]
+          }
+        },
+        {
+          "op": "changes",
+          "peer": "A",
+          "from": {
+            "revision": "A.2"
+          },
+          "to": {
+            "revision": "A.4"
+          },
+          "expect": {
+            "status": "ok",
+            "records": [
+              {
+                "revision": "A.3",
+                "head": "a-head-1",
+                "added": [],
+                "removed": [
+                  "a-name"
+                ]
+              },
+              {
+                "revision": "A.4",
+                "head": "a-head-2",
+                "added": [
+                  "a-height-neg"
+                ],
+                "removed": []
+              }
+            ]
+          }
+        },
+        {
+          "op": "changes",
+          "peer": "B",
+          "from": {
+            "revision": "B.0"
+          },
+          "expect": {
+            "status": "ok",
+            "records": [
+              {
+                "revision": "B.1",
+                "head": "b-head-1",
+                "added": [
+                  "a-name",
+                  "a-height"
+                ],
+                "removed": []
+              },
+              {
+                "revision": "B.2",
+                "head": "b-head-1",
+                "added": [],
+                "removed": [
+                  "a-height"
+                ]
+              },
+              {
+                "revision": "B.3",
+                "head": "b-head-1",
+                "added": [],
+                "removed": [
+                  "a-name"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "op": "changes",
+          "peer": "C",
+          "from": {
+            "revision": "C.0"
+          },
+          "expect": {
+            "status": "ok",
+            "records": []
+          }
+        },
+        {
+          "op": "exportStored",
+          "expect": {
+            "ids": [
+              "a-name",
+              "bed-link",
+              "a-height-neg"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "feed-a-debt-ends-on-append",
+      "spec": "SPEC-18 §4.6, §4.7.2",
+      "requires": [
+        "changes",
+        "purge"
+      ],
+      "steps": [
+        {
+          "op": "createPeer",
+          "peer": "A",
+          "erasure": "unproven",
+          "expect": {
+            "status": "created"
+          }
+        },
+        {
+          "op": "mark",
+          "peer": "A",
+          "as": "A.0"
+        },
+        {
+          "op": "createPeer",
+          "peer": "B",
+          "erasure": "unproven",
+          "expect": {
+            "status": "created"
+          }
+        },
+        {
+          "op": "mark",
+          "peer": "B",
+          "as": "B.0"
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": null,
+          "nextHead": "a-head-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-name",
+              "arrival": {
+                "at": 1001,
+                "sequence": 1,
+                "transfer": 1,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "b-name",
+              "arrival": {
+                "at": 1002,
+                "sequence": 2,
+                "transfer": 1,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.1",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "b-name",
+              "a-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "append",
+          "peer": "B",
+          "expectedHead": null,
+          "nextHead": "b-head-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-name",
+              "arrival": {
+                "at": 1001,
+                "sequence": 1,
+                "transfer": 2,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "B.1",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "purge",
+          "peer": "A",
+          "revisionAs": "A.2",
+          "ids": [
+            "a-name"
+          ],
+          "expect": {
+            "targets": [
+              {
+                "delta": "a-name",
+                "outcome": "held-by-other-peer"
+              }
+            ],
+            "revisionAdvanced": true,
+            "claim": {
+              "unprovable": "nothing-removed",
+              "proven": "nothing-removed"
+            },
+            "referenceSurfaces": [
+              {
+                "surface": "rows",
+                "state": "absent"
+              },
+              {
+                "surface": "index-entries",
+                "state": "absent"
+              },
+              {
+                "surface": "process-memory",
+                "state": "unprovable"
+              }
+            ]
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "a-head-1",
+          "nextHead": "a-head-2",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-name",
+              "arrival": {
+                "at": 1003,
+                "sequence": 3,
+                "transfer": 3,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.3",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "purge",
+          "peer": "B",
+          "revisionAs": "B.2",
+          "ids": [
+            "a-name"
+          ],
+          "expect": {
+            "targets": [
+              {
+                "delta": "a-name",
+                "outcome": "held-by-other-peer"
+              }
+            ],
+            "revisionAdvanced": true,
+            "claim": {
+              "unprovable": "nothing-removed",
+              "proven": "nothing-removed"
+            },
+            "referenceSurfaces": [
+              {
+                "surface": "rows",
+                "state": "absent"
+              },
+              {
+                "surface": "index-entries",
+                "state": "absent"
+              },
+              {
+                "surface": "process-memory",
+                "state": "unprovable"
+              }
+            ]
+          }
+        },
+        {
+          "op": "purge",
+          "peer": "A",
+          "revisionAs": "A.4",
+          "ids": [
+            "a-name",
+            "b-name"
+          ],
+          "expect": {
+            "targets": [
+              {
+                "delta": "b-name",
+                "outcome": "removed"
+              },
+              {
+                "delta": "a-name",
+                "outcome": "removed"
+              }
+            ],
+            "revisionAdvanced": true,
+            "claim": {
+              "unprovable": "unproven",
+              "proven": "proven"
+            },
+            "referenceSurfaces": [
+              {
+                "surface": "rows",
+                "state": "absent"
+              },
+              {
+                "surface": "index-entries",
+                "state": "absent"
+              },
+              {
+                "surface": "process-memory",
+                "state": "unprovable"
+              }
+            ]
+          }
+        },
+        {
+          "op": "changes",
+          "peer": "A",
+          "from": {
+            "revision": "A.0"
+          },
+          "expect": {
+            "status": "ok",
+            "records": [
+              {
+                "revision": "A.1",
+                "head": "a-head-1",
+                "added": [
+                  "b-name",
+                  "a-name"
+                ],
+                "removed": []
+              },
+              {
+                "revision": "A.2",
+                "head": "a-head-1",
+                "added": [],
+                "removed": [
+                  "a-name"
+                ]
+              },
+              {
+                "revision": "A.3",
+                "head": "a-head-2",
+                "added": [
+                  "a-name"
+                ],
+                "removed": []
+              },
+              {
+                "revision": "A.4",
+                "head": "a-head-2",
+                "added": [],
+                "removed": [
+                  "b-name",
+                  "a-name"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "op": "changes",
+          "peer": "A",
+          "from": {
+            "revision": "A.1"
+          },
+          "to": {
+            "revision": "A.3"
+          },
+          "expect": {
+            "status": "ok",
+            "records": [
+              {
+                "revision": "A.2",
+                "head": "a-head-1",
+                "added": [],
+                "removed": [
+                  "a-name"
+                ]
+              },
+              {
+                "revision": "A.3",
+                "head": "a-head-2",
+                "added": [
+                  "a-name"
+                ],
+                "removed": []
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "feed-two-peers-interleaved",
+      "spec": "SPEC-18 §4.1, §4.6",
+      "requires": [
+        "changes"
+      ],
+      "steps": [
+        {
+          "op": "createPeer",
+          "peer": "A",
+          "erasure": "unproven",
+          "expect": {
+            "status": "created"
+          }
+        },
+        {
+          "op": "mark",
+          "peer": "A",
+          "as": "A.0"
+        },
+        {
+          "op": "createPeer",
+          "peer": "B",
+          "erasure": "unproven",
+          "expect": {
+            "status": "created"
+          }
+        },
+        {
+          "op": "mark",
+          "peer": "B",
+          "as": "B.0"
+        },
+        {
+          "op": "append",
+          "peer": "B",
+          "expectedHead": null,
+          "nextHead": "b-head-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "far",
+              "arrival": {
+                "at": 1001,
+                "sequence": 1,
+                "transfer": 1,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "ghost",
+              "arrival": {
+                "at": 1002,
+                "sequence": 2,
+                "transfer": 1,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "B.1",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "ghost",
+              "far"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": null,
+          "nextHead": "a-head-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-height",
+              "arrival": {
+                "at": 1001,
+                "sequence": 1,
+                "transfer": 2,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.1",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-height"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "append",
+          "peer": "B",
+          "expectedHead": "b-head-1",
+          "nextHead": "b-head-2",
+          "frame": null,
+          "added": [
+            {
+              "delta": "b-name",
+              "arrival": {
+                "at": 1003,
+                "sequence": 3,
+                "transfer": 3,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "B.2",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "b-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "a-head-1",
+          "nextHead": "a-head-2",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-name",
+              "arrival": {
+                "at": 1002,
+                "sequence": 2,
+                "transfer": 4,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.2",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "append",
+          "peer": "B",
+          "expectedHead": "b-head-2",
+          "nextHead": "b-head-3",
+          "frame": null,
+          "added": [],
+          "revisionAs": "B.3",
+          "expect": {
+            "status": "committed",
+            "added": [],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "a-head-2",
+          "nextHead": "a-head-3",
+          "frame": null,
+          "added": [
+            {
+              "delta": "k-note",
+              "arrival": {
+                "at": 1003,
+                "sequence": 3,
+                "transfer": 6,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.3",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "k-note"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "append",
+          "peer": "B",
+          "expectedHead": "b-head-3",
+          "nextHead": "b-head-4",
+          "frame": null,
+          "added": [
+            {
+              "delta": "k-note-signed",
+              "arrival": {
+                "at": 1004,
+                "sequence": 4,
+                "transfer": 7,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "a-height",
+              "arrival": {
+                "at": 1005,
+                "sequence": 5,
+                "transfer": 7,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "B.4",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "k-note-signed",
+              "a-height"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "openPeer",
+          "peer": "A",
+          "handle": "A2",
+          "expect": {
+            "status": "opened",
+            "posture": "unproven"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A2",
+          "expectedHead": "a-head-3",
+          "nextHead": "a-head-4",
+          "frame": null,
+          "added": [
+            {
+              "delta": "bed-link",
+              "arrival": {
+                "at": 1004,
+                "sequence": 4,
+                "transfer": 8,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.4",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "bed-link"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "changes",
+          "peer": "A",
+          "from": {
+            "revision": "A.0"
+          },
+          "expect": {
+            "status": "ok",
+            "records": [
+              {
+                "revision": "A.1",
+                "head": "a-head-1",
+                "added": [
+                  "a-height"
+                ],
+                "removed": []
+              },
+              {
+                "revision": "A.2",
+                "head": "a-head-2",
+                "added": [
+                  "a-name"
+                ],
+                "removed": []
+              },
+              {
+                "revision": "A.3",
+                "head": "a-head-3",
+                "added": [
+                  "k-note"
+                ],
+                "removed": []
+              },
+              {
+                "revision": "A.4",
+                "head": "a-head-4",
+                "added": [
+                  "bed-link"
+                ],
+                "removed": []
+              }
+            ]
+          }
+        },
+        {
+          "op": "changes",
+          "peer": "A2",
+          "from": {
+            "revision": "A.2"
+          },
+          "expect": {
+            "status": "ok",
+            "records": [
+              {
+                "revision": "A.3",
+                "head": "a-head-3",
+                "added": [
+                  "k-note"
+                ],
+                "removed": []
+              },
+              {
+                "revision": "A.4",
+                "head": "a-head-4",
+                "added": [
+                  "bed-link"
+                ],
+                "removed": []
+              }
+            ]
+          }
+        },
+        {
+          "op": "changes",
+          "peer": "B",
+          "from": {
+            "revision": "B.0"
+          },
+          "expect": {
+            "status": "ok",
+            "records": [
+              {
+                "revision": "B.1",
+                "head": "b-head-1",
+                "added": [
+                  "ghost",
+                  "far"
+                ],
+                "removed": []
+              },
+              {
+                "revision": "B.2",
+                "head": "b-head-2",
+                "added": [
+                  "b-name"
+                ],
+                "removed": []
+              },
+              {
+                "revision": "B.3",
+                "head": "b-head-3",
+                "added": [],
+                "removed": []
+              },
+              {
+                "revision": "B.4",
+                "head": "b-head-4",
+                "added": [
+                  "k-note-signed",
+                  "a-height"
+                ],
+                "removed": []
+              }
+            ]
+          }
+        },
+        {
+          "op": "changes",
+          "peer": "B",
+          "from": {
+            "revision": "B.1"
+          },
+          "to": {
+            "revision": "B.3"
+          },
+          "expect": {
+            "status": "ok",
+            "records": [
+              {
+                "revision": "B.2",
+                "head": "b-head-2",
+                "added": [
+                  "b-name"
+                ],
+                "removed": []
+              },
+              {
+                "revision": "B.3",
+                "head": "b-head-3",
+                "added": [],
+                "removed": []
+              }
+            ]
+          }
+        },
+        {
+          "op": "changes",
+          "peer": "A",
+          "from": {
+            "revision": "A.4"
+          },
+          "expect": {
+            "status": "ok",
+            "records": []
+          }
+        },
+        {
+          "op": "changes",
+          "peer": "A",
+          "from": {
+            "revision": "A.4",
+            "ahead": 1
+          },
+          "expect": {
+            "status": "resync-required"
+          }
+        }
+      ]
     }
   ]
 }

@@ -18,6 +18,7 @@ import {
   passesSelection,
   scopeOver,
   type PushdownField,
+  type RevisionRef,
   type StoreScopeCase,
   type StoreScript,
   type StoreVectorStep,
@@ -25,6 +26,7 @@ import {
   type VectorArrival,
   type VectorDelta,
   type VectorPushdown,
+  type VectorRecord,
   type VectorRequirement,
 } from "./store-vector-format.js";
 import type { ErasurePosture, PurgeOutcome, Pushdown, VerifiedDelta } from "./store.js";
@@ -125,7 +127,10 @@ const PEERS: Readonly<Record<string, string>> = {
 
 type Entry = VerifiedDelta & { readonly name: string };
 type ModelPeer = {
+  readonly name: string;
   readonly posture: ErasurePosture;
+  /** One record per revision advance: `revision` is the model's own integer. */
+  readonly feed: { readonly revision: number; readonly record: VectorRecord }[];
   head: string | null;
   revision: number;
   lastSequence: number;
@@ -159,10 +164,69 @@ class Model {
   /** Handle name to peer name. A peer's first handle carries the peer's own name. */
   private readonly handles = new Map<string, string>();
   private readonly snapshots = new Map<string, ModelSnapshot>();
+  /** Revision names, each with its peer and the model's integer. */
+  private readonly revisions = new Map<string, { peer: ModelPeer; revision: number }>();
   private transfer = 0;
 
-  constructor(named: readonly Named[]) {
+  /**
+   * With `feed`, the model names every revision: `<peer>.0` when the peer is created (a `mark`
+   * step), and `<peer>.<n>` on each step that advances it (`revisionAs`).
+   */
+  constructor(
+    named: readonly Named[],
+    private readonly feed = false,
+  ) {
     this.byName = new Map(named.map((n) => [n.name, n]));
+  }
+
+  private nameRevision(state: ModelPeer): string {
+    const name = `${state.name}.${state.revision}`;
+    this.revisions.set(name, { peer: state, revision: state.revision });
+    return name;
+  }
+
+  /** Records the revision advance just made, and answers the name of its revision. */
+  private advance(state: ModelPeer, added: readonly string[], removed: readonly string[]): string {
+    state.revision++;
+    const revision = this.nameRevision(state);
+    state.feed.push({
+      revision: state.revision,
+      record: { revision, head: state.head, added: [...added], removed: [...removed] },
+    });
+    return revision;
+  }
+
+  /** Names the peer's current revision. */
+  mark(peer: string, as: string): void {
+    const state = this.handle(peer);
+    if (this.revisions.has(as)) throw new Error(`vector: revision ${as} named twice`);
+    this.revisions.set(as, { peer: state, revision: state.revision });
+    this.steps.push({ op: "mark", peer, as });
+  }
+
+  /** `changes(from, to)` on an unbounded feed (README §3.9). */
+  changes(peer: string, from: RevisionRef, to?: RevisionRef): void {
+    const state = this.handle(peer);
+    const value = (ref: RevisionRef): number => {
+      const named = this.revisions.get(ref.revision);
+      if (named === undefined || named.peer !== state)
+        throw new Error(`vector: revision ${ref.revision} is not ${peer}'s`);
+      return named.revision + (ref.ahead ?? 0);
+    };
+    const after = value(from);
+    const upTo = to === undefined ? undefined : value(to);
+    const step = { op: "changes", peer, from, ...(to === undefined ? {} : { to }) } as const;
+    if (upTo !== undefined && upTo < after)
+      this.steps.push({ ...step, expect: { error: "invalid-request" } });
+    else if (after > state.revision)
+      this.steps.push({ ...step, expect: { status: "resync-required" } });
+    else {
+      const end = Math.min(upTo ?? state.revision, state.revision);
+      const records = state.feed
+        .filter((r) => r.revision > after && r.revision <= end)
+        .map((r) => r.record);
+      this.steps.push({ ...step, expect: { status: "ok", records } });
+    }
   }
 
   private delta(name: string): Delta {
@@ -205,7 +269,9 @@ class Model {
       this.steps.push({ ...step, expect: { error: "peer-exists" } });
     } else {
       this.peers.set(peer, {
+        name: peer,
         posture: erasure,
+        feed: [],
         head: null,
         revision: 0,
         lastSequence: 0,
@@ -214,6 +280,7 @@ class Model {
       });
       this.handles.set(peer, peer);
       this.steps.push({ ...step, expect: { status: "created" } });
+      if (this.feed) this.mark(peer, `${peer}.0`);
     }
   }
 
@@ -304,10 +371,12 @@ class Model {
       state.lastSequence = Math.max(state.lastSequence, entry.arrival.sequence);
     }
     state.head = nextHead;
-    if (revisionAdvanced) state.revision++;
+    const newly = this.names(fresh);
+    const revisionAs = revisionAdvanced ? this.advance(state, newly, []) : undefined;
     this.steps.push({
       ...step,
-      expect: { status: "committed", added: this.names(fresh), revisionAdvanced },
+      ...(this.feed && revisionAs !== undefined ? { revisionAs } : {}),
+      expect: { status: "committed", added: newly, revisionAdvanced },
     });
   }
 
@@ -316,12 +385,14 @@ class Model {
     const distinct = new Map<string, string>();
     for (const name of names) if (!distinct.has(this.id(name))) distinct.set(this.id(name), name);
     const targets: { delta: string; outcome: PurgeOutcome }[] = [];
-    let changed = false;
+    // Only ids that leave this peer's holdings enter its record; a settled debt does not.
+    const released: Entry[] = [];
     for (const id of [...distinct.keys()].sort(compareUtf8)) {
       let outcome: PurgeOutcome;
-      if (state.held.some((e) => e.delta.id === id)) {
+      const holding = state.held.find((e) => e.delta.id === id);
+      if (holding !== undefined) {
         state.held = state.held.filter((e) => e.delta.id !== id);
-        changed = true;
+        released.push(holding);
         outcome = this.elsewhere(state, id) ? "held-by-other-peer" : "removed";
         if (outcome === "held-by-other-peer") state.owed.add(id);
       } else if (state.owed.has(id)) {
@@ -330,12 +401,14 @@ class Model {
       } else outcome = "not-held";
       targets.push({ delta: distinct.get(id)!, outcome });
     }
-    if (changed) state.revision++;
+    const changed = released.length > 0;
+    const revisionAs = changed ? this.advance(state, [], this.names(released)) : undefined;
     // The claim speaks only for targets this report removed. With none, it asserts nothing.
     const removed = targets.some((t) => t.outcome === "removed");
     this.steps.push({
       op: "purge",
       peer,
+      ...(this.feed && revisionAs !== undefined ? { revisionAs } : {}),
       ids: [...names],
       expect: {
         targets,
@@ -562,7 +635,7 @@ function script(
   requires: readonly VectorRequirement[],
   body: (m: Model) => void,
 ): StoreScript {
-  const model = new Model(named);
+  const model = new Model(named, requires.includes("changes"));
   body(model);
   return { name, spec, requires, steps: model.steps };
 }
@@ -1128,6 +1201,133 @@ function scripts(named: readonly Named[]): StoreScript[] {
         m.get("s", ["a-height"]);
       },
       ["journal-absent"],
+    ),
+    // ---- the change feed (§4.6). The runner also checks the feed after every step of every
+    // script above, on a store that serves one (README §3.9).
+    s(
+      "feed-appends-and-head-only-commits",
+      "SPEC-18 §4.6, §4.13",
+      (m) => {
+        m.createPeer("A", "unproven");
+        // A new peer's feed is empty: from its first revision there is nothing.
+        m.changes("A", { revision: "A.0" });
+        m.append("A", null, "head-1", seq(1, "a-height", "a-name"));
+        m.append("A", "head-1", "head-2", seq(3, "b-name"));
+        // Nothing new, the head moves: one record with no ids.
+        m.append("A", "head-2", "head-3", []);
+        // Nothing new, the same head: no record and no revision.
+        m.append("A", "head-3", "head-3", seq(4, "a-height", "b-name"));
+        // A held id again, the head moves: a record with no ids.
+        m.append("A", "head-3", "head-4", seq(4, "a-height"));
+        // A refused append and a conflict write no record.
+        m.append("A", "head-4", "head-5", [{ delta: "forged", sequence: 5 }]);
+        m.append("A", "head-0", "head-5", seq(5, "far"));
+        m.mark("A", "middle");
+        m.append("A", "head-4", "head-5", seq(5, "far", "bed-link"));
+        for (let i = 6; i <= 9; i++) m.append("A", `head-${i - 1}`, `head-${i}`, []);
+        m.append("A", "head-9", "head-10", seq(7, "a-twice"));
+        // The whole feed: ten records, over more than one page where pages are small.
+        m.changes("A", { revision: "A.0" });
+        m.changes("A", { revision: "A.1" });
+        m.changes("A", { revision: "middle" });
+        // A range inside the feed, and a range of one record.
+        m.changes("A", { revision: "A.1" }, { revision: "A.4" });
+        m.changes("A", { revision: "A.3" }, { revision: "A.4" });
+        // from === to, and from === the current revision: no record.
+        m.changes("A", { revision: "A.2" }, { revision: "A.2" });
+        m.changes("A", { revision: "A.10" });
+        m.changes("A", { revision: "A.10" }, { revision: "A.10", ahead: 5 });
+        // A `to` past the current revision is clamped to it.
+        m.changes("A", { revision: "A.6" }, { revision: "A.10", ahead: 3 });
+        // A range that ends before it starts is refused.
+        m.changes("A", { revision: "A.3" }, { revision: "A.1" });
+        m.changes("A", { revision: "A.10", ahead: 2 }, { revision: "A.10", ahead: 1 });
+        // A cursor from the future: resync-required, with and without a `to`.
+        m.changes("A", { revision: "A.10", ahead: 1 });
+        m.changes("A", { revision: "A.10", ahead: 1 }, { revision: "A.10", ahead: 4 });
+      },
+      ["changes"],
+    ),
+    s(
+      "feed-purge-and-debts",
+      "SPEC-18 §4.6, §4.7.2, §4.13",
+      (m) => {
+        m.createPeer("A", "unproven");
+        m.createPeer("B", "unproven");
+        m.createPeer("C", "unproven");
+        m.append("A", null, "a-head-1", seq(1, "a-height", "a-height-neg", "a-name", "bed-link"));
+        m.append("B", null, "b-head-1", seq(1, "a-height", "a-name"));
+        // a-height leaves A although B keeps the bytes: it is in A's record. far was never held.
+        m.purge("A", ["a-height-neg", "a-height", "far"]);
+        // A owes a-height and B still holds it: no record.
+        m.purge("A", ["a-height"]);
+        // B lets go. B's record names it; A's feed does not move.
+        m.purge("B", ["a-height"]);
+        // A's debt for a-height settles here, and a-name leaves A. Only a-name is in the record:
+        // A stopped holding a-height at an earlier commit.
+        m.purge("A", ["a-height", "a-name"]);
+        // Only a settled or an owed debt, or nothing held: no record.
+        m.purge("A", ["a-name"]);
+        m.purge("B", ["a-name"]);
+        m.purge("A", ["a-name"]);
+        m.purge("C", ["a-height", "bed-link"]);
+        m.purge("A", []);
+        // A purged id is added again, purged again, and added again: each is a record.
+        m.append("A", "a-head-1", "a-head-2", seq(9, "a-height-neg"));
+        m.purge("A", ["a-height-neg"]);
+        m.append("A", "a-head-2", "a-head-3", seq(10, "a-height-neg", "a-name"));
+        m.changes("A", { revision: "A.0" });
+        m.changes("A", { revision: "A.2" }, { revision: "A.4" });
+        m.changes("B", { revision: "B.0" });
+        m.changes("C", { revision: "C.0" });
+        m.exportStored();
+      },
+      ["changes", "purge"],
+    ),
+    s(
+      "feed-a-debt-ends-on-append",
+      "SPEC-18 §4.6, §4.7.2",
+      (m) => {
+        m.createPeer("A", "unproven");
+        m.createPeer("B", "unproven");
+        m.append("A", null, "a-head-1", seq(1, "a-name", "b-name"));
+        m.append("B", null, "b-head-1", seq(1, "a-name"));
+        m.purge("A", ["a-name"]);
+        // The append ends A's debt and holds the id again: a record adds it.
+        m.append("A", "a-head-1", "a-head-2", seq(3, "a-name"));
+        m.purge("B", ["a-name"]);
+        // A holds the id again, so this purge releases it: a record removes it.
+        m.purge("A", ["a-name", "b-name"]);
+        m.changes("A", { revision: "A.0" });
+        m.changes("A", { revision: "A.1" }, { revision: "A.3" });
+      },
+      ["changes", "purge"],
+    ),
+    s(
+      "feed-two-peers-interleaved",
+      "SPEC-18 §4.1, §4.6",
+      (m) => {
+        m.createPeer("A", "unproven");
+        m.createPeer("B", "unproven");
+        m.append("B", null, "b-head-1", seq(1, "far", "ghost"));
+        m.append("A", null, "a-head-1", seq(1, "a-height"));
+        m.append("B", "b-head-1", "b-head-2", seq(3, "b-name"));
+        m.append("A", "a-head-1", "a-head-2", seq(2, "a-name"));
+        m.append("B", "b-head-2", "b-head-3", []);
+        // Bytes both peers hold: each feed names the id once, at its own commit.
+        m.append("A", "a-head-2", "a-head-3", seq(3, "k-note"));
+        m.append("B", "b-head-3", "b-head-4", seq(4, "k-note-signed", "a-height"));
+        m.openPeer("A", "A2");
+        m.append("A2", "a-head-3", "a-head-4", seq(4, "bed-link"));
+        m.changes("A", { revision: "A.0" });
+        m.changes("A2", { revision: "A.2" });
+        m.changes("B", { revision: "B.0" });
+        m.changes("B", { revision: "B.1" }, { revision: "B.3" });
+        // Each peer's revisions are its own: B is ahead of A, and A's cursor is A's.
+        m.changes("A", { revision: "A.4" });
+        m.changes("A", { revision: "A.4", ahead: 1 });
+      },
+      ["changes"],
     ),
   ];
 }

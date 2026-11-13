@@ -16,10 +16,10 @@ use serde_json::Value;
 use crate::delta::compute_id;
 use crate::json_profile::parse_claims;
 use crate::store::{
-    negated_ids, target_entities, Admission, Anchor, AppendResult, ArrivalRecord, ErasureClaim,
-    ErasureClass, ErasurePosture, PeerStore, Pushdown, PushdownFields, Revision, ScopeRequest,
-    ScopeResult, Snapshot, Store, StoreError, StoreErrorCode, StoreProfile, SurfaceState,
-    VerifiedDelta, PURGE_BOUNDARY,
+    negated_ids, target_entities, Admission, Anchor, AppendResult, ArrivalRecord, ChangeRetention,
+    ErasureClaim, ErasureClass, ErasurePosture, PeerStore, Pushdown, PushdownFields, Revision,
+    ScopeRequest, ScopeResult, Snapshot, Store, StoreError, StoreErrorCode, StoreProfile,
+    SurfaceState, VerifiedDelta, PURGE_BOUNDARY,
 };
 use crate::types::Delta;
 
@@ -424,6 +424,9 @@ impl<'a> Run<'a> {
             let holds = match requirement.as_str() {
                 "purge" => self.profile.capabilities.erasure != ErasureClass::None,
                 "journal-absent" => !self.profile.capabilities.journal,
+                // The change feed (README §3.9). This runner has no feed steps yet (slice 3
+                // step 4); its stores serve no feed, so it skips the feed scripts.
+                "changes" => self.profile.change_retention != ChangeRetention::None,
                 other => return Err(format!("unknown script requirement `{other}`")),
             };
             if !holds {

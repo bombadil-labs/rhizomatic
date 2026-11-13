@@ -44,7 +44,7 @@ export type VectorPushdown = {
   readonly arrivalAtMost?: number;
   readonly excludeIds?: readonly string[];
 };
-export type VectorRequirement = "purge" | "journal-absent";
+export type VectorRequirement = "purge" | "journal-absent" | "changes";
 
 /** One code, or a list when more than one cause applies and any listed code conforms. */
 export type VectorRefusal = StoreErrorCode | readonly StoreErrorCode[];
@@ -68,6 +68,8 @@ export type OpenPeerStep = {
 export type AppendStep = {
   readonly op: "append";
   readonly peer: string;
+  /** Names the peer's revision after the step, for later `changes` steps. */
+  readonly revisionAs?: string;
   readonly expectedHead: string | null;
   readonly nextHead: string;
   readonly frame: string | null;
@@ -84,6 +86,8 @@ export type AppendStep = {
 export type PurgeStep = {
   readonly op: "purge";
   readonly peer: string;
+  /** Names the peer's revision after the step, for later `changes` steps. */
+  readonly revisionAs?: string;
   readonly ids: readonly string[];
   readonly expect: {
     readonly targets: readonly { readonly delta: string; readonly outcome: PurgeOutcome }[];
@@ -156,6 +160,30 @@ export type ExportPeersStep = {
   readonly op: "exportPeers";
   readonly expect: { readonly peers: readonly string[] };
 };
+/** Names the peer's current revision. */
+export type MarkStep = { readonly op: "mark"; readonly peer: string; readonly as: string };
+/**
+ * A named revision, or a revision `ahead` steps later than it. Revisions are integers in every
+ * witness, so `ahead` adds to the integer; the vectors use it only past the current revision.
+ */
+export type RevisionRef = { readonly revision: string; readonly ahead?: number };
+/** One expected change record. `revision` is a name; the id lists are corpus names. */
+export type VectorRecord = {
+  readonly revision: string;
+  readonly head: string | null;
+  readonly added: readonly string[];
+  readonly removed: readonly string[];
+};
+export type ChangesStep = {
+  readonly op: "changes";
+  readonly peer: string;
+  readonly from: RevisionRef;
+  readonly to?: RevisionRef;
+  readonly expect:
+    | { readonly status: "ok"; readonly records: readonly VectorRecord[] }
+    | { readonly status: "resync-required" }
+    | Refusal;
+};
 export type StoreVectorStep =
   | CreatePeerStep
   | OpenPeerStep
@@ -172,7 +200,9 @@ export type StoreVectorStep =
   | ArrivalsStep
   | ExportStep
   | ExportStoredStep
-  | ExportPeersStep;
+  | ExportPeersStep
+  | MarkStep
+  | ChangesStep;
 
 export type StoreScript = {
   readonly name: string;

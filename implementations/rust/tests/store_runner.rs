@@ -247,10 +247,28 @@ fn vectors() -> StoreVectors {
     }
 }
 
+/// The change-feed scripts (README §3.9). This witness's stores serve no feed yet, so each is
+/// skipped for the requirement `changes`.
+const FEED_SCRIPTS: [&str; 4] = [
+    "scripts/feed-appends-and-head-only-commits",
+    "scripts/feed-purge-and-debts",
+    "scripts/feed-a-debt-ends-on-append",
+    "scripts/feed-two-peers-interleaved",
+];
+
 fn run(quirk: Quirk) -> Result<usize, StoreConformanceError> {
     let factory = || Ok(Box::new(Standin::new(quirk)) as Box<dyn Store>);
     run_store_conformance(&factory, &vectors()).map(|report| {
-        assert_eq!(report.skipped, vec![], "{quirk:?}");
+        let skipped: Vec<(&str, &str)> = report
+            .skipped
+            .iter()
+            .map(|s| (s.name.as_str(), s.missing.as_str()))
+            .collect();
+        assert_eq!(
+            skipped,
+            FEED_SCRIPTS.map(|name| (name, "changes")),
+            "{quirk:?}"
+        );
         report.passed.len()
     })
 }
