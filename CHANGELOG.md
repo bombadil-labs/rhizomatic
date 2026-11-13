@@ -46,6 +46,19 @@ the revision it asked for. A full mirror may start from a position and then a no
 a follower's copies lie outside the store's erasure, and a follower replaces its mirror after
 `resync-required`. `follow.json` gains single pulls (`once`) with commits between them.
 
+The store, slice 3, step 9 (SPEC-18 proposal §4.6 "Held views", §4.13 readings 73 to 86): held
+views. A `StoreViews` holds, for one peer, a bounded set of views: each an anchored read of a
+registered program at a root, with its capture. `hold(name, root, now)` answers a view and
+`refresh(now)` brings every held view to one snapshot and one time. Each makes one pass over the
+change feed for the whole set. The pass finds the touched views through an inverted index and
+reads only those again, on its own snapshot; then the views whose window no longer holds `now`,
+and the views whose program's epoch changed (`setEpoch`). After a pass every held view equals a
+fresh read. `refresh` answers the views read again and the views whose bytes changed; there is
+no push. `nextBoundary` is the least `expiresAt` over the held views. `maxViews` bounds the set;
+`drop` forgets a view. A held view keeps a purged delta's bytes until its next pass, so a host
+that erases calls `refresh` or `drop` first. The memory `Reactor` does not change. The new shared
+vectors `vectors/store/views.json` pin held views; the Rust witness skips them until step 10.
+
 ### ⚠️ Breaking
 
 - `StoreRead` and `FetchedScope` have a new required member, `position`. A consumer that builds
