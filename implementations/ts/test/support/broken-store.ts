@@ -152,7 +152,8 @@ export function sparse(
   quirk: {
     partialThroughPlusOne?: boolean;
     oldestKeptFloor?: boolean;
-    belowFloorOk?: boolean;
+    /** True: at every `from` that is not a multiple of k. A number: only where `from % k` is it. */
+    belowFloorOk?: boolean | number;
   } = {},
 ): Break {
   const now = async (peer: PeerStore): Promise<number> => {
@@ -186,7 +187,9 @@ export function sparse(
         let page = await peer.changes(inner, innerTo);
         // The quirk: below the floor at a value the peer never had, read on from just past it.
         // The newest dropped record is silently missing.
-        if (quirk.belowFloorOk === true && page.status === "resync-required" && from % k !== 0)
+        const quirky =
+          quirk.belowFloorOk === true ? from % k !== 0 : from % k === quirk.belowFloorOk;
+        if (quirk.belowFloorOk !== undefined && quirky && page.status === "resync-required")
           page = await peer.changes(inner + 1, innerTo);
         if (page.status === "resync-required") return { ...page, current: page.current * k };
         if (

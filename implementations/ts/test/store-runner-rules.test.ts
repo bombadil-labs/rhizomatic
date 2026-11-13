@@ -731,6 +731,15 @@ const SHAPES_AND_SPARSE: Readonly<Record<string, Rule>> = {
       ...sparse(3, { belowFloorOk: true }),
     },
   },
+  "the feed: revisions times 3, ok two below the floor and right one below it": {
+    doc: "scripts",
+    says: /changes answered ok from \d+, below the retention floor \d+/,
+    // Right at F − 1, wrong at F − 2: a probe of F − 1 alone passes it.
+    store: {
+      options: { changeRetention: { revisions: 2 } },
+      ...sparse(3, { belowFloorOk: 1 }),
+    },
+  },
   "the feed: revisions times 2, ok just below the floor without the newest dropped record": {
     doc: "scripts",
     says: /changes answered ok from \d+, below the retention floor \d+/,
@@ -2150,6 +2159,11 @@ describe("runner rules: a wrong document", () => {
       vectors: feedSteps(1),
       says: "the profile's changeRetention is not none, unbounded or {revisions: n}",
       store: broken({ profile: (p) => ({ ...p, changeRetention: { revisions: 0 } }) }),
+    },
+    "a profile that keeps 2^53 records, which is not a safe integer": {
+      vectors: feedSteps(1),
+      says: "the profile's changeRetention is not none, unbounded or {revisions: n}",
+      store: broken({ profile: (p) => ({ ...p, changeRetention: { revisions: 2 ** 53 } }) }),
     },
     "a scope case without the scope of an applied subset": {
       vectors: scopeOnly((c) => ({

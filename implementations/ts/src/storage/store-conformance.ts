@@ -473,9 +473,10 @@ export class Run {
       if (index > 0) {
         const previous = feed.revisions[index - 1]!;
         await this.below(peer, handle, previous, floor);
-        // Where revisions skip values, a `from` just below the floor is not a revision the
-        // peer had, and it is below the floor all the same.
-        if (floor - 1 > previous) await this.below(peer, handle, floor - 1, floor);
+        // Where revisions skip values, every `from` between the previous revision and the floor
+        // is not a revision the peer had, and it is below the floor all the same.
+        for (let from = previous + 1; from < floor; from++)
+          await this.below(peer, handle, from, floor);
         // The floor is the newest dropped revision, not the one just before the oldest kept
         // record. Where revisions skip values the two differ, and a `from` between them is
         // above the floor.

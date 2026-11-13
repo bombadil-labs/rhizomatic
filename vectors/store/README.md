@@ -731,9 +731,12 @@ the peer dropped records (i > 0):
    `changes answered ok from <r>, below the retention floor <F>`. Its `current` must be the
    model's current revision, else
    `a resync answer carries current <c>, not the peer's revision <r>`.
-2. **Just below the floor.** When F − 1 > `revisions[i − 1]`, make the same one call, from
-   F − 1, with the same checks and messages. Only a store whose revisions skip values reaches
-   it: there F − 1 is not a revision the peer had, and it is still below the floor.
+2. **Between the floor and the revision before it.** For every integer `from` with
+   `revisions[i − 1] < from < F`, in ascending order, make the same one call, with the same
+   checks and messages. Only a store whose revisions skip values reaches it: there each such
+   `from` is not a revision the peer had, and it is still below the floor. A store whose
+   revisions are k apart gets k − 1 calls. Probing F − 1 alone is not enough: a store can be
+   right there and wrong at F − 2 (§8, the row "ok two below the floor and right one below it").
 3. **The floor probe.** Let K be `revisions[i + 1]`, the revision of the oldest kept record.
    When F + 1 < K, read the pages from F + 1 with no `to` (§3.9.5). An answer of
    `resync-required` fails with `changes answered resync-required from <F + 1>, above the
@@ -1510,7 +1513,11 @@ The table covers at least:
   revisions are twice the reference's, with pages of one record, whose partial page says
   `through = last + 1` (check 12 of §3.9.5); a store whose revisions are three times the
   reference's, keeping two records, that answers `resync-required` for a `from` between the
-  newest dropped and the oldest kept revision (the floor probe of §3.9.4). Most break the feed
+  newest dropped and the oldest kept revision (the floor probe of §3.9.4); a store whose
+  revisions are three times the reference's, keeping two records, that reads on past the newest
+  dropped record and answers `ok` only where `from % 3` is 1 (the row "ok two below the floor and
+  right one below it": wrong at F − 2, right at F − 1, so item 2 of §3.9.4 must probe every
+  integer between the revision before the newest dropped record and F). Most break the feed
   only when two or more records are pending, so the check of each commit, a range of one, still passes and the rule's
   own message is the one that fails. Two messages are shared by the check after every step and
   the `changes` step ("every record after … is retained", "below the retention floor"). Each
@@ -1520,7 +1527,8 @@ The table covers at least:
   purge `claim` with a key other than `unprovable` and `proven`; an unknown script requirement;
   a script `requires` that is `null`; a revision name that is unknown, of another peer, or given
   twice; a `mark` before its peer; `changes` expectations that are wrong; a `changes` step on a
-  store without a feed; a profile whose `changeRetention` is malformed. A defect of one
+  store without a feed; a profile whose `changeRetention` is malformed, among them
+  `{revisions: 2^53}`, which is an integer and not a safe one. A defect of one
   script's `requires` is a failure of that script, reported by name with the run's other
   failures, and the run closes that script's store.
 

@@ -1193,10 +1193,11 @@ and §9 pin each point that a vector can pin.
 21. **Revisions that skip values conform.** A store whose revisions are two or three apart, kept
     whole or bounded, with any page size, passes every vector. Each witness pins this with
     stores that scale the reference store's revisions (README §8).
-22. **Below the floor, between revisions.** Where revisions skip values, a `from` between the
-    previous kept revision and the floor is below the floor and answers `resync-required`. The
-    runner asks there, just below the floor (README §3.9.4, item 2). A store that reads on from
-    past the newest dropped record and answers `ok` there loses that record silently.
+22. **Below the floor, between revisions.** Where revisions skip values, every `from` between the
+    revision before the newest dropped record and the floor is below the floor and answers
+    `resync-required`. The runner asks at every such integer (README §3.9.4, item 2). A store that
+    reads on from past the newest dropped record and answers `ok` there loses that record
+    silently.
 23. **Asking again may give another prefix.** The ownership check asks a range again after
     changing the first answer. The second answer may hold more or fewer records, because a
     store may return any prefix (§4.6). Only the records the two answers share by revision must
