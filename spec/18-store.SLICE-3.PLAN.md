@@ -150,52 +150,35 @@ proposal (PR #76). Each is owed by the step or slice named.
   entry of `capture-interchange.json` pinned byte for byte (README §9.8); a feed page past r′ is a
   store fault in `checkFresh` (reading 46).
 
-### Step 8 (the feed cursor, Rust) owes
+### Step 8 (the feed cursor, Rust) and the integration of steps 7 and 8 — done 2026-11-13
 
-From the documents alone: `spec/18-store.PROPOSAL.md` §4.6 and §4.13 readings 46 and 54 to 66,
-`vectors/store/README.md` §9.7, §9.8 and §10, and SPEC-4 ERRATA V6 (readings 67 to 72 and
-README §10 as of the step 7 review).
+- ✓ Step 8 is built from the documents alone: `Position`, `position_of`, `follow_feed`,
+  `parse_position`, `FeedCursor::pull`, `StoreReactor::follow`, the runner of README §10 with
+  its runs, the wrong-follower table (W6 included), the fuzz and the cost rails.
+- ✓ Fuzz totals from the reviews: TypeScript 25,000 sequences and 741,018 pulls; Rust 100,000
+  sequences and 1,636,514 pulls; no divergence in either.
+- ✓ A store fault is an error value in both witnesses, never a panic or a plain `Error`, with
+  four rules: `no-progress`, `past-the-bound`, `mismatched-answers`, `unasked-ids` (readings 46,
+  63 and 73). TypeScript throws `StoreFaultError`; Rust returns `FeedError::Fault`. The boundary
+  tool no longer allows `catch_unwind` in the runner.
+- ✓ `get` and `arrivals` answer only what was asked (reading 74): an extra, repeated or unordered
+  id is `unasked-ids`, and nothing of the answer is delivered or judged.
+- ✓ One order of a capture's defects in both witnesses (reading 54), pinned by
+  `vectors/store/capture-defects.json`.
+- ✓ The runners agree (README §9 and §10): fixed words with an optional step locator;
+  `follow refused with <code>`; `the store broke <rule>: …`; a case's `store` checked, a store the
+  factory cannot build skipped (`store`), any other factory failure a failed case; a document
+  defect before a capture gap; each call logged when it is made; `snapshot-moved` from `read()`
+  retried; another format is a failure report; each witness asserts exactly the cases of the
+  file.
 
-1. `Position` (history and revision), `position_of(&Snapshot)`, and a cursor made by
-   `follow_feed(peer, from)` that makes no store call and refuses a malformed position
-   `invalid-request` (empty history; a revision outside 0 to 2^53 − 1).
-2. `pull`: one snapshot; another history or a position past the snapshot answers
-   `resync-required` with the snapshot's position and no feed call; equal revisions answer ok with
-   no records and no feed call; otherwise one `changes(position, r′)` with that explicit `to`, one
-   page; a store `resync-required` passed on with the snapshot's position; on an ok page that adds
-   ids, `get` then `arrivals` of those ids, distinct and ascending, and none for a page that adds
-   nothing; then the release.
-3. Ok answers: the page's records; the delivered deltas ascending by id, each once, each with the
-   arrival record at the snapshot, only for ids held there; the cursor moves to `through`.
-4. `resync-required` is final: every later pull answers the same, with no store call, and the
-   cursor does not move.
-5. Faults and moves: on `snapshot-moved`, start again, at most four snapshots, each released; a
-   page with no progress, a page past the snapshot, and `get` and `arrivals` that disagree are
-   store faults (a panic, as reading 46); a failed pull does not move the cursor. Pulls take the
-   cursor mutably, so they cannot overlap (reading 64).
-6. `parse_position`: exactly the keys `history` and `revision`; a non-empty history that is not
-   local to a process; `3.0` read as 3; `1.5` refused.
-7. The reactor: `StoreReactor::follow(from)`, and the position on a read and on a fetched scope.
-8. The runner of README §10 with its fixed messages and the call walk, and the runs of §10.4,
-   including `once` pull steps: one pull; `the pull stands at <p>, expected <P>`; and, short of
-   the peer's revision, the check between quiet points (`after the pull to <p> the follower's
-   mirror differs from the holdings at <id>`). The runner's rule deletes an added id that came
-   with no delta. Replace the skip in `tests/store_follow.rs` with the run.
-9. The rails of README §10.6: the wrong-follower table (a second cursor with one rule broken at a
-   time, which passes every run with none broken, and the "only these cases" evidence); the rows
-   for the follow step and for documents; each runner check removed goes red; the cursor's own
-   rules; the fuzz (at least 2,000 sequences, with mirrors started from a snapshot and from a
-   non-atomic export, README §10.6); the two cost rails. The table includes W6 ("caches what it
-   delivered"), which passes the document without the four single-pull cases and fails
-   `a-purge-between-single-pulls`.
-11. Fault before judging: rails whose faulty page also adds a touching id (`check_fresh`) or an
-    added id (the cursor); with the fault check moved after the verdict or after `get`, they go
-    red (reading 68).
-10. From the final check of PR #80: move the empty-history check of the capture parser before the
-    anchors, so the order of reading 54 holds (an empty history beside a `value` anchor is
-    `invalid-request`); pin the Rust entry of `capture-interchange.json` byte for byte from the
-    scenario of README §9.8; make `check_fresh` fail on a page whose `through` is past r′, as on a
-    page with no progress (reading 46), with the rail of README §9.7 ("Store faults and time").
+### Steps 9 and 10 (`StoreViews`) owe
+
+- A view that reads through the store reports a store that breaks its contract as a store fault,
+  an error value that names one of the four rules (`no-progress`, `past-the-bound`,
+  `mismatched-answers`, `unasked-ids`): TypeScript `StoreFaultError`, Rust `FeedError::Fault`.
+  It never panics and never throws a plain `Error` for it.
+- A view that asks `get` or `arrivals` checks the answer as the cursor does (reading 74).
 
 ### Slice 5 owes (Loam)
 
@@ -209,6 +192,10 @@ README §10 as of the step 7 review).
 
 ### Slice 4 owes
 
+- **Remote stores rely on the fault values.** A store across a process or a network can break
+  its contract; `checkFresh` and the cursor report that as a store fault with its rule, not by
+  aborting the host (§4.13 reading 73). Slice 4 decides how a remote store's client reports a
+  transport failure, and keeps the fault values for a store that breaks its contract.
 - **A durable store persists each peer's history** (§4.6 "History") and gives the peer a new
   history when the store is restored from a backup or a peer is deleted and created again. A
   capture or a cursor from before then answers `resync-required`. It also keeps every history

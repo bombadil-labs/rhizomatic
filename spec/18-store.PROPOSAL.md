@@ -473,7 +473,10 @@ snapshot's revision r′ equals the capture's, it reads no feed. When r′ is be
 explicit `to`. For each page that names an added id, it makes one `get` of those ids on the
 snapshot, and then judges the page. It stops at the first touch. A page that makes no progress
 short of r′ (`through ≤ from`), or that claims records past r′ (`through > r′`), is a store
-fault, not a verdict: the call fails with an error before the page is judged (§4.13 reading 46). **The order of the answers:**
+fault, not a verdict. So is a `get` whose answer names an id the check did not ask for, names
+one twice, or is not ascending. The call fails with a **store fault**, an error value that names
+the broken rule (`no-progress`, `past-the-bound`, `unasked-ids`), before the page is judged
+(§4.13 readings 46, 73 and 74). **The order of the answers:**
 `resync-required`, then `stale`, then the window (`not-yet` when `now < since`, `expired` when
 `now ≥ expiresAt`), else `current`. Its calls and cost depend on the records and ids since the
 capture, never on what the peer holds and never on records before the capture. It replaces
@@ -523,12 +526,15 @@ type Pull =
   on that cursor answers the same, with no store call. The position no longer names a revision
   of this feed; asking again cannot help, and a later answer could come from another history.
   The caller reads its state again and follows from the new read.
-- **Moves and faults.** When s moves under the pull (`snapshot-moved`), the pull starts again on a
-  new snapshot, at most four in all, as `checkFresh` does. A page with no progress, a page whose
-  `through` is past s's revision, and a `get` and `arrivals` that name other ids on one snapshot
-  are store faults: the pull fails with an error that is not a store refusal. Every snapshot is
-  released, also on a throw. A pull that throws does not move the cursor. Pulls on one cursor run
-  one at a time, in call order.
+- **Moves and faults.** When s moves under the pull (`snapshot-moved`, from `read()` itself or a
+  later call), the pull starts again on a new snapshot, at most four in all, as `checkFresh` does.
+  A page with no progress (`no-progress`), a page whose `through` is past s's revision
+  (`past-the-bound`), a `get` or `arrivals` whose answer names an id the pull did not ask for,
+  names one twice, or is not ascending (`unasked-ids`), and a `get` and `arrivals` that name
+  other ids on one snapshot (`mismatched-answers`) are store faults. The pull fails with a store
+  fault, an error value that names the rule, not a store refusal; it delivers none of the
+  answer. Every snapshot is released, also on an error. A pull that fails does not move the
+  cursor, and the cursor stays usable. Pulls on one cursor run one at a time, in call order.
 - **Cost.** A pull costs O(page: records, ids and delivered bytes). It never costs O(holdings)
   or O(records before the position).
 - **Positions across a process.** A position kept across a process needs a history from
@@ -1291,7 +1297,7 @@ that a vector can pin.
 ### 4.13 Slice 3 readings
 
 Slice 3 builds the change feed of §4.6 (`18-store.SLICE-3.PLAN.md`, steps 1 to 4), freshness
-(steps 5 and 6, readings 24 to 54) and the feed cursor (step 7, readings 55 to 72). Where §4.6
+(steps 5 and 6, readings 24 to 54) and the feed cursor (step 7, readings 55 to 74). Where §4.6
 and the plan were silent, the feed decided as follows.
 `vectors/store/scripts.json`, `vectors/store/freshness.json`, `vectors/store/follow.json` and
 `vectors/store/README.md` §3.9, §9 and §10 pin each point that a vector can pin.
@@ -1481,13 +1487,12 @@ and the plan were silent, the feed decided as follows.
     points (README §3.9.4, item 2), so a store whose revisions are far apart keeps the runner
     cheap. Both witnesses ask at the same points.
 46. **A page with no progress is a store fault.** Inside `checkFresh`, a page of the feed whose
-    `through` is not above its `from`, short of r′, breaks §4.6 ("Pages"). So does a page whose
-    `through` is past r′, the `to` the check asked for: it claims records the check cannot judge,
-    and `current` would speak for them. Neither is a verdict: `resync-required` would send the
-    caller to rebuild over a broken store. The call fails with an error, before the page's ids
-    are fetched or judged. The vocabulary has no code for a store that breaks its contract, so the error is a
-    plain one: TypeScript throws an `Error` that is not a `StoreError`, and Rust panics, as it
-    does for a delta source that breaks its contract.
+    `through` is not above its `from`, short of r′, breaks §4.6 ("Pages"): the rule
+    `no-progress`. So does a page whose `through` is past r′, the `to` the check asked for: it
+    claims records the check cannot judge, and `current` would speak for them (`past-the-bound`).
+    Neither is a verdict: `resync-required` would send the caller to rebuild over a broken store.
+    The call fails before the page's ids are fetched or judged, and it fails with a store fault:
+    an error value that names the rule and the values that show it (reading 73).
 47. **`now` is finite.** `checkFresh` and the capture-from-scope function (TypeScript
     `captureScope`, Rust `capture_scope`) refuse NaN, Infinity and −Infinity with
     `invalid-request`, before any store call.
@@ -1512,9 +1517,12 @@ and the plan were silent, the feed decided as follows.
     with `checkFresh refused with <code>` (README §9.3).
 54. **The order of a capture's defects.** A capture with two defects is refused by the first in
     this order: the keys (`parseCapture` only), the history (empty, then local to a process), the
-    revision, the anchors (each anchor's shape and kind, then their order), the members, then the
-    window. So an empty history beside a `value` anchor is `invalid-request`, not
-    `capability-absent`. The TypeScript witness tests inputs with two defects.
+    revision, then each anchor whole and in order (its shape, its kind, its entity) before the
+    next anchor, then the anchors' order and uniqueness, then the members (types, order,
+    uniqueness), then the window (types, finiteness, `since < expiresAt`). So an empty history
+    beside a `value` anchor is `invalid-request`, not `capability-absent`, and an entity anchor
+    whose entity is a number, before a `value` anchor, is `invalid-request` too. Both witnesses
+    read one table of such inputs, `vectors/store/capture-defects.json` (README §9.7).
 55. **A follower starts from a position and a read.** `positionOf(snapshot)` is the start, and
     nothing else is. A mode that starts at the beginning of the feed would fail under bounded
     retention, and it would hand out the records of ids the peer purged long ago. The read (on
@@ -1552,10 +1560,12 @@ and the plan were silent, the feed decided as follows.
 62. **A pull is one page.** A pull never reads a second page; a follower that is behind pulls
     again. A pull's cost is then bounded by the store's page, and a slow follower cannot hold a
     snapshot for an unbounded range.
-63. **Faults and moves.** A page with no progress, a page past the snapshot, and two answers that
-    disagree fail the pull with an error that is not a `StoreError`, as reading 46 does for
-    `checkFresh`. On `snapshot-moved` the pull starts again, at most four snapshots. A throw does
-    not move the cursor.
+63. **Faults and moves.** A page with no progress (`no-progress`), a page past the snapshot
+    (`past-the-bound`), an answer with ids the pull did not ask for (`unasked-ids`, reading 74)
+    and a `get` and `arrivals` that name other ids (`mismatched-answers`) fail the pull with a
+    store fault, the error value of reading 73, as reading 46 does for `checkFresh`. On
+    `snapshot-moved`, from `read()` itself or a later call, the pull starts again, at most four
+    snapshots. An error does not move the cursor, and the cursor stays usable.
 64. **Pulls on one cursor do not overlap.** TypeScript queues them in call order. A typed witness
     whose pull takes the cursor mutably meets this by construction.
 65. **A position crosses a process only with a minted history.** `parsePosition` refuses a
@@ -1588,6 +1598,19 @@ and the plan were silent, the feed decided as follows.
 72. **A follower's mirror lies outside erasure.** A follower holds a purged delta's bytes until it
     pulls the removal, and as long as it stops pulling. The host erases them. After
     `resync-required` the follower replaces its mirror and never merges (§4.6, §4.7.2).
+73. **A store fault is an error value.** `checkFresh` and a cursor's pull report a store that
+    broke its contract as a value, never by aborting the host: slice 4 brings stores that can be
+    remote, and a library must not take its host down over one faulty store. The fault names its
+    rule with the same words in every witness: `no-progress`, `past-the-bound`,
+    `mismatched-answers` and `unasked-ids`. It is distinct from a refusal (`StoreError`): a
+    refusal is the store keeping its contract, and a fault is the store breaking it. TypeScript
+    throws `StoreFaultError`, with `rule` and `values`; Rust returns `FeedError::Fault`, a
+    `StoreFault` whose variant is the rule and whose fields are the values. Every snapshot is
+    still released, and a failed pull leaves the cursor where it stood.
+74. **`get` and `arrivals` answer only what was asked.** An answer that names an id the call did
+    not ask for, names an id twice, or is not ascending is the fault `unasked-ids`, and the
+    reader uses none of it. Otherwise a faulty store could hand a follower the bytes of a delta
+    the peer purged, or have `checkFresh` judge a delta no record named.
 
 
 ## 5. Architectures

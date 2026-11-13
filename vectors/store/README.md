@@ -1608,13 +1608,17 @@ a touch. A case that breaks either fails generation.
 }
 ```
 
-- `format`: refuse any other value. `reference`, `peers` and `deltas` are the common header of §2.
-  No entry is signed or forged.
+- `format`: refuse any other value, with `unknown store freshness format`. That is one failure of
+  the run, named `freshness`, in its failure report, not a run that throws or refuses to start.
+  `reference`, `peers` and `deltas` are the common header of §2. No entry is signed or forged.
 - `cases`: run each on a **new** store. `requires` is a list of requirement names, as in §3; every
   case lists `changes`. Skip a case whose requirement fails, and report it skipped.
 - `store` (optional): build the case's store with this change retention (`unbounded` or
-  `{revisions: n}`). It replaces the retention of the run (§9.4). A witness that cannot build such
-  a store skips the case and reports it skipped.
+  `{revisions: n}`). It replaces the retention of the run (§9.4). The runner checks the field
+  first: another field, or a value of another shape, is a document defect that fails the case
+  (§10.1 has the messages). A factory that cannot build such a store skips the case and reports
+  it skipped, with the requirement `store`. Any other failure of the factory fails that case
+  only: `the factory did not open a store: <error>`.
 - `steps`: the steps of §3 (`createPeer`, `append`, `purge`, `mark` and the rest), run with the
   same checks, bookkeeping, revision names and feed model, and with the feed check after every
   step (§3.9.4). Two more ops: `capture` (§9.2) and `check` (§9.3). The feed check runs after
@@ -1718,9 +1722,12 @@ Otherwise it is `expect.verdict`.
 
 **The call.** Wrap the peer handle so that every call through it, and through every snapshot it
 returns, is logged with its arguments and its answer (for `read`, the snapshot's revision and
-history). Call `checkFresh(wrapped, capture, now)`.
+history). Log each call when it is made, also a call that then refuses. Call
+`checkFresh(wrapped, capture, now)`.
 It must answer. A store refusal that passes up out of it fails with
-`checkFresh refused with <code>`, followed by the refusal's message. Then check, in this order:
+`checkFresh refused with <code>`, followed by the refusal's message. A store fault (SPEC-18 §4.13
+reading 73) fails with `the store broke <rule>: `, followed by the fault's message; `<rule>` is
+`no-progress`, `past-the-bound`, `mismatched-answers` or `unasked-ids`. Then check, in this order:
 
 1. The status equals the expected status. Else, below the floor,
    `checkFresh answered <s> for a capture below the retention floor F`, and otherwise
@@ -1761,9 +1768,11 @@ It must answer. A store refusal that passes up out of it fails with
 The runner never commits while a check runs, so a `checkFresh` that starts again on a new
 snapshot after `snapshot-moved` (SPEC-18 §4.13 reading 35) is never seen here.
 
-**Messages.** As in §3.9, the fixed words of each message of §9.2 and §9.3 are normative. How a
-value inside a message is rendered is each witness's own: an id cut or whole, a number, a list
-of anchors. Each witness's table of wrong readers pins its own rendering.
+**Messages.** As in §3.9, the fixed words of each message of §9.2 and §9.3 are normative. Every
+failure message carries its fixed words; a witness MAY put a locator of the step before them
+(the TypeScript runner writes `step <n> (<op>): `). This holds for §10 too. How a value inside a
+message is rendered is each witness's own: an id cut or whole, a number, a list of anchors. Each
+witness's table of wrong readers pins its own rendering.
 
 ### 9.4 The runs each witness makes
 
@@ -1927,6 +1936,14 @@ The JSON cannot express these; each witness builds them.
   `value` or `derived-index` anchor is refused `capability-absent`; an unknown kind, a missing
   kind, an extra key and an entity that is not a string are refused `invalid-request`. A
   revision written `1.0` reads as 1, and `1.5` is refused.
+- **Two defects.** `capture-defects.json` (hand-kept, not generated) holds captures with two
+  defects or more: each is its `base` with the fields of `set` replaced or added. Each witness's
+  checking parser refuses each with `code`, and its reason starts with `starts`. The first defect
+  in the order of SPEC-18 §4.13 reading 54 decides: keys, history (empty, then local), revision,
+  each anchor whole and in order (shape, kind, entity), the anchors' order, members (types,
+  order), then the window (types, finiteness, `since < expiresAt`). Among them: an entity anchor
+  whose entity is `5` before a `value` anchor (`invalid-request`), and members out of order beside
+  a `since` that is a string (the members decide).
 - **Built captures only.** A spread copy, a copy with its members reversed, a `JSON.parse`
   result and a cast plain object are refused by `touching` and `checkFresh`; a built capture and
   its lists cannot be changed. `makeCapture` refuses what `parseCapture` refuses, except a
@@ -1937,13 +1954,23 @@ The JSON cannot express these; each witness builds them.
   that names `mintHistory`; a mint that answers the local prefix is refused when the peer is
   created.
 - **Moved snapshots.** A commit during a check: `checkFresh` starts again and answers for the
-  later revision; four moves pass `snapshot-moved` up.
+  later revision; four moves pass `snapshot-moved` up. A `read()` that itself answers
+  `snapshot-moved` counts the same: three such reads and the fourth snapshot answers; four, and
+  `snapshot-moved` passes up after four reads.
 - **Store faults and time.** A feed page with no progress short of r′, and one whose `through`
   is past r′ (a wrapper that answers `{status: "ok", records: [], through: to + 5}`), each fail
-  the check with an error that is not a verdict (SPEC-18 §4.13 reading 46). The same two pages,
-  each also carrying a record that adds a delta at the capture's anchor, fail the same way and do
-  not answer `stale`: the fault is found before the page is judged (reading 68). `checkFresh` and the capture-from-scope
-  function refuse a `now` of NaN, Infinity or −Infinity `invalid-request`.
+  the check with a store fault, an error value with the rule `no-progress` or `past-the-bound`
+  and the values `from`, `to` and `through` (SPEC-18 §4.13 readings 46 and 73). It is not a
+  refusal and not a verdict, and nothing panics. The same two pages, each also carrying a record
+  that adds a delta at the capture's anchor, fail the same way and do not answer `stale`: the
+  fault is found before the page is judged (reading 68). A wrapper whose `get` answers one more id
+  than it was asked for fails the check with `unasked-ids` (reading 74). `checkFresh` and the
+  capture-from-scope function refuse a `now` of NaN, Infinity or −Infinity `invalid-request`.
+- **The runner's own words.** A reader whose `checkFresh` runs over a feed with no progress fails
+  `unrelated-appends` with `the store broke no-progress: `. A case `store` with another field or a
+  bad value fails that case with its message (§10.1). A factory that cannot build a case's store
+  skips that case with the requirement `store`; one that fails otherwise fails that case only. A
+  document of another format is one failure, named `freshness`.
 - **The cost rails**, timed from outside as in §3.9.9 (N from 256, doubling until the run takes
   50 ms; the run at N the fastest of five; the run at 8N the fastest of three, stopping at the
   first under the bound; the ratio below 24). A run is N calls of `checkFresh` on one capture
@@ -2001,14 +2028,22 @@ that pins its page size, with that size. A case that breaks it fails generation.
 }
 ```
 
-- `format`: refuse any other value, with `unknown store follow format`. `reference`, `peers` and
-  `deltas` are the common header of §2.
+- `format`: refuse any other value, with `unknown store follow format`. That is one failure of the
+  run, named `follow`, in its failure report, not a run that throws or refuses to start.
+  `reference`, `peers` and `deltas` are the common header of §2.
 - `cases`: run each on a **new** store. `requires` is as in §3; every case lists `changes`. Skip
   a case whose requirement fails, and report it skipped.
 - `store` (optional): `changeRetention` (`unbounded` or `{revisions: n}`) and `changePageSize`
   (n ≥ 1). Each field present replaces the run's (§10.4). A case with a single pull (`once`,
-  §10.3) sets both, so every run reads the same pages. A witness that cannot build such a
-  store skips the case and reports it skipped.
+  §10.3) sets both, so every run reads the same pages. The runner checks `store` before it builds
+  anything; each defect fails the case: `the case's store is not an object`,
+  `` the case's store sets an unknown field `<key>` ``,
+  `the case's changeRetention is not unbounded or {revisions: n}`,
+  `the case's changePageSize is not a whole number of 1 or more`. A factory that cannot build such
+  a store skips the case and reports it skipped, with the requirement `store` (TypeScript: the
+  factory answers `undefined`; Rust: it refuses `capability-absent`). Any other failure of the
+  factory fails that case only, and the other cases run:
+  `the factory did not open a store: <error>`.
 - `steps`: the steps of §3, with the same checks, bookkeeping, revision names and feed model, and
   the feed check after every step (§3.9.4). Two more ops: `follow` (§10.2) and `pull` (§10.3).
   The feed check runs after these too.
@@ -2032,7 +2067,8 @@ Then build the position to follow from: the history is the position's, or, with 
 handle name), the history of that handle's peer; the revision is the position's plus `ahead`
 (absent: 0). An `ahead` that is not an integer of 0 or more is a document defect,
 `the vector's ahead is not a whole number`. Call the witness's `follow` with a **logged** handle
-of the peer (§10.3, "The calls") and that position. Check:
+of the peer (§10.3, "The calls") and that position. A refusal fails with
+`follow refused with <code>`, followed by its message. Check:
 
 3. The new cursor's position is the position given, history and revision, else
    `a new cursor stands at <r>, not at the position it was given`.
@@ -2067,7 +2103,8 @@ ascending by id; `absent` the added ids with no bytes, because the peer no longe
 (the runner does not read `absent`); `pulls` (only in a case whose `store` sets
 `changePageSize`) how many pulls the step takes. A pull step on an unknown follower is a defect:
 `the vector uses follower <f> before following`. On a store with no feed:
-`a pull step on a store that serves no feed`.
+`a pull step on a store that serves no feed`. The defect of the document comes first: an unknown
+follower on a store with no feed fails with the first message.
 
 **The expected status.** In this order:
 
@@ -2085,13 +2122,16 @@ ascending by id; `absent` the added ids with no bytes, because the peer no longe
 `end` the model's current revision. Let the bound be one more than the number of model records
 after `before`; a step that takes more pulls fails, `the follower took more than <n> pulls to
 reach <end>`. Call `pull()`. A store refusal that passes up fails with `pull refused with <code>`,
-followed by its message; any other error fails the case with its own message. Then:
+followed by its message. A store fault fails with `the store broke <rule>: `, followed by the
+fault's message (as in §9.3). Any other error fails the case with its own message. Then:
 
 1. The status is the expected one. Else, below the floor,
    `pull answered <s> for a position below the retention floor <F>`, and otherwise
    `pull answered <s>, expected <e>`.
 2. `resync-required`: `current` has the peer's history and the expected revision, else
-   `pull reports resync-required with current <c>, expected <C>`. The cursor's position is still
+   `pull reports resync-required with current <c>, expected <C>`. How a `current` of another
+   history is rendered is each witness's own (Rust adds ` (history <h>)`; TypeScript writes the
+   revision alone). The cursor's position is still
    `before`, else `the cursor moved after resync-required`. Check the calls (below). The step
    ends.
 3. `ok`: the position has `before`'s history, else `the pull moved the cursor to another history`.
@@ -2139,7 +2179,8 @@ followed by its message; any other error fails the case with its own message. Th
 
 **The calls.** Wrap the peer handle given to `follow` so that every call through it, and through
 every snapshot it returns, is logged with its arguments (for `read`, the snapshot's revision and
-history; log the call when it is made, so a call no one waits for is seen). Write each call as
+history; log the call when it is made, so a call no one waits for is seen, and so is a call
+that then refuses). Write each call as
 text: `read`; `changes(<from>, <to>)`, with `none` for an absent `to`; `get [<ids>]` and
 `arrivals [<ids>]`, each id cut to 12 characters, joined by spaces; `release`; any other operation
 by its name. Walk the log of one pull against the contract:
@@ -2161,9 +2202,9 @@ feed call, a pull reads one page with an explicit `to`, and a page that adds not
 The runner never commits while a pull runs, so a pull that starts again on a new snapshot after
 `snapshot-moved` is never seen here. Each witness tests that itself (§10.6).
 
-**Messages.** As in §3.9 and §9, the fixed words of each message of §10 are normative. How a
-value inside a message is rendered is each witness's own. The revisions in the table below are
-the memory store's.
+**Messages.** As in §3.9 and §9.3, the fixed words of each message of §10 are normative, and a
+witness MAY put a step locator before them. How a value inside a message is rendered is each
+witness's own. The revisions in the table below are the memory store's.
 
 ### 10.4 The runs each witness makes
 
@@ -2174,9 +2215,11 @@ Run every case against the reference store, each field of a case's `store` repla
 3. Keeping two records.
 4. Keeping two records, with pages of one record.
 5. Revisions times 3, with pages of one record (the scaled store of §8, "Stores that must pass").
+6. Revisions times 2, keeping two records.
 
-A witness whose store has no page limit runs 1 and 3. The TypeScript witness also runs revisions
-times 2, keeping two records. Every run passes and skips nothing.
+Both witnesses run all six. A witness whose store has no page limit runs 1, 3 and 6. Every run
+passes every case of the file and skips nothing; each witness asserts that the cases it ran are
+exactly the file's, by name.
 
 ### 10.5 What the cases hold
 
@@ -2234,7 +2277,7 @@ The JSON cannot express these; each witness builds them.
   | makes a `get` for a page that adds nothing | `a-head-only-commit` | `pull made the call get [] where the contract asks for release` | |
   | does not release its snapshot | `nothing-new` | `pull made no call where the contract asks for release` | |
   | asks again after `resync-required` and answers ok | `pull-after-resync` | `pull answered ok, expected resync-required` | that, `retention-too-short` |
-  | treats a missing delta as an error | `add-then-purge-in-one-page` | its own error's words | |
+  | treats a missing delta as an error | `add-then-purge-in-one-page` | its own error's words (Rust: `the store broke mismatched-answers: `, the only error a follower returns besides a refusal) | |
   | calls the feed for a position past the snapshot | `a-position-from-the-future` | `pull refused with invalid-request` | |
   | calls the feed at equal revisions | `nothing-new` | `pull made the call changes(1, 1) where the contract asks for release` | |
   | resync `current` is the cursor's position | `a-position-from-the-future` | `pull reports resync-required with current 3, expected 1` | |
@@ -2259,21 +2302,34 @@ The JSON cannot express these; each witness builds them.
   (`the pull stands at 2, expected 3`), a follower named twice, a follower used before it follows, a negative `ahead`,
   and another `format`.
 - **Every check has a row.** Remove a check of §10.2 or §10.3 from the runner and its row goes red.
-  Two checks have no row and say why: the guarantee (check 14, both halves), which the checks
-  before it imply, is shown live by breaking the runner's apply rule; the bound on pulls cannot be
-  reached by a follower that passes check 3.
+  Two checks have no row, and each witness's test file says why: the guarantee (check 14, both
+  halves), which the checks before it imply, and the bound on pulls, which a follower that passes
+  check 3 cannot reach. Check 14 is shown live by breaking the runner's apply rule: when it never
+  sets a delivered delta, `one-append` fails the first half (`the follower's mirror holds …`) and
+  `an-append-between-single-pulls` the second (`after the pull to 2 …`). Ignoring `removed` shows
+  the first half only.
+- **The runner's own words.** A cursor over a feed with no progress fails `one-append` with
+  `the store broke no-progress: `. A `follow` that refuses fails `nothing-new` with
+  `follow refused with invalid-request`. An unknown follower on a store with no feed fails with
+  `the vector uses follower g before following`. The case `store` defects, a factory that cannot
+  build a case's store (skipped, `store`), and one that fails otherwise (that case fails, the
+  others run) each have a rail. The call log records a call that refuses.
 - **The cursor's own rules.** A malformed position is refused `invalid-request` with no store call;
   `parsePosition` reads `3.0` as 3 and refuses a local history, another shape, an empty history and
   `1.5`. After `resync-required` a pull answers the same with no store call, also after commits;
   `current` is the snapshot's position, also when the store's answer names another revision. On
   `snapshot-moved` a pull starts again (the calls `read`, `changes`, `get`, `release`, then again
-  with `arrivals`), at most four snapshots, each released; a throw releases the snapshot and does
-  not move the cursor. A page with no progress and one whose `through` is the asked `to` plus 5
-  fail the pull with an error that is not a store refusal; so do a `get` and an `arrivals` that
-  disagree. **A fault is found before the page is judged:** the same two faulty pages, each also
+  with `arrivals`), at most four snapshots, each released; a `read()` that itself answers
+  `snapshot-moved` counts the same (three, and the fourth snapshot answers; four, and it passes
+  up). An error releases the snapshot and does not move the cursor. A page with no progress and
+  one whose `through` is the asked `to` plus 5 fail the pull with a store fault, `no-progress` or
+  `past-the-bound`, not a store refusal and not a panic; `get` and `arrivals` that disagree fail
+  with `mismatched-answers`. A `get` and an `arrivals` that both answer one more id, in order and
+  in agreement, fail with `unasked-ids`, deliver nothing, and leave the cursor usable (SPEC-18
+  §4.13 reading 74). **A fault is found before the page is judged:** the same two faulty pages, each also
   carrying a record that adds an id, fail with the calls `read`, `changes`, `release` and no
   `get`. The matching rail of §9.7 gives `checkFresh` faulty pages that add a touching id; it must
-  fail with an error, not answer `stale`. Two pulls started together run one after the other. A purge whose bytes another peer
+  fail with a store fault, not answer `stale`. Two pulls started together run one after the other. A purge whose bytes another peer
   holds delivers no bytes. A read and a fetched scope carry their snapshot's position, and a
   reactor follows from it.
 - **A fuzz against brute force**, with a fixed seed, at least 2,000 sequences: a store kept whole or
