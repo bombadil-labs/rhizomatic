@@ -484,10 +484,10 @@ pub trait PeerStore {
     fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreError>;
     /// The change records with `from < revision ≤ to`, from the peer's current feed, not a
     /// snapshot (SPEC-18 §4.6, §4.13). `to` defaults to the current revision and is clamped to
-    /// it. The answers, in order: a bound above [`MAX_REVISION`] and an explicit `to` below
-    /// `from` refuse `invalid-request`; a `from` later than the current revision, then a `from`
-    /// below the retention floor, answer `ResyncRequired`. A store whose retention is `None`
-    /// refuses `capability-absent`.
+    /// it. The answers, in order: a closed store refuses `store-closed`; a store whose retention
+    /// is `None` refuses `capability-absent`; a bound above [`MAX_REVISION`], then an explicit
+    /// `to` below `from`, refuse `invalid-request`; a `from` above the current revision or below
+    /// the floor answers `ResyncRequired`; otherwise `Ok`.
     fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreError>;
 }
 

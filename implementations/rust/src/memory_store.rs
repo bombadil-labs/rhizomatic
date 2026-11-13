@@ -427,8 +427,9 @@ impl State {
     }
 
     /// The records with `from < revision ≤ to` (SPEC-18 §4.6). The answers come in the order of
-    /// §4.13 reading 3: the shape of the bounds, `to` below `from`, a `from` from the future,
-    /// a `from` below the floor. Its cost is the records it returns and their ids.
+    /// §4.6: `store-closed`, `capability-absent`, the shape of the bounds, `to` below `from`,
+    /// then `resync-required` for a `from` above the current revision or below the floor, else
+    /// `ok`. Its cost is the records it returns and their ids.
     fn changes(
         &mut self,
         peer_id: &str,
@@ -608,8 +609,8 @@ fn with<R>(state: &Shared, f: impl FnOnce(&mut State) -> R) -> R {
 pub struct MemoryStoreOptions {
     /// The pushdown fields it applies. It ignores the others and reports so.
     pub pushdown: PushdownFields,
-    /// `Unbounded` or `Revisions(n)` with n of 1 or more. `None` is refused: this store serves a
-    /// change feed.
+    /// `Unbounded` or `Revisions(n)` with n from 1 to 2^53 − 1. `None` is refused: this store
+    /// serves a change feed.
     pub change_retention: ChangeRetention,
     /// At most this many records in one page, 1 or more. It exists so tests exercise paging.
     pub change_page_size: Option<u64>,
@@ -682,15 +683,17 @@ impl MemoryStore {
     }
 
     /// A new, empty store built with these options. Refuses `invalid-request` for a retention of
-    /// `None` or `Revisions(0)`, and for a page size of 0.
+    /// `None` or `Revisions(n)` outside 1 to 2^53 − 1, and for a page size of 0.
     pub fn with_options(options: MemoryStoreOptions) -> Result<Self, StoreError> {
-        if matches!(
-            options.change_retention,
-            ChangeRetention::None | ChangeRetention::Revisions(0)
-        ) {
+        let kept = match options.change_retention {
+            ChangeRetention::Unbounded => true,
+            ChangeRetention::Revisions(n) => (1..=MAX_REVISION).contains(&n),
+            ChangeRetention::None => false,
+        };
+        if !kept {
             return refuse(
                 StoreErrorCode::InvalidRequest,
-                "changeRetention is unbounded or {revisions: n} with n of 1 or more",
+                "changeRetention is unbounded or {revisions: n} with n from 1 to 2^53 - 1",
             );
         }
         if options.change_page_size == Some(0) {

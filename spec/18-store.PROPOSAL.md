@@ -313,10 +313,17 @@ type ChangePage =
 
 **`changes(from, to?)`** answers the records with `from < revision ≤ to`, ascending by revision.
 
-- **The order of the answers.** First, a `from` or `to` that is not an integer from 0 to
-  2^53 − 1 is refused `invalid-request`. Then an explicit `to` below `from` is refused
-  `invalid-request`. After these checks, the answer is `resync-required` exactly when `from` is
-  below the floor or above the current revision. Otherwise it is `ok`.
+- **The order of the answers.** In this order:
+  1. A closed store refuses `store-closed`.
+  2. A store whose `changeRetention` is `none` refuses `capability-absent`.
+  3. A `from` or `to` that is not an integer from 0 to 2^53 − 1 is refused `invalid-request`.
+  4. An explicit `to` below `from` is refused `invalid-request`.
+  5. The answer is `resync-required` exactly when `from` is below the floor or above the current
+     revision.
+  6. Otherwise the answer is `ok`.
+
+  `peer-absent` cannot occur: `changes` is called on a peer handle, and a handle stays valid
+  while the store is open (§4.11 reading 23).
 - `to` defaults to the current revision. A `to` beyond the current revision is clamped to it. A
   defaulted `to` is never compared with `from`.
 - `from` equal to the current revision answers `ok` with no records and `through = from`.
@@ -645,9 +652,9 @@ A host names the capabilities it requires. Open fails with a message that names 
 A store never claims a capability it implements by scanning.
 
 `changeRetention` is `none` (no feed; `changes` refuses `capability-absent`), `unbounded` (every
-record is kept), or `{revisions: n}` with n an integer of 1 or more: each peer keeps exactly the
-records of its latest n revision advances, and drops the oldest when it writes the record after
-the nth.
+record is kept), or `{revisions: n}` with n an integer from 1 to 2^53 − 1, in every witness: each
+peer keeps exactly the records of its latest n revision advances, and drops the oldest when it
+writes the record after the nth.
 
 ### 4.9 Trust at rest
 
@@ -1112,10 +1119,11 @@ and §9 pin each point that a vector can pin.
    vectors need this to name a revision past the current one (`ahead`, README §3.9).
 2. **Bad bounds.** A `from` or `to` that is not such an integer is refused `invalid-request`. It
    joins the closed list of §4.11 reading 21; a typed witness cannot receive one.
-3. **The order of the answers.** First the shape of the bounds (`invalid-request`), then an
-   explicit `to` below `from` (`invalid-request`). After these, `resync-required` exactly when
-   `from` is below the floor or above the current revision; otherwise `ok`. The shape of a
-   request comes first, as in §4.11 reading 27. §4.6 states the same order.
+3. **The order of the answers** is stated once, in §4.6: `store-closed`, `capability-absent`,
+   the shape of the bounds, an explicit `to` below `from`, then `resync-required` exactly when
+   `from` is below the floor or above the current revision, then `ok`. The shape of a request
+   comes before the feed's state, as in §4.11 reading 27. The TypeScript memory store follows
+   this order; it never answers `capability-absent`, because it always serves a feed.
 4. **A defaulted `to` is never compared.** A cursor from the future with no `to` answers
    `resync-required`, not `invalid-request`. Otherwise the default `to`, the current revision,
    would turn every cursor from the future into a refusal.
@@ -1160,8 +1168,9 @@ and §9 pin each point that a vector can pin.
     TypeScript memory store meets it by handing out records it froze when it wrote them, in a
     new list per page.
 15. **The memory store's options.** `changeRetention` is `unbounded` (the default) or
-    `{revisions: n}`. `changePageSize: n` bounds a page to n records; it exists so tests exercise
-    paging. Any other value is refused `invalid-request` when the store is made.
+    `{revisions: n}` with n an integer from 1 to 2^53 − 1, in every witness. `changePageSize: n`
+    bounds a page to n records, n an integer of 1 or more; it exists so tests exercise paging.
+    Any other value is refused `invalid-request` when the store is made.
 16. **The memory store finds `from` by arithmetic.** Its revisions advance by one and every advance
     writes one record, so the record after `from` sits at a fixed offset from the oldest kept
     record. A dropped record frees its slot, and the slots are compacted when half are free.
@@ -1177,57 +1186,68 @@ and §9 pin each point that a vector can pin.
     reading 36 does: a window of fixed size read once after each of N records, and N appends that
     keep N / 4 records, each at N and 8N (README §3.9).
 20. **Exact shape.** Each answer of `changes` has exactly its keys (§4.6, "Shape"). A key the
-    contract does not name fails, so a store cannot carry bytes in a record unseen.
+    contract does not name fails, so a store cannot carry bytes in a record unseen. A typed
+    witness whose record and page types have exactly the contract's fields meets this rule by
+    construction, and names the rule-table rows it cannot reach. An adapter that decodes a
+    serialized answer MUST refuse a field it does not know.
 21. **Revisions that skip values conform.** A store whose revisions are two or three apart, kept
     whole or bounded, with any page size, passes every vector. Each witness pins this with
     stores that scale the reference store's revisions (README §8).
-22. **Validity in a read.** Evaluation keeps exactly the deltas valid at the read's `now`
+22. **Below the floor, between revisions.** Where revisions skip values, a `from` between the
+    previous kept revision and the floor is below the floor and answers `resync-required`. The
+    runner asks there, just below the floor (README §3.9.4, item 2). A store that reads on from
+    past the newest dropped record and answers `ok` there loses that record silently.
+23. **Asking again may give another prefix.** The ownership check asks a range again after
+    changing the first answer. The second answer may hold more or fewer records, because a
+    store may return any prefix (§4.6). Only the records the two answers share by revision must
+    be equal (README §3.9.5, check 14).
+24. **Validity in a read.** Evaluation keeps exactly the deltas valid at the read's `now`
     (`validFrom ≤ now < validUntil`), once, at its boundary. A boundary at `now` has already taken
     effect, so `expiresAt` takes the least boundary strictly after `now`. This is why a read has
     a next boundary at all.
-23. **The operand, not the answer of a store.** `expiresAt` is taken over the read's exact members
+25. **The operand, not the answer of a store.** `expiresAt` is taken over the read's exact members
     (§4.12 reading 3), never over what the store returned. A store may return more than the
     scope, and two stores must give one `expiresAt`.
-24. **A fetched scope has no `now`.** A law reader asks a fetched scope questions at its own times.
+26. **A fetched scope has no `now`.** A law reader asks a fetched scope questions at its own times.
     So a fetched scope answers `expiresAfter(now)`, the least boundary of its members after that
     `now`, instead of carrying one `expiresAt`. TypeScript precomputes the sorted boundaries, so a
     call costs O(log members).
-25. **A capture is asked for.** `readAnchored` and `StoreReactor.read` carry `expiresAt` always and
+27. **A capture is asked for.** `readAnchored` and `StoreReactor.read` carry `expiresAt` always and
     a capture only on request (`capture: true`). With nothing pushed down, the read's fetch cache
     is the raw scope (§4.6), and the capture costs no store call. With a pushdown, the read makes
     the id-only calls of the raw scope after its last round. This is the one exception to §4.12
     reading 7, and only a read that asks for a capture makes it. `captureScope(snapshot,
     entities, now, selection)` takes a capture beside a fetched scope.
-26. **The raw scope from ids.** `rawScope(snapshot, anchors)` asks `targets` of the anchors once,
+28. **The raw scope from ids.** `rawScope(snapshot, anchors)` asks `targets` of the anchors once,
     then `negators` of each new layer until a layer adds nothing. It asks for each member once,
     so it costs O(|members| × log N) in closure depth plus one calls.
-27. **Entity anchors only.** A capture, `rawScope` and `touching` read entity anchors, the only
+29. **Entity anchors only.** A capture, `rawScope` and `touching` read entity anchors, the only
     kind slices 1 and 2 built. Another kind is refused `capability-absent`, as `scope` refuses it.
-28. **The order of the first touch.** Records in revision order; within one record, `removed`
+30. **The order of the first touch.** Records in revision order; within one record, `removed`
     before `added`; each list in its own ascending order; for one delta, `targets-anchor` before
     `negates-member`. Two witnesses then report one touch. No store yet writes a record with
     both lists, so the shared `touching` cases pin the order within one record.
-29. **A re-added member touches twice.** A member is yielded by an anchor or negates a member. So
+31. **A re-added member touches twice.** A member is yielded by an anchor or negates a member. So
     when it comes back, rule 2 of §4.6 also touches. Rule 1's clause "also when the id is added
     again" decides only that the first touch is the removal. A reader that ignores a re-add
     therefore reports the touch one record late, and the vectors catch it by the touch.
-30. **`checkFresh`'s calls are normative.** One `read`; no feed at equal revisions; a capture
+32. **`checkFresh`'s calls are normative.** One `read`; no feed at equal revisions; a capture
     from a later revision answers `resync-required` with no feed call; `changes(c, r′)` with an
     explicit `to`, then from each `through`; one `get` per page that names an added id, of exactly
     those ids, ascending, before the page is judged, and none for a page with no added id; no
     call after the page that touches or after `resync-required`; the release of the snapshot.
     Cost is a property of calls, and a reader that reads past r′ shows only in its calls.
-31. **The answers in order.** `resync-required` first, then `stale`, then `expired`, then
+33. **The answers in order.** `resync-required` first, then `stale`, then `expired`, then
     `current`. `expired` needs `now`. A check with no `now` never answers `expired`: the caller
     did not ask about time.
-32. **A moved snapshot.** On a store without read transactions, a commit during a check moves its
+34. **A moved snapshot.** On a store without read transactions, a commit during a check moves its
     snapshot, and its `get` refuses `snapshot-moved`. `checkFresh` then starts again on a new
     snapshot, as `StoreReactor` does (§4.12 reading 11): at most four snapshots, each released.
     A `current` answer speaks for the snapshot the check read; a later commit is a later check.
-33. **Freshness needs the feed.** Every freshness case requires `changes`. A store that keeps
+35. **Freshness needs the feed.** Every freshness case requires `changes`. A store that keeps
     fewer records than a case needs answers `resync-required` for a capture below its floor; the
     runner expects that answer there, as it does for `changes` steps (README §9.3).
-34. **`rounds.json` gains `expiresAt` only.** Every round case reads at `now` 100, after every
+36. **`rounds.json` gains `expiresAt` only.** Every round case reads at `now` 100, after every
     boundary of its fixture, so each `expiresAt` there is null. The existing vectors may change
     only by the new field, so `freshness.json` pins boundaries that are not null, and each
     witness reads the round cases again at `now` 55 against a scan (TypeScript:

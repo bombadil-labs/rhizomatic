@@ -22,11 +22,8 @@
 //   deltas with other claims, which this runner reads the held deltas from; and in
 //   store-vectors.test.ts through a document whose exact scope is wrong.
 //
-// - A `changes` step (README §3.9.6), "changes answered ok from <from>, and the step expects
-//   resync-required": the step expects it only for a cursor from the future, and there an `ok`
-//   page always fails "the page's through T lies outside [last, end]" first, because `last` is
-//   `from`, which is past `end`. "changes answered the records of" follows from the checks of
-//   every page and is reached here with a wrong document.
+// - "changes answered the records of" follows from the checks of every page; a wrong document
+//   reaches it, below.
 //
 // Not covered here: what a store must do (store-vectors.test.ts, "each broken store fails"),
 // and ownership, which no conformance run checks (store.test.ts).
@@ -577,6 +574,26 @@ const FEED_RULES: Readonly<Record<string, Rule>> = {
   },
 };
 
+/**
+ * A right store whose pages hold at most 1, then 2, then 1, then 2 records, call by call, so
+ * the same request can answer a different prefix.
+ */
+function alternatingPages(): Break {
+  let calls = 0;
+  return {
+    peer: (peer) => ({
+      changes: async (from, to) => {
+        const page = await peer.changes(from, to);
+        if (page.status !== "ok") return page;
+        const cap = calls++ % 2 === 0 ? 1 : 2;
+        if (page.records.length <= cap) return page;
+        const records = page.records.slice(0, cap);
+        return ok(records, records[records.length - 1]!.revision);
+      },
+    }),
+  };
+}
+
 /** A store that hands out the same record objects on every answer, `copy` deciding what else. */
 function liveRecords(copy: (r: ChangeRecord) => ChangeRecord): Break {
   const kept = new WeakMap<Store, Map<string, ChangeRecord>>();
@@ -705,6 +722,49 @@ const SHAPES_AND_SPARSE: Readonly<Record<string, Rule>> = {
     doc: "scripts",
     says: /the page's through \d+ is past its last record and short of \d+/,
     store: { options: { changePageSize: 1 }, ...sparse(2, { partialThroughPlusOne: true }) },
+  },
+  "the feed: revisions times 3, ok just below the floor without the newest dropped record": {
+    doc: "scripts",
+    says: /changes answered ok from \d+, below the retention floor \d+/,
+    store: {
+      options: { changeRetention: { revisions: 2 } },
+      ...sparse(3, { belowFloorOk: true }),
+    },
+  },
+  "the feed: revisions times 2, ok just below the floor without the newest dropped record": {
+    doc: "scripts",
+    says: /changes answered ok from \d+, below the retention floor \d+/,
+    store: {
+      options: { changeRetention: { revisions: 2 } },
+      ...sparse(2, { belowFloorOk: true }),
+    },
+  },
+  "the feed: an extra key only on the answer asked again after a change": {
+    doc: "scripts",
+    says: "a change page has the keys extra, records, status, through, not records, status, through",
+    // It sees the caller's change on the records it handed out last, and only then adds a key.
+    store: (() => {
+      let last: { head: string | null }[] = [];
+      return feed((page) => {
+        const changed = last.some((r) => r.head === "tampered");
+        if (page.status !== "ok") return page;
+        const records = page.records.map((r) => ({ ...r }));
+        last = records;
+        return changed ? ({ ...page, records, extra: 1 } as ChangePage) : { ...page, records };
+      });
+    })(),
+  },
+  "the feed: a wrong current on the call below the floor": {
+    doc: "scripts",
+    says: "a resync answer carries current",
+    // A script with no changes step: only the call below the floor answers resync-required.
+    store: {
+      options: { changeRetention: { revisions: 2 } },
+      ...feed((page) =>
+        page.status === "resync-required" ? { ...page, current: page.current + 1 } : page,
+      ),
+    },
+    vectors: onlyScript("duplicates-add-nothing"),
   },
   "the feed: sparse revisions, and the floor read as just before the oldest kept record": {
     doc: "scripts",
@@ -1764,6 +1824,7 @@ describe("runner rules: revisions that skip values conform", () => {
       options: { changeRetention: { revisions: 2 } },
       ...sparse(2),
     },
+    "pages that hold 1, then 2, then 1 record, call by call": alternatingPages(),
     "revisions times 3, two records kept, pages of one record": {
       options: { changeRetention: { revisions: 2 }, changePageSize: 1 },
       ...sparse(3),
@@ -2037,6 +2098,33 @@ describe("runner rules: a wrong document", () => {
     "a mark on a peer not yet created": {
       vectors: feedSteps(0, { op: "mark", peer: "A", as: "x" }),
       says: "the vector uses peer A before creating it",
+    },
+    "a changes step that expects resync-required where ok is right": {
+      vectors: feedSteps(3, {
+        op: "changes",
+        peer: "A",
+        from: { revision: "A.0" },
+        expect: { status: "resync-required" },
+      }),
+      says: "changes answered ok from 0, and the step expects resync-required",
+    },
+    "a revision reference whose ahead is negative": {
+      vectors: feedSteps(3, {
+        op: "changes",
+        peer: "A",
+        from: { revision: "A.0", ahead: -1 },
+        expect: {},
+      }),
+      says: "the vector's ahead is not a whole number",
+    },
+    "a revision reference whose ahead is fractional": {
+      vectors: feedSteps(3, {
+        op: "changes",
+        peer: "A",
+        from: { revision: "A.0", ahead: 0.5 },
+        expect: {},
+      }),
+      says: "the vector's ahead is not a whole number",
     },
     "a changes step whose expected records are wrong": {
       vectors: feedSteps(3, {

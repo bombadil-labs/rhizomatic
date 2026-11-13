@@ -149,7 +149,11 @@ export function staleAfterSettledDebt(): Break {
  */
 export function sparse(
   k: number,
-  quirk: { partialThroughPlusOne?: boolean; oldestKeptFloor?: boolean } = {},
+  quirk: {
+    partialThroughPlusOne?: boolean;
+    oldestKeptFloor?: boolean;
+    belowFloorOk?: boolean;
+  } = {},
 ): Break {
   const now = async (peer: PeerStore): Promise<number> => {
     const snapshot = await peer.read();
@@ -179,7 +183,11 @@ export function sparse(
         if (from > k * current) return { status: "resync-required", current: k * current };
         const inner = Math.floor(from / k);
         const innerTo = to === undefined ? undefined : Math.floor(to / k);
-        const page = await peer.changes(inner, innerTo);
+        let page = await peer.changes(inner, innerTo);
+        // The quirk: below the floor at a value the peer never had, read on from just past it.
+        // The newest dropped record is silently missing.
+        if (quirk.belowFloorOk === true && page.status === "resync-required" && from % k !== 0)
+          page = await peer.changes(inner + 1, innerTo);
         if (page.status === "resync-required") return { ...page, current: page.current * k };
         if (
           quirk.oldestKeptFloor === true &&

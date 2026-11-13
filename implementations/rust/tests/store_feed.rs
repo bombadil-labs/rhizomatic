@@ -200,7 +200,11 @@ fn the_memory_store_refuses_options_it_cannot_honor() {
             .expect_err("the options must be refused")
             .code
     };
-    for retention in [ChangeRetention::None, ChangeRetention::Revisions(0)] {
+    for retention in [
+        ChangeRetention::None,
+        ChangeRetention::Revisions(0),
+        ChangeRetention::Revisions(MAX_REVISION + 1),
+    ] {
         let options = MemoryStoreOptions {
             change_retention: retention,
             ..MemoryStoreOptions::default()

@@ -95750,16 +95750,6 @@
       "targetOwner": "storage"
     },
     {
-      "form": "macro-region",
-      "macros": [
-        "matches"
-      ],
-      "owner": "storage",
-      "source": "implementations/rust/src/memory_store.rs",
-      "status": "parsed-known-macro-arguments",
-      "symbol": "MemoryStore::with_options"
-    },
-    {
       "form": "syn-resolved-path",
       "owner": "storage",
       "rawTarget": "crate::memory_store::Feed::default",
@@ -96390,33 +96380,12 @@
       "targetOwner": "storage"
     },
     {
-      "form": "syn-resolved-path",
-      "owner": "storage",
-      "rawTarget": "crate::store_conformance::ids_ascending",
-      "resolvedTarget": "crate::store_conformance::ids_ascending",
-      "source": "implementations/rust/src/store_conformance.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "read_pages",
-      "target": "crate::store_conformance::ids_ascending",
-      "targetOwner": "storage"
-    },
-    {
       "form": "syn-external-path",
       "owner": "storage",
       "source": "implementations/rust/src/store_conformance.rs",
       "sourceRegion": "semantic-owner",
       "symbol": "read_pages",
       "target": "std::vec::Vec::new"
-    },
-    {
-      "form": "macro-region",
-      "macros": [
-        "format"
-      ],
-      "owner": "storage",
-      "source": "implementations/rust/src/store_conformance.rs",
-      "status": "parsed-known-macro-arguments",
-      "symbol": "read_pages"
     },
     {
       "form": "syn-resolved-path",
@@ -97129,17 +97098,6 @@
       "targetOwner": "storage"
     },
     {
-      "form": "syn-resolved-path",
-      "owner": "storage",
-      "rawTarget": "crate::store_conformance::whole",
-      "resolvedTarget": "crate::store_conformance::whole",
-      "source": "implementations/rust/src/store_conformance.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "Run::reference",
-      "target": "crate::store_conformance::whole",
-      "targetOwner": "storage"
-    },
-    {
       "form": "syn-external-path",
       "owner": "storage",
       "source": "implementations/rust/src/store_conformance.rs",
@@ -97220,34 +97178,56 @@
     {
       "form": "syn-resolved-path",
       "owner": "storage",
-      "rawTarget": "crate::store::ChangePage::Ok",
-      "resolvedTarget": "crate::store::ChangePage::Ok",
+      "rawTarget": "crate::store::Revision",
+      "resolvedTarget": "crate::store::Revision",
       "source": "implementations/rust/src/store_conformance.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "owned",
-      "target": "crate::store::ChangePage::Ok",
+      "symbol": "Run::check_feeds",
+      "target": "crate::store::Revision",
       "targetOwner": "storage"
     },
     {
       "form": "syn-resolved-path",
       "owner": "storage",
-      "rawTarget": "crate::store::ChangeRecord",
-      "resolvedTarget": "crate::store::ChangeRecord",
-      "source": "implementations/rust/src/store_conformance.rs",
+      "rawTarget": "crate::store::ChangeRetention::Unbounded",
+      "resolvedTarget": "crate::store::ChangeRetention::Unbounded",
+      "source": "implementations/rust/src/memory_store.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "owned",
-      "target": "crate::store::ChangeRecord",
+      "symbol": "MemoryStore::with_options",
+      "target": "crate::store::ChangeRetention::Unbounded",
       "targetOwner": "storage"
     },
     {
       "form": "syn-resolved-path",
       "owner": "storage",
-      "rawTarget": "crate::store::PeerStore",
-      "resolvedTarget": "crate::store::PeerStore",
+      "rawTarget": "crate::store::MAX_REVISION",
+      "resolvedTarget": "crate::store::MAX_REVISION",
+      "source": "implementations/rust/src/memory_store.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "MemoryStore::with_options",
+      "target": "crate::store::MAX_REVISION",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-import",
+      "owner": "storage",
+      "rawTarget": "crate::store::MAX_REVISION",
+      "resolvedTarget": "crate::store::MAX_REVISION",
       "source": "implementations/rust/src/store_conformance.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "owned",
-      "target": "crate::store::PeerStore",
+      "symbol": "<import>",
+      "target": "crate::store::MAX_REVISION",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::MAX_REVISION",
+      "resolvedTarget": "crate::store::MAX_REVISION",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Keep::of",
+      "target": "crate::store::MAX_REVISION",
       "targetOwner": "storage"
     },
     {
@@ -97257,7 +97237,7 @@
       "resolvedTarget": "crate::store::Revision",
       "source": "implementations/rust/src/store_conformance.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "owned",
+      "symbol": "FeedModel::resync_current",
       "target": "crate::store::Revision",
       "targetOwner": "storage"
     },
@@ -97268,38 +97248,40 @@
       "resolvedTarget": "crate::store_conformance::Check",
       "source": "implementations/rust/src/store_conformance.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "owned",
+      "symbol": "FeedModel::resync_current",
       "target": "crate::store_conformance::Check",
       "targetOwner": "storage"
     },
     {
       "form": "syn-resolved-path",
       "owner": "storage",
-      "rawTarget": "crate::store_conformance::changes_refused",
-      "resolvedTarget": "crate::store_conformance::changes_refused",
+      "rawTarget": "crate::store_conformance::FeedModel",
+      "resolvedTarget": "crate::store_conformance::FeedModel",
       "source": "implementations/rust/src/store_conformance.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "owned",
-      "target": "crate::store_conformance::changes_refused",
+      "symbol": "FeedModel::resync_current",
+      "target": "crate::store_conformance::FeedModel",
       "targetOwner": "storage"
     },
     {
-      "form": "syn-external-path",
+      "form": "macro-region",
+      "macros": [
+        "format"
+      ],
       "owner": "storage",
       "source": "implementations/rust/src/store_conformance.rs",
-      "sourceRegion": "semantic-owner",
-      "symbol": "owned",
-      "target": "std::collections::BTreeSet::new"
+      "status": "parsed-known-macro-arguments",
+      "symbol": "FeedModel::resync_current"
     },
     {
       "form": "syn-resolved-path",
       "owner": "storage",
-      "rawTarget": "crate::store_conformance::owned",
-      "resolvedTarget": "crate::store_conformance::owned",
+      "rawTarget": "crate::store::ChangeRecord",
+      "resolvedTarget": "crate::store::ChangeRecord",
       "source": "implementations/rust/src/store_conformance.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "read_pages",
-      "target": "crate::store_conformance::owned",
+      "symbol": "check_page",
+      "target": "crate::store::ChangeRecord",
       "targetOwner": "storage"
     },
     {
@@ -97309,9 +97291,191 @@
       "resolvedTarget": "crate::store::Revision",
       "source": "implementations/rust/src/store_conformance.rs",
       "sourceRegion": "semantic-owner",
-      "symbol": "Run::check_feeds",
+      "symbol": "check_page",
       "target": "crate::store::Revision",
       "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::Check",
+      "resolvedTarget": "crate::store_conformance::Check",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "check_page",
+      "target": "crate::store_conformance::Check",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::FeedModel",
+      "resolvedTarget": "crate::store_conformance::FeedModel",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "check_page",
+      "target": "crate::store_conformance::FeedModel",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::ids_ascending",
+      "resolvedTarget": "crate::store_conformance::ids_ascending",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "check_page",
+      "target": "crate::store_conformance::ids_ascending",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "format"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "check_page"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::ChangePage::Ok",
+      "resolvedTarget": "crate::store::ChangePage::Ok",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "asked_again",
+      "target": "crate::store::ChangePage::Ok",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::ChangeRecord",
+      "resolvedTarget": "crate::store::ChangeRecord",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "asked_again",
+      "target": "crate::store::ChangeRecord",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::PeerStore",
+      "resolvedTarget": "crate::store::PeerStore",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "asked_again",
+      "target": "crate::store::PeerStore",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::Revision",
+      "resolvedTarget": "crate::store::Revision",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "asked_again",
+      "target": "crate::store::Revision",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::Check",
+      "resolvedTarget": "crate::store_conformance::Check",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "asked_again",
+      "target": "crate::store_conformance::Check",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::FeedModel",
+      "resolvedTarget": "crate::store_conformance::FeedModel",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "asked_again",
+      "target": "crate::store_conformance::FeedModel",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::changes_refused",
+      "resolvedTarget": "crate::store_conformance::changes_refused",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "asked_again",
+      "target": "crate::store_conformance::changes_refused",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::check_page",
+      "resolvedTarget": "crate::store_conformance::check_page",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "asked_again",
+      "target": "crate::store_conformance::check_page",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-external-path",
+      "owner": "storage",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "asked_again",
+      "target": "std::collections::BTreeSet::new"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::asked_again",
+      "resolvedTarget": "crate::store_conformance::asked_again",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_pages",
+      "target": "crate::store_conformance::asked_again",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store_conformance::check_page",
+      "resolvedTarget": "crate::store_conformance::check_page",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "read_pages",
+      "target": "crate::store_conformance::check_page",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "rawTarget": "crate::store::ChangePage::ResyncRequired",
+      "resolvedTarget": "crate::store::ChangePage::ResyncRequired",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Run::check_feeds",
+      "target": "crate::store::ChangePage::ResyncRequired",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "macro-region",
+      "macros": [
+        "vec"
+      ],
+      "owner": "storage",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "status": "parsed-known-macro-arguments",
+      "symbol": "Run::check_feeds"
     }
   ],
   "exports": [
