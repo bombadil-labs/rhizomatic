@@ -27,6 +27,7 @@ import {
   type Capture,
   type ValidityWindow,
 } from "../storage/freshness.js";
+import { followFeed, positionOf, type FeedCursor, type Position } from "../storage/follow.js";
 import type { ScopeSource } from "../storage/scope-source.js";
 import {
   StoreError,
@@ -110,6 +111,11 @@ export interface StoreRoundReport {
 /** An anchored read with the revision it answered at and what each round did. */
 export interface StoreRead extends AnchoredRead {
   readonly revision: Revision;
+  /**
+   * The position of the snapshot the read ran on (SPEC-18 §4.6, "Following the feed"). A caller
+   * that keeps what it read follows the feed from here.
+   */
+  readonly position: Position;
   readonly rounds: readonly StoreRoundReport[];
   /**
    * How many child evaluations the evaluation memo held when the read ended (SPEC-18 §4.12
@@ -388,6 +394,7 @@ export async function readAnchoredWith(
         scope,
         members,
         revision: snapshot.revision,
+        position: positionOf(snapshot),
         rounds,
         memoStored: memo?.stored ?? 0,
         ...validity,
@@ -484,6 +491,8 @@ export interface FetchedScope {
   /** Knows exactly S(entities) under the selection. An id outside it reads as not held. */
   readonly source: ScopeSource;
   readonly revision: Revision;
+  /** The position of the snapshot it was fetched on: where a follower of the feed starts. */
+  readonly position: Position;
   /**
    * The validity window of the source's members at `now` (`validityWindow`). A fetched scope has
    * no evaluation time of its own: each question to the source names its own `now`.
@@ -542,6 +551,7 @@ export async function fetchScope(
   return {
     source: cache.source(members),
     revision: snapshot.revision,
+    position: positionOf(snapshot),
     validityAt: (now) => windowIn(boundaries, now),
   };
 }
@@ -614,6 +624,15 @@ export class StoreReactor {
   async fetch(entities: Iterable<Entity>, selection?: StoreSelection): Promise<FetchedScope> {
     const wanted = [...entities];
     return (await this.onSnapshot((snapshot) => fetchScope(snapshot, wanted, selection))).value;
+  }
+
+  /**
+   * A cursor over this peer's change feed, standing at `from` (`followFeed`). Makes no store
+   * call. Take `from` from the read whose state the caller keeps: `StoreRead.position` or
+   * `FetchedScope.position`.
+   */
+  follow(from: Position): FeedCursor {
+    return followFeed(this.peer, from);
   }
 
   private async onSnapshot<T>(
