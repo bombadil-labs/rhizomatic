@@ -2939,7 +2939,7 @@
     },
     {
       "name": "two-anchors",
-      "note": "The capture has plant:a and plant:b. b-name-neg now negates a member.",
+      "note": "The capture has plant:a and plant:b, named out of order and twice. b-name-neg now negates a member.",
       "spec": "SPEC-18 §4.6",
       "requires": [
         "changes"
@@ -3019,6 +3019,10 @@
           "peer": "A",
           "as": "c",
           "anchors": [
+            {
+              "kind": "entity",
+              "entity": "plant:b"
+            },
             {
               "kind": "entity",
               "entity": "plant:a"

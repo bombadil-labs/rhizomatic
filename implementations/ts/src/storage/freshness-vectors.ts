@@ -204,7 +204,8 @@ class Case {
       op: "capture",
       peer,
       as,
-      anchors,
+      // As a read names them: in any order, perhaps twice. The capture sorts them.
+      anchors: entities.map((entity) => ({ kind: "entity" as const, entity })),
       ...(selection === undefined ? {} : { selection }),
       now: NOW,
       expect: {
@@ -423,8 +424,14 @@ function cases(named: readonly Named[]): StoreFreshnessCase[] {
     "Two added ids touch in one record. The one with the lower id is reported.",
     (c) => base(c).capture("A", "c", A).append("A", "a-note-late", "a-name-neg").check("A", "c"),
   );
-  add("two-anchors", "The capture has plant:a and plant:b. b-name-neg now negates a member.", (c) =>
-    base(c).capture("A", "c", ["plant:b", "plant:a"]).append("A", "b-name-neg").check("A", "c"),
+  add(
+    "two-anchors",
+    "The capture has plant:a and plant:b, named out of order and twice. b-name-neg now negates a member.",
+    (c) =>
+      base(c)
+        .capture("A", "c", ["plant:b", "plant:a", "plant:b"])
+        .append("A", "b-name-neg")
+        .check("A", "c"),
   );
   add(
     "a-touch-through-a-dynamic-anchor",

@@ -348,10 +348,69 @@ type ChangePage =
 - The feed replaces the reactor's in-memory dispatch log, `deltasSince(knownIds)` catch-up and
   Loam's `data_version` detection of other writers. A reader in another process follows the feed.
 
-**Freshness check.** A capture at revision r is current at r′ when no change in `changes(r, r′)`
-touches its scope: no added delta is yielded by one of its anchors or negates a member, and no
-removed id is a member. This costs O(changes since capture). It replaces SPEC-16's recompute-the-
-whole-scope check.
+**Freshness check.** A **capture** records what one anchored read depended on in the store. It
+holds ids, never bytes:
+
+```ts
+type Capture = {
+  revision: Revision;            // the revision of the snapshot the read ran on
+  anchors: readonly Anchor[];    // the read's whole scope E*: static and dynamic anchors; sorted, unique
+  members: readonly Id[];        // the raw scope S(anchors over H) at that revision; ascending, unique
+  expiresAt: number | null;      // the next validity boundary of the read's operand
+};
+```
+
+- `members` is the **raw** scope: every held delta an anchor yields, closed under held negators,
+  with no selection and no pushdown. It is computed from ids alone, with `targets` and `negators`
+  on the read's own snapshot, in O(|members| × log N). A read that pushed no selection down
+  already holds it: each answer lies inside S(its anchors over H), and the rounds together hold
+  all of S(E* over H). A read that pushed a selection down makes its own id-only calls. A capture
+  never takes its members from a pushed-down fetch.
+- Anchors are entity anchors. Slices 1 and 2 built no other kind; value and derived-index anchors
+  join a capture when their indexes exist.
+- `expiresAt` is per read, never per peer. It is the least `validFrom` or `validUntil` strictly
+  after the read's `now`, among the deltas of the read's exact trimmed scope: what remains after
+  the read's whole selection (the trim lemma, §4.3). It is null when there is none. Evaluation
+  keeps exactly the deltas valid at `now` (SPEC-2, `evalTerm`), so the answer can change with time
+  only at such a boundary. It is not computed over what a store returned: a store may return more
+  than the scope, and two stores must agree.
+
+`touching(capture, records, added)` is pure. `records` are the change records with
+`capture.revision < revision ≤ r′`, ascending. `added` holds, by id, the delta of every id in some
+record's `added` that the peer still holds at r′. It answers the first touch
+`{revision, id, reason}`, or null. The rule is defined by the state at r′. The capture is
+touched when:
+
+1. some record's `removed` names a member (`removed-member`), also when the id is added again
+   later: its arrival record changed; or
+2. an added id that the peer still holds at r′ has a pointer whose target is an anchor entity
+   (`targets-anchor`), or a `negates` pointer at a member (`negates-member`).
+
+An added id that the peer no longer holds at r′ is ignored, unless rule 1 applies to it. No
+closure over added negators is needed: an added delta that negates a delta which is neither a
+member nor a toucher cannot enter the scope. The first touch is in record order. Within one
+record, `removed` comes before `added`, and each list is read in its own ascending order. A delta
+that both points at an anchor and negates a member reports `targets-anchor`.
+
+**The claim.** With no touch, `S(anchors over H at r′)` equals `members`, id for id, with the same
+arrival records. With a touch, the id set or an arrival record differs at r′, or a member left and
+came back. So without a selection the check is **exact**. With a selection it is **sound**: a
+touch by a delta the selection rejects gives a false "stale", never a false "current". With no
+touch the raw scope is unchanged, so its trim under an unchanged selection is unchanged too.
+
+`checkFresh(peer, capture, now?)` answers `current`, `stale` with the touch, `expired` with
+`expiresAt`, or `resync-required` with the current revision. It makes one `read()`. When the
+snapshot's revision r′ equals the capture's, it reads no feed. When r′ is below it, it answers
+`resync-required`. Otherwise it reads `changes(capture.revision, r′)` page by page, with that
+explicit `to`. For each page that names an added id, it makes one `get` of those ids on the
+snapshot, and then judges the page. It stops at the first touch. Only after the feed, when `now`
+is given and `now ≥ expiresAt`, it answers `expired`. Its calls and cost depend on the records and
+ids since the capture, never on what the peer holds and never on records before the capture. It
+replaces SPEC-16's recomputation of the whole scope (SPEC-16 MR-10b).
+
+**What the check does not cover.** The feed check sees the store only. A host whose selection or
+authority reads state outside the capture's scope (trust, grants, a clock other than `expiresAt`)
+keeps its own epoch for that state and compares it itself.
 
 ### 4.7 Capabilities
 
@@ -1044,9 +1103,10 @@ that a vector can pin.
 
 ### 4.13 Slice 3 readings
 
-Slice 3 builds the change feed of §4.6 (`18-store.SLICE-3.PLAN.md`, steps 1 and 3). Where §4.6 and
-the plan were silent, the feed decided as follows. `vectors/store/scripts.json` and
-`vectors/store/README.md` §3.9 pin each point that a vector can pin.
+Slice 3 builds the change feed of §4.6 (`18-store.SLICE-3.PLAN.md`, steps 1 and 3) and freshness
+(step 5, readings 22 to 34). Where §4.6 and the plan were silent, the feed decided as follows.
+`vectors/store/scripts.json`, `vectors/store/freshness.json` and `vectors/store/README.md` §3.9
+and §9 pin each point that a vector can pin.
 
 1. **Revisions are integers.** A revision is an integer from 0 to 2^53 − 1 in every witness. The
    vectors need this to name a revision past the current one (`ahead`, README §3.9).
@@ -1121,6 +1181,57 @@ the plan were silent, the feed decided as follows. `vectors/store/scripts.json` 
 21. **Revisions that skip values conform.** A store whose revisions are two or three apart, kept
     whole or bounded, with any page size, passes every vector. Each witness pins this with
     stores that scale the reference store's revisions (README §8).
+22. **Validity in a read.** Evaluation keeps exactly the deltas valid at the read's `now`
+    (`validFrom ≤ now < validUntil`), once, at its boundary. A boundary at `now` has already taken
+    effect, so `expiresAt` takes the least boundary strictly after `now`. This is why a read has
+    a next boundary at all.
+23. **The operand, not the answer of a store.** `expiresAt` is taken over the read's exact members
+    (§4.12 reading 3), never over what the store returned. A store may return more than the
+    scope, and two stores must give one `expiresAt`.
+24. **A fetched scope has no `now`.** A law reader asks a fetched scope questions at its own times.
+    So a fetched scope answers `expiresAfter(now)`, the least boundary of its members after that
+    `now`, instead of carrying one `expiresAt`. TypeScript precomputes the sorted boundaries, so a
+    call costs O(log members).
+25. **A capture is asked for.** `readAnchored` and `StoreReactor.read` carry `expiresAt` always and
+    a capture only on request (`capture: true`). With nothing pushed down, the read's fetch cache
+    is the raw scope (§4.6), and the capture costs no store call. With a pushdown, the read makes
+    the id-only calls of the raw scope after its last round. This is the one exception to §4.12
+    reading 7, and only a read that asks for a capture makes it. `captureScope(snapshot,
+    entities, now, selection)` takes a capture beside a fetched scope.
+26. **The raw scope from ids.** `rawScope(snapshot, anchors)` asks `targets` of the anchors once,
+    then `negators` of each new layer until a layer adds nothing. It asks for each member once,
+    so it costs O(|members| × log N) in closure depth plus one calls.
+27. **Entity anchors only.** A capture, `rawScope` and `touching` read entity anchors, the only
+    kind slices 1 and 2 built. Another kind is refused `capability-absent`, as `scope` refuses it.
+28. **The order of the first touch.** Records in revision order; within one record, `removed`
+    before `added`; each list in its own ascending order; for one delta, `targets-anchor` before
+    `negates-member`. Two witnesses then report one touch. No store yet writes a record with
+    both lists, so the shared `touching` cases pin the order within one record.
+29. **A re-added member touches twice.** A member is yielded by an anchor or negates a member. So
+    when it comes back, rule 2 of §4.6 also touches. Rule 1's clause "also when the id is added
+    again" decides only that the first touch is the removal. A reader that ignores a re-add
+    therefore reports the touch one record late, and the vectors catch it by the touch.
+30. **`checkFresh`'s calls are normative.** One `read`; no feed at equal revisions; a capture
+    from a later revision answers `resync-required` with no feed call; `changes(c, r′)` with an
+    explicit `to`, then from each `through`; one `get` per page that names an added id, of exactly
+    those ids, ascending, before the page is judged, and none for a page with no added id; no
+    call after the page that touches or after `resync-required`; the release of the snapshot.
+    Cost is a property of calls, and a reader that reads past r′ shows only in its calls.
+31. **The answers in order.** `resync-required` first, then `stale`, then `expired`, then
+    `current`. `expired` needs `now`. A check with no `now` never answers `expired`: the caller
+    did not ask about time.
+32. **A moved snapshot.** On a store without read transactions, a commit during a check moves its
+    snapshot, and its `get` refuses `snapshot-moved`. `checkFresh` then starts again on a new
+    snapshot, as `StoreReactor` does (§4.12 reading 11): at most four snapshots, each released.
+    A `current` answer speaks for the snapshot the check read; a later commit is a later check.
+33. **Freshness needs the feed.** Every freshness case requires `changes`. A store that keeps
+    fewer records than a case needs answers `resync-required` for a capture below its floor; the
+    runner expects that answer there, as it does for `changes` steps (README §9.3).
+34. **`rounds.json` gains `expiresAt` only.** Every round case reads at `now` 100, after every
+    boundary of its fixture, so each `expiresAt` there is null. The existing vectors may change
+    only by the new field, so `freshness.json` pins boundaries that are not null, and each
+    witness reads the round cases again at `now` 55 against a scan (TypeScript:
+    `store-freshness.test.ts`).
 
 
 ## 5. Architectures
@@ -1267,8 +1378,9 @@ cache.
    values, the derived indexes it entered). For a negation of x, it uses x's anchors, from
    `get(x)`. Each affected view is evaluated again over its scope, or marked stale and evaluated
    on its next read.
-4. **Views.** A maintained view is a stored, anchored read. It is current when no change since its
-   revision touches its anchors (§4.6) and `now` is before `expiresAt`. Incremental equivalence
+4. **Views.** A maintained view is a stored, anchored read with its capture. It is current when no
+   change since its revision touches the capture (§4.6), `now` is before `expiresAt`, and the
+   host's own epoch for its selection and authority has not moved. Incremental equivalence
    (SPEC-4 §1) still holds: a view evaluated again over its scope equals a batch evaluation over
    the surface (SPEC-17 §6 theorem). A very large view is evaluated again whole when it changes;
    finer maintenance is an optimization, not a contract change.

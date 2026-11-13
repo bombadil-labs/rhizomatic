@@ -107,14 +107,20 @@ change what the system promises.
 These come from the independent review of steps 1 and 3 (2026-11-13) and from the review of the
 proposal (PR #76). Each is owed by the step or slice named.
 
-### Step 5 (freshness) owes
+### Step 5 (freshness) owes — done 2026-11-13
 
-- Freshness covers `expiresAt` as well as the feed.
-- Freshness covers the inputs of the selection and of authority, not the scope alone.
-- A removed raw id that is not an operand can still change a capture. Freshness covers it.
-- An added negator of an excluded raw id can still change a capture. Freshness covers it.
-- The step states how a capture gets its raw ids: its fetch uses no pushdown, or it reads the raw
-  ids from a separate call with no selection.
+- ✓ Freshness covers `expiresAt` as well as the feed. `checkFresh` answers `expired` after the
+  feed (§4.6 "Freshness check"; §4.13 reading 31; SPEC-16 MR-10b).
+- ✓ Freshness covers the inputs of the selection and of authority, not the scope alone. The host
+  keeps its own epoch for them (§4.6 "What the check does not cover"; SPEC-16 MR-10b, ERRATA E14).
+- ✓ A removed raw id that is not an operand can still change a capture. A capture's members are
+  the raw scope, so its removal touches (§4.6; `freshness.json` case
+  `a-selection-and-a-purged-raw-id`; SPEC-16 ERRATA E14).
+- ✓ An added negator of an excluded raw id can still change a capture. It negates a member of the
+  raw scope, so it touches (`freshness.json` case `a-selection-and-a-negator-of-a-raw-id`).
+- ✓ How a capture gets its raw ids: a read that pushed nothing down holds them in its fetch cache;
+  otherwise it reads them with id-only calls on the same snapshot, never from a pushed-down fetch
+  (§4.6; §4.13 readings 25 and 26; SPEC-16 MR-10b).
 
 ### Slice 4 owes
 

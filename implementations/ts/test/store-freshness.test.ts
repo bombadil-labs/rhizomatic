@@ -109,6 +109,9 @@ describe("freshness vectors", () => {
     "as built": {},
     "pages of one record": { options: { changePageSize: 1 } },
     "two records kept": { options: { changeRetention: { revisions: 2 } } },
+    "no pushdown field applied": {
+      options: { pushdown: { timestampAtMost: false, arrivalAtMost: false, excludeIds: false } },
+    },
     "two records kept, pages of one record": {
       options: { changeRetention: { revisions: 2 }, changePageSize: 1 },
     },
@@ -299,6 +302,114 @@ const READERS: readonly {
     }),
     fails: "freshness/an-added-delta-targets-an-anchor",
     message: "checkFresh made the call read after its last call",
+  },
+  {
+    name: "a capture of another revision",
+    witness: wrong({
+      capture: async (...args) => {
+        const right = await WITNESS.capture(...args);
+        return { ...right, revision: right.revision + 1 };
+      },
+    }),
+    fails: "freshness/no-change",
+    message: "the capture is of revision 2, expected 1",
+  },
+  {
+    name: "a capture that keeps the anchors in the order given",
+    witness: wrong({
+      capture: async (snapshot, anchors, pushdown, now) => ({
+        ...(await WITNESS.capture(snapshot, anchors, pushdown, now)),
+        anchors,
+      }),
+    }),
+    fails: "freshness/two-anchors",
+    message: "the capture's anchors are [entity:plant:b entity:plant:a entity:plant:b]",
+  },
+  {
+    name: "turns resync-required into current",
+    witness: wrong({
+      checkFresh: async (peer, capture, now) => {
+        const verdict = await checkFresh(peer, capture, now);
+        return verdict.status === "resync-required" ? { status: "current" } : verdict;
+      },
+    }),
+    fails: "freshness/retention-too-short",
+    message: "checkFresh answered current for a capture below the retention floor 2",
+  },
+  {
+    name: "resync-required with the capture's revision",
+    witness: wrong({
+      checkFresh: async (peer, capture, now) => {
+        const verdict = await checkFresh(peer, capture, now);
+        return verdict.status === "resync-required"
+          ? { ...verdict, current: capture.revision }
+          : verdict;
+      },
+    }),
+    fails: "freshness/retention-too-short",
+    message: "checkFresh reports resync-required with current 1, not the peer's revision 3",
+  },
+  {
+    name: "expired at the check's now",
+    witness: wrong({
+      checkFresh: async (peer, capture, now) => {
+        const verdict = await checkFresh(peer, capture, now);
+        return verdict.status === "expired" ? { ...verdict, expiresAt: now! } : verdict;
+      },
+    }),
+    fails: "freshness/expiry",
+    message: "checkFresh reports expiry at 200, expected 120",
+  },
+  {
+    name: "gets the added ids out of order",
+    witness: wrong({
+      checkFresh: (peer, capture, now) =>
+        checkFresh(
+          {
+            ...peer,
+            read: async () => {
+              const snapshot = await peer.read();
+              return { ...snapshot, get: (ids) => snapshot.get([...ids].reverse()) };
+            },
+          },
+          capture,
+          now,
+        ),
+    }),
+    fails: "freshness/two-touchers-in-one-record",
+    message: "checkFresh made the call get [",
+  },
+  {
+    name: "makes no get",
+    witness: wrong({
+      checkFresh: (peer, capture, now) =>
+        checkFresh(
+          {
+            ...peer,
+            read: async () => ({ ...(await peer.read()), get: async () => [] }),
+          },
+          capture,
+          now,
+        ),
+    }),
+    fails: "freshness/unrelated-appends",
+    message: "checkFresh made the call release where the contract asks for get [",
+  },
+  {
+    name: "does not release its snapshot",
+    witness: wrong({
+      checkFresh: (peer, capture, now) =>
+        checkFresh(
+          {
+            ...peer,
+            read: async () => ({ ...(await peer.read()), release: () => undefined }),
+          },
+          capture,
+          now,
+        ),
+    }),
+    fails: "freshness/no-change",
+    message: "checkFresh made no call where the contract asks for release",
   },
   {
     name: "touching drops the last record",
