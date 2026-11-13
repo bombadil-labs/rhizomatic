@@ -173,6 +173,22 @@ const ascending = (ids: readonly string[]): boolean =>
   ids.every((id, i) => i === 0 || compareUtf8(ids[i - 1]!, id) < 0);
 
 /**
+ * The `from` values the check after every step asks below the floor (README §3.9.4, item 2):
+ * every integer in (p, F) when there are at most 24; otherwise the first 8, the last 8, and 8
+ * spread evenly between them: p + 9 + floor(k × (F − p − 19) / 7) for k = 0 to 7. Ascending.
+ */
+export function belowProbes(p: number, floor: number): number[] {
+  const count = floor - p - 1;
+  if (count <= 0) return [];
+  const all = (from: number, to: number): number[] =>
+    Array.from({ length: Math.max(0, to - from + 1) }, (_, i) => from + i);
+  if (count <= 24) return all(p + 1, floor - 1);
+  const span = floor - p - 19;
+  const middle = Array.from({ length: 8 }, (_, k) => p + 9 + Math.floor((k * span) / 7));
+  return [...all(p + 1, p + 8), ...middle, ...all(floor - 8, floor - 1)];
+}
+
+/**
  * One run of steps against one store, with the runner's bookkeeping and feed model. Not part of
  * the package surface: the freshness runner reuses it for its own documents.
  */
@@ -477,7 +493,7 @@ export class Run {
         await this.below(peer, handle, previous, floor);
         // Where revisions skip values, every `from` between the previous revision and the floor
         // is not a revision the peer had, and it is below the floor all the same.
-        for (let from = previous + 1; from < floor; from++)
+        for (const from of belowProbes(previous, floor))
           await this.below(peer, handle, from, floor);
         // The floor is the newest dropped revision, not the one just before the oldest kept
         // record. Where revisions skip values the two differ, and a `from` between them is

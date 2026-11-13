@@ -5,7 +5,13 @@
 
 import { compareUtf8 } from "../delta/cbor.js";
 import type { Delta } from "../delta/types.js";
-import { parseCapture, type Capture, type Freshness, type Touch } from "./freshness.js";
+import {
+  captureDefect,
+  parseCapture,
+  type Capture,
+  type Freshness,
+  type Touch,
+} from "./freshness.js";
 import {
   Run,
   StoreConformanceError,
@@ -223,13 +229,8 @@ class FreshnessRun {
       snapshot.release();
     }
     // The capture must be well formed: its lists in UTF-8 order, its window ordered.
-    try {
-      parseCapture({ ...capture });
-    } catch (error) {
-      throw new Error(
-        `the capture is malformed: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    }
+    const defect = captureDefect(capture);
+    check(defect === null, `the capture is malformed: ${defect ?? ""}`);
     check(capture.history === snapshot.history, "the capture's history is not its snapshot's");
     const revision = this.run.resolve({ revision: step.expect.revision }, step.peer);
     check(

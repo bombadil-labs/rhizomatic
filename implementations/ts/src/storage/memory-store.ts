@@ -7,6 +7,7 @@ import { computeId } from "../delta/delta.js";
 import type { Claims, Delta } from "../delta/types.js";
 import type { ArrivalRecord } from "./arrival-record.js";
 import { copyArrival, copyClaims, copyMember, isPlainObject } from "./copy.js";
+import { LOCAL_HISTORY_PREFIX } from "./freshness.js";
 import {
   PURGE_BOUNDARY,
   StoreError,
@@ -63,9 +64,12 @@ export type MemoryStoreOptions = {
    */
   readonly changePageSize?: number;
   /**
-   * Mints the history of each peer this store creates (§4.6). The default is unique within the
-   * process. A host that keeps captures across processes passes a mint that is unique across
-   * them, such as 128 random bits.
+   * Mints the history of each peer this store creates (§4.6). The default is unique only within
+   * the process (`memory:local:<n>`). With a process-local history, a capture that outlives its
+   * process could be judged against another history and answer `current` falsely, which is why
+   * `parseCapture` refuses one. A host that keeps captures across a serialization boundary passes
+   * a mint unique across processes, such as 128 random bits. A minted history that is empty or
+   * starts with `memory:local:` is refused `invalid-request` when the peer is created.
    */
   readonly mintHistory?: (peer: PeerId) => History;
 };
@@ -129,10 +133,14 @@ type PeerState = {
   readonly feed: Feed;
 };
 
-// Histories this process has minted. Every memory store in the process draws from one counter,
-// so two peers, two stores, or one name created twice never share a history.
+// The default histories: one counter for every memory store in this copy of the module, so two
+// peers, two stores, or one name created twice never share one. They are unique only within the
+// process, and say so by their prefix: `parseCapture` refuses a capture that carries one. The
+// counter is per module copy, not on `globalThis`, which the package boundary forbids; a second
+// copy of the module counts again, and a capture from one copy that is checked against the
+// other fails `checkFresh`'s own check, because the other copy did not build it.
 let minted = 0;
-const mintMemoryHistory = (): History => `memory:${++minted}`;
+const mintMemoryHistory = (): History => `${LOCAL_HISTORY_PREFIX}${++minted}`;
 
 const sorted = (ids: Iterable<Id>): Id[] => [...new Set(ids)].sort(compareUtf8);
 
@@ -303,6 +311,11 @@ class MemoryStore implements Store {
       const history: unknown = mint === undefined ? mintMemoryHistory() : mint(peer);
       if (typeof history !== "string" || history === "")
         throw new StoreError("invalid-request", "memory store: a history is a non-empty string");
+      if (mint !== undefined && history.startsWith(LOCAL_HISTORY_PREFIX))
+        throw new StoreError(
+          "invalid-request",
+          `memory store: a minted history must not start with ${LOCAL_HISTORY_PREFIX}, which marks a history local to one process`,
+        );
       return history;
     };
     this.#own = {

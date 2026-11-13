@@ -106,33 +106,67 @@ async function failures(
 
 // ---- the vectors ------------------------------------------------------------------------------
 
+const TRIMS_AND_REPORTS_NOTHING = "the selection applied and nothing reported applied";
+
+/** The runs of README §9.4, and two scaled stores. */
+const RUNS: Readonly<Record<string, Break>> = {
+  "as built": {},
+  "pages of one record": { options: { changePageSize: 1 } },
+  "two records kept": { options: { changeRetention: { revisions: 2 } } },
+  "two records kept, pages of one record": {
+    options: { changeRetention: { revisions: 2 }, changePageSize: 1 },
+  },
+  "no pushdown field applied": {
+    options: { pushdown: { timestampAtMost: false, arrivalAtMost: false, excludeIds: false } },
+  },
+  // Run 6: a store that trims by the whole selection and reports no field applied, which §4.3
+  // allows. It returns less than the raw scope, and says nothing about why.
+  [TRIMS_AND_REPORTS_NOTHING]: {
+    snapshot: (s) => ({
+      scope: async (request) => ({
+        ...(await s.scope(request)),
+        applied: { timestampAtMost: false, arrivalAtMost: false, excludeIds: false },
+      }),
+    }),
+  },
+  "revisions times 3, pages of one record": { options: { changePageSize: 1 }, ...sparse(3) },
+  "revisions times 2, two records kept": {
+    options: { changeRetention: { revisions: 2 } },
+    ...sparse(2),
+  },
+};
+
 describe("freshness vectors", () => {
   it("the committed file is the model's output", () => {
     expect(committed).toBe(`${JSON.stringify(freshnessVectors(), null, 2)}\n`);
   });
 
-  const runs: Readonly<Record<string, Break>> = {
-    "as built": {},
-    "pages of one record": { options: { changePageSize: 1 } },
-    "two records kept": { options: { changeRetention: { revisions: 2 } } },
-    "no pushdown field applied": {
-      options: { pushdown: { timestampAtMost: false, arrivalAtMost: false, excludeIds: false } },
-    },
-    "two records kept, pages of one record": {
-      options: { changeRetention: { revisions: 2 }, changePageSize: 1 },
-    },
-    "revisions times 3, pages of one record": { options: { changePageSize: 1 }, ...sparse(3) },
-    "revisions times 2, two records kept": {
-      options: { changeRetention: { revisions: 2 } },
-      ...sparse(2),
-    },
-  };
-  for (const [name, fault] of Object.entries(runs))
+  for (const [name, fault] of Object.entries(RUNS))
     it(`pass on the memory store: ${name}`, async () => {
       const report = await runFreshnessConformance(factoryOf(fault), WITNESS, document);
       expect(report.skipped).toEqual([]);
       expect(report.passed).toHaveLength(document.cases.length + document.touching.length);
     });
+
+  it("a capture that takes the fetch as members when nothing is reported applied fails run 6 only", async () => {
+    const reader = wrong({
+      capture: async (snapshot, anchors, pushdown, now) => {
+        const right = await WITNESS.capture(snapshot, anchors, pushdown, now);
+        const answer = await snapshot.scope({ anchors: right.anchors, pushdown });
+        const nothing = !Object.values(answer.applied).some(Boolean);
+        const ids = answer.deltas.map((d) => d.delta.id).sort(compareUtf8);
+        return nothing ? makeCapture(right, right.anchors, ids, right) : right;
+      },
+    });
+    for (const [name, fault] of Object.entries(RUNS))
+      if (name !== TRIMS_AND_REPORTS_NOTHING)
+        expect(await failures(reader, fault), name).toEqual([]);
+    const found = await failures(reader, RUNS[TRIMS_AND_REPORTS_NOTHING]!);
+    expect(
+      found.find((f) => f.name === "freshness/a-selection-rejects-the-toucher")?.message,
+      JSON.stringify(found, null, 1),
+    ).toContain("the capture's members are");
+  });
 
   it("a store with no feed skips every case and names the requirement", async () => {
     const report = await runFreshnessConformance(
@@ -307,8 +341,13 @@ const READERS: readonly {
   {
     name: "a capture with no since",
     witness: wrong({
-      capture: async (...args) =>
-        parseCapture({ ...(await WITNESS.capture(...args)), since: null }),
+      capture: async (...args) => {
+        const right = await WITNESS.capture(...args);
+        return makeCapture(right, right.anchors, right.members, {
+          since: null,
+          expiresAt: right.expiresAt,
+        });
+      },
     }),
     fails: "freshness/the-window",
     message: "the capture's since is null, expected 100",
@@ -317,7 +356,16 @@ const READERS: readonly {
     name: "ignores the history",
     witness: wrong({
       checkFresh: (peer, capture, now) =>
-        checkFresh(peer, parseCapture({ ...capture, history: peer.history }), now),
+        checkFresh(
+          peer,
+          makeCapture(
+            { history: peer.history, revision: capture.revision },
+            capture.anchors,
+            capture.members,
+            capture,
+          ),
+          now,
+        ),
     }),
     fails: "freshness/a-capture-checked-on-another-peer",
     message: "checkFresh answered current, expected resync-required",
@@ -436,7 +484,12 @@ const READERS: readonly {
         const right = await WITNESS.capture(snapshot, anchors, pushdown, now);
         const direct = await snapshot.targets(right.anchors.map((a) => a.entity));
         const once = await snapshot.negators(direct);
-        return makeCapture(right, right.anchors, [...direct, ...once], right);
+        return makeCapture(
+          right,
+          right.anchors,
+          [...new Set([...direct, ...once])].sort(compareUtf8),
+          right,
+        );
       },
     }),
     fails: "freshness/a-chain-of-four",
@@ -742,11 +795,87 @@ describe("parseCapture", () => {
     expect(() => parseCapture({ ...stored([]), revision: -1 })).toThrow(/revision/);
   });
 
-  it("round-trips a capture through JSON", async () => {
-    const w = await writer();
+  it("round-trips a capture through JSON when its history is not local to the process", async () => {
+    const w = await writer({ mintHistory: () => "host:7f3a" });
     await w.append([fact("plant:a", 1), fact("plant:a", 2, { until: 9 })]);
     const capture = await w.capture(["plant:a"], 3);
     expect(parseCapture(JSON.parse(JSON.stringify(capture)))).toEqual(capture);
+  });
+});
+
+describe("a capture is built, checked and frozen", () => {
+  const snap = { history: "host:1", revision: 2 };
+  const anchors = [{ kind: "entity" as const, entity: "plant:a" }];
+  const open = { since: null, expiresAt: null };
+
+  it("makeCapture refuses what parseCapture refuses", () => {
+    const refusals: [Parameters<typeof makeCapture>, RegExp][] = [
+      [[snap, anchors, ["b", "a"], open], /members is not strictly ascending/],
+      [[snap, anchors, ["a", "a"], open], /members is not strictly ascending/],
+      [[snap, [...anchors, { kind: "entity", entity: "plant:0" }], [], open], /anchors/],
+      [[{ history: "", revision: 2 }, anchors, [], open], /history/],
+      [[{ history: "h", revision: -1 }, anchors, [], open], /revision/],
+      [[{ history: "h", revision: 0.5 }, anchors, [], open], /revision/],
+      [[snap, anchors, [], { since: Number.NaN, expiresAt: null }], /since/],
+      [[snap, anchors, [], { since: 5, expiresAt: 5 }], /before/],
+    ];
+    for (const [args, why] of refusals)
+      expect(() => makeCapture(...args), String(why)).toThrow(why);
+  });
+
+  it("touching and checkFresh refuse a capture neither constructor built", async () => {
+    const w = await writer();
+    await w.append([fact("plant:a", 1)]);
+    const capture = await w.capture(["plant:a"]);
+    const copies: unknown[] = [
+      { ...capture },
+      { ...capture, members: [...capture.members].reverse() },
+      JSON.parse(JSON.stringify(capture)),
+      {
+        history: capture.history,
+        revision: capture.revision,
+        anchors: capture.anchors,
+        members: capture.members,
+        since: capture.since,
+        expiresAt: capture.expiresAt,
+      },
+    ];
+    for (const copy of copies) {
+      expect(() => touching(copy as Capture, [], new Map())).toThrow(/not built by makeCapture/);
+      await expect(checkFresh(w.peer, copy as Capture, 0)).rejects.toMatchObject({
+        code: "invalid-request",
+      });
+    }
+    expect(await checkFresh(w.peer, capture, 0)).toEqual({ status: "current" });
+  });
+
+  it("a capture and its lists cannot be changed after it is built", async () => {
+    const w = await writer();
+    await w.append([fact("plant:a", 1)]);
+    const capture = await w.capture(["plant:a"]);
+    const writable = capture as unknown as { revision: number; members: string[] };
+    expect(() => (writable.revision = 9)).toThrow(TypeError);
+    expect(() => writable.members.push("x")).toThrow(TypeError);
+    expect(Object.isFrozen(capture.anchors[0])).toBe(true);
+  });
+
+  it("a capture with a history local to its process does not cross a process", async () => {
+    // Process A: a default memory store, and a capture serialized as JSON.
+    const a = await writer();
+    await a.append([fact("plant:a", 1)]);
+    const stored = JSON.stringify(await a.capture(["plant:a"]));
+    expect(JSON.parse(stored).history).toMatch(/^memory:local:/);
+    // Process B would hold another store whose peer may have the same local history. The
+    // capture is refused before it can be judged against it.
+    expect(() => parseCapture(JSON.parse(stored))).toThrow(/local to the process.*mintHistory/);
+  });
+
+  it("a minted history must not take the local prefix", async () => {
+    await expect(
+      createMemoryStore({ mintHistory: () => "memory:local:1" }).createPeer(PEER, {
+        erasure: "unproven",
+      }),
+    ).rejects.toMatchObject({ code: "invalid-request" });
   });
 });
 
@@ -811,7 +940,13 @@ describe("checkFresh", () => {
   it("answers resync-required for a capture from a later revision, with no feed call", async () => {
     const w = await writer();
     await w.append([fact("plant:a", 1)]);
-    const capture = parseCapture({ ...(await w.capture(["plant:a"])), revision: 9 });
+    const right = await w.capture(["plant:a"]);
+    const capture = makeCapture(
+      { history: right.history, revision: 9 },
+      right.anchors,
+      right.members,
+      right,
+    );
     const calls: string[] = [];
     const verdict = await checkFresh(
       { ...w.peer, changes: (from, to) => (calls.push("changes"), w.peer.changes(from, to)) },

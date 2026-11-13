@@ -96,41 +96,37 @@ function entitiesOf(anchors: readonly Anchor[]): Entity[] {
 const frozenAnchors = (entities: readonly Entity[]): readonly Anchor[] =>
   Object.freeze(entities.map((entity) => Object.freeze({ kind: "entity" as const, entity })));
 
-/** A capture of a snapshot, with its lists sorted and repeats dropped, frozen. */
-export function makeCapture(
-  snapshot: { readonly history: History; readonly revision: Revision },
-  anchors: readonly Anchor[],
-  members: Iterable<Id>,
-  validity: ValidityWindow,
-): Capture {
-  return Object.freeze({
-    history: snapshot.history,
-    revision: snapshot.revision,
-    anchors: frozenAnchors(entitiesOf(anchors)),
-    members: Object.freeze([...new Set(members)].sort(compareUtf8)),
-    since: validity.since,
-    expiresAt: validity.expiresAt,
-  }) as Capture;
+/**
+ * The prefix of a history that is unique only within one process: the memory store's default.
+ * A capture with such a history must not cross a process (`parseCapture` refuses it).
+ */
+export const LOCAL_HISTORY_PREFIX = "memory:local:";
+
+// Every capture this module built. `touching` and `checkFresh` answer for these alone: a copy, a
+// cast object or a parsed value has not been checked, and its lists may be out of order.
+const BUILT = new WeakSet<object>();
+
+/** Refuses `invalid-request` unless `capture` was built by `makeCapture` or `parseCapture`. */
+function built(capture: Capture): void {
+  if (typeof capture !== "object" || capture === null || !BUILT.has(capture))
+    throw new StoreError(
+      "invalid-request",
+      "capture: not built by makeCapture or parseCapture; build it with one of them",
+    );
 }
 
-/**
- * A capture that was stored and read back, checked. Refuses `invalid-request` unless `value`
- * has exactly the six fields of a capture, a non-empty `history`, an integer `revision` from 0
- * to 2^53 − 1, entity anchors and member ids each strictly ascending by UTF-8 bytes (so with no
- * repeat), and `since` and `expiresAt` that are null or finite with `since < expiresAt`. It
- * never sorts: a list out of order is refused, not repaired.
- */
-export function parseCapture(value: unknown): Capture {
+// The checks every capture passes, from either constructor. It never sorts: a list out of order
+// is refused, not repaired.
+function checked(v: Record<string, unknown>, refuseLocal: boolean): Capture {
   const refuse = (why: string): never => {
     throw new StoreError("invalid-request", `capture: ${why}`);
   };
-  if (typeof value !== "object" || value === null || Array.isArray(value)) refuse("not an object");
-  const v = value as Record<string, unknown>;
-  const keys = Object.keys(v).sort().join(",");
-  if (keys !== "anchors,expiresAt,history,members,revision,since")
-    refuse(`the keys are ${keys}, not anchors, expiresAt, history, members, revision, since`);
   const { history, revision, anchors, members, since, expiresAt } = v;
   if (typeof history !== "string" || history === "") refuse("history is not a non-empty string");
+  if (refuseLocal && (history as string).startsWith(LOCAL_HISTORY_PREFIX))
+    refuse(
+      `history ${String(history)} is local to the process that made it; a capture that crosses a process needs histories from mintHistory`,
+    );
   if (!Number.isSafeInteger(revision) || (revision as number) < 0)
     refuse("revision is not an integer from 0 to 2^53 - 1");
   const ascending = (list: unknown, what: string): string[] => {
@@ -169,13 +165,82 @@ export function parseCapture(value: unknown): Capture {
     validity.since >= validity.expiresAt
   )
     refuse("since is not before expiresAt");
-  return Object.freeze({
+  const capture = Object.freeze({
     history: history as string,
     revision: revision as number,
     anchors: frozenAnchors(entities),
     members: Object.freeze(ids),
     ...validity,
   }) as Capture;
+  BUILT.add(capture);
+  return capture;
+}
+
+/**
+ * A capture of a snapshot, frozen. The caller gives the lists already ascending by UTF-8 bytes
+ * and without repeats. Refuses `capability-absent` for an anchor that is not an entity anchor,
+ * and `invalid-request` for what `parseCapture` refuses, but a history local to this process.
+ */
+export function makeCapture(
+  snapshot: { readonly history: History; readonly revision: Revision },
+  anchors: readonly Anchor[],
+  members: Iterable<Id>,
+  validity: ValidityWindow,
+): Capture {
+  for (const anchor of anchors)
+    if (anchor.kind !== "entity")
+      throw new StoreError("capability-absent", "capture: entity anchors only");
+  return checked(
+    {
+      history: snapshot.history,
+      revision: snapshot.revision,
+      anchors,
+      members: [...members],
+      since: validity.since,
+      expiresAt: validity.expiresAt,
+    },
+    false,
+  );
+}
+
+/**
+ * A capture that was stored and read back, checked. Refuses `invalid-request` unless `value`
+ * has exactly the six fields of a capture, a non-empty `history` that is not local to a process
+ * (`LOCAL_HISTORY_PREFIX`), an integer `revision` from 0 to 2^53 − 1, entity anchors and member
+ * ids each strictly ascending by UTF-8 bytes (so with no repeat), and `since` and `expiresAt`
+ * that are null or finite with `since < expiresAt`. It never sorts.
+ *
+ * It checks shape, not truth: a stored capture is believed as its maker wrote it. A host that
+ * stores captures where it does not trust what is at rest protects their integrity itself.
+ */
+export function parseCapture(value: unknown): Capture {
+  if (typeof value !== "object" || value === null || Array.isArray(value))
+    throw new StoreError("invalid-request", "capture: not an object");
+  const v = value as Record<string, unknown>;
+  const keys = Object.keys(v).sort().join(",");
+  if (keys !== "anchors,expiresAt,history,members,revision,since")
+    throw new StoreError(
+      "invalid-request",
+      `capture: the keys are ${keys}, not anchors, expiresAt, history, members, revision, since`,
+    );
+  return checked(v, true);
+}
+
+/**
+ * The checks of a capture, with no constructor: for a runner that judges a capture a witness
+ * returned. Answers the reason it would be refused, or null. A local history is allowed.
+ */
+export function captureDefect(value: unknown): string | null {
+  try {
+    if (typeof value !== "object" || value === null) return "capture: not an object";
+    const keys = Object.keys(value).sort().join(",");
+    if (keys !== "anchors,expiresAt,history,members,revision,since")
+      return `capture: the keys are ${keys}, not anchors, expiresAt, history, members, revision, since`;
+    checked(value as Record<string, unknown>, false);
+    return null;
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
+  }
 }
 
 /**
@@ -269,6 +334,7 @@ export function touching(
   records: readonly ChangeRecord[],
   added: ReadonlyMap<Id, Delta>,
 ): Touch | null {
+  built(capture);
   for (const record of records) {
     for (const id of record.removed)
       if (holds(capture.members, id, same))
@@ -315,6 +381,7 @@ async function check(
   capture: Capture,
   now: number,
 ): Promise<Freshness> {
+  built(capture);
   if (typeof now !== "number" || !Number.isFinite(now))
     throw new StoreError("invalid-request", "checkFresh: now must be a finite number");
   for (let attempts = 1; ; attempts += 1) {

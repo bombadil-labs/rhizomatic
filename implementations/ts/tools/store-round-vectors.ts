@@ -21,6 +21,7 @@ import {
   type VectorDelta,
   type VectorPushdown,
 } from "../src/storage/store-vector-format.js";
+import { proveWindow } from "../src/storage/freshness-vectors.js";
 import type { Pushdown, VerifiedDelta } from "../src/storage/store.js";
 
 export const STORE_ROUNDS_FORMAT = "rhizomatic-store-rounds/1";
@@ -728,6 +729,13 @@ export function roundVectors(): StoreRoundsDocument {
           if (b > read.now && (expiresAt === null || b < expiresAt)) expiresAt = b;
           if (b <= read.now && (since === null || b > since)) since = b;
         }
+    proveWindow(
+      admitted.filter((e) => inScope.has(e.delta.id)).map((e) => e.delta),
+      read.now,
+      since,
+      expiresAt,
+      `a round read at ${read.root}, now ${read.now}`,
+    );
     const sorted = [...scope].sort(compareUtf8);
     return {
       canonicalHex: resultCanonicalHex(whole),

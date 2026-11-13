@@ -180,6 +180,7 @@ export {
 } from "./storage/store-conformance.js";
 export { storeVectors } from "./storage/store-vectors.js";
 export {
+  LOCAL_HISTORY_PREFIX,
   checkFresh,
   makeCapture,
   parseCapture,

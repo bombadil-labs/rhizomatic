@@ -740,6 +740,15 @@ const SHAPES_AND_SPARSE: Readonly<Record<string, Rule>> = {
       ...sparse(3, { belowFloorOk: 1 }),
     },
   },
+  "the feed: revisions times 1000, ok two below the floor and right everywhere else": {
+    doc: "scripts",
+    says: /changes answered ok from \d+, below the retention floor \d+/,
+    // F − 2 is among the last eight values the bounded probe asks.
+    store: {
+      options: { changeRetention: { revisions: 2 } },
+      ...sparse(1000, { belowFloorOk: 998 }),
+    },
+  },
   "the feed: revisions times 2, ok just below the floor without the newest dropped record": {
     doc: "scripts",
     says: /changes answered ok from \d+, below the retention floor \d+/,
@@ -1859,6 +1868,10 @@ describe("runner rules: revisions that skip values conform", () => {
       ...sparse(2),
     },
     "pages that hold 1, then 2, then 1 record, call by call": alternatingPages(),
+    "revisions times 1000, two records kept: the probe below the floor stays bounded": {
+      options: { changeRetention: { revisions: 2 } },
+      ...sparse(1000),
+    },
     "revisions times 3, two records kept, pages of one record": {
       options: { changeRetention: { revisions: 2 }, changePageSize: 1 },
       ...sparse(3),

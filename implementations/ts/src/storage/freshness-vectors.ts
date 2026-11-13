@@ -119,6 +119,59 @@ function corpus(): Named[] {
   return named;
 }
 
+// ---- the proof of a window ----------------------------------------------------------------------
+
+/**
+ * Proves a window by brute force over `operand` (SPEC-18 §4.6, "The window"), or throws. The
+ * set of valid deltas is the same at `now`, at `since`, at a midpoint and just below
+ * `expiresAt`; it differs just below `since` and at `expiresAt`. A null bound is open: no
+ * boundary lies on that side of `now`.
+ */
+export function proveWindow(
+  operand: readonly Delta[],
+  now: number,
+  since: number | null,
+  expiresAt: number | null,
+  what: string,
+): void {
+  const fail = (why: string): never => {
+    throw new Error(`freshness vectors: the window of ${what} ${why}`);
+  };
+  const validAt = (t: number): string =>
+    operand
+      .filter(
+        (d) =>
+          d.claims.validFrom <= t && (d.claims.validUntil === undefined || t < d.claims.validUntil),
+      )
+      .map((d) => d.id)
+      .join();
+  const boundaries = operand.flatMap((d) =>
+    d.claims.validUntil === undefined
+      ? [d.claims.validFrom]
+      : [d.claims.validFrom, d.claims.validUntil],
+  );
+  const at = validAt(now);
+  const lo = since ?? now;
+  const hi = expiresAt ?? now + 1;
+  if (validAt((lo + hi) / 2) !== at) fail("changes at its midpoint");
+  if (since === null) {
+    if (boundaries.some((b) => b <= now)) fail("is open below and a boundary is at or before now");
+  } else {
+    if (since > now) fail("starts after now");
+    if (validAt(since) !== at) fail("changes at since");
+    const earlier = boundaries.filter((b) => b < since);
+    const below = earlier.length === 0 ? since - 1 : (Math.max(...earlier) + since) / 2;
+    if (validAt(below) === at) fail("does not change just below since");
+  }
+  if (expiresAt === null) {
+    if (boundaries.some((b) => b > now)) fail("is open above and a boundary is after now");
+  } else {
+    if (expiresAt <= now) fail("ends at or before now");
+    if (validAt(expiresAt - (expiresAt - lo) / 1e6) !== at) fail("changes just below expiresAt");
+    if (validAt(expiresAt) === at) fail("does not change at expiresAt");
+  }
+}
+
 // ---- the model ------------------------------------------------------------------------------
 
 type Capture = {
@@ -214,6 +267,13 @@ class Case {
           if (b > now && (expiresAt === null || b < expiresAt)) expiresAt = b;
           if (b <= now && (since === null || b > since)) since = b;
         }
+    proveWindow(
+      state.held.filter((e) => operand.has(e.delta.id)).map((e) => e.delta),
+      now,
+      since,
+      expiresAt,
+      `capture ${as}`,
+    );
     const anchors = sorted.map((entity) => ({ kind: "entity" as const, entity }));
     this.captures.set(as, {
       peer,

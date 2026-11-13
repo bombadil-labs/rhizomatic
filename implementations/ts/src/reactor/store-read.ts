@@ -379,7 +379,7 @@ export async function readAnchoredWith(
               // and the rounds together hold all of S(scope over H): the cache is the raw scope.
               pushedDown(request.pushdown)
                 ? await rawScope(snapshot, entityAnchors(scope))
-                : cache.ids(),
+                : [...cache.ids()].sort(compareUtf8),
               validity,
             )
           : undefined;
@@ -568,7 +568,7 @@ export async function captureScope(
   // With no selection at all, the exact scope is the raw scope and needs no second look.
   const raw =
     !pushedDown(selection.pushdown) && selection.admits === undefined
-      ? fetched.source.ids()
+      ? [...fetched.source.ids()].sort(compareUtf8)
       : await rawScope(snapshot, anchors);
   return makeCapture(snapshot, anchors, raw, fetched.validityAt(now));
 }
