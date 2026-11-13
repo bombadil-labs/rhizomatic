@@ -81592,6 +81592,28 @@
       "targetOwner": "storage"
     },
     {
+      "form": "syn-import",
+      "owner": "storage",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "<import>",
+      "target": "crate::store::ChangeRetention",
+      "rawTarget": "crate::store::ChangeRetention",
+      "resolvedTarget": "crate::store::ChangeRetention",
+      "targetOwner": "storage"
+    },
+    {
+      "form": "syn-resolved-path",
+      "owner": "storage",
+      "source": "implementations/rust/src/store_conformance.rs",
+      "sourceRegion": "semantic-owner",
+      "symbol": "Run::unmet",
+      "target": "crate::store::ChangeRetention::None",
+      "rawTarget": "crate::store::ChangeRetention::None",
+      "resolvedTarget": "crate::store::ChangeRetention::None",
+      "targetOwner": "storage"
+    },
+    {
       "form": "syn-external-import",
       "owner": "storage",
       "source": "implementations/rust/src/store_conformance.rs",
