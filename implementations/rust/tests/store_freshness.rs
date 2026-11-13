@@ -7,6 +7,12 @@
 //! a spread copy, a reversed member list, a parsed value that skipped `parse_capture` or a cast
 //! object cannot be written in Rust. The rows of README §9.7 "Built captures only" are met by the
 //! type; the tests below hold the two constructors to the rules instead.
+//!
+//! Named gaps of the wrong-reader table (README §9.7), each for the same reason: the runner's check
+//! 0 of §9.2 re-validates a capture through `make_capture`, and a built capture always passes it.
+//! So the row "a capture that keeps the anchors in the order given" reaches its message through
+//! the maker's refusal inside the reader, which the runner reports as malformed. One row is Rust's
+//! own: a capture with sorted anchors and one missing (`FirstAnchorOnly`) holds check 2.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::hint::black_box;

@@ -7,6 +7,10 @@
 //!
 //! Interleaved cases move the peer between two rounds, by an append or a purge (README §5.5).
 //!
+//! Every mode also gives the window of the read's operand and its raw scope (`since`, `expiresAt`,
+//! `rawMembers`; SPEC-18 §4.13 reading 41): modes 2 to 5 through a capture, mode 1 by scanning.
+//! The rails of README §9.7 for a read's window and capture are at the end of this file.
+//!
 //! The rails of README §5.8: five wrong readers that must each fail a case, a store that returns
 //! an unclosed extra, a sticky residual in both parities, the hook, refusals, a store that lies
 //! about `applied`, the fetch cache's index and arrival rules, call traces and meter deltas beside
