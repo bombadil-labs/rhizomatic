@@ -101,3 +101,39 @@ change what the system promises.
   views.
 - **O11.** The memory store keeps every record by default, with a bounded option.
 - **O12.** SPEC-16 MR-10b is amended now, in one sentence, to allow the feed check.
+
+## 8. Follow-ups
+
+These come from the independent review of steps 1 and 3 (2026-11-13) and from the review of the
+proposal (PR #76). Each is owed by the step or slice named.
+
+### Step 5 (freshness) owes
+
+- Freshness covers `expiresAt` as well as the feed.
+- Freshness covers the inputs of the selection and of authority, not the scope alone.
+- A removed raw id that is not an operand can still change a capture. Freshness covers it.
+- An added negator of an excluded raw id can still change a capture. Freshness covers it.
+- The step states how a capture gets its raw ids: its fetch uses no pushdown, or it reads the raw
+  ids from a separate call with no selection.
+
+### Slice 4 owes
+
+- **Records appear in revision order** (§4.6, §4.13 reading 5). A record at revision r is visible
+  only when every record at or below r is. A store open to several writing processes enforces
+  this at commit. Slice 4 adds the rail; a sequential runner cannot test it.
+- **The feed is a purge surface** (§4.7.2). The purge report names the change feed as a surface
+  that still holds the id of a purged delta.
+- **A durable store's default retention is bounded.** Under `unbounded` retention a purged id
+  stays in the feed for as long as the store lives.
+- A purge does not report a surface `absent` while an open snapshot can still read the bytes.
+- The claim that "nothing is served silently" (§4.7.3) covers lost rows. Slice 4 narrows it, or
+  backs it, for lost index entries: a lost index entry hides a delta without a read failing.
+
+### Slice 6 owes
+
+- Stored views (§4.7.4) join the list of purge surfaces.
+
+### Done in steps 1 and 3
+
+- §5.3 and §5.4 state their exceptions to the cost rule: the compacting copy of a `proven` LMDB
+  purge costs O(store), and a segment lookup costs O(log² N) above the bound of §4.2.

@@ -52,6 +52,9 @@ scripts until its store serves a feed.
   `append` and `purge`. Four feed scripts. The runner checks each peer's feed after every step,
   and each witness runs the scripts again keeping two records and with pages of one record
   (`vectors/store/README.md` §3.9).
+- The feed runner also checks each answer's exact keys (a record carries no bytes), changes every
+  page it reads and asks again (a store owns what it returned), and probes the floor where
+  revisions skip values. Stores whose revisions are two or three apart pass every vector.
 - `negationWitnesses(source, now, suppression)` and `negationPredicate(source, now, suppression)`:
   the reactor's negation readers as free functions over any `DeltaSource`, such as a
   `scopeSource` of a fetched scope. A free reader keeps its memo for its whole life; build a new
