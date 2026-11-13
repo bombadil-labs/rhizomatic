@@ -63,6 +63,7 @@ pub mod sign;
 pub mod single_peer;
 pub mod store;
 pub mod store_conformance;
+pub mod store_follow;
 pub mod store_fresh;
 pub mod store_open;
 pub mod store_read;

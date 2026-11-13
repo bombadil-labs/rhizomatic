@@ -13,6 +13,7 @@ import { compareUtf8 } from "../delta/cbor.js";
 import type { Delta } from "../delta/types.js";
 import {
   StoreError,
+  StoreFaultError,
   type Anchor,
   type ChangeRecord,
   type Entity,
@@ -161,6 +162,9 @@ function checked(v: Record<string, unknown>, refuseLocal: boolean): Capture {
       if (anchor.kind !== "entity")
         return refuse("an anchor's kind is not entity, value or derived-index");
       if (Object.keys(anchor).length !== 2) return refuse("an entity anchor is not {kind, entity}");
+      // Each anchor whole, its entity included, before the next anchor is read (reading 54).
+      if (typeof anchor.entity !== "string")
+        return refuse("an entity anchor's entity is not a string");
       return anchor.entity;
     }),
     "anchors",
@@ -400,10 +404,16 @@ export function touching(
  * `expiresAt` is `expired`.
  *
  * Its calls and cost depend on the records and ids since the capture, never on what the peer
- * holds and never on records before the capture. When the peer moves during the check, it starts
- * again on a new snapshot, as `StoreReactor` does, up to three more times; then `snapshot-moved`
- * passes up. Every snapshot is released. Refuses `invalid-request` for a `now` that is not a
- * finite number: a capture is current only relative to a time.
+ * holds and never on records before the capture. When the peer moves during the check, also
+ * under `read()` itself, it starts again on a new snapshot, as `StoreReactor` does, up to three
+ * more times; then `snapshot-moved` passes up. Every snapshot is released. Refuses
+ * `invalid-request` for a `now` that is not a finite number: a capture is current only relative
+ * to a time.
+ *
+ * Throws `StoreFaultError` when the store breaks its contract, before it judges what the store
+ * answered: a page with no progress short of r′ (`no-progress`), a page past r′
+ * (`past-the-bound`), or a `get` that answers an id it was not asked for, twice, or out of order
+ * (`unasked-ids`).
  */
 export function checkFresh(peer: PeerStore, capture: Capture, now: number): Promise<Freshness> {
   return checkFreshWith(touching)(peer, capture, now);
@@ -426,17 +436,79 @@ async function check(
   built(capture);
   if (typeof now !== "number" || !Number.isFinite(now))
     throw new StoreError("invalid-request", "checkFresh: now must be a finite number");
+  return onSnapshots(peer, (snapshot) => checkOn(touch, peer, snapshot, capture, now));
+}
+
+const moved = (error: unknown): boolean =>
+  error instanceof StoreError && error.code === "snapshot-moved";
+
+/**
+ * `body` on a new snapshot of `peer`, released after it. On `snapshot-moved`, from `read()` itself
+ * or from a later call, it starts again on a new snapshot, at most four snapshots in all; then
+ * `snapshot-moved` passes up. `checkFresh` and a feed cursor's `pull` share it.
+ */
+export async function onSnapshots<T>(
+  peer: PeerStore,
+  body: (snapshot: Snapshot) => Promise<T>,
+): Promise<T> {
   for (let attempts = 1; ; attempts += 1) {
-    const snapshot = await peer.read();
+    let snapshot: Snapshot;
     try {
-      return await checkOn(touch, peer, snapshot, capture, now);
+      snapshot = await peer.read();
     } catch (error) {
-      const moved = error instanceof StoreError && error.code === "snapshot-moved";
-      if (!moved || attempts > SNAPSHOT_RETRIES) throw error;
+      if (moved(error) && attempts <= SNAPSHOT_RETRIES) continue;
+      throw error;
+    }
+    try {
+      return await body(snapshot);
+    } catch (error) {
+      if (!moved(error) || attempts > SNAPSHOT_RETRIES) throw error;
     } finally {
       snapshot.release();
     }
   }
+}
+
+/**
+ * A page of `changes(from, to)` checked before anything reads its records: its `through` is past
+ * `from` (else `no-progress`) and at most `to` (else `past-the-bound`). `who` names the caller.
+ */
+export function checkedThrough(who: string, from: Revision, to: Revision, through: Revision): void {
+  const values = { from, to, through };
+  if (through <= from)
+    throw new StoreFaultError(
+      "no-progress",
+      values,
+      `${who}: the store's page from ${from} to ${to} ends at ${through}, with no progress`,
+    );
+  if (through > to)
+    throw new StoreFaultError(
+      "past-the-bound",
+      values,
+      `${who}: the store's page from ${from} to ${to} ends at ${through}, past ${to}`,
+    );
+}
+
+/**
+ * The ids of an answer of `call` (`get` or `arrivals`), checked against the ids it asked for: each
+ * an asked id, each once, ascending by UTF-8 bytes. Else `unasked-ids`, and the answer is not
+ * used. `who` names the caller.
+ */
+export function answeredOnly(
+  who: string,
+  call: "get" | "arrivals",
+  asked: readonly Id[],
+  answered: readonly Id[],
+): void {
+  const wanted = new Set(asked);
+  answered.forEach((id, i) => {
+    if (!wanted.has(id) || (i > 0 && compareUtf8(answered[i - 1]!, id) >= 0))
+      throw new StoreFaultError(
+        "unasked-ids",
+        { call, asked: [...asked], answered: [...answered] },
+        `${who}: ${call} answered ${id}, which it was not asked for, or twice, or out of order`,
+      );
+  });
 }
 
 async function checkOn(
@@ -457,13 +529,19 @@ async function checkOn(
       return { status: "resync-required", current: page.current };
     // A store fault, not a verdict: a page with no progress short of r′, or one that claims
     // records past r′, cannot vouch for the range, and its records are not judged.
-    if (page.through <= at || page.through > current)
-      throw new Error(
-        `checkFresh: the store's page from ${at} to ${current} ends at ${page.through}; the store breaks the change feed contract (§4.6)`,
-      );
+    checkedThrough("checkFresh", at, current, page.through);
     const ids = [...new Set(page.records.flatMap((record) => record.added))].sort(compareUtf8);
     const added = new Map<Id, Delta>();
-    if (ids.length > 0) for (const delta of await snapshot.get(ids)) added.set(delta.id, delta);
+    if (ids.length > 0) {
+      const held = await snapshot.get(ids);
+      answeredOnly(
+        "checkFresh",
+        "get",
+        ids,
+        held.map((delta) => delta.id),
+      );
+      for (const delta of held) added.set(delta.id, delta);
+    }
     const found = touch(capture, page.records, added);
     if (found !== null) return { status: "stale", touch: found };
     at = page.through;

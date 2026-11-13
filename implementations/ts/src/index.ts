@@ -108,6 +108,7 @@ export { packId, packSet, unpackSet } from "./pack.js";
 export {
   PURGE_BOUNDARY,
   StoreError,
+  StoreFaultError,
   collectDeltaSet,
   missingRequirements,
   type Admission,
@@ -134,6 +135,7 @@ export {
   type Snapshot,
   type Store,
   type StoreErrorCode,
+  type StoreFaultRule,
   type StoreProfile,
   type StoreRequirement,
   type SurfaceState,

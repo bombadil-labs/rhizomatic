@@ -1,9 +1,47 @@
-//! `vectors/store/follow.json` (SPEC-18 proposal §4.6, "Following the feed";
-//! `vectors/store/README.md` §10). The Rust witness has no feed cursor until slice 3 step 8
-//! builds it. Until then it reads the document, checks the parts every runner reads first, and
-//! reports every case skipped, as `freshness.json` was skipped before step 6.
+//! `vectors/store/follow.json` (SPEC-18 proposal §4.6, "Following the feed"; `vectors/store/
+//! README.md` §10) and the rails each witness adds (README §10.6).
+//!
+//! Named gaps, each for a reason the type system gives:
+//! - "Two pulls started together run one after the other" (§4.13 reading 64): `FeedCursor::pull`
+//!   takes the cursor mutably, so two pulls on one cursor cannot overlap; no test can start them
+//!   together, and none is written.
+//! - Check 14 of §10.3 (the guarantee), in both halves, has no wrong-follower row: checks 1 to 10
+//!   imply it. A mutation of the runner's apply rule shows it live: when the rule never sets a
+//!   delivered delta, `one-append` fails the first half (the mirror at the peer's revision) and
+//!   `an-append-between-single-pulls` the second (`after the pull to 2 …`). Ignoring `removed`
+//!   shows the first half only. The bound on pulls has no row: a follower that passes check 3
+//!   cannot reach it.
 
+use std::cell::{Cell, RefCell};
+use std::collections::{BTreeMap, BTreeSet};
+use std::hint::black_box;
+use std::rc::Rc;
+use std::time::{Duration, Instant};
+
+use rhizomatic::memory_store::{MemoryStore, MemoryStoreOptions};
+use rhizomatic::set::make_delta;
+use rhizomatic::store::{
+    Admission, AppendResult, ArrivalRecord, ChangePage, ChangeRecord, ChangeRetention,
+    ErasurePosture, PeerErasure, PeerStore, PurgeReport, Revision, ScopeRequest, ScopeResult,
+    Snapshot, Store, StoreError, StoreErrorCode, VerifiedDelta, MAX_REVISION,
+};
+use rhizomatic::store_conformance::{
+    run_follow_conformance, FollowCaseStore, FollowReader, Follower, StoreConformanceError,
+    StoreConformanceReport,
+};
+use rhizomatic::store_follow::{
+    follow_feed, parse_position, position_of, FeedCursor, Position, Pull, StoreFollow,
+};
+use rhizomatic::store_fresh::{FeedError, StoreFault};
+use rhizomatic::store_read::{ReadRequest, Selection, StoreReactor};
+use rhizomatic::term_json::parse_term;
+use rhizomatic::types::{Claims, Delta, EntityRef, Pointer, Primitive, Target};
 use serde_json::Value;
+
+#[path = "support/freshness_doubles.rs"]
+#[allow(dead_code)]
+mod doubles;
+use doubles::{DeclaresNoFeed, Odd, Scaled};
 
 fn document() -> Value {
     let path = format!(
@@ -13,29 +51,2223 @@ fn document() -> Value {
     serde_json::from_str(&std::fs::read_to_string(path).expect("read follow.json")).unwrap()
 }
 
+/// How one run of README §10.4 builds its stores.
+#[derive(Debug, Clone, Copy)]
+struct RunStore {
+    scale: u64,
+    keep: Option<u64>,
+    page: Option<u64>,
+}
+
+const DEFAULT: RunStore = RunStore {
+    scale: 1,
+    keep: None,
+    page: None,
+};
+
+const KEEP_TWO: RunStore = RunStore {
+    scale: 1,
+    keep: Some(2),
+    page: None,
+};
+
+/// README §10.4 runs 1 to 5, and revisions times 2 keeping two records.
+fn runs() -> Vec<(&'static str, RunStore)> {
+    let run = |scale, keep, page| RunStore { scale, keep, page };
+    vec![
+        ("1 default", DEFAULT),
+        ("2 pages of one", run(1, None, Some(1))),
+        ("3 two kept", KEEP_TWO),
+        ("4 two kept, pages of one", run(1, Some(2), Some(1))),
+        ("5 times 3, pages of one", run(3, None, Some(1))),
+        ("times 2, two kept", run(2, Some(2), None)),
+    ]
+}
+
+fn open(run: RunStore, case: FollowCaseStore) -> Result<Box<dyn Store>, StoreError> {
+    let options = MemoryStoreOptions {
+        change_retention: case.change_retention.unwrap_or(
+            run.keep
+                .map_or(ChangeRetention::Unbounded, ChangeRetention::Revisions),
+        ),
+        change_page_size: case.change_page_size.or(run.page),
+        ..MemoryStoreOptions::default()
+    };
+    let store = MemoryStore::with_options(options)?;
+    Ok(match run.scale {
+        1 => Box::new(store),
+        k => Box::new(Scaled::new(store, k)),
+    })
+}
+
+fn run(
+    store: RunStore,
+    doc: &Value,
+    reader: &dyn FollowReader,
+) -> Result<StoreConformanceReport, StoreConformanceError> {
+    run_follow_conformance(&|case| open(store, case), doc, reader)
+}
+
+/// Every run of README §10.4 passes every case and skips nothing.
 #[test]
-fn the_follow_vectors_are_skipped_until_the_witness_has_a_cursor() {
+fn every_follow_case_passes_every_run() {
     let doc = document();
     assert_eq!(doc["format"], "rhizomatic-store-follow/1");
-    let cases = doc["cases"].as_array().expect("cases");
-    assert!(!cases.is_empty());
-    for case in cases {
-        let requires = case["requires"].as_array().expect("requires");
+    let cases = doc["cases"].as_array().unwrap().len();
+    assert!(cases >= 16, "{cases} cases");
+    for (label, store) in runs() {
+        let report = run(store, &doc, &StoreFollow).unwrap_or_else(|e| panic!("run {label}: {e}"));
+        // Exactly the file's cases, each passed, none skipped.
+        let names: Vec<String> = doc["cases"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|c| format!("follow/{}", c["name"].as_str().unwrap()))
+            .collect();
+        assert_eq!(report.passed, names, "run {label}");
+        assert_eq!(report.passed.len(), cases, "run {label}");
         assert!(
-            requires.iter().any(|r| r == "changes"),
-            "{} requires changes",
-            case["name"]
+            report.skipped.is_empty(),
+            "run {label}: {:?}",
+            report.skipped
         );
-        let steps = case["steps"].as_array().expect("steps");
-        let ops: Vec<&str> = steps.iter().map(|s| s["op"].as_str().unwrap()).collect();
-        assert!(ops.contains(&"follow") && ops.contains(&"pull"));
-        for step in steps.iter().filter(|s| s["op"] == "pull") {
-            let status = step["expect"]["status"].as_str().expect("status");
-            assert!(status == "ok" || status == "resync-required", "{status}");
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Wrong followers (README §10.6)
+// ---------------------------------------------------------------------------------------------
+
+/// The one rule a follower written for the rails breaks.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Wrong {
+    Nothing,
+    DropsRemoved,
+    ArrivalOrder,
+    OncePerRecord,
+    TwoPages,
+    MovesOnResync,
+    PastThrough,
+    PastSnapshot,
+    SkipsHistory,
+    HistoryAfterFeed,
+    NoTo,
+    GetForNothing,
+    NoRelease,
+    AsksAgain,
+    MissingIsError,
+    FeedPastSnapshot,
+    FeedAtEqual,
+    ResyncAtCursor,
+    KeepsFirstArrival,
+    ChangedClaims,
+    OtherHistory,
+    OkWithoutReading,
+    Lags,
+    NoBytes,
+    OkForResync,
+    /// W6: keeps what one catch-up delivered and hands it out again until it stands at its
+    /// snapshot's revision. It makes exactly the calls of the contract.
+    CachesCatchUp,
+    // The follow step (§10.2).
+    PositionOfOtherHistory,
+    PositionOfOtherRevision,
+    IgnoresPosition,
+    ReadsOnFollow,
+}
+
+struct Mutant(Wrong);
+
+/// The second cursor, written for the rails: the rule of SPEC-18 §4.6 with `wrong` broken.
+struct Rail<'a> {
+    peer: Box<dyn PeerStore + 'a>,
+    position: Position,
+    resync: Option<Position>,
+    wrong: Wrong,
+    /// What it delivered before, by id: `KeepsFirstArrival` serves these again.
+    seen: BTreeMap<String, ArrivalRecord>,
+    /// What this catch-up delivered: `CachesCatchUp` serves these again.
+    cache: BTreeMap<String, VerifiedDelta>,
+}
+
+fn nothing_new(position: &Position) -> Pull {
+    Pull::Ok {
+        position: position.clone(),
+        records: Vec::new(),
+        deltas: Vec::new(),
+    }
+}
+
+impl Rail<'_> {
+    fn one(&mut self, snapshot: &dyn Snapshot) -> Result<Pull, FeedError> {
+        let w = self.wrong;
+        let at = position_of(snapshot);
+        let resync = Pull::ResyncRequired {
+            current: match w {
+                Wrong::ResyncAtCursor => self.position.clone(),
+                _ => at.clone(),
+            },
+        };
+        let from = self.position.revision;
+        let other = at.history != self.position.history;
+        if other && !matches!(w, Wrong::SkipsHistory | Wrong::HistoryAfterFeed) {
+            return Ok(resync);
+        }
+        if at.revision < from && w != Wrong::FeedPastSnapshot {
+            return Ok(resync);
+        }
+        if at.revision == from && w != Wrong::FeedAtEqual {
+            return Ok(nothing_new(&self.position));
+        }
+        let to = (w != Wrong::NoTo).then_some(at.revision);
+        let page = self.peer.changes(from, to)?;
+        if other && w == Wrong::HistoryAfterFeed {
+            return Ok(resync);
+        }
+        let (mut records, mut through) = match page {
+            ChangePage::ResyncRequired { .. } if w == Wrong::OkForResync => {
+                return Ok(nothing_new(&self.position))
+            }
+            ChangePage::ResyncRequired { .. } => return Ok(resync),
+            ChangePage::Ok { records, through } => (records, through),
+        };
+        while w == Wrong::TwoPages && through < at.revision {
+            match self.peer.changes(through, Some(at.revision))? {
+                ChangePage::Ok {
+                    records: more,
+                    through: next,
+                } => {
+                    records.extend(more);
+                    through = next;
+                }
+                ChangePage::ResyncRequired { .. } => break,
+            }
+        }
+        let ids: Vec<String> = records
+            .iter()
+            .flat_map(|r| &r.added)
+            .cloned()
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect();
+        let mut deltas: Vec<VerifiedDelta> = Vec::new();
+        if !ids.is_empty() || w == Wrong::GetForNothing {
+            let got = snapshot.get(&ids)?;
+            let arrivals = snapshot.arrivals(&ids)?;
+            if w == Wrong::MissingIsError && got.len() != ids.len() {
+                // A follower's own error has no other shape in this witness than a fault.
+                return Err(StoreFault::MismatchedAnswers {
+                    get: got.iter().map(|d| d.id.clone()).collect(),
+                    arrivals: ids,
+                }
+                .into());
+            }
+            deltas = got
+                .into_iter()
+                .zip(arrivals)
+                .map(|(delta, arrival)| VerifiedDelta { delta, arrival })
+                .collect();
+        }
+        if w == Wrong::CachesCatchUp {
+            for id in &ids {
+                let missing = deltas.iter().all(|d| d.delta.id != *id);
+                if let (true, Some(kept)) = (missing, self.cache.get(id)) {
+                    deltas.push(kept.clone());
+                }
+            }
+            deltas.sort_by(|a, b| a.delta.id.cmp(&b.delta.id));
+            match through == at.revision {
+                true => self.cache.clear(),
+                false => {
+                    for d in &deltas {
+                        self.cache.insert(d.delta.id.clone(), d.clone());
+                    }
+                }
+            }
+        }
+        if w == Wrong::OncePerRecord {
+            let by_id: BTreeMap<String, VerifiedDelta> = deltas
+                .iter()
+                .map(|d| (d.delta.id.clone(), d.clone()))
+                .collect();
+            deltas = records
+                .iter()
+                .flat_map(|r| &r.added)
+                .filter_map(|id| by_id.get(id).cloned())
+                .collect();
+        }
+        if w == Wrong::ArrivalOrder {
+            deltas.sort_by_key(|d| d.arrival.sequence);
+        }
+        if w == Wrong::KeepsFirstArrival {
+            for d in &mut deltas {
+                let first = self
+                    .seen
+                    .entry(d.delta.id.clone())
+                    .or_insert(d.arrival.clone());
+                d.arrival = first.clone();
+            }
+        }
+        if w == Wrong::ChangedClaims {
+            for d in &mut deltas {
+                d.delta.claims.timestamp += 1.0;
+            }
+        }
+        if w == Wrong::NoBytes {
+            deltas.clear();
+        }
+        if w == Wrong::DropsRemoved {
+            for r in &mut records {
+                r.removed.clear();
+            }
+        }
+        let revision = match w {
+            Wrong::PastThrough => Revision(through.0 + 1),
+            Wrong::PastSnapshot => Revision(at.revision.0 + 1),
+            _ => through,
+        };
+        let history = match w {
+            Wrong::OtherHistory => "elsewhere".to_string(),
+            _ => at.history,
+        };
+        Ok(Pull::Ok {
+            position: Position { history, revision },
+            records,
+            deltas,
+        })
+    }
+}
+
+impl Follower for Rail<'_> {
+    fn position(&self) -> Position {
+        self.position.clone()
+    }
+
+    fn pull(&mut self) -> Result<Pull, FeedError> {
+        let w = self.wrong;
+        if let Some(current) = &self.resync {
+            if w != Wrong::AsksAgain {
+                return Ok(Pull::ResyncRequired {
+                    current: current.clone(),
+                });
+            }
+        }
+        if w == Wrong::OkWithoutReading {
+            return Ok(nothing_new(&self.position));
+        }
+        let mut snapshot = self.peer.read()?;
+        let answer = self.one(snapshot.as_ref());
+        if w != Wrong::NoRelease {
+            snapshot.release();
+        }
+        let answer = answer?;
+        match &answer {
+            Pull::Ok { position, .. } if w != Wrong::Lags => self.position = position.clone(),
+            Pull::Ok { .. } => {}
+            Pull::ResyncRequired { current } => {
+                if w == Wrong::MovesOnResync {
+                    self.position = current.clone();
+                }
+                self.resync = Some(current.clone());
+            }
+        }
+        Ok(answer)
+    }
+}
+
+impl FollowReader for Mutant {
+    fn position_of(&self, snapshot: &dyn Snapshot) -> Position {
+        let mut position = position_of(snapshot);
+        match self.0 {
+            Wrong::PositionOfOtherHistory => position.history.push_str(":other"),
+            Wrong::PositionOfOtherRevision => position.revision.0 += 1,
+            _ => {}
+        }
+        position
+    }
+
+    fn follow<'a>(
+        &self,
+        peer: Box<dyn PeerStore + 'a>,
+        from: Position,
+    ) -> Result<Box<dyn Follower + 'a>, StoreError> {
+        let mut position = from;
+        if matches!(self.0, Wrong::IgnoresPosition | Wrong::ReadsOnFollow) {
+            let mut snapshot = peer.read()?;
+            if self.0 == Wrong::IgnoresPosition {
+                position = position_of(snapshot.as_ref());
+            }
+            snapshot.release();
+        }
+        Ok(Box::new(Rail {
+            peer,
+            position,
+            resync: None,
+            wrong: self.0,
+            seen: BTreeMap::new(),
+            cache: BTreeMap::new(),
+        }))
+    }
+}
+
+/// One row: the follower, the run, the case it fails, how its message starts, and, when the
+/// table names them, the only cases that catch it.
+struct Row {
+    wrong: Wrong,
+    store: RunStore,
+    case: &'static str,
+    message: &'static str,
+    only: &'static [&'static str],
+}
+
+const fn row(wrong: Wrong, case: &'static str, message: &'static str) -> Row {
+    Row {
+        wrong,
+        store: DEFAULT,
+        case,
+        message,
+        only: &[],
+    }
+}
+
+const fn only(
+    wrong: Wrong,
+    case: &'static str,
+    message: &'static str,
+    only: &'static [&'static str],
+) -> Row {
+    Row {
+        wrong,
+        store: DEFAULT,
+        case,
+        message,
+        only,
+    }
+}
+
+const TABLE: &[Row] = &[
+    row(
+        Wrong::DropsRemoved,
+        "a-purge-of-a-held-id",
+        "the pull's record at revision 2 differs from its commit",
+    ),
+    only(
+        Wrong::ArrivalOrder,
+        "several-records-in-one-page",
+        "the pull's deltas are not ascending by id and distinct",
+        &[
+            "several-records-in-one-page",
+            "pages-of-one",
+            "a-follower-started-mid-history",
+        ],
+    ),
+    only(
+        Wrong::OncePerRecord,
+        "add-purge-add-in-one-page",
+        "the pull's deltas are not ascending by id and distinct",
+        &[
+            "add-purge-add-in-one-page",
+            "a-follower-started-mid-history",
+        ],
+    ),
+    only(
+        Wrong::TwoPages,
+        "pages-of-one",
+        "pull made the call changes(2, 4) where the contract asks for get [",
+        &[
+            "pages-of-one",
+            "a-purge-between-single-pulls",
+            "an-append-between-single-pulls",
+            "a-purge-of-a-mirrored-id-between-single-pulls",
+            "a-re-add-between-single-pulls",
+        ],
+    ),
+    only(
+        Wrong::MovesOnResync,
+        "retention-too-short",
+        "the cursor moved after resync-required",
+        &[
+            "retention-too-short",
+            "a-position-from-the-future",
+            "another-peers-history",
+            "pull-after-resync",
+        ],
+    ),
+    row(
+        Wrong::PastThrough,
+        "pages-of-one",
+        "the pull's records are at [2], expected [2 3]",
+    ),
+    row(
+        Wrong::PastSnapshot,
+        "one-append",
+        "the pull's position 3 lies outside [1, 2]",
+    ),
+    only(
+        Wrong::SkipsHistory,
+        "another-peers-history",
+        "pull answered ok, expected resync-required",
+        &["another-peers-history"],
+    ),
+    only(
+        Wrong::HistoryAfterFeed,
+        "another-peers-history",
+        "pull made the call changes(1, 2) where the contract asks for release",
+        &["another-peers-history"],
+    ),
+    row(
+        Wrong::NoTo,
+        "one-append",
+        "pull made the call changes(1, none) where the contract asks for changes(1, 2)",
+    ),
+    row(
+        Wrong::GetForNothing,
+        "a-head-only-commit",
+        "pull made the call get [] where the contract asks for release",
+    ),
+    row(
+        Wrong::NoRelease,
+        "nothing-new",
+        "pull made no call where the contract asks for release",
+    ),
+    only(
+        Wrong::AsksAgain,
+        "pull-after-resync",
+        "pull answered ok, expected resync-required",
+        &["pull-after-resync", "retention-too-short"],
+    ),
+    row(
+        Wrong::MissingIsError,
+        "add-then-purge-in-one-page",
+        "the store broke mismatched-answers: ",
+    ),
+    row(
+        Wrong::FeedPastSnapshot,
+        "a-position-from-the-future",
+        "pull refused with invalid-request",
+    ),
+    row(
+        Wrong::FeedAtEqual,
+        "nothing-new",
+        "pull made the call changes(1, 1) where the contract asks for release",
+    ),
+    row(
+        Wrong::ResyncAtCursor,
+        "a-position-from-the-future",
+        "pull reports resync-required with current 3, expected 1",
+    ),
+    only(
+        Wrong::KeepsFirstArrival,
+        "add-purge-add-across-pulls",
+        "the pull delivered ",
+        &[
+            "add-purge-add-across-pulls",
+            "a-re-add-between-single-pulls",
+        ],
+    ),
+    only(
+        Wrong::CachesCatchUp,
+        "a-purge-between-single-pulls",
+        "the pull delivered [",
+        &["a-purge-between-single-pulls"],
+    ),
+    row(Wrong::ChangedClaims, "one-append", "the pull delivered "),
+    row(
+        Wrong::OtherHistory,
+        "one-append",
+        "the pull moved the cursor to another history",
+    ),
+    row(
+        Wrong::OkWithoutReading,
+        "one-append",
+        "the pull from 1 made no progress toward 2",
+    ),
+    row(
+        Wrong::Lags,
+        "one-append",
+        "the cursor stands at 1, not at the pull's position 2",
+    ),
+    row(
+        Wrong::NoBytes,
+        "one-append",
+        "the pull delivered [], expected [",
+    ),
+    row(
+        Wrong::OkForResync,
+        "retention-too-short",
+        "pull answered ok, expected resync-required",
+    ),
+    Row {
+        wrong: Wrong::OkForResync,
+        store: KEEP_TWO,
+        case: "several-records-in-one-page",
+        message: "pull answered ok for a position below the retention floor 2",
+        only: &[],
+    },
+    // The follow step (README §10.6, "The follow step and the document").
+    row(
+        Wrong::PositionOfOtherHistory,
+        "nothing-new",
+        "the position's history is not its snapshot's",
+    ),
+    row(
+        Wrong::PositionOfOtherRevision,
+        "nothing-new",
+        "the position is of revision 2, expected 1",
+    ),
+    row(
+        Wrong::IgnoresPosition,
+        "a-position-from-the-future",
+        "a new cursor stands at 1, not at the position it was given",
+    ),
+    row(
+        Wrong::ReadsOnFollow,
+        "nothing-new",
+        "following made the call read; it makes no store call",
+    ),
+];
+
+/// The tail some rows check beyond the start of the message.
+fn tail(wrong: Wrong) -> Option<&'static str> {
+    match wrong {
+        Wrong::KeepsFirstArrival => Some(" with another arrival record"),
+        Wrong::ChangedClaims => Some(" as another appearance"),
+        _ => None,
+    }
+}
+
+/// What is wrong with one row's run, or nothing.
+fn judge(doc: &Value, row: &Row) -> Option<String> {
+    let error = match run(row.store, doc, &Mutant(row.wrong)) {
+        Ok(_) => return Some("passed every case".into()),
+        Err(error) => error,
+    };
+    let name = format!("follow/{}", row.case);
+    let Some(found) = error.failures.iter().find(|f| f.name == name) else {
+        return Some(format!("{} did not fail: {error}", row.case));
+    };
+    let right = found.message.starts_with(row.message)
+        && tail(row.wrong).is_none_or(|t| found.message.contains(t));
+    if !right {
+        return Some(format!(
+            "{} failed for another reason: {}",
+            row.case, found.message
+        ));
+    }
+    let failed: BTreeSet<&str> = error
+        .failures
+        .iter()
+        .map(|f| f.name.trim_start_matches("follow/"))
+        .collect();
+    let only: BTreeSet<&str> = row.only.iter().copied().collect();
+    if !only.is_empty() && failed != only {
+        return Some(format!("failed {failed:?}, the table names only {only:?}"));
+    }
+    None
+}
+
+#[test]
+fn the_rail_follower_with_no_rule_broken_passes_every_run() {
+    let doc = document();
+    for (label, store) in runs() {
+        run(store, &doc, &Mutant(Wrong::Nothing)).unwrap_or_else(|e| panic!("run {label}: {e}"));
+    }
+}
+
+#[test]
+fn every_wrong_follower_fails_its_case_with_its_message() {
+    let doc = document();
+    let red: Vec<String> = TABLE
+        .iter()
+        .filter_map(|row| judge(&doc, row).map(|p| format!("{:?}: {p}", row.wrong)))
+        .collect();
+    assert!(
+        red.is_empty(),
+        "{} rows did not hold:\n  {}",
+        red.len(),
+        red.join("\n  ")
+    );
+}
+
+/// Where the table names the only cases that catch a follower, the document without them passes
+/// it.
+#[test]
+fn without_their_only_cases_the_named_followers_pass() {
+    let doc = document();
+    for row in TABLE.iter().filter(|row| !row.only.is_empty()) {
+        let mut without = doc.clone();
+        without["cases"]
+            .as_array_mut()
+            .unwrap()
+            .retain(|c| !row.only.contains(&c["name"].as_str().unwrap()));
+        if let Err(e) = run(row.store, &without, &Mutant(row.wrong)) {
+            panic!("{:?} fails without its cases: {e}", row.wrong);
         }
     }
-    eprintln!(
-        "skipped {} follow cases: the Rust witness builds the feed cursor in slice 3 step 8",
-        cases.len()
+}
+
+/// W6 makes exactly the calls of the contract; only commits between single pulls show it
+/// (SPEC-18 §4.13 reading 67). Without the four single-pull cases it passes every run.
+#[test]
+fn the_catch_up_cache_passes_without_the_single_pull_cases() {
+    const SINGLE: [&str; 4] = [
+        "a-purge-between-single-pulls",
+        "an-append-between-single-pulls",
+        "a-purge-of-a-mirrored-id-between-single-pulls",
+        "a-re-add-between-single-pulls",
+    ];
+    let mut without = document();
+    without["cases"]
+        .as_array_mut()
+        .unwrap()
+        .retain(|c| !SINGLE.contains(&c["name"].as_str().unwrap()));
+    for (label, store) in runs() {
+        run(store, &without, &Mutant(Wrong::CachesCatchUp))
+            .unwrap_or_else(|e| panic!("run {label}: {e}"));
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Defective documents (README §10.6)
+// ---------------------------------------------------------------------------------------------
+
+fn steps_of<'a>(doc: &'a mut Value, case: &str) -> &'a mut Vec<Value> {
+    doc["cases"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|c| c["name"] == case)
+        .unwrap()["steps"]
+        .as_array_mut()
+        .unwrap()
+}
+
+/// The `n`th step with this op in a case.
+fn nth<'a>(doc: &'a mut Value, case: &str, op: &str, n: usize) -> &'a mut Value {
+    steps_of(doc, case)
+        .iter_mut()
+        .filter(|s| s["op"] == op)
+        .nth(n)
+        .unwrap()
+}
+
+fn fails_with(doc: &Value, name: &str, message: &str) {
+    let error = run(DEFAULT, doc, &StoreFollow).expect_err("a defective document fails");
+    let failure = error
+        .failures
+        .iter()
+        .find(|f| f.name == name)
+        .unwrap_or_else(|| panic!("{name} did not fail: {error}"));
+    assert!(
+        failure.message.starts_with(message),
+        "{name}: {} does not start {message:?}",
+        failure.message
     );
+}
+
+#[test]
+fn a_defective_document_fails_with_its_message() {
+    let doc = document();
+    let edit = |f: &dyn Fn(&mut Value)| {
+        let mut d = doc.clone();
+        f(&mut d);
+        d
+    };
+    // Records the pulls do not read.
+    fails_with(
+        &edit(&|d| nth(d, "one-append", "pull", 0)["expect"]["records"] = serde_json::json!([])),
+        "follow/one-append",
+        "the pulls read the records at [2], expected []",
+    );
+    // Deltas they do not deliver.
+    fails_with(
+        &edit(&|d| nth(d, "one-append", "pull", 0)["expect"]["delivered"] = serde_json::json!([])),
+        "follow/one-append",
+        "the pulls delivered [",
+    );
+    // Another count of pulls.
+    fails_with(
+        &edit(&|d| nth(d, "pages-of-one", "pull", 0)["expect"]["pulls"] = 2.into()),
+        "follow/pages-of-one",
+        "the follower took 3 pulls, expected 2",
+    );
+    // A position the peer is not at.
+    fails_with(
+        &edit(&|d| nth(d, "one-append", "pull", 0)["expect"]["position"] = "A.1".into()),
+        "follow/one-append",
+        "the vector pulls to A.1, and the peer is at 2",
+    );
+    // A resync `current` the peer is not at.
+    fails_with(
+        &edit(&|d| nth(d, "retention-too-short", "pull", 0)["expect"]["current"] = "A.2".into()),
+        "follow/retention-too-short",
+        "the vector expects current A.2, and the peer is at 3",
+    );
+    // A single pull that stands elsewhere than where the vector says its page ends.
+    fails_with(
+        &edit(&|d| {
+            nth(d, "an-append-between-single-pulls", "pull", 0)["expect"]["position"] = "A.3".into()
+        }),
+        "follow/an-append-between-single-pulls",
+        "the pull stands at 2, expected 3",
+    );
+    // A follower named twice.
+    fails_with(
+        &edit(&|d| {
+            let follow = nth(d, "one-append", "follow", 0).clone();
+            steps_of(d, "one-append").insert(4, follow);
+        }),
+        "follow/one-append",
+        "the vector names follower f twice",
+    );
+    // A follower used before it follows.
+    fails_with(
+        &edit(&|d| nth(d, "one-append", "pull", 0)["follower"] = "g".into()),
+        "follow/one-append",
+        "the vector uses follower g before following",
+    );
+    // A negative `ahead`.
+    fails_with(
+        &edit(&|d| nth(d, "a-position-from-the-future", "follow", 0)["ahead"] = (-1).into()),
+        "follow/a-position-from-the-future",
+        "the vector's ahead is not a whole number",
+    );
+    // Another format.
+    fails_with(
+        &edit(&|d| d["format"] = "rhizomatic-store-follow/2".into()),
+        "follow",
+        "unknown store follow format",
+    );
+}
+
+// ---------------------------------------------------------------------------------------------
+// The cursor's own rules (README §10.6)
+// ---------------------------------------------------------------------------------------------
+
+fn fact(entity: &str, context: &str, value: f64) -> Delta {
+    make_delta(
+        Claims {
+            timestamp: value,
+            valid_from: value,
+            valid_until: None,
+            author: "did:key:zFollow".into(),
+            pointers: vec![
+                Pointer {
+                    role: "subject".into(),
+                    target: Target::Entity(EntityRef {
+                        id: entity.into(),
+                        context: Some(context.into()),
+                    }),
+                },
+                Pointer {
+                    role: "value".into(),
+                    target: Target::Primitive(Primitive::Num(value)),
+                },
+            ],
+        },
+        None,
+    )
+    .unwrap()
+}
+
+/// Appends batches to one peer, moving its head on each time; sequences continue from the last.
+#[derive(Debug, Default)]
+struct Writer {
+    head: usize,
+    last: u64,
+}
+
+impl Writer {
+    fn append(&mut self, peer: &dyn PeerStore, deltas: &[Delta]) -> Revision {
+        let added = deltas
+            .iter()
+            .map(|delta| {
+                self.last += 1;
+                VerifiedDelta {
+                    delta: delta.clone(),
+                    arrival: ArrivalRecord {
+                        id: delta.id.clone(),
+                        at: self.last as f64,
+                        sequence: self.last,
+                        transfer: 1,
+                        sender: "local".into(),
+                    },
+                }
+            })
+            .collect();
+        let result = peer
+            .append(&Admission {
+                expected_head: (self.head > 0).then(|| format!("head-{}", self.head)),
+                next_head: format!("head-{}", self.head + 1),
+                frame: None,
+                added,
+            })
+            .unwrap();
+        self.head += 1;
+        match result {
+            AppendResult::Committed { revision, .. } => revision,
+            other => panic!("{other:?}"),
+        }
+    }
+}
+
+fn here(peer: &dyn PeerStore) -> Position {
+    let mut snapshot = peer.read().unwrap();
+    let position = position_of(snapshot.as_ref());
+    snapshot.release();
+    position
+}
+
+fn new_peer(store: &MemoryStore, name: &str) -> Box<dyn PeerStore> {
+    store.create_peer(name, ErasurePosture::Unproven).unwrap()
+}
+
+/// A feed answer a probe gives instead of the store's.
+type PageFn = Box<dyn Fn(Revision, Option<Revision>) -> ChangePage>;
+
+/// A peer handle that names every call through it and its snapshots. It can commit during
+/// `changes`, answer `changes` itself, drop an arrival record, or close the store.
+struct Probe<'a> {
+    inner: &'a dyn PeerStore,
+    calls: Rc<RefCell<Vec<String>>>,
+    /// Commits during `changes`, one batch per call, while any remain.
+    moves: RefCell<Vec<Vec<Delta>>>,
+    writer: RefCell<Writer>,
+    /// Answers `changes` with this instead of asking the store.
+    page: Option<PageFn>,
+    /// Drops the first record from `arrivals`.
+    short_arrivals: bool,
+    /// Closes this store when `changes` is called.
+    closes: Option<&'a MemoryStore>,
+}
+
+impl<'a> Probe<'a> {
+    fn new(inner: &'a dyn PeerStore) -> Self {
+        Self {
+            inner,
+            calls: Rc::default(),
+            moves: RefCell::default(),
+            writer: RefCell::default(),
+            page: None,
+            short_arrivals: false,
+            closes: None,
+        }
+    }
+
+    fn calls(&self) -> Vec<String> {
+        self.calls.borrow().clone()
+    }
+
+    fn log(&self, call: &str) {
+        self.calls.borrow_mut().push(call.to_string());
+    }
+}
+
+impl PeerStore for Probe<'_> {
+    fn id(&self) -> &str {
+        self.inner.id()
+    }
+    fn erasure(&self) -> PeerErasure {
+        self.inner.erasure()
+    }
+    fn history(&self) -> &str {
+        self.inner.history()
+    }
+    fn read(&self) -> Result<Box<dyn Snapshot>, StoreError> {
+        self.log("read");
+        Ok(Box::new(ProbeSnapshot {
+            inner: self.inner.read()?,
+            calls: self.calls.clone(),
+            short_arrivals: self.short_arrivals,
+        }))
+    }
+    fn append(&self, batch: &Admission) -> Result<AppendResult, StoreError> {
+        self.log("append");
+        self.inner.append(batch)
+    }
+    fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreError> {
+        self.log("purge");
+        self.inner.purge(ids)
+    }
+    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreError> {
+        self.log("changes");
+        if let Some(store) = self.closes {
+            store.close();
+        }
+        let page = match &self.page {
+            Some(page) => Ok(page(from, to)),
+            None => self.inner.changes(from, to),
+        };
+        let next = self.moves.borrow_mut().pop();
+        if let Some(deltas) = next {
+            self.writer.borrow_mut().append(self.inner, &deltas);
+        }
+        page
+    }
+}
+
+struct ProbeSnapshot {
+    inner: Box<dyn Snapshot>,
+    calls: Rc<RefCell<Vec<String>>>,
+    short_arrivals: bool,
+}
+
+impl ProbeSnapshot {
+    fn log(&self, call: &str) {
+        self.calls.borrow_mut().push(call.to_string());
+    }
+}
+
+impl Snapshot for ProbeSnapshot {
+    fn revision(&self) -> Revision {
+        self.inner.revision()
+    }
+    fn history(&self) -> &str {
+        self.inner.history()
+    }
+    fn head(&self) -> Option<&str> {
+        self.inner.head()
+    }
+    fn count(&self) -> u64 {
+        self.inner.count()
+    }
+    fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreError> {
+        self.log("get");
+        self.inner.get(ids)
+    }
+    fn arrivals(&self, ids: &[String]) -> Result<Vec<ArrivalRecord>, StoreError> {
+        self.log("arrivals");
+        let mut records = self.inner.arrivals(ids)?;
+        if self.short_arrivals && !records.is_empty() {
+            records.remove(0);
+        }
+        Ok(records)
+    }
+    fn targets(&self, e: &[String]) -> Result<Vec<String>, StoreError> {
+        self.log("targets");
+        self.inner.targets(e)
+    }
+    fn negators(&self, ids: &[String]) -> Result<Vec<String>, StoreError> {
+        self.log("negators");
+        self.inner.negators(ids)
+    }
+    fn scope(&self, r: &ScopeRequest) -> Result<ScopeResult, StoreError> {
+        self.log("scope");
+        self.inner.scope(r)
+    }
+    fn release(&mut self) {
+        self.log("release");
+        self.inner.release()
+    }
+}
+
+#[test]
+fn a_malformed_position_is_refused_with_no_store_call() {
+    let store = MemoryStore::new();
+    let peer = new_peer(&store, "peer:p");
+    let probe = Probe::new(peer.as_ref());
+    for bad in [
+        Position {
+            history: String::new(),
+            revision: Revision(0),
+        },
+        Position {
+            history: peer.history().to_string(),
+            revision: Revision(MAX_REVISION + 1),
+        },
+    ] {
+        let refused = follow_feed(&probe, bad.clone()).unwrap_err();
+        assert_eq!(refused.code, StoreErrorCode::InvalidRequest, "{bad:?}");
+    }
+    // A good position, a local history included, makes a cursor with no store call.
+    let start = here(peer.as_ref());
+    assert!(start.history.starts_with("memory:local:"));
+    let cursor = follow_feed(&probe, start.clone()).unwrap();
+    assert_eq!(cursor.position(), &start);
+    assert_eq!(probe.calls(), Vec::<String>::new());
+}
+
+#[test]
+fn parse_position_checks_its_shape_and_refuses_a_local_history() {
+    let good = serde_json::json!({"history": "host:7", "revision": 3});
+    let parsed = parse_position(&good).unwrap();
+    assert_eq!(
+        parsed,
+        Position {
+            history: "host:7".into(),
+            revision: Revision(3)
+        }
+    );
+    assert_eq!(parse_position(&parsed.to_json()).unwrap(), parsed);
+    let whole: Value = serde_json::from_str(r#"{"history": "host:7", "revision": 3.0}"#).unwrap();
+    assert_eq!(parse_position(&whole).unwrap().revision, Revision(3));
+    let refused = |value: Value| parse_position(&value).unwrap_err();
+    let local = refused(serde_json::json!({"history": "memory:local:4", "revision": 3}));
+    assert_eq!(local.code, StoreErrorCode::InvalidRequest);
+    assert!(local.message.contains("mintHistory"), "{}", local.message);
+    for value in [
+        serde_json::json!({"history": "host:7", "revision": 1.5}),
+        serde_json::json!({"history": "", "revision": 3}),
+        serde_json::json!({"history": "host:7", "revision": 3, "extra": 1}),
+        serde_json::json!({"history": "host:7"}),
+        serde_json::json!({"revision": 3}),
+        serde_json::json!({"history": 7, "revision": 3}),
+        serde_json::json!({"history": "host:7", "revision": -1}),
+        serde_json::json!({"history": "host:7", "revision": "3"}),
+        serde_json::json!({"history": "host:7", "revision": 9007199254740992u64}),
+        serde_json::json!(["host:7", 3]),
+        Value::Null,
+    ] {
+        assert_eq!(
+            parse_position(&value).unwrap_err().code,
+            StoreErrorCode::InvalidRequest,
+            "{value}"
+        );
+    }
+    // The first defect in the order keys, history, revision decides the reason.
+    let two = refused(serde_json::json!({"history": "", "revision": 1.5}));
+    assert!(two.message.contains("history is empty"), "{}", two.message);
+    let two = refused(serde_json::json!({"history": "memory:local:1", "revision": 1.5}));
+    assert!(two.message.contains("local"), "{}", two.message);
+    let two = refused(serde_json::json!({"history": "", "revision": 1, "x": 0}));
+    assert!(two.message.contains("exactly"), "{}", two.message);
+}
+
+#[test]
+fn resync_required_is_final_with_no_store_call_also_after_commits() {
+    let store = MemoryStore::with_options(MemoryStoreOptions {
+        change_retention: ChangeRetention::Revisions(1),
+        ..MemoryStoreOptions::default()
+    })
+    .unwrap();
+    let peer = new_peer(&store, "peer:r");
+    let mut writer = Writer::default();
+    writer.append(peer.as_ref(), &[fact("plant:a", "n", 1.0)]);
+    let start = here(peer.as_ref());
+    writer.append(peer.as_ref(), &[fact("plant:a", "n", 2.0)]);
+    writer.append(peer.as_ref(), &[fact("plant:a", "n", 3.0)]);
+    let probe = Probe::new(peer.as_ref());
+    let mut cursor = follow_feed(&probe, start.clone()).unwrap();
+    let first = cursor.pull().unwrap();
+    assert_eq!(
+        first,
+        Pull::ResyncRequired {
+            current: here(peer.as_ref())
+        }
+    );
+    assert_eq!(cursor.position(), &start);
+    let before = probe.calls().len();
+    writer.append(peer.as_ref(), &[fact("plant:a", "n", 4.0)]);
+    writer.append(peer.as_ref(), &[fact("plant:a", "n", 5.0)]);
+    assert_eq!(cursor.pull().unwrap(), first);
+    assert_eq!(probe.calls().len(), before, "a store call after resync");
+    assert_eq!(cursor.position(), &start);
+}
+
+#[test]
+fn resync_current_is_the_snapshots_position_whatever_the_store_names() {
+    let store = MemoryStore::new();
+    let peer = new_peer(&store, "peer:c");
+    let mut writer = Writer::default();
+    let start = here(peer.as_ref());
+    writer.append(peer.as_ref(), &[fact("plant:a", "n", 1.0)]);
+    let mut probe = Probe::new(peer.as_ref());
+    probe.page = Some(Box::new(|_, _| ChangePage::ResyncRequired {
+        current: Revision(99),
+    }));
+    let mut cursor = follow_feed(&probe, start).unwrap();
+    assert_eq!(
+        cursor.pull().unwrap(),
+        Pull::ResyncRequired {
+            current: here(peer.as_ref())
+        }
+    );
+}
+
+#[test]
+fn a_moved_snapshot_starts_the_pull_again_at_most_four_times() {
+    let pull = |moves: usize| {
+        let store = MemoryStore::new();
+        let peer = new_peer(&store, "peer:m");
+        let mut writer = Writer::default();
+        writer.append(peer.as_ref(), &[fact("plant:a", "n", 1.0)]);
+        let start = here(peer.as_ref());
+        writer.append(peer.as_ref(), &[fact("plant:b", "n", 2.0)]);
+        let probe = Probe::new(peer.as_ref());
+        *probe.writer.borrow_mut() = writer;
+        *probe.moves.borrow_mut() = (0..moves)
+            .map(|k| vec![fact("plant:z", "n", 10.0 + k as f64)])
+            .collect();
+        let mut cursor = follow_feed(&probe, start.clone()).unwrap();
+        let answer = cursor.pull();
+        let stands = cursor.position().clone();
+        drop(cursor);
+        (answer, probe.calls(), start, stands, here(peer.as_ref()))
+    };
+    // One move: read, changes, get (moved), release; then the whole pull again.
+    let (answer, calls, _, stands, end) = pull(1);
+    let Pull::Ok {
+        position, deltas, ..
+    } = answer.unwrap()
+    else {
+        panic!("a moved pull answers on its next snapshot");
+    };
+    assert_eq!((&position, &stands), (&end, &end));
+    assert_eq!(deltas.len(), 2);
+    assert_eq!(
+        calls,
+        ["read", "changes", "get", "release", "read", "changes", "get", "arrivals", "release"]
+    );
+    // Four moves: the fourth snapshot moves too; snapshot-moved passes up, every snapshot is
+    // released, and the cursor stays.
+    let (answer, calls, start, stands, _) = pull(4);
+    assert_eq!(
+        answer.unwrap_err().code(),
+        Some(StoreErrorCode::SnapshotMoved)
+    );
+    let count = |name: &str| calls.iter().filter(|c| *c == name).count();
+    assert_eq!((count("read"), count("release")), (4, 4));
+    assert_eq!(stands, start);
+    // Three moves: the fourth snapshot answers.
+    let (answer, calls, _, _, _) = pull(3);
+    assert!(matches!(answer.unwrap(), Pull::Ok { .. }));
+    assert_eq!(calls.iter().filter(|c| *c == "read").count(), 4);
+}
+
+/// A pull that fails with a store fault of this rule, as an error value, its snapshot released
+/// and its cursor unmoved.
+fn faults(probe: &Probe<'_>, start: Position, rule: &str) {
+    let mut cursor = follow_feed(probe, start.clone()).unwrap();
+    match cursor.pull() {
+        Err(FeedError::Fault(fault)) => assert_eq!(fault.rule(), rule, "{fault}"),
+        other => panic!("{rule}: a store fault answered {other:?}"),
+    }
+    assert_eq!(cursor.position(), &start);
+    let calls = probe.calls();
+    let count = |name: &str| calls.iter().filter(|c| *c == name).count();
+    assert_eq!((count("read"), count("release")), (1, 1), "{calls:?}");
+}
+
+#[test]
+fn a_store_fault_fails_the_pull_and_is_no_answer() {
+    let store = MemoryStore::new();
+    let peer = new_peer(&store, "peer:f");
+    let mut writer = Writer::default();
+    let start = here(peer.as_ref());
+    writer.append(peer.as_ref(), &[fact("plant:a", "n", 1.0)]);
+    writer.append(peer.as_ref(), &[fact("plant:b", "n", 2.0)]);
+
+    let mut stuck = Probe::new(peer.as_ref());
+    stuck.page = Some(Box::new(|from, _| ChangePage::Ok {
+        records: Vec::new(),
+        through: from,
+    }));
+    faults(&stuck, start.clone(), "no-progress");
+
+    let mut past = Probe::new(peer.as_ref());
+    past.page = Some(Box::new(|_, to| ChangePage::Ok {
+        records: Vec::new(),
+        through: Revision(to.unwrap().0 + 5),
+    }));
+    faults(&past, start.clone(), "past-the-bound");
+
+    let mut short = Probe::new(peer.as_ref());
+    short.short_arrivals = true;
+    faults(&short, start, "mismatched-answers");
+}
+
+/// A pull hands out no bytes it did not ask for: a `get` and an `arrivals` that both answer one
+/// more id, in order and in agreement, are the fault `unasked-ids`. The cursor stays usable.
+#[test]
+fn an_extra_id_in_get_and_arrivals_is_a_store_fault() {
+    let store = MemoryStore::new();
+    let peer = new_peer(&store, "peer:u");
+    let mut writer = Writer::default();
+    let start = here(peer.as_ref());
+    let asked = fact("plant:a", "n", 1.0);
+    writer.append(peer.as_ref(), std::slice::from_ref(&asked));
+    let extra = fact("plant:z", "n", 2.0);
+    let odd = Odd::new(
+        peer.as_ref(),
+        0,
+        Some(VerifiedDelta {
+            arrival: ArrivalRecord {
+                id: extra.id.clone(),
+                at: 1.0,
+                sequence: 9,
+                transfer: 1,
+                sender: "local".into(),
+            },
+            delta: extra,
+        }),
+    );
+    let mut cursor = follow_feed(&odd, start.clone()).unwrap();
+    match cursor.pull() {
+        Err(FeedError::Fault(StoreFault::UnaskedIds {
+            call, asked: ids, ..
+        })) => {
+            assert_eq!((call, ids), ("get", vec![asked.id.clone()]));
+        }
+        other => panic!("an extra id answered {other:?}"),
+    }
+    assert_eq!(cursor.position(), &start);
+    let mut again = follow_feed(peer.as_ref(), start).unwrap();
+    assert!(matches!(again.pull().unwrap(), Pull::Ok { .. }));
+}
+
+/// `snapshot-moved` from `read` itself starts the pull again, at most four snapshots in all.
+#[test]
+fn a_read_that_answers_snapshot_moved_starts_the_pull_again() {
+    let store = MemoryStore::new();
+    let peer = new_peer(&store, "peer:rm");
+    let mut writer = Writer::default();
+    let start = here(peer.as_ref());
+    writer.append(peer.as_ref(), &[fact("plant:a", "n", 1.0)]);
+    let settles = Odd::new(peer.as_ref(), 3, None);
+    let mut cursor = follow_feed(&settles, start.clone()).unwrap();
+    assert!(matches!(cursor.pull().unwrap(), Pull::Ok { .. }));
+    assert_eq!(settles.reads.get(), 4);
+    let moves = Odd::new(peer.as_ref(), 4, None);
+    let mut cursor = follow_feed(&moves, start.clone()).unwrap();
+    assert_eq!(
+        cursor.pull().unwrap_err().code(),
+        Some(StoreErrorCode::SnapshotMoved)
+    );
+    assert_eq!(moves.reads.get(), 4);
+    assert_eq!(cursor.position(), &start);
+}
+
+/// SPEC-18 §4.13 reading 68: a fault is found before the page is judged. Each faulty page also
+/// carries a record that adds a held id; the pull fails with the calls read, changes, release,
+/// and no `get`.
+#[test]
+fn a_faulty_page_that_adds_an_id_fails_before_any_get() {
+    let store = MemoryStore::new();
+    let peer = new_peer(&store, "peer:j");
+    let mut writer = Writer::default();
+    let start = here(peer.as_ref());
+    let added = fact("plant:a", "n", 1.0);
+    writer.append(peer.as_ref(), std::slice::from_ref(&added));
+    writer.append(peer.as_ref(), &[fact("plant:b", "n", 2.0)]);
+    let record = move |revision: u64| ChangeRecord {
+        revision: Revision(revision),
+        head: Some("head-1".into()),
+        added: vec![added.id.clone()],
+        removed: Vec::new(),
+    };
+    let pages: [(&str, PageFn); 2] = [
+        ("no-progress", {
+            let record = record.clone();
+            Box::new(move |from, _| ChangePage::Ok {
+                records: vec![record(from.0 + 1)],
+                through: from,
+            })
+        }),
+        ("past-the-bound", {
+            let record = record.clone();
+            Box::new(move |from, to| ChangePage::Ok {
+                records: vec![record(from.0 + 1)],
+                through: Revision(to.unwrap().0 + 5),
+            })
+        }),
+    ];
+    for (rule, page) in pages {
+        let mut probe = Probe::new(peer.as_ref());
+        probe.page = Some(page);
+        faults(&probe, start.clone(), rule);
+        assert_eq!(probe.calls(), ["read", "changes", "release"], "{rule}");
+    }
+}
+
+#[test]
+fn a_refusal_after_the_read_releases_the_snapshot_and_leaves_the_cursor() {
+    let store = MemoryStore::new();
+    let peer = new_peer(&store, "peer:x");
+    let mut writer = Writer::default();
+    let start = here(peer.as_ref());
+    writer.append(peer.as_ref(), &[fact("plant:a", "n", 1.0)]);
+    let mut probe = Probe::new(peer.as_ref());
+    probe.closes = Some(&store);
+    let mut cursor = follow_feed(&probe, start.clone()).unwrap();
+    assert_eq!(
+        cursor.pull().unwrap_err().code(),
+        Some(StoreErrorCode::StoreClosed)
+    );
+    assert_eq!(cursor.position(), &start);
+    assert_eq!(probe.calls(), ["read", "changes", "release"]);
+}
+
+#[test]
+fn a_purge_whose_bytes_another_peer_holds_delivers_no_bytes() {
+    let store = MemoryStore::new();
+    let (a, b) = (new_peer(&store, "peer:a"), new_peer(&store, "peer:b"));
+    let shared = fact("plant:a", "n", 1.0);
+    let (mut wa, mut wb) = (Writer::default(), Writer::default());
+    let start = here(a.as_ref());
+    wa.append(a.as_ref(), std::slice::from_ref(&shared));
+    wb.append(b.as_ref(), std::slice::from_ref(&shared));
+    a.purge(std::slice::from_ref(&shared.id)).unwrap();
+    let mut cursor = follow_feed(a.as_ref(), start).unwrap();
+    let Pull::Ok {
+        records, deltas, ..
+    } = cursor.pull().unwrap()
+    else {
+        panic!("ok");
+    };
+    assert_eq!(records.len(), 2);
+    assert_eq!(records[1].removed, std::slice::from_ref(&shared.id));
+    assert!(deltas.is_empty(), "{deltas:?}");
+}
+
+#[test]
+fn a_read_and_a_fetched_scope_carry_their_position_and_a_reactor_follows_from_it() {
+    let store = MemoryStore::new();
+    let peer = new_peer(&store, "peer:r");
+    let mut writer = Writer::default();
+    writer.append(peer.as_ref(), &[fact("plant:a", "name", 1.0)]);
+    let reactor = StoreReactor::open(store.peer("peer:r").unwrap());
+    let fetched = reactor
+        .fetch(&["plant:a".to_string()], Selection::default())
+        .unwrap();
+    assert_eq!(fetched.position, here(peer.as_ref()));
+    let term = parse_term(&serde_json::json!({
+        "op": "group", "key": "byTargetContext",
+        "in": {"op": "select", "pred": {"hasPointer": {"targetEntity": {"var": "root"}}},
+               "in": {"op": "mask", "policy": "drop", "in": "input"}}
+    }))
+    .unwrap();
+    let read = reactor
+        .read(ReadRequest::new(&term, "plant:a", 100.0))
+        .unwrap();
+    assert_eq!(read.position, here(peer.as_ref()));
+    assert_eq!(read.position.revision, read.revision);
+
+    let mut cursor = reactor.follow(read.position.clone()).unwrap();
+    let later = fact("plant:a", "name", 2.0);
+    writer.append(peer.as_ref(), std::slice::from_ref(&later));
+    let Pull::Ok {
+        position, deltas, ..
+    } = cursor.pull().unwrap()
+    else {
+        panic!("ok");
+    };
+    assert_eq!(position, here(peer.as_ref()));
+    assert_eq!(deltas.len(), 1);
+    assert_eq!(deltas[0].delta.id, later.id);
+    let refused = reactor
+        .follow(Position {
+            history: String::new(),
+            revision: Revision(0),
+        })
+        .unwrap_err();
+    assert_eq!(refused.code, StoreErrorCode::InvalidRequest);
+}
+
+// ---------------------------------------------------------------------------------------------
+// A fuzz against brute force (README §10.6)
+// ---------------------------------------------------------------------------------------------
+
+/// splitmix64 with a fixed seed: the same sequences on every run.
+struct Rng(u64);
+
+impl Rng {
+    fn next(&mut self) -> u64 {
+        self.0 = self.0.wrapping_add(0x9E37_79B9_7F4A_7C15);
+        let mut z = self.0;
+        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+        z ^ (z >> 31)
+    }
+    fn below(&mut self, n: u64) -> u64 {
+        self.next() % n
+    }
+}
+
+type Holdings = BTreeMap<String, VerifiedDelta>;
+
+/// The brute model of one peer: the holdings after every revision, and every record, also the
+/// ones a bounded store dropped. Revisions advance by one (SPEC-18 §4.13 reading 16).
+struct PeerModel {
+    history: String,
+    revisions: Vec<Revision>,
+    holdings: Vec<Holdings>,
+    records: Vec<ChangeRecord>,
+    head: Option<String>,
+    writer: Writer,
+}
+
+impl PeerModel {
+    fn current(&self) -> Revision {
+        *self.revisions.last().unwrap()
+    }
+    fn held(&self) -> &Holdings {
+        self.holdings.last().unwrap()
+    }
+    fn at(&self, revision: Revision) -> &Holdings {
+        &self.holdings[self.revisions.binary_search(&revision).unwrap()]
+    }
+    /// The revision of the newest dropped record, or the first revision.
+    fn floor(&self, keep: Option<u64>) -> Revision {
+        let dropped = keep.map_or(0, |n| self.records.len().saturating_sub(n as usize));
+        self.revisions[dropped]
+    }
+    fn commit(&mut self, revision: Revision, held: Holdings, record: ChangeRecord) {
+        assert_eq!(
+            revision,
+            Revision(self.current().0 + 1),
+            "the store's revision"
+        );
+        self.revisions.push(revision);
+        self.holdings.push(held);
+        self.records.push(record);
+    }
+}
+
+/// A follower's mirror: id → delta and arrival record. An entry started from an export may have
+/// no arrival record (the peer no longer held the id when it was asked; SPEC-18 §4.6, "Arrival
+/// records in a started mirror").
+type Mirror = BTreeMap<String, (Delta, Option<ArrivalRecord>)>;
+
+fn mirror_of(holdings: &Holdings) -> Mirror {
+    holdings
+        .iter()
+        .map(|(id, d)| (id.clone(), (d.delta.clone(), Some(d.arrival.clone()))))
+        .collect()
+}
+
+/// The mirror agrees with the holdings on `id`: both lack it, or both hold it with the same bytes
+/// and arrival record.
+fn agrees(mirror: &Mirror, holdings: &Holdings, id: &str) -> bool {
+    match (mirror.get(id), holdings.get(id)) {
+        (None, None) => true,
+        (Some((delta, arrival)), Some(held)) => {
+            *delta == held.delta && arrival.as_ref() == Some(&held.arrival)
+        }
+        _ => false,
+    }
+}
+
+fn same_holdings(mirror: &Mirror, holdings: &Holdings) -> bool {
+    mirror.len() == holdings.len() && holdings.keys().all(|id| agrees(mirror, holdings, id))
+}
+
+/// A follower the fuzz drives, its mirror, and three other mirrors beside it.
+struct Fuzzer<'a> {
+    cursor: FeedCursor<'a>,
+    mirror: Mirror,
+    /// Ignores `removed`.
+    ignores_removed: Mirror,
+    /// Applies all removals of a page before all its deltas.
+    removals_first: Mirror,
+    /// Keeps an added id that came with no bytes, instead of deleting it.
+    keeps_unbytes: Mirror,
+    resyncs: usize,
+    from_export: bool,
+}
+
+#[derive(Default, Debug)]
+struct Tally {
+    pulls: usize,
+    resyncs: usize,
+    quiet: usize,
+    quiet_after_export: usize,
+    between: usize,
+    delivered: usize,
+    absent: usize,
+    snapshot_starts: usize,
+    export_starts: usize,
+    skewed_starts: usize,
+    no_arrival: usize,
+    ignores_removed_missed: usize,
+    removals_first_missed: usize,
+    keeps_unbytes_missed: usize,
+}
+
+/// The store, the two peers, their models, the corpus and the random source of one sequence.
+struct World<'a> {
+    rng: Rng,
+    store: &'a MemoryStore,
+    peers: &'a [Box<dyn PeerStore>],
+    models: Vec<PeerModel>,
+    corpus: Vec<Delta>,
+}
+
+impl World<'_> {
+    /// One random commit on a random peer: an append of up to three corpus deltas (a head-only
+    /// commit when it adds nothing), or a purge of one or two corpus ids, held or not.
+    fn commit(&mut self) {
+        let p = self.rng.below(2) as usize;
+        let peer = self.peers[p].as_ref();
+        if self.rng.below(10) < 6 {
+            let n = self.rng.below(4);
+            let batch: Vec<Delta> = (0..n)
+                .map(|_| self.corpus[self.rng.below(8) as usize].clone())
+                .collect();
+            let model = &mut self.models[p];
+            let first = model.writer.last + 1;
+            let revision = model.writer.append(peer, &batch);
+            let mut held = model.held().clone();
+            let mut added = BTreeSet::new();
+            for (k, delta) in batch.iter().enumerate() {
+                if !held.contains_key(&delta.id) {
+                    held.insert(delta.id.clone(), arrival(delta, first + k as u64));
+                    added.insert(delta.id.clone());
+                }
+            }
+            model.head = Some(format!("head-{}", model.writer.head));
+            let record = ChangeRecord {
+                revision,
+                head: model.head.clone(),
+                added: added.into_iter().collect(),
+                removed: Vec::new(),
+            };
+            model.commit(revision, held, record);
+            return;
+        }
+        let ids: Vec<String> = (0..1 + self.rng.below(2))
+            .map(|_| self.corpus[self.rng.below(8) as usize].id.clone())
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect();
+        let report = peer.purge(&ids).unwrap();
+        let model = &mut self.models[p];
+        let removed: Vec<String> = ids
+            .into_iter()
+            .filter(|id| model.held().contains_key(id))
+            .collect();
+        if removed.is_empty() {
+            assert_eq!(report.revision, model.current());
+            return;
+        }
+        let mut held = model.held().clone();
+        for id in &removed {
+            held.remove(id);
+        }
+        let record = ChangeRecord {
+            revision: report.revision,
+            head: model.head.clone(),
+            added: Vec::new(),
+            removed,
+        };
+        model.commit(report.revision, held, record);
+    }
+
+    /// A new follower of peer `p`. From a snapshot: the position and the holdings of one
+    /// snapshot. From an export (SPEC-18 §4.6, "How a full mirror starts"): the position first,
+    /// then the peer's ids listed by the exporter, then each id's bytes and its arrival record
+    /// each on its own later snapshot, with commits on both peers landing between them.
+    fn start<'p>(&mut self, p: usize, peer: &'p dyn PeerStore, tally: &mut Tally) -> Fuzzer<'p> {
+        let position = here(peer);
+        assert_eq!(position.revision, self.models[p].current());
+        let from_export = self.rng.below(2) == 1;
+        let mirror = match from_export as u8 {
+            0 => {
+                tally.snapshot_starts += 1;
+                mirror_of(self.models[p].held())
+            }
+            _ => {
+                tally.export_starts += 1;
+                let p0 = self.models[p].held().clone();
+                let chance = |w: &mut Self| {
+                    if w.rng.below(3) == 0 {
+                        w.commit();
+                    }
+                };
+                chance(self);
+                let exporter = self.store.open_admin().peer(peer.id()).unwrap();
+                let ids: Vec<String> = exporter.ids().map(Result::unwrap).collect();
+                let mut mirror = Mirror::new();
+                for id in ids {
+                    chance(self);
+                    let one = std::slice::from_ref(&id);
+                    let mut snapshot = peer.read().unwrap();
+                    let bytes = snapshot.get(one).unwrap();
+                    snapshot.release();
+                    let Some(delta) = bytes.into_iter().next() else {
+                        continue;
+                    };
+                    chance(self);
+                    let mut snapshot = peer.read().unwrap();
+                    let record = snapshot.arrivals(one).unwrap().into_iter().next();
+                    snapshot.release();
+                    tally.no_arrival += usize::from(record.is_none());
+                    mirror.insert(id, (delta, record));
+                }
+                tally.skewed_starts += usize::from(!same_holdings(&mirror, &p0));
+                mirror
+            }
+        };
+        Fuzzer {
+            cursor: follow_feed(peer, position).unwrap(),
+            ignores_removed: mirror.clone(),
+            removals_first: mirror.clone(),
+            keeps_unbytes: mirror.clone(),
+            mirror,
+            resyncs: 0,
+            from_export,
+        }
+    }
+}
+
+/// One pull of a follower, judged against the brute model, then the mirror checks.
+fn fuzz_pull<'a>(
+    world: &mut World<'_>,
+    q: usize,
+    f: &mut Fuzzer<'a>,
+    peer: &'a dyn PeerStore,
+    (keep, page): (Option<u64>, Option<u64>),
+    tally: &mut Tally,
+) {
+    tally.pulls += 1;
+    let model = &world.models[q];
+    let before = f.cursor.position().clone();
+    let now = model.current();
+    let answer = f.cursor.pull().unwrap();
+    let at = Position {
+        history: model.history.clone(),
+        revision: now,
+    };
+    let below = now > before.revision && before.revision < model.floor(keep);
+    if f.resyncs > 0 || below {
+        // `resync-required` exactly below the floor, and after it.
+        let want = match f.resyncs {
+            0 => at,
+            _ => match &answer {
+                Pull::ResyncRequired { current } => current.clone(),
+                _ => panic!("ok after resync-required"),
+            },
+        };
+        assert_eq!(
+            answer,
+            Pull::ResyncRequired { current: want },
+            "from {before:?}"
+        );
+        assert_eq!(f.cursor.position(), &before);
+        tally.resyncs += 1;
+        f.resyncs += 1;
+        if f.resyncs == 2 {
+            // Replace the mirror with a new start; never merge (§4.6).
+            *f = world.start(q, peer, tally);
+        }
+        return;
+    }
+    let Pull::Ok {
+        position,
+        records,
+        deltas,
+    } = answer
+    else {
+        panic!("ok expected from {before:?} at {now:?}: {answer:?}");
+    };
+    // The records: the next page of the model's feed.
+    let pending: Vec<&ChangeRecord> = model
+        .records
+        .iter()
+        .filter(|r| r.revision > before.revision)
+        .collect();
+    let take = page.map_or(pending.len(), |n| (n as usize).min(pending.len()));
+    let want: Vec<ChangeRecord> = pending[..take].iter().map(|r| (*r).clone()).collect();
+    let p = match take == pending.len() {
+        true => now,
+        false => want.last().unwrap().revision,
+    };
+    assert_eq!(records, want);
+    assert_eq!(
+        position,
+        Position {
+            history: model.history.clone(),
+            revision: p
+        }
+    );
+    assert_eq!(f.cursor.position(), &position);
+    // The deltas: the added ids held now, ascending, with their arrival records now.
+    let held = model.held();
+    let added: BTreeSet<&String> = want.iter().flat_map(|r| &r.added).collect();
+    let expected: Vec<&VerifiedDelta> = added.iter().filter_map(|id| held.get(*id)).collect();
+    assert_eq!(deltas.iter().collect::<Vec<_>>(), expected);
+    tally.delivered += deltas.len();
+    tally.absent += added.len() - deltas.len();
+    // Apply by the rule, and the three variants.
+    let by_id: BTreeMap<&str, (Delta, Option<ArrivalRecord>)> = deltas
+        .iter()
+        .map(|d| {
+            (
+                d.delta.id.as_str(),
+                (d.delta.clone(), Some(d.arrival.clone())),
+            )
+        })
+        .collect();
+    for r in &records {
+        for id in &r.removed {
+            f.mirror.remove(id);
+            f.removals_first.remove(id);
+            f.keeps_unbytes.remove(id);
+        }
+        for id in &r.added {
+            match by_id.get(id.as_str()) {
+                Some(d) => {
+                    f.mirror.insert(id.clone(), d.clone());
+                    f.ignores_removed.insert(id.clone(), d.clone());
+                    f.keeps_unbytes.insert(id.clone(), d.clone());
+                }
+                None => {
+                    f.mirror.remove(id);
+                    f.ignores_removed.remove(id);
+                }
+            }
+        }
+    }
+    for r in &records {
+        for id in &r.added {
+            match by_id.get(id.as_str()) {
+                Some(d) => f.removals_first.insert(id.clone(), d.clone()),
+                None => f.removals_first.remove(id),
+            };
+        }
+    }
+    // After a pull to p, the mirror is the holdings at p for every id no later record names.
+    let later: BTreeSet<&String> = model
+        .records
+        .iter()
+        .filter(|r| r.revision > p)
+        .flat_map(|r| r.added.iter().chain(&r.removed))
+        .collect();
+    let at_p = model.at(p);
+    let ids: BTreeSet<&String> = at_p.keys().chain(f.mirror.keys()).collect();
+    for id in ids.into_iter().filter(|id| !later.contains(id)) {
+        assert!(
+            agrees(&f.mirror, at_p, id),
+            "the mirror and the holdings at {p:?} disagree on {id}"
+        );
+    }
+    tally.between += 1;
+    if p == now {
+        tally.quiet += 1;
+        tally.quiet_after_export += usize::from(f.from_export);
+        assert!(
+            same_holdings(&f.mirror, held),
+            "the mirror at a quiet point"
+        );
+        tally.ignores_removed_missed += usize::from(!same_holdings(&f.ignores_removed, held));
+        tally.removals_first_missed += usize::from(!same_holdings(&f.removals_first, held));
+        tally.keeps_unbytes_missed += usize::from(!same_holdings(&f.keeps_unbytes, held));
+    }
+}
+
+fn arrival(delta: &Delta, sequence: u64) -> VerifiedDelta {
+    VerifiedDelta {
+        delta: delta.clone(),
+        arrival: ArrivalRecord {
+            id: delta.id.clone(),
+            at: sequence as f64,
+            sequence,
+            transfer: 1,
+            sender: "local".into(),
+        },
+    }
+}
+
+/// One sequence: a store kept whole or keeping one to four records, with whole pages or pages of
+/// one to three records; two peers that share a corpus (debts across peers); random appends,
+/// head-only commits and purges on both, interleaved with single pulls of several followers,
+/// each started from a snapshot or from a non-atomic export.
+fn fuzz_sequence(seed: u64, tally: &mut Tally) {
+    let mut rng = Rng(seed);
+    let keep = match rng.below(5) {
+        0 => None,
+        n => Some(n),
+    };
+    let page = match rng.below(4) {
+        0 => None,
+        n => Some(n),
+    };
+    let store = MemoryStore::with_options(MemoryStoreOptions {
+        change_retention: keep.map_or(ChangeRetention::Unbounded, ChangeRetention::Revisions),
+        change_page_size: page,
+        ..MemoryStoreOptions::default()
+    })
+    .unwrap();
+    let peers: Vec<Box<dyn PeerStore>> =
+        vec![new_peer(&store, "peer:A"), new_peer(&store, "peer:B")];
+    let models: Vec<PeerModel> = peers
+        .iter()
+        .map(|peer| PeerModel {
+            history: peer.history().to_string(),
+            revisions: vec![here(peer.as_ref()).revision],
+            holdings: vec![Holdings::new()],
+            records: Vec::new(),
+            head: None,
+            writer: Writer::default(),
+        })
+        .collect();
+    let mut world = World {
+        rng,
+        store: &store,
+        peers: &peers,
+        models,
+        corpus: (0..8)
+            .map(|k| fact(&format!("e:{}", k % 3), "c", k as f64))
+            .collect(),
+    };
+    // Each follower, with the peer it follows.
+    let mut followers: Vec<(usize, Fuzzer<'_>)> = Vec::new();
+    let first = world.start(0, peers[0].as_ref(), tally);
+    followers.push((0, first));
+    let steps = 8 + world.rng.below(24);
+    for _ in 0..steps {
+        match world.rng.below(10) {
+            0..=5 => world.commit(),
+            6 if followers.len() < 4 => {
+                let p = world.rng.below(2) as usize;
+                let f = world.start(p, peers[p].as_ref(), tally);
+                followers.push((p, f));
+            }
+            _ => {
+                let k = world.rng.below(followers.len() as u64) as usize;
+                let (q, f) = &mut followers[k];
+                fuzz_pull(&mut world, *q, f, peers[*q].as_ref(), (keep, page), tally);
+            }
+        }
+    }
+    // Every follower pulls until it stands at its peer's revision: a quiet point each.
+    for (q, f) in &mut followers {
+        // A restart from an export may land commits, so the bound is generous.
+        for _ in 0..1_000 {
+            fuzz_pull(&mut world, *q, f, peers[*q].as_ref(), (keep, page), tally);
+            if f.resyncs == 0 && f.cursor.position().revision == world.models[*q].current() {
+                break;
+            }
+        }
+        assert_eq!(f.cursor.position().revision, world.models[*q].current());
+    }
+}
+
+fn fuzz(sequences: u64) -> Tally {
+    let mut tally = Tally::default();
+    for seed in 0..sequences {
+        fuzz_sequence(0x5EED_F011_0000 + seed, &mut tally);
+    }
+    tally
+}
+
+#[test]
+fn every_pull_agrees_with_brute_force_over_random_sequences() {
+    let tally = fuzz(2_000);
+    println!("follow fuzz, 2000 sequences: {tally:?}");
+    assert!(tally.quiet >= 2_000 && tally.resyncs > 100, "{tally:?}");
+    assert!(tally.delivered > 1_000 && tally.absent > 100, "{tally:?}");
+    fuzz_claims(&tally);
+}
+
+/// Both starts are exercised, some export starts were skewed and some entries had no arrival
+/// record; a mirror that ignores `removed` misses the holdings; one that applies a page's
+/// removals before its deltas does not, nor one that keeps an added id with no bytes (SPEC-18
+/// §4.13 readings 58, 59 and 69). Every quiet point and every pull between them was asserted in
+/// `fuzz_pull`, from either start.
+fn fuzz_claims(tally: &Tally) {
+    assert!(
+        tally.snapshot_starts > 100 && tally.export_starts > 100,
+        "{tally:?}"
+    );
+    assert!(tally.skewed_starts > 0 && tally.no_arrival > 0, "{tally:?}");
+    assert!(
+        tally.quiet_after_export > 0 && tally.quiet > tally.quiet_after_export,
+        "{tally:?}"
+    );
+    assert!(tally.ignores_removed_missed > 0, "{tally:?}");
+    assert_eq!(tally.removals_first_missed, 0, "{tally:?}");
+    assert_eq!(tally.keeps_unbytes_missed, 0, "{tally:?}");
+}
+
+/// The long run, by hand: `cargo test --release --test store_follow -- --ignored`.
+#[test]
+#[ignore]
+fn twenty_thousand_sequences_agree_with_brute_force() {
+    let tally = fuzz(20_000);
+    println!("follow fuzz, 20000 sequences: {tally:?}");
+    fuzz_claims(&tally);
+}
+
+// ---------------------------------------------------------------------------------------------
+// The cost rails (README §10.6, as §3.9.9)
+// ---------------------------------------------------------------------------------------------
+
+/// Linear work gives a ratio of about 8 between N and 8N, work in the holdings about 64.
+const BOUND: f64 = 24.0;
+
+fn fastest(runs: usize, enough: Duration, mut run: impl FnMut() -> Duration) -> Duration {
+    let mut best = Duration::MAX;
+    for _ in 0..runs {
+        if best < enough {
+            break;
+        }
+        best = best.min(run());
+    }
+    best
+}
+
+/// N from 256, doubling until the run at N takes 50 ms; the run at N the fastest of five, the
+/// run at 8N the fastest of three, stopped at the first under the bound. `Instant` is monotonic.
+fn scales_linearly(what: &str, run: &dyn Fn(usize) -> Duration) -> Option<String> {
+    let mut n = 256;
+    let at_n = loop {
+        let at_n = fastest(5, Duration::ZERO, || run(n));
+        if at_n >= Duration::from_millis(50) {
+            break at_n;
+        }
+        n *= 2;
+    };
+    let at_8n = fastest(3, at_n.mul_f64(BOUND), || run(8 * n));
+    let ratio = at_8n.as_secs_f64() / at_n.as_secs_f64();
+    println!("pull, {what}: N = {n}, {at_n:?} and {at_8n:?}, ratio {ratio:.2}");
+    (ratio >= BOUND).then(|| {
+        format!(
+            "{what}: the run at 8N = {} took {ratio:.1} times as long as at N = {n} \
+             ({at_8n:?} against {at_n:?}); linear work gives about 8",
+            8 * n
+        )
+    })
+}
+
+/// A store, its peer, and a position with 16 records after it.
+type Built = (MemoryStore, Box<dyn PeerStore>, Position);
+
+/// A peer with `held` deltas (one batch) and `earlier` head-only commits before the position,
+/// and 16 records after it, each adding one delta.
+fn costed(held: usize, earlier: usize) -> Built {
+    let store = MemoryStore::new();
+    let peer = new_peer(&store, "peer:cost");
+    let mut writer = Writer::default();
+    let batch: Vec<Delta> = (0..held)
+        .map(|k| fact(&format!("other:{k}"), "x", k as f64))
+        .collect();
+    writer.append(peer.as_ref(), &batch);
+    for _ in 0..earlier {
+        writer.append(peer.as_ref(), &[]);
+    }
+    let position = here(peer.as_ref());
+    for k in 0..16 {
+        writer.append(peer.as_ref(), &[fact("after", "x", k as f64)]);
+    }
+    (store, peer, position)
+}
+
+fn cost_rail(what: &str, build: fn(usize) -> Built) {
+    let built: RefCell<BTreeMap<usize, Built>> = RefCell::default();
+    let counted = Cell::new(0usize);
+    let run = |n: usize| {
+        let mut built = built.borrow_mut();
+        let (_, peer, position) = built.entry(n).or_insert_with(|| build(n));
+        let start = Instant::now();
+        for _ in 0..n {
+            let mut cursor = follow_feed(peer.as_ref(), position.clone()).unwrap();
+            black_box(cursor.pull().unwrap());
+        }
+        counted.set(counted.get() + n);
+        start.elapsed()
+    };
+    let (_, peer, position) = build(10);
+    let Pull::Ok {
+        records, deltas, ..
+    } = follow_feed(peer.as_ref(), position)
+        .unwrap()
+        .pull()
+        .unwrap()
+    else {
+        panic!("the costed pull answers ok");
+    };
+    assert_eq!((records.len(), deltas.len()), (16, 16));
+    // A run is measured again once before a slow ratio counts.
+    let slow = scales_linearly(what, &run).and_then(|_| scales_linearly(what, &run));
+    assert!(slow.is_none(), "{}", slow.unwrap());
+    assert!(counted.get() > 0);
+}
+
+/// Rail 1: N pulls beside N held deltas, and 8N beside 8N.
+#[test]
+fn a_pull_costs_its_page_not_the_holdings() {
+    cost_rail("beside N held deltas", |n| costed(n, 0));
+}
+
+/// Rail 2: N pulls after N records before the position, and 8N after 8N.
+#[test]
+fn a_pull_costs_its_page_not_the_records_before_it() {
+    cost_rail("after N records before the position", |n| costed(0, n));
+}
+
+// ---------------------------------------------------------------------------------------------
+// The runner's own words and the case's store (README §10.1, §10.3)
+// ---------------------------------------------------------------------------------------------
+
+/// A peer handle whose feed pages make no progress: `through` is `from`.
+struct StuckPeer<'a>(Box<dyn PeerStore + 'a>);
+
+impl PeerStore for StuckPeer<'_> {
+    fn id(&self) -> &str {
+        self.0.id()
+    }
+    fn erasure(&self) -> PeerErasure {
+        self.0.erasure()
+    }
+    fn history(&self) -> &str {
+        self.0.history()
+    }
+    fn read(&self) -> Result<Box<dyn Snapshot>, StoreError> {
+        self.0.read()
+    }
+    fn append(&self, batch: &Admission) -> Result<AppendResult, StoreError> {
+        self.0.append(batch)
+    }
+    fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreError> {
+        self.0.purge(ids)
+    }
+    fn changes(&self, from: Revision, _: Option<Revision>) -> Result<ChangePage, StoreError> {
+        Ok(ChangePage::Ok {
+            records: Vec::new(),
+            through: from,
+        })
+    }
+}
+
+/// The real cursor over a stuck feed, or a `follow` that refuses.
+struct OddFollow {
+    refuses: bool,
+}
+
+impl FollowReader for OddFollow {
+    fn position_of(&self, snapshot: &dyn Snapshot) -> Position {
+        position_of(snapshot)
+    }
+    fn follow<'a>(
+        &self,
+        peer: Box<dyn PeerStore + 'a>,
+        from: Position,
+    ) -> Result<Box<dyn Follower + 'a>, StoreError> {
+        if self.refuses {
+            return Err(StoreError::new(StoreErrorCode::InvalidRequest, "no"));
+        }
+        StoreFollow.follow(Box::new(StuckPeer(peer)), from)
+    }
+}
+
+fn failure_of(error: &StoreConformanceError, name: &str) -> String {
+    error
+        .failures
+        .iter()
+        .find(|f| f.name == name)
+        .unwrap_or_else(|| panic!("{name} did not fail: {error}"))
+        .message
+        .clone()
+}
+
+#[test]
+fn a_store_fault_and_a_refused_follow_fail_with_the_fixed_words() {
+    let doc = document();
+    let error = run(DEFAULT, &doc, &OddFollow { refuses: false }).expect_err("a fault fails");
+    let message = failure_of(&error, "follow/one-append");
+    assert!(
+        message.starts_with("the store broke no-progress: the store's page from 1 to 2 ends at 1"),
+        "{message}"
+    );
+    let error = run(DEFAULT, &doc, &OddFollow { refuses: true }).expect_err("a refusal fails");
+    let message = failure_of(&error, "follow/nothing-new");
+    assert_eq!(message, "follow refused with invalid-request: no");
+}
+
+/// README §10.3: a document defect (an unknown follower) is reported before a gap of the store
+/// (no feed).
+#[test]
+fn an_unknown_follower_is_reported_before_a_store_with_no_feed() {
+    let mut doc = document();
+    doc["cases"]
+        .as_array_mut()
+        .unwrap()
+        .retain(|c| c["name"] == "one-append");
+    doc["cases"][0].as_object_mut().unwrap().remove("requires");
+    nth(&mut doc, "one-append", "pull", 0)["follower"] = "g".into();
+    let error = run_follow_conformance(
+        &|_| Ok(Box::new(DeclaresNoFeed::new(MemoryStore::new())) as Box<dyn Store>),
+        &doc,
+        &StoreFollow,
+    )
+    .expect_err("an unknown follower fails");
+    assert_eq!(
+        failure_of(&error, "follow/one-append"),
+        "the vector uses follower g before following"
+    );
+}
+
+/// README §10.1: a case's `store` with an unknown field or a bad value is a defect of the document.
+#[test]
+fn a_case_store_with_an_unknown_field_or_a_bad_value_fails_that_case() {
+    let rows: [(Value, &str); 4] = [
+        (
+            serde_json::json!({"changeRetention": "unbounded", "pages": 1}),
+            "the case's store sets an unknown field `pages`",
+        ),
+        (
+            serde_json::json!({"changeRetention": {"revisions": 0}}),
+            "the case's changeRetention is not unbounded or {revisions: n}",
+        ),
+        (
+            serde_json::json!({"changePageSize": 1.5}),
+            "the case's changePageSize is not a whole number of 1 or more",
+        ),
+        (serde_json::json!([]), "the case's store is not an object"),
+    ];
+    for (store, message) in rows {
+        let mut doc = document();
+        doc["cases"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|c| c["name"] == "one-append")
+            .unwrap()["store"] = store;
+        let error = run(DEFAULT, &doc, &StoreFollow).expect_err(message);
+        assert_eq!(error.failures.len(), 1, "{error}");
+        assert_eq!(failure_of(&error, "follow/one-append"), message);
+    }
+}
+
+/// README §10.1: a factory that cannot build a case's store skips that case with the requirement
+/// `store`; any other failure of the factory fails that case, and the other cases run.
+#[test]
+fn a_factory_that_cannot_build_a_case_store_skips_it_and_any_other_failure_fails_it() {
+    let doc = document();
+    let cases = doc["cases"].as_array().unwrap();
+    let pinned: Vec<String> = cases
+        .iter()
+        .filter(|c| c.get("store").is_some())
+        .map(|c| format!("follow/{}", c["name"].as_str().unwrap()))
+        .collect();
+    assert!(!pinned.is_empty());
+    let plain = |case: FollowCaseStore| case == FollowCaseStore::default();
+    let report = run_follow_conformance(
+        &|case| match plain(case) {
+            true => Ok(Box::new(MemoryStore::new()) as Box<dyn Store>),
+            false => Err(StoreError::new(StoreErrorCode::CapabilityAbsent, "no")),
+        },
+        &doc,
+        &StoreFollow,
+    )
+    .unwrap();
+    let skipped: Vec<String> = report.skipped.iter().map(|s| s.name.clone()).collect();
+    assert_eq!(skipped, pinned);
+    assert!(report.skipped.iter().all(|s| s.missing == "store"));
+    let error = run_follow_conformance(
+        &|case| match plain(case) {
+            true => Ok(Box::new(MemoryStore::new()) as Box<dyn Store>),
+            false => Err(StoreError::new(StoreErrorCode::StoreClosed, "no disk")),
+        },
+        &doc,
+        &StoreFollow,
+    )
+    .expect_err("a factory failure fails its case");
+    let failed: Vec<String> = error.failures.iter().map(|f| f.name.clone()).collect();
+    assert_eq!(failed, pinned);
+    assert!(error
+        .failures
+        .iter()
+        .all(|f| f.message.starts_with("the factory did not open a store: ")));
+    assert_eq!(error.report.passed.len(), cases.len() - pinned.len());
 }

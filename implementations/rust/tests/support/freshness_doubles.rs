@@ -6,7 +6,7 @@ use rhizomatic::memory_store::MemoryStore;
 use rhizomatic::store::{
     Admission, AppendResult, ArrivalRecord, ChangePage, ChangeRecord, ErasurePosture, Exporter,
     PeerErasure, PeerStore, PurgeReport, PushdownFields, Revision, ScopeRequest, ScopeResult,
-    Snapshot, Store, StoreError, StoreErrorCode, StoreProfile,
+    Snapshot, Store, StoreError, StoreErrorCode, StoreProfile, VerifiedDelta,
 };
 use rhizomatic::types::Delta;
 
@@ -316,4 +316,100 @@ impl Snapshot for Fabricated {
         Err(fabricated())
     }
     fn release(&mut self) {}
+}
+
+/// A peer handle over a right one that misbehaves on purpose: `read` refuses `snapshot-moved` its
+/// first `moved_reads` times, and, with `extra`, each snapshot's `get` and `arrivals` answer that
+/// one more id, in order, so the two answers still agree.
+pub struct Odd<'a> {
+    pub inner: &'a dyn PeerStore,
+    pub moved_reads: usize,
+    pub extra: Option<VerifiedDelta>,
+    pub reads: std::cell::Cell<usize>,
+}
+
+impl<'a> Odd<'a> {
+    pub fn new(inner: &'a dyn PeerStore, moved_reads: usize, extra: Option<VerifiedDelta>) -> Self {
+        Self {
+            inner,
+            moved_reads,
+            extra,
+            reads: std::cell::Cell::new(0),
+        }
+    }
+}
+
+impl PeerStore for Odd<'_> {
+    fn id(&self) -> &str {
+        self.inner.id()
+    }
+    fn erasure(&self) -> PeerErasure {
+        self.inner.erasure()
+    }
+    fn history(&self) -> &str {
+        self.inner.history()
+    }
+    fn read(&self) -> Result<Box<dyn Snapshot>, StoreError> {
+        self.reads.set(self.reads.get() + 1);
+        if self.reads.get() <= self.moved_reads {
+            return Err(StoreError::new(StoreErrorCode::SnapshotMoved, "moved"));
+        }
+        Ok(Box::new(OddSnap {
+            inner: self.inner.read()?,
+            extra: self.extra.clone(),
+        }))
+    }
+    fn append(&self, batch: &Admission) -> Result<AppendResult, StoreError> {
+        self.inner.append(batch)
+    }
+    fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreError> {
+        self.inner.purge(ids)
+    }
+    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreError> {
+        self.inner.changes(from, to)
+    }
+}
+
+struct OddSnap {
+    inner: Box<dyn Snapshot>,
+    extra: Option<VerifiedDelta>,
+}
+
+impl Snapshot for OddSnap {
+    fn revision(&self) -> Revision {
+        self.inner.revision()
+    }
+    fn history(&self) -> &str {
+        self.inner.history()
+    }
+    fn head(&self) -> Option<&str> {
+        self.inner.head()
+    }
+    fn count(&self) -> u64 {
+        self.inner.count()
+    }
+    fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreError> {
+        let mut got = self.inner.get(ids)?;
+        got.extend(self.extra.iter().map(|e| e.delta.clone()));
+        got.sort_by(|a, b| a.id.cmp(&b.id));
+        Ok(got)
+    }
+    fn arrivals(&self, ids: &[String]) -> Result<Vec<ArrivalRecord>, StoreError> {
+        let mut got = self.inner.arrivals(ids)?;
+        got.extend(self.extra.iter().map(|e| e.arrival.clone()));
+        got.sort_by(|a, b| a.id.cmp(&b.id));
+        Ok(got)
+    }
+    fn targets(&self, entities: &[String]) -> Result<Vec<String>, StoreError> {
+        self.inner.targets(entities)
+    }
+    fn negators(&self, ids: &[String]) -> Result<Vec<String>, StoreError> {
+        self.inner.negators(ids)
+    }
+    fn scope(&self, request: &ScopeRequest) -> Result<ScopeResult, StoreError> {
+        self.inner.scope(request)
+    }
+    fn release(&mut self) {
+        self.inner.release()
+    }
 }

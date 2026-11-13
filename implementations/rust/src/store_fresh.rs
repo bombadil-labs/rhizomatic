@@ -21,6 +21,157 @@ use crate::types::Delta;
 /// times (SPEC-18 §4.13 reading 35).
 pub const FRESHNESS_SNAPSHOTS: usize = 4;
 
+/// A store that broke its contract, as a reader that checks the store's answers finds it
+/// (SPEC-18 §4.6; §4.13 readings 46 and 63). Each variant is one rule and holds the values that
+/// show it. A fault is not a refusal: no code of the shared vocabulary names it, and no verdict or
+/// answer can speak for such a store.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum StoreFault {
+    /// `no-progress`: the page `changes(from, to)` ends at `through ≤ from`, short of `to`.
+    NoProgress {
+        from: Revision,
+        to: Revision,
+        through: Revision,
+    },
+    /// `past-the-bound`: the page `changes(from, to)` ends at `through > to`.
+    PastTheBound {
+        from: Revision,
+        to: Revision,
+        through: Revision,
+    },
+    /// `mismatched-answers`: `get` and `arrivals` on one snapshot name other ids.
+    MismatchedAnswers {
+        get: Vec<String>,
+        arrivals: Vec<String>,
+    },
+    /// `unasked-ids`: the answer of `call` names an id it was not asked for, names one twice, or
+    /// is not ascending.
+    UnaskedIds {
+        call: &'static str,
+        asked: Vec<String>,
+        answered: Vec<String>,
+    },
+}
+
+impl StoreFault {
+    /// The rule's name, the same in every witness.
+    pub fn rule(&self) -> &'static str {
+        match self {
+            Self::NoProgress { .. } => "no-progress",
+            Self::PastTheBound { .. } => "past-the-bound",
+            Self::MismatchedAnswers { .. } => "mismatched-answers",
+            Self::UnaskedIds { .. } => "unasked-ids",
+        }
+    }
+}
+
+impl std::fmt::Display for StoreFault {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let text = match self {
+            Self::NoProgress { from, to, through } => format!(
+                "the store's page from {} to {} ends at {}, with no progress",
+                from.0, to.0, through.0
+            ),
+            Self::PastTheBound { from, to, through } => format!(
+                "the store's page from {} to {} ends at {}, past {}",
+                from.0, to.0, through.0, to.0
+            ),
+            Self::MismatchedAnswers { get, arrivals } => format!(
+                "the store's get and arrivals name other ids on one snapshot ({} and {})",
+                get.len(),
+                arrivals.len()
+            ),
+            Self::UnaskedIds {
+                call,
+                asked,
+                answered,
+            } => format!(
+                "{call} answered {} ids for {} asked: an id it was not asked for, or twice, or out of order",
+                answered.len(),
+                asked.len()
+            ),
+        };
+        f.write_str(&text)
+    }
+}
+
+/// Why a reader that checks the store's answers did not answer: the store refused, or the store
+/// broke its contract. `check_fresh` and [`crate::store_follow::FeedCursor::pull`] return it; a
+/// fault never panics, so a host keeps running beside a faulty store, remote ones included.
+#[derive(Debug, Clone, PartialEq)]
+pub enum FeedError {
+    Refused(StoreError),
+    Fault(StoreFault),
+}
+
+impl From<StoreError> for FeedError {
+    fn from(error: StoreError) -> Self {
+        Self::Refused(error)
+    }
+}
+
+impl From<StoreFault> for FeedError {
+    fn from(fault: StoreFault) -> Self {
+        Self::Fault(fault)
+    }
+}
+
+impl std::fmt::Display for FeedError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let text = match self {
+            Self::Refused(error) => error.to_string(),
+            Self::Fault(fault) => format!("the store broke {}: {fault}", fault.rule()),
+        };
+        f.write_str(&text)
+    }
+}
+
+impl std::error::Error for FeedError {}
+
+impl FeedError {
+    /// The refusal's code, or none for a fault.
+    pub fn code(&self) -> Option<StoreErrorCode> {
+        match self {
+            Self::Refused(error) => Some(error.code),
+            Self::Fault(_) => None,
+        }
+    }
+}
+
+/// A page of `changes(from, to)` checked before anything reads its records.
+pub(crate) fn checked_through(
+    from: Revision,
+    to: Revision,
+    through: Revision,
+) -> Result<(), StoreFault> {
+    if through <= from {
+        return Err(StoreFault::NoProgress { from, to, through });
+    }
+    if through > to {
+        return Err(StoreFault::PastTheBound { from, to, through });
+    }
+    Ok(())
+}
+
+/// The ids an answer of `call` names, checked against the ids it asked for (ascending, distinct):
+/// each an asked id, each once, ascending.
+pub(crate) fn answered_only(
+    call: &'static str,
+    asked: &[String],
+    answered: Vec<String>,
+) -> Result<(), StoreFault> {
+    let fine = answered.windows(2).all(|pair| pair[0] < pair[1])
+        && answered.iter().all(|id| asked.binary_search(id).is_ok());
+    match fine {
+        true => Ok(()),
+        false => Err(StoreFault::UnaskedIds {
+            call,
+            asked: asked.to_vec(),
+            answered,
+        }),
+    }
+}
+
 /// The validity window of a read's operand at its `now` (SPEC-18 §4.6, "The window"). `since` is
 /// the greatest `validFrom` or `validUntil` at or before `now`, and `expires_at` the least strictly
 /// after it. A bound that is `None` is open.
@@ -183,7 +334,7 @@ const OTHER_ANCHOR_KINDS: [&str; 2] = ["value", "derived-index"];
 
 /// A revision as JSON writes it: an integer from 0 to 2^53 − 1. JSON has one number type, so
 /// `1.0` is the integer 1; `1.5` is not an integer.
-fn json_revision(value: &Value) -> Option<u64> {
+pub(crate) fn json_revision(value: &Value) -> Option<u64> {
     if let Some(n) = value.as_u64() {
         return Some(n);
     }
@@ -212,13 +363,19 @@ pub fn parse_capture(value: &Value) -> Result<Capture, StoreError> {
     let mut keys: Vec<&str> = object.keys().map(String::as_str).collect();
     keys.sort_unstable();
     if keys != KEYS {
-        return Err(malformed(
-            "a capture has exactly history, revision, anchors, members, since and expiresAt",
-        ));
+        return Err(malformed(&format!(
+            "the keys are {}, not anchors, expiresAt, history, members, revision, since",
+            keys.join(",")
+        )));
     }
     let history = object["history"]
         .as_str()
         .ok_or_else(|| malformed("history is not a string"))?;
+    // The order of reading 54: the history, empty and then local, before the revision and the
+    // anchors, so an empty history beside a `value` anchor is `invalid-request`.
+    if history.is_empty() {
+        return Err(malformed("history is empty"));
+    }
     if history.starts_with(LOCAL_HISTORY_PREFIX) {
         return Err(malformed(&format!(
             "history {history} is local to the process that made it; a capture kept across processes needs a history from mintHistory (MemoryStore::with_history_mint)"
@@ -261,6 +418,12 @@ pub fn parse_capture(value: &Value) -> Result<Capture, StoreError> {
             })
         })
         .collect::<Result<Vec<_>, _>>()?;
+    // Their order before any member is read (reading 54).
+    if !strictly_ascending(anchors.iter().map(entity)) {
+        return Err(malformed(
+            "anchors is not strictly ascending by UTF-8 bytes",
+        ));
+    }
     let members = object["members"]
         .as_array()
         .ok_or_else(|| malformed("members is not a list"))?
@@ -271,6 +434,12 @@ pub fn parse_capture(value: &Value) -> Result<Capture, StoreError> {
                 .ok_or_else(|| malformed("members holds a value that is not a string"))
         })
         .collect::<Result<Vec<_>, _>>()?;
+    // Their order before the window is read (reading 54).
+    if !strictly_ascending(members.iter().map(String::as_str)) {
+        return Err(malformed(
+            "members is not strictly ascending by UTF-8 bytes",
+        ));
+    }
     let bound = |key: &str| -> Result<Option<f64>, StoreError> {
         match &object[key] {
             Value::Null => Ok(None),
@@ -437,6 +606,37 @@ impl Freshness {
     }
 }
 
+/// Whether a capture is still what a read at `now` would depend on (SPEC-18 §4.6, §4.13 readings
+/// 33 to 35). One `read`; with another history, nothing more; with a revision r′ below the
+/// capture's, `resync-required`; with r′ above it, `changes(capture.revision, r′)` page by page,
+/// one `get` of each page's added ids on the snapshot before the page is judged, and no call after
+/// the first touch. The answers in order: `resync-required`, `stale`, `not-yet`, `expired`,
+/// `current`. On `snapshot-moved`, from `read` itself or a later call, it starts again on a new
+/// snapshot, at most [`FRESHNESS_SNAPSHOTS`] in all; each is released. Its calls depend on the
+/// records and ids since the capture, never on the holdings or on records before the capture.
+/// Refuses `invalid-request` for a `now` that is not finite.
+///
+/// A store that breaks its contract is a [`FeedError::Fault`], found before the store's answer is
+/// judged (§4.13 readings 46 and 68): a page with no progress short of r′ (`no-progress`), a page
+/// past r′ (`past-the-bound`), and a `get` that answers an id it was not asked for, twice, or out
+/// of order (`unasked-ids`). It never panics on a store fault.
+pub fn check_fresh(
+    peer: &dyn PeerStore,
+    capture: &Capture,
+    now: f64,
+) -> Result<Freshness, FeedError> {
+    if !now.is_finite() {
+        return Err(StoreError::new(
+            StoreErrorCode::InvalidRequest,
+            "checkFresh needs a now that is a finite number",
+        )
+        .into());
+    }
+    on_snapshots(peer, FRESHNESS_SNAPSHOTS, |snapshot| {
+        check_on_one_snapshot(peer, snapshot, capture, now)
+    })
+}
+
 /// Releases a snapshot when it goes out of scope, on every path.
 struct Held(Box<dyn Snapshot>);
 
@@ -446,37 +646,23 @@ impl Drop for Held {
     }
 }
 
-/// Whether a capture is still what a read at `now` would depend on (SPEC-18 §4.6, §4.13 readings
-/// 33 to 35). One `read`; with another history, nothing more; with a revision r′ below the
-/// capture's, `resync-required`; with r′ above it, `changes(capture.revision, r′)` page by page,
-/// one `get` of each page's added ids on the snapshot before the page is judged, and no call after
-/// the first touch. The answers in order: `resync-required`, `stale`, `not-yet`, `expired`,
-/// `current`. On `snapshot-moved` it starts again on a new snapshot, at most
-/// [`FRESHNESS_SNAPSHOTS`] in all; each is released. Its calls depend on the records and ids since
-/// the capture, never on the holdings or on records before the capture. Refuses
-/// `invalid-request` for a `now` that is not finite.
-///
-/// # Panics
-///
-/// Panics when a page of the feed makes no progress short of r′. That page cannot vouch for the
-/// rest of the range, so the store broke the change feed contract (§4.6, "Pages"); no code of
-/// the shared vocabulary names a store fault, and a verdict would hide it (§4.13 reading 46).
-pub fn check_fresh(
+/// `body` on a new snapshot of `peer`, released after it. On `snapshot-moved`, from `read` itself
+/// or from a later call, it starts again on a new snapshot, at most `snapshots` in all.
+pub(crate) fn on_snapshots<T>(
     peer: &dyn PeerStore,
-    capture: &Capture,
-    now: f64,
-) -> Result<Freshness, StoreError> {
-    if !now.is_finite() {
-        return Err(StoreError::new(
-            StoreErrorCode::InvalidRequest,
-            "checkFresh needs a now that is a finite number",
-        ));
-    }
+    snapshots: usize,
+    mut body: impl FnMut(&dyn Snapshot) -> Result<T, FeedError>,
+) -> Result<T, FeedError> {
     let mut taken = 0;
     loop {
         taken += 1;
-        match check_on_one_snapshot(peer, capture, now) {
-            Err(e) if e.code == StoreErrorCode::SnapshotMoved && taken < FRESHNESS_SNAPSHOTS => {}
+        let answer = peer
+            .read()
+            .map_err(FeedError::from)
+            .and_then(|snapshot| body(Held(snapshot).0.as_ref()));
+        match answer {
+            Err(FeedError::Refused(e))
+                if e.code == StoreErrorCode::SnapshotMoved && taken < snapshots => {}
             other => return other,
         }
     }
@@ -484,12 +670,12 @@ pub fn check_fresh(
 
 fn check_on_one_snapshot(
     peer: &dyn PeerStore,
+    snapshot: &dyn Snapshot,
     capture: &Capture,
     now: f64,
-) -> Result<Freshness, StoreError> {
-    let snapshot = Held(peer.read()?);
-    let at_read = snapshot.0.revision();
-    if snapshot.0.history() != capture.history {
+) -> Result<Freshness, FeedError> {
+    let at_read = snapshot.revision();
+    if snapshot.history() != capture.history {
         return Ok(Freshness::ResyncRequired { current: at_read });
     }
     if at_read < capture.revision {
@@ -503,15 +689,17 @@ fn check_on_one_snapshot(
             }
             ChangePage::Ok { records, through } => (records, through),
         };
+        // A store fault, not a verdict, found before the page's ids are fetched or judged: such
+        // a page cannot vouch for the rest of the range, or claims records the check cannot judge.
+        checked_through(at, at_read, through)?;
         let ids: BTreeSet<&String> = records.iter().flat_map(|r| &r.added).collect();
         let added: BTreeMap<String, Delta> = match ids.is_empty() {
             true => BTreeMap::new(),
             false => {
                 let ids: Vec<String> = ids.into_iter().cloned().collect();
-                snapshot
-                    .0
-                    .get(&ids)?
-                    .into_iter()
+                let held = snapshot.get(&ids)?;
+                answered_only("get", &ids, held.iter().map(|d| d.id.clone()).collect())?;
+                held.into_iter()
                     .map(|delta| (delta.id.clone(), delta))
                     .collect()
             }
@@ -519,13 +707,6 @@ fn check_on_one_snapshot(
         if let Some(touch) = touching(capture, &records, &added) {
             return Ok(Freshness::Stale(touch));
         }
-        // A store fault, not a verdict: such a page cannot vouch for the rest of the range.
-        assert!(
-            through > at,
-            "checkFresh: the store's page from {} made no progress toward {}; the store breaks the change feed contract (SPEC-18 §4.6)",
-            at.0,
-            at_read.0
-        );
         at = through;
     }
     Ok(match (capture.since, capture.expires_at) {

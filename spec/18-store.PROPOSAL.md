@@ -474,7 +474,10 @@ snapshot's revision r′ equals the capture's, it reads no feed. When r′ is be
 explicit `to`. For each page that names an added id, it makes one `get` of those ids on the
 snapshot, and then judges the page. It stops at the first touch. A page that makes no progress
 short of r′ (`through ≤ from`), or that claims records past r′ (`through > r′`), is a store
-fault, not a verdict: the call fails with an error before the page is judged (§4.13 reading 46). **The order of the answers:**
+fault, not a verdict. So is a `get` whose answer names an id the check did not ask for, names
+one twice, or is not ascending. The call fails with a **store fault**, an error value that names
+the broken rule (`no-progress`, `past-the-bound`, `unasked-ids`), before the page is judged
+(§4.13 readings 46, 73 and 74). **The order of the answers:**
 `resync-required`, then `stale`, then the window (`not-yet` when `now < since`, `expired` when
 `now ≥ expiresAt`), else `current`. Its calls and cost depend on the records and ids since the
 capture, never on what the peer holds and never on records before the capture. It replaces
@@ -524,12 +527,15 @@ type Pull =
   on that cursor answers the same, with no store call. The position no longer names a revision
   of this feed; asking again cannot help, and a later answer could come from another history.
   The caller reads its state again and follows from the new read.
-- **Moves and faults.** When s moves under the pull (`snapshot-moved`), the pull starts again on a
-  new snapshot, at most four in all, as `checkFresh` does. A page with no progress, a page whose
-  `through` is past s's revision, and a `get` and `arrivals` that name other ids on one snapshot
-  are store faults: the pull fails with an error that is not a store refusal. Every snapshot is
-  released, also on a throw. A pull that throws does not move the cursor. Pulls on one cursor run
-  one at a time, in call order.
+- **Moves and faults.** When s moves under the pull (`snapshot-moved`, from `read()` itself or a
+  later call), the pull starts again on a new snapshot, at most four in all, as `checkFresh` does.
+  A page with no progress (`no-progress`), a page whose `through` is past s's revision
+  (`past-the-bound`), a `get` or `arrivals` whose answer names an id the pull did not ask for,
+  names one twice, or is not ascending (`unasked-ids`), and a `get` and `arrivals` that name
+  other ids on one snapshot (`mismatched-answers`) are store faults. The pull fails with a store
+  fault, an error value that names the rule, not a store refusal; it delivers none of the
+  answer. Every snapshot is released, also on an error. A pull that fails does not move the
+  cursor, and the cursor stays usable. Pulls on one cursor run one at a time, in call order.
 - **Cost.** A pull costs O(page: records, ids and delivered bytes). It never costs O(holdings)
   or O(records before the position).
 - **Positions across a process.** A position kept across a process needs a history from
@@ -1426,11 +1432,11 @@ that a vector can pin.
 ### 4.13 Slice 3 readings
 
 Slice 3 builds the change feed of §4.6 (`18-store.SLICE-3.PLAN.md`, steps 1 to 4), freshness
-(steps 5 and 6, readings 24 to 54), the feed cursor (step 7, readings 55 to 72) and held views
-(step 9, readings 73 to 86). Where §4.6 and the plan were silent, the feed decided as follows.
-`vectors/store/scripts.json`, `vectors/store/freshness.json`, `vectors/store/follow.json`,
-`vectors/store/views.json` and `vectors/store/README.md` §3.9, §9, §10 and §11 pin each point
-that a vector can pin.
+(steps 5 and 6, readings 24 to 54), the feed cursor (steps 7 and 8, readings 55 to 74) and held
+views (step 9, readings 75 to 88). Where §4.6 and the plan were silent, the feed decided as
+follows. `vectors/store/scripts.json`, `vectors/store/freshness.json`,
+`vectors/store/follow.json`, `vectors/store/views.json` and `vectors/store/README.md` §3.9, §9,
+§10 and §11 pin each point that a vector can pin.
 
 1. **Revisions are integers.** A revision is an integer from 0 to 2^53 − 1 in every witness. The
    vectors need this to name a revision past the current one (`ahead`, README §3.9).
@@ -1617,13 +1623,12 @@ that a vector can pin.
     points (README §3.9.4, item 2), so a store whose revisions are far apart keeps the runner
     cheap. Both witnesses ask at the same points.
 46. **A page with no progress is a store fault.** Inside `checkFresh`, a page of the feed whose
-    `through` is not above its `from`, short of r′, breaks §4.6 ("Pages"). So does a page whose
-    `through` is past r′, the `to` the check asked for: it claims records the check cannot judge,
-    and `current` would speak for them. Neither is a verdict: `resync-required` would send the
-    caller to rebuild over a broken store. The call fails with an error, before the page's ids
-    are fetched or judged. The vocabulary has no code for a store that breaks its contract, so the error is a
-    plain one: TypeScript throws an `Error` that is not a `StoreError`, and Rust panics, as it
-    does for a delta source that breaks its contract.
+    `through` is not above its `from`, short of r′, breaks §4.6 ("Pages"): the rule
+    `no-progress`. So does a page whose `through` is past r′, the `to` the check asked for: it
+    claims records the check cannot judge, and `current` would speak for them (`past-the-bound`).
+    Neither is a verdict: `resync-required` would send the caller to rebuild over a broken store.
+    The call fails before the page's ids are fetched or judged, and it fails with a store fault:
+    an error value that names the rule and the values that show it (reading 73).
 47. **`now` is finite.** `checkFresh` and the capture-from-scope function (TypeScript
     `captureScope`, Rust `capture_scope`) refuse NaN, Infinity and −Infinity with
     `invalid-request`, before any store call.
@@ -1648,9 +1653,12 @@ that a vector can pin.
     with `checkFresh refused with <code>` (README §9.3).
 54. **The order of a capture's defects.** A capture with two defects is refused by the first in
     this order: the keys (`parseCapture` only), the history (empty, then local to a process), the
-    revision, the anchors (each anchor's shape and kind, then their order), the members, then the
-    window. So an empty history beside a `value` anchor is `invalid-request`, not
-    `capability-absent`. The TypeScript witness tests inputs with two defects.
+    revision, then each anchor whole and in order (its shape, its kind, its entity) before the
+    next anchor, then the anchors' order and uniqueness, then the members (types, order,
+    uniqueness), then the window (types, finiteness, `since < expiresAt`). So an empty history
+    beside a `value` anchor is `invalid-request`, not `capability-absent`, and an entity anchor
+    whose entity is a number, before a `value` anchor, is `invalid-request` too. Both witnesses
+    read one table of such inputs, `vectors/store/capture-defects.json` (README §9.7).
 55. **A follower starts from a position and a read.** `positionOf(snapshot)` is the start, and
     nothing else is. A mode that starts at the beginning of the feed would fail under bounded
     retention, and it would hand out the records of ids the peer purged long ago. The read (on
@@ -1688,10 +1696,12 @@ that a vector can pin.
 62. **A pull is one page.** A pull never reads a second page; a follower that is behind pulls
     again. A pull's cost is then bounded by the store's page, and a slow follower cannot hold a
     snapshot for an unbounded range.
-63. **Faults and moves.** A page with no progress, a page past the snapshot, and two answers that
-    disagree fail the pull with an error that is not a `StoreError`, as reading 46 does for
-    `checkFresh`. On `snapshot-moved` the pull starts again, at most four snapshots. A throw does
-    not move the cursor.
+63. **Faults and moves.** A page with no progress (`no-progress`), a page past the snapshot
+    (`past-the-bound`), an answer with ids the pull did not ask for (`unasked-ids`, reading 74)
+    and a `get` and `arrivals` that name other ids (`mismatched-answers`) fail the pull with a
+    store fault, the error value of reading 73, as reading 46 does for `checkFresh`. On
+    `snapshot-moved`, from `read()` itself or a later call, the pull starts again, at most four
+    snapshots. An error does not move the cursor, and the cursor stays usable.
 64. **Pulls on one cursor do not overlap.** TypeScript queues them in call order. A typed witness
     whose pull takes the cursor mutably meets this by construction.
 65. **A position crosses a process only with a minted history.** `parsePosition` refuses a
@@ -1724,60 +1734,73 @@ that a vector can pin.
 72. **A follower's mirror lies outside erasure.** A follower holds a purged delta's bytes until it
     pulls the removal, and as long as it stops pulling. The host erases them. After
     `resync-required` the follower replaces its mirror and never merges (§4.6, §4.7.2).
-73. **A hold passes for the whole set.** `hold` makes the same pass as `refresh`, over every held
+73. **A store fault is an error value.** `checkFresh` and a cursor's pull report a store that
+    broke its contract as a value, never by aborting the host: slice 4 brings stores that can be
+    remote, and a library must not take its host down over one faulty store. The fault names its
+    rule with the same words in every witness: `no-progress`, `past-the-bound`,
+    `mismatched-answers` and `unasked-ids`. It is distinct from a refusal (`StoreError`): a
+    refusal is the store keeping its contract, and a fault is the store breaking it. TypeScript
+    throws `StoreFaultError`, with `rule` and `values`; Rust returns `FeedError::Fault`, a
+    `StoreFault` whose variant is the rule and whose fields are the values. Every snapshot is
+    still released, and a failed pull leaves the cursor where it stood.
+74. **`get` and `arrivals` answer only what was asked.** An answer that names an id the call did
+    not ask for, names an id twice, or is not ascending is the fault `unasked-ids`, and the
+    reader uses none of it. Otherwise a faulty store could hand a follower the bytes of a delta
+    the peer purged, or have `checkFresh` judge a delta no record named.
+75. **A hold passes for the whole set.** `hold` makes the same pass as `refresh`, over every held
     view, then reads its own view if it is not held. A holder keeps one processed position, and
     every held view stands there. A hold that judged its one view alone would leave the views at
     two positions. The next pass would then read records that some views had already judged, and
     read them again where the exact rule owes nothing. A hold of a held view that nothing touched
     costs one pass with no read (`views.json`, `a-hold-passes-for-the-whole-set`).
-74. **`changed` speaks for refreshes.** A hold's pass may read other views again. Their new bytes
+76. **`changed` speaks for refreshes.** A hold's pass may read other views again. Their new bytes
     are not lost: `refresh` answers every view whose bytes differ from those at the previous
     refresh (or at its first read since). The answer of a `hold` goes to its caller; `changed` is
     for the host's subscribers. A host that copies both into one place sees a view change and then
     never hears that it changed back: the TypeScript fuzz found this in its own first model of the
     host (seed 62 of 2,000), and the fuzz's host now copies from `changed` alone.
-75. **A capture moves without a write.** The contract first said that the captures of untouched
+77. **A capture moves without a write.** The contract first said that the captures of untouched
     views move to the pass's revision. Rewriting each costs O(held views) per pass, which the cost
     rule forbids. Every held view stands at the processed position by the claim, so the holder
     builds the moved capture only when `hold` answers one, with `advanceCapture` (§4.6). The
     function is internal and states its assumption; `makeCapture` and `parseCapture` do not
     change. `ViewRead.capture` is an addition to the contract: it lets a host hand a view's
     capture to `checkFresh`, and a rail does so and gets `current`.
-76. **No view, no feed.** A pass with no view held reads no feed: there is nothing to touch. Its
+78. **No view, no feed.** A pass with no view held reads no feed: there is nothing to touch. Its
     snapshot's position becomes the processed position. So the first `hold` reads `read`, one
     round of `scope` calls and `release`, and nothing else.
-77. **Epochs compare by value.** A view is read again when its program's epoch differs from the
+79. **Epochs compare by value.** A view is read again when its program's epoch differs from the
     epoch it was read under. An epoch set and then set back before the next pass reads nothing:
     the host says its state is the one the view was read under (`views.json`, `set-epoch`).
-78. **The vectors pin the re-read set without a selection.** With a selection a holder may read a
+80. **The vectors pin the re-read set without a selection.** With a selection a holder may read a
     view more often (§4.6). So `reread` in `views.json` lists only views of programs without a
     selection, and `hold` carries no `from` for a program with one. The bytes are pinned for every
     program. The case `a-program-with-a-selection` has a touch the selection rejects.
-79. **`drop` and `setEpoch` are queued.** The contract wrote them as `void`. Rule 6 serializes
+81. **`drop` and `setEpoch` are queued.** The contract wrote them as `void`. Rule 6 serializes
     them with `hold` and `refresh`: a `drop` during a pass must not land before the pass applies.
     So both answer a promise. Neither makes a store call.
-80. **The bytes of a View.** The contract said "canonical HView". A `resolve` program answers a
+82. **The bytes of a View.** The contract said "canonical HView". A `resolve` program answers a
     View, so `bytes` is the canonical encoding of the read's result, HView or View, as
     `rounds.json` encodes it (`canonicalHex`).
-81. **Eviction is not a change.** Holding one view more than `maxViews` forgets the least recently
+83. **Eviction is not a change.** Holding one view more than `maxViews` forgets the least recently
     held or asked view. It is not in `changed`, and a later `hold` of it reads it again
     (`from: read`). Forgetting leaves no index entry: a rail checks that every index returns to its
     size, and the wrong holder that keeps entries reads a dropped view again (`drop`).
-82. **A failed pass applies nothing.** A pass decides, reads, and only then applies. A store
+84. **A failed pass applies nothing.** A pass decides, reads, and only then applies. A store
     fault (reading 46) or a refusal fails the call, and no view, index entry or position moves. A
     holder that moved its position on a failure would skip the records of the failed pass: the
     rail's next refresh then misses a touched view.
-83. **The key order.** `reread` and `changed` are ascending by program name, then root, each by
+85. **The key order.** `reread` and `changed` are ascending by program name, then root, each by
     UTF-8 bytes. Both witnesses order them so.
-84. **The proof.** The generator of `views.json` holds views as the contract says and proves, at
+86. **The proof.** The generator of `views.json` holds views as the contract says and proves, at
     every pass, that each view it keeps equals a fresh read over the model (rule 1), and that a
     view is touched exactly when its raw scope changed, an arrival record changed, or a member left
     (rule 4). The TypeScript fuzz ran 20,000 sequences (README §11.6); its committed form runs
     2,000.
-85. **The cost.** A pass looks up each record's ids in the inverted index. The TypeScript rails
+87. **The cost.** A pass looks up each record's ids in the inverted index. The TypeScript rails
     measured ratios of 12 to 14 (held views), 10 to 11 (holdings) and 8 to 9 (earlier records) for 8N against
     N; a holder that asks `touching` of every view per page measured 44.
-86. **A held view lies outside erasure.** Its bytes can carry a purged delta's payload until the
+88. **A held view lies outside erasure.** Its bytes can carry a purged delta's payload until the
     next pass. A host that erases calls `refresh` or `drop` before it reports (§4.6, §4.7.2;
     plan §8, "Slice 5 owes").
 

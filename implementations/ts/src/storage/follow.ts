@@ -10,9 +10,10 @@
 // current revision. A follower that keeps only a scope uses `checkFresh` instead.
 
 import { compareUtf8 } from "../delta/cbor.js";
-import { LOCAL_HISTORY_PREFIX } from "./freshness.js";
+import { LOCAL_HISTORY_PREFIX, answeredOnly, checkedThrough, onSnapshots } from "./freshness.js";
 import {
   StoreError,
+  StoreFaultError,
   type ChangeRecord,
   type History,
   type PeerStore,
@@ -54,13 +55,18 @@ export interface FeedCursor {
   /**
    * One snapshot, at most one page of the feed, and one `get` and one `arrivals` call for the
    * page's added ids. Pulls on one cursor run one at a time, in call order. After
-   * `resync-required`, every later pull answers the same, with no store call.
+   * `resync-required`, every later pull answers the same, with no store call. On
+   * `snapshot-moved`, also under `read()` itself, it starts again on a new snapshot, at most four
+   * in all.
+   *
+   * Throws `StoreFaultError` when the store breaks its contract, before anything the store
+   * answered is used: a page with no progress (`no-progress`), a page past the snapshot's
+   * revision (`past-the-bound`), a `get` or `arrivals` that answers an id it was not asked for,
+   * twice, or out of order (`unasked-ids`), and a `get` and `arrivals` that name other ids
+   * (`mismatched-answers`). A pull that throws does not move the cursor; it stays usable.
    */
   pull(): Promise<Pull>;
 }
-
-/** How many times a pull starts again on a new snapshot after `snapshot-moved`. */
-const SNAPSHOT_RETRIES = 3;
 
 /** The position of a snapshot: where a follower that read its state on it starts. */
 export function positionOf(snapshot: Snapshot): Position {
@@ -137,20 +143,10 @@ class Cursor implements FeedCursor {
     // The position no longer names a revision of this peer's feed. Asking the store again cannot
     // help, and a later answer could be read in another history: the caller reads again first.
     if (this.stopped !== undefined) return this.stopped;
-    for (let attempts = 1; ; attempts += 1) {
-      const snapshot = await this.peer.read();
-      try {
-        const pull = await this.pullOn(snapshot);
-        if (pull.status === "ok") this.at = pull.position;
-        else this.stopped = pull;
-        return pull;
-      } catch (error) {
-        const moved = error instanceof StoreError && error.code === "snapshot-moved";
-        if (!moved || attempts > SNAPSHOT_RETRIES) throw error;
-      } finally {
-        snapshot.release();
-      }
-    }
+    const pull = await onSnapshots(this.peer, (snapshot) => this.pullOn(snapshot));
+    if (pull.status === "ok") this.at = pull.position;
+    else this.stopped = pull;
+    return pull;
   }
 
   private async pullOn(snapshot: Snapshot): Promise<Pull> {
@@ -167,18 +163,22 @@ class Cursor implements FeedCursor {
     if (page.status === "resync-required")
       return Object.freeze({ status: "resync-required", current });
     // A store fault, not an answer: such a page cannot say where the cursor stands.
-    if (page.through <= at || page.through > end)
-      throw new Error(
-        `pull: the store's page from ${at} to ${end} ends at ${page.through}; the store breaks the change feed contract (§4.6)`,
-      );
+    checkedThrough("pull", at, end, page.through);
     const ids = [...new Set(page.records.flatMap((record) => record.added))].sort(compareUtf8);
     const deltas: VerifiedDelta[] = [];
     if (ids.length > 0) {
       const held = await snapshot.get(ids);
       const arrivals = await snapshot.arrivals(ids);
-      if (held.length !== arrivals.length || held.some((d, i) => d.id !== arrivals[i]!.id))
-        throw new Error(
-          "pull: the store's get and arrivals name other ids on one snapshot; the store breaks its contract (§4.2)",
+      // Bytes the call did not ask for are never handed out: they may be a purged delta's.
+      const got = held.map((d) => d.id);
+      const dated = arrivals.map((a) => a.id);
+      answeredOnly("pull", "get", ids, got);
+      answeredOnly("pull", "arrivals", ids, dated);
+      if (got.length !== dated.length || got.some((id, i) => id !== dated[i]))
+        throw new StoreFaultError(
+          "mismatched-answers",
+          { get: got, arrivals: dated },
+          "pull: the store's get and arrivals name other ids on one snapshot",
         );
       held.forEach((delta, i) => deltas.push({ delta, arrival: arrivals[i]! }));
     }

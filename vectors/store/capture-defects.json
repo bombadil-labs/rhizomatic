@@ -1,0 +1,318 @@
+{
+  "format": "rhizomatic-capture-defects/1",
+  "note": "Hand-kept, not generated (vectors/store/README.md §9.7, 'The checking constructor'). Each case is `base` with the fields of `set` replaced or added, and has two defects or more. A witness's checking parser (TypeScript parseCapture, Rust parse_capture) refuses each with `code`, and its reason starts with `starts`: the first defect in the order of SPEC-18 §4.13 reading 54 decides.",
+  "spec": "SPEC-18 §4.13 reading 54",
+  "base": {
+    "history": "host:1",
+    "revision": 2,
+    "anchors": [
+      {
+        "kind": "entity",
+        "entity": "plant:a"
+      },
+      {
+        "kind": "entity",
+        "entity": "plant:b"
+      }
+    ],
+    "members": [
+      "a",
+      "b"
+    ],
+    "since": null,
+    "expiresAt": null
+  },
+  "cases": [
+    {
+      "name": "an extra key and an empty history",
+      "set": {
+        "extra": 1,
+        "history": ""
+      },
+      "code": "invalid-request",
+      "starts": "capture: the keys are"
+    },
+    {
+      "name": "an empty history and a value anchor",
+      "set": {
+        "history": "",
+        "anchors": [
+          {
+            "kind": "value",
+            "role": "r"
+          }
+        ]
+      },
+      "code": "invalid-request",
+      "starts": "capture: history"
+    },
+    {
+      "name": "an empty history and a fractional revision",
+      "set": {
+        "history": "",
+        "revision": 1.5
+      },
+      "code": "invalid-request",
+      "starts": "capture: history"
+    },
+    {
+      "name": "a history that is not a string and a value anchor",
+      "set": {
+        "history": 5,
+        "anchors": [
+          {
+            "kind": "value",
+            "role": "r"
+          }
+        ]
+      },
+      "code": "invalid-request",
+      "starts": "capture: history"
+    },
+    {
+      "name": "a local history and a fractional revision",
+      "set": {
+        "history": "memory:local:3",
+        "revision": 1.5
+      },
+      "code": "invalid-request",
+      "starts": "capture: history memory:local:3 is local"
+    },
+    {
+      "name": "a fractional revision and a value anchor",
+      "set": {
+        "revision": 1.5,
+        "anchors": [
+          {
+            "kind": "value",
+            "role": "r"
+          }
+        ]
+      },
+      "code": "invalid-request",
+      "starts": "capture: revision"
+    },
+    {
+      "name": "a negative revision and members out of order",
+      "set": {
+        "revision": -1,
+        "members": [
+          "b",
+          "a"
+        ]
+      },
+      "code": "invalid-request",
+      "starts": "capture: revision"
+    },
+    {
+      "name": "anchors that are not a list and members that are not a list",
+      "set": {
+        "anchors": "plant:a",
+        "members": "a"
+      },
+      "code": "invalid-request",
+      "starts": "capture: anchors is not a list"
+    },
+    {
+      "name": "an entity that is not a string, then a value anchor",
+      "set": {
+        "anchors": [
+          {
+            "kind": "entity",
+            "entity": 5
+          },
+          {
+            "kind": "value",
+            "entity": "x"
+          }
+        ]
+      },
+      "code": "invalid-request",
+      "starts": "capture: an entity anchor"
+    },
+    {
+      "name": "a value anchor, then an entity that is not a string",
+      "set": {
+        "anchors": [
+          {
+            "kind": "value",
+            "entity": "x"
+          },
+          {
+            "kind": "entity",
+            "entity": 5
+          }
+        ]
+      },
+      "code": "capability-absent",
+      "starts": "capture: a value anchor"
+    },
+    {
+      "name": "an unknown kind, then a value anchor",
+      "set": {
+        "anchors": [
+          {
+            "kind": "bogus",
+            "entity": "x"
+          },
+          {
+            "kind": "value",
+            "role": "r"
+          }
+        ]
+      },
+      "code": "invalid-request",
+      "starts": "capture: an anchor's kind"
+    },
+    {
+      "name": "an anchor that is not an object, then a derived-index anchor",
+      "set": {
+        "anchors": [
+          5,
+          {
+            "kind": "derived-index"
+          }
+        ]
+      },
+      "code": "invalid-request",
+      "starts": "capture: an anchor is not an object"
+    },
+    {
+      "name": "an entity anchor with an extra key, then a value anchor",
+      "set": {
+        "anchors": [
+          {
+            "kind": "entity",
+            "entity": "plant:a",
+            "role": "r"
+          },
+          {
+            "kind": "value",
+            "role": "r"
+          }
+        ]
+      },
+      "code": "invalid-request",
+      "starts": "capture: an entity anchor"
+    },
+    {
+      "name": "anchors out of order, then a value anchor",
+      "set": {
+        "anchors": [
+          {
+            "kind": "entity",
+            "entity": "plant:b"
+          },
+          {
+            "kind": "entity",
+            "entity": "plant:a"
+          },
+          {
+            "kind": "value",
+            "role": "r"
+          }
+        ]
+      },
+      "code": "capability-absent",
+      "starts": "capture: a value anchor"
+    },
+    {
+      "name": "anchors out of order and a member that is not a string",
+      "set": {
+        "anchors": [
+          {
+            "kind": "entity",
+            "entity": "plant:b"
+          },
+          {
+            "kind": "entity",
+            "entity": "plant:a"
+          }
+        ],
+        "members": [
+          7
+        ]
+      },
+      "code": "invalid-request",
+      "starts": "capture: anchors is not strictly ascending"
+    },
+    {
+      "name": "a value anchor and members out of order",
+      "set": {
+        "anchors": [
+          {
+            "kind": "value",
+            "role": "r"
+          }
+        ],
+        "members": [
+          "b",
+          "a"
+        ]
+      },
+      "code": "capability-absent",
+      "starts": "capture: a value anchor"
+    },
+    {
+      "name": "members out of order and since a string",
+      "set": {
+        "members": [
+          "b",
+          "a"
+        ],
+        "since": "x"
+      },
+      "code": "invalid-request",
+      "starts": "capture: members is not strictly ascending"
+    },
+    {
+      "name": "a member that is not a string and an empty window",
+      "set": {
+        "members": [
+          7
+        ],
+        "since": 5,
+        "expiresAt": 5
+      },
+      "code": "invalid-request",
+      "starts": "capture: members holds a value that is not a string"
+    },
+    {
+      "name": "members out of order and an empty window",
+      "set": {
+        "members": [
+          "b",
+          "a"
+        ],
+        "since": 5,
+        "expiresAt": 5
+      },
+      "code": "invalid-request",
+      "starts": "capture: members is not strictly ascending"
+    },
+    {
+      "name": "a value anchor and an empty window",
+      "set": {
+        "anchors": [
+          {
+            "kind": "value",
+            "role": "r"
+          }
+        ],
+        "since": 5,
+        "expiresAt": 4
+      },
+      "code": "capability-absent",
+      "starts": "capture: a value anchor"
+    },
+    {
+      "name": "since a string and expiresAt a string",
+      "set": {
+        "since": "x",
+        "expiresAt": "y"
+      },
+      "code": "invalid-request",
+      "starts": "capture: since is not null or"
+    }
+  ]
+}

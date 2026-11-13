@@ -55,6 +55,7 @@ const negatives = [
   ['shared cells outside the conformance runner', { delta: 'pub fn bad() { let _ = std::rc::Rc::new(std::cell::RefCell::new(0u8)); }' }, /ambient capability/],
   ['a Cell in the conformance runner', { store_conformance: 'pub fn bad() { let _ = std::cell::Cell::new(0u8); }' }, /ambient capability/],
   ['a Mutex in the conformance runner', { store_conformance: 'pub fn bad() { let _ = std::sync::Mutex::new(0u8); }' }, /ambient capability/],
+  ['catching a panic in the conformance runner', { store_conformance: 'pub fn bad() { let _ = std::panic::catch_unwind(|| 0u8); }' }, /ambient capability/],
 ];
 for (const [name, files, error] of negatives) test(`real Rust source rejects ${name}`, async () => {
   await assert.rejects(async () => check(await fixture(files)), error);
