@@ -39931,6 +39931,26 @@
       "contract": "rhizomatic.storage/native-api/1",
       "classification": "native_extension",
       "semantics": "Native storage API advanceCapture implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/freshness.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:ViewQuirks#keepPurgedBaseline",
+      "owner": "reactor",
+      "symbol": "ViewQuirks.keepPurgedBaseline",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewQuirks.keepPurgedBaseline implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:ViewQuirks#keepEvicted",
+      "owner": "reactor",
+      "symbol": "ViewQuirks.keepEvicted",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewQuirks.keepEvicted implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
     }
   ]
 }
