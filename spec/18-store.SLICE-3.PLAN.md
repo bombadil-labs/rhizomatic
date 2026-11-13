@@ -79,25 +79,25 @@ deleted when slice 3 has landed and its decisions are in `18-store.PROPOSAL.md`.
 Pairs merge together. After step 4, pairs 5–6 and 7–8 can run in parallel. The stack adds no
 package edge.
 
-## 7. Open for the owner
+## 7. Decided 2026-11-12 (delegated to Claude)
 
-Items marked ⚑ change what the system promises.
+The owner delegated these twelve calls. Each is decided as the plan recommended. Items marked ⚑
+change what the system promises.
 
-- **O1.** A record carries the head. Recommendation: yes; a head-only commit is a revision.
-- **O2.** `resync-required` is a result, not an error. Recommendation: yes, like `conflict`.
-- **⚑ O3.** A `from` later than the current revision answers `resync-required`. Recommendation: yes.
-  A store restored from backup rolls revisions back, so slice 4 should add a history epoch.
-- **⚑ O4.** Retained records keep the ids of purged deltas, never their bytes. Recommendation: yes;
-  state in §4.7.2 that ids in the feed lie outside "absent", and that retention bounds them.
-- **O5.** Pull only, no push. Recommendation: yes.
-- **⚑ O6.** The raw stream delivers bytes only for ids still held at pull time. SPEC-4 §5 says
-  "every accepted delta". Recommendation: accept the narrower promise; it never hands out purged
-  bytes.
-- **O7.** Freshness is exact without a selection and sound with one. Recommendation: yes.
-- **⚑ O8.** The next validity boundary is per read only. Recommendation: yes. It changes the meaning
-  of Loam's validity timer.
+- **O1.** A record carries the head. A head-only commit is a revision and writes a record.
+- **O2.** `resync-required` is a result, not an error, like `conflict`.
+- **⚑ O3.** A `from` later than the current revision answers `resync-required`. A store restored
+  from backup rolls revisions back, so slice 4 adds a history epoch.
+- **⚑ O4.** Retained records keep the ids of purged deltas, never their bytes. §4.7.2 states that
+  ids in the feed lie outside "absent", and that retention bounds them.
+- **O5.** The feed is pull only. There is no push.
+- **⚑ O6.** The raw stream delivers bytes only for ids still held at pull time. This narrows
+  SPEC-4 §5 ("every accepted delta"); it never hands out purged bytes.
+- **O7.** Freshness is exact without a selection and sound with one.
+- **⚑ O8.** The next validity boundary is per read only. This changes the meaning of Loam's
+  validity timer.
 - **O9.** The version address waits for slice 4.
-- **O10.** `StoreViews` lands in slice 3. Recommendation: yes; without it slice 5 has no store-backed
-  home for Loam's views.
-- **O11.** The memory store keeps every record by default. Recommendation: yes, with a bounded option.
-- **O12.** Amend SPEC-16 MR-10b now to allow the feed check. Recommendation: yes, one sentence.
+- **O10.** `StoreViews` lands in slice 3. Without it slice 5 has no store-backed home for Loam's
+  views.
+- **O11.** The memory store keeps every record by default, with a bounded option.
+- **O12.** SPEC-16 MR-10b is amended now, in one sentence, to allow the feed check.
