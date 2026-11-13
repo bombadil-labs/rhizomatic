@@ -47,6 +47,38 @@ export class StoreError extends Error {
   }
 }
 
+/**
+ * The rule of the store contract that a store broke, as a reader that checks the store's answers
+ * finds it (SPEC-18 §4.6; §4.13 readings 46 and 63):
+ * - `no-progress`: a page's `through` is not past its `from`, short of the asked bound;
+ * - `past-the-bound`: a page's `through` is past the asked `to`;
+ * - `mismatched-answers`: `get` and `arrivals` on one snapshot name other ids;
+ * - `unasked-ids`: an answer of `get` or `arrivals` names an id the call did not ask for, names
+ *   one twice, or is not ascending.
+ */
+export type StoreFaultRule =
+  | "no-progress"
+  | "past-the-bound"
+  | "mismatched-answers"
+  | "unasked-ids";
+
+/**
+ * A store broke its contract: a fault, not a refusal (`StoreError`). `checkFresh` and a feed
+ * cursor's `pull` throw it, because no verdict and no answer can speak for such a store. `rule`
+ * names the broken rule and `values` holds the values that show it. A host catches it with
+ * `instanceof` and stops trusting that store.
+ */
+export class StoreFaultError extends Error {
+  readonly rule: StoreFaultRule;
+  readonly values: Readonly<Record<string, unknown>>;
+  constructor(rule: StoreFaultRule, values: Readonly<Record<string, unknown>>, message: string) {
+    super(message);
+    this.name = "StoreFaultError";
+    this.rule = rule;
+    this.values = Object.freeze({ ...values });
+  }
+}
+
 /** What a store can prove after a purge (§4.7.2). `none` means it offers no purge. */
 export type ErasureClass = "proven" | "unprovable" | "none";
 /** What a peer promises about erasure. It is declared at creation and never changes. */

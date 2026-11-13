@@ -9,6 +9,7 @@ import type { FeedCursor, Position, Pull } from "./follow.js";
 import {
   Run,
   StoreConformanceError,
+  caseStore,
   missing,
   type StoreConformanceFailure,
 } from "./store-conformance.js";
@@ -20,6 +21,7 @@ import {
 } from "./store-vector-format.js";
 import {
   StoreError,
+  StoreFaultError,
   type ChangePage,
   type ChangeRecord,
   type ChangeRetention,
@@ -220,7 +222,13 @@ class FollowRun {
       revision: position.revision + (ahead as number),
     };
     const sink: Sink = { log: [] };
-    const cursor = this.witness.follow(logged(handle, sink), from);
+    let cursor: FeedCursor;
+    try {
+      cursor = this.witness.follow(logged(handle, sink), from);
+    } catch (error) {
+      if (!(error instanceof StoreError)) throw error;
+      throw new Error(`follow refused with ${error.code}: ${error.message}`);
+    }
     check(
       cursor.position.history === from.history && cursor.position.revision === from.revision,
       `a new cursor stands at ${cursor.position.revision}, not at the position it was given`,
@@ -288,6 +296,8 @@ class FollowRun {
       try {
         pull = await f.cursor.pull();
       } catch (error) {
+        if (error instanceof StoreFaultError)
+          throw new Error(`the store broke ${error.rule}: ${error.message}`);
         if (!(error instanceof StoreError)) throw error;
         throw new Error(`pull refused with ${error.code}: ${error.message}`);
       }
@@ -469,16 +479,18 @@ class FollowRun {
 
 /**
  * Runs `follow.json` against the stores `factory` makes and a witness's follower. Each case gets
- * a new store; `factory` receives what the case asks of it and answers undefined when it cannot
- * build such a store, which skips the case. Throws `StoreConformanceError`, listing every
- * failure, when anything fails.
+ * a new store, built with the case's checked `store` fields; `factory` answers undefined when it
+ * cannot build such a store, which skips the case with the requirement `store`. Any other
+ * failure of the factory fails the case. Throws `StoreConformanceError`, listing every failure,
+ * when anything fails; a document of another format is one failure, named `follow`.
  */
 export async function runFollowConformance(
   factory: (request: FollowStoreRequest) => Promise<Store | undefined>,
   witness: FeedFollower,
   vectors: StoreFollowDocument,
 ): Promise<FollowConformanceReport> {
-  check(vectors.format === STORE_FOLLOW_FORMAT, "unknown store follow format");
+  if (vectors.format !== STORE_FOLLOW_FORMAT)
+    throw new StoreConformanceError([{ name: "follow", message: "unknown store follow format" }]);
   const passed: string[] = [];
   const skipped: { name: string; missing: string }[] = [];
   const failures: StoreConformanceFailure[] = [];
@@ -491,7 +503,18 @@ export async function runFollowConformance(
 
   for (const c of vectors.cases) {
     const name = `follow/${c.name}`;
-    const store = await factory(c.store ?? {});
+    let store: Store | undefined;
+    try {
+      const request = caseStore(c.store, ["changeRetention", "changePageSize"]);
+      try {
+        store = await factory(request);
+      } catch (error) {
+        throw new Error(`the factory did not open a store: ${text(error)}`);
+      }
+    } catch (error) {
+      failures.push({ name, message: text(error) });
+      continue;
+    }
     if (store === undefined) {
       skipped.push({ name, missing: "store" });
       continue;

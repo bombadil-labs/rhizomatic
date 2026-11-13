@@ -42,7 +42,7 @@ use crate::store_conformance::FreshnessReader;
 use crate::store_follow::{follow_feed, position_of, FeedCursor, Position};
 use crate::store_fresh::{
     check_fresh, make_capture, raw_scope, touching, validity_boundaries, validity_window,
-    window_at, Capture, Freshness, Touch, ValidityWindow,
+    window_at, Capture, FeedError, Freshness, Touch, ValidityWindow,
 };
 use crate::types::{Delta, Primitive};
 
@@ -897,7 +897,7 @@ impl FreshnessReader for StoreFreshness {
         peer: &dyn PeerStore,
         capture: &Capture,
         now: f64,
-    ) -> Result<Freshness, StoreError> {
+    ) -> Result<Freshness, FeedError> {
         check_fresh(peer, capture, now)
     }
 }

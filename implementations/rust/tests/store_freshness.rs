@@ -34,8 +34,8 @@ use rhizomatic::store_conformance::{
     run_freshness_conformance, FreshnessReader, StoreConformanceError, StoreConformanceReport,
 };
 use rhizomatic::store_fresh::{
-    check_fresh, make_capture, parse_capture, touching, validity_window, Capture, Freshness, Touch,
-    TouchReason, ValidityWindow,
+    check_fresh, make_capture, parse_capture, touching, validity_window, Capture, FeedError,
+    Freshness, StoreFault, Touch, TouchReason, ValidityWindow,
 };
 use rhizomatic::store_read::{capture_scope, fetch_scope, Selection, StoreFreshness};
 use rhizomatic::types::{Claims, Delta, EntityRef, Pointer, Primitive, Target};
@@ -43,7 +43,7 @@ use serde_json::Value;
 
 #[path = "support/freshness_doubles.rs"]
 mod doubles;
-use doubles::{DeclaresNoFeed, Fabricated, ReportsNothingApplied, Scaled};
+use doubles::{DeclaresNoFeed, Fabricated, Odd, ReportsNothingApplied, Scaled};
 
 fn document() -> Value {
     let path = format!(
@@ -166,6 +166,23 @@ fn every_freshness_case_passes_every_run() {
     for (label, store) in runs() {
         let report =
             run(store, &doc, &StoreFreshness).unwrap_or_else(|e| panic!("run {label}: {e}"));
+        // Exactly the file's cases, each passed, none skipped.
+        let names: Vec<String> = ["cases", "touching"]
+            .iter()
+            .flat_map(|list| {
+                let kind = if *list == "cases" {
+                    "freshness"
+                } else {
+                    "touching"
+                };
+                doc[*list]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(move |c| format!("{kind}/{}", c["name"].as_str().unwrap()))
+            })
+            .collect();
+        assert_eq!(report.passed, names, "run {label}");
         assert_eq!(report.passed.len(), cases + touching, "run {label}");
         assert!(
             report.skipped.is_empty(),
@@ -536,12 +553,13 @@ impl FreshnessReader for Mutant {
         peer: &dyn PeerStore,
         capture: &Capture,
         now: f64,
-    ) -> Result<Freshness, StoreError> {
+    ) -> Result<Freshness, FeedError> {
         if self.0 == Wrong::Refuses {
             return Err(StoreError::new(
                 StoreErrorCode::SnapshotReleased,
                 "checkFresh: the snapshot is released",
-            ));
+            )
+            .into());
         }
         Ok(self.checked(peer, capture, now))
     }
@@ -976,6 +994,141 @@ fn a_defective_document_fails_with_its_message() {
     )
     .unwrap();
     assert_eq!(report.skipped.len(), counts(&document()).0);
+}
+
+/// README §9.1: a case's `store` with an unknown field or a bad value is a defect of the document.
+#[test]
+fn a_case_store_with_an_unknown_field_or_a_bad_value_fails_that_case() {
+    let rows: [(Value, &str); 3] = [
+        (
+            serde_json::json!({"changeRetention": "unbounded", "changePageSize": 1}),
+            "the case's store sets an unknown field `changePageSize`",
+        ),
+        (
+            serde_json::json!({"changeRetention": {"revisions": 1, "more": 1}}),
+            "the case's changeRetention is not unbounded or {revisions: n}",
+        ),
+        (
+            serde_json::json!("unbounded"),
+            "the case's store is not an object",
+        ),
+    ];
+    for (store, message) in rows {
+        let mut doc = document();
+        doc["cases"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|c| c["name"] == "no-change")
+            .unwrap()["store"] = store;
+        let error = run(DEFAULT, &doc, &StoreFreshness).expect_err(message);
+        assert_eq!(error.failures.len(), 1, "{error}");
+        assert_eq!(error.failures[0].name, "freshness/no-change");
+        assert_eq!(error.failures[0].message, message);
+    }
+}
+
+/// README §9.1: a factory that cannot build a case's store skips that case with the requirement
+/// `store`; any other failure of the factory fails that case, and the other cases run.
+#[test]
+fn a_factory_that_cannot_build_a_case_store_skips_it_and_any_other_failure_fails_it() {
+    let doc = document();
+    let report = run_freshness_conformance(
+        &|retention| match retention {
+            Some(_) => Err(StoreError::new(StoreErrorCode::CapabilityAbsent, "no")),
+            None => Ok(Box::new(MemoryStore::new()) as Box<dyn Store>),
+        },
+        &doc,
+        &StoreFreshness,
+    )
+    .unwrap();
+    let skipped: Vec<(String, String)> = report
+        .skipped
+        .into_iter()
+        .map(|s| (s.name, s.missing))
+        .collect();
+    assert_eq!(
+        skipped,
+        vec![("freshness/retention-too-short".into(), "store".into())]
+    );
+    let error = run_freshness_conformance(
+        &|retention| match retention {
+            Some(_) => Err(StoreError::new(StoreErrorCode::StoreClosed, "no disk")),
+            None => Ok(Box::new(MemoryStore::new()) as Box<dyn Store>),
+        },
+        &doc,
+        &StoreFreshness,
+    )
+    .expect_err("a factory failure fails its case");
+    assert_eq!(error.failures.len(), 1, "{error}");
+    assert_eq!(error.failures[0].name, "freshness/retention-too-short");
+    assert!(error.failures[0]
+        .message
+        .starts_with("the factory did not open a store: "));
+    assert_eq!(error.report.passed.len(), {
+        let (cases, touching) = counts(&doc);
+        cases + touching - 1
+    });
+}
+
+/// README §9.1: a document of another format is one failure, named `freshness`, not a refused run.
+#[test]
+fn a_document_of_another_format_is_one_failure() {
+    let mut doc = document();
+    doc["format"] = "rhizomatic-store-freshness/2".into();
+    let error = run(DEFAULT, &doc, &StoreFreshness).expect_err("another format fails");
+    assert_eq!(error.failures.len(), 1);
+    assert_eq!(error.failures[0].name, "freshness");
+    assert_eq!(error.failures[0].message, "unknown store freshness format");
+}
+
+/// The real check over a peer whose pages make no progress: a store fault it passes up.
+struct OverStuck;
+
+impl FreshnessReader for OverStuck {
+    fn capture(
+        &self,
+        snapshot: &dyn Snapshot,
+        entities: &[String],
+        now: f64,
+        pushdown: Option<&Pushdown>,
+    ) -> Result<Capture, StoreError> {
+        StoreFreshness.capture(snapshot, entities, now, pushdown)
+    }
+    fn touching(
+        &self,
+        capture: &Capture,
+        records: &[ChangeRecord],
+        added: &BTreeMap<String, Delta>,
+    ) -> Option<Touch> {
+        StoreFreshness.touching(capture, records, added)
+    }
+    fn check_fresh(
+        &self,
+        peer: &dyn PeerStore,
+        capture: &Capture,
+        now: f64,
+    ) -> Result<Freshness, FeedError> {
+        check_fresh(&Stuck(peer), capture, now)
+    }
+}
+
+/// README §9.3: a store fault that passes up out of `check_fresh` fails with the fixed words.
+#[test]
+fn a_store_fault_passed_up_fails_with_the_fixed_words() {
+    let error = run(DEFAULT, &document(), &OverStuck).expect_err("a fault fails");
+    let failure = error
+        .failures
+        .iter()
+        .find(|f| f.name == "freshness/unrelated-appends")
+        .expect("unrelated-appends fails");
+    assert!(
+        failure
+            .message
+            .starts_with("the store broke no-progress: the store's page from 1 to 3 ends at 1"),
+        "{}",
+        failure.message
+    );
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1587,7 +1740,10 @@ fn a_commit_during_a_check_starts_it_again_on_a_new_snapshot() {
     let moves = (0..4).map(|k| unrelated(k as f64)).collect();
     let (_store, peer, capture, _) = setup(Vec::new());
     let (answer, reads, releases) = check(peer.as_ref(), &capture, moves);
-    assert_eq!(answer.unwrap_err().code, StoreErrorCode::SnapshotMoved);
+    assert_eq!(
+        answer.unwrap_err().code(),
+        Some(StoreErrorCode::SnapshotMoved)
+    );
     assert_eq!((reads, releases), (4, 4));
 
     // Three moves: the fourth snapshot answers.
@@ -1607,8 +1763,8 @@ fn check_fresh_and_capture_scope_refuse_a_now_that_is_not_finite() {
     let capture = capture_now(peer.as_ref(), &["plant:a"], 100.0);
     for now in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
         assert_eq!(
-            check_fresh(peer.as_ref(), &capture, now).map_err(|e| e.code),
-            Err(StoreErrorCode::InvalidRequest),
+            check_fresh(peer.as_ref(), &capture, now).map_err(|e| e.code()),
+            Err(Some(StoreErrorCode::InvalidRequest)),
             "check_fresh at {now}"
         );
         let mut snapshot = peer.read().unwrap();
@@ -1667,17 +1823,14 @@ fn a_page_that_makes_no_progress_fails_the_check_and_is_no_verdict() {
         &[fact("plant:b", "c", 1.0, (1.0, None))],
     );
     let stuck = Stuck(peer.as_ref());
-    let failed = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        check_fresh(&stuck, &capture, 100.0)
-    }));
-    let message = match failed {
-        Ok(answer) => panic!("a store fault answered {answer:?}"),
-        Err(payload) => payload
-            .downcast_ref::<String>()
-            .cloned()
-            .unwrap_or_default(),
-    };
-    assert!(message.contains("made no progress"), "{message}");
+    assert_eq!(
+        check_fresh(&stuck, &capture, 100.0),
+        Err(FeedError::Fault(StoreFault::NoProgress {
+            from: Revision(0),
+            to: Revision(1),
+            through: Revision(0),
+        }))
+    );
 }
 
 /// A peer whose feed answers a page past the revision the check asked for: `through` is `to + 5`.
@@ -1726,17 +1879,77 @@ fn a_page_past_the_asked_revision_fails_the_check_and_is_no_verdict() {
         &[fact("plant:b", "c", 1.0, (1.0, None))],
     );
     let past = PastTo(peer.as_ref());
-    let failed = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        check_fresh(&past, &capture, 100.0)
-    }));
-    let message = match failed {
-        Ok(answer) => panic!("a store fault answered {answer:?}"),
-        Err(payload) => payload
-            .downcast_ref::<String>()
-            .cloned()
-            .unwrap_or_default(),
-    };
-    assert!(message.contains("past the revision"), "{message}");
+    assert_eq!(
+        check_fresh(&past, &capture, 100.0),
+        Err(FeedError::Fault(StoreFault::PastTheBound {
+            from: Revision(0),
+            to: Revision(1),
+            through: Revision(6),
+        }))
+    );
+}
+
+/// README §9.7, "Store faults and time": a `get` that answers an id the check did not ask for is
+/// the fault `unasked-ids`; the check judges none of it.
+#[test]
+fn a_get_that_answers_an_id_it_was_not_asked_for_is_a_store_fault() {
+    let store = MemoryStore::new();
+    let peer = store
+        .create_peer("peer:extra", ErasurePosture::Unproven)
+        .unwrap();
+    let capture = capture_now(peer.as_ref(), &["plant:a"], 100.0);
+    let added = fact("plant:b", "c", 1.0, (1.0, None));
+    commit(peer.as_ref(), 0, 0, std::slice::from_ref(&added));
+    let extra = fact("plant:a", "c", 2.0, (2.0, None));
+    let odd = Odd::new(
+        peer.as_ref(),
+        0,
+        Some(VerifiedDelta {
+            arrival: ArrivalRecord {
+                id: extra.id.clone(),
+                at: 1.0,
+                sequence: 9,
+                transfer: 1,
+                sender: "local".into(),
+            },
+            delta: extra,
+        }),
+    );
+    match check_fresh(&odd, &capture, 100.0) {
+        Err(FeedError::Fault(StoreFault::UnaskedIds { call, asked, .. })) => {
+            assert_eq!((call, asked), ("get", vec![added.id.clone()]));
+        }
+        other => panic!("an extra id answered {other:?}"),
+    }
+}
+
+/// SPEC-18 §4.13 reading 35: `snapshot-moved` from `read` itself starts the check again, at most
+/// four snapshots in all.
+#[test]
+fn a_read_that_answers_snapshot_moved_starts_the_check_again() {
+    let store = MemoryStore::new();
+    let peer = store
+        .create_peer("peer:moved", ErasurePosture::Unproven)
+        .unwrap();
+    let capture = capture_now(peer.as_ref(), &["plant:a"], 100.0);
+    commit(
+        peer.as_ref(),
+        0,
+        0,
+        &[fact("plant:b", "c", 1.0, (1.0, None))],
+    );
+    let settles = Odd::new(peer.as_ref(), 3, None);
+    assert_eq!(
+        check_fresh(&settles, &capture, 100.0),
+        Ok(Freshness::Current)
+    );
+    assert_eq!(settles.reads.get(), 4);
+    let moves = Odd::new(peer.as_ref(), 4, None);
+    assert_eq!(
+        check_fresh(&moves, &capture, 100.0).map_err(|e| e.code()),
+        Err(Some(StoreErrorCode::SnapshotMoved))
+    );
+    assert_eq!(moves.reads.get(), 4);
 }
 
 /// A peer whose feed answers one faulty page, from `page`.
@@ -1795,158 +2008,55 @@ fn a_faulty_page_that_adds_a_toucher_fails_and_does_not_answer_stale() {
     type Page<'a> = Box<dyn Fn(Revision, Option<Revision>) -> ChangePage + 'a>;
     let pages: [(&str, Page<'_>); 2] = [
         (
-            "made no progress",
+            "no-progress",
             Box::new(|from, _| ChangePage::Ok {
                 records: vec![record(from)],
                 through: from,
             }),
         ),
         (
-            "past the revision",
+            "past-the-bound",
             Box::new(|from, to| ChangePage::Ok {
                 records: vec![record(from)],
                 through: Revision(to.map_or(0, |to| to.0) + 5),
             }),
         ),
     ];
-    for (words, page) in pages {
+    for (rule, page) in pages {
         let faulty = FaultyPage {
             inner: peer.as_ref(),
             page,
         };
-        let failed = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            check_fresh(&faulty, &capture, 100.0)
-        }));
-        let message = match failed {
-            Ok(answer) => panic!("a store fault answered {answer:?}"),
-            Err(payload) => payload
-                .downcast_ref::<String>()
-                .cloned()
-                .unwrap_or_default(),
-        };
-        assert!(message.contains(words), "{words}: {message}");
+        match check_fresh(&faulty, &capture, 100.0) {
+            Err(FeedError::Fault(fault)) => assert_eq!(fault.rule(), rule),
+            other => panic!("{rule}: a store fault answered {other:?}"),
+        }
     }
 }
 
-/// SPEC-18 §4.13 reading 54: a capture with two defects is refused by the first in the order
-/// keys, history (empty, then local), revision, anchors (each anchor's shape and kind, then their
-/// order), members, window.
+/// SPEC-18 §4.13 reading 54, from the table both witnesses read
+/// (`vectors/store/capture-defects.json`): a capture with two defects is refused by the first in
+/// the order keys, history (empty, then local), revision, each anchor whole in order, the anchors'
+/// order, members, window.
 #[test]
 fn a_capture_with_two_defects_is_refused_by_the_first_in_order() {
-    let value_anchor = serde_json::json!({"kind": "value", "role": "r"});
-    let base = || shape("host:1", &["a", "b"], &["plant:a", "plant:b"]);
-    let refusal = |edit: &dyn Fn(&mut Value)| {
-        let mut capture = base();
-        edit(&mut capture);
+    let path = format!(
+        "{}/../../vectors/store/capture-defects.json",
+        env!("CARGO_MANIFEST_DIR")
+    );
+    let table: Value = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+    let cases = table["cases"].as_array().unwrap();
+    assert!(cases.len() >= 14, "{} cases", cases.len());
+    for case in cases {
+        let name = case["name"].as_str().unwrap();
+        let mut capture = table["base"].clone();
+        for (key, value) in case["set"].as_object().unwrap() {
+            capture[key] = value.clone();
+        }
         let e = parse_capture(&capture).unwrap_err();
-        (e.code, e.message)
-    };
-    let invalid = StoreErrorCode::InvalidRequest;
-    type Edit<'a> = &'a dyn Fn(&mut Value);
-    let cases: [(&str, Edit, StoreErrorCode, &str); 10] = [
-        (
-            "an extra key and a value anchor",
-            &|c| {
-                c["extra"] = 1.into();
-                c["anchors"][0] = value_anchor.clone();
-            },
-            invalid,
-            "capture: a capture has exactly",
-        ),
-        (
-            "an empty history and a value anchor",
-            &|c| {
-                c["history"] = "".into();
-                c["anchors"][0] = value_anchor.clone();
-            },
-            invalid,
-            "capture: history is empty",
-        ),
-        (
-            "an empty history and a fractional revision",
-            &|c| {
-                c["history"] = "".into();
-                c["revision"] = serde_json::json!(1.5);
-            },
-            invalid,
-            "capture: history is empty",
-        ),
-        (
-            "a local history and a fractional revision",
-            &|c| {
-                c["history"] = "memory:local:3".into();
-                c["revision"] = serde_json::json!(1.5);
-            },
-            invalid,
-            "capture: history memory:local:3 is local",
-        ),
-        (
-            "a fractional revision and a value anchor",
-            &|c| {
-                c["revision"] = serde_json::json!(1.5);
-                c["anchors"][0] = value_anchor.clone();
-            },
-            invalid,
-            "capture: revision is not an integer",
-        ),
-        (
-            "a value anchor after anchors out of order",
-            &|c| {
-                c["anchors"] = serde_json::json!([
-                    {"kind": "entity", "entity": "plant:b"},
-                    {"kind": "entity", "entity": "plant:a"},
-                    value_anchor.clone(),
-                ]);
-            },
-            StoreErrorCode::CapabilityAbsent,
-            "capture: a value anchor",
-        ),
-        (
-            "anchors out of order and a member that is not a string",
-            &|c| {
-                c["anchors"] = serde_json::json!([
-                    {"kind": "entity", "entity": "plant:b"},
-                    {"kind": "entity", "entity": "plant:a"},
-                ]);
-                c["members"][0] = 7.into();
-            },
-            invalid,
-            "capture: anchors is not strictly ascending",
-        ),
-        (
-            "a value anchor and members out of order",
-            &|c| {
-                c["anchors"][0] = value_anchor.clone();
-                c["members"] = serde_json::json!(["b", "a"]);
-            },
-            StoreErrorCode::CapabilityAbsent,
-            "capture: a value anchor",
-        ),
-        (
-            "members out of order and a window that is empty",
-            &|c| {
-                c["members"] = serde_json::json!(["b", "a"]);
-                c["since"] = 5.into();
-                c["expiresAt"] = 5.into();
-            },
-            invalid,
-            "capture: members is not strictly ascending",
-        ),
-        (
-            "a value anchor and a window that is empty",
-            &|c| {
-                c["anchors"][0] = value_anchor.clone();
-                c["since"] = 5.into();
-                c["expiresAt"] = 4.into();
-            },
-            StoreErrorCode::CapabilityAbsent,
-            "capture: a value anchor",
-        ),
-    ];
-    for (what, edit, code, reason) in cases {
-        let (got, message) = refusal(edit);
-        assert_eq!(got, code, "{what}: {message}");
-        assert!(message.starts_with(reason), "{what}: {message}");
+        assert_eq!(e.code.as_str(), case["code"], "{name}: {}", e.message);
+        let starts = case["starts"].as_str().unwrap();
+        assert!(e.message.starts_with(starts), "{name}: {}", e.message);
     }
 }
 

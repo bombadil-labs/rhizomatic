@@ -38,7 +38,7 @@ use crate::store::{
     StoreErrorCode, StoreProfile, SurfaceState, VerifiedDelta, MAX_REVISION, PURGE_BOUNDARY,
 };
 use crate::store_follow::{Position, Pull};
-use crate::store_fresh::{parse_capture, Capture, Freshness, Touch, TouchReason};
+use crate::store_fresh::{parse_capture, Capture, FeedError, Freshness, Touch, TouchReason};
 use crate::types::Delta;
 
 const SCRIPTS_FORMAT: &str = "rhizomatic-store-scripts/1";
@@ -62,7 +62,7 @@ pub trait FollowReader {
 /// A feed cursor as the runner drives it.
 pub trait Follower {
     fn position(&self) -> Position;
-    fn pull(&mut self) -> Result<Pull, StoreError>;
+    fn pull(&mut self) -> Result<Pull, FeedError>;
 }
 
 /// A witness's three freshness functions (`vectors/store/README.md` §9; SPEC-18 §4.6). The runner
@@ -88,7 +88,7 @@ pub trait FreshnessReader {
         peer: &dyn PeerStore,
         capture: &Capture,
         now: f64,
-    ) -> Result<Freshness, StoreError>;
+    ) -> Result<Freshness, FeedError>;
 }
 
 /// The two shared vector documents, parsed: `vectors/store/scripts.json` and
@@ -1312,7 +1312,7 @@ impl<'a> Run<'a> {
         };
         let answer = reader
             .check_fresh(&logged, &capture, now)
-            .map_err(|e| format!("checkFresh refused with {}: {}", e.code.as_str(), e.message))?;
+            .map_err(|e| failed_call("checkFresh", e))?;
         // 1. The status.
         if answer.status() != status {
             return Err(match below {
@@ -2152,10 +2152,8 @@ fn touch_text(touch: Option<&Touch>) -> String {
 /// One call `check_fresh` made through the logged handle, with what it answered.
 #[derive(Debug, Clone)]
 enum Call {
-    Read {
-        revision: Revision,
-        history: String,
-    },
+    /// What the snapshot reported; `None` while `read` has not answered, or when it refused.
+    Read(Option<(Revision, String)>),
     Changes {
         from: Revision,
         to: Option<Revision>,
@@ -2170,7 +2168,7 @@ enum Call {
 impl Call {
     fn text(&self) -> String {
         match self {
-            Self::Read { .. } => "read".into(),
+            Self::Read(_) => "read".into(),
             Self::Changes { from, to, .. } => format!(
                 "changes({}, {})",
                 from.0,
@@ -2232,11 +2230,12 @@ impl PeerStore for LoggedPeer<'_> {
         self.inner.history()
     }
     fn read(&self) -> Result<Box<dyn Snapshot>, StoreError> {
+        // Each call is logged when it is made, also one that then refuses (README §10.3).
+        let at = self.log.borrow().len();
+        self.log.borrow_mut().push(Call::Read(None));
         let inner = self.inner.read()?;
-        self.log.borrow_mut().push(Call::Read {
-            revision: inner.revision(),
-            history: inner.history().to_string(),
-        });
+        self.log.borrow_mut()[at] =
+            Call::Read(Some((inner.revision(), inner.history().to_string())));
         Ok(Box::new(LoggedSnapshot {
             inner,
             log: self.log.clone(),
@@ -2251,12 +2250,16 @@ impl PeerStore for LoggedPeer<'_> {
         self.inner.purge(ids)
     }
     fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreError> {
-        let answer = self.inner.changes(from, to);
+        let at = self.log.borrow().len();
         self.log.borrow_mut().push(Call::Changes {
             from,
             to,
-            answer: answer.as_ref().ok().cloned(),
+            answer: None,
         });
+        let answer = self.inner.changes(from, to);
+        if let Call::Changes { answer: logged, .. } = &mut self.log.borrow_mut()[at] {
+            *logged = answer.as_ref().ok().cloned();
+        }
         answer
     }
 }
@@ -2324,7 +2327,7 @@ fn walk(log: &[Call], capture: &Capture, touch_at: Option<Revision>) -> Check {
             }
         }
     };
-    if let Call::Read { revision, history } = next("read".into())? {
+    if let Call::Read(Some((revision, history))) = next("read".into())? {
         let (c, read_at) = (capture.revision(), *revision);
         if history == capture.history() && read_at > c {
             let mut at = c;
@@ -2412,28 +2415,11 @@ fn touching_case(corpus: &Corpus, reader: &dyn FreshnessReader, case: &Value) ->
 }
 
 /// Opens one new, empty store for a freshness case. `Some` retention is the case's `store`
-/// (§9.1), which replaces the run's.
+/// (§9.1), which replaces the run's. A store that cannot be built with it refuses
+/// `capability-absent`, and the case is reported skipped with the requirement `store`; any other
+/// refusal fails the case.
 pub type FreshnessStoreFn<'a> =
     dyn Fn(Option<ChangeRetention>) -> Result<Box<dyn Store>, StoreError> + 'a;
-
-/// A case's `store.changeRetention`, when it has one.
-fn case_retention(case: &Value) -> Check<Option<ChangeRetention>> {
-    let Some(store) = case.get("store") else {
-        return Ok(None);
-    };
-    match field(store, "changeRetention")? {
-        Value::String(s) if s == "unbounded" => Ok(Some(ChangeRetention::Unbounded)),
-        v => match v.get("revisions").and_then(Value::as_u64) {
-            Some(n)
-                if (1..=MAX_REVISION).contains(&n)
-                    && v.as_object().is_some_and(|o| o.len() == 1) =>
-            {
-                Ok(Some(ChangeRetention::Revisions(n)))
-            }
-            _ => Err("the case's changeRetention is not unbounded or {revisions: n}".into()),
-        },
-    }
-}
 
 /// Runs every case of `freshness.json` on a new store each, with `reader`'s capture, `touching`
 /// and `check_fresh`, then every `touching` case (§9). Names are `freshness/<case>` and
@@ -2452,20 +2438,27 @@ pub fn run_freshness_conformance(
             message,
         })
     };
-    let loaded = Corpus::load(doc, FRESHNESS_FORMAT)
-        .and_then(|corpus| Ok((list(doc, "cases")?, list(doc, "touching")?, corpus)));
+    let loaded = match doc.get("format").and_then(Value::as_str) {
+        Some(FRESHNESS_FORMAT) => Corpus::load(doc, FRESHNESS_FORMAT)
+            .and_then(|corpus| Ok((list(doc, "cases")?, list(doc, "touching")?, corpus))),
+        _ => Err("unknown store freshness format".to_string()),
+    };
     match loaded {
         Err(message) => fail("freshness", None, message),
         Ok((cases, touching, corpus)) => {
             for case in cases {
                 let name = format!("freshness/{}", case["name"].as_str().unwrap_or("?"));
-                let outcome = case_retention(case)
+                let outcome = case_store(case, &["changeRetention"])
                     .map_err(|message| (None, message))
-                    .and_then(|retention| {
-                        Run::open(&corpus, &|| factory(retention))
-                            .map_err(|message| (None, message))
+                    .and_then(|store| match factory(store.change_retention) {
+                        Err(e) if e.code == StoreErrorCode::CapabilityAbsent => Ok(None),
+                        Err(e) => Err((None, format!("the factory did not open a store: {e}"))),
+                        Ok(store) => Ok(Some(Run::on(&corpus, store))),
                     })
-                    .and_then(|mut run| {
+                    .and_then(|run| {
+                        let Some(mut run) = run else {
+                            return Ok(Some("store".to_string()));
+                        };
                         run.reader = Some(reader);
                         if let Some(requirement) = run.unmet(case).map_err(|m| (None, m))? {
                             return Ok(Some(requirement));
@@ -2610,14 +2603,12 @@ fn position_text(position: &Position, history: &str) -> String {
     }
 }
 
-/// The message of a panic that a pull raised: a store fault, or a follower's own error.
-fn panic_text(payload: Box<dyn std::any::Any + Send>) -> String {
-    match payload.downcast::<String>() {
-        Ok(text) => *text,
-        Err(payload) => payload.downcast_ref::<&str>().map_or_else(
-            || "pull failed with an error".into(),
-            |text| text.to_string(),
-        ),
+/// The message of a reader's call that did not answer (README §9.3, §10.3): a refusal, or a store
+/// fault with the rule it broke.
+fn failed_call(call: &str, error: FeedError) -> String {
+    match error {
+        FeedError::Refused(e) => format!("{call} refused with {}: {}", e.code.as_str(), e.message),
+        FeedError::Fault(fault) => format!("the store broke {}: {fault}", fault.rule()),
     }
 }
 
@@ -2641,7 +2632,7 @@ fn walk_pull(log: &[Call], before: &Position, sticky: bool) -> Check {
         }
     };
     if !sticky {
-        if let Call::Read { revision, history } = next("read".into())? {
+        if let Call::Read(Some((revision, history))) = next("read".into())? {
             if *history == before.history && *revision > before.revision {
                 let call = next(format!("changes({}, {})", before.revision.0, revision.0))?;
                 if let Call::Changes {
@@ -2757,15 +2748,16 @@ impl Run<'_> {
     /// A `pull` step (§10.3): pulls until the follower stands at the peer's current revision,
     /// or until a pull answers `resync-required`.
     fn pull(&mut self, step: &Value) -> Check {
-        if !self.feed() {
-            return Err("a pull step on a store that serves no feed".into());
-        }
+        // A defect of the document before a gap of the store (README §10.3).
         let name = text(step, "follower")?;
         let peer = self
             .followers
             .get(name)
             .map(|f| f.peer.clone())
             .ok_or_else(|| format!("the vector uses follower {name} before following"))?;
+        if !self.feed() {
+            return Err("a pull step on a store that serves no feed".into());
+        }
         let model = self
             .feeds
             .get(&peer)
@@ -2851,19 +2843,10 @@ impl Run<'_> {
                 None if says_resync || below => Some(at_end.clone()),
                 None => None,
             };
-            let cursor = &mut following.cursor;
-            let answer =
-                match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| cursor.pull())) {
-                    Err(payload) => return Err(panic_text(payload)),
-                    Ok(Err(e)) => {
-                        return Err(format!(
-                            "pull refused with {}: {}",
-                            e.code.as_str(),
-                            e.message
-                        ))
-                    }
-                    Ok(Ok(answer)) => answer,
-                };
+            let answer = following
+                .cursor
+                .pull()
+                .map_err(|e| failed_call("pull", e))?;
             // 1. The status.
             let status = match &answer {
                 Pull::Ok { .. } => "ok",
@@ -3114,21 +3097,21 @@ pub struct FollowCaseStore {
 }
 
 /// Opens one new, empty store for a follow case, with the case's `store` fields. A store that
-/// cannot be built with them refuses `capability-absent`, and the case is reported skipped.
+/// cannot be built with them refuses `capability-absent`, and the case is reported skipped with
+/// the requirement `store`; any other refusal fails the case.
 pub type FollowStoreFn<'a> = dyn Fn(FollowCaseStore) -> Result<Box<dyn Store>, StoreError> + 'a;
 
-/// A follow case's `store`: `changeRetention` and `changePageSize`, each optional.
-fn follow_case_store(case: &Value) -> Check<FollowCaseStore> {
+/// A case's `store` (§9.1, §10.1), checked: an object with only the fields `allowed`, a
+/// `changeRetention` that is `unbounded` or `{revisions: n}`, and a `changePageSize` of 1 or more.
+/// Anything else is a defect of the document.
+fn case_store(case: &Value, allowed: &[&str]) -> Check<FollowCaseStore> {
     let Some(store) = case.get("store") else {
         return Ok(FollowCaseStore::default());
     };
     let object = store
         .as_object()
         .ok_or("the case's store is not an object")?;
-    if let Some(key) = object
-        .keys()
-        .find(|k| *k != "changeRetention" && *k != "changePageSize")
-    {
+    if let Some(key) = object.keys().find(|k| !allowed.contains(&k.as_str())) {
         return Err(format!("the case's store sets an unknown field `{key}`"));
     }
     let change_retention = match object.get("changeRetention") {
@@ -3186,7 +3169,7 @@ pub fn run_follow_conformance(
         Ok((cases, corpus)) => {
             for case in cases {
                 let name = format!("follow/{}", case["name"].as_str().unwrap_or("?"));
-                let outcome = follow_case_store(case)
+                let outcome = case_store(case, &["changeRetention", "changePageSize"])
                     .map_err(|message| (None, message))
                     .and_then(|store| match factory(store) {
                         Err(e) if e.code == StoreErrorCode::CapabilityAbsent => Ok(None),
@@ -3217,4 +3200,48 @@ pub fn run_follow_conformance(
     } else {
         Err(StoreConformanceError { failures, report })
     }
+}
+
+/// A peer whose every call refuses.
+#[cfg(test)]
+struct Refusing;
+
+#[cfg(test)]
+impl PeerStore for Refusing {
+    fn id(&self) -> &str {
+        "peer:refusing"
+    }
+    fn erasure(&self) -> crate::store::PeerErasure {
+        unreachable!("the log does not ask")
+    }
+    fn history(&self) -> &str {
+        "refusing"
+    }
+    fn read(&self) -> Result<Box<dyn Snapshot>, StoreError> {
+        Err(StoreError::new(StoreErrorCode::StoreClosed, "closed"))
+    }
+    fn append(&self, _: &Admission) -> Result<AppendResult, StoreError> {
+        Err(StoreError::new(StoreErrorCode::StoreClosed, "closed"))
+    }
+    fn purge(&self, _: &[String]) -> Result<crate::store::PurgeReport, StoreError> {
+        Err(StoreError::new(StoreErrorCode::StoreClosed, "closed"))
+    }
+    fn changes(&self, _: Revision, _: Option<Revision>) -> Result<ChangePage, StoreError> {
+        Err(StoreError::new(StoreErrorCode::StoreClosed, "closed"))
+    }
+}
+
+/// README §10.3: the log records each call when it is made, also a call that then refuses.
+#[cfg(test)]
+#[test]
+fn the_log_records_a_call_that_refuses() {
+    let log = CallLog::default();
+    let logged = LoggedPeer {
+        inner: Box::new(Refusing),
+        log: log.clone(),
+    };
+    assert!(logged.read().is_err());
+    assert!(logged.changes(Revision(1), Some(Revision(2))).is_err());
+    let calls: Vec<String> = log.borrow().iter().map(Call::text).collect();
+    assert_eq!(calls, ["read", "changes(1, 2)"]);
 }

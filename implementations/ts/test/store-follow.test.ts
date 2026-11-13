@@ -5,6 +5,13 @@
 //
 // Not covered here: the feed itself (store-feed.test.ts and the scripts). The follower's mirror is
 // the runner's and the fuzz's: the cursor hands out records and bytes, and a host applies them.
+//
+// Runner checks with no wrong-follower row (README §10.6): the guarantee, check 14, in both halves
+// (the mirror at the peer's revision, and the mirror short of it after a single pull). Checks 1 to
+// 10 imply it. A mutation of the runner's apply rule shows it live: when `FollowRun.apply` never
+// sets a delivered delta, `one-append` fails the first half and `an-append-between-single-pulls`
+// the second ("after the pull to 2 …"). Ignoring `removed` shows the first half only. The bound on
+// pulls has no row: a follower that passes check 3 cannot reach it.
 
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -37,6 +44,7 @@ import type { StoreFollowDocument } from "../src/storage/store-vector-format.js"
 import type { ArrivalRecord } from "../src/storage/arrival-record.js";
 import {
   StoreError,
+  StoreFaultError,
   type ChangeRetention,
   type Id,
   type PeerStore,
@@ -95,8 +103,10 @@ describe("follow vectors", () => {
   for (const [name, fault] of Object.entries(RUNS))
     it(`pass on the memory store: ${name}`, async () => {
       const report = await runFollowConformance(factoryOf(fault), WITNESS, document);
+      // Exactly the file's cases, each passed, none skipped.
       expect(report.skipped).toEqual([]);
-      expect(report.passed).toHaveLength(document.cases.length);
+      expect(report.passed).toEqual(document.cases.map((c) => `follow/${c.name}`));
+      expect(report.passed.length).toBe(JSON.parse(committed).cases.length);
     });
 
   it("a store with no feed skips every case and names the requirement", async () => {
@@ -700,12 +710,15 @@ describe("pull", () => {
     expect(cursor.position).toEqual(from);
   });
 
-  it("fails with an error, not an answer, on a page that breaks the feed's contract", async () => {
+  it("fails with a store fault, not an answer, on a page that breaks the feed's contract", async () => {
     const w = await writer();
     const from = await w.position();
     await w.append([fact("plant:a", 1)]);
     // No progress, and records claimed past the snapshot's revision (`to + 5`).
-    for (const past of [false, true]) {
+    for (const [past, rule] of [
+      [false, "no-progress"],
+      [true, "past-the-bound"],
+    ] as const) {
       const cursor = followFeed(
         {
           ...w.peer,
@@ -721,9 +734,12 @@ describe("pull", () => {
         () => undefined,
         (error: unknown) => error,
       );
-      expect(failed).toBeInstanceOf(Error);
+      expect(failed).toBeInstanceOf(StoreFaultError);
       expect(failed).not.toBeInstanceOf(StoreError);
-      expect((failed as Error).message).toMatch(/breaks the change feed contract/);
+      expect(failed).toMatchObject({
+        rule,
+        values: { from: 0, to: 1, through: past ? 6 : 0 },
+      });
       expect(cursor.position).toEqual(from);
     }
   });
@@ -749,12 +765,12 @@ describe("pull", () => {
         ),
         from,
       );
-      await expect(cursor.pull()).rejects.toThrow(/breaks the change feed contract/);
+      await expect(cursor.pull()).rejects.toBeInstanceOf(StoreFaultError);
       expect(trace, String(past)).toEqual(["read", "changes(0, 1)", "release"]);
     }
   });
 
-  it("fails with an error when get and arrivals disagree on one snapshot", async () => {
+  it("fails with a store fault when get and arrivals disagree on one snapshot", async () => {
     const w = await writer();
     const from = await w.position();
     await w.append([fact("plant:a", 1)]);
@@ -765,7 +781,80 @@ describe("pull", () => {
       },
       from,
     );
-    await expect(cursor.pull()).rejects.toThrow(/get and arrivals/);
+    await expect(cursor.pull()).rejects.toMatchObject({ rule: "mismatched-answers" });
+    expect(cursor.position).toEqual(from);
+  });
+
+  it("hands out no bytes it did not ask for: an extra id in get and arrivals is a store fault", async () => {
+    const w = await writer();
+    const from = await w.position();
+    const asked = fact("plant:a", 1);
+    const extra = fact("plant:z", 2);
+    await w.append([asked]);
+    // Both answers name one more id, in order, and agree with each other.
+    const arrivalOf = (d: Delta): ArrivalRecord => ({
+      id: d.id,
+      at: 1,
+      sequence: 9,
+      transfer: 1,
+      sender: "local",
+    });
+    const byId = (a: { id: string }, b: { id: string }) => compareUtf8(a.id, b.id);
+    const cursor = followFeed(
+      {
+        ...w.peer,
+        read: async () => {
+          const s = await w.peer.read();
+          return {
+            ...s,
+            history: s.history,
+            revision: s.revision,
+            release: () => s.release(),
+            get: async (ids) => [...(await s.get(ids)), extra].sort(byId),
+            arrivals: async (ids) => [...(await s.arrivals(ids)), arrivalOf(extra)].sort(byId),
+          };
+        },
+      },
+      from,
+    );
+    const failed = await cursor.pull().then(
+      (pull) => pull,
+      (error: unknown) => error,
+    );
+    expect(failed).toBeInstanceOf(StoreFaultError);
+    expect(failed).toMatchObject({
+      rule: "unasked-ids",
+      values: { call: "get", asked: [asked.id] },
+    });
+    expect(cursor.position).toEqual(from);
+    // The cursor stays usable: over the right store it pulls the page.
+    const again = followFeed(w.peer, from);
+    expect(await again.pull()).toMatchObject({ status: "ok", position: { revision: 1 } });
+  });
+
+  it("starts again when read() itself answers snapshot-moved, at most four snapshots", async () => {
+    const w = await writer();
+    const from = await w.position();
+    await w.append([fact("plant:a", 1)]);
+    for (const [refusals, settles] of [
+      [3, true],
+      [4, false],
+    ] as const) {
+      let reads = 0;
+      const peer: PeerStore = {
+        ...w.peer,
+        read: async () => {
+          reads += 1;
+          if (reads <= refusals) throw new StoreError("snapshot-moved", "moved");
+          return w.peer.read();
+        },
+      };
+      const cursor = followFeed(peer, from);
+      if (settles)
+        expect(await cursor.pull()).toMatchObject({ status: "ok", position: { revision: 1 } });
+      else await expect(cursor.pull()).rejects.toMatchObject({ code: "snapshot-moved" });
+      expect(reads, String(refusals)).toBe(4);
+    }
   });
 
   it("pulls on one cursor run one at a time, in call order", async () => {
@@ -1309,9 +1398,85 @@ describe("follow vectors: wrong positions and wrong documents fail", () => {
       expect(found.map((f) => f.message).join("\n")).toContain(row.message);
     });
 
-  it("a document of another format", async () => {
-    await expect(
-      runFollowConformance(factoryOf(), WITNESS, { ...document, format: "x" as never }),
-    ).rejects.toThrow("unknown store follow format");
+  it("a document of another format: one failure, named follow", async () => {
+    expect(await failures(WITNESS, {}, { ...document, format: "x" as never })).toEqual([
+      { name: "follow", message: "unknown store follow format" },
+    ]);
+  });
+
+  it("a follower whose follow refuses fails with the fixed words", async () => {
+    const found = await failures({
+      ...WITNESS,
+      follow: () => {
+        throw new StoreError("invalid-request", "no");
+      },
+    });
+    expect(found.find((f) => f.name === "follow/nothing-new")?.message).toContain(
+      "follow refused with invalid-request: no",
+    );
+  });
+
+  it("a store fault a pull passes up fails with the fixed words", async () => {
+    // A cursor over a peer whose pages make no progress.
+    const stuck: FeedFollower = {
+      ...WITNESS,
+      follow: (peer, from) =>
+        followFeed(
+          { ...peer, changes: async (f) => ({ status: "ok", records: [], through: f }) },
+          from,
+        ),
+    };
+    const found = await failures(stuck);
+    expect(found.find((f) => f.name === "follow/one-append")?.message).toContain(
+      "the store broke no-progress: pull: the store's page from 1 to 2 ends at 1",
+    );
+  });
+
+  it("a case store with an unknown field or a bad value is a defect of the document", async () => {
+    const withStore = (store: unknown): StoreFollowDocument => {
+      const copy = JSON.parse(committed) as StoreFollowDocument;
+      (copy.cases.find((c) => c.name === "one-append") as { store?: unknown }).store = store;
+      return copy;
+    };
+    for (const [store, message] of [
+      [
+        { changeRetention: "unbounded", pages: 1 },
+        "the case's store sets an unknown field `pages`",
+      ],
+      [
+        { changeRetention: { revisions: 0 } },
+        "the case's changeRetention is not unbounded or {revisions: n}",
+      ],
+      [{ changePageSize: 1.5 }, "the case's changePageSize is not a whole number of 1 or more"],
+      [[], "the case's store is not an object"],
+    ] as const)
+      expect(await failures(WITNESS, {}, withStore(store))).toEqual([
+        { name: "follow/one-append", message },
+      ]);
+  });
+
+  it("a factory that fails otherwise fails that case, and the others run", async () => {
+    let calls = 0;
+    const report = runFollowConformance(
+      async (request) => {
+        calls += 1;
+        if (calls === 1) throw new Error("no disk");
+        return broken({ options: request })();
+      },
+      WITNESS,
+      document,
+    );
+    const error = await report.then(
+      () => undefined,
+      (e: unknown) => e,
+    );
+    expect(error).toBeInstanceOf(StoreConformanceError);
+    expect((error as StoreConformanceError).failures).toEqual([
+      {
+        name: `follow/${document.cases[0]!.name}`,
+        message: "the factory did not open a store: no disk",
+      },
+    ]);
+    expect(calls).toBe(document.cases.length);
   });
 });

@@ -55,8 +55,7 @@ const negatives = [
   ['shared cells outside the conformance runner', { delta: 'pub fn bad() { let _ = std::rc::Rc::new(std::cell::RefCell::new(0u8)); }' }, /ambient capability/],
   ['a Cell in the conformance runner', { store_conformance: 'pub fn bad() { let _ = std::cell::Cell::new(0u8); }' }, /ambient capability/],
   ['a Mutex in the conformance runner', { store_conformance: 'pub fn bad() { let _ = std::sync::Mutex::new(0u8); }' }, /ambient capability/],
-  ['catching a panic outside the conformance runner', { delta: 'pub fn bad() { let _ = std::panic::catch_unwind(|| 0u8); }' }, /ambient capability/],
-  ['a panic hook in the conformance runner', { store_conformance: 'pub fn bad() { let _ = std::panic::take_hook(); }' }, /ambient capability/],
+  ['catching a panic in the conformance runner', { store_conformance: 'pub fn bad() { let _ = std::panic::catch_unwind(|| 0u8); }' }, /ambient capability/],
 ];
 for (const [name, files, error] of negatives) test(`real Rust source rejects ${name}`, async () => {
   await assert.rejects(async () => check(await fixture(files)), error);
@@ -70,7 +69,6 @@ for (const [name, files] of [
   ['local downward alias', { command_data: 'fn pure() { use crate::delta::canonical_bytes as bytes; bytes(); }' }],
   ['root compatibility reexport', { lib: 'pub mod command; pub use command::Command;', command: 'pub struct Command;' }],
   ["the conformance runner's call log", { store_conformance: 'pub fn log() { let _ = std::rc::Rc::new(std::cell::RefCell::new(0u8)); }' }],
-  ["the conformance runner's caught pull", { store_conformance: 'pub fn caught(payload: Box<dyn std::any::Any + Send>) { let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| 0u8)); drop(payload); }' }],
 ]) test(`real Rust source permits ${name}`, async () => check(await fixture(files)));
 test('live structural inventory detects missing, stale, duplicate, invalid and removed classifications', async () => {
   const actual = await fixture({ delta: 'pub fn pure() {}' });

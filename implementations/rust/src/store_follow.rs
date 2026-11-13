@@ -1,4 +1,4 @@
-//! Following the feed (SPEC-18 proposal §4.6, "Following the feed"; §4.13 readings 55 to 66): a
+//! Following the feed (SPEC-18 proposal §4.6, "Following the feed"; §4.13 readings 55 to 74): a
 //! pull cursor over one peer's change feed. A follower starts from a read, takes
 //! [`position_of`] its snapshot, and brings what it read up to date one page per [`FeedCursor::pull`].
 //! There is no push and no mode that starts at the beginning of the feed.
@@ -17,7 +17,9 @@ use crate::store::{
     MAX_REVISION,
 };
 use crate::store_conformance::{FollowReader, Follower};
-use crate::store_fresh::json_revision;
+use crate::store_fresh::{
+    answered_only, checked_through, json_revision, on_snapshots, FeedError, StoreFault,
+};
 
 /// How many snapshots one pull takes at most: it starts again on `snapshot-moved` three times,
 /// as `check_fresh` does (SPEC-18 §4.13 reading 63).
@@ -176,15 +178,6 @@ fn cursor<'a>(peer: Box<dyn PeerStore + 'a>, from: Position) -> Result<FeedCurso
     })
 }
 
-/// Releases a snapshot when it goes out of scope, on every path, a panic included.
-struct Held(Box<dyn Snapshot>);
-
-impl Drop for Held {
-    fn drop(&mut self) {
-        self.0.release();
-    }
-}
-
 impl FeedCursor<'_> {
     /// Where the cursor stands. Only an ok pull moves it.
     pub fn position(&self) -> &Position {
@@ -197,28 +190,25 @@ impl FeedCursor<'_> {
     /// page, then `get` and `arrivals` of the page's added ids on s when it adds any, then the
     /// release. After `resync-required` every pull answers the same with no store call.
     ///
-    /// On `snapshot-moved` it starts again on a new snapshot, at most [`FOLLOW_SNAPSHOTS`] in
-    /// all, each released. A refusal or a panic leaves the cursor where it stood.
+    /// On `snapshot-moved`, from `read` itself or a later call, it starts again on a new
+    /// snapshot, at most [`FOLLOW_SNAPSHOTS`] in all, each released. An error leaves the cursor
+    /// where it stood, and the cursor stays usable.
     ///
-    /// # Panics
-    ///
-    /// On a store fault (§4.13 readings 46 and 63): a page with no progress, a page whose
-    /// `through` is past s's revision, and a `get` and `arrivals` that name other ids. No code of
-    /// the shared vocabulary names a store that breaks its contract, and a verdict would hide it.
-    pub fn pull(&mut self) -> Result<Pull, StoreError> {
+    /// A store that breaks its contract is a [`FeedError::Fault`], found before anything the
+    /// store answered is used (§4.13 readings 46, 63 and 68): a page with no progress
+    /// (`no-progress`), a page whose `through` is past s's revision (`past-the-bound`), a `get` or
+    /// `arrivals` that answers an id it was not asked for, twice, or out of order (`unasked-ids`),
+    /// and a `get` and `arrivals` that name other ids (`mismatched-answers`). It never panics on
+    /// a store fault.
+    pub fn pull(&mut self) -> Result<Pull, FeedError> {
         if let Some(current) = &self.resync {
             return Ok(Pull::ResyncRequired {
                 current: current.clone(),
             });
         }
-        let mut taken = 0;
-        let pulled = loop {
-            taken += 1;
-            match self.pull_on_one_snapshot() {
-                Err(e) if e.code == StoreErrorCode::SnapshotMoved && taken < FOLLOW_SNAPSHOTS => {}
-                other => break other?,
-            }
-        };
+        let pulled = on_snapshots(self.peer.as_ref(), FOLLOW_SNAPSHOTS, |snapshot| {
+            self.pull_on(snapshot)
+        })?;
         match &pulled {
             Pull::Ok { position, .. } => self.position = position.clone(),
             Pull::ResyncRequired { current } => self.resync = Some(current.clone()),
@@ -226,9 +216,8 @@ impl FeedCursor<'_> {
         Ok(pulled)
     }
 
-    fn pull_on_one_snapshot(&self) -> Result<Pull, StoreError> {
-        let snapshot = Held(self.peer.read()?);
-        let at = position_of(snapshot.0.as_ref());
+    fn pull_on(&self, snapshot: &dyn Snapshot) -> Result<Pull, FeedError> {
+        let at = position_of(snapshot);
         let from = self.position.revision;
         if at.history != self.position.history || at.revision < from {
             return Ok(Pull::ResyncRequired { current: at });
@@ -244,18 +233,7 @@ impl FeedCursor<'_> {
             ChangePage::ResyncRequired { .. } => return Ok(Pull::ResyncRequired { current: at }),
             ChangePage::Ok { records, through } => (records, through),
         };
-        assert!(
-            through > from,
-            "pull: the store's page from {} made no progress toward {}; the store breaks the change feed contract (SPEC-18 §4.6)",
-            from.0,
-            at.revision.0
-        );
-        assert!(
-            through <= at.revision,
-            "pull: the store's page claims records through {}, past the snapshot's revision {}; the store breaks the change feed contract (SPEC-18 §4.6)",
-            through.0,
-            at.revision.0
-        );
+        checked_through(from, at.revision, through)?;
         let ids: Vec<String> = records
             .iter()
             .flat_map(|r| &r.added)
@@ -266,14 +244,21 @@ impl FeedCursor<'_> {
         let deltas = match ids.is_empty() {
             true => Vec::new(),
             false => {
-                let deltas = snapshot.0.get(&ids)?;
-                let arrivals = snapshot.0.arrivals(&ids)?;
-                let same = deltas.len() == arrivals.len()
-                    && deltas.iter().zip(&arrivals).all(|(d, a)| d.id == a.id);
-                assert!(
-                    same,
-                    "pull: get and arrivals on one snapshot name other ids; the store breaks its contract (SPEC-18 §4.2)"
-                );
+                let deltas = snapshot.get(&ids)?;
+                let arrivals = snapshot.arrivals(&ids)?;
+                // Bytes the call did not ask for are never handed out: they may be a purged
+                // delta's.
+                let got: Vec<String> = deltas.iter().map(|d| d.id.clone()).collect();
+                let dated: Vec<String> = arrivals.iter().map(|a| a.id.clone()).collect();
+                answered_only("get", &ids, got.clone())?;
+                answered_only("arrivals", &ids, dated.clone())?;
+                if got != dated {
+                    return Err(StoreFault::MismatchedAnswers {
+                        get: got,
+                        arrivals: dated,
+                    }
+                    .into());
+                }
                 deltas
                     .into_iter()
                     .zip(arrivals)
@@ -297,7 +282,7 @@ impl Follower for FeedCursor<'_> {
         self.position.clone()
     }
 
-    fn pull(&mut self) -> Result<Pull, StoreError> {
+    fn pull(&mut self) -> Result<Pull, FeedError> {
         FeedCursor::pull(self)
     }
 }

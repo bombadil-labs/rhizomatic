@@ -15,6 +15,7 @@ import {
 import {
   Run,
   StoreConformanceError,
+  caseStore,
   missing,
   type StoreConformanceFailure,
 } from "./store-conformance.js";
@@ -30,6 +31,7 @@ import {
 } from "./store-vector-format.js";
 import {
   StoreError,
+  StoreFaultError,
   type Anchor,
   type ChangePage,
   type ChangeRecord,
@@ -138,8 +140,12 @@ function logged(peer: PeerStore, log: Call[]): PeerStore {
     history: peer.history,
     erasure: peer.erasure,
     read: async () => {
+      // Written when the call is made, so a call that refuses is seen too.
+      const call = { op: "read", revision: -1, history: "" };
+      log.push(call);
       const snapshot = await peer.read();
-      log.push({ op: "read", revision: snapshot.revision, history: snapshot.history });
+      call.revision = snapshot.revision;
+      call.history = snapshot.history;
       return snapshotOf(snapshot);
     },
     append: (batch) => (note("append"), peer.append(batch)),
@@ -291,6 +297,8 @@ class FreshnessRun {
     try {
       verdict = await this.witness.checkFresh(handle, capture, step.now);
     } catch (error) {
+      if (error instanceof StoreFaultError)
+        throw new Error(`the store broke ${error.rule}: ${error.message}`);
       if (!(error instanceof StoreError)) throw error;
       throw new Error(`checkFresh refused with ${error.code}: ${error.message}`);
     }
@@ -383,47 +391,67 @@ function touchingCase(run: Run, witness: FreshnessWitness, c: StoreTouchingCase)
 
 /**
  * Runs `freshness.json` against the stores `factory` makes and a witness's freshness functions.
- * Each case gets a new store; `factory` receives what the case asks of it and answers undefined
- * when it cannot build such a store, which skips the case. Throws `StoreConformanceError`,
- * listing every failure, when anything fails.
+ * Each case gets a new store, built with the case's checked `store` fields; `factory` answers
+ * undefined when it cannot build such a store, which skips the case with the requirement
+ * `store`. Any other failure of the factory fails the case. Throws `StoreConformanceError`,
+ * listing every failure, when anything fails; a document of another format is one failure,
+ * named `freshness`.
  */
 export async function runFreshnessConformance(
   factory: (request: FreshnessStoreRequest) => Promise<Store | undefined>,
   witness: FreshnessWitness,
   vectors: StoreFreshnessDocument,
 ): Promise<FreshnessConformanceReport> {
-  check(vectors.format === STORE_FRESHNESS_FORMAT, "unknown store freshness format");
+  if (vectors.format !== STORE_FRESHNESS_FORMAT)
+    throw new StoreConformanceError([
+      { name: "freshness", message: "unknown store freshness format" },
+    ]);
   const passed: string[] = [];
   const skipped: { name: string; missing: string }[] = [];
   const failures: StoreConformanceFailure[] = [];
+  const text = (error: unknown): string =>
+    error instanceof StoreError
+      ? `refused with ${error.code}: ${error.message}`
+      : error instanceof Error
+        ? error.message
+        : String(error);
   const guarded = async (name: string, body: () => Promise<void> | void): Promise<boolean> => {
     try {
       await body();
       return true;
     } catch (error) {
-      const message =
-        error instanceof StoreError
-          ? `refused with ${error.code}: ${error.message}`
-          : error instanceof Error
-            ? error.message
-            : String(error);
-      failures.push({ name, message });
+      failures.push({ name, message: text(error) });
       return false;
+    }
+  };
+  const open = async (request: FreshnessStoreRequest): Promise<Store | undefined> => {
+    try {
+      return await factory(request);
+    } catch (error) {
+      throw new Error(`the factory did not open a store: ${text(error)}`);
     }
   };
 
   for (const c of vectors.cases) {
     const name = `freshness/${c.name}`;
-    const store = await factory(c.store ?? {});
+    let store: Store | undefined;
+    if (
+      !(await guarded(
+        name,
+        async () => void (store = await open(caseStore(c.store, ["changeRetention"]))),
+      ))
+    )
+      continue;
     if (store === undefined) {
       skipped.push({ name, missing: "store" });
       continue;
     }
+    const opened: Store = store;
     let lacks: string | undefined;
-    if (await guarded(name, () => void (lacks = missing(store, c.requires)))) {
+    if (await guarded(name, () => void (lacks = missing(opened, c.requires)))) {
       if (lacks !== undefined) skipped.push({ name, missing: lacks });
       else {
-        const run = new Run(store, vectors);
+        const run = new Run(opened, vectors);
         const fresh = new FreshnessRun(run, witness);
         const ran = await guarded(name, async () => {
           for (const [i, step] of c.steps.entries()) {
@@ -433,33 +461,30 @@ export async function runFreshnessConformance(
               else await run.step(step);
               await run.checkFeeds();
             } catch (error) {
-              const message =
-                error instanceof StoreError
-                  ? `refused with ${error.code}: ${error.message}`
-                  : error instanceof Error
-                    ? error.message
-                    : String(error);
-              throw new Error(`step ${i} (${step.op}): ${message}`);
+              throw new Error(`step ${i} (${step.op}): ${text(error)}`);
             }
           }
         });
         if (ran) passed.push(name);
       }
     }
-    await store.close();
+    await opened.close();
   }
 
-  const store = await factory({});
-  if (store !== undefined) {
-    const run = new Run(store, vectors);
-    for (const c of vectors.touching) {
-      const name = `touching/${c.name}`;
-      if (await guarded(name, () => touchingCase(run, witness, c))) passed.push(name);
-    }
-    await store.close();
-  } else
-    for (const c of vectors.touching)
-      skipped.push({ name: `touching/${c.name}`, missing: "store" });
+  let store: Store | undefined;
+  if (await guarded("touching", async () => void (store = await open({})))) {
+    const opened = store;
+    if (opened !== undefined) {
+      const run = new Run(opened, vectors);
+      for (const c of vectors.touching) {
+        const name = `touching/${c.name}`;
+        if (await guarded(name, () => touchingCase(run, witness, c))) passed.push(name);
+      }
+      await opened.close();
+    } else
+      for (const c of vectors.touching)
+        skipped.push({ name: `touching/${c.name}`, missing: "store" });
+  }
 
   if (failures.length > 0) throw new StoreConformanceError(failures);
   return { passed, skipped };

@@ -5,9 +5,12 @@
 //! - "Two pulls started together run one after the other" (§4.13 reading 64): `FeedCursor::pull`
 //!   takes the cursor mutably, so two pulls on one cursor cannot overlap; no test can start them
 //!   together, and none is written.
-//! - Check 14 of §10.3 (the guarantee) has no wrong-follower row: checks 1 to 10 imply it. It is
-//!   shown live by breaking the runner's apply rule, by mutation. The bound on pulls has no row:
-//!   a follower that passes check 3 cannot reach it.
+//! - Check 14 of §10.3 (the guarantee), in both halves, has no wrong-follower row: checks 1 to 10
+//!   imply it. A mutation of the runner's apply rule shows it live: when the rule never sets a
+//!   delivered delta, `one-append` fails the first half (the mirror at the peer's revision) and
+//!   `an-append-between-single-pulls` the second (`after the pull to 2 …`). Ignoring `removed`
+//!   shows the first half only. The bound on pulls has no row: a follower that passes check 3
+//!   cannot reach it.
 
 use std::cell::{Cell, RefCell};
 use std::collections::{BTreeMap, BTreeSet};
@@ -29,6 +32,7 @@ use rhizomatic::store_conformance::{
 use rhizomatic::store_follow::{
     follow_feed, parse_position, position_of, FeedCursor, Position, Pull, StoreFollow,
 };
+use rhizomatic::store_fresh::{FeedError, StoreFault};
 use rhizomatic::store_read::{ReadRequest, Selection, StoreReactor};
 use rhizomatic::term_json::parse_term;
 use rhizomatic::types::{Claims, Delta, EntityRef, Pointer, Primitive, Target};
@@ -37,7 +41,7 @@ use serde_json::Value;
 #[path = "support/freshness_doubles.rs"]
 #[allow(dead_code)]
 mod doubles;
-use doubles::Scaled;
+use doubles::{DeclaresNoFeed, Odd, Scaled};
 
 fn document() -> Value {
     let path = format!(
@@ -113,6 +117,14 @@ fn every_follow_case_passes_every_run() {
     assert!(cases >= 16, "{cases} cases");
     for (label, store) in runs() {
         let report = run(store, &doc, &StoreFollow).unwrap_or_else(|e| panic!("run {label}: {e}"));
+        // Exactly the file's cases, each passed, none skipped.
+        let names: Vec<String> = doc["cases"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|c| format!("follow/{}", c["name"].as_str().unwrap()))
+            .collect();
+        assert_eq!(report.passed, names, "run {label}");
         assert_eq!(report.passed.len(), cases, "run {label}");
         assert!(
             report.skipped.is_empty(),
@@ -187,7 +199,7 @@ fn nothing_new(position: &Position) -> Pull {
 }
 
 impl Rail<'_> {
-    fn one(&mut self, snapshot: &dyn Snapshot) -> Result<Pull, StoreError> {
+    fn one(&mut self, snapshot: &dyn Snapshot) -> Result<Pull, FeedError> {
         let w = self.wrong;
         let at = position_of(snapshot);
         let resync = Pull::ResyncRequired {
@@ -243,7 +255,12 @@ impl Rail<'_> {
             let got = snapshot.get(&ids)?;
             let arrivals = snapshot.arrivals(&ids)?;
             if w == Wrong::MissingIsError && got.len() != ids.len() {
-                panic!("the rail follower found a delta of the page missing");
+                // A follower's own error has no other shape in this witness than a fault.
+                return Err(StoreFault::MismatchedAnswers {
+                    get: got.iter().map(|d| d.id.clone()).collect(),
+                    arrivals: ids,
+                }
+                .into());
             }
             deltas = got
                 .into_iter()
@@ -326,7 +343,7 @@ impl Follower for Rail<'_> {
         self.position.clone()
     }
 
-    fn pull(&mut self) -> Result<Pull, StoreError> {
+    fn pull(&mut self) -> Result<Pull, FeedError> {
         let w = self.wrong;
         if let Some(current) = &self.resync {
             if w != Wrong::AsksAgain {
@@ -522,7 +539,7 @@ const TABLE: &[Row] = &[
     row(
         Wrong::MissingIsError,
         "add-then-purge-in-one-page",
-        "the rail follower found a delta of the page missing",
+        "the store broke mismatched-answers: ",
     ),
     row(
         Wrong::FeedPastSnapshot,
@@ -1204,7 +1221,10 @@ fn a_moved_snapshot_starts_the_pull_again_at_most_four_times() {
     // Four moves: the fourth snapshot moves too; snapshot-moved passes up, every snapshot is
     // released, and the cursor stays.
     let (answer, calls, start, stands, _) = pull(4);
-    assert_eq!(answer.unwrap_err().code, StoreErrorCode::SnapshotMoved);
+    assert_eq!(
+        answer.unwrap_err().code(),
+        Some(StoreErrorCode::SnapshotMoved)
+    );
     let count = |name: &str| calls.iter().filter(|c| *c == name).count();
     assert_eq!((count("read"), count("release")), (4, 4));
     assert_eq!(stands, start);
@@ -1214,19 +1234,14 @@ fn a_moved_snapshot_starts_the_pull_again_at_most_four_times() {
     assert_eq!(calls.iter().filter(|c| *c == "read").count(), 4);
 }
 
-/// A pull that panics with this store fault, its snapshot released and its cursor unmoved.
-fn faults(probe: &Probe<'_>, start: Position, words: &str) {
+/// A pull that fails with a store fault of this rule, as an error value, its snapshot released
+/// and its cursor unmoved.
+fn faults(probe: &Probe<'_>, start: Position, rule: &str) {
     let mut cursor = follow_feed(probe, start.clone()).unwrap();
-    let failed = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| cursor.pull()));
-    let message = match failed {
-        Ok(answer) => panic!("a store fault answered {answer:?}"),
-        Err(payload) => payload
-            .downcast_ref::<String>()
-            .cloned()
-            .or_else(|| payload.downcast_ref::<&str>().map(|s| s.to_string()))
-            .unwrap_or_default(),
-    };
-    assert!(message.contains(words), "{message}");
+    match cursor.pull() {
+        Err(FeedError::Fault(fault)) => assert_eq!(fault.rule(), rule, "{fault}"),
+        other => panic!("{rule}: a store fault answered {other:?}"),
+    }
     assert_eq!(cursor.position(), &start);
     let calls = probe.calls();
     let count = |name: &str| calls.iter().filter(|c| *c == name).count();
@@ -1247,18 +1262,79 @@ fn a_store_fault_fails_the_pull_and_is_no_answer() {
         records: Vec::new(),
         through: from,
     }));
-    faults(&stuck, start.clone(), "made no progress");
+    faults(&stuck, start.clone(), "no-progress");
 
     let mut past = Probe::new(peer.as_ref());
     past.page = Some(Box::new(|_, to| ChangePage::Ok {
         records: Vec::new(),
         through: Revision(to.unwrap().0 + 5),
     }));
-    faults(&past, start.clone(), "past the snapshot");
+    faults(&past, start.clone(), "past-the-bound");
 
     let mut short = Probe::new(peer.as_ref());
     short.short_arrivals = true;
-    faults(&short, start, "get and arrivals");
+    faults(&short, start, "mismatched-answers");
+}
+
+/// A pull hands out no bytes it did not ask for: a `get` and an `arrivals` that both answer one
+/// more id, in order and in agreement, are the fault `unasked-ids`. The cursor stays usable.
+#[test]
+fn an_extra_id_in_get_and_arrivals_is_a_store_fault() {
+    let store = MemoryStore::new();
+    let peer = new_peer(&store, "peer:u");
+    let mut writer = Writer::default();
+    let start = here(peer.as_ref());
+    let asked = fact("plant:a", "n", 1.0);
+    writer.append(peer.as_ref(), std::slice::from_ref(&asked));
+    let extra = fact("plant:z", "n", 2.0);
+    let odd = Odd::new(
+        peer.as_ref(),
+        0,
+        Some(VerifiedDelta {
+            arrival: ArrivalRecord {
+                id: extra.id.clone(),
+                at: 1.0,
+                sequence: 9,
+                transfer: 1,
+                sender: "local".into(),
+            },
+            delta: extra,
+        }),
+    );
+    let mut cursor = follow_feed(&odd, start.clone()).unwrap();
+    match cursor.pull() {
+        Err(FeedError::Fault(StoreFault::UnaskedIds {
+            call, asked: ids, ..
+        })) => {
+            assert_eq!((call, ids), ("get", vec![asked.id.clone()]));
+        }
+        other => panic!("an extra id answered {other:?}"),
+    }
+    assert_eq!(cursor.position(), &start);
+    let mut again = follow_feed(peer.as_ref(), start).unwrap();
+    assert!(matches!(again.pull().unwrap(), Pull::Ok { .. }));
+}
+
+/// `snapshot-moved` from `read` itself starts the pull again, at most four snapshots in all.
+#[test]
+fn a_read_that_answers_snapshot_moved_starts_the_pull_again() {
+    let store = MemoryStore::new();
+    let peer = new_peer(&store, "peer:rm");
+    let mut writer = Writer::default();
+    let start = here(peer.as_ref());
+    writer.append(peer.as_ref(), &[fact("plant:a", "n", 1.0)]);
+    let settles = Odd::new(peer.as_ref(), 3, None);
+    let mut cursor = follow_feed(&settles, start.clone()).unwrap();
+    assert!(matches!(cursor.pull().unwrap(), Pull::Ok { .. }));
+    assert_eq!(settles.reads.get(), 4);
+    let moves = Odd::new(peer.as_ref(), 4, None);
+    let mut cursor = follow_feed(&moves, start.clone()).unwrap();
+    assert_eq!(
+        cursor.pull().unwrap_err().code(),
+        Some(StoreErrorCode::SnapshotMoved)
+    );
+    assert_eq!(moves.reads.get(), 4);
+    assert_eq!(cursor.position(), &start);
 }
 
 /// SPEC-18 §4.13 reading 68: a fault is found before the page is judged. Each faulty page also
@@ -1280,14 +1356,14 @@ fn a_faulty_page_that_adds_an_id_fails_before_any_get() {
         removed: Vec::new(),
     };
     let pages: [(&str, PageFn); 2] = [
-        ("made no progress", {
+        ("no-progress", {
             let record = record.clone();
             Box::new(move |from, _| ChangePage::Ok {
                 records: vec![record(from.0 + 1)],
                 through: from,
             })
         }),
-        ("past the snapshot", {
+        ("past-the-bound", {
             let record = record.clone();
             Box::new(move |from, to| ChangePage::Ok {
                 records: vec![record(from.0 + 1)],
@@ -1295,11 +1371,11 @@ fn a_faulty_page_that_adds_an_id_fails_before_any_get() {
             })
         }),
     ];
-    for (words, page) in pages {
+    for (rule, page) in pages {
         let mut probe = Probe::new(peer.as_ref());
         probe.page = Some(page);
-        faults(&probe, start.clone(), words);
-        assert_eq!(probe.calls(), ["read", "changes", "release"], "{words}");
+        faults(&probe, start.clone(), rule);
+        assert_eq!(probe.calls(), ["read", "changes", "release"], "{rule}");
     }
 }
 
@@ -1313,7 +1389,10 @@ fn a_refusal_after_the_read_releases_the_snapshot_and_leaves_the_cursor() {
     let mut probe = Probe::new(peer.as_ref());
     probe.closes = Some(&store);
     let mut cursor = follow_feed(&probe, start.clone()).unwrap();
-    assert_eq!(cursor.pull().unwrap_err().code, StoreErrorCode::StoreClosed);
+    assert_eq!(
+        cursor.pull().unwrap_err().code(),
+        Some(StoreErrorCode::StoreClosed)
+    );
     assert_eq!(cursor.position(), &start);
     assert_eq!(probe.calls(), ["read", "changes", "release"]);
 }
@@ -2014,4 +2093,181 @@ fn a_pull_costs_its_page_not_the_holdings() {
 #[test]
 fn a_pull_costs_its_page_not_the_records_before_it() {
     cost_rail("after N records before the position", |n| costed(0, n));
+}
+
+// ---------------------------------------------------------------------------------------------
+// The runner's own words and the case's store (README §10.1, §10.3)
+// ---------------------------------------------------------------------------------------------
+
+/// A peer handle whose feed pages make no progress: `through` is `from`.
+struct StuckPeer<'a>(Box<dyn PeerStore + 'a>);
+
+impl PeerStore for StuckPeer<'_> {
+    fn id(&self) -> &str {
+        self.0.id()
+    }
+    fn erasure(&self) -> PeerErasure {
+        self.0.erasure()
+    }
+    fn history(&self) -> &str {
+        self.0.history()
+    }
+    fn read(&self) -> Result<Box<dyn Snapshot>, StoreError> {
+        self.0.read()
+    }
+    fn append(&self, batch: &Admission) -> Result<AppendResult, StoreError> {
+        self.0.append(batch)
+    }
+    fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreError> {
+        self.0.purge(ids)
+    }
+    fn changes(&self, from: Revision, _: Option<Revision>) -> Result<ChangePage, StoreError> {
+        Ok(ChangePage::Ok {
+            records: Vec::new(),
+            through: from,
+        })
+    }
+}
+
+/// The real cursor over a stuck feed, or a `follow` that refuses.
+struct OddFollow {
+    refuses: bool,
+}
+
+impl FollowReader for OddFollow {
+    fn position_of(&self, snapshot: &dyn Snapshot) -> Position {
+        position_of(snapshot)
+    }
+    fn follow<'a>(
+        &self,
+        peer: Box<dyn PeerStore + 'a>,
+        from: Position,
+    ) -> Result<Box<dyn Follower + 'a>, StoreError> {
+        if self.refuses {
+            return Err(StoreError::new(StoreErrorCode::InvalidRequest, "no"));
+        }
+        StoreFollow.follow(Box::new(StuckPeer(peer)), from)
+    }
+}
+
+fn failure_of(error: &StoreConformanceError, name: &str) -> String {
+    error
+        .failures
+        .iter()
+        .find(|f| f.name == name)
+        .unwrap_or_else(|| panic!("{name} did not fail: {error}"))
+        .message
+        .clone()
+}
+
+#[test]
+fn a_store_fault_and_a_refused_follow_fail_with_the_fixed_words() {
+    let doc = document();
+    let error = run(DEFAULT, &doc, &OddFollow { refuses: false }).expect_err("a fault fails");
+    let message = failure_of(&error, "follow/one-append");
+    assert!(
+        message.starts_with("the store broke no-progress: the store's page from 1 to 2 ends at 1"),
+        "{message}"
+    );
+    let error = run(DEFAULT, &doc, &OddFollow { refuses: true }).expect_err("a refusal fails");
+    let message = failure_of(&error, "follow/nothing-new");
+    assert_eq!(message, "follow refused with invalid-request: no");
+}
+
+/// README §10.3: a document defect (an unknown follower) is reported before a gap of the store
+/// (no feed).
+#[test]
+fn an_unknown_follower_is_reported_before_a_store_with_no_feed() {
+    let mut doc = document();
+    doc["cases"]
+        .as_array_mut()
+        .unwrap()
+        .retain(|c| c["name"] == "one-append");
+    doc["cases"][0].as_object_mut().unwrap().remove("requires");
+    nth(&mut doc, "one-append", "pull", 0)["follower"] = "g".into();
+    let error = run_follow_conformance(
+        &|_| Ok(Box::new(DeclaresNoFeed::new(MemoryStore::new())) as Box<dyn Store>),
+        &doc,
+        &StoreFollow,
+    )
+    .expect_err("an unknown follower fails");
+    assert_eq!(
+        failure_of(&error, "follow/one-append"),
+        "the vector uses follower g before following"
+    );
+}
+
+/// README §10.1: a case's `store` with an unknown field or a bad value is a defect of the document.
+#[test]
+fn a_case_store_with_an_unknown_field_or_a_bad_value_fails_that_case() {
+    let rows: [(Value, &str); 4] = [
+        (
+            serde_json::json!({"changeRetention": "unbounded", "pages": 1}),
+            "the case's store sets an unknown field `pages`",
+        ),
+        (
+            serde_json::json!({"changeRetention": {"revisions": 0}}),
+            "the case's changeRetention is not unbounded or {revisions: n}",
+        ),
+        (
+            serde_json::json!({"changePageSize": 1.5}),
+            "the case's changePageSize is not a whole number of 1 or more",
+        ),
+        (serde_json::json!([]), "the case's store is not an object"),
+    ];
+    for (store, message) in rows {
+        let mut doc = document();
+        doc["cases"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|c| c["name"] == "one-append")
+            .unwrap()["store"] = store;
+        let error = run(DEFAULT, &doc, &StoreFollow).expect_err(message);
+        assert_eq!(error.failures.len(), 1, "{error}");
+        assert_eq!(failure_of(&error, "follow/one-append"), message);
+    }
+}
+
+/// README §10.1: a factory that cannot build a case's store skips that case with the requirement
+/// `store`; any other failure of the factory fails that case, and the other cases run.
+#[test]
+fn a_factory_that_cannot_build_a_case_store_skips_it_and_any_other_failure_fails_it() {
+    let doc = document();
+    let cases = doc["cases"].as_array().unwrap();
+    let pinned: Vec<String> = cases
+        .iter()
+        .filter(|c| c.get("store").is_some())
+        .map(|c| format!("follow/{}", c["name"].as_str().unwrap()))
+        .collect();
+    assert!(!pinned.is_empty());
+    let plain = |case: FollowCaseStore| case == FollowCaseStore::default();
+    let report = run_follow_conformance(
+        &|case| match plain(case) {
+            true => Ok(Box::new(MemoryStore::new()) as Box<dyn Store>),
+            false => Err(StoreError::new(StoreErrorCode::CapabilityAbsent, "no")),
+        },
+        &doc,
+        &StoreFollow,
+    )
+    .unwrap();
+    let skipped: Vec<String> = report.skipped.iter().map(|s| s.name.clone()).collect();
+    assert_eq!(skipped, pinned);
+    assert!(report.skipped.iter().all(|s| s.missing == "store"));
+    let error = run_follow_conformance(
+        &|case| match plain(case) {
+            true => Ok(Box::new(MemoryStore::new()) as Box<dyn Store>),
+            false => Err(StoreError::new(StoreErrorCode::StoreClosed, "no disk")),
+        },
+        &doc,
+        &StoreFollow,
+    )
+    .expect_err("a factory failure fails its case");
+    let failed: Vec<String> = error.failures.iter().map(|f| f.name.clone()).collect();
+    assert_eq!(failed, pinned);
+    assert!(error
+        .failures
+        .iter()
+        .all(|f| f.message.starts_with("the factory did not open a store: ")));
+    assert_eq!(error.report.passed.len(), cases.len() - pinned.len());
 }

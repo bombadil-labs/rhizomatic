@@ -13,6 +13,7 @@ import {
   type AppliedPushdown,
   type ChangePage,
   type ChangeRecord,
+  type ChangeRetention,
   type PeerStore,
   type Pushdown,
   type Snapshot,
@@ -1163,6 +1164,51 @@ export function missing(
     if (!holds) return requirement;
   }
   return undefined;
+}
+
+/**
+ * A case's `store` (README §9.1, §10.1), checked: an object with only the fields `allowed`, a
+ * `changeRetention` that is `unbounded` or `{revisions: n}`, and a `changePageSize` of 1 or more.
+ * Anything else is a defect of the document. Absent means `{}`.
+ */
+export function caseStore(
+  value: unknown,
+  allowed: readonly ("changeRetention" | "changePageSize")[],
+): { changeRetention?: Exclude<ChangeRetention, "none">; changePageSize?: number } {
+  if (value === undefined) return {};
+  check(
+    typeof value === "object" && value !== null && !Array.isArray(value),
+    "the case's store is not an object",
+  );
+  const fields = value as Record<string, unknown>;
+  for (const key of Object.keys(fields))
+    check(
+      (allowed as readonly string[]).includes(key),
+      `the case's store sets an unknown field \`${key}\``,
+    );
+  const out: { changeRetention?: Exclude<ChangeRetention, "none">; changePageSize?: number } = {};
+  const { changeRetention, changePageSize } = fields;
+  if (changeRetention !== undefined) {
+    const revisions = (changeRetention as { revisions?: unknown } | null)?.revisions;
+    check(
+      changeRetention === "unbounded" ||
+        (typeof changeRetention === "object" &&
+          !Array.isArray(changeRetention) &&
+          Object.keys(changeRetention as object).length === 1 &&
+          Number.isSafeInteger(revisions) &&
+          (revisions as number) >= 1),
+      "the case's changeRetention is not unbounded or {revisions: n}",
+    );
+    out.changeRetention = changeRetention as Exclude<ChangeRetention, "none">;
+  }
+  if (changePageSize !== undefined) {
+    check(
+      Number.isSafeInteger(changePageSize) && (changePageSize as number) >= 1,
+      "the case's changePageSize is not a whole number of 1 or more",
+    );
+    out.changePageSize = changePageSize as number;
+  }
+  return out;
 }
 
 /**

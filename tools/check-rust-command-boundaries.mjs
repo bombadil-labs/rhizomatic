@@ -25,8 +25,6 @@ function externalAllowed(d) {
     if (module === 'evaluation_budget' && ['std::rc::Rc', 'std::cell::RefCell'].some(p => under(normalized, p))) return true;
     // The conformance runner's log of the calls one freshness check makes (vectors/store README §9.3): runner-local, not an ambient source/control capability.
     if (module === 'store_conformance' && ['std::rc::Rc', 'std::cell::RefCell'].some(p => under(normalized, p))) return true;
-    // The follow runner turns a pull's panic (a store fault, or a wrong follower's own error) into the failure of its case (vectors/store README §10.3): runner-local control flow, not an ambient source/control capability.
-    if (module === 'store_conformance' && ['std::panic::catch_unwind', 'std::panic::AssertUnwindSafe', 'std::any::Any'].includes(normalized)) return true;
     if (['std::path::Path', 'std::path::Path::new', 'std::path::PathBuf', 'std::path::PathBuf::from'].includes(normalized)) return true;
     if (fileHosts.has(location(d)) && ['std::fs', 'std::io::Write'].some(p => under(normalized, p))) return true;
     if (httpHosts.has(location(d)) && ['std::thread', 'std::sync::Mutex'].some(p => under(normalized, p))) return true;
