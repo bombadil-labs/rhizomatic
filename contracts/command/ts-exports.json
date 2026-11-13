@@ -37711,6 +37711,2106 @@
       "contract": "rhizomatic.storage/native-api/1",
       "classification": "native_extension",
       "semantics": "Native storage API FollowCaseStep.once implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:index.ts:StoreViews",
+      "owner": "reactor",
+      "symbol": "StoreViews",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API StoreViews implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:StoreViews#register",
+      "owner": "reactor",
+      "symbol": "StoreViews.register",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API StoreViews.register implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:StoreViews#setEpoch",
+      "owner": "reactor",
+      "symbol": "StoreViews.setEpoch",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API StoreViews.setEpoch implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:StoreViews#hold",
+      "owner": "reactor",
+      "symbol": "StoreViews.hold",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API StoreViews.hold implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:StoreViews#refresh",
+      "owner": "reactor",
+      "symbol": "StoreViews.refresh",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API StoreViews.refresh implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:StoreViews#drop",
+      "owner": "reactor",
+      "symbol": "StoreViews.drop",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API StoreViews.drop implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:StoreViews#nextBoundary",
+      "owner": "reactor",
+      "symbol": "StoreViews.nextBoundary",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API StoreViews.nextBoundary implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:StoreViews#evalCountOf",
+      "owner": "reactor",
+      "symbol": "StoreViews.evalCountOf",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API StoreViews.evalCountOf implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:StoreViews#indexSizes",
+      "owner": "reactor",
+      "symbol": "StoreViews.indexSizes",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API StoreViews.indexSizes implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:Refresh",
+      "owner": "reactor",
+      "symbol": "Refresh",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API Refresh implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:Refresh#position",
+      "owner": "reactor",
+      "symbol": "Refresh.position",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API Refresh.position implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:Refresh#changed",
+      "owner": "reactor",
+      "symbol": "Refresh.changed",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API Refresh.changed implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:Refresh#reread",
+      "owner": "reactor",
+      "symbol": "Refresh.reread",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API Refresh.reread implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:Refresh#resynced",
+      "owner": "reactor",
+      "symbol": "Refresh.resynced",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API Refresh.resynced implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:StoreViewsOptions",
+      "owner": "reactor",
+      "symbol": "StoreViewsOptions",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API StoreViewsOptions implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:StoreViewsOptions#maxViews",
+      "owner": "reactor",
+      "symbol": "StoreViewsOptions.maxViews",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API StoreViewsOptions.maxViews implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:StoreViewsOptions#rounds",
+      "owner": "reactor",
+      "symbol": "StoreViewsOptions.rounds",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API StoreViewsOptions.rounds implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:ViewChange",
+      "owner": "reactor",
+      "symbol": "ViewChange",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API ViewChange implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:ViewChange#before",
+      "owner": "reactor",
+      "symbol": "ViewChange.before",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API ViewChange.before implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:ViewChange#after",
+      "owner": "reactor",
+      "symbol": "ViewChange.after",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API ViewChange.after implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:ViewChange#name",
+      "owner": "reactor",
+      "symbol": "ViewChange.name",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API ViewChange.name implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:ViewChange#root",
+      "owner": "reactor",
+      "symbol": "ViewChange.root",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API ViewChange.root implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:ViewKey",
+      "owner": "reactor",
+      "symbol": "ViewKey",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API ViewKey implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:ViewKey#name",
+      "owner": "reactor",
+      "symbol": "ViewKey.name",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API ViewKey.name implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:ViewKey#root",
+      "owner": "reactor",
+      "symbol": "ViewKey.root",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API ViewKey.root implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:ViewProgram",
+      "owner": "reactor",
+      "symbol": "ViewProgram",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API ViewProgram implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:ViewProgram#term",
+      "owner": "reactor",
+      "symbol": "ViewProgram.term",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API ViewProgram.term implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:ViewProgram#registry",
+      "owner": "reactor",
+      "symbol": "ViewProgram.registry",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API ViewProgram.registry implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:ViewProgram#selection",
+      "owner": "reactor",
+      "symbol": "ViewProgram.selection",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API ViewProgram.selection implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:ViewProgram#epoch",
+      "owner": "reactor",
+      "symbol": "ViewProgram.epoch",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API ViewProgram.epoch implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:ViewRead",
+      "owner": "reactor",
+      "symbol": "ViewRead",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API ViewRead implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:ViewRead#bytes",
+      "owner": "reactor",
+      "symbol": "ViewRead.bytes",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API ViewRead.bytes implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:ViewRead#position",
+      "owner": "reactor",
+      "symbol": "ViewRead.position",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API ViewRead.position implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:ViewRead#expiresAt",
+      "owner": "reactor",
+      "symbol": "ViewRead.expiresAt",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API ViewRead.expiresAt implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:ViewRead#from",
+      "owner": "reactor",
+      "symbol": "ViewRead.from",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API ViewRead.from implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:ViewRead#capture",
+      "owner": "reactor",
+      "symbol": "ViewRead.capture",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API ViewRead.capture implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:ViewRead#name",
+      "owner": "reactor",
+      "symbol": "ViewRead.name",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API ViewRead.name implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:ViewRead#root",
+      "owner": "reactor",
+      "symbol": "ViewRead.root",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API ViewRead.root implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:STORE_VIEWS_FORMAT",
+      "owner": "reactor",
+      "symbol": "STORE_VIEWS_FORMAT",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API STORE_VIEWS_FORMAT implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:runViewsConformance",
+      "owner": "reactor",
+      "symbol": "runViewsConformance",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API runViewsConformance implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:StoreViewsDocument",
+      "owner": "reactor",
+      "symbol": "StoreViewsDocument",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API StoreViewsDocument implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:StoreViewsDocument#note",
+      "owner": "reactor",
+      "symbol": "StoreViewsDocument.note",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API StoreViewsDocument.note implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:StoreViewsDocument#reference",
+      "owner": "reactor",
+      "symbol": "StoreViewsDocument.reference",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API StoreViewsDocument.reference implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:StoreViewsDocument#peers",
+      "owner": "reactor",
+      "symbol": "StoreViewsDocument.peers",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API StoreViewsDocument.peers implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:StoreViewsDocument#deltas",
+      "owner": "reactor",
+      "symbol": "StoreViewsDocument.deltas",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API StoreViewsDocument.deltas implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:StoreViewsDocument#format",
+      "owner": "reactor",
+      "symbol": "StoreViewsDocument.format",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API StoreViewsDocument.format implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:StoreViewsDocument#schemas",
+      "owner": "reactor",
+      "symbol": "StoreViewsDocument.schemas",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API StoreViewsDocument.schemas implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:StoreViewsDocument#programs",
+      "owner": "reactor",
+      "symbol": "StoreViewsDocument.programs",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API StoreViewsDocument.programs implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:StoreViewsDocument#setup",
+      "owner": "reactor",
+      "symbol": "StoreViewsDocument.setup",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API StoreViewsDocument.setup implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:StoreViewsDocument#cases",
+      "owner": "reactor",
+      "symbol": "StoreViewsDocument.cases",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API StoreViewsDocument.cases implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:ViewHolder",
+      "owner": "reactor",
+      "symbol": "ViewHolder",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API ViewHolder implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:ViewHolder#register",
+      "owner": "reactor",
+      "symbol": "ViewHolder.register",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API ViewHolder.register implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:ViewHolder#setEpoch",
+      "owner": "reactor",
+      "symbol": "ViewHolder.setEpoch",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API ViewHolder.setEpoch implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:ViewHolder#hold",
+      "owner": "reactor",
+      "symbol": "ViewHolder.hold",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API ViewHolder.hold implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:ViewHolder#refresh",
+      "owner": "reactor",
+      "symbol": "ViewHolder.refresh",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API ViewHolder.refresh implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:ViewHolder#drop",
+      "owner": "reactor",
+      "symbol": "ViewHolder.drop",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API ViewHolder.drop implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:ViewHolder#nextBoundary",
+      "owner": "reactor",
+      "symbol": "ViewHolder.nextBoundary",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API ViewHolder.nextBoundary implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:ViewWitness",
+      "owner": "reactor",
+      "symbol": "ViewWitness",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API ViewWitness implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:ViewWitness#create",
+      "owner": "reactor",
+      "symbol": "ViewWitness.create",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API ViewWitness.create implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:ViewsConformanceReport",
+      "owner": "reactor",
+      "symbol": "ViewsConformanceReport",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API ViewsConformanceReport implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:ViewsConformanceReport#passed",
+      "owner": "reactor",
+      "symbol": "ViewsConformanceReport.passed",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API ViewsConformanceReport.passed implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:ViewsConformanceReport#skipped",
+      "owner": "reactor",
+      "symbol": "ViewsConformanceReport.skipped",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API ViewsConformanceReport.skipped implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:ViewsStoreRequest",
+      "owner": "reactor",
+      "symbol": "ViewsStoreRequest",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API ViewsStoreRequest implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:ViewsStoreRequest#changeRetention",
+      "owner": "reactor",
+      "symbol": "ViewsStoreRequest.changeRetention",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API ViewsStoreRequest.changeRetention implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:index.ts:ViewsStoreRequest#changePageSize",
+      "owner": "reactor",
+      "symbol": "ViewsStoreRequest.changePageSize",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API ViewsStoreRequest.changePageSize implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:ViewProgram",
+      "owner": "reactor",
+      "symbol": "ViewProgram",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewProgram implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:ViewProgram#term",
+      "owner": "reactor",
+      "symbol": "ViewProgram.term",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewProgram.term implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:ViewProgram#registry",
+      "owner": "reactor",
+      "symbol": "ViewProgram.registry",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewProgram.registry implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:ViewProgram#selection",
+      "owner": "reactor",
+      "symbol": "ViewProgram.selection",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewProgram.selection implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:ViewProgram#epoch",
+      "owner": "reactor",
+      "symbol": "ViewProgram.epoch",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewProgram.epoch implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:ViewKey",
+      "owner": "reactor",
+      "symbol": "ViewKey",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewKey implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:ViewKey#name",
+      "owner": "reactor",
+      "symbol": "ViewKey.name",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewKey.name implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:ViewKey#root",
+      "owner": "reactor",
+      "symbol": "ViewKey.root",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewKey.root implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:ViewRead",
+      "owner": "reactor",
+      "symbol": "ViewRead",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewRead implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:ViewRead#bytes",
+      "owner": "reactor",
+      "symbol": "ViewRead.bytes",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewRead.bytes implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:ViewRead#position",
+      "owner": "reactor",
+      "symbol": "ViewRead.position",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewRead.position implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:ViewRead#expiresAt",
+      "owner": "reactor",
+      "symbol": "ViewRead.expiresAt",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewRead.expiresAt implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:ViewRead#from",
+      "owner": "reactor",
+      "symbol": "ViewRead.from",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewRead.from implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:ViewRead#capture",
+      "owner": "reactor",
+      "symbol": "ViewRead.capture",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewRead.capture implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:ViewRead#name",
+      "owner": "reactor",
+      "symbol": "ViewRead.name",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewRead.name implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:ViewRead#root",
+      "owner": "reactor",
+      "symbol": "ViewRead.root",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewRead.root implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:ViewChange",
+      "owner": "reactor",
+      "symbol": "ViewChange",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewChange implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:ViewChange#before",
+      "owner": "reactor",
+      "symbol": "ViewChange.before",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewChange.before implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:ViewChange#after",
+      "owner": "reactor",
+      "symbol": "ViewChange.after",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewChange.after implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:ViewChange#name",
+      "owner": "reactor",
+      "symbol": "ViewChange.name",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewChange.name implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:ViewChange#root",
+      "owner": "reactor",
+      "symbol": "ViewChange.root",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewChange.root implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:Refresh",
+      "owner": "reactor",
+      "symbol": "Refresh",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API Refresh implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:Refresh#position",
+      "owner": "reactor",
+      "symbol": "Refresh.position",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API Refresh.position implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:Refresh#changed",
+      "owner": "reactor",
+      "symbol": "Refresh.changed",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API Refresh.changed implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:Refresh#reread",
+      "owner": "reactor",
+      "symbol": "Refresh.reread",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API Refresh.reread implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:Refresh#resynced",
+      "owner": "reactor",
+      "symbol": "Refresh.resynced",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API Refresh.resynced implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:StoreViewsOptions",
+      "owner": "reactor",
+      "symbol": "StoreViewsOptions",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API StoreViewsOptions implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:StoreViewsOptions#maxViews",
+      "owner": "reactor",
+      "symbol": "StoreViewsOptions.maxViews",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API StoreViewsOptions.maxViews implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:StoreViewsOptions#rounds",
+      "owner": "reactor",
+      "symbol": "StoreViewsOptions.rounds",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API StoreViewsOptions.rounds implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:ViewQuirks",
+      "owner": "reactor",
+      "symbol": "ViewQuirks",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewQuirks implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:ViewQuirks#neverReread",
+      "owner": "reactor",
+      "symbol": "ViewQuirks.neverReread",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewQuirks.neverReread implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:ViewQuirks#rereadAll",
+      "owner": "reactor",
+      "symbol": "ViewQuirks.rereadAll",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewQuirks.rereadAll implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:ViewQuirks#ignoreRemoved",
+      "owner": "reactor",
+      "symbol": "ViewQuirks.ignoreRemoved",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewQuirks.ignoreRemoved implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:ViewQuirks#ignoreNegators",
+      "owner": "reactor",
+      "symbol": "ViewQuirks.ignoreNegators",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewQuirks.ignoreNegators implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:ViewQuirks#keepOldIndex",
+      "owner": "reactor",
+      "symbol": "ViewQuirks.keepOldIndex",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewQuirks.keepOldIndex implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:ViewQuirks#keepIndexOnDrop",
+      "owner": "reactor",
+      "symbol": "ViewQuirks.keepIndexOnDrop",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewQuirks.keepIndexOnDrop implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:ViewQuirks#ignoreSince",
+      "owner": "reactor",
+      "symbol": "ViewQuirks.ignoreSince",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewQuirks.ignoreSince implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:ViewQuirks#ignoreExpiresAt",
+      "owner": "reactor",
+      "symbol": "ViewQuirks.ignoreExpiresAt",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewQuirks.ignoreExpiresAt implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:ViewQuirks#ignoreEpoch",
+      "owner": "reactor",
+      "symbol": "ViewQuirks.ignoreEpoch",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewQuirks.ignoreEpoch implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:ViewQuirks#newerSnapshot",
+      "owner": "reactor",
+      "symbol": "ViewQuirks.newerSnapshot",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewQuirks.newerSnapshot implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:ViewQuirks#advanceOnFailure",
+      "owner": "reactor",
+      "symbol": "ViewQuirks.advanceOnFailure",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewQuirks.advanceOnFailure implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:ViewQuirks#mergeOnResync",
+      "owner": "reactor",
+      "symbol": "ViewQuirks.mergeOnResync",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewQuirks.mergeOnResync implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:ViewQuirks#feedPerView",
+      "owner": "reactor",
+      "symbol": "ViewQuirks.feedPerView",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewQuirks.feedPerView implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:ViewQuirks#staleBoundary",
+      "owner": "reactor",
+      "symbol": "ViewQuirks.staleBoundary",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewQuirks.staleBoundary implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:ViewQuirks#scanEveryView",
+      "owner": "reactor",
+      "symbol": "ViewQuirks.scanEveryView",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewQuirks.scanEveryView implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:StoreViews",
+      "owner": "reactor",
+      "symbol": "StoreViews",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API StoreViews implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:StoreViews#register",
+      "owner": "reactor",
+      "symbol": "StoreViews.register",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API StoreViews.register implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:StoreViews#setEpoch",
+      "owner": "reactor",
+      "symbol": "StoreViews.setEpoch",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API StoreViews.setEpoch implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:StoreViews#hold",
+      "owner": "reactor",
+      "symbol": "StoreViews.hold",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API StoreViews.hold implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:StoreViews#refresh",
+      "owner": "reactor",
+      "symbol": "StoreViews.refresh",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API StoreViews.refresh implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:StoreViews#drop",
+      "owner": "reactor",
+      "symbol": "StoreViews.drop",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API StoreViews.drop implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:StoreViews#nextBoundary",
+      "owner": "reactor",
+      "symbol": "StoreViews.nextBoundary",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API StoreViews.nextBoundary implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:StoreViews#evalCountOf",
+      "owner": "reactor",
+      "symbol": "StoreViews.evalCountOf",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API StoreViews.evalCountOf implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/store-views.ts:StoreViews#indexSizes",
+      "owner": "reactor",
+      "symbol": "StoreViews.indexSizes",
+      "source": "implementations/ts/src/reactor/store-views.ts",
+      "definition": "implementations/ts/src/reactor/store-views.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API StoreViews.indexSizes implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-views.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:runViewsConformance",
+      "owner": "reactor",
+      "symbol": "runViewsConformance",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API runViewsConformance implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:STORE_VIEWS_FORMAT",
+      "owner": "reactor",
+      "symbol": "STORE_VIEWS_FORMAT",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API STORE_VIEWS_FORMAT implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:ViewsProgram",
+      "owner": "reactor",
+      "symbol": "ViewsProgram",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewsProgram implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:ViewsProgram#name",
+      "owner": "reactor",
+      "symbol": "ViewsProgram.name",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewsProgram.name implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:ViewsProgram#term",
+      "owner": "reactor",
+      "symbol": "ViewsProgram.term",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewsProgram.term implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:ViewsProgram#selection",
+      "owner": "reactor",
+      "symbol": "ViewsProgram.selection",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewsProgram.selection implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:ViewsKey",
+      "owner": "reactor",
+      "symbol": "ViewsKey",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewsKey implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:ViewsKey#program",
+      "owner": "reactor",
+      "symbol": "ViewsKey.program",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewsKey.program implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:ViewsKey#root",
+      "owner": "reactor",
+      "symbol": "ViewsKey.root",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewsKey.root implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:RegisterStep",
+      "owner": "reactor",
+      "symbol": "RegisterStep",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API RegisterStep implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:RegisterStep#op",
+      "owner": "reactor",
+      "symbol": "RegisterStep.op",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API RegisterStep.op implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:RegisterStep#program",
+      "owner": "reactor",
+      "symbol": "RegisterStep.program",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API RegisterStep.program implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:RegisterStep#epoch",
+      "owner": "reactor",
+      "symbol": "RegisterStep.epoch",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API RegisterStep.epoch implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:RegisterStep#expect",
+      "owner": "reactor",
+      "symbol": "RegisterStep.expect",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API RegisterStep.expect implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:HoldStep",
+      "owner": "reactor",
+      "symbol": "HoldStep",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API HoldStep implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:HoldStep#op",
+      "owner": "reactor",
+      "symbol": "HoldStep.op",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API HoldStep.op implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:HoldStep#program",
+      "owner": "reactor",
+      "symbol": "HoldStep.program",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API HoldStep.program implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:HoldStep#root",
+      "owner": "reactor",
+      "symbol": "HoldStep.root",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API HoldStep.root implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:HoldStep#now",
+      "owner": "reactor",
+      "symbol": "HoldStep.now",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API HoldStep.now implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:HoldStep#expect",
+      "owner": "reactor",
+      "symbol": "HoldStep.expect",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API HoldStep.expect implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:RefreshStep",
+      "owner": "reactor",
+      "symbol": "RefreshStep",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API RefreshStep implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:RefreshStep#op",
+      "owner": "reactor",
+      "symbol": "RefreshStep.op",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API RefreshStep.op implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:RefreshStep#now",
+      "owner": "reactor",
+      "symbol": "RefreshStep.now",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API RefreshStep.now implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:RefreshStep#expect",
+      "owner": "reactor",
+      "symbol": "RefreshStep.expect",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API RefreshStep.expect implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:DropStep",
+      "owner": "reactor",
+      "symbol": "DropStep",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API DropStep implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:DropStep#op",
+      "owner": "reactor",
+      "symbol": "DropStep.op",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API DropStep.op implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:DropStep#program",
+      "owner": "reactor",
+      "symbol": "DropStep.program",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API DropStep.program implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:DropStep#root",
+      "owner": "reactor",
+      "symbol": "DropStep.root",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API DropStep.root implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:DropStep#expect",
+      "owner": "reactor",
+      "symbol": "DropStep.expect",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API DropStep.expect implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:SetEpochStep",
+      "owner": "reactor",
+      "symbol": "SetEpochStep",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API SetEpochStep implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:SetEpochStep#op",
+      "owner": "reactor",
+      "symbol": "SetEpochStep.op",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API SetEpochStep.op implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:SetEpochStep#program",
+      "owner": "reactor",
+      "symbol": "SetEpochStep.program",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API SetEpochStep.program implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:SetEpochStep#epoch",
+      "owner": "reactor",
+      "symbol": "SetEpochStep.epoch",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API SetEpochStep.epoch implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:ViewsCaseStep",
+      "owner": "reactor",
+      "symbol": "ViewsCaseStep",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewsCaseStep implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:ViewsCaseStep#op",
+      "owner": "reactor",
+      "symbol": "ViewsCaseStep.op",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API ViewsCaseStep.op implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:ViewsCaseStep#program",
+      "owner": "reactor",
+      "symbol": "ViewsCaseStep.program",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewsCaseStep.program implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:ViewsCaseStep#epoch",
+      "owner": "reactor",
+      "symbol": "ViewsCaseStep.epoch",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewsCaseStep.epoch implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:ViewsCaseStep#expect",
+      "owner": "reactor",
+      "symbol": "ViewsCaseStep.expect",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API ViewsCaseStep.expect implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:ViewsCaseStep#root",
+      "owner": "reactor",
+      "symbol": "ViewsCaseStep.root",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewsCaseStep.root implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:ViewsCaseStep#now",
+      "owner": "reactor",
+      "symbol": "ViewsCaseStep.now",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewsCaseStep.now implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:ViewsCaseStep#peer",
+      "owner": "reactor",
+      "symbol": "ViewsCaseStep.peer",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API ViewsCaseStep.peer implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:ViewsCaseStep#erasure",
+      "owner": "reactor",
+      "symbol": "ViewsCaseStep.erasure",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API ViewsCaseStep.erasure implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:ViewsCaseStep#handle",
+      "owner": "reactor",
+      "symbol": "ViewsCaseStep.handle",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API ViewsCaseStep.handle implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:ViewsCaseStep#revisionAs",
+      "owner": "reactor",
+      "symbol": "ViewsCaseStep.revisionAs",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API ViewsCaseStep.revisionAs implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:ViewsCaseStep#expectedHead",
+      "owner": "reactor",
+      "symbol": "ViewsCaseStep.expectedHead",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API ViewsCaseStep.expectedHead implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:ViewsCaseStep#nextHead",
+      "owner": "reactor",
+      "symbol": "ViewsCaseStep.nextHead",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API ViewsCaseStep.nextHead implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:ViewsCaseStep#frame",
+      "owner": "reactor",
+      "symbol": "ViewsCaseStep.frame",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API ViewsCaseStep.frame implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:ViewsCaseStep#added",
+      "owner": "reactor",
+      "symbol": "ViewsCaseStep.added",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API ViewsCaseStep.added implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:ViewsCaseStep#ids",
+      "owner": "reactor",
+      "symbol": "ViewsCaseStep.ids",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API ViewsCaseStep.ids implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:ViewsCaseStep#snapshot",
+      "owner": "reactor",
+      "symbol": "ViewsCaseStep.snapshot",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API ViewsCaseStep.snapshot implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:ViewsCaseStep#entities",
+      "owner": "reactor",
+      "symbol": "ViewsCaseStep.entities",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API ViewsCaseStep.entities implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:ViewsCaseStep#anchors",
+      "owner": "reactor",
+      "symbol": "ViewsCaseStep.anchors",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API ViewsCaseStep.anchors implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:ViewsCaseStep#pushdown",
+      "owner": "reactor",
+      "symbol": "ViewsCaseStep.pushdown",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API ViewsCaseStep.pushdown implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:ViewsCaseStep#exclude",
+      "owner": "reactor",
+      "symbol": "ViewsCaseStep.exclude",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API ViewsCaseStep.exclude implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:ViewsCaseStep#as",
+      "owner": "reactor",
+      "symbol": "ViewsCaseStep.as",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API ViewsCaseStep.as implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:ViewsCaseStep#from",
+      "owner": "reactor",
+      "symbol": "ViewsCaseStep.from",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API ViewsCaseStep.from implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:ViewsCaseStep#to",
+      "owner": "reactor",
+      "symbol": "ViewsCaseStep.to",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API ViewsCaseStep.to implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:StoreViewsCase",
+      "owner": "reactor",
+      "symbol": "StoreViewsCase",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API StoreViewsCase implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:StoreViewsCase#name",
+      "owner": "reactor",
+      "symbol": "StoreViewsCase.name",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API StoreViewsCase.name implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:StoreViewsCase#note",
+      "owner": "reactor",
+      "symbol": "StoreViewsCase.note",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API StoreViewsCase.note implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:StoreViewsCase#spec",
+      "owner": "reactor",
+      "symbol": "StoreViewsCase.spec",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API StoreViewsCase.spec implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:StoreViewsCase#requires",
+      "owner": "reactor",
+      "symbol": "StoreViewsCase.requires",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API StoreViewsCase.requires implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:StoreViewsCase#store",
+      "owner": "reactor",
+      "symbol": "StoreViewsCase.store",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API StoreViewsCase.store implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:StoreViewsCase#views",
+      "owner": "reactor",
+      "symbol": "StoreViewsCase.views",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API StoreViewsCase.views implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:StoreViewsCase#steps",
+      "owner": "reactor",
+      "symbol": "StoreViewsCase.steps",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API StoreViewsCase.steps implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:StoreViewsDocument",
+      "owner": "reactor",
+      "symbol": "StoreViewsDocument",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API StoreViewsDocument implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:StoreViewsDocument#note",
+      "owner": "reactor",
+      "symbol": "StoreViewsDocument.note",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API StoreViewsDocument.note implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:StoreViewsDocument#reference",
+      "owner": "reactor",
+      "symbol": "StoreViewsDocument.reference",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API StoreViewsDocument.reference implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:StoreViewsDocument#peers",
+      "owner": "reactor",
+      "symbol": "StoreViewsDocument.peers",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API StoreViewsDocument.peers implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:StoreViewsDocument#deltas",
+      "owner": "reactor",
+      "symbol": "StoreViewsDocument.deltas",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API StoreViewsDocument.deltas implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:StoreViewsDocument#format",
+      "owner": "reactor",
+      "symbol": "StoreViewsDocument.format",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API StoreViewsDocument.format implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:StoreViewsDocument#schemas",
+      "owner": "reactor",
+      "symbol": "StoreViewsDocument.schemas",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API StoreViewsDocument.schemas implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:StoreViewsDocument#programs",
+      "owner": "reactor",
+      "symbol": "StoreViewsDocument.programs",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API StoreViewsDocument.programs implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:StoreViewsDocument#setup",
+      "owner": "reactor",
+      "symbol": "StoreViewsDocument.setup",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API StoreViewsDocument.setup implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:StoreViewsDocument#cases",
+      "owner": "reactor",
+      "symbol": "StoreViewsDocument.cases",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API StoreViewsDocument.cases implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:ViewsStoreRequest",
+      "owner": "reactor",
+      "symbol": "ViewsStoreRequest",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewsStoreRequest implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:ViewsStoreRequest#changeRetention",
+      "owner": "reactor",
+      "symbol": "ViewsStoreRequest.changeRetention",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewsStoreRequest.changeRetention implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:ViewsStoreRequest#changePageSize",
+      "owner": "reactor",
+      "symbol": "ViewsStoreRequest.changePageSize",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewsStoreRequest.changePageSize implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:ViewHolder",
+      "owner": "reactor",
+      "symbol": "ViewHolder",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewHolder implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:ViewHolder#register",
+      "owner": "reactor",
+      "symbol": "ViewHolder.register",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewHolder.register implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:ViewHolder#setEpoch",
+      "owner": "reactor",
+      "symbol": "ViewHolder.setEpoch",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewHolder.setEpoch implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:ViewHolder#hold",
+      "owner": "reactor",
+      "symbol": "ViewHolder.hold",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewHolder.hold implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:ViewHolder#refresh",
+      "owner": "reactor",
+      "symbol": "ViewHolder.refresh",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewHolder.refresh implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:ViewHolder#drop",
+      "owner": "reactor",
+      "symbol": "ViewHolder.drop",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewHolder.drop implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:ViewHolder#nextBoundary",
+      "owner": "reactor",
+      "symbol": "ViewHolder.nextBoundary",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewHolder.nextBoundary implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:ViewWitness",
+      "owner": "reactor",
+      "symbol": "ViewWitness",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewWitness implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:ViewWitness#create",
+      "owner": "reactor",
+      "symbol": "ViewWitness.create",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewWitness.create implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:ViewsConformanceReport",
+      "owner": "reactor",
+      "symbol": "ViewsConformanceReport",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewsConformanceReport implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:ViewsConformanceReport#passed",
+      "owner": "reactor",
+      "symbol": "ViewsConformanceReport.passed",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewsConformanceReport.passed implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:reactor/views-conformance.ts:ViewsConformanceReport#skipped",
+      "owner": "reactor",
+      "symbol": "ViewsConformanceReport.skipped",
+      "source": "implementations/ts/src/reactor/views-conformance.ts",
+      "definition": "implementations/ts/src/reactor/views-conformance.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API ViewsConformanceReport.skipped implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/views-conformance.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/freshness.ts:advanceCapture",
+      "owner": "storage",
+      "symbol": "advanceCapture",
+      "source": "implementations/ts/src/storage/freshness.ts",
+      "definition": "implementations/ts/src/storage/freshness.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API advanceCapture implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/freshness.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
     }
   ]
 }
