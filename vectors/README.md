@@ -39,6 +39,10 @@ vectors/
   principal/
     evidence.json         signed principal evidence and curated association, authority,
                           history, and actsFor decisions (SPEC-14)
+  store/                  SPEC-18 proposal: the store interface. Format: store/README.md
+    scripts.json          operation scripts: peers and postures, append, point reads, scope,
+                          purge, snapshots, export; each step names its expected ids or report
+    scope.json            the trim lemma: scope cases with and without each pushdown field
 ```
 
 (Levels here name the conformance level being exercised, per SPEC-0 §5.1 — Level 0 = Format,

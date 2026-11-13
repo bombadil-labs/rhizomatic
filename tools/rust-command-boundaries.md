@@ -17,7 +17,8 @@ ordinary semantic modules. Host filesystem and HTTP facilities are permitted at
 named adapter functions; importing or calling those functions from semantic code
 is rejected. Crypto dependencies are limited to their implementing modules.
 Standard library containers, string/number codecs and memory operations are
-allowed; environment, clocks, process spawning and filesystem access are not
+allowed. The memory store (`memory_store.rs`) may hold its shared in-process state
+behind `std::sync::Mutex`; environment, clocks, process spawning and filesystem access are not
 implicit semantic capabilities.
 
 Tests use temporary Rust source trees, processed by the real scanner. They cover

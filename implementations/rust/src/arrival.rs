@@ -11,14 +11,7 @@ pub struct ArrivalCursor {
     pub last_transfer: u64,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct ArrivalRecord {
-    pub id: String,
-    pub at: f64,
-    pub sequence: u64,
-    pub transfer: u64,
-    pub sender: String,
-}
+pub use crate::store::ArrivalRecord;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ArrivalPlan {

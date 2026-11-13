@@ -49,6 +49,10 @@ federation   → reactor, resolve, syntax, storage, delta
 derivation   → reactor, algebra, delta
 ```
 
+`storage` also owns the store interface (SPEC-18 proposal), the memory reference store and the
+store conformance runner. It defines `ArrivalRecord`, which the store keeps per peer;
+`federation` re-exports it. `storage` still depends only on `delta`.
+
 `schema-load` is the registry adapter for self-hosted schema deltas. The `resolve` package owns
 the terminal `resolve` term composition and public `evalTerm` entry point. `resolve-kernel` owns
 pure View policy evaluation below that composition; `algebra` owns HView serialization. This

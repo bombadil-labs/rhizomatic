@@ -1,11 +1,7 @@
-/** Arrival testimony assigned after a peer has chosen its final accepted set (SPEC-6 vNext §3). */
-export interface ArrivalRecord {
-  readonly id: string;
-  readonly at: number;
-  readonly sequence: number;
-  readonly transfer: number;
-  readonly sender: string;
-}
+import type { ArrivalRecord } from "../storage/arrival-record.js";
+
+// The record type lives in storage, which keeps arrivals per peer; this module plans them.
+export type { ArrivalRecord };
 
 export interface ArrivalCursor {
   readonly lastSequence: number;

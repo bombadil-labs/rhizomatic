@@ -102,6 +102,56 @@ export {
   type LensBinding,
 } from "./lens-binding.js";
 export { packId, packSet, unpackSet } from "./pack.js";
+export {
+  PURGE_BOUNDARY,
+  StoreError,
+  missingRequirements,
+  type Admission,
+  type Anchor,
+  type AppendResult,
+  type AppliedPushdown,
+  type CreatePeerOptions,
+  type ErasureClass,
+  type ErasurePosture,
+  type Exporter,
+  type PeerExporter,
+  type PeerId,
+  type PeerStore,
+  type PurgeOutcome,
+  type PurgeReport,
+  type Pushdown,
+  type Revision,
+  type ScopeRequest,
+  type ScopeResult,
+  type Snapshot,
+  type Store,
+  type StoreErrorCode,
+  type StoreProfile,
+  type StoreRequirement,
+  type SurfaceState,
+  type VerifiedDelta,
+} from "./storage/store.js";
+export {
+  MEMORY_STORE_FORMAT,
+  createMemoryStore,
+  type MemoryStoreOptions,
+  type StoreMeter,
+} from "./storage/memory-store.js";
+export {
+  openStore,
+  registerStoreScheme,
+  type OpenOptions,
+  type StoreFactory,
+} from "./storage/open-store.js";
+export { scopeSource, type ScopeSource } from "./storage/scope-source.js";
+export {
+  StoreConformanceError,
+  runStoreConformance,
+  type StoreConformanceFailure,
+  type StoreConformanceReport,
+} from "./storage/store-conformance.js";
+export { storeVectors } from "./storage/store-vectors.js";
+export { scopeOver, passesSelection, type StoreVectors } from "./storage/store-vector-format.js";
 export { Peer, syncBoth, type SyncReport } from "./peer.js";
 export { bundleEntryStatus, looseEntryStatus, type LooseEntryStatus } from "./federation/entry.js";
 export {

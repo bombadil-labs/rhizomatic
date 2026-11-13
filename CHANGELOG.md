@@ -6,6 +6,48 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); newest first.
 
 ## Unreleased
 
+The store, slice 1 (SPEC-18 proposal): one store interface with declared capabilities, and the
+memory reference store, in both witnesses against the same vectors. Nothing existing changes
+behavior, and the reactor does not use the store yet.
+
+### Added
+
+- The store interface types: `Store`, `PeerStore`, `Snapshot`, `ScopeRequest`, `ScopeResult`,
+  `Pushdown`, `Admission`, `AppendResult`, `PurgeReport`, `Revision`, `StoreProfile`, `Exporter`,
+  and `StoreError` with its codes.
+- `createMemoryStore()`, the reference store. Its profile reports only what slice 1 implements:
+  entity anchors, arrival records, the three pushdown fields, erasure class `unprovable`. It
+  serves no change feed, journal, value index, stored view, derived index or digest yet.
+- Peers are created with a declared erasure posture (`createPeer(id, { erasure })`). A peer that
+  promises proven erasure is refused on a store whose class is not `proven`.
+- `openStore(url)` with the `memory:` scheme, and `registerStoreScheme(scheme, factory)`. Schemes
+  match without regard to case. An error names a scheme only when it is registered, and never
+  the URL.
+- A store owns what it holds: it copies what it is given and what it returns, so no caller can
+  change stored state through a reference. It never converts: a value that is not of its type (an
+  `ArrayBuffer` where a `Uint8Array` payload belongs, a numeric string, a list that is not a
+  list) is refused `invalid-admission` in `append` and `invalid-request` elsewhere.
+- A purge report's `claim` is `proven`, `unproven` or `nothing-removed`, and covers only the
+  targets that report removed.
+- `scopeSource(members)`: a synchronous SPEC-17 delta source over a fetched scope.
+- `runStoreConformance(factory)`: runs the shared store vectors against any store. `storeVectors()`
+  returns those vectors.
+- Shared vectors `vectors/store/scripts.json` and `vectors/store/scope.json`, with their format in
+  `vectors/store/README.md`.
+
+- Rust witness: the same interface as synchronous traits (`Store`, `PeerStore`, `Snapshot`,
+  `Exporter`), `MemoryStore`, `StoreSchemes` and `open_store`, `scope_source`, and
+  `run_store_conformance`. It passes every script and scope case of `vectors/store/`. A Rust host
+  owns its scheme registry as a value; there is no process-wide table. A timed rail holds the
+  build of a `ScopeSource` to linear scaling, and a table of wrong stores holds the Rust runner to
+  each of its rules.
+
+### Changed
+
+- `ArrivalRecord` is defined in the `storage` package boundary. `federation` and the package root
+  still export it; no import needs to change. The Rust witness does the same, and its
+  `DeltaSource` trait now lives in `set` (`anchored` still exports it).
+
 ## 0.11.0-next.10 — 2026-10-14
 
 Release C: reads cost their footprint, not the store (SPEC-17 proposal, slices R1, R1b and R2),
