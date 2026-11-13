@@ -610,6 +610,34 @@ describe("StoreViews", () => {
     expect([reads, releases]).toEqual([8, 8]);
   });
 
+  it("resyncs with no feed call on another history or a lower revision", async () => {
+    for (const twist of [
+      (s: { history: string; revision: number }) => ({ history: `${s.history}-restored` }),
+      (s: { history: string; revision: number }) => ({ revision: s.revision - 2 }),
+    ]) {
+      const w = await writer();
+      await w.append([fact("a", 1), fact("b", 2)]);
+      let twisted = false;
+      const calls: string[] = [];
+      const peer: PeerStore = {
+        ...w.peer,
+        read: async () => {
+          const snapshot = await w.peer.read();
+          return twisted ? { ...snapshot, ...twist(snapshot) } : snapshot;
+        },
+        changes: (from, to) => (calls.push("changes"), w.peer.changes(from, to)),
+      };
+      const views = new StoreViews(peer);
+      views.register("leaf", { term: LEAF });
+      await views.hold("leaf", "a", 10);
+      await views.hold("leaf", "b", 10);
+      await w.append([fact("c", 3)]);
+      twisted = true;
+      const refreshed = await views.refresh(10);
+      expect([refreshed.resynced, refreshed.reread.length, calls]).toEqual([true, 2, []]);
+    }
+  });
+
   it("a purge reaches a held view at the next refresh; a named bystander is not read again", async () => {
     const w = await writer();
     const secret = fact("target", 1);

@@ -645,7 +645,7 @@ function cases(world: World): StoreViewsCase[] {
   );
   add(
     "a-view-gains-a-dynamic-anchor",
-    "x-p2-has-c9 makes cutting:9 a child of plant:2, so the read of tree1 at plant:2 gains the anchor cutting:9. Then x-c9-height points at cutting:9 alone: the view is touched through the anchor it gained.",
+    "x-p2-has-c9 makes cutting:9 a child of plant:2, so the read of tree1 at plant:2 gains the anchor cutting:9. Then x-c9-height points at cutting:9 alone: the view is touched through the anchor it gained. Then x-p2-has-c9 is purged: the view is read again and loses the anchor cutting:9 and the member x-c9-height. A purge of x-c9-height then reads nothing: a holder that kept the old index entries reads the view again.",
     (c) =>
       leaves(c)
         .hold("tree1", "plant:2")
@@ -653,6 +653,10 @@ function cases(world: World): StoreViewsCase[] {
         .append("A", "x-p2-has-c9")
         .refresh()
         .append("A", "x-c9-height")
+        .refresh()
+        .purge("A", "x-p2-has-c9")
+        .refresh()
+        .purge("A", "x-c9-height")
         .refresh(),
   );
   add(
@@ -771,7 +775,7 @@ function cases(world: World): StoreViewsCase[] {
   );
   add(
     "drop",
-    "The leaf at garden:1 is dropped. An append at garden:1 then reads nothing; holding it again reads it.",
+    "The leaf at garden:1 is dropped. An append at garden:1 then reads nothing; holding it again reads it. Then both views are dropped: with no view held, the next hold reads no feed, though a commit came between.",
     (c) =>
       leaves(c)
         .hold("leaf", "garden:1")
@@ -779,7 +783,11 @@ function cases(world: World): StoreViewsCase[] {
         .drop("leaf", "garden:1")
         .append("A", "late-g-note")
         .refresh()
-        .hold("leaf", "garden:1"),
+        .hold("leaf", "garden:1")
+        .drop("leaf", "garden:1")
+        .drop("leaf", "bed:1")
+        .append("A", "x-elsewhere")
+        .hold("leaf", "bed:1"),
   );
   add(
     "a-head-only-commit",

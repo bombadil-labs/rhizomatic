@@ -2610,7 +2610,8 @@ The JSON cannot express these; each witness builds them.
   (`a-purge-and-a-re-add-between-refreshes`).
 - A touch through a dynamic anchor two levels down (`a-touch-through-a-dynamic-anchor`); a view
   that gains a dynamic anchor when it is read again and is then touched through it alone
-  (`a-view-gains-a-dynamic-anchor`); two views that share an anchor, both read again
+  (`a-view-gains-a-dynamic-anchor`), then loses it, and a purge at the lost anchor reads nothing
+  (the same case); two views that share an anchor, both read again
   (`two-views-share-an-anchor`); a touch through a static anchor (`a-touch-through-a-static-anchor`).
 - Time: a window `[36, 60)`, refreshes at 59 (kept), 60 (read, the boundary moves to none), 30
   (below the new window) and 55 (`time-moves-past-the-window-and-back`).
@@ -2621,7 +2622,8 @@ The JSON cannot express these; each witness builds them.
 - A store that keeps one record: two commits between refreshes resync (`retention-too-short`).
 - Another peer's commits: no feed call, nothing read (`another-peers-commits`).
 - `maxViews` 2: eviction of the least recently held or asked view, and a re-hold that reads it
-  (`max-views-evicts-the-least-recently-held`); `drop` (`drop`).
+  (`max-views-evicts-the-least-recently-held`); `drop`, and a hold after every view was dropped,
+  which reads no feed (`drop`).
 - Pages of one record: four commits between refreshes, one `get` per page that adds
   (`several-commits-in-pages-of-one`).
 - A hold whose pass reads another view, and the refresh that reports that view's change

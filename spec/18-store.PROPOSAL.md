@@ -670,7 +670,8 @@ four in all, as `checkFresh` does. A feed page with no progress, or one past râ€
   from those it had at the previous refresh (or at its first read since then), with both. A view
   that a `hold` read again since the previous refresh is in `changed` when its bytes differ. A
   view first held since then, and a view forgotten, are not. `changed` is ordered as `reread`.
-- `drop` forgets one view. Forgetting, by `drop` or by eviction, leaves nothing in any index.
+- `drop` forgets one view; a view not held is no error. Forgetting, by `drop` or by eviction,
+  leaves nothing in any index.
 
 **The claim** (SPEC-4 Â§1 through a store). After a pass at position p and time `now`, every held
 view's bytes equal a fresh `readAnchored` of its program and root on the snapshot at p, at `now`.

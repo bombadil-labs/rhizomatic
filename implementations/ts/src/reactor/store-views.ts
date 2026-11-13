@@ -492,9 +492,9 @@ export class StoreViews {
 
   /**
    * Reads `changes(from, r′)` page by page and adds to `touched` every held view (or every one
-   * among `only`) that a
-   * record touches: a record removes a member, or an added id still held at r′ points at an
-   * anchor or negates a member (the rule of `touching`). Answers false on `resync-required`.
+   * among `only`) that a record touches: a record removes a member, or an added id still held at
+   * r′ points at an anchor or negates a member (the rule of `touching`). Answers false on
+   * `resync-required`.
    */
   private async feed(
     snapshot: Snapshot,
