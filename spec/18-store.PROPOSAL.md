@@ -313,10 +313,17 @@ type ChangePage =
 
 **`changes(from, to?)`** answers the records with `from < revision ≤ to`, ascending by revision.
 
-- **The order of the answers.** First, a `from` or `to` that is not an integer from 0 to
-  2^53 − 1 is refused `invalid-request`. Then an explicit `to` below `from` is refused
-  `invalid-request`. After these checks, the answer is `resync-required` exactly when `from` is
-  below the floor or above the current revision. Otherwise it is `ok`.
+- **The order of the answers.** In this order:
+  1. A closed store refuses `store-closed`.
+  2. A store whose `changeRetention` is `none` refuses `capability-absent`.
+  3. A `from` or `to` that is not an integer from 0 to 2^53 − 1 is refused `invalid-request`.
+  4. An explicit `to` below `from` is refused `invalid-request`.
+  5. The answer is `resync-required` exactly when `from` is below the floor or above the current
+     revision.
+  6. Otherwise the answer is `ok`.
+
+  `peer-absent` cannot occur: `changes` is called on a peer handle, and a handle stays valid
+  while the store is open (§4.11 reading 23).
 - `to` defaults to the current revision. A `to` beyond the current revision is clamped to it. A
   defaulted `to` is never compared with `from`.
 - `from` equal to the current revision answers `ok` with no records and `through = from`.
@@ -586,9 +593,9 @@ A host names the capabilities it requires. Open fails with a message that names 
 A store never claims a capability it implements by scanning.
 
 `changeRetention` is `none` (no feed; `changes` refuses `capability-absent`), `unbounded` (every
-record is kept), or `{revisions: n}` with n an integer of 1 or more: each peer keeps exactly the
-records of its latest n revision advances, and drops the oldest when it writes the record after
-the nth.
+record is kept), or `{revisions: n}` with n an integer from 1 to 2^53 − 1, in every witness: each
+peer keeps exactly the records of its latest n revision advances, and drops the oldest when it
+writes the record after the nth.
 
 ### 4.9 Trust at rest
 
@@ -1052,10 +1059,11 @@ the plan were silent, the feed decided as follows. `vectors/store/scripts.json` 
    vectors need this to name a revision past the current one (`ahead`, README §3.9).
 2. **Bad bounds.** A `from` or `to` that is not such an integer is refused `invalid-request`. It
    joins the closed list of §4.11 reading 21; a typed witness cannot receive one.
-3. **The order of the answers.** First the shape of the bounds (`invalid-request`), then an
-   explicit `to` below `from` (`invalid-request`). After these, `resync-required` exactly when
-   `from` is below the floor or above the current revision; otherwise `ok`. The shape of a
-   request comes first, as in §4.11 reading 27. §4.6 states the same order.
+3. **The order of the answers** is stated once, in §4.6: `store-closed`, `capability-absent`,
+   the shape of the bounds, an explicit `to` below `from`, then `resync-required` exactly when
+   `from` is below the floor or above the current revision, then `ok`. The shape of a request
+   comes before the feed's state, as in §4.11 reading 27. The TypeScript memory store follows
+   this order; it never answers `capability-absent`, because it always serves a feed.
 4. **A defaulted `to` is never compared.** A cursor from the future with no `to` answers
    `resync-required`, not `invalid-request`. Otherwise the default `to`, the current revision,
    would turn every cursor from the future into a refusal.
@@ -1100,8 +1108,9 @@ the plan were silent, the feed decided as follows. `vectors/store/scripts.json` 
     TypeScript memory store meets it by handing out records it froze when it wrote them, in a
     new list per page.
 15. **The memory store's options.** `changeRetention` is `unbounded` (the default) or
-    `{revisions: n}`. `changePageSize: n` bounds a page to n records; it exists so tests exercise
-    paging. Any other value is refused `invalid-request` when the store is made.
+    `{revisions: n}` with n an integer from 1 to 2^53 − 1, in every witness. `changePageSize: n`
+    bounds a page to n records, n an integer of 1 or more; it exists so tests exercise paging.
+    Any other value is refused `invalid-request` when the store is made.
 16. **The memory store finds `from` by arithmetic.** Its revisions advance by one and every advance
     writes one record, so the record after `from` sits at a fixed offset from the oldest kept
     record. A dropped record frees its slot, and the slots are compacted when half are free.
@@ -1117,10 +1126,21 @@ the plan were silent, the feed decided as follows. `vectors/store/scripts.json` 
     reading 36 does: a window of fixed size read once after each of N records, and N appends that
     keep N / 4 records, each at N and 8N (README §3.9).
 20. **Exact shape.** Each answer of `changes` has exactly its keys (§4.6, "Shape"). A key the
-    contract does not name fails, so a store cannot carry bytes in a record unseen.
+    contract does not name fails, so a store cannot carry bytes in a record unseen. A typed
+    witness whose record and page types have exactly the contract's fields meets this rule by
+    construction, and names the rule-table rows it cannot reach. An adapter that decodes a
+    serialized answer MUST refuse a field it does not know.
 21. **Revisions that skip values conform.** A store whose revisions are two or three apart, kept
     whole or bounded, with any page size, passes every vector. Each witness pins this with
     stores that scale the reference store's revisions (README §8).
+22. **Below the floor, between revisions.** Where revisions skip values, a `from` between the
+    previous kept revision and the floor is below the floor and answers `resync-required`. The
+    runner asks there, just below the floor (README §3.9.4, item 2). A store that reads on from
+    past the newest dropped record and answers `ok` there loses that record silently.
+23. **Asking again may give another prefix.** The ownership check asks a range again after
+    changing the first answer. The second answer may hold more or fewer records, because a
+    store may return any prefix (§4.6). Only the records the two answers share by revision must
+    be equal (README §3.9.5, check 14).
 
 
 ## 5. Architectures

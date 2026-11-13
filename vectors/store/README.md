@@ -317,8 +317,10 @@ The runner reads five things:
 - `capabilities.erasure`: `proven`, `unprovable` or `none`.
 - `capabilities.journal`: boolean.
 - `changeRetention`: `none`, `unbounded`, or `{"revisions": n}` with n an integer of 1 or more.
-  Any other value fails every script that creates a peer, with the message
-  `the profile's changeRetention is not none, unbounded or {revisions: n}`.
+  Any other value, `{"revisions": n}` with n outside 1 to 2^53 − 1 included, is a defect: the
+  runner fails each `createPeer` step with the message
+  `the profile's changeRetention is not none, unbounded or {revisions: n}`, before it calls the
+  store.
 - `pushdown.{timestampAtMost, arrivalAtMost, excludeIds}`: booleans.
 - `formatVersion`: a string.
 
@@ -634,7 +636,10 @@ no feed check.
   revision and the oldest kept one is above the floor.
 - **Shape.** A record has exactly the keys `added`, `head`, `removed`, `revision`. An `ok` answer
   has exactly `records`, `status`, `through`. A `resync-required` answer has exactly `current`,
-  `status`. Any other key fails, with the messages of §3.9.3.
+  `status`. Any other key fails, with the messages of §3.9.3. A typed witness whose record and
+  page types have exactly these fields meets this rule by construction; it names the rows it
+  cannot reach in its rule-table file (§8). An adapter that decodes a serialized answer (a
+  remote store, a store over another language) MUST refuse a field it does not know.
 - **Ownership.** A caller may change anything an answer returned: its list of records, a record,
   a record's `added` or `removed` list. No later answer changes (§7, test 9).
 
@@ -666,10 +671,16 @@ records of `records`. Let i be the number of records it dropped (`records.length
 revision of the newest dropped record. This is the floor of §3.9.1; the runner does not use
 "the revision just before the oldest kept record", which differs where revisions skip values.
 
+**Messages.** In §3.9.3 to §3.9.6 the fixed words of each message are normative. How a value
+inside a message is rendered is each witness's own: an id in full or shortened, a head, a list
+of ids or of revisions. Each witness's rule table pins its own rendering. Below, `<…>` marks a
+rendered value.
+
 #### 3.9.3 The check of each commit
 
 After every `append` (committed, `conflict` or refused) and every `purge`, let `before` be the
-revision read before the step. Call `changes(before)`, and again from each `through`, until a page
+revision read before the step. Through the step's own handle, call `changes(before)` with no
+`to`, and again from each `through`, until a page
 has `through` at or past the current revision or makes no progress. Each page must answer: a
 refusal fails with `changes refused with <code>`. Then each answer's shape is checked, here and
 wherever the runner reads an answer of `changes`:
@@ -697,9 +708,13 @@ Then, over the records collected:
    `the head-only commit to revision R wrote no record` (when the expected record has no id) or
    `the commit to revision R wrote no record`. Then there is exactly one, at revision R, else
    `the commit to revision R wrote records at <revisions>`. Its head, `added` and `removed`
-   equal the expected record's, else `the record of revision R has head …`,
-   `the record of revision R adds […], expected […]` or
-   `the record of revision R removes […], expected […]`.
+   equal the expected record's, else, in this order:
+   - `the record of revision <R> has head <head>, expected <head>`;
+   - `the record of revision <R> adds <ids>, expected <ids>`;
+   - `the record of revision <R> removes <ids>, expected <ids>`.
+
+The check of each commit does not record what it reads as "seen" (§3.9.5, check 13): only a
+page read does.
 
 #### 3.9.4 The check after every step
 
@@ -708,15 +723,21 @@ let F be the floor. Read the pages from F with no `to` (§3.9.5); an answer of `
 fails with `changes answered resync-required from F, and every record after F is retained`. When
 the peer dropped records (i > 0):
 
-1. Call `changes(revisions[i − 1])`. A refusal fails with `changes refused with <code>`. Check
-   the answer's shape (§3.9.3). It must answer `resync-required`, else
-   `changes answered ok from <r>, below the retention floor F`.
-2. **The floor probe.** Let K be `revisions[i + 1]`, the revision of the oldest kept record.
+1. **Below the floor.** Make ONE call `changes(revisions[i − 1])`, with no `to` and no paging.
+   A refusal fails with `changes refused with <code>`. Check the answer's shape (§3.9.3). It
+   must answer `resync-required`, else
+   `changes answered ok from <r>, below the retention floor <F>`. Its `current` must be the
+   model's current revision, else
+   `a resync answer carries current <c>, not the peer's revision <r>`.
+2. **Just below the floor.** When F − 1 > `revisions[i − 1]`, make the same one call, from
+   F − 1, with the same checks and messages. Only a store whose revisions skip values reaches
+   it: there F − 1 is not a revision the peer had, and it is still below the floor.
+3. **The floor probe.** Let K be `revisions[i + 1]`, the revision of the oldest kept record.
    When F + 1 < K, read the pages from F + 1 with no `to` (§3.9.5). An answer of
    `resync-required` fails with `changes answered resync-required from <F + 1>, above the
    retention floor F`. Only a store whose revisions skip values reaches this probe.
 
-The handle used is the one kept under the peer's own name.
+The check after every step reads through the handle kept under the peer's own name (§3.2).
 
 #### 3.9.5 Reading pages
 
@@ -739,23 +760,30 @@ revision and `end` the smaller of `to` and `current` (`current` when `to` is abs
 8. Let `last` be the last record's revision, or `at` when there is none. `through` is in
    `[last, end]`, else `the page's through T lies outside [last, end]`.
 9. Every model record in `(at, last]` is in the page, else
-   `the feed has no record for revision R`.
+   `the feed has no record for revision R`. The model here is every record the peer ever
+   wrote, dropped ones included; checks 10 and 13 use the same model.
 10. No model record is in `(last, through]`, else
     `the page claims through T and leaves out the record at R`.
 11. `through > at`, or `at = end`: else `the page from <at> made no progress toward <end>`.
 12. `through` is `last` or `end`, else
     `the page's through T is past its last record and short of <end>`.
-13. For each record: if the store returned a record at that revision before, in any read, it is
-    equal, else `the record at revision R changed after it was written`. Then it equals the model
-    record at that revision, else `the record at revision R differs from its commit`.
+13. For each record: if a page read returned a record at that revision before, it is equal,
+    else `the record at revision R changed after it was written`. Then it equals the model
+    record at that revision, else `the record at revision R differs from its commit`. Each page
+    read, the asking again of check 14 included, records what it returned as "seen"; the check
+    of each commit (§3.9.3) and the calls below the floor (§3.9.4) do not.
 14. **Ownership.** Copy the page's records for the result. Then change what the store returned,
     each change in its own attempt; a change that throws (a frozen value) is ignored:
     push onto the page's list of records a copy of its first record with `head` `"tampered"`
     (when it has a record); then, for each record, set `head` to `"tampered"`, push `"tampered"`
-    onto `added`, and push `"tampered"` onto `removed`. Call `changes(at, to)` again. It must
-    answer `ok`; every record it returns must equal, field by field, the record the first answer
-    had at that revision; and no two records may share a revision. Else
-    `changes answered differently after the caller changed what it returned`.
+    onto `added`, and push `"tampered"` onto `removed`. Call `changes(at, to)` again. A refusal
+    fails with `changes refused with <code>`. Check the answer's shape (§3.9.3). It must answer
+    `ok`; every record it returns that shares a revision with a record of the first answer must
+    equal that record, field by field; and no two records may share a revision. Else
+    `changes answered differently after the caller changed what it returned`. The second
+    answer may be another prefix of the range (§4.6 lets a store return any prefix): it may
+    hold more or fewer records than the first. Then checks 4 to 13 run on the second answer
+    too, from the same `at`.
 
 Collect the copies. When `through` is `end`, the read is done. Otherwise set `at = through` and
 call again.
@@ -780,7 +808,9 @@ call again.
   numbers need not match them. `peer` is a handle name (§3.2); the name belongs to that handle's
   peer.
 - A **revision reference** is `{"revision": <name>}`, or with `"ahead": k`: the named revision
-  plus the integer k. The vectors use `ahead` only to reach past the current revision.
+  plus the integer k. The vectors use `ahead` only to reach past the current revision. An
+  `ahead` that is not an integer of 0 or more (negative or fractional) is a document defect:
+  `the vector's ahead is not a whole number`.
 - Document defects, whatever the store: a name used before it is given
   (`the vector names an unknown revision <name>`), a name of another peer
   (`the vector names revision <name> of another peer`), and a name given twice
@@ -793,7 +823,8 @@ A `changes` step resolves `from` and `to` to integers and then:
 - `{"error": …}`: one call `changes(from, to)`, which must refuse with a listed code. No paging.
 - Otherwise the step expects `resync-required` when `expect` says so, **or when `from` is below
   the floor** (§3.9.2): a document is written for a feed that keeps every record, and a store
-  that keeps fewer answers `resync-required` there. Read the pages (§3.9.5) from `from` to `to`.
+  that keeps fewer answers `resync-required` there. Read the pages (§3.9.5) from `from` to `to`,
+  with all their checks, first. Then give the verdict below.
   - Expected `resync-required`, answered `ok`: fail with
     `changes answered ok from <from>, below the retention floor F` (when `from` is below F) or
     `changes answered ok from <from>, and the step expects resync-required`.
@@ -1432,7 +1463,28 @@ The table covers at least:
   scaled: `changes(from, to)` asks the reference for `floor(from / k)` to `floor(to / k)`, and a
   complete page says `through` = the clamped `to`. It refuses `to < from` itself, and answers
   `resync-required` itself for a `from` above k times the reference's revision. Each passes
-  every vector.
+  every vector. A fifth right store answers pages of at most 1, then 2, then 1, then 2 records,
+  call by call: the same request gets another prefix (§3.9.5, check 14).
+- **More feed rows** (second review): revisions times 3 and times 2, two records kept, that
+  answer `ok` just below the floor by reading on past the newest dropped record (§3.9.4, item
+  2); a wrong `current` on the call below the floor only, in a script with no `changes` step;
+  an extra key only on the answer asked again after a change (§3.9.5, check 14); an `ahead`
+  that is negative and one that is fractional (documents); a `changes` step that expects
+  `resync-required` where `ok` is right (a document; it reaches
+  `changes answered ok from <from>, and the step expects resync-required`).
+- **Rows in one witness only.** Each witness names, in its rule-table file, the rows it cannot
+  build and why:
+  - Rust has no row for exact keys (§3.9.3), for a page that is neither `ok` nor
+    `resync-required` (§3.9.5, check 3), or for the store that hands out its live records or
+    live id lists (check 14). Its `ChangeRecord` and `ChangePage` types have exactly the
+    contract's fields and two statuses, and a returned page is owned by the caller, so no
+    store can reach those rules. Rust's row `AnswersTwoWays` (a store that answers the asking
+    again of check 14 differently) stands in for the live rows and holds the re-ask to its
+    message. The shape check on the asking again (TypeScript row "an extra key only on the
+    answer asked again") is type-unreachable in Rust for the same reason.
+  - TypeScript has no `AnswersTwoWays` row. Its rows for live records and live id lists reach
+    the same message, `changes answered differently after the caller changed what it
+    returned`, through the change the runner makes.
 - **The change feed** (§3.9), one wrong store per message of §3.9.3 to §3.9.6, at least:
   no record for a head-only commit; no record for a commit that adds; two records for one
   commit; a record for a step that did not advance; a record with another head; one that adds
