@@ -1964,10 +1964,11 @@ parses it back to an equal capture. A witness that changes its writer regenerate
 Each witness also pins its own entry byte for byte, so the file cannot drift from its writer.
 The scenario: a memory store whose `mintHistory` answers `host:interchange`; one peer; one append
 (revision 1) of two facts at `plant:a`, each with `validFrom` equal to its `timestamp`, 5 and 10,
-author `did:key:zA`, pointers `subject` at entity `plant:a` (context `c`) and `value` the
-timestamp as a number; a capture of the anchor `plant:a` at `now` 100 with no selection
-(`since` 10, `expiresAt` null). The witness's JSON writer applied to that capture equals its
-committed string exactly. The two witnesses' facts differ, so their member ids differ.
+pointers `subject` at entity `plant:a` (context `c`) and `value` the timestamp as a number; a
+capture of the anchor `plant:a` at `now` 100 with no selection (`since` 10, `expiresAt` null).
+The author of the facts is `did:key:zA` for the TypeScript entry and `did:key:zFresh` for the
+Rust entry. The witness's JSON writer applied to that capture equals its committed string
+exactly. The two witnesses' facts differ in their author, so their member ids differ.
 
 ## 10. `follow.json`
 

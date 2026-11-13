@@ -183,7 +183,7 @@ const OTHER_ANCHOR_KINDS: [&str; 2] = ["value", "derived-index"];
 
 /// A revision as JSON writes it: an integer from 0 to 2^53 − 1. JSON has one number type, so
 /// `1.0` is the integer 1; `1.5` is not an integer.
-fn json_revision(value: &Value) -> Option<u64> {
+pub(crate) fn json_revision(value: &Value) -> Option<u64> {
     if let Some(n) = value.as_u64() {
         return Some(n);
     }
@@ -219,6 +219,11 @@ pub fn parse_capture(value: &Value) -> Result<Capture, StoreError> {
     let history = object["history"]
         .as_str()
         .ok_or_else(|| malformed("history is not a string"))?;
+    // The order of reading 54: the history, empty and then local, before the revision and the
+    // anchors, so an empty history beside a `value` anchor is `invalid-request`.
+    if history.is_empty() {
+        return Err(malformed("history is empty"));
+    }
     if history.starts_with(LOCAL_HISTORY_PREFIX) {
         return Err(malformed(&format!(
             "history {history} is local to the process that made it; a capture kept across processes needs a history from mintHistory (MemoryStore::with_history_mint)"
@@ -261,6 +266,12 @@ pub fn parse_capture(value: &Value) -> Result<Capture, StoreError> {
             })
         })
         .collect::<Result<Vec<_>, _>>()?;
+    // Their order before any member is read (reading 54).
+    if !strictly_ascending(anchors.iter().map(entity)) {
+        return Err(malformed(
+            "anchors is not strictly ascending by UTF-8 bytes",
+        ));
+    }
     let members = object["members"]
         .as_array()
         .ok_or_else(|| malformed("members is not a list"))?
@@ -458,9 +469,11 @@ impl Drop for Held {
 ///
 /// # Panics
 ///
-/// Panics when a page of the feed makes no progress short of r′. That page cannot vouch for the
-/// rest of the range, so the store broke the change feed contract (§4.6, "Pages"); no code of
-/// the shared vocabulary names a store fault, and a verdict would hide it (§4.13 reading 46).
+/// Panics when a page of the feed makes no progress short of r′, or claims records past r′
+/// (`through > r′`), before the page's ids are fetched. Such a page cannot vouch for the rest of
+/// the range, or claims records the check cannot judge, so the store broke the change feed
+/// contract (§4.6, "Pages"); no code of the shared vocabulary names a store fault, and a verdict
+/// would hide it (§4.13 reading 46).
 pub fn check_fresh(
     peer: &dyn PeerStore,
     capture: &Capture,
@@ -503,6 +516,20 @@ fn check_on_one_snapshot(
             }
             ChangePage::Ok { records, through } => (records, through),
         };
+        // A store fault, not a verdict, found before the page's ids are fetched or judged: such
+        // a page cannot vouch for the rest of the range, or claims records the check cannot judge.
+        assert!(
+            through > at,
+            "checkFresh: the store's page from {} made no progress toward {}; the store breaks the change feed contract (SPEC-18 §4.6)",
+            at.0,
+            at_read.0
+        );
+        assert!(
+            through <= at_read,
+            "checkFresh: the store's page claims records through {}, past the revision {} the check asked for; the store breaks the change feed contract (SPEC-18 §4.6)",
+            through.0,
+            at_read.0
+        );
         let ids: BTreeSet<&String> = records.iter().flat_map(|r| &r.added).collect();
         let added: BTreeMap<String, Delta> = match ids.is_empty() {
             true => BTreeMap::new(),
@@ -519,13 +546,6 @@ fn check_on_one_snapshot(
         if let Some(touch) = touching(capture, &records, &added) {
             return Ok(Freshness::Stale(touch));
         }
-        // A store fault, not a verdict: such a page cannot vouch for the rest of the range.
-        assert!(
-            through > at,
-            "checkFresh: the store's page from {} made no progress toward {}; the store breaks the change feed contract (SPEC-18 §4.6)",
-            at.0,
-            at_read.0
-        );
         at = through;
     }
     Ok(match (capture.since, capture.expires_at) {

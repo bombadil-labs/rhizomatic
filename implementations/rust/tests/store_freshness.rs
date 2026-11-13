@@ -1680,6 +1680,240 @@ fn a_page_that_makes_no_progress_fails_the_check_and_is_no_verdict() {
     assert!(message.contains("made no progress"), "{message}");
 }
 
+/// A peer whose feed answers a page past the revision the check asked for: `through` is `to + 5`.
+struct PastTo<'a>(&'a dyn PeerStore);
+
+impl PeerStore for PastTo<'_> {
+    fn id(&self) -> &str {
+        self.0.id()
+    }
+    fn erasure(&self) -> rhizomatic::store::PeerErasure {
+        self.0.erasure()
+    }
+    fn history(&self) -> &str {
+        self.0.history()
+    }
+    fn read(&self) -> Result<Box<dyn Snapshot>, StoreError> {
+        self.0.read()
+    }
+    fn append(&self, admission: &Admission) -> Result<AppendResult, StoreError> {
+        self.0.append(admission)
+    }
+    fn purge(&self, ids: &[String]) -> Result<rhizomatic::store::PurgeReport, StoreError> {
+        self.0.purge(ids)
+    }
+    fn changes(&self, _: Revision, to: Option<Revision>) -> Result<ChangePage, StoreError> {
+        Ok(ChangePage::Ok {
+            records: Vec::new(),
+            through: Revision(to.map_or(0, |to| to.0) + 5),
+        })
+    }
+}
+
+/// README §9.7, "Store faults and time": a page whose `through` is past r′ fails the check with
+/// an error that is not a verdict (SPEC-18 §4.13 reading 46).
+#[test]
+fn a_page_past_the_asked_revision_fails_the_check_and_is_no_verdict() {
+    let store = MemoryStore::new();
+    let peer = store
+        .create_peer("peer:past", ErasurePosture::Unproven)
+        .unwrap();
+    let capture = capture_now(peer.as_ref(), &["plant:a"], 100.0);
+    commit(
+        peer.as_ref(),
+        0,
+        0,
+        &[fact("plant:b", "c", 1.0, (1.0, None))],
+    );
+    let past = PastTo(peer.as_ref());
+    let failed = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        check_fresh(&past, &capture, 100.0)
+    }));
+    let message = match failed {
+        Ok(answer) => panic!("a store fault answered {answer:?}"),
+        Err(payload) => payload
+            .downcast_ref::<String>()
+            .cloned()
+            .unwrap_or_default(),
+    };
+    assert!(message.contains("past the revision"), "{message}");
+}
+
+/// SPEC-18 §4.13 reading 54: a capture with two defects is refused by the first in the order
+/// keys, history (empty, then local), revision, anchors (each anchor's shape and kind, then their
+/// order), members, window.
+#[test]
+fn a_capture_with_two_defects_is_refused_by_the_first_in_order() {
+    let value_anchor = serde_json::json!({"kind": "value", "role": "r"});
+    let base = || shape("host:1", &["a", "b"], &["plant:a", "plant:b"]);
+    let refusal = |edit: &dyn Fn(&mut Value)| {
+        let mut capture = base();
+        edit(&mut capture);
+        let e = parse_capture(&capture).unwrap_err();
+        (e.code, e.message)
+    };
+    let invalid = StoreErrorCode::InvalidRequest;
+    type Edit<'a> = &'a dyn Fn(&mut Value);
+    let cases: [(&str, Edit, StoreErrorCode, &str); 10] = [
+        (
+            "an extra key and a value anchor",
+            &|c| {
+                c["extra"] = 1.into();
+                c["anchors"][0] = value_anchor.clone();
+            },
+            invalid,
+            "capture: a capture has exactly",
+        ),
+        (
+            "an empty history and a value anchor",
+            &|c| {
+                c["history"] = "".into();
+                c["anchors"][0] = value_anchor.clone();
+            },
+            invalid,
+            "capture: history is empty",
+        ),
+        (
+            "an empty history and a fractional revision",
+            &|c| {
+                c["history"] = "".into();
+                c["revision"] = serde_json::json!(1.5);
+            },
+            invalid,
+            "capture: history is empty",
+        ),
+        (
+            "a local history and a fractional revision",
+            &|c| {
+                c["history"] = "memory:local:3".into();
+                c["revision"] = serde_json::json!(1.5);
+            },
+            invalid,
+            "capture: history memory:local:3 is local",
+        ),
+        (
+            "a fractional revision and a value anchor",
+            &|c| {
+                c["revision"] = serde_json::json!(1.5);
+                c["anchors"][0] = value_anchor.clone();
+            },
+            invalid,
+            "capture: revision is not an integer",
+        ),
+        (
+            "a value anchor after anchors out of order",
+            &|c| {
+                c["anchors"] = serde_json::json!([
+                    {"kind": "entity", "entity": "plant:b"},
+                    {"kind": "entity", "entity": "plant:a"},
+                    value_anchor.clone(),
+                ]);
+            },
+            StoreErrorCode::CapabilityAbsent,
+            "capture: a value anchor",
+        ),
+        (
+            "anchors out of order and a member that is not a string",
+            &|c| {
+                c["anchors"] = serde_json::json!([
+                    {"kind": "entity", "entity": "plant:b"},
+                    {"kind": "entity", "entity": "plant:a"},
+                ]);
+                c["members"][0] = 7.into();
+            },
+            invalid,
+            "capture: anchors is not strictly ascending",
+        ),
+        (
+            "a value anchor and members out of order",
+            &|c| {
+                c["anchors"][0] = value_anchor.clone();
+                c["members"] = serde_json::json!(["b", "a"]);
+            },
+            StoreErrorCode::CapabilityAbsent,
+            "capture: a value anchor",
+        ),
+        (
+            "members out of order and a window that is empty",
+            &|c| {
+                c["members"] = serde_json::json!(["b", "a"]);
+                c["since"] = 5.into();
+                c["expiresAt"] = 5.into();
+            },
+            invalid,
+            "capture: members is not strictly ascending",
+        ),
+        (
+            "a value anchor and a window that is empty",
+            &|c| {
+                c["anchors"][0] = value_anchor.clone();
+                c["since"] = 5.into();
+                c["expiresAt"] = 4.into();
+            },
+            StoreErrorCode::CapabilityAbsent,
+            "capture: a value anchor",
+        ),
+    ];
+    for (what, edit, code, reason) in cases {
+        let (got, message) = refusal(edit);
+        assert_eq!(got, code, "{what}: {message}");
+        assert!(message.starts_with(reason), "{what}: {message}");
+    }
+}
+
+/// README §9.8: this witness's entry of `capture-interchange.json` is its writer's output for
+/// the scenario, byte for byte.
+#[test]
+fn the_rust_entry_of_the_interchange_file_is_this_writers_output() {
+    let store =
+        MemoryStore::new().with_history_mint(HistoryMint::new(|_| "host:interchange".to_string()));
+    let peer = store
+        .create_peer("peer:interchange", ErasurePosture::Unproven)
+        .unwrap();
+    let interchange_fact = |t: f64| {
+        make_delta(
+            Claims {
+                timestamp: t,
+                valid_from: t,
+                valid_until: None,
+                // The Rust entry's author (README §9.8); the TypeScript entry's is did:key:zA.
+                author: "did:key:zFresh".into(),
+                pointers: vec![
+                    Pointer {
+                        role: "subject".into(),
+                        target: Target::Entity(EntityRef {
+                            id: "plant:a".into(),
+                            context: Some("c".into()),
+                        }),
+                    },
+                    Pointer {
+                        role: "value".into(),
+                        target: Target::Primitive(Primitive::Num(t)),
+                    },
+                ],
+            },
+            None,
+        )
+        .unwrap()
+    };
+    let revision = commit(
+        peer.as_ref(),
+        0,
+        0,
+        &[interchange_fact(5.0), interchange_fact(10.0)],
+    );
+    assert_eq!(revision, Revision(1));
+    let capture = capture_now(peer.as_ref(), &["plant:a"], 100.0);
+    assert_eq!((capture.since(), capture.expires_at()), (Some(10.0), None));
+    let written = serde_json::to_string(&capture.to_json()).unwrap();
+    let path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../vectors/store/capture-interchange.json"
+    );
+    let fixtures: Value = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+    assert_eq!(written, fixtures["captures"]["rust"].as_str().unwrap());
+}
+
 // ---------------------------------------------------------------------------------------------
 // A fuzz against brute force (README §9.7)
 // ---------------------------------------------------------------------------------------------
