@@ -156,6 +156,7 @@ export {
   SNAPSHOT_RETRIES,
   StoreReactor,
   UnanchoredTermError,
+  captureScope,
   fetchScope,
   readAnchored,
   readFullSurface,
@@ -177,6 +178,24 @@ export {
   type StoreConformanceReport,
 } from "./storage/store-conformance.js";
 export { storeVectors } from "./storage/store-vectors.js";
+export {
+  checkFresh,
+  makeCapture,
+  nextBoundary,
+  rawScope,
+  touching,
+  type Capture,
+  type Freshness,
+  type Touch,
+  type TouchReason,
+} from "./storage/freshness.js";
+export {
+  runFreshnessConformance,
+  type FreshnessConformanceReport,
+  type FreshnessStoreRequest,
+  type FreshnessWitness,
+} from "./storage/freshness-conformance.js";
+export { freshnessVectors } from "./storage/freshness-vectors.js";
 export { scopeOver, passesSelection, type StoreVectors } from "./storage/store-vector-format.js";
 export { Peer, syncBoth, type SyncReport } from "./peer.js";
 export { bundleEntryStatus, looseEntryStatus, type LooseEntryStatus } from "./federation/entry.js";

@@ -52,7 +52,7 @@ const fact = (author: string, timestamp: number, pointers: Pointer[]): Claims =>
   pointers,
 });
 
-type Named = { readonly name: string; readonly delta: Delta; readonly forged?: true };
+export type Named = { readonly name: string; readonly delta: Delta; readonly forged?: true };
 
 function corpus(): Named[] {
   const named: Named[] = [];
@@ -113,7 +113,7 @@ function corpus(): Named[] {
   return named;
 }
 
-const PEERS: Readonly<Record<string, string>> = {
+export const PEERS: Readonly<Record<string, string>> = {
   // A's id sorts after B's and C's, so a peer listing ordered by creation fails.
   A: `ed25519:${"c3".repeat(32)}`,
   B: `ed25519:${"a1".repeat(32)}`,
@@ -125,8 +125,8 @@ const PEERS: Readonly<Record<string, string>> = {
 
 // ---- the model ----------------------------------------------------------------------------
 
-type Entry = VerifiedDelta & { readonly name: string };
-type ModelPeer = {
+export type Entry = VerifiedDelta & { readonly name: string };
+export type ModelPeer = {
   readonly name: string;
   readonly posture: ErasurePosture;
   /** One record per revision advance: `revision` is the model's own integer. */
@@ -144,7 +144,7 @@ type ModelSnapshot = {
   readonly held: readonly Entry[];
   released: boolean;
 };
-type Added = {
+export type Added = {
   readonly delta: string;
   readonly sequence: number;
   readonly arrivalId?: string;
@@ -157,7 +157,8 @@ const SIG = /^[0-9a-f]{128}$/;
 const MAX_COUNT = 2 ** 53 - 1;
 const isCount = (n: number): boolean => Number.isInteger(n) && n >= 1 && n <= MAX_COUNT;
 
-class Model {
+/** The list-scanning model of the store scripts. The freshness vectors reuse it. */
+export class Model {
   readonly steps: StoreVectorStep[] = [];
   private readonly byName: Map<string, Named>;
   private readonly peers = new Map<string, ModelPeer>();
@@ -194,6 +195,11 @@ class Model {
       record: { revision, head: state.head, added: [...added], removed: [...removed] },
     });
     return revision;
+  }
+
+  /** The state of the peer a handle belongs to. Read it; never change it. */
+  peerState(handle: string): Readonly<ModelPeer> {
+    return this.handle(handle);
   }
 
   /** Names the peer's current revision. */

@@ -34,6 +34,8 @@ export type RoundsAnswer = {
   readonly canonicalHex: string;
   readonly scope: readonly string[];
   readonly members: readonly string[];
+  /** The least validFrom or validUntil after `now` among the members, or null (§4.6). */
+  readonly expiresAt: number | null;
   readonly rounds: readonly { readonly anchors: readonly string[] }[];
 };
 export type RoundsRead = {
@@ -709,10 +711,19 @@ export function roundVectors(): StoreRoundsDocument {
     if (wholeGather.sort !== "hview") throw new Error("round vectors: a gather is not an HView");
     for (const entity of hviewAnchors(wholeGather.hview))
       if (!scope.has(entity)) throw new Error(`round vectors: the rounds missed ${entity}`);
+    // The next validity boundary of the operand, by scanning the members.
+    const inScope = new Set(members);
+    let expiresAt: number | null = null;
+    for (const { delta } of admitted)
+      if (inScope.has(delta.id))
+        for (const b of [delta.claims.validFrom, delta.claims.validUntil])
+          if (b !== undefined && b > read.now && (expiresAt === null || b < expiresAt))
+            expiresAt = b;
     return {
       canonicalHex: resultCanonicalHex(whole),
       scope: [...scope].sort(compareUtf8),
       members: members.map((id) => nameOf.get(id)!),
+      expiresAt,
       rounds,
     };
   };

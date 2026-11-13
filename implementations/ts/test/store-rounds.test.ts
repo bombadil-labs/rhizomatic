@@ -48,6 +48,7 @@ import {
 import { EvaluationBudget } from "../src/resolve/evaluation-budget.js";
 import { SchemaRegistry } from "../src/schema/schema.js";
 import { createFetchCache } from "../src/storage/fetch-cache.js";
+import { nextBoundary } from "../src/storage/freshness.js";
 import { createMemoryStore, type StoreMeter } from "../src/storage/memory-store.js";
 import {
   PUSHDOWN_FIELDS,
@@ -167,12 +168,14 @@ const answerOf = (read: StoreRead): Required<Answer> => ({
   canonicalHex: resultCanonicalHex(read.result),
   scope: [...read.scope],
   members: read.members.map((id) => nameOf.get(id) ?? id),
+  expiresAt: read.expiresAt,
   rounds: read.rounds.map((round) => ({ anchors: [...round.anchors] })),
 });
-const unpinned = ({ canonicalHex, scope, members }: Answer): Answer => ({
+const unpinned = ({ canonicalHex, scope, members, expiresAt }: Answer): Answer => ({
   canonicalHex,
   scope,
   members,
+  expiresAt,
 });
 
 async function onSnapshot<T>(peer: PeerStore, run: (snapshot: Snapshot) => Promise<T>): Promise<T> {
@@ -230,10 +233,15 @@ const MODES: readonly Mode[] = [
       const scope = [
         ...new Set([request.root, ...analysis.anchors, ...hviewAnchors(gathered.hview)]),
       ].sort(compareUtf8);
+      const members = new Set(scopeOver(admitted, scope));
       return {
         canonicalHex: resultCanonicalHex(evaluate(request.term)),
         scope,
         members: scopeOver(admitted, scope).map((id) => nameOf.get(id)!),
+        expiresAt: nextBoundary(
+          admitted.filter((e) => members.has(e.delta.id)).map((e) => e.delta),
+          request.now,
+        ),
       };
     },
   },

@@ -171,7 +171,11 @@ const recordText = (r: ChangeRecord): string =>
 const ascending = (ids: readonly string[]): boolean =>
   ids.every((id, i) => i === 0 || compareUtf8(ids[i - 1]!, id) < 0);
 
-class Run {
+/**
+ * One run of steps against one store, with the runner's bookkeeping and feed model. Not part of
+ * the package surface: the freshness runner reuses it for its own documents.
+ */
+export class Run {
   private readonly corpus = new Map<string, Delta>();
   /** Peer handles by handle name, and the peer name each belongs to. */
   private readonly peers = new Map<string, PeerStore>();
@@ -442,6 +446,37 @@ class Run {
           );
       }
     }
+  }
+
+  /** The peer a handle belongs to. */
+  ownerOf(handle: string): string {
+    this.peer(handle);
+    return this.owners.get(handle)!;
+  }
+
+  /** The integer a revision reference names, for the peer a handle belongs to. */
+  resolve(ref: RevisionRef, handle: string): number {
+    return this.revisionOf(ref, this.ownerOf(handle));
+  }
+
+  /**
+   * The runner's own model of a peer's feed: every record since creation, kept or not, the
+   * retention floor and the current revision. Undefined when the store serves no feed.
+   */
+  model(peer: string):
+    | {
+        readonly records: readonly ChangeRecord[];
+        readonly floor: number;
+        readonly current: number;
+      }
+    | undefined {
+    const feed = this.feeds.get(peer);
+    if (feed === undefined) return undefined;
+    return {
+      records: feed.records,
+      floor: this.floor(feed).floor,
+      current: feed.revisions[feed.revisions.length - 1]!,
+    };
   }
 
   delta(name: string): Delta {
@@ -1027,7 +1062,7 @@ class Run {
  * The first requirement of a script the store's profile fails. An absent `requires` means
  * none; a name that is not a requirement is a defect of the document.
  */
-function missing(
+export function missing(
   store: Store,
   requires: readonly VectorRequirement[] | undefined,
 ): VectorRequirement | undefined {

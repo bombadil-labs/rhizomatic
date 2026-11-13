@@ -3,13 +3,14 @@
 // members it replaces; everything else passes through to the memory store.
 
 import { createMemoryStore, type MemoryStoreOptions } from "../../src/storage/memory-store.js";
-import type {
-  PeerStore,
-  PurgeOutcome,
-  Snapshot,
-  Store,
-  StoreProfile,
-  VerifiedDelta,
+import {
+  StoreError,
+  type PeerStore,
+  type PurgeOutcome,
+  type Snapshot,
+  type Store,
+  type StoreProfile,
+  type VerifiedDelta,
 } from "../../src/storage/store.js";
 
 export type Break = {
@@ -135,5 +136,69 @@ export function staleAfterSettledDebt(): Break {
         read: async () => serving(await peer.read(), (id) => kept.get(key(id))),
       };
     },
+  };
+}
+
+/**
+ * A store whose revisions are the memory store's times `k`: they skip values, as a store with
+ * one counter for many peers would. It answers by the rules of §4.6, scaled. With
+ * `partialThroughPlusOne` a partial page says `through = last + 1`, past its last record and
+ * short of `to`. With `oldestKeptFloor` a `from` strictly between the newest dropped revision
+ * and the oldest kept one answers `resync-required`: the floor read as the revision just before
+ * the oldest kept record.
+ */
+export function sparse(
+  k: number,
+  quirk: { partialThroughPlusOne?: boolean; oldestKeptFloor?: boolean } = {},
+): Break {
+  const now = async (peer: PeerStore): Promise<number> => {
+    const snapshot = await peer.read();
+    snapshot.release();
+    return snapshot.revision;
+  };
+  return {
+    peer: (peer) => ({
+      read: async () => {
+        const snapshot = await peer.read();
+        return { ...snapshot, revision: snapshot.revision * k };
+      },
+      append: async (batch) => {
+        const result = await peer.append(batch);
+        return result.status === "committed"
+          ? { ...result, revision: result.revision * k }
+          : result;
+      },
+      purge: async (ids) => {
+        const report = await peer.purge(ids);
+        return { ...report, revision: report.revision * k };
+      },
+      changes: async (from, to) => {
+        const current = await now(peer);
+        if (to !== undefined && to < from)
+          throw new StoreError("invalid-request", "to must not be less than from");
+        if (from > k * current) return { status: "resync-required", current: k * current };
+        const inner = Math.floor(from / k);
+        const innerTo = to === undefined ? undefined : Math.floor(to / k);
+        const page = await peer.changes(inner, innerTo);
+        if (page.status === "resync-required") return { ...page, current: page.current * k };
+        if (
+          quirk.oldestKeptFloor === true &&
+          from % k !== 0 &&
+          inner > 0 &&
+          (await peer.changes(inner - 1)).status === "resync-required"
+        )
+          return { status: "resync-required", current: k * current };
+        const innerEnd = Math.min(innerTo ?? current, current);
+        const end = Math.min(to ?? k * current, k * current);
+        const records = page.records.map((r) => ({ ...r, revision: r.revision * k }));
+        const through =
+          page.through === innerEnd
+            ? end
+            : quirk.partialThroughPlusOne === true
+              ? records[records.length - 1]!.revision + 1
+              : page.through * k;
+        return { status: "ok", records, through };
+      },
+    }),
   };
 }
