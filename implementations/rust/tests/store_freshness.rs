@@ -1739,6 +1739,95 @@ fn a_page_past_the_asked_revision_fails_the_check_and_is_no_verdict() {
     assert!(message.contains("past the revision"), "{message}");
 }
 
+/// A peer whose feed answers one faulty page, from `page`.
+struct FaultyPage<'a> {
+    inner: &'a dyn PeerStore,
+    page: Box<dyn Fn(Revision, Option<Revision>) -> ChangePage + 'a>,
+}
+
+impl PeerStore for FaultyPage<'_> {
+    fn id(&self) -> &str {
+        self.inner.id()
+    }
+    fn erasure(&self) -> rhizomatic::store::PeerErasure {
+        self.inner.erasure()
+    }
+    fn history(&self) -> &str {
+        self.inner.history()
+    }
+    fn read(&self) -> Result<Box<dyn Snapshot>, StoreError> {
+        self.inner.read()
+    }
+    fn append(&self, admission: &Admission) -> Result<AppendResult, StoreError> {
+        self.inner.append(admission)
+    }
+    fn purge(&self, ids: &[String]) -> Result<rhizomatic::store::PurgeReport, StoreError> {
+        self.inner.purge(ids)
+    }
+    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreError> {
+        Ok((self.page)(from, to))
+    }
+}
+
+/// README §9.7, "Store faults and time", and SPEC-18 §4.13 reading 68: the two faulty pages, each
+/// also carrying a record that adds a delta at the capture's anchor, fail the check with an error
+/// and do not answer `stale`: the fault is found before the page is judged.
+#[test]
+fn a_faulty_page_that_adds_a_toucher_fails_and_does_not_answer_stale() {
+    let store = MemoryStore::new();
+    let peer = store
+        .create_peer("peer:judged", ErasurePosture::Unproven)
+        .unwrap();
+    let capture = capture_now(peer.as_ref(), &["plant:a"], 100.0);
+    let toucher = fact("plant:a", "note", 1.0, (1.0, None));
+    commit(peer.as_ref(), 0, 0, std::slice::from_ref(&toucher));
+    let record = |from: Revision| ChangeRecord {
+        revision: Revision(from.0 + 1),
+        head: Some("head-1".into()),
+        added: vec![toucher.id.clone()],
+        removed: Vec::new(),
+    };
+    // Judged in the right order, the toucher makes the honest page stale.
+    assert!(matches!(
+        check_fresh(peer.as_ref(), &capture, 100.0).unwrap(),
+        Freshness::Stale(_)
+    ));
+    type Page<'a> = Box<dyn Fn(Revision, Option<Revision>) -> ChangePage + 'a>;
+    let pages: [(&str, Page<'_>); 2] = [
+        (
+            "made no progress",
+            Box::new(|from, _| ChangePage::Ok {
+                records: vec![record(from)],
+                through: from,
+            }),
+        ),
+        (
+            "past the revision",
+            Box::new(|from, to| ChangePage::Ok {
+                records: vec![record(from)],
+                through: Revision(to.map_or(0, |to| to.0) + 5),
+            }),
+        ),
+    ];
+    for (words, page) in pages {
+        let faulty = FaultyPage {
+            inner: peer.as_ref(),
+            page,
+        };
+        let failed = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            check_fresh(&faulty, &capture, 100.0)
+        }));
+        let message = match failed {
+            Ok(answer) => panic!("a store fault answered {answer:?}"),
+            Err(payload) => payload
+                .downcast_ref::<String>()
+                .cloned()
+                .unwrap_or_default(),
+        };
+        assert!(message.contains(words), "{words}: {message}");
+    }
+}
+
 /// SPEC-18 §4.13 reading 54: a capture with two defects is refused by the first in the order
 /// keys, history (empty, then local), revision, anchors (each anchor's shape and kind, then their
 /// order), members, window.

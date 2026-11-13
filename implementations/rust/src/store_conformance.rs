@@ -2778,6 +2778,13 @@ impl Run<'_> {
             .cloned()
             .ok_or_else(|| format!("the vector uses peer {peer} before creating it"))?;
         let expect = field(step, "expect")?;
+        // `once`: exactly one pull, whose page may end short of the peer's revision.
+        let once = match step.get("once") {
+            None => false,
+            Some(v) => v
+                .as_bool()
+                .ok_or("the vector's once is not true or false")?,
+        };
         let at_end = Position {
             history: history.clone(),
             revision: end,
@@ -2799,7 +2806,7 @@ impl Run<'_> {
                 }
                 "ok" => {
                     let position = text(expect, "position")?;
-                    if self.named(position, &peer)? != end {
+                    if !once && self.named(position, &peer)? != end {
                         return Err(format!(
                             "the vector pulls to {position}, and the peer is at {}",
                             end.0
@@ -2997,15 +3004,27 @@ impl Run<'_> {
                     following.mirror.remove(id);
                 }
                 for id in &record.added {
-                    if let Some(delta) = by_id.get(id.as_str()) {
-                        following.mirror.insert(id.clone(), (*delta).clone());
-                    }
+                    match by_id.get(id.as_str()) {
+                        Some(delta) => following.mirror.insert(id.clone(), (*delta).clone()),
+                        None => following.mirror.remove(id),
+                    };
                 }
             }
             read.extend(got_revisions);
             delivered.extend(got_ids);
-            if p == end {
+            if once || p == end {
                 break;
+            }
+        }
+        // Where the cursor stands: with `once`, where the vector says its one page ends.
+        let stands = self.followers[name].cursor.position().revision;
+        if once {
+            let want = self.named(text(expect, "position")?, &peer)?;
+            if stands != want {
+                return Err(format!(
+                    "the pull stands at {}, expected {}",
+                    stands.0, want.0
+                ));
             }
         }
         // 11. The records the pulls read.
@@ -3037,8 +3056,34 @@ impl Run<'_> {
                 return Err(format!("the follower took {pulls} pulls, expected {want}"));
             }
         }
-        // 14. The guarantee: at the peer's current revision the mirror is the holdings.
+        // 14. The guarantee. Short of the peer's revision (only with `once`): every id no later
+        // record names is as the holdings say; nothing commits during a pull, so the holdings at
+        // `stands` of such an id are its holdings now. At the peer's revision: the holdings.
         let mirror = &self.followers[name].mirror;
+        if stands < end {
+            let later: BTreeSet<&String> = self.feeds[&peer]
+                .records
+                .iter()
+                .filter(|r| r.revision > stands)
+                .flat_map(|r| r.added.iter().chain(&r.removed))
+                .collect();
+            let ids: BTreeSet<&String> = mirror.keys().chain(book.keys()).collect();
+            for id in ids.into_iter().filter(|id| !later.contains(id)) {
+                let agree = match (mirror.get(id), book.get(id)) {
+                    (None, None) => true,
+                    (Some(m), Some(h)) => arrival_differs(&m.arrival, &h.arrival).is_none(),
+                    _ => false,
+                };
+                if !agree {
+                    return Err(format!(
+                        "after the pull to {} the follower's mirror differs from the holdings at {}",
+                        stands.0,
+                        cut(id)
+                    ));
+                }
+            }
+            return Ok(());
+        }
         let mirror_ids: Vec<String> = mirror.keys().cloned().collect();
         let held_ids: Vec<String> = book.keys().cloned().collect();
         if mirror_ids != held_ids {

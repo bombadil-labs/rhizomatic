@@ -154,6 +154,9 @@ enum Wrong {
     Lags,
     NoBytes,
     OkForResync,
+    /// W6: keeps what one catch-up delivered and hands it out again until it stands at its
+    /// snapshot's revision. It makes exactly the calls of the contract.
+    CachesCatchUp,
     // The follow step (§10.2).
     PositionOfOtherHistory,
     PositionOfOtherRevision,
@@ -171,6 +174,8 @@ struct Rail<'a> {
     wrong: Wrong,
     /// What it delivered before, by id: `KeepsFirstArrival` serves these again.
     seen: BTreeMap<String, ArrivalRecord>,
+    /// What this catch-up delivered: `CachesCatchUp` serves these again.
+    cache: BTreeMap<String, VerifiedDelta>,
 }
 
 fn nothing_new(position: &Position) -> Pull {
@@ -245,6 +250,23 @@ impl Rail<'_> {
                 .zip(arrivals)
                 .map(|(delta, arrival)| VerifiedDelta { delta, arrival })
                 .collect();
+        }
+        if w == Wrong::CachesCatchUp {
+            for id in &ids {
+                let missing = deltas.iter().all(|d| d.delta.id != *id);
+                if let (true, Some(kept)) = (missing, self.cache.get(id)) {
+                    deltas.push(kept.clone());
+                }
+            }
+            deltas.sort_by(|a, b| a.delta.id.cmp(&b.delta.id));
+            match through == at.revision {
+                true => self.cache.clear(),
+                false => {
+                    for d in &deltas {
+                        self.cache.insert(d.delta.id.clone(), d.clone());
+                    }
+                }
+            }
         }
         if w == Wrong::OncePerRecord {
             let by_id: BTreeMap<String, VerifiedDelta> = deltas
@@ -366,6 +388,7 @@ impl FollowReader for Mutant {
             resync: None,
             wrong: self.0,
             seen: BTreeMap::new(),
+            cache: BTreeMap::new(),
         }))
     }
 }
@@ -434,7 +457,13 @@ const TABLE: &[Row] = &[
         Wrong::TwoPages,
         "pages-of-one",
         "pull made the call changes(2, 4) where the contract asks for get [",
-        &["pages-of-one"],
+        &[
+            "pages-of-one",
+            "a-purge-between-single-pulls",
+            "an-append-between-single-pulls",
+            "a-purge-of-a-mirrored-id-between-single-pulls",
+            "a-re-add-between-single-pulls",
+        ],
     ),
     only(
         Wrong::MovesOnResync,
@@ -514,7 +543,16 @@ const TABLE: &[Row] = &[
         Wrong::KeepsFirstArrival,
         "add-purge-add-across-pulls",
         "the pull delivered ",
-        &["add-purge-add-across-pulls"],
+        &[
+            "add-purge-add-across-pulls",
+            "a-re-add-between-single-pulls",
+        ],
+    ),
+    only(
+        Wrong::CachesCatchUp,
+        "a-purge-between-single-pulls",
+        "the pull delivered [",
+        &["a-purge-between-single-pulls"],
     ),
     row(Wrong::ChangedClaims, "one-append", "the pull delivered "),
     row(
@@ -651,6 +689,27 @@ fn without_their_only_cases_the_named_followers_pass() {
     }
 }
 
+/// W6 makes exactly the calls of the contract; only commits between single pulls show it
+/// (SPEC-18 §4.13 reading 67). Without the four single-pull cases it passes every run.
+#[test]
+fn the_catch_up_cache_passes_without_the_single_pull_cases() {
+    const SINGLE: [&str; 4] = [
+        "a-purge-between-single-pulls",
+        "an-append-between-single-pulls",
+        "a-purge-of-a-mirrored-id-between-single-pulls",
+        "a-re-add-between-single-pulls",
+    ];
+    let mut without = document();
+    without["cases"]
+        .as_array_mut()
+        .unwrap()
+        .retain(|c| !SINGLE.contains(&c["name"].as_str().unwrap()));
+    for (label, store) in runs() {
+        run(store, &without, &Mutant(Wrong::CachesCatchUp))
+            .unwrap_or_else(|e| panic!("run {label}: {e}"));
+    }
+}
+
 // ---------------------------------------------------------------------------------------------
 // Defective documents (README §10.6)
 // ---------------------------------------------------------------------------------------------
@@ -726,6 +785,14 @@ fn a_defective_document_fails_with_its_message() {
         &edit(&|d| nth(d, "retention-too-short", "pull", 0)["expect"]["current"] = "A.2".into()),
         "follow/retention-too-short",
         "the vector expects current A.2, and the peer is at 3",
+    );
+    // A single pull that stands elsewhere than where the vector says its page ends.
+    fails_with(
+        &edit(&|d| {
+            nth(d, "an-append-between-single-pulls", "pull", 0)["expect"]["position"] = "A.3".into()
+        }),
+        "follow/an-append-between-single-pulls",
+        "the pull stands at 2, expected 3",
     );
     // A follower named twice.
     fails_with(
@@ -838,6 +905,9 @@ fn new_peer(store: &MemoryStore, name: &str) -> Box<dyn PeerStore> {
     store.create_peer(name, ErasurePosture::Unproven).unwrap()
 }
 
+/// A feed answer a probe gives instead of the store's.
+type PageFn = Box<dyn Fn(Revision, Option<Revision>) -> ChangePage>;
+
 /// A peer handle that names every call through it and its snapshots. It can commit during
 /// `changes`, answer `changes` itself, drop an arrival record, or close the store.
 struct Probe<'a> {
@@ -847,7 +917,7 @@ struct Probe<'a> {
     moves: RefCell<Vec<Vec<Delta>>>,
     writer: RefCell<Writer>,
     /// Answers `changes` with this instead of asking the store.
-    page: Option<fn(Revision, Option<Revision>) -> ChangePage>,
+    page: Option<PageFn>,
     /// Drops the first record from `arrivals`.
     short_arrivals: bool,
     /// Closes this store when `changes` is called.
@@ -907,7 +977,7 @@ impl PeerStore for Probe<'_> {
         if let Some(store) = self.closes {
             store.close();
         }
-        let page = match self.page {
+        let page = match &self.page {
             Some(page) => Ok(page(from, to)),
             None => self.inner.changes(from, to),
         };
@@ -1085,9 +1155,9 @@ fn resync_current_is_the_snapshots_position_whatever_the_store_names() {
     let start = here(peer.as_ref());
     writer.append(peer.as_ref(), &[fact("plant:a", "n", 1.0)]);
     let mut probe = Probe::new(peer.as_ref());
-    probe.page = Some(|_, _| ChangePage::ResyncRequired {
+    probe.page = Some(Box::new(|_, _| ChangePage::ResyncRequired {
         current: Revision(99),
-    });
+    }));
     let mut cursor = follow_feed(&probe, start).unwrap();
     assert_eq!(
         cursor.pull().unwrap(),
@@ -1173,22 +1243,64 @@ fn a_store_fault_fails_the_pull_and_is_no_answer() {
     writer.append(peer.as_ref(), &[fact("plant:b", "n", 2.0)]);
 
     let mut stuck = Probe::new(peer.as_ref());
-    stuck.page = Some(|from, _| ChangePage::Ok {
+    stuck.page = Some(Box::new(|from, _| ChangePage::Ok {
         records: Vec::new(),
         through: from,
-    });
+    }));
     faults(&stuck, start.clone(), "made no progress");
 
     let mut past = Probe::new(peer.as_ref());
-    past.page = Some(|_, to| ChangePage::Ok {
+    past.page = Some(Box::new(|_, to| ChangePage::Ok {
         records: Vec::new(),
         through: Revision(to.unwrap().0 + 5),
-    });
+    }));
     faults(&past, start.clone(), "past the snapshot");
 
     let mut short = Probe::new(peer.as_ref());
     short.short_arrivals = true;
     faults(&short, start, "get and arrivals");
+}
+
+/// SPEC-18 §4.13 reading 68: a fault is found before the page is judged. Each faulty page also
+/// carries a record that adds a held id; the pull fails with the calls read, changes, release,
+/// and no `get`.
+#[test]
+fn a_faulty_page_that_adds_an_id_fails_before_any_get() {
+    let store = MemoryStore::new();
+    let peer = new_peer(&store, "peer:j");
+    let mut writer = Writer::default();
+    let start = here(peer.as_ref());
+    let added = fact("plant:a", "n", 1.0);
+    writer.append(peer.as_ref(), std::slice::from_ref(&added));
+    writer.append(peer.as_ref(), &[fact("plant:b", "n", 2.0)]);
+    let record = move |revision: u64| ChangeRecord {
+        revision: Revision(revision),
+        head: Some("head-1".into()),
+        added: vec![added.id.clone()],
+        removed: Vec::new(),
+    };
+    let pages: [(&str, PageFn); 2] = [
+        ("made no progress", {
+            let record = record.clone();
+            Box::new(move |from, _| ChangePage::Ok {
+                records: vec![record(from.0 + 1)],
+                through: from,
+            })
+        }),
+        ("past the snapshot", {
+            let record = record.clone();
+            Box::new(move |from, to| ChangePage::Ok {
+                records: vec![record(from.0 + 1)],
+                through: Revision(to.unwrap().0 + 5),
+            })
+        }),
+    ];
+    for (words, page) in pages {
+        let mut probe = Probe::new(peer.as_ref());
+        probe.page = Some(page);
+        faults(&probe, start.clone(), words);
+        assert_eq!(probe.calls(), ["read", "changes", "release"], "{words}");
+    }
 }
 
 #[test]
@@ -1332,15 +1444,46 @@ impl PeerModel {
     }
 }
 
-/// A follower the fuzz drives, its mirror, and two other mirrors beside it.
+/// A follower's mirror: id → delta and arrival record. An entry started from an export may have
+/// no arrival record (the peer no longer held the id when it was asked; SPEC-18 §4.6, "Arrival
+/// records in a started mirror").
+type Mirror = BTreeMap<String, (Delta, Option<ArrivalRecord>)>;
+
+fn mirror_of(holdings: &Holdings) -> Mirror {
+    holdings
+        .iter()
+        .map(|(id, d)| (id.clone(), (d.delta.clone(), Some(d.arrival.clone()))))
+        .collect()
+}
+
+/// The mirror agrees with the holdings on `id`: both lack it, or both hold it with the same bytes
+/// and arrival record.
+fn agrees(mirror: &Mirror, holdings: &Holdings, id: &str) -> bool {
+    match (mirror.get(id), holdings.get(id)) {
+        (None, None) => true,
+        (Some((delta, arrival)), Some(held)) => {
+            *delta == held.delta && arrival.as_ref() == Some(&held.arrival)
+        }
+        _ => false,
+    }
+}
+
+fn same_holdings(mirror: &Mirror, holdings: &Holdings) -> bool {
+    mirror.len() == holdings.len() && holdings.keys().all(|id| agrees(mirror, holdings, id))
+}
+
+/// A follower the fuzz drives, its mirror, and three other mirrors beside it.
 struct Fuzzer<'a> {
     cursor: FeedCursor<'a>,
-    mirror: Holdings,
+    mirror: Mirror,
     /// Ignores `removed`.
-    ignores_removed: Holdings,
+    ignores_removed: Mirror,
     /// Applies all removals of a page before all its deltas.
-    removals_first: Holdings,
+    removals_first: Mirror,
+    /// Keeps an added id that came with no bytes, instead of deleting it.
+    keeps_unbytes: Mirror,
     resyncs: usize,
+    from_export: bool,
 }
 
 #[derive(Default, Debug)]
@@ -1348,42 +1491,156 @@ struct Tally {
     pulls: usize,
     resyncs: usize,
     quiet: usize,
+    quiet_after_export: usize,
+    between: usize,
     delivered: usize,
     absent: usize,
+    snapshot_starts: usize,
+    export_starts: usize,
+    skewed_starts: usize,
+    no_arrival: usize,
     ignores_removed_missed: usize,
     removals_first_missed: usize,
+    keeps_unbytes_missed: usize,
 }
 
-/// A follower that starts from a full read: the model's holdings at the snapshot's position.
-fn start<'a>(peer: &'a dyn PeerStore, model: &PeerModel) -> Fuzzer<'a> {
-    let position = here(peer);
-    assert_eq!(position.revision, model.current());
-    let mirror = model.held().clone();
-    Fuzzer {
-        cursor: follow_feed(peer, position).unwrap(),
-        ignores_removed: mirror.clone(),
-        removals_first: mirror.clone(),
-        mirror,
-        resyncs: 0,
+/// The store, the two peers, their models, the corpus and the random source of one sequence.
+struct World<'a> {
+    rng: Rng,
+    store: &'a MemoryStore,
+    peers: &'a [Box<dyn PeerStore>],
+    models: Vec<PeerModel>,
+    corpus: Vec<Delta>,
+}
+
+impl World<'_> {
+    /// One random commit on a random peer: an append of up to three corpus deltas (a head-only
+    /// commit when it adds nothing), or a purge of one or two corpus ids, held or not.
+    fn commit(&mut self) {
+        let p = self.rng.below(2) as usize;
+        let peer = self.peers[p].as_ref();
+        if self.rng.below(10) < 6 {
+            let n = self.rng.below(4);
+            let batch: Vec<Delta> = (0..n)
+                .map(|_| self.corpus[self.rng.below(8) as usize].clone())
+                .collect();
+            let model = &mut self.models[p];
+            let first = model.writer.last + 1;
+            let revision = model.writer.append(peer, &batch);
+            let mut held = model.held().clone();
+            let mut added = BTreeSet::new();
+            for (k, delta) in batch.iter().enumerate() {
+                if !held.contains_key(&delta.id) {
+                    held.insert(delta.id.clone(), arrival(delta, first + k as u64));
+                    added.insert(delta.id.clone());
+                }
+            }
+            model.head = Some(format!("head-{}", model.writer.head));
+            let record = ChangeRecord {
+                revision,
+                head: model.head.clone(),
+                added: added.into_iter().collect(),
+                removed: Vec::new(),
+            };
+            model.commit(revision, held, record);
+            return;
+        }
+        let ids: Vec<String> = (0..1 + self.rng.below(2))
+            .map(|_| self.corpus[self.rng.below(8) as usize].id.clone())
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect();
+        let report = peer.purge(&ids).unwrap();
+        let model = &mut self.models[p];
+        let removed: Vec<String> = ids
+            .into_iter()
+            .filter(|id| model.held().contains_key(id))
+            .collect();
+        if removed.is_empty() {
+            assert_eq!(report.revision, model.current());
+            return;
+        }
+        let mut held = model.held().clone();
+        for id in &removed {
+            held.remove(id);
+        }
+        let record = ChangeRecord {
+            revision: report.revision,
+            head: model.head.clone(),
+            added: Vec::new(),
+            removed,
+        };
+        model.commit(report.revision, held, record);
     }
-}
 
-fn same_holdings(a: &Holdings, b: &Holdings) -> bool {
-    a.len() == b.len()
-        && a.iter()
-            .zip(b)
-            .all(|((i, x), (j, y))| i == j && x.arrival == y.arrival && x.delta == y.delta)
+    /// A new follower of peer `p`. From a snapshot: the position and the holdings of one
+    /// snapshot. From an export (SPEC-18 §4.6, "How a full mirror starts"): the position first,
+    /// then the peer's ids listed by the exporter, then each id's bytes and its arrival record
+    /// each on its own later snapshot, with commits on both peers landing between them.
+    fn start<'p>(&mut self, p: usize, peer: &'p dyn PeerStore, tally: &mut Tally) -> Fuzzer<'p> {
+        let position = here(peer);
+        assert_eq!(position.revision, self.models[p].current());
+        let from_export = self.rng.below(2) == 1;
+        let mirror = match from_export as u8 {
+            0 => {
+                tally.snapshot_starts += 1;
+                mirror_of(self.models[p].held())
+            }
+            _ => {
+                tally.export_starts += 1;
+                let p0 = self.models[p].held().clone();
+                let chance = |w: &mut Self| {
+                    if w.rng.below(3) == 0 {
+                        w.commit();
+                    }
+                };
+                chance(self);
+                let exporter = self.store.open_admin().peer(peer.id()).unwrap();
+                let ids: Vec<String> = exporter.ids().map(Result::unwrap).collect();
+                let mut mirror = Mirror::new();
+                for id in ids {
+                    chance(self);
+                    let one = std::slice::from_ref(&id);
+                    let mut snapshot = peer.read().unwrap();
+                    let bytes = snapshot.get(one).unwrap();
+                    snapshot.release();
+                    let Some(delta) = bytes.into_iter().next() else {
+                        continue;
+                    };
+                    chance(self);
+                    let mut snapshot = peer.read().unwrap();
+                    let record = snapshot.arrivals(one).unwrap().into_iter().next();
+                    snapshot.release();
+                    tally.no_arrival += usize::from(record.is_none());
+                    mirror.insert(id, (delta, record));
+                }
+                tally.skewed_starts += usize::from(!same_holdings(&mirror, &p0));
+                mirror
+            }
+        };
+        Fuzzer {
+            cursor: follow_feed(peer, position).unwrap(),
+            ignores_removed: mirror.clone(),
+            removals_first: mirror.clone(),
+            keeps_unbytes: mirror.clone(),
+            mirror,
+            resyncs: 0,
+            from_export,
+        }
+    }
 }
 
 /// One pull of a follower, judged against the brute model, then the mirror checks.
 fn fuzz_pull<'a>(
+    world: &mut World<'_>,
+    q: usize,
     f: &mut Fuzzer<'a>,
     peer: &'a dyn PeerStore,
-    model: &PeerModel,
     (keep, page): (Option<u64>, Option<u64>),
     tally: &mut Tally,
 ) {
     tally.pulls += 1;
+    let model = &world.models[q];
     let before = f.cursor.position().clone();
     let now = model.current();
     let answer = f.cursor.pull().unwrap();
@@ -1410,7 +1667,8 @@ fn fuzz_pull<'a>(
         tally.resyncs += 1;
         f.resyncs += 1;
         if f.resyncs == 2 {
-            *f = start(peer, model);
+            // Replace the mirror with a new start; never merge (§4.6).
+            *f = world.start(q, peer, tally);
         }
         return;
     }
@@ -1430,12 +1688,11 @@ fn fuzz_pull<'a>(
         .collect();
     let take = page.map_or(pending.len(), |n| (n as usize).min(pending.len()));
     let want: Vec<ChangeRecord> = pending[..take].iter().map(|r| (*r).clone()).collect();
-    let through = match take == pending.len() {
+    let p = match take == pending.len() {
         true => now,
         false => want.last().unwrap().revision,
     };
     assert_eq!(records, want);
-    let p = through;
     assert_eq!(
         position,
         Position {
@@ -1451,23 +1708,43 @@ fn fuzz_pull<'a>(
     assert_eq!(deltas.iter().collect::<Vec<_>>(), expected);
     tally.delivered += deltas.len();
     tally.absent += added.len() - deltas.len();
-    // Apply by the rule, and the two variants.
-    let by_id: BTreeMap<&str, &VerifiedDelta> =
-        deltas.iter().map(|d| (d.delta.id.as_str(), d)).collect();
+    // Apply by the rule, and the three variants.
+    let by_id: BTreeMap<&str, (Delta, Option<ArrivalRecord>)> = deltas
+        .iter()
+        .map(|d| {
+            (
+                d.delta.id.as_str(),
+                (d.delta.clone(), Some(d.arrival.clone())),
+            )
+        })
+        .collect();
     for r in &records {
         for id in &r.removed {
             f.mirror.remove(id);
             f.removals_first.remove(id);
+            f.keeps_unbytes.remove(id);
         }
         for id in &r.added {
-            if let Some(d) = by_id.get(id.as_str()) {
-                f.mirror.insert(id.clone(), (*d).clone());
-                f.ignores_removed.insert(id.clone(), (*d).clone());
+            match by_id.get(id.as_str()) {
+                Some(d) => {
+                    f.mirror.insert(id.clone(), d.clone());
+                    f.ignores_removed.insert(id.clone(), d.clone());
+                    f.keeps_unbytes.insert(id.clone(), d.clone());
+                }
+                None => {
+                    f.mirror.remove(id);
+                    f.ignores_removed.remove(id);
+                }
             }
         }
     }
-    for d in &deltas {
-        f.removals_first.insert(d.delta.id.clone(), d.clone());
+    for r in &records {
+        for id in &r.added {
+            match by_id.get(id.as_str()) {
+                Some(d) => f.removals_first.insert(id.clone(), d.clone()),
+                None => f.removals_first.remove(id),
+            };
+        }
     }
     // After a pull to p, the mirror is the holdings at p for every id no later record names.
     let later: BTreeSet<&String> = model
@@ -1477,24 +1754,24 @@ fn fuzz_pull<'a>(
         .flat_map(|r| r.added.iter().chain(&r.removed))
         .collect();
     let at_p = model.at(p);
-    for id in at_p.keys().chain(f.mirror.keys()) {
-        if later.contains(id) {
-            continue;
-        }
-        let (m, h) = (f.mirror.get(id), at_p.get(id));
-        assert_eq!(
-            m, h,
+    let ids: BTreeSet<&String> = at_p.keys().chain(f.mirror.keys()).collect();
+    for id in ids.into_iter().filter(|id| !later.contains(id)) {
+        assert!(
+            agrees(&f.mirror, at_p, id),
             "the mirror and the holdings at {p:?} disagree on {id}"
         );
     }
+    tally.between += 1;
     if p == now {
         tally.quiet += 1;
+        tally.quiet_after_export += usize::from(f.from_export);
         assert!(
             same_holdings(&f.mirror, held),
             "the mirror at a quiet point"
         );
         tally.ignores_removed_missed += usize::from(!same_holdings(&f.ignores_removed, held));
         tally.removals_first_missed += usize::from(!same_holdings(&f.removals_first, held));
+        tally.keeps_unbytes_missed += usize::from(!same_holdings(&f.keeps_unbytes, held));
     }
 }
 
@@ -1512,8 +1789,9 @@ fn arrival(delta: &Delta, sequence: u64) -> VerifiedDelta {
 }
 
 /// One sequence: a store kept whole or keeping one to four records, with whole pages or pages of
-/// one to three records; two peers that share a corpus; random appends, head-only commits and
-/// purges on both, interleaved with single pulls of several followers.
+/// one to three records; two peers that share a corpus (debts across peers); random appends,
+/// head-only commits and purges on both, interleaved with single pulls of several followers,
+/// each started from a snapshot or from a non-atomic export.
 fn fuzz_sequence(seed: u64, tally: &mut Tally) {
     let mut rng = Rng(seed);
     let keep = match rng.below(5) {
@@ -1530,12 +1808,9 @@ fn fuzz_sequence(seed: u64, tally: &mut Tally) {
         ..MemoryStoreOptions::default()
     })
     .unwrap();
-    let corpus: Vec<Delta> = (0..8)
-        .map(|k| fact(&format!("e:{}", k % 3), "c", k as f64))
-        .collect();
     let peers: Vec<Box<dyn PeerStore>> =
         vec![new_peer(&store, "peer:A"), new_peer(&store, "peer:B")];
-    let mut models: Vec<PeerModel> = peers
+    let models: Vec<PeerModel> = peers
         .iter()
         .map(|peer| PeerModel {
             history: peer.history().to_string(),
@@ -1546,88 +1821,45 @@ fn fuzz_sequence(seed: u64, tally: &mut Tally) {
             writer: Writer::default(),
         })
         .collect();
-    let mut followers: Vec<(usize, Fuzzer<'_>)> = vec![(0, start(peers[0].as_ref(), &models[0]))];
-    let steps = 8 + rng.below(24);
+    let mut world = World {
+        rng,
+        store: &store,
+        peers: &peers,
+        models,
+        corpus: (0..8)
+            .map(|k| fact(&format!("e:{}", k % 3), "c", k as f64))
+            .collect(),
+    };
+    // Each follower, with the peer it follows.
+    let mut followers: Vec<(usize, Fuzzer<'_>)> = Vec::new();
+    let first = world.start(0, peers[0].as_ref(), tally);
+    followers.push((0, first));
+    let steps = 8 + world.rng.below(24);
     for _ in 0..steps {
-        let p = rng.below(2) as usize;
-        match rng.below(10) {
-            // An append of up to three corpus deltas: a head-only commit when it adds nothing.
-            0..=3 => {
-                let n = rng.below(4);
-                let batch: Vec<Delta> = (0..n)
-                    .map(|_| corpus[rng.below(8) as usize].clone())
-                    .collect();
-                let model = &mut models[p];
-                let first = model.writer.last + 1;
-                let revision = model.writer.append(peers[p].as_ref(), &batch);
-                let mut held = model.held().clone();
-                let mut added = BTreeSet::new();
-                for (k, delta) in batch.iter().enumerate() {
-                    if !held.contains_key(&delta.id) {
-                        held.insert(delta.id.clone(), arrival(delta, first + k as u64));
-                        added.insert(delta.id.clone());
-                    }
-                }
-                model.head = Some(format!("head-{}", model.writer.head));
-                let record = ChangeRecord {
-                    revision,
-                    head: model.head.clone(),
-                    added: added.into_iter().collect(),
-                    removed: Vec::new(),
-                };
-                model.commit(revision, held, record);
-            }
-            // A purge of one or two corpus ids, held or not; a debt across peers included.
-            4..=5 => {
-                let ids: Vec<String> = (0..1 + rng.below(2))
-                    .map(|_| corpus[rng.below(8) as usize].id.clone())
-                    .collect::<BTreeSet<_>>()
-                    .into_iter()
-                    .collect();
-                let report = peers[p].purge(&ids).unwrap();
-                let model = &mut models[p];
-                let removed: Vec<String> = ids
-                    .into_iter()
-                    .filter(|id| model.held().contains_key(id))
-                    .collect();
-                if removed.is_empty() {
-                    assert_eq!(report.revision, model.current());
-                    continue;
-                }
-                let mut held = model.held().clone();
-                for id in &removed {
-                    held.remove(id);
-                }
-                let record = ChangeRecord {
-                    revision: report.revision,
-                    head: model.head.clone(),
-                    added: Vec::new(),
-                    removed,
-                };
-                model.commit(report.revision, held, record);
-            }
-            // Another follower, from a full read.
+        match world.rng.below(10) {
+            0..=5 => world.commit(),
             6 if followers.len() < 4 => {
-                followers.push((p, start(peers[p].as_ref(), &models[p])));
+                let p = world.rng.below(2) as usize;
+                let f = world.start(p, peers[p].as_ref(), tally);
+                followers.push((p, f));
             }
-            // A single pull of one follower, between commits.
             _ => {
-                let k = rng.below(followers.len() as u64) as usize;
+                let k = world.rng.below(followers.len() as u64) as usize;
                 let (q, f) = &mut followers[k];
-                fuzz_pull(f, peers[*q].as_ref(), &models[*q], (keep, page), tally);
+                fuzz_pull(&mut world, *q, f, peers[*q].as_ref(), (keep, page), tally);
             }
         }
     }
     // Every follower pulls until it stands at its peer's revision: a quiet point each.
     for (q, f) in &mut followers {
-        let model = &models[*q];
-        for _ in 0..model.records.len() + 4 {
-            fuzz_pull(f, peers[*q].as_ref(), model, (keep, page), tally);
-            if f.resyncs == 0 && f.cursor.position().revision == model.current() {
+        // A restart from an export may land commits, so the bound is generous.
+        for _ in 0..1_000 {
+            fuzz_pull(&mut world, *q, f, peers[*q].as_ref(), (keep, page), tally);
+            if f.resyncs == 0 && f.cursor.position().revision == world.models[*q].current() {
                 break;
             }
         }
-        assert_eq!(f.cursor.position().revision, model.current());
+        assert_eq!(f.cursor.position().revision, world.models[*q].current());
     }
 }
 
@@ -1645,10 +1877,27 @@ fn every_pull_agrees_with_brute_force_over_random_sequences() {
     println!("follow fuzz, 2000 sequences: {tally:?}");
     assert!(tally.quiet >= 2_000 && tally.resyncs > 100, "{tally:?}");
     assert!(tally.delivered > 1_000 && tally.absent > 100, "{tally:?}");
-    // A mirror that ignores `removed` misses the holdings; one that applies a page's removals
-    // before its deltas does not (SPEC-18 §4.13 reading 58).
+    fuzz_claims(&tally);
+}
+
+/// Both starts are exercised, some export starts were skewed and some entries had no arrival
+/// record; a mirror that ignores `removed` misses the holdings; one that applies a page's
+/// removals before its deltas does not, nor one that keeps an added id with no bytes (SPEC-18
+/// §4.13 readings 58, 59 and 69). Every quiet point and every pull between them was asserted in
+/// `fuzz_pull`, from either start.
+fn fuzz_claims(tally: &Tally) {
+    assert!(
+        tally.snapshot_starts > 100 && tally.export_starts > 100,
+        "{tally:?}"
+    );
+    assert!(tally.skewed_starts > 0 && tally.no_arrival > 0, "{tally:?}");
+    assert!(
+        tally.quiet_after_export > 0 && tally.quiet > tally.quiet_after_export,
+        "{tally:?}"
+    );
     assert!(tally.ignores_removed_missed > 0, "{tally:?}");
     assert_eq!(tally.removals_first_missed, 0, "{tally:?}");
+    assert_eq!(tally.keeps_unbytes_missed, 0, "{tally:?}");
 }
 
 /// The long run, by hand: `cargo test --release --test store_follow -- --ignored`.
@@ -1657,8 +1906,7 @@ fn every_pull_agrees_with_brute_force_over_random_sequences() {
 fn twenty_thousand_sequences_agree_with_brute_force() {
     let tally = fuzz(20_000);
     println!("follow fuzz, 20000 sequences: {tally:?}");
-    assert!(tally.ignores_removed_missed > 0, "{tally:?}");
-    assert_eq!(tally.removals_first_missed, 0, "{tally:?}");
+    fuzz_claims(&tally);
 }
 
 // ---------------------------------------------------------------------------------------------
