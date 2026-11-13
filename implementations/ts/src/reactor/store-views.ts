@@ -454,7 +454,7 @@ export class StoreViews {
         resynced =
           this.quirks.feedPerView === true
             ? await this.feedPerView(snapshot, at.revision, reread)
-            : !(await this.feed(snapshot, at.revision, [...this.views.keys()], reread));
+            : !(await this.feed(snapshot, at.revision, undefined, reread));
     }
     if (resynced) {
       if (this.quirks.mergeOnResync !== true) for (const key of this.views.keys()) reread.add(key);
@@ -491,14 +491,15 @@ export class StoreViews {
   }
 
   /**
-   * Reads `changes(from, r′)` page by page and adds to `touched` every view among `keys` that a
+   * Reads `changes(from, r′)` page by page and adds to `touched` every held view (or every one
+   * among `only`) that a
    * record touches: a record removes a member, or an added id still held at r′ points at an
    * anchor or negates a member (the rule of `touching`). Answers false on `resync-required`.
    */
   private async feed(
     snapshot: Snapshot,
     from: number,
-    keys: readonly string[],
+    only: readonly string[] | undefined,
     touched: Set<string>,
   ): Promise<boolean> {
     const end = snapshot.revision;
@@ -513,14 +514,8 @@ export class StoreViews {
       const ids = [...new Set(page.records.flatMap((record) => record.added))].sort(compareUtf8);
       const added = new Map<Id, Delta>();
       if (ids.length > 0) for (const delta of await snapshot.get(ids)) added.set(delta.id, delta);
-      if (this.quirks.scanEveryView === true) this.scan(page.records, added, keys, touched);
-      else
-        this.touch(
-          page.records,
-          added,
-          keys.length === this.views.size ? undefined : keys,
-          touched,
-        );
+      if (this.quirks.scanEveryView === true) this.scan(page.records, added, touched);
+      else this.touch(page.records, added, only, touched);
       at = page.through;
     }
     return true;
@@ -558,11 +553,10 @@ export class StoreViews {
   private scan(
     records: readonly ChangeRecord[],
     added: ReadonlyMap<Id, Delta>,
-    keys: readonly string[],
     touched: Set<string>,
   ): void {
-    for (const key of keys)
-      if (touching(this.views.get(key)!.capture, records, added) !== null) touched.add(key);
+    for (const [key, view] of this.views)
+      if (touching(view.capture, records, added) !== null) touched.add(key);
   }
 
   private async feedPerView(snapshot: Snapshot, from: number, touched: Set<string>) {

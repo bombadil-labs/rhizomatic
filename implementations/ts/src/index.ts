@@ -215,6 +215,24 @@ export {
   type FollowStoreRequest,
 } from "./storage/follow-conformance.js";
 export { followVectors } from "./storage/follow-vectors.js";
+export {
+  StoreViews,
+  type Refresh,
+  type StoreViewsOptions,
+  type ViewChange,
+  type ViewKey,
+  type ViewProgram,
+  type ViewRead,
+} from "./reactor/store-views.js";
+export {
+  STORE_VIEWS_FORMAT,
+  runViewsConformance,
+  type StoreViewsDocument,
+  type ViewHolder,
+  type ViewWitness,
+  type ViewsConformanceReport,
+  type ViewsStoreRequest,
+} from "./reactor/views-conformance.js";
 export { scopeOver, passesSelection, type StoreVectors } from "./storage/store-vector-format.js";
 export { Peer, syncBoth, type SyncReport } from "./peer.js";
 export { bundleEntryStatus, looseEntryStatus, type LooseEntryStatus } from "./federation/entry.js";
