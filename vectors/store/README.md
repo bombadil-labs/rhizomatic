@@ -455,10 +455,10 @@ the `peer` key is a name from `peers`.
   writer gets `conflict` whatever its batch holds, in every witness. No vector combines a
   non-null `frame` with such a value, so that order stays free. Its `id` is the delta's id, unless the arrival object has
   an `id` key; then that key is a corpus name and the record carries that entry's id.
+- `revisionAs` (optional, a key of the step): a revision name (§3.9). After the step, the name
+  stands for the peer's revision. It appears only in scripts that require `changes`.
 - `expect`, one of:
-  - `revisionAs` (optional): a revision name (§3.9). After the step, the name stands for the
-  peer's revision. It appears only in scripts that require `changes`.
-- `{"status": "committed", "added": [names], "revisionAdvanced": bool}`. The result's ids equal
+  - `{"status": "committed", "added": [names], "revisionAdvanced": bool}`. The result's ids equal
     the named ids. The result's revision equals the peer's revision after the step. That revision
     is greater than the revision before the step when `revisionAdvanced` is true, and equal when
     it is false.
