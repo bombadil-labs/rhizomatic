@@ -36243,16 +36243,6 @@
       "semantics": "Native storage API MemoryStoreOptions.mintHistory implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/memory-store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
     },
     {
-      "id": "ts:index.ts:FetchedScope#window",
-      "owner": "reactor",
-      "symbol": "FetchedScope.window",
-      "source": "implementations/ts/src/index.ts",
-      "definition": "implementations/ts/src/reactor/store-read.ts",
-      "contract": "rhizomatic.reactor/native-api/1",
-      "classification": "compatibility_reexport",
-      "semantics": "Native reactor API FetchedScope.window implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-read.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
-    },
-    {
       "id": "ts:index.ts:StoreReactorRead#since",
       "owner": "reactor",
       "symbol": "StoreReactorRead.since",
@@ -36371,16 +36361,6 @@
       "contract": "rhizomatic.reactor/native-api/1",
       "classification": "native_extension",
       "semantics": "Native reactor API StoreRead.since implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-read.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
-    },
-    {
-      "id": "ts:reactor/store-read.ts:FetchedScope#window",
-      "owner": "reactor",
-      "symbol": "FetchedScope.window",
-      "source": "implementations/ts/src/reactor/store-read.ts",
-      "definition": "implementations/ts/src/reactor/store-read.ts",
-      "contract": "rhizomatic.reactor/native-api/1",
-      "classification": "native_extension",
-      "semantics": "Native reactor API FetchedScope.window implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-read.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
     },
     {
       "id": "ts:reactor/store-read.ts:StoreReactorRead#since",
@@ -36551,6 +36531,26 @@
       "contract": "rhizomatic.storage/native-api/1",
       "classification": "native_extension",
       "semantics": "Native storage API Snapshot.history implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:index.ts:FetchedScope#validityAt",
+      "owner": "reactor",
+      "symbol": "FetchedScope.validityAt",
+      "source": "implementations/ts/src/index.ts",
+      "definition": "implementations/ts/src/reactor/store-read.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "compatibility_reexport",
+      "semantics": "Native reactor API FetchedScope.validityAt implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-read.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract. Reexport preserves the defining owner."
+    },
+    {
+      "id": "ts:reactor/store-read.ts:FetchedScope#validityAt",
+      "owner": "reactor",
+      "symbol": "FetchedScope.validityAt",
+      "source": "implementations/ts/src/reactor/store-read.ts",
+      "definition": "implementations/ts/src/reactor/store-read.ts",
+      "contract": "rhizomatic.reactor/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native reactor API FetchedScope.validityAt implements SPEC-4 explicit reactor/materialization lifecycle and the SPEC-18 store-backed read at implementations/ts/src/reactor/store-read.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
     }
   ]
 }

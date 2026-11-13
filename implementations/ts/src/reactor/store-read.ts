@@ -369,7 +369,7 @@ export async function readAnchoredWith(
           ? gathered
           : evalTerm(term, set, request.now, root, registry, request.bindings, memo);
       const scope = [...anchors].sort(compareUtf8);
-      const window = validityWindow(set, request.now);
+      const validity = validityWindow(set, request.now);
       const capture =
         request.capture === true
           ? makeCapture(
@@ -380,7 +380,7 @@ export async function readAnchoredWith(
               pushedDown(request.pushdown)
                 ? await rawScope(snapshot, entityAnchors(scope))
                 : cache.ids(),
-              window,
+              validity,
             )
           : undefined;
       return {
@@ -390,7 +390,7 @@ export async function readAnchoredWith(
         revision: snapshot.revision,
         rounds,
         memoStored: memo?.stored ?? 0,
-        ...window,
+        ...validity,
         ...(capture === undefined ? {} : { capture }),
       };
     }
@@ -489,7 +489,7 @@ export interface FetchedScope {
    * no evaluation time of its own: each question to the source names its own `now`.
    * O(log members).
    */
-  window(now: number): ValidityWindow;
+  validityAt(now: number): ValidityWindow;
 }
 
 /** Did this selection push any field down to the store? */
@@ -542,7 +542,7 @@ export async function fetchScope(
   return {
     source: cache.source(members),
     revision: snapshot.revision,
-    window: (now) => windowIn(boundaries, now),
+    validityAt: (now) => windowIn(boundaries, now),
   };
 }
 
@@ -570,7 +570,7 @@ export async function captureScope(
     !pushedDown(selection.pushdown) && selection.admits === undefined
       ? fetched.source.ids()
       : await rawScope(snapshot, anchors);
-  return makeCapture(snapshot, anchors, raw, fetched.window(now));
+  return makeCapture(snapshot, anchors, raw, fetched.validityAt(now));
 }
 
 /** How many times `StoreReactor` starts a read again after `snapshot-moved`. */

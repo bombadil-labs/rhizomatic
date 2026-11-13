@@ -101,15 +101,15 @@ export function makeCapture(
   snapshot: { readonly history: History; readonly revision: Revision },
   anchors: readonly Anchor[],
   members: Iterable<Id>,
-  window: ValidityWindow,
+  validity: ValidityWindow,
 ): Capture {
   return Object.freeze({
     history: snapshot.history,
     revision: snapshot.revision,
     anchors: frozenAnchors(entitiesOf(anchors)),
     members: Object.freeze([...new Set(members)].sort(compareUtf8)),
-    since: window.since,
-    expiresAt: window.expiresAt,
+    since: validity.since,
+    expiresAt: validity.expiresAt,
   }) as Capture;
 }
 
@@ -162,15 +162,19 @@ export function parseCapture(value: unknown): Capture {
       return refuse(`${what} is not null or finite`);
     return b;
   };
-  const window = { since: bound(since, "since"), expiresAt: bound(expiresAt, "expiresAt") };
-  if (window.since !== null && window.expiresAt !== null && window.since >= window.expiresAt)
+  const validity = { since: bound(since, "since"), expiresAt: bound(expiresAt, "expiresAt") };
+  if (
+    validity.since !== null &&
+    validity.expiresAt !== null &&
+    validity.since >= validity.expiresAt
+  )
     refuse("since is not before expiresAt");
   return Object.freeze({
     history: history as string,
     revision: revision as number,
     anchors: frozenAnchors(entities),
     members: Object.freeze(ids),
-    ...window,
+    ...validity,
   }) as Capture;
 }
 

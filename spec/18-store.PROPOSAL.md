@@ -1247,7 +1247,7 @@ and §9 pin each point that a vector can pin.
     more than the scope, and two stores must give one window. The vectors run once on a store
     that applies no pushdown field, so a window over what it returned fails.
 27. **A fetched scope has no `now`.** A law reader asks a fetched scope questions at its own times.
-    So a fetched scope answers `window(now)`, the window of its members at that `now`, instead
+    So a fetched scope answers `validityAt(now)`, the window of its members at that `now`, instead
     of carrying one. TypeScript precomputes the sorted boundaries, so a call costs O(log members).
 28. **A capture is asked for.** `readAnchored` and `StoreReactor.read` carry `since` and
     `expiresAt` always, and a capture only on request (`capture: true`). With nothing pushed

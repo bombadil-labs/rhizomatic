@@ -58,7 +58,7 @@ it; the Rust witness skips `freshness.json` until slice 3 step 6.
   `validityWindow(deltas, now)` a window.
 - A read's validity window: `StoreRead.since` and `StoreRead.expiresAt`. The read answers the
   same at every time t with `since <= t < expiresAt` while nothing touches it. `capture: true`
-  on a `StoreReadRequest` adds `StoreRead.capture`. `FetchedScope.window(now)` answers the window
+  on a `StoreReadRequest` adds `StoreRead.capture`. `FetchedScope.validityAt(now)` answers the window
   of a fetched scope at any `now`. `captureScope(snapshot, entities, now, selection?)` takes a
   capture beside a fetched scope.
 - `createMemoryStore({ mintHistory })`: a host's own mint for peer histories. The default is

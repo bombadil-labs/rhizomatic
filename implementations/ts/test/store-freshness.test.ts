@@ -254,7 +254,7 @@ const READERS: readonly {
           anchors.map((a) => a.entity),
           { pushdown },
         );
-        return makeCapture(snapshot, anchors, fetched.source.ids(), fetched.window(now));
+        return makeCapture(snapshot, anchors, fetched.source.ids(), fetched.validityAt(now));
       },
     }),
     fails: "freshness/a-selection-rejects-the-toucher",
@@ -1129,7 +1129,7 @@ describe("a read's capture and expiry", () => {
     const outside = fact("plant:b", 5, { until: 25 });
     await w.append([a, b, outside]);
     const fetched = await StoreReactor.open(w.peer).fetch(["plant:a"]);
-    expect([0, 10, 25, 30, 49, 50].map((now) => fetched.window(now))).toEqual([
+    expect([0, 10, 25, 30, 49, 50].map((now) => fetched.validityAt(now))).toEqual([
       { since: null, expiresAt: 10 },
       { since: 10, expiresAt: 30 },
       { since: 10, expiresAt: 30 },
