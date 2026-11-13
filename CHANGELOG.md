@@ -34,8 +34,38 @@ reviews found them apart: the maker takes a live snapshot; a repeated mint is re
 with no progress fails a check; `now` must be finite; anchor kinds in a stored capture; a revision
 written `1.0`; one capture JSON for every witness.
 
+The store, slice 3, step 7 (SPEC-18 proposal §4.6 "Following the feed", §4.13 readings 54 to
+66): a pull cursor over the change feed. A follower reads a peer's state on one snapshot, takes
+`positionOf(snapshot)`, and calls `followFeed(peer, position)`; each `pull()` reads one page of
+records with the bytes of every added id the peer still holds. It never hands out the bytes of a
+purged delta (SPEC-4 ERRATA V6). `StoreReactor.follow(from)` makes a cursor, and a read and a
+fetched scope carry their `position`. `parsePosition` checks a stored position. The new shared
+vectors `vectors/store/follow.json` pin the cursor; the Rust witness skips them until step 8.
+`checkFresh` now also fails with an error, not a verdict, on a feed page whose `through` is past
+the revision it asked for. A full mirror may start from a position and then a non-atomic export;
+a follower's copies lie outside the store's erasure, and a follower replaces its mirror after
+`resync-required`. `follow.json` gains single pulls (`once`) with commits between them.
+
+The store, slice 3, step 8 and the integration of steps 7 and 8 (SPEC-18 §4.13 readings 46, 54,
+63, 73 and 74): the Rust witness has the feed cursor too, built from the documents alone. A store
+that breaks its contract is now a store fault, an error value that names the broken rule
+(`no-progress`, `past-the-bound`, `mismatched-answers`, `unasked-ids`), in both witnesses. A
+`get` or `arrivals` answer with an id the reader did not ask for is such a fault, so no reader
+delivers or judges it. Both witnesses refuse a capture with two defects by the same first defect,
+from one shared table (`vectors/store/capture-defects.json`), and their runners agree on case
+stores, skips, messages and the call log.
+
 ### ⚠️ Breaking
 
+- A store fault in `checkFresh` and `FeedCursor.pull` throws `StoreFaultError` (with `rule` and
+  `values`), where the unreleased step-7 shape threw a plain `Error`. In Rust, `check_fresh`,
+  `FeedCursor::pull`, `Follower::pull` and `FreshnessReader::check_fresh` return
+  `Result<_, FeedError>` (`Refused(StoreError)` or `Fault(StoreFault)`), where the unreleased
+  shape returned `StoreError` and panicked on a fault. This breaks only the unreleased step-7
+  and step-8 API.
+
+- `StoreRead` and `FetchedScope` have a new required member, `position`. A consumer that builds
+  either itself adds it.
 - `makeCapture(snapshot, anchors, members, window)` takes a `Snapshot`, where the unreleased
   step-5 shape took any `{history, revision}`. It reads both from the live snapshot. A stored
   capture comes back only through `parseCapture`. This breaks only the unreleased step-5 API.
@@ -77,9 +107,13 @@ written `1.0`; one capture JSON for every witness.
 - `parseCapture` refuses a `value` or `derived-index` anchor `capability-absent`, and a
   malformed anchor (an unknown kind included) `invalid-request`. It reads a revision written
   `1.0` as 1. `checkFresh` and `captureScope` refuse a `now` that is NaN or ±Infinity. In
-  `checkFresh`, a feed page that makes no progress throws a plain `Error`: it is a store fault,
-  not a verdict. The freshness runner reports a store refusal in a check as
-  `checkFresh refused with <code>`.
+  `checkFresh`, a feed page that makes no progress throws `StoreFaultError` (`no-progress`): it
+  is a store fault, not a verdict. The freshness runner reports a store refusal in a check as
+  `checkFresh refused with <code>`, and a store fault as `the store broke <rule>: …`.
+- `StoreFaultError` and `StoreFaultRule`: a store that broke its contract, distinct from a
+  refusal (`StoreError`). A host catches it with `instanceof`.
+- `vectors/store/capture-defects.json`: captures with two defects, and the code and reason each
+  witness's parser refuses them with (`vectors/store/README.md` §9.7).
 - `vectors/store/capture-interchange.json`: one capture JSON from each witness; each witness
   parses both (`vectors/store/README.md` §9.8).
 - `touching` and `checkFresh` answer only for a capture that `makeCapture` or `parseCapture`

@@ -1,0 +1,3778 @@
+{
+  "format": "rhizomatic-store-follow/1",
+  "note": "SPEC-18 proposal §4.6: following the change feed with a pull cursor. See vectors/store/README.md §10.",
+  "reference": {
+    "formatVersion": "rhizomatic.store.memory/1"
+  },
+  "peers": {
+    "A": "ed25519:c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+    "B": "ed25519:a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"
+  },
+  "deltas": [
+    {
+      "name": "a-name",
+      "id": "1e20794385ccea7b4b72d0746a6fc98b08f9dcac66ab33ef38b809ea6c20151970e2",
+      "claims": {
+        "timestamp": 10,
+        "validFrom": 10,
+        "author": "did:key:zAlice",
+        "pointers": [
+          {
+            "role": "subject",
+            "target": {
+              "id": "plant:a",
+              "context": "name"
+            }
+          },
+          {
+            "role": "value",
+            "target": "fern"
+          }
+        ]
+      }
+    },
+    {
+      "name": "a-height",
+      "id": "1e204bad3cb295d90f87939b6c46db566ccb9338395db93f02994077edc0447cd3c4",
+      "claims": {
+        "timestamp": 11,
+        "validFrom": 11,
+        "author": "did:key:zAlice",
+        "pointers": [
+          {
+            "role": "subject",
+            "target": {
+              "id": "plant:a",
+              "context": "height"
+            }
+          },
+          {
+            "role": "value",
+            "target": "10"
+          }
+        ]
+      }
+    },
+    {
+      "name": "b-name",
+      "id": "1e200bfadfd108b76d2047bdb0af04c62965249b835bffb5abb2ade2d8658dd670ab",
+      "claims": {
+        "timestamp": 12,
+        "validFrom": 12,
+        "author": "did:key:zAlice",
+        "pointers": [
+          {
+            "role": "subject",
+            "target": {
+              "id": "plant:b",
+              "context": "name"
+            }
+          },
+          {
+            "role": "value",
+            "target": "moss"
+          }
+        ]
+      }
+    },
+    {
+      "name": "c-name",
+      "id": "1e20df39be820e238eccd0f0c793b869a8d8b010802aff8d000f07398055e3829590",
+      "claims": {
+        "timestamp": 13,
+        "validFrom": 13,
+        "author": "did:key:zAlice",
+        "pointers": [
+          {
+            "role": "subject",
+            "target": {
+              "id": "plant:c",
+              "context": "name"
+            }
+          },
+          {
+            "role": "value",
+            "target": "sage"
+          }
+        ]
+      }
+    },
+    {
+      "name": "d-name",
+      "id": "1e2042f7f94f5d080f09647981c5b09ebdb21523ecafac7a7bbcb313b5eedc614fab",
+      "claims": {
+        "timestamp": 14,
+        "validFrom": 14,
+        "author": "did:key:zAlice",
+        "pointers": [
+          {
+            "role": "subject",
+            "target": {
+              "id": "plant:d",
+              "context": "name"
+            }
+          },
+          {
+            "role": "value",
+            "target": "ivy"
+          }
+        ]
+      }
+    },
+    {
+      "name": "e-name",
+      "id": "1e20add385f90d2e1658c917443fcfaa9bf9d725f32f620fc05e962f7d58e0449673",
+      "claims": {
+        "timestamp": 15,
+        "validFrom": 15,
+        "author": "did:key:zAlice",
+        "pointers": [
+          {
+            "role": "subject",
+            "target": {
+              "id": "plant:e",
+              "context": "name"
+            }
+          },
+          {
+            "role": "value",
+            "target": "rue"
+          }
+        ]
+      }
+    },
+    {
+      "name": "a-note",
+      "id": "1e2058756d0bd23ba9c57c51a7400093a2c878baf15f67e58e8ea074c710b2d3bf4a",
+      "claims": {
+        "timestamp": 16,
+        "validFrom": 16,
+        "author": "did:key:zAlice",
+        "pointers": [
+          {
+            "role": "subject",
+            "target": {
+              "id": "plant:a",
+              "context": "note"
+            }
+          },
+          {
+            "role": "value",
+            "target": "late"
+          }
+        ]
+      }
+    },
+    {
+      "name": "a-name-neg",
+      "id": "1e20ca6c35a58eb45a748b8f34ff0dd7590893d2b66ff696dcba9dc1fc214b4db7db",
+      "claims": {
+        "timestamp": 20,
+        "validFrom": 20,
+        "author": "did:key:zBob",
+        "pointers": [
+          {
+            "role": "negates",
+            "target": {
+              "delta": "1e20794385ccea7b4b72d0746a6fc98b08f9dcac66ab33ef38b809ea6c20151970e2"
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "cases": [
+    {
+      "name": "nothing-new",
+      "note": "A pull at the peer's own revision reads no feed and returns nothing.",
+      "spec": "SPEC-18 §4.6",
+      "requires": [
+        "changes"
+      ],
+      "steps": [
+        {
+          "op": "createPeer",
+          "peer": "A",
+          "erasure": "unproven",
+          "expect": {
+            "status": "created"
+          }
+        },
+        {
+          "op": "mark",
+          "peer": "A",
+          "as": "A.0"
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": null,
+          "nextHead": "A-head-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-name",
+              "arrival": {
+                "at": 1001,
+                "sequence": 1,
+                "transfer": 1,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "a-height",
+              "arrival": {
+                "at": 1002,
+                "sequence": 2,
+                "transfer": 1,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.1",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-height",
+              "a-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "follow",
+          "peer": "A",
+          "as": "f",
+          "expect": {
+            "revision": "A.1"
+          }
+        },
+        {
+          "op": "pull",
+          "follower": "f",
+          "expect": {
+            "status": "ok",
+            "position": "A.1",
+            "records": [],
+            "delivered": [],
+            "absent": []
+          }
+        },
+        {
+          "op": "pull",
+          "follower": "f",
+          "expect": {
+            "status": "ok",
+            "position": "A.1",
+            "records": [],
+            "delivered": [],
+            "absent": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "one-append",
+      "note": "One append after the follow: one record and its one delta.",
+      "spec": "SPEC-18 §4.6",
+      "requires": [
+        "changes"
+      ],
+      "steps": [
+        {
+          "op": "createPeer",
+          "peer": "A",
+          "erasure": "unproven",
+          "expect": {
+            "status": "created"
+          }
+        },
+        {
+          "op": "mark",
+          "peer": "A",
+          "as": "A.0"
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": null,
+          "nextHead": "A-head-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-name",
+              "arrival": {
+                "at": 1001,
+                "sequence": 1,
+                "transfer": 1,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "a-height",
+              "arrival": {
+                "at": 1002,
+                "sequence": 2,
+                "transfer": 1,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.1",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-height",
+              "a-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "follow",
+          "peer": "A",
+          "as": "f",
+          "expect": {
+            "revision": "A.1"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "A-head-1",
+          "nextHead": "A-head-2",
+          "frame": null,
+          "added": [
+            {
+              "delta": "b-name",
+              "arrival": {
+                "at": 1003,
+                "sequence": 3,
+                "transfer": 2,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.2",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "b-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "pull",
+          "follower": "f",
+          "expect": {
+            "status": "ok",
+            "position": "A.2",
+            "records": [
+              "A.2"
+            ],
+            "delivered": [
+              "b-name"
+            ],
+            "absent": []
+          }
+        },
+        {
+          "op": "pull",
+          "follower": "f",
+          "expect": {
+            "status": "ok",
+            "position": "A.2",
+            "records": [],
+            "delivered": [],
+            "absent": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "several-records-in-one-page",
+      "note": "Three commits, one with three deltas that arrive in the reverse of id order. The deltas come ascending by id.",
+      "spec": "SPEC-18 §4.6",
+      "requires": [
+        "changes"
+      ],
+      "steps": [
+        {
+          "op": "createPeer",
+          "peer": "A",
+          "erasure": "unproven",
+          "expect": {
+            "status": "created"
+          }
+        },
+        {
+          "op": "mark",
+          "peer": "A",
+          "as": "A.0"
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": null,
+          "nextHead": "A-head-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-name",
+              "arrival": {
+                "at": 1001,
+                "sequence": 1,
+                "transfer": 1,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "a-height",
+              "arrival": {
+                "at": 1002,
+                "sequence": 2,
+                "transfer": 1,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.1",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-height",
+              "a-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "follow",
+          "peer": "A",
+          "as": "f",
+          "expect": {
+            "revision": "A.1"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "A-head-1",
+          "nextHead": "A-head-2",
+          "frame": null,
+          "added": [
+            {
+              "delta": "b-name",
+              "arrival": {
+                "at": 1003,
+                "sequence": 3,
+                "transfer": 2,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.2",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "b-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "A-head-2",
+          "nextHead": "A-head-3",
+          "frame": null,
+          "added": [
+            {
+              "delta": "c-name",
+              "arrival": {
+                "at": 1004,
+                "sequence": 4,
+                "transfer": 3,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "e-name",
+              "arrival": {
+                "at": 1005,
+                "sequence": 5,
+                "transfer": 3,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "d-name",
+              "arrival": {
+                "at": 1006,
+                "sequence": 6,
+                "transfer": 3,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.3",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "d-name",
+              "e-name",
+              "c-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "A-head-3",
+          "nextHead": "A-head-4",
+          "frame": null,
+          "added": [],
+          "revisionAs": "A.4",
+          "expect": {
+            "status": "committed",
+            "added": [],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "pull",
+          "follower": "f",
+          "expect": {
+            "status": "ok",
+            "position": "A.4",
+            "records": [
+              "A.2",
+              "A.3",
+              "A.4"
+            ],
+            "delivered": [
+              "b-name",
+              "d-name",
+              "e-name",
+              "c-name"
+            ],
+            "absent": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "pages-of-one",
+      "note": "The store's pages hold one record. A pull reads one page, so a step takes one pull per record. a-note is added, purged and added again across the pulls of one step.",
+      "spec": "SPEC-18 §4.6",
+      "requires": [
+        "changes"
+      ],
+      "store": {
+        "changePageSize": 1
+      },
+      "steps": [
+        {
+          "op": "createPeer",
+          "peer": "A",
+          "erasure": "unproven",
+          "expect": {
+            "status": "created"
+          }
+        },
+        {
+          "op": "mark",
+          "peer": "A",
+          "as": "A.0"
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": null,
+          "nextHead": "A-head-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-name",
+              "arrival": {
+                "at": 1001,
+                "sequence": 1,
+                "transfer": 1,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "a-height",
+              "arrival": {
+                "at": 1002,
+                "sequence": 2,
+                "transfer": 1,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.1",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-height",
+              "a-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "follow",
+          "peer": "A",
+          "as": "f",
+          "expect": {
+            "revision": "A.1"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "A-head-1",
+          "nextHead": "A-head-2",
+          "frame": null,
+          "added": [
+            {
+              "delta": "b-name",
+              "arrival": {
+                "at": 1003,
+                "sequence": 3,
+                "transfer": 2,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.2",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "b-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "A-head-2",
+          "nextHead": "A-head-3",
+          "frame": null,
+          "added": [],
+          "revisionAs": "A.3",
+          "expect": {
+            "status": "committed",
+            "added": [],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "A-head-3",
+          "nextHead": "A-head-4",
+          "frame": null,
+          "added": [
+            {
+              "delta": "c-name",
+              "arrival": {
+                "at": 1004,
+                "sequence": 4,
+                "transfer": 4,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "d-name",
+              "arrival": {
+                "at": 1005,
+                "sequence": 5,
+                "transfer": 4,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.4",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "d-name",
+              "c-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "pull",
+          "follower": "f",
+          "expect": {
+            "status": "ok",
+            "position": "A.4",
+            "records": [
+              "A.2",
+              "A.3",
+              "A.4"
+            ],
+            "delivered": [
+              "b-name",
+              "d-name",
+              "c-name"
+            ],
+            "absent": [],
+            "pulls": 3
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "A-head-4",
+          "nextHead": "A-head-5",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-note",
+              "arrival": {
+                "at": 1006,
+                "sequence": 6,
+                "transfer": 5,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.5",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-note"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "purge",
+          "peer": "A",
+          "revisionAs": "A.6",
+          "ids": [
+            "a-note"
+          ],
+          "expect": {
+            "targets": [
+              {
+                "delta": "a-note",
+                "outcome": "removed"
+              }
+            ],
+            "revisionAdvanced": true,
+            "claim": {
+              "unprovable": "unproven",
+              "proven": "proven"
+            },
+            "referenceSurfaces": [
+              {
+                "surface": "rows",
+                "state": "absent"
+              },
+              {
+                "surface": "index-entries",
+                "state": "absent"
+              },
+              {
+                "surface": "process-memory",
+                "state": "unprovable"
+              }
+            ]
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "A-head-5",
+          "nextHead": "A-head-7",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-note",
+              "arrival": {
+                "at": 1007,
+                "sequence": 7,
+                "transfer": 6,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.7",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-note"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "pull",
+          "follower": "f",
+          "expect": {
+            "status": "ok",
+            "position": "A.7",
+            "records": [
+              "A.5",
+              "A.6",
+              "A.7"
+            ],
+            "delivered": [
+              "a-note"
+            ],
+            "absent": [],
+            "pulls": 3
+          }
+        },
+        {
+          "op": "pull",
+          "follower": "f",
+          "expect": {
+            "status": "ok",
+            "position": "A.7",
+            "records": [],
+            "delivered": [],
+            "absent": [],
+            "pulls": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "a-head-only-commit",
+      "note": "A commit that moves only the head: a record with no ids, and no get.",
+      "spec": "SPEC-18 §4.6",
+      "requires": [
+        "changes"
+      ],
+      "steps": [
+        {
+          "op": "createPeer",
+          "peer": "A",
+          "erasure": "unproven",
+          "expect": {
+            "status": "created"
+          }
+        },
+        {
+          "op": "mark",
+          "peer": "A",
+          "as": "A.0"
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": null,
+          "nextHead": "A-head-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-name",
+              "arrival": {
+                "at": 1001,
+                "sequence": 1,
+                "transfer": 1,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "a-height",
+              "arrival": {
+                "at": 1002,
+                "sequence": 2,
+                "transfer": 1,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.1",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-height",
+              "a-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "follow",
+          "peer": "A",
+          "as": "f",
+          "expect": {
+            "revision": "A.1"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "A-head-1",
+          "nextHead": "A-head-2",
+          "frame": null,
+          "added": [],
+          "revisionAs": "A.2",
+          "expect": {
+            "status": "committed",
+            "added": [],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "pull",
+          "follower": "f",
+          "expect": {
+            "status": "ok",
+            "position": "A.2",
+            "records": [
+              "A.2"
+            ],
+            "delivered": [],
+            "absent": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "a-purge-of-a-held-id",
+      "note": "a-height leaves the holdings. The record removes it; nothing is delivered.",
+      "spec": "SPEC-18 §4.6",
+      "requires": [
+        "changes"
+      ],
+      "steps": [
+        {
+          "op": "createPeer",
+          "peer": "A",
+          "erasure": "unproven",
+          "expect": {
+            "status": "created"
+          }
+        },
+        {
+          "op": "mark",
+          "peer": "A",
+          "as": "A.0"
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": null,
+          "nextHead": "A-head-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-name",
+              "arrival": {
+                "at": 1001,
+                "sequence": 1,
+                "transfer": 1,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "a-height",
+              "arrival": {
+                "at": 1002,
+                "sequence": 2,
+                "transfer": 1,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.1",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-height",
+              "a-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "follow",
+          "peer": "A",
+          "as": "f",
+          "expect": {
+            "revision": "A.1"
+          }
+        },
+        {
+          "op": "purge",
+          "peer": "A",
+          "revisionAs": "A.2",
+          "ids": [
+            "a-height"
+          ],
+          "expect": {
+            "targets": [
+              {
+                "delta": "a-height",
+                "outcome": "removed"
+              }
+            ],
+            "revisionAdvanced": true,
+            "claim": {
+              "unprovable": "unproven",
+              "proven": "proven"
+            },
+            "referenceSurfaces": [
+              {
+                "surface": "rows",
+                "state": "absent"
+              },
+              {
+                "surface": "index-entries",
+                "state": "absent"
+              },
+              {
+                "surface": "process-memory",
+                "state": "unprovable"
+              }
+            ]
+          }
+        },
+        {
+          "op": "pull",
+          "follower": "f",
+          "expect": {
+            "status": "ok",
+            "position": "A.2",
+            "records": [
+              "A.2"
+            ],
+            "delivered": [],
+            "absent": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "add-then-purge-in-one-page",
+      "note": "b-name is added and purged after the follow. The page names it twice, and no bytes come: the peer no longer holds it.",
+      "spec": "SPEC-18 §4.6",
+      "requires": [
+        "changes"
+      ],
+      "steps": [
+        {
+          "op": "createPeer",
+          "peer": "A",
+          "erasure": "unproven",
+          "expect": {
+            "status": "created"
+          }
+        },
+        {
+          "op": "mark",
+          "peer": "A",
+          "as": "A.0"
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": null,
+          "nextHead": "A-head-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-name",
+              "arrival": {
+                "at": 1001,
+                "sequence": 1,
+                "transfer": 1,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "a-height",
+              "arrival": {
+                "at": 1002,
+                "sequence": 2,
+                "transfer": 1,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.1",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-height",
+              "a-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "follow",
+          "peer": "A",
+          "as": "f",
+          "expect": {
+            "revision": "A.1"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "A-head-1",
+          "nextHead": "A-head-2",
+          "frame": null,
+          "added": [
+            {
+              "delta": "b-name",
+              "arrival": {
+                "at": 1003,
+                "sequence": 3,
+                "transfer": 2,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.2",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "b-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "purge",
+          "peer": "A",
+          "revisionAs": "A.3",
+          "ids": [
+            "b-name"
+          ],
+          "expect": {
+            "targets": [
+              {
+                "delta": "b-name",
+                "outcome": "removed"
+              }
+            ],
+            "revisionAdvanced": true,
+            "claim": {
+              "unprovable": "unproven",
+              "proven": "proven"
+            },
+            "referenceSurfaces": [
+              {
+                "surface": "rows",
+                "state": "absent"
+              },
+              {
+                "surface": "index-entries",
+                "state": "absent"
+              },
+              {
+                "surface": "process-memory",
+                "state": "unprovable"
+              }
+            ]
+          }
+        },
+        {
+          "op": "pull",
+          "follower": "f",
+          "expect": {
+            "status": "ok",
+            "position": "A.3",
+            "records": [
+              "A.2",
+              "A.3"
+            ],
+            "delivered": [],
+            "absent": [
+              "b-name"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "add-purge-add-in-one-page",
+      "note": "b-name is added, purged and added again under a new arrival record. It comes once, with its current arrival record.",
+      "spec": "SPEC-18 §4.6",
+      "requires": [
+        "changes"
+      ],
+      "steps": [
+        {
+          "op": "createPeer",
+          "peer": "A",
+          "erasure": "unproven",
+          "expect": {
+            "status": "created"
+          }
+        },
+        {
+          "op": "mark",
+          "peer": "A",
+          "as": "A.0"
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": null,
+          "nextHead": "A-head-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-name",
+              "arrival": {
+                "at": 1001,
+                "sequence": 1,
+                "transfer": 1,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "a-height",
+              "arrival": {
+                "at": 1002,
+                "sequence": 2,
+                "transfer": 1,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.1",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-height",
+              "a-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "follow",
+          "peer": "A",
+          "as": "f",
+          "expect": {
+            "revision": "A.1"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "A-head-1",
+          "nextHead": "A-head-2",
+          "frame": null,
+          "added": [
+            {
+              "delta": "b-name",
+              "arrival": {
+                "at": 1003,
+                "sequence": 3,
+                "transfer": 2,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.2",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "b-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "purge",
+          "peer": "A",
+          "revisionAs": "A.3",
+          "ids": [
+            "b-name"
+          ],
+          "expect": {
+            "targets": [
+              {
+                "delta": "b-name",
+                "outcome": "removed"
+              }
+            ],
+            "revisionAdvanced": true,
+            "claim": {
+              "unprovable": "unproven",
+              "proven": "proven"
+            },
+            "referenceSurfaces": [
+              {
+                "surface": "rows",
+                "state": "absent"
+              },
+              {
+                "surface": "index-entries",
+                "state": "absent"
+              },
+              {
+                "surface": "process-memory",
+                "state": "unprovable"
+              }
+            ]
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "A-head-2",
+          "nextHead": "A-head-4",
+          "frame": null,
+          "added": [
+            {
+              "delta": "b-name",
+              "arrival": {
+                "at": 1004,
+                "sequence": 4,
+                "transfer": 3,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.4",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "b-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "pull",
+          "follower": "f",
+          "expect": {
+            "status": "ok",
+            "position": "A.4",
+            "records": [
+              "A.2",
+              "A.3",
+              "A.4"
+            ],
+            "delivered": [
+              "b-name"
+            ],
+            "absent": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "add-purge-add-across-pulls",
+      "note": "b-name is added and pulled, purged and pulled, added again and pulled. Then purged and added again between two pulls.",
+      "spec": "SPEC-18 §4.6",
+      "requires": [
+        "changes"
+      ],
+      "steps": [
+        {
+          "op": "createPeer",
+          "peer": "A",
+          "erasure": "unproven",
+          "expect": {
+            "status": "created"
+          }
+        },
+        {
+          "op": "mark",
+          "peer": "A",
+          "as": "A.0"
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": null,
+          "nextHead": "A-head-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-name",
+              "arrival": {
+                "at": 1001,
+                "sequence": 1,
+                "transfer": 1,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "a-height",
+              "arrival": {
+                "at": 1002,
+                "sequence": 2,
+                "transfer": 1,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.1",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-height",
+              "a-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "follow",
+          "peer": "A",
+          "as": "f",
+          "expect": {
+            "revision": "A.1"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "A-head-1",
+          "nextHead": "A-head-2",
+          "frame": null,
+          "added": [
+            {
+              "delta": "b-name",
+              "arrival": {
+                "at": 1003,
+                "sequence": 3,
+                "transfer": 2,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.2",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "b-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "pull",
+          "follower": "f",
+          "expect": {
+            "status": "ok",
+            "position": "A.2",
+            "records": [
+              "A.2"
+            ],
+            "delivered": [
+              "b-name"
+            ],
+            "absent": []
+          }
+        },
+        {
+          "op": "purge",
+          "peer": "A",
+          "revisionAs": "A.3",
+          "ids": [
+            "b-name"
+          ],
+          "expect": {
+            "targets": [
+              {
+                "delta": "b-name",
+                "outcome": "removed"
+              }
+            ],
+            "revisionAdvanced": true,
+            "claim": {
+              "unprovable": "unproven",
+              "proven": "proven"
+            },
+            "referenceSurfaces": [
+              {
+                "surface": "rows",
+                "state": "absent"
+              },
+              {
+                "surface": "index-entries",
+                "state": "absent"
+              },
+              {
+                "surface": "process-memory",
+                "state": "unprovable"
+              }
+            ]
+          }
+        },
+        {
+          "op": "pull",
+          "follower": "f",
+          "expect": {
+            "status": "ok",
+            "position": "A.3",
+            "records": [
+              "A.3"
+            ],
+            "delivered": [],
+            "absent": []
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "A-head-2",
+          "nextHead": "A-head-4",
+          "frame": null,
+          "added": [
+            {
+              "delta": "b-name",
+              "arrival": {
+                "at": 1004,
+                "sequence": 4,
+                "transfer": 3,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.4",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "b-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "pull",
+          "follower": "f",
+          "expect": {
+            "status": "ok",
+            "position": "A.4",
+            "records": [
+              "A.4"
+            ],
+            "delivered": [
+              "b-name"
+            ],
+            "absent": []
+          }
+        },
+        {
+          "op": "purge",
+          "peer": "A",
+          "revisionAs": "A.5",
+          "ids": [
+            "b-name"
+          ],
+          "expect": {
+            "targets": [
+              {
+                "delta": "b-name",
+                "outcome": "removed"
+              }
+            ],
+            "revisionAdvanced": true,
+            "claim": {
+              "unprovable": "unproven",
+              "proven": "proven"
+            },
+            "referenceSurfaces": [
+              {
+                "surface": "rows",
+                "state": "absent"
+              },
+              {
+                "surface": "index-entries",
+                "state": "absent"
+              },
+              {
+                "surface": "process-memory",
+                "state": "unprovable"
+              }
+            ]
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "A-head-4",
+          "nextHead": "A-head-6",
+          "frame": null,
+          "added": [
+            {
+              "delta": "b-name",
+              "arrival": {
+                "at": 1005,
+                "sequence": 5,
+                "transfer": 4,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.6",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "b-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "pull",
+          "follower": "f",
+          "expect": {
+            "status": "ok",
+            "position": "A.6",
+            "records": [
+              "A.5",
+              "A.6"
+            ],
+            "delivered": [
+              "b-name"
+            ],
+            "absent": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "a-purge-held-by-another-peer-and-a-settled-debt",
+      "note": "A and B hold b-name. A's purge leaves the bytes with B; B's purge removes them; A's second purge settles a debt and writes no record. Neither follower gets bytes.",
+      "spec": "SPEC-18 §4.6",
+      "requires": [
+        "changes"
+      ],
+      "steps": [
+        {
+          "op": "createPeer",
+          "peer": "A",
+          "erasure": "unproven",
+          "expect": {
+            "status": "created"
+          }
+        },
+        {
+          "op": "mark",
+          "peer": "A",
+          "as": "A.0"
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": null,
+          "nextHead": "A-head-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-name",
+              "arrival": {
+                "at": 1001,
+                "sequence": 1,
+                "transfer": 1,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "a-height",
+              "arrival": {
+                "at": 1002,
+                "sequence": 2,
+                "transfer": 1,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.1",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-height",
+              "a-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "createPeer",
+          "peer": "B",
+          "erasure": "unproven",
+          "expect": {
+            "status": "created"
+          }
+        },
+        {
+          "op": "mark",
+          "peer": "B",
+          "as": "B.0"
+        },
+        {
+          "op": "append",
+          "peer": "B",
+          "expectedHead": null,
+          "nextHead": "B-head-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "b-name",
+              "arrival": {
+                "at": 1001,
+                "sequence": 1,
+                "transfer": 2,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "B.1",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "b-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "A-head-1",
+          "nextHead": "A-head-2",
+          "frame": null,
+          "added": [
+            {
+              "delta": "b-name",
+              "arrival": {
+                "at": 1003,
+                "sequence": 3,
+                "transfer": 3,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.2",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "b-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "follow",
+          "peer": "A",
+          "as": "fa",
+          "expect": {
+            "revision": "A.2"
+          }
+        },
+        {
+          "op": "follow",
+          "peer": "B",
+          "as": "fb",
+          "expect": {
+            "revision": "B.1"
+          }
+        },
+        {
+          "op": "purge",
+          "peer": "A",
+          "revisionAs": "A.3",
+          "ids": [
+            "b-name"
+          ],
+          "expect": {
+            "targets": [
+              {
+                "delta": "b-name",
+                "outcome": "held-by-other-peer"
+              }
+            ],
+            "revisionAdvanced": true,
+            "claim": {
+              "unprovable": "nothing-removed",
+              "proven": "nothing-removed"
+            },
+            "referenceSurfaces": [
+              {
+                "surface": "rows",
+                "state": "absent"
+              },
+              {
+                "surface": "index-entries",
+                "state": "absent"
+              },
+              {
+                "surface": "process-memory",
+                "state": "unprovable"
+              }
+            ]
+          }
+        },
+        {
+          "op": "pull",
+          "follower": "fa",
+          "expect": {
+            "status": "ok",
+            "position": "A.3",
+            "records": [
+              "A.3"
+            ],
+            "delivered": [],
+            "absent": []
+          }
+        },
+        {
+          "op": "purge",
+          "peer": "B",
+          "revisionAs": "B.2",
+          "ids": [
+            "b-name"
+          ],
+          "expect": {
+            "targets": [
+              {
+                "delta": "b-name",
+                "outcome": "removed"
+              }
+            ],
+            "revisionAdvanced": true,
+            "claim": {
+              "unprovable": "unproven",
+              "proven": "proven"
+            },
+            "referenceSurfaces": [
+              {
+                "surface": "rows",
+                "state": "absent"
+              },
+              {
+                "surface": "index-entries",
+                "state": "absent"
+              },
+              {
+                "surface": "process-memory",
+                "state": "unprovable"
+              }
+            ]
+          }
+        },
+        {
+          "op": "purge",
+          "peer": "A",
+          "ids": [
+            "b-name"
+          ],
+          "expect": {
+            "targets": [
+              {
+                "delta": "b-name",
+                "outcome": "removed"
+              }
+            ],
+            "revisionAdvanced": false,
+            "claim": {
+              "unprovable": "unproven",
+              "proven": "proven"
+            },
+            "referenceSurfaces": [
+              {
+                "surface": "rows",
+                "state": "absent"
+              },
+              {
+                "surface": "index-entries",
+                "state": "absent"
+              },
+              {
+                "surface": "process-memory",
+                "state": "unprovable"
+              }
+            ]
+          }
+        },
+        {
+          "op": "pull",
+          "follower": "fa",
+          "expect": {
+            "status": "ok",
+            "position": "A.3",
+            "records": [],
+            "delivered": [],
+            "absent": []
+          }
+        },
+        {
+          "op": "pull",
+          "follower": "fb",
+          "expect": {
+            "status": "ok",
+            "position": "B.2",
+            "records": [
+              "B.2"
+            ],
+            "delivered": [],
+            "absent": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "two-peers",
+      "note": "A and B commit in turn and share bytes. Each follower reads its own peer's records only.",
+      "spec": "SPEC-18 §4.6",
+      "requires": [
+        "changes"
+      ],
+      "steps": [
+        {
+          "op": "createPeer",
+          "peer": "A",
+          "erasure": "unproven",
+          "expect": {
+            "status": "created"
+          }
+        },
+        {
+          "op": "mark",
+          "peer": "A",
+          "as": "A.0"
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": null,
+          "nextHead": "A-head-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-name",
+              "arrival": {
+                "at": 1001,
+                "sequence": 1,
+                "transfer": 1,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "a-height",
+              "arrival": {
+                "at": 1002,
+                "sequence": 2,
+                "transfer": 1,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.1",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-height",
+              "a-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "createPeer",
+          "peer": "B",
+          "erasure": "unproven",
+          "expect": {
+            "status": "created"
+          }
+        },
+        {
+          "op": "mark",
+          "peer": "B",
+          "as": "B.0"
+        },
+        {
+          "op": "follow",
+          "peer": "A",
+          "as": "fa",
+          "expect": {
+            "revision": "A.1"
+          }
+        },
+        {
+          "op": "follow",
+          "peer": "B",
+          "as": "fb",
+          "expect": {
+            "revision": "B.0"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "B",
+          "expectedHead": null,
+          "nextHead": "B-head-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "b-name",
+              "arrival": {
+                "at": 1001,
+                "sequence": 1,
+                "transfer": 2,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "a-name",
+              "arrival": {
+                "at": 1002,
+                "sequence": 2,
+                "transfer": 2,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "B.1",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "b-name",
+              "a-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "A-head-1",
+          "nextHead": "A-head-2",
+          "frame": null,
+          "added": [
+            {
+              "delta": "b-name",
+              "arrival": {
+                "at": 1003,
+                "sequence": 3,
+                "transfer": 3,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.2",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "b-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "append",
+          "peer": "B",
+          "expectedHead": "B-head-1",
+          "nextHead": "B-head-2",
+          "frame": null,
+          "added": [
+            {
+              "delta": "c-name",
+              "arrival": {
+                "at": 1003,
+                "sequence": 3,
+                "transfer": 4,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "B.2",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "c-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "purge",
+          "peer": "A",
+          "revisionAs": "A.3",
+          "ids": [
+            "a-name"
+          ],
+          "expect": {
+            "targets": [
+              {
+                "delta": "a-name",
+                "outcome": "held-by-other-peer"
+              }
+            ],
+            "revisionAdvanced": true,
+            "claim": {
+              "unprovable": "nothing-removed",
+              "proven": "nothing-removed"
+            },
+            "referenceSurfaces": [
+              {
+                "surface": "rows",
+                "state": "absent"
+              },
+              {
+                "surface": "index-entries",
+                "state": "absent"
+              },
+              {
+                "surface": "process-memory",
+                "state": "unprovable"
+              }
+            ]
+          }
+        },
+        {
+          "op": "append",
+          "peer": "B",
+          "expectedHead": "B-head-2",
+          "nextHead": "B-head-3",
+          "frame": null,
+          "added": [],
+          "revisionAs": "B.3",
+          "expect": {
+            "status": "committed",
+            "added": [],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "pull",
+          "follower": "fa",
+          "expect": {
+            "status": "ok",
+            "position": "A.3",
+            "records": [
+              "A.2",
+              "A.3"
+            ],
+            "delivered": [
+              "b-name"
+            ],
+            "absent": []
+          }
+        },
+        {
+          "op": "pull",
+          "follower": "fb",
+          "expect": {
+            "status": "ok",
+            "position": "B.3",
+            "records": [
+              "B.1",
+              "B.2",
+              "B.3"
+            ],
+            "delivered": [
+              "b-name",
+              "a-name",
+              "c-name"
+            ],
+            "absent": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "retention-too-short",
+      "note": "The store keeps one record. Two commits after the follow drop the record the follower needs.",
+      "spec": "SPEC-18 §4.6",
+      "requires": [
+        "changes"
+      ],
+      "store": {
+        "changeRetention": {
+          "revisions": 1
+        }
+      },
+      "steps": [
+        {
+          "op": "createPeer",
+          "peer": "A",
+          "erasure": "unproven",
+          "expect": {
+            "status": "created"
+          }
+        },
+        {
+          "op": "mark",
+          "peer": "A",
+          "as": "A.0"
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": null,
+          "nextHead": "A-head-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-name",
+              "arrival": {
+                "at": 1001,
+                "sequence": 1,
+                "transfer": 1,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "a-height",
+              "arrival": {
+                "at": 1002,
+                "sequence": 2,
+                "transfer": 1,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.1",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-height",
+              "a-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "follow",
+          "peer": "A",
+          "as": "f",
+          "expect": {
+            "revision": "A.1"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "A-head-1",
+          "nextHead": "A-head-2",
+          "frame": null,
+          "added": [
+            {
+              "delta": "b-name",
+              "arrival": {
+                "at": 1003,
+                "sequence": 3,
+                "transfer": 2,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.2",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "b-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "A-head-2",
+          "nextHead": "A-head-3",
+          "frame": null,
+          "added": [
+            {
+              "delta": "c-name",
+              "arrival": {
+                "at": 1004,
+                "sequence": 4,
+                "transfer": 3,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.3",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "c-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "pull",
+          "follower": "f",
+          "expect": {
+            "status": "resync-required",
+            "current": "A.3"
+          }
+        },
+        {
+          "op": "pull",
+          "follower": "f",
+          "expect": {
+            "status": "resync-required",
+            "current": "A.3"
+          }
+        }
+      ]
+    },
+    {
+      "name": "a-position-from-the-future",
+      "note": "The follower stands two revisions past the peer: resync-required, with no feed call.",
+      "spec": "SPEC-18 §4.6",
+      "requires": [
+        "changes"
+      ],
+      "steps": [
+        {
+          "op": "createPeer",
+          "peer": "A",
+          "erasure": "unproven",
+          "expect": {
+            "status": "created"
+          }
+        },
+        {
+          "op": "mark",
+          "peer": "A",
+          "as": "A.0"
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": null,
+          "nextHead": "A-head-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-name",
+              "arrival": {
+                "at": 1001,
+                "sequence": 1,
+                "transfer": 1,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "a-height",
+              "arrival": {
+                "at": 1002,
+                "sequence": 2,
+                "transfer": 1,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.1",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-height",
+              "a-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "follow",
+          "peer": "A",
+          "as": "f",
+          "ahead": 2,
+          "expect": {
+            "revision": "A.1"
+          }
+        },
+        {
+          "op": "pull",
+          "follower": "f",
+          "expect": {
+            "status": "resync-required",
+            "current": "A.1"
+          }
+        }
+      ]
+    },
+    {
+      "name": "another-peers-history",
+      "note": "The follower's position carries B's history. Its revision is one of A's, so a feed call could answer; resync-required comes first, with no feed call.",
+      "spec": "SPEC-18 §4.6",
+      "requires": [
+        "changes"
+      ],
+      "steps": [
+        {
+          "op": "createPeer",
+          "peer": "A",
+          "erasure": "unproven",
+          "expect": {
+            "status": "created"
+          }
+        },
+        {
+          "op": "mark",
+          "peer": "A",
+          "as": "A.0"
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": null,
+          "nextHead": "A-head-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-name",
+              "arrival": {
+                "at": 1001,
+                "sequence": 1,
+                "transfer": 1,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "a-height",
+              "arrival": {
+                "at": 1002,
+                "sequence": 2,
+                "transfer": 1,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.1",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-height",
+              "a-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "createPeer",
+          "peer": "B",
+          "erasure": "unproven",
+          "expect": {
+            "status": "created"
+          }
+        },
+        {
+          "op": "mark",
+          "peer": "B",
+          "as": "B.0"
+        },
+        {
+          "op": "follow",
+          "peer": "A",
+          "as": "f",
+          "historyOf": "B",
+          "expect": {
+            "revision": "A.1"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "A-head-1",
+          "nextHead": "A-head-2",
+          "frame": null,
+          "added": [
+            {
+              "delta": "b-name",
+              "arrival": {
+                "at": 1003,
+                "sequence": 3,
+                "transfer": 2,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.2",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "b-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "pull",
+          "follower": "f",
+          "expect": {
+            "status": "resync-required",
+            "current": "A.2"
+          }
+        }
+      ]
+    },
+    {
+      "name": "pull-after-resync",
+      "note": "A position one past the peer answers resync-required. Two commits then pass the position. The next pull answers resync-required again, with the first current: the cursor does not ask the store again.",
+      "spec": "SPEC-18 §4.6",
+      "requires": [
+        "changes"
+      ],
+      "steps": [
+        {
+          "op": "createPeer",
+          "peer": "A",
+          "erasure": "unproven",
+          "expect": {
+            "status": "created"
+          }
+        },
+        {
+          "op": "mark",
+          "peer": "A",
+          "as": "A.0"
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": null,
+          "nextHead": "A-head-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-name",
+              "arrival": {
+                "at": 1001,
+                "sequence": 1,
+                "transfer": 1,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "a-height",
+              "arrival": {
+                "at": 1002,
+                "sequence": 2,
+                "transfer": 1,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.1",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-height",
+              "a-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "follow",
+          "peer": "A",
+          "as": "f",
+          "ahead": 1,
+          "expect": {
+            "revision": "A.1"
+          }
+        },
+        {
+          "op": "pull",
+          "follower": "f",
+          "expect": {
+            "status": "resync-required",
+            "current": "A.1"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "A-head-1",
+          "nextHead": "A-head-2",
+          "frame": null,
+          "added": [
+            {
+              "delta": "b-name",
+              "arrival": {
+                "at": 1003,
+                "sequence": 3,
+                "transfer": 2,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.2",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "b-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "A-head-2",
+          "nextHead": "A-head-3",
+          "frame": null,
+          "added": [
+            {
+              "delta": "c-name",
+              "arrival": {
+                "at": 1004,
+                "sequence": 4,
+                "transfer": 3,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.3",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "c-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "pull",
+          "follower": "f",
+          "expect": {
+            "status": "resync-required",
+            "current": "A.1"
+          }
+        }
+      ]
+    },
+    {
+      "name": "a-follower-started-mid-history",
+      "note": "Four commits, then the follow. Later commits purge an id held before the follow and add it again, and add new ones.",
+      "spec": "SPEC-18 §4.6",
+      "requires": [
+        "changes"
+      ],
+      "steps": [
+        {
+          "op": "createPeer",
+          "peer": "A",
+          "erasure": "unproven",
+          "expect": {
+            "status": "created"
+          }
+        },
+        {
+          "op": "mark",
+          "peer": "A",
+          "as": "A.0"
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": null,
+          "nextHead": "A-head-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-name",
+              "arrival": {
+                "at": 1001,
+                "sequence": 1,
+                "transfer": 1,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "a-height",
+              "arrival": {
+                "at": 1002,
+                "sequence": 2,
+                "transfer": 1,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.1",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-height",
+              "a-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "A-head-1",
+          "nextHead": "A-head-2",
+          "frame": null,
+          "added": [
+            {
+              "delta": "b-name",
+              "arrival": {
+                "at": 1003,
+                "sequence": 3,
+                "transfer": 2,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.2",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "b-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "A-head-2",
+          "nextHead": "A-head-3",
+          "frame": null,
+          "added": [],
+          "revisionAs": "A.3",
+          "expect": {
+            "status": "committed",
+            "added": [],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "purge",
+          "peer": "A",
+          "revisionAs": "A.4",
+          "ids": [
+            "a-height"
+          ],
+          "expect": {
+            "targets": [
+              {
+                "delta": "a-height",
+                "outcome": "removed"
+              }
+            ],
+            "revisionAdvanced": true,
+            "claim": {
+              "unprovable": "unproven",
+              "proven": "proven"
+            },
+            "referenceSurfaces": [
+              {
+                "surface": "rows",
+                "state": "absent"
+              },
+              {
+                "surface": "index-entries",
+                "state": "absent"
+              },
+              {
+                "surface": "process-memory",
+                "state": "unprovable"
+              }
+            ]
+          }
+        },
+        {
+          "op": "follow",
+          "peer": "A",
+          "as": "f",
+          "expect": {
+            "revision": "A.4"
+          }
+        },
+        {
+          "op": "purge",
+          "peer": "A",
+          "revisionAs": "A.5",
+          "ids": [
+            "a-name"
+          ],
+          "expect": {
+            "targets": [
+              {
+                "delta": "a-name",
+                "outcome": "removed"
+              }
+            ],
+            "revisionAdvanced": true,
+            "claim": {
+              "unprovable": "unproven",
+              "proven": "proven"
+            },
+            "referenceSurfaces": [
+              {
+                "surface": "rows",
+                "state": "absent"
+              },
+              {
+                "surface": "index-entries",
+                "state": "absent"
+              },
+              {
+                "surface": "process-memory",
+                "state": "unprovable"
+              }
+            ]
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "A-head-3",
+          "nextHead": "A-head-6",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-name-neg",
+              "arrival": {
+                "at": 1004,
+                "sequence": 4,
+                "transfer": 4,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "a-name",
+              "arrival": {
+                "at": 1005,
+                "sequence": 5,
+                "transfer": 4,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.6",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-name",
+              "a-name-neg"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "A-head-6",
+          "nextHead": "A-head-7",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-height",
+              "arrival": {
+                "at": 1006,
+                "sequence": 6,
+                "transfer": 5,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.7",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-height"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "pull",
+          "follower": "f",
+          "expect": {
+            "status": "ok",
+            "position": "A.7",
+            "records": [
+              "A.5",
+              "A.6",
+              "A.7"
+            ],
+            "delivered": [
+              "a-height",
+              "a-name",
+              "a-name-neg"
+            ],
+            "absent": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "a-purge-between-single-pulls",
+      "note": "b-name is added, purged and added again. The first pull reads the add and delivers b-name. Then b-name is purged again. The third pull reads the second add, and no bytes come: the peer does not hold b-name now. A follower that hands out bytes it delivered earlier in the catch-up fails here.",
+      "spec": "SPEC-18 §4.6",
+      "requires": [
+        "changes"
+      ],
+      "store": {
+        "changePageSize": 1,
+        "changeRetention": "unbounded"
+      },
+      "steps": [
+        {
+          "op": "createPeer",
+          "peer": "A",
+          "erasure": "unproven",
+          "expect": {
+            "status": "created"
+          }
+        },
+        {
+          "op": "mark",
+          "peer": "A",
+          "as": "A.0"
+        },
+        {
+          "op": "follow",
+          "peer": "A",
+          "as": "f",
+          "expect": {
+            "revision": "A.0"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": null,
+          "nextHead": "A-head-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "b-name",
+              "arrival": {
+                "at": 1001,
+                "sequence": 1,
+                "transfer": 1,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.1",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "b-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "purge",
+          "peer": "A",
+          "revisionAs": "A.2",
+          "ids": [
+            "b-name"
+          ],
+          "expect": {
+            "targets": [
+              {
+                "delta": "b-name",
+                "outcome": "removed"
+              }
+            ],
+            "revisionAdvanced": true,
+            "claim": {
+              "unprovable": "unproven",
+              "proven": "proven"
+            },
+            "referenceSurfaces": [
+              {
+                "surface": "rows",
+                "state": "absent"
+              },
+              {
+                "surface": "index-entries",
+                "state": "absent"
+              },
+              {
+                "surface": "process-memory",
+                "state": "unprovable"
+              }
+            ]
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "A-head-1",
+          "nextHead": "A-head-3",
+          "frame": null,
+          "added": [
+            {
+              "delta": "b-name",
+              "arrival": {
+                "at": 1002,
+                "sequence": 2,
+                "transfer": 2,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.3",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "b-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "pull",
+          "follower": "f",
+          "once": true,
+          "expect": {
+            "status": "ok",
+            "position": "A.1",
+            "records": [
+              "A.1"
+            ],
+            "delivered": [
+              "b-name"
+            ],
+            "absent": []
+          }
+        },
+        {
+          "op": "purge",
+          "peer": "A",
+          "revisionAs": "A.4",
+          "ids": [
+            "b-name"
+          ],
+          "expect": {
+            "targets": [
+              {
+                "delta": "b-name",
+                "outcome": "removed"
+              }
+            ],
+            "revisionAdvanced": true,
+            "claim": {
+              "unprovable": "unproven",
+              "proven": "proven"
+            },
+            "referenceSurfaces": [
+              {
+                "surface": "rows",
+                "state": "absent"
+              },
+              {
+                "surface": "index-entries",
+                "state": "absent"
+              },
+              {
+                "surface": "process-memory",
+                "state": "unprovable"
+              }
+            ]
+          }
+        },
+        {
+          "op": "pull",
+          "follower": "f",
+          "once": true,
+          "expect": {
+            "status": "ok",
+            "position": "A.2",
+            "records": [
+              "A.2"
+            ],
+            "delivered": [],
+            "absent": []
+          }
+        },
+        {
+          "op": "pull",
+          "follower": "f",
+          "once": true,
+          "expect": {
+            "status": "ok",
+            "position": "A.3",
+            "records": [
+              "A.3"
+            ],
+            "delivered": [],
+            "absent": [
+              "b-name"
+            ]
+          }
+        },
+        {
+          "op": "pull",
+          "follower": "f",
+          "expect": {
+            "status": "ok",
+            "position": "A.4",
+            "records": [
+              "A.4"
+            ],
+            "delivered": [],
+            "absent": [],
+            "pulls": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "an-append-between-single-pulls",
+      "note": "Two appends, one pull, a third append, one pull, then the rest.",
+      "spec": "SPEC-18 §4.6",
+      "requires": [
+        "changes"
+      ],
+      "store": {
+        "changePageSize": 1,
+        "changeRetention": "unbounded"
+      },
+      "steps": [
+        {
+          "op": "createPeer",
+          "peer": "A",
+          "erasure": "unproven",
+          "expect": {
+            "status": "created"
+          }
+        },
+        {
+          "op": "mark",
+          "peer": "A",
+          "as": "A.0"
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": null,
+          "nextHead": "A-head-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-name",
+              "arrival": {
+                "at": 1001,
+                "sequence": 1,
+                "transfer": 1,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "a-height",
+              "arrival": {
+                "at": 1002,
+                "sequence": 2,
+                "transfer": 1,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.1",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-height",
+              "a-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "follow",
+          "peer": "A",
+          "as": "f",
+          "expect": {
+            "revision": "A.1"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "A-head-1",
+          "nextHead": "A-head-2",
+          "frame": null,
+          "added": [
+            {
+              "delta": "b-name",
+              "arrival": {
+                "at": 1003,
+                "sequence": 3,
+                "transfer": 2,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.2",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "b-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "A-head-2",
+          "nextHead": "A-head-3",
+          "frame": null,
+          "added": [
+            {
+              "delta": "c-name",
+              "arrival": {
+                "at": 1004,
+                "sequence": 4,
+                "transfer": 3,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.3",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "c-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "pull",
+          "follower": "f",
+          "once": true,
+          "expect": {
+            "status": "ok",
+            "position": "A.2",
+            "records": [
+              "A.2"
+            ],
+            "delivered": [
+              "b-name"
+            ],
+            "absent": []
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "A-head-3",
+          "nextHead": "A-head-4",
+          "frame": null,
+          "added": [
+            {
+              "delta": "d-name",
+              "arrival": {
+                "at": 1005,
+                "sequence": 5,
+                "transfer": 4,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.4",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "d-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "pull",
+          "follower": "f",
+          "once": true,
+          "expect": {
+            "status": "ok",
+            "position": "A.3",
+            "records": [
+              "A.3"
+            ],
+            "delivered": [
+              "c-name"
+            ],
+            "absent": []
+          }
+        },
+        {
+          "op": "pull",
+          "follower": "f",
+          "expect": {
+            "status": "ok",
+            "position": "A.4",
+            "records": [
+              "A.4"
+            ],
+            "delivered": [
+              "d-name"
+            ],
+            "absent": [],
+            "pulls": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "a-purge-of-a-mirrored-id-between-single-pulls",
+      "note": "The follower read a-name before it followed. After one pull, a-name is purged; the pulls that follow read the purge.",
+      "spec": "SPEC-18 §4.6",
+      "requires": [
+        "changes"
+      ],
+      "store": {
+        "changePageSize": 1,
+        "changeRetention": "unbounded"
+      },
+      "steps": [
+        {
+          "op": "createPeer",
+          "peer": "A",
+          "erasure": "unproven",
+          "expect": {
+            "status": "created"
+          }
+        },
+        {
+          "op": "mark",
+          "peer": "A",
+          "as": "A.0"
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": null,
+          "nextHead": "A-head-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-name",
+              "arrival": {
+                "at": 1001,
+                "sequence": 1,
+                "transfer": 1,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "a-height",
+              "arrival": {
+                "at": 1002,
+                "sequence": 2,
+                "transfer": 1,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.1",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-height",
+              "a-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "follow",
+          "peer": "A",
+          "as": "f",
+          "expect": {
+            "revision": "A.1"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "A-head-1",
+          "nextHead": "A-head-2",
+          "frame": null,
+          "added": [
+            {
+              "delta": "b-name",
+              "arrival": {
+                "at": 1003,
+                "sequence": 3,
+                "transfer": 2,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.2",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "b-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "A-head-2",
+          "nextHead": "A-head-3",
+          "frame": null,
+          "added": [
+            {
+              "delta": "c-name",
+              "arrival": {
+                "at": 1004,
+                "sequence": 4,
+                "transfer": 3,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.3",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "c-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "pull",
+          "follower": "f",
+          "once": true,
+          "expect": {
+            "status": "ok",
+            "position": "A.2",
+            "records": [
+              "A.2"
+            ],
+            "delivered": [
+              "b-name"
+            ],
+            "absent": []
+          }
+        },
+        {
+          "op": "purge",
+          "peer": "A",
+          "revisionAs": "A.4",
+          "ids": [
+            "a-name"
+          ],
+          "expect": {
+            "targets": [
+              {
+                "delta": "a-name",
+                "outcome": "removed"
+              }
+            ],
+            "revisionAdvanced": true,
+            "claim": {
+              "unprovable": "unproven",
+              "proven": "proven"
+            },
+            "referenceSurfaces": [
+              {
+                "surface": "rows",
+                "state": "absent"
+              },
+              {
+                "surface": "index-entries",
+                "state": "absent"
+              },
+              {
+                "surface": "process-memory",
+                "state": "unprovable"
+              }
+            ]
+          }
+        },
+        {
+          "op": "pull",
+          "follower": "f",
+          "once": true,
+          "expect": {
+            "status": "ok",
+            "position": "A.3",
+            "records": [
+              "A.3"
+            ],
+            "delivered": [
+              "c-name"
+            ],
+            "absent": []
+          }
+        },
+        {
+          "op": "pull",
+          "follower": "f",
+          "expect": {
+            "status": "ok",
+            "position": "A.4",
+            "records": [
+              "A.4"
+            ],
+            "delivered": [],
+            "absent": [],
+            "pulls": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "a-re-add-between-single-pulls",
+      "note": "The first pull delivers b-name. b-name is then purged and added again under a new arrival record. The mirror keeps the old record until a pull reads the re-add.",
+      "spec": "SPEC-18 §4.6",
+      "requires": [
+        "changes"
+      ],
+      "store": {
+        "changePageSize": 1,
+        "changeRetention": "unbounded"
+      },
+      "steps": [
+        {
+          "op": "createPeer",
+          "peer": "A",
+          "erasure": "unproven",
+          "expect": {
+            "status": "created"
+          }
+        },
+        {
+          "op": "mark",
+          "peer": "A",
+          "as": "A.0"
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": null,
+          "nextHead": "A-head-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-name",
+              "arrival": {
+                "at": 1001,
+                "sequence": 1,
+                "transfer": 1,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "a-height",
+              "arrival": {
+                "at": 1002,
+                "sequence": 2,
+                "transfer": 1,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.1",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-height",
+              "a-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "follow",
+          "peer": "A",
+          "as": "f",
+          "expect": {
+            "revision": "A.1"
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "A-head-1",
+          "nextHead": "A-head-2",
+          "frame": null,
+          "added": [
+            {
+              "delta": "b-name",
+              "arrival": {
+                "at": 1003,
+                "sequence": 3,
+                "transfer": 2,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.2",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "b-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "A-head-2",
+          "nextHead": "A-head-3",
+          "frame": null,
+          "added": [
+            {
+              "delta": "c-name",
+              "arrival": {
+                "at": 1004,
+                "sequence": 4,
+                "transfer": 3,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.3",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "c-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "pull",
+          "follower": "f",
+          "once": true,
+          "expect": {
+            "status": "ok",
+            "position": "A.2",
+            "records": [
+              "A.2"
+            ],
+            "delivered": [
+              "b-name"
+            ],
+            "absent": []
+          }
+        },
+        {
+          "op": "purge",
+          "peer": "A",
+          "revisionAs": "A.4",
+          "ids": [
+            "b-name"
+          ],
+          "expect": {
+            "targets": [
+              {
+                "delta": "b-name",
+                "outcome": "removed"
+              }
+            ],
+            "revisionAdvanced": true,
+            "claim": {
+              "unprovable": "unproven",
+              "proven": "proven"
+            },
+            "referenceSurfaces": [
+              {
+                "surface": "rows",
+                "state": "absent"
+              },
+              {
+                "surface": "index-entries",
+                "state": "absent"
+              },
+              {
+                "surface": "process-memory",
+                "state": "unprovable"
+              }
+            ]
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "A-head-3",
+          "nextHead": "A-head-5",
+          "frame": null,
+          "added": [
+            {
+              "delta": "b-name",
+              "arrival": {
+                "at": 1005,
+                "sequence": 5,
+                "transfer": 4,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.5",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "b-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "pull",
+          "follower": "f",
+          "once": true,
+          "expect": {
+            "status": "ok",
+            "position": "A.3",
+            "records": [
+              "A.3"
+            ],
+            "delivered": [
+              "c-name"
+            ],
+            "absent": []
+          }
+        },
+        {
+          "op": "pull",
+          "follower": "f",
+          "once": true,
+          "expect": {
+            "status": "ok",
+            "position": "A.4",
+            "records": [
+              "A.4"
+            ],
+            "delivered": [],
+            "absent": []
+          }
+        },
+        {
+          "op": "pull",
+          "follower": "f",
+          "expect": {
+            "status": "ok",
+            "position": "A.5",
+            "records": [
+              "A.5"
+            ],
+            "delivered": [
+              "b-name"
+            ],
+            "absent": [],
+            "pulls": 1
+          }
+        }
+      ]
+    }
+  ]
+}

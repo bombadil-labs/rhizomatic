@@ -54,6 +54,7 @@ import {
 } from "../src/storage/store-vector-format.js";
 import {
   StoreError,
+  StoreFaultError,
   type ChangeRecord,
   type PeerStore,
   type Pushdown,
@@ -151,8 +152,12 @@ describe("freshness vectors", () => {
   for (const [name, fault] of Object.entries(RUNS))
     it(`pass on the memory store: ${name}`, async () => {
       const report = await runFreshnessConformance(factoryOf(fault), WITNESS, document);
+      // Exactly the file's cases, each passed, none skipped.
       expect(report.skipped).toEqual([]);
-      expect(report.passed).toHaveLength(document.cases.length + document.touching.length);
+      expect(report.passed).toEqual([
+        ...document.cases.map((c) => `freshness/${c.name}`),
+        ...document.touching.map((c) => `touching/${c.name}`),
+      ]);
     });
 
   it("a capture that takes the fetch as members when nothing is reported applied fails run 6 only", async () => {
@@ -191,6 +196,67 @@ describe("freshness vectors", () => {
       document,
     );
     expect(report.skipped).toEqual([{ name: "freshness/retention-too-short", missing: "store" }]);
+  });
+
+  it("a factory that fails otherwise fails that case, and the others run", async () => {
+    const error = await runFreshnessConformance(
+      async (request) => {
+        if (request.changeRetention !== undefined) throw new Error("no disk");
+        return createMemoryStore();
+      },
+      WITNESS,
+      document,
+    ).then(
+      () => undefined,
+      (e: unknown) => e,
+    );
+    expect(error).toBeInstanceOf(StoreConformanceError);
+    expect((error as StoreConformanceError).failures).toEqual([
+      {
+        name: "freshness/retention-too-short",
+        message: "the factory did not open a store: no disk",
+      },
+    ]);
+  });
+
+  it("a case store with an unknown field or a bad value is a defect of the document", async () => {
+    for (const [store, message] of [
+      [
+        { changeRetention: "unbounded", changePageSize: 1 },
+        "the case's store sets an unknown field `changePageSize`",
+      ],
+      [
+        { changeRetention: { revisions: 1, more: 1 } },
+        "the case's changeRetention is not unbounded or {revisions: n}",
+      ],
+      ["unbounded", "the case's store is not an object"],
+    ] as const) {
+      const copy = JSON.parse(committed) as StoreFreshnessDocument;
+      (copy.cases.find((c) => c.name === "no-change") as { store?: unknown }).store = store;
+      expect(await failures(WITNESS, {}, copy)).toEqual([{ name: "freshness/no-change", message }]);
+    }
+  });
+
+  it("a document of another format: one failure, named freshness", async () => {
+    expect(await failures(WITNESS, {}, { ...document, format: "x" as never })).toEqual([
+      { name: "freshness", message: "unknown store freshness format" },
+    ]);
+  });
+
+  it("a store fault checkFresh passes up fails with the fixed words", async () => {
+    const stuck: FreshnessWitness = {
+      ...WITNESS,
+      checkFresh: (peer, capture, now) =>
+        checkFresh(
+          { ...peer, changes: async (from) => ({ status: "ok", records: [], through: from }) },
+          capture,
+          now,
+        ),
+    };
+    const found = await failures(stuck);
+    expect(found.find((f) => f.name === "freshness/unrelated-appends")?.message).toContain(
+      "the store broke no-progress: checkFresh: the store's page from 1 to 3 ends at 1",
+    );
   });
 });
 
@@ -856,6 +922,45 @@ describe("parseCapture", () => {
     }
   });
 
+  it("writes the TypeScript capture of capture-interchange.json byte for byte", async () => {
+    // README §9.8: two facts at plant:a, valid from 5 and from 10, appended in one commit to a
+    // peer whose mint answered host:interchange, captured at now 100.
+    const fixtures = JSON.parse(
+      readFileSync(resolve(here, "../../../vectors/store/capture-interchange.json"), "utf8"),
+    ) as { captures: Record<string, string> };
+    const w = await writer({ mintHistory: () => "host:interchange" });
+    await w.append([fact("plant:a", 5), fact("plant:a", 10)]);
+    expect(JSON.stringify(await w.capture(["plant:a"], 100))).toBe(fixtures.captures["ts"]);
+  });
+
+  it("refuses a capture with two defects by the first in the parser's order", () => {
+    // SPEC-18 §4.13 reading 54, from the table both witnesses read
+    // (vectors/store/capture-defects.json): keys, history (empty, then local), revision, each
+    // anchor whole in order, the anchors' order, members, then the window.
+    const table = JSON.parse(
+      readFileSync(resolve(here, "../../../vectors/store/capture-defects.json"), "utf8"),
+    ) as {
+      base: Record<string, unknown>;
+      cases: { name: string; set: Record<string, unknown>; code: string; starts: string }[];
+    };
+    expect(table.cases.length).toBeGreaterThanOrEqual(14);
+    for (const { name, set, code, starts } of table.cases) {
+      const failed = (() => {
+        try {
+          parseCapture({ ...table.base, ...set });
+          return undefined;
+        } catch (error) {
+          return error;
+        }
+      })();
+      expect(failed, name).toBeInstanceOf(StoreError);
+      expect((failed as StoreError).code, name).toBe(code);
+      expect((failed as StoreError).message.startsWith(starts), `${name}: ${String(failed)}`).toBe(
+        true,
+      );
+    }
+  });
+
   it("round-trips a capture through JSON when its history is not local to the process", async () => {
     const w = await writer({ mintHistory: () => "host:7f3a" });
     await w.append([fact("plant:a", 1), fact("plant:a", 2, { until: 9 })]);
@@ -1036,9 +1141,108 @@ describe("checkFresh", () => {
       () => undefined,
       (error: unknown) => error,
     );
-    expect(failed).toBeInstanceOf(Error);
+    expect(failed).toBeInstanceOf(StoreFaultError);
     expect(failed).not.toBeInstanceOf(StoreError);
-    expect((failed as Error).message).toMatch(/made no progress/);
+    expect(failed).toMatchObject({ rule: "no-progress", values: { from: 0, to: 1, through: 0 } });
+  });
+
+  it("fails before it judges a faulty page, also one that names a toucher", async () => {
+    const w = await writer();
+    const capture = await w.capture(["plant:a"]);
+    const toucher = fact("plant:a", 2);
+    await w.append([toucher]);
+    for (const past of [false, true]) {
+      const faulty: PeerStore = {
+        ...w.peer,
+        changes: async (from, to) => ({
+          status: "ok",
+          records: [{ revision: from + 1, head: "h1", added: [toucher.id], removed: [] }],
+          through: past ? (to ?? 0) + 5 : from,
+        }),
+      };
+      const failed = await checkFresh(faulty, capture, 0).then(
+        (verdict) => verdict,
+        (error: unknown) => error,
+      );
+      expect(failed, String(past)).toBeInstanceOf(StoreFaultError);
+      expect(failed).toMatchObject({ rule: past ? "past-the-bound" : "no-progress" });
+    }
+  });
+
+  it("fails with an error, not current, when a page claims records past r′", async () => {
+    const w = await writer();
+    const capture = await w.capture(["plant:a"]);
+    await w.append([fact("plant:b", 2)]);
+    const past: PeerStore = {
+      ...w.peer,
+      changes: async (_from, to) => ({ status: "ok", records: [], through: (to ?? 0) + 5 }),
+    };
+    const failed = await checkFresh(past, capture, 0).then(
+      () => undefined,
+      (error: unknown) => error,
+    );
+    expect(failed).toBeInstanceOf(StoreFaultError);
+    expect(failed).toMatchObject({
+      rule: "past-the-bound",
+      values: { from: 0, to: 1, through: 6 },
+    });
+  });
+
+  it("judges no bytes it did not ask for: an extra id in get is a store fault", async () => {
+    const w = await writer();
+    const capture = await w.capture(["plant:a"]);
+    const added = fact("plant:b", 2);
+    const extra = fact("plant:a", 3);
+    await w.append([added]);
+    const peer: PeerStore = {
+      ...w.peer,
+      read: async () => {
+        const s = await w.peer.read();
+        return {
+          ...s,
+          history: s.history,
+          revision: s.revision,
+          release: () => s.release(),
+          get: async (ids) =>
+            [...(await s.get(ids)), extra].sort((a, b) => compareUtf8(a.id, b.id)),
+        };
+      },
+    };
+    const failed = await checkFresh(peer, capture, 0).then(
+      (verdict) => verdict,
+      (error: unknown) => error,
+    );
+    expect(failed).toBeInstanceOf(StoreFaultError);
+    expect(failed).toMatchObject({
+      rule: "unasked-ids",
+      values: { call: "get", asked: [added.id] },
+    });
+  });
+
+  it("starts again when read() itself answers snapshot-moved, at most four snapshots", async () => {
+    const w = await writer();
+    const capture = await w.capture(["plant:a"]);
+    await w.append([fact("plant:b", 2)]);
+    for (const [refusals, settles] of [
+      [3, true],
+      [4, false],
+    ] as const) {
+      let reads = 0;
+      const peer: PeerStore = {
+        ...w.peer,
+        read: async () => {
+          reads += 1;
+          if (reads <= refusals) throw new StoreError("snapshot-moved", "moved");
+          return w.peer.read();
+        },
+      };
+      if (settles) expect(await checkFresh(peer, capture, 0)).toEqual({ status: "current" });
+      else
+        await expect(checkFresh(peer, capture, 0)).rejects.toMatchObject({
+          code: "snapshot-moved",
+        });
+      expect(reads, String(refusals)).toBe(4);
+    }
   });
 
   it("answers resync-required for a capture from a later revision, with no feed call", async () => {

@@ -37,12 +37,33 @@ use crate::store::{
     PushdownFields, Revision, ScopeRequest, ScopeResult, Snapshot, Store, StoreError,
     StoreErrorCode, StoreProfile, SurfaceState, VerifiedDelta, MAX_REVISION, PURGE_BOUNDARY,
 };
-use crate::store_fresh::{parse_capture, Capture, Freshness, Touch, TouchReason};
+use crate::store_follow::{Position, Pull};
+use crate::store_fresh::{parse_capture, Capture, FeedError, Freshness, Touch, TouchReason};
 use crate::types::Delta;
 
 const SCRIPTS_FORMAT: &str = "rhizomatic-store-scripts/1";
 const SCOPE_FORMAT: &str = "rhizomatic-store-scope/1";
 const FRESHNESS_FORMAT: &str = "rhizomatic-store-freshness/1";
+const FOLLOW_FORMAT: &str = "rhizomatic-store-follow/1";
+
+/// A witness's follower (`vectors/store/README.md` §10; SPEC-18 §4.6, "Following the feed"):
+/// `positionOf` and the cursor `follow` makes. The runner hands `follow` a logged handle that it
+/// owns, and keeps the cursor across the steps of a case.
+pub trait FollowReader {
+    fn position_of(&self, snapshot: &dyn Snapshot) -> Position;
+    /// A cursor over `peer`'s feed from `from`. It makes no store call.
+    fn follow<'a>(
+        &self,
+        peer: Box<dyn PeerStore + 'a>,
+        from: Position,
+    ) -> Result<Box<dyn Follower + 'a>, StoreError>;
+}
+
+/// A feed cursor as the runner drives it.
+pub trait Follower {
+    fn position(&self) -> Position;
+    fn pull(&mut self) -> Result<Pull, FeedError>;
+}
 
 /// A witness's three freshness functions (`vectors/store/README.md` §9; SPEC-18 §4.6). The runner
 /// builds captures only through `capture`, and hands `touching` and `check_fresh` only those.
@@ -67,7 +88,7 @@ pub trait FreshnessReader {
         peer: &dyn PeerStore,
         capture: &Capture,
         now: f64,
-    ) -> Result<Freshness, StoreError>;
+    ) -> Result<Freshness, FeedError>;
 }
 
 /// The two shared vector documents, parsed: `vectors/store/scripts.json` and
@@ -596,6 +617,10 @@ struct Run<'a> {
     histories: BTreeMap<String, String>,
     /// Each capture, by name, with the peer its snapshot belonged to (§9.2).
     captures: BTreeMap<String, (String, Capture)>,
+    /// The follower under test, for `follow` and `pull` (§10).
+    follower: Option<&'a dyn FollowReader>,
+    /// Each follower, by name (§10.2).
+    followers: BTreeMap<String, Following>,
     corpus: &'a Corpus,
     store: Box<dyn Store>,
     profile: StoreProfile,
@@ -742,11 +767,17 @@ fn collect<T>(listing: impl Iterator<Item = Result<T, StoreError>>) -> Result<Ve
 impl<'a> Run<'a> {
     fn open(corpus: &'a Corpus, factory: &StoreFactoryFn<'_>) -> Check<Self> {
         let store = factory().map_err(|e| format!("the factory did not open a store: {e}"))?;
+        Ok(Self::on(corpus, store))
+    }
+
+    fn on(corpus: &'a Corpus, store: Box<dyn Store>) -> Self {
         let profile = store.profile().clone();
-        Ok(Self {
+        Self {
             reader: None,
             histories: BTreeMap::new(),
             captures: BTreeMap::new(),
+            follower: None,
+            followers: BTreeMap::new(),
             corpus,
             reference: profile.format_version == corpus.reference_format,
             keep: Keep::of(profile.change_retention),
@@ -757,7 +788,7 @@ impl<'a> Run<'a> {
             books: BTreeMap::new(),
             feeds: BTreeMap::new(),
             names: BTreeMap::new(),
-        })
+        }
     }
 
     /// The first requirement of a script this store's profile fails (§3).
@@ -1276,12 +1307,12 @@ impl<'a> Run<'a> {
 
         let log = CallLog::default();
         let logged = LoggedPeer {
-            inner: self.peer(handle)?,
+            inner: Box::new(Borrowed(self.peer(handle)?)),
             log: log.clone(),
         };
         let answer = reader
             .check_fresh(&logged, &capture, now)
-            .map_err(|e| format!("checkFresh refused with {}: {}", e.code.as_str(), e.message))?;
+            .map_err(|e| failed_call("checkFresh", e))?;
         // 1. The status.
         if answer.status() != status {
             return Err(match below {
@@ -1431,6 +1462,8 @@ impl<'a> Run<'a> {
             "changes" => self.changes(step),
             "capture" => self.capture(step),
             "check" => self.check(step),
+            "follow" => self.follow(step),
+            "pull" => self.pull(step),
             "get" => self.get(step),
             "arrivals" => self.arrivals(step),
             "targets" | "negators" => self.index_read(step),
@@ -2119,16 +2152,15 @@ fn touch_text(touch: Option<&Touch>) -> String {
 /// One call `check_fresh` made through the logged handle, with what it answered.
 #[derive(Debug, Clone)]
 enum Call {
-    Read {
-        revision: Revision,
-        history: String,
-    },
+    /// What the snapshot reported; `None` while `read` has not answered, or when it refused.
+    Read(Option<(Revision, String)>),
     Changes {
         from: Revision,
         to: Option<Revision>,
         answer: Option<ChangePage>,
     },
     Get(Vec<String>),
+    Arrivals(Vec<String>),
     Release,
     Other(&'static str),
 }
@@ -2136,16 +2168,14 @@ enum Call {
 impl Call {
     fn text(&self) -> String {
         match self {
-            Self::Read { .. } => "read".into(),
+            Self::Read(_) => "read".into(),
             Self::Changes { from, to, .. } => format!(
                 "changes({}, {})",
                 from.0,
                 to.map_or("none".to_string(), |to| to.0.to_string())
             ),
-            Self::Get(ids) => {
-                let cut: Vec<String> = ids.iter().map(|id| id.chars().take(12).collect()).collect();
-                format!("get [{}]", cut.join(" "))
-            }
+            Self::Get(ids) => format!("get {}", cut_ids(ids)),
+            Self::Arrivals(ids) => format!("arrivals {}", cut_ids(ids)),
             Self::Release => "release".into(),
             Self::Other(op) => (*op).into(),
         }
@@ -2155,9 +2185,37 @@ impl Call {
 /// The log of one check. It lives only while the check runs; nothing outside the runner sees it.
 type CallLog = Rc<RefCell<Vec<Call>>>;
 
-/// A peer handle that logs every call through it and through every snapshot it returns (§9.3).
+/// A borrowed handle, so a logged handle can own what it wraps.
+struct Borrowed<'a>(&'a dyn PeerStore);
+
+impl PeerStore for Borrowed<'_> {
+    fn id(&self) -> &str {
+        self.0.id()
+    }
+    fn erasure(&self) -> crate::store::PeerErasure {
+        self.0.erasure()
+    }
+    fn history(&self) -> &str {
+        self.0.history()
+    }
+    fn read(&self) -> Result<Box<dyn Snapshot>, StoreError> {
+        self.0.read()
+    }
+    fn append(&self, batch: &Admission) -> Result<AppendResult, StoreError> {
+        self.0.append(batch)
+    }
+    fn purge(&self, ids: &[String]) -> Result<crate::store::PurgeReport, StoreError> {
+        self.0.purge(ids)
+    }
+    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreError> {
+        self.0.changes(from, to)
+    }
+}
+
+/// A peer handle that logs every call through it and through every snapshot it returns (§9.3,
+/// §10.3 "The calls").
 struct LoggedPeer<'a> {
-    inner: &'a dyn PeerStore,
+    inner: Box<dyn PeerStore + 'a>,
     log: CallLog,
 }
 
@@ -2172,11 +2230,12 @@ impl PeerStore for LoggedPeer<'_> {
         self.inner.history()
     }
     fn read(&self) -> Result<Box<dyn Snapshot>, StoreError> {
+        // Each call is logged when it is made, also one that then refuses (README §10.3).
+        let at = self.log.borrow().len();
+        self.log.borrow_mut().push(Call::Read(None));
         let inner = self.inner.read()?;
-        self.log.borrow_mut().push(Call::Read {
-            revision: inner.revision(),
-            history: inner.history().to_string(),
-        });
+        self.log.borrow_mut()[at] =
+            Call::Read(Some((inner.revision(), inner.history().to_string())));
         Ok(Box::new(LoggedSnapshot {
             inner,
             log: self.log.clone(),
@@ -2191,12 +2250,16 @@ impl PeerStore for LoggedPeer<'_> {
         self.inner.purge(ids)
     }
     fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreError> {
-        let answer = self.inner.changes(from, to);
+        let at = self.log.borrow().len();
         self.log.borrow_mut().push(Call::Changes {
             from,
             to,
-            answer: answer.as_ref().ok().cloned(),
+            answer: None,
         });
+        let answer = self.inner.changes(from, to);
+        if let Call::Changes { answer: logged, .. } = &mut self.log.borrow_mut()[at] {
+            *logged = answer.as_ref().ok().cloned();
+        }
         answer
     }
 }
@@ -2224,7 +2287,7 @@ impl Snapshot for LoggedSnapshot {
         self.inner.get(ids)
     }
     fn arrivals(&self, ids: &[String]) -> Result<Vec<ArrivalRecord>, StoreError> {
-        self.log.borrow_mut().push(Call::Other("arrivals"));
+        self.log.borrow_mut().push(Call::Arrivals(ids.to_vec()));
         self.inner.arrivals(ids)
     }
     fn targets(&self, entities: &[String]) -> Result<Vec<String>, StoreError> {
@@ -2264,7 +2327,7 @@ fn walk(log: &[Call], capture: &Capture, touch_at: Option<Revision>) -> Check {
             }
         }
     };
-    if let Call::Read { revision, history } = next("read".into())? {
+    if let Call::Read(Some((revision, history))) = next("read".into())? {
         let (c, read_at) = (capture.revision(), *revision);
         if history == capture.history() && read_at > c {
             let mut at = c;
@@ -2352,28 +2415,11 @@ fn touching_case(corpus: &Corpus, reader: &dyn FreshnessReader, case: &Value) ->
 }
 
 /// Opens one new, empty store for a freshness case. `Some` retention is the case's `store`
-/// (§9.1), which replaces the run's.
+/// (§9.1), which replaces the run's. A store that cannot be built with it refuses
+/// `capability-absent`, and the case is reported skipped with the requirement `store`; any other
+/// refusal fails the case.
 pub type FreshnessStoreFn<'a> =
     dyn Fn(Option<ChangeRetention>) -> Result<Box<dyn Store>, StoreError> + 'a;
-
-/// A case's `store.changeRetention`, when it has one.
-fn case_retention(case: &Value) -> Check<Option<ChangeRetention>> {
-    let Some(store) = case.get("store") else {
-        return Ok(None);
-    };
-    match field(store, "changeRetention")? {
-        Value::String(s) if s == "unbounded" => Ok(Some(ChangeRetention::Unbounded)),
-        v => match v.get("revisions").and_then(Value::as_u64) {
-            Some(n)
-                if (1..=MAX_REVISION).contains(&n)
-                    && v.as_object().is_some_and(|o| o.len() == 1) =>
-            {
-                Ok(Some(ChangeRetention::Revisions(n)))
-            }
-            _ => Err("the case's changeRetention is not unbounded or {revisions: n}".into()),
-        },
-    }
-}
 
 /// Runs every case of `freshness.json` on a new store each, with `reader`'s capture, `touching`
 /// and `check_fresh`, then every `touching` case (§9). Names are `freshness/<case>` and
@@ -2392,20 +2438,27 @@ pub fn run_freshness_conformance(
             message,
         })
     };
-    let loaded = Corpus::load(doc, FRESHNESS_FORMAT)
-        .and_then(|corpus| Ok((list(doc, "cases")?, list(doc, "touching")?, corpus)));
+    let loaded = match doc.get("format").and_then(Value::as_str) {
+        Some(FRESHNESS_FORMAT) => Corpus::load(doc, FRESHNESS_FORMAT)
+            .and_then(|corpus| Ok((list(doc, "cases")?, list(doc, "touching")?, corpus))),
+        _ => Err("unknown store freshness format".to_string()),
+    };
     match loaded {
         Err(message) => fail("freshness", None, message),
         Ok((cases, touching, corpus)) => {
             for case in cases {
                 let name = format!("freshness/{}", case["name"].as_str().unwrap_or("?"));
-                let outcome = case_retention(case)
+                let outcome = case_store(case, &["changeRetention"])
                     .map_err(|message| (None, message))
-                    .and_then(|retention| {
-                        Run::open(&corpus, &|| factory(retention))
-                            .map_err(|message| (None, message))
+                    .and_then(|store| match factory(store.change_retention) {
+                        Err(e) if e.code == StoreErrorCode::CapabilityAbsent => Ok(None),
+                        Err(e) => Err((None, format!("the factory did not open a store: {e}"))),
+                        Ok(store) => Ok(Some(Run::on(&corpus, store))),
                     })
-                    .and_then(|mut run| {
+                    .and_then(|run| {
+                        let Some(mut run) = run else {
+                            return Ok(Some("store".to_string()));
+                        };
                         run.reader = Some(reader);
                         if let Some(requirement) = run.unmet(case).map_err(|m| (None, m))? {
                             return Ok(Some(requirement));
@@ -2513,4 +2566,682 @@ pub fn run_store_conformance(
     } else {
         Err(StoreConformanceError { failures, report })
     }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Following the feed (§10)
+// ---------------------------------------------------------------------------------------------
+
+/// One follower of a run (§10.2): the peer it follows, the cursor under test, the log of its
+/// logged handle, and the mirror the runner keeps for it.
+struct Following {
+    peer: String,
+    cursor: Box<dyn Follower>,
+    log: CallLog,
+    /// What a follower that read the peer's whole state at the follow holds, brought up to date
+    /// by the rule of SPEC-18 §4.6 (id → delta and arrival record).
+    mirror: BTreeMap<String, VerifiedDelta>,
+    /// The `current` of the first `resync-required` this cursor answered in this run.
+    resync: Option<Position>,
+}
+
+/// Revisions as the messages write them: `[2 3]`.
+fn revision_list(revisions: &[Revision]) -> String {
+    let listed: Vec<String> = revisions.iter().map(|r| r.0.to_string()).collect();
+    format!("[{}]", listed.join(" "))
+}
+
+fn cut(id: &str) -> String {
+    id.chars().take(12).collect()
+}
+
+/// A position as the messages write it: its revision, and its history when it is not `history`.
+fn position_text(position: &Position, history: &str) -> String {
+    match position.history == history {
+        true => position.revision.0.to_string(),
+        false => format!("{} (history {})", position.revision.0, position.history),
+    }
+}
+
+/// The message of a reader's call that did not answer (README §9.3, §10.3): a refusal, or a store
+/// fault with the rule it broke.
+fn failed_call(call: &str, error: FeedError) -> String {
+    match error {
+        FeedError::Refused(e) => format!("{call} refused with {}: {}", e.code.as_str(), e.message),
+        FeedError::Fault(fault) => format!("the store broke {}: {fault}", fault.rule()),
+    }
+}
+
+/// The walk of one pull's calls against the contract (§10.3, "The calls"). `sticky` is true when
+/// the cursor answered `resync-required` in an earlier pull.
+fn walk_pull(log: &[Call], before: &Position, sticky: bool) -> Check {
+    let mut at_call = 0;
+    let mut next = |want: String| -> Check<&Call> {
+        match log.get(at_call) {
+            None => Err(format!(
+                "pull made no call where the contract asks for {want}"
+            )),
+            Some(call) if call.text() != want => Err(format!(
+                "pull made the call {} where the contract asks for {want}",
+                call.text()
+            )),
+            Some(call) => {
+                at_call += 1;
+                Ok(call)
+            }
+        }
+    };
+    if !sticky {
+        if let Call::Read(Some((revision, history))) = next("read".into())? {
+            if *history == before.history && *revision > before.revision {
+                let call = next(format!("changes({}, {})", before.revision.0, revision.0))?;
+                if let Call::Changes {
+                    answer: Some(ChangePage::Ok { records, .. }),
+                    ..
+                } = call
+                {
+                    let ids: BTreeSet<&String> = records.iter().flat_map(|r| &r.added).collect();
+                    if !ids.is_empty() {
+                        let ids: Vec<String> = ids.into_iter().cloned().collect();
+                        next(Call::Get(ids.clone()).text())?;
+                        next(Call::Arrivals(ids).text())?;
+                    }
+                }
+            }
+        }
+        next("release".into())?;
+    }
+    match log.get(at_call) {
+        Some(extra) => Err(format!(
+            "pull made the call {} after its last call",
+            extra.text()
+        )),
+        None => Ok(()),
+    }
+}
+
+impl Run<'_> {
+    /// A `follow` step (§10.2).
+    fn follow(&mut self, step: &Value) -> Check {
+        let reader = self.follower.ok_or("a follow step outside a follow run")?;
+        let name = text(step, "as")?;
+        if self.followers.contains_key(name) {
+            return Err(format!("the vector names follower {name} twice"));
+        }
+        let handle = text(step, "peer")?;
+        let peer = self.peer_name(handle)?;
+        let named = self.named(text(field(step, "expect")?, "revision")?, &peer)?;
+        let mut snapshot = self.read_snapshot(handle)?;
+        let position = reader.position_of(snapshot.as_ref());
+        let (history, revision) = (snapshot.history().to_string(), snapshot.revision());
+        snapshot.release();
+        // 1. The history of the snapshot.
+        if position.history != history {
+            return Err("the position's history is not its snapshot's".into());
+        }
+        // 2. The revision of the snapshot, and the one the vector names.
+        if position.revision != revision || position.revision != named {
+            return Err(format!(
+                "the position is of revision {}, expected {}",
+                position.revision.0, named.0
+            ));
+        }
+        let ahead = match step.get("ahead") {
+            Some(ahead) => ahead
+                .as_u64()
+                .ok_or("the vector's ahead is not a whole number")?,
+            None => 0,
+        };
+        let from_history = match step.get("historyOf") {
+            Some(_) => {
+                let other = self.peer_name(text(step, "historyOf")?)?;
+                self.histories
+                    .get(&other)
+                    .cloned()
+                    .ok_or_else(|| format!("the vector uses peer {other} before creating it"))?
+            }
+            None => position.history.clone(),
+        };
+        let from = Position {
+            history: from_history,
+            revision: Revision(position.revision.0 + ahead),
+        };
+        let log = CallLog::default();
+        let logged = LoggedPeer {
+            inner: self
+                .store
+                .peer(self.corpus.peer(&peer)?)
+                .map_err(|e| format!("openPeer refused `{}`", e.code.as_str()))?,
+            log: log.clone(),
+        };
+        let cursor = reader
+            .follow(Box::new(logged), from.clone())
+            .map_err(|e| format!("follow refused with {}: {}", e.code.as_str(), e.message))?;
+        // 3. The cursor stands at the position given.
+        if cursor.position() != from {
+            return Err(format!(
+                "a new cursor stands at {}, not at the position it was given",
+                cursor.position().revision.0
+            ));
+        }
+        // 4. Following made no store call.
+        if let Some(call) = log.borrow().first() {
+            return Err(format!(
+                "following made the call {}; it makes no store call",
+                call.text()
+            ));
+        }
+        let mirror = self.books.get(&peer).cloned().unwrap_or_default();
+        self.followers.insert(
+            name.to_string(),
+            Following {
+                peer,
+                cursor,
+                log,
+                mirror,
+                resync: None,
+            },
+        );
+        Ok(())
+    }
+
+    /// A `pull` step (§10.3): pulls until the follower stands at the peer's current revision,
+    /// or until a pull answers `resync-required`.
+    fn pull(&mut self, step: &Value) -> Check {
+        // A defect of the document before a gap of the store (README §10.3).
+        let name = text(step, "follower")?;
+        let peer = self
+            .followers
+            .get(name)
+            .map(|f| f.peer.clone())
+            .ok_or_else(|| format!("the vector uses follower {name} before following"))?;
+        if !self.feed() {
+            return Err("a pull step on a store that serves no feed".into());
+        }
+        let model = self
+            .feeds
+            .get(&peer)
+            .ok_or_else(|| format!("the vector uses peer {peer} before creating it"))?;
+        let end = model.current();
+        let (_, floor) = model.floor(self.keep);
+        let history = self
+            .histories
+            .get(&peer)
+            .cloned()
+            .ok_or_else(|| format!("the vector uses peer {peer} before creating it"))?;
+        let expect = field(step, "expect")?;
+        // `once`: exactly one pull, whose page may end short of the peer's revision.
+        let once = match step.get("once") {
+            None => false,
+            Some(v) => v
+                .as_bool()
+                .ok_or("the vector's once is not true or false")?,
+        };
+        let at_end = Position {
+            history: history.clone(),
+            revision: end,
+        };
+        // The expected status, in the order of §10.3. `None` is `ok`.
+        let sticky = self.followers[name].resync.clone();
+        let says_resync = match &sticky {
+            Some(_) => true,
+            None => match text(expect, "status")? {
+                "resync-required" => {
+                    let current = text(expect, "current")?;
+                    if self.named(current, &peer)? != end {
+                        return Err(format!(
+                            "the vector expects current {current}, and the peer is at {}",
+                            end.0
+                        ));
+                    }
+                    true
+                }
+                "ok" => {
+                    let position = text(expect, "position")?;
+                    if !once && self.named(position, &peer)? != end {
+                        return Err(format!(
+                            "the vector pulls to {position}, and the peer is at {}",
+                            end.0
+                        ));
+                    }
+                    false
+                }
+                other => return Err(format!("the vector expects pull status `{other}`")),
+            },
+        };
+        let book = self.books.get(&peer).cloned().unwrap_or_default();
+        let model = &self.feeds[&peer];
+        let following = self
+            .followers
+            .get_mut(name)
+            .expect("the follower was found above");
+        let first = following.cursor.position();
+        let bound = 1 + model
+            .records
+            .iter()
+            .filter(|r| r.revision > first.revision)
+            .count();
+        let mut read: Vec<Revision> = Vec::new();
+        let mut delivered: BTreeSet<String> = BTreeSet::new();
+        let mut pulls = 0;
+        loop {
+            pulls += 1;
+            if pulls > bound {
+                return Err(format!(
+                    "the follower took more than {bound} pulls to reach {}",
+                    end.0
+                ));
+            }
+            following.log.borrow_mut().clear();
+            let before = following.cursor.position();
+            let below = sticky.is_none()
+                && !says_resync
+                && before.history == history
+                && before.revision < floor;
+            let want_resync = match &sticky {
+                Some(current) => Some(current.clone()),
+                None if says_resync || below => Some(at_end.clone()),
+                None => None,
+            };
+            let answer = following
+                .cursor
+                .pull()
+                .map_err(|e| failed_call("pull", e))?;
+            // 1. The status.
+            let status = match &answer {
+                Pull::Ok { .. } => "ok",
+                Pull::ResyncRequired { .. } => "resync-required",
+            };
+            let wanted = match want_resync {
+                Some(_) => "resync-required",
+                None => "ok",
+            };
+            if status != wanted {
+                return Err(match below {
+                    true => format!(
+                        "pull answered {status} for a position below the retention floor {}",
+                        floor.0
+                    ),
+                    false => format!("pull answered {status}, expected {wanted}"),
+                });
+            }
+            let (position, records, deltas) = match answer {
+                // 2. `resync-required`: its `current`, a cursor that stays, the calls.
+                Pull::ResyncRequired { current } => {
+                    let want = want_resync.expect("the status was checked");
+                    if current != want {
+                        return Err(format!(
+                            "pull reports resync-required with current {}, expected {}",
+                            position_text(&current, &history),
+                            position_text(&want, &history)
+                        ));
+                    }
+                    if following.cursor.position() != before {
+                        return Err("the cursor moved after resync-required".into());
+                    }
+                    walk_pull(&following.log.borrow(), &before, sticky.is_some())?;
+                    following.resync = Some(want);
+                    return Ok(());
+                }
+                Pull::Ok {
+                    position,
+                    records,
+                    deltas,
+                } => (position, records, deltas),
+            };
+            // 3. The position: this history, inside [before, end], and progress.
+            if position.history != before.history {
+                return Err("the pull moved the cursor to another history".into());
+            }
+            let p = position.revision;
+            if p < before.revision || p > end {
+                return Err(format!(
+                    "the pull's position {} lies outside [{}, {}]",
+                    p.0, before.revision.0, end.0
+                ));
+            }
+            if p <= before.revision && before.revision != end {
+                return Err(format!(
+                    "the pull from {} made no progress toward {}",
+                    before.revision.0, end.0
+                ));
+            }
+            // 4. The records: the model's in (before, p], each as committed.
+            let want: Vec<&ChangeRecord> = model
+                .records
+                .iter()
+                .filter(|r| r.revision > before.revision && r.revision <= p)
+                .collect();
+            let got_revisions: Vec<Revision> = records.iter().map(|r| r.revision).collect();
+            let want_revisions: Vec<Revision> = want.iter().map(|r| r.revision).collect();
+            if got_revisions != want_revisions {
+                return Err(format!(
+                    "the pull's records are at {}, expected {}",
+                    revision_list(&got_revisions),
+                    revision_list(&want_revisions)
+                ));
+            }
+            if let Some((got, _)) = records.iter().zip(&want).find(|(got, want)| got != *want) {
+                return Err(format!(
+                    "the pull's record at revision {} differs from its commit",
+                    got.revision.0
+                ));
+            }
+            // 5. The deltas, ascending by id and distinct.
+            if deltas
+                .windows(2)
+                .any(|pair| pair[0].delta.id >= pair[1].delta.id)
+            {
+                return Err("the pull's deltas are not ascending by id and distinct".into());
+            }
+            // 6. Exactly the added ids the peer holds now.
+            let got_ids: Vec<String> = deltas.iter().map(|d| d.delta.id.clone()).collect();
+            let want_ids: Vec<String> = want
+                .iter()
+                .flat_map(|r| &r.added)
+                .filter(|id| book.contains_key(*id))
+                .cloned()
+                .collect::<BTreeSet<_>>()
+                .into_iter()
+                .collect();
+            if got_ids != want_ids {
+                return Err(format!(
+                    "the pull delivered {}, expected {}",
+                    cut_ids(&got_ids),
+                    cut_ids(&want_ids)
+                ));
+            }
+            // 7. Each delta is the appearance the peer holds, with its arrival record.
+            for got in &deltas {
+                let id = &got.delta.id;
+                let held = &book[id];
+                if same_appearance("pull", &got.delta, &held.delta).is_err() {
+                    return Err(format!(
+                        "the pull delivered {} as another appearance",
+                        cut(id)
+                    ));
+                }
+                if got.arrival.id != *id || arrival_differs(&got.arrival, &held.arrival).is_some() {
+                    return Err(format!(
+                        "the pull delivered {} with another arrival record",
+                        cut(id)
+                    ));
+                }
+            }
+            // 8. The cursor stands at the pull's position.
+            let stands = following.cursor.position();
+            if stands != position {
+                return Err(format!(
+                    "the cursor stands at {}, not at the pull's position {}",
+                    position_text(&stands, &history),
+                    p.0
+                ));
+            }
+            // 9. The calls.
+            walk_pull(&following.log.borrow(), &before, false)?;
+            // 10. The pull applied to the mirror (SPEC-18 §4.6, "The follower's guarantee").
+            let by_id: BTreeMap<&str, &VerifiedDelta> =
+                deltas.iter().map(|d| (d.delta.id.as_str(), d)).collect();
+            for record in &records {
+                for id in &record.removed {
+                    following.mirror.remove(id);
+                }
+                for id in &record.added {
+                    match by_id.get(id.as_str()) {
+                        Some(delta) => following.mirror.insert(id.clone(), (*delta).clone()),
+                        None => following.mirror.remove(id),
+                    };
+                }
+            }
+            read.extend(got_revisions);
+            delivered.extend(got_ids);
+            if once || p == end {
+                break;
+            }
+        }
+        // Where the cursor stands: with `once`, where the vector says its one page ends.
+        let stands = self.followers[name].cursor.position().revision;
+        if once {
+            let want = self.named(text(expect, "position")?, &peer)?;
+            if stands != want {
+                return Err(format!(
+                    "the pull stands at {}, expected {}",
+                    stands.0, want.0
+                ));
+            }
+        }
+        // 11. The records the pulls read.
+        let want_read: Vec<Revision> = texts(expect, "records")?
+            .iter()
+            .map(|name| self.named(name, &peer))
+            .collect::<Check<_>>()?;
+        if read != want_read {
+            return Err(format!(
+                "the pulls read the records at {}, expected {}",
+                revision_list(&read),
+                revision_list(&want_read)
+            ));
+        }
+        // 12. The ids they delivered.
+        let delivered: Vec<String> = delivered.into_iter().collect();
+        let want_delivered = self.corpus.ids(expect, "delivered")?;
+        if delivered != want_delivered {
+            return Err(format!(
+                "the pulls delivered {}, expected {}",
+                cut_ids(&delivered),
+                cut_ids(&want_delivered)
+            ));
+        }
+        // 13. How many pulls the step took.
+        if expect.get("pulls").is_some() {
+            let want = whole(expect, "pulls")?;
+            if pulls as u64 != want {
+                return Err(format!("the follower took {pulls} pulls, expected {want}"));
+            }
+        }
+        // 14. The guarantee. Short of the peer's revision (only with `once`): every id no later
+        // record names is as the holdings say; nothing commits during a pull, so the holdings at
+        // `stands` of such an id are its holdings now. At the peer's revision: the holdings.
+        let mirror = &self.followers[name].mirror;
+        if stands < end {
+            let later: BTreeSet<&String> = self.feeds[&peer]
+                .records
+                .iter()
+                .filter(|r| r.revision > stands)
+                .flat_map(|r| r.added.iter().chain(&r.removed))
+                .collect();
+            let ids: BTreeSet<&String> = mirror.keys().chain(book.keys()).collect();
+            for id in ids.into_iter().filter(|id| !later.contains(id)) {
+                let agree = match (mirror.get(id), book.get(id)) {
+                    (None, None) => true,
+                    (Some(m), Some(h)) => arrival_differs(&m.arrival, &h.arrival).is_none(),
+                    _ => false,
+                };
+                if !agree {
+                    return Err(format!(
+                        "after the pull to {} the follower's mirror differs from the holdings at {}",
+                        stands.0,
+                        cut(id)
+                    ));
+                }
+            }
+            return Ok(());
+        }
+        let mirror_ids: Vec<String> = mirror.keys().cloned().collect();
+        let held_ids: Vec<String> = book.keys().cloned().collect();
+        if mirror_ids != held_ids {
+            return Err(format!(
+                "the follower's mirror holds {}, and the peer holds {}",
+                cut_ids(&mirror_ids),
+                cut_ids(&held_ids)
+            ));
+        }
+        if let Some((id, _)) = mirror
+            .iter()
+            .find(|(id, d)| arrival_differs(&d.arrival, &book[*id].arrival).is_some())
+        {
+            return Err(format!(
+                "the follower's mirror holds {} with another arrival record",
+                cut(id)
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// What a `follow.json` case's `store` sets (§10.1). Each field present replaces the run's.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct FollowCaseStore {
+    pub change_retention: Option<ChangeRetention>,
+    pub change_page_size: Option<u64>,
+}
+
+/// Opens one new, empty store for a follow case, with the case's `store` fields. A store that
+/// cannot be built with them refuses `capability-absent`, and the case is reported skipped with
+/// the requirement `store`; any other refusal fails the case.
+pub type FollowStoreFn<'a> = dyn Fn(FollowCaseStore) -> Result<Box<dyn Store>, StoreError> + 'a;
+
+/// A case's `store` (§9.1, §10.1), checked: an object with only the fields `allowed`, a
+/// `changeRetention` that is `unbounded` or `{revisions: n}`, and a `changePageSize` of 1 or more.
+/// Anything else is a defect of the document.
+fn case_store(case: &Value, allowed: &[&str]) -> Check<FollowCaseStore> {
+    let Some(store) = case.get("store") else {
+        return Ok(FollowCaseStore::default());
+    };
+    let object = store
+        .as_object()
+        .ok_or("the case's store is not an object")?;
+    if let Some(key) = object.keys().find(|k| !allowed.contains(&k.as_str())) {
+        return Err(format!("the case's store sets an unknown field `{key}`"));
+    }
+    let change_retention = match object.get("changeRetention") {
+        None => None,
+        Some(Value::String(s)) if s == "unbounded" => Some(ChangeRetention::Unbounded),
+        Some(v) => match v.get("revisions").and_then(Value::as_u64) {
+            Some(n)
+                if (1..=MAX_REVISION).contains(&n)
+                    && v.as_object().is_some_and(|o| o.len() == 1) =>
+            {
+                Some(ChangeRetention::Revisions(n))
+            }
+            _ => {
+                return Err("the case's changeRetention is not unbounded or {revisions: n}".into())
+            }
+        },
+    };
+    let change_page_size = match object.get("changePageSize") {
+        None => None,
+        Some(v) => match v.as_u64() {
+            Some(n) if n >= 1 => Some(n),
+            _ => return Err("the case's changePageSize is not a whole number of 1 or more".into()),
+        },
+    };
+    Ok(FollowCaseStore {
+        change_retention,
+        change_page_size,
+    })
+}
+
+/// Runs every case of `follow.json` on a new store each, with `reader`'s `position_of` and
+/// cursor (§10). Names are `follow/<case>`.
+pub fn run_follow_conformance(
+    factory: &FollowStoreFn<'_>,
+    doc: &Value,
+    reader: &dyn FollowReader,
+) -> Result<StoreConformanceReport, StoreConformanceError> {
+    let mut report = StoreConformanceReport::default();
+    let mut failures = Vec::new();
+    let mut fail = |name: &str, step: Option<usize>, message: String| {
+        failures.push(StoreConformanceFailure {
+            name: name.to_string(),
+            step,
+            message,
+        })
+    };
+    let loaded = match doc.get("format").and_then(Value::as_str) {
+        Some(FOLLOW_FORMAT) => {
+            Corpus::load(doc, FOLLOW_FORMAT).and_then(|corpus| Ok((list(doc, "cases")?, corpus)))
+        }
+        _ => Err("unknown store follow format".to_string()),
+    };
+    match loaded {
+        Err(message) => fail("follow", None, message),
+        Ok((cases, corpus)) => {
+            for case in cases {
+                let name = format!("follow/{}", case["name"].as_str().unwrap_or("?"));
+                let outcome = case_store(case, &["changeRetention", "changePageSize"])
+                    .map_err(|message| (None, message))
+                    .and_then(|store| match factory(store) {
+                        Err(e) if e.code == StoreErrorCode::CapabilityAbsent => Ok(None),
+                        Err(e) => Err((None, format!("the factory did not open a store: {e}"))),
+                        Ok(store) => Ok(Some(Run::on(&corpus, store))),
+                    })
+                    .and_then(|run| {
+                        let Some(mut run) = run else {
+                            return Ok(Some("store".to_string()));
+                        };
+                        run.follower = Some(reader);
+                        if let Some(requirement) = run.unmet(case).map_err(|m| (None, m))? {
+                            return Ok(Some(requirement));
+                        }
+                        let steps = list(case, "steps").map_err(|m| (None, m))?;
+                        run.steps(steps).map(|()| None)
+                    });
+                match outcome {
+                    Ok(None) => report.passed.push(name),
+                    Ok(Some(missing)) => report.skipped.push(SkippedScript { name, missing }),
+                    Err((step, message)) => fail(&name, step, message),
+                }
+            }
+        }
+    }
+    if failures.is_empty() {
+        Ok(report)
+    } else {
+        Err(StoreConformanceError { failures, report })
+    }
+}
+
+/// A peer whose every call refuses.
+#[cfg(test)]
+struct Refusing;
+
+#[cfg(test)]
+impl PeerStore for Refusing {
+    fn id(&self) -> &str {
+        "peer:refusing"
+    }
+    fn erasure(&self) -> crate::store::PeerErasure {
+        unreachable!("the log does not ask")
+    }
+    fn history(&self) -> &str {
+        "refusing"
+    }
+    fn read(&self) -> Result<Box<dyn Snapshot>, StoreError> {
+        Err(StoreError::new(StoreErrorCode::StoreClosed, "closed"))
+    }
+    fn append(&self, _: &Admission) -> Result<AppendResult, StoreError> {
+        Err(StoreError::new(StoreErrorCode::StoreClosed, "closed"))
+    }
+    fn purge(&self, _: &[String]) -> Result<crate::store::PurgeReport, StoreError> {
+        Err(StoreError::new(StoreErrorCode::StoreClosed, "closed"))
+    }
+    fn changes(&self, _: Revision, _: Option<Revision>) -> Result<ChangePage, StoreError> {
+        Err(StoreError::new(StoreErrorCode::StoreClosed, "closed"))
+    }
+}
+
+/// README §10.3: the log records each call when it is made, also a call that then refuses.
+#[cfg(test)]
+#[test]
+fn the_log_records_a_call_that_refuses() {
+    let log = CallLog::default();
+    let logged = LoggedPeer {
+        inner: Box::new(Refusing),
+        log: log.clone(),
+    };
+    assert!(logged.read().is_err());
+    assert!(logged.changes(Revision(1), Some(Revision(2))).is_err());
+    let calls: Vec<String> = log.borrow().iter().map(Call::text).collect();
+    assert_eq!(calls, ["read", "changes(1, 2)"]);
 }

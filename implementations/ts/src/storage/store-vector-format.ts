@@ -19,6 +19,7 @@ import type {
 export const STORE_SCRIPTS_FORMAT = "rhizomatic-store-scripts/1";
 export const STORE_SCOPE_FORMAT = "rhizomatic-store-scope/1";
 export const STORE_FRESHNESS_FORMAT = "rhizomatic-store-freshness/1";
+export const STORE_FOLLOW_FORMAT = "rhizomatic-store-follow/1";
 
 export type PushdownField = keyof AppliedPushdown;
 /** The fixed order of pushdown field names in every vector. */
@@ -339,6 +340,65 @@ export type StoreFreshnessDocument = VectorHeader & {
   readonly format: typeof STORE_FRESHNESS_FORMAT;
   readonly cases: readonly StoreFreshnessCase[];
   readonly touching: readonly StoreTouchingCase[];
+};
+
+/** Takes the position of a new snapshot of `peer` and follows the feed from it (README §10.2). */
+export type FollowStep = {
+  readonly op: "follow";
+  readonly peer: string;
+  /** The name later `pull` steps use for this follower. */
+  readonly as: string;
+  /** Added to the position's revision before following: a position from the future. */
+  readonly ahead?: number;
+  /** Follow with the history of this handle's peer instead: a position of another history. */
+  readonly historyOf?: string;
+  /** The revision of the snapshot, as a name. */
+  readonly expect: { readonly revision: string };
+};
+/**
+ * Pulls until the follower stands at the peer's revision, or until `resync-required`; with
+ * `once`, exactly one pull (§10.3).
+ */
+export type PullStep = {
+  readonly op: "pull";
+  readonly follower: string;
+  /**
+   * Pull exactly once. Only in a case whose `store` sets both `changePageSize` and
+   * `changeRetention`, so that no run changes the page. `position` is where the one page ends.
+   */
+  readonly once?: true;
+  readonly expect:
+    | {
+        readonly status: "ok";
+        /** The revision the follower stands at after the step: the peer's, or with `once` the page's end. */
+        readonly position: string;
+        /** The revisions of the records the pulls read, in order, as names. */
+        readonly records: readonly string[];
+        /** The ids the pulls delivered, as corpus names, ascending by id, each once. */
+        readonly delivered: readonly string[];
+        /** Ids the records add that the peer no longer holds: no bytes. The runner does not read it. */
+        readonly absent: readonly string[];
+        /** How many pulls the step takes. Only in a case whose `store` sets `changePageSize`. */
+        readonly pulls?: number;
+      }
+    | { readonly status: "resync-required"; readonly current: string };
+};
+export type FollowCaseStep = StoreVectorStep | FollowStep | PullStep;
+export type StoreFollowCase = {
+  readonly name: string;
+  readonly note: string;
+  readonly spec: string;
+  readonly requires?: readonly VectorRequirement[];
+  /** Absent: the store of the run. Each field present replaces the run's. */
+  readonly store?: {
+    readonly changeRetention?: Exclude<ChangeRetention, "none">;
+    readonly changePageSize?: number;
+  };
+  readonly steps: readonly FollowCaseStep[];
+};
+export type StoreFollowDocument = VectorHeader & {
+  readonly format: typeof STORE_FOLLOW_FORMAT;
+  readonly cases: readonly StoreFollowCase[];
 };
 
 export type StoreVectors = {

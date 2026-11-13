@@ -48,3 +48,17 @@ SPEC-4 §4.1). v0 dispatch:
 
 Folded into SPEC-4 §2 (2026-06-11); history in git.
 
+
+## V6 — Through a store, the raw stream delivers what is still held
+
+SPEC-18 plan decision O6 (2026-11-12); built in slice 3 step 7. Through a store, a raw-stream
+subscriber is a pull cursor over the change feed (SPEC-18 §4.6, "Following the feed"). It
+receives every accepted delta that the peer still holds when the record that added it is pulled.
+It never receives the bytes of a purged delta; it receives that delta's id in the records, and
+its removal in the record that made it. This narrows §5 ("every accepted delta") for a store.
+The memory `Reactor`'s own subscriptions do not change.
+
+A subscriber's copies lie outside the store's erasure. A follower's mirror holds a purged
+delta's bytes until it pulls the record that removes them, and for as long as it stops pulling.
+Erasing them is the host's duty. After `resync-required` the follower replaces its mirror with a
+new read; it never merges, because it will not receive the removals it missed.

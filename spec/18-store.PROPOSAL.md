@@ -377,6 +377,9 @@ type Capture = {
   history, a revision that is not an integer from 0 to 2^53 − 1, a bound that is not null or
   finite, or a window with `since ≥ expiresAt`; `parseCapture` also refuses another shape and a
   history local to a process (below). Neither sorts. Each capture is frozen, lists included.
+  They check in one order: the keys (`parseCapture` only), the history (non-empty, then not
+  local to a process), the revision, the anchors, the members, then the window. The first defect
+  in that order decides the code (§4.13 reading 54).
 - `makeCapture(snapshot, anchors, members, window)` builds a capture from a live snapshot and
   reads `history` and `revision` from it. It is not a way to reload a stored capture. A stored
   capture comes back only through `parseCapture`, which refuses a process-local history. A host
@@ -469,8 +472,11 @@ snapshot's revision r′ equals the capture's, it reads no feed. When r′ is be
 `resync-required`. Otherwise it reads `changes(capture.revision, r′)` page by page, with that
 explicit `to`. For each page that names an added id, it makes one `get` of those ids on the
 snapshot, and then judges the page. It stops at the first touch. A page that makes no progress
-short of r′ (`through ≤ from`) is a store fault, not a verdict: the call fails with an error
-(§4.13 reading 46). **The order of the answers:**
+short of r′ (`through ≤ from`), or that claims records past r′ (`through > r′`), is a store
+fault, not a verdict. So is a `get` whose answer names an id the check did not ask for, names
+one twice, or is not ascending. The call fails with a **store fault**, an error value that names
+the broken rule (`no-progress`, `past-the-bound`, `unasked-ids`), before the page is judged
+(§4.13 readings 46, 73 and 74). **The order of the answers:**
 `resync-required`, then `stale`, then the window (`not-yet` when `now < since`, `expired` when
 `now ≥ expiresAt`), else `current`. Its calls and cost depend on the records and ids since the
 capture, never on what the peer holds and never on records before the capture. It replaces
@@ -480,6 +486,117 @@ SPEC-16's recomputation of the whole scope (SPEC-16 MR-10b).
 authority reads state outside the capture's scope (trust, grants, a clock other than the window)
 keeps its own epoch for that state and compares it itself. A selection that depends on time is
 such state.
+
+**Following the feed.** A follower keeps what it read from a peer and brings it up to date from
+the feed with a pull cursor. There is no push (plan decision O5).
+
+```ts
+type Position = { history: History; revision: Revision };   // what a follower saves between runs
+positionOf(snapshot: Snapshot): Position                      // where a read stands
+followFeed(peer: PeerStore, from: Position): FeedCursor       // no store call
+parsePosition(value: unknown): Position                       // a stored position, checked
+interface FeedCursor {
+  readonly position: Position;                                // only an ok pull moves it
+  pull(): Promise<Pull>;
+}
+type Pull =
+  | { status: "ok"; position: Position; records: readonly ChangeRecord[]; deltas: readonly VerifiedDelta[] }
+  | { status: "resync-required"; current: Position };
+```
+
+- **A follower starts from a position and a read.** It takes `positionOf(snapshot)` and fills
+  its mirror of the peer's state, on that snapshot or from an export after it ("How a full mirror
+  starts", below), and follows from the position. There is no mode that starts at the beginning
+  of the feed: a bounded feed has no beginning to give. `StoreReactor` reads and fetched scopes
+  carry the position of their snapshot, and `StoreReactor.follow(from)` makes a cursor.
+- **One pull.** A pull takes one snapshot s. When s has another history than the position, or a
+  revision below the position's, it answers `resync-required` with no feed call. When the
+  revisions are equal it answers `ok` with no records, the same position and no feed call.
+  Otherwise it makes one call `changes(position.revision, s.revision)`, with that explicit `to`,
+  and reads one page. A `resync-required` from the store (below the floor) is passed on. On an
+  ok page that adds ids, it calls `get` and then `arrivals` on s, each once, with the page's added
+  ids, distinct and ascending; a page that adds nothing gets neither call. Then it releases s.
+- **What `ok` carries.** `records` is the page. `deltas` holds, for each id in some record's
+  `added` that the peer holds at s, the delta with this peer's arrival record at s: ascending by
+  id, each id once. An id the peer no longer holds at s has no delta. A pull never hands out the
+  bytes of a purged delta, also while another peer still holds them (plan decision O6). The
+  removal arrives in the record that made it. `position` is `{history, revision: through}`, and
+  the cursor moves there.
+- **`resync-required`** carries the position of s. It does not move the cursor. Every later pull
+  on that cursor answers the same, with no store call. The position no longer names a revision
+  of this feed; asking again cannot help, and a later answer could come from another history.
+  The caller reads its state again and follows from the new read.
+- **Moves and faults.** When s moves under the pull (`snapshot-moved`, from `read()` itself or a
+  later call), the pull starts again on a new snapshot, at most four in all, as `checkFresh` does.
+  A page with no progress (`no-progress`), a page whose `through` is past s's revision
+  (`past-the-bound`), a `get` or `arrivals` whose answer names an id the pull did not ask for,
+  names one twice, or is not ascending (`unasked-ids`), and a `get` and `arrivals` that name
+  other ids on one snapshot (`mismatched-answers`) are store faults. The pull fails with a store
+  fault, an error value that names the rule, not a store refusal; it delivers none of the
+  answer. Every snapshot is released, also on an error. A pull that fails does not move the
+  cursor, and the cursor stays usable. Pulls on one cursor run one at a time, in call order.
+- **Cost.** A pull costs O(page: records, ids and delivered bytes). It never costs O(holdings)
+  or O(records before the position).
+- **Positions across a process.** A position kept across a process needs a history from
+  `mintHistory`. `parsePosition` refuses one local to a process, another shape, an empty history
+  and a revision that is not an integer from 0 to 2^53 − 1, as `parseCapture` does.
+
+**The follower's guarantee.** A follower holds a **full mirror** of the peer: id → delta with
+arrival record. It starts as below ("How a full mirror starts") at a first position p0. It applies
+each ok pull in order: for each record in order, it deletes each id of `removed`, then for each id
+of `added` it sets the mirror to the delivered delta, or deletes the id when no delta was
+delivered. **The claim:** whenever the cursor stands at the peer's current revision (a pull then
+returns no records), the mirror equals the peer's holdings, id for id, with the same arrival
+records. Between such points, after a pull to position p on a snapshot at r′, the mirror equals
+the holdings at p for every id that no record in (p, r′] names; a later pull settles the others.
+
+Why it holds. Take any id, and the last record at or before the cursor's position p that names
+it. If that record removes the id, the rule deleted it. If it adds the id, the pull that applied
+it read a snapshot at some r′ ≥ p. When no record in (p, r′] names the id, the id kept that
+arrival record until r′, so the pull delivered it and the rule set it. If no record after p0 names
+the id at all, its state has not changed since p0, and the start put it in the mirror correctly.
+Inside one page an id may be added, removed and added again: it is delivered once, with its
+current arrival record, and the rule leaves it as the last record says. An id delivered in one
+page and removed by a later record of the same page is held at the snapshot only because a record
+after the page adds it again. The generator of `follow.json` and a fuzz prove the claim by brute
+force (§4.13 readings 55 to 72).
+
+**How a full mirror starts.** A `Snapshot` cannot list what the peer holds, and the `Exporter`
+(§4.7.6) is not tied to a snapshot. A full mirror starts in three steps:
+
+1. Take the position first: `p0 = positionOf(snapshot)` from any snapshot, then release it.
+2. Then fill the mirror from an export of the peer: the full-surface read through the
+   `Exporter`. The export may run while commits land. It need not be atomic.
+3. Then pull from p0 and apply every page by the rule.
+
+**The claim:** at the first quiet point, and at every later one, the mirror equals the holdings.
+Between quiet points the property above holds too. Why: an id that no record after p0 names was
+held, or not held, at p0 and at every moment since; an export that runs after p0 sees it as it is.
+An id that the export saw too early or too late is named by a record in (p0, now]: the export ran
+after p0, so whatever changed the id is a record after p0. That record is pulled before the next
+quiet point, and applying it corrects the id: the last such record decides it, as above. A fuzz
+starts mirrors from exports that read each id at its own moment, with appends, purges and re-adds
+landing during the export, and checks both claims (§4.13 reading 69).
+
+**Arrival records in a started mirror.** The `Exporter` lists ids and deltas, not arrival
+records. A follower that needs them asks `arrivals` for the exported ids on any snapshot taken
+after p0, in as many calls as it likes. An id with no answer there (the peer no longer held it) is
+one a record after p0 removes, so the mirror's entry for it is corrected before the next quiet
+point. A follower that does not ask holds ids and bytes only: the guarantee then speaks for ids
+and bytes, and the arrival record of an id stays unknown until a record after p0 adds it.
+
+**A scope is not a mirror.** A follower that keeps only a scope (an anchored read and its
+capture) does not apply pages. The feed carries every change of the peer, and `touching` needs
+records that start at the capture's revision. It calls `checkFresh` on its capture and reads again
+when the capture is stale. `StoreRead.position` and `FetchedScope.position` are where a full
+mirror, or a later comparison of revisions, starts.
+
+**A follower's copies lie outside erasure.** A follower's mirror is a copy outside the store. It
+holds a purged delta's bytes until it pulls the record that removes the delta, and for as long as
+it stops pulling. Erasing that copy is the host's duty, not the store's (§4.7.2, "The boundary of
+'absent'"). After `resync-required` the follower REPLACES its mirror with a new start (above). It
+never merges the old mirror into the new one: it will not receive the removals it missed, so a
+merge would keep purged bytes forever.
 
 ### 4.7 Capabilities
 
@@ -577,6 +694,13 @@ the claims of that delta. A record never changes once written, so a purge does n
 - A host that needs ids to leave uses a bounded retention, `{revisions: n}`. The id then leaves
   when the store drops the record that names it.
 - Slice 4 adds the feed to the purge report as a surface that still holds the id.
+
+**A follower's mirror lies outside "absent".** A follower of the feed (§4.6, "Following the
+feed") keeps a copy of the bytes outside the store. A purge removes nothing from it. The follower
+drops a purged delta when it pulls the record that removes it, and not before; while it stops
+pulling, it keeps the bytes. Erasing a follower's copy is the host's duty. After
+`resync-required` a follower replaces its mirror with a new read and never merges, because it
+will not receive the removals it missed.
 
 **Later extensions, not in scope now:**
 
@@ -1172,11 +1296,11 @@ that a vector can pin.
 
 ### 4.13 Slice 3 readings
 
-Slice 3 builds the change feed of §4.6 (`18-store.SLICE-3.PLAN.md`, steps 1 to 4) and freshness
-(steps 5 and 6, readings 24 to 53). Where §4.6 and the plan were silent, the feed decided as
-follows.
-`vectors/store/scripts.json`, `vectors/store/freshness.json` and `vectors/store/README.md` §3.9
-and §9 pin each point that a vector can pin.
+Slice 3 builds the change feed of §4.6 (`18-store.SLICE-3.PLAN.md`, steps 1 to 4), freshness
+(steps 5 and 6, readings 24 to 54) and the feed cursor (step 7, readings 55 to 74). Where §4.6
+and the plan were silent, the feed decided as follows.
+`vectors/store/scripts.json`, `vectors/store/freshness.json`, `vectors/store/follow.json` and
+`vectors/store/README.md` §3.9, §9 and §10 pin each point that a vector can pin.
 
 1. **Revisions are integers.** A revision is an integer from 0 to 2^53 − 1 in every witness. The
    vectors need this to name a revision past the current one (`ahead`, README §3.9).
@@ -1363,11 +1487,12 @@ and §9 pin each point that a vector can pin.
     points (README §3.9.4, item 2), so a store whose revisions are far apart keeps the runner
     cheap. Both witnesses ask at the same points.
 46. **A page with no progress is a store fault.** Inside `checkFresh`, a page of the feed whose
-    `through` is not above its `from`, short of r′, breaks §4.6 ("Pages"). It is not a verdict:
-    `resync-required` would send the caller to rebuild over a broken store. The call fails with
-    an error. The vocabulary has no code for a store that breaks its contract, so the error is a
-    plain one: TypeScript throws an `Error` that is not a `StoreError`, and Rust panics, as it
-    does for a delta source that breaks its contract.
+    `through` is not above its `from`, short of r′, breaks §4.6 ("Pages"): the rule
+    `no-progress`. So does a page whose `through` is past r′, the `to` the check asked for: it
+    claims records the check cannot judge, and `current` would speak for them (`past-the-bound`).
+    Neither is a verdict: `resync-required` would send the caller to rebuild over a broken store.
+    The call fails before the page's ids are fetched or judged, and it fails with a store fault:
+    an error value that names the rule and the values that show it (reading 73).
 47. **`now` is finite.** `checkFresh` and the capture-from-scope function (TypeScript
     `captureScope`, Rust `capture_scope`) refuse NaN, Infinity and −Infinity with
     `invalid-request`, before any store call.
@@ -1390,6 +1515,102 @@ and §9 pin each point that a vector can pin.
     and a host that calls `touching` itself must.
 53. **The runner's message for a refusal.** A store refusal that passes up out of a check fails
     with `checkFresh refused with <code>` (README §9.3).
+54. **The order of a capture's defects.** A capture with two defects is refused by the first in
+    this order: the keys (`parseCapture` only), the history (empty, then local to a process), the
+    revision, then each anchor whole and in order (its shape, its kind, its entity) before the
+    next anchor, then the anchors' order and uniqueness, then the members (types, order,
+    uniqueness), then the window (types, finiteness, `since < expiresAt`). So an empty history
+    beside a `value` anchor is `invalid-request`, not `capability-absent`, and an entity anchor
+    whose entity is a number, before a `value` anchor, is `invalid-request` too. Both witnesses
+    read one table of such inputs, `vectors/store/capture-defects.json` (README §9.7).
+55. **A follower starts from a position and a read.** `positionOf(snapshot)` is the start, and
+    nothing else is. A mode that starts at the beginning of the feed would fail under bounded
+    retention, and it would hand out the records of ids the peer purged long ago. The read (on
+    the snapshot, or an export after it, reading 69) is the state; the feed is only the change
+    since the position.
+56. **A position past the snapshot answers without the feed.** The contract first said a store's
+    `resync-required` for a position ahead is passed on. But the pull asks with an explicit `to`
+    (the snapshot's revision), and `changes` refuses a `to` below `from` with `invalid-request`.
+    So the cursor answers `resync-required` itself when the position is past the snapshot, with
+    no feed call, as `checkFresh` does. A store's `resync-required` from below the floor is still
+    passed on.
+57. **`current` is the snapshot's position.** A resync answer carries the history and revision of
+    the snapshot the pull read, also when the store's answer named a later revision. One pull
+    speaks for one snapshot.
+58. **The apply rule is exact; the order inside a page is not what makes it so.** The brute
+    force of the generator and the fuzz confirm the rule of §4.6, "The follower's guarantee",
+    at every quiet point, with pages of one to three records and whole pages, across peers and
+    debts. Two variants were measured. A mirror that ignores `removed` misses the holdings (1,598
+    quiet points in 2,000 sequences). A mirror that applies all removals of a page before all its
+    deltas is also right at every quiet point: an id delivered and then removed inside one page is
+    held at the snapshot only because a later record adds it again. The rule keeps the per-record
+    order because it also gives the property between quiet points (§4.6).
+59. **An added id with no bytes is deleted.** The rule deletes an added id that came with no
+    delta. From a snapshot start the mirror lacks the id there anyway: the record before it that
+    names the id removes it, or the id was not held at the start. From an export start the mirror
+    may hold it, because the export saw it; a later record removes it. Deleting at once drops the
+    bytes sooner. The fuzz measures no difference between deleting and keeping at any quiet
+    point, from either start.
+60. **`resync-required` is final for a cursor.** Every later pull answers the same object values
+    with no store call. A cursor that asked again could see the peer pass its position and answer
+    `ok` with records of a history it never read (`follow.json`, `pull-after-resync`).
+61. **Deltas come from two calls.** `get` gives the bytes and `arrivals` the arrival records, both
+    on the pull's snapshot, both with the page's added ids, `get` first. A store whose two answers
+    name other ids is at fault. The runner logs both calls.
+62. **A pull is one page.** A pull never reads a second page; a follower that is behind pulls
+    again. A pull's cost is then bounded by the store's page, and a slow follower cannot hold a
+    snapshot for an unbounded range.
+63. **Faults and moves.** A page with no progress (`no-progress`), a page past the snapshot
+    (`past-the-bound`), an answer with ids the pull did not ask for (`unasked-ids`, reading 74)
+    and a `get` and `arrivals` that name other ids (`mismatched-answers`) fail the pull with a
+    store fault, the error value of reading 73, as reading 46 does for `checkFresh`. On
+    `snapshot-moved`, from `read()` itself or a later call, the pull starts again, at most four
+    snapshots. An error does not move the cursor, and the cursor stays usable.
+64. **Pulls on one cursor do not overlap.** TypeScript queues them in call order. A typed witness
+    whose pull takes the cursor mutably meets this by construction.
+65. **A position crosses a process only with a minted history.** `parsePosition` refuses a
+    history with the local prefix (`memory:local:`), for the reason of reading 38.
+    `followFeed` accepts one: a cursor inside the process that read the history is sound.
+66. **Where the position comes from.** `StoreRead.position` and `FetchedScope.position` are the
+    position of the snapshot they read. `StoreReactor.follow(from)` returns `followFeed(peer,
+    from)`. The reactor has no `position()` of its own: the reactor holds no exporter, and a full
+    mirror takes its position with `positionOf` on a snapshot of its own before its export
+    (reading 69). A scoped read's position serves `checkFresh`-style comparisons (reading 71).
+67. **A single pull in the vectors.** A `pull` step with `once` pulls exactly once, in a case whose
+    store pins its page size and retention, so that no run changes the page. With commits between
+    single pulls, a pull delivers the bytes held at its own snapshot, which a catch-up of one
+    snapshot cannot show. The review's follower W6 kept what one catch-up delivered and handed it
+    out again: it made exactly the calls the contract asks for, and only
+    `a-purge-between-single-pulls` catches it (README §10.6).
+68. **A fault is found before the page is judged.** `checkFresh` and the cursor check `through`
+    before they fetch or judge a page's ids. The rails give a faulty page a record that adds a
+    touching id (`checkFresh`) or an added id (the cursor): in the other order, `checkFresh` would
+    answer `stale` and the cursor would make a `get`.
+69. **A full mirror starts from a position, then an export.** §4.6, "How a full mirror starts".
+    The fuzz of the TypeScript witness ran 25,000 sequences: 18,011 mirrors started from an
+    export, 12,568 of them seen with ids too early or too late, and 1,483 entries with no arrival
+    record. At 84,369 quiet points the mirror equalled the holdings; between them, the property of
+    §4.6 held at every pull. Snapshot starts: 123,980 quiet points, no miss.
+70. **An export carries no arrival records.** A follower asks `arrivals` on later snapshots, or
+    states its guarantee for ids and bytes only (§4.6).
+71. **A scope uses `checkFresh`.** A scope is not a mirror; a host that keeps one checks its
+    capture and reads again. The feed's pages are for full mirrors.
+72. **A follower's mirror lies outside erasure.** A follower holds a purged delta's bytes until it
+    pulls the removal, and as long as it stops pulling. The host erases them. After
+    `resync-required` the follower replaces its mirror and never merges (§4.6, §4.7.2).
+73. **A store fault is an error value.** `checkFresh` and a cursor's pull report a store that
+    broke its contract as a value, never by aborting the host: slice 4 brings stores that can be
+    remote, and a library must not take its host down over one faulty store. The fault names its
+    rule with the same words in every witness: `no-progress`, `past-the-bound`,
+    `mismatched-answers` and `unasked-ids`. It is distinct from a refusal (`StoreError`): a
+    refusal is the store keeping its contract, and a fault is the store breaking it. TypeScript
+    throws `StoreFaultError`, with `rule` and `values`; Rust returns `FeedError::Fault`, a
+    `StoreFault` whose variant is the rule and whose fields are the values. Every snapshot is
+    still released, and a failed pull leaves the cursor where it stood.
+74. **`get` and `arrivals` answer only what was asked.** An answer that names an id the call did
+    not ask for, names an id twice, or is not ascending is the fault `unasked-ids`, and the
+    reader uses none of it. Otherwise a faulty store could hand a follower the bytes of a delta
+    the peer purged, or have `checkFresh` judge a delta no record named.
 
 
 ## 5. Architectures
@@ -1543,8 +1764,11 @@ cache.
    the surface (SPEC-17 §6 theorem). A very large view is evaluated again whole when it changes;
    finer maintenance is an optimization, not a contract change.
 5. **Subscriptions.** A view subscription is told when dispatch touches that view. A raw-stream
-   subscription reads the change feed from its last revision. A reconnecting subscriber resumes
-   from a revision; past retention it receives `resync-required` and re-reads its views.
+   subscriber is a feed cursor (§4.6, "Following the feed"): it pulls the records after its
+   position, with the bytes of each added id still held, one page per pull. It resumes from a
+   saved position. Past retention, in another history, or from a position past the peer, it
+   receives `resync-required`, reads its state again and follows from that read. It never
+   receives the bytes of a purged delta (SPEC-4 ERRATA V6).
 6. **Full-surface reads.** A read with a part that no anchor covers is a full-surface read.
    - A **registered** hyperschema never stays full-surface: registration creates its derived index
      (§4.7.5).

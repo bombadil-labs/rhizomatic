@@ -135,8 +135,67 @@ proposal (PR #76). Each is owed by the step or slice named.
   is a store fault; `now` is finite; anchor kinds; a revision written `1.0`; the runner's message
   for a refusal; one capture JSON, pinned by `vectors/store/capture-interchange.json`.
 
+### Step 7 (the feed cursor, TypeScript) — done 2026-11-13
+
+- ✓ `positionOf`, `followFeed`, `parsePosition`, `FeedCursor.pull` and `StoreReactor.follow`;
+  `StoreRead.position` and `FetchedScope.position` (§4.6 "Following the feed"; §4.13 readings
+  55 to 66). SPEC-4 ERRATA V6 states decision O6.
+- ✓ `vectors/store/follow.json`, its runner and its rails (`vectors/store/README.md` §10). The
+  generator and a fuzz prove the follower's guarantee by brute force.
+- ✓ The review of step 7: single pulls in `follow.json` (`once`) and four cases with commits
+  between them; a fault is found before a page is judged, with rails; a follower's copies lie
+  outside erasure; a full mirror starts from a position and then an export (§4.6, readings 67 to
+  72).
+- ✓ The final check of PR #80: the order of a capture's defects (reading 54); the TypeScript
+  entry of `capture-interchange.json` pinned byte for byte (README §9.8); a feed page past r′ is a
+  store fault in `checkFresh` (reading 46).
+
+### Step 8 (the feed cursor, Rust) and the integration of steps 7 and 8 — done 2026-11-13
+
+- ✓ Step 8 is built from the documents alone: `Position`, `position_of`, `follow_feed`,
+  `parse_position`, `FeedCursor::pull`, `StoreReactor::follow`, the runner of README §10 with
+  its runs, the wrong-follower table (W6 included), the fuzz and the cost rails.
+- ✓ Fuzz totals from the reviews: TypeScript 25,000 sequences and 741,018 pulls; Rust 100,000
+  sequences and 1,636,514 pulls; no divergence in either.
+- ✓ A store fault is an error value in both witnesses, never a panic or a plain `Error`, with
+  four rules: `no-progress`, `past-the-bound`, `mismatched-answers`, `unasked-ids` (readings 46,
+  63 and 73). TypeScript throws `StoreFaultError`; Rust returns `FeedError::Fault`. The boundary
+  tool no longer allows `catch_unwind` in the runner.
+- ✓ `get` and `arrivals` answer only what was asked (reading 74): an extra, repeated or unordered
+  id is `unasked-ids`, and nothing of the answer is delivered or judged.
+- ✓ One order of a capture's defects in both witnesses (reading 54), pinned by
+  `vectors/store/capture-defects.json`.
+- ✓ The runners agree (README §9 and §10): fixed words with an optional step locator;
+  `follow refused with <code>`; `the store broke <rule>: …`; a case's `store` checked, a store the
+  factory cannot build skipped (`store`), any other factory failure a failed case; a document
+  defect before a capture gap; each call logged when it is made; `snapshot-moved` from `read()`
+  retried; another format is a failure report; each witness asserts exactly the cases of the
+  file.
+
+### Steps 9 and 10 (`StoreViews`) owe
+
+- A view that reads through the store reports a store that breaks its contract as a store fault,
+  an error value that names one of the four rules (`no-progress`, `past-the-bound`,
+  `mismatched-answers`, `unasked-ids`): TypeScript `StoreFaultError`, Rust `FeedError::Fault`.
+  It never panics and never throws a plain `Error` for it.
+- A view that asks `get` or `arrivals` checks the answer as the cursor does (reading 74).
+
+### Slice 5 owes (Loam)
+
+- Loam's followers of the feed drop their mirror on `resync-required` and start again from a
+  position and a read; they never merge (§4.6, "A follower's copies lie outside erasure").
+- Loam's erasure accounts for its followers: a purge does not reach a follower's mirror until it
+  pulls the removal, and a follower that stops pulling keeps the bytes. Loam erases those copies
+  itself or keeps its followers pulling.
+- Loam's scoped reads keep fresh with `checkFresh`, not by applying pages; only a full mirror
+  applies them (§4.6, "A scope is not a mirror").
+
 ### Slice 4 owes
 
+- **Remote stores rely on the fault values.** A store across a process or a network can break
+  its contract; `checkFresh` and the cursor report that as a store fault with its rule, not by
+  aborting the host (§4.13 reading 73). Slice 4 decides how a remote store's client reports a
+  transport failure, and keeps the fault values for a store that breaks its contract.
 - **A durable store persists each peer's history** (§4.6 "History") and gives the peer a new
   history when the store is restored from a backup or a peer is deleted and created again. A
   capture or a cursor from before then answers `resync-required`. It also keeps every history

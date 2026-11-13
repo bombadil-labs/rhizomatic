@@ -27,6 +27,7 @@ import {
   type Capture,
   type ValidityWindow,
 } from "../storage/freshness.js";
+import { followFeed, positionOf, type FeedCursor, type Position } from "../storage/follow.js";
 import type { ScopeSource } from "../storage/scope-source.js";
 import {
   StoreError,
@@ -110,6 +111,13 @@ export interface StoreRoundReport {
 /** An anchored read with the revision it answered at and what each round did. */
 export interface StoreRead extends AnchoredRead {
   readonly revision: Revision;
+  /**
+   * The position of the snapshot the read ran on (SPEC-18 §4.6, "Following the feed"). A full
+   * mirror of the peer, or a later comparison of revisions, starts here. A caller that keeps
+   * only this read's scope does not apply the feed's pages: it checks its capture with
+   * `checkFresh` and reads again when it is stale.
+   */
+  readonly position: Position;
   readonly rounds: readonly StoreRoundReport[];
   /**
    * How many child evaluations the evaluation memo held when the read ended (SPEC-18 §4.12
@@ -388,6 +396,7 @@ export async function readAnchoredWith(
         scope,
         members,
         revision: snapshot.revision,
+        position: positionOf(snapshot),
         rounds,
         memoStored: memo?.stored ?? 0,
         ...validity,
@@ -485,6 +494,11 @@ export interface FetchedScope {
   readonly source: ScopeSource;
   readonly revision: Revision;
   /**
+   * The position of the snapshot it was fetched on. As for `StoreRead.position`, a scope is kept
+   * fresh with `checkFresh`, not by applying the feed's pages.
+   */
+  readonly position: Position;
+  /**
    * The validity window of the source's members at `now` (`validityWindow`). A fetched scope has
    * no evaluation time of its own: each question to the source names its own `now`.
    * O(log members).
@@ -542,6 +556,7 @@ export async function fetchScope(
   return {
     source: cache.source(members),
     revision: snapshot.revision,
+    position: positionOf(snapshot),
     validityAt: (now) => windowIn(boundaries, now),
   };
 }
@@ -614,6 +629,15 @@ export class StoreReactor {
   async fetch(entities: Iterable<Entity>, selection?: StoreSelection): Promise<FetchedScope> {
     const wanted = [...entities];
     return (await this.onSnapshot((snapshot) => fetchScope(snapshot, wanted, selection))).value;
+  }
+
+  /**
+   * A cursor over this peer's change feed, standing at `from` (`followFeed`). Makes no store
+   * call. `from` is the position of the snapshot that started the caller's full mirror of the
+   * peer (SPEC-18 §4.6, "How a full mirror starts").
+   */
+  follow(from: Position): FeedCursor {
+    return followFeed(this.peer, from);
   }
 
   private async onSnapshot<T>(

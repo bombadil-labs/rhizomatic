@@ -39,9 +39,10 @@ use crate::store::{
     PushdownFields, Revision, ScopeRequest, ScopeSource, Snapshot, StoreError, StoreErrorCode,
 };
 use crate::store_conformance::FreshnessReader;
+use crate::store_follow::{follow_feed, position_of, FeedCursor, Position};
 use crate::store_fresh::{
     check_fresh, make_capture, raw_scope, touching, validity_boundaries, validity_window,
-    window_at, Capture, Freshness, Touch, ValidityWindow,
+    window_at, Capture, FeedError, Freshness, Touch, ValidityWindow,
 };
 use crate::types::{Delta, Primitive};
 
@@ -246,6 +247,9 @@ pub struct StoreRead {
     pub members: Vec<String>,
     /// The revision of the snapshot the answer was read on.
     pub revision: Revision,
+    /// The position of that snapshot: where a follower of this read starts (SPEC-18 §4.13
+    /// reading 66).
+    pub position: Position,
     pub rounds: Vec<RoundReport>,
     /// How many snapshots the read took: 1 for `read_anchored`, up to `SNAPSHOT_RETRIES + 1`
     /// for `StoreReactor::read`.
@@ -564,6 +568,7 @@ fn read_rounds(
                 scope: asked.into_iter().collect(),
                 members,
                 revision: snapshot.revision(),
+                position: position_of(snapshot),
                 rounds,
                 snapshots: 1,
                 memo_stored: memo.as_deref().map_or(0, |m| m.stored()),
@@ -582,6 +587,8 @@ fn read_rounds(
 pub struct FetchedScope {
     pub source: ScopeSource,
     pub revision: Revision,
+    /// The position of the snapshot it was read on (SPEC-18 §4.13 reading 66).
+    pub position: Position,
     /// Every validity boundary of the members, ascending and distinct.
     boundaries: Vec<f64>,
 }
@@ -649,6 +656,7 @@ fn fetched(
     let fetched = FetchedScope {
         source,
         revision: snapshot.revision(),
+        position: position_of(snapshot),
         boundaries,
     };
     Ok((fetched, anchors, cache))
@@ -833,6 +841,14 @@ impl StoreReactor {
         Ok(read)
     }
 
+    /// A feed cursor over this reactor's peer from `from`, the position of a read or a fetched
+    /// scope (SPEC-18 §4.6, "Following the feed"; §4.13 reading 66). It makes no store call, and
+    /// refuses a malformed position `invalid-request`. The reactor has no position of its own: a
+    /// follower starts from the state it read on the same snapshot.
+    pub fn follow(&self, from: Position) -> Result<FeedCursor<'_>, StoreError> {
+        follow_feed(self.peer.as_ref(), from)
+    }
+
     /// `fetch_scope` on a new snapshot, started again on `snapshot-moved`.
     pub fn fetch(
         &self,
@@ -881,7 +897,7 @@ impl FreshnessReader for StoreFreshness {
         peer: &dyn PeerStore,
         capture: &Capture,
         now: f64,
-    ) -> Result<Freshness, StoreError> {
+    ) -> Result<Freshness, FeedError> {
         check_fresh(peer, capture, now)
     }
 }

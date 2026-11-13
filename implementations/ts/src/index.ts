@@ -108,6 +108,7 @@ export { packId, packSet, unpackSet } from "./pack.js";
 export {
   PURGE_BOUNDARY,
   StoreError,
+  StoreFaultError,
   collectDeltaSet,
   missingRequirements,
   type Admission,
@@ -134,6 +135,7 @@ export {
   type Snapshot,
   type Store,
   type StoreErrorCode,
+  type StoreFaultRule,
   type StoreProfile,
   type StoreRequirement,
   type SurfaceState,
@@ -200,6 +202,21 @@ export {
   type FreshnessWitness,
 } from "./storage/freshness-conformance.js";
 export { freshnessVectors } from "./storage/freshness-vectors.js";
+export {
+  followFeed,
+  parsePosition,
+  positionOf,
+  type FeedCursor,
+  type Position,
+  type Pull,
+} from "./storage/follow.js";
+export {
+  runFollowConformance,
+  type FeedFollower,
+  type FollowConformanceReport,
+  type FollowStoreRequest,
+} from "./storage/follow-conformance.js";
+export { followVectors } from "./storage/follow-vectors.js";
 export { scopeOver, passesSelection, type StoreVectors } from "./storage/store-vector-format.js";
 export { Peer, syncBoth, type SyncReport } from "./peer.js";
 export { bundleEntryStatus, looseEntryStatus, type LooseEntryStatus } from "./federation/entry.js";
