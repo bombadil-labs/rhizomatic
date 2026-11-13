@@ -21,17 +21,24 @@ is complete; the Rust witness follows the same documents.
 The store, slice 3, steps 1 and 3 (SPEC-18 proposal §4.6, §4.13): each peer has a change feed.
 `PeerStore.changes(from, to?)` answers pages of records, one per revision advance, with the head
 and the ids added and removed. The memory store serves it. The shared store vectors check the feed
-after every step of every script. The TypeScript witness has it; the Rust runner skips the feed
-scripts until its store serves a feed.
+after every step of every script. Both witnesses have it (steps 2 and 4 built the Rust side).
 
 The store, slice 3, step 5 (SPEC-18 proposal §4.6, §4.13 readings 24 to 41): freshness. A capture
 records what one anchored read depended on: its peer's history and revision, its anchors, its raw
 scope as ids and the validity window of its operand. `touching` and `checkFresh` decide from the change feed whether a
-capture is current, in calls that depend only on the changes since it. The TypeScript witness has
-it; the Rust witness skips `freshness.json` until slice 3 step 6.
+capture is current, in calls that depend only on the changes since it.
+
+The store, slice 3, step 6 and its integration (SPEC-18 §4.13 readings 42 to 53): the Rust
+witness has freshness too, built from the documents alone. The two witnesses now agree where the
+reviews found them apart: the maker takes a live snapshot; a repeated mint is refused; a feed page
+with no progress fails a check; `now` must be finite; anchor kinds in a stored capture; a revision
+written `1.0`; one capture JSON for every witness.
 
 ### ⚠️ Breaking
 
+- `makeCapture(snapshot, anchors, members, window)` takes a `Snapshot`, where the unreleased
+  step-5 shape took any `{history, revision}`. It reads both from the live snapshot. A stored
+  capture comes back only through `parseCapture`. This breaks only the unreleased step-5 API.
 - `PeerStore` and `Snapshot` have a new required member, `history`: an opaque identity of the
   peer's revision history (SPEC-18 §4.6). A consumer that implements either adds it. A store
   gives a peer created anew, and a store restored to an earlier state, another value.
@@ -63,7 +70,18 @@ it; the Rust witness skips `freshness.json` until slice 3 step 6.
   capture beside a fetched scope.
 - `createMemoryStore({ mintHistory })`: a host's own mint for peer histories. The default,
   `memory:local:<n>` (`LOCAL_HISTORY_PREFIX`), is unique only within the process, and
-  `parseCapture` refuses a capture that carries it. A minted history may not use that prefix.
+  `parseCapture` refuses a capture that carries it. A minted history may not use that prefix,
+  and may not repeat a history the store already issued: `createPeer` refuses both
+  `invalid-request` and creates no peer. The mint takes the peer's id and runs after
+  `peer-exists`.
+- `parseCapture` refuses a `value` or `derived-index` anchor `capability-absent`, and a
+  malformed anchor (an unknown kind included) `invalid-request`. It reads a revision written
+  `1.0` as 1. `checkFresh` and `captureScope` refuse a `now` that is NaN or ±Infinity. In
+  `checkFresh`, a feed page that makes no progress throws a plain `Error`: it is a store fault,
+  not a verdict. The freshness runner reports a store refusal in a check as
+  `checkFresh refused with <code>`.
+- `vectors/store/capture-interchange.json`: one capture JSON from each witness; each witness
+  parses both (`vectors/store/README.md` §9.8).
 - `touching` and `checkFresh` answer only for a capture that `makeCapture` or `parseCapture`
   built, and refuse a copy, a cast object or a parsed value with `invalid-request`. Captures and
   their lists are frozen. `makeCapture` checks what `parseCapture` checks and does not sort.

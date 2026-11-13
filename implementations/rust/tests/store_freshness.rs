@@ -8,11 +8,15 @@
 //! object cannot be written in Rust. The rows of README §9.7 "Built captures only" are met by the
 //! type; the tests below hold the two constructors to the rules instead.
 //!
-//! Named gaps of the wrong-reader table (README §9.7), each for the same reason: the runner's check
-//! 0 of §9.2 re-validates a capture through `make_capture`, and a built capture always passes it.
-//! So the row "a capture that keeps the anchors in the order given" reaches its message through
-//! the maker's refusal inside the reader, which the runner reports as malformed. One row is Rust's
-//! own: a capture with sorted anchors and one missing (`FirstAnchorOnly`) holds check 2.
+//! Named gaps of the wrong-reader table (README §9.7), each for the same reason: a `Capture`
+//! exists only once a constructor checked it, so check 0 of §9.2 cannot see a malformed one
+//! (README §9.2, typed witnesses). The row "a capture that keeps the anchors in the order given"
+//! reaches its message through the maker's refusal inside the reader, which the runner reports as
+//! malformed. One row is Rust's own: a capture with sorted anchors and one missing
+//! (`FirstAnchorOnly`) holds check 2.
+//!
+//! `make_capture` takes a live snapshot. The wrong readers that build a capture of another
+//! history or revision on purpose fabricate one (`Fabricated`); a host must not.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::hint::black_box;

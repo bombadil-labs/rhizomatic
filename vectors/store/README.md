@@ -158,7 +158,13 @@ capture that carries one does not cross a process (SPEC-18 §4.6). The runner ch
   `a snapshot of <peer> reports another history than the peer's`.
 
 No script deletes a peer or restores a store. Each witness tests itself that one name created in
-two stores has two values. The Rust witness adds `history` and these checks in slice 3 step 6.
+two stores has two values. Both witnesses carry `history` and make these checks.
+
+A store never issues one history twice. The memory store's `mintHistory(peer)` takes the peer's
+id and runs after every other check of `createPeer`, `peer-exists` included. A minted history
+that is empty, starts with `memory:local:`, or repeats one this store issued to any peer, now or
+before, is refused `invalid-request`, and no peer is created (SPEC-18 §4.6, §4.13 reading 49). A
+script cannot pass a mint, so each witness tests this itself.
 
 **`read()`** returns a snapshot at the peer's current revision.
 
@@ -1085,7 +1091,7 @@ negation chains through `exclude` (§1.4.1). Why step 3.3 is exact: the trim lem
 Modes 2 to 5 read with a capture asked for, and MUST give `since`, `expiresAt` and `rawMembers`
 (the capture's members). Mode 1 computes the window over the members it found by scanning, and
 `rawMembers` by scanning everything held. A witness that does not yet carry the window or a
-capture on a read skips these three fields and says so (the Rust witness until slice 3 step 6).
+capture on a read skips these three fields and says so. Both witnesses carry them.
 
 **The same read, five ways.** A witness evaluates each case in each mode below, on a peer loaded
 by §5.2. Every mode MUST give `canonicalHex`, `scope` and `members`.
@@ -1547,7 +1553,9 @@ The table covers at least:
   dropped record and answers `ok` only where `from % 3` is 1 (the row "ok two below the floor and
   right one below it": wrong at F − 2, right at F − 1, so item 2 of §3.9.4 must probe every
   integer between the revision before the newest dropped record and F); the same with revisions
-  1000 apart, wrong only at F − 2 (among the last eight points of the bounded probe). A store whose
+  1000 apart, wrong wherever `from % k` is `k − 2` below the floor, which between the revision
+  before the newest dropped record and F is F − 2 alone (among the last eight points of the
+  bounded probe). A store whose
   revisions are 1000 apart, keeping two records, must pass. Most break the feed
   only when two or more records are pending, so the check of each commit, a range of one, still passes and the rule's
   own message is the one that fails. Two messages are shared by the check after every step and
@@ -1631,7 +1639,8 @@ The runner builds captures only through the witness's capture function or its ch
 constructor (`parseCapture`), and hands `checkFresh` and `touching` only those. A witness's
 `touching` and `checkFresh` refuse `invalid-request` any other object (SPEC-18 §4.6); a typed
 witness whose capture type has private fields and only these two constructors meets this by
-construction, as the Rust witness will.
+construction, as the Rust witness does. The maker builds a capture from a live snapshot; it is
+not a way to reload a stored capture, which comes back only through the parser.
 
 Take a new snapshot of the peer. Build a capture on it with the witness's own capture function,
 for these anchors, this selection and this `now` (TypeScript: `captureScope(snapshot, entities,
@@ -1640,9 +1649,13 @@ now, {pushdown})`). Release the snapshot. Then check, in this order:
 0. The capture is well formed by the witness's checking constructor (TypeScript:
    `parseCapture`, SPEC-18 §4.6, except that a history local to the process is allowed here):
    exactly the six fields, a non-empty history, an integer revision, both lists strictly
-   ascending by UTF-8 bytes, `since < expiresAt` when both are numbers. Else `the capture is malformed: <the constructor's reason>`; the TypeScript reasons
-   start `capture: ` (for example `capture: anchors is not strictly ascending by UTF-8 bytes`).
-   Then its history is the snapshot's, else `the capture's history is not its snapshot's`.
+   ascending by UTF-8 bytes, `since < expiresAt` when both are numbers. Else
+   `the capture is malformed: <the constructor's reason>`; the reasons start `capture: ` (for
+   example `capture: anchors is not strictly ascending by UTF-8 bytes`). A typed witness whose
+   capture exists only once a constructor checked it cannot return a malformed one. Its maker
+   refuses inside the capture function instead, and the runner reports that refusal with the
+   same words. Then its history is the snapshot's, else
+   `the capture's history is not its snapshot's`.
 1. The capture's revision is the snapshot's revision, and it is the revision `expect.revision`
    names. Else `the capture is of revision <r>, expected <R>`.
 2. Its anchors equal `expect.anchors`, in order: ascending by the UTF-8 bytes of the entity,
@@ -1704,7 +1717,8 @@ Otherwise it is `expect.verdict`.
 **The call.** Wrap the peer handle so that every call through it, and through every snapshot it
 returns, is logged with its arguments and its answer (for `read`, the snapshot's revision and
 history). Call `checkFresh(wrapped, capture, now)`.
-It must answer. Then check, in this order:
+It must answer. A store refusal that passes up out of it fails with
+`checkFresh refused with <code>`, followed by the refusal's message. Then check, in this order:
 
 1. The status equals the expected status. Else, below the floor,
    `checkFresh answered <s> for a capture below the retention floor F`, and otherwise
@@ -1744,6 +1758,10 @@ It must answer. Then check, in this order:
 
 The runner never commits while a check runs, so a `checkFresh` that starts again on a new
 snapshot after `snapshot-moved` (SPEC-18 §4.13 reading 35) is never seen here.
+
+**Messages.** As in §3.9, the fixed words of each message of §9.2 and §9.3 are normative. How a
+value inside a message is rendered is each witness's own: an id cut or whole, a number, a list
+of anchors. Each witness's table of wrong readers pins its own rendering.
 
 ### 9.4 The runs each witness makes
 
@@ -1864,6 +1882,12 @@ The JSON cannot express these; each witness builds them.
   | does not release its snapshot | `no-change` | `checkFresh made no call where the contract asks for release` |
   | takes the fetch as members when nothing is reported applied (run 6 only) | `a-selection-rejects-the-toucher` | `the capture's members are` |
   | `touching` drops the last record | `an-added-delta-targets-an-anchor` | `touching answered none, expected 2 ` |
+  | refuses with `snapshot-released` (a store refusal passed up) | `no-change` | `checkFresh refused with snapshot-released` |
+
+  Rust adds one row of its own: a capture with sorted anchors and one missing (`FirstAnchorOnly`)
+  fails `two-anchors` with `the capture's anchors are [entity:plant:a], expected
+  [entity:plant:a entity:plant:b]`. Its maker refuses anchors out of order, so the row "keeps the
+  anchors in the order given" never reaches check 2, and this row does.
 
   The rows for the cases added with the window, the history, the selections and the chain each
   name those cases. Each such reader passes the document without them and fails with them; each
@@ -1891,20 +1915,30 @@ The JSON cannot express these; each witness builds them.
 - **Captures from reads.** A read's capture equals the raw scope of its anchors and
   `captureScope` beside it. A read that pushed nothing down makes no store call for its capture.
 - **Histories.** One name created in two stores has two histories; a host's `mintHistory` is
-  used; a capture checked on a peer of another history answers `resync-required` with no feed
+  used and takes the peer's id; a mint that repeats a history the store issued is refused
+  `invalid-request` and creates nothing; a taken name is refused `peer-exists` before the mint
+  runs; a capture checked on a peer of another history answers `resync-required` with no feed
   call.
 - **The checking constructor.** Ids that sort differently by UTF-16 and by UTF-8 (U+FF61 and
   U+1F600): the UTF-8 order is accepted and `touching` finds both; the UTF-16 order, a shuffled
-  list and a repeat are refused; a capture with a minted history survives a JSON round trip.
+  list and a repeat are refused; a capture with a minted history survives a JSON round trip. A
+  `value` or `derived-index` anchor is refused `capability-absent`; an unknown kind, a missing
+  kind, an extra key and an entity that is not a string are refused `invalid-request`. A
+  revision written `1.0` reads as 1, and `1.5` is refused.
 - **Built captures only.** A spread copy, a copy with its members reversed, a `JSON.parse`
   result and a cast plain object are refused by `touching` and `checkFresh`; a built capture and
-  its lists cannot be changed. `makeCapture` refuses what `parseCapture` refuses.
+  its lists cannot be changed. `makeCapture` refuses what `parseCapture` refuses, except a
+  process-local history. It takes a live snapshot, so the rails that build a wrong capture on
+  purpose fabricate one.
 - **Captures across processes.** A capture whose history is the memory store's default
   (`memory:local:<n>`), serialized and parsed again, is refused by `parseCapture` with a reason
   that names `mintHistory`; a mint that answers the local prefix is refused when the peer is
   created.
 - **Moved snapshots.** A commit during a check: `checkFresh` starts again and answers for the
   later revision; four moves pass `snapshot-moved` up.
+- **Store faults and time.** A feed page with no progress short of r′ fails the check with an
+  error that is not a verdict (SPEC-18 §4.13 reading 46). `checkFresh` and the capture-from-scope
+  function refuse a `now` of NaN, Infinity or −Infinity `invalid-request`.
 - **The cost rails**, timed from outside as in §3.9.9 (N from 256, doubling until the run takes
   50 ms; the run at N the fastest of five; the run at 8N the fastest of three, stopping at the
   first under the bound; the ratio below 24). A run is N calls of `checkFresh` on one capture
@@ -1914,3 +1948,12 @@ The JSON cannot express these; each witness builds them.
 
   A check that reads the holdings or the earlier records costs N per call, and the total scales by
   about 64. The TypeScript witness measured ratios of 9 to 10 for both.
+
+### 9.8 `capture-interchange.json`
+
+A hand-kept file, not generated. It holds one capture JSON written by each witness, under
+`captures.ts` and `captures.rust`, with the history `host:interchange` from a host mint. The
+shape is SPEC-18 §4.6, "The capture JSON". Key order and number spelling differ by witness on
+purpose. Each witness parses both with its checking constructor: history `host:interchange`, the
+one anchor `plant:a`, two members, `since` 10 and `expiresAt` null. It then writes each again and
+parses it back to an equal capture. A witness that changes its writer regenerates its entry.

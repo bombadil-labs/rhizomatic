@@ -377,6 +377,15 @@ type Capture = {
   history, a revision that is not an integer from 0 to 2^53 − 1, a bound that is not null or
   finite, or a window with `since ≥ expiresAt`; `parseCapture` also refuses another shape and a
   history local to a process (below). Neither sorts. Each capture is frozen, lists included.
+- `makeCapture(snapshot, anchors, members, window)` builds a capture from a live snapshot and
+  reads `history` and `revision` from it. It is not a way to reload a stored capture. A stored
+  capture comes back only through `parseCapture`, which refuses a process-local history. A host
+  that fabricates a snapshot to feed stored values to the maker defeats that refusal and can get
+  a false `current`.
+- **The capture JSON** is one shape in every witness: an object with exactly the keys
+  `history`, `revision`, `anchors`, `members`, `since` and `expiresAt`; an open bound is `null`;
+  each anchor has exactly the keys `kind` and `entity`. Key order and number spelling are free.
+  JSON has one number type, so a `revision` written `1.0` is the integer 1, and `1.5` is refused.
 - `touching` and `checkFresh` answer only for a capture one of the two constructors built in this
   module, and refuse any other object `invalid-request`, in O(1): a copy, a cast object or a
   parsed value has not been checked, and `touching` searches the lists by binary search.
@@ -393,7 +402,11 @@ type Capture = {
   all of S(E* over H). A read that pushed a selection down makes its own id-only calls. A capture
   never takes its members from a pushed-down fetch.
 - Anchors are entity anchors. Slices 1 and 2 built no other kind; value and derived-index anchors
-  join a capture when their indexes exist.
+  join a capture when their indexes exist. Until then, `parseCapture` refuses an anchor whose
+  `kind` is `value` or `derived-index` with `capability-absent`, whatever its other keys: it is a
+  kind of §4.7.1 that the witness cannot hold yet. Any other anchor that is not exactly
+  `{kind: "entity", entity: <string>}` (wrong keys, wrong types, an unknown kind) is malformed and
+  refused `invalid-request`.
 
 **The window.** Take the read's operand: the deltas of its exact trimmed scope, what remains
 after the read's whole selection (the trim lemma, §4.3). Its validity boundaries are the
@@ -439,19 +452,25 @@ another value. The memory store's default history is `memory:local:<n>`, from on
 the module: unique within the process and marked as local to it. With a process-local history, a
 capture that outlives its process could be judged against another history and answer `current`
 falsely, which is why `parseCapture` refuses it. A host that keeps captures across a
-serialization boundary passes `mintHistory`, a mint unique across processes; a minted history may
-not start with `memory:local:`, and is refused `invalid-request` when the peer is created. A caller that keeps a revision across calls (a capture, a feed cursor) keeps the
-history with it and compares it. `changes` takes no history. This history is the "history epoch"
+serialization boundary passes `mintHistory(peer)`, a mint unique across processes. It takes
+the peer's id and runs after every other check of `createPeer`, `peer-exists` included. A
+minted history that is empty, starts with `memory:local:`, or repeats a history this store has
+issued to any peer, now or before, is refused `invalid-request` when the peer is created, and
+the peer is not created. The store keeps every history it issued. A caller that keeps a revision
+across calls (a capture, a feed cursor) keeps the history with it and compares it. `changes` takes no history. This history is the "history epoch"
 of plan decision O3.
 
 `checkFresh(peer, capture, now)` answers `current`, `stale` with the touch, `not-yet` with
 `since`, `expired` with `expiresAt`, or `resync-required` with the current revision. `now` is
-required: a result is current only relative to a time. It makes one `read()`. When the snapshot's
+required: a result is current only relative to a time. A `now` that is not finite (NaN or
+±Infinity) is refused `invalid-request`, here and in the capture-from-scope function. It makes one `read()`. When the snapshot's
 history is not the capture's, it answers `resync-required` at once, with no feed call. When the
 snapshot's revision r′ equals the capture's, it reads no feed. When r′ is below it, it answers
 `resync-required`. Otherwise it reads `changes(capture.revision, r′)` page by page, with that
 explicit `to`. For each page that names an added id, it makes one `get` of those ids on the
-snapshot, and then judges the page. It stops at the first touch. **The order of the answers:**
+snapshot, and then judges the page. It stops at the first touch. A page that makes no progress
+short of r′ (`through ≤ from`) is a store fault, not a verdict: the call fails with an error
+(§4.13 reading 46). **The order of the answers:**
 `resync-required`, then `stale`, then the window (`not-yet` when `now < since`, `expired` when
 `now ≥ expiresAt`), else `current`. Its calls and cost depend on the records and ids since the
 capture, never on what the peer holds and never on records before the capture. It replaces
@@ -1153,8 +1172,9 @@ that a vector can pin.
 
 ### 4.13 Slice 3 readings
 
-Slice 3 builds the change feed of §4.6 (`18-store.SLICE-3.PLAN.md`, steps 1 and 3) and freshness
-(step 5, readings 24 to 45). Where §4.6 and the plan were silent, the feed decided as follows.
+Slice 3 builds the change feed of §4.6 (`18-store.SLICE-3.PLAN.md`, steps 1 to 4) and freshness
+(steps 5 and 6, readings 24 to 53). Where §4.6 and the plan were silent, the feed decided as
+follows.
 `vectors/store/scripts.json`, `vectors/store/freshness.json` and `vectors/store/README.md` §3.9
 and §9 pin each point that a vector can pin.
 
@@ -1223,8 +1243,8 @@ and §9 pin each point that a vector can pin.
     every other step wrote none. Each witness runs the scripts again on a reference store that
     keeps two records, and on one whose pages hold one record (README §3.9).
 18. **A witness without the feed skips it.** The requirement `changes` skips the feed scripts on a
-    store whose retention is `none`, as `purge` does (§4.11 reading 44). The Rust witness skips
-    them until slice 3 step 2 builds its feed.
+    store whose retention is `none`, as `purge` does (§4.11 reading 44). Both witnesses serve the
+    feed and run the feed scripts.
 19. **Cost is timed.** The two cost promises of §4.6 have rails timed from outside, as §4.11
     reading 36 does: a window of fixed size read once after each of N records, and N appends that
     keep N / 4 records, each at N and 8N (README §3.9).
@@ -1270,7 +1290,9 @@ and §9 pin each point that a vector can pin.
     then `negators` of each new layer until a layer adds nothing. It asks for each member once,
     so it costs O(|members| × log N) in closure depth plus one calls.
 30. **Entity anchors only.** A capture, `rawScope` and `touching` read entity anchors, the only
-    kind slices 1 and 2 built. Another kind is refused `capability-absent`, as `scope` refuses it.
+    kind slices 1 and 2 built. A well-formed anchor of another kind of §4.7.1 (`kind` is `value`
+    or `derived-index`) is refused `capability-absent`, as `scope` refuses it. A malformed anchor
+    (wrong keys, wrong types, an unknown kind) is refused `invalid-request` (§4.6).
 31. **The order of the first touch.** Records in revision order; within one record, `removed`
     before `added`; each list in its own ascending order; for one delta, `targets-anchor` before
     `negates-member`. Two witnesses then report one touch. No store yet writes a record with
@@ -1325,7 +1347,10 @@ and §9 pin each point that a vector can pin.
 42. **Only built captures are answered for.** A capture copied with a spread, cast from a plain
     object, or parsed from JSON without `parseCapture` is refused by `touching` and `checkFresh`.
     The type brand alone is a compile-time check; a reversed member list in a copy otherwise
-    searched wrong and answered `current` after a member was purged.
+    searched wrong and answered `current` after a member was purged. The maker takes a live
+    snapshot and reads its history and revision; it never reloads a stored capture. A host that
+    fabricates a snapshot to feed stored values to the maker defeats `parseCapture`'s refusal of
+    a process-local history, and can get a false `current`.
 43. **The generators prove each window.** For every capture and every round read, the generator
     checks over the model that the operand's valid set is the same at `now`, at `since`, at a
     midpoint and just below `expiresAt`, and differs just below `since` and at `expiresAt`; a
@@ -1337,6 +1362,34 @@ and §9 pin each point that a vector can pin.
 45. **The probe below the floor is bounded.** It asks at most 24 values below the floor, at fixed
     points (README §3.9.4, item 2), so a store whose revisions are far apart keeps the runner
     cheap. Both witnesses ask at the same points.
+46. **A page with no progress is a store fault.** Inside `checkFresh`, a page of the feed whose
+    `through` is not above its `from`, short of r′, breaks §4.6 ("Pages"). It is not a verdict:
+    `resync-required` would send the caller to rebuild over a broken store. The call fails with
+    an error. The vocabulary has no code for a store that breaks its contract, so the error is a
+    plain one: TypeScript throws an `Error` that is not a `StoreError`, and Rust panics, as it
+    does for a delta source that breaks its contract.
+47. **`now` is finite.** `checkFresh` and the capture-from-scope function (TypeScript
+    `captureScope`, Rust `capture_scope`) refuse NaN, Infinity and −Infinity with
+    `invalid-request`, before any store call.
+48. **One capture JSON.** The shape of §4.6 ("The capture JSON") is the Rust witness's
+    `Capture::to_json` and the TypeScript capture itself. `vectors/store/capture-interchange.json`
+    holds one capture written by each witness, with a minted history, and each witness parses both
+    (README §9.8).
+49. **A repeated mint is refused.** A mint that answers a history this store already issued to a
+    peer is refused `invalid-request` when the peer is created. A host mint that repeats would
+    otherwise give two peers, or a peer created anew, one history, and a capture of one could be
+    judged against the other. The mint takes the peer's id in both witnesses and runs after
+    `peer-exists`, so a refused name never spends a minted value.
+50. **A revision written `1.0`.** JSON has one number type, so `parseCapture` reads `1.0` as the
+    integer 1 and refuses `1.5`. A witness whose JSON reader keeps integers apart accepts a whole
+    float as the integer.
+51. **An empty pushdown pushes nothing.** A pushdown object with no fields is nothing pushed down:
+    a read or a capture takes its raw scope from the fetch, as with no pushdown at all.
+52. **`touching` trusts its records.** Its precondition is that `records` are ascending by
+    revision and lie in `(capture.revision, r′]`. It does not check this; `checkFresh` meets it,
+    and a host that calls `touching` itself must.
+53. **The runner's message for a refusal.** A store refusal that passes up out of a check fails
+    with `checkFresh refused with <code>` (README §9.3).
 
 
 ## 5. Architectures

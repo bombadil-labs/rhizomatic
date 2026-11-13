@@ -1,5 +1,5 @@
 //! Freshness (SPEC-18 proposal §4.6, "Freshness check", "The window", "History"; §4.13 readings
-//! 24 to 45): a capture of what one anchored read depended on, the pure function [`touching`],
+//! 24 to 53): a capture of what one anchored read depended on, the pure function [`touching`],
 //! and [`check_fresh`] over a peer's change feed.
 //!
 //! A [`Capture`] has private fields and exactly two constructors, [`make_capture`] and
