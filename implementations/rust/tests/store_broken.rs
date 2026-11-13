@@ -102,6 +102,9 @@ struct FaultyPeer {
 }
 
 impl PeerStore for FaultyPeer {
+    fn history(&self) -> &str {
+        self.inner.history()
+    }
     fn id(&self) -> &str {
         &self.id
     }
@@ -170,6 +173,9 @@ impl FaultySnapshot {
 }
 
 impl Snapshot for FaultySnapshot {
+    fn history(&self) -> &str {
+        self.inner.history()
+    }
     fn revision(&self) -> Revision {
         self.inner.revision()
     }

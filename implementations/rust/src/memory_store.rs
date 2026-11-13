@@ -7,8 +7,13 @@
 //! written inside the commit. Revisions advance by one and each advance writes one record, so the
 //! record after `from` sits at a fixed offset from the oldest kept record. A bounded retention
 //! drops the oldest record from the front in O(1).
+//!
+//! Each peer has a history (SPEC-18 §4.6, "History"), minted when it is created. The default is
+//! `memory:local:<n>` from one counter for the module: unique within the process and marked as
+//! local to it. A host that keeps captures across processes passes a mint of its own.
 
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
+use std::fmt;
 use std::sync::{Arc, Mutex};
 
 use crate::delta::compute_id;
@@ -18,7 +23,8 @@ use crate::store::{
     Exporter, Listing, PeerErasure, PeerExporter, PeerStore, PurgeOutcome, PurgeReport,
     PurgeSurface, PurgeTarget, Pushdown, PushdownFields, Revision, ScopeRequest, ScopeResult,
     Snapshot, Store, StoreCapabilities, StoreError, StoreErrorCode, StoreProfile, StoreWriters,
-    SurfaceState, VerifiedDelta, MAX_ARRIVAL_COUNTER, MAX_REVISION, PURGE_BOUNDARY,
+    SurfaceState, VerifiedDelta, LOCAL_HISTORY_PREFIX, MAX_ARRIVAL_COUNTER, MAX_REVISION,
+    PURGE_BOUNDARY,
 };
 use crate::types::{Claims, Delta};
 
@@ -159,6 +165,8 @@ impl Feed {
 #[derive(Debug)]
 struct PeerState {
     posture: ErasurePosture,
+    /// Minted at creation and never changed: this store neither deletes nor restores a peer.
+    history: String,
     head: Option<String>,
     revision: u64,
     /// The largest arrival sequence this peer ever committed. A purge does not lower it.
@@ -182,6 +190,37 @@ struct State {
     meter: StoreMeter,
     stored: Index<Stored>,
     peers: Index<PeerState>,
+    mint: Option<HistoryMint>,
+}
+
+/// A host's mint of histories unique across processes (SPEC-18 §4.13 reading 38). It runs when a
+/// peer is created, with the store's lock held, so it must not call the store.
+#[derive(Clone)]
+pub struct HistoryMint(Arc<dyn Fn() -> String + Send + Sync>);
+
+impl HistoryMint {
+    pub fn new(mint: impl Fn() -> String + Send + Sync + 'static) -> Self {
+        Self(Arc::new(mint))
+    }
+}
+
+impl fmt::Debug for HistoryMint {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("HistoryMint")
+    }
+}
+
+/// The one counter of process-local histories. Two peers, two stores, or one name created twice
+/// never share a value in this process.
+static LOCAL_HISTORIES: Mutex<u64> = Mutex::new(0);
+
+fn local_history() -> String {
+    let mut next = match LOCAL_HISTORIES.lock() {
+        Ok(guard) => guard,
+        Err(poisoned) => poisoned.into_inner(),
+    };
+    *next += 1;
+    format!("{LOCAL_HISTORY_PREFIX}{}", *next)
 }
 
 fn refuse<T>(code: StoreErrorCode, message: impl Into<String>) -> Result<T, StoreError> {
@@ -711,6 +750,7 @@ impl MemoryStore {
                 meter: StoreMeter::default(),
                 stored: Index::new(),
                 peers: Index::new(),
+                mint: None,
             })),
             profile: StoreProfile {
                 pushdown: options.pushdown,
@@ -718,6 +758,14 @@ impl MemoryStore {
                 ..memory_store_profile()
             },
         })
+    }
+
+    /// This store with a host's mint of histories in place of the process-local default. A mint
+    /// that answers an empty string, or one that starts with `memory:local:`, makes `create_peer`
+    /// refuse `invalid-request`.
+    pub fn with_history_mint(self, mint: HistoryMint) -> Self {
+        with(&self.state, |state| state.mint = Some(mint));
+        self
     }
 
     /// The index work done since the last reset.
@@ -729,10 +777,11 @@ impl MemoryStore {
         with(&self.state, |state| state.meter = StoreMeter::default());
     }
 
-    fn handle(&self, id: &str, posture: ErasurePosture) -> Box<dyn PeerStore> {
+    fn handle(&self, id: &str, posture: ErasurePosture, history: String) -> Box<dyn PeerStore> {
         Box::new(MemoryPeer {
             state: self.state.clone(),
             id: id.to_string(),
+            history,
             erasure: PeerErasure {
                 posture,
                 store_class: self.profile.capabilities.erasure,
@@ -751,7 +800,7 @@ impl Store for MemoryStore {
         id: &str,
         erasure: ErasurePosture,
     ) -> Result<Box<dyn PeerStore>, StoreError> {
-        with(&self.state, |state| {
+        let history = with(&self.state, |state| {
             state.open()?;
             if id.is_empty() {
                 return refuse(
@@ -770,11 +819,25 @@ impl Store for MemoryStore {
             if state.peers.contains(&mut state.meter, id) {
                 return refuse(StoreErrorCode::PeerExists, "the peer id is taken");
             }
+            let history = match &state.mint {
+                None => local_history(),
+                Some(HistoryMint(mint)) => {
+                    let minted = mint();
+                    if minted.is_empty() || minted.starts_with(LOCAL_HISTORY_PREFIX) {
+                        return refuse(
+                            StoreErrorCode::InvalidRequest,
+                            "mintHistory must answer a non-empty string that does not start with memory:local:",
+                        );
+                    }
+                    minted
+                }
+            };
             state.peers.insert(
                 &mut state.meter,
                 id.to_string(),
                 PeerState {
                     posture: erasure,
+                    history: history.clone(),
                     head: None,
                     revision: 0,
                     last_sequence: 0,
@@ -785,20 +848,20 @@ impl Store for MemoryStore {
                     feed: Feed::default(),
                 },
             );
-            Ok(())
+            Ok(history)
         })?;
-        Ok(self.handle(id, erasure))
+        Ok(self.handle(id, erasure, history))
     }
 
     fn peer(&self, id: &str) -> Result<Box<dyn PeerStore>, StoreError> {
-        let posture = with(&self.state, |state| {
+        let (posture, history) = with(&self.state, |state| {
             state.open()?;
             match state.peers.get(&mut state.meter, id) {
-                Some(peer) => Ok(peer.posture),
+                Some(peer) => Ok((peer.posture, peer.history.clone())),
                 None => refuse(StoreErrorCode::PeerAbsent, "no such peer"),
             }
         })?;
-        Ok(self.handle(id, posture))
+        Ok(self.handle(id, posture, history))
     }
 
     fn open_admin(&self) -> Box<dyn Exporter> {
@@ -815,6 +878,7 @@ impl Store for MemoryStore {
 struct MemoryPeer {
     state: Shared,
     id: String,
+    history: String,
     erasure: PeerErasure,
 }
 
@@ -827,6 +891,10 @@ impl PeerStore for MemoryPeer {
         self.erasure
     }
 
+    fn history(&self) -> &str {
+        &self.history
+    }
+
     fn read(&self) -> Result<Box<dyn Snapshot>, StoreError> {
         with(&self.state, |state| {
             state.open()?;
@@ -837,6 +905,7 @@ impl PeerStore for MemoryPeer {
                 state: self.state.clone(),
                 peer: self.id.clone(),
                 revision: peer.revision,
+                history: peer.history.clone(),
                 head: peer.head.clone(),
                 count: peer.holdings.len() as u64,
                 released: false,
@@ -861,6 +930,7 @@ struct MemorySnapshot {
     state: Shared,
     peer: String,
     revision: u64,
+    history: String,
     head: Option<String>,
     count: u64,
     released: bool,
@@ -907,6 +977,10 @@ impl MemorySnapshot {
 impl Snapshot for MemorySnapshot {
     fn revision(&self) -> Revision {
         Revision(self.revision)
+    }
+
+    fn history(&self) -> &str {
+        &self.history
     }
 
     fn head(&self) -> Option<&str> {

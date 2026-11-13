@@ -13,9 +13,19 @@
 //! whole kept feed after every step (§3.9.4). `tests/store_feed_rules.rs` holds those checks.
 //! The shape checks of §3.9.3 (exact keys) hold by type here: `ChangeRecord` and `ChangePage`
 //! have exactly the contract's fields, so no store can add a key.
+//!
+//! Every peer's history is checked by equality only (§1.3): non-empty, distinct across the peers
+//! of one store, and the same on every handle and every snapshot the runner reads.
+//!
+//! `run_freshness_conformance` runs `vectors/store/freshness.json` (§9) with the same steps and
+//! checks, two more ops (`capture`, `check`), and a witness's three freshness functions behind
+//! [`FreshnessReader`]. A check runs through a peer handle that logs every call, so the walk of
+//! §9.3 check 5 holds the calls of `check_fresh` to the contract.
 
+use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
+use std::rc::Rc;
 
 use serde_json::Value;
 
@@ -27,10 +37,38 @@ use crate::store::{
     PushdownFields, Revision, ScopeRequest, ScopeResult, Snapshot, Store, StoreError,
     StoreErrorCode, StoreProfile, SurfaceState, VerifiedDelta, MAX_REVISION, PURGE_BOUNDARY,
 };
+use crate::store_fresh::{make_capture, parse_capture, Capture, Freshness, Touch, TouchReason};
 use crate::types::Delta;
 
 const SCRIPTS_FORMAT: &str = "rhizomatic-store-scripts/1";
 const SCOPE_FORMAT: &str = "rhizomatic-store-scope/1";
+const FRESHNESS_FORMAT: &str = "rhizomatic-store-freshness/1";
+
+/// A witness's three freshness functions (`vectors/store/README.md` §9; SPEC-18 §4.6). The runner
+/// builds captures only through `capture`, and hands `touching` and `check_fresh` only those.
+pub trait FreshnessReader {
+    /// A capture on `snapshot` of a read of these entities (in any order, perhaps repeated) at
+    /// `now` under this selection (TypeScript: `captureScope`).
+    fn capture(
+        &self,
+        snapshot: &dyn Snapshot,
+        entities: &[String],
+        now: f64,
+        pushdown: Option<&Pushdown>,
+    ) -> Result<Capture, StoreError>;
+    fn touching(
+        &self,
+        capture: &Capture,
+        records: &[ChangeRecord],
+        added: &BTreeMap<String, Delta>,
+    ) -> Option<Touch>;
+    fn check_fresh(
+        &self,
+        peer: &dyn PeerStore,
+        capture: &Capture,
+        now: f64,
+    ) -> Result<Freshness, StoreError>;
+}
 
 /// The two shared vector documents, parsed: `vectors/store/scripts.json` and
 /// `vectors/store/scope.json`.
@@ -494,6 +532,23 @@ fn asked_again(
     check_page(peer, model, at, end, &records, through)
 }
 
+/// The `from` values strictly between p, the revision before the newest dropped record, and the
+/// floor F, ascending (§3.9.4 item 2; SPEC-18 §4.13 readings 22 and 45): every one when there
+/// are at most 24, and otherwise 24 fixed points, p + 1 to p + 8, eight spread through the
+/// middle, and F − 8 to F − 1.
+fn between(p: Revision, floor: Revision) -> Vec<Revision> {
+    let (p, f) = (p.0, floor.0);
+    if f - p - 1 <= 24 {
+        return (p + 1..f).map(Revision).collect();
+    }
+    let middle = (0..8).map(|k| p + 9 + k * (f - p - 19) / 7);
+    (p + 1..=p + 8)
+        .chain(middle)
+        .chain(f - 8..f)
+        .map(Revision)
+        .collect()
+}
+
 /// What a read of pages ended with (§3.9.5).
 enum Pages {
     Ok(Vec<ChangeRecord>),
@@ -535,6 +590,12 @@ fn read_pages(
 
 /// One store under test, with the runner's own record of what each peer admitted (§3.3).
 struct Run<'a> {
+    /// The freshness functions under test, for `capture` and `check` (§9).
+    reader: Option<&'a dyn FreshnessReader>,
+    /// Each peer's history, as its created handle reported it (§1.3).
+    histories: BTreeMap<String, String>,
+    /// Each capture, by name, with the peer its snapshot belonged to (§9.2).
+    captures: BTreeMap<String, (String, Capture)>,
     corpus: &'a Corpus,
     store: Box<dyn Store>,
     profile: StoreProfile,
@@ -683,6 +744,9 @@ impl<'a> Run<'a> {
         let store = factory().map_err(|e| format!("the factory did not open a store: {e}"))?;
         let profile = store.profile().clone();
         Ok(Self {
+            reader: None,
+            histories: BTreeMap::new(),
+            captures: BTreeMap::new(),
             corpus,
             reference: profile.format_version == corpus.reference_format,
             keep: Keep::of(profile.change_retention),
@@ -738,11 +802,29 @@ impl<'a> Run<'a> {
             .ok_or_else(|| format!("the script has no snapshot named {name}"))
     }
 
-    fn revision(&self, handle: &str) -> Check<Revision> {
-        let mut snapshot = self
+    /// A new snapshot through a handle. It must report the peer's history (§1.3).
+    fn read_snapshot(&self, handle: &str) -> Check<Box<dyn Snapshot>> {
+        let snapshot = self
             .peer(handle)?
             .read()
             .map_err(|e| format!("read refused `{}`", e.code.as_str()))?;
+        let peer = self.peer_name(handle)?;
+        self.same_history(&peer, snapshot.history(), "a snapshot")?;
+        Ok(snapshot)
+    }
+
+    /// A handle or a snapshot of `peer` reports the history its created handle reported (§1.3).
+    fn same_history(&self, peer: &str, history: &str, what: &str) -> Check {
+        match self.histories.get(peer) {
+            Some(known) if known != history => Err(format!(
+                "{what} of {peer} reports another history than the peer's"
+            )),
+            _ => Ok(()),
+        }
+    }
+
+    fn revision(&self, handle: &str) -> Check<Revision> {
+        let mut snapshot = self.read_snapshot(handle)?;
         let revision = snapshot.revision();
         snapshot.release();
         Ok(revision)
@@ -802,13 +884,9 @@ impl<'a> Run<'a> {
             }
             if dropped > 0 {
                 // One call each, with no `to` and no paging: at the newest dropped record's
-                // predecessor, and just below the floor where revisions skip values.
+                // predecessor, and between it and the floor where revisions skip values.
                 let below = model.revisions[dropped - 1];
-                let mut asks = vec![below];
-                if floor.0 - 1 > below.0 {
-                    asks.push(Revision(floor.0 - 1));
-                }
-                for from in asks {
+                for from in std::iter::once(below).chain(between(below, floor)) {
                     match store.changes(from, None).map_err(changes_refused)? {
                         ChangePage::Ok { .. } => {
                             return Err(format!(
@@ -1028,6 +1106,283 @@ impl<'a> Run<'a> {
         }
     }
 
+    /// A `capture` step (§9.2).
+    fn capture(&mut self, step: &Value) -> Check {
+        let reader = self
+            .reader
+            .ok_or("a capture step outside a freshness run")?;
+        let handle = text(step, "peer")?;
+        let peer = self.peer_name(handle)?;
+        let name = text(step, "as")?;
+        if self.captures.contains_key(name) {
+            return Err(format!("the vector names capture {name} twice"));
+        }
+        let entities: Vec<String> = Self::anchors(step)?
+            .into_iter()
+            .map(|Anchor::Entity { entity }| entity)
+            .collect();
+        let pushdown = match step.get("selection") {
+            Some(v) => Some(
+                self.pushdown(v)?
+                    .map_err(|_| "the capture's selection is out of range")?,
+            ),
+            None => None,
+        };
+        let now = field(step, "now")?
+            .as_f64()
+            .ok_or("`now` is not a number")?;
+        let expect = field(step, "expect")?;
+        let mut snapshot = self.read_snapshot(handle)?;
+        let made = reader.capture(snapshot.as_ref(), &entities, now, pushdown.as_ref());
+        let (history, revision) = (snapshot.history().to_string(), snapshot.revision());
+        snapshot.release();
+        let capture = made.map_err(|e| match e.code {
+            StoreErrorCode::InvalidRequest if e.message.starts_with("capture: ") => {
+                format!("the capture is malformed: {}", e.message)
+            }
+            code => format!("capture refused `{}`: {}", code.as_str(), e.message),
+        })?;
+        // 0. The checking constructor, with a history local to the process allowed.
+        make_capture(
+            capture.history(),
+            capture.revision(),
+            capture.anchors().to_vec(),
+            capture.members().to_vec(),
+            capture.since(),
+            capture.expires_at(),
+        )
+        .map_err(|e| format!("the capture is malformed: {}", e.message))?;
+        if capture.history() != history {
+            return Err("the capture's history is not its snapshot's".into());
+        }
+        // 1. The revision of the snapshot, and the one the vector names.
+        let named = self.named(text(expect, "revision")?, &peer)?;
+        if capture.revision() != revision || capture.revision() != named {
+            return Err(format!(
+                "the capture is of revision {}, expected {}",
+                capture.revision().0,
+                named.0
+            ));
+        }
+        // 2. The anchors, ascending and unique.
+        let anchors_text = |anchors: &[Anchor]| {
+            let listed: Vec<String> = anchors
+                .iter()
+                .map(|Anchor::Entity { entity }| format!("entity:{entity}"))
+                .collect();
+            format!("[{}]", listed.join(" "))
+        };
+        let want = Self::anchors(expect)?;
+        if capture.anchors() != want.as_slice() {
+            return Err(format!(
+                "the capture's anchors are {}, expected {}",
+                anchors_text(capture.anchors()),
+                anchors_text(&want)
+            ));
+        }
+        // 3. The raw scope.
+        let want = self.corpus.ids(expect, "members")?;
+        if capture.members() != want.as_slice() {
+            return Err(format!(
+                "the capture's members are {}, expected {}",
+                cut_ids(capture.members()),
+                cut_ids(&want)
+            ));
+        }
+        // 4. The window of the operand.
+        let since = bound(expect, "since")?;
+        if !same_bound(capture.since(), since) {
+            return Err(format!(
+                "the capture's since is {}, expected {}",
+                number(capture.since()),
+                number(since)
+            ));
+        }
+        let expires_at = bound(expect, "expiresAt")?;
+        if !same_bound(capture.expires_at(), expires_at) {
+            return Err(format!(
+                "the capture expires at {}, expected {}",
+                number(capture.expires_at()),
+                number(expires_at)
+            ));
+        }
+        self.captures.insert(name.to_string(), (peer, capture));
+        Ok(())
+    }
+
+    /// A touch the vector names: a revision name of `peer`, a corpus name, a reason.
+    fn named_touch(&self, v: &Value, peer: &str) -> Check<Touch> {
+        Ok(Touch {
+            revision: self.named(text(v, "revision")?, peer)?,
+            id: self.corpus.id(text(v, "delta")?)?,
+            reason: reason(text(v, "reason")?)?,
+        })
+    }
+
+    /// A `check` step (§9.3).
+    fn check(&mut self, step: &Value) -> Check {
+        let reader = self.reader.ok_or("a check step outside a freshness run")?;
+        if !self.feed() {
+            return Err("a check step on a store that serves no feed".into());
+        }
+        let handle = text(step, "peer")?;
+        let peer = self.peer_name(handle)?;
+        let name = text(step, "capture")?;
+        let now = step
+            .get("now")
+            .ok_or("the vector's check has no now")?
+            .as_f64()
+            .ok_or("`now` is not a number")?;
+        let (owner, capture) = self
+            .captures
+            .get(name)
+            .cloned()
+            .ok_or_else(|| format!("the vector uses capture {name} before taking it"))?;
+        let another = step.get("anotherPeer").and_then(Value::as_bool) == Some(true);
+        match (another, owner == peer) {
+            (false, false) => {
+                return Err(format!("the vector checks capture {name} on another peer"))
+            }
+            (true, true) => {
+                return Err(format!(
+                    "the vector says capture {name} is checked on another peer, and it is not"
+                ))
+            }
+            _ => {}
+        }
+        let expect = field(step, "expect")?;
+        let at_name = text(expect, "revision")?;
+        let at = self.named(at_name, &peer)?;
+        let current = self
+            .feeds
+            .get(&peer)
+            .ok_or_else(|| format!("the vector uses peer {peer} before creating it"))?
+            .current();
+        if at != current {
+            return Err(format!(
+                "the vector checks at {at_name}, and the peer is at {}",
+                current.0
+            ));
+        }
+        // The expected verdict: below the floor, resync-required whatever the document says.
+        let (_, floor) = self
+            .feeds
+            .get(&owner)
+            .ok_or_else(|| format!("the vector uses peer {owner} before creating it"))?
+            .floor(self.keep);
+        let below = !another && capture.revision() < floor;
+        let verdict = field(expect, "verdict")?;
+        let status = match below {
+            true => "resync-required",
+            false => text(verdict, "status")?,
+        };
+        let want_touch = match status {
+            "stale" => Some(self.named_touch(field(verdict, "touch")?, &owner)?),
+            _ => None,
+        };
+
+        let log = CallLog::default();
+        let logged = LoggedPeer {
+            inner: self.peer(handle)?,
+            log: log.clone(),
+        };
+        let answer = reader
+            .check_fresh(&logged, &capture, now)
+            .map_err(|e| format!("checkFresh refused `{}`: {}", e.code.as_str(), e.message))?;
+        // 1. The status.
+        if answer.status() != status {
+            return Err(match below {
+                true => format!(
+                    "checkFresh answered {} for a capture below the retention floor {}",
+                    answer.status(),
+                    floor.0
+                ),
+                false => format!("checkFresh answered {}, expected {status}", answer.status()),
+            });
+        }
+        // 2 to 4. What the answer carries.
+        match &answer {
+            Freshness::Stale(touch) => {
+                let want = want_touch
+                    .as_ref()
+                    .expect("a stale verdict names its touch");
+                if touch != want {
+                    return Err(format!(
+                        "checkFresh reports the touch {}, expected {}",
+                        touch_text(Some(touch)),
+                        touch_text(Some(want))
+                    ));
+                }
+            }
+            Freshness::NotYet { since } => {
+                let want = bound(verdict, "since")?;
+                if !same_bound(Some(*since), want) {
+                    return Err(format!(
+                        "checkFresh reports not-yet since {}, expected {}",
+                        number(Some(*since)),
+                        number(want)
+                    ));
+                }
+            }
+            Freshness::Expired { expires_at } => {
+                let want = bound(verdict, "expiresAt")?;
+                if !same_bound(Some(*expires_at), want) {
+                    return Err(format!(
+                        "checkFresh reports expiry at {}, expected {}",
+                        number(Some(*expires_at)),
+                        number(want)
+                    ));
+                }
+            }
+            Freshness::ResyncRequired { current: carried } if *carried != current => {
+                return Err(format!(
+                    "checkFresh reports resync-required with current {}, not the peer's revision {}",
+                    carried.0, current.0
+                ));
+            }
+            _ => {}
+        }
+        // 5. The calls.
+        walk(
+            &log.borrow(),
+            &capture,
+            want_touch.as_ref().map(|t| t.revision),
+        )?;
+        // 6. `touching` alone, over the model's records since the capture.
+        if another {
+            return Ok(());
+        }
+        let model = &self.feeds[&peer];
+        let records: Vec<ChangeRecord> = model
+            .records
+            .iter()
+            .filter(|r| r.revision > capture.revision() && r.revision <= current)
+            .cloned()
+            .collect();
+        let book = self.books.get(&peer);
+        let added: BTreeMap<String, Delta> = records
+            .iter()
+            .flat_map(|r| &r.added)
+            .filter_map(|id| {
+                book.and_then(|book| book.get(id))
+                    .map(|held| (id.clone(), held.delta.clone()))
+            })
+            .collect();
+        let got = reader.touching(&capture, &records, &added);
+        let want = match field(expect, "touching")? {
+            Value::Null => None,
+            touch => Some(self.named_touch(touch, &owner)?),
+        };
+        if got != want {
+            return Err(format!(
+                "touching answered {}, expected {}",
+                touch_text(got.as_ref()),
+                touch_text(want.as_ref())
+            ));
+        }
+        Ok(())
+    }
+
     /// A record a `changes` step names: its revision is a name of this peer, its ids corpus
     /// names.
     fn expected_record(&self, v: &Value, peer: &str) -> Check<ChangeRecord> {
@@ -1047,10 +1402,7 @@ impl<'a> Run<'a> {
             "purge" => self.purge(step),
             "read" => {
                 let handle = text(step, "peer")?;
-                let snapshot = self
-                    .peer(handle)?
-                    .read()
-                    .map_err(|e| format!("read refused `{}`", e.code.as_str()))?;
+                let snapshot = self.read_snapshot(handle)?;
                 self.snapshots.insert(
                     text(step, "snapshot")?.to_string(),
                     (self.peer_name(handle)?, snapshot),
@@ -1084,6 +1436,8 @@ impl<'a> Run<'a> {
             }
             "mark" => self.mark(step),
             "changes" => self.changes(step),
+            "capture" => self.capture(step),
+            "check" => self.check(step),
             "get" => self.get(step),
             "arrivals" => self.arrivals(step),
             "targets" | "negators" => self.index_read(step),
@@ -1147,6 +1501,16 @@ impl<'a> Run<'a> {
                 class.as_str()
             ));
         }
+        let history = handle.history().to_string();
+        if history.is_empty() {
+            return Err("the peer's history is not a non-empty string".into());
+        }
+        if self.histories.values().any(|other| *other == history) {
+            return Err(format!(
+                "two peers of one store share the history {history}"
+            ));
+        }
+        self.histories.insert(name.to_string(), history);
         self.handles
             .insert(name.to_string(), (name.to_string(), handle));
         if self.feed() {
@@ -1175,6 +1539,7 @@ impl<'a> Run<'a> {
                 "openPeer: the opened peer does not report the posture it was created with".into(),
             );
         }
+        self.same_history(name, handle.history(), "a handle")?;
         // With `handle`, the older handle stays under its own name; both are one peer.
         let kept_as = match step.get("handle") {
             Some(_) => text(step, "handle")?,
@@ -1239,10 +1604,7 @@ impl<'a> Run<'a> {
             // The witness answers for the store at its boundary, head first: a stale writer
             // gets `conflict` whatever its batch holds (§3.3).
             Err(refusal) => {
-                let mut snapshot = self
-                    .peer(name)?
-                    .read()
-                    .map_err(|e| format!("read refused `{}`", e.code.as_str()))?;
+                let mut snapshot = self.read_snapshot(name)?;
                 let stale = snapshot.head() != field(step, "expectedHead")?.as_str();
                 snapshot.release();
                 if stale {
@@ -1649,10 +2011,7 @@ impl<'a> Run<'a> {
         let exact = scopes
             .get(&all)
             .ok_or("the case has no entry for the whole selection")?;
-        let mut snapshot = self
-            .peer(handle)?
-            .read()
-            .map_err(|e| format!("read refused `{}`", e.code.as_str()))?;
+        let mut snapshot = self.read_snapshot(handle)?;
         let outcome = scopes.iter().try_for_each(|(fields, ids)| {
             let pushed = restrict(&selection, fields);
             let request = ScopeRequest {
@@ -1704,6 +2063,382 @@ impl<'a> Run<'a> {
         });
         snapshot.release();
         outcome
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Freshness (§9)
+// ---------------------------------------------------------------------------------------------
+
+/// Each id cut to 12 characters, space-separated, in brackets.
+fn cut_ids(ids: &[String]) -> String {
+    let cut: Vec<String> = ids.iter().map(|id| id.chars().take(12).collect()).collect();
+    format!("[{}]", cut.join(" "))
+}
+
+/// A bound as JSON writes it: an integer without a fraction, or `null`.
+fn number(value: Option<f64>) -> String {
+    match value {
+        None => "null".into(),
+        Some(x) if x.fract() == 0.0 && x.abs() < 1e15 => format!("{}", x as i64),
+        Some(x) => format!("{x}"),
+    }
+}
+
+fn bound(v: &Value, key: &str) -> Check<Option<f64>> {
+    match field(v, key)? {
+        Value::Null => Ok(None),
+        n => n
+            .as_f64()
+            .map(Some)
+            .ok_or_else(|| format!("`{key}` is not a number or null")),
+    }
+}
+
+fn same_bound(got: Option<f64>, want: Option<f64>) -> bool {
+    got.map(f64::to_bits) == want.map(f64::to_bits)
+}
+
+fn reason(name: &str) -> Check<TouchReason> {
+    [
+        TouchReason::RemovedMember,
+        TouchReason::TargetsAnchor,
+        TouchReason::NegatesMember,
+    ]
+    .into_iter()
+    .find(|r| r.as_str() == name)
+    .ok_or_else(|| format!("the vector names an unknown touch reason `{name}`"))
+}
+
+/// A touch as the messages write it: `<revision> <id cut to 12> <reason>`, or `none`.
+fn touch_text(touch: Option<&Touch>) -> String {
+    match touch {
+        None => "none".into(),
+        Some(t) => format!(
+            "{} {} {}",
+            t.revision.0,
+            t.id.chars().take(12).collect::<String>(),
+            t.reason.as_str()
+        ),
+    }
+}
+
+/// One call `check_fresh` made through the logged handle, with what it answered.
+#[derive(Debug, Clone)]
+enum Call {
+    Read {
+        revision: Revision,
+        history: String,
+    },
+    Changes {
+        from: Revision,
+        to: Option<Revision>,
+        answer: Option<ChangePage>,
+    },
+    Get(Vec<String>),
+    Release,
+    Other(&'static str),
+}
+
+impl Call {
+    fn text(&self) -> String {
+        match self {
+            Self::Read { .. } => "read".into(),
+            Self::Changes { from, to, .. } => format!(
+                "changes({}, {})",
+                from.0,
+                to.map_or("none".to_string(), |to| to.0.to_string())
+            ),
+            Self::Get(ids) => {
+                let cut: Vec<String> = ids.iter().map(|id| id.chars().take(12).collect()).collect();
+                format!("get [{}]", cut.join(" "))
+            }
+            Self::Release => "release".into(),
+            Self::Other(op) => (*op).into(),
+        }
+    }
+}
+
+/// The log of one check. It lives only while the check runs; nothing outside the runner sees it.
+type CallLog = Rc<RefCell<Vec<Call>>>;
+
+/// A peer handle that logs every call through it and through every snapshot it returns (§9.3).
+struct LoggedPeer<'a> {
+    inner: &'a dyn PeerStore,
+    log: CallLog,
+}
+
+impl PeerStore for LoggedPeer<'_> {
+    fn id(&self) -> &str {
+        self.inner.id()
+    }
+    fn erasure(&self) -> crate::store::PeerErasure {
+        self.inner.erasure()
+    }
+    fn history(&self) -> &str {
+        self.inner.history()
+    }
+    fn read(&self) -> Result<Box<dyn Snapshot>, StoreError> {
+        let inner = self.inner.read()?;
+        self.log.borrow_mut().push(Call::Read {
+            revision: inner.revision(),
+            history: inner.history().to_string(),
+        });
+        Ok(Box::new(LoggedSnapshot {
+            inner,
+            log: self.log.clone(),
+        }))
+    }
+    fn append(&self, batch: &Admission) -> Result<AppendResult, StoreError> {
+        self.log.borrow_mut().push(Call::Other("append"));
+        self.inner.append(batch)
+    }
+    fn purge(&self, ids: &[String]) -> Result<crate::store::PurgeReport, StoreError> {
+        self.log.borrow_mut().push(Call::Other("purge"));
+        self.inner.purge(ids)
+    }
+    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreError> {
+        let answer = self.inner.changes(from, to);
+        self.log.borrow_mut().push(Call::Changes {
+            from,
+            to,
+            answer: answer.as_ref().ok().cloned(),
+        });
+        answer
+    }
+}
+
+struct LoggedSnapshot {
+    inner: Box<dyn Snapshot>,
+    log: CallLog,
+}
+
+impl Snapshot for LoggedSnapshot {
+    fn revision(&self) -> Revision {
+        self.inner.revision()
+    }
+    fn history(&self) -> &str {
+        self.inner.history()
+    }
+    fn head(&self) -> Option<&str> {
+        self.inner.head()
+    }
+    fn count(&self) -> u64 {
+        self.inner.count()
+    }
+    fn get(&self, ids: &[String]) -> Result<Vec<Delta>, StoreError> {
+        self.log.borrow_mut().push(Call::Get(ids.to_vec()));
+        self.inner.get(ids)
+    }
+    fn arrivals(&self, ids: &[String]) -> Result<Vec<ArrivalRecord>, StoreError> {
+        self.log.borrow_mut().push(Call::Other("arrivals"));
+        self.inner.arrivals(ids)
+    }
+    fn targets(&self, entities: &[String]) -> Result<Vec<String>, StoreError> {
+        self.log.borrow_mut().push(Call::Other("targets"));
+        self.inner.targets(entities)
+    }
+    fn negators(&self, ids: &[String]) -> Result<Vec<String>, StoreError> {
+        self.log.borrow_mut().push(Call::Other("negators"));
+        self.inner.negators(ids)
+    }
+    fn scope(&self, request: &ScopeRequest) -> Result<ScopeResult, StoreError> {
+        self.log.borrow_mut().push(Call::Other("scope"));
+        self.inner.scope(request)
+    }
+    fn release(&mut self) {
+        self.log.borrow_mut().push(Call::Release);
+        self.inner.release()
+    }
+}
+
+/// Check 5 of §9.3: the calls of one check against the contract's walk. `touch_at` is the
+/// revision of the expected touch, when the expected verdict is `stale`.
+fn walk(log: &[Call], capture: &Capture, touch_at: Option<Revision>) -> Check {
+    let mut at_call = 0;
+    let mut next = |want: String| -> Check<&Call> {
+        match log.get(at_call) {
+            None => Err(format!(
+                "checkFresh made no call where the contract asks for {want}"
+            )),
+            Some(call) if call.text() != want => Err(format!(
+                "checkFresh made the call {} where the contract asks for {want}",
+                call.text()
+            )),
+            Some(call) => {
+                at_call += 1;
+                Ok(call)
+            }
+        }
+    };
+    if let Call::Read { revision, history } = next("read".into())? {
+        let (c, read_at) = (capture.revision(), *revision);
+        if history == capture.history() && read_at > c {
+            let mut at = c;
+            loop {
+                let call = next(format!("changes({}, {})", at.0, read_at.0))?;
+                let Call::Changes {
+                    answer: Some(ChangePage::Ok { records, through }),
+                    ..
+                } = call
+                else {
+                    break;
+                };
+                let ids: BTreeSet<&String> = records.iter().flat_map(|r| &r.added).collect();
+                if !ids.is_empty() {
+                    let ids: Vec<String> = ids.into_iter().cloned().collect();
+                    next(Call::Get(ids).text())?;
+                }
+                if touch_at.is_some_and(|t| records.iter().any(|r| r.revision == t)) {
+                    break;
+                }
+                if *through >= read_at || *through <= at {
+                    break;
+                }
+                at = *through;
+            }
+        }
+    }
+    next("release".into())?;
+    match log.get(at_call) {
+        Some(extra) => Err(format!(
+            "checkFresh made the call {} after its last call",
+            extra.text()
+        )),
+        None => Ok(()),
+    }
+}
+
+/// One `touching` case (§9.5).
+fn touching_case(corpus: &Corpus, reader: &dyn FreshnessReader, case: &Value) -> Check {
+    let shape = field(case, "capture")?;
+    let capture = parse_capture(&serde_json::json!({
+        "history": "touching",
+        "revision": whole(shape, "revision")?,
+        "anchors": field(shape, "anchors")?,
+        "members": corpus.ids(shape, "members")?,
+        "since": null,
+        "expiresAt": null,
+    }))
+    .map_err(|e| format!("the touching case's capture is refused: {}", e.message))?;
+    let records: Vec<ChangeRecord> = list(case, "records")?
+        .iter()
+        .map(|r| {
+            Ok(ChangeRecord {
+                revision: Revision(whole(r, "revision")?),
+                head: field(r, "head")?.as_str().map(str::to_string),
+                added: corpus.ids(r, "added")?,
+                removed: corpus.ids(r, "removed")?,
+            })
+        })
+        .collect::<Check<_>>()?;
+    let held: BTreeMap<String, Delta> = texts(case, "held")?
+        .iter()
+        .map(|name| {
+            let delta = corpus.delta(name)?.clone();
+            Ok((delta.id.clone(), delta))
+        })
+        .collect::<Check<_>>()?;
+    let got = reader.touching(&capture, &records, &held);
+    let want = match field(field(case, "expect")?, "touch")? {
+        Value::Null => None,
+        t => Some(Touch {
+            revision: Revision(whole(t, "revision")?),
+            id: corpus.id(text(t, "delta")?)?,
+            reason: reason(text(t, "reason")?)?,
+        }),
+    };
+    if got != want {
+        return Err(format!(
+            "touching answered {}, expected {}",
+            touch_text(got.as_ref()),
+            touch_text(want.as_ref())
+        ));
+    }
+    Ok(())
+}
+
+/// Opens one new, empty store for a freshness case. `Some` retention is the case's `store`
+/// (§9.1), which replaces the run's.
+pub type FreshnessStoreFn<'a> =
+    dyn Fn(Option<ChangeRetention>) -> Result<Box<dyn Store>, StoreError> + 'a;
+
+/// A case's `store.changeRetention`, when it has one.
+fn case_retention(case: &Value) -> Check<Option<ChangeRetention>> {
+    let Some(store) = case.get("store") else {
+        return Ok(None);
+    };
+    match field(store, "changeRetention")? {
+        Value::String(s) if s == "unbounded" => Ok(Some(ChangeRetention::Unbounded)),
+        v => match v.get("revisions").and_then(Value::as_u64) {
+            Some(n)
+                if (1..=MAX_REVISION).contains(&n)
+                    && v.as_object().is_some_and(|o| o.len() == 1) =>
+            {
+                Ok(Some(ChangeRetention::Revisions(n)))
+            }
+            _ => Err("the case's changeRetention is not unbounded or {revisions: n}".into()),
+        },
+    }
+}
+
+/// Runs every case of `freshness.json` on a new store each, with `reader`'s capture, `touching`
+/// and `check_fresh`, then every `touching` case (§9). Names are `freshness/<case>` and
+/// `touching/<case>`.
+pub fn run_freshness_conformance(
+    factory: &FreshnessStoreFn<'_>,
+    doc: &Value,
+    reader: &dyn FreshnessReader,
+) -> Result<StoreConformanceReport, StoreConformanceError> {
+    let mut report = StoreConformanceReport::default();
+    let mut failures = Vec::new();
+    let mut fail = |name: &str, step: Option<usize>, message: String| {
+        failures.push(StoreConformanceFailure {
+            name: name.to_string(),
+            step,
+            message,
+        })
+    };
+    let loaded = Corpus::load(doc, FRESHNESS_FORMAT)
+        .and_then(|corpus| Ok((list(doc, "cases")?, list(doc, "touching")?, corpus)));
+    match loaded {
+        Err(message) => fail("freshness", None, message),
+        Ok((cases, touching, corpus)) => {
+            for case in cases {
+                let name = format!("freshness/{}", case["name"].as_str().unwrap_or("?"));
+                let outcome = case_retention(case)
+                    .map_err(|message| (None, message))
+                    .and_then(|retention| {
+                        Run::open(&corpus, &|| factory(retention))
+                            .map_err(|message| (None, message))
+                    })
+                    .and_then(|mut run| {
+                        run.reader = Some(reader);
+                        if let Some(requirement) = run.unmet(case).map_err(|m| (None, m))? {
+                            return Ok(Some(requirement));
+                        }
+                        let steps = list(case, "steps").map_err(|m| (None, m))?;
+                        run.steps(steps).map(|()| None)
+                    });
+                match outcome {
+                    Ok(None) => report.passed.push(name),
+                    Ok(Some(missing)) => report.skipped.push(SkippedScript { name, missing }),
+                    Err((step, message)) => fail(&name, step, message),
+                }
+            }
+            for case in touching {
+                let name = format!("touching/{}", case["name"].as_str().unwrap_or("?"));
+                match touching_case(&corpus, reader, case) {
+                    Ok(()) => report.passed.push(name),
+                    Err(message) => fail(&name, None, message),
+                }
+            }
+        }
+    }
+    if failures.is_empty() {
+        Ok(report)
+    } else {
+        Err(StoreConformanceError { failures, report })
     }
 }
 

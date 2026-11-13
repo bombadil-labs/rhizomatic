@@ -366,6 +366,9 @@ impl RigPeer {
 }
 
 impl PeerStore for RigPeer {
+    fn history(&self) -> &str {
+        self.inner.history()
+    }
     fn id(&self) -> &str {
         &self.id
     }
@@ -706,6 +709,9 @@ fn reorder<T>(wrong: Wrong, drop: Wrong, reverse: Wrong, items: &mut Vec<T>) {
 }
 
 impl Snapshot for RigSnapshot {
+    fn history(&self) -> &str {
+        self.inner.history()
+    }
     fn revision(&self) -> Revision {
         self.revision
     }

@@ -598,6 +598,9 @@ impl Tracing {
 }
 
 impl Snapshot for Tracing {
+    fn history(&self) -> &str {
+        self.inner.history()
+    }
     fn revision(&self) -> Revision {
         self.inner.revision()
     }
@@ -641,6 +644,9 @@ struct TracingPeer {
 }
 
 impl PeerStore for TracingPeer {
+    fn history(&self) -> &str {
+        self.inner.history()
+    }
     fn id(&self) -> &str {
         self.inner.id()
     }
@@ -698,6 +704,9 @@ struct Double {
 }
 
 impl Snapshot for Double {
+    fn history(&self) -> &str {
+        self.inner.history()
+    }
     fn revision(&self) -> Revision {
         self.inner.revision()
     }
@@ -1587,6 +1596,9 @@ struct ScriptedPeer {
 type SharedScope = Rc<dyn Fn(&dyn Snapshot, &ScopeRequest) -> Result<ScopeResult, StoreError>>;
 
 impl PeerStore for ScriptedPeer {
+    fn history(&self) -> &str {
+        self.inner.history()
+    }
     fn id(&self) -> &str {
         self.inner.id()
     }
@@ -1619,6 +1631,9 @@ struct Released {
 }
 
 impl Snapshot for Released {
+    fn history(&self) -> &str {
+        self.inner.history()
+    }
     fn revision(&self) -> Revision {
         self.inner.revision()
     }

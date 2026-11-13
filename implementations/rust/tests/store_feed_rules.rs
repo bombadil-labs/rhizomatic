@@ -350,6 +350,9 @@ impl FeedyPeer {
 }
 
 impl PeerStore for FeedyPeer {
+    fn history(&self) -> &str {
+        self.inner.history()
+    }
     fn id(&self) -> &str {
         &self.id
     }
@@ -561,6 +564,9 @@ struct FeedySnapshot {
 }
 
 impl Snapshot for FeedySnapshot {
+    fn history(&self) -> &str {
+        self.inner.history()
+    }
     fn revision(&self) -> Revision {
         self.revision
     }
