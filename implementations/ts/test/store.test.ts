@@ -7,7 +7,7 @@
 // Ownership has one named gap: a caller that changes `Uint8Array.prototype` or the store's own
 // class is not defended against, and no test here tries.
 //
-// Not covered here: the change feed, the journal, value and derived-index anchors, and any
+// Not covered here: the change feed (store-feed.test.ts), the journal, value and derived-index anchors, and any
 // store but memory. Erasure is asserted at the index level and by report; the memory store
 // cannot prove absence, and no test here claims it does.
 
@@ -75,7 +75,7 @@ const code = async (action: () => Promise<unknown>): Promise<string> =>
   );
 
 describe("the memory store's profile", () => {
-  it("claims only what slice 1 implements", () => {
+  it("claims only what slices 1 to 3 implement", () => {
     expect(createMemoryStore().profile).toEqual({
       capabilities: {
         values: false,
@@ -90,18 +90,23 @@ describe("the memory store's profile", () => {
       pushdown: { timestampAtMost: true, arrivalAtMost: true, excludeIds: true },
       writers: "one-process",
       atRest: "trusted",
-      changeRetention: "none",
+      changeRetention: "unbounded",
       formatVersion: MEMORY_STORE_FORMAT,
     });
+    expect(
+      createMemoryStore({ changeRetention: { revisions: 2 } }).profile.changeRetention,
+    ).toEqual({ revisions: 2 });
   });
 
-  it("serves no change feed, and says so instead of offering a method", async () => {
-    const store = createMemoryStore();
-    const peer = await store.createPeer(A, { erasure: "unproven" });
-    expect("changes" in peer).toBe(false);
-    expect(missingRequirements(store.profile, ["arrival", "changes", "purge"])).toEqual([
-      "changes",
-    ]);
+  it("serves a change feed, and meets the requirement under either retention", () => {
+    for (const changeRetention of ["unbounded", { revisions: 1 }] as const)
+      expect(
+        missingRequirements(createMemoryStore({ changeRetention }).profile, [
+          "arrival",
+          "changes",
+          "purge",
+        ]),
+      ).toEqual([]);
   });
 
   it("names every requirement it lacks", () => {
@@ -117,15 +122,7 @@ describe("the memory store's profile", () => {
         "purge",
         "erasure-proven",
       ]),
-    ).toEqual([
-      "values",
-      "journal",
-      "views",
-      "derivedIndexes",
-      "digest",
-      "changes",
-      "erasure-proven",
-    ]);
+    ).toEqual(["values", "journal", "views", "derivedIndexes", "digest", "erasure-proven"]);
   });
 });
 

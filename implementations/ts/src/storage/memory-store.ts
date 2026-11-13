@@ -13,6 +13,9 @@ import {
   type Admission,
   type AppendResult,
   type AppliedPushdown,
+  type ChangePage,
+  type ChangeRecord,
+  type ChangeRetention,
   type CreatePeerOptions,
   type Entity,
   type ErasureClass,
@@ -47,6 +50,17 @@ export type MemoryStoreOptions = {
   readonly meter?: StoreMeter;
   /** Pushdown fields this store applies. A field set to false is ignored and reported so. */
   readonly pushdown?: Partial<AppliedPushdown>;
+  /**
+   * How many change records each peer keeps (§4.6). The default keeps every record. With
+   * `{revisions: n}` a peer keeps the records of its latest n revision advances; n is an
+   * integer of 1 or more.
+   */
+  readonly changeRetention?: "unbounded" | { readonly revisions: number };
+  /**
+   * For tests: at most this many records in one page of `changes`, so a caller's paging runs.
+   * An integer of 1 or more. The default has no limit.
+   */
+  readonly changePageSize?: number;
 };
 
 // The only door to the store's maps. Everything keyed counts a lookup; `scan` is the single way
@@ -78,6 +92,20 @@ class Index<V> {
 type Row = { readonly claims: Claims; holders: number };
 type Holding = { readonly sig: string | undefined; readonly arrival: ArrivalRecord };
 
+/**
+ * One peer's change records. Slots `[start, records.length)` hold the kept records, whose
+ * revisions are `floor + 1` up to the peer's revision: this store advances a revision by one,
+ * and every advance writes one record. So a revision finds its slot by arithmetic, not by a
+ * search. A dropped record leaves an empty slot; the slots are compacted once the empty ones
+ * are half the list, so dropping costs O(1) amortized.
+ */
+type Feed = {
+  records: (ChangeRecord | undefined)[];
+  start: number;
+  /** The revision just before the oldest kept record: a `from` below it cannot be answered. */
+  floor: Revision;
+};
+
 type PeerState = {
   readonly id: PeerId;
   readonly posture: ErasurePosture;
@@ -90,6 +118,7 @@ type PeerState = {
   count: number;
   revision: Revision;
   lastSequence: number;
+  readonly feed: Feed;
 };
 
 const sorted = (ids: Iterable<Id>): Id[] => [...new Set(ids)].sort(compareUtf8);
@@ -227,12 +256,32 @@ class MemoryStore implements Store {
   readonly #meter: StoreMeter;
   readonly #rows: Index<Row>;
   readonly #peers: Index<PeerState>;
+  /** The most records a peer keeps; infinite when unbounded. */
+  readonly #keep: number;
+  readonly #pageSize: number;
   #closed = false;
 
   constructor(options: MemoryStoreOptions) {
     this.#meter = options.meter ?? { lookups: 0, visited: 0, scans: 0 };
     this.#rows = new Index(this.#meter);
     this.#peers = new Index(this.#meter);
+    const positive = (n: unknown): n is number => Number.isSafeInteger(n) && (n as number) >= 1;
+    let retention: ChangeRetention = "unbounded";
+    const asked = options.changeRetention;
+    if (asked !== undefined && asked !== "unbounded") {
+      const revisions: unknown = isPlainObject(asked) ? asked.revisions : undefined;
+      if (!positive(revisions))
+        throw new StoreError(
+          "invalid-request",
+          "memory store: changeRetention is unbounded or {revisions: n} with n of 1 or more",
+        );
+      retention = { revisions };
+    }
+    this.#keep = retention === "unbounded" ? Number.POSITIVE_INFINITY : retention.revisions;
+    const pageSize = options.changePageSize;
+    if (pageSize !== undefined && !positive(pageSize))
+      throw new StoreError("invalid-request", "memory store: changePageSize is 1 or more");
+    this.#pageSize = pageSize ?? Number.POSITIVE_INFINITY;
     this.#own = {
       capabilities: {
         values: false,
@@ -251,11 +300,12 @@ class MemoryStore implements Store {
       },
       writers: "one-process",
       atRest: "trusted",
-      changeRetention: "none",
+      changeRetention: retention,
       formatVersion: MEMORY_STORE_FORMAT,
     };
     this.profile = Object.freeze({
       ...this.#own,
+      changeRetention: typeof retention === "string" ? retention : Object.freeze({ ...retention }),
       capabilities: Object.freeze({ ...this.#own.capabilities }),
       indexedValueRoles: Object.freeze([...this.#own.indexedValueRoles]),
       pushdown: Object.freeze({ ...this.#own.pushdown }),
@@ -299,6 +349,8 @@ class MemoryStore implements Store {
       count: 0,
       revision: 0,
       lastSequence: 0,
+      // A new peer's feed is empty, and its floor is its first revision.
+      feed: { records: [], start: 0, floor: 0 },
     };
     this.#peers.set(id, state);
     return this.#handle(state);
@@ -327,7 +379,65 @@ class MemoryStore implements Store {
         this.#open();
         return this.#purge(state, strings(ids, "purge: ids"));
       },
+      changes: async (from, to) => {
+        this.#open();
+        return this.#changes(state, from, to);
+      },
     };
+  }
+
+  /**
+   * The answer of `changes`. Cost O(records returned + ids returned): `from` finds its slot by
+   * arithmetic, and the records are frozen when written, so they are handed out as they are.
+   */
+  #changes(state: PeerState, from: unknown, to: unknown): ChangePage {
+    const revision = (value: unknown, what: string): Revision => {
+      if (!(Number.isSafeInteger(value) && (value as number) >= 0))
+        throw new StoreError("invalid-request", `changes: ${what} must be an integer, 0 or more`);
+      return value as number;
+    };
+    const after = revision(from, "from");
+    const upTo = to === undefined ? undefined : revision(to, "to");
+    // The shape of the request comes first: a range that ends before it starts is refused
+    // before the feed is looked at. A defaulted `to` is never compared, so a cursor from the
+    // future answers `resync-required`, not this.
+    if (upTo !== undefined && upTo < after)
+      throw new StoreError("invalid-request", "changes: to must not be less than from");
+    const feed = state.feed;
+    const current = state.revision;
+    if (after > current || after < feed.floor) return { status: "resync-required", current };
+    const end = Math.min(upTo ?? current, current);
+    const first = feed.start + (after - feed.floor);
+    const last = feed.start + (end - feed.floor);
+    const stop = Math.min(last, first + this.#pageSize);
+    const records = feed.records.slice(first, stop) as ChangeRecord[];
+    const through = stop === last ? end : records[records.length - 1]!.revision;
+    return { status: "ok", records, through };
+  }
+
+  /**
+   * Writes the record of the revision advance just made. Called inside the commit, after the
+   * revision moved, so the record is visible exactly when the holdings and the head are.
+   */
+  #record(state: PeerState, added: readonly Id[], removed: readonly Id[]): void {
+    const feed = state.feed;
+    feed.records.push(
+      Object.freeze({
+        revision: state.revision,
+        head: state.head,
+        added: Object.freeze([...added]),
+        removed: Object.freeze([...removed]),
+      }),
+    );
+    if (feed.records.length - feed.start > this.#keep) {
+      feed.floor = feed.records[feed.start]!.revision;
+      feed.records[feed.start] = undefined;
+      feed.start++;
+      if (feed.start >= 64 && 2 * feed.start >= feed.records.length) {
+        feed.records = feed.records.slice(feed.start);
+        feed.start = 0;
+      }
+    }
   }
 
   #members(index: Index<Set<Id>>, key: string): Iterable<Id> {
@@ -499,9 +609,14 @@ class MemoryStore implements Store {
       for (const negated of keys.negated) this.#file(state.negators, negated, id);
       state.lastSequence = Math.max(state.lastSequence, holding.arrival.sequence);
     }
-    if (fresh.size > 0 || state.head !== nextHead) state.revision++;
+    const ids = sorted(fresh.keys());
+    const advanced = fresh.size > 0 || state.head !== nextHead;
     state.head = nextHead;
-    return { status: "committed", revision: state.revision, added: sorted(fresh.keys()) };
+    if (advanced) {
+      state.revision++;
+      this.#record(state, ids, []);
+    }
+    return { status: "committed", revision: state.revision, added: ids };
   }
 
   #file(index: Index<Set<Id>>, key: string, id: Id): void {
@@ -519,7 +634,9 @@ class MemoryStore implements Store {
 
   #purge(state: PeerState, ids: readonly Id[]): PurgeReport {
     const targets: { id: Id; outcome: PurgeOutcome }[] = [];
-    let changed = false;
+    // The ids that leave this peer's holdings. A settled debt is not one: the peer stopped
+    // holding that id at an earlier purge.
+    const released: Id[] = [];
     let rowsOwed = false;
     let indexesOwed = false;
     for (const id of sorted(ids)) {
@@ -536,7 +653,7 @@ class MemoryStore implements Store {
         row.holders--;
         if (row.holders === 0) this.#rows.delete(id);
         else state.owed.set(id, true);
-        changed = true;
+        released.push(id);
         // The report states what a second look finds, not what the removal intended.
         indexesOwed ||=
           state.holdings.get(id) !== undefined ||
@@ -555,7 +672,10 @@ class MemoryStore implements Store {
       rowsOwed ||= outcome === "removed" && this.#rows.get(id) !== undefined;
       targets.push({ id, outcome });
     }
-    if (changed) state.revision++;
+    if (released.length > 0) {
+      state.revision++;
+      this.#record(state, [], released);
+    }
     const removed = targets.some((target) => target.outcome === "removed");
     return {
       // Process memory cannot prove absence, so this store never says `proven`.

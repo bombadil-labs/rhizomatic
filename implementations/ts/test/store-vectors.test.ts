@@ -66,6 +66,44 @@ describe("store vectors: the memory reference store", () => {
   });
 });
 
+describe("store vectors: the change feed under bounded retention and small pages", () => {
+  // README §3.9: each witness runs every script again on a reference store that keeps only two
+  // records, where the runner expects resync-required exactly below the floor, and on one whose
+  // pages hold one record, so every range of two or more records takes more than one page.
+  const runs: Readonly<Record<string, Parameters<typeof createMemoryStore>[0]>> = {
+    "two records kept": { changeRetention: { revisions: 2 } },
+    "one record kept": { changeRetention: { revisions: 1 } },
+    "pages of one record": { changePageSize: 1 },
+    "two records kept, pages of one record": {
+      changeRetention: { revisions: 2 },
+      changePageSize: 1,
+    },
+  };
+  for (const [name, options] of Object.entries(runs))
+    it(name, async () => {
+      const report = await runStoreConformance(async () => createMemoryStore(options), vectors);
+      expect(report.skipped).toEqual([]);
+      expect(report.passed).toHaveLength(
+        vectors.scripts.scripts.length + vectors.scope.cases.length,
+      );
+    });
+
+  it("a store without a feed skips exactly the feed scripts", async () => {
+    const none = broken({ profile: (p) => ({ ...p, changeRetention: "none" }) });
+    const report = await runStoreConformance(none, vectors);
+    const feedScripts = vectors.scripts.scripts.filter((s) => s.requires?.includes("changes"));
+    expect(feedScripts.map((s) => s.name)).toEqual([
+      "feed-appends-and-head-only-commits",
+      "feed-purge-and-debts",
+      "feed-a-debt-ends-on-append",
+      "feed-two-peers-interleaved",
+    ]);
+    expect(report.skipped).toEqual(
+      feedScripts.map((s) => ({ name: `scripts/${s.name}`, missing: "changes" })),
+    );
+  });
+});
+
 describe("store vectors: a store that ignores pushdown still conforms", () => {
   // The trim lemma (§4.3): whatever a store does not apply, the host applies, and the scope
   // is the same. These stores report `applied: false` and return the wider set.
@@ -721,7 +759,7 @@ describe("store vectors: what the profile changes", () => {
         .filter((script) => script.requires?.includes("purge"))
         .map((script) => ({ name: `scripts/${script.name}`, missing: "purge" })),
     );
-    expect(report.skipped).toHaveLength(5);
+    expect(report.skipped).toHaveLength(7);
   });
 
   it("a store with a journal skips the script that needs its absence", async () => {

@@ -86,7 +86,9 @@ pub use http::{offer_for, pull_from_url, serve_peer};
 pub use hview::{hview_canonical_hex, HVEntry, HView};
 pub use lens_binding::{load_lens_binding, publish_lens_binding_claims, LensBinding};
 pub use materialize::{is_root_anchored, LoweredProgram, MaterializationChange};
-pub use memory_store::{memory_store_profile, MemoryStore, StoreMeter, MEMORY_STORE_FORMAT};
+pub use memory_store::{
+    memory_store_profile, MemoryStore, MemoryStoreOptions, StoreMeter, MEMORY_STORE_FORMAT,
+};
 pub use pack::{pack_id, pack_set, unpack_set};
 pub use parse_error::{ParseError, ParseErrorKind};
 pub use peer::{sync_both, Peer, SyncReport};
@@ -119,11 +121,12 @@ pub use set::{
 pub use sign::{sign_claims, verify_delta, Verification};
 pub use store::{
     collect_delta_set, missing_requirements, scope_source, signature_form, Admission, Anchor,
-    AppendResult, AtRest, ChangeRetention, ErasureClaim, ErasureClass, ErasurePosture, Exporter,
-    Listing, PeerErasure, PeerExporter, PeerStore, PurgeOutcome, PurgeReport, PurgeSurface,
-    PurgeTarget, Pushdown, PushdownFields, Revision, ScopeRequest, ScopeResult, ScopeSource,
-    Snapshot, Store, StoreCapabilities, StoreError, StoreErrorCode, StoreProfile, StoreRequirement,
-    StoreWriters, SurfaceState, VerifiedDelta, MAX_ARRIVAL_COUNTER, PURGE_BOUNDARY,
+    AppendResult, AtRest, ChangePage, ChangeRecord, ChangeRetention, ErasureClaim, ErasureClass,
+    ErasurePosture, Exporter, Listing, PeerErasure, PeerExporter, PeerStore, PurgeOutcome,
+    PurgeReport, PurgeSurface, PurgeTarget, Pushdown, PushdownFields, Revision, ScopeRequest,
+    ScopeResult, ScopeSource, Snapshot, Store, StoreCapabilities, StoreError, StoreErrorCode,
+    StoreProfile, StoreRequirement, StoreWriters, SurfaceState, VerifiedDelta, MAX_ARRIVAL_COUNTER,
+    MAX_REVISION, PURGE_BOUNDARY,
 };
 pub use store_conformance::{
     run_store_conformance, SkippedScript, StoreConformanceError, StoreConformanceFailure,

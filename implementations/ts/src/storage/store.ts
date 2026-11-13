@@ -52,6 +52,9 @@ export type ErasureClass = "proven" | "unprovable" | "none";
 /** What a peer promises about erasure. It is declared at creation and never changes. */
 export type ErasurePosture = "proven" | "unproven";
 
+/** How long a store keeps change records (§4.6, §4.8). */
+export type ChangeRetention = "none" | "unbounded" | { readonly revisions: number };
+
 export type StoreProfile = {
   readonly capabilities: {
     readonly values: boolean;
@@ -66,8 +69,11 @@ export type StoreProfile = {
   readonly pushdown: AppliedPushdown;
   readonly writers: "one-process" | "many-processes";
   readonly atRest: "trusted" | "untrusted";
-  /** `none`: the store serves no change feed. */
-  readonly changeRetention: "none" | "unbounded" | { readonly revisions: number };
+  /**
+   * `none`: the store serves no change feed. `unbounded`: it keeps every record. `{revisions:
+   * n}`: it keeps exactly the records of the latest n revision advances of each peer.
+   */
+  readonly changeRetention: ChangeRetention;
   readonly formatVersion: string;
 };
 
@@ -147,7 +153,46 @@ export interface PeerStore {
   append(batch: Admission): Promise<AppendResult>;
   /** Removes these ids from this peer (§4.7.2). Refuses `capability-absent` on class `none`. */
   purge(ids: readonly Id[]): Promise<PurgeReport>;
+  /**
+   * The change records with `from < revision <= to`, ascending (§4.6). `to` defaults to the
+   * current revision, and a later `to` is clamped to it. A page may hold a prefix: call again
+   * from `through` until `through` is the clamped `to`. Refuses `invalid-request` when `to <
+   * from`, and `capability-absent` when the profile's `changeRetention` is `none`.
+   */
+  changes(from: Revision, to?: Revision): Promise<ChangePage>;
 }
+
+/**
+ * One committed revision advance of one peer. It names ids only, never bytes: a record may
+ * name an id the peer has since purged. A record never changes once written.
+ */
+export type ChangeRecord = {
+  /** The peer's revision after this commit. */
+  readonly revision: Revision;
+  /** The peer's head after this commit. */
+  readonly head: Head | null;
+  /** Ids this peer newly holds at this commit, ascending, unique. */
+  readonly added: readonly Id[];
+  /** Ids this peer stopped holding at this commit, ascending, unique. */
+  readonly removed: readonly Id[];
+};
+
+export type ChangePage =
+  /**
+   * Every record in `(from, through]`, ascending. `through` is at most the clamped `to`. It is
+   * the clamped `to` when the page holds every record of the range, and otherwise the revision
+   * of the last record, which is greater than `from`.
+   */
+  | {
+      readonly status: "ok";
+      readonly records: readonly ChangeRecord[];
+      readonly through: Revision;
+    }
+  /**
+   * The store cannot answer from `from`: a record after it has been dropped, or `from` is
+   * later than the current revision. Rebuild what was derived from the feed and read again.
+   */
+  | { readonly status: "resync-required"; readonly current: Revision };
 
 /**
  * Every operation on one snapshot answers at `revision`. A store without read transactions

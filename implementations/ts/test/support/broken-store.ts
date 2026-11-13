@@ -2,7 +2,7 @@
 // use it to show that the vectors and the conformance runner can fail. Each hook returns the
 // members it replaces; everything else passes through to the memory store.
 
-import { createMemoryStore } from "../../src/storage/memory-store.js";
+import { createMemoryStore, type MemoryStoreOptions } from "../../src/storage/memory-store.js";
 import type {
   PeerStore,
   PurgeOutcome,
@@ -13,6 +13,8 @@ import type {
 } from "../../src/storage/store.js";
 
 export type Break = {
+  /** The options of the memory store under the wrapper. */
+  options?: MemoryStoreOptions;
   profile?: (profile: StoreProfile) => StoreProfile;
   store?: (store: Store, inner: Store) => Partial<Store>;
   peer?: (peer: PeerStore, inner: Store) => Partial<PeerStore>;
@@ -21,7 +23,7 @@ export type Break = {
 
 export function broken(fault: Break): () => Promise<Store> {
   return async () => {
-    const inner = createMemoryStore();
+    const inner = createMemoryStore(fault.options);
     const wrapPeer = (peer: PeerStore): PeerStore => {
       const withSnapshots: PeerStore = {
         ...peer,

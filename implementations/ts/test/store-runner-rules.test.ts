@@ -22,6 +22,9 @@
 //   deltas with other claims, which this runner reads the held deltas from; and in
 //   store-vectors.test.ts through a document whose exact scope is wrong.
 //
+// - "changes answered the records of" follows from the checks of every page; a wrong document
+//   reaches it, below.
+//
 // Not covered here: what a store must do (store-vectors.test.ts, "each broken store fails"),
 // and ownership, which no conformance run checks (store.test.ts).
 
@@ -32,6 +35,8 @@ import type { StoreVectors } from "../src/storage/store-vector-format.js";
 import { storeVectors } from "../src/storage/store-vectors.js";
 import type {
   AppendResult,
+  ChangePage,
+  ChangeRecord,
   Exporter,
   PeerExporter,
   PeerStore,
@@ -211,6 +216,120 @@ const provenClass: Break = {
   peer: (peer) => ({ erasure: { ...peer.erasure, storeClass: "proven" } }),
 };
 
+/**
+ * A store whose `changes` answers `change(page, from, to, current)` in place of the memory
+ * store's page. `current` is the peer's revision when it is asked.
+ */
+const feed = (
+  change: (
+    page: ChangePage,
+    from: number,
+    to: number | undefined,
+    current: number,
+    peer: PeerStore,
+  ) => ChangePage | Promise<ChangePage>,
+): Break => ({
+  peer: (peer) => ({
+    changes: async (from, to) => {
+      const snapshot = await peer.read();
+      const current = snapshot.revision;
+      snapshot.release();
+      return change(await peer.changes(from, to), from, to, current, peer);
+    },
+  }),
+});
+/** The same, for an `ok` page only; `resync-required` passes through. */
+const records = (
+  change: (
+    page: Extract<ChangePage, { status: "ok" }>,
+    from: number,
+    current: number,
+  ) => ChangePage,
+): Break =>
+  feed((page, from, _to, current) => (page.status === "ok" ? change(page, from, current) : page));
+const ok = (records: readonly ChangeRecord[], through: number): ChangePage => ({
+  status: "ok",
+  records,
+  through,
+});
+
+/**
+ * A store whose purge records also name each settled debt: an id the purge reports `removed`
+ * that the peer no longer held.
+ */
+function settledInRemoved(): Break {
+  const books = new WeakMap<
+    Store,
+    Map<string, { held: Set<string>; extra: Map<number, string[]> }>
+  >();
+  return {
+    peer: (peer, inner) => {
+      if (!books.has(inner)) books.set(inner, new Map());
+      const byPeer = books.get(inner)!;
+      if (!byPeer.has(peer.id)) byPeer.set(peer.id, { held: new Set(), extra: new Map() });
+      const { held, extra } = byPeer.get(peer.id)!;
+      return {
+        append: async (batch) => {
+          const result = await peer.append(batch);
+          if (result.status === "committed") for (const id of result.added) held.add(id);
+          return result;
+        },
+        purge: async (ids) => {
+          const report = await peer.purge(ids);
+          const settled = report.targets
+            .filter((t) => t.outcome === "removed" && !held.has(t.id))
+            .map((t) => t.id);
+          for (const t of report.targets) held.delete(t.id);
+          if (settled.length > 0) extra.set(report.revision, settled);
+          return report;
+        },
+        changes: async (from, to) => {
+          const page = await peer.changes(from, to);
+          if (page.status !== "ok") return page;
+          return ok(
+            page.records.map((r) => {
+              const more = extra.get(r.revision);
+              return more === undefined || r.removed.length === 0
+                ? r
+                : { ...r, removed: [...r.removed, ...more].sort() };
+            }),
+            page.through,
+          );
+        },
+      };
+    },
+  };
+}
+
+/** A store whose every peer's feed also carries the records of the other peers it opened. */
+function onePoolOfRecords(): Break {
+  const opened = new WeakMap<Store, Map<string, PeerStore>>();
+  return {
+    peer: (peer, inner) => {
+      if (!opened.has(inner)) opened.set(inner, new Map());
+      const peers = opened.get(inner)!;
+      peers.set(peer.id, peer);
+      return {
+        changes: async (from, to) => {
+          const page = await peer.changes(from, to);
+          if (page.status !== "ok") return page;
+          const others: ChangeRecord[] = [];
+          for (const [id, other] of peers) {
+            if (id === peer.id) continue;
+            const theirs = await other.changes(0);
+            if (theirs.status === "ok")
+              others.push(
+                ...theirs.records.filter((r) => r.revision > from && r.revision <= page.through),
+              );
+          }
+          const all = [...page.records, ...others].sort((a, b) => a.revision - b.revision);
+          return ok(all, page.through);
+        },
+      };
+    },
+  };
+}
+
 // ---- the table ------------------------------------------------------------------------------
 
 type Rule = {
@@ -222,7 +341,511 @@ type Rule = {
   readonly vectors?: StoreVectors;
 };
 
+const FEED_RULES: Readonly<Record<string, Rule>> = {
+  // -- the change feed (README §3.9). Most break a feed only when two or more records are
+  // pending, so the check of each commit, which asks for one record, still passes. --
+  "the feed: no record for a head-only commit": {
+    doc: "scripts",
+    says: /the head-only commit to revision \d+ wrote no record/,
+    store: records((page) =>
+      ok(
+        page.records.filter((r) => r.added.length > 0 || r.removed.length > 0),
+        page.through,
+      ),
+    ),
+  },
+  "the feed: no record for a commit that adds": {
+    doc: "scripts",
+    says: /the commit to revision \d+ wrote no record/,
+    store: records((page) =>
+      ok(
+        page.records.filter((r) => r.added.length === 0),
+        page.through,
+      ),
+    ),
+  },
+  "the feed: a commit that writes two records": {
+    doc: "scripts",
+    says: /the commit to revision \d+ wrote records at/,
+    store: records((page, from, current) =>
+      from === current - 1 ? ok([...page.records, ...page.records], page.through) : page,
+    ),
+  },
+  "the feed: a record for a step that did not advance the revision": {
+    doc: "scripts",
+    says: "a step that did not advance the revision wrote a record",
+    store: feed(async (page, from, _to, current, peer) =>
+      from === current && current > 0 ? peer.changes(current - 1) : page,
+    ),
+  },
+  "the feed: a record with another head": {
+    doc: "scripts",
+    says: /the record of revision \d+ has head/,
+    store: records((page) =>
+      ok(
+        page.records.map((r) => ({ ...r, head: `${r.head}!` })),
+        page.through,
+      ),
+    ),
+  },
+  "the feed: a record that adds nothing": {
+    doc: "scripts",
+    says: /the record of revision \d+ adds \[\], expected/,
+    store: records((page) =>
+      ok(
+        page.records.map((r) => ({ ...r, added: [] })),
+        page.through,
+      ),
+    ),
+  },
+  "the feed: a settled debt in removed": {
+    doc: "scripts",
+    says: /the record of revision \d+ removes \[.* .*\], expected/,
+    store: settledInRemoved(),
+  },
+  "the feed: ids out of order inside a record": {
+    doc: "scripts",
+    says: "a record's ids are not ascending and distinct",
+    store: records((page) =>
+      ok(
+        page.records.map((r) => ({ ...r, added: [...r.added].reverse() })),
+        page.through,
+      ),
+    ),
+  },
+  "the feed: the check of a commit is not answered ok": {
+    doc: "scripts",
+    says: "changes from the revision before a commit is not ok",
+    store: feed((page, from, _to, current) =>
+      from === current - 1 ? { status: "resync-required", current } : page,
+    ),
+  },
+  "the feed: ids out of order inside a record, in a range of two or more": {
+    doc: "scripts",
+    says: "a record's ids are not ascending and distinct",
+    store: records((page, from, current) =>
+      from < current - 1
+        ? ok(
+            page.records.map((r) => ({ ...r, added: [...r.added].reverse() })),
+            page.through,
+          )
+        : page,
+    ),
+  },
+  "the feed: changes refuses the check of a commit": {
+    doc: "scripts",
+    says: "changes refused with invalid-request",
+    store: feed((page, from, _to, current) => {
+      if (from === current - 1) throw new StoreError("invalid-request", "not this range");
+      return page;
+    }),
+  },
+  "the feed: changes refuses where it must answer resync-required": {
+    doc: "scripts",
+    says: "changes refused with invalid-request",
+    store: {
+      options: { changeRetention: { revisions: 2 } },
+      ...feed((page) => {
+        if (page.status === "resync-required")
+          throw new StoreError("invalid-request", "no resync today");
+        return page;
+      }),
+    },
+  },
+  "the feed: changes refuses": {
+    doc: "scripts",
+    says: "changes refused with invalid-request",
+    store: feed(() => {
+      throw new StoreError("invalid-request", "no feed today");
+    }),
+  },
+  "the feed: a silent gap": {
+    doc: "scripts",
+    says: /the feed has no record for revision \d+/,
+    // It keeps two records and says it keeps all, answering ok from below what it kept.
+    store: records((page, _from, current) =>
+      ok(
+        page.records.filter((r) => r.revision > current - 2),
+        page.through,
+      ),
+    ),
+  },
+  "the feed: resync-required inside the window": {
+    doc: "scripts",
+    says: /changes answered resync-required from \d+, and every record after \d+ is retained/,
+    store: feed((page, from, _to, current) =>
+      from < current - 1 ? { status: "resync-required", current } : page,
+    ),
+  },
+  "the feed: resync-required on a later page": {
+    doc: "scripts",
+    says: "changes answered resync-required in the middle of a range",
+    store: {
+      options: { changePageSize: 1 },
+      ...feed((page, from, _to, current) =>
+        from > 0 && from < current - 1 ? { status: "resync-required", current } : page,
+      ),
+    },
+  },
+  "the feed: a resync answer with another current": {
+    doc: "scripts",
+    says: "a resync answer carries current",
+    store: feed((page) =>
+      page.status === "resync-required" ? { ...page, current: page.current + 1 } : page,
+    ),
+  },
+  "the feed: a page that is neither ok nor resync-required": {
+    doc: "scripts",
+    says: "changes answered neither ok nor resync-required",
+    store: feed((page, from, _to, current) =>
+      from < current - 1 ? ({ status: "later" } as unknown as ChangePage) : page,
+    ),
+  },
+  "the feed: an overstated page": {
+    doc: "scripts",
+    says: /the page claims through \d+ and leaves out the record at \d+/,
+    store: records((page) => ok(page.records.slice(0, 1), page.through)),
+  },
+  "the feed: records out of order": {
+    doc: "scripts",
+    says: "the page's records are not ascending by revision",
+    store: records((page) => ok([...page.records].reverse(), page.through)),
+  },
+  "the feed: a record outside the range asked": {
+    doc: "scripts",
+    says: /a record lies outside the range/,
+    store: feed(async (page, from, to, current, peer) =>
+      from > 0 && from < current - 1 ? peer.changes(from - 1, to) : page,
+    ),
+  },
+  "the feed: a through past the range": {
+    doc: "scripts",
+    says: /the page's through \d+ lies outside/,
+    store: records((page, from, current) =>
+      from < current - 1 ? ok(page.records, page.through + 1) : page,
+    ),
+  },
+  "the feed: no progress on a range with records": {
+    doc: "scripts",
+    says: /the page from \d+ made no progress toward \d+/,
+    store: records((page, from, current) => (from < current - 1 ? ok([], from) : page)),
+  },
+  "the feed: two peers mixed": {
+    doc: "scripts",
+    says: /the feed of \w+ names \w+, which \w+ never held/,
+    store: onePoolOfRecords(),
+  },
+  "the feed: a record changed after it was written": {
+    doc: "scripts",
+    says: /the record at revision 1 changed after it was written/,
+    store: records((page, _from, current) =>
+      ok(
+        page.records.map((r) =>
+          r.revision === 1 && current >= 3 ? { ...r, head: "rewritten" } : r,
+        ),
+        page.through,
+      ),
+    ),
+  },
+  "the feed: a record that differs from its commit the first time it is seen": {
+    doc: "scripts",
+    says: /the record at revision \d+ differs from its commit/,
+    // The newest record is wrong only in a range of two or more, so the check of its commit,
+    // a range of one, sees it right.
+    store: records((page, from, current) =>
+      from < current - 1
+        ? ok(
+            page.records.map((r) => (r.revision === current ? { ...r, head: "other" } : r)),
+            page.through,
+          )
+        : page,
+    ),
+  },
+  "the feed: a bounded store that answers ok below its floor": {
+    doc: "scripts",
+    says: /changes answered ok from \d+, below the retention floor \d+/,
+    store: { profile: (p) => ({ ...p, changeRetention: { revisions: 2 } }) },
+  },
+};
+
+/**
+ * A store whose revisions are the memory store's times `k`: they skip values, as a store with
+ * one counter for many peers would. It answers by the rules of §4.6, scaled. With
+ * `partialThroughPlusOne` a partial page says `through = last + 1`, past its last record and
+ * short of `to`. With `oldestKeptFloor` a `from` strictly between the newest dropped revision
+ * and the oldest kept one answers `resync-required`: the floor read as the revision just before
+ * the oldest kept record.
+ */
+function sparse(
+  k: number,
+  quirk: {
+    partialThroughPlusOne?: boolean;
+    oldestKeptFloor?: boolean;
+    belowFloorOk?: boolean;
+  } = {},
+): Break {
+  const now = async (peer: PeerStore): Promise<number> => {
+    const snapshot = await peer.read();
+    snapshot.release();
+    return snapshot.revision;
+  };
+  return {
+    peer: (peer) => ({
+      read: async () => {
+        const snapshot = await peer.read();
+        return { ...snapshot, revision: snapshot.revision * k };
+      },
+      append: async (batch) => {
+        const result = await peer.append(batch);
+        return result.status === "committed"
+          ? { ...result, revision: result.revision * k }
+          : result;
+      },
+      purge: async (ids) => {
+        const report = await peer.purge(ids);
+        return { ...report, revision: report.revision * k };
+      },
+      changes: async (from, to) => {
+        const current = await now(peer);
+        if (to !== undefined && to < from)
+          throw new StoreError("invalid-request", "to must not be less than from");
+        if (from > k * current) return { status: "resync-required", current: k * current };
+        const inner = Math.floor(from / k);
+        const innerTo = to === undefined ? undefined : Math.floor(to / k);
+        let page = await peer.changes(inner, innerTo);
+        // The quirk: below the floor at a value the peer never had, read on from just past it.
+        // The newest dropped record is silently missing.
+        if (quirk.belowFloorOk === true && page.status === "resync-required" && from % k !== 0)
+          page = await peer.changes(inner + 1, innerTo);
+        if (page.status === "resync-required") return { ...page, current: page.current * k };
+        if (
+          quirk.oldestKeptFloor === true &&
+          from % k !== 0 &&
+          inner > 0 &&
+          (await peer.changes(inner - 1)).status === "resync-required"
+        )
+          return { status: "resync-required", current: k * current };
+        const innerEnd = Math.min(innerTo ?? current, current);
+        const end = Math.min(to ?? k * current, k * current);
+        const records = page.records.map((r) => ({ ...r, revision: r.revision * k }));
+        const through =
+          page.through === innerEnd
+            ? end
+            : quirk.partialThroughPlusOne === true
+              ? records[records.length - 1]!.revision + 1
+              : page.through * k;
+        return { status: "ok", records, through };
+      },
+    }),
+  };
+}
+
+/**
+ * A right store whose pages hold at most 1, then 2, then 1, then 2 records, call by call, so
+ * the same request can answer a different prefix.
+ */
+function alternatingPages(): Break {
+  let calls = 0;
+  return {
+    peer: (peer) => ({
+      changes: async (from, to) => {
+        const page = await peer.changes(from, to);
+        if (page.status !== "ok") return page;
+        const cap = calls++ % 2 === 0 ? 1 : 2;
+        if (page.records.length <= cap) return page;
+        const records = page.records.slice(0, cap);
+        return ok(records, records[records.length - 1]!.revision);
+      },
+    }),
+  };
+}
+
+/** A store that hands out the same record objects on every answer, `copy` deciding what else. */
+function liveRecords(copy: (r: ChangeRecord) => ChangeRecord): Break {
+  const kept = new WeakMap<Store, Map<string, ChangeRecord>>();
+  return {
+    peer: (peer, inner) => {
+      if (!kept.has(inner)) kept.set(inner, new Map());
+      const live = kept.get(inner)!;
+      return {
+        changes: async (from, to) => {
+          const page = await peer.changes(from, to);
+          if (page.status !== "ok") return page;
+          const records = page.records.map((r) => {
+            const key = `${peer.id} ${r.revision}`;
+            if (!live.has(key)) live.set(key, copy(r));
+            return live.get(key)!;
+          });
+          return ok(records, page.through);
+        },
+      };
+    },
+  };
+}
+/** One pair of id lists per record, shared by every answer; the record objects are new. */
+function liveIdLists(): Break {
+  const kept = new WeakMap<Store, Map<string, { added: string[]; removed: string[] }>>();
+  return {
+    peer: (peer, inner) => {
+      if (!kept.has(inner)) kept.set(inner, new Map());
+      const live = kept.get(inner)!;
+      return {
+        changes: async (from, to) => {
+          const page = await peer.changes(from, to);
+          if (page.status !== "ok") return page;
+          const records = page.records.map((r) => {
+            const key = `${peer.id} ${r.revision}`;
+            if (!live.has(key)) live.set(key, { added: [...r.added], removed: [...r.removed] });
+            return { ...r, ...live.get(key)! };
+          });
+          return ok(records, page.through);
+        },
+      };
+    },
+  };
+}
+
+/** The shared vectors with one script only, and no scope case. */
+const onlyScript = (name: string): StoreVectors => ({
+  scripts: { ...vectors.scripts, scripts: vectors.scripts.scripts.filter((s) => s.name === name) },
+  scope: { ...vectors.scope, cases: [] },
+});
+/** Says `{revisions: 2}` over a store that keeps every record. */
+const declaresTwo: Break = { profile: (p) => ({ ...p, changeRetention: { revisions: 2 } }) };
+
+// Two checks share each of these messages: the check after every step (README §3.9.4) and the
+// `changes` step (§3.9.6). Each pair of rows reaches one of them only: a script with no
+// `changes` step, and a store that is wrong only when a `to` is given, which the check after
+// every step never gives.
+const SHARED_MESSAGES: Readonly<Record<string, Rule>> = {
+  "the feed: resync-required inside the window, after a step": {
+    doc: "scripts",
+    says: /every record after \d+ is retained/,
+    store: feed((page, from, _to, current) =>
+      from < current - 1 ? { status: "resync-required", current } : page,
+    ),
+    vectors: onlyScript("duplicates-add-nothing"),
+  },
+  "the feed: resync-required inside the window, in a changes step with a to": {
+    doc: "scripts",
+    says: /\(changes\): changes answered resync-required from \d+, and every record/,
+    store: feed((page, from, to, current) =>
+      to !== undefined && from < current - 1 ? { status: "resync-required", current } : page,
+    ),
+  },
+  "the feed: ok below the floor, after a step": {
+    doc: "scripts",
+    says: /changes answered ok from \d+, below the retention floor \d+/,
+    store: declaresTwo,
+    vectors: onlyScript("duplicates-add-nothing"),
+  },
+  "the feed: ok below the floor, in a changes step with a to": {
+    doc: "scripts",
+    says: /\(changes\): changes answered ok from \d+, below the retention floor \d+/,
+    store: {
+      ...declaresTwo,
+      ...feed((page, from, to, current) =>
+        to === undefined && from < current - 2 ? { status: "resync-required", current } : page,
+      ),
+    },
+  },
+};
+
+const SHAPES_AND_SPARSE: Readonly<Record<string, Rule>> = {
+  "the feed: a record with an extra field that carries bytes": {
+    doc: "scripts",
+    says: "a change record has the keys added, deltas, head, removed, revision, not added, head, removed, revision",
+    store: records((page) =>
+      ok(
+        page.records.map((r) => ({ ...r, deltas: [{ bytes: new Uint8Array([1]) }] })),
+        page.through,
+      ),
+    ),
+  },
+  "the feed: an ok page with an extra field": {
+    doc: "scripts",
+    says: "a change page has the keys more, records, status, through, not records, status, through",
+    store: records((page) => ({ ...page, more: true }) as ChangePage),
+  },
+  "the feed: a resync answer with an extra field": {
+    doc: "scripts",
+    says: "a resync answer has the keys current, floor, status, not current, status",
+    store: feed((page) =>
+      page.status === "resync-required" ? ({ ...page, floor: 0 } as ChangePage) : page,
+    ),
+  },
+  "the feed: a store that hands out its live records": {
+    doc: "scripts",
+    says: "changes answered differently after the caller changed what it returned",
+    store: liveRecords((r) => ({ ...r, added: [...r.added], removed: [...r.removed] })),
+  },
+  "the feed: a store that hands out its live id lists": {
+    doc: "scripts",
+    says: "changes answered differently after the caller changed what it returned",
+    store: liveIdLists(),
+  },
+  "the feed: sparse revisions, and a partial page whose through is past its last record": {
+    doc: "scripts",
+    says: /the page's through \d+ is past its last record and short of \d+/,
+    store: { options: { changePageSize: 1 }, ...sparse(2, { partialThroughPlusOne: true }) },
+  },
+  "the feed: revisions times 3, ok just below the floor without the newest dropped record": {
+    doc: "scripts",
+    says: /changes answered ok from \d+, below the retention floor \d+/,
+    store: {
+      options: { changeRetention: { revisions: 2 } },
+      ...sparse(3, { belowFloorOk: true }),
+    },
+  },
+  "the feed: revisions times 2, ok just below the floor without the newest dropped record": {
+    doc: "scripts",
+    says: /changes answered ok from \d+, below the retention floor \d+/,
+    store: {
+      options: { changeRetention: { revisions: 2 } },
+      ...sparse(2, { belowFloorOk: true }),
+    },
+  },
+  "the feed: an extra key only on the answer asked again after a change": {
+    doc: "scripts",
+    says: "a change page has the keys extra, records, status, through, not records, status, through",
+    // It sees the caller's change on the records it handed out last, and only then adds a key.
+    store: (() => {
+      let last: { head: string | null }[] = [];
+      return feed((page) => {
+        const changed = last.some((r) => r.head === "tampered");
+        if (page.status !== "ok") return page;
+        const records = page.records.map((r) => ({ ...r }));
+        last = records;
+        return changed ? ({ ...page, records, extra: 1 } as ChangePage) : { ...page, records };
+      });
+    })(),
+  },
+  "the feed: a wrong current on the call below the floor": {
+    doc: "scripts",
+    says: "a resync answer carries current",
+    // A script with no changes step: only the call below the floor answers resync-required.
+    store: {
+      options: { changeRetention: { revisions: 2 } },
+      ...feed((page) =>
+        page.status === "resync-required" ? { ...page, current: page.current + 1 } : page,
+      ),
+    },
+    vectors: onlyScript("duplicates-add-nothing"),
+  },
+  "the feed: sparse revisions, and the floor read as just before the oldest kept record": {
+    doc: "scripts",
+    says: /changes answered resync-required from \d+, above the retention floor \d+/,
+    store: {
+      options: { changeRetention: { revisions: 2 } },
+      ...sparse(3, { oldestKeptFloor: true }),
+    },
+  },
+};
+
 const RULES: Readonly<Record<string, Rule>> = {
+  ...SHARED_MESSAGES,
+  ...SHAPES_AND_SPARSE,
+  ...FEED_RULES,
   // -- refusals (README §3, "Refusals") --
   "createPeer refuses with a code the step does not list": {
     doc: "scripts",
@@ -1257,6 +1880,32 @@ describe("runner rules: each wrong store fails with the message of its rule", ()
   });
 });
 
+describe("runner rules: revisions that skip values conform", () => {
+  // §4.13 reading 1 asks only for integers in order. These stores are right, with revisions
+  // two or three apart; the runner must pass them on every vector, kept whole or bounded.
+  const right: Readonly<Record<string, Break>> = {
+    "revisions times 2": sparse(2),
+    "revisions times 3, pages of one record": { options: { changePageSize: 1 }, ...sparse(3) },
+    "revisions times 2, two records kept": {
+      options: { changeRetention: { revisions: 2 } },
+      ...sparse(2),
+    },
+    "pages that hold 1, then 2, then 1 record, call by call": alternatingPages(),
+    "revisions times 3, two records kept, pages of one record": {
+      options: { changeRetention: { revisions: 2 }, changePageSize: 1 },
+      ...sparse(3),
+    },
+  };
+  for (const [name, fault] of Object.entries(right))
+    it(name, async () => {
+      const report = await runStoreConformance(broken(fault), vectors);
+      expect(report.skipped).toEqual([]);
+      expect(report.passed).toHaveLength(
+        vectors.scripts.scripts.length + vectors.scope.cases.length,
+      );
+    });
+});
+
 describe("runner rules: what binds the reference store only", () => {
   // The same wrong answers under another format version are right answers: a store may ignore
   // `exclude`, may report a field not applied, and declares its own surfaces.
@@ -1406,6 +2055,29 @@ describe("runner rules: a wrong document", () => {
     scope: { ...vectors.scope, cases: [] },
   });
 
+  const feedScript = vectors.scripts.scripts.find(
+    (s) => s.name === "feed-appends-and-head-only-commits",
+  )!;
+  /** The first `keep` steps of the feed script, then `more`. */
+  const feedSteps = (keep: number, ...more: object[]): StoreVectors => ({
+    scripts: {
+      ...vectors.scripts,
+      scripts: [
+        {
+          ...feedScript,
+          steps: [...feedScript.steps.slice(0, keep), ...(more as typeof feedScript.steps)],
+        },
+      ],
+    },
+    scope: { ...vectors.scope, cases: [] },
+  });
+  // Steps 0 to 2: create A (named A.0 by a mark), ask for its empty feed, append (A.1).
+  expect(feedScript.steps.slice(0, 3).map((step) => step.op)).toEqual([
+    "createPeer",
+    "mark",
+    "changes",
+  ]);
+
   type Wrong = { vectors: StoreVectors; says: string; store?: () => Promise<Store> };
   const wrong: Readonly<Record<string, Wrong>> = {
     "an unknown scripts format": {
@@ -1472,6 +2144,78 @@ describe("runner rules: a wrong document", () => {
     "a script requirement list that is null, which is not none": {
       vectors: requiring(null),
       says: "the script's requires is not a list",
+    },
+    "a changes step that names an unknown revision": {
+      vectors: feedSteps(2, { op: "changes", peer: "A", from: { revision: "A.9" }, expect: {} }),
+      says: "the vector names an unknown revision A.9",
+    },
+    "a changes step that names another peer's revision": {
+      vectors: feedSteps(
+        2,
+        { op: "createPeer", peer: "B", erasure: "unproven", expect: { status: "created" } },
+        { op: "changes", peer: "B", from: { revision: "A.0" }, expect: {} },
+      ),
+      says: "the vector names revision A.0 of another peer",
+    },
+    "a revision named twice": {
+      vectors: feedSteps(2, { op: "mark", peer: "A", as: "A.0" }),
+      says: "the vector names revision A.0 twice",
+    },
+    "a mark on a peer not yet created": {
+      vectors: feedSteps(0, { op: "mark", peer: "A", as: "x" }),
+      says: "the vector uses peer A before creating it",
+    },
+    "a changes step that expects resync-required where ok is right": {
+      vectors: feedSteps(3, {
+        op: "changes",
+        peer: "A",
+        from: { revision: "A.0" },
+        expect: { status: "resync-required" },
+      }),
+      says: "changes answered ok from 0, and the step expects resync-required",
+    },
+    "a revision reference whose ahead is negative": {
+      vectors: feedSteps(3, {
+        op: "changes",
+        peer: "A",
+        from: { revision: "A.0", ahead: -1 },
+        expect: {},
+      }),
+      says: "the vector's ahead is not a whole number",
+    },
+    "a revision reference whose ahead is fractional": {
+      vectors: feedSteps(3, {
+        op: "changes",
+        peer: "A",
+        from: { revision: "A.0", ahead: 0.5 },
+        expect: {},
+      }),
+      says: "the vector's ahead is not a whole number",
+    },
+    "a changes step whose expected records are wrong": {
+      vectors: feedSteps(3, {
+        op: "changes",
+        peer: "A",
+        from: { revision: "A.0" },
+        expect: {
+          status: "ok",
+          records: [{ revision: "A.0", head: null, added: [], removed: [] }],
+        },
+      }),
+      says: "changes answered the records of nothing, expected 0",
+    },
+    "a changes step on a store that serves no feed, in a script that does not require one": {
+      vectors: {
+        scripts: { ...vectors.scripts, scripts: [{ ...feedScript, requires: [] }] },
+        scope: { ...vectors.scope, cases: [] },
+      },
+      says: "a changes step on a store that serves no feed",
+      store: broken({ profile: (p) => ({ ...p, changeRetention: "none" }) }),
+    },
+    "a profile whose retention is not a retention": {
+      vectors: feedSteps(1),
+      says: "the profile's changeRetention is not none, unbounded or {revisions: n}",
+      store: broken({ profile: (p) => ({ ...p, changeRetention: { revisions: 0 } }) }),
     },
     "a scope case without the scope of an applied subset": {
       vectors: scopeOnly((c) => ({

@@ -1,17 +1,19 @@
 //! The cost rail (SPEC-18 proposal §8, §4.11 reading 17). The memory store counts its index work
 //! through one door. The same operations over the same footprint make the same counts beside 0
 //! and beside N unrelated deltas, and no core operation walks a whole map. Only the exporter
-//! scans. Those rails count; the scope-source rail at the end times its build from outside
-//! instead, because the code under test could do work it does not count.
+//! scans. Those rails count; the scope-source rail and the two change-feed rails at the end
+//! time their work from outside instead, because the code under test could do work it does not
+//! count. `Instant` is monotonic, so a step of the wall clock cannot move a timing.
 
+use std::collections::BTreeMap;
 use std::hint::black_box;
 use std::time::{Duration, Instant};
 
-use rhizomatic::memory_store::{MemoryStore, StoreMeter};
+use rhizomatic::memory_store::{MemoryStore, MemoryStoreOptions, StoreMeter};
 use rhizomatic::set::{make_delta, make_negation_claims, DeltaSource};
 use rhizomatic::store::{
-    scope_source, Admission, Anchor, AppendResult, ArrivalRecord, ErasurePosture, PeerStore,
-    Pushdown, ScopeRequest, Store, VerifiedDelta,
+    scope_source, Admission, Anchor, AppendResult, ArrivalRecord, ChangePage, ChangeRetention,
+    ErasurePosture, PeerStore, Pushdown, Revision, ScopeRequest, Store, VerifiedDelta,
 };
 use rhizomatic::types::{Claims, Delta, EntityRef, Pointer, Primitive, Target};
 
@@ -427,7 +429,6 @@ fn a_scope_source_builds_in_the_size_of_its_members() {
         ("entity pointers of one member", wide, 1 << 20),
         ("appearances of four ids", four_ids, 1 << 17),
     ];
-    const BOUND: f64 = 24.0;
     let slow: Vec<String> = shapes
         .into_iter()
         .filter_map(|(shape, members, cap)| {
@@ -445,4 +446,150 @@ fn a_scope_source_builds_in_the_size_of_its_members() {
         })
         .collect();
     assert!(slow.is_empty(), "{}", slow.join("\n"));
+}
+
+/// The ratio a timed rail holds below: linear work gives about 8, quadratic work about 64.
+const BOUND: f64 = 24.0;
+
+/// One head-only commit: the head moves from `head-k` to `head-(k + 1)`, and nothing is added.
+fn head_only(peer: &dyn PeerStore, k: usize) {
+    let result = peer
+        .append(&Admission {
+            expected_head: (k > 0).then(|| format!("head-{k}")),
+            next_head: format!("head-{}", k + 1),
+            frame: None,
+            added: Vec::new(),
+        })
+        .unwrap();
+    assert!(matches!(result, AppendResult::Committed { .. }));
+}
+
+/// A peer on a new store built with these options, with `commits` head-only commits.
+fn feed_peer(options: MemoryStoreOptions, commits: usize) -> (MemoryStore, Box<dyn PeerStore>) {
+    let store = MemoryStore::with_options(options).unwrap();
+    let peer = store
+        .create_peer("peer:feed", ErasurePosture::Unproven)
+        .unwrap();
+    for k in 0..commits {
+        head_only(peer.as_ref(), k);
+    }
+    (store, peer)
+}
+
+/// The fastest of up to `runs` runs, timed from outside, stopping at the first faster than
+/// `enough`.
+fn fastest(runs: usize, enough: Duration, mut run: impl FnMut() -> Duration) -> Duration {
+    let mut best = Duration::MAX;
+    for _ in 0..runs {
+        if best < enough {
+            break;
+        }
+        best = best.min(run());
+    }
+    best
+}
+
+/// README §3.9.9: N from 256, doubling until the run at N takes 50 ms; the run at N the fastest
+/// of five, the run at 8N the fastest of three, stopped at the first under the bound. Answers
+/// the ratio, or a message when it is not below the bound.
+fn scales_linearly(what: &str, run: impl Fn(usize) -> Duration) -> Option<String> {
+    let mut n = 256;
+    let at_n = loop {
+        let at_n = fastest(5, Duration::ZERO, || run(n));
+        if at_n >= Duration::from_millis(50) {
+            break at_n;
+        }
+        n *= 2;
+    };
+    let at_8n = fastest(3, at_n.mul_f64(BOUND), || run(8 * n));
+    let ratio = at_8n.as_secs_f64() / at_n.as_secs_f64();
+    println!("change feed, {what}: N = {n}, {at_n:?} and {at_8n:?}, ratio {ratio:.2}");
+    (ratio >= BOUND).then(|| {
+        format!(
+            "{what}: the run at 8N = {} took {ratio:.1} times as long as at N = {n} \
+             ({at_8n:?} against {at_n:?}); linear work gives about 8",
+            8 * n
+        )
+    })
+}
+
+/// The window a reader asks for after each record (README §3.9.9 rail 1).
+const WINDOW: usize = 64;
+
+/// `changes` costs the records it returns, never the records before `from` (SPEC-18 §4.6). A
+/// peer has N + W head-only commits, and call r reads `changes(r, r + W)`: N windows of W
+/// records each. A store that walks its feed from the start to find `from` does quadratic work
+/// in total. Timed from outside, at N and 8N; the peer is built before the clock starts.
+#[test]
+fn a_window_read_costs_its_window_not_the_feed_before_it() {
+    let reads = |n: usize| -> Box<dyn Fn() -> Duration> {
+        let (store, peer) = feed_peer(MemoryStoreOptions::default(), n + WINDOW);
+        Box::new(move || {
+            let start = Instant::now();
+            for r in 0..n as u64 {
+                let page = peer
+                    .changes(Revision(r), Some(Revision(r + WINDOW as u64)))
+                    .unwrap();
+                black_box(page);
+            }
+            let took = start.elapsed();
+            black_box(&store);
+            took
+        })
+    };
+    let (_store, peer) = feed_peer(MemoryStoreOptions::default(), 10 + WINDOW);
+    match peer
+        .changes(Revision(3), Some(Revision(3 + WINDOW as u64)))
+        .unwrap()
+    {
+        ChangePage::Ok { records, through } => {
+            assert_eq!(records.len(), WINDOW);
+            assert_eq!(records[0].revision, Revision(4));
+            assert_eq!(through, Revision(3 + WINDOW as u64));
+        }
+        other => panic!("{other:?}"),
+    }
+
+    // One build per size: the reads do not change the peer, so every run reads the same feed.
+    let built: std::cell::RefCell<BTreeMap<usize, Box<dyn Fn() -> Duration>>> = Default::default();
+    let run = |n: usize| {
+        let mut built = built.borrow_mut();
+        built.entry(n).or_insert_with(|| reads(n))()
+    };
+    let slow = scales_linearly("a window read after each record", run);
+    assert!(slow.is_none(), "{}", slow.unwrap());
+}
+
+/// An append under bounded retention costs the same with 0 or N kept records (SPEC-18 §4.6).
+/// On a store that keeps N / 4 records, N head-only appends: once N / 4 are kept, each append
+/// drops one. A store whose drop copies or shifts what it keeps does quadratic work in total.
+/// Timed from outside, at N and 8N, each run on a new store.
+#[test]
+fn an_append_under_bounded_retention_costs_the_same_with_any_number_kept() {
+    let keep = |n: usize| MemoryStoreOptions {
+        change_retention: ChangeRetention::Revisions((n / 4) as u64),
+        ..MemoryStoreOptions::default()
+    };
+    let (_store, peer) = feed_peer(keep(40), 40);
+    match peer.changes(Revision(29), None).unwrap() {
+        ChangePage::ResyncRequired { current } => assert_eq!(current, Revision(40)),
+        other => panic!("{other:?}"),
+    }
+    match peer.changes(Revision(30), None).unwrap() {
+        ChangePage::Ok { records, .. } => assert_eq!(records.len(), 10),
+        other => panic!("{other:?}"),
+    }
+
+    let run = |n: usize| {
+        let (store, peer) = feed_peer(keep(n), 0);
+        let start = Instant::now();
+        for k in 0..n {
+            head_only(peer.as_ref(), k);
+        }
+        let took = start.elapsed();
+        black_box(&store);
+        took
+    };
+    let slow = scales_linearly("an append under bounded retention", run);
+    assert!(slow.is_none(), "{}", slow.unwrap());
 }

@@ -18,8 +18,19 @@ same expected bytes. The memory `Reactor` keeps its whole-set methods, deprecate
 in slice 5. The store is read-only in slice 2: only test fixtures fill one. The TypeScript witness
 is complete; the Rust witness follows the same documents.
 
+The store, slice 3, steps 1 and 3 (SPEC-18 proposal §4.6, §4.13): each peer has a change feed.
+`PeerStore.changes(from, to?)` answers pages of records, one per revision advance, with the head
+and the ids added and removed. The memory store serves it. The shared store vectors check the feed
+after every step of every script. The TypeScript witness has it; the Rust runner skips the feed
+scripts until its store serves a feed.
+
 ### ⚠️ Breaking
 
+- `PeerStore` has a new required method, `changes(from, to?)`. A consumer that implements
+  `PeerStore` adds it. A store with no feed declares `changeRetention: "none"` and refuses
+  `changes` with `capability-absent`.
+- The memory store's profile says `changeRetention: "unbounded"`, where it said `"none"`. The
+  requirement `changes` now holds for it at open.
 - `DeltaSource.targets` and `DeltaSource.negators` return `readonly string[]`: each id once,
   ascending by the UTF-8 bytes of the id (SPEC-17 §3). They returned `Iterable<string>` in any
   order. An implementer that returns a `Set`, or a list in arrival order, no longer conforms; sort
@@ -28,6 +39,22 @@ is complete; the Rust witness follows the same documents.
 
 ### Added
 
+- The change feed (SPEC-18 §4.6): `ChangeRecord` (`revision`, `head`, `added`, `removed`),
+  `ChangePage` (`ok` with `records` and `through`, or `resync-required` with `current`) and
+  `ChangeRetention`. A head-only commit writes a record with no ids. A purge records only the ids
+  that leave the peer; a settled debt is in no record. `resync-required` answers a `from` below
+  the retention floor or above the current revision. An explicit `to` below `from` is refused
+  `invalid-request`.
+- `createMemoryStore({ changeRetention: { revisions: n } })` keeps each peer's latest n records.
+  `changePageSize: n` bounds a page, for tests. Finding `from` costs O(1), and dropping a
+  record O(1) amortized.
+- Store vectors: the requirement `changes`, the steps `mark` and `changes`, and `revisionAs` on
+  `append` and `purge`. Four feed scripts. The runner checks each peer's feed after every step,
+  and each witness runs the scripts again keeping two records and with pages of one record
+  (`vectors/store/README.md` §3.9).
+- The feed runner also checks each answer's exact keys (a record carries no bytes), changes every
+  page it reads and asks again (a store owns what it returned), and probes the floor where
+  revisions skip values. Stores whose revisions are two or three apart pass every vector.
 - `negationWitnesses(source, now, suppression)` and `negationPredicate(source, now, suppression)`:
   the reactor's negation readers as free functions over any `DeltaSource`, such as a
   `scopeSource` of a fetched scope. A free reader keeps its memo for its whole life; build a new
@@ -53,8 +80,9 @@ is complete; the Rust witness follows the same documents.
   `Pushdown`, `Admission`, `AppendResult`, `PurgeReport`, `Revision`, `StoreProfile`, `Exporter`,
   and `StoreError` with its codes.
 - `createMemoryStore()`, the reference store. Its profile reports only what slice 1 implements:
-  entity anchors, arrival records, the three pushdown fields, erasure class `unprovable`. It
-  serves no change feed, journal, value index, stored view, derived index or digest yet.
+  entity anchors, arrival records, the three pushdown fields, erasure class `unprovable`, and from
+  slice 3 the change feed. It serves no journal, value index, stored view, derived index or digest
+  yet.
 - Peers are created with a declared erasure posture (`createPeer(id, { erasure })`). A peer that
   promises proven erasure is refused on a store whose class is not `proven`.
 - `openStore(url)` with the `memory:` scheme, and `registerStoreScheme(scheme, factory)`. Schemes

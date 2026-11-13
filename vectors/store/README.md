@@ -2,7 +2,7 @@
 
 These files pin the store interface of [SPEC-18](../../spec/18-store.PROPOSAL.md) (proposal),
 slice 1: peers and postures, append, point reads, the scope query, purge, snapshots and export;
-and, from slice 2, the read in rounds over a store. This page is the format contract. An
+from slice 2, the read in rounds over a store; and, from slice 3, the change feed (§3.9). This page is the format contract. An
 implementer needs this page, SPEC-18 §4, SPEC-17 §5 and §6 for the reads, and the JSON files, and
 no witness source.
 
@@ -69,8 +69,9 @@ time in every witness, never something a type system rules out.
 - **Head**: an opaque non-empty string, or null when the peer never committed an append. Two
   heads are equal when they are the same string, byte for byte. No case folding, no trimming.
   Null is not the empty string: an `expectedHead` of `""` never matches.
-- **Revision**: a value with a total order inside one peer. The vectors use only "equal" and
-  "greater".
+- **Revision**: an integer from 0 to 2^53 − 1, ordered inside one peer. The slice 1 and 2 vectors
+  use only "equal" and "greater". The feed vectors also add a small integer to a named revision
+  to name one past the current revision (§3.9).
 - **Order.** Every list of ids, deltas or arrival records a store returns is ascending by the
   UTF-8 bytes of the id, with no id twice. Peer ids are listed ascending the same way.
 
@@ -311,10 +312,15 @@ with states `absent`, `absent`, `unprovable`.
 
 ### 1.6 Profile
 
-The runner reads four things:
+The runner reads five things:
 
 - `capabilities.erasure`: `proven`, `unprovable` or `none`.
 - `capabilities.journal`: boolean.
+- `changeRetention`: `none`, `unbounded`, or `{"revisions": n}` with n an integer of 1 or more.
+  Any other value, `{"revisions": n}` with n outside 1 to 2^53 − 1 included, is a defect: the
+  runner fails each `createPeer` step with the message
+  `the profile's changeRetention is not none, unbounded or {revisions: n}`, before it calls the
+  store.
 - `pushdown.{timestampAtMost, arrivalAtMost, excludeIds}`: booleans.
 - `formatVersion`: a string.
 
@@ -322,7 +328,8 @@ A store whose `formatVersion` equals the file's `reference.formatVersion`
 (`rhizomatic.store.memory/1`) is a **memory reference store**. It is held to the extra "reference"
 rules below. Its profile in slice 1 is: `values`, `journal`, `views`, `derivedIndexes`, `digest`
 false; `arrival` true; erasure `unprovable`; every pushdown field true; `writers: one-process`;
-`atRest: trusted`; `changeRetention: none`; `indexedValueRoles` empty.
+`atRest: trusted`; `indexedValueRoles` empty. From slice 3 its `changeRetention` is `unbounded`,
+or `{revisions: n}` when it is built to keep only n records (§3.9).
 
 A memory reference store may be built with any subset of the three pushdown fields switched off.
 It then ignores those fields and reports them not applied. **Each witness runs both files against
@@ -380,6 +387,10 @@ requirement fails:
 |---|---|
 | `purge` | `capabilities.erasure` is not `none` |
 | `journal-absent` | `capabilities.journal` is false |
+| `changes` | `changeRetention` is not `none` |
+
+A script lists `changes` first when it has more than one requirement, so a store without a feed
+reports `changes` as what it lacks.
 
 A step is an object with an `op`. A step passes when the store does what `expect` says.
 
@@ -446,6 +457,8 @@ the `peer` key is a name from `peers`.
   writer gets `conflict` whatever its batch holds, in every witness. No vector combines a
   non-null `frame` with such a value, so that order stays free. Its `id` is the delta's id, unless the arrival object has
   an `id` key; then that key is a corpus name and the record carries that entry's id.
+- `revisionAs` (optional, a key of the step): a revision name (§3.9). After the step, the name
+  stands for the peer's revision. It appears only in scripts that require `changes`.
 - `expect`, one of:
   - `{"status": "committed", "added": [names], "revisionAdvanced": bool}`. The result's ids equal
     the named ids. The result's revision equals the peer's revision after the step. That revision
@@ -479,6 +492,8 @@ record. Later steps check store answers against this record.
                            { "surface": "index-entries", "state": "absent" },
                            { "surface": "process-memory", "state": "unprovable" } ] } }
 ```
+
+`revisionAs` (optional) names the peer's revision after the step, as in §3.3.
 
 `expect.claim` is one of two objects: `{"unprovable": "unproven", "proven": "proven"}` when a
 target is `removed`, and `{"unprovable": "nothing-removed", "proven": "nothing-removed"}` when
@@ -586,6 +601,284 @@ Result checks:
   read.
 - `exportStored`: `admin.storedIds()` equals the named ids. An id two peers hold appears once.
 - `exportPeers`: `admin.peers()` equals the ids of the named peers, in the listed order.
+
+### 3.9 The change feed
+
+A store whose `changeRetention` is not `none` serves a change feed (SPEC-18 §4.6, §4.13). The
+runner checks it in two ways: by its own model after **every** step of every script and of the
+`scope.json` setup, and by `changes` steps in the scripts that require `changes`. A store whose
+retention is `none` gets neither: the runner skips the scripts that require `changes` and makes
+no feed check.
+
+#### 3.9.1 The operation
+
+`peer.changes(from, to?)` answers `{"status": "ok", "records", "through"}` or
+`{"status": "resync-required", "current"}`, or refuses. A record is
+`{revision, head, added, removed}`. SPEC-18 §4.6 states the rules. In short:
+
+- One record per revision advance, and no other. Its `head` is the peer's head after the commit.
+  `added` is what the commit newly held. `removed` is what left the peer's holdings at that
+  commit; a settled debt is not in it. Both are ascending by id, with no id twice.
+- A page answers the records with `from < revision ≤ through`, ascending, with none missing.
+  `through` is at most the clamped `to` (the clamped `to` is `to`, or the current revision when
+  `to` is absent or later). When the page holds the whole range, `through` is the clamped `to`.
+  Otherwise `through` is the revision of its last record, greater than `from`.
+- **The order of the answers.** (1) A `from` or `to` that is not an integer from 0 to 2^53 − 1
+  is refused `invalid-request`. (2) An explicit `to` below `from` is refused `invalid-request`.
+  (3) Then the answer is `resync-required` exactly when `from` is below the floor or above the
+  current revision. (4) Otherwise it is `ok`. A defaulted `to` is never compared with `from`, so
+  a cursor from the future with no `to` gets `resync-required`.
+- `current` in a `resync-required` answer is the peer's current revision.
+- **The floor** is the revision of the newest record the store dropped, or the peer's revision at
+  creation when it dropped none. A `from` at or above the floor and not above the current
+  revision answers `ok`. Where revisions advance by one, the floor is also the revision just
+  before the oldest kept record. Where they skip values, a `from` between the newest dropped
+  revision and the oldest kept one is above the floor.
+- **Shape.** A record has exactly the keys `added`, `head`, `removed`, `revision`. An `ok` answer
+  has exactly `records`, `status`, `through`. A `resync-required` answer has exactly `current`,
+  `status`. Any other key fails, with the messages of §3.9.3. A typed witness whose record and
+  page types have exactly these fields meets this rule by construction; it names the rows it
+  cannot reach in its rule-table file (§8). An adapter that decodes a serialized answer (a
+  remote store, a store over another language) MUST refuse a field it does not know.
+- **Ownership.** A caller may change anything an answer returned: its list of records, a record,
+  a record's `added` or `removed` list. No later answer changes (§7, test 9).
+
+#### 3.9.2 The runner's model
+
+For each peer, the runner keeps:
+
+- `revisions`: the peer's revision when it was created, read with `read()` right after
+  `createPeer`, and then the revision after each step that advanced it.
+- `records`: one expected record per advance.
+- `head`: the peer's head, null at first.
+- `everHeld`: every id the peer has held.
+- `seen`: each record as the store first returned it, by revision.
+
+It updates the model on these steps, after the step's own checks:
+
+- `append` that answers `committed`: `head` becomes `nextHead`, and the result's ids join
+  `everHeld`. When the revision advanced, append the revision after the step to `revisions` and
+  the record `{revision: <after>, head: nextHead, added: <the step's expected ids>, removed: []}`
+  to `records`.
+- `purge` whose revision advanced: append the revision after the step, and the record
+  `{revision: <after>, head: <the model's head>, added: [], removed: R}`. R is the report's
+  targets, in order, that the bookkeeping of §3.3 held when the purge began. The outcome alone
+  does not decide: `removed` is also the outcome of a settled debt.
+
+Let keep be infinite for `unbounded` and n for `{revisions: n}`. The peer keeps the last keep
+records of `records`. Let i be the number of records it dropped (`records.length − kept`). The
+**floor** is `revisions[i]`: the revision at creation when nothing was dropped, and otherwise the
+revision of the newest dropped record. This is the floor of §3.9.1; the runner does not use
+"the revision just before the oldest kept record", which differs where revisions skip values.
+
+**Messages.** In §3.9.3 to §3.9.6 the fixed words of each message are normative. How a value
+inside a message is rendered is each witness's own: an id in full or shortened, a head, a list
+of ids or of revisions. Each witness's rule table pins its own rendering. Below, `<…>` marks a
+rendered value.
+
+#### 3.9.3 The check of each commit
+
+After every `append` (committed, `conflict` or refused) and every `purge`, let `before` be the
+revision read before the step. Through the step's own handle, call `changes(before)` with no
+`to`, and again from each `through`, until a page
+has `through` at or past the current revision or makes no progress. Each page must answer: a
+refusal fails with `changes refused with <code>`. Then each answer's shape is checked, here and
+wherever the runner reads an answer of `changes`:
+
+- An answer whose `status` is `resync-required` has exactly the keys `current`, `status`, else
+  `a resync answer has the keys <k>, not current, status`.
+- An answer whose `status` is `ok` has exactly `records`, `status`, `through`, else
+  `a change page has the keys <k>, not records, status, through`. `records` is a list, else
+  `a change page's records is not a list`. Each record has exactly `added`, `head`, `removed`,
+  `revision`, else `a change record has the keys <k>, not added, head, removed, revision`.
+- `<k>` lists the answer's own keys, sorted by UTF-16 code unit and joined by ", ". A value that
+  is not an object fails with `a <what> is not an object`. An answer with another `status` is
+  not checked here.
+
+A page that is not `ok` then fails with `changes from the revision before a commit is not ok`.
+Then, over the records collected:
+
+1. Every id they name is in `everHeld`, else
+   `the feed of <peer> names <id>, which <peer> never held`.
+2. Each record's `added` and `removed` are ascending and distinct, else
+   `a record's ids are not ascending and distinct`.
+3. When the revision did not advance: there is no record, else
+   `a step that did not advance the revision wrote a record`.
+4. When it advanced to R: there is at least one record, else
+   `the head-only commit to revision R wrote no record` (when the expected record has no id) or
+   `the commit to revision R wrote no record`. Then there is exactly one, at revision R, else
+   `the commit to revision R wrote records at <revisions>`. Its head, `added` and `removed`
+   equal the expected record's, else, in this order:
+   - `the record of revision <R> has head <head>, expected <head>`;
+   - `the record of revision <R> adds <ids>, expected <ids>`;
+   - `the record of revision <R> removes <ids>, expected <ids>`.
+
+The check of each commit does not record what it reads as "seen" (§3.9.5, check 13): only a
+page read does.
+
+#### 3.9.4 The check after every step
+
+After every step of every script, and of the `scope.json` setup, for each peer the run created:
+let F be the floor. Read the pages from F with no `to` (§3.9.5); an answer of `resync-required`
+fails with `changes answered resync-required from F, and every record after F is retained`. When
+the peer dropped records (i > 0):
+
+1. **Below the floor.** Make ONE call `changes(revisions[i − 1])`, with no `to` and no paging.
+   A refusal fails with `changes refused with <code>`. Check the answer's shape (§3.9.3). It
+   must answer `resync-required`, else
+   `changes answered ok from <r>, below the retention floor <F>`. Its `current` must be the
+   model's current revision, else
+   `a resync answer carries current <c>, not the peer's revision <r>`.
+2. **Just below the floor.** When F − 1 > `revisions[i − 1]`, make the same one call, from
+   F − 1, with the same checks and messages. Only a store whose revisions skip values reaches
+   it: there F − 1 is not a revision the peer had, and it is still below the floor.
+3. **The floor probe.** Let K be `revisions[i + 1]`, the revision of the oldest kept record.
+   When F + 1 < K, read the pages from F + 1 with no `to` (§3.9.5). An answer of
+   `resync-required` fails with `changes answered resync-required from <F + 1>, above the
+   retention floor F`. Only a store whose revisions skip values reaches this probe.
+
+The check after every step reads through the handle kept under the peer's own name (§3.2).
+
+#### 3.9.5 Reading pages
+
+To read the pages from `from` to `to` (`to` may be absent), let `current` be the model's last
+revision and `end` the smaller of `to` and `current` (`current` when `to` is absent). Starting at
+`at = from`, call `changes(at, to)` and check the answer, in this order:
+
+1. It answers. A refusal fails with `changes refused with <code>`. Then its shape is checked
+   (§3.9.3), before its status is read.
+2. `resync-required`: on the first page this ends the read with that answer, and `current` must
+   be the model's current revision, else
+   `a resync answer carries current <c>, not the peer's revision <r>`. On a later page it fails
+   with `changes answered resync-required in the middle of a range`.
+3. Not `ok`: `changes answered neither ok nor resync-required`.
+4. Every id the records name is in `everHeld` (the message of §3.9.3, check 1).
+5. The records are ascending by revision, strictly: `the page's records are not ascending by
+   revision`.
+6. Each record's revision is in `(at, end]`: `a record lies outside the range (at, end]`.
+7. Each record's ids are ascending and distinct (§3.9.3, check 2).
+8. Let `last` be the last record's revision, or `at` when there is none. `through` is in
+   `[last, end]`, else `the page's through T lies outside [last, end]`.
+9. Every model record in `(at, last]` is in the page, else
+   `the feed has no record for revision R`. The model here is every record the peer ever
+   wrote, dropped ones included; checks 10 and 13 use the same model.
+10. No model record is in `(last, through]`, else
+    `the page claims through T and leaves out the record at R`.
+11. `through > at`, or `at = end`: else `the page from <at> made no progress toward <end>`.
+12. `through` is `last` or `end`, else
+    `the page's through T is past its last record and short of <end>`.
+13. For each record: if a page read returned a record at that revision before, it is equal,
+    else `the record at revision R changed after it was written`. Then it equals the model
+    record at that revision, else `the record at revision R differs from its commit`. Each page
+    read, the asking again of check 14 included, records what it returned as "seen"; the check
+    of each commit (§3.9.3) and the calls below the floor (§3.9.4) do not.
+14. **Ownership.** Copy the page's records for the result. Then change what the store returned,
+    each change in its own attempt; a change that throws (a frozen value) is ignored:
+    push onto the page's list of records a copy of its first record with `head` `"tampered"`
+    (when it has a record); then, for each record, set `head` to `"tampered"`, push `"tampered"`
+    onto `added`, and push `"tampered"` onto `removed`. Call `changes(at, to)` again. A refusal
+    fails with `changes refused with <code>`. Check the answer's shape (§3.9.3). It must answer
+    `ok`; every record it returns that shares a revision with a record of the first answer must
+    equal that record, field by field; and no two records may share a revision. Else
+    `changes answered differently after the caller changed what it returned`. The second
+    answer may be another prefix of the range (§4.6 lets a store return any prefix): it may
+    hold more or fewer records than the first. Then checks 4 to 13 run on the second answer
+    too, from the same `at`.
+
+Collect the copies. When `through` is `end`, the read is done. Otherwise set `at = through` and
+call again.
+
+#### 3.9.6 `mark`, revision names and `changes` steps
+
+```json
+{ "op": "mark", "peer": "A", "as": "middle" }
+{ "op": "changes", "peer": "A", "from": { "revision": "A.1" }, "to": { "revision": "A.10", "ahead": 3 },
+  "expect": { "status": "ok", "records": [
+    { "revision": "A.7", "head": "head-7", "added": [], "removed": [] } ] } }
+{ "op": "changes", "peer": "A", "from": { "revision": "A.10", "ahead": 1 },
+  "expect": { "status": "resync-required" } }
+{ "op": "changes", "peer": "A", "from": { "revision": "A.3" }, "to": { "revision": "A.1" },
+  "expect": { "error": "invalid-request" } }
+```
+
+- A **revision name** stands for one revision of one peer. `mark` names the peer's current
+  revision, read with `read()`. `revisionAs` on `append` and `purge` names the revision after the
+  step. In the feed scripts every peer's revision at creation is named `<peer>.0` by a `mark`,
+  and every advance `<peer>.<k>` by `revisionAs`; the k are the model's, so a store's own
+  numbers need not match them. `peer` is a handle name (§3.2); the name belongs to that handle's
+  peer.
+- A **revision reference** is `{"revision": <name>}`, or with `"ahead": k`: the named revision
+  plus the integer k. The vectors use `ahead` only to reach past the current revision. An
+  `ahead` that is not an integer of 0 or more (negative or fractional) is a document defect:
+  `the vector's ahead is not a whole number`.
+- Document defects, whatever the store: a name used before it is given
+  (`the vector names an unknown revision <name>`), a name of another peer
+  (`the vector names revision <name> of another peer`), and a name given twice
+  (`the vector names revision <name> twice`). A `mark` on a peer not yet created fails with
+  `the vector uses peer <peer> before creating it`. A `changes` step that is not a refusal, on a
+  store without a feed, fails with `a changes step on a store that serves no feed`.
+
+A `changes` step resolves `from` and `to` to integers and then:
+
+- `{"error": …}`: one call `changes(from, to)`, which must refuse with a listed code. No paging.
+- Otherwise the step expects `resync-required` when `expect` says so, **or when `from` is below
+  the floor** (§3.9.2): a document is written for a feed that keeps every record, and a store
+  that keeps fewer answers `resync-required` there. Read the pages (§3.9.5) from `from` to `to`,
+  with all their checks, first. Then give the verdict below.
+  - Expected `resync-required`, answered `ok`: fail with
+    `changes answered ok from <from>, below the retention floor F` (when `from` is below F) or
+    `changes answered ok from <from>, and the step expects resync-required`.
+  - Expected `ok`, answered `resync-required`: fail with
+    `changes answered resync-required from <from>, and every record after <from> is retained`.
+  - Expected `ok`: the records collected equal `expect.records`, with each revision name
+    resolved and each corpus name turned into its id, else
+    `changes answered the records of <revisions>, expected <revisions>`.
+
+#### 3.9.7 The runs each witness makes
+
+Run both files against the reference store:
+
+1. As built by default (every record kept, no page limit). This run is the one the 8 pushdown
+   subsets of §1.6 use.
+2. Keeping two records (`{revisions: 2}`), and keeping one.
+3. With pages of one record. Every range of two or more records then takes more than one page;
+   `feed-appends-and-head-only-commits` reads ten records from `A.0`.
+4. Keeping two records, with pages of one record.
+
+Every run passes and skips nothing. A witness whose store has no page limit runs 1 and 2.
+
+#### 3.9.8 What the feed scripts hold
+
+- `feed-appends-and-head-only-commits`: plain appends; a head-only commit, and a head move with a
+  held id; a no-op append; a refused append and a `conflict` (no record); ten records, read
+  whole, from a mark, as a range, as one record and as nothing; `from = to`; `from` equal to the
+  current revision; a `to` clamped; `to < from`, also from the future; a cursor from the future,
+  with and without a `to`.
+- `feed-purge-and-debts`: a purge that releases a held id and an id another peer holds (both in
+  `removed`); purges of an owed id, of an id never held, and an empty purge (no record); a purge
+  that settles a debt and releases another id (only the second in `removed`); an id added,
+  purged and added again; three peers.
+- `feed-a-debt-ends-on-append`: an append that ends a debt adds the id again; a later purge
+  releases it again.
+- `feed-two-peers-interleaved`: two peers committing in turn, sharing bytes, through two handles
+  of one peer. Each feed names only its own peer's ids, and each peer's revisions are its own.
+
+#### 3.9.9 The cost rails
+
+The vectors cannot measure cost. Each witness times two rails from outside, with a monotonic
+clock, in the manner of §6 "Building `scopeSource`": N from 256, doubling until the run takes
+50 ms; the run at N the fastest of five; the run at 8N the fastest of three, stopping at the
+first under the bound; the ratio of the two below 24.
+
+1. **A window read after each record.** Build a peer with N + W head-only commits (W = 64 in the
+   TypeScript witness). Time N calls: call r reads `changes(r, r + W)` and gets W records. A store
+   that walks its feed from the start to find `from` does quadratic work in total.
+2. **Appends under bounded retention.** On a store that keeps N / 4 records, time N head-only
+   appends. A store whose drop copies or shifts what it keeps does quadratic work in total.
+
+Each witness measures each rail red once: against a store that finds `from` by walking the
+feed, and against one whose drop copies the kept records. In the TypeScript witness the first
+measured a ratio of 83 and the second 267.
 
 ## 4. `scope.json`
 
@@ -1013,14 +1306,17 @@ The JSON cannot express these; each witness builds them over this fixture.
 
 ## 6. What the vectors do not cover
 
-- The change feed, the journal, stored views, derived indexes, value-lookup and derived-index
-  anchors, digests. Slice 1 has none of them.
+- The journal, stored views, derived indexes, value-lookup and derived-index anchors, digests.
+  Slice 1 has none of them. The change feed is in §3.9; its cost is a rail of each witness
+  (§3.9.9), and the store options for retention and pages are each witness's own.
 - An unknown anchor kind, a missing posture, and non-finite numbers (§1.2, §1.4.1). JSON or a
   typed witness cannot express them; each witness tests what its language can express.
 - **Ownership** (§1, "A store owns what it holds", "A store never converts"). A conformance run
   hands a store values and compares what comes back; it never changes a value afterwards and
-  never passes a value of the wrong type. A store that keeps the caller's objects, returns its
-  own, or shares a payload's memory passes every vector. Ownership is an obligation of each
+  never passes a value of the wrong type. The one exception is the change feed: the runner
+  changes every page `changes` returned and asks again (§3.9.5, check 14). Elsewhere, a store
+  that keeps the caller's objects, returns its own, or shares a payload's memory passes every
+  vector. Ownership is an obligation of each
   witness and of each store, with its own tests (§7).
 - A purge on a store of class `none`. The scripts that purge are skipped for such a store, so no
   shared step shows that it refuses. Each witness tests that refusal for its own stores (§7,
@@ -1111,6 +1407,10 @@ holds and then reads the store again; the store's answers MUST NOT change.
 8. **A store of class `none`.** Every `purge` refuses `capability-absent`, an empty purge too,
    and changes nothing: the holdings, the head and the revision stay. A witness that has no store
    of class `none` has nothing to test here.
+9. **`changes`** (a witness whose values can be changed after they are returned). Read a page.
+   Change its list of records, each record, and each record's `added` and `removed` lists. Read
+   the same range again: the answer is the one from before. The runner does this on every page
+   (§3.9.5, check 14), so a store that hands out its own lists fails the vectors too.
 
 ## 8. What a witness tests for itself: the runner
 
@@ -1157,11 +1457,63 @@ The table covers at least:
   and more), a delta's appearance; the stored listing and the peer listing.
 - **Requirements:** each one skips exactly its scripts and reports them; each script gets a new
   store.
+- **Stores that must pass.** Right answers the runner must accept: stores whose revisions are the
+  reference store's times 2, times 3 with pages of one record, times 2 keeping two records, and
+  times 3 keeping two records with pages of one record. Each answers every rule of §3.9.1,
+  scaled: `changes(from, to)` asks the reference for `floor(from / k)` to `floor(to / k)`, and a
+  complete page says `through` = the clamped `to`. It refuses `to < from` itself, and answers
+  `resync-required` itself for a `from` above k times the reference's revision. Each passes
+  every vector. A fifth right store answers pages of at most 1, then 2, then 1, then 2 records,
+  call by call: the same request gets another prefix (§3.9.5, check 14).
+- **More feed rows** (second review): revisions times 3 and times 2, two records kept, that
+  answer `ok` just below the floor by reading on past the newest dropped record (§3.9.4, item
+  2); a wrong `current` on the call below the floor only, in a script with no `changes` step;
+  an extra key only on the answer asked again after a change (§3.9.5, check 14); an `ahead`
+  that is negative and one that is fractional (documents); a `changes` step that expects
+  `resync-required` where `ok` is right (a document; it reaches
+  `changes answered ok from <from>, and the step expects resync-required`).
+- **Rows in one witness only.** Each witness names, in its rule-table file, the rows it cannot
+  build and why:
+  - Rust has no row for exact keys (§3.9.3), for a page that is neither `ok` nor
+    `resync-required` (§3.9.5, check 3), or for the store that hands out its live records or
+    live id lists (check 14). Its `ChangeRecord` and `ChangePage` types have exactly the
+    contract's fields and two statuses, and a returned page is owned by the caller, so no
+    store can reach those rules. Rust's row `AnswersTwoWays` (a store that answers the asking
+    again of check 14 differently) stands in for the live rows and holds the re-ask to its
+    message. The shape check on the asking again (TypeScript row "an extra key only on the
+    answer asked again") is type-unreachable in Rust for the same reason.
+  - TypeScript has no `AnswersTwoWays` row. Its rows for live records and live id lists reach
+    the same message, `changes answered differently after the caller changed what it
+    returned`, through the change the runner makes.
+- **The change feed** (§3.9), one wrong store per message of §3.9.3 to §3.9.6, at least:
+  no record for a head-only commit; no record for a commit that adds; two records for one
+  commit; a record for a step that did not advance; a record with another head; one that adds
+  nothing; a settled debt in `removed`; ids out of order inside a record; a commit check that is
+  not `ok`; `changes` that refuses; a silent gap (records dropped, `ok` answered); a resync
+  inside the window; a resync on a later page; a resync with another `current`; a page that is
+  neither `ok` nor `resync-required`; an overstated page (`through` past what the records cover);
+  records out of order; a record outside the range; a `through` past the range; no progress on a
+  range with records; two peers mixed in one feed; a record changed after it was written; a
+  record that differs from its commit the first time it is seen; and a store that declares
+  `{revisions: 2}` and answers `ok` below its floor; a record with an extra key that carries
+  bytes; an `ok` page and a `resync-required` answer with an extra key; a store that hands out
+  the same record objects on every answer; one that hands out the same id lists; a store whose
+  revisions are twice the reference's, with pages of one record, whose partial page says
+  `through = last + 1` (check 12 of §3.9.5); a store whose revisions are three times the
+  reference's, keeping two records, that answers `resync-required` for a `from` between the
+  newest dropped and the oldest kept revision (the floor probe of §3.9.4). Most break the feed
+  only when two or more records are pending, so the check of each commit, a range of one, still passes and the rule's
+  own message is the one that fails. Two messages are shared by the check after every step and
+  the `changes` step ("every record after … is retained", "below the retention floor"). Each
+  needs two rows: one with a script that has no `changes` step, and one with a store that is
+  wrong only when a `to` is given, which the check after every step never gives.
 - **Documents:** an unknown `format`; a corpus id that does not recompute and is not `forged`; a
   purge `claim` with a key other than `unprovable` and `proven`; an unknown script requirement;
-  a script `requires` that is `null`. A defect of one script's `requires` is a failure of that
-  script, reported by name with the run's other failures, and the run closes that script's
-  store.
+  a script `requires` that is `null`; a revision name that is unknown, of another peer, or given
+  twice; a `mark` before its peer; `changes` expectations that are wrong; a `changes` step on a
+  store without a feed; a profile whose `changeRetention` is malformed. A defect of one
+  script's `requires` is a failure of that script, reported by name with the run's other
+  failures, and the run closes that script's store.
 
 A rule a wrapped store cannot reach is listed by name in the test file, with the reason. Then the
 table itself is checked once: for each check of the runner, remove it and see the table go red.

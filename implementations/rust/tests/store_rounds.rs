@@ -30,9 +30,9 @@ use rhizomatic::schema::{HyperSchema, SchemaRegistry};
 use rhizomatic::set::{make_delta, make_negation_claims, DeltaSet, DeltaSource};
 use rhizomatic::store::{
     collect_delta_set, negated_ids, scope_source, target_entities, Admission, Anchor, AppendResult,
-    ArrivalRecord, ErasurePosture, PeerErasure, PeerExporter, PeerStore, PurgeOutcome, PurgeReport,
-    Pushdown, PushdownFields, Revision, ScopeRequest, ScopeResult, ScopeSource, Snapshot, Store,
-    StoreError, StoreErrorCode, VerifiedDelta,
+    ArrivalRecord, ChangePage, ErasurePosture, PeerErasure, PeerExporter, PeerStore, PurgeOutcome,
+    PurgeReport, Pushdown, PushdownFields, Revision, ScopeRequest, ScopeResult, ScopeSource,
+    Snapshot, Store, StoreError, StoreErrorCode, VerifiedDelta,
 };
 use rhizomatic::store_read::{
     fetch_scope, read_anchored, read_anchored_with_memo, read_full_surface, EvalMemo, FetchCache,
@@ -659,6 +659,9 @@ impl PeerStore for TracingPeer {
     }
     fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreError> {
         self.inner.purge(ids)
+    }
+    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreError> {
+        self.inner.changes(from, to)
     }
 }
 
@@ -1603,6 +1606,9 @@ impl PeerStore for ScriptedPeer {
     }
     fn purge(&self, ids: &[String]) -> Result<PurgeReport, StoreError> {
         self.inner.purge(ids)
+    }
+    fn changes(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreError> {
+        self.inner.changes(from, to)
     }
 }
 

@@ -80,8 +80,11 @@ tests/
   store_broken.rs   stores with one fault each; the conformance runner must fail each one
   store_runner.rs   the conformance runner's own rules, against a class-proven stand-in store
   store_runner_rules.rs  the runner-rules table: one wrong store per runner rule (README §8)
+  store_feed_rules.rs    the change-feed rules table (README §3.9, §8), broken feeds, controls
+  store_feed.rs     the memory store's feed where the vectors cannot reach: bounds, options, purged ids
   store_cost.rs     the cost rail: index work does not grow with unrelated deltas; nothing scans;
-                    building a scope source scales linearly, timed at N and 8N
+                    building a scope source, a feed window read and appends under bounded
+                    retention scale linearly, timed at N and 8N
   store_open.rs     schemes, requirements, close, and an anchored read over a fetched scope
   store_rounds.rs   every case of ../../vectors/store/rounds.json read five ways, wrong readers,
                     wrong memos, what the memo saves, cost
