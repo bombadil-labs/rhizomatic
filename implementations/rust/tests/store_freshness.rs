@@ -1979,7 +1979,7 @@ fn scales_linearly(what: &str, run: impl Fn(usize) -> Duration) -> Option<String
 
 /// A peer with `held` unrelated deltas and `earlier` head-only commits before one capture, and
 /// 16 unrelated records after it.
-fn costed(held: usize, earlier: usize) -> (MemoryStore, Box<dyn PeerStore>, Capture) {
+fn costed(held: usize, earlier: usize) -> Built {
     let store = MemoryStore::new();
     let peer = store
         .create_peer("peer:cost", ErasurePosture::Unproven)
@@ -2003,8 +2003,10 @@ fn costed(held: usize, earlier: usize) -> (MemoryStore, Box<dyn PeerStore>, Capt
     (store, peer, capture)
 }
 
-fn cost_rail(what: &str, build: fn(usize) -> (MemoryStore, Box<dyn PeerStore>, Capture)) {
-    type Built = (MemoryStore, Box<dyn PeerStore>, Capture);
+/// A store, its peer, and a capture of the peer.
+type Built = (MemoryStore, Box<dyn PeerStore>, Capture);
+
+fn cost_rail(what: &str, build: fn(usize) -> Built) {
     let built: std::cell::RefCell<BTreeMap<usize, Built>> = Default::default();
     let run = |n: usize| {
         let mut built = built.borrow_mut();

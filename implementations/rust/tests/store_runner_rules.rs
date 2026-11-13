@@ -148,6 +148,11 @@ enum Wrong {
     ExportClaims,
     StoredDrop,
     PeersReverse,
+    // Histories (§1.3).
+    HistoryEmpty,
+    HistoryShared,
+    OpenedHistory,
+    SnapshotHistory,
 }
 
 /// What the wrapped store declares about itself.
@@ -367,7 +372,12 @@ impl RigPeer {
 
 impl PeerStore for RigPeer {
     fn history(&self) -> &str {
-        self.inner.history()
+        match self.wrong {
+            Wrong::HistoryEmpty if !self.opened => "",
+            Wrong::HistoryShared => "one-history-for-every-peer",
+            Wrong::OpenedHistory if self.opened => "another-history",
+            _ => self.inner.history(),
+        }
     }
     fn id(&self) -> &str {
         &self.id
@@ -710,7 +720,11 @@ fn reorder<T>(wrong: Wrong, drop: Wrong, reverse: Wrong, items: &mut Vec<T>) {
 
 impl Snapshot for RigSnapshot {
     fn history(&self) -> &str {
-        self.inner.history()
+        match self.wrong {
+            Wrong::HistoryShared => "one-history-for-every-peer",
+            Wrong::SnapshotHistory => "another-history",
+            _ => self.inner.history(),
+        }
     }
     fn revision(&self) -> Revision {
         self.revision
@@ -1135,6 +1149,35 @@ const fn doc_row(
 use Wrong as W;
 
 const TABLE: &[Row] = &[
+    // Histories (§1.3).
+    row(
+        "a created handle whose history is empty",
+        W::HistoryEmpty,
+        PLAIN,
+        &["the peer's history is not a non-empty string"],
+        SC,
+    ),
+    row(
+        "two peers of one store that share a history",
+        W::HistoryShared,
+        PLAIN,
+        &["two peers of one store share the history one-history-for-every-peer"],
+        SC,
+    ),
+    row(
+        "an opened handle that reports another history",
+        W::OpenedHistory,
+        PLAIN,
+        &["a handle of A reports another history than the peer's"],
+        SC,
+    ),
+    row(
+        "a snapshot that reports another history",
+        W::SnapshotHistory,
+        PLAIN,
+        &["a snapshot of", "reports another history than the peer's"],
+        SC,
+    ),
     // Refusals (README §3 "Refusals", §3.7).
     row(
         "createPeer: a refusal code outside the list",
