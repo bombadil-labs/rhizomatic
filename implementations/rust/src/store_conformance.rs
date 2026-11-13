@@ -25,7 +25,7 @@ use crate::store::{
     negated_ids, target_entities, Admission, Anchor, AppendResult, ArrivalRecord, ChangePage,
     ChangeRecord, ChangeRetention, ErasureClaim, ErasureClass, ErasurePosture, PeerStore, Pushdown,
     PushdownFields, Revision, ScopeRequest, ScopeResult, Snapshot, Store, StoreError,
-    StoreErrorCode, StoreProfile, SurfaceState, VerifiedDelta, PURGE_BOUNDARY,
+    StoreErrorCode, StoreProfile, SurfaceState, VerifiedDelta, MAX_REVISION, PURGE_BOUNDARY,
 };
 use crate::types::Delta;
 
@@ -282,7 +282,7 @@ impl Keep {
         match retention {
             ChangeRetention::None => Self::NoFeed,
             ChangeRetention::Unbounded => Self::All,
-            ChangeRetention::Revisions(0) => Self::Malformed,
+            ChangeRetention::Revisions(n) if n == 0 || n > MAX_REVISION => Self::Malformed,
             ChangeRetention::Revisions(n) => Self::Last(n),
         }
     }
@@ -318,6 +318,18 @@ impl FeedModel {
         };
         let dropped = self.records.len() - kept;
         (dropped, self.revisions[dropped])
+    }
+
+    /// A `resync-required` answer carries the peer's current revision.
+    fn resync_current(&self, carried: Revision) -> Check {
+        let current = self.current();
+        if carried != current {
+            return Err(format!(
+                "a resync answer carries current {}, not the peer's revision {}",
+                carried.0, current.0
+            ));
+        }
+        Ok(())
     }
 
     fn record(&self, revision: Revision) -> Option<&ChangeRecord> {
@@ -362,14 +374,95 @@ fn revisions_of(records: &[ChangeRecord]) -> Vec<u64> {
     records.iter().map(|record| record.revision.0).collect()
 }
 
-/// Check 14 of §3.9.5: the caller changes what `changes` returned and asks again; the answer
-/// does not change. A Rust store returns owned values, so a change to them cannot reach the
-/// store through the page; the check still asks again and holds the second answer to the first,
-/// which catches a store that answers one range two ways.
-fn owned(
-    store: &dyn PeerStore,
+/// Checks 4 to 13 of §3.9.5 on one `ok` page read from `at`, with `end` the clamped `to`.
+fn check_page(
+    peer: &str,
+    model: &mut FeedModel,
     at: Revision,
-    to: Option<Revision>,
+    end: Revision,
+    records: &[ChangeRecord],
+    through: Revision,
+) -> Check {
+    model.names_only_held(peer, records)?;
+    if records
+        .windows(2)
+        .any(|pair| pair[0].revision >= pair[1].revision)
+    {
+        return Err("the page's records are not ascending by revision".into());
+    }
+    if records.iter().any(|r| r.revision <= at || r.revision > end) {
+        return Err(format!(
+            "a record lies outside the range ({}, {}]",
+            at.0, end.0
+        ));
+    }
+    ids_ascending(records)?;
+    let last = records.last().map_or(at, |record| record.revision);
+    if through < last || through > end {
+        return Err(format!(
+            "the page's through {} lies outside [{}, {}]",
+            through.0, last.0, end.0
+        ));
+    }
+    // The model is every record the peer ever wrote, dropped ones included.
+    for expected in model.records.iter() {
+        let r = expected.revision;
+        if r > at && r <= last && !records.iter().any(|got| got.revision == r) {
+            return Err(format!("the feed has no record for revision {}", r.0));
+        }
+        if r > last && r <= through {
+            return Err(format!(
+                "the page claims through {} and leaves out the record at {}",
+                through.0, r.0
+            ));
+        }
+    }
+    if through <= at && at != end {
+        return Err(format!(
+            "the page from {} made no progress toward {}",
+            at.0, end.0
+        ));
+    }
+    if through != last && through != end {
+        return Err(format!(
+            "the page's through {} is past its last record and short of {}",
+            through.0, end.0
+        ));
+    }
+    for record in records {
+        let r = record.revision;
+        match model.seen.get(&r) {
+            Some(first) if first != record => {
+                return Err(format!(
+                    "the record at revision {} changed after it was written",
+                    r.0
+                ))
+            }
+            Some(_) => {}
+            None => {
+                model.seen.insert(r, record.clone());
+            }
+        }
+        if model.record(r) != Some(record) {
+            return Err(format!(
+                "the record at revision {} differs from its commit",
+                r.0
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// Check 14 of §3.9.5: the caller changes what `changes` returned and asks again. A Rust store
+/// returns owned values, so a change to them cannot reach the store through the page; the check
+/// still asks again. The second answer may be another prefix of the range (§4.13 reading 23):
+/// only records that share a revision with the first answer must equal it, no revision appears
+/// twice, and checks 4 to 13 run on it from the same `at`.
+fn asked_again(
+    store: &dyn PeerStore,
+    peer: &str,
+    model: &mut FeedModel,
+    (at, to, end): (Revision, Option<Revision>, Revision),
     first: &[ChangeRecord],
 ) -> Check {
     let mut returned = first.to_vec();
@@ -387,17 +480,18 @@ fn owned(
     drop(returned);
     let differently =
         || "changes answered differently after the caller changed what it returned".to_string();
-    let ChangePage::Ok { records, .. } = store.changes(at, to).map_err(changes_refused)? else {
+    let ChangePage::Ok { records, through } = store.changes(at, to).map_err(changes_refused)?
+    else {
         return Err(differently());
     };
     let mut revisions = BTreeSet::new();
     for record in &records {
         let before = first.iter().find(|r| r.revision == record.revision);
-        if before != Some(record) || !revisions.insert(record.revision) {
+        if before.is_some_and(|before| before != record) || !revisions.insert(record.revision) {
             return Err(differently());
         }
     }
-    Ok(())
+    check_page(peer, model, at, end, &records, through)
 }
 
 /// What a read of pages ended with (§3.9.5).
@@ -421,12 +515,7 @@ fn read_pages(
     loop {
         let (records, through) = match store.changes(at, to).map_err(changes_refused)? {
             ChangePage::ResyncRequired { current: c } if at == from => {
-                if c != current {
-                    return Err(format!(
-                        "a resync answer carries current {}, not the peer's revision {}",
-                        c.0, current.0
-                    ));
-                }
+                model.resync_current(c)?;
                 return Ok(Pages::Resync);
             }
             ChangePage::ResyncRequired { .. } => {
@@ -434,73 +523,8 @@ fn read_pages(
             }
             ChangePage::Ok { records, through } => (records, through),
         };
-        model.names_only_held(peer, &records)?;
-        if records
-            .windows(2)
-            .any(|pair| pair[0].revision >= pair[1].revision)
-        {
-            return Err("the page's records are not ascending by revision".into());
-        }
-        if records.iter().any(|r| r.revision <= at || r.revision > end) {
-            return Err(format!(
-                "a record lies outside the range ({}, {}]",
-                at.0, end.0
-            ));
-        }
-        ids_ascending(&records)?;
-        let last = records.last().map_or(at, |record| record.revision);
-        if through < last || through > end {
-            return Err(format!(
-                "the page's through {} lies outside [{}, {}]",
-                through.0, last.0, end.0
-            ));
-        }
-        for expected in model.records.iter() {
-            let r = expected.revision;
-            if r > at && r <= last && !records.iter().any(|got| got.revision == r) {
-                return Err(format!("the feed has no record for revision {}", r.0));
-            }
-            if r > last && r <= through {
-                return Err(format!(
-                    "the page claims through {} and leaves out the record at {}",
-                    through.0, r.0
-                ));
-            }
-        }
-        if through <= at && at != end {
-            return Err(format!(
-                "the page from {} made no progress toward {}",
-                at.0, end.0
-            ));
-        }
-        if through != last && through != end {
-            return Err(format!(
-                "the page's through {} is past its last record and short of {}",
-                through.0, end.0
-            ));
-        }
-        for record in &records {
-            let r = record.revision;
-            match model.seen.get(&r) {
-                Some(first) if first != record => {
-                    return Err(format!(
-                        "the record at revision {} changed after it was written",
-                        r.0
-                    ))
-                }
-                Some(_) => {}
-                None => {
-                    model.seen.insert(r, record.clone());
-                }
-            }
-            if model.record(r) != Some(record) {
-                return Err(format!(
-                    "the record at revision {} differs from its commit",
-                    r.0
-                ));
-            }
-        }
-        owned(store, at, to, &records)?;
+        check_page(peer, model, at, end, &records, through)?;
+        asked_again(store, peer, model, (at, to, end), &records)?;
         collected.extend(records);
         if through == end {
             return Ok(Pages::Ok(collected));
@@ -777,14 +801,23 @@ impl<'a> Run<'a> {
                 ));
             }
             if dropped > 0 {
+                // One call each, with no `to` and no paging: at the newest dropped record's
+                // predecessor, and just below the floor where revisions skip values.
                 let below = model.revisions[dropped - 1];
-                if let ChangePage::Ok { .. } =
-                    store.changes(below, None).map_err(changes_refused)?
-                {
-                    return Err(format!(
-                        "changes answered ok from {}, below the retention floor {}",
-                        below.0, floor.0
-                    ));
+                let mut asks = vec![below];
+                if floor.0 - 1 > below.0 {
+                    asks.push(Revision(floor.0 - 1));
+                }
+                for from in asks {
+                    match store.changes(from, None).map_err(changes_refused)? {
+                        ChangePage::Ok { .. } => {
+                            return Err(format!(
+                                "changes answered ok from {}, below the retention floor {}",
+                                from.0, floor.0
+                            ))
+                        }
+                        ChangePage::ResyncRequired { current } => model.resync_current(current)?,
+                    }
                 }
                 // The floor probe: a `from` above the floor and below the oldest kept record
                 // answers `ok`. Only revisions that skip values leave room for one.
@@ -837,7 +870,9 @@ impl<'a> Run<'a> {
     fn reference(&self, v: &Value, peer: &str) -> Check<Revision> {
         let revision = self.named(text(v, "revision")?, peer)?;
         let ahead = match v.get("ahead") {
-            Some(_) => whole(v, "ahead")?,
+            Some(ahead) => ahead
+                .as_u64()
+                .ok_or("the vector's ahead is not a whole number")?,
             None => 0,
         };
         Ok(Revision(revision.0 + ahead))

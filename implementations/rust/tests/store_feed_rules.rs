@@ -17,7 +17,9 @@
 //!   enum of those two answers, so no store can give a third.
 //! - **Exact keys** (§3.9.3: a record with an extra key that carries bytes, an `ok` page or a
 //!   `resync-required` answer with an extra key, a value that is not an object, `records` that
-//!   is not a list). `ChangeRecord` and `ChangePage` have exactly the contract's fields.
+//!   is not a list), and its counterpart on the asking again of check 14 (the TypeScript row "an
+//!   extra key only on the answer asked again"). `ChangeRecord` and `ChangePage` have exactly
+//!   the contract's fields.
 //! - **Ownership through shared values** (§3.9.5 check 14: a store that hands out the same
 //!   record objects, or the same id lists, on every answer). A page is owned by the caller, so
 //!   changing it cannot reach the store. The runner still asks again; the row
@@ -35,6 +37,7 @@ use rhizomatic::store::{
     Admission, AppendResult, ArrivalRecord, ChangePage, ChangeRecord, ChangeRetention,
     ErasurePosture, Exporter, PeerErasure, PeerStore, PurgeOutcome, PurgeReport, Revision,
     ScopeRequest, ScopeResult, Snapshot, Store, StoreError, StoreErrorCode, StoreProfile,
+    MAX_REVISION,
 };
 use rhizomatic::store_conformance::{
     run_store_conformance, SkippedScript, StoreConformanceError, StoreConformanceReport,
@@ -73,6 +76,12 @@ enum Wrong {
     ThroughShort,
     ResyncAboveFloor,
     AnswersTwoWays,
+    ReadsOnPastFloor,
+    WrongCurrentBelowFloor,
+    RefusesBelowFloor,
+    IdsOutOfOrderInRange,
+    /// A right store: pages of at most 1, 2, 1, 2 records, call by call.
+    AlternatesPageCap,
     ChangedAfterWritten,
     DiffersFirstSeen,
     // Retention (§3.9.4, §3.9.6).
@@ -127,6 +136,8 @@ const KEEPS_MORE: Setup = Setup {
     declared: Some(ChangeRetention::Revisions(2)),
     ..PLAIN
 };
+/// Keeps two records, as it declares.
+const KEEPS_TWO: Setup = scaled(1, Some(2), None);
 const MALFORMED: Setup = Setup {
     declared: Some(ChangeRetention::Revisions(0)),
     ..PLAIN
@@ -147,6 +158,8 @@ struct Books {
     committed: BTreeSet<String>,
     /// The page a truncated read ended at, for each peer.
     pending: BTreeMap<String, Revision>,
+    /// How many `changes` calls each peer has answered.
+    calls: BTreeMap<String, usize>,
     /// The bounds of each peer's last `changes` call, and how many calls in a row asked them.
     last: BTreeMap<String, (Revision, Option<Revision>, usize)>,
     /// For each purge that advanced: every target that is not `not-held`, a settled debt too.
@@ -259,7 +272,17 @@ impl FeedyPeer {
             return Ok(ChangePage::ResyncRequired { current });
         }
         let down = |r: Revision| Revision(r.0 / k);
-        match self.inner.changes(down(from), to.map(down))? {
+        let mut answer = self.inner.changes(down(from), to.map(down))?;
+        if self.wrong == Wrong::ReadsOnPastFloor
+            && from.0 % k != 0
+            && matches!(answer, ChangePage::ResyncRequired { .. })
+        {
+            // Reads on past the newest dropped record, which goes missing silently.
+            answer = self
+                .inner
+                .changes(Revision(down(from).0 + 1), to.map(down))?;
+        }
+        match answer {
             ChangePage::Ok { records, through } => {
                 let end = to.map_or(current, |to| to.min(current));
                 // The reference's page is complete when it reaches its own clamped `to`.
@@ -399,8 +422,13 @@ impl PeerStore for FeedyPeer {
         let (mut records, mut through) = match self.feed(from, to)? {
             ChangePage::Ok { records, through } => (records, through),
             ChangePage::ResyncRequired { current } => {
+                let below_floor = from <= current;
                 let current = match w {
                     Wrong::ResyncCurrent => Revision(current.0 + 1),
+                    Wrong::WrongCurrentBelowFloor if below_floor => Revision(current.0 + 1),
+                    Wrong::RefusesBelowFloor if below_floor => {
+                        return Err(refusal(StoreErrorCode::InvalidRequest))
+                    }
                     _ => current,
                 };
                 return Ok(ChangePage::ResyncRequired { current });
@@ -451,6 +479,25 @@ impl PeerStore for FeedyPeer {
                 }
             }
             Wrong::IdsOutOfOrder => records.iter_mut().for_each(|r| r.added.reverse()),
+            Wrong::IdsOutOfOrderInRange if several => {
+                records.iter_mut().for_each(|r| r.added.reverse())
+            }
+            Wrong::AlternatesPageCap => {
+                let cap = {
+                    let mut books = self.books.borrow_mut();
+                    let calls = books.calls.entry(self.id.clone()).or_default();
+                    *calls += 1;
+                    if *calls % 2 == 1 {
+                        1
+                    } else {
+                        2
+                    }
+                };
+                if records.len() > cap {
+                    records.truncate(cap);
+                    through = records[cap - 1].revision;
+                }
+            }
             Wrong::MixesPeers => self.mixed(&mut records)?,
             Wrong::SilentGap if several => {
                 records.remove(0);
@@ -624,6 +671,30 @@ fn a_record_too_few(vectors: &mut StoreVectors) {
 fn a_resync_where_the_feed_is_kept(vectors: &mut StoreVectors) {
     let step = changes_from(vectors, FEED_SCRIPTS[0], "A.1");
     step["expect"] = serde_json::json!({ "status": "resync-required" });
+}
+
+/// Only the scripts with no `changes` step: the check after every step alone sees the store.
+fn without_feed_scripts(vectors: &mut StoreVectors) {
+    vectors.scripts["scripts"]
+        .as_array_mut()
+        .unwrap()
+        .retain(|s| !FEED_SCRIPTS.contains(&s["name"].as_str().unwrap()));
+}
+
+fn an_ahead(vectors: &mut StoreVectors, ahead: Value) {
+    let step = steps(vectors, FEED_SCRIPTS[0])
+        .iter_mut()
+        .find(|s| s["op"] == "changes" && s["from"].get("ahead").is_some())
+        .unwrap();
+    step["from"]["ahead"] = ahead;
+}
+
+fn a_negative_ahead(vectors: &mut StoreVectors) {
+    an_ahead(vectors, serde_json::json!(-1));
+}
+
+fn a_fractional_ahead(vectors: &mut StoreVectors) {
+    an_ahead(vectors, serde_json::json!(1.5));
 }
 
 fn feed_scripts_without_requires(vectors: &mut StoreVectors) {
@@ -840,6 +911,46 @@ const TABLE: &[Row] = &[
         &["changes answered differently after the caller changed what it returned"],
         SC,
     ),
+    Row {
+        rule:
+            "ok just below the floor, revisions times 3, reading on past the newest dropped record",
+        wrong: W::ReadsOnPastFloor,
+        setup: scaled(3, Some(2), None),
+        doc: None,
+        messages: &["below the retention floor"],
+        docs: SC,
+    },
+    Row {
+        rule:
+            "ok just below the floor, revisions times 2, reading on past the newest dropped record",
+        wrong: W::ReadsOnPastFloor,
+        setup: scaled(2, Some(2), None),
+        doc: None,
+        messages: &["below the retention floor"],
+        docs: SC,
+    },
+    Row {
+        rule: "a wrong current on the call below the floor only, with no changes step",
+        wrong: W::WrongCurrentBelowFloor,
+        setup: KEEPS_TWO,
+        doc: Some(without_feed_scripts),
+        messages: &["a resync answer carries current"],
+        docs: SC,
+    },
+    Row {
+        rule: "changes refuses where it must answer resync-required",
+        wrong: W::RefusesBelowFloor,
+        setup: KEEPS_TWO,
+        doc: Some(without_feed_scripts),
+        messages: &["changes refused with invalid-request"],
+        docs: SC,
+    },
+    row(
+        "ids out of order inside a record, in a range of two or more",
+        W::IdsOutOfOrderInRange,
+        &["a record's ids are not ascending and distinct"],
+        SC,
+    ),
     row(
         "a record changed after it was written",
         W::ChangedAfterWritten,
@@ -868,6 +979,17 @@ const TABLE: &[Row] = &[
         doc: None,
         messages: &["below the retention floor"],
         docs: S,
+    },
+    Row {
+        rule: "a profile that keeps more records than 2^53 - 1",
+        wrong: W::Nothing,
+        setup: Setup {
+            declared: Some(ChangeRetention::Revisions(MAX_REVISION + 1)),
+            ..PLAIN
+        },
+        doc: None,
+        messages: &["the profile's changeRetention is not none, unbounded or {revisions: n}"],
+        docs: SC,
     },
     Row {
         rule: "a profile whose changeRetention is malformed",
@@ -913,6 +1035,18 @@ const TABLE: &[Row] = &[
         PLAIN,
         a_resync_where_the_feed_is_kept,
         &["changes answered ok from 1, and the step expects resync-required"],
+    ),
+    doc_row(
+        "documents: a negative ahead",
+        PLAIN,
+        a_negative_ahead,
+        &["the vector's ahead is not a whole number"],
+    ),
+    doc_row(
+        "documents: a fractional ahead",
+        PLAIN,
+        a_fractional_ahead,
+        &["the vector's ahead is not a whole number"],
     ),
     doc_row(
         "documents: a changes step on a store without a feed",
@@ -986,7 +1120,7 @@ fn every_wrong_feed_in_the_table_is_distinct() {
 }
 
 /// The controls: the faithful wrapper passes; so do stores whose revisions skip values, a store
-/// whose pages hold one record, and stores that keep two records and one, with and without pages
+/// whose pages hold one record, a store whose page cap alternates 1, 2, 1, 2, and stores that keep two records and one, with and without pages
 /// of one record. None of them skips a script.
 #[test]
 fn the_same_feeds_conform_where_no_rule_forbids_them() {
@@ -999,24 +1133,26 @@ fn the_same_feeds_conform_where_no_rule_forbids_them() {
         ..PLAIN
     };
     let setups = [
-        PLAIN,
+        (W::Nothing, PLAIN),
         // README §8, "Stores that must pass": revisions that skip values (§4.13 reading 21).
-        DOUBLED,
-        scaled(3, None, Some(1)),
-        scaled(2, Some(2), None),
-        scaled(3, Some(2), Some(1)),
-        paged(ChangeRetention::Unbounded, Some(1)),
-        paged(ChangeRetention::Revisions(2), None),
-        paged(ChangeRetention::Revisions(1), None),
-        paged(ChangeRetention::Revisions(2), Some(1)),
+        (W::Nothing, DOUBLED),
+        (W::Nothing, scaled(3, None, Some(1))),
+        (W::Nothing, scaled(2, Some(2), None)),
+        (W::Nothing, scaled(3, Some(2), Some(1))),
+        // The fifth: the same request gets another prefix (§4.13 reading 23).
+        (W::AlternatesPageCap, PLAIN),
+        (W::Nothing, paged(ChangeRetention::Unbounded, Some(1))),
+        (W::Nothing, paged(ChangeRetention::Revisions(2), None)),
+        (W::Nothing, paged(ChangeRetention::Revisions(1), None)),
+        (W::Nothing, paged(ChangeRetention::Revisions(2), Some(1))),
     ];
-    for setup in setups {
-        let report = run_with(W::Nothing, setup, &vectors())
-            .unwrap_or_else(|failures| panic!("{setup:?}: {failures}"));
+    for (wrong, setup) in setups {
+        let report = run_with(wrong, setup, &vectors())
+            .unwrap_or_else(|failures| panic!("{wrong:?} {setup:?}: {failures}"));
         assert_eq!(
             (report.passed.len(), report.skipped.len()),
             (25 + 15, 0),
-            "{setup:?}"
+            "{wrong:?} {setup:?}"
         );
     }
 }
