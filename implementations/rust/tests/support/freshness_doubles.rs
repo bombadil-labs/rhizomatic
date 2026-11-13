@@ -230,3 +230,35 @@ impl Snapshot for Snap {
         self.inner.release()
     }
 }
+
+/// The memory store with a profile that declares no change feed.
+pub struct DeclaresNoFeed {
+    inner: MemoryStore,
+    profile: StoreProfile,
+}
+
+impl DeclaresNoFeed {
+    pub fn new(inner: MemoryStore) -> Self {
+        let mut profile = inner.profile().clone();
+        profile.change_retention = rhizomatic::store::ChangeRetention::None;
+        Self { inner, profile }
+    }
+}
+
+impl Store for DeclaresNoFeed {
+    fn profile(&self) -> &StoreProfile {
+        &self.profile
+    }
+    fn create_peer(&self, id: &str, e: ErasurePosture) -> Result<Box<dyn PeerStore>, StoreError> {
+        self.inner.create_peer(id, e)
+    }
+    fn peer(&self, id: &str) -> Result<Box<dyn PeerStore>, StoreError> {
+        self.inner.peer(id)
+    }
+    fn open_admin(&self) -> Box<dyn Exporter> {
+        self.inner.open_admin()
+    }
+    fn close(&self) {
+        self.inner.close()
+    }
+}
