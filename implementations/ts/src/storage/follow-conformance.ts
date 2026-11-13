@@ -260,10 +260,12 @@ class FollowRun {
         `the vector expects current ${expect.current}, and the peer is at ${model.current}`,
       );
     } else {
-      check(
-        this.run.resolve({ revision: expect.position }, f.handle) === model.current,
-        `the vector pulls to ${expect.position}, and the peer is at ${model.current}`,
-      );
+      // A step that pulls once stands where its one page ends; any other step at the peer.
+      if (step.once !== true)
+        check(
+          this.run.resolve({ revision: expect.position }, f.handle) === model.current,
+          `the vector pulls to ${expect.position}, and the peer is at ${model.current}`,
+        );
       // A store that keeps fewer records than the document's answers resync-required below its
       // floor, whatever the document says about a feed that keeps every record.
       const at = f.cursor.position;
@@ -315,10 +317,15 @@ class FollowRun {
       read.push(...pull.records.map((r) => r.revision));
       for (const { delta } of pull.deltas) delivered.add(delta.id);
       this.apply(f, pull);
-      if (pull.position.revision === model.current) break;
+      if (step.once === true || pull.position.revision === model.current) break;
     }
 
     if (expect.status !== "ok") return;
+    const stands = f.cursor.position.revision;
+    if (step.once === true) {
+      const want = this.run.resolve({ revision: expect.position }, f.handle);
+      check(stands === want, `the pull stands at ${stands}, expected ${want}`);
+    }
     const records = expect.records.map((name) => this.run.resolve({ revision: name }, f.handle));
     check(
       revisions(read) === revisions(records),
@@ -332,7 +339,35 @@ class FollowRun {
     );
     if (expect.pulls !== undefined)
       check(pulls === expect.pulls, `the follower took ${pulls} pulls, expected ${expect.pulls}`);
-    this.quiet(f);
+    if (stands === model.current) this.quiet(f);
+    else this.settled(f, model, stands);
+  }
+
+  /**
+   * Between quiet points (SPEC-18 §4.6): after a pull to p, the mirror equals the holdings at p
+   * for every id that no record after p names. The runner commits nothing during a pull, so the
+   * holdings at p of such an id are its holdings now.
+   */
+  private settled(f: Follower, model: NonNullable<ReturnType<Run["model"]>>, p: number): void {
+    const later = new Set(
+      model.records.filter((r) => r.revision > p).flatMap((r) => [...r.added, ...r.removed]),
+    );
+    const held = this.run.holdings.get(f.owner)!;
+    for (const id of new Set([...f.mirror.keys(), ...held.keys()])) {
+      if (later.has(id)) continue;
+      const a = f.mirror.get(id)?.arrival;
+      const b = held.get(id)?.arrival;
+      check(
+        a === undefined
+          ? b === undefined
+          : b !== undefined &&
+              a.at === b.at &&
+              a.sequence === b.sequence &&
+              a.transfer === b.transfer &&
+              a.sender === b.sender,
+        `after the pull to ${p} the follower's mirror differs from the holdings at ${id.slice(0, 12)}`,
+      );
+    }
   }
 
   /** README §10.3, checks 4 to 10: one ok pull against the runner's model and bookkeeping. */
@@ -395,7 +430,7 @@ class FollowRun {
 
   /**
    * The follower's rule (SPEC-18 §4.6): for each record in order, delete its `removed`, then set
-   * each of its `added` to the delivered delta, or leave it absent when none was delivered.
+   * each of its `added` to the delivered delta, or delete it when none was delivered.
    */
   private apply(f: Follower, pull: Extract<Pull, { status: "ok" }>): void {
     const delivered = new Map(pull.deltas.map((d) => [d.delta.id, d]));
@@ -404,6 +439,7 @@ class FollowRun {
       for (const id of record.added) {
         const delta = delivered.get(id);
         if (delta !== undefined) f.mirror.set(id, delta);
+        else f.mirror.delete(id);
       }
     }
   }

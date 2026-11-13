@@ -1,12 +1,13 @@
-// Following the change feed (SPEC-18 proposal §4.6, "Following the feed"). A follower reads a
-// peer's state on one snapshot, takes that snapshot's position, and then pulls the records after
-// it, one page per pull, with the bytes of every added id the peer still holds. It never hands
-// out the bytes of a purged delta (plan decision O6).
+// Following the change feed (SPEC-18 proposal §4.6, "Following the feed"). A follower takes the
+// position of a snapshot, fills a full mirror of the peer (from that snapshot, or from an export
+// taken after it), and then pulls the records after the position, one page per pull, with the
+// bytes of every added id the peer still holds. It never hands out the bytes of a purged delta
+// (plan decision O6).
 //
 // A follower that applies each ok pull in order (for each record: delete its `removed`, then set
-// each of its `added` to the delivered delta, or leave it absent when none was delivered) holds
-// exactly the peer's holdings, with their arrival records, whenever its cursor stands at the
-// peer's current revision.
+// each of its `added` to the delivered delta, or delete it when none was delivered) holds exactly
+// the peer's holdings, with their arrival records, whenever its cursor stands at the peer's
+// current revision. A follower that keeps only a scope uses `checkFresh` instead.
 
 import { compareUtf8 } from "../delta/cbor.js";
 import { LOCAL_HISTORY_PREFIX } from "./freshness.js";

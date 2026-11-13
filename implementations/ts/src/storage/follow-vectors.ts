@@ -129,7 +129,15 @@ class Case {
       peer,
       history: how.historyOf ?? peer,
       revision: state.revision + (how.ahead ?? 0),
-      mirrors: sound ? new Map(PROOF_PAGES.map((k) => [k, start()])) : undefined,
+      // A case that pins its page size is read only in pages of that size.
+      mirrors: sound
+        ? new Map(
+            (this.store?.changePageSize === undefined
+              ? PROOF_PAGES
+              : [this.store.changePageSize]
+            ).map((k) => [k, start()]),
+          )
+        : undefined,
     });
     this.steps.push({
       op: "follow",
@@ -150,39 +158,50 @@ class Case {
     return n > kept ? state.feed[n - kept - 1]!.revision : 0;
   }
 
-  pull(as: string): this {
+  /**
+   * A pull step: pulls until the follower stands at the peer's revision; with `once`, exactly
+   * one pull, in a case whose store pins its page size and retention.
+   */
+  pull(as: string, once = false): this {
     const f = this.followers.get(as)!;
     const state = this.state(f.peer);
     const current = `${f.peer}.${state.revision}`;
+    const size = this.store?.changePageSize;
+    if (once && (size === undefined || this.store?.changeRetention === undefined))
+      throw new Error(
+        "follow vectors: a single pull needs a case that pins its page and retention",
+      );
+    const step = once
+      ? ({ op: "pull", follower: as, once: true } as const)
+      : ({ op: "pull", follower: as } as const);
     if (f.stopped !== undefined) {
-      this.steps.push({
-        op: "pull",
-        follower: as,
-        expect: { status: "resync-required", current: f.stopped },
-      });
+      this.steps.push({ ...step, expect: { status: "resync-required", current: f.stopped } });
       return this;
     }
     if (f.history !== f.peer || f.revision > state.revision || f.revision < this.floor(state)) {
       f.stopped = current;
-      this.steps.push({ op: "pull", follower: as, expect: { status: "resync-required", current } });
+      this.steps.push({ ...step, expect: { status: "resync-required", current } });
       return this;
     }
-    const records = state.feed.filter((r) => r.revision > f.revision);
+    const pending = state.feed.filter((r) => r.revision > f.revision);
+    const records = once ? pending.slice(0, size) : pending;
+    const through =
+      records.length === pending.length ? state.revision : records[records.length - 1]!.revision;
     const held = new Map(state.held.map((e) => [e.delta.id, e]));
     const added = this.byId(records.flatMap((r) => r.record.added));
-    const size = this.store?.changePageSize;
-    this.prove(as, f, records, held);
-    f.revision = state.revision;
+    this.prove(as, f, state, records, held, through);
+    f.revision = through;
     this.steps.push({
-      op: "pull",
-      follower: as,
+      ...step,
       expect: {
         status: "ok",
-        position: current,
+        position: `${f.peer}.${through}`,
         records: records.map((r) => r.record.revision),
         delivered: added.filter((n) => held.has(this.idOf.get(n)!)),
         absent: added.filter((n) => !held.has(this.idOf.get(n)!)),
-        ...(size === undefined ? {} : { pulls: Math.max(1, Math.ceil(records.length / size)) }),
+        ...(size === undefined || once
+          ? {}
+          : { pulls: Math.max(1, Math.ceil(records.length / size)) }),
       },
     });
     return this;
@@ -190,34 +209,48 @@ class Case {
 
   /**
    * The follower's guarantee, by brute force: for each page size, pull page by page, deliver the
-   * added ids the model holds now, apply the rule of §4.6, and compare with the holdings.
+   * added ids the model holds now, apply the rule of §4.6, and compare with the holdings: all of
+   * them at the peer's revision, and, short of it, every id that no record after the pull names.
    */
   private prove(
     as: string,
     f: Follower,
+    state: Readonly<ModelPeer>,
     records: ModelPeer["feed"],
     held: ReadonlyMap<string, Entry>,
+    through: number,
   ): void {
+    const later = new Set(
+      state.feed
+        .filter((r) => r.revision > through)
+        .flatMap((r) => [...r.record.added, ...r.record.removed])
+        .map((name) => this.idOf.get(name)!),
+    );
     for (const [size, mirror] of f.mirrors ?? []) {
-      for (let i = 0; i < records.length; i += size === Infinity ? records.length : size) {
-        const page = records.slice(i, size === Infinity ? records.length : i + size);
-        for (const { record } of page) {
+      const step = size === Infinity ? Math.max(1, records.length) : size;
+      for (let i = 0; i < records.length; i += step)
+        for (const { record } of records.slice(i, i + step)) {
           for (const name of record.removed) mirror.delete(this.idOf.get(name)!);
           for (const name of record.added) {
-            const entry = held.get(this.idOf.get(name)!);
-            if (entry !== undefined) mirror.set(entry.delta.id, entry);
+            const id = this.idOf.get(name)!;
+            const entry = held.get(id);
+            if (entry !== undefined) mirror.set(id, entry);
+            else mirror.delete(id);
           }
         }
-      }
       const fail = (why: string): never => {
         throw new Error(`follow vectors: follower ${as} with pages of ${size}: ${why}`);
       };
-      if (mirror.size !== held.size) fail(`the mirror holds ${mirror.size}, the peer ${held.size}`);
-      for (const [id, entry] of held) {
+      for (const id of new Set([...mirror.keys(), ...held.keys()])) {
+        if (later.has(id)) continue;
         const mine = mirror.get(id);
-        if (mine === undefined) fail(`the mirror lacks ${id}`);
-        else if (arrivalText(mine) !== arrivalText(entry))
-          fail(`the mirror holds ${id} with another arrival`);
+        const theirs = held.get(id);
+        if (mine === undefined && theirs !== undefined)
+          fail(`the mirror lacks ${id} at ${through}`);
+        if (mine !== undefined && theirs === undefined)
+          fail(`the mirror holds ${id} at ${through}`);
+        if (mine !== undefined && theirs !== undefined && arrivalText(mine) !== arrivalText(theirs))
+          fail(`the mirror holds ${id} with another arrival at ${through}`);
       }
     }
   }
@@ -400,6 +433,70 @@ function cases(named: readonly Named[]): StoreFollowCase[] {
         .append("A", "a-name-neg", "a-name")
         .append("A", "a-height")
         .pull("f"),
+  );
+  // Single pulls with commits between them. The page size and retention are pinned, so every
+  // run reads the same pages; the bytes a pull delivers are those held at its own snapshot.
+  const single = { changePageSize: 1, changeRetention: "unbounded" } as const;
+  add(
+    "a-purge-between-single-pulls",
+    "b-name is added, purged and added again. The first pull reads the add and delivers b-name. Then b-name is purged again. The third pull reads the second add, and no bytes come: the peer does not hold b-name now. A follower that hands out bytes it delivered earlier in the catch-up fails here.",
+    (c) =>
+      c
+        .create("A")
+        .follow("A", "f")
+        .append("A", "b-name")
+        .purge("A", "b-name")
+        .append("A", "b-name")
+        .pull("f", true)
+        .purge("A", "b-name")
+        .pull("f", true)
+        .pull("f", true)
+        .pull("f"),
+    single,
+  );
+  add(
+    "an-append-between-single-pulls",
+    "Two appends, one pull, a third append, one pull, then the rest.",
+    (c) =>
+      base(c)
+        .follow("A", "f")
+        .append("A", "b-name")
+        .append("A", "c-name")
+        .pull("f", true)
+        .append("A", "d-name")
+        .pull("f", true)
+        .pull("f"),
+    single,
+  );
+  add(
+    "a-purge-of-a-mirrored-id-between-single-pulls",
+    "The follower read a-name before it followed. After one pull, a-name is purged; the pulls that follow read the purge.",
+    (c) =>
+      base(c)
+        .follow("A", "f")
+        .append("A", "b-name")
+        .append("A", "c-name")
+        .pull("f", true)
+        .purge("A", "a-name")
+        .pull("f", true)
+        .pull("f"),
+    single,
+  );
+  add(
+    "a-re-add-between-single-pulls",
+    "The first pull delivers b-name. b-name is then purged and added again under a new arrival record. The mirror keeps the old record until a pull reads the re-add.",
+    (c) =>
+      base(c)
+        .follow("A", "f")
+        .append("A", "b-name")
+        .append("A", "c-name")
+        .pull("f", true)
+        .purge("A", "b-name")
+        .append("A", "b-name")
+        .pull("f", true)
+        .pull("f", true)
+        .pull("f"),
+    single,
   );
   return out;
 }

@@ -112,8 +112,10 @@ export interface StoreRoundReport {
 export interface StoreRead extends AnchoredRead {
   readonly revision: Revision;
   /**
-   * The position of the snapshot the read ran on (SPEC-18 §4.6, "Following the feed"). A caller
-   * that keeps what it read follows the feed from here.
+   * The position of the snapshot the read ran on (SPEC-18 §4.6, "Following the feed"). A full
+   * mirror of the peer, or a later comparison of revisions, starts here. A caller that keeps
+   * only this read's scope does not apply the feed's pages: it checks its capture with
+   * `checkFresh` and reads again when it is stale.
    */
   readonly position: Position;
   readonly rounds: readonly StoreRoundReport[];
@@ -491,7 +493,10 @@ export interface FetchedScope {
   /** Knows exactly S(entities) under the selection. An id outside it reads as not held. */
   readonly source: ScopeSource;
   readonly revision: Revision;
-  /** The position of the snapshot it was fetched on: where a follower of the feed starts. */
+  /**
+   * The position of the snapshot it was fetched on. As for `StoreRead.position`, a scope is kept
+   * fresh with `checkFresh`, not by applying the feed's pages.
+   */
   readonly position: Position;
   /**
    * The validity window of the source's members at `now` (`validityWindow`). A fetched scope has
@@ -628,8 +633,8 @@ export class StoreReactor {
 
   /**
    * A cursor over this peer's change feed, standing at `from` (`followFeed`). Makes no store
-   * call. Take `from` from the read whose state the caller keeps: `StoreRead.position` or
-   * `FetchedScope.position`.
+   * call. `from` is the position of the snapshot that started the caller's full mirror of the
+   * peer (SPEC-18 §4.6, "How a full mirror starts").
    */
   follow(from: Position): FeedCursor {
     return followFeed(this.peer, from);
