@@ -25,7 +25,7 @@ use rhizomatic::store_conformance::{
 };
 use rhizomatic::store_fresh::{
     check_fresh, make_capture, parse_capture, touching, validity_window, Capture, Freshness, Touch,
-    TouchReason,
+    TouchReason, ValidityWindow,
 };
 use rhizomatic::store_read::{capture_scope, fetch_scope, Selection, StoreFreshness};
 use rhizomatic::types::{Claims, Delta, EntityRef, Pointer, Primitive, Target};
@@ -1743,6 +1743,24 @@ impl Model {
     }
 }
 
+/// The window by brute force: every boundary of every delta, the greatest at or before `now` and
+/// the least after it.
+fn brute_window(deltas: &[Delta], now: f64) -> ValidityWindow {
+    let bounds: Vec<f64> = deltas
+        .iter()
+        .flat_map(|d| [Some(d.claims.valid_from), d.claims.valid_until])
+        .flatten()
+        .collect();
+    ValidityWindow {
+        since: bounds
+            .iter()
+            .copied()
+            .filter(|b| *b <= now)
+            .reduce(f64::max),
+        expires_at: bounds.iter().copied().filter(|b| *b > now).reduce(f64::min),
+    }
+}
+
 fn valid_at(deltas: &[Delta], t: f64) -> BTreeSet<String> {
     deltas
         .iter()
@@ -1810,7 +1828,7 @@ fn fuzz_sequence(seed: u64, seen: &mut BTreeMap<&'static str, usize>) {
     );
     let all = Pushdown::default();
     let operand = model.selected(&anchors, selection.as_ref().unwrap_or(&all));
-    let window = validity_window(&operand, now);
+    let window = brute_window(&operand, now);
     assert_eq!(
         (capture.since(), capture.expires_at()),
         (window.since, window.expires_at),
