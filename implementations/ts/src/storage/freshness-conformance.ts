@@ -5,7 +5,7 @@
 
 import { compareUtf8 } from "../delta/cbor.js";
 import type { Delta } from "../delta/types.js";
-import type { Capture, Freshness, Touch } from "./freshness.js";
+import { parseCapture, type Capture, type Freshness, type Touch } from "./freshness.js";
 import {
   Run,
   StoreConformanceError,
@@ -53,7 +53,7 @@ export interface FreshnessWitness {
     records: readonly ChangeRecord[],
     added: ReadonlyMap<Id, Delta>,
   ): Touch | null;
-  checkFresh(peer: PeerStore, capture: Capture, now?: number): Promise<Freshness>;
+  checkFresh(peer: PeerStore, capture: Capture, now: number): Promise<Freshness>;
 }
 
 /** What a case asks of the store it runs on. Absent fields: as the run builds it. */
@@ -81,7 +81,7 @@ const touchText = (touch: { revision: number; id: Id; reason: string } | null): 
 
 /** One store call a check made, as the runner saw it. */
 type Call =
-  | { readonly op: "read"; readonly revision: Revision }
+  | { readonly op: "read"; readonly revision: Revision; readonly history: string }
   | {
       readonly op: "changes";
       readonly from: Revision;
@@ -117,6 +117,7 @@ function logged(peer: PeerStore, log: Call[]): PeerStore {
   const note = (op: string) => log.push({ op });
   const snapshotOf = (snapshot: Snapshot): Snapshot => ({
     revision: snapshot.revision,
+    history: snapshot.history,
     head: snapshot.head,
     count: snapshot.count,
     get: (ids) => (log.push({ op: "get", ids: [...ids] }), snapshot.get(ids)),
@@ -128,10 +129,11 @@ function logged(peer: PeerStore, log: Call[]): PeerStore {
   });
   return {
     id: peer.id,
+    history: peer.history,
     erasure: peer.erasure,
     read: async () => {
       const snapshot = await peer.read();
-      log.push({ op: "read", revision: snapshot.revision });
+      log.push({ op: "read", revision: snapshot.revision, history: snapshot.history });
       return snapshotOf(snapshot);
     },
     append: (batch) => (note("append"), peer.append(batch)),
@@ -151,12 +153,14 @@ function logged(peer: PeerStore, log: Call[]): PeerStore {
 }
 
 /**
- * README §9.3, "The calls": one `read`; when its revision r′ is greater than the capture's,
+ * README §9.3, "The calls": one `read`; when its history is the capture's and its revision r′
+ * is greater than the capture's,
  * `changes(c, r′)` and then from each `through`; one `get` of a page's added ids for each page
  * that names one; nothing after the page with the expected touch or a `resync-required`; then the
  * release of the snapshot, and nothing else.
  */
-function checkCalls(log: readonly Call[], from: Revision, touchAt: Revision | undefined): void {
+function checkCalls(log: readonly Call[], capture: Capture, touchAt: Revision | undefined): void {
+  const from = capture.revision;
   let i = 0;
   const next = (want: string): Call => {
     const call = log[i++];
@@ -167,9 +171,9 @@ function checkCalls(log: readonly Call[], from: Revision, touchAt: Revision | un
     );
     return call;
   };
-  const read = next("read") as { revision: Revision };
+  const read = next("read") as { revision: Revision; history: string };
   const end = read.revision;
-  if (end > from)
+  if (read.history === capture.history && end > from)
     for (let at = from; ; ) {
       const { page } = next(`changes(${at}, ${end})`) as { page: ChangePage | undefined };
       if (page === undefined || page.status !== "ok") break;
@@ -218,6 +222,15 @@ class FreshnessRun {
     } finally {
       snapshot.release();
     }
+    // The capture must be well formed: its lists in UTF-8 order, its window ordered.
+    try {
+      parseCapture({ ...capture });
+    } catch (error) {
+      throw new Error(
+        `the capture is malformed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+    check(capture.history === snapshot.history, "the capture's history is not its snapshot's");
     const revision = this.run.resolve({ revision: step.expect.revision }, step.peer);
     check(
       capture.revision === revision && revision === snapshot.revision,
@@ -233,6 +246,10 @@ class FreshnessRun {
       `the capture's members are ${show(capture.members)}, expected ${show(members)}`,
     );
     check(
+      capture.since === step.expect.since,
+      `the capture's since is ${String(capture.since)}, expected ${String(step.expect.since)}`,
+    );
+    check(
       capture.expiresAt === step.expect.expiresAt,
       `the capture expires at ${String(capture.expiresAt)}, expected ${String(step.expect.expiresAt)}`,
     );
@@ -244,11 +261,16 @@ class FreshnessRun {
     const taken = this.captures.get(step.capture);
     check(taken !== undefined, `the vector uses capture ${step.capture} before taking it`);
     const { capture, owner } = taken;
+    const checked = this.run.ownerOf(step.peer);
+    const anotherPeer = checked !== owner;
     check(
-      this.run.ownerOf(step.peer) === owner,
-      `the vector checks capture ${step.capture} on another peer`,
+      anotherPeer === (step.anotherPeer === true),
+      anotherPeer
+        ? `the vector checks capture ${step.capture} on another peer`
+        : `the vector says capture ${step.capture} is checked on another peer, and it is not`,
     );
-    const model = this.run.model(owner);
+    check(typeof step.now === "number", "the vector's check has no now");
+    const model = this.run.model(checked);
     check(model !== undefined, "a check step on a store that serves no feed");
     const revision = this.run.resolve({ revision: step.expect.revision }, step.peer);
     check(
@@ -258,16 +280,13 @@ class FreshnessRun {
 
     // A store that keeps fewer records than the document's answers resync-required below its
     // floor, whatever the document says about a feed that keeps every record.
-    const belowFloor = capture.revision < model.floor;
+    const belowFloor = !anotherPeer && capture.revision < model.floor;
     const expected: VectorVerdict = belowFloor
       ? { status: "resync-required" }
       : step.expect.verdict;
     const log: Call[] = [];
     const handle = logged(this.run.peer(step.peer), log);
-    const verdict =
-      step.now === undefined
-        ? await this.witness.checkFresh(handle, capture)
-        : await this.witness.checkFresh(handle, capture, step.now);
+    const verdict = await this.witness.checkFresh(handle, capture, step.now);
     check(
       verdict.status === expected.status,
       belowFloor
@@ -283,6 +302,11 @@ class FreshnessRun {
       );
       touchAt = want.revision;
     }
+    if (verdict.status === "not-yet" && expected.status === "not-yet")
+      check(
+        verdict.since === expected.since,
+        `checkFresh reports not-yet since ${verdict.since}, expected ${expected.since}`,
+      );
     if (verdict.status === "expired" && expected.status === "expired")
       check(
         verdict.expiresAt === expected.expiresAt,
@@ -293,7 +317,8 @@ class FreshnessRun {
         verdict.current === model.current,
         `checkFresh reports resync-required with current ${verdict.current}, not the peer's revision ${model.current}`,
       );
-    checkCalls(log, capture.revision, touchAt);
+    checkCalls(log, capture, touchAt);
+    if (anotherPeer) return;
 
     // `touching` alone, over the runner's own records: every record since the capture, kept or
     // not, and the deltas of the added ids the peer still holds.
@@ -318,12 +343,15 @@ class FreshnessRun {
 
 /** One case of `touching` (README §9.5): the pure function over records no store wrote. */
 function touchingCase(run: Run, witness: FreshnessWitness, c: StoreTouchingCase): void {
-  const capture: Capture = {
+  // Through the checking constructor: the document lists the members in UTF-8 order.
+  const capture = parseCapture({
+    history: "touching",
     revision: c.capture.revision,
     anchors: c.capture.anchors,
     members: run.ids(c.capture.members),
+    since: null,
     expiresAt: null,
-  };
+  });
   const records = c.records.map((r) => ({
     revision: r.revision,
     head: r.head,

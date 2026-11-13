@@ -34,8 +34,12 @@ export type RoundsAnswer = {
   readonly canonicalHex: string;
   readonly scope: readonly string[];
   readonly members: readonly string[];
+  /** The greatest validFrom or validUntil at or before `now` among the members, or null (§4.6). */
+  readonly since: number | null;
   /** The least validFrom or validUntil after `now` among the members, or null (§4.6). */
   readonly expiresAt: number | null;
+  /** The raw scope of `scope`: S(scope) over everything held, with no selection. A capture's members. */
+  readonly rawMembers: readonly string[];
   readonly rounds: readonly { readonly anchors: readonly string[] }[];
 };
 export type RoundsRead = {
@@ -91,6 +95,8 @@ const BOB = "did:key:zBob";
 const CAROL = "did:key:zCarol";
 const PEER = `ed25519:${"5a".repeat(32)}`;
 const NOW = 100;
+/** A time between the fixture's validity boundaries. */
+const EARLY = 55;
 
 const at = (id: string, context: string, role = "subject"): Pointer => ({
   role,
@@ -711,19 +717,25 @@ export function roundVectors(): StoreRoundsDocument {
     if (wholeGather.sort !== "hview") throw new Error("round vectors: a gather is not an HView");
     for (const entity of hviewAnchors(wholeGather.hview))
       if (!scope.has(entity)) throw new Error(`round vectors: the rounds missed ${entity}`);
-    // The next validity boundary of the operand, by scanning the members.
+    // The validity window of the operand, by scanning the members.
     const inScope = new Set(members);
+    let since: number | null = null;
     let expiresAt: number | null = null;
     for (const { delta } of admitted)
       if (inScope.has(delta.id))
-        for (const b of [delta.claims.validFrom, delta.claims.validUntil])
-          if (b !== undefined && b > read.now && (expiresAt === null || b < expiresAt))
-            expiresAt = b;
+        for (const b of [delta.claims.validFrom, delta.claims.validUntil]) {
+          if (b === undefined) continue;
+          if (b > read.now && (expiresAt === null || b < expiresAt)) expiresAt = b;
+          if (b <= read.now && (since === null || b > since)) since = b;
+        }
+    const sorted = [...scope].sort(compareUtf8);
     return {
       canonicalHex: resultCanonicalHex(whole),
-      scope: [...scope].sort(compareUtf8),
+      scope: sorted,
       members: members.map((id) => nameOf.get(id)!),
+      since,
       expiresAt,
+      rawMembers: scopeOver(held, sorted).map((id) => nameOf.get(id)!),
       rounds,
     };
   };
@@ -731,6 +743,32 @@ export function roundVectors(): StoreRoundsDocument {
   const base = holdings(admissions);
   const after = holdings([...admissions, lateAppend]);
   const cases: RoundsCase[] = reads().map((read) => ({ ...read, expect: answer(base, read) }));
+  // The same reads at a time inside the fixture's boundaries: the window is not open at either
+  // end, and the scope differs from the one at 100 (some links are not valid yet).
+  for (const name of [
+    "the-whole-garden",
+    "signed-time-cuts-a-link-and-a-strike",
+    "arrival-cuts-a-strike-so-a-child-appears",
+    "a-resolved-tree",
+  ]) {
+    const at = cases.find((c) => c.name === name)!;
+    const early: RoundsRead = {
+      term: at.term,
+      root: at.root,
+      now: EARLY,
+      ...(at.bindings === undefined ? {} : { bindings: at.bindings }),
+      selection: at.selection,
+    };
+    const expect = answer(base, early);
+    if (expect.since === null || expect.expiresAt === null)
+      throw new Error(`round vectors: ${name} at ${EARLY} has an open window`);
+    cases.push({
+      name: `${name}-at-${EARLY}`,
+      note: `${at.note} Read at ${EARLY}, inside the fixture's validity boundaries.`,
+      ...early,
+      expect,
+    });
+  }
 
   const read: RoundsRead = { term: garden, root: "garden:1", now: NOW, selection: {} };
   const interleave = (name: string, note: string, afterRound: number): RoundsInterleavedCase => ({

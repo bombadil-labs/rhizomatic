@@ -1,11 +1,12 @@
 // Freshness over the change feed (SPEC-18 proposal §4.6, "Freshness check"). A capture records
-// what one anchored read depended on in the store: its revision, its anchors, its raw scope as
-// ids and the next validity boundary of its operand. `touching` decides from change records
-// alone whether anything since the capture can have changed that raw scope. `checkFresh` reads
-// those records from a peer and answers current, stale, expired or resync-required.
+// what one anchored read depended on in the store: its history and revision, its anchors, its
+// raw scope as ids and the validity window of its operand. `touching` decides from change
+// records alone whether anything since the capture can have changed that raw scope.
+// `checkFresh` reads those records from a peer and answers current, stale, not-yet, expired or
+// resync-required.
 //
 // What this does not see: a selection or an authority that reads state outside the capture's
-// scope (trust, grants, a clock other than `expiresAt`). A host keeps its own epoch for that
+// scope (trust, grants, a clock other than the window). A host keeps its own epoch for that
 // state and compares it itself.
 
 import { compareUtf8 } from "../delta/cbor.js";
@@ -15,14 +16,24 @@ import {
   type Anchor,
   type ChangeRecord,
   type Entity,
+  type History,
   type Id,
   type PeerStore,
   type Revision,
   type Snapshot,
 } from "./store.js";
 
-/** What one anchored read depended on in the store. It holds ids, never bytes. */
+declare const CAPTURE: unique symbol;
+
+/**
+ * What one anchored read depended on in the store. It holds ids, never bytes. Only
+ * `makeCapture` and `parseCapture` build one, so its lists are always in the order that
+ * `touching` searches.
+ */
 export type Capture = {
+  readonly [CAPTURE]: true;
+  /** The history of the peer at the snapshot the read ran on. */
+  readonly history: History;
   /** The revision of the snapshot the read ran on. */
   readonly revision: Revision;
   /** The read's whole scope E*: static and dynamic anchors, ascending by entity, unique. */
@@ -33,11 +44,20 @@ export type Capture = {
    */
   readonly members: readonly Id[];
   /**
-   * The least `validFrom` or `validUntil` strictly after the read's evaluation time, among the
+   * The greatest `validFrom` or `validUntil` at or before the read's evaluation time, among the
    * deltas of the read's exact trimmed scope (its operand). Null when there is none.
+   */
+  readonly since: number | null;
+  /**
+   * The least `validFrom` or `validUntil` strictly after the read's evaluation time, among the
+   * same deltas. Null when there is none. With no touch, the read answers the same at every time
+   * t with `since <= t < expiresAt`.
    */
   readonly expiresAt: number | null;
 };
+
+/** The validity window of an operand at one time (§4.6). A null bound is open. */
+export type ValidityWindow = { readonly since: number | null; readonly expiresAt: number | null };
 
 export type TouchReason = "removed-member" | "targets-anchor" | "negates-member";
 
@@ -50,12 +70,17 @@ export type Touch = {
 };
 
 export type Freshness =
-  /** No change since the capture touches it, and it has not expired. */
+  /** No change since the capture touches it, and `now` is inside its window. */
   | { readonly status: "current" }
   | { readonly status: "stale"; readonly touch: Touch }
+  /** No change touches it, but `now` is before `since`. */
+  | { readonly status: "not-yet"; readonly since: number }
   /** No change touches it, but `now` is at or past `expiresAt`. */
   | { readonly status: "expired"; readonly expiresAt: number }
-  /** The feed no longer holds the records since the capture, or the capture is from a later revision. */
+  /**
+   * The peer's history is not the capture's, the feed no longer holds the records since the
+   * capture, or the capture is from a later revision.
+   */
   | { readonly status: "resync-required"; readonly current: Revision };
 
 /** How many times `checkFresh` starts again on a new snapshot after `snapshot-moved`. */
@@ -68,21 +93,85 @@ function entitiesOf(anchors: readonly Anchor[]): Entity[] {
   return [...new Set(anchors.map((anchor) => anchor.entity))].sort(compareUtf8);
 }
 
-/** A capture with its lists in the contract's order, frozen. */
+const frozenAnchors = (entities: readonly Entity[]): readonly Anchor[] =>
+  Object.freeze(entities.map((entity) => Object.freeze({ kind: "entity" as const, entity })));
+
+/** A capture of a snapshot, with its lists sorted and repeats dropped, frozen. */
 export function makeCapture(
-  revision: Revision,
+  snapshot: { readonly history: History; readonly revision: Revision },
   anchors: readonly Anchor[],
   members: Iterable<Id>,
-  expiresAt: number | null,
+  window: ValidityWindow,
 ): Capture {
   return Object.freeze({
-    revision,
-    anchors: Object.freeze(
-      entitiesOf(anchors).map((entity) => Object.freeze({ kind: "entity" as const, entity })),
-    ),
+    history: snapshot.history,
+    revision: snapshot.revision,
+    anchors: frozenAnchors(entitiesOf(anchors)),
     members: Object.freeze([...new Set(members)].sort(compareUtf8)),
-    expiresAt,
-  });
+    since: window.since,
+    expiresAt: window.expiresAt,
+  }) as Capture;
+}
+
+/**
+ * A capture that was stored and read back, checked. Refuses `invalid-request` unless `value`
+ * has exactly the six fields of a capture, a non-empty `history`, an integer `revision` from 0
+ * to 2^53 − 1, entity anchors and member ids each strictly ascending by UTF-8 bytes (so with no
+ * repeat), and `since` and `expiresAt` that are null or finite with `since < expiresAt`. It
+ * never sorts: a list out of order is refused, not repaired.
+ */
+export function parseCapture(value: unknown): Capture {
+  const refuse = (why: string): never => {
+    throw new StoreError("invalid-request", `capture: ${why}`);
+  };
+  if (typeof value !== "object" || value === null || Array.isArray(value)) refuse("not an object");
+  const v = value as Record<string, unknown>;
+  const keys = Object.keys(v).sort().join(",");
+  if (keys !== "anchors,expiresAt,history,members,revision,since")
+    refuse(`the keys are ${keys}, not anchors, expiresAt, history, members, revision, since`);
+  const { history, revision, anchors, members, since, expiresAt } = v;
+  if (typeof history !== "string" || history === "") refuse("history is not a non-empty string");
+  if (!Number.isSafeInteger(revision) || (revision as number) < 0)
+    refuse("revision is not an integer from 0 to 2^53 - 1");
+  const ascending = (list: unknown, what: string): string[] => {
+    if (!Array.isArray(list)) return refuse(`${what} is not a list`);
+    const out: string[] = [];
+    for (const item of list as unknown[]) {
+      if (typeof item !== "string") return refuse(`${what} holds a value that is not a string`);
+      if (out.length > 0 && compareUtf8(out[out.length - 1]!, item) >= 0)
+        return refuse(`${what} is not strictly ascending by UTF-8 bytes`);
+      out.push(item);
+    }
+    return out;
+  };
+  if (!Array.isArray(anchors)) refuse("anchors is not a list");
+  const entities = ascending(
+    (anchors as unknown[]).map((a) => {
+      const anchor = a as { kind?: unknown; entity?: unknown } | null;
+      if (typeof anchor !== "object" || anchor === null || Object.keys(anchor).length !== 2)
+        return refuse("an anchor is not {kind, entity}");
+      if (anchor.kind !== "entity") return refuse("an anchor is not an entity anchor");
+      return anchor.entity;
+    }),
+    "anchors",
+  );
+  const ids = ascending(members, "members");
+  const bound = (b: unknown, what: string): number | null => {
+    if (b === null) return null;
+    if (typeof b !== "number" || !Number.isFinite(b))
+      return refuse(`${what} is not null or finite`);
+    return b;
+  };
+  const window = { since: bound(since, "since"), expiresAt: bound(expiresAt, "expiresAt") };
+  if (window.since !== null && window.expiresAt !== null && window.since >= window.expiresAt)
+    refuse("since is not before expiresAt");
+  return Object.freeze({
+    history: history as string,
+    revision: revision as number,
+    anchors: frozenAnchors(entities),
+    members: Object.freeze(ids),
+    ...window,
+  }) as Capture;
 }
 
 /**
@@ -104,16 +193,22 @@ export async function rawScope(snapshot: Snapshot, anchors: readonly Anchor[]): 
 }
 
 /**
- * The least validity boundary (`validFrom` or `validUntil`) strictly after `now` among
- * `deltas`, or null. A boundary at `now` has already taken effect: a delta is valid exactly when
- * `validFrom <= now < validUntil`.
+ * The validity window of `deltas` at `now`: `since`, the greatest boundary (`validFrom` or
+ * `validUntil`) at or before `now`, and `expiresAt`, the least strictly after it; each null when
+ * there is none. A delta is valid exactly when `validFrom <= now < validUntil`, so no delta
+ * changes validity at any t with `since <= t < expiresAt`.
  */
-export function nextBoundary(deltas: Iterable<Delta>, now: number): number | null {
-  let least: number | null = null;
+export function validityWindow(deltas: Iterable<Delta>, now: number): ValidityWindow {
+  let since: number | null = null;
+  let expiresAt: number | null = null;
   for (const { claims } of deltas)
-    for (const at of [claims.validFrom, claims.validUntil])
-      if (at !== undefined && at > now && (least === null || at < least)) least = at;
-  return least;
+    for (const at of [claims.validFrom, claims.validUntil]) {
+      if (at === undefined) continue;
+      if (at > now) {
+        if (expiresAt === null || at < expiresAt) expiresAt = at;
+      } else if (since === null || at > since) since = at;
+    }
+  return { since, expiresAt };
 }
 
 /** Binary search in a list ascending by `key`. */
@@ -185,17 +280,20 @@ export function touching(
 }
 
 /**
- * Is `capture` still current on `peer`? One `read()`; then, unless the revisions are equal,
+ * Is `capture` still current on `peer` at `now`? One `read()`. A snapshot of another history
+ * answers `resync-required` at once. Then, unless the revisions are equal,
  * `changes(capture.revision, r′)` page by page, where r′ is that snapshot's revision; for each
  * page that names an added id, one `get` of those ids on the snapshot; it stops at the first
- * touch. Then, when `now` is given and `now >= capture.expiresAt`, it answers `expired`.
+ * touch. Then it judges `now` against the window: before `since` is `not-yet`, at or after
+ * `expiresAt` is `expired`.
  *
  * Its calls and cost depend on the records and ids since the capture, never on what the peer
  * holds and never on records before the capture. When the peer moves during the check, it starts
  * again on a new snapshot, as `StoreReactor` does, up to three more times; then `snapshot-moved`
- * passes up. Every snapshot is released. Refuses `invalid-request` for a `now` that is not finite.
+ * passes up. Every snapshot is released. Refuses `invalid-request` for a `now` that is not a
+ * finite number: a capture is current only relative to a time.
  */
-export function checkFresh(peer: PeerStore, capture: Capture, now?: number): Promise<Freshness> {
+export function checkFresh(peer: PeerStore, capture: Capture, now: number): Promise<Freshness> {
   return checkFreshWith(touching)(peer, capture, now);
 }
 
@@ -211,9 +309,9 @@ async function check(
   touch: typeof touching,
   peer: PeerStore,
   capture: Capture,
-  now: number | undefined,
+  now: number,
 ): Promise<Freshness> {
-  if (now !== undefined && !Number.isFinite(now))
+  if (typeof now !== "number" || !Number.isFinite(now))
     throw new StoreError("invalid-request", "checkFresh: now must be a finite number");
   for (let attempts = 1; ; attempts += 1) {
     const snapshot = await peer.read();
@@ -233,9 +331,11 @@ async function checkOn(
   peer: PeerStore,
   snapshot: Snapshot,
   capture: Capture,
-  now: number | undefined,
+  now: number,
 ): Promise<Freshness> {
   const current = snapshot.revision;
+  // Another history: revisions of the two cannot be compared at all.
+  if (snapshot.history !== capture.history) return { status: "resync-required", current };
   // A capture from a later revision: the store was rolled back, or the capture is another peer's.
   if (current < capture.revision) return { status: "resync-required", current };
   for (let at = capture.revision; at < current; ) {
@@ -250,7 +350,9 @@ async function checkOn(
     if (page.through <= at) throw new Error("checkFresh: a page of the feed made no progress");
     at = page.through;
   }
-  if (now !== undefined && capture.expiresAt !== null && now >= capture.expiresAt)
+  if (capture.since !== null && now < capture.since)
+    return { status: "not-yet", since: capture.since };
+  if (capture.expiresAt !== null && now >= capture.expiresAt)
     return { status: "expired", expiresAt: capture.expiresAt };
   return { status: "current" };
 }

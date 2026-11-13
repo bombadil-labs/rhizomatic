@@ -67,12 +67,20 @@ function corpus(): Named[] {
   const aName = add("a-name", fact(10, [at("plant:a", "name"), value("fern")]));
   const aHeight = add("a-height", fact(11, [at("plant:a", "height"), value(10)]));
   const aHeightNeg = add("a-height-neg", makeNegationClaims(BOB, 20, aHeight.id));
+  // A negator of a member with its own window: valid from 25 until 130.
+  add("a-height-neg-window", {
+    ...makeNegationClaims(BOB, 25, aHeight.id),
+    validFrom: 25,
+    validUntil: 130,
+  });
   const bName = add("b-name", fact(12, [at("plant:b", "name"), value("moss")]));
 
   // Later arrivals. Each touches plant:a's capture, or does not, in its own way.
   add("a-note-late", fact(60, [at("plant:a", "note"), value("late")]));
   add("a-name-neg", makeNegationClaims(BOB, 40, aName.id));
-  add("a-height-neg-neg", makeNegationClaims(ALICE, 30, aHeightNeg.id));
+  const aHeightNegNeg = add("a-height-neg-neg", makeNegationClaims(ALICE, 30, aHeightNeg.id));
+  // The fourth link of a chain: it negates a member only three negations deep.
+  add("a-height-neg-neg-neg", makeNegationClaims(BOB, 31, aHeightNegNeg.id));
   add("b-name-neg", makeNegationClaims(BOB, 41, bName.id));
   add("b-height", fact(13, [at("plant:b", "height"), value(3)]));
   add("d-name", fact(14, [at("plant:d", "name"), value("ivy")]));
@@ -104,6 +112,10 @@ function corpus(): Named[] {
   // scope and not in the read's operand.
   const aLate = add("a-late", fact(70, [at("plant:a", "late"), value(1)], { until: 105 }));
   add("a-late-neg", makeNegationClaims(BOB, 45, aLate.id));
+  // Members a selection rejects by excludeIds and by arrival, each with a window inside the
+  // operand's: neither counts.
+  add("a-excluded", fact(22, [at("plant:a", "excluded"), value(1)], { until: 104 }));
+  add("a-arrives-late", fact(23, [at("plant:a", "arrival"), value(1)], { until: 103 }));
   return named;
 }
 
@@ -116,6 +128,7 @@ type Capture = {
   readonly selection: VectorPushdown | undefined;
   readonly held: readonly Entry[];
   readonly members: readonly string[];
+  readonly since: number | null;
   readonly expiresAt: number | null;
 };
 
@@ -179,17 +192,28 @@ class Case {
     return this;
   }
 
-  capture(peer: string, as: string, entities: readonly string[], selection?: VectorPushdown): this {
+  capture(
+    peer: string,
+    as: string,
+    entities: readonly string[],
+    selection?: VectorPushdown,
+    now = NOW,
+  ): this {
     const state = this.state(peer);
     const sorted = [...new Set(entities)].sort(compareUtf8);
     const members = scopeOver(state.held, sorted);
     // The operand: the scope under the whole selection (SPEC-17 §4, the trim lemma).
     const operand = new Set(scopeOver(this.selected(state.held, selection), sorted));
+    // The window: the last boundary at or before now and the first after it, by scanning.
+    let since: number | null = null;
     let expiresAt: number | null = null;
     for (const entry of state.held)
       if (operand.has(entry.delta.id))
-        for (const b of [entry.delta.claims.validFrom, entry.delta.claims.validUntil])
-          if (b !== undefined && b > NOW && (expiresAt === null || b < expiresAt)) expiresAt = b;
+        for (const b of [entry.delta.claims.validFrom, entry.delta.claims.validUntil]) {
+          if (b === undefined) continue;
+          if (b > now && (expiresAt === null || b < expiresAt)) expiresAt = b;
+          if (b <= now && (since === null || b > since)) since = b;
+        }
     const anchors = sorted.map((entity) => ({ kind: "entity" as const, entity }));
     this.captures.set(as, {
       peer,
@@ -198,6 +222,7 @@ class Case {
       selection,
       held: state.held,
       members,
+      since,
       expiresAt,
     });
     this.steps.push({
@@ -207,11 +232,12 @@ class Case {
       // As a read names them: in any order, perhaps twice. The capture sorts them.
       anchors: entities.map((entity) => ({ kind: "entity" as const, entity })),
       ...(selection === undefined ? {} : { selection }),
-      now: NOW,
+      now,
       expect: {
         revision: `${peer}.${state.revision}`,
         anchors,
         members: this.names(members),
+        since,
         expiresAt,
       },
     });
@@ -252,9 +278,26 @@ class Case {
     return null;
   }
 
-  check(peer: string, as: string, now?: number): this {
+  check(peer: string, as: string, now = NOW): this {
     const capture = this.captures.get(as)!;
     const state = this.state(peer);
+    if (state !== this.state(capture.peer)) {
+      // Another peer has another history: no revision of it can be compared with the capture's.
+      this.steps.push({
+        op: "check",
+        peer,
+        capture: as,
+        now,
+        anotherPeer: true,
+        exact: true,
+        expect: {
+          revision: `${peer}.${state.revision}`,
+          verdict: { status: "resync-required" },
+          touching: null,
+        },
+      });
+      return this;
+    }
     const touch = this.touchOf(capture, state);
 
     // Brute force: recompute the raw scope at this revision and compare.
@@ -294,7 +337,9 @@ class Case {
     let verdict: VectorVerdict;
     if (capture.revision < floor) verdict = { status: "resync-required" };
     else if (touch !== null) verdict = { status: "stale", touch };
-    else if (now !== undefined && capture.expiresAt !== null && now >= capture.expiresAt)
+    else if (capture.since !== null && now < capture.since)
+      verdict = { status: "not-yet", since: capture.since };
+    else if (capture.expiresAt !== null && now >= capture.expiresAt)
       verdict = { status: "expired", expiresAt: capture.expiresAt };
     else verdict = { status: "current" };
 
@@ -302,7 +347,7 @@ class Case {
       op: "check",
       peer,
       capture: as,
-      ...(now === undefined ? {} : { now }),
+      now,
       exact,
       expect: { revision: `${peer}.${state.revision}`, verdict, touching: touch },
     });
@@ -454,20 +499,69 @@ function cases(named: readonly Named[]): StoreFreshnessCase[] {
     { revisions: 1 },
   );
   add(
-    "expiry",
-    "At now 100 the operand's next boundary is a-future's validFrom 120. a-from-now starts at 100, which is not after now. b-expiring ends at 110 outside the scope. Stale wins over expired.",
+    "the-window",
+    "At now 100 the operand's window is [100, 120): a-from-now starts at 100, a-future at 120. b-expiring ends at 110 outside the scope. A check before 100 is not-yet; at 100 and at 119 current; at 120 and later expired. Stale wins over the window.",
     (c) =>
       c
         .create("A")
         .append("A", "a-name", "a-expiring", "a-future", "a-from-now", "b-expiring")
         .capture("A", "c", A)
+        .check("A", "c", 99)
+        .check("A", "c", 100)
         .check("A", "c", 119)
         .check("A", "c", 120)
         .append("A", "d-name")
-        .check("A", "c")
+        .check("A", "c", 100)
         .check("A", "c", 200)
         .append("A", "a-note-late")
-        .check("A", "c", 200),
+        .check("A", "c", 200)
+        .check("A", "c", 50),
+  );
+  add(
+    "a-fact-that-starts-at-now",
+    "The read at 100 holds one fact valid from 100: its window is [100, open). A check at 99 is not-yet: a read at 99 would not see the fact.",
+    (c) =>
+      c
+        .create("A")
+        .append("A", "a-from-now")
+        .capture("A", "c", A)
+        .check("A", "c", 99)
+        .check("A", "c", 100)
+        .check("A", "c", 1e9),
+  );
+  add(
+    "a-negator-sets-the-window",
+    "a-height-neg-window negates a member and is valid from 25 until 130. The operand's window is [25, 130), from the negator alone.",
+    (c) =>
+      base(c)
+        .append("A", "a-height-neg-window")
+        .capture("A", "c", A)
+        .check("A", "c", 24)
+        .check("A", "c", 25)
+        .check("A", "c", 129)
+        .check("A", "c", 130),
+  );
+  add(
+    "a-chain-of-four",
+    "a-height, a-height-neg, a-height-neg-neg are members, the last only two negations deep. a-height-neg-neg-neg negates it.",
+    (c) =>
+      base(c)
+        .append("A", "a-height-neg-neg")
+        .capture("A", "c", A)
+        .append("A", "a-height-neg-neg-neg")
+        .check("A", "c"),
+  );
+  add(
+    "a-capture-checked-on-another-peer",
+    "Peer B has its own history and a higher revision than the capture. The check answers resync-required before it reads any feed.",
+    (c) =>
+      base(c)
+        .capture("A", "c", A)
+        .create("B")
+        .append("B", "b-height")
+        .append("B", "d-name")
+        .append("B")
+        .check("B", "c"),
   );
   const cut = { timestampAtMost: 50 };
   add(
@@ -503,6 +597,29 @@ function cases(named: readonly Named[]): StoreFreshnessCase[] {
       base(c)
         .append("A", "a-late")
         .capture("A", "c", A, cut)
+        .append("A", "a-name-neg")
+        .check("A", "c"),
+  );
+  add(
+    "a-selection-excludes-members",
+    "excludeIds drops a-name and a-excluded. Both stay members of the raw scope. a-excluded's boundary at 104 and its validFrom 22 are outside the operand: its window is [20, open).",
+    (c) =>
+      base(c)
+        .append("A", "a-excluded")
+        .capture("A", "c", A, { excludeIds: ["a-name", "a-excluded"] })
+        .append("A", "b-height")
+        .check("A", "c")
+        .purge("A", "a-excluded")
+        .check("A", "c"),
+  );
+  add(
+    "a-selection-by-arrival",
+    "arrivalAtMost 4 drops a-arrives-late, which arrived fifth. It stays a member of the raw scope. Its window, [23, 103), is outside the operand's: [20, open).",
+    (c) =>
+      base(c)
+        .append("A", "a-arrives-late")
+        .capture("A", "c", A, { arrivalAtMost: 4 })
+        .check("A", "c", 102)
         .append("A", "a-name-neg")
         .check("A", "c"),
   );

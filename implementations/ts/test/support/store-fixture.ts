@@ -85,6 +85,7 @@ export function countingSnapshot(snapshot: Snapshot, trace: StoreCall[]): Snapsh
   };
   return {
     revision: snapshot.revision,
+    history: snapshot.history,
     head: snapshot.head,
     count: snapshot.count,
     get: (ids) => (note("get", ids.length), snapshot.get(ids)),
@@ -106,6 +107,7 @@ export function countingSnapshot(snapshot: Snapshot, trace: StoreCall[]): Snapsh
 export function countingPeer(peer: PeerStore, trace: StoreCall[]): PeerStore {
   return {
     id: peer.id,
+    history: peer.history,
     erasure: peer.erasure,
     read: async () => {
       trace.push({ op: "read", keyCount: 0, excludeCount: 0 });

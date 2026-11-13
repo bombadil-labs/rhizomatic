@@ -144,8 +144,18 @@ export type CreatePeerOptions = {
   readonly erasure: ErasurePosture;
 };
 
+/**
+ * An opaque identity of one peer's revision history in one store. It stays the same while the
+ * peer's revisions only advance from that history. A peer created anew, also under a name that
+ * existed before, and a store restored to an earlier state, carry another value. Compare two
+ * values for equality only.
+ */
+export type History = string;
+
 export interface PeerStore {
   readonly id: PeerId;
+  /** This peer's revision history (§4.6). Every handle of one peer reports the same value. */
+  readonly history: History;
   /** The posture declared at creation, and the store's erasure class recorded with it. */
   readonly erasure: { readonly posture: ErasurePosture; readonly storeClass: ErasureClass };
   /** A consistent view of this peer at one revision. */
@@ -201,6 +211,8 @@ export type ChangePage =
  */
 export interface Snapshot {
   readonly revision: Revision;
+  /** The history `revision` belongs to, read with it. A capture takes both from one snapshot. */
+  readonly history: History;
   /** The peer's journal head at this revision; null before the first committed append. */
   readonly head: Head | null;
   /** How many deltas the peer holds at this revision. Costs O(1). */

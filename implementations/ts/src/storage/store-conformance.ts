@@ -188,6 +188,8 @@ export class Run {
   private readonly feeds = new Map<string, Feed>();
   /** Revision names (`mark`, `revisionAs`), each with the peer it belongs to. */
   private readonly named = new Map<string, { peer: string; revision: number }>();
+  /** Each peer's history, as its first handle reported it (README §1.3, "History"). */
+  private readonly histories = new Map<string, string>();
   readonly reference: boolean;
 
   constructor(
@@ -565,8 +567,18 @@ export class Run {
   private async revision(peer: string): Promise<number> {
     const snapshot = await this.peer(peer).read();
     const revision = snapshot.revision;
+    this.sameHistory(peer, snapshot.history, "a snapshot");
     snapshot.release();
     return revision;
+  }
+
+  /** A handle and every snapshot of one peer report the history the peer was created with. */
+  private sameHistory(handle: string, history: unknown, what: string): void {
+    const owner = this.owners.get(handle) ?? handle;
+    check(
+      history === this.histories.get(owner),
+      `${what} of ${owner} reports another history than the peer's`,
+    );
   }
 
   /** A returned delta must be the named appearance: id, signature and claims. */
@@ -665,6 +677,16 @@ export class Run {
             outcome.value.erasure.storeClass === this.store.profile.capabilities.erasure,
             "the peer did not record its store's erasure class",
           );
+          const history: unknown = outcome.value.history;
+          check(
+            typeof history === "string" && history !== "",
+            "the peer's history is not a non-empty string",
+          );
+          check(
+            ![...this.histories.values()].includes(history),
+            `two peers of one store share the history ${history}`,
+          );
+          this.histories.set(step.peer, history);
           this.peers.set(step.peer, outcome.value);
           this.owners.set(step.peer, step.peer);
           this.holdings.set(step.peer, new Map());
@@ -685,6 +707,7 @@ export class Run {
         check("value" in outcome, "expected the peer to open");
         check(outcome.value.erasure.posture === step.expect.posture, "the posture differs");
         // With `handle`, the earlier handle stays in use under the peer's own name.
+        this.sameHistory(step.peer, outcome.value.history, "a handle");
         this.peers.set(step.handle ?? step.peer, outcome.value);
         this.owners.set(step.handle ?? step.peer, step.peer);
         return;
@@ -837,12 +860,15 @@ export class Run {
         }
         return;
       }
-      case "read":
+      case "read": {
+        const snapshot = await this.peer(step.peer).read();
+        this.sameHistory(step.peer, snapshot.history, "a snapshot");
         this.snapshots.set(step.snapshot, {
           peer: this.owners.get(step.peer) ?? step.peer,
-          snapshot: await this.peer(step.peer).read(),
+          snapshot,
         });
         return;
+      }
       case "release":
         this.snapshot(step.snapshot).snapshot.release();
         return;

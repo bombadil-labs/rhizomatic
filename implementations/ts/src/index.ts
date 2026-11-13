@@ -121,6 +121,7 @@ export {
   type ErasureClass,
   type ErasurePosture,
   type Exporter,
+  type History,
   type PeerExporter,
   type PeerId,
   type PeerStore,
@@ -181,13 +182,15 @@ export { storeVectors } from "./storage/store-vectors.js";
 export {
   checkFresh,
   makeCapture,
-  nextBoundary,
+  parseCapture,
   rawScope,
   touching,
+  validityWindow,
   type Capture,
   type Freshness,
   type Touch,
   type TouchReason,
+  type ValidityWindow,
 } from "./storage/freshness.js";
 export {
   runFreshnessConformance,

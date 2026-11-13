@@ -789,6 +789,31 @@ const RULES: Readonly<Record<string, Rule>> = {
   ...SHARED_MESSAGES,
   ...SHAPES_AND_SPARSE,
   ...FEED_RULES,
+  // -- the history of a peer (README §1.3, "History") --
+  "two peers of one store share one history": {
+    doc: "scripts",
+    says: "two peers of one store share the history same",
+    store: { peer: () => ({ history: "same" }), snapshot: () => ({ history: "same" }) },
+  },
+  "a peer's history is empty": {
+    doc: "scripts",
+    says: "the peer's history is not a non-empty string",
+    store: { peer: () => ({ history: "" }), snapshot: () => ({ history: "" }) },
+  },
+  "a reopened handle reports another history": {
+    doc: "scripts",
+    says: /a handle of \w+ reports another history than the peer's/,
+    store: {
+      store: (store) => ({
+        peer: async (id) => ({ ...(await store.peer(id)), history: "reopened" }),
+      }),
+    },
+  },
+  "a snapshot reports another history": {
+    doc: "scripts",
+    says: /a snapshot of \w+ reports another history than the peer's/,
+    store: { snapshot: () => ({ history: "elsewhere" }) },
+  },
   // -- refusals (README §3, "Refusals") --
   "createPeer refuses with a code the step does not list": {
     doc: "scripts",

@@ -262,12 +262,14 @@ export type CaptureStep = {
     readonly revision: string;
     readonly anchors: readonly Anchor[];
     readonly members: readonly string[];
+    readonly since: number | null;
     readonly expiresAt: number | null;
   };
 };
 export type VectorVerdict =
   | { readonly status: "current" }
   | { readonly status: "stale"; readonly touch: VectorTouch }
+  | { readonly status: "not-yet"; readonly since: number }
   | { readonly status: "expired"; readonly expiresAt: number }
   | { readonly status: "resync-required" };
 /** Checks a capture against the peer's current revision (README §9.3). */
@@ -275,8 +277,13 @@ export type CheckStep = {
   readonly op: "check";
   readonly peer: string;
   readonly capture: string;
-  /** Absent: the check is not asked about `expiresAt`. */
-  readonly now?: number;
+  /** The time the check is asked about. */
+  readonly now: number;
+  /**
+   * The check runs on a peer other than the capture's, on purpose. Its history differs, so the
+   * verdict is `resync-required`, and `touching` is not run.
+   */
+  readonly anotherPeer?: true;
   /**
    * True: the generator proved the verdict exact by recomputing the raw scope. False: the
    * capture has a selection, and the verdict is only sound.
@@ -286,7 +293,10 @@ export type CheckStep = {
     /** The peer's revision when the check runs. */
     readonly revision: string;
     readonly verdict: VectorVerdict;
-    /** What `touching` answers over every record since the capture, kept or not. */
+    /**
+     * What `touching` answers over every record since the capture, kept or not. Null also for a
+     * check on another peer, where it is not run.
+     */
     readonly touching: VectorTouch | null;
   };
 };

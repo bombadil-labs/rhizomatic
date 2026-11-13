@@ -22,6 +22,7 @@ import {
   type ErasurePosture,
   type Exporter,
   type Head,
+  type History,
   type Id,
   type PeerId,
   type PeerStore,
@@ -61,6 +62,12 @@ export type MemoryStoreOptions = {
    * An integer of 1 or more. The default has no limit.
    */
   readonly changePageSize?: number;
+  /**
+   * Mints the history of each peer this store creates (§4.6). The default is unique within the
+   * process. A host that keeps captures across processes passes a mint that is unique across
+   * them, such as 128 random bits.
+   */
+  readonly mintHistory?: (peer: PeerId) => History;
 };
 
 // The only door to the store's maps. Everything keyed counts a lookup; `scan` is the single way
@@ -108,6 +115,7 @@ type Feed = {
 
 type PeerState = {
   readonly id: PeerId;
+  readonly history: History;
   readonly posture: ErasurePosture;
   readonly holdings: Index<Holding>;
   readonly targets: Index<Set<Id>>;
@@ -120,6 +128,11 @@ type PeerState = {
   lastSequence: number;
   readonly feed: Feed;
 };
+
+// Histories this process has minted. Every memory store in the process draws from one counter,
+// so two peers, two stores, or one name created twice never share a history.
+let minted = 0;
+const mintMemoryHistory = (): History => `memory:${++minted}`;
 
 const sorted = (ids: Iterable<Id>): Id[] => [...new Set(ids)].sort(compareUtf8);
 
@@ -259,6 +272,7 @@ class MemoryStore implements Store {
   /** The most records a peer keeps; infinite when unbounded. */
   readonly #keep: number;
   readonly #pageSize: number;
+  readonly #mint: (peer: PeerId) => History;
   #closed = false;
 
   constructor(options: MemoryStoreOptions) {
@@ -282,6 +296,15 @@ class MemoryStore implements Store {
     if (pageSize !== undefined && !positive(pageSize))
       throw new StoreError("invalid-request", "memory store: changePageSize is 1 or more");
     this.#pageSize = pageSize ?? Number.POSITIVE_INFINITY;
+    const mint = options.mintHistory;
+    if (mint !== undefined && typeof mint !== "function")
+      throw new StoreError("invalid-request", "memory store: mintHistory is a function");
+    this.#mint = (peer) => {
+      const history: unknown = mint === undefined ? mintMemoryHistory() : mint(peer);
+      if (typeof history !== "string" || history === "")
+        throw new StoreError("invalid-request", "memory store: a history is a non-empty string");
+      return history;
+    };
     this.#own = {
       capabilities: {
         values: false,
@@ -340,6 +363,7 @@ class MemoryStore implements Store {
       throw new StoreError("peer-exists", "createPeer: the peer already exists");
     const state: PeerState = {
       id,
+      history: this.#mint(id),
       posture,
       holdings: new Index(this.#meter),
       targets: new Index(this.#meter),
@@ -366,6 +390,7 @@ class MemoryStore implements Store {
   #handle(state: PeerState): PeerStore {
     return {
       id: state.id,
+      history: state.history,
       erasure: { posture: state.posture, storeClass: this.#own.capabilities.erasure },
       read: async () => {
         this.#open();
@@ -478,6 +503,7 @@ class MemoryStore implements Store {
     // same way on a current, a moved and a released snapshot.
     return {
       revision,
+      history: state.history,
       head,
       count,
       arrivals: async (ids) => {

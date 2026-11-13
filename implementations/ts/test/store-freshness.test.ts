@@ -19,8 +19,10 @@ import {
   captureScope,
   fetchScope,
   readAnchored,
+  type StoreRead,
   type StoreReadRequest,
 } from "../src/reactor/store-read.js";
+import { resultCanonicalHex } from "../src/resolve/eval.js";
 import { SchemaRegistry } from "../src/schema/schema.js";
 import {
   StoreConformanceError,
@@ -36,8 +38,10 @@ import {
   checkFresh,
   checkFreshWith,
   makeCapture,
-  nextBoundary,
+  parseCapture,
+  rawScope,
   touching,
+  validityWindow,
   type Capture,
   type Freshness,
 } from "../src/storage/freshness.js";
@@ -53,6 +57,7 @@ import {
   type ChangeRecord,
   type PeerStore,
   type Pushdown,
+  type Snapshot,
   type VerifiedDelta,
 } from "../src/storage/store.js";
 import { parseTerm } from "../src/syntax/term-json.js";
@@ -88,9 +93,10 @@ const factoryOf =
 async function failures(
   witness: FreshnessWitness,
   fault: Break = {},
+  vectors: StoreFreshnessDocument = document,
 ): Promise<readonly StoreConformanceFailure[]> {
   try {
-    await runFreshnessConformance(factoryOf(fault), witness, document);
+    await runFreshnessConformance(factoryOf(fault), witness, vectors);
     return [];
   } catch (error) {
     if (error instanceof StoreConformanceError) return error.failures;
@@ -196,6 +202,8 @@ const READERS: readonly {
   readonly witness: FreshnessWitness;
   readonly fails: string;
   readonly message: string;
+  /** The cases added for this reader: without them it passes the vectors. */
+  readonly newCases?: readonly string[];
 }[] = [
   {
     name: "ignores removed",
@@ -246,22 +254,194 @@ const READERS: readonly {
           anchors.map((a) => a.entity),
           { pushdown },
         );
-        return makeCapture(
-          snapshot.revision,
-          anchors,
-          fetched.source.ids(),
-          fetched.expiresAfter(now),
-        );
+        return makeCapture(snapshot, anchors, fetched.source.ids(), fetched.window(now));
       },
     }),
     fails: "freshness/a-selection-rejects-the-toucher",
     message: "the capture's members are",
   },
   {
-    name: "ignores expiresAt",
-    witness: wrong({ checkFresh: (peer, capture) => checkFresh(peer, capture) }),
-    fails: "freshness/expiry",
-    message: "checkFresh answered current, expected expired",
+    name: "ignores the window",
+    witness: wrong({
+      checkFresh: (peer, capture) => checkFresh(peer, capture, capture.since ?? 0),
+    }),
+    fails: "freshness/the-window",
+    message: "checkFresh answered current, expected not-yet",
+  },
+  {
+    name: "ignores since",
+    witness: wrong({
+      checkFresh: async (peer, capture, now) => {
+        const verdict = await checkFresh(peer, capture, now);
+        return verdict.status === "not-yet" ? { status: "current" } : verdict;
+      },
+    }),
+    fails: "freshness/a-fact-that-starts-at-now",
+    message: "checkFresh answered current, expected not-yet",
+    newCases: ["the-window", "a-fact-that-starts-at-now", "a-negator-sets-the-window"],
+  },
+  {
+    name: "not-yet at since itself",
+    witness: wrong({
+      checkFresh: async (peer, capture, now) => {
+        const verdict = await checkFresh(peer, capture, now);
+        return verdict.status === "current" && capture.since === now
+          ? { status: "not-yet", since: now }
+          : verdict;
+      },
+    }),
+    fails: "freshness/the-window",
+    message: "checkFresh answered not-yet, expected current",
+  },
+  {
+    name: "not-yet with the check's now",
+    witness: wrong({
+      checkFresh: async (peer, capture, now) => {
+        const verdict = await checkFresh(peer, capture, now);
+        return verdict.status === "not-yet" ? { ...verdict, since: now } : verdict;
+      },
+    }),
+    fails: "freshness/the-window",
+    message: "checkFresh reports not-yet since 99, expected 100",
+  },
+  {
+    name: "a capture with no since",
+    witness: wrong({
+      capture: async (...args) =>
+        parseCapture({ ...(await WITNESS.capture(...args)), since: null }),
+    }),
+    fails: "freshness/the-window",
+    message: "the capture's since is null, expected 100",
+  },
+  {
+    name: "ignores the history",
+    witness: wrong({
+      checkFresh: (peer, capture, now) =>
+        checkFresh(peer, parseCapture({ ...capture, history: peer.history }), now),
+    }),
+    fails: "freshness/a-capture-checked-on-another-peer",
+    message: "checkFresh answered current, expected resync-required",
+    newCases: ["a-capture-checked-on-another-peer"],
+  },
+  {
+    name: "a capture of another history",
+    witness: wrong({
+      capture: async (...args) =>
+        parseCapture({ ...(await WITNESS.capture(...args)), history: "elsewhere" }),
+    }),
+    fails: "freshness/no-change",
+    message: "the capture's history is not its snapshot's",
+  },
+  {
+    name: "drops the members excludeIds rejects",
+    witness: wrong({
+      capture: async (snapshot, anchors, pushdown, now) => {
+        const right = await WITNESS.capture(snapshot, anchors, pushdown, now);
+        const out = new Set(pushdown.excludeIds ?? []);
+        return makeCapture(
+          right,
+          right.anchors,
+          right.members.filter((id) => !out.has(id)),
+          right,
+        );
+      },
+    }),
+    fails: "freshness/a-selection-excludes-members",
+    message: "the capture's members are",
+    newCases: ["a-selection-excludes-members"],
+  },
+  {
+    name: "drops the members arrivalAtMost rejects",
+    witness: wrong({
+      capture: async (snapshot, anchors, pushdown, now) => {
+        const right = await WITNESS.capture(snapshot, anchors, pushdown, now);
+        const cut = pushdown.arrivalAtMost;
+        const late = new Set(
+          (await snapshot.arrivals(right.members))
+            .filter((a) => cut !== undefined && a.sequence > cut)
+            .map((a) => a.id),
+        );
+        return makeCapture(
+          right,
+          right.anchors,
+          right.members.filter((id) => !late.has(id)),
+          right,
+        );
+      },
+    }),
+    fails: "freshness/a-selection-by-arrival",
+    message: "the capture's members are",
+    newCases: ["a-selection-by-arrival"],
+  },
+  {
+    name: "a window that ignores excludeIds",
+    witness: wrong({
+      capture: async (snapshot, anchors, { excludeIds: _, ...pushdown }, now) => {
+        const right = await WITNESS.capture(snapshot, anchors, pushdown, now);
+        const full = await WITNESS.capture(
+          snapshot,
+          anchors,
+          { ...pushdown, ...(_ === undefined ? {} : { excludeIds: _ }) },
+          now,
+        );
+        return makeCapture(full, full.anchors, full.members, right);
+      },
+    }),
+    fails: "freshness/a-selection-excludes-members",
+    message: "the capture's since is 22, expected 20",
+    newCases: ["a-selection-excludes-members"],
+  },
+  {
+    name: "a window that ignores arrivalAtMost",
+    witness: wrong({
+      capture: async (snapshot, anchors, { arrivalAtMost: _, ...pushdown }, now) => {
+        const right = await WITNESS.capture(snapshot, anchors, pushdown, now);
+        const full = await WITNESS.capture(
+          snapshot,
+          anchors,
+          { ...pushdown, ...(_ === undefined ? {} : { arrivalAtMost: _ }) },
+          now,
+        );
+        return makeCapture(full, full.anchors, full.members, right);
+      },
+    }),
+    fails: "freshness/a-selection-by-arrival",
+    message: "the capture's since is 23, expected 20",
+    newCases: ["a-selection-by-arrival"],
+  },
+  {
+    name: "an expiresAt that leaves out negators",
+    witness: wrong({
+      capture: async (snapshot, anchors, pushdown, now) => {
+        const right = await WITNESS.capture(snapshot, anchors, pushdown, now);
+        const facts = (await snapshot.get(right.members)).filter(
+          (d) => !d.claims.pointers.some((p) => p.role === "negates"),
+        );
+        const window = validityWindow(facts, now);
+        // Only the deltas the operand admits; with no selection that is every member.
+        return makeCapture(right, right.anchors, right.members, {
+          since: right.since,
+          expiresAt: Object.keys(pushdown).length === 0 ? window.expiresAt : right.expiresAt,
+        });
+      },
+    }),
+    fails: "freshness/a-negator-sets-the-window",
+    message: "the capture expires at null, expected 130",
+    newCases: ["a-negator-sets-the-window"],
+  },
+  {
+    name: "a raw scope that stops after one negation layer",
+    witness: wrong({
+      capture: async (snapshot, anchors, pushdown, now) => {
+        const right = await WITNESS.capture(snapshot, anchors, pushdown, now);
+        const direct = await snapshot.targets(right.anchors.map((a) => a.entity));
+        const once = await snapshot.negators(direct);
+        return makeCapture(right, right.anchors, [...direct, ...once], right);
+      },
+    }),
+    fails: "freshness/a-chain-of-four",
+    message: "the capture's members are",
+    newCases: ["a-chain-of-four"],
   },
   {
     name: "expiry over the raw scope",
@@ -269,11 +449,11 @@ const READERS: readonly {
       capture: async (snapshot, anchors, pushdown, now) => {
         const right = await WITNESS.capture(snapshot, anchors, pushdown, now);
         const raw = await snapshot.get(right.members);
-        return makeCapture(right.revision, right.anchors, right.members, nextBoundary(raw, now));
+        return makeCapture(right, right.anchors, right.members, validityWindow(raw, now));
       },
     }),
     fails: "freshness/a-selection-rejects-the-toucher",
-    message: "the capture expires at 105, expected 120",
+    message: "the capture's since is 70, expected 20",
   },
   {
     name: "reads the feed at equal revisions",
@@ -323,7 +503,7 @@ const READERS: readonly {
       }),
     }),
     fails: "freshness/two-anchors",
-    message: "the capture's anchors are [entity:plant:b entity:plant:a entity:plant:b]",
+    message: "the capture is malformed: capture: anchors is not strictly ascending by UTF-8 bytes",
   },
   {
     name: "turns resync-required into current",
@@ -354,10 +534,10 @@ const READERS: readonly {
     witness: wrong({
       checkFresh: async (peer, capture, now) => {
         const verdict = await checkFresh(peer, capture, now);
-        return verdict.status === "expired" ? { ...verdict, expiresAt: now! } : verdict;
+        return verdict.status === "expired" ? { ...verdict, expiresAt: now } : verdict;
       },
     }),
-    fails: "freshness/expiry",
+    fails: "freshness/the-window",
     message: "checkFresh reports expiry at 200, expected 120",
   },
   {
@@ -427,6 +607,13 @@ describe("freshness vectors: wrong readers fail", () => {
       const found = await failures(reader.witness);
       const own = found.find((f) => f.name === reader.fails);
       expect(own?.message, JSON.stringify(found, null, 1)).toContain(reader.message);
+      if (reader.newCases === undefined) return;
+      // Without the cases added for it, the reader passes: those cases are what catches it.
+      const without = {
+        ...document,
+        cases: document.cases.filter((c) => !reader.newCases!.includes(c.name)),
+      };
+      expect(await failures(reader.witness, {}, without)).toEqual([]);
     });
 });
 
@@ -489,7 +676,12 @@ async function writer(options: MemoryStoreOptions = {}) {
 describe("touching", () => {
   it("changes nothing it is given", () => {
     const a = fact("plant:a", 1);
-    const capture = makeCapture(1, [{ kind: "entity", entity: "plant:a" }], [a.id], null);
+    const capture = makeCapture(
+      { history: "h", revision: 1 },
+      [{ kind: "entity", entity: "plant:a" }],
+      [a.id],
+      { since: null, expiresAt: null },
+    );
     const records: ChangeRecord[] = [{ revision: 2, head: null, added: [a.id], removed: [] }];
     const before = JSON.stringify([capture, records]);
     touching(capture, records, new Map([[a.id, a]]));
@@ -498,8 +690,111 @@ describe("touching", () => {
 
   it("refuses a capture with an anchor kind it cannot read", () => {
     expect(() =>
-      makeCapture(1, [{ kind: "value", entity: "x" } as unknown as never], [], null),
+      makeCapture(
+        { history: "h", revision: 1 },
+        [{ kind: "value", entity: "x" } as unknown as never],
+        [],
+        { since: null, expiresAt: null },
+      ),
     ).toThrow(StoreError);
+  });
+});
+
+describe("parseCapture", () => {
+  // U+FF61 and U+1F600: UTF-16 puts the surrogate pair of U+1F600 first; UTF-8 puts U+FF61 first.
+  const low = "\u{FF61}";
+  const high = "\u{1F600}";
+  const stored = (members: readonly string[], anchors: readonly string[] = ["plant:a"]) => ({
+    history: "h",
+    revision: 3,
+    anchors: anchors.map((entity) => ({ kind: "entity", entity })),
+    members,
+    since: null,
+    expiresAt: null,
+  });
+
+  it("accepts lists in UTF-8 order, which is not UTF-16 order", () => {
+    expect([low, high].sort()).toEqual([high, low]);
+    const capture = parseCapture(stored([low, high], [low, high]));
+    expect(capture.members).toEqual([low, high]);
+    const records: ChangeRecord[] = [{ revision: 4, head: null, added: [], removed: [high] }];
+    expect(touching(capture, records, new Map())).toEqual({
+      revision: 4,
+      id: high,
+      reason: "removed-member",
+    });
+  });
+
+  it("refuses lists in UTF-16 order, shuffled, or repeated, and never answers for them", () => {
+    for (const members of [
+      [high, low],
+      ["b", "a", "c"],
+      ["a", "a"],
+    ])
+      expect(() => parseCapture(stored(members))).toThrow(/strictly ascending by UTF-8/);
+    expect(() => parseCapture(stored(["a"], ["plant:b", "plant:a"]))).toThrow(/anchors/);
+  });
+
+  it("refuses a malformed window, a missing history and another shape", () => {
+    expect(() => parseCapture({ ...stored([]), since: 5, expiresAt: 5 })).toThrow(/before/);
+    expect(() => parseCapture({ ...stored([]), history: "" })).toThrow(/history/);
+    expect(() => parseCapture({ ...stored([]), extra: 1 })).toThrow(/keys/);
+    expect(() => parseCapture({ ...stored([]), revision: -1 })).toThrow(/revision/);
+  });
+
+  it("round-trips a capture through JSON", async () => {
+    const w = await writer();
+    await w.append([fact("plant:a", 1), fact("plant:a", 2, { until: 9 })]);
+    const capture = await w.capture(["plant:a"], 3);
+    expect(parseCapture(JSON.parse(JSON.stringify(capture)))).toEqual(capture);
+  });
+});
+
+describe("history", () => {
+  it("every handle and snapshot of a peer report its history; other peers differ", async () => {
+    const store = createMemoryStore();
+    const a = await store.createPeer(PEER, { erasure: "unproven" });
+    const again = await store.peer(PEER);
+    const snapshot = await again.read();
+    expect(again.history).toBe(a.history);
+    expect(snapshot.history).toBe(a.history);
+    snapshot.release();
+    const b = await store.createPeer(`ed25519:${"0e".repeat(32)}`, { erasure: "unproven" });
+    expect(b.history).not.toBe(a.history);
+  });
+
+  it("one name created anew, in another store, has another history", async () => {
+    const first = await createMemoryStore().createPeer(PEER, { erasure: "unproven" });
+    const second = await createMemoryStore().createPeer(PEER, { erasure: "unproven" });
+    expect(second.history).not.toBe(first.history);
+  });
+
+  it("a host mints histories its own way; a mint that answers no string is refused", async () => {
+    const minted = await createMemoryStore({ mintHistory: (peer) => `host:${peer}` }).createPeer(
+      PEER,
+      { erasure: "unproven" },
+    );
+    expect(minted.history).toBe(`host:${PEER}`);
+    await expect(
+      createMemoryStore({ mintHistory: () => "" }).createPeer(PEER, { erasure: "unproven" }),
+    ).rejects.toMatchObject({ code: "invalid-request" });
+  });
+
+  it("a capture checked against another history answers resync-required, with no feed call", async () => {
+    const w = await writer();
+    await w.append([fact("plant:a", 1)]);
+    const capture = await w.capture(["plant:a"]);
+    // A store restored from elsewhere: same name, same revision, another history.
+    const other = await writer();
+    await other.append([fact("plant:a", 1)]);
+    const calls: string[] = [];
+    const verdict = await checkFresh(
+      { ...other.peer, changes: (f, t) => (calls.push("changes"), other.peer.changes(f, t)) },
+      capture,
+      0,
+    );
+    expect(verdict).toEqual({ status: "resync-required", current: 1 });
+    expect(calls).toEqual([]);
   });
 });
 
@@ -516,11 +811,12 @@ describe("checkFresh", () => {
   it("answers resync-required for a capture from a later revision, with no feed call", async () => {
     const w = await writer();
     await w.append([fact("plant:a", 1)]);
-    const capture = { ...(await w.capture(["plant:a"])), revision: 9 };
+    const capture = parseCapture({ ...(await w.capture(["plant:a"])), revision: 9 });
     const calls: string[] = [];
     const verdict = await checkFresh(
       { ...w.peer, changes: (from, to) => (calls.push("changes"), w.peer.changes(from, to)) },
       capture,
+      0,
     );
     expect(verdict).toEqual({ status: "resync-required", current: 1 });
     expect(calls).toEqual([]);
@@ -549,7 +845,7 @@ describe("checkFresh", () => {
         return page;
       },
     };
-    const verdict = await checkFresh(peer, capture);
+    const verdict = await checkFresh(peer, capture, 0);
     // The first snapshot refuses its `get`; the second sees the toucher at revision 3.
     expect(verdict).toMatchObject({ status: "stale", touch: { revision: 3 } });
     expect(trace.map((c) => c.op)).toEqual(["read", "get", "release", "read", "get", "release"]);
@@ -569,7 +865,7 @@ describe("checkFresh", () => {
       },
     };
     await w.append([fact("plant:b", 2)]);
-    await expect(checkFresh(peer, capture)).rejects.toMatchObject({ code: "snapshot-moved" });
+    await expect(checkFresh(peer, capture, 0)).rejects.toMatchObject({ code: "snapshot-moved" });
     expect(t).toBe(14);
   });
 
@@ -583,6 +879,7 @@ describe("checkFresh", () => {
     const verdict = await checkFresh(
       { ...w.peer, changes: (from, to) => (asked.push(from), w.peer.changes(from, to)) },
       capture,
+      0,
     );
     expect(verdict).toMatchObject({ status: "stale", touch: { revision: 2 } });
     expect(asked).toEqual([1]);
@@ -649,19 +946,40 @@ describe("a read's capture and expiry", () => {
         const admitted = held.filter((e) => passesSelection(e, selection, PUSHDOWN_FIELDS));
         const members = new Set(scopeOver(admitted, read.scope));
         expect([...read.members].sort(compareUtf8), c.name).toEqual([...members].sort(compareUtf8));
-        const expected = nextBoundary(
-          admitted.filter((e) => members.has(e.delta.id)).map((e) => e.delta),
-          now,
-        );
-        expect(read.expiresAt, c.name).toBe(expected);
-        if (expected !== null) nonNull += 1;
+        const operand = admitted.filter((e) => members.has(e.delta.id)).map((e) => e.delta);
+        const expected = validityWindow(operand, now);
+        expect({ since: read.since, expiresAt: read.expiresAt }, c.name).toEqual(expected);
+        if (expected.expiresAt !== null && expected.since !== null) nonNull += 1;
         // The capture: the raw scope of the read's anchors, whatever the selection.
         expect(read.capture, c.name).toEqual({
+          history: peer.history,
           revision: read.revision,
           anchors: read.scope.map((entity) => ({ kind: "entity", entity })),
           members: scopeOver(held, read.scope),
-          expiresAt: expected,
+          ...expected,
         });
+        // The claim of the window: at every time inside it the read answers the same bytes; at
+        // each bound outside it some delta of the operand changes validity.
+        const valid = (t: number) =>
+          operand
+            .filter(
+              (d) =>
+                d.claims.validFrom <= t &&
+                (d.claims.validUntil === undefined || t < d.claims.validUntil),
+            )
+            .map((d) => d.id);
+        const lo = expected.since ?? now - 50;
+        const hi = expected.expiresAt ?? now + 50;
+        for (const t of [lo, (lo + hi) / 2, hi - 1e-6]) {
+          const again = await reactor.read({ ...request, now: t, capture: false });
+          expect(resultCanonicalHex(again.result), `${c.name} at ${t}`).toBe(
+            resultCanonicalHex(read.result),
+          );
+        }
+        if (expected.since !== null)
+          expect(valid(expected.since - 1e-6), c.name).not.toEqual(valid(now));
+        if (expected.expiresAt !== null)
+          expect(valid(expected.expiresAt), c.name).not.toEqual(valid(now));
         // The same capture taken beside a fetched scope.
         const snapshot = await peer.read();
         const beside = await captureScope(snapshot, read.scope, now, { pushdown: selection });
@@ -669,6 +987,78 @@ describe("a read's capture and expiry", () => {
         expect(beside, c.name).toEqual(read.capture);
       }
       if (now === 55) expect(nonNull).toBeGreaterThan(0);
+    });
+
+  // Wrong readers against the shared round vectors alone: each fails the fields `since`,
+  // `expiresAt` and `rawMembers` of rounds.json (vectors/store/README.md §5.4).
+  const committedRounds = JSON.parse(
+    readFileSync(resolve(here, "../../../vectors/store/rounds.json"), "utf8"),
+  ) as typeof rounds;
+  const nameOfId = new Map(rounds.deltas.map((d) => [d.id, d.name]));
+  async function roundFailures(
+    wrongRead: (read: StoreRead, snapshot: Snapshot) => Promise<StoreRead>,
+  ): Promise<string[]> {
+    const { peer } = await loadRounds();
+    const failed: string[] = [];
+    for (const c of committedRounds.cases) {
+      const snapshot = await peer.read();
+      const read = await wrongRead(await readAnchored(snapshot, requestOf(c, c.now)), snapshot);
+      snapshot.release();
+      const got = {
+        since: read.since,
+        expiresAt: read.expiresAt,
+        rawMembers: (read.capture?.members ?? []).map((id) => nameOfId.get(id)),
+      };
+      const { since, expiresAt, rawMembers } = c.expect;
+      if (JSON.stringify(got) !== JSON.stringify({ since, expiresAt, rawMembers }))
+        failed.push(c.name);
+    }
+    return failed;
+  }
+  it("the standard read passes the window and the raw members of every round case", async () => {
+    expect(await roundFailures(async (read) => read)).toEqual([]);
+  });
+  const ROUND_READERS: readonly {
+    name: string;
+    wrongRead: (read: StoreRead, snapshot: Snapshot) => Promise<StoreRead>;
+    fails: string;
+  }[] = [
+    {
+      name: "a window that is always open",
+      wrongRead: async (read) => ({ ...read, since: null, expiresAt: null }),
+      fails: "the-whole-garden-at-55",
+    },
+    {
+      name: "a capture whose members are the read's members",
+      wrongRead: async (read) => ({
+        ...read,
+        capture: makeCapture(read.capture!, read.capture!.anchors, read.members, read.capture!),
+      }),
+      fails: "signed-time-cuts-a-link-and-a-strike",
+    },
+    {
+      name: "a capture over the first round's anchors only",
+      wrongRead: async (read, snapshot) => {
+        const anchors = read.rounds[0]!.anchors.map((entity) => ({
+          kind: "entity" as const,
+          entity,
+        }));
+        return {
+          ...read,
+          capture: makeCapture(
+            read.capture!,
+            read.capture!.anchors,
+            await rawScope(snapshot, anchors),
+            read.capture!,
+          ),
+        };
+      },
+      fails: "the-whole-garden",
+    },
+  ];
+  for (const reader of ROUND_READERS)
+    it(`round vectors catch a wrong reader: ${reader.name}`, async () => {
+      expect(await roundFailures(reader.wrongRead)).toContain(reader.fails);
     });
 
   it("a read with nothing pushed down captures with no further store call", async () => {
@@ -726,26 +1116,26 @@ describe("a read's capture and expiry", () => {
         { delta: late, arrival: { id: late.id, at: 1, sequence: 999, transfer: 9, sender: "x" } },
       ],
     });
-    expect(await checkFresh(peer, read.capture!)).toMatchObject({
+    expect(await checkFresh(peer, read.capture!, 100)).toMatchObject({
       status: "stale",
       touch: { id: late.id, reason: "targets-anchor" },
     });
   });
 
-  it("a fetched scope answers its next boundary for any now", async () => {
+  it("a fetched scope answers its window for any now", async () => {
     const w = await writer();
     const a = fact("plant:a", 10, { until: 50 });
     const b = fact("plant:a", 20, { from: 30 });
     const outside = fact("plant:b", 5, { until: 25 });
     await w.append([a, b, outside]);
     const fetched = await StoreReactor.open(w.peer).fetch(["plant:a"]);
-    expect([0, 10, 25, 30, 49, 50].map((now) => fetched.expiresAfter(now))).toEqual([
-      10,
-      30,
-      30,
-      50,
-      50,
-      null,
+    expect([0, 10, 25, 30, 49, 50].map((now) => fetched.window(now))).toEqual([
+      { since: null, expiresAt: 10 },
+      { since: 10, expiresAt: 30 },
+      { since: 10, expiresAt: 30 },
+      { since: 30, expiresAt: 50 },
+      { since: 30, expiresAt: 50 },
+      { since: 50, expiresAt: null },
     ]);
   });
 });
@@ -772,7 +1162,17 @@ async function fuzzOne(seed: number): Promise<{ verdict: Freshness["status"]; ex
   // A corpus: facts at random entities, and negations at random depth.
   const corpus: Delta[] = [];
   for (let i = 0; i < 14; i++) {
-    if (corpus.length > 0 && next() < 0.4) corpus.push(strike(pick(corpus), i));
+    if (corpus.length > 0 && next() < 0.25) {
+      // A chain of three or four negations: a raw scope that stops after one layer misses it.
+      let link = pick(corpus);
+      for (let depth = 3 + Math.floor(next() * 2); depth > 0; depth--) {
+        link = makeDelta({
+          ...makeNegationClaims("did:key:zB", i, link.id),
+          ...(next() < 0.3 ? { validFrom: i, validUntil: 50 + Math.floor(next() * 30) } : {}),
+        });
+        corpus.push(link);
+      }
+    } else if (corpus.length > 0 && next() < 0.3) corpus.push(strike(pick(corpus), i));
     else {
       const claims: Claims = {
         timestamp: i,
@@ -816,12 +1216,42 @@ async function fuzzOne(seed: number): Promise<{ verdict: Freshness["status"]; ex
       anchors,
     );
   const operand = new Set(selected(before));
-  expect(capture.expiresAt, `seed ${seed}`).toBe(
-    nextBoundary(
-      [...before.values()].filter((e) => operand.has(e.delta.id)).map((e) => e.delta),
-      now,
-    ),
+  const operandDeltas = [...before.values()]
+    .filter((e) => operand.has(e.delta.id))
+    .map((e) => e.delta);
+  // The window, by scanning: the last boundary at or before now, the first after it.
+  const boundaries = operandDeltas.flatMap((d) =>
+    d.claims.validUntil === undefined
+      ? [d.claims.validFrom]
+      : [d.claims.validFrom, d.claims.validUntil],
   );
+  const since = boundaries
+    .filter((b) => b <= now)
+    .reduce<number | null>((m, b) => (m === null || b > m ? b : m), null);
+  const expiresAt = boundaries
+    .filter((b) => b > now)
+    .reduce<number | null>((m, b) => (m === null || b < m ? b : m), null);
+  expect({ since: capture.since, expiresAt: capture.expiresAt }, `seed ${seed}`).toEqual({
+    since,
+    expiresAt,
+  });
+  // Inside the window no operand delta changes validity; just outside, one does.
+  const validAt = (t: number) =>
+    operandDeltas
+      .filter(
+        (d) =>
+          d.claims.validFrom <= t && (d.claims.validUntil === undefined || t < d.claims.validUntil),
+      )
+      .map((d) => d.id)
+      .join();
+  const lo = since ?? now - 100;
+  const hi = expiresAt ?? now + 100;
+  const inside = lo + next() * (hi - lo);
+  expect(validAt(inside), `seed ${seed}: inside the window`).toBe(validAt(now));
+  if (since !== null)
+    expect(validAt(since - 0.5), `seed ${seed}: below since`).not.toBe(validAt(now));
+  if (expiresAt !== null)
+    expect(validAt(expiresAt), `seed ${seed}: at expiresAt`).not.toBe(validAt(now));
 
   const removedMembers = new Set<string>();
   for (let i = 1 + Math.floor(next() * 5); i > 0; i--) {
@@ -829,7 +1259,8 @@ async function fuzzOne(seed: number): Promise<{ verdict: Freshness["status"]; ex
     await commit();
     for (const id of held) if (!w.held.has(id) && raw.includes(id)) removedMembers.add(id);
   }
-  const verdict = await checkFresh(w.peer, capture);
+  // Checked at a time inside the window: the answer is about the feed alone.
+  const verdict = await checkFresh(w.peer, capture, inside);
   const after = scopeOver([...w.held.values()], anchors);
   const unchanged =
     after.length === raw.length &&
@@ -935,7 +1366,7 @@ describe("cost rail: a check costs the changes since its capture", () => {
   const timed = (peer: PeerStore, capture: Capture, n: number) => async () => {
     const start = performance.now();
     for (let i = 0; i < n; i++) {
-      const verdict = await checkFresh(peer, capture);
+      const verdict = await checkFresh(peer, capture, 0);
       if (verdict.status !== "current") throw new Error(verdict.status);
     }
     return performance.now() - start;

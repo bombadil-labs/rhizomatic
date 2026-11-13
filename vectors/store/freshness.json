@@ -71,6 +71,24 @@
       }
     },
     {
+      "name": "a-height-neg-window",
+      "id": "1e20c7fdb6d3ea3141478605106eab6eb9d34909b3c81d6e2059d495e990c1e6608f",
+      "claims": {
+        "timestamp": 25,
+        "validFrom": 25,
+        "validUntil": 130,
+        "author": "did:key:zBob",
+        "pointers": [
+          {
+            "role": "negates",
+            "target": {
+              "delta": "1e2004646ff70b056a3fdc499468eedc468648439914d428cd9fdf5811e7e4a2d30a"
+            }
+          }
+        ]
+      }
+    },
+    {
       "name": "b-name",
       "id": "1e200bfadfd108b76d2047bdb0af04c62965249b835bffb5abb2ade2d8658dd670ab",
       "claims": {
@@ -143,6 +161,23 @@
             "role": "negates",
             "target": {
               "delta": "1e20901a41101c3cf3e06298c2726271db7eaa49c5ef4f6960722ca28db14fb10c92"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "a-height-neg-neg-neg",
+      "id": "1e20dbb8d5dabd8369be4a16a6931ac8ede19cb62f9a5d527589d89017bbf22b4cb0",
+      "claims": {
+        "timestamp": 31,
+        "validFrom": 31,
+        "author": "did:key:zBob",
+        "pointers": [
+          {
+            "role": "negates",
+            "target": {
+              "delta": "1e201436cfa83075b81b6ab90af68a3eb775f43a1bc8297caa95a44ae506eb8095f6"
             }
           }
         ]
@@ -455,6 +490,52 @@
           }
         ]
       }
+    },
+    {
+      "name": "a-excluded",
+      "id": "1e20595dcbd8f6c8bf9c914adde2351aabd194d8437c524431b5ae8be997a18530bc",
+      "claims": {
+        "timestamp": 22,
+        "validFrom": 22,
+        "validUntil": 104,
+        "author": "did:key:zAlice",
+        "pointers": [
+          {
+            "role": "subject",
+            "target": {
+              "id": "plant:a",
+              "context": "excluded"
+            }
+          },
+          {
+            "role": "value",
+            "target": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "a-arrives-late",
+      "id": "1e206224df93eeb65f1dd30121feabadb89d0f9b94c0f98b05f4691a7006619b90e9",
+      "claims": {
+        "timestamp": 23,
+        "validFrom": 23,
+        "validUntil": 103,
+        "author": "did:key:zAlice",
+        "pointers": [
+          {
+            "role": "subject",
+            "target": {
+              "id": "plant:a",
+              "context": "arrival"
+            }
+          },
+          {
+            "role": "value",
+            "target": 1
+          }
+        ]
+      }
     }
   ],
   "cases": [
@@ -559,6 +640,7 @@
               "a-name",
               "a-height-neg"
             ],
+            "since": 20,
             "expiresAt": null
           }
         },
@@ -566,6 +648,7 @@
           "op": "check",
           "peer": "A",
           "capture": "c",
+          "now": 100,
           "exact": true,
           "expect": {
             "revision": "A.1",
@@ -678,6 +761,7 @@
               "a-name",
               "a-height-neg"
             ],
+            "since": 20,
             "expiresAt": null
           }
         },
@@ -699,6 +783,7 @@
           "op": "check",
           "peer": "A",
           "capture": "c",
+          "now": 100,
           "exact": true,
           "expect": {
             "revision": "A.2",
@@ -811,6 +896,7 @@
               "a-name",
               "a-height-neg"
             ],
+            "since": 20,
             "expiresAt": null
           }
         },
@@ -870,6 +956,7 @@
           "op": "check",
           "peer": "A",
           "capture": "c",
+          "now": 100,
           "exact": true,
           "expect": {
             "revision": "A.3",
@@ -982,6 +1069,7 @@
               "a-name",
               "a-height-neg"
             ],
+            "since": 20,
             "expiresAt": null
           }
         },
@@ -1015,6 +1103,7 @@
           "op": "check",
           "peer": "A",
           "capture": "c",
+          "now": 100,
           "exact": true,
           "expect": {
             "revision": "A.2",
@@ -1136,6 +1225,7 @@
               "a-name",
               "a-height-neg"
             ],
+            "since": 20,
             "expiresAt": null
           }
         },
@@ -1169,6 +1259,7 @@
           "op": "check",
           "peer": "A",
           "capture": "c",
+          "now": 100,
           "exact": true,
           "expect": {
             "revision": "A.2",
@@ -1290,6 +1381,7 @@
               "a-name",
               "a-height-neg"
             ],
+            "since": 20,
             "expiresAt": null
           }
         },
@@ -1323,6 +1415,7 @@
           "op": "check",
           "peer": "A",
           "capture": "c",
+          "now": 100,
           "exact": true,
           "expect": {
             "revision": "A.2",
@@ -1444,6 +1537,7 @@
               "a-name",
               "a-height-neg"
             ],
+            "since": 20,
             "expiresAt": null
           }
         },
@@ -1477,6 +1571,7 @@
           "op": "check",
           "peer": "A",
           "capture": "c",
+          "now": 100,
           "exact": true,
           "expect": {
             "revision": "A.2",
@@ -1589,6 +1684,7 @@
               "a-name",
               "a-height-neg"
             ],
+            "since": 20,
             "expiresAt": null
           }
         },
@@ -1622,6 +1718,7 @@
           "op": "check",
           "peer": "A",
           "capture": "c",
+          "now": 100,
           "exact": true,
           "expect": {
             "revision": "A.2",
@@ -1734,6 +1831,7 @@
               "a-name",
               "a-height-neg"
             ],
+            "since": 20,
             "expiresAt": null
           }
         },
@@ -1776,6 +1874,7 @@
           "op": "check",
           "peer": "A",
           "capture": "c",
+          "now": 100,
           "exact": true,
           "expect": {
             "revision": "A.2",
@@ -1897,6 +1996,7 @@
               "a-name",
               "a-height-neg"
             ],
+            "since": 20,
             "expiresAt": null
           }
         },
@@ -1939,6 +2039,7 @@
           "op": "check",
           "peer": "A",
           "capture": "c",
+          "now": 100,
           "exact": true,
           "expect": {
             "revision": "A.2",
@@ -2051,6 +2152,7 @@
               "a-name",
               "a-height-neg"
             ],
+            "since": 20,
             "expiresAt": null
           }
         },
@@ -2119,6 +2221,7 @@
           "op": "check",
           "peer": "A",
           "capture": "c",
+          "now": 100,
           "exact": true,
           "expect": {
             "revision": "A.3",
@@ -2240,6 +2343,7 @@
               "a-name",
               "a-height-neg"
             ],
+            "since": 20,
             "expiresAt": null
           }
         },
@@ -2308,6 +2412,7 @@
           "op": "check",
           "peer": "A",
           "capture": "c",
+          "now": 100,
           "exact": true,
           "expect": {
             "revision": "A.3",
@@ -2420,6 +2525,7 @@
               "a-name",
               "a-height-neg"
             ],
+            "since": 20,
             "expiresAt": null
           }
         },
@@ -2537,6 +2643,7 @@
           "op": "check",
           "peer": "A",
           "capture": "c",
+          "now": 100,
           "exact": true,
           "expect": {
             "revision": "A.1",
@@ -2649,6 +2756,7 @@
               "a-name",
               "a-height-neg"
             ],
+            "since": 20,
             "expiresAt": null
           }
         },
@@ -2753,6 +2861,7 @@
           "op": "check",
           "peer": "A",
           "capture": "c",
+          "now": 100,
           "exact": true,
           "expect": {
             "revision": "A.4",
@@ -2874,6 +2983,7 @@
               "a-name",
               "a-height-neg"
             ],
+            "since": 20,
             "expiresAt": null
           }
         },
@@ -2917,6 +3027,7 @@
           "op": "check",
           "peer": "A",
           "capture": "c",
+          "now": 100,
           "exact": true,
           "expect": {
             "revision": "A.2",
@@ -3051,6 +3162,7 @@
               "a-name",
               "a-height-neg"
             ],
+            "since": 20,
             "expiresAt": null
           }
         },
@@ -3084,6 +3196,7 @@
           "op": "check",
           "peer": "A",
           "capture": "c",
+          "now": 100,
           "exact": true,
           "expect": {
             "revision": "A.2",
@@ -3202,6 +3315,7 @@
               "c-name",
               "bed-has-c"
             ],
+            "since": 16,
             "expiresAt": null
           }
         },
@@ -3227,6 +3341,7 @@
             "members": [
               "bed-has-c"
             ],
+            "since": 15,
             "expiresAt": null
           }
         },
@@ -3260,6 +3375,7 @@
           "op": "check",
           "peer": "A",
           "capture": "read",
+          "now": 100,
           "exact": true,
           "expect": {
             "revision": "A.2",
@@ -3282,6 +3398,7 @@
           "op": "check",
           "peer": "A",
           "capture": "root-only",
+          "now": 100,
           "exact": true,
           "expect": {
             "revision": "A.2",
@@ -3399,6 +3516,7 @@
               "a-name",
               "a-height-neg"
             ],
+            "since": 20,
             "expiresAt": null
           }
         },
@@ -3458,6 +3576,7 @@
           "op": "check",
           "peer": "A",
           "capture": "c",
+          "now": 100,
           "exact": true,
           "expect": {
             "revision": "A.3",
@@ -3470,8 +3589,8 @@
       ]
     },
     {
-      "name": "expiry",
-      "note": "At now 100 the operand's next boundary is a-future's validFrom 120. a-from-now starts at 100, which is not after now. b-expiring ends at 110 outside the scope. Stale wins over expired.",
+      "name": "the-window",
+      "note": "At now 100 the operand's window is [100, 120): a-from-now starts at 100, a-future at 120. b-expiring ends at 110 outside the scope. A check before 100 is not-yet; at 100 and at 119 current; at 120 and later expired. Stale wins over the window.",
       "spec": "SPEC-18 §4.6",
       "requires": [
         "changes"
@@ -3581,7 +3700,37 @@
               "a-future",
               "a-from-now"
             ],
+            "since": 100,
             "expiresAt": 120
+          }
+        },
+        {
+          "op": "check",
+          "peer": "A",
+          "capture": "c",
+          "now": 99,
+          "exact": true,
+          "expect": {
+            "revision": "A.1",
+            "verdict": {
+              "status": "not-yet",
+              "since": 100
+            },
+            "touching": null
+          }
+        },
+        {
+          "op": "check",
+          "peer": "A",
+          "capture": "c",
+          "now": 100,
+          "exact": true,
+          "expect": {
+            "revision": "A.1",
+            "verdict": {
+              "status": "current"
+            },
+            "touching": null
           }
         },
         {
@@ -3643,6 +3792,7 @@
           "op": "check",
           "peer": "A",
           "capture": "c",
+          "now": 100,
           "exact": true,
           "expect": {
             "revision": "A.2",
@@ -3714,6 +3864,723 @@
               "delta": "a-note-late",
               "reason": "targets-anchor"
             }
+          }
+        },
+        {
+          "op": "check",
+          "peer": "A",
+          "capture": "c",
+          "now": 50,
+          "exact": true,
+          "expect": {
+            "revision": "A.3",
+            "verdict": {
+              "status": "stale",
+              "touch": {
+                "revision": "A.3",
+                "delta": "a-note-late",
+                "reason": "targets-anchor"
+              }
+            },
+            "touching": {
+              "revision": "A.3",
+              "delta": "a-note-late",
+              "reason": "targets-anchor"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "a-fact-that-starts-at-now",
+      "note": "The read at 100 holds one fact valid from 100: its window is [100, open). A check at 99 is not-yet: a read at 99 would not see the fact.",
+      "spec": "SPEC-18 §4.6",
+      "requires": [
+        "changes"
+      ],
+      "steps": [
+        {
+          "op": "createPeer",
+          "peer": "A",
+          "erasure": "unproven",
+          "expect": {
+            "status": "created"
+          }
+        },
+        {
+          "op": "mark",
+          "peer": "A",
+          "as": "A.0"
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": null,
+          "nextHead": "A-head-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-from-now",
+              "arrival": {
+                "at": 1001,
+                "sequence": 1,
+                "transfer": 1,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.1",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-from-now"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "capture",
+          "peer": "A",
+          "as": "c",
+          "anchors": [
+            {
+              "kind": "entity",
+              "entity": "plant:a"
+            }
+          ],
+          "now": 100,
+          "expect": {
+            "revision": "A.1",
+            "anchors": [
+              {
+                "kind": "entity",
+                "entity": "plant:a"
+              }
+            ],
+            "members": [
+              "a-from-now"
+            ],
+            "since": 100,
+            "expiresAt": null
+          }
+        },
+        {
+          "op": "check",
+          "peer": "A",
+          "capture": "c",
+          "now": 99,
+          "exact": true,
+          "expect": {
+            "revision": "A.1",
+            "verdict": {
+              "status": "not-yet",
+              "since": 100
+            },
+            "touching": null
+          }
+        },
+        {
+          "op": "check",
+          "peer": "A",
+          "capture": "c",
+          "now": 100,
+          "exact": true,
+          "expect": {
+            "revision": "A.1",
+            "verdict": {
+              "status": "current"
+            },
+            "touching": null
+          }
+        },
+        {
+          "op": "check",
+          "peer": "A",
+          "capture": "c",
+          "now": 1000000000,
+          "exact": true,
+          "expect": {
+            "revision": "A.1",
+            "verdict": {
+              "status": "current"
+            },
+            "touching": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "a-negator-sets-the-window",
+      "note": "a-height-neg-window negates a member and is valid from 25 until 130. The operand's window is [25, 130), from the negator alone.",
+      "spec": "SPEC-18 §4.6",
+      "requires": [
+        "changes"
+      ],
+      "steps": [
+        {
+          "op": "createPeer",
+          "peer": "A",
+          "erasure": "unproven",
+          "expect": {
+            "status": "created"
+          }
+        },
+        {
+          "op": "mark",
+          "peer": "A",
+          "as": "A.0"
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": null,
+          "nextHead": "A-head-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-name",
+              "arrival": {
+                "at": 1001,
+                "sequence": 1,
+                "transfer": 1,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "a-height",
+              "arrival": {
+                "at": 1002,
+                "sequence": 2,
+                "transfer": 1,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "a-height-neg",
+              "arrival": {
+                "at": 1003,
+                "sequence": 3,
+                "transfer": 1,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "b-name",
+              "arrival": {
+                "at": 1004,
+                "sequence": 4,
+                "transfer": 1,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.1",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-height",
+              "b-name",
+              "a-name",
+              "a-height-neg"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "A-head-1",
+          "nextHead": "A-head-2",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-height-neg-window",
+              "arrival": {
+                "at": 1005,
+                "sequence": 5,
+                "transfer": 2,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.2",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-height-neg-window"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "capture",
+          "peer": "A",
+          "as": "c",
+          "anchors": [
+            {
+              "kind": "entity",
+              "entity": "plant:a"
+            }
+          ],
+          "now": 100,
+          "expect": {
+            "revision": "A.2",
+            "anchors": [
+              {
+                "kind": "entity",
+                "entity": "plant:a"
+              }
+            ],
+            "members": [
+              "a-height",
+              "a-name",
+              "a-height-neg",
+              "a-height-neg-window"
+            ],
+            "since": 25,
+            "expiresAt": 130
+          }
+        },
+        {
+          "op": "check",
+          "peer": "A",
+          "capture": "c",
+          "now": 24,
+          "exact": true,
+          "expect": {
+            "revision": "A.2",
+            "verdict": {
+              "status": "not-yet",
+              "since": 25
+            },
+            "touching": null
+          }
+        },
+        {
+          "op": "check",
+          "peer": "A",
+          "capture": "c",
+          "now": 25,
+          "exact": true,
+          "expect": {
+            "revision": "A.2",
+            "verdict": {
+              "status": "current"
+            },
+            "touching": null
+          }
+        },
+        {
+          "op": "check",
+          "peer": "A",
+          "capture": "c",
+          "now": 129,
+          "exact": true,
+          "expect": {
+            "revision": "A.2",
+            "verdict": {
+              "status": "current"
+            },
+            "touching": null
+          }
+        },
+        {
+          "op": "check",
+          "peer": "A",
+          "capture": "c",
+          "now": 130,
+          "exact": true,
+          "expect": {
+            "revision": "A.2",
+            "verdict": {
+              "status": "expired",
+              "expiresAt": 130
+            },
+            "touching": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "a-chain-of-four",
+      "note": "a-height, a-height-neg, a-height-neg-neg are members, the last only two negations deep. a-height-neg-neg-neg negates it.",
+      "spec": "SPEC-18 §4.6",
+      "requires": [
+        "changes"
+      ],
+      "steps": [
+        {
+          "op": "createPeer",
+          "peer": "A",
+          "erasure": "unproven",
+          "expect": {
+            "status": "created"
+          }
+        },
+        {
+          "op": "mark",
+          "peer": "A",
+          "as": "A.0"
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": null,
+          "nextHead": "A-head-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-name",
+              "arrival": {
+                "at": 1001,
+                "sequence": 1,
+                "transfer": 1,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "a-height",
+              "arrival": {
+                "at": 1002,
+                "sequence": 2,
+                "transfer": 1,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "a-height-neg",
+              "arrival": {
+                "at": 1003,
+                "sequence": 3,
+                "transfer": 1,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "b-name",
+              "arrival": {
+                "at": 1004,
+                "sequence": 4,
+                "transfer": 1,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.1",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-height",
+              "b-name",
+              "a-name",
+              "a-height-neg"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "A-head-1",
+          "nextHead": "A-head-2",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-height-neg-neg",
+              "arrival": {
+                "at": 1005,
+                "sequence": 5,
+                "transfer": 2,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.2",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-height-neg-neg"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "capture",
+          "peer": "A",
+          "as": "c",
+          "anchors": [
+            {
+              "kind": "entity",
+              "entity": "plant:a"
+            }
+          ],
+          "now": 100,
+          "expect": {
+            "revision": "A.2",
+            "anchors": [
+              {
+                "kind": "entity",
+                "entity": "plant:a"
+              }
+            ],
+            "members": [
+              "a-height",
+              "a-height-neg-neg",
+              "a-name",
+              "a-height-neg"
+            ],
+            "since": 30,
+            "expiresAt": null
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "A-head-2",
+          "nextHead": "A-head-3",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-height-neg-neg-neg",
+              "arrival": {
+                "at": 1006,
+                "sequence": 6,
+                "transfer": 3,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.3",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-height-neg-neg-neg"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "check",
+          "peer": "A",
+          "capture": "c",
+          "now": 100,
+          "exact": true,
+          "expect": {
+            "revision": "A.3",
+            "verdict": {
+              "status": "stale",
+              "touch": {
+                "revision": "A.3",
+                "delta": "a-height-neg-neg-neg",
+                "reason": "negates-member"
+              }
+            },
+            "touching": {
+              "revision": "A.3",
+              "delta": "a-height-neg-neg-neg",
+              "reason": "negates-member"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "a-capture-checked-on-another-peer",
+      "note": "Peer B has its own history and a higher revision than the capture. The check answers resync-required before it reads any feed.",
+      "spec": "SPEC-18 §4.6",
+      "requires": [
+        "changes"
+      ],
+      "steps": [
+        {
+          "op": "createPeer",
+          "peer": "A",
+          "erasure": "unproven",
+          "expect": {
+            "status": "created"
+          }
+        },
+        {
+          "op": "mark",
+          "peer": "A",
+          "as": "A.0"
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": null,
+          "nextHead": "A-head-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-name",
+              "arrival": {
+                "at": 1001,
+                "sequence": 1,
+                "transfer": 1,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "a-height",
+              "arrival": {
+                "at": 1002,
+                "sequence": 2,
+                "transfer": 1,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "a-height-neg",
+              "arrival": {
+                "at": 1003,
+                "sequence": 3,
+                "transfer": 1,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "b-name",
+              "arrival": {
+                "at": 1004,
+                "sequence": 4,
+                "transfer": 1,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.1",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-height",
+              "b-name",
+              "a-name",
+              "a-height-neg"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "capture",
+          "peer": "A",
+          "as": "c",
+          "anchors": [
+            {
+              "kind": "entity",
+              "entity": "plant:a"
+            }
+          ],
+          "now": 100,
+          "expect": {
+            "revision": "A.1",
+            "anchors": [
+              {
+                "kind": "entity",
+                "entity": "plant:a"
+              }
+            ],
+            "members": [
+              "a-height",
+              "a-name",
+              "a-height-neg"
+            ],
+            "since": 20,
+            "expiresAt": null
+          }
+        },
+        {
+          "op": "createPeer",
+          "peer": "B",
+          "erasure": "unproven",
+          "expect": {
+            "status": "created"
+          }
+        },
+        {
+          "op": "mark",
+          "peer": "B",
+          "as": "B.0"
+        },
+        {
+          "op": "append",
+          "peer": "B",
+          "expectedHead": null,
+          "nextHead": "B-head-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "b-height",
+              "arrival": {
+                "at": 1001,
+                "sequence": 1,
+                "transfer": 2,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "B.1",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "b-height"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "append",
+          "peer": "B",
+          "expectedHead": "B-head-1",
+          "nextHead": "B-head-2",
+          "frame": null,
+          "added": [
+            {
+              "delta": "d-name",
+              "arrival": {
+                "at": 1002,
+                "sequence": 2,
+                "transfer": 3,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "B.2",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "d-name"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "append",
+          "peer": "B",
+          "expectedHead": "B-head-2",
+          "nextHead": "B-head-3",
+          "frame": null,
+          "added": [],
+          "revisionAs": "B.3",
+          "expect": {
+            "status": "committed",
+            "added": [],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "check",
+          "peer": "B",
+          "capture": "c",
+          "now": 100,
+          "anotherPeer": true,
+          "exact": true,
+          "expect": {
+            "revision": "B.3",
+            "verdict": {
+              "status": "resync-required"
+            },
+            "touching": null
           }
         }
       ]
@@ -3860,6 +4727,7 @@
               "a-future",
               "a-late"
             ],
+            "since": 20,
             "expiresAt": 120
           }
         },
@@ -3893,6 +4761,7 @@
           "op": "check",
           "peer": "A",
           "capture": "c",
+          "now": 100,
           "exact": false,
           "expect": {
             "revision": "A.3",
@@ -4044,6 +4913,7 @@
               "a-height-neg",
               "a-late"
             ],
+            "since": 20,
             "expiresAt": null
           }
         },
@@ -4086,6 +4956,7 @@
           "op": "check",
           "peer": "A",
           "capture": "c",
+          "now": 100,
           "exact": false,
           "expect": {
             "revision": "A.3",
@@ -4237,6 +5108,7 @@
               "a-height-neg",
               "a-late"
             ],
+            "since": 20,
             "expiresAt": null
           }
         },
@@ -4270,6 +5142,7 @@
           "op": "check",
           "peer": "A",
           "capture": "c",
+          "now": 100,
           "exact": false,
           "expect": {
             "revision": "A.3",
@@ -4421,6 +5294,7 @@
               "a-height-neg",
               "a-late"
             ],
+            "since": 20,
             "expiresAt": null
           }
         },
@@ -4454,6 +5328,445 @@
           "op": "check",
           "peer": "A",
           "capture": "c",
+          "now": 100,
+          "exact": false,
+          "expect": {
+            "revision": "A.3",
+            "verdict": {
+              "status": "stale",
+              "touch": {
+                "revision": "A.3",
+                "delta": "a-name-neg",
+                "reason": "negates-member"
+              }
+            },
+            "touching": {
+              "revision": "A.3",
+              "delta": "a-name-neg",
+              "reason": "negates-member"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "a-selection-excludes-members",
+      "note": "excludeIds drops a-name and a-excluded. Both stay members of the raw scope. a-excluded's boundary at 104 and its validFrom 22 are outside the operand: its window is [20, open).",
+      "spec": "SPEC-18 §4.6",
+      "requires": [
+        "changes"
+      ],
+      "steps": [
+        {
+          "op": "createPeer",
+          "peer": "A",
+          "erasure": "unproven",
+          "expect": {
+            "status": "created"
+          }
+        },
+        {
+          "op": "mark",
+          "peer": "A",
+          "as": "A.0"
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": null,
+          "nextHead": "A-head-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-name",
+              "arrival": {
+                "at": 1001,
+                "sequence": 1,
+                "transfer": 1,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "a-height",
+              "arrival": {
+                "at": 1002,
+                "sequence": 2,
+                "transfer": 1,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "a-height-neg",
+              "arrival": {
+                "at": 1003,
+                "sequence": 3,
+                "transfer": 1,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "b-name",
+              "arrival": {
+                "at": 1004,
+                "sequence": 4,
+                "transfer": 1,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.1",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-height",
+              "b-name",
+              "a-name",
+              "a-height-neg"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "A-head-1",
+          "nextHead": "A-head-2",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-excluded",
+              "arrival": {
+                "at": 1005,
+                "sequence": 5,
+                "transfer": 2,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.2",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-excluded"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "capture",
+          "peer": "A",
+          "as": "c",
+          "anchors": [
+            {
+              "kind": "entity",
+              "entity": "plant:a"
+            }
+          ],
+          "selection": {
+            "excludeIds": [
+              "a-name",
+              "a-excluded"
+            ]
+          },
+          "now": 100,
+          "expect": {
+            "revision": "A.2",
+            "anchors": [
+              {
+                "kind": "entity",
+                "entity": "plant:a"
+              }
+            ],
+            "members": [
+              "a-height",
+              "a-excluded",
+              "a-name",
+              "a-height-neg"
+            ],
+            "since": 20,
+            "expiresAt": null
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "A-head-2",
+          "nextHead": "A-head-3",
+          "frame": null,
+          "added": [
+            {
+              "delta": "b-height",
+              "arrival": {
+                "at": 1006,
+                "sequence": 6,
+                "transfer": 3,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.3",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "b-height"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "check",
+          "peer": "A",
+          "capture": "c",
+          "now": 100,
+          "exact": false,
+          "expect": {
+            "revision": "A.3",
+            "verdict": {
+              "status": "current"
+            },
+            "touching": null
+          }
+        },
+        {
+          "op": "purge",
+          "peer": "A",
+          "revisionAs": "A.4",
+          "ids": [
+            "a-excluded"
+          ],
+          "expect": {
+            "targets": [
+              {
+                "delta": "a-excluded",
+                "outcome": "removed"
+              }
+            ],
+            "revisionAdvanced": true,
+            "claim": {
+              "unprovable": "unproven",
+              "proven": "proven"
+            },
+            "referenceSurfaces": [
+              {
+                "surface": "rows",
+                "state": "absent"
+              },
+              {
+                "surface": "index-entries",
+                "state": "absent"
+              },
+              {
+                "surface": "process-memory",
+                "state": "unprovable"
+              }
+            ]
+          }
+        },
+        {
+          "op": "check",
+          "peer": "A",
+          "capture": "c",
+          "now": 100,
+          "exact": false,
+          "expect": {
+            "revision": "A.4",
+            "verdict": {
+              "status": "stale",
+              "touch": {
+                "revision": "A.4",
+                "delta": "a-excluded",
+                "reason": "removed-member"
+              }
+            },
+            "touching": {
+              "revision": "A.4",
+              "delta": "a-excluded",
+              "reason": "removed-member"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "a-selection-by-arrival",
+      "note": "arrivalAtMost 4 drops a-arrives-late, which arrived fifth. It stays a member of the raw scope. Its window, [23, 103), is outside the operand's: [20, open).",
+      "spec": "SPEC-18 §4.6",
+      "requires": [
+        "changes"
+      ],
+      "steps": [
+        {
+          "op": "createPeer",
+          "peer": "A",
+          "erasure": "unproven",
+          "expect": {
+            "status": "created"
+          }
+        },
+        {
+          "op": "mark",
+          "peer": "A",
+          "as": "A.0"
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": null,
+          "nextHead": "A-head-1",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-name",
+              "arrival": {
+                "at": 1001,
+                "sequence": 1,
+                "transfer": 1,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "a-height",
+              "arrival": {
+                "at": 1002,
+                "sequence": 2,
+                "transfer": 1,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "a-height-neg",
+              "arrival": {
+                "at": 1003,
+                "sequence": 3,
+                "transfer": 1,
+                "sender": "local"
+              }
+            },
+            {
+              "delta": "b-name",
+              "arrival": {
+                "at": 1004,
+                "sequence": 4,
+                "transfer": 1,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.1",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-height",
+              "b-name",
+              "a-name",
+              "a-height-neg"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "A-head-1",
+          "nextHead": "A-head-2",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-arrives-late",
+              "arrival": {
+                "at": 1005,
+                "sequence": 5,
+                "transfer": 2,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.2",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-arrives-late"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "capture",
+          "peer": "A",
+          "as": "c",
+          "anchors": [
+            {
+              "kind": "entity",
+              "entity": "plant:a"
+            }
+          ],
+          "selection": {
+            "arrivalAtMost": 4
+          },
+          "now": 100,
+          "expect": {
+            "revision": "A.2",
+            "anchors": [
+              {
+                "kind": "entity",
+                "entity": "plant:a"
+              }
+            ],
+            "members": [
+              "a-height",
+              "a-arrives-late",
+              "a-name",
+              "a-height-neg"
+            ],
+            "since": 20,
+            "expiresAt": null
+          }
+        },
+        {
+          "op": "check",
+          "peer": "A",
+          "capture": "c",
+          "now": 102,
+          "exact": false,
+          "expect": {
+            "revision": "A.2",
+            "verdict": {
+              "status": "current"
+            },
+            "touching": null
+          }
+        },
+        {
+          "op": "append",
+          "peer": "A",
+          "expectedHead": "A-head-2",
+          "nextHead": "A-head-3",
+          "frame": null,
+          "added": [
+            {
+              "delta": "a-name-neg",
+              "arrival": {
+                "at": 1006,
+                "sequence": 6,
+                "transfer": 3,
+                "sender": "local"
+              }
+            }
+          ],
+          "revisionAs": "A.3",
+          "expect": {
+            "status": "committed",
+            "added": [
+              "a-name-neg"
+            ],
+            "revisionAdvanced": true
+          }
+        },
+        {
+          "op": "check",
+          "peer": "A",
+          "capture": "c",
+          "now": 100,
           "exact": false,
           "expect": {
             "revision": "A.3",
