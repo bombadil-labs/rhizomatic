@@ -243,6 +243,32 @@ export function parseCapture(value: unknown): Capture {
 }
 
 /**
+ * The same capture, moved to a later revision of the same history: anchors, members and window
+ * unchanged. Not part of the package surface. Held views use it (SPEC-18 §4.6, "Held views").
+ *
+ * It assumes what it cannot check: the caller read the feed over `(capture.revision, revision]`
+ * of this history and found no record that touches the capture (`touching` answers null). Then
+ * S(anchors over H) at `revision` equals `members`, with the same arrival records, so the moved
+ * capture states the truth. Called on anything else, it states a falsehood that `checkFresh`
+ * later believes. Refuses `invalid-request` for a capture that was not built here, another
+ * history, and a revision that is below the capture's or not an integer from 0 to 2^53 − 1.
+ */
+export function advanceCapture(capture: Capture, history: History, revision: Revision): Capture {
+  built(capture);
+  if (history !== capture.history)
+    throw new StoreError("invalid-request", "capture: a capture moves only within its history");
+  if (!Number.isSafeInteger(revision) || revision < capture.revision)
+    throw new StoreError(
+      "invalid-request",
+      "capture: a capture moves only to a later revision of its history",
+    );
+  if (revision === capture.revision) return capture;
+  const moved = Object.freeze({ ...capture, revision }) as Capture;
+  BUILT.add(moved);
+  return moved;
+}
+
+/**
  * The checks of a capture, with no constructor: for a runner that judges a capture a witness
  * returned. Answers the reason it would be refused, or null. A local history is allowed.
  */
