@@ -355,9 +355,9 @@ function touchingCase(run: Run, witness: FreshnessWitness, c: StoreTouchingCase)
 export async function runFreshnessConformance(
   factory: (request: FreshnessStoreRequest) => Promise<Store | undefined>,
   witness: FreshnessWitness,
-  document: StoreFreshnessDocument,
+  vectors: StoreFreshnessDocument,
 ): Promise<FreshnessConformanceReport> {
-  check(document.format === STORE_FRESHNESS_FORMAT, "unknown store freshness format");
+  check(vectors.format === STORE_FRESHNESS_FORMAT, "unknown store freshness format");
   const passed: string[] = [];
   const skipped: { name: string; missing: string }[] = [];
   const failures: StoreConformanceFailure[] = [];
@@ -377,7 +377,7 @@ export async function runFreshnessConformance(
     }
   };
 
-  for (const c of document.cases) {
+  for (const c of vectors.cases) {
     const name = `freshness/${c.name}`;
     const store = await factory(c.store ?? {});
     if (store === undefined) {
@@ -388,7 +388,7 @@ export async function runFreshnessConformance(
     if (await guarded(name, () => void (lacks = missing(store, c.requires)))) {
       if (lacks !== undefined) skipped.push({ name, missing: lacks });
       else {
-        const run = new Run(store, document);
+        const run = new Run(store, vectors);
         const fresh = new FreshnessRun(run, witness);
         const ran = await guarded(name, async () => {
           for (const [i, step] of c.steps.entries()) {
@@ -416,14 +416,14 @@ export async function runFreshnessConformance(
 
   const store = await factory({});
   if (store !== undefined) {
-    const run = new Run(store, document);
-    for (const c of document.touching) {
+    const run = new Run(store, vectors);
+    for (const c of vectors.touching) {
       const name = `touching/${c.name}`;
       if (await guarded(name, () => touchingCase(run, witness, c))) passed.push(name);
     }
     await store.close();
   } else
-    for (const c of document.touching)
+    for (const c of vectors.touching)
       skipped.push({ name: `touching/${c.name}`, missing: "store" });
 
   if (failures.length > 0) throw new StoreConformanceError(failures);
