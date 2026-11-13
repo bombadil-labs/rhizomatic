@@ -1936,8 +1936,9 @@ The JSON cannot express these; each witness builds them.
   created.
 - **Moved snapshots.** A commit during a check: `checkFresh` starts again and answers for the
   later revision; four moves pass `snapshot-moved` up.
-- **Store faults and time.** A feed page with no progress short of r′ fails the check with an
-  error that is not a verdict (SPEC-18 §4.13 reading 46). `checkFresh` and the capture-from-scope
+- **Store faults and time.** A feed page with no progress short of r′, and one whose `through`
+  is past r′ (a wrapper that answers `{status: "ok", records: [], through: to + 5}`), each fail
+  the check with an error that is not a verdict (SPEC-18 §4.13 reading 46). `checkFresh` and the capture-from-scope
   function refuse a `now` of NaN, Infinity or −Infinity `invalid-request`.
 - **The cost rails**, timed from outside as in §3.9.9 (N from 256, doubling until the run takes
   50 ms; the run at N the fastest of five; the run at 8N the fastest of three, stopping at the
@@ -1957,3 +1958,11 @@ shape is SPEC-18 §4.6, "The capture JSON". Key order and number spelling differ
 purpose. Each witness parses both with its checking constructor: history `host:interchange`, the
 one anchor `plant:a`, two members, `since` 10 and `expiresAt` null. It then writes each again and
 parses it back to an equal capture. A witness that changes its writer regenerates its entry.
+
+Each witness also pins its own entry byte for byte, so the file cannot drift from its writer.
+The scenario: a memory store whose `mintHistory` answers `host:interchange`; one peer; one append
+(revision 1) of two facts at `plant:a`, each with `validFrom` equal to its `timestamp`, 5 and 10,
+author `did:key:zA`, pointers `subject` at entity `plant:a` (context `c`) and `value` the
+timestamp as a number; a capture of the anchor `plant:a` at `now` 100 with no selection
+(`since` 10, `expiresAt` null). The witness's JSON writer applied to that capture equals its
+committed string exactly. The two witnesses' facts differ, so their member ids differ.

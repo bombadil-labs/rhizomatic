@@ -377,6 +377,9 @@ type Capture = {
   history, a revision that is not an integer from 0 to 2^53 − 1, a bound that is not null or
   finite, or a window with `since ≥ expiresAt`; `parseCapture` also refuses another shape and a
   history local to a process (below). Neither sorts. Each capture is frozen, lists included.
+  They check in one order: the keys (`parseCapture` only), the history (non-empty, then not
+  local to a process), the revision, the anchors, the members, then the window. The first defect
+  in that order decides the code (§4.13 reading 54).
 - `makeCapture(snapshot, anchors, members, window)` builds a capture from a live snapshot and
   reads `history` and `revision` from it. It is not a way to reload a stored capture. A stored
   capture comes back only through `parseCapture`, which refuses a process-local history. A host
@@ -469,8 +472,8 @@ snapshot's revision r′ equals the capture's, it reads no feed. When r′ is be
 `resync-required`. Otherwise it reads `changes(capture.revision, r′)` page by page, with that
 explicit `to`. For each page that names an added id, it makes one `get` of those ids on the
 snapshot, and then judges the page. It stops at the first touch. A page that makes no progress
-short of r′ (`through ≤ from`) is a store fault, not a verdict: the call fails with an error
-(§4.13 reading 46). **The order of the answers:**
+short of r′ (`through ≤ from`), or that claims records past r′ (`through > r′`), is a store
+fault, not a verdict: the call fails with an error before the page is judged (§4.13 reading 46). **The order of the answers:**
 `resync-required`, then `stale`, then the window (`not-yet` when `now < since`, `expired` when
 `now ≥ expiresAt`), else `current`. Its calls and cost depend on the records and ids since the
 capture, never on what the peer holds and never on records before the capture. It replaces
@@ -1363,9 +1366,11 @@ and §9 pin each point that a vector can pin.
     points (README §3.9.4, item 2), so a store whose revisions are far apart keeps the runner
     cheap. Both witnesses ask at the same points.
 46. **A page with no progress is a store fault.** Inside `checkFresh`, a page of the feed whose
-    `through` is not above its `from`, short of r′, breaks §4.6 ("Pages"). It is not a verdict:
-    `resync-required` would send the caller to rebuild over a broken store. The call fails with
-    an error. The vocabulary has no code for a store that breaks its contract, so the error is a
+    `through` is not above its `from`, short of r′, breaks §4.6 ("Pages"). So does a page whose
+    `through` is past r′, the `to` the check asked for: it claims records the check cannot judge,
+    and `current` would speak for them. Neither is a verdict: `resync-required` would send the
+    caller to rebuild over a broken store. The call fails with an error, before the page's ids
+    are fetched or judged. The vocabulary has no code for a store that breaks its contract, so the error is a
     plain one: TypeScript throws an `Error` that is not a `StoreError`, and Rust panics, as it
     does for a delta source that breaks its contract.
 47. **`now` is finite.** `checkFresh` and the capture-from-scope function (TypeScript
@@ -1390,6 +1395,11 @@ and §9 pin each point that a vector can pin.
     and a host that calls `touching` itself must.
 53. **The runner's message for a refusal.** A store refusal that passes up out of a check fails
     with `checkFresh refused with <code>` (README §9.3).
+54. **The order of a capture's defects.** A capture with two defects is refused by the first in
+    this order: the keys (`parseCapture` only), the history (empty, then local to a process), the
+    revision, the anchors (each anchor's shape and kind, then their order), the members, then the
+    window. So an empty history beside a `value` anchor is `invalid-request`, not
+    `capability-absent`. The TypeScript witness tests inputs with two defects.
 
 
 ## 5. Architectures

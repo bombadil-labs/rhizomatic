@@ -672,9 +672,17 @@ describe("pull", () => {
     const w = await writer();
     const from = await w.position();
     await w.append([fact("plant:a", 1)]);
-    for (const through of [0, 2]) {
+    // No progress, and records claimed past the snapshot's revision (`to + 5`).
+    for (const past of [false, true]) {
       const cursor = followFeed(
-        { ...w.peer, changes: async () => ({ status: "ok", records: [], through }) },
+        {
+          ...w.peer,
+          changes: async (f, to) => ({
+            status: "ok",
+            records: [],
+            through: past ? (to ?? 0) + 5 : f,
+          }),
+        },
         from,
       );
       const failed = await cursor.pull().then(

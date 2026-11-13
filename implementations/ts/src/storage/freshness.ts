@@ -429,16 +429,17 @@ async function checkOn(
     const page = await peer.changes(at, current);
     if (page.status === "resync-required")
       return { status: "resync-required", current: page.current };
+    // A store fault, not a verdict: a page with no progress short of r′, or one that claims
+    // records past r′, cannot vouch for the range, and its records are not judged.
+    if (page.through <= at || page.through > current)
+      throw new Error(
+        `checkFresh: the store's page from ${at} to ${current} ends at ${page.through}; the store breaks the change feed contract (§4.6)`,
+      );
     const ids = [...new Set(page.records.flatMap((record) => record.added))].sort(compareUtf8);
     const added = new Map<Id, Delta>();
     if (ids.length > 0) for (const delta of await snapshot.get(ids)) added.set(delta.id, delta);
     const found = touch(capture, page.records, added);
     if (found !== null) return { status: "stale", touch: found };
-    // A store fault, not a verdict: such a page cannot vouch for the rest of the range.
-    if (page.through <= at)
-      throw new Error(
-        `checkFresh: the store's page from ${at} made no progress toward ${current}; the store breaks the change feed contract (§4.6)`,
-      );
     at = page.through;
   }
   if (capture.since !== null && now < capture.since)

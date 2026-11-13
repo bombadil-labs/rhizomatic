@@ -856,6 +856,35 @@ describe("parseCapture", () => {
     }
   });
 
+  it("writes the TypeScript capture of capture-interchange.json byte for byte", async () => {
+    // README §9.8: two facts at plant:a, valid from 5 and from 10, appended in one commit to a
+    // peer whose mint answered host:interchange, captured at now 100.
+    const fixtures = JSON.parse(
+      readFileSync(resolve(here, "../../../vectors/store/capture-interchange.json"), "utf8"),
+    ) as { captures: Record<string, string> };
+    const w = await writer({ mintHistory: () => "host:interchange" });
+    await w.append([fact("plant:a", 5), fact("plant:a", 10)]);
+    expect(JSON.stringify(await w.capture(["plant:a"], 100))).toBe(fixtures.captures["ts"]);
+  });
+
+  it("refuses a capture with two defects by the first in the parser's order", () => {
+    // Keys, then history (non-empty, not local), then revision, then anchors, then members, then
+    // the window (SPEC-18 §4.6). The first defect decides the code.
+    const value = { kind: "value", role: "r" };
+    const cases: [Record<string, unknown>, string, RegExp][] = [
+      [{ ...stored([]), extra: 1, history: "" }, "invalid-request", /keys/],
+      [{ ...stored([]), history: "", anchors: [value] }, "invalid-request", /history/],
+      [{ ...stored([]), history: "memory:local:1", anchors: [value] }, "invalid-request", /local/],
+      [{ ...stored([]), revision: -1, anchors: [value] }, "invalid-request", /revision/],
+      [{ ...stored(["b", "a"]), anchors: [value] }, "capability-absent", /value anchor/],
+      [{ ...stored(["b", "a"]), since: 5, expiresAt: 5 }, "invalid-request", /members/],
+    ];
+    for (const [input, code, why] of cases)
+      expect(() => parseCapture(input), JSON.stringify(input)).toThrow(
+        expect.objectContaining({ code, message: expect.stringMatching(why) }),
+      );
+  });
+
   it("round-trips a capture through JSON when its history is not local to the process", async () => {
     const w = await writer({ mintHistory: () => "host:7f3a" });
     await w.append([fact("plant:a", 1), fact("plant:a", 2, { until: 9 })]);
@@ -1038,7 +1067,24 @@ describe("checkFresh", () => {
     );
     expect(failed).toBeInstanceOf(Error);
     expect(failed).not.toBeInstanceOf(StoreError);
-    expect((failed as Error).message).toMatch(/made no progress/);
+    expect((failed as Error).message).toMatch(/breaks the change feed contract/);
+  });
+
+  it("fails with an error, not current, when a page claims records past r′", async () => {
+    const w = await writer();
+    const capture = await w.capture(["plant:a"]);
+    await w.append([fact("plant:b", 2)]);
+    const past: PeerStore = {
+      ...w.peer,
+      changes: async (_from, to) => ({ status: "ok", records: [], through: (to ?? 0) + 5 }),
+    };
+    const failed = await checkFresh(past, capture, 0).then(
+      () => undefined,
+      (error: unknown) => error,
+    );
+    expect(failed).toBeInstanceOf(Error);
+    expect(failed).not.toBeInstanceOf(StoreError);
+    expect((failed as Error).message).toMatch(/ends at 6; the store breaks/);
   });
 
   it("answers resync-required for a capture from a later revision, with no feed call", async () => {
