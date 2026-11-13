@@ -77,7 +77,7 @@ enum Wrong {
     ResyncAboveFloor,
     AnswersTwoWays,
     ReadsOnPastFloor,
-    WrongCurrentBelowFloor,
+    CurrentOffBelowFloor,
     RefusesBelowFloor,
     IdsOutOfOrderInRange,
     /// A right store: pages of at most 1, 2, 1, 2 records, call by call.
@@ -274,7 +274,7 @@ impl FeedyPeer {
         let down = |r: Revision| Revision(r.0 / k);
         let mut answer = self.inner.changes(down(from), to.map(down))?;
         if self.wrong == Wrong::ReadsOnPastFloor
-            && from.0 % k != 0
+            && !from.0.is_multiple_of(k)
             && matches!(answer, ChangePage::ResyncRequired { .. })
         {
             // Reads on past the newest dropped record, which goes missing silently.
@@ -425,7 +425,7 @@ impl PeerStore for FeedyPeer {
                 let below_floor = from <= current;
                 let current = match w {
                     Wrong::ResyncCurrent => Revision(current.0 + 1),
-                    Wrong::WrongCurrentBelowFloor if below_floor => Revision(current.0 + 1),
+                    Wrong::CurrentOffBelowFloor if below_floor => Revision(current.0 + 1),
                     Wrong::RefusesBelowFloor if below_floor => {
                         return Err(refusal(StoreErrorCode::InvalidRequest))
                     }
@@ -931,7 +931,7 @@ const TABLE: &[Row] = &[
     },
     Row {
         rule: "a wrong current on the call below the floor only, with no changes step",
-        wrong: W::WrongCurrentBelowFloor,
+        wrong: W::CurrentOffBelowFloor,
         setup: KEEPS_TWO,
         doc: Some(without_feed_scripts),
         messages: &["a resync answer carries current"],
