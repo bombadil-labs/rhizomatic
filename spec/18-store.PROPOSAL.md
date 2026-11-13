@@ -116,7 +116,7 @@ interface PeerStore {
   read(): Promise<Snapshot>;               // a consistent, repeatable view at one revision
   append(batch: Admission): Promise<AppendResult>;               // §4.5
   purge(ids: readonly Id[]): Promise<PurgeReport>;               // §4.7.2
-  changes(from: Revision, to?: Revision): Promise<ChangePage>;   // §4.6, from slice 3
+  changes(from: Revision, to?: Revision): Promise<ChangePage>;   // §4.6: records in (from, to]
 }
 interface Snapshot {
   readonly revision: Revision;
@@ -275,13 +275,58 @@ read the whole set.
 
 ### 4.6 Change feed
 
-`changes(from, to)` returns, in revision order, one record per committed append or purge:
-`{revision, added: Id[], removed: Id[]}`.
+```ts
+type ChangeRecord = {
+  revision: Revision;      // the peer's revision after this commit
+  head: Head | null;       // the journal head after this commit
+  added: readonly Id[];    // ids this peer newly holds at this commit; ascending, unique
+  removed: readonly Id[];  // ids this peer stopped holding at this commit; ascending, unique
+};
+type ChangePage =
+  | { status: "ok"; records: readonly ChangeRecord[]; through: Revision }
+  | { status: "resync-required"; current: Revision };
+```
 
-- Its cost is O(changes returned), never O(store).
-- A store MAY drop records older than its retention window. A request older than the window
-  returns `resync-required`. The caller then rebuilds only what it holds (views, derived
-  indexes), not the store.
+**Records.**
+
+- Each revision advance of a peer writes exactly one record, and nothing else writes one. A
+  head-only append (no new id, the head moves) writes a record with empty `added` and `removed`.
+  An append that adds no id and keeps the head, and a purge that releases no held id, write no
+  record and advance no revision.
+- `removed` lists only the ids that leave this peer's holdings at that commit. A debt that settles
+  later (the bytes go after the peer already stopped holding the id) is not a change to this peer
+  and is in no record.
+- A record carries ids only, never bytes or claims. So a record may name an id the peer has since
+  purged (§4.7.2).
+- A record never changes once written. One id can be in `removed` of one record and in `added` of
+  a later one.
+- The record is part of the atomic commit (§4.5): it becomes visible together with the holdings
+  and the head. A refused append and a `conflict` write no record.
+- Each peer has its own feed. A peer's feed never names an id that peer did not hold. A new peer
+  starts with an empty feed whose floor is its first revision.
+
+**`changes(from, to?)`** answers the records with `from < revision ≤ to`, ascending by revision.
+
+- `to` defaults to the current revision. A `to` beyond the current revision is clamped to it.
+- An explicit `to` below `from` is refused `invalid-request`.
+- `from` equal to the current revision answers `ok` with no records and `through = from`.
+- **Pages.** The store may return a prefix of the range. `through` is the revision the page is
+  complete up to: every record in `(from, through]` is in `records`, and `through ≤ to` (clamped).
+  When the page holds the whole range, `through` is the clamped `to`. Otherwise `through` is the
+  revision of the last record returned, and that is greater than `from`: a page with a record
+  pending makes progress. A caller with `through` below the clamped `to` calls again from
+  `through`.
+- **`resync-required`** is a result, not a thrown error, like `conflict`. It carries the current
+  revision. A store answers it when `from` is below its retention floor, and when `from` is
+  later than the current revision (a cursor from the future). It never answers it when every
+  record after `from` is still kept.
+- **Retention.** A store MAY drop the oldest records. Its **floor** is the revision just before the
+  oldest record it keeps, or the peer's first revision when it dropped none. A `from` below the
+  floor answers `resync-required`. The caller then rebuilds only what it derived (views, derived
+  indexes, caches), not the store. The profile declares the retention (§4.8).
+- **Cost.** `changes` costs O(records returned + ids returned). It never costs O(holdings) or
+  O(earlier records): finding `from` must not walk the feed from its start. Dropping a record
+  costs O(1) amortized per append: an append costs the same with 0 or N kept records.
 - The feed replaces the reactor's in-memory dispatch log, `deltasSince(knownIds)` catch-up and
   Loam's `data_version` detection of other writers. A reader in another process follows the feed.
 
@@ -375,6 +420,11 @@ type PurgeReport = {
 **The boundary of "absent".** Absence covers the files and objects the store controls. It does not
 cover filesystem or SSD remanence after a file is unlinked, or backups made outside the store.
 Every erasure report states this boundary.
+
+**Ids in the change feed lie outside "absent"** (decision O4, 2026-11-12). A change record (§4.6)
+names ids, never bytes or claims, and it never changes once written. So after a purge, kept
+records still name the purged id. A purge does not rewrite them. The retention window bounds how
+long they stay: a store with `{revisions: n}` drops them with the record that names them.
 
 **Later extensions, not in scope now:**
 
@@ -503,13 +553,18 @@ type StoreProfile = {
   pushdown: { timestampAtMost: boolean; arrivalAtMost: boolean; excludeIds: boolean };
   writers: "one-process" | "many-processes";   // who may append concurrently, per peer
   atRest: "trusted" | "untrusted";             // §4.9
-  changeRetention: "none" | "unbounded" | { revisions: number };   // none: no change feed
+  changeRetention: "none" | "unbounded" | { revisions: number };   // §4.6; none: no change feed
   formatVersion: string;                       // §4.7.3
 };
 ```
 
 A host names the capabilities it requires. Open fails with a message that names each missing one.
 A store never claims a capability it implements by scanning.
+
+`changeRetention` is `none` (no feed; `changes` refuses `capability-absent`), `unbounded` (every
+record is kept), or `{revisions: n}` with n an integer of 1 or more: each peer keeps exactly the
+records of its latest n revision advances, and drops the oldest when it writes the record after
+the nth.
 
 ### 4.9 Trust at rest
 
@@ -962,6 +1017,69 @@ that a vector can pin.
     nothing to a refusal, and a whole-set load is a full-surface read. Ingest, dispatch and the
     journal (transaction, atomic-transfer, materialization, command and peer families) move in
     slices 3 and 4.
+
+### 4.13 Slice 3 readings
+
+Slice 3 builds the change feed of §4.6 (`18-store.SLICE-3.PLAN.md`, steps 1 and 3). Where §4.6 and
+the plan were silent, the feed decided as follows. `vectors/store/scripts.json` and
+`vectors/store/README.md` §3.9 pin each point that a vector can pin.
+
+1. **Revisions are integers.** A revision is an integer from 0 to 2^53 − 1 in every witness. The
+   vectors need this to name a revision past the current one (`ahead`, README §3.9).
+2. **Bad bounds.** A `from` or `to` that is not such an integer is refused `invalid-request`. It
+   joins the closed list of §4.11 reading 21; a typed witness cannot receive one.
+3. **The order of the answers.** First the shape of the bounds, then an explicit `to` below `from`
+   (`invalid-request`), then a `from` above the current revision (`resync-required`), then a
+   `from` below the floor (`resync-required`). The shape of a request comes first, as in §4.11
+   reading 27.
+4. **A defaulted `to` is never compared.** A cursor from the future with no `to` answers
+   `resync-required`, not `invalid-request`. Otherwise the default `to`, the current revision,
+   would turn every cursor from the future into a refusal.
+5. **A complete page ends at `to`.** When a page holds every record of the range, `through` is the
+   clamped `to`, also when the last record is below it. A store whose revisions skip values would
+   otherwise answer a range with no record by `through = from`, and its caller would never stop.
+   For a store whose revisions advance by one, as the memory store's do, this is the last
+   record's revision, or `from` when there is none.
+6. **Below the floor is below the floor.** `from` below the floor answers `resync-required` also
+   when the range holds no record (`from = to`). A store can decide `from < floor` without
+   keeping the revisions of what it dropped.
+7. **A bounded retention is exact.** `{revisions: n}` keeps exactly the records of the latest n
+   advances. The runner then predicts `resync-required` exactly. A store that drops later than
+   it writes declares the n it is sure to keep, and fails the vectors if it keeps more.
+8. **The name of the bound.** The profile keeps `{revisions: n}` and does not rename it to
+   records. One record per advance makes the two counts equal, and the Rust profile already has
+   `Revisions(n)`.
+9. **No feed.** On a store whose `changeRetention` is `none`, `changes` refuses
+   `capability-absent`. The requirement `changes` holds exactly when the retention is not `none`.
+   This replaces §4.11 reading 10: the memory store now serves the feed, and its profile says
+   `unbounded`.
+10. **What `removed` lists.** It lists the targets that this peer held when the purge began, whatever
+    their outcome. A target reported `removed` because its debt settled was not held, so it is not
+    listed. The outcome alone cannot decide this.
+11. **The head of a purge record** is the peer's head, which a purge does not move.
+12. **`resync-required` carries `current`**, the peer's revision when it answered. A caller learns
+    where to start reading again without a second call.
+13. **`changes` belongs to the peer, not to a snapshot.** It reads the current feed. A follower needs
+    the newest records, and a snapshot cannot see a later commit.
+14. **Records are owned.** What `changes` returns cannot change the store. The TypeScript memory
+    store hands out records it froze when it wrote them; the list of a page is the caller's.
+15. **The memory store's options.** `changeRetention` is `unbounded` (the default) or
+    `{revisions: n}`. `changePageSize: n` bounds a page to n records; it exists so tests exercise
+    paging. Any other value is refused `invalid-request` when the store is made.
+16. **The memory store finds `from` by arithmetic.** Its revisions advance by one and every advance
+    writes one record, so the record after `from` sits at a fixed offset from the oldest kept
+    record. A dropped record frees its slot, and the slots are compacted when half are free.
+17. **The vectors check every step.** On a store that serves a feed, the conformance runner checks
+    each peer's whole kept feed after every step of every script, the slice 1 scripts and the
+    scope setup included. It also checks that each commit wrote exactly its own record, and that
+    every other step wrote none. Each witness runs the scripts again on a reference store that
+    keeps two records, and on one whose pages hold one record (README §3.9).
+18. **A witness without the feed skips it.** The requirement `changes` skips the feed scripts on a
+    store whose retention is `none`, as `purge` does (§4.11 reading 44). The Rust witness skips
+    them until slice 3 step 2 builds its feed.
+19. **Cost is timed.** The two cost promises of §4.6 have rails timed from outside, as §4.11
+    reading 36 does: a window of fixed size read once after each of N records, and N appends that
+    keep N / 4 records, each at N and 8N (README §3.9).
 
 
 ## 5. Architectures
