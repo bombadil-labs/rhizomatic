@@ -355,14 +355,22 @@ export type FollowStep = {
   /** The revision of the snapshot, as a name. */
   readonly expect: { readonly revision: string };
 };
-/** Pulls until the follower stands at the peer's revision, or until `resync-required` (§10.3). */
+/**
+ * Pulls until the follower stands at the peer's revision, or until `resync-required`; with
+ * `once`, exactly one pull (§10.3).
+ */
 export type PullStep = {
   readonly op: "pull";
   readonly follower: string;
+  /**
+   * Pull exactly once. Only in a case whose `store` sets both `changePageSize` and
+   * `changeRetention`, so that no run changes the page. `position` is where the one page ends.
+   */
+  readonly once?: true;
   readonly expect:
     | {
         readonly status: "ok";
-        /** The revision the follower stands at after the step: the peer's revision. */
+        /** The revision the follower stands at after the step: the peer's, or with `once` the page's end. */
         readonly position: string;
         /** The revisions of the records the pulls read, in order, as names. */
         readonly records: readonly string[];

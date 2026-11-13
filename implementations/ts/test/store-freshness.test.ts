@@ -1070,6 +1070,29 @@ describe("checkFresh", () => {
     expect((failed as Error).message).toMatch(/breaks the change feed contract/);
   });
 
+  it("fails before it judges a faulty page, also one that names a toucher", async () => {
+    const w = await writer();
+    const capture = await w.capture(["plant:a"]);
+    const toucher = fact("plant:a", 2);
+    await w.append([toucher]);
+    for (const past of [false, true]) {
+      const faulty: PeerStore = {
+        ...w.peer,
+        changes: async (from, to) => ({
+          status: "ok",
+          records: [{ revision: from + 1, head: "h1", added: [toucher.id], removed: [] }],
+          through: past ? (to ?? 0) + 5 : from,
+        }),
+      };
+      const failed = await checkFresh(faulty, capture, 0).then(
+        (verdict) => verdict,
+        (error: unknown) => error,
+      );
+      expect(failed, String(past)).toBeInstanceOf(Error);
+      expect(failed).not.toBeInstanceOf(StoreError);
+    }
+  });
+
   it("fails with an error, not current, when a page claims records past r′", async () => {
     const w = await writer();
     const capture = await w.capture(["plant:a"]);

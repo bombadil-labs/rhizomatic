@@ -42,7 +42,9 @@ purged delta (SPEC-4 ERRATA V6). `StoreReactor.follow(from)` makes a cursor, and
 fetched scope carry their `position`. `parsePosition` checks a stored position. The new shared
 vectors `vectors/store/follow.json` pin the cursor; the Rust witness skips them until step 8.
 `checkFresh` now also fails with an error, not a verdict, on a feed page whose `through` is past
-the revision it asked for.
+the revision it asked for. A full mirror may start from a position and then a non-atomic export;
+a follower's copies lie outside the store's erasure, and a follower replaces its mirror after
+`resync-required`. `follow.json` gains single pulls (`once`) with commits between them.
 
 ### ⚠️ Breaking
 

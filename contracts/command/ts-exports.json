@@ -37691,6 +37691,26 @@
       "contract": "rhizomatic.storage/native-api/1",
       "classification": "native_extension",
       "semantics": "Native storage API StoreFollowDocument.cases implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vector-format.ts:PullStep#once",
+      "owner": "storage",
+      "symbol": "PullStep.once",
+      "source": "implementations/ts/src/storage/store-vector-format.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API PullStep.once implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
+    },
+    {
+      "id": "ts:storage/store-vector-format.ts:FollowCaseStep#once",
+      "owner": "storage",
+      "symbol": "FollowCaseStep.once",
+      "source": "implementations/ts/src/storage/store-vector-format.ts",
+      "definition": "implementations/ts/src/storage/store-vector-format.ts",
+      "contract": "rhizomatic.storage/native-api/1",
+      "classification": "native_extension",
+      "semantics": "Native storage API FollowCaseStep.once implements SPEC-8 physical pack representation and the SPEC-18 store interface at implementations/ts/src/storage/store-vector-format.ts. Native callbacks/options remain explicit caller inputs; this symbol does not advertise an additional serialized portable contract."
     }
   ]
 }

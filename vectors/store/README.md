@@ -1940,7 +1940,9 @@ The JSON cannot express these; each witness builds them.
   later revision; four moves pass `snapshot-moved` up.
 - **Store faults and time.** A feed page with no progress short of r′, and one whose `through`
   is past r′ (a wrapper that answers `{status: "ok", records: [], through: to + 5}`), each fail
-  the check with an error that is not a verdict (SPEC-18 §4.13 reading 46). `checkFresh` and the capture-from-scope
+  the check with an error that is not a verdict (SPEC-18 §4.13 reading 46). The same two pages,
+  each also carrying a record that adds a delta at the capture's anchor, fail the same way and do
+  not answer `stale`: the fault is found before the page is judged (reading 68). `checkFresh` and the capture-from-scope
   function refuse a `now` of NaN, Infinity or −Infinity `invalid-request`.
 - **The cost rails**, timed from outside as in §3.9.9 (N from 256, doubling until the run takes
   50 ms; the run at N the fastest of five; the run at 8N the fastest of three, stopping at the
@@ -1979,8 +1981,10 @@ Every expectation comes from the list-scanning model of `scripts.json` (§3.3, �
 pull's records are a scan of the model's feed; its delivered ids are the added ids the model
 holds. The generator then proves the follower's guarantee by brute force: a mirror that starts
 from the holdings at the follow and applies each pull by the rule of SPEC-18 §4.6 equals the
-holdings, with their arrival records, at the end of every pull step. It does this with whole
-pages and with pages of one, two and three records. A case that breaks it fails generation.
+holdings, with their arrival records, at the end of every pull step that reaches the peer's
+revision; after a single pull short of it, it equals the holdings for every id no later record
+names. It does this with whole pages and with pages of one, two and three records, or, in a case
+that pins its page size, with that size. A case that breaks it fails generation.
 
 ### 10.1 The document
 
@@ -2002,7 +2006,8 @@ pages and with pages of one, two and three records. A case that breaks it fails 
 - `cases`: run each on a **new** store. `requires` is as in §3; every case lists `changes`. Skip
   a case whose requirement fails, and report it skipped.
 - `store` (optional): `changeRetention` (`unbounded` or `{revisions: n}`) and `changePageSize`
-  (n ≥ 1). Each field present replaces the run's (§10.4). A witness that cannot build such a
+  (n ≥ 1). Each field present replaces the run's (§10.4). A case with a single pull (`once`,
+  §10.3) sets both, so every run reads the same pages. A witness that cannot build such a
   store skips the case and reports it skipped.
 - `steps`: the steps of §3, with the same checks, bookkeeping, revision names and feed model, and
   the feed check after every step (§3.9.4). Two more ops: `follow` (§10.2) and `pull` (§10.3).
@@ -2045,7 +2050,14 @@ given twice is a defect: `the vector names follower <as> twice`.
   "expect": { "status": "ok", "position": "A.4", "records": ["A.2", "A.3", "A.4"],
               "delivered": ["b-name"], "absent": [], "pulls": 3 } }
 { "op": "pull", "follower": "f", "expect": { "status": "resync-required", "current": "A.3" } }
+{ "op": "pull", "follower": "f", "once": true,
+  "expect": { "status": "ok", "position": "A.1", "records": ["A.1"], "delivered": ["b-name"], "absent": [] } }
 ```
+
+**`once`** (optional, `true`): the step makes **exactly one pull**, and `position` names where
+its one page ends, which may be short of the peer's revision. It appears only in a case whose
+`store` sets both `changePageSize` and `changeRetention`. Commits between single pulls then show
+what a catch-up of one snapshot cannot: each pull delivers the bytes held at its own snapshot.
 
 A `pull` step **pulls until the follower stands at the peer's current revision**, or until a pull
 answers `resync-required`. With whole pages that is one pull. With pages of one it is one pull per
@@ -2064,7 +2076,7 @@ ascending by id; `absent` the added ids with no bytes, because the peer no longe
   than the document's may have stopped this cursor in an earlier step.)
 - The document says `resync-required`: `current` names the peer's current revision, else the
   document is wrong, `the vector expects current <name>, and the peer is at <r>`.
-- The document says `ok`: `position` names the peer's current revision, else
+- The document says `ok`: without `once`, `position` names the peer's current revision, else
   `the vector pulls to <name>, and the peer is at <r>`. When the cursor's position has the peer's
   history and lies below the retention floor F of the runner's model (§3.9.2), the expected status
   is `resync-required` with the peer's current revision, whatever the document says.
@@ -2101,17 +2113,25 @@ followed by its message; any other error fails the case with its own message. Th
    `the cursor stands at <r>, not at the pull's position <p>`.
 9. Check the calls (below).
 10. Apply the pull to the mirror by the rule of SPEC-18 §4.6: for each record in order, delete each
-    id of `removed`; then for each id of `added`, set it to its delivered delta, or leave it when
-    none was delivered. When p = `end` the step's pulls are done.
+    id of `removed`; then for each id of `added`, set it to its delivered delta, or delete it when
+    none was delivered. With `once`, the step's pulls are done; otherwise they are done when
+    p = `end`.
 
-**After the pulls of an ok step:**
+**After the pulls of an ok step:** let s be where the cursor stands.
+
+- With `once`: s is the revision `position` names, else `the pull stands at <s>, expected <P>`.
 
 11. The revisions read equal those `records` names, in order, else
     `the pulls read the records at [<revisions>], expected [<revisions>]`.
 12. The ids delivered, distinct and ascending, equal `delivered`, else
     `the pulls delivered [<ids>], expected [<ids>]`.
 13. With `pulls`: the count equals it, else `the follower took <k> pulls, expected <n>`.
-14. **The guarantee.** The mirror's ids equal the bookkeeping's, else
+14. **The guarantee.** When s is short of the peer's revision (only with `once`): for every id that
+    no model record after s names, the mirror and the bookkeeping agree (both lack it, or both hold
+    it with equal arrival records), else
+    `after the pull to <s> the follower's mirror differs from the holdings at <id>`. The runner
+    commits nothing during a pull, so the holdings at s of such an id are its holdings now. When
+    s is the peer's revision: the mirror's ids equal the bookkeeping's, else
     `the follower's mirror holds [<ids>], and the peer holds [<ids>]`; and each arrival record is
     equal, else `the follower's mirror holds <id> with another arrival record`. When checks 1 to
     10 pass, this cannot fail: SPEC-18 §4.6 proves it. The runner keeps it as the guarantee's own
@@ -2183,6 +2203,13 @@ times 2, keeping two records. Every run passes and skips nothing.
   (`pull-after-resync`).
 - A follower started after four commits, whose later commits purge an id held before the follow
   and add it again (`a-follower-started-mid-history`).
+- Single pulls with commits between them, each case with pages of one and every record kept:
+  - an id added, purged and added again; the first pull delivers it; it is purged once more; the
+    third pull reads the second add and delivers nothing (`a-purge-between-single-pulls`);
+  - an append between single pulls (`an-append-between-single-pulls`);
+  - a purge of an id the follower already mirrors (`a-purge-of-a-mirrored-id-between-single-pulls`);
+  - a purge and a re-add of a delivered id, read one record at a time
+    (`a-re-add-between-single-pulls`).
 
 ### 10.6 Rails each witness adds
 
@@ -2197,7 +2224,7 @@ The JSON cannot express these; each witness builds them.
   | drops `removed` from the records | `a-purge-of-a-held-id` | `the pull's record at revision 2 differs from its commit` | |
   | delivers in arrival order | `several-records-in-one-page` | `the pull's deltas are not ascending by id and distinct` | that, `pages-of-one`, `a-follower-started-mid-history` |
   | delivers each id once per record that adds it | `add-purge-add-in-one-page` | the same | that, `a-follower-started-mid-history` |
-  | reads two pages in one pull | `pages-of-one` | `pull made the call changes(2, 4) where the contract asks for get [` | that |
+  | reads two pages in one pull | `pages-of-one` | `pull made the call changes(2, 4) where the contract asks for get [` | that and the four single-pull cases |
   | moves on `resync-required` | `retention-too-short` | `the cursor moved after resync-required` | that and the three other resync cases |
   | advances past `through` | `pages-of-one` | `the pull's records are at [2], expected [2 3]` | |
   | advances past the snapshot | `one-append` | `the pull's position 3 lies outside [1, 2]` | |
@@ -2211,7 +2238,8 @@ The JSON cannot express these; each witness builds them.
   | calls the feed for a position past the snapshot | `a-position-from-the-future` | `pull refused with invalid-request` | |
   | calls the feed at equal revisions | `nothing-new` | `pull made the call changes(1, 1) where the contract asks for release` | |
   | resync `current` is the cursor's position | `a-position-from-the-future` | `pull reports resync-required with current 3, expected 1` | |
-  | keeps the first arrival record of an id it delivered before | `add-purge-add-across-pulls` | `the pull delivered ` (… `with another arrival record`) | that |
+  | keeps the first arrival record of an id it delivered before | `add-purge-add-across-pulls` | `the pull delivered ` (… `with another arrival record`) | that, `a-re-add-between-single-pulls` |
+  | W6: keeps what one catch-up delivered and hands it out again until it stands at its snapshot's revision; it makes exactly the calls of the contract | `a-purge-between-single-pulls` | `the pull delivered [` | that |
   | delivers changed claims | `one-append` | `the pull delivered <id> as another appearance` | |
   | moves to another history | `one-append` | `the pull moved the cursor to another history` | |
   | answers ok without reading | `one-append` | `the pull from 1 made no progress toward 2` | |
@@ -2227,12 +2255,13 @@ The JSON cannot express these; each witness builds them.
   a cursor that ignores the position it is given (`a new cursor stands at 1, …`); following that
   reads the store (`following made the call read; …`). Documents with records the pulls do not
   read, deltas they do not deliver, another count of pulls, a position or a resync `current` the
-  peer is not at, a follower named twice, a follower used before it follows, a negative `ahead`,
+  peer is not at, a single pull whose `position` is not where its page ends
+  (`the pull stands at 2, expected 3`), a follower named twice, a follower used before it follows, a negative `ahead`,
   and another `format`.
 - **Every check has a row.** Remove a check of §10.2 or §10.3 from the runner and its row goes red.
-  Two checks have no row and say why: the guarantee (check 14), which the checks before it imply,
-  is shown live by breaking the runner's apply rule; the bound on pulls cannot be reached by a
-  follower that passes check 3.
+  Two checks have no row and say why: the guarantee (check 14, both halves), which the checks
+  before it imply, is shown live by breaking the runner's apply rule; the bound on pulls cannot be
+  reached by a follower that passes check 3.
 - **The cursor's own rules.** A malformed position is refused `invalid-request` with no store call;
   `parsePosition` reads `3.0` as 3 and refuses a local history, another shape, an empty history and
   `1.5`. After `resync-required` a pull answers the same with no store call, also after commits;
@@ -2241,18 +2270,28 @@ The JSON cannot express these; each witness builds them.
   with `arrivals`), at most four snapshots, each released; a throw releases the snapshot and does
   not move the cursor. A page with no progress and one whose `through` is the asked `to` plus 5
   fail the pull with an error that is not a store refusal; so do a `get` and an `arrivals` that
-  disagree. Two pulls started together run one after the other. A purge whose bytes another peer
+  disagree. **A fault is found before the page is judged:** the same two faulty pages, each also
+  carrying a record that adds an id, fail with the calls `read`, `changes`, `release` and no
+  `get`. The matching rail of §9.7 gives `checkFresh` faulty pages that add a touching id; it must
+  fail with an error, not answer `stale`. Two pulls started together run one after the other. A purge whose bytes another peer
   holds delivers no bytes. A read and a fetched scope carry their snapshot's position, and a
   reactor follows from it.
 - **A fuzz against brute force**, with a fixed seed, at least 2,000 sequences: a store kept whole or
   keeping one to four records, with whole pages or pages of one to three records; two peers that
   share a corpus (debts across peers); random appends, head-only commits and purges on both; and
   single pulls of a follower of the first peer, which starts from a full read and starts again
-  from a new read after a second `resync-required`. Each pull equals the model's: status
+  from a new read after a second `resync-required`. Half the followers start from one snapshot.
+  The other half start as SPEC-18 §4.6 "How a full mirror starts" says: the position of a
+  snapshot first, then an export that reads each id's bytes and its arrival record each on its
+  own later snapshot, with appends, purges and re-adds on both peers landing between them (an id
+  the peer no longer held when its arrival was asked has none). Each pull equals the model's: status
   (`resync-required` exactly below the floor, and after it), position, records and delivered ids
   with arrival records. After each ok pull to p, the mirror equals the holdings at p for every id
-  no later record names; at each quiet point it equals the holdings. A mirror that ignores
-  `removed` misses them; one that applies a page's removals before its deltas does not.
+  no later record names; at each quiet point it equals the holdings, from either start. A mirror
+  that ignores `removed` misses them; one that applies a page's removals before its deltas does
+  not, and neither does one that keeps an added id that came with no bytes. The TypeScript fuzz
+  asserts that some export starts were skewed (a mirror not equal to the holdings at p0) and some
+  entries had no arrival record.
 - **The cost rails**, timed from outside as in §3.9.9 (N from 256, doubling until the run takes
   50 ms; the run at N the fastest of five; the run at 8N the fastest of three, stopping at the
   first under the bound; the ratio below 24). A run is N pulls, each by a new cursor at one

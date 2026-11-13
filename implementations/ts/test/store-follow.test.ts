@@ -117,10 +117,16 @@ describe("follow vectors", () => {
       WITNESS,
       document,
     );
-    expect(report.skipped).toEqual([
-      { name: "follow/pages-of-one", missing: "store" },
-      { name: "follow/retention-too-short", missing: "store" },
-    ]);
+    expect(report.skipped).toEqual(
+      [
+        "pages-of-one",
+        "retention-too-short",
+        "a-purge-between-single-pulls",
+        "an-append-between-single-pulls",
+        "a-purge-of-a-mirrored-id-between-single-pulls",
+        "a-re-add-between-single-pulls",
+      ].map((name) => ({ name: `follow/${name}`, missing: "store" })),
+    );
   });
 });
 
@@ -151,7 +157,8 @@ type Quirk =
   | "no progress"
   | "lags"
   | "no bytes"
-  | "resync as ok";
+  | "resync as ok"
+  | "caches what it delivered";
 
 /**
  * A second cursor, written for the rails: the contract of §4.6 with one rule broken at a time.
@@ -164,6 +171,8 @@ function quirky(quirk?: Quirk): FeedFollower {
       let at: Position = from;
       let stopped: Pull | undefined;
       const first = new Map<Id, ArrivalRecord>();
+      // What one catch-up delivered, kept until the cursor stands at the snapshot's revision.
+      const cache = new Map<Id, VerifiedDelta>();
       const is = (q: Quirk): boolean => quirk === q;
       return {
         get position() {
@@ -210,6 +219,15 @@ function quirky(quirk?: Quirk): FeedFollower {
               if (is("missing is an error") && got.length < ids.length)
                 throw new Error("a delta of the page is missing");
               deltas = got.map((delta, i) => ({ delta, arrival: arrivals[i]! }));
+            }
+            if (is("caches what it delivered")) {
+              const got = new Map(deltas.map((d) => [d.delta.id, d]));
+              deltas = ids.flatMap((id) => {
+                const d = got.get(id) ?? cache.get(id);
+                if (d !== undefined) cache.set(id, d);
+                return d === undefined ? [] : [d];
+              });
+              if (page.through === s.revision) cache.clear();
             }
             if (is("arrival order")) deltas.sort((a, b) => a.arrival.sequence - b.arrival.sequence);
             if (is("repeats"))
@@ -289,7 +307,13 @@ const FOLLOWERS: readonly {
     quirk: "two pages",
     fails: "follow/pages-of-one",
     message: "pull made the call changes(2, 4) where the contract asks for get [",
-    only: ["pages-of-one"],
+    only: [
+      "pages-of-one",
+      "a-purge-between-single-pulls",
+      "an-append-between-single-pulls",
+      "a-purge-of-a-mirrored-id-between-single-pulls",
+      "a-re-add-between-single-pulls",
+    ],
   },
   {
     quirk: "moves on resync",
@@ -370,7 +394,7 @@ const FOLLOWERS: readonly {
     quirk: "keeps the first arrival",
     fails: "follow/add-purge-add-across-pulls",
     message: "the pull delivered ",
-    only: ["add-purge-add-across-pulls"],
+    only: ["add-purge-add-across-pulls", "a-re-add-between-single-pulls"],
   },
   {
     quirk: "changes claims",
@@ -396,6 +420,14 @@ const FOLLOWERS: readonly {
     quirk: "no bytes",
     fails: "follow/one-append",
     message: "the pull delivered [], expected [",
+  },
+  {
+    // Review finding W6: it makes exactly the calls the contract asks for. Only a commit between
+    // two single pulls shows that it hands out bytes the peer no longer holds.
+    quirk: "caches what it delivered",
+    fails: "follow/a-purge-between-single-pulls",
+    message: "the pull delivered [",
+    only: ["a-purge-between-single-pulls"],
   },
   {
     quirk: "resync as ok",
@@ -696,6 +728,32 @@ describe("pull", () => {
     }
   });
 
+  it("judges a faulty page not at all: no get, also when the page adds an id", async () => {
+    const w = await writer();
+    const from = await w.position();
+    const added = fact("plant:a", 1);
+    await w.append([added]);
+    for (const past of [false, true]) {
+      const trace: string[] = [];
+      const cursor = followFeed(
+        traced(
+          {
+            ...w.peer,
+            changes: async (f, to) => ({
+              status: "ok",
+              records: [{ revision: f + 1, head: "h1", added: [added.id], removed: [] }],
+              through: past ? (to ?? 0) + 5 : f,
+            }),
+          },
+          trace,
+        ),
+        from,
+      );
+      await expect(cursor.pull()).rejects.toThrow(/breaks the change feed contract/);
+      expect(trace, String(past)).toEqual(["read", "changes(0, 1)", "release"]);
+    }
+  });
+
   it("fails with an error when get and arrivals disagree on one snapshot", async () => {
     const w = await writer();
     const from = await w.position();
@@ -769,8 +827,10 @@ function random(seed: number): () => number {
 
 type Held = Map<Id, VerifiedDelta>;
 type ModelRecord = { revision: number; added: Id[]; removed: Id[] };
-/** Three ways to apply an ok pull to a mirror. Only `rule` is the contract's (SPEC-18 §4.6). */
-type Apply = "rule" | "batch" | "ignores removed";
+/** Four ways to apply an ok pull to a mirror. Only `rule` is the contract's (SPEC-18 §4.6). */
+type Apply = "rule" | "keeps an undelivered add" | "batch" | "ignores removed";
+const APPLIES: readonly Apply[] = ["rule", "keeps an undelivered add", "batch", "ignores removed"];
+type Start = "snapshot" | "export";
 
 function applyPull(mirror: Held, pull: Extract<Pull, { status: "ok" }>, how: Apply): void {
   const delivered = new Map(pull.deltas.map((d) => [d.delta.id, d]));
@@ -781,10 +841,11 @@ function applyPull(mirror: Held, pull: Extract<Pull, { status: "ok" }>, how: App
     return;
   }
   for (const record of pull.records) {
-    if (how === "rule") for (const id of record.removed) mirror.delete(id);
+    if (how !== "ignores removed") for (const id of record.removed) mirror.delete(id);
     for (const id of record.added) {
       const delta = delivered.get(id);
       if (delta !== undefined) mirror.set(id, delta);
+      else if (how !== "keeps an undelivered add") mirror.delete(id);
     }
   }
 }
@@ -800,10 +861,22 @@ const heldText = (held: ReadonlyMap<Id, VerifiedDelta>, only?: (id: Id) => boole
 type FuzzTally = {
   ok: number;
   resync: number;
-  quiet: number;
-  /** Quiet points where a wrong way to apply the pulls missed the holdings. */
-  wrong: Record<Exclude<Apply, "rule">, number>;
+  /** Quiet points, by how the follower's mirror started. */
+  quiet: Record<Start, number>;
+  /** Followers that started from a non-atomic export. */
+  exports: number;
+  /** Of those, how many ended the export with a mirror that is not the holdings at p0. */
+  skewed: number;
+  /** Mirror entries an export filled without an arrival record. */
+  unseen: number;
+  /** Quiet points where a way to apply the pulls missed the holdings, by start. */
+  wrong: Record<Start, Record<Apply, number>>;
+  /** Pulls short of a quiet point where the mirror missed the holdings at p on a settled id. */
+  between: Record<Start, Record<Apply, number>>;
 };
+
+/** An arrival record the export did not see: the id was not held when its arrival was asked. */
+const UNSEEN = { id: "", at: -1, sequence: -1, transfer: -1, sender: "unseen" };
 
 /** One random sequence of commits on two peers and pulls on a follower of the first. */
 async function fuzzOne(seed: number, tally: FuzzTally): Promise<void> {
@@ -883,23 +956,59 @@ async function fuzzOne(seed: number, tally: FuzzTally): Promise<void> {
   const floor = (p: ModelPeer): number =>
     p.records.length > keep ? p.records[p.records.length - keep - 1]!.revision : 0;
 
-  // A follower starts from a full read of A on one snapshot.
-  type Follower = { cursor: FeedCursor; mirrors: Record<Apply, Held>; stopped?: Position };
+  // A follower starts from a full read of A, in one of two ways.
+  // `snapshot`: the bytes and arrival records of every held id, on one snapshot, at its position.
+  // `export`: the position of one snapshot first; then each id is read on its own later snapshot,
+  // bytes and arrival record each at their own moment, with commits landing between them, as a
+  // full-surface export through the `Exporter` reads, with no tie to one snapshot.
+  type Follower = {
+    cursor: FeedCursor;
+    mirrors: Record<Apply, Held>;
+    stopped?: Position;
+    from: Start;
+  };
+  const commit = async (): Promise<void> => {
+    const r = next();
+    if (r < 0.4) await append(A);
+    else if (r < 0.7) await purge(A);
+    else if (r < 0.85) await append(B);
+    else await purge(B);
+  };
   const start = async (): Promise<Follower> => {
+    const how: Start = next() < 0.5 ? "snapshot" : "export";
     const snapshot = await A.handle.read();
     const ids = corpus.map((d) => d.id).sort(compareUtf8);
-    const deltas = await snapshot.get(ids);
-    const arrivals = await snapshot.arrivals(ids);
     const position = positionOf(snapshot);
-    snapshot.release();
-    const mirror: Held = new Map(
-      deltas.map((delta, i) => [delta.id, { delta, arrival: arrivals[i]! }]),
-    );
-    if (position.revision !== A.revision || heldText(mirror) !== heldText(A.held))
-      fail("the full read is not the model's holdings");
+    let mirror: Held;
+    if (how === "snapshot") {
+      const deltas = await snapshot.get(ids);
+      const arrivals = await snapshot.arrivals(ids);
+      snapshot.release();
+      mirror = new Map(deltas.map((delta, i) => [delta.id, { delta, arrival: arrivals[i]! }]));
+      if (position.revision !== A.revision || heldText(mirror) !== heldText(A.held))
+        fail("the full read is not the model's holdings");
+    } else {
+      snapshot.release();
+      tally.exports += 1;
+      mirror = new Map();
+      for (const id of [...ids].sort(() => next() - 0.5)) {
+        if (next() < 0.4) await commit();
+        const bytes = await A.handle.read();
+        const [delta] = await bytes.get([id]);
+        bytes.release();
+        if (next() < 0.4) await commit();
+        const later = await A.handle.read();
+        const [arrival] = await later.arrivals([id]);
+        later.release();
+        if (delta !== undefined) mirror.set(id, { delta, arrival: arrival ?? { ...UNSEEN, id } });
+        if (delta !== undefined && arrival === undefined) tally.unseen += 1;
+      }
+      if (heldText(mirror) !== heldText(A.at.get(position.revision)!)) tally.skewed += 1;
+    }
     return {
+      from: how,
       cursor: followFeed(A.handle, position),
-      mirrors: { rule: mirror, batch: new Map(mirror), "ignores removed": new Map(mirror) },
+      mirrors: Object.fromEntries(APPLIES.map((a) => [a, new Map(mirror)])) as Record<Apply, Held>,
     };
   };
   let f = await start();
@@ -953,8 +1062,7 @@ async function fuzzOne(seed: number, tally: FuzzTally): Promise<void> {
       };
       if (JSON.stringify(got) !== JSON.stringify(expected))
         fail(`pull answered ${JSON.stringify(got)}, the model says ${JSON.stringify(expected)}`);
-      for (const how of ["rule", "batch", "ignores removed"] as const)
-        applyPull(f.mirrors[how], pull, how);
+      for (const how of APPLIES) applyPull(f.mirrors[how], pull, how);
       // Between quiet points: the mirror is the holdings at the position, except for the ids a
       // record after the position names; a later pull fixes those.
       const later = new Set(
@@ -963,15 +1071,16 @@ async function fuzzOne(seed: number, tally: FuzzTally): Promise<void> {
           .flatMap((rec) => [...rec.added, ...rec.removed]),
       );
       const settled = (id: Id): boolean => !later.has(id);
-      if (heldText(f.mirrors.rule, settled) !== heldText(A.at.get(through)!, settled))
-        fail(`after the pull to ${through} the mirror is not the holdings there`);
+      for (const how of APPLIES)
+        if (heldText(f.mirrors[how], settled) !== heldText(A.at.get(through)!, settled))
+          tally.between[f.from][how] += 1;
       if (through === end) {
-        tally.quiet += 1;
-        if (heldText(f.mirrors.rule) !== heldText(A.held))
-          fail(`at the quiet point ${end} the mirror is not the holdings`);
-        for (const how of ["batch", "ignores removed"] as const)
+        tally.quiet[f.from] += 1;
+        for (const how of APPLIES)
           if (heldText(f.mirrors[how]) !== heldText(A.held)) {
-            tally.wrong[how] += 1;
+            if (how === "rule")
+              fail(`at the quiet point ${end} the mirror (${f.from} start) is not the holdings`);
+            tally.wrong[f.from][how] += 1;
             f.mirrors[how] = new Map(A.held);
           }
       }
@@ -984,22 +1093,39 @@ const FUZZ = Number(process.env["FOLLOW_FUZZ"] ?? 2000);
 
 describe("following against brute force", () => {
   it(`${FUZZ} random sequences: the mirror is the holdings at every quiet point`, async () => {
+    const none = (): Record<Apply, number> =>
+      Object.fromEntries(APPLIES.map((a) => [a, 0])) as Record<Apply, number>;
     const tally: FuzzTally = {
       ok: 0,
       resync: 0,
-      quiet: 0,
-      wrong: { batch: 0, "ignores removed": 0 },
+      quiet: { snapshot: 0, export: 0 },
+      exports: 0,
+      skewed: 0,
+      unseen: 0,
+      wrong: { snapshot: none(), export: none() },
+      between: { snapshot: none(), export: none() },
     };
     for (let seed = 1; seed <= FUZZ; seed++) await fuzzOne(seed, tally);
     console.log(
-      `follow fuzz: ${FUZZ} sequences, ${tally.ok} ok pulls, ${tally.quiet} quiet points, ${tally.resync} resyncs; wrong appliers missed: ${JSON.stringify(tally.wrong)}`,
+      `follow fuzz: ${FUZZ} sequences, ${tally.ok} ok pulls, ${tally.exports} export starts (${tally.skewed} skewed, ${tally.unseen} entries with no arrival record), quiet points ${JSON.stringify(tally.quiet)}, ${tally.resync} resyncs; missed at quiet points ${JSON.stringify(tally.wrong)}; missed between them ${JSON.stringify(tally.between)}`,
     );
-    expect(tally.quiet).toBeGreaterThan(FUZZ);
+    expect(tally.quiet.snapshot).toBeGreaterThan(FUZZ / 2);
+    expect(tally.quiet.export).toBeGreaterThan(FUZZ / 2);
     expect(tally.resync).toBeGreaterThan(FUZZ / 20);
+    // The rule is right at every quiet point from either start (checked above, per point), and
+    // between quiet points from a snapshot start.
+    expect(tally.between.snapshot.rule).toBe(0);
+    // From an export taken after the position, not atomic, the same holds (SPEC-18 §4.6, "How a
+    // full mirror starts"): every id it saw too early or too late is named by a later record.
+    expect(tally.skewed).toBeGreaterThan(FUZZ / 10);
+    expect(tally.unseen).toBeGreaterThan(0);
+    expect(tally.between.export.rule).toBe(0);
+    // Deleting an added id that came with no bytes, or keeping what the mirror holds, is the same.
+    expect(tally.wrong.export["keeps an undelivered add"]).toBe(0);
     // A mirror that ignores `removed` is wrong; one that applies a page's removals before its
     // additions is right at every quiet point (SPEC-18 §4.13, reading 58).
-    expect(tally.wrong["ignores removed"]).toBeGreaterThan(0);
-    expect(tally.wrong.batch).toBe(0);
+    expect(tally.wrong.snapshot["ignores removed"]).toBeGreaterThan(0);
+    expect(tally.wrong.snapshot.batch + tally.wrong.export.batch).toBe(0);
   }, 600_000);
 });
 
@@ -1150,6 +1276,16 @@ describe("follow vectors: wrong positions and wrong documents fail", () => {
       name: "a resync current the peer is not at",
       doc: edited("another-peers-history", "pull", 0, (s) => (expectOf(s)["current"] = "A.1")),
       message: "the vector expects current A.1, and the peer is at 2",
+    },
+    {
+      name: "a single pull that stands elsewhere",
+      doc: edited(
+        "an-append-between-single-pulls",
+        "pull",
+        0,
+        (s) => (expectOf(s)["position"] = "A.3"),
+      ),
+      message: "the pull stands at 2, expected 3",
     },
     {
       name: "a follower named twice",
