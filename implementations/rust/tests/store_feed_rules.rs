@@ -15,6 +15,13 @@
 //!
 //! - **A page that is neither `ok` nor `resync-required`** (§3.9.5 check 3). `ChangePage` is an
 //!   enum of those two answers, so no store can give a third.
+//! - **Exact keys** (§3.9.3: a record with an extra key that carries bytes, an `ok` page or a
+//!   `resync-required` answer with an extra key, a value that is not an object, `records` that
+//!   is not a list). `ChangeRecord` and `ChangePage` have exactly the contract's fields.
+//! - **Ownership through shared values** (§3.9.5 check 14: a store that hands out the same
+//!   record objects, or the same id lists, on every answer). A page is owned by the caller, so
+//!   changing it cannot reach the store. The runner still asks again; the row
+//!   `AnswersTwoWays` holds that re-ask to its message.
 //! - **`changes answered ok from <from>, and the step expects resync-required`** against a wrong
 //!   store. A store that answers `ok` from the future fails check 8 of §3.9.5 first, because no
 //!   `through` lies in `[from, current]`. The row reaches the message through a wrong document.
@@ -64,6 +71,8 @@ enum Wrong {
     ThroughPastRange,
     NoProgress,
     ThroughShort,
+    ResyncAboveFloor,
+    AnswersTwoWays,
     ChangedAfterWritten,
     DiffersFirstSeen,
     // Retention (§3.9.4, §3.9.6).
@@ -77,8 +86,9 @@ struct Setup {
     inner: MemoryStoreOptions,
     /// The retention the profile declares, when it is not the inner store's.
     declared: Option<ChangeRetention>,
-    /// Every revision the store reports is twice the inner one, so its revisions skip values.
-    doubled: bool,
+    /// Every revision the store reports is this many times the inner one. Above 1, its
+    /// revisions skip values.
+    scale: u64,
 }
 
 const PLAIN: Setup = Setup {
@@ -92,12 +102,26 @@ const PLAIN: Setup = Setup {
         change_page_size: None,
     },
     declared: None,
-    doubled: false,
+    scale: 1,
 };
-const DOUBLED: Setup = Setup {
-    doubled: true,
-    ..PLAIN
-};
+const DOUBLED: Setup = Setup { scale: 2, ..PLAIN };
+
+/// A setup whose revisions are `scale` times the reference's, keeping `keep` records (or every
+/// record), with pages of `page` records (or no limit).
+const fn scaled(scale: u64, keep: Option<u64>, page: Option<u64>) -> Setup {
+    Setup {
+        inner: MemoryStoreOptions {
+            change_retention: match keep {
+                Some(n) => ChangeRetention::Revisions(n),
+                None => ChangeRetention::Unbounded,
+            },
+            change_page_size: page,
+            ..PLAIN.inner
+        },
+        scale,
+        ..PLAIN
+    }
+}
 /// Declares `{revisions: 2}` and keeps every record.
 const KEEPS_MORE: Setup = Setup {
     declared: Some(ChangeRetention::Revisions(2)),
@@ -123,6 +147,8 @@ struct Books {
     committed: BTreeSet<String>,
     /// The page a truncated read ended at, for each peer.
     pending: BTreeMap<String, Revision>,
+    /// The bounds of each peer's last `changes` call, and how many calls in a row asked them.
+    last: BTreeMap<String, (Revision, Option<Revision>, usize)>,
     /// For each purge that advanced: every target that is not `not-held`, a settled debt too.
     settled: BTreeMap<(String, u64), Vec<String>>,
 }
@@ -201,11 +227,7 @@ struct FeedyPeer {
 
 impl FeedyPeer {
     fn scale(&self) -> u64 {
-        if self.setup.doubled {
-            2
-        } else {
-            1
-        }
+        self.setup.scale
     }
 
     fn out(&self, revision: Revision) -> Revision {
@@ -219,11 +241,14 @@ impl FeedyPeer {
         Ok(revision)
     }
 
-    /// The inner feed in this store's own revisions. A doubled store maps a bound to the inner
-    /// revisions it covers, and a complete page ends at the clamped `to` (SPEC-18 §4.13 reading
-    /// 5), which can be odd.
+    /// The inner feed in this store's own revisions (README §8, "Stores that must pass"). A
+    /// scaled store asks the reference for `floor(from / k)` to `floor(to / k)`, and a complete
+    /// page ends at the clamped `to` (SPEC-18 §4.13 reading 5), which need not be a multiple of
+    /// k. It refuses `to < from` itself, and answers `resync-required` itself for a `from` above
+    /// k times the reference's revision.
     fn feed(&self, from: Revision, to: Option<Revision>) -> Result<ChangePage, StoreError> {
-        if !self.setup.doubled {
+        let k = self.scale();
+        if k == 1 {
             return self.inner.changes(from, to);
         }
         if to.is_some_and(|to| to < from) {
@@ -233,11 +258,14 @@ impl FeedyPeer {
         if from > current {
             return Ok(ChangePage::ResyncRequired { current });
         }
-        let halve = |r: Revision| Revision(r.0 / 2);
-        match self.inner.changes(halve(from), to.map(halve))? {
+        let down = |r: Revision| Revision(r.0 / k);
+        match self.inner.changes(down(from), to.map(down))? {
             ChangePage::Ok { records, through } => {
                 let end = to.map_or(current, |to| to.min(current));
-                let complete = records.last().is_none_or(|last| last.revision == through);
+                // The reference's page is complete when it reaches its own clamped `to`.
+                let inner_current = down(current);
+                let complete =
+                    through == to.map_or(inner_current, |to| down(to).min(inner_current));
                 let records: Vec<ChangeRecord> = records
                     .into_iter()
                     .map(|record| ChangeRecord {
@@ -358,6 +386,14 @@ impl PeerStore for FeedyPeer {
             Wrong::OkBelowFloorWithTo if to.is_none() && from.0 < current.0.saturating_sub(2) => {
                 return Ok(ChangePage::ResyncRequired { current })
             }
+            Wrong::ResyncAboveFloor => {
+                // The inner store keeps two records, so its floor is two below its revision.
+                let k = self.scale();
+                let floor = (current.0 / k).saturating_sub(2) * k;
+                if floor > 0 && from.0 > floor && from.0 < floor + k {
+                    return Ok(ChangePage::ResyncRequired { current });
+                }
+            }
             _ => {}
         }
         let (mut records, mut through) = match self.feed(from, to)? {
@@ -371,6 +407,19 @@ impl PeerStore for FeedyPeer {
             }
         };
         let several = records.len() >= 2;
+        let end = to.map_or(current, |to| to.min(current));
+        // After a first commit, the commit check, the check after the step and its re-ask
+        // (check 14) make the same call three times in a row. The third answers differently.
+        let again = {
+            let mut books = self.books.borrow_mut();
+            let run = books.last.entry(self.id.clone()).or_insert((from, to, 0));
+            if (run.0, run.1) == (from, to) && !records.is_empty() {
+                run.2 += 1;
+            } else {
+                *run = (from, to, usize::from(!records.is_empty()));
+            }
+            run.2 == 3
+        };
         match w {
             Wrong::NoHeadOnlyRecord => {
                 records.retain(|r| !(r.added.is_empty() && r.removed.is_empty()))
@@ -431,15 +480,19 @@ impl PeerStore for FeedyPeer {
                 records.clear();
                 through = from;
             }
-            Wrong::ThroughShort if several => {
-                records.truncate(1);
-                through = Revision(records[0].revision.0 + 1);
+            Wrong::ThroughShort if through < end && !records.is_empty() => {
+                through = Revision(records.last().unwrap().revision.0 + 1);
+            }
+            Wrong::AnswersTwoWays if again => {
+                for r in &mut records {
+                    r.head = Some("a-head-for-the-second-asker".into());
+                }
             }
             Wrong::ChangedAfterWritten | Wrong::DiffersFirstSeen => {
                 // The first serve of a record is the check of its commit, the second the check
-                // after that step.
+                // after that step, the third that check asking again (check 14).
                 let from_serve = if w == Wrong::ChangedAfterWritten {
-                    3
+                    4
                 } else {
                     2
                 };
@@ -768,11 +821,25 @@ const TABLE: &[Row] = &[
     Row {
         rule: "a through past its last record and short of the range",
         wrong: W::ThroughShort,
-        setup: DOUBLED,
+        setup: scaled(2, None, Some(1)),
         doc: None,
         messages: &["is past its last record and short of"],
         docs: SC,
     },
+    Row {
+        rule: "resync-required between the newest dropped and the oldest kept revision",
+        wrong: W::ResyncAboveFloor,
+        setup: scaled(3, Some(2), None),
+        doc: None,
+        messages: &["above the retention floor"],
+        docs: SC,
+    },
+    row(
+        "a page that answers differently when asked again",
+        W::AnswersTwoWays,
+        &["changes answered differently after the caller changed what it returned"],
+        SC,
+    ),
     row(
         "a record changed after it was written",
         W::ChangedAfterWritten,
@@ -918,7 +985,7 @@ fn every_wrong_feed_in_the_table_is_distinct() {
     }
 }
 
-/// The controls: the faithful wrapper passes; so do a store whose revisions skip values, a store
+/// The controls: the faithful wrapper passes; so do stores whose revisions skip values, a store
 /// whose pages hold one record, and stores that keep two records and one, with and without pages
 /// of one record. None of them skips a script.
 #[test]
@@ -933,7 +1000,11 @@ fn the_same_feeds_conform_where_no_rule_forbids_them() {
     };
     let setups = [
         PLAIN,
+        // README §8, "Stores that must pass": revisions that skip values (§4.13 reading 21).
         DOUBLED,
+        scaled(3, None, Some(1)),
+        scaled(2, Some(2), None),
+        scaled(3, Some(2), Some(1)),
         paged(ChangeRetention::Unbounded, Some(1)),
         paged(ChangeRetention::Revisions(2), None),
         paged(ChangeRetention::Revisions(1), None),

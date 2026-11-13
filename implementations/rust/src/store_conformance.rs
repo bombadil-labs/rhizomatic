@@ -11,6 +11,8 @@
 //! On a store that serves a change feed, the runner keeps its own model of each peer's feed
 //! (§3.9.2), checks that each commit wrote exactly its record (§3.9.3), and reads each peer's
 //! whole kept feed after every step (§3.9.4). `tests/store_feed_rules.rs` holds those checks.
+//! The shape checks of §3.9.3 (exact keys) hold by type here: `ChangeRecord` and `ChangePage`
+//! have exactly the contract's fields, so no store can add a key.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
@@ -360,6 +362,44 @@ fn revisions_of(records: &[ChangeRecord]) -> Vec<u64> {
     records.iter().map(|record| record.revision.0).collect()
 }
 
+/// Check 14 of §3.9.5: the caller changes what `changes` returned and asks again; the answer
+/// does not change. A Rust store returns owned values, so a change to them cannot reach the
+/// store through the page; the check still asks again and holds the second answer to the first,
+/// which catches a store that answers one range two ways.
+fn owned(
+    store: &dyn PeerStore,
+    at: Revision,
+    to: Option<Revision>,
+    first: &[ChangeRecord],
+) -> Check {
+    let mut returned = first.to_vec();
+    if let Some(copy) = returned.first().cloned() {
+        returned.push(ChangeRecord {
+            head: Some("tampered".into()),
+            ..copy
+        });
+    }
+    for record in &mut returned {
+        record.head = Some("tampered".into());
+        record.added.push("tampered".into());
+        record.removed.push("tampered".into());
+    }
+    drop(returned);
+    let differently =
+        || "changes answered differently after the caller changed what it returned".to_string();
+    let ChangePage::Ok { records, .. } = store.changes(at, to).map_err(changes_refused)? else {
+        return Err(differently());
+    };
+    let mut revisions = BTreeSet::new();
+    for record in &records {
+        let before = first.iter().find(|r| r.revision == record.revision);
+        if before != Some(record) || !revisions.insert(record.revision) {
+            return Err(differently());
+        }
+    }
+    Ok(())
+}
+
 /// What a read of pages ended with (§3.9.5).
 enum Pages {
     Ok(Vec<ChangeRecord>),
@@ -460,6 +500,7 @@ fn read_pages(
                 ));
             }
         }
+        owned(store, at, to, &records)?;
         collected.extend(records);
         if through == end {
             return Ok(Pages::Ok(collected));
@@ -744,6 +785,18 @@ impl<'a> Run<'a> {
                         "changes answered ok from {}, below the retention floor {}",
                         below.0, floor.0
                     ));
+                }
+                // The floor probe: a `from` above the floor and below the oldest kept record
+                // answers `ok`. Only revisions that skip values leave room for one.
+                let oldest = model.revisions[dropped + 1];
+                let above = Revision(floor.0 + 1);
+                if above < oldest {
+                    if let Pages::Resync = read_pages(store, peer, model, above, None)? {
+                        return Err(format!(
+                            "changes answered resync-required from {}, above the retention floor {}",
+                            above.0, floor.0
+                        ));
+                    }
                 }
             }
         }
